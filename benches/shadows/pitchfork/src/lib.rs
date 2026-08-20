@@ -15,19 +15,20 @@ use usage_derive::{Args, Cli, Subcommands};
 /// Supported shells: bash, zsh, fish
 ///
 /// Add to your shell config:
-///   bash (~/.bashrc):
-///     eval "$(pitchfork activate bash)"
 ///
-///   zsh (~/.zshrc):
-///     eval "$(pitchfork activate zsh)"
+///     bash (~/.bashrc):
+///       eval "$(pitchfork activate bash)"
 ///
-///   fish (~/.config/fish/config.fish):
-///     pitchfork activate fish | source
+///     zsh (~/.zshrc):
+///       eval "$(pitchfork activate zsh)"
+///
+///     fish (~/.config/fish/config.fish):
+///       pitchfork activate fish | source
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ActivateArgs {
     /// Shell to activate (bash, zsh, fish)
-    #[usage(arg, name = "SHELL")]
+    #[usage(arg, name = "SHELL", choices("bash", "zsh", "fish"))]
     pub shell: ::std::string::String,
 }
 
@@ -41,12 +42,14 @@ pub struct ApiSchemaArgs {}
 /// Registers pitchfork to start automatically when the system boots.
 ///
 /// When run as root (or via sudo): creates a system-level entry
-///   macOS: /Library/LaunchDaemons/pitchfork.plist
-///   Linux: /etc/systemd/system/pitchfork.service
+///
+///     macOS: /Library/LaunchDaemons/pitchfork.plist
+///     Linux: /etc/systemd/system/pitchfork.service
 ///
 /// When run as a normal user: creates a user-level entry
-///   macOS: ~/Library/LaunchAgents/pitchfork.plist
-///   Linux: ~/.config/systemd/user/pitchfork.service
+///
+///     macOS: ~/Library/LaunchAgents/pitchfork.plist
+///     Linux: ~/.config/systemd/user/pitchfork.service
 ///
 /// If you want the supervisor to run as root but keep state files and IPC sockets
 /// under a specific user's home directory, configure `settings.supervisor.user`
@@ -77,12 +80,14 @@ pub struct BootStatusArgs {}
 ///
 /// When run as root (or via sudo), registers a system-level entry that starts
 /// pitchfork for all users:
-///   macOS: /Library/LaunchDaemons/pitchfork.plist
-///   Linux: /etc/systemd/system/pitchfork.service
+///
+///     macOS: /Library/LaunchDaemons/pitchfork.plist
+///     Linux: /etc/systemd/system/pitchfork.service
 ///
 /// When run as a normal user, registers a user-level entry:
-///   macOS: ~/Library/LaunchAgents/pitchfork.plist
-///   Linux: ~/.config/systemd/user/pitchfork.service
+///
+///     macOS: ~/Library/LaunchAgents/pitchfork.plist
+///     Linux: ~/.config/systemd/user/pitchfork.service
 ///
 /// To run the supervisor as root but keep state files and IPC sockets in a
 /// specific user's home directory, set `settings.supervisor.user` in the global
@@ -90,15 +95,17 @@ pub struct BootStatusArgs {}
 /// /etc/pitchfork/config.toml).
 ///
 /// Subcommands:
-///   enable    Register pitchfork to start on boot
-///   disable   Remove pitchfork from boot startup
-///   status    Check if boot start is currently enabled
+///
+///     enable    Register pitchfork to start on boot
+///     disable   Remove pitchfork from boot startup
+///     status    Check if boot start is currently enabled
 ///
 /// Examples:
-///   pitchfork boot enable           Start pitchfork on system boot (user-level)
-///   sudo pitchfork boot enable      Start pitchfork on system boot (system-level)
-///   pitchfork boot disable          Don't start pitchfork on boot
-///   pitchfork boot status           Check boot start status
+///
+///     pitchfork boot enable           Start pitchfork on system boot (user-level)
+///     sudo pitchfork boot enable      Start pitchfork on system boot (system-level)
+///     pitchfork boot disable          Don't start pitchfork on boot
+///     pitchfork boot status           Check boot start status
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct BootArgs {
@@ -135,11 +142,25 @@ pub struct CdArgs {
 /// after daemons have failed.
 ///
 /// Examples:
-///   pitchfork clean                 Remove all stopped/failed entries
-///   pitchfork c                     Alias for 'clean'
+///
+///     pitchfork clean                 Remove all stopped/failed entries
+///     pitchfork clean my-worktree     Remove entries in one namespace
+///     pitchfork clean --daemon api    Remove the local namespace's api entry
+///     pitchfork clean --prune         Remove entries whose directories disappeared
+///     pitchfork c                     Alias for 'clean'
 #[derive(Args)]
 #[usage(effect = "write")]
-pub struct CleanArgs {}
+pub struct CleanArgs {
+    /// Only clean these daemons (repeatable; bare names use the current namespace)
+    #[usage(long = "daemon", value_name = "ID", var)]
+    pub daemon: ::std::vec::Vec<::std::string::String>,
+    /// Only clean registrations whose working directories no longer exist
+    #[usage(long = "prune")]
+    pub prune: bool,
+    /// Only clean daemon registrations in these namespaces
+    #[usage(arg, name = "NAMESPACE")]
+    pub namespace: ::std::vec::Vec<::std::string::String>,
+}
 
 /// Add a new daemon to pitchfork.toml
 ///
@@ -148,25 +169,26 @@ pub struct CleanArgs {}
 /// filesystem hierarchy starting from the current directory.
 ///
 /// Examples:
-///   pitchfork daemons add api bun run server
-///                                  Add daemon using positional args
-///   pitchfork daemons add api --run 'npm start'
-///                                  Add daemon with explicit run command
-///   pitchfork daemons add api -- bun run server
-///                                  Add daemon with explicit args after --
-///   pitchfork daemons add api --run 'npm start' --retry 3
-///                                  Add with retry policy
-///   pitchfork daemons add api --run 'npm start' --watch 'src/**/*.ts'
-///                                  Add with file watching
-///   pitchfork daemons add api --run 'npm start' --autostart --autostop
-///                                  Add with auto start/stop hooks
-///   pitchfork daemons add worker --run './worker' --depends api
-///                                  Add with daemon dependency
-///   pitchfork daemons add api --run 'npm start' --local
-///                                   Add to pitchfork.local.toml instead
-///   pitchfork daemons add api --run 'npm start' --global
+///
+///     pitchfork daemons add api bun run server
+///                                      Add daemon using positional args
+///     pitchfork daemons add api --run 'npm start'
+///                                      Add daemon with explicit run command
+///     pitchfork daemons add api -- bun run server
+///                                      Add daemon with explicit args after --
+///     pitchfork daemons add api --run 'npm start' --retry 3
+///                                      Add with retry policy
+///     pitchfork daemons add api --run 'npm start' --watch 'src/**/*.ts'
+///                                      Add with file watching
+///     pitchfork daemons add api --run 'npm start' --autostart --autostop
+///                                      Add with auto start/stop hooks
+///     pitchfork daemons add worker --run './worker' --depends api
+///                                      Add with daemon dependency
+///     pitchfork daemons add api --run 'npm start' --local
+///                                    Add to pitchfork.local.toml instead
+///     pitchfork daemons add api --run 'npm start' --global
 ///                                   Add to ~/.config/pitchfork/config.toml instead
-///   pitchfork daemons add worker --run './worker' --cron-schedule '0 * * * *' --cron-immediate
+///     pitchfork daemons add worker --run './worker' --cron-schedule '0 * * * *' --cron-immediate
 ///                                   Add cron daemon that triggers immediately
 #[derive(Args)]
 #[usage(effect = "write")]
@@ -202,7 +224,12 @@ pub struct DaemonsAddArgs {
     #[usage(long = "ready-cmd", value_name = "READY_CMD")]
     pub ready_cmd: ::std::option::Option<::std::string::String>,
     /// Ports the daemon is expected to bind to (can be specified multiple times or comma-separated)
-    #[usage(long = "expected-port", value_name = "EXPECTED_PORT", var)]
+    #[usage(
+        long = "expected-port",
+        delimiter = ',',
+        value_name = "EXPECTED_PORT",
+        var
+    )]
     pub expected_port: ::std::vec::Vec<::std::string::String>,
     /// Automatically find an available port if the expected port is in use
     #[usage(long = "bump", value_name = "BUMP", value_optional)]
@@ -301,37 +328,39 @@ pub enum DaemonsCommands {
 
 /// Generates shell completion scripts
 ///
-/// Creates tab-completion scripts for your shell. Requires the 'usage' CLI tool.
+/// Creates self-contained tab-completion scripts for your shell.
 ///
 /// Supported shells: bash, zsh, fish
 ///
 /// Installation:
-///   bash:
-///     pitchfork completion bash > ~/.local/share/bash-completion/completions/pitchfork
 ///
-///   zsh:
-///     pitchfork completion zsh > ~/.zfunc/_pitchfork
+///     bash:
+///       pitchfork completion bash > ~/.local/share/bash-completion/completions/pitchfork
 ///
-///   fish:
-///     pitchfork completion fish > ~/.config/fish/completions/pitchfork.fish
+///     zsh:
+///       pitchfork completion zsh > ~/.zfunc/_pitchfork
+///
+///     fish:
+///       pitchfork completion fish > ~/.config/fish/completions/pitchfork.fish
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct CompletionArgs {
     /// Shell to generate completions for (bash, zsh, fish)
-    #[usage(arg, name = "SHELL")]
+    #[usage(arg, name = "SHELL", choices("bash", "zsh", "fish"))]
     pub shell: ::std::string::String,
 }
 
 /// Prevent a daemon from restarting
 ///
 /// Disables a daemon to prevent it from being started automatically or manually.
-/// The daemon will remain disabled until 'pitchfork enable' is called.
+/// The daemon will remain disabled until `pitchfork enable` is called.
 /// Useful for temporarily stopping a service without removing it from config.
 ///
 /// Examples:
-///   pitchfork disable api           Prevent daemon from starting
-///   pitchfork d api                 Alias for 'disable'
-///   pitchfork list                  Shows 'disabled' status in output
+///
+///     pitchfork disable api           Prevent daemon from starting
+///     pitchfork d api                 Alias for 'disable'
+///     pitchfork list                  Shows 'disabled' status in output
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct DisableArgs {
@@ -343,11 +372,13 @@ pub struct DisableArgs {
 /// Allow a daemon to start
 ///
 /// Re-enables a previously disabled daemon, allowing it to be started manually
-/// or automatically. Use this after 'pitchfork disable' to restore normal operation.
+/// or automatically. Use this after `pitchfork disable` to restore normal
+/// operation.
 ///
 /// Examples:
-///   pitchfork enable api            Enable a disabled daemon
-///   pitchfork e api                 Alias for 'enable'
+///
+///     pitchfork enable api            Enable a disabled daemon
+///     pitchfork e api                 Alias for 'enable'
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct EnableArgs {
@@ -366,18 +397,23 @@ pub struct EnableArgs {
 /// - Available daemons (defined in config but not yet started)
 ///
 /// Example:
-///   pitchfork list
-///   pitchfork ls                    Alias for 'list'
-///   pitchfork list --hide-header    Output without column headers
-///   pitchfork list --status running  Show only running daemons
-///   pitchfork ls --status available --status stopped
-///                                   Show daemons that are available OR stopped
+///
+///     pitchfork list
+///     pitchfork ls                    Alias for 'list'
+///     pitchfork list --hide-header    Output without column headers
+///     pitchfork list --status running  Show only running daemons
+///     pitchfork ls --status available --status stopped
+///                                     Show daemons that are available OR stopped
+///     pitchfork list --namespace frontend
+///                                     Show only daemons in the 'frontend' namespace
+///     pitchfork list --project        Show only the current project's daemons
 ///
 /// Output:
-///   Name    Status
-///   api     running    https://api.localhost
-///   worker  available
-///   db      errored    exit code 127
+///
+///     Name    Status
+///     api     running    https://api.localhost
+///     worker  available
+///     db      errored    exit code 127
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ListArgs {
@@ -406,6 +442,16 @@ pub struct ListArgs {
         var
     )]
     pub status: ::std::vec::Vec<::std::string::String>,
+    /// Only show daemons in this namespace (repeatable for OR logic)
+    #[usage(long = "namespace", value_name = "NAMESPACE", var)]
+    pub namespace: ::std::vec::Vec<::std::string::String>,
+    /// Only show daemons in the current project's namespace
+    ///
+    /// The namespace is resolved from the current directory the same way
+    /// short daemon IDs are: the nearest config file's namespace, falling
+    /// back to 'global' when no config file is found.
+    #[usage(long = "project")]
+    pub project: bool,
 }
 
 /// Reads a daemon's output on stdin and writes it to the log store
@@ -427,17 +473,22 @@ pub struct LogSinkArgs {
     pub log_format: ::std::option::Option<::std::string::String>,
     /// Regex whose first match means the daemon is ready
     ///
-    /// Set for a daemon configured with `ready_output`. The supervisor cannot match it itself — this process holds the output — so the match is reported back over IPC.
+    /// Set for a daemon configured with `ready_output`. The supervisor cannot
+    /// match it itself — this process holds the output — so the match is
+    /// reported back over IPC.
     #[usage(long = "ready-pattern", value_name = "READY_PATTERN")]
     pub ready_pattern: ::std::option::Option<::std::string::String>,
     /// Token identifying the start attempt this sink belongs to
     ///
-    /// Quoted back when reporting a match. The supervisor drops reports whose token is no longer current, so a sink still draining a failed attempt cannot mark that daemon's retry ready.
+    /// Quoted back when reporting a match. The supervisor drops reports whose
+    /// token is no longer current, so a sink still draining a failed attempt
+    /// cannot mark that daemon's retry ready.
     #[usage(long = "relay-token", value_name = "RELAY_TOKEN", default = "0")]
     pub relay_token: ::std::option::Option<::std::string::String>,
     /// Report lines so the supervisor can fire the daemon's `on_output` hook
     ///
-    /// Without `--output-filter` or `--output-regex` every line qualifies, which is what a hook with no pattern asks for.
+    /// Without `--output-filter` or `--output-regex` every line qualifies,
+    /// which is what a hook with no pattern asks for.
     #[usage(long = "report-output")]
     pub report_output: bool,
     /// Only report lines containing this substring
@@ -461,22 +512,23 @@ pub struct LogSinkArgs {
 /// and include timestamps for filtering.
 ///
 /// Examples:
-///   pitchfork logs api              Show all logs for 'api' (paged if needed)
-///   pitchfork logs api worker       Show logs for multiple daemons
-///   pitchfork logs                  Show logs for all daemons
-///   pitchfork logs api -n 50        Show last 50 lines
-///   pitchfork logs api --follow     Follow logs in real-time
-///   pitchfork logs api --since '2024-01-15 10:00:00'
-///                                   Show logs since a specific time (forward)
-///   pitchfork logs api --since '10:30:00'
-///                                   Show logs since 10:30:00 today
-///   pitchfork logs api --since '10:30' --until '12:00'
-///                                   Show logs since 10:30:00 until 12:00:00 today
-///   pitchfork logs api --since 5min Show logs from last 5 minutes
-///   pitchfork logs api --raw        Output raw log lines without formatting
-///   pitchfork logs api --raw -n 100 Output last 100 raw log lines
-///   pitchfork logs api --clear      Delete logs for 'api'
-///   pitchfork logs --clear          Delete logs for all daemons
+///
+///     pitchfork logs api              Show all logs for 'api' (paged if needed)
+///     pitchfork logs api worker       Show logs for multiple daemons
+///     pitchfork logs                  Show logs for all daemons
+///     pitchfork logs api -n 50        Show last 50 lines
+///     pitchfork logs api --follow     Follow logs in real-time
+///     pitchfork logs api --since '2024-01-15 10:00:00'
+///                                     Show logs since a specific time (forward)
+///     pitchfork logs api --since '10:30:00'
+///                                     Show logs since 10:30:00 today
+///     pitchfork logs api --since '10:30' --until '12:00'
+///                                     Show logs since 10:30:00 until 12:00:00 today
+///     pitchfork logs api --since 5min Show logs from last 5 minutes
+///     pitchfork logs api --raw        Output raw log lines without formatting
+///     pitchfork logs api --raw -n 100 Output last 100 raw log lines
+///     pitchfork logs api --clear      Delete logs for 'api'
+///     pitchfork logs --clear          Delete logs for all daemons
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct LogsArgs {
@@ -485,20 +537,26 @@ pub struct LogsArgs {
     pub clear: bool,
     /// Show last N lines of logs
     ///
-    /// Only applies when --since/--until is not used. Without this option, all logs are shown.
+    /// Only applies when --since/--until is not used.
+    /// Without this option, all logs are shown.
     #[usage(short = 'n', value_name = "N")]
     pub n: ::std::option::Option<::std::string::String>,
     /// Show logs in real-time
-    #[usage(long = "tail", long = "follow", short = 't')]
+    #[usage(long = "tail", long = "follow", short = 't', short = 'f')]
     pub tail: bool,
     /// Show logs from this time
     ///
-    /// Supports multiple formats: - Full datetime: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM" - Time only: "HH:MM:SS" or "HH:MM" (uses today's date) - Relative time: "5min", "2h", "1d" (e.g., last 5 minutes)
+    /// Supports multiple formats:
+    /// - Full datetime: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM"
+    /// - Time only: "HH:MM:SS" or "HH:MM" (uses today's date)
+    /// - Relative time: "5min", "2h", "1d" (e.g., last 5 minutes)
     #[usage(long = "since", short = 's', value_name = "SINCE")]
     pub since: ::std::option::Option<::std::string::String>,
     /// Show logs until this time
     ///
-    /// Supports multiple formats: - Full datetime: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM" - Time only: "HH:MM:SS" or "HH:MM" (uses today's date)
+    /// Supports multiple formats:
+    /// - Full datetime: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM"
+    /// - Time only: "HH:MM:SS" or "HH:MM" (uses today's date)
     #[usage(long = "until", short = 'u', value_name = "UNTIL")]
     pub until: ::std::option::Option<::std::string::String>,
     /// Disable pager even in interactive terminal
@@ -508,7 +566,7 @@ pub struct LogsArgs {
     #[usage(long = "raw")]
     pub raw: bool,
     /// Output in JSON format
-    #[usage(long = "json")]
+    #[usage(long = "json", conflicts("--raw", "--tail"))]
     pub json: bool,
     /// Filter logs by case-insensitive substring (can be repeated)
     ///
@@ -523,17 +581,22 @@ pub struct LogsArgs {
     pub case_sensitive: bool,
     /// Filter by minimum log level (error, warn, info, debug, trace)
     ///
-    /// Shows entries at or above the given severity. For example, `--level warn` shows warn and error. Only effective for daemons with log_format json or logfmt.
+    /// Shows entries at or above the given severity.
+    /// For example, `--level warn` shows warn and error.
+    /// Only effective for daemons with log_format json or logfmt.
     #[usage(long = "level", value_name = "LEVEL")]
     pub level: ::std::option::Option<::std::string::String>,
     /// Filter by structured field value (KEY=VALUE, can be repeated)
     ///
-    /// Extracts the value from fields_json using json_extract($.KEY). Multiple --field options are combined with AND.
+    /// Extracts the value from fields_json using json_extract($.KEY).
+    /// Multiple --field options are combined with AND.
     #[usage(long = "field", value_name = "KEY=VALUE", var)]
     pub field: ::std::vec::Vec<::std::string::String>,
     /// Filter log entries with a jq expression
     ///
-    /// Each log entry is serialized as a JSON object with fields: timestamp, daemon_id, message, level, msg, logger, fields. Entries for which the expression produces a truthy value are shown.
+    /// Each log entry is serialized as a JSON object with fields:
+    /// timestamp, daemon_id, message, level, msg, logger, fields.
+    /// Entries for which the expression produces a truthy value are shown.
     #[usage(long = "jq", value_name = "EXPR")]
     pub jq: ::std::option::Option<::std::string::String>,
     /// Omit timestamps from log output
@@ -552,25 +615,27 @@ pub struct LogsArgs {
 /// Typically used as a subprocess by an MCP-aware AI agent.
 ///
 /// Examples:
-///   # In claude_desktop_config.json or similar:
-///   {
-///     "mcpServers": {
-///       "pitchfork": {
-///         "command": "pitchfork",
-///         "args": ["mcp"]
-///       }
+///
+///     # In claude_desktop_config.json or similar:
+///     {
+///         "mcpServers": {
+///             "pitchfork": {
+///                 "command": "pitchfork",
+///                 "args": ["mcp"]
+///             }
+///         }
 ///     }
-///   }
 ///
 /// Tools provided:
-///   pitchfork_status    List all daemons and their state
-///   pitchfork_start     Start a named daemon
-///   pitchfork_stop      Stop a named daemon
-///   pitchfork_restart   Restart a named daemon
-///   pitchfork_logs      Return recent log output for a daemon
+///
+///     pitchfork_status    List all daemons and their state
+///     pitchfork_start     Start a named daemon
+///     pitchfork_stop      Stop a named daemon
+///     pitchfork_restart   Restart a named daemon
+///     pitchfork_logs      Return recent log output for a daemon
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  # Start the MCP server (used by AI assistant tools)\n  $ pitchfork mcp\n\n  # Claude Desktop configuration (claude_desktop_config.json):\n  {\n    \"mcpServers\": {\n      \"pitchfork\": {\n        \"command\": \"pitchfork\",\n        \"args\": [\"mcp\"]\n      }\n    }\n  }\n\n  # Interactive testing with JSON-RPC:\n  $ echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}' | pitchfork mcp\n\n  # Available tools:\n  - pitchfork_status  - List all daemons and their state\n  - pitchfork_start   - Start daemon(s) by name\n  - pitchfork_stop    - Stop daemon(s) by name\n  - pitchfork_restart - Restart daemon(s) by name\n  - pitchfork_logs    - Return recent log output for daemon(s)"
+    after_long_help = "Examples:\n\n    # Start the MCP server (used by AI assistant tools)\n    $ pitchfork mcp\n\n    # Claude Desktop configuration (claude_desktop_config.json):\n    {\n      \"mcpServers\": {\n        \"pitchfork\": {\n          \"command\": \"pitchfork\",\n          \"args\": [\"mcp\"]\n        }\n      }\n    }\n\n    # Interactive testing with JSON-RPC:\n    $ echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}' | pitchfork mcp\n\n# Available tools:\n- pitchfork_status  - List all daemons and their state\n- pitchfork_start   - Start daemon(s) by name\n- pitchfork_stop    - Stop daemon(s) by name\n- pitchfork_restart - Restart daemon(s) by name\n- pitchfork_logs    - Return recent log output for daemon(s)"
 )]
 pub struct McpArgs {}
 
@@ -593,8 +658,11 @@ pub struct McpArgs {}
 /// This DOES require sudo on Linux.
 ///
 /// Example:
-///   pitchfork proxy trust
-///   sudo pitchfork proxy trust    # Linux only
+///
+/// ```text
+/// pitchfork proxy trust
+/// sudo pitchfork proxy trust    # Linux only
+/// ```
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct ProxyTrustArgs {
@@ -613,8 +681,11 @@ pub struct ProxyTrustArgs {
 /// and runs the appropriate update command.
 ///
 /// Example:
-///   pitchfork proxy untrust
-///   sudo pitchfork proxy untrust    # Linux only
+///
+/// ```text
+/// pitchfork proxy untrust
+/// sudo pitchfork proxy untrust    # Linux only
+/// ```
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct ProxyUntrustArgs {
@@ -644,9 +715,12 @@ pub struct ProxyStatusArgs {
 /// If --daemon is not specified, defaults to the slug name.
 ///
 /// Example:
-///   pitchfork proxy add api
-///   pitchfork proxy add api --daemon server
-///   pitchfork proxy add api --dir /home/user/my-api --daemon server
+///
+/// ```text
+/// pitchfork proxy add api
+/// pitchfork proxy add api --daemon server
+/// pitchfork proxy add api --dir /home/user/my-api --daemon server
+/// ```
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct ProxyAddArgs {
@@ -656,7 +730,7 @@ pub struct ProxyAddArgs {
     /// Daemon name within the project (defaults to slug name)
     #[usage(long = "daemon", value_name = "DAEMON")]
     pub daemon: ::std::option::Option<::std::string::String>,
-    /// Namespace to associate with the slug. If not provided, derived from the project directory
+    /// Namespace to associate with the slug. If not provided, derived from the project directory.
     #[usage(long = "namespace", value_name = "NAMESPACE")]
     pub namespace: ::std::option::Option<::std::string::String>,
     /// The slug name (used in proxy URLs, e.g. api → api.localhost)
@@ -667,7 +741,10 @@ pub struct ProxyAddArgs {
 /// Remove a slug mapping from the global config
 ///
 /// Example:
-///   pitchfork proxy remove api
+///
+/// ```text
+/// pitchfork proxy remove api
+/// ```
 #[derive(Args)]
 #[usage(effect = "destructive")]
 pub struct ProxyRemoveArgs {
@@ -678,24 +755,25 @@ pub struct ProxyRemoveArgs {
 
 /// Manage the pitchfork reverse proxy
 ///
-/// The reverse proxy routes requests from stable slug-based URLs like:
-///   https://myapp.localhost
-///
-/// to the daemon's actual listening port (e.g. localhost:3000).
+/// The reverse proxy routes requests from stable slug-based URLs like
+/// `https://myapp.localhost` to the daemon's actual listening port (e.g.
+/// localhost:3000).
 ///
 /// Slugs are defined in the global config (~/.config/pitchfork/config.toml)
 /// under [slugs]. Each slug maps to a project directory and daemon name.
 ///
 /// Enable the proxy in your pitchfork.toml or settings:
-///   [settings.proxy]
-///   enable = true
+///
+///     [settings.proxy]
+///     enable = true
 ///
 /// Subcommands:
-///   trust     Install the proxy's TLS certificate into the system trust store
-///   untrust   Remove the proxy's TLS certificate from the system trust store
-///   add       Add a slug mapping to the global config
-///   remove    Remove a slug mapping from the global config
-///   status    Show all registered slugs and their current state
+///
+///     trust     Install the proxy's TLS certificate into the system trust store
+///     untrust   Remove the proxy's TLS certificate from the system trust store
+///     add       Add a slug mapping to the global config
+///     remove    Remove a slug mapping from the global config
+///     status    Show all registered slugs and their current state
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ProxyArgs {
@@ -722,26 +800,43 @@ pub enum ProxyCommands {
     Remove(Box<ProxyRemoveArgs>),
 }
 
+/// Enter (or replace) a project session tied to a host process.
+///
+/// The host PID is required and is used by the supervisor to revoke the
+/// session automatically when the process dies (with a title match to guard
+/// against PID reuse).
+///
+/// On Windows, automatic revocation when the host process exits is not
+/// available (Git Bash PIDs are invisible to the process table); sessions
+/// must be ended with an explicit `project leave`.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct ProjectEnterArgs {
-    /// Host process PID that owns the session. Required
+    /// Host process PID that owns the session. Required.
     #[usage(long = "pid", value_name = "PID")]
     pub pid: ::std::string::String,
-    /// Project directory to associate with the session. Defaults to the current working directory and is canonicalized before tracking
-    #[usage(long = "directory", value_name = "DIRECTORY")]
+    #[usage(
+        help = "Project directory to associate with the session. Defaults to the current working directory and is canonicalized before tracking.",
+        long_help = "Project directory to associate with the session. Defaults to the\ncurrent working directory and is canonicalized before tracking.",
+        long = "directory",
+        value_name = "DIRECTORY"
+    )]
     pub directory: ::std::option::Option<::std::string::String>,
 }
 
-/// Leave a project session and evaluate its directory for autostop
+/// Leave a project session and evaluate its directory for autostop.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct ProjectLeaveArgs {
-    /// Host process PID that owns the session
+    /// Host process PID that owns the session.
     #[usage(long = "pid", value_name = "PID")]
     pub pid: ::std::string::String,
-    /// Project directory the session was entered with. Defaults to the current working directory and is canonicalized before lookup. Must match the directory used at enter time
-    #[usage(long = "directory", value_name = "DIRECTORY")]
+    #[usage(
+        help = "Project directory the session was entered with. Defaults to the current working directory and is canonicalized before lookup. Must match the directory used at enter time.",
+        long_help = "Project directory the session was entered with. Defaults to the\ncurrent working directory and is canonicalized before lookup. Must\nmatch the directory used at enter time.",
+        long = "directory",
+        value_name = "DIRECTORY"
+    )]
     pub directory: ::std::option::Option<::std::string::String>,
 }
 
@@ -763,51 +858,62 @@ pub struct ProjectArgs {
 
 #[derive(Subcommands)]
 pub enum ProjectCommands {
-    /// Enter (or replace) a project session tied to a host process
-    #[usage(
-        name = "enter",
-        help = "Enter (or replace) a project session tied to a host process",
-        long_help = "Enter (or replace) a project session tied to a host process.\n\nThe host PID is required and is used by the supervisor to revoke the session automatically when the process dies (with a title match to guard against PID reuse).\n\nOn Windows, automatic revocation when the host process exits is not available (Git Bash PIDs are invisible to the process table); sessions must be ended with an explicit `project leave`."
-    )]
+    /// Enter (or replace) a project session tied to a host process.
+    #[usage(name = "enter")]
     Enter(Box<ProjectEnterArgs>),
-    /// Leave a project session and evaluate its directory for autostop
+    /// Leave a project session and evaluate its directory for autostop.
     #[usage(name = "leave")]
     Leave(Box<ProjectLeaveArgs>),
     /// List tracked project sessions.
     #[usage(
         name = "list",
         help = "List tracked project sessions.",
-        long_help = "List tracked project sessions\n\nDisplays a table of active project sessions with their host PID, directory,\nliveness status, and recorded process title.\n\nExample:\n  pitchfork project list\n  pitchfork project list --json"
+        long_help = "List tracked project sessions\n\nDisplays a table of active project sessions with their host PID, directory,\nliveness status, and recorded process title.\n\nExample:\n\n    pitchfork project list\n    pitchfork project list --json"
     )]
     List(Box<ProjectListArgs>),
 }
 
 /// Restarts a daemon (stops then starts it)
 ///
-/// Equivalent to 'start --force' - stops the daemon (SIGTERM) then starts it again
+/// Equivalent to `start --force` - stops the daemon (SIGTERM) then starts it again
 /// from the pitchfork.toml configuration with dependency resolution.
 ///
 /// Examples:
-///   pitchfork restart api           Restart a single daemon
-///   pitchfork restart api worker    Restart multiple daemons
-///   pitchfork restart --group backend Restart all daemons in the 'backend' group
-///   pitchfork restart --all         Restart all running daemons
-///   pitchfork restart -l            Restart all local daemons in pitchfork.toml
-///   pitchfork restart -g            Restart all global daemons in config.toml
-///   pitchfork restart api --delay 5 Wait 5 seconds for daemon to be ready
+///
+///     pitchfork restart api           Restart a single daemon
+///     pitchfork restart api worker    Restart multiple daemons
+///     pitchfork restart --group backend Restart all daemons in the 'backend' group
+///     pitchfork restart --all         Restart all running daemons
+///     pitchfork restart -l            Restart all local daemons in pitchfork.toml
+///     pitchfork restart -g            Restart all global daemons in config.toml
+///     pitchfork restart api --delay 5 Wait 5 seconds for daemon to be ready
 #[derive(Args)]
 pub struct RestartArgs {
     /// Restart all daemons in the named group
-    #[usage(long = "group", value_name = "GROUP")]
+    #[usage(
+        long = "group",
+        conflicts("--local", "--global", "--all"),
+        value_name = "GROUP"
+    )]
     pub group: ::std::option::Option<::std::string::String>,
     /// Restart all running daemons
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--local", "--global"))]
     pub all: bool,
     /// Restart all local daemons in pitchfork.toml
-    #[usage(long = "local", long = "all-local", short = 'l')]
+    #[usage(
+        long = "local",
+        long = "all-local",
+        short = 'l',
+        conflicts("--all", "--global")
+    )]
     pub local: bool,
     /// Restart all global daemons in ~/.config/pitchfork/config.toml and /etc/pitchfork/config.toml
-    #[usage(long = "global", long = "all-global", short = 'g')]
+    #[usage(
+        long = "global",
+        long = "all-global",
+        short = 'g',
+        conflicts("--local", "--all")
+    )]
     pub global: bool,
     /// Delay in seconds before considering daemon ready (default: 3 seconds)
     #[usage(long = "delay", value_name = "DELAY")]
@@ -835,23 +941,24 @@ pub struct RestartArgs {
 /// Runs a one-off daemon
 ///
 /// Runs a command as a managed daemon without needing a pitchfork.toml.
-/// The daemon is tracked by pitchfork and can be monitored with 'pitchfork status'.
+/// The daemon is tracked by pitchfork and can be monitored with `pitchfork status`.
 ///
 /// Examples:
-///   pitchfork run api -- npm run dev
-///                                 Run npm as daemon named 'api'
-///   pitchfork run api -f -- npm run dev
-///                                 Force restart if 'api' is running
-///   pitchfork run api --retry 3 -- ./server
-///                                 Restart up to 3 times on failure
-///   pitchfork run api -d 5 -- ./server
-///                                 Wait 5 seconds for ready check
-///   pitchfork run api -o 'Listening' -- ./server
-///                                 Wait for output pattern before ready
-///   pitchfork run api --http http://localhost:8080/health -- ./server
-///                                 Wait for HTTP endpoint to return 2xx
-///   pitchfork run api --port 8080 -- ./server
-///                                 Wait for TCP port to be listening
+///
+///     pitchfork run api -- npm run dev
+///                                   Run npm as daemon named 'api'
+///     pitchfork run api -f -- npm run dev
+///                                   Force restart if 'api' is running
+///     pitchfork run api --retry 3 -- ./server
+///                                   Restart up to 3 times on failure
+///     pitchfork run api -d 5 -- ./server
+///                                   Wait 5 seconds for ready check
+///     pitchfork run api -o 'Listening' -- ./server
+///                                   Wait for output pattern before ready
+///     pitchfork run api --http http://localhost:8080/health -- ./server
+///                                   Wait for HTTP endpoint to return 2xx
+///     pitchfork run api --port 8080 -- ./server
+///                                   Wait for TCP port to be listening
 #[derive(Args)]
 pub struct RunArgs {
     /// Stop the daemon if it is already running
@@ -873,7 +980,12 @@ pub struct RunArgs {
     #[usage(long = "port", value_name = "PORT")]
     pub port: ::std::option::Option<::std::string::String>,
     /// Port(s) the daemon is expected to bind to (can be specified multiple times or comma-separated)
-    #[usage(long = "expected-port", value_name = "EXPECTED_PORT", var)]
+    #[usage(
+        long = "expected-port",
+        delimiter = ',',
+        value_name = "EXPECTED_PORT",
+        var
+    )]
     pub expected_port: ::std::vec::Vec<::std::string::String>,
     /// Automatically find an available port if the expected port is in use
     #[usage(long = "bump", value_name = "BUMP", value_optional)]
@@ -952,18 +1064,20 @@ pub struct SettingsSetArgs {
 /// 5. Built-in defaults (lowest priority)
 ///
 /// Subcommands:
-///   list    List all available settings with types and defaults
-///   get     Get the current value of a setting
-///   set     Set a setting value in a config file
+///
+///     list    List all available settings with types and defaults
+///     get     Get the current value of a setting
+///     set     Set a setting value in a config file
 ///
 /// Examples:
-///   pitchfork settings                        Show all current settings
-///   pitchfork settings list                   List all available settings
-///   pitchfork settings get general.log_level  Get a specific setting
-///   pitchfork settings set general.log_level debug
-///   pitchfork settings set web.auto_start true --global
-///   pitchfork settings set supervisor.stop_timeout 10s --local
-///   pitchfork settings set supervisor.stop_timeout 10s --project
+///
+///     pitchfork settings                        Show all current settings
+///     pitchfork settings list                   List all available settings
+///     pitchfork settings get general.log_level  Get a specific setting
+///     pitchfork settings set general.log_level debug
+///     pitchfork settings set web.auto_start true --global
+///     pitchfork settings set supervisor.stop_timeout 10s --local
+///     pitchfork settings set supervisor.stop_timeout 10s --project
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct SettingsArgs {
@@ -998,33 +1112,48 @@ pub struct SponsorsArgs {}
 /// The command waits for the daemon to be ready before returning.
 ///
 /// Examples:
-///   pitchfork start api           Start a single daemon
-///   pitchfork start api worker    Start multiple daemons
-///   pitchfork start --group backend Start all daemons in the 'backend' group
-///   pitchfork start -l            Start all local daemons in pitchfork.toml
-///   pitchfork start -g            Start all global daemons in config.toml
-///   pitchfork start -a            Start all daemons (local and global)
-///   pitchfork start api -f        Restart daemon if already running
-///   pitchfork start api --delay 5 Wait 5 seconds for daemon to be ready
-///   pitchfork start api --output 'Listening on'
-///                                 Wait for output pattern before ready
-///   pitchfork start api --http http://localhost:8080/health
-///                                 Wait for HTTP endpoint to return 2xx
-///   pitchfork start api --port 8080
-///                                 Wait for TCP port to be listening
+///
+///     pitchfork start api           Start a single daemon
+///     pitchfork start api worker    Start multiple daemons
+///     pitchfork start --group backend Start all daemons in the 'backend' group
+///     pitchfork start -l            Start all local daemons in pitchfork.toml
+///     pitchfork start -g            Start all global daemons in config.toml
+///     pitchfork start -a            Start all daemons (local and global)
+///     pitchfork start api -f        Restart daemon if already running
+///     pitchfork start api --delay 5 Wait 5 seconds for daemon to be ready
+///     pitchfork start api --output 'Listening on'
+///                                   Wait for output pattern before ready
+///     pitchfork start api --http http://localhost:8080/health
+///                                   Wait for HTTP endpoint to return 2xx
+///     pitchfork start api --port 8080
+///                                   Wait for TCP port to be listening
 #[derive(Args)]
 pub struct StartArgs {
     /// Start all daemons in the named group
-    #[usage(long = "group", value_name = "GROUP")]
+    #[usage(
+        long = "group",
+        conflicts("--local", "--global", "--all"),
+        value_name = "GROUP"
+    )]
     pub group: ::std::option::Option<::std::string::String>,
     /// Start all local daemons in pitchfork.toml
-    #[usage(long = "local", long = "all-local", short = 'l')]
+    #[usage(
+        long = "local",
+        long = "all-local",
+        short = 'l',
+        conflicts("--all", "--global")
+    )]
     pub local: bool,
     /// Start all global daemons in ~/.config/pitchfork/config.toml and /etc/pitchfork/config.toml
-    #[usage(long = "global", long = "all-global", short = 'g')]
+    #[usage(
+        long = "global",
+        long = "all-global",
+        short = 'g',
+        conflicts("--local", "--all")
+    )]
     pub global: bool,
     /// Start all daemons (both local and global)
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--local", "--global"))]
     pub all: bool,
     #[usage(long = "shell-pid", hide, value_name = "SHELL_PID")]
     pub shell_pid: ::std::option::Option<::std::string::String>,
@@ -1046,8 +1175,13 @@ pub struct StartArgs {
     /// Shell command to poll for readiness (exit code 0 = ready)
     #[usage(long = "cmd", value_name = "CMD")]
     pub cmd: ::std::option::Option<::std::string::String>,
-    /// Ports the daemon is expected to bind to (can be specified multiple times)
-    #[usage(long = "expected-port", value_name = "EXPECTED_PORT", var)]
+    /// Ports the daemon is expected to bind to (can be specified multiple times or comma-separated)
+    #[usage(
+        long = "expected-port",
+        delimiter = ',',
+        value_name = "EXPECTED_PORT",
+        var
+    )]
     pub expected_port: ::std::vec::Vec<::std::string::String>,
     /// Automatically find an available port if the expected port is in use
     #[usage(long = "bump", value_name = "BUMP", value_optional)]
@@ -1066,12 +1200,14 @@ pub struct StartArgs {
 /// current status (running, stopped, failed, etc.).
 ///
 /// Example:
-///   pitchfork status api
+///
+///     pitchfork status api
 ///
 /// Output:
-///   Name: api
-///   PID: 12345
-///   Status: running
+///
+///     Name: api
+///     PID: 12345
+///     Status: running
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct StatusArgs {
@@ -1097,27 +1233,42 @@ pub struct StatusArgs {
 /// dependents are stopped before the daemons they depend on.
 ///
 /// Examples:
-///   pitchfork stop api           Stop a single daemon
-///   pitchfork stop api worker    Stop multiple daemons
-///   pitchfork stop --group backend Stop all daemons in the 'backend' group
-///   pitchfork stop --all         Stop all running daemons in dependency order
-///   pitchfork stop -l            Stop all local daemons in pitchfork.toml
-///   pitchfork stop -g            Stop all global daemons in config.toml
-///   pitchfork kill api           Same as 'stop' (alias)
+///
+///     pitchfork stop api           Stop a single daemon
+///     pitchfork stop api worker    Stop multiple daemons
+///     pitchfork stop --group backend Stop all daemons in the 'backend' group
+///     pitchfork stop --all         Stop all running daemons in dependency order
+///     pitchfork stop -l            Stop all local daemons in pitchfork.toml
+///     pitchfork stop -g            Stop all global daemons in config.toml
+///     pitchfork kill api           Same as 'stop' (alias)
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct StopArgs {
     /// Stop all daemons in the named group
-    #[usage(long = "group", value_name = "GROUP")]
+    #[usage(
+        long = "group",
+        conflicts("--local", "--global", "--all"),
+        value_name = "GROUP"
+    )]
     pub group: ::std::option::Option<::std::string::String>,
     /// Stop all running daemons (in reverse dependency order)
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--local", "--global"))]
     pub all: bool,
     /// Stop all local daemons in pitchfork.toml
-    #[usage(long = "local", long = "all-local", short = 'l')]
+    #[usage(
+        long = "local",
+        long = "all-local",
+        short = 'l',
+        conflicts("--all", "--global")
+    )]
     pub local: bool,
     /// Stop all global daemons in ~/.config/pitchfork/config.toml and /etc/pitchfork/config.toml
-    #[usage(long = "global", long = "all-global", short = 'g')]
+    #[usage(
+        long = "global",
+        long = "all-global",
+        short = 'g',
+        conflicts("--local", "--all")
+    )]
     pub global: bool,
     /// The name of the daemon(s) to stop
     #[usage(arg, name = "ID")]
@@ -1134,13 +1285,13 @@ pub struct SupervisorRunArgs {
     #[usage(long = "boot")]
     pub boot: bool,
     /// Enable container/PID1 mode (reap zombies, forward signals)
-    #[usage(long = "container")]
+    #[usage(long = "container", env = "PITCHFORK_CONTAINER")]
     pub container: bool,
     /// Enable web UI on specified port (tries up to 10 ports if in use)
-    #[usage(long = "web-port", value_name = "WEB_PORT")]
+    #[usage(long = "web-port", env = "PITCHFORK_WEB_PORT", value_name = "WEB_PORT")]
     pub web_port: ::std::option::Option<::std::string::String>,
     /// Serve web UI under a path prefix (e.g. "ps" serves at /ps/)
-    #[usage(long = "web-path", value_name = "WEB_PATH")]
+    #[usage(long = "web-path", env = "PITCHFORK_WEB_PATH", value_name = "WEB_PATH")]
     pub web_path: ::std::option::Option<::std::string::String>,
 }
 
@@ -1191,8 +1342,32 @@ pub enum SupervisorCommands {
 }
 
 /// Launch the interactive TUI dashboard
+///
+/// Shows live daemon status with fuzzy search, sorting, batch operations,
+/// log viewing, and a config editor.
+///
+/// The dashboard can be scoped to one or more namespaces; the fuzzy search
+/// (`/`) then operates within the scoped set.
+///
+/// Example:
+///
+///     pitchfork tui
+///     pitchfork tui --namespace frontend
+///                                     Show only daemons in the 'frontend' namespace
+///     pitchfork tui --project         Show only the current project's daemons
 #[derive(Args)]
-pub struct TuiArgs {}
+pub struct TuiArgs {
+    /// Only show daemons in this namespace (repeatable for OR logic)
+    #[usage(long = "namespace", value_name = "NAMESPACE", var)]
+    pub namespace: ::std::vec::Vec<::std::string::String>,
+    /// Only show daemons in the current project's namespace
+    ///
+    /// The namespace is resolved from the current directory the same way
+    /// short daemon IDs are: the nearest config file's namespace, falling
+    /// back to 'global' when no config file is found.
+    #[usage(long = "project")]
+    pub project: bool,
+}
 
 /// Generates a usage spec for the CLI
 ///
@@ -1209,9 +1384,10 @@ pub struct UsageArgs {}
 /// Useful in scripts that need to wait for a daemon to complete.
 ///
 /// Examples:
-///   pitchfork wait api              Wait for 'api' to stop
-///   pitchfork w api                 Alias for 'wait'
-///   pitchfork wait api && echo done Run command after daemon stops
+///
+///     pitchfork wait api              Wait for 'api' to stop
+///     pitchfork w api                 Alias for 'wait'
+///     pitchfork wait api && echo done Run command after daemon stops
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct WaitArgs {
@@ -1222,10 +1398,10 @@ pub struct WaitArgs {
 
 /// Daemons with DX
 #[derive(Cli)]
-#[usage(bin = "pitchfork", name = "pitchfork", version = "2.21.0")]
+#[usage(bin = "pitchfork", name = "pitchfork", version = "2.22.0")]
 pub struct Cli {
     #[usage(subcommand)]
-    pub command: ::std::option::Option<Commands>,
+    pub command: Commands,
 }
 
 #[derive(Subcommands)]

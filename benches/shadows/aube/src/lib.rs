@@ -7,7 +7,7 @@
 
 use usage_derive::{Args, Cli, Subcommands};
 
-/// Bootstrap aube's cached node-gyp and print the executable path
+/// Bootstrap aube's cached node-gyp and print the executable path.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct NodeGypBootstrapArgs {
@@ -15,16 +15,16 @@ pub struct NodeGypBootstrapArgs {
     pub project_dir: ::std::string::String,
 }
 
-/// Get a package's public or restricted status
+/// Get a package's public or restricted status.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct AccessGetStatusArgs {
-    /// Package name
+    /// Package name.
     #[usage(arg, name = "PACKAGE")]
     pub package: ::std::string::String,
 }
 
-/// Get package visibility status
+/// Get package visibility status.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct AccessGetArgs {
@@ -34,48 +34,48 @@ pub struct AccessGetArgs {
 
 #[derive(Subcommands)]
 pub enum AccessGetCommands {
-    /// Get a package's public or restricted status
+    /// Get a package's public or restricted status.
     #[usage(name = "status")]
     Status(Box<AccessGetStatusArgs>),
 }
 
-/// Grant a team read-only or read-write access to a package
+/// Grant a team read-only or read-write access to a package.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct AccessGrantArgs {
-    /// `read-only` or `read-write`
+    /// `read-only` or `read-write`.
     #[usage(arg, name = "PERMISSIONS")]
     pub permissions: ::std::string::String,
-    /// Team in `@scope:team` form
+    /// Team in `@scope:team` form.
     #[usage(arg, name = "TEAM")]
     pub team: ::std::string::String,
-    /// Package name
+    /// Package name.
     #[usage(arg, name = "PACKAGE")]
     pub package: ::std::string::String,
 }
 
-/// List collaborators for a package, optionally filtering to one user
+/// List collaborators for a package, optionally filtering to one user.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct AccessListCollaboratorsArgs {
-    /// Package name
+    /// Package name.
     #[usage(arg, name = "PACKAGE")]
     pub package: ::std::string::String,
-    /// Optional user name
+    /// Optional user name.
     #[usage(arg, name = "USER")]
     pub user: ::std::option::Option<::std::string::String>,
 }
 
-/// List packages visible to the current user or an optional entity
+/// List packages visible to the current user or an optional entity.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct AccessListPackagesArgs {
-    /// User, `@organization`, or `@scope:team`
+    /// User, `@organization`, or `@scope:team`.
     #[usage(arg, name = "ENTITY")]
     pub entity: ::std::option::Option<::std::string::String>,
 }
 
-/// List packages visible to a user, organization, or team
+/// List packages visible to a user, organization, or team.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct AccessListArgs {
@@ -85,43 +85,48 @@ pub struct AccessListArgs {
 
 #[derive(Subcommands)]
 pub enum AccessListCommands {
-    /// List collaborators for a package, optionally filtering to one user
+    /// List collaborators for a package, optionally filtering to one user.
     #[usage(name = "collaborators")]
     Collaborators(Box<AccessListCollaboratorsArgs>),
-    /// List packages visible to the current user or an optional entity
+    /// List packages visible to the current user or an optional entity.
     #[usage(name = "packages")]
     Packages(Box<AccessListPackagesArgs>),
 }
 
-/// Alias for `list packages`
+/// Alias for `list packages`.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct AccessLsArgs {
-    /// User, `@organization`, or `@scope:team`. Also accepts pnpm's `packages [ENTITY]` compatibility form. Accepted forms are `aube access ls [ENTITY]` and `aube access ls packages [ENTITY]`
-    #[usage(arg, name = "ENTITIES")]
+    #[usage(
+        arg,
+        name = "ENTITIES",
+        help = "User, `@organization`, or `@scope:team`. Also accepts pnpm's `packages [ENTITY]` compatibility form. Accepted forms are `aube access ls [ENTITY]` and `aube access ls packages [ENTITY]`.",
+        long_help = "User, `@organization`, or `@scope:team`. Also accepts pnpm's\n`packages [ENTITY]` compatibility form. Accepted forms are\n`aube access ls [ENTITY]` and `aube access ls packages [ENTITY]`.",
+        var_max = 2
+    )]
     pub entities: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Revoke a team's access to a package
+/// Revoke a team's access to a package.
 #[derive(Args)]
 #[usage(effect = "destructive")]
 pub struct AccessRevokeArgs {
-    /// Team in `@scope:team` form
+    /// Team in `@scope:team` form.
     #[usage(arg, name = "TEAM")]
     pub team: ::std::string::String,
-    /// Package name
+    /// Package name.
     #[usage(arg, name = "PACKAGE")]
     pub package: ::std::string::String,
 }
 
-/// Set package visibility or a publish MFA requirement
+/// Set package visibility or a publish MFA requirement.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct AccessSetArgs {
-    /// `status=public|private|restricted` or `mfa=none|publish|automation`
+    /// `status=public|private|restricted` or `mfa=none|publish|automation`.
     #[usage(arg, name = "SETTING")]
     pub setting: ::std::string::String,
-    /// Package name
+    /// Package name.
     #[usage(arg, name = "PACKAGE")]
     pub package: ::std::string::String,
 }
@@ -130,53 +135,63 @@ pub struct AccessSetArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct AccessArgs {
-    /// Emit registry responses as JSON when the subcommand has a result
+    /// Emit registry responses as JSON when the subcommand has a result.
     #[usage(long = "json")]
     pub json: bool,
-    /// One-time password from a 2FA authenticator; sent as `npm-otp`
+    /// One-time password from a 2FA authenticator; sent as `npm-otp`.
     #[usage(long = "otp", value_name = "OTP")]
     pub otp: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
     #[usage(subcommand)]
     pub command: AccessCommands,
@@ -184,22 +199,22 @@ pub struct AccessArgs {
 
 #[derive(Subcommands)]
 pub enum AccessCommands {
-    /// Get package visibility status
+    /// Get package visibility status.
     #[usage(name = "get")]
     Get(Box<AccessGetArgs>),
-    /// Grant a team read-only or read-write access to a package
+    /// Grant a team read-only or read-write access to a package.
     #[usage(name = "grant")]
     Grant(Box<AccessGrantArgs>),
-    /// List packages visible to a user, organization, or team
+    /// List packages visible to a user, organization, or team.
     #[usage(name = "list")]
     List(Box<AccessListArgs>),
-    /// Alias for `list packages`
+    /// Alias for `list packages`.
     #[usage(name = "ls")]
     Ls(Box<AccessLsArgs>),
-    /// Revoke a team's access to a package
+    /// Revoke a team's access to a package.
     #[usage(name = "revoke")]
     Revoke(Box<AccessRevokeArgs>),
-    /// Set package visibility or a publish MFA requirement
+    /// Set package visibility or a publish MFA requirement.
     #[usage(name = "set")]
     Set(Box<AccessSetArgs>),
 }
@@ -209,7 +224,7 @@ pub enum AccessCommands {
 #[usage(effect = "write")]
 pub struct ActivateArgs {
     /// Shell to emit activation code for
-    #[usage(arg, name = "SHELL", choices("bash", "fish", "zsh"))]
+    #[usage(arg, name = "SHELL")]
     pub shell: ::std::string::String,
 }
 
@@ -223,161 +238,252 @@ pub struct AddArgs {
     /// Pin the exact resolved version (no `^` prefix)
     #[usage(long = "save-exact", short = 'E')]
     pub save_exact: bool,
-    #[usage(
-        help = "Install the package globally",
-        long_help = "Install the package globally.\n\nInstalls into the aube/pnpm global directory and links its binaries into the global bin directory. Mirrors `pnpm add -g`.",
-        long = "global",
-        short = 'g'
-    )]
+    /// Install the package globally.
+    ///
+    /// Installs into the aube/pnpm global directory and links its
+    /// binaries into the global bin directory. Mirrors `pnpm add -g`.
+    #[usage(long = "global", short = 'g')]
     pub global: bool,
     /// Add as optional dependency
     #[usage(long = "save-optional", short = 'O')]
     pub save_optional: bool,
+    /// Pre-approve a dependency's lifecycle scripts as part of the add.
+    ///
+    /// Writes `allowBuilds: { <pkg>: true }` into the workspace yaml
+    /// (or `package.json#aube.allowBuilds`) before the install runs,
+    /// so the named package's `preinstall` / `install` / `postinstall`
+    /// scripts execute on this invocation. Repeatable — pass the flag
+    /// once per package. Mirrors `pnpm add --allow-build=<pkg>`.
+    ///
+    /// Conflicts with `--no-save`, which only snapshots `package.json`
+    /// and the lockfile and would leave an orphaned approval in the
+    /// workspace yaml on restore. Also conflicts with `--deny-build` for
+    /// the same package name.
     #[usage(
-        help = "Pre-approve a dependency's lifecycle scripts as part of the add",
-        long_help = "Pre-approve a dependency's lifecycle scripts as part of the add.\n\nWrites `allowBuilds: { <pkg>: true }` into the workspace yaml (or `package.json#aube.allowBuilds`) before the install runs, so the named package's `preinstall` / `install` / `postinstall` scripts execute on this invocation. Repeatable — pass the flag once per package. Mirrors `pnpm add --allow-build=<pkg>`.\n\nConflicts with `--no-save`, which only snapshots `package.json` and the lockfile and would leave an orphaned approval in the workspace yaml on restore. Also conflicts with `--deny-build` for the same package name.",
         long = "allow-build",
+        conflicts = "--no-save",
+        require_equals,
         value_name = "PKG",
         var
     )]
     pub allow_build: ::std::vec::Vec<::std::string::String>,
     #[usage(
-        help = "Bypass the similar-name, new-name, and [`lowDownloadThreshold`] confirm prompts / refusals for this invocation",
-        long_help = "Bypass the similar-name, new-name, and [`lowDownloadThreshold`] confirm prompts / refusals for this invocation.\n\n`aube add` looks up each candidate's weekly download count and prompts (interactive) or fails (CI) when the count is below [`lowDownloadThreshold`], resembles a top-100,000 npm package, or is newer than [`minimumPackageAge`]. The flag is intended for cases where you've already verified the package out-of-band. It does not affect the OSV malicious-package check, which remains a hard block.",
+        help = "Bypass the similar-name, new-name, and [`lowDownloadThreshold`] confirm prompts / refusals for this invocation.",
+        long_help = "Bypass the similar-name, new-name, and [`lowDownloadThreshold`]\nconfirm prompts / refusals for this invocation.\n\n`aube add` looks up each candidate's weekly download count and\nprompts (interactive) or fails (CI) when the count is below\n[`lowDownloadThreshold`], resembles a top-100,000 npm package,\nor is newer than [`minimumPackageAge`]. The flag is intended\nfor cases where you've already verified the package out-of-band.\nIt does not affect the OSV malicious-package check, which remains\na hard block.",
         long = "allow-low-downloads"
     )]
     pub allow_low_downloads: bool,
-    #[usage(
-        help = "Allow every dependency's lifecycle scripts to run",
-        long_help = "Allow every dependency's lifecycle scripts to run.\n\nBypasses the `allowBuilds` allowlist for this invocation. Do not use in CI. Mirrors pnpm's `--dangerously-allow-all-builds`.",
-        long = "dangerously-allow-all-builds"
-    )]
+    /// Allow every dependency's lifecycle scripts to run.
+    ///
+    /// Bypasses the `allowBuilds` allowlist for this invocation. Do not
+    /// use in CI. Mirrors pnpm's `--dangerously-allow-all-builds`.
+    #[usage(long = "dangerously-allow-all-builds")]
     pub dangerously_allow_all_builds: bool,
+    /// Mark a dependency's lifecycle scripts as reviewed and denied.
+    ///
+    /// Writes `allowBuilds: { <pkg>: false }` into the workspace yaml
+    /// (or `package.json#aube.allowBuilds`) before the install runs,
+    /// so the named package's lifecycle scripts stay skipped without
+    /// tripping `strictDepBuilds=true`. Repeatable — pass the flag
+    /// once per package.
+    ///
+    /// Conflicts with `--no-save`, which only snapshots `package.json`
+    /// and the lockfile and would leave an orphaned denial in the
+    /// workspace yaml on restore. Also conflicts with `--allow-build` for
+    /// the same package name and with `--dangerously-allow-all-builds`.
     #[usage(
-        help = "Mark a dependency's lifecycle scripts as reviewed and denied",
-        long_help = "Mark a dependency's lifecycle scripts as reviewed and denied.\n\nWrites `allowBuilds: { <pkg>: false }` into the workspace yaml (or `package.json#aube.allowBuilds`) before the install runs, so the named package's lifecycle scripts stay skipped without tripping `strictDepBuilds=true`. Repeatable — pass the flag once per package.\n\nConflicts with `--no-save`, which only snapshots `package.json` and the lockfile and would leave an orphaned denial in the workspace yaml on restore. Also conflicts with `--allow-build` for the same package name and with `--dangerously-allow-all-builds`.",
         long = "deny-build",
+        conflicts("--no-save", "--dangerously-allow-all-builds"),
+        require_equals,
         value_name = "PKG",
         var
     )]
     pub deny_build: ::std::vec::Vec<::std::string::String>,
-    /// Skip root and approved dependency lifecycle scripts
+    /// Skip root and approved dependency lifecycle scripts.
     #[usage(long = "ignore-scripts", hide)]
     pub ignore_scripts: bool,
-    #[usage(
-        help = "Install without persisting the dependency to `package.json`",
-        long_help = "Install without persisting the dependency to `package.json`.\n\nSnapshots `package.json` and the lockfile, links the named packages into `node_modules`, and then restores both files — so the dependency is usable for the current process but the project's committed state is untouched.\n\nHandy for one-off experiments and for scripts that install a tool transiently. Mirrors `pnpm add --no-save`. Conflicts with `-g`/`--global`, which has to persist the install to its global manifest.",
-        long = "no-save"
-    )]
+    /// Install without persisting the dependency to `package.json`.
+    ///
+    /// Snapshots `package.json` and the lockfile, links the named
+    /// packages into `node_modules`, and then restores both files —
+    /// so the dependency is usable for the current process but the
+    /// project's committed state is untouched.
+    ///
+    /// Handy for one-off experiments and for scripts that install a
+    /// tool transiently. Mirrors `pnpm add --no-save`. Conflicts with
+    /// `-g`/`--global`, which has to persist the install to its global
+    /// manifest.
+    #[usage(long = "no-save", conflicts = "--global")]
     pub no_save: bool,
+    /// Inverse of `--save-workspace-protocol`.
+    ///
+    /// Forces the manifest specifier into a registry-style spec
+    /// (`^<version>`) for this invocation, even when
+    /// `linkWorkspacePackages` matched a local sibling. The install
+    /// pipeline still prefers the local workspace copy at resolve
+    /// time — this flag only controls what's written to
+    /// `package.json`. Mirrors `pnpm add --no-save-workspace-protocol`.
     #[usage(
-        help = "Inverse of `--save-workspace-protocol`",
-        long_help = "Inverse of `--save-workspace-protocol`.\n\nForces the manifest specifier into a registry-style spec (`^<version>`) for this invocation, even when `linkWorkspacePackages` matched a local sibling. The install pipeline still prefers the local workspace copy at resolve time — this flag only controls what's written to `package.json`. Mirrors `pnpm add --no-save-workspace-protocol`.",
-        long = "no-save-workspace-protocol"
+        long = "no-save-workspace-protocol",
+        overrides = "--save-workspace-protocol"
     )]
     pub no_save_workspace_protocol: bool,
-    #[usage(
-        help = "Save the new dependency into the workspace's default catalog",
-        long_help = "Save the new dependency into the workspace's default catalog.\n\nWrites `catalog:` into `package.json` and seeds/upserts the resolved range under `catalog:` in the workspace yaml. Mirrors `pnpm add --save-catalog`.\n\nWorkspace and aliased specs (`workspace:*`, `npm:`, `jsr:`) are never catalogized — the manifest gets the original spec and the catalog yaml is left alone. If the package is already in the target catalog, the existing entry is preserved (never overwritten); the manifest then gets `catalog:` only when the existing entry is compatible with the user's range.\n\nConflicts with `--no-save`: catalog mutations write to the workspace yaml, which the `--no-save` restore path doesn't snapshot — combining the two would silently leave an orphaned catalog entry behind.",
-        long = "save-catalog"
-    )]
+    /// Save the new dependency into the workspace's default catalog.
+    ///
+    /// Writes `catalog:` into `package.json` and seeds/upserts the
+    /// resolved range under `catalog:` in the workspace yaml. Mirrors
+    /// `pnpm add --save-catalog`.
+    ///
+    /// Workspace and aliased specs (`workspace:*`, `npm:`, `jsr:`) are
+    /// never catalogized — the manifest gets the original spec and
+    /// the catalog yaml is left alone. If the package is already in
+    /// the target catalog, the existing entry is preserved (never
+    /// overwritten); the manifest then gets `catalog:` only when the
+    /// existing entry is compatible with the user's range.
+    ///
+    /// Conflicts with `--no-save`: catalog mutations write to the
+    /// workspace yaml, which the `--no-save` restore path doesn't
+    /// snapshot — combining the two would silently leave an orphaned
+    /// catalog entry behind.
+    #[usage(long = "save-catalog", conflicts("--save-catalog-name", "--no-save"))]
     pub save_catalog: bool,
+    /// Save the new dependency into a *named* catalog.
+    ///
+    /// Writes the entry to `catalogs.<name>` in the workspace yaml and
+    /// `catalog:<name>` into `package.json`. Same workspace/alias
+    /// exclusions and `--no-save` conflict as `--save-catalog`. Mirrors
+    /// `pnpm add --save-catalog-name=<name>`.
     #[usage(
-        help = "Save the new dependency into a *named* catalog",
-        long_help = "Save the new dependency into a *named* catalog.\n\nWrites the entry to `catalogs.<name>` in the workspace yaml and `catalog:<name>` into `package.json`. Same workspace/alias exclusions and `--no-save` conflict as `--save-catalog`. Mirrors `pnpm add --save-catalog-name=<name>`.",
         long = "save-catalog-name",
+        conflicts = "--no-save",
         value_name = "NAME"
     )]
     pub save_catalog_name: ::std::option::Option<::std::string::String>,
     #[usage(
-        help = "Add as a peer dependency (written to `peerDependencies` in package.json)",
-        long_help = "Add as a peer dependency (written to `peerDependencies` in package.json).\n\nBy convention you usually pair this with `--save-dev` so the peer is also installed for local development; that's what pnpm does.",
-        long = "save-peer"
+        help = "Add as a peer dependency (written to `peerDependencies` in package.json).",
+        long_help = "Add as a peer dependency (written to `peerDependencies` in\npackage.json).\n\nBy convention you usually pair this with `--save-dev` so the\npeer is also installed for local development; that's what pnpm\ndoes.",
+        long = "save-peer",
+        conflicts = "--save-optional"
     )]
     pub save_peer: bool,
     #[usage(
-        help = "Force the manifest specifier into `workspace:` form for this invocation, overriding `saveWorkspaceProtocol` from the workspace yaml / `.npmrc` / env",
-        long_help = "Force the manifest specifier into `workspace:` form for this invocation, overriding `saveWorkspaceProtocol` from the workspace yaml / `.npmrc` / env.\n\nOnly meaningful when `linkWorkspacePackages` (or a workspace sibling already exists for the named package). With this flag the entry written to `package.json` is `workspace:^` (rolling) or `workspace:^<version>` (pinned), depending on the resolved `saveWorkspaceProtocol` value.",
-        long = "save-workspace-protocol"
+        help = "Force the manifest specifier into `workspace:` form for this invocation, overriding `saveWorkspaceProtocol` from the workspace yaml / `.npmrc` / env.",
+        long_help = "Force the manifest specifier into `workspace:` form for this\ninvocation, overriding `saveWorkspaceProtocol` from the\nworkspace yaml / `.npmrc` / env.\n\nOnly meaningful when `linkWorkspacePackages` (or a workspace\nsibling already exists for the named package). With this flag\nthe entry written to `package.json` is `workspace:^` (rolling)\nor `workspace:^<version>` (pinned), depending on the resolved\n`saveWorkspaceProtocol` value.",
+        long = "save-workspace-protocol",
+        overrides = "--no-save-workspace-protocol"
     )]
     pub save_workspace_protocol: bool,
-    #[usage(
-        help = "Add the dependency to the workspace root's `package.json`",
-        long_help = "Add the dependency to the workspace root's `package.json`.\n\nApplies regardless of the current working directory: walks up from cwd looking for `aube-workspace.yaml`, `pnpm-workspace.yaml`, or a `package.json` with a `workspaces` field and runs the add against that directory.",
-        long = "workspace",
-        short = 'w'
-    )]
+    /// Add the dependency to the workspace root's `package.json`.
+    ///
+    /// Applies regardless of the current working directory: walks up
+    /// from cwd looking for `aube-workspace.yaml`, `pnpm-workspace.yaml`,
+    /// or a `package.json` with a `workspaces` field and runs the add
+    /// against that directory.
+    #[usage(long = "workspace", short = 'w', conflicts = "--global")]
     pub workspace: bool,
-    #[usage(
-        help = "Allow `add` to run in a workspace root",
-        long_help = "Allow `add` to run in a workspace root.\n\nBy default aube refuses to add dependencies to the root `package.json` of a workspace (a directory containing `aube-workspace.yaml`, `pnpm-workspace.yaml`, or a `package.json` with a `workspaces` field) because deps added there end up shared by every package and usually reflect a mistake. Pass this flag to opt in. Mirrors `pnpm add -W`.",
-        long = "ignore-workspace-root-check",
-        short = 'W'
-    )]
+    /// Allow `add` to run in a workspace root.
+    ///
+    /// By default aube refuses to add dependencies to the root
+    /// `package.json` of a workspace (a directory containing
+    /// `aube-workspace.yaml`, `pnpm-workspace.yaml`, or a `package.json`
+    /// with a `workspaces` field) because deps added there end up
+    /// shared by every package and usually reflect a mistake. Pass
+    /// this flag to opt in. Mirrors `pnpm add -W`.
+    #[usage(long = "ignore-workspace-root-check", short = 'W')]
     pub ignore_workspace_root_check: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
     /// Package(s) to add
@@ -385,139 +491,153 @@ pub struct AddArgs {
     pub packages: ::std::vec::Vec<::std::string::String>,
 }
 
+/// Approve ignored dependency build scripts.
+///
+/// Writes entries under `allowBuilds` in `aube-workspace.yaml` (or
+/// `pnpm-workspace.yaml` if present).
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct ApproveBuildsArgs {
-    /// Approve every pending ignored build without prompting
+    /// Approve every pending ignored build without prompting.
     #[usage(long = "all")]
     pub all: bool,
-    /// Operate on globally-installed packages instead of the current project
+    /// Operate on globally-installed packages instead of the current project.
     #[usage(long = "global", short = 'g')]
     pub global: bool,
-    #[usage(
-        arg,
-        name = "PKG",
-        help = "Packages to approve directly, skipping the picker",
-        long_help = "Packages to approve directly, skipping the picker.\n\nEach name must match a currently-ignored build. Unknown names are rejected so a typo cannot silently no-op."
-    )]
+    /// Packages to approve directly, skipping the picker.
+    ///
+    /// Each name must match a currently-ignored build. Unknown names
+    /// are rejected so a typo cannot silently no-op.
+    #[usage(arg, name = "PKG")]
     pub pkg: ::std::vec::Vec<::std::string::String>,
 }
 
 /// Check installed packages against the registry advisory DB
 #[derive(Args)]
-#[usage(
-    after_long_help = "Examples:\n\n  $ aube audit\n  Severity  Package    Vulnerable  Title\n  moderate  minimatch  <3.0.5      Regular Expression Denial of Service\n                                   https://github.com/advisories/GHSA-f8q6-p94x\n\n  1 vulnerability found\n\n  # Only fail on high and above\n  $ aube audit --audit-level high\n\n  # Skip optional deps and dev deps\n  $ aube audit --prod --no-optional\n\n  # Pipe into jq\n  $ aube audit --json | jq '.advisories | length'\n\n  # Clean\n  $ aube audit\n  No known vulnerabilities found",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct AuditArgs {
+    /// Only print advisories at or above this severity.
+    ///
+    /// One of: `info`, `low`, `moderate`, `high`, `critical`.
+    /// Defaults to `audit.level` (or legacy `auditLevel`), then `low`.
     #[usage(
-        help = "Only print advisories at or above this severity",
-        long_help = "Only print advisories at or above this severity.\n\nOne of: `info`, `low`, `moderate`, `high`, `critical`. Defaults to `audit.level` (or legacy `auditLevel`), then `low`.",
         long = "audit-level",
         value_name = "AUDIT_LEVEL",
         choices("info", "low", "moderate", "high", "critical")
     )]
     pub audit_level: ::std::option::Option<::std::string::String>,
-    /// Only audit `devDependencies`
-    #[usage(long = "dev", short = 'D')]
+    /// Only audit `devDependencies`.
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
+    /// Fix advisories.
+    ///
+    /// Bare `--fix` writes package.json overrides for backwards compatibility.
+    /// `--fix=update` refreshes the lockfile without writing overrides.
     #[usage(
-        help = "Fix advisories",
-        long_help = "Fix advisories.\n\nBare `--fix` writes package.json overrides for backwards compatibility. `--fix=update` refreshes the lockfile without writing overrides.",
         long = "fix",
+        default_missing = "override",
         value_name = "FIX",
+        value_optional,
         choices("update", "override")
     )]
     pub fix: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Drop advisories whose ID matches one of these values",
-        long_help = "Drop advisories whose ID matches one of these values.\n\nMatches against the numeric npm advisory `id`, `github_advisory_id` (`GHSA-…`), and any entry in `cves[]` (case-insensitive). Repeatable; comma-separated values are also accepted.",
-        long = "ignore",
-        value_name = "ID",
-        var
-    )]
+    /// Drop advisories whose ID matches one of these values.
+    ///
+    /// Matches against the numeric npm advisory `id`,
+    /// `github_advisory_id` (`GHSA-…`), and any entry in `cves[]`
+    /// (case-insensitive). Repeatable; comma-separated values are also
+    /// accepted.
+    #[usage(long = "ignore", delimiter = ',', value_name = "ID", var)]
     pub ignore: ::std::vec::Vec<::std::string::String>,
-    #[usage(
-        help = "Use exit code 0 if the registry responds with an error",
-        long_help = "Use exit code 0 if the registry responds with an error.\n\nUseful when audit checks run in CI and the registry has a hiccup.",
-        long = "ignore-registry-errors"
-    )]
+    /// Use exit code 0 if the registry responds with an error.
+    ///
+    /// Useful when audit checks run in CI and the registry has a hiccup.
+    #[usage(long = "ignore-registry-errors")]
     pub ignore_registry_errors: bool,
-    #[usage(
-        help = "Drop advisories that have no non-vulnerable upgrade",
-        long_help = "Drop advisories that have no non-vulnerable upgrade.\n\nFilters out advisories for which no non-vulnerable version is available in the package's packument. Same \"best non-vulnerable\" logic as `--fix`: an advisory is kept only when an upgrade path exists.",
-        long = "ignore-unfixable"
-    )]
+    /// Drop advisories that have no non-vulnerable upgrade.
+    ///
+    /// Filters out advisories for which no non-vulnerable version is
+    /// available in the package's packument. Same "best non-vulnerable"
+    /// logic as `--fix`: an advisory is kept only when an upgrade path
+    /// exists.
+    #[usage(long = "ignore-unfixable")]
     pub ignore_unfixable: bool,
-    /// Pick which advisories to fix interactively
+    /// Pick which advisories to fix interactively.
     #[usage(long = "interactive", short = 'i')]
     pub interactive: bool,
-    /// Emit the report as JSON (pnpm-compatible shape) instead of a table
+    /// Emit the report as JSON (pnpm-compatible shape) instead of a table.
     #[usage(long = "json")]
     pub json: bool,
-    /// Skip `optionalDependencies`
+    /// Skip `optionalDependencies`.
     #[usage(long = "no-optional")]
     pub no_optional: bool,
-    /// Only audit `dependencies` and `optionalDependencies`
-    #[usage(long = "prod", long = "production", short = 'P')]
+    /// Only audit `dependencies` and `optionalDependencies`.
+    #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
 }
 
 /// Print the path to `node_modules/.bin`
 #[derive(Args)]
-#[usage(
-    after_long_help = "Examples:\n\n  $ aube bin\n  /home/user/project/node_modules/.bin\n\n  $ aube bin -g\n  /home/user/.local/share/aube/global/node_modules/.bin\n\n  # From a workspace package, -w prints the workspace-root bin directory\n  $ cd packages/app\n  $ aube bin\n  /home/user/project/packages/app/node_modules/.bin\n  $ aube bin -w\n  /home/user/project/node_modules/.bin\n\n  # Extend PATH with the project bin directory\n  $ export PATH=\"$(aube bin):$PATH\"",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct BinArgs {
     /// Print the global bin directory instead of the project's
-    #[usage(long = "global", short = 'g')]
+    #[usage(long = "global", short = 'g', conflicts = "--workspace-root")]
     pub global: bool,
     #[usage(
-        help = "Print the workspace-root bin directory instead of the current package's",
-        long_help = "Print the workspace-root bin directory instead of the current package's.\n\nMirrors `pnpm bin -w`: from a sub-package, resolves the enclosing workspace root and prints its `node_modules/.bin`. No-op when no workspace root exists above cwd (single-project install), so the flag is safe to leave in shell aliases.",
+        help = "Print the workspace-root bin directory instead of the current package's.",
+        long_help = "Print the workspace-root bin directory instead of the current\npackage's.\n\nMirrors `pnpm bin -w`: from a sub-package, resolves the enclosing\nworkspace root and prints its `node_modules/.bin`. No-op when no\nworkspace root exists above cwd (single-project install), so the\nflag is safe to leave in shell aliases.",
         long = "workspace-root",
         long = "workspace",
         short = 'w'
@@ -532,101 +652,129 @@ pub struct BinArgs {
     effect = "read"
 )]
 pub struct BugsArgs {
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    /// Packages to open bug trackers for. Defaults to the current project
+    /// Packages to open bug trackers for. Defaults to the current project.
     #[usage(arg, name = "PACKAGES")]
     pub packages: ::std::vec::Vec<::std::string::String>,
 }
 
+/// Delete metadata cache for the specified package(s).
+///
+/// Supports glob patterns; matches against the package name (e.g.
+/// `lodash`, `@babel/*`).
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct CacheDeleteArgs {
-    #[usage(
-        arg,
-        name = "PATTERNS",
-        help = "One or more package name patterns",
-        long_help = "One or more package name patterns.\n\nGlob metacharacters (`*`, `?`, `[...]`) are supported.",
-        required
-    )]
+    /// One or more package name patterns.
+    ///
+    /// Glob metacharacters (`*`, `?`, `[...]`) are supported.
+    #[usage(arg, name = "PATTERNS", required)]
     pub patterns: ::std::vec::Vec<::std::string::String>,
 }
 
+/// List the available packages in the metadata cache.
+///
+/// Optional glob filters narrow the result; with no filter every
+/// cached package is listed.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct CacheListArgs {
-    #[usage(
-        arg,
-        name = "PATTERNS",
-        help = "Optional glob patterns to filter the listing",
-        long_help = "Optional glob patterns to filter the listing.\n\nWith no patterns, every cached package is printed."
-    )]
+    /// Optional glob patterns to filter the listing.
+    ///
+    /// With no patterns, every cached package is printed.
+    #[usage(arg, name = "PATTERNS")]
     pub patterns: ::std::vec::Vec<::std::string::String>,
 }
 
+/// List configured registries from the project + user `.npmrc`.
+///
+/// Aube stores all packuments in a single flat directory (unlike
+/// pnpm's per-host layout), so this prints the registries you're
+/// currently configured to talk to rather than the registries that
+/// happen to be in the cache.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct CacheListRegistriesArgs {}
 
-/// Remove stale extracted primer files from the metadata cache
+/// Print the directory used for metadata and policy caches.
+#[derive(Args)]
+#[usage(effect = "read")]
+pub struct CachePathArgs {}
+
+/// Remove stale extracted primer files from the metadata cache.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct CachePruneArgs {
-    /// Minimum age in days before an old primer file is removed
+    /// Minimum age in days before an old primer file is removed.
     #[usage(long = "age-days", value_name = "AGE_DAYS", default = "30")]
     pub age_days: ::std::option::Option<::std::string::String>,
-    /// Do not actually delete anything
+    /// Do not actually delete anything.
     #[usage(long = "dry-run")]
     pub dry_run: bool,
 }
 
+/// View the cached metadata for a single package.
+///
+/// Prints a summary (versions, dist-tags, ETag, fetched-at) by
+/// default; `--json` dumps the raw cache file.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct CacheViewArgs {
-    /// Dump the raw on-disk cache JSON instead of a summary
+    /// Dump the raw on-disk cache JSON instead of a summary.
     #[usage(long = "json")]
     pub json: bool,
-    /// Package name (scoped names like `@babel/core` are accepted)
+    /// Package name (scoped names like `@babel/core` are accepted).
     #[usage(arg, name = "NAME")]
     pub name: ::std::string::String,
 }
@@ -641,36 +789,23 @@ pub struct CacheArgs {
 
 #[derive(Subcommands)]
 pub enum CacheCommands {
-    /// Delete metadata cache for the specified package(s)
-    #[usage(
-        name = "delete",
-        help = "Delete metadata cache for the specified package(s)",
-        long_help = "Delete metadata cache for the specified package(s).\n\nSupports glob patterns; matches against the package name (e.g. `lodash`, `@babel/*`)."
-    )]
+    /// Delete metadata cache for the specified package(s).
+    #[usage(name = "delete")]
     Delete(Box<CacheDeleteArgs>),
-    /// List the available packages in the metadata cache
-    #[usage(
-        name = "list",
-        help = "List the available packages in the metadata cache",
-        long_help = "List the available packages in the metadata cache.\n\nOptional glob filters narrow the result; with no filter every cached package is listed."
-    )]
+    /// List the available packages in the metadata cache.
+    #[usage(name = "list")]
     List(Box<CacheListArgs>),
-    /// List configured registries from the project + user `.npmrc`
-    #[usage(
-        name = "list-registries",
-        help = "List configured registries from the project + user `.npmrc`",
-        long_help = "List configured registries from the project + user `.npmrc`.\n\nAube stores all packuments in a single flat directory (unlike pnpm's per-host layout), so this prints the registries you're currently configured to talk to rather than the registries that happen to be in the cache."
-    )]
+    /// List configured registries from the project + user `.npmrc`.
+    #[usage(name = "list-registries")]
     ListRegistries(Box<CacheListRegistriesArgs>),
-    /// Remove stale extracted primer files from the metadata cache
+    /// Print the directory used for metadata and policy caches.
+    #[usage(name = "path")]
+    Path(Box<CachePathArgs>),
+    /// Remove stale extracted primer files from the metadata cache.
     #[usage(name = "prune")]
     Prune(Box<CachePruneArgs>),
-    /// View the cached metadata for a single package
-    #[usage(
-        name = "view",
-        help = "View the cached metadata for a single package",
-        long_help = "View the cached metadata for a single package.\n\nPrints a summary (versions, dist-tags, ETag, fetched-at) by default; `--json` dumps the raw cache file."
-    )]
+    /// View the cached metadata for a single package.
+    #[usage(name = "view")]
     View(Box<CacheViewArgs>),
 }
 
@@ -678,12 +813,11 @@ pub enum CacheCommands {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct CatFileArgs {
-    #[usage(
-        arg,
-        name = "HASH",
-        help = "File hash to look up",
-        long_help = "File hash to look up.\n\nAccepts `sha512-<base64>` (pnpm integrity format) or a raw hex CAS digest."
-    )]
+    /// File hash to look up.
+    ///
+    /// Accepts `sha512-<base64>` (pnpm integrity format) or a raw hex
+    /// CAS digest.
+    #[usage(arg, name = "HASH")]
     pub hash: ::std::string::String,
 }
 
@@ -694,23 +828,27 @@ pub struct CatIndexArgs {
     #[usage(
         arg,
         name = "PACKAGE",
-        help = "Package to inspect, in `name@version` form (e.g. `lodash@4.17.21`, `@babel/core@7.26.0`)",
-        long_help = "Package to inspect, in `name@version` form (e.g. `lodash@4.17.21`, `@babel/core@7.26.0`).\n\nAn exact version is required — ranges and dist-tags aren't resolved here."
+        help = "Package to inspect, in `name@version` form (e.g. `lodash@4.17.21`, `@babel/core@7.26.0`).",
+        long_help = "Package to inspect, in `name@version` form (e.g. `lodash@4.17.21`,\n`@babel/core@7.26.0`).\n\nAn exact version is required — ranges and dist-tags aren't\nresolved here."
     )]
     pub package: ::std::string::String,
 }
 
+/// Verify installed packages can resolve their declared deps.
+///
+/// Walks the `node_modules/` symlink tree and confirms every
+/// dependency in each `package.json` resolves to a real entry.
 #[derive(Args)]
-#[usage(
-    after_long_help = "Examples:\n\n  $ aube check\n  node_modules symlink tree is consistent (checked 248 packages).\n\n  # With issues\n  $ aube check\n  2 broken dependency links found:\n\n    vscode-languageserver@9.0.1\n      ✕ cannot resolve: vscode-languageserver-protocol@3.17.5\n\n    vscode-languageserver-protocol@3.17.5\n      ✕ cannot resolve: vscode-languageserver-types@3.17.5\n      ✕ cannot resolve: vscode-jsonrpc@8.2.1\n\n  # Machine-readable\n  $ aube check --json",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct CheckArgs {
-    /// Emit a JSON report instead of the human-readable list
+    /// Emit a JSON report instead of the human-readable list.
     #[usage(long = "json")]
     pub json: bool,
 }
 
+/// Clean install: delete node_modules, then install with frozen lockfile.
+///
+/// Use in CI to guarantee a reproducible install from the committed lockfile.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct CiArgs {
@@ -720,82 +858,115 @@ pub struct CiArgs {
     /// Skip optionalDependencies; don't install optional native modules
     #[usage(long = "no-optional")]
     pub no_optional: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
 }
 
+/// Remove `node_modules` across every workspace project.
+///
+/// `--lockfile` / `-l` also deletes lockfiles. A `clean` script in
+/// the root `package.json` overrides the built-in.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct CleanArgs {
-    #[usage(
-        help = "Also remove lockfiles at the workspace root",
-        long_help = "Also remove lockfiles at the workspace root.\n\nTargets `aube-lock.yaml`, `pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, and `bun.lock`.",
-        long = "lockfile",
-        short = 'l'
-    )]
+    /// Also remove lockfiles at the workspace root.
+    ///
+    /// Targets `aube-lock.yaml`, `pnpm-lock.yaml`, `package-lock.json`,
+    /// `npm-shrinkwrap.json`, `yarn.lock`, and `bun.lock`.
+    #[usage(long = "lockfile", short = 'l')]
     pub lockfile: bool,
 }
 
@@ -803,17 +974,6 @@ pub struct CleanArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct CompletionArgs {
-    /// Emit dynamic candidates for the shell completion engine
-    #[usage(
-        long = "complete",
-        hide,
-        value_name = "COMPLETE",
-        choices("package", "bin", "workspace", "setting", "patch")
-    )]
-    pub complete: ::std::option::Option<::std::string::String>,
-    /// Current word being completed
-    #[usage(long = "query", hide, value_name = "QUERY", default = "")]
-    pub query: ::std::option::Option<::std::string::String>,
     /// The shell to generate completions for (bash, zsh, fish)
     #[usage(arg, name = "SHELL")]
     pub shell: ::std::string::String,
@@ -823,24 +983,28 @@ pub struct CompletionArgs {
 #[derive(Args)]
 #[usage(effect = "destructive")]
 pub struct ConfigDeleteArgs {
-    /// Shortcut for `--location project`
-    #[usage(long = "local")]
+    /// Shortcut for `--location project`.
+    #[usage(long = "local", conflicts = "--location")]
     pub local: bool,
+    /// Which config location to act on.
+    ///
+    /// Defaults to `user`. Delete sweeps both aube's own config
+    /// (`~/.config/aube/config.toml` at user-scope,
+    /// `<cwd>/.config/aube/config.toml` at project-scope) and the
+    /// matching `.npmrc`, so the call works regardless of which file
+    /// the value was originally written to.
     #[usage(
-        help = "Which config location to act on",
-        long_help = "Which config location to act on.\n\nDefaults to `user`. Delete sweeps both aube's own config (`~/.config/aube/config.toml` at user-scope, `<cwd>/.config/aube/config.toml` at project-scope) and the matching `.npmrc`, so the call works regardless of which file the value was originally written to.",
         long = "location",
         value_name = "LOCATION",
         choices("user", "project", "global"),
         default = "user"
     )]
     pub location: ::std::option::Option<::std::string::String>,
-    #[usage(
-        arg,
-        name = "KEY",
-        help = "The setting key",
-        long_help = "The setting key.\n\nAccepts either a pnpm canonical name (e.g. `autoInstallPeers`) or an `.npmrc` alias (e.g. `auto-install-peers`)."
-    )]
+    /// The setting key.
+    ///
+    /// Accepts either a pnpm canonical name (e.g. `autoInstallPeers`)
+    /// or an `.npmrc` alias (e.g. `auto-install-peers`).
+    #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
 }
 
@@ -848,7 +1012,7 @@ pub struct ConfigDeleteArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigExplainArgs {
-    /// Setting key, `.npmrc` alias, env var, workspace YAML key, or CLI flag
+    /// Setting key, `.npmrc` alias, env var, workspace YAML key, or CLI flag.
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
 }
@@ -857,7 +1021,7 @@ pub struct ConfigExplainArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigFindArgs {
-    /// Words to search for
+    /// Words to search for.
     #[usage(arg, name = "QUERY", required)]
     pub query: ::std::vec::Vec<::std::string::String>,
 }
@@ -866,30 +1030,32 @@ pub struct ConfigFindArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigGetArgs {
-    #[usage(
-        help = "Emit the value as JSON",
-        long_help = "Emit the value as JSON.\n\nMatches `pnpm config get --json`: a missing key renders as `undefined`, a found value is JSON-encoded.",
-        long = "json"
-    )]
+    /// Emit the value as JSON.
+    ///
+    /// Matches `pnpm config get --json`: a missing key renders as
+    /// `undefined`, a found value is JSON-encoded.
+    #[usage(long = "json")]
     pub json: bool,
-    /// Shortcut for `--location project`
-    #[usage(long = "local")]
+    /// Shortcut for `--location project`.
+    #[usage(long = "local", conflicts = "--location")]
     pub local: bool,
+    /// Which config location(s) to read.
+    ///
+    /// Defaults to `merged` — the last-write-wins view of user aube
+    /// config, `~/.npmrc`, then `./.npmrc`, matching what install
+    /// actually sees. Use `user` or `project` to restrict the lookup.
     #[usage(
-        help = "Which config location(s) to read",
-        long_help = "Which config location(s) to read.\n\nDefaults to `merged` — the last-write-wins view of user aube config, `~/.npmrc`, then `./.npmrc`, matching what install actually sees. Use `user` or `project` to restrict the lookup.",
         long = "location",
         value_name = "LOCATION",
         choices("merged", "user", "project", "global"),
         default = "merged"
     )]
     pub location: ::std::option::Option<::std::string::String>,
-    #[usage(
-        arg,
-        name = "KEY",
-        help = "The setting key",
-        long_help = "The setting key.\n\nAccepts either a pnpm canonical name (e.g. `autoInstallPeers`) or an `.npmrc` alias (e.g. `auto-install-peers`)."
-    )]
+    /// The setting key.
+    ///
+    /// Accepts either a pnpm canonical name (e.g. `autoInstallPeers`)
+    /// or an `.npmrc` alias (e.g. `auto-install-peers`).
+    #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
 }
 
@@ -897,27 +1063,34 @@ pub struct ConfigGetArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigListArgs {
-    #[usage(
-        help = "Also list settings that have no value set",
-        long_help = "Also list settings that have no value set.\n\nRenders one row per setting in `settings.toml`, with the default and description shown for unset entries.\n\nOnly valid with `--location merged` (the default), since a per-file view can't distinguish \"not set anywhere\" from \"set in the other file\" and would render misleading defaults.",
-        long = "all"
-    )]
+    /// Also list settings that have no value set.
+    ///
+    /// Renders one row per setting in `settings.toml`, with the
+    /// default and description shown for unset entries.
+    ///
+    /// Only valid with `--location merged` (the default), since a
+    /// per-file view can't distinguish "not set anywhere" from "set in
+    /// the other file" and would render misleading defaults.
+    #[usage(long = "all")]
     pub all: bool,
-    #[usage(
-        help = "Emit all entries as a JSON object keyed by setting name",
-        long_help = "Emit all entries as a JSON object keyed by setting name.\n\nMatches `pnpm config list --json`. Honors `--all` and `--location` the same way the default text output does.",
-        long = "json"
-    )]
+    /// Emit all entries as a JSON object keyed by setting name.
+    ///
+    /// Matches `pnpm config list --json`. Honors `--all` and
+    /// `--location` the same way the default text output does.
+    #[usage(long = "json")]
     pub json: bool,
-    #[usage(
-        help = "Shortcut for `--location project`",
-        long_help = "Shortcut for `--location project`.\n\nConflicts with `--all` since `--all` only makes sense against the merged view — see the `--all` docs for why.",
-        long = "local"
-    )]
+    /// Shortcut for `--location project`.
+    ///
+    /// Conflicts with `--all` since `--all` only makes sense against
+    /// the merged view — see the `--all` docs for why.
+    #[usage(long = "local", conflicts("--location", "--all"))]
     pub local: bool,
+    /// Which config location(s) to list.
+    ///
+    /// `merged` (default) walks `~/.npmrc`, user aube config, then
+    /// the project's `.npmrc` with last-write-wins precedence,
+    /// matching how install reads config.
     #[usage(
-        help = "Which config location(s) to list",
-        long_help = "Which config location(s) to list.\n\n`merged` (default) walks `~/.npmrc`, user aube config, then the project's `.npmrc` with last-write-wins precedence, matching how install reads config.",
         long = "location",
         value_name = "LOCATION",
         choices("merged", "user", "project", "global")
@@ -929,22 +1102,39 @@ pub struct ConfigListArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct ConfigSetArgs {
-    /// Shortcut for `--location project`
-    #[usage(long = "local")]
+    /// Shortcut for `--location project`.
+    #[usage(long = "local", conflicts = "--location")]
     pub local: bool,
+    /// Which config location to write to.
+    ///
+    /// Defaults to `user`. Writes land in `.npmrc` for the npm-shared
+    /// surface — per-host auth/cert templates, scoped registries, and
+    /// settings tagged `npmShared = true` in the settings registry
+    /// (`registry`, `proxy` / `https-proxy`, `engine-strict`,
+    /// `ignore-scripts`, etc.) — so npm and yarn read the same value.
+    /// Aube-only and pnpm-only settings, plus unknown keys, land in
+    /// aube's own config (`~/.config/aube/config.toml` at user scope,
+    /// `<cwd>/.config/aube/config.toml` at project scope) where
+    /// sibling tools don't see them.
+    ///
+    /// Dotted writes for aube map settings (`allowBuilds.<pkg>`,
+    /// `overrides.<pkg>`, …) edit one entry at a time. At project
+    /// scope (`--local`) they land in
+    /// `pnpm-workspace.yaml#<map>.<entry>` or
+    /// `package.json#aube.<map>.<entry>` if no workspace yaml exists,
+    /// the same place install reads from. User-scope dotted writes
+    /// for these maps error: aube only reads them per project.
     #[usage(
-        help = "Which config location to write to",
-        long_help = "Which config location to write to.\n\nDefaults to `user`. Writes land in `.npmrc` for the npm-shared surface — per-host auth/cert templates, scoped registries, and settings tagged `npmShared = true` in the settings registry (`registry`, `proxy` / `https-proxy`, `engine-strict`, `ignore-scripts`, etc.) — so npm and yarn read the same value. Aube-only and pnpm-only settings, plus unknown keys, land in aube's own config (`~/.config/aube/config.toml` at user scope, `<cwd>/.config/aube/config.toml` at project scope) where sibling tools don't see them.\n\nDotted writes for aube map settings (`allowBuilds.<pkg>`, `overrides.<pkg>`, …) edit one entry at a time. At project scope (`--local`) they land in `pnpm-workspace.yaml#<map>.<entry>` or `package.json#aube.<map>.<entry>` if no workspace yaml exists, the same place install reads from. User-scope dotted writes for these maps error: aube only reads them per project.",
         long = "location",
         value_name = "LOCATION",
         choices("user", "project", "global"),
         default = "user"
     )]
     pub location: ::std::option::Option<::std::string::String>,
-    /// Setting key (canonical name or `.npmrc` alias)
+    /// Setting key (canonical name or `.npmrc` alias).
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
-    /// Value to write. Stored verbatim after `key=`
+    /// Value to write. Stored verbatim after `key=`.
     #[usage(arg, name = "VALUE")]
     pub value: ::std::string::String,
 }
@@ -958,27 +1148,34 @@ pub struct ConfigTuiArgs {}
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigArgs {
-    #[usage(
-        help = "Also list settings that have no value set",
-        long_help = "Also list settings that have no value set.\n\nRenders one row per setting in `settings.toml`, with the default and description shown for unset entries.\n\nOnly valid with `--location merged` (the default), since a per-file view can't distinguish \"not set anywhere\" from \"set in the other file\" and would render misleading defaults.",
-        long = "all"
-    )]
+    /// Also list settings that have no value set.
+    ///
+    /// Renders one row per setting in `settings.toml`, with the
+    /// default and description shown for unset entries.
+    ///
+    /// Only valid with `--location merged` (the default), since a
+    /// per-file view can't distinguish "not set anywhere" from "set in
+    /// the other file" and would render misleading defaults.
+    #[usage(long = "all")]
     pub all: bool,
-    #[usage(
-        help = "Emit all entries as a JSON object keyed by setting name",
-        long_help = "Emit all entries as a JSON object keyed by setting name.\n\nMatches `pnpm config list --json`. Honors `--all` and `--location` the same way the default text output does.",
-        long = "json"
-    )]
+    /// Emit all entries as a JSON object keyed by setting name.
+    ///
+    /// Matches `pnpm config list --json`. Honors `--all` and
+    /// `--location` the same way the default text output does.
+    #[usage(long = "json")]
     pub json: bool,
-    #[usage(
-        help = "Shortcut for `--location project`",
-        long_help = "Shortcut for `--location project`.\n\nConflicts with `--all` since `--all` only makes sense against the merged view — see the `--all` docs for why.",
-        long = "local"
-    )]
+    /// Shortcut for `--location project`.
+    ///
+    /// Conflicts with `--all` since `--all` only makes sense against
+    /// the merged view — see the `--all` docs for why.
+    #[usage(long = "local", conflicts("--location", "--all"))]
     pub local: bool,
+    /// Which config location(s) to list.
+    ///
+    /// `merged` (default) walks `~/.npmrc`, user aube config, then
+    /// the project's `.npmrc` with last-write-wins precedence,
+    /// matching how install reads config.
     #[usage(
-        help = "Which config location(s) to list",
-        long_help = "Which config location(s) to list.\n\n`merged` (default) walks `~/.npmrc`, user aube config, then the project's `.npmrc` with last-write-wins precedence, matching how install reads config.",
         long = "location",
         value_name = "LOCATION",
         choices("merged", "user", "project", "global")
@@ -1016,53 +1213,63 @@ pub enum ConfigCommands {
 /// Scaffold a project from a `create-*` starter kit (via dlx)
 #[derive(Args)]
 pub struct CreateArgs {
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
     #[usage(
         arg,
         name = "PARAMS",
-        help = "Template package name followed by any args to pass through to the scaffold binary",
-        long_help = "Template package name followed by any args to pass through to the scaffold binary.\n\nThe first positional is the template; the rest are forwarded verbatim to `create-<template>`.",
+        help = "Template package name followed by any args to pass through to the scaffold binary.",
+        long_help = "Template package name followed by any args to pass through to\nthe scaffold binary.\n\nThe first positional is the template; the rest are forwarded\nverbatim to `create-<template>`.",
         double_dash = "automatic"
     )]
     pub params: ::std::vec::Vec<::std::string::String>,
@@ -1072,75 +1279,104 @@ pub struct CreateArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct DedupeArgs {
-    #[usage(
-        help = "Check whether dedupe would change the lockfile; don't write anything",
-        long_help = "Check whether dedupe would change the lockfile; don't write anything.\n\nExits non-zero when dedupe would make changes — useful in CI.",
-        long = "check"
-    )]
+    /// Check whether dedupe would change the lockfile; don't write anything.
+    ///
+    /// Exits non-zero when dedupe would make changes — useful in CI.
+    #[usage(long = "check")]
     pub check: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
 }
@@ -1149,110 +1385,139 @@ pub struct DedupeArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct DeployArgs {
-    #[usage(
-        help = "Install only `devDependencies`",
-        long_help = "Install only `devDependencies`.\n\nImplemented by stripping `dependencies` and `optionalDependencies` from the deployed `package.json` before install runs.",
-        long = "dev",
-        short = 'D'
-    )]
+    /// Install only `devDependencies`.
+    ///
+    /// Implemented by stripping `dependencies` and
+    /// `optionalDependencies` from the deployed `package.json` before
+    /// install runs.
+    #[usage(long = "dev", short = 'D', conflicts("--prod", "--no-prod"))]
     pub dev: bool,
     /// Skip `optionalDependencies`
     #[usage(long = "no-optional")]
     pub no_optional: bool,
-    #[usage(
-        help = "Install only production dependencies (default)",
-        long_help = "Install only production dependencies (default).\n\nAccepted for pnpm compatibility.",
-        long = "prod",
-        long = "production",
-        short = 'P'
-    )]
+    /// Install only production dependencies (default).
+    ///
+    /// Accepted for pnpm compatibility.
+    #[usage(long = "prod", long = "production", short = 'P')]
     pub prod: bool,
-    #[usage(
-        help = "Deploy every dependency kind (production + dev + optional)",
-        long_help = "Deploy every dependency kind (production + dev + optional).\n\nOpts out of the implicit `--prod` deploy default. Useful when a deployed package needs its devDependencies at runtime (test harnesses, build-step deploys). Combine with `--no-optional` to drop optionals while keeping prod + dev. Mutually exclusive with `--prod` and `--dev`.",
-        long = "no-prod"
-    )]
+    /// Deploy every dependency kind (production + dev + optional).
+    ///
+    /// Opts out of the implicit `--prod` deploy default. Useful when a
+    /// deployed package needs its devDependencies at runtime (test
+    /// harnesses, build-step deploys). Combine with `--no-optional` to
+    /// drop optionals while keeping prod + dev. Mutually exclusive with
+    /// `--prod` and `--dev`.
+    #[usage(long = "no-prod", conflicts("--prod", "--dev"))]
     pub no_prod: bool,
-    #[usage(
-        help = "Fail if any metadata or tarball isn't already in the local cache",
-        long_help = "Fail if any metadata or tarball isn't already in the local cache.\n\nNever hits the network. Useful in multi-stage Dockerfiles where an earlier `aube install` already populated the store: deploy then reproduces a prod-only tree without re-fetching anything.",
-        long = "offline"
-    )]
+    /// Fail if any metadata or tarball isn't already in the local cache.
+    ///
+    /// Never hits the network. Useful in multi-stage Dockerfiles where
+    /// an earlier `aube install` already populated the store: deploy
+    /// then reproduces a prod-only tree without re-fetching anything.
+    #[usage(long = "offline", conflicts = "--prefer-offline")]
     pub offline: bool,
-    /// Prefer cached metadata over revalidation; only hit the network on a miss
-    #[usage(long = "prefer-offline")]
+    /// Prefer cached metadata over revalidation; only hit the network on a miss.
+    #[usage(long = "prefer-offline", conflicts = "--offline")]
     pub prefer_offline: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
-    #[usage(
-        arg,
-        name = "TARGET",
-        help = "Target directory to deploy into",
-        long_help = "Target directory to deploy into.\n\nMust be empty or not yet exist."
-    )]
+    /// Target directory to deploy into.
+    ///
+    /// Must be empty or not yet exist.
+    #[usage(arg, name = "TARGET")]
     pub target: ::std::string::String,
 }
 
@@ -1260,67 +1525,74 @@ pub struct DeployArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct DeprecateArgs {
-    /// Don't PUT anything — print which versions would be touched and exit
+    /// Don't PUT anything — print which versions would be touched and exit.
     #[usage(long = "dry-run")]
     pub dry_run: bool,
-    /// One-time password from a 2FA authenticator; sent as `npm-otp`
+    /// One-time password from a 2FA authenticator; sent as `npm-otp`.
     #[usage(long = "otp", value_name = "CODE")]
     pub otp: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    #[usage(
-        arg,
-        name = "PACKAGE",
-        help = "Package spec: `name`, `name@version`, or `name@<range>`",
-        long_help = "Package spec: `name`, `name@version`, or `name@<range>`.\n\nOmitting the version deprecates every published version."
-    )]
+    /// Package spec: `name`, `name@version`, or `name@<range>`.
+    ///
+    /// Omitting the version deprecates every published version.
+    #[usage(arg, name = "PACKAGE")]
     pub package: ::std::string::String,
-    #[usage(
-        arg,
-        name = "MESSAGE",
-        help = "Deprecation message shown to installers",
-        long_help = "Deprecation message shown to installers.\n\nPass an empty string to clear an existing deprecation (or use `aube undeprecate`)."
-    )]
+    /// Deprecation message shown to installers.
+    ///
+    /// Pass an empty string to clear an existing deprecation (or use
+    /// `aube undeprecate`).
+    #[usage(arg, name = "MESSAGE")]
     pub message: ::std::string::String,
 }
 
@@ -1328,60 +1600,70 @@ pub struct DeprecateArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct DeprecationsArgs {
-    /// Exit with a non-zero status if any deprecations are found
+    /// Exit with a non-zero status if any deprecations are found.
     #[usage(long = "exit-code")]
     pub exit_code: bool,
-    /// Emit JSON instead of the default text layout
+    /// Emit JSON instead of the default text layout.
     #[usage(long = "json")]
     pub json: bool,
-    /// Include transitive dependencies as well as direct ones
+    /// Include transitive dependencies as well as direct ones.
     #[usage(long = "transitive")]
     pub transitive: bool,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
 }
 
-/// Show critical path / starvation / per-pkg lifecycle from a saved trace
+/// Show critical path / starvation / per-pkg lifecycle from a saved trace.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct DiagAnalyzeArgs {
@@ -1390,7 +1672,7 @@ pub struct DiagAnalyzeArgs {
     pub path: ::std::string::String,
 }
 
-/// Diff two diag JSONL traces and surface per-operation regressions
+/// Diff two diag JSONL traces and surface per-operation regressions.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct DiagCompareArgs {
@@ -1418,51 +1700,62 @@ pub struct DiagArgs {
 
 #[derive(Subcommands)]
 pub enum DiagCommands {
-    /// Show critical path / starvation / per-pkg lifecycle from a saved trace
+    /// Show critical path / starvation / per-pkg lifecycle from a saved trace.
     #[usage(name = "analyze")]
     Analyze(Box<DiagAnalyzeArgs>),
-    /// Diff two diag JSONL traces and surface per-operation regressions
+    /// Diff two diag JSONL traces and surface per-operation regressions.
     #[usage(name = "compare")]
     Compare(Box<DiagCompareArgs>),
 }
 
+/// Add or update a dist-tag on a package.
+///
+/// Spec must include a concrete version: `aube dist-tag add
+/// react@18.2.0 stable`. The tag argument defaults to `latest`.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct DistTagAddArgs {
-    /// One-time password from a 2FA authenticator; sent as `npm-otp`
+    /// One-time password from a 2FA authenticator; sent as `npm-otp`.
     #[usage(long = "otp", value_name = "OTP")]
     pub otp: ::std::option::Option<::std::string::String>,
-    /// Package spec in `name@version` form (exact version required, ranges and tags aren't resolved here)
-    #[usage(arg, name = "SPEC")]
+    #[usage(
+        arg,
+        name = "SPEC",
+        help = "Package spec in `name@version` form (exact version required, ranges and tags aren't resolved here).",
+        long_help = "Package spec in `name@version` form (exact version required,\nranges and tags aren't resolved here)."
+    )]
     pub spec: ::std::string::String,
-    /// Tag to create or update. Defaults to `latest`
+    /// Tag to create or update. Defaults to `latest`.
     #[usage(arg, name = "TAG")]
     pub tag: ::std::option::Option<::std::string::String>,
 }
 
+/// List every dist-tag for a package.
+///
+/// Reads the package name from `./package.json` when no argument
+/// is given.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct DistTagLsArgs {
-    #[usage(
-        arg,
-        name = "PACKAGE",
-        help = "Package name (no version)",
-        long_help = "Package name (no version).\n\nDefaults to the current project's `package.json` `name` field."
-    )]
+    /// Package name (no version).
+    ///
+    /// Defaults to the current project's `package.json` `name`
+    /// field.
+    #[usage(arg, name = "PACKAGE")]
     pub package: ::std::option::Option<::std::string::String>,
 }
 
-/// Remove a dist-tag from a package
+/// Remove a dist-tag from a package.
 #[derive(Args)]
 #[usage(effect = "destructive")]
 pub struct DistTagRmArgs {
-    /// One-time password from a 2FA authenticator; sent as `npm-otp`
+    /// One-time password from a 2FA authenticator; sent as `npm-otp`.
     #[usage(long = "otp", value_name = "OTP")]
     pub otp: ::std::option::Option<::std::string::String>,
-    /// Package name (no version)
+    /// Package name (no version).
     #[usage(arg, name = "PACKAGE")]
     pub package: ::std::string::String,
-    /// Tag to remove
+    /// Tag to remove.
     #[usage(arg, name = "TAG")]
     pub tag: ::std::string::String,
 }
@@ -1471,47 +1764,57 @@ pub struct DistTagRmArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct DistTagArgs {
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
     #[usage(subcommand)]
     pub command: DistTagCommands,
@@ -1519,21 +1822,13 @@ pub struct DistTagArgs {
 
 #[derive(Subcommands)]
 pub enum DistTagCommands {
-    /// Add or update a dist-tag on a package
-    #[usage(
-        name = "add",
-        help = "Add or update a dist-tag on a package",
-        long_help = "Add or update a dist-tag on a package.\n\nSpec must include a concrete version: `aube dist-tag add react@18.2.0 stable`. The tag argument defaults to `latest`."
-    )]
+    /// Add or update a dist-tag on a package.
+    #[usage(name = "add")]
     Add(Box<DistTagAddArgs>),
-    /// List every dist-tag for a package
-    #[usage(
-        name = "ls",
-        help = "List every dist-tag for a package",
-        long_help = "List every dist-tag for a package.\n\nReads the package name from `./package.json` when no argument is given."
-    )]
+    /// List every dist-tag for a package.
+    #[usage(name = "ls")]
     Ls(Box<DistTagLsArgs>),
-    /// Remove a dist-tag from a package
+    /// Remove a dist-tag from a package.
     #[usage(name = "rm", alias = "remove")]
     Rm(Box<DistTagRmArgs>),
 }
@@ -1541,100 +1836,127 @@ pub enum DistTagCommands {
 /// Fetch a package into a throwaway environment and run its binary
 #[derive(Args)]
 pub struct DlxArgs {
-    #[usage(
-        help = "Run the assembled command line through `sh -c`",
-        long_help = "Run the assembled command line through `sh -c`.\n\n`<scratch>/node_modules/.bin` is prepended to `PATH`. Use this for pipelines, redirects, or env expansion (`aube dlx -p cowsay -c 'cowsay hello | tr a-z A-Z'`). Mirrors `pnpm dlx --shell-mode`.",
-        long = "shell-mode",
-        short = 'c'
-    )]
+    /// Run the assembled command line through `sh -c`.
+    ///
+    /// `<scratch>/node_modules/.bin` is prepended to `PATH`. Use this
+    /// for pipelines, redirects, or env expansion (`aube dlx -p cowsay
+    /// -c 'cowsay hello | tr a-z A-Z'`). Mirrors `pnpm dlx --shell-mode`.
+    #[usage(long = "shell-mode", short = 'c')]
     pub shell_mode: bool,
-    #[usage(
-        help = "Install a specific package (repeatable)",
-        long_help = "Install a specific package (repeatable).\n\nOverrides inferring from the command.",
-        long = "package",
-        short = 'p',
-        value_name = "PACKAGE",
-        var
-    )]
+    /// Install a specific package (repeatable).
+    ///
+    /// Overrides inferring from the command.
+    #[usage(long = "package", short = 'p', value_name = "PACKAGE", var)]
     pub package: ::std::vec::Vec<::std::string::String>,
     #[usage(
-        help = "Allow named packages to run lifecycle scripts during the transient install. Use `--allow-build=<pkg>`",
-        long_help = "Allow named packages to run lifecycle scripts during the transient install. Use `--allow-build=<pkg>`.\n\nRepeatable — pass once per package. The named package's `preinstall` / `install` / `postinstall` scripts execute during the transient install. Requires the equals form (`--allow-build=<pkg>`); space-separated forms are rejected. Mirrors pnpm's `pnpm dlx --allow-build=<pkg>` compatibility surface while keeping dlx scripts skipped unless explicitly approved.",
+        help = "Allow named packages to run lifecycle scripts during the transient install. Use `--allow-build=<pkg>`.",
+        long_help = "Allow named packages to run lifecycle scripts during the\ntransient install. Use `--allow-build=<pkg>`.\n\nRepeatable — pass once per package. The named package's\n`preinstall` / `install` / `postinstall` scripts execute during\nthe transient install. Requires the equals form\n(`--allow-build=<pkg>`); space-separated forms are rejected.\nMirrors pnpm's `pnpm dlx --allow-build=<pkg>` compatibility\nsurface while keeping dlx scripts skipped unless explicitly\napproved.",
         long = "allow-build",
+        require_equals,
         value_name = "PKG",
         var
     )]
     pub allow_build: ::std::vec::Vec<::std::string::String>,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
     #[usage(
         arg,
         name = "PARAMS",
-        help = "Command (binary) to run, followed by arguments to pass through to it",
-        long_help = "Command (binary) to run, followed by arguments to pass through to it.\n\nThe first positional is the command; the rest are forwarded verbatim to the binary. Without `--package`, a local `node_modules/.bin/<command>` wins when present; otherwise dlx installs into a throwaway project. Under `--shell-mode`/`-c` the positionals are joined and evaluated by `sh -c` instead of looked up directly.",
+        help = "Command (binary) to run, followed by arguments to pass through to it.",
+        long_help = "Command (binary) to run, followed by arguments to pass through to\nit.\n\nThe first positional is the command; the rest are forwarded\nverbatim to the binary. Without `--package`, a local\n`node_modules/.bin/<command>` wins when present; otherwise dlx\ninstalls into a throwaway project. Under `--shell-mode`/`-c` the\npositionals are joined and evaluated by `sh -c` instead of\nlooked up directly.",
         double_dash = "automatic"
     )]
     pub params: ::std::vec::Vec<::std::string::String>,
@@ -1642,12 +1964,9 @@ pub struct DlxArgs {
 
 /// Run broad install-health diagnostics
 #[derive(Args)]
-#[usage(
-    after_long_help = "Examples:\n\n  $ aube doctor\n  version: 1.0.0-beta.4\n  node: v22.11.0\n  ...\n  No problems found\n\n  $ aube doctor --json | jq .warnings",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct DoctorArgs {
-    /// Emit a machine-readable JSON report instead of the grouped text
+    /// Emit a machine-readable JSON report instead of the grouped text.
     #[usage(long = "json", short = 'J')]
     pub json: bool,
 }
@@ -1655,125 +1974,153 @@ pub struct DoctorArgs {
 /// Execute a locally installed binary
 #[derive(Args)]
 pub struct ExecArgs {
-    #[usage(
-        help = "Continue recursive execution after a command fails",
-        long_help = "Continue recursive execution after a command fails.\n\nParsed for pnpm compatibility; aube currently stops on the first failure.",
-        long = "no-bail"
-    )]
+    /// Continue recursive execution after a command fails.
+    ///
+    /// Parsed for pnpm compatibility; aube currently stops on the
+    /// first failure.
+    #[usage(long = "no-bail")]
     pub no_bail: bool,
     /// Skip auto-install check
     #[usage(long = "no-install")]
     pub no_install: bool,
-    #[usage(
-        help = "Disable topological sorting (default is on)",
-        long_help = "Disable topological sorting (default is on).\n\nWithout this, recursive execs visit packages in a deps-first order. Pass this to fall back to raw workspace-listing order.",
-        long = "no-sort"
-    )]
+    /// Disable topological sorting (default is on).
+    ///
+    /// Without this, recursive execs visit packages in a deps-first
+    /// order. Pass this to fall back to raw workspace-listing order.
+    #[usage(long = "no-sort", overrides = "--sort")]
     pub no_sort: bool,
-    /// Run recursive workspace executions concurrently
+    /// Run recursive workspace executions concurrently.
     #[usage(long = "parallel")]
     pub parallel: bool,
-    #[usage(
-        help = "Write a recursive exec summary file",
-        long_help = "Write a recursive exec summary file.\n\nParsed for pnpm compatibility.",
-        long = "report-summary"
-    )]
+    /// Write a recursive exec summary file.
+    ///
+    /// Parsed for pnpm compatibility.
+    #[usage(long = "report-summary")]
     pub report_summary: bool,
-    #[usage(
-        help = "Hide the `<package>: ` label on parallel-exec output lines",
-        long_help = "Hide the `<package>: ` label on parallel-exec output lines.\n\nLines are still piped (clean line breaks even with concurrent children) but the source package isn't named on each line. Sequential execs ignore this flag.",
-        long = "reporter-hide-prefix"
-    )]
+    /// Hide the `<package>: ` label on parallel-exec output lines.
+    ///
+    /// Lines are still piped (clean line breaks even with concurrent
+    /// children) but the source package isn't named on each line.
+    /// Sequential execs ignore this flag.
+    #[usage(long = "reporter-hide-prefix")]
     pub reporter_hide_prefix: bool,
-    #[usage(
-        help = "Resume recursive execution starting at this package name",
-        long_help = "Resume recursive execution starting at this package name.\n\nPackages before the named one in the post-sort, post-reverse order are skipped. Errors if the name isn't in the matched set.",
-        long = "resume-from",
-        value_name = "PACKAGE"
-    )]
+    /// Resume recursive execution starting at this package name.
+    ///
+    /// Packages before the named one in the post-sort, post-reverse
+    /// order are skipped. Errors if the name isn't in the matched set.
+    #[usage(long = "resume-from", value_name = "PACKAGE")]
     pub resume_from: ::std::option::Option<::std::string::String>,
-    /// Reverse the recursive execution order (after topo sort)
+    /// Reverse the recursive execution order (after topo sort).
     #[usage(long = "reverse")]
     pub reverse: bool,
-    /// Run the command through `sh -c`
+    /// Run the command through `sh -c`.
     #[usage(long = "shell-mode", short = 'c')]
     pub shell_mode: bool,
-    #[usage(
-        help = "Sort recursive packages topologically (this is the default)",
-        long_help = "Sort recursive packages topologically (this is the default).\n\nPass to override an earlier `--no-sort` on the same invocation.",
-        long = "sort"
-    )]
+    /// Sort recursive packages topologically (this is the default).
+    ///
+    /// Pass to override an earlier `--no-sort` on the same invocation.
+    #[usage(long = "sort", overrides = "--no-sort")]
     pub sort: bool,
-    #[usage(
-        help = "Cap the number of recursive packages running at once",
-        long_help = "Cap the number of recursive packages running at once.\n\nSetting this implicitly enables parallel mode at width `N`. `0` means \"use the available CPU count\". Without this flag, `--parallel` stays unbounded.",
-        long = "workspace-concurrency",
-        value_name = "N"
-    )]
+    /// Cap the number of recursive packages running at once.
+    ///
+    /// Setting this implicitly enables parallel mode at width `N`.
+    /// `0` means "use the available CPU count". Without this flag,
+    /// `--parallel` stays unbounded.
+    #[usage(long = "workspace-concurrency", value_name = "N")]
     pub workspace_concurrency: ::std::option::Option<::std::string::String>,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
     /// Binary name
@@ -1789,139 +2136,174 @@ pub struct ExecArgs {
 #[usage(effect = "write")]
 pub struct FetchArgs {
     /// Only fetch devDependencies
-    #[usage(long = "dev", short = 'D')]
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
     /// Only fetch production + optional dependencies (skip devDependencies)
-    #[usage(long = "prod", short = 'P')]
+    #[usage(long = "prod", short = 'P', conflicts = "--dev")]
     pub prod: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
 }
 
 /// List packages whose cached index references a given file hash
 #[derive(Args)]
-#[usage(
-    after_long_help = "Examples:\n\n  # Accepts integrity strings\n  $ aube find-hash sha512-abc123...\n  lodash@4.17.21\tpackage/lodash.js\n  express@4.19.2\tnode_modules/lodash/lodash.js\n\n  # ...or raw hex digests\n  $ aube find-hash 5d41402abc4b2a76b9719d911017c592...\n\n  # Machine-readable\n  $ aube find-hash --json sha512-abc123...",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct FindHashArgs {
-    #[usage(
-        help = "Emit machine-readable JSON instead of a plain text listing",
-        long_help = "Emit machine-readable JSON instead of a plain text listing.\n\nOutput is an array of `{ \"name\", \"version\", \"path\" }` objects.",
-        long = "json"
-    )]
+    /// Emit machine-readable JSON instead of a plain text listing.
+    ///
+    /// Output is an array of `{ "name", "version", "path" }` objects.
+    #[usage(long = "json")]
     pub json: bool,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    #[usage(
-        arg,
-        name = "HASH",
-        help = "Hash to look up",
-        long_help = "Hash to look up.\n\nAccepts `sha512-<base64>` (pnpm integrity format) or a raw hex CAS digest."
-    )]
+    /// Hash to look up.
+    ///
+    /// Accepts `sha512-<base64>` (pnpm integrity format) or a raw hex
+    /// CAS digest.
+    #[usage(arg, name = "HASH")]
     pub hash: ::std::string::String,
 }
 
@@ -1929,41 +2311,40 @@ pub struct FindHashArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct GetArgs {
-    #[usage(
-        help = "Emit the value as JSON",
-        long_help = "Emit the value as JSON.\n\nMatches `pnpm config get --json`: a missing key renders as `undefined`, a found value is JSON-encoded.",
-        long = "json"
-    )]
+    /// Emit the value as JSON.
+    ///
+    /// Matches `pnpm config get --json`: a missing key renders as
+    /// `undefined`, a found value is JSON-encoded.
+    #[usage(long = "json")]
     pub json: bool,
-    /// Shortcut for `--location project`
-    #[usage(long = "local")]
+    /// Shortcut for `--location project`.
+    #[usage(long = "local", conflicts = "--location")]
     pub local: bool,
+    /// Which config location(s) to read.
+    ///
+    /// Defaults to `merged` — the last-write-wins view of user aube
+    /// config, `~/.npmrc`, then `./.npmrc`, matching what install
+    /// actually sees. Use `user` or `project` to restrict the lookup.
     #[usage(
-        help = "Which config location(s) to read",
-        long_help = "Which config location(s) to read.\n\nDefaults to `merged` — the last-write-wins view of user aube config, `~/.npmrc`, then `./.npmrc`, matching what install actually sees. Use `user` or `project` to restrict the lookup.",
         long = "location",
         value_name = "LOCATION",
         choices("merged", "user", "project", "global"),
         default = "merged"
     )]
     pub location: ::std::option::Option<::std::string::String>,
-    #[usage(
-        arg,
-        name = "KEY",
-        help = "The setting key",
-        long_help = "The setting key.\n\nAccepts either a pnpm canonical name (e.g. `autoInstallPeers`) or an `.npmrc` alias (e.g. `auto-install-peers`)."
-    )]
+    /// The setting key.
+    ///
+    /// Accepts either a pnpm canonical name (e.g. `autoInstallPeers`)
+    /// or an `.npmrc` alias (e.g. `auto-install-peers`).
+    #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
 }
 
 /// Print packages whose install scripts were skipped by `pnpm.allowBuilds`
 #[derive(Args)]
-#[usage(
-    after_long_help = "Examples:\n\n  $ aube ignored-builds\n  The following builds were ignored during install:\n    esbuild@0.20.2\n    puppeteer@22.8.0\n\n  # When nothing was skipped\n  $ aube ignored-builds\n  No ignored builds.\n\n  # Approve them for this project\n  $ aube approve-builds",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct IgnoredBuildsArgs {
-    /// Operate on globally-installed packages instead of the current project
+    /// Operate on globally-installed packages instead of the current project.
     #[usage(long = "global", short = 'g')]
     pub global: bool,
 }
@@ -1975,16 +2356,16 @@ pub struct ImportArgs {
     /// Overwrite an existing aube-lock.yaml
     #[usage(long = "force")]
     pub force: bool,
-    #[usage(
-        help = "Skip lifecycle scripts when the follow-up install runs",
-        long_help = "Skip lifecycle scripts when the follow-up install runs.\n\nAccepted for compatibility — `aube import` today only writes the lockfile and does not chain into install, so this is a no-op, kept so wrappers that already pass it keep working.",
-        long = "ignore-scripts",
-        hide
-    )]
+    /// Skip lifecycle scripts when the follow-up install runs.
+    ///
+    /// Accepted for compatibility — `aube import` today only writes the
+    /// lockfile and does not chain into install, so this is a
+    /// no-op, kept so wrappers that already pass it keep working.
+    #[usage(long = "ignore-scripts", hide)]
     pub ignore_scripts: bool,
     #[usage(
-        help = "Write only the converted lockfile and skip linking `node_modules` afterwards",
-        long_help = "Write only the converted lockfile and skip linking `node_modules` afterwards.\n\n`aube import` already exits without touching `node_modules` today, so this flag is a no-op kept for compatibility — CI scripts that pass `--lockfile-only` keep working without complaint.",
+        help = "Write only the converted lockfile and skip linking `node_modules` afterwards.",
+        long_help = "Write only the converted lockfile and skip linking\n`node_modules` afterwards.\n\n`aube import` already exits without touching `node_modules`\ntoday, so this flag is a no-op kept for compatibility — CI\nscripts that pass `--lockfile-only` keep working without\ncomplaint.",
         long = "lockfile-only"
     )]
     pub lockfile_only: bool,
@@ -1997,60 +2378,65 @@ pub struct InitArgs {
     /// Create a `package.json` with only the bare minimum of required fields
     #[usage(long = "bare")]
     pub bare: bool,
-    #[usage(
-        help = "Pin the project to the current aube version",
-        long_help = "Pin the project to the current aube version.\n\nAdds a `packageManager` field to `package.json`.",
-        long = "init-package-manager"
-    )]
+    /// Pin the project to the current aube version.
+    ///
+    /// Adds a `packageManager` field to `package.json`.
+    #[usage(long = "init-package-manager")]
     pub init_package_manager: bool,
-    /// Set the module system for the package. Defaults to `commonjs`
-    #[usage(
-        long = "init-type",
-        value_name = "commonjs|module",
-        choices("commonjs", "module")
-    )]
+    /// Set the module system for the package. Defaults to `commonjs`.
+    #[usage(long = "init-type", value_name = "commonjs|module")]
     pub init_type: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
 }
 
@@ -2059,36 +2445,54 @@ pub struct InitArgs {
 #[usage(effect = "write")]
 pub struct InstallArgs {
     /// Install only devDependencies
-    #[usage(long = "dev", short = 'D')]
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
     /// Skip devDependencies; install only production deps
     #[usage(long = "prod", long = "production", short = 'P')]
     pub prod: bool,
-    #[usage(
-        help = "Allow every dependency's lifecycle scripts to run",
-        long_help = "Allow every dependency's lifecycle scripts to run.\n\nBypasses the `allowBuilds` allowlist. Do not use in CI.",
-        long = "dangerously-allow-all-builds"
-    )]
+    /// Allow every dependency's lifecycle scripts to run.
+    ///
+    /// Bypasses the `allowBuilds` allowlist. Do not use in CI.
+    #[usage(long = "dangerously-allow-all-builds")]
     pub dangerously_allow_all_builds: bool,
-    /// Resolve and report what would happen without writing the lockfile or linking node_modules
-    #[usage(long = "dry-run")]
-    pub dry_run: bool,
     #[usage(
-        help = "Re-resolve lockfile entries whose spec drifted from package.json",
-        long_help = "Re-resolve lockfile entries whose spec drifted from package.json.\n\nLeaves everything else pinned at its locked version. Unchanged specs keep their existing version and integrity hash; only drifted entries (and any new transitives they pull in) get re-resolved.",
-        long = "fix-lockfile"
+        help = "Resolve and report what would happen without writing the lockfile or linking node_modules.",
+        long_help = "Resolve and report what would happen without writing the lockfile\nor linking node_modules.",
+        long = "dry-run",
+        conflicts = "--lockfile-only"
+    )]
+    pub dry_run: bool,
+    /// Re-resolve lockfile entries whose spec drifted from package.json.
+    ///
+    /// Leaves everything else pinned at its locked version. Unchanged
+    /// specs keep their existing version and integrity hash; only
+    /// drifted entries (and any new transitives they pull in) get
+    /// re-resolved.
+    #[usage(
+        long = "fix-lockfile",
+        conflicts(
+            "--frozen-lockfile",
+            "--no-frozen-lockfile",
+            "--prefer-frozen-lockfile"
+        )
     )]
     pub fix_lockfile: bool,
-    #[usage(
-        help = "Force reinstall, ignoring lockfile/state freshness",
-        long_help = "Force reinstall, ignoring lockfile/state freshness.\n\nBypasses the `node_modules/.aube-state` freshness check and re-resolves the lockfile even when nothing has drifted. Mirrors pnpm's `install --force`.",
-        long = "force"
-    )]
+    /// Force reinstall, ignoring lockfile/state freshness.
+    ///
+    /// Bypasses the `node_modules/.aube-state` freshness check and
+    /// re-resolves the lockfile even when nothing has drifted. Mirrors
+    /// pnpm's `install --force`.
+    #[usage(long = "force")]
     pub force: bool,
+    /// Add a global pnpmfile that runs before the local one.
+    ///
+    /// Mirrors pnpm's `--global-pnpmfile <path>`. Relative paths
+    /// resolve against the project root. The global hook runs first
+    /// and the local hook (if any) runs second, so local mutations
+    /// win on conflicts — matching pnpm's composition order.
     #[usage(
-        help = "Add a global pnpmfile that runs before the local one",
-        long_help = "Add a global pnpmfile that runs before the local one.\n\nMirrors pnpm's `--global-pnpmfile <path>`. Relative paths resolve against the project root. The global hook runs first and the local hook (if any) runs second, so local mutations win on conflicts — matching pnpm's composition order.",
         long = "global-pnpmfile",
+        conflicts = "--ignore-pnpmfile",
         value_name = "PATH"
     )]
     pub global_pnpmfile: ::std::option::Option<::std::string::String>,
@@ -2098,249 +2502,334 @@ pub struct InstallArgs {
     /// Skip lifecycle scripts (no-op; aube already skips by default)
     #[usage(long = "ignore-scripts")]
     pub ignore_scripts: bool,
-    #[usage(
-        help = "Read and write the lockfile in the given directory",
-        long_help = "Read and write the lockfile in the given directory.\n\nInstead of placing the lockfile alongside `package.json`, the project becomes an importer keyed by its relative path from the lockfile directory. Mirrors pnpm's `--lockfile-dir`.",
-        long = "lockfile-dir",
-        value_name = "PATH"
-    )]
+    /// Read and write the lockfile in the given directory.
+    ///
+    /// Instead of placing the lockfile alongside `package.json`, the
+    /// project becomes an importer keyed by its relative path from the
+    /// lockfile directory. Mirrors pnpm's `--lockfile-dir`.
+    #[usage(long = "lockfile-dir", value_name = "PATH")]
     pub lockfile_dir: ::std::option::Option<::std::string::String>,
     #[usage(
-        help = "Resolve dependencies and write the lockfile, but don't link `node_modules`",
-        long_help = "Resolve dependencies and write the lockfile, but don't link `node_modules`.\n\nUseful for CI workflows that only update the lockfile.",
-        long = "lockfile-only"
+        help = "Resolve dependencies and write the lockfile, but don't link `node_modules`.",
+        long_help = "Resolve dependencies and write the lockfile, but don't link\n`node_modules`.\n\nUseful for CI workflows that only update the lockfile.",
+        long = "lockfile-only",
+        conflicts = "--frozen-lockfile"
     )]
     pub lockfile_only: bool,
-    #[usage(
-        help = "Merge per-branch lockfiles into the main `aube-lock.yaml`",
-        long_help = "Merge per-branch lockfiles into the main `aube-lock.yaml`.\n\nCombines every `aube-lock.<branch>.yaml` file in the project into `aube-lock.yaml` and deletes the branch files. Companion to `gitBranchLockfile`. When `mergeGitBranchLockfilesBranchPattern` is set in `pnpm-workspace.yaml`, this happens automatically on matching branches; the flag forces it regardless.",
-        long = "merge-git-branch-lockfiles"
-    )]
+    /// Merge per-branch lockfiles into the main `aube-lock.yaml`.
+    ///
+    /// Combines every `aube-lock.<branch>.yaml` file in the project
+    /// into `aube-lock.yaml` and deletes the branch files. Companion
+    /// to `gitBranchLockfile`. When
+    /// `mergeGitBranchLockfilesBranchPattern` is set in
+    /// `pnpm-workspace.yaml`, this happens automatically on matching
+    /// branches; the flag forces it regardless.
+    #[usage(long = "merge-git-branch-lockfiles")]
     pub merge_git_branch_lockfiles: bool,
-    #[usage(
-        help = "Cap concurrent tarball downloads",
-        long_help = "Cap concurrent tarball downloads.\n\nOverrides `network-concurrency` from `.npmrc` / `aube-workspace.yaml` when set. Falls back to an auto-scaled default of worker count x3, clamped to 16-64.",
-        long = "network-concurrency",
-        value_name = "N"
-    )]
+    /// Cap concurrent tarball downloads.
+    ///
+    /// Overrides `network-concurrency` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Falls back to an auto-scaled
+    /// default of worker count x3, clamped to 16-64.
+    #[usage(long = "network-concurrency", value_name = "N")]
     pub network_concurrency: ::std::option::Option<::std::string::String>,
     /// Skip optionalDependencies; don't install optional native modules
     #[usage(long = "no-optional")]
     pub no_optional: bool,
-    /// Inverse of `--side-effects-cache`
-    #[usage(long = "no-side-effects-cache")]
+    /// Inverse of `--side-effects-cache`.
+    #[usage(long = "no-side-effects-cache", overrides = "--side-effects-cache")]
     pub no_side_effects_cache: bool,
+    /// Inverse of `--verify-store-integrity`.
+    ///
+    /// Skips the SHA-512 verify step for every tarball aube pulls
+    /// into the store during this install.
     #[usage(
-        help = "Inverse of `--verify-store-integrity`",
-        long_help = "Inverse of `--verify-store-integrity`.\n\nSkips the SHA-512 verify step for every tarball aube pulls into the store during this install.",
-        long = "no-verify-store-integrity"
+        long = "no-verify-store-integrity",
+        overrides = "--verify-store-integrity"
     )]
     pub no_verify_store_integrity: bool,
-    #[usage(
-        help = "Which layout to materialize `node_modules/` as",
-        long_help = "Which layout to materialize `node_modules/` as.\n\n`isolated` (default) uses pnpm's `.aube/`-backed symlink tree; `hoisted` builds an npm-style flat tree with conflict nesting. Overrides `node-linker` / `nodeLinker` from `.npmrc` / `aube-workspace.yaml` when set. `pnp` is not supported.",
-        long = "node-linker",
-        value_name = "MODE"
-    )]
+    /// Which layout to materialize `node_modules/` as.
+    ///
+    /// `isolated` (default) uses pnpm's `.aube/`-backed symlink tree;
+    /// `hoisted` builds an npm-style flat tree with conflict nesting.
+    /// Overrides `node-linker` / `nodeLinker` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. `pnp` is not supported.
+    #[usage(long = "node-linker", value_name = "MODE")]
     pub node_linker: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Fail if any metadata or tarball isn't already in the local cache",
-        long_help = "Fail if any metadata or tarball isn't already in the local cache.\n\nNever hits the network.",
-        long = "offline"
-    )]
+    /// Fail if any metadata or tarball isn't already in the local cache.
+    ///
+    /// Never hits the network.
+    #[usage(long = "offline", conflicts = "--prefer-offline")]
     pub offline: bool,
     #[usage(
-        help = "How to import package files from the global store into the virtual store",
-        long_help = "How to import package files from the global store into the virtual store.\n\nOne of `auto` (default: detect the fastest strategy), `hardlink`, `copy`, `clone` (reflink; falls back to copy pending strict enforcement), or `clone-or-copy` (reflink with a copy fallback). Overrides `package-import-method` / `packageImportMethod` from `.npmrc` / `aube-workspace.yaml` when set.",
+        help = "How to import package files from the global store into the virtual store.",
+        long_help = "How to import package files from the global store into the\nvirtual store.\n\nOne of `auto` (default: detect the fastest strategy),\n`hardlink`, `copy`, `clone` (reflink; falls back to copy\npending strict enforcement), or `clone-or-copy` (reflink with\na copy fallback). Overrides `package-import-method` /\n`packageImportMethod` from `.npmrc` / `aube-workspace.yaml`\nwhen set.",
         long = "package-import-method",
         value_name = "METHOD"
     )]
     pub package_import_method: ::std::option::Option<::std::string::String>,
+    /// Override the local pnpmfile location.
+    ///
+    /// Mirrors pnpm's `--pnpmfile <path>`. Relative paths resolve
+    /// against the project root; absolute paths are used as-is. Wins
+    /// over `pnpmfilePath` from `pnpm-workspace.yaml`. A typo (target
+    /// missing) is a hard miss with a warning rather than a silent
+    /// fallback to the default.
     #[usage(
-        help = "Override the local pnpmfile location",
-        long_help = "Override the local pnpmfile location.\n\nMirrors pnpm's `--pnpmfile <path>`. Relative paths resolve against the project root; absolute paths are used as-is. Wins over `pnpmfilePath` from `pnpm-workspace.yaml`. A typo (target missing) is a hard miss with a warning rather than a silent fallback to the default.",
         long = "pnpmfile",
+        conflicts = "--ignore-pnpmfile",
         value_name = "PATH"
     )]
     pub pnpmfile: ::std::option::Option<::std::string::String>,
-    /// Prefer cached metadata over revalidation; only hit the network on a miss
-    #[usage(long = "prefer-offline")]
+    /// Prefer cached metadata over revalidation; only hit the network on a miss.
+    #[usage(long = "prefer-offline", conflicts = "--offline")]
     pub prefer_offline: bool,
+    /// Selectively hoist matching transitive deps to the root node_modules.
+    ///
+    /// Repeatable; comma-separated values are also accepted.
     #[usage(
-        help = "Selectively hoist matching transitive deps to the root node_modules",
-        long_help = "Selectively hoist matching transitive deps to the root node_modules.\n\nRepeatable; comma-separated values are also accepted.",
         long = "public-hoist-pattern",
+        delimiter = ',',
         value_name = "GLOB",
         var
     )]
     pub public_hoist_pattern: ::std::vec::Vec<::std::string::String>,
-    #[usage(
-        help = "How to resolve version ranges",
-        long_help = "How to resolve version ranges.\n\n`highest` (pnpm's classic behavior) or `time-based` (pick the lowest satisfying direct dep and constrain transitives by a publish-date cutoff). Accepts pnpm's aliases `time` and `lowest-direct`. When omitted, falls back to the `resolution-mode` key in `.npmrc` / `aube-workspace.yaml`.",
-        long = "resolution-mode",
-        value_name = "MODE"
-    )]
+    /// How to resolve version ranges.
+    ///
+    /// `highest` (pnpm's classic behavior) or `time-based` (pick the
+    /// lowest satisfying direct dep and constrain transitives by a
+    /// publish-date cutoff). Accepts pnpm's aliases `time` and
+    /// `lowest-direct`. When omitted, falls back to the
+    /// `resolution-mode` key in `.npmrc` / `aube-workspace.yaml`.
+    #[usage(long = "resolution-mode", value_name = "MODE")]
     pub resolution_mode: ::std::option::Option<::std::string::String>,
     #[usage(
-        help = "Hoist every non-local transitive dep to the top-level `node_modules/`",
-        long_help = "Hoist every non-local transitive dep to the top-level `node_modules/`.\n\nOverrides `shamefully-hoist` / `shamefullyHoist` from `.npmrc` / `aube-workspace.yaml` when set.",
+        help = "Hoist every non-local transitive dep to the top-level `node_modules/`.",
+        long_help = "Hoist every non-local transitive dep to the top-level\n`node_modules/`.\n\nOverrides `shamefully-hoist` / `shamefullyHoist` from\n`.npmrc` / `aube-workspace.yaml` when set.",
         long = "shamefully-hoist"
     )]
     pub shamefully_hoist: bool,
-    #[usage(
-        help = "Cache post-build side effects for dependency packages",
-        long_help = "Cache post-build side effects for dependency packages.\n\nDefaults to on and only applies to packages allowed by `allowBuilds` / `onlyBuiltDependencies`. Pair with `--no-side-effects-cache` to opt out.",
-        long = "side-effects-cache"
-    )]
+    /// Cache post-build side effects for dependency packages.
+    ///
+    /// Defaults to on and only applies to packages allowed by
+    /// `allowBuilds` / `onlyBuiltDependencies`. Pair with
+    /// `--no-side-effects-cache` to opt out.
+    #[usage(long = "side-effects-cache", overrides = "--no-side-effects-cache")]
     pub side_effects_cache: bool,
+    /// Verify tarball SHA-512 before importing into the store.
+    ///
+    /// Checks each tarball against the lockfile integrity. Defaults to
+    /// `true` (pnpm parity); pair with `--no-verify-store-integrity`
+    /// to skip.
     #[usage(
-        help = "Verify tarball SHA-512 before importing into the store",
-        long_help = "Verify tarball SHA-512 before importing into the store.\n\nChecks each tarball against the lockfile integrity. Defaults to `true` (pnpm parity); pair with `--no-verify-store-integrity` to skip.",
-        long = "verify-store-integrity"
+        long = "verify-store-integrity",
+        overrides = "--no-verify-store-integrity"
     )]
     pub verify_store_integrity: bool,
-    #[usage(
-        help = "Short alias for the global `--workspace-root` flag",
-        long_help = "Short alias for the global `--workspace-root` flag.\n\nRuns install from the workspace root regardless of cwd (`pnpm install -w`).",
-        short = 'w',
-        hide
-    )]
+    /// Short alias for the global `--workspace-root` flag.
+    ///
+    /// Runs install from the workspace root regardless of cwd (`pnpm
+    /// install -w`).
+    #[usage(short = 'w', hide)]
     pub w: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
 }
 
+/// Install dependencies, then run the `test` script (pnpm compat alias).
+///
+/// Hidden from help because `aube test` already auto-installs.
 #[derive(Args)]
 pub struct InstallTestArgs {
     /// Skip auto-install check
     #[usage(long = "no-install")]
     pub no_install: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
     /// Arguments to pass to the script
@@ -2353,21 +2842,22 @@ pub struct InstallTestArgs {
 #[usage(effect = "read")]
 pub struct LaArgs {
     /// Show only devDependencies
-    #[usage(long = "dev", short = 'D')]
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
     /// List globally-installed packages instead of the project's dependency tree
     #[usage(long = "global", short = 'g')]
     pub global: bool,
     /// Show only production dependencies (skip devDependencies)
-    #[usage(long = "prod", long = "production", short = 'P')]
+    #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
-    #[usage(
-        help = "How deep to render the transitive tree",
-        long_help = "How deep to render the transitive tree.\n\n`0` (default) shows only the top-level direct deps. Pass `9999` (or any large number) for the full graph; `--depth=Infinity` is accepted for pnpm/npm compat. `--depth=-1` (pnpm spelling) lists project headers only — no direct or transitive deps.",
-        long = "depth",
-        value_name = "DEPTH",
-        default = "0"
-    )]
+    /// How deep to render the transitive tree.
+    ///
+    /// `0` (default) shows only the top-level direct deps. Pass
+    /// `9999` (or any large number) for the full graph;
+    /// `--depth=Infinity` is accepted for pnpm/npm compat.
+    /// `--depth=-1` (pnpm spelling) lists project headers only —
+    /// no direct or transitive deps.
+    #[usage(long = "depth", value_name = "DEPTH", default = "0")]
     pub depth: ::std::option::Option<::std::string::String>,
     /// Output format: one of `default`, `json`, or `parseable`
     #[usage(
@@ -2377,26 +2867,24 @@ pub struct LaArgs {
         default = "default"
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Shortcut for `--format json`",
-        long_help = "Shortcut for `--format json`.\n\nEmit a JSON array of package entries.",
-        long = "json"
-    )]
+    /// Shortcut for `--format json`.
+    ///
+    /// Emit a JSON array of package entries.
+    #[usage(long = "json", conflicts = "--format")]
     pub json: bool,
-    /// List packages from the lockfile only, without checking node_modules
+    /// List packages from the lockfile only, without checking node_modules.
     #[usage(long = "lockfile-only")]
     pub lockfile_only: bool,
-    #[usage(
-        help = "Show version and path for each entry",
-        long_help = "Show version and path for each entry.\n\nDefault output is already name + version; `--long` adds the store path for debugging.",
-        long = "long"
-    )]
+    /// Show version and path for each entry.
+    ///
+    /// Default output is already name + version; `--long` adds the
+    /// store path for debugging.
+    #[usage(long = "long")]
     pub long: bool,
-    #[usage(
-        help = "Shortcut for `--format parseable`",
-        long_help = "Shortcut for `--format parseable`.\n\nEmit one tab-separated line per package.",
-        long = "parseable"
-    )]
+    /// Shortcut for `--format parseable`.
+    ///
+    /// Emit one tab-separated line per package.
+    #[usage(long = "parseable", conflicts("--format", "--json"))]
     pub parseable: bool,
     /// Optional package name (or glob-like prefix match) to filter the output
     #[usage(arg, name = "PATTERN")]
@@ -2405,13 +2893,10 @@ pub struct LaArgs {
 
 /// Report the licenses of installed dependencies
 #[derive(Args)]
-#[usage(
-    after_long_help = "Examples:\n\n  $ aube licenses\n  ├─ Apache-2.0\n  │  └─ typescript@5.4.5\n  ├─ ISC\n  │  └─ semver@7.6.0\n  └─ MIT\n     ├─ express@4.19.2\n     ├─ lodash@4.17.21\n     └─ zod@3.23.8\n\n  # Only production deps\n  $ aube licenses --prod\n\n  # Include each package's store path\n  $ aube licenses --long\n\n  # JSON array, one object per package\n  $ aube licenses --json",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct LicensesArgs {
     /// Show only devDependencies
-    #[usage(long = "dev", short = 'D')]
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
     /// Emit a JSON array keyed by package instead of the default table
     #[usage(long = "json")]
@@ -2420,58 +2905,68 @@ pub struct LicensesArgs {
     #[usage(long = "long")]
     pub long: bool,
     /// Show only production dependencies (skip devDependencies)
-    #[usage(long = "prod", long = "production", short = 'P')]
+    #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    #[usage(
-        arg,
-        name = "SUBCOMMAND",
-        help = "pnpm-compat subcommand marker",
-        long_help = "pnpm-compat subcommand marker.\n\n`aube licenses ls [flags...]` is accepted as a synonym for bare `aube licenses [flags...]` so scripts written for pnpm keep working. Modeled as an optional positional instead of a clap subcommand so flags can appear on either side of `ls` (subcommands swallow the parent's flags).",
-        hide,
-        choices("ls")
-    )]
+    /// pnpm-compat subcommand marker.
+    ///
+    /// `aube licenses ls [flags...]` is accepted as a synonym for
+    /// bare `aube licenses [flags...]` so scripts written for pnpm
+    /// keep working. Modeled as an optional positional instead of a
+    /// clap subcommand so flags can appear on either side of `ls`
+    /// (subcommands swallow the parent's flags).
+    #[usage(arg, name = "SUBCOMMAND", hide, choices("ls"))]
     pub subcommand: ::std::option::Option<::std::string::String>,
 }
 
@@ -2479,12 +2974,15 @@ pub struct LicensesArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct LinkArgs {
-    #[usage(
-        help = "Register into (or resolve from) the global link registry",
-        long_help = "Register into (or resolve from) the global link registry.\n\nThe registry lives at `$AUBE_HOME/global-links`. Default behavior for bare `aube link` / `aube link <name>` — the flag exists for pnpm parity and makes the intent explicit.",
-        long = "global",
-        short = 'g'
-    )]
+    /// Register into (or resolve from) the global link registry.
+    ///
+    /// The registry lives at `$XDG_CACHE_HOME/aube/global-links`,
+    /// `$HOME/.cache/aube/global-links` when `XDG_CACHE_HOME` is
+    /// unset, or `%LOCALAPPDATA%\aube\global-links` on Windows.
+    /// Default behavior for bare `aube link` /
+    /// `aube link <name>` — the flag exists for pnpm parity and makes
+    /// the intent explicit.
+    #[usage(long = "global", short = 'g')]
     pub global: bool,
     /// Package name, or path to a local directory
     #[usage(arg, name = "PACKAGE")]
@@ -2499,21 +2997,22 @@ pub struct LinkArgs {
 )]
 pub struct ListArgs {
     /// Show only devDependencies
-    #[usage(long = "dev", short = 'D')]
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
     /// List globally-installed packages instead of the project's dependency tree
     #[usage(long = "global", short = 'g')]
     pub global: bool,
     /// Show only production dependencies (skip devDependencies)
-    #[usage(long = "prod", long = "production", short = 'P')]
+    #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
-    #[usage(
-        help = "How deep to render the transitive tree",
-        long_help = "How deep to render the transitive tree.\n\n`0` (default) shows only the top-level direct deps. Pass `9999` (or any large number) for the full graph; `--depth=Infinity` is accepted for pnpm/npm compat. `--depth=-1` (pnpm spelling) lists project headers only — no direct or transitive deps.",
-        long = "depth",
-        value_name = "DEPTH",
-        default = "0"
-    )]
+    /// How deep to render the transitive tree.
+    ///
+    /// `0` (default) shows only the top-level direct deps. Pass
+    /// `9999` (or any large number) for the full graph;
+    /// `--depth=Infinity` is accepted for pnpm/npm compat.
+    /// `--depth=-1` (pnpm spelling) lists project headers only —
+    /// no direct or transitive deps.
+    #[usage(long = "depth", value_name = "DEPTH", default = "0")]
     pub depth: ::std::option::Option<::std::string::String>,
     /// Output format: one of `default`, `json`, or `parseable`
     #[usage(
@@ -2523,26 +3022,24 @@ pub struct ListArgs {
         default = "default"
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Shortcut for `--format json`",
-        long_help = "Shortcut for `--format json`.\n\nEmit a JSON array of package entries.",
-        long = "json"
-    )]
+    /// Shortcut for `--format json`.
+    ///
+    /// Emit a JSON array of package entries.
+    #[usage(long = "json", conflicts = "--format")]
     pub json: bool,
-    /// List packages from the lockfile only, without checking node_modules
+    /// List packages from the lockfile only, without checking node_modules.
     #[usage(long = "lockfile-only")]
     pub lockfile_only: bool,
-    #[usage(
-        help = "Show version and path for each entry",
-        long_help = "Show version and path for each entry.\n\nDefault output is already name + version; `--long` adds the store path for debugging.",
-        long = "long"
-    )]
+    /// Show version and path for each entry.
+    ///
+    /// Default output is already name + version; `--long` adds the
+    /// store path for debugging.
+    #[usage(long = "long")]
     pub long: bool,
-    #[usage(
-        help = "Shortcut for `--format parseable`",
-        long_help = "Shortcut for `--format parseable`.\n\nEmit one tab-separated line per package.",
-        long = "parseable"
-    )]
+    /// Shortcut for `--format parseable`.
+    ///
+    /// Emit one tab-separated line per package.
+    #[usage(long = "parseable", conflicts("--format", "--json"))]
     pub parseable: bool,
     /// Optional package name (or glob-like prefix match) to filter the output
     #[usage(arg, name = "PATTERN")]
@@ -2554,21 +3051,22 @@ pub struct ListArgs {
 #[usage(effect = "read")]
 pub struct LlArgs {
     /// Show only devDependencies
-    #[usage(long = "dev", short = 'D')]
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
     /// List globally-installed packages instead of the project's dependency tree
     #[usage(long = "global", short = 'g')]
     pub global: bool,
     /// Show only production dependencies (skip devDependencies)
-    #[usage(long = "prod", long = "production", short = 'P')]
+    #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
-    #[usage(
-        help = "How deep to render the transitive tree",
-        long_help = "How deep to render the transitive tree.\n\n`0` (default) shows only the top-level direct deps. Pass `9999` (or any large number) for the full graph; `--depth=Infinity` is accepted for pnpm/npm compat. `--depth=-1` (pnpm spelling) lists project headers only — no direct or transitive deps.",
-        long = "depth",
-        value_name = "DEPTH",
-        default = "0"
-    )]
+    /// How deep to render the transitive tree.
+    ///
+    /// `0` (default) shows only the top-level direct deps. Pass
+    /// `9999` (or any large number) for the full graph;
+    /// `--depth=Infinity` is accepted for pnpm/npm compat.
+    /// `--depth=-1` (pnpm spelling) lists project headers only —
+    /// no direct or transitive deps.
+    #[usage(long = "depth", value_name = "DEPTH", default = "0")]
     pub depth: ::std::option::Option<::std::string::String>,
     /// Output format: one of `default`, `json`, or `parseable`
     #[usage(
@@ -2578,26 +3076,24 @@ pub struct LlArgs {
         default = "default"
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Shortcut for `--format json`",
-        long_help = "Shortcut for `--format json`.\n\nEmit a JSON array of package entries.",
-        long = "json"
-    )]
+    /// Shortcut for `--format json`.
+    ///
+    /// Emit a JSON array of package entries.
+    #[usage(long = "json", conflicts = "--format")]
     pub json: bool,
-    /// List packages from the lockfile only, without checking node_modules
+    /// List packages from the lockfile only, without checking node_modules.
     #[usage(long = "lockfile-only")]
     pub lockfile_only: bool,
-    #[usage(
-        help = "Show version and path for each entry",
-        long_help = "Show version and path for each entry.\n\nDefault output is already name + version; `--long` adds the store path for debugging.",
-        long = "long"
-    )]
+    /// Show version and path for each entry.
+    ///
+    /// Default output is already name + version; `--long` adds the
+    /// store path for debugging.
+    #[usage(long = "long")]
     pub long: bool,
-    #[usage(
-        help = "Shortcut for `--format parseable`",
-        long_help = "Shortcut for `--format parseable`.\n\nEmit one tab-separated line per package.",
-        long = "parseable"
-    )]
+    /// Shortcut for `--format parseable`.
+    ///
+    /// Emit one tab-separated line per package.
+    #[usage(long = "parseable", conflicts("--format", "--json"))]
     pub parseable: bool,
     /// Optional package name (or glob-like prefix match) to filter the output
     #[usage(arg, name = "PATTERN")]
@@ -2608,57 +3104,71 @@ pub struct LlArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct LoginArgs {
-    /// Authentication flow: `legacy` (token paste; default) or `web` (OAuth flow against `{registry}/-/v1/login`)
-    #[usage(long = "auth-type", value_name = "TYPE", default = "legacy")]
+    #[usage(
+        help = "Authentication flow: `legacy` (token paste; default) or `web` (OAuth flow against `{registry}/-/v1/login`).",
+        long_help = "Authentication flow: `legacy` (token paste; default) or `web`\n(OAuth flow against `{registry}/-/v1/login`).",
+        long = "auth-type",
+        value_name = "TYPE",
+        default = "legacy"
+    )]
     pub auth_type: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Scope to bind this registry to (e.g. `@myorg`)",
-        long_help = "Scope to bind this registry to (e.g. `@myorg`).\n\nWhen set, the scope->registry mapping is also written to `~/.npmrc`.",
-        long = "scope",
-        value_name = "SCOPE"
-    )]
+    /// Scope to bind this registry to (e.g. `@myorg`).
+    ///
+    /// When set, the scope->registry mapping is also written to
+    /// `~/.npmrc`.
+    #[usage(long = "scope", value_name = "SCOPE")]
     pub scope: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
 }
 
@@ -2666,50 +3176,60 @@ pub struct LoginArgs {
 #[derive(Args)]
 #[usage(effect = "destructive")]
 pub struct LogoutArgs {
-    /// Scope whose registry mapping should also be removed (e.g. `@myorg`)
+    /// Scope whose registry mapping should also be removed (e.g. `@myorg`).
     #[usage(long = "scope", value_name = "SCOPE")]
     pub scope: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
 }
 
@@ -2723,16 +3243,13 @@ pub struct NodeArgs {
 
 /// Report dependencies whose installed version lags behind the registry
 #[derive(Args)]
-#[usage(
-    after_long_help = "Examples:\n\n  $ aube outdated\n  Package     Current  Wanted   Latest\n  lodash      4.17.20  4.17.21  4.17.21\n  typescript  5.3.3    5.3.3    5.4.5\n  zod         3.22.4   3.22.4   3.23.8\n\n  # Also print the package.json specifier and dep type\n  $ aube outdated --long\n  Package     Current  Wanted   Latest\n  lodash      4.17.20  4.17.21  4.17.21\n  typescript  5.3.3    5.3.3    5.4.5\n\n    lodash (dependencies): ^4.17.20\n    typescript (devDependencies): ^5.3.0\n\n  # Filter by prefix\n  $ aube outdated '@babel/*'\n\n  # Machine-readable (pnpm-compatible shape)\n  $ aube outdated --json\n  {\n    \"lodash\": {\n      \"current\": \"4.17.20\",\n      \"wanted\": \"4.17.21\",\n      \"latest\": \"4.17.21\"\n    }\n  }\n\n  # Nothing to report exits 0\n  $ aube outdated\n  All dependencies up to date.",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct OutdatedArgs {
     /// Show only devDependencies
-    #[usage(long = "dev", short = 'D')]
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
-    /// Check globally-installed packages instead of the current project
-    #[usage(long = "global", short = 'g')]
+    /// Check globally-installed packages instead of the current project.
+    #[usage(long = "global", short = 'g', conflicts = "--workspace-root")]
     pub global: bool,
     /// Emit a JSON object keyed by package name instead of the default table
     #[usage(long = "json")]
@@ -2741,57 +3258,67 @@ pub struct OutdatedArgs {
     #[usage(long = "long")]
     pub long: bool,
     /// Show only production dependencies (skip devDependencies)
-    #[usage(long = "prod", long = "production", short = 'P')]
+    #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
-    #[usage(
-        help = "Operate on the workspace root regardless of cwd",
-        long_help = "Operate on the workspace root regardless of cwd.\n\nMirrors pnpm's `-w/--workspace-root`: from a sub-package, `aube outdated -w` reports the root manifest's deps instead of the sub-package's. No-op when paired with `-r` / `--filter` (those already drive workspace selection from the root).",
-        long = "workspace-root",
-        long = "workspace",
-        short = 'w'
-    )]
+    /// Operate on the workspace root regardless of cwd.
+    ///
+    /// Mirrors pnpm's `-w/--workspace-root`: from a sub-package,
+    /// `aube outdated -w` reports the root manifest's deps instead
+    /// of the sub-package's. No-op when paired with `-r` / `--filter`
+    /// (those already drive workspace selection from the root).
+    #[usage(long = "workspace-root", long = "workspace", short = 'w')]
     pub workspace_root: bool,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
     /// Optional package name (prefix match) to filter the report
     #[usage(arg, name = "PATTERN")]
@@ -2802,50 +3329,66 @@ pub struct OutdatedArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct OwnerArgs {
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    /// Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints
-    #[usage(arg, name = "ARGS", hide, double_dash = "automatic")]
+    #[usage(
+        arg,
+        name = "ARGS",
+        help = "Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints.",
+        long_help = "Unused; captured so `aube <cmd> foo bar` parses instead of\nerroring on unexpected args before the fallback message prints.",
+        hide,
+        double_dash = "automatic"
+    )]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -2856,7 +3399,7 @@ pub struct PackArgs {
     /// Don't write the tarball; print what would be packed
     #[usage(long = "dry-run")]
     pub dry_run: bool,
-    /// Skip `prepack` / `prepare` / `postpack` lifecycle scripts
+    /// Skip `prepack` / `prepare` / `postpack` lifecycle scripts.
     #[usage(long = "ignore-scripts")]
     pub ignore_scripts: bool,
     /// Print the result as a JSON object
@@ -2865,47 +3408,57 @@ pub struct PackArgs {
     /// Directory to write the tarball into (default: current directory)
     #[usage(long = "pack-destination", value_name = "DIR")]
     pub pack_destination: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
 }
 
@@ -2913,25 +3466,26 @@ pub struct PackArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct PatchArgs {
-    #[usage(
-        help = "Directory to extract the writable copy into",
-        long_help = "Directory to extract the writable copy into.\n\nWhen omitted, `aube` picks a fresh temp dir under the system tmpdir.",
-        long = "edit-dir",
-        value_name = "DIR"
-    )]
+    /// Directory to extract the writable copy into.
+    ///
+    /// When omitted, `aube` picks a fresh temp dir under the system
+    /// tmpdir.
+    #[usage(long = "edit-dir", value_name = "DIR")]
     pub edit_dir: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Ignore any existing patch entry for this package",
-        long_help = "Ignore any existing patch entry for this package.\n\nExtracts a pristine copy from `node_modules` rather than re-applying the existing patch first. Accepted for pnpm parity; aube already extracts from the *linked* (post-patch) tree, so this flag is effectively informational here.",
-        long = "ignore-existing"
-    )]
+    /// Ignore any existing patch entry for this package.
+    ///
+    /// Extracts a pristine copy from `node_modules` rather than
+    /// re-applying the existing patch first. Accepted for pnpm parity;
+    /// aube already extracts from the *linked* (post-patch) tree, so
+    /// this flag is effectively informational here.
+    #[usage(long = "ignore-existing")]
     pub ignore_existing: bool,
-    #[usage(
-        arg,
-        name = "PACKAGE",
-        help = "Package spec, `<name>@<version>`",
-        long_help = "Package spec, `<name>@<version>`.\n\nThe package must already be installed in `node_modules` (we copy from the linked virtual store, not from the registry, so the layout matches what install would later patch)."
-    )]
+    /// Package spec, `<name>@<version>`.
+    ///
+    /// The package must already be installed in `node_modules` (we
+    /// copy from the linked virtual store, not from the registry, so
+    /// the layout matches what install would later patch).
+    #[usage(arg, name = "PACKAGE")]
     pub package: ::std::string::String,
 }
 
@@ -2940,19 +3494,18 @@ pub struct PatchArgs {
 #[usage(effect = "write")]
 pub struct PatchCommitArgs {
     #[usage(
-        help = "Where to write the generated `.patch` file, relative to the project root",
-        long_help = "Where to write the generated `.patch` file, relative to the project root.\n\nDefaults to `patches`.",
+        help = "Where to write the generated `.patch` file, relative to the project root.",
+        long_help = "Where to write the generated `.patch` file, relative to the\nproject root.\n\nDefaults to `patches`.\n\nIgnored when the dependency already has a declared patch path;\nthe existing path is always reused in that case.",
         long = "patches-dir",
         value_name = "DIR",
         default = "patches"
     )]
     pub patches_dir: ::std::option::Option<::std::string::String>,
-    #[usage(
-        arg,
-        name = "DIR",
-        help = "The edit directory printed by `aube patch`",
-        long_help = "The edit directory printed by `aube patch`.\n\nThe matching source snapshot is read from a sibling `source/` dir, located via the `.aube_patch_state.json` sidecar."
-    )]
+    /// The edit directory printed by `aube patch`.
+    ///
+    /// The matching source snapshot is read from a sibling `source/`
+    /// dir, located via the `.aube_patch_state.json` sidecar.
+    #[usage(arg, name = "DIR")]
     pub dir: ::std::string::String,
 }
 
@@ -2960,12 +3513,11 @@ pub struct PatchCommitArgs {
 #[derive(Args)]
 #[usage(effect = "destructive")]
 pub struct PatchRemoveArgs {
-    #[usage(
-        arg,
-        name = "PATCH",
-        help = "Patch keys to remove, formatted as `<name>@<version>`",
-        long_help = "Patch keys to remove, formatted as `<name>@<version>`.\n\nSame shape used as the `pnpm.patchedDependencies` map key. With no arguments, every declared patch is removed."
-    )]
+    /// Patch keys to remove, formatted as `<name>@<version>`.
+    ///
+    /// Same shape used as the `pnpm.patchedDependencies` map key. With
+    /// no arguments, every declared patch is removed.
+    #[usage(arg, name = "PATCH")]
     pub patch: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -2975,7 +3527,7 @@ pub struct PatchRemoveArgs {
     effect = "read"
 )]
 pub struct PeersCheckArgs {
-    /// Emit a JSON report instead of the human-readable tree
+    /// Emit a JSON report instead of the human-readable tree.
     #[usage(long = "json")]
     pub json: bool,
 }
@@ -2990,11 +3542,11 @@ pub struct PeersArgs {
 
 #[derive(Subcommands)]
 pub enum PeersCommands {
-    /// Check for unmet and missing peer-dependency issues by reading the lockfile
+    /// Check for unmet and missing peer-dependency issues by reading the lockfile.
     #[usage(
         name = "check",
-        help = "Check for unmet and missing peer-dependency issues by reading the lockfile",
-        long_help = "Check for unmet and missing peer-dependency issues by reading the lockfile.\n\nExits with status 1 if any issue is reported."
+        help = "Check for unmet and missing peer-dependency issues by reading the lockfile.",
+        long_help = "Check for unmet and missing peer-dependency issues by reading the\nlockfile.\n\nExits with status 1 if any issue is reported."
     )]
     Check(Box<PeersCheckArgs>),
 }
@@ -3003,70 +3555,85 @@ pub enum PeersCommands {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct PkgArgs {
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    /// Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints
-    #[usage(arg, name = "ARGS", hide, double_dash = "automatic")]
+    #[usage(
+        arg,
+        name = "ARGS",
+        help = "Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints.",
+        long_help = "Unused; captured so `aube <cmd> foo bar` parses instead of\nerroring on unexpected args before the fallback message prints.",
+        hide,
+        double_dash = "automatic"
+    )]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
 /// Print the current package prefix directory
 #[derive(Args)]
-#[usage(
-    after_long_help = "Examples:\n\n  $ aube prefix\n  /home/user/project\n\n  $ aube prefix -g\n  /home/user/.local/share/pnpm",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct PrefixArgs {
     /// Print the global prefix directory instead of the project's root
     #[usage(long = "global", short = 'g')]
     pub global: bool,
 }
 
+/// Remove extraneous packages from project `node_modules`.
+///
+/// Reads the lockfile, computes the packages still reachable from each
+/// importer, and removes stale top-level links, stale virtual-store entries,
+/// and dangling .bin links. Does not modify package.json or the lockfile.
 #[derive(Args)]
-#[usage(
-    after_long_help = "Global store cleanup: use `aube store prune` to clean unreferenced files from the global\ncontent-addressable store.",
-    effect = "write"
-)]
+#[usage(effect = "write")]
 pub struct PruneArgs {
     /// Remove devDependencies from node_modules
     #[usage(long = "prod", long = "production", short = 'P')]
@@ -3080,146 +3647,169 @@ pub struct PruneArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct PublishArgs {
-    #[usage(
-        help = "Publish as `public` or `restricted`",
-        long_help = "Publish as `public` or `restricted`.\n\nSent as the `access` field in the publish body; scoped packages default to `restricted` on the registry side, so pass `--access=public` to make a new scoped package world-readable.",
-        long = "access",
-        value_name = "LEVEL"
-    )]
+    /// Publish as `public` or `restricted`.
+    ///
+    /// Sent as the `access` field in the publish body; scoped
+    /// packages default to `restricted` on the registry side, so
+    /// pass `--access=public` to make a new scoped package
+    /// world-readable.
+    #[usage(long = "access", value_name = "LEVEL")]
     pub access: ::std::option::Option<::std::string::String>,
-    /// Don't upload; print what would be published
+    /// Don't upload; print what would be published.
     #[usage(long = "dry-run")]
     pub dry_run: bool,
-    #[usage(
-        help = "Republish even when the version is already on the registry",
-        long_help = "Republish even when the version is already on the registry.\n\nBy default `aube publish` issues a GET before the PUT and refuses to proceed when the version exists, surfacing a clear error instead of relying on the registry to return 409. In `--recursive` / `--filter` mode, `--force` overrides the silent \"already-published\" skip so every selected workspace package is re-PUT. The registry must still accept the republish — npm's public registry rejects re-publishes outright; Verdaccio and most private mirrors allow them.",
-        long = "force"
-    )]
+    /// Republish even when the version is already on the registry.
+    ///
+    /// By default `aube publish` issues a GET before the PUT and
+    /// refuses to proceed when the version exists, surfacing a clear
+    /// error instead of relying on the registry to return 409. In
+    /// `--recursive` / `--filter` mode, `--force` overrides the
+    /// silent "already-published" skip so every selected workspace
+    /// package is re-PUT. The registry must still accept the
+    /// republish — npm's public registry rejects re-publishes
+    /// outright; Verdaccio and most private mirrors allow them.
+    #[usage(long = "force")]
     pub force: bool,
-    #[usage(
-        help = "Skip publish lifecycle scripts",
-        long_help = "Skip publish lifecycle scripts.\n\nSuppresses `prepublishOnly`, `prepublish`, `prepack`, `prepare`, `postpack`, `publish`, and `postpublish` scripts for this publish.",
-        long = "ignore-scripts"
-    )]
+    /// Skip publish lifecycle scripts.
+    ///
+    /// Suppresses `prepublishOnly`, `prepublish`, `prepack`, `prepare`,
+    /// `postpack`, `publish`, and `postpublish` scripts for this
+    /// publish.
+    #[usage(long = "ignore-scripts")]
     pub ignore_scripts: bool,
-    #[usage(
-        help = "Emit the publish result as JSON",
-        long_help = "Emit the publish result as JSON.\n\nOutput matches `npm publish --json` / `pnpm publish --json`; recursive multi-package publishes emit an array.",
-        long = "json"
-    )]
+    /// Emit the publish result as JSON.
+    ///
+    /// Output matches `npm publish --json` / `pnpm publish --json`; recursive multi-package publishes emit an array.
+    #[usage(long = "json")]
     pub json: bool,
-    #[usage(
-        help = "Skip the \"working tree must be clean\" check",
-        long_help = "Skip the \"working tree must be clean\" check.\n\nWhen unset, aube refuses to publish from a dirty git checkout (uncommitted tracked changes) or from a detached / non-release branch.",
-        long = "no-git-checks"
-    )]
+    /// Skip the "working tree must be clean" check.
+    ///
+    /// When unset, aube refuses to publish from a dirty git checkout
+    /// (uncommitted tracked changes) or from a detached / non-release
+    /// branch.
+    #[usage(long = "no-git-checks")]
     pub no_git_checks: bool,
-    #[usage(
-        help = "One-time password for registries that require 2FA",
-        long_help = "One-time password for registries that require 2FA.\n\nSent verbatim as the `npm-otp` header.",
-        long = "otp",
-        value_name = "CODE"
-    )]
+    /// One-time password for registries that require 2FA.
+    ///
+    /// Sent verbatim as the `npm-otp` header.
+    #[usage(long = "otp", value_name = "CODE")]
     pub otp: ::std::option::Option<::std::string::String>,
     #[usage(
-        help = "Generate a SLSA provenance attestation and attach it to the publish body",
-        long_help = "Generate a SLSA provenance attestation and attach it to the publish body.\n\nRequires an OIDC-capable CI environment (GitHub Actions with `id-token: write`, GitLab CI, Buildkite, or CircleCI) — aube signs via the Sigstore public-good instance (Fulcio + Rekor) and attaches the resulting bundle so registries that honor npm's provenance protocol light up the \"provenance\" badge on the published version.",
+        help = "Generate a SLSA provenance attestation and attach it to the publish body.",
+        long_help = "Generate a SLSA provenance attestation and attach it to the publish\nbody.\n\nRequires an OIDC-capable CI environment (GitHub Actions with\n`id-token: write`, GitLab CI, Buildkite, or CircleCI) — aube\nsigns via the Sigstore public-good instance (Fulcio + Rekor)\nand attaches the resulting bundle so registries that honor\nnpm's provenance protocol light up the \"provenance\" badge on\nthe published version.",
         long = "provenance"
     )]
     pub provenance: bool,
-    /// Default dist-tag to publish under (default: `latest`)
+    /// Default dist-tag to publish under (default: `latest`).
     #[usage(long = "tag", value_name = "TAG")]
     pub tag: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Tarball or package directory to publish (default: current package).
+    #[usage(arg, name = "TARBALL|FOLDER")]
+    pub tarball_folder: ::std::option::Option<::std::string::String>,
 }
 
+/// Alias for `clean` — remove `node_modules` across every workspace project.
+///
+/// A `purge` script in the root `package.json` overrides the built-in.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct PurgeArgs {
-    #[usage(
-        help = "Also remove lockfiles at the workspace root",
-        long_help = "Also remove lockfiles at the workspace root.\n\nTargets `aube-lock.yaml`, `pnpm-lock.yaml`, `package-lock.json`, `npm-shrinkwrap.json`, `yarn.lock`, and `bun.lock`.",
-        long = "lockfile",
-        short = 'l'
-    )]
+    /// Also remove lockfiles at the workspace root.
+    ///
+    /// Targets `aube-lock.yaml`, `pnpm-lock.yaml`, `package-lock.json`,
+    /// `npm-shrinkwrap.json`, `yarn.lock`, and `bun.lock`.
+    #[usage(long = "lockfile", short = 'l')]
     pub lockfile: bool,
 }
 
 /// Query packages in the resolved dependency graph
 #[derive(Args)]
-#[usage(
-    after_long_help = "Inspired by vlt's dependency selector model, but currently local-only:\nselectors read aube's lockfile graph without registry or security-service calls.\n\nExamples:\n\n  # Every reachable package\n  $ aube query '*'\n\n  # Exact package name\n  $ aube query '[name=react]'\n\n  # Direct prod dependencies with install scripts\n  $ aube query ':prod:scripts'\n\n  # Local file/link/git/tarball dependencies\n  $ aube query ':type(file), :type(link), :type(git), :type(remote)'\n\n  # Machine-readable\n  $ aube query ':bin' --json",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct QueryArgs {
-    /// Only match devDependency roots and their transitive deps
-    #[usage(long = "dev", short = 'D')]
+    /// Only match devDependency roots and their transitive deps.
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
-    /// Only match production/optional roots and their transitive deps
-    #[usage(long = "prod", long = "production", short = 'P')]
+    /// Only match production/optional roots and their transitive deps.
+    #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
-    /// Emit a JSON array instead of the default text layout
-    #[usage(long = "json")]
+    /// Emit a JSON array instead of the default text layout.
+    #[usage(long = "json", conflicts = "--parseable")]
     pub json: bool,
-    /// Emit tab-separated rows: dep_path, name, version, source, flags
+    /// Emit tab-separated rows: dep_path, name, version, source, flags.
     #[usage(long = "parseable")]
     pub parseable: bool,
-    #[usage(
-        arg,
-        name = "SELECTOR",
-        help = "Selector expression",
-        long_help = "Selector expression.\n\nSupports `*`, bare package names, `[name=value]`, `[version=value]`, `[license=value]`, `[depPath=value]`, `[source=value]`, `:prod`, `:dev`, `:optional`, `:peer`, `:transitive`, `:scripts`, `:bin`, `:deprecated`, `:license(value)`, and `:type(value)`."
-    )]
+    /// Selector expression.
+    ///
+    /// Supports `*`, bare package names, `[name=value]`,
+    /// `[version=value]`, `[license=value]`, `[depPath=value]`,
+    /// `[source=value]`, `:prod`, `:dev`, `:optional`, `:peer`,
+    /// `:transitive`, `:scripts`, `:bin`, `:deprecated`,
+    /// `:license(value)`, and `:type(value)`.
+    #[usage(arg, name = "SELECTOR")]
     pub selector: ::std::string::String,
 }
 
-/// Re-run root lifecycle scripts and allowlisted dependency builds
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct RebuildArgs {
-    /// Optional package names. When supplied, only matching deps' scripts run; the root lifecycle hooks (preinstall, install, postinstall, prepare) are skipped. Match is by graph `name`, not by `dep_path`. The active `allowBuilds` / `onlyBuiltDependencies` policy is bypassed for the named deps — naming the package is the explicit opt-in
-    #[usage(arg, name = "PACKAGE")]
+    #[usage(
+        arg,
+        name = "PACKAGE",
+        help = "Optional package names. When supplied, only matching deps' scripts run; the root lifecycle hooks (preinstall, install, postinstall, prepare) are skipped. Match is by graph `name`, not by `dep_path`. The active `allowBuilds` / `onlyBuiltDependencies` policy is bypassed for the named deps — naming the package is the explicit opt-in.",
+        long_help = "Optional package names. When supplied, only matching deps'\nscripts run; the root lifecycle hooks (preinstall, install,\npostinstall, prepare) are skipped. Match is by graph `name`,\nnot by `dep_path`. The active `allowBuilds` /\n`onlyBuiltDependencies` policy is bypassed for the named\ndeps — naming the package is the explicit opt-in."
+    )]
     pub package: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -3244,76 +3834,108 @@ pub struct RemoveArgs {
     /// Skip root lifecycle scripts during the chained reinstall
     #[usage(long = "ignore-scripts")]
     pub ignore_scripts: bool,
-    #[usage(
-        help = "Remove the dependency from the workspace root's `package.json`",
-        long_help = "Remove the dependency from the workspace root's `package.json`.\n\nApplies regardless of the current working directory: walks up from cwd looking for `aube-workspace.yaml`, `pnpm-workspace.yaml`, or a `package.json` with a `workspaces` field and runs the remove against that directory. Takes precedence over `--filter` when both are supplied (same as `add --workspace`).",
-        long = "workspace",
-        short = 'w'
-    )]
+    /// Remove the dependency from the workspace root's `package.json`.
+    ///
+    /// Applies regardless of the current working directory: walks up
+    /// from cwd looking for `aube-workspace.yaml`, `pnpm-workspace.yaml`,
+    /// or a `package.json` with a `workspaces` field and runs the
+    /// remove against that directory. Takes precedence over `--filter`
+    /// when both are supplied (same as `add --workspace`).
+    #[usage(long = "workspace", short = 'w', conflicts = "--global")]
     pub workspace: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
     /// Package(s) to remove
@@ -3327,69 +3949,99 @@ pub struct RestartArgs {
     /// Skip auto-install check
     #[usage(long = "no-install")]
     pub no_install: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
     /// Arguments to pass to the script
@@ -3399,10 +4051,7 @@ pub struct RestartArgs {
 
 /// Print the path to `node_modules`
 #[derive(Args)]
-#[usage(
-    after_long_help = "Examples:\n\n  $ aube root\n  /home/user/project/node_modules\n\n  $ aube root -g\n  /home/user/.local/share/aube/global/node_modules",
-    effect = "read"
-)]
+#[usage(effect = "read")]
 pub struct RootArgs {
     /// Print the global package directory instead of the project's
     #[usage(long = "global", short = 'g')]
@@ -3412,158 +4061,205 @@ pub struct RootArgs {
 /// Run a script defined in package.json
 #[derive(Args)]
 pub struct RunArgs {
-    #[usage(
-        help = "Print the nearest `package.json`'s scripts for shell completion",
-        long_help = "Print the nearest `package.json`'s scripts for shell completion.\n\nConsumed by the `complete \"script\"` node in the usage spec, not meant to be typed by hand.",
-        long = "complete",
-        hide
-    )]
+    /// Print the nearest `package.json`'s scripts for shell completion.
+    ///
+    /// Consumed by the `complete "script"` node in the usage spec, not
+    /// meant to be typed by hand.
+    #[usage(long = "complete", hide)]
     pub complete: bool,
     /// Don't error if the script is missing from package.json
     #[usage(long = "if-present")]
     pub if_present: bool,
-    /// Forward `--inspect` to a Node-backed script or local binary
-    #[usage(long = "inspect", value_name = "[HOST:]PORT", value_optional)]
-    pub inspect: ::std::option::Option<::std::string::String>,
-    /// Forward `--inspect-brk` to a Node-backed script or local binary
-    #[usage(long = "inspect-brk", value_name = "[HOST:]PORT", value_optional)]
-    pub inspect_brk: ::std::option::Option<::std::string::String>,
+    /// Forward `--inspect` to a Node-backed script or local binary.
     #[usage(
-        help = "Continue recursive execution after a script fails",
-        long_help = "Continue recursive execution after a script fails.\n\nParsed for pnpm compatibility; aube's sequential fanout still stops on first failure.",
-        long = "no-bail"
+        long = "inspect",
+        require_equals,
+        default_missing = "",
+        value_name = "[[HOST:]PORT]",
+        value_optional
     )]
+    pub inspect: ::std::option::Option<::std::string::String>,
+    /// Forward `--inspect-brk` to a Node-backed script or local binary.
+    #[usage(
+        long = "inspect-brk",
+        require_equals,
+        default_missing = "",
+        value_name = "[[HOST:]PORT]",
+        value_optional
+    )]
+    pub inspect_brk: ::std::option::Option<::std::string::String>,
+    /// Continue recursive execution after a script fails.
+    ///
+    /// Parsed for pnpm compatibility; aube's sequential fanout still
+    /// stops on first failure.
+    #[usage(long = "no-bail")]
     pub no_bail: bool,
     /// Skip auto-install check
     #[usage(long = "no-install")]
     pub no_install: bool,
-    #[usage(
-        help = "Disable topological sorting (default is on)",
-        long_help = "Disable topological sorting (default is on).\n\nWithout this, recursive runs visit packages in a deps-first order so a `build` script in a shared library finishes before a dependent app's `build` starts. Pass this to fall back to the raw workspace-listing order.",
-        long = "no-sort"
-    )]
+    /// Disable topological sorting (default is on).
+    ///
+    /// Without this, recursive runs visit packages in a deps-first
+    /// order so a `build` script in a shared library finishes before a
+    /// dependent app's `build` starts. Pass this to fall back to the
+    /// raw workspace-listing order.
+    #[usage(long = "no-sort", overrides = "--sort")]
     pub no_sort: bool,
-    #[usage(
-        help = "Run the script in every matched workspace package concurrently",
-        long_help = "Run the script in every matched workspace package concurrently.\n\nUnbounded parallelism. Pair with `--workspace-concurrency=N` to cap the worker count. Single-package runs ignore this flag. First non-zero exit fails the whole run, but siblings are allowed to finish so their output isn't truncated. Child stdio is piped and lines are emitted with a `<package>: ` prefix; pass `--reporter-hide-prefix` to drop the labels.",
-        long = "parallel"
-    )]
+    /// Run the script in every matched workspace package concurrently.
+    ///
+    /// Unbounded parallelism. Pair with `--workspace-concurrency=N` to
+    /// cap the worker count. Single-package runs ignore this flag.
+    /// First non-zero exit fails the whole run, but siblings are
+    /// allowed to finish so their output isn't truncated. Child
+    /// stdio is piped and lines are emitted with a `<package>: `
+    /// prefix; pass `--reporter-hide-prefix` to drop the labels.
+    #[usage(long = "parallel")]
     pub parallel: bool,
-    #[usage(
-        help = "Write a recursive run summary file",
-        long_help = "Write a recursive run summary file.\n\nParsed for pnpm compatibility.",
-        long = "report-summary"
-    )]
+    /// Write a recursive run summary file.
+    ///
+    /// Parsed for pnpm compatibility.
+    #[usage(long = "report-summary")]
     pub report_summary: bool,
-    #[usage(
-        help = "Hide the `<package>: ` label on parallel-run output lines",
-        long_help = "Hide the `<package>: ` label on parallel-run output lines.\n\nLines are still piped through aube (so the line breaks are clean even when many packages run at once), but the source package isn't named on each line. Sequential runs ignore this flag.",
-        long = "reporter-hide-prefix"
-    )]
+    /// Hide the `<package>: ` label on parallel-run output lines.
+    ///
+    /// Lines are still piped through aube (so the line breaks are
+    /// clean even when many packages run at once), but the source
+    /// package isn't named on each line. Sequential runs ignore this
+    /// flag.
+    #[usage(long = "reporter-hide-prefix")]
     pub reporter_hide_prefix: bool,
-    #[usage(
-        help = "Resume recursive execution starting at this package name",
-        long_help = "Resume recursive execution starting at this package name.\n\nAfter the topo sort and `--reverse` are applied, packages before the named one in the resulting order are skipped. Errors if the name isn't in the matched workspace set.",
-        long = "resume-from",
-        value_name = "PACKAGE"
-    )]
+    /// Resume recursive execution starting at this package name.
+    ///
+    /// After the topo sort and `--reverse` are applied, packages
+    /// before the named one in the resulting order are skipped. Errors
+    /// if the name isn't in the matched workspace set.
+    #[usage(long = "resume-from", value_name = "PACKAGE")]
     pub resume_from: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Reverse the recursive execution order (after topo sort)",
-        long_help = "Reverse the recursive execution order (after topo sort).\n\nUseful for teardown-style scripts where dependents must shut down before their deps.",
-        long = "reverse"
-    )]
+    /// Reverse the recursive execution order (after topo sort).
+    ///
+    /// Useful for teardown-style scripts where dependents must shut
+    /// down before their deps.
+    #[usage(long = "reverse")]
     pub reverse: bool,
-    #[usage(
-        help = "Sort recursive packages topologically (this is the default)",
-        long_help = "Sort recursive packages topologically (this is the default).\n\nPass to override an earlier `--no-sort` on the same invocation.",
-        long = "sort"
-    )]
+    /// Sort recursive packages topologically (this is the default).
+    ///
+    /// Pass to override an earlier `--no-sort` on the same invocation.
+    #[usage(long = "sort", overrides = "--no-sort")]
     pub sort: bool,
     #[usage(
-        help = "Suppress aube's wrapper output while still showing script stdout/stderr",
-        long_help = "Suppress aube's wrapper output while still showing script stdout/stderr.\n\nShort alias for the global `--silent` flag; long form is intentionally omitted to avoid shadowing the global `--silent` in clap's dispatch.",
+        help = "Suppress aube's wrapper output while still showing script stdout/stderr.",
+        long_help = "Suppress aube's wrapper output while still showing script\nstdout/stderr.\n\nShort alias for the global `--silent` flag; long form is\nintentionally omitted to avoid shadowing the global `--silent`\nin clap's dispatch.",
         short = 's'
     )]
     pub s: bool,
-    #[usage(
-        help = "Cap the number of recursive packages running at once",
-        long_help = "Cap the number of recursive packages running at once.\n\nSetting this implicitly enables parallel mode at width `N`. `0` means \"use the available CPU count\". Without this flag, `--parallel` stays unbounded.",
-        long = "workspace-concurrency",
-        value_name = "N"
-    )]
+    /// Cap the number of recursive packages running at once.
+    ///
+    /// Setting this implicitly enables parallel mode at width `N`.
+    /// `0` means "use the available CPU count". Without this flag,
+    /// `--parallel` stays unbounded.
+    #[usage(long = "workspace-concurrency", value_name = "N")]
     pub workspace_concurrency: ::std::option::Option<::std::string::String>,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
-    #[usage(
-        arg,
-        name = "SCRIPT",
-        help = "Script or local binary name",
-        long_help = "Script or local binary name.\n\nOmit on an interactive TTY to pick from `package.json` scripts. If no script matches, aube falls back to `node_modules/.bin/<name>`."
-    )]
+    /// Script or local binary name.
+    ///
+    /// Omit on an interactive TTY to pick from `package.json`
+    /// scripts. If no script matches, aube falls back to
+    /// `node_modules/.bin/<name>`.
+    #[usage(arg, name = "SCRIPT")]
     pub script: ::std::option::Option<::std::string::String>,
     /// Arguments to pass to the script
     #[usage(arg, name = "ARGS", double_dash = "automatic")]
@@ -3579,8 +4275,12 @@ pub struct RuntimeListArgs {}
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct RuntimeSetArgs {
-    /// Install for the user instead of the project (delegates to `mise use -g node@<version>` when mise manages installs)
-    #[usage(long = "global", short = 'g')]
+    #[usage(
+        help = "Install for the user instead of the project (delegates to `mise use -g node@<version>` when mise manages installs)",
+        long_help = "Install for the user instead of the project (delegates to\n`mise use -g node@<version>` when mise manages installs)",
+        long = "global",
+        short = 'g'
+    )]
     pub global: bool,
     /// `onFail` policy written to devEngines.runtime
     #[usage(long = "on-fail", value_name = "POLICY", default = "download")]
@@ -3591,8 +4291,12 @@ pub struct RuntimeSetArgs {
     /// Runtime name (only `node` is supported)
     #[usage(arg, name = "NAME")]
     pub name: ::std::string::String,
-    /// Version request: an exact version, a range (`^24`, `22`), `lts`, `latest`, or an LTS codename (`lts/jod`)
-    #[usage(arg, name = "VERSION")]
+    #[usage(
+        arg,
+        name = "VERSION",
+        help = "Version request: an exact version, a range (`^24`, `22`), `lts`, `latest`, or an LTS codename (`lts/jod`)",
+        long_help = "Version request: an exact version, a range (`^24`, `22`), `lts`,\n`latest`, or an LTS codename (`lts/jod`)"
+    )]
     pub version: ::std::string::String,
 }
 
@@ -3619,7 +4323,7 @@ pub enum RuntimeCommands {
 #[usage(effect = "read")]
 pub struct SbomArgs {
     /// Show only devDependencies
-    #[usage(long = "dev", short = 'D')]
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
     /// Exclude peer dependencies from CycloneDX output
     #[usage(long = "exclude-peers")]
@@ -3632,8 +4336,11 @@ pub struct SbomArgs {
         default = "cyclonedx"
     )]
     pub format: ::std::option::Option<::std::string::String>,
+    /// Describe the complete platform-independent lockfile graph
+    #[usage(long = "lockfile-only")]
+    pub lockfile_only: bool,
     /// Show only production dependencies (skip devDependencies)
-    #[usage(long = "prod", long = "production", short = 'P')]
+    #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
 }
 
@@ -3641,50 +4348,66 @@ pub struct SbomArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct SearchArgs {
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    /// Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints
-    #[usage(arg, name = "ARGS", hide, double_dash = "automatic")]
+    #[usage(
+        arg,
+        name = "ARGS",
+        help = "Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints.",
+        long_help = "Unused; captured so `aube <cmd> foo bar` parses instead of\nerroring on unexpected args before the fallback message prints.",
+        hide,
+        double_dash = "automatic"
+    )]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -3692,22 +4415,39 @@ pub struct SearchArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct SetArgs {
-    /// Shortcut for `--location project`
-    #[usage(long = "local")]
+    /// Shortcut for `--location project`.
+    #[usage(long = "local", conflicts = "--location")]
     pub local: bool,
+    /// Which config location to write to.
+    ///
+    /// Defaults to `user`. Writes land in `.npmrc` for the npm-shared
+    /// surface — per-host auth/cert templates, scoped registries, and
+    /// settings tagged `npmShared = true` in the settings registry
+    /// (`registry`, `proxy` / `https-proxy`, `engine-strict`,
+    /// `ignore-scripts`, etc.) — so npm and yarn read the same value.
+    /// Aube-only and pnpm-only settings, plus unknown keys, land in
+    /// aube's own config (`~/.config/aube/config.toml` at user scope,
+    /// `<cwd>/.config/aube/config.toml` at project scope) where
+    /// sibling tools don't see them.
+    ///
+    /// Dotted writes for aube map settings (`allowBuilds.<pkg>`,
+    /// `overrides.<pkg>`, …) edit one entry at a time. At project
+    /// scope (`--local`) they land in
+    /// `pnpm-workspace.yaml#<map>.<entry>` or
+    /// `package.json#aube.<map>.<entry>` if no workspace yaml exists,
+    /// the same place install reads from. User-scope dotted writes
+    /// for these maps error: aube only reads them per project.
     #[usage(
-        help = "Which config location to write to",
-        long_help = "Which config location to write to.\n\nDefaults to `user`. Writes land in `.npmrc` for the npm-shared surface — per-host auth/cert templates, scoped registries, and settings tagged `npmShared = true` in the settings registry (`registry`, `proxy` / `https-proxy`, `engine-strict`, `ignore-scripts`, etc.) — so npm and yarn read the same value. Aube-only and pnpm-only settings, plus unknown keys, land in aube's own config (`~/.config/aube/config.toml` at user scope, `<cwd>/.config/aube/config.toml` at project scope) where sibling tools don't see them.\n\nDotted writes for aube map settings (`allowBuilds.<pkg>`, `overrides.<pkg>`, …) edit one entry at a time. At project scope (`--local`) they land in `pnpm-workspace.yaml#<map>.<entry>` or `package.json#aube.<map>.<entry>` if no workspace yaml exists, the same place install reads from. User-scope dotted writes for these maps error: aube only reads them per project.",
         long = "location",
         value_name = "LOCATION",
         choices("user", "project", "global"),
         default = "user"
     )]
     pub location: ::std::option::Option<::std::string::String>,
-    /// Setting key (canonical name or `.npmrc` alias)
+    /// Setting key (canonical name or `.npmrc` alias).
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
-    /// Value to write. Stored verbatim after `key=`
+    /// Value to write. Stored verbatim after `key=`.
     #[usage(arg, name = "VALUE")]
     pub value: ::std::string::String,
 }
@@ -3716,50 +4456,66 @@ pub struct SetArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct SetScriptArgs {
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    /// Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints
-    #[usage(arg, name = "ARGS", hide, double_dash = "automatic")]
+    #[usage(
+        arg,
+        name = "ARGS",
+        help = "Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints.",
+        long_help = "Unused; captured so `aube <cmd> foo bar` parses instead of\nerroring on unexpected args before the fallback message prints.",
+        hide,
+        double_dash = "automatic"
+    )]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -3772,50 +4528,66 @@ pub struct SponsorsArgs {}
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct StageArgs {
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    /// Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints
-    #[usage(arg, name = "ARGS", hide, double_dash = "automatic")]
+    #[usage(
+        arg,
+        name = "ARGS",
+        help = "Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints.",
+        long_help = "Unused; captured so `aube <cmd> foo bar` parses instead of\nerroring on unexpected args before the fallback message prints.",
+        hide,
+        double_dash = "automatic"
+    )]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -3825,69 +4597,99 @@ pub struct StartArgs {
     /// Skip auto-install check
     #[usage(long = "no-install")]
     pub no_install: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
     /// Arguments to pass to the script
@@ -3901,69 +4703,99 @@ pub struct StopArgs {
     /// Skip auto-install check
     #[usage(long = "no-install")]
     pub no_install: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
     /// Arguments to pass to the script
@@ -3974,20 +4806,45 @@ pub struct StopArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct StoreAddArgs {
-    /// Package specs to fetch into the store
+    /// Package specs to fetch into the store.
     #[usage(arg, name = "PACKAGES", required)]
     pub packages: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Show the store path
+/// Show the store path.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct StorePathArgs {}
 
+/// Remove unreferenced packages from the global store.
+///
+/// Operates on the store printed by `aube store path`; it does not touch
+/// project node_modules directories, manifests, or lockfiles.
+///
+/// It removes global virtual-store graph entries not referenced by any
+/// registered project. Entries from older aube releases live outside the
+/// registry-managed versioned namespace and are not touched. It then prunes
+/// content-store files.
+///
+/// On reflink filesystems such as APFS or btrfs, link counts cannot prove
+/// project reachability, so content-store pruning relies on cached package
+/// indexes. Global virtual-store reachability comes from project links.
 #[derive(Args)]
 #[usage(effect = "write")]
-pub struct StorePruneArgs {}
+pub struct StorePruneArgs {
+    /// Do not actually delete anything; report what would be pruned.
+    #[usage(long = "dry-run")]
+    pub dry_run: bool,
+    /// Emit the dry-run plan as one machine-readable JSON document.
+    #[usage(long = "json", requires = "--dry-run")]
+    pub json: bool,
+}
 
+/// Verify the store against cached package indexes.
+///
+/// Confirms every file referenced by a cached package index is
+/// still present in the store and that its BLAKE3 hash matches.
+/// Exits non-zero when any corruption is detected.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct StoreStatusArgs {}
@@ -4002,29 +4859,21 @@ pub struct StoreArgs {
 
 #[derive(Subcommands)]
 pub enum StoreCommands {
-    /// Add one or more packages to the global store without linking them into any project
+    /// Add one or more packages to the global store without linking them into any project.
     #[usage(
         name = "add",
-        help = "Add one or more packages to the global store without linking them into any project",
-        long_help = "Add one or more packages to the global store without linking them into any project.\n\nEach argument is a package spec: `lodash`, `lodash@4.17.21`, `react@next`, or `express@^4`."
+        help = "Add one or more packages to the global store without linking them into any project.",
+        long_help = "Add one or more packages to the global store without linking them\ninto any project.\n\nEach argument is a package spec: `lodash`, `lodash@4.17.21`,\n`react@next`, or `express@^4`."
     )]
     Add(Box<StoreAddArgs>),
-    /// Show the store path
+    /// Show the store path.
     #[usage(name = "path")]
     Path(Box<StorePathArgs>),
-    /// Remove unreferenced packages from the global store
-    #[usage(
-        name = "prune",
-        help = "Remove unreferenced packages from the global store",
-        long_help = "Remove unreferenced packages from the global store.\n\nOperates on the store printed by `aube store path`; it does not touch project node_modules directories, manifests, or lockfiles.\n\nIt keeps files referenced by cached package indexes and, on hardlink filesystems, files that still have project hardlink references.\n\nOn reflink filesystems such as APFS or btrfs, link counts cannot prove project reachability, so pruning relies on cached package indexes."
-    )]
+    /// Remove unreferenced packages from the global store.
+    #[usage(name = "prune")]
     Prune(Box<StorePruneArgs>),
-    /// Verify the store against cached package indexes
-    #[usage(
-        name = "status",
-        help = "Verify the store against cached package indexes",
-        long_help = "Verify the store against cached package indexes.\n\nConfirms every file referenced by a cached package index is still present in the store and that its BLAKE3 hash matches. Exits non-zero when any corruption is detected."
-    )]
+    /// Verify the store against cached package indexes.
+    #[usage(name = "status")]
     Status(Box<StoreStatusArgs>),
 }
 
@@ -4034,69 +4883,99 @@ pub struct TestArgs {
     /// Skip auto-install check
     #[usage(long = "no-install")]
     pub no_install: bool,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
     /// Arguments to pass to the script
@@ -4108,50 +4987,66 @@ pub struct TestArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct TokenArgs {
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    /// Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints
-    #[usage(arg, name = "ARGS", hide, double_dash = "automatic")]
+    #[usage(
+        arg,
+        name = "ARGS",
+        help = "Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints.",
+        long_help = "Unused; captured so `aube <cmd> foo bar` parses instead of\nerroring on unexpected args before the fallback message prints.",
+        hide,
+        double_dash = "automatic"
+    )]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -4168,47 +5063,57 @@ pub struct TrustCheckArgs {
     /// Emit a JSON report
     #[usage(long = "json")]
     pub json: bool,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
     /// Exact npm package version to inspect
     ///
@@ -4236,60 +5141,69 @@ pub enum TrustCommands {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct UndeprecateArgs {
-    /// Don't PUT anything — print which versions would be touched and exit
+    /// Don't PUT anything — print which versions would be touched and exit.
     #[usage(long = "dry-run")]
     pub dry_run: bool,
-    /// One-time password from a 2FA authenticator; sent as `npm-otp`
+    /// One-time password from a 2FA authenticator; sent as `npm-otp`.
     #[usage(long = "otp", value_name = "CODE")]
     pub otp: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    #[usage(
-        arg,
-        name = "PACKAGE",
-        help = "Package spec: `name`, `name@version`, or `name@<range>`",
-        long_help = "Package spec: `name`, `name@version`, or `name@<range>`.\n\nOmitting the version clears the deprecation on every published version."
-    )]
+    /// Package spec: `name`, `name@version`, or `name@<range>`.
+    ///
+    /// Omitting the version clears the deprecation on every published
+    /// version.
+    #[usage(arg, name = "PACKAGE")]
     pub package: ::std::string::String,
 }
 
@@ -4298,8 +5212,8 @@ pub struct UndeprecateArgs {
 #[usage(effect = "write")]
 pub struct UnlinkArgs {
     #[usage(
-        help = "Operate on the global link registry instead of the current project",
-        long_help = "Operate on the global link registry instead of the current project.\n\n`aube unlink -g` removes the current package's entry from `$AUBE_HOME/global-links`; `aube unlink -g <name>` removes the named entry.",
+        help = "Operate on the global link registry instead of the current project.",
+        long_help = "Operate on the global link registry instead of the current\nproject.\n\n`aube unlink -g` removes the current package's entry from\n`$XDG_CACHE_HOME/aube/global-links`, `$HOME/.cache/aube/global-links`\nwhen `XDG_CACHE_HOME` is unset, or `%LOCALAPPDATA%\\aube\\global-links`\non Windows; `aube unlink -g <name>` removes the named entry.",
         long = "global",
         short = 'g'
     )]
@@ -4313,67 +5227,79 @@ pub struct UnlinkArgs {
 #[derive(Args)]
 #[usage(effect = "destructive")]
 pub struct UnpublishArgs {
-    /// Don't talk to the registry; print what the command would do
+    /// Don't talk to the registry; print what the command would do.
     #[usage(long = "dry-run")]
     pub dry_run: bool,
-    #[usage(
-        help = "Required for whole-package unpublish (no `@version` in the spec)",
-        long_help = "Required for whole-package unpublish (no `@version` in the spec).\n\nSingle-version unpublish works without it — matching npm, which is more permissive about dropping one version than nuking every version in one call.",
-        long = "force",
-        short = 'f'
-    )]
+    /// Required for whole-package unpublish (no `@version` in the spec).
+    ///
+    /// Single-version unpublish works without it — matching npm,
+    /// which is more permissive about dropping one version than
+    /// nuking every version in one call.
+    #[usage(long = "force", short = 'f')]
     pub force: bool,
-    #[usage(
-        help = "One-time password for registries that require 2FA",
-        long_help = "One-time password for registries that require 2FA.\n\nSent verbatim as the `npm-otp` header.",
-        long = "otp",
-        value_name = "CODE"
-    )]
+    /// One-time password for registries that require 2FA.
+    ///
+    /// Sent verbatim as the `npm-otp` header.
+    #[usage(long = "otp", value_name = "CODE")]
     pub otp: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    /// Package spec: `name`, `name@version`, or omitted to use the current project's `package.json`
-    #[usage(arg, name = "SPEC")]
+    #[usage(
+        arg,
+        name = "SPEC",
+        help = "Package spec: `name`, `name@version`, or omitted to use the current project's `package.json`.",
+        long_help = "Package spec: `name`, `name@version`, or omitted to use the\ncurrent project's `package.json`."
+    )]
     pub spec: ::std::option::Option<::std::string::String>,
 }
 
@@ -4381,153 +5307,192 @@ pub struct UnpublishArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct UpdateArgs {
-    /// Update only devDependencies
-    #[usage(long = "dev", short = 'D')]
+    /// Update only devDependencies.
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
     #[usage(
-        help = "Pin manifest specifiers to the resolved version with no range prefix",
-        long_help = "Pin manifest specifiers to the resolved version with no range prefix.\n\nPair with `--latest`: when the rewritten specifier replaces the caret/tilde original, drop the prefix so the manifest carries an exact pin (`\"1.2.3\"`) instead of `\"^1.2.3\"`. Mirrors `pnpm update --save-exact`.",
+        help = "Pin manifest specifiers to the resolved version with no range prefix.",
+        long_help = "Pin manifest specifiers to the resolved version with no range\nprefix.\n\nPair with `--latest`: when the rewritten specifier replaces the\ncaret/tilde original, drop the prefix so the manifest carries an\nexact pin (`\"1.2.3\"`) instead of `\"^1.2.3\"`. Mirrors\n`pnpm update --save-exact`.",
         long = "exact",
         long = "save-exact",
         short = 'E'
     )]
     pub exact: bool,
-    #[usage(
-        help = "Update globally installed packages",
-        long_help = "Update globally installed packages.\n\nParsed for pnpm compatibility.",
-        long = "global",
-        short = 'g'
-    )]
+    /// Update globally installed packages.
+    ///
+    /// Parsed for pnpm compatibility.
+    #[usage(long = "global", short = 'g')]
     pub global: bool,
-    #[usage(
-        help = "Interactive update picker",
-        long_help = "Interactive update picker.\n\nParsed for pnpm compatibility.",
-        long = "interactive",
-        short = 'i'
-    )]
+    /// Interactive update picker.
+    ///
+    /// Parsed for pnpm compatibility.
+    #[usage(long = "interactive", short = 'i')]
     pub interactive: bool,
-    #[usage(
-        help = "Update past the manifest range",
-        long_help = "Update past the manifest range.\n\nRewrites `package.json` specifiers to match the newly resolved versions (the registry's `latest` dist-tag, clamped by `minimumReleaseAge` / `resolution-mode` as usual).",
-        long = "latest",
-        short = 'L'
-    )]
+    /// Update past the manifest range unless paired with `--no-save`.
+    ///
+    /// Rewrites `package.json` specifiers to match the newly resolved
+    /// versions (the registry's `latest` dist-tag, clamped by
+    /// `minimumReleaseAge` / `resolution-mode` as usual). With
+    /// `--no-save`, leaves the manifest range unchanged and resolves
+    /// only to the newest version that range allows.
+    #[usage(long = "latest", short = 'L')]
     pub latest: bool,
-    /// Update only production dependencies
-    #[usage(long = "prod", long = "production", short = 'P')]
+    /// Update only production dependencies.
+    #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
-    /// Update dependencies in the current workspace package
+    /// Update dependencies in the current workspace package.
     #[usage(long = "workspace", short = 'w')]
     pub workspace: bool,
-    #[usage(
-        help = "Dependency traversal depth",
-        long_help = "Dependency traversal depth.\n\nParsed for pnpm compatibility but ignored: aube only ever refreshes direct deps (pnpm's `--depth 0` default). Setting the flag emits a one-line warning pointing at `rm aube-lock.yaml && aube install` for the `--depth Infinity` case.",
-        long = "depth",
-        value_name = "DEPTH"
-    )]
+    /// Dependency traversal depth.
+    ///
+    /// Parsed for pnpm compatibility but ignored: aube only ever
+    /// refreshes direct deps (pnpm's `--depth 0` default). Setting
+    /// the flag emits a one-line warning pointing at
+    /// `rm aube-lock.yaml && aube install` for the
+    /// `--depth Infinity` case.
+    #[usage(long = "depth", value_name = "DEPTH")]
     pub depth: ::std::option::Option<::std::string::String>,
+    /// Add a global pnpmfile that runs before the local one.
+    ///
+    /// Mirrors pnpm's `--global-pnpmfile <path>`. The global hook runs
+    /// first and the local hook (if any) runs second.
     #[usage(
-        help = "Add a global pnpmfile that runs before the local one",
-        long_help = "Add a global pnpmfile that runs before the local one.\n\nMirrors pnpm's `--global-pnpmfile <path>`. The global hook runs first and the local hook (if any) runs second.",
         long = "global-pnpmfile",
+        conflicts = "--ignore-pnpmfile",
         value_name = "PATH"
     )]
     pub global_pnpmfile: ::std::option::Option<::std::string::String>,
-    /// Skip running `.pnpmfile.mjs` / `.pnpmfile.cjs` hooks for this update
+    /// Skip running `.pnpmfile.mjs` / `.pnpmfile.cjs` hooks for this update.
     #[usage(long = "ignore-pnpmfile")]
     pub ignore_pnpmfile: bool,
-    #[usage(
-        help = "Skip lifecycle scripts",
-        long_help = "Skip lifecycle scripts.\n\nSkips the root `pnpm:devPreinstall` hook and all approved dependency build scripts in the chained install.",
-        long = "ignore-scripts",
-        hide
-    )]
+    /// Skip lifecycle scripts.
+    ///
+    /// Skips the root `pnpm:devPreinstall` hook and all approved
+    /// dependency build scripts in the chained install.
+    #[usage(long = "ignore-scripts", hide)]
     pub ignore_scripts: bool,
-    #[usage(
-        help = "Refresh the lockfile without populating `node_modules`",
-        long_help = "Refresh the lockfile without populating `node_modules`.\n\nRe-resolves the full graph (direct + transitive) and writes `aube-lock.yaml`, then skips the linker so `node_modules` is left untouched. Mirrors `npm update --package-lock-only`.",
-        long = "lockfile-only"
-    )]
+    /// Refresh the lockfile without populating `node_modules`.
+    ///
+    /// Re-resolves the full graph (direct + transitive) and writes
+    /// `aube-lock.yaml`, then skips the linker so `node_modules` is
+    /// left untouched. Mirrors `npm update --package-lock-only`.
+    #[usage(long = "lockfile-only")]
     pub lockfile_only: bool,
-    /// Skip optionalDependencies
+    /// Skip optionalDependencies.
     #[usage(long = "no-optional")]
     pub no_optional: bool,
-    #[usage(
-        help = "Refresh the lockfile without rewriting `package.json` ranges",
-        long_help = "Refresh the lockfile without rewriting `package.json` ranges.\n\nPair with `--latest` to pull a newer resolved version into the lockfile while leaving the manifest's caret/tilde ranges untouched. Without `--latest` this flag is a no-op (plain `update` already doesn't touch the manifest). Mirrors `pnpm update --no-save`.",
-        long = "no-save"
-    )]
+    /// Refresh the lockfile without rewriting `package.json` ranges.
+    ///
+    /// Pair with `--latest` to refresh the lockfile to the newest
+    /// version allowed by the unchanged manifest range. Without
+    /// `--latest`, it still suppresses manifest range rewrites enabled
+    /// by `updateRewritesSpecifier`. Mirrors `pnpm update --no-save`.
+    #[usage(long = "no-save")]
     pub no_save: bool,
+    /// Override the local pnpmfile location.
+    ///
+    /// Mirrors pnpm's `--pnpmfile <path>`. Relative paths resolve
+    /// against the project root; absolute paths are used as-is. Wins
+    /// over `pnpmfilePath` from `pnpm-workspace.yaml`.
     #[usage(
-        help = "Override the local pnpmfile location",
-        long_help = "Override the local pnpmfile location.\n\nMirrors pnpm's `--pnpmfile <path>`. Relative paths resolve against the project root; absolute paths are used as-is. Wins over `pnpmfilePath` from `pnpm-workspace.yaml`.",
         long = "pnpmfile",
+        conflicts = "--ignore-pnpmfile",
         value_name = "PATH"
     )]
     pub pnpmfile: ::std::option::Option<::std::string::String>,
-    /// Error if the lockfile drifts from package.json
-    #[usage(long = "frozen-lockfile")]
-    pub frozen_lockfile: bool,
-    /// Always re-resolve, even if the lockfile is up to date
-    #[usage(long = "no-frozen-lockfile")]
-    pub no_frozen_lockfile: bool,
-    /// Use the lockfile when fresh, re-resolve when stale
-    #[usage(long = "prefer-frozen-lockfile")]
-    pub prefer_frozen_lockfile: bool,
+    /// Error if the lockfile drifts from package.json.
     #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
+        long = "frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--no-frozen-lockfile", "--prefer-frozen-lockfile")
     )]
-    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    pub frozen_lockfile: bool,
+    /// Always re-resolve, even if the lockfile is up to date.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
+        long = "no-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--prefer-frozen-lockfile")
+    )]
+    pub no_frozen_lockfile: bool,
+    /// Use the lockfile when fresh, re-resolve when stale.
+    #[usage(
+        long = "prefer-frozen-lockfile",
+        help_heading = "Lockfile",
+        conflicts("--frozen-lockfile", "--no-frozen-lockfile")
+    )]
+    pub prefer_frozen_lockfile: bool,
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
+    pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
+    #[usage(
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+    /// Force the shared global virtual store off for this invocation.
+    ///
+    /// Packages are materialized inside the project's virtual store
+    /// instead of symlinked from `~/.cache/aube/virtual-store/`.
     #[usage(
-        help = "Force the shared global virtual store off for this invocation",
-        long_help = "Force the shared global virtual store off for this invocation.\n\nPackages are materialized inside the project's virtual store instead of symlinked from `~/.cache/aube/virtual-store/`.",
         long = "disable-global-virtual-store",
-        long = "disable-gvs"
+        long = "disable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--enable-global-virtual-store"
     )]
     pub disable_global_virtual_store: bool,
+    /// Force the shared global virtual store on for this invocation.
+    ///
+    /// Overrides CI's default per-project materialization and the
+    /// `disableGlobalVirtualStoreForPackages` auto-disable heuristic.
     #[usage(
-        help = "Force the shared global virtual store on for this invocation",
-        long_help = "Force the shared global virtual store on for this invocation.\n\nOverrides CI's default per-project materialization and the `disableGlobalVirtualStoreForPackages` auto-disable heuristic.",
         long = "enable-global-virtual-store",
-        long = "enable-gvs"
+        long = "enable-gvs",
+        help_heading = "Virtual store",
+        conflicts = "--disable-global-virtual-store"
     )]
     pub enable_global_virtual_store: bool,
     /// Package(s) to update (all if empty)
@@ -4539,44 +5504,42 @@ pub struct UpdateArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct VersionArgs {
-    /// Allow setting the version to its current value without erroring
+    /// Allow setting the version to its current value without erroring.
     #[usage(long = "allow-same-version")]
     pub allow_same_version: bool,
-    /// Skip `preversion` / `version` / `postversion` lifecycle scripts
+    /// Skip `preversion` / `version` / `postversion` lifecycle scripts.
     #[usage(long = "ignore-scripts")]
     pub ignore_scripts: bool,
-    /// Emit the result as JSON instead of `v<version>` text
+    /// Emit the result as JSON instead of `v<version>` text.
     #[usage(long = "json")]
     pub json: bool,
-    #[usage(
-        help = "Commit message template",
-        long_help = "Commit message template.\n\n`%s` is replaced with the new version. Defaults to `v%s`.",
-        long = "message",
-        short = 'm',
-        value_name = "MSG"
-    )]
+    /// Commit message template.
+    ///
+    /// `%s` is replaced with the new version. Defaults to `v%s`.
+    #[usage(long = "message", short = 'm', value_name = "MSG")]
     pub message: ::std::option::Option<::std::string::String>,
-    /// Skip git pre-commit / commit-msg hooks (passes `--no-verify`)
+    /// Skip git pre-commit / commit-msg hooks (passes `--no-verify`).
     #[usage(long = "no-commit-hooks")]
     pub no_commit_hooks: bool,
-    #[usage(
-        help = "Don't create a git commit or tag",
-        long_help = "Don't create a git commit or tag.\n\nBy default `aube version` commits the manifest change and tags it `v<version>`.",
-        long = "no-git-tag-version"
-    )]
+    /// Don't create a git commit or tag.
+    ///
+    /// By default `aube version` commits the manifest change and
+    /// tags it `v<version>`.
+    #[usage(long = "no-git-tag-version")]
     pub no_git_tag_version: bool,
-    /// Prerelease identifier to use with the `pre*` keywords (e.g. `rc`)
+    /// Prerelease identifier to use with the `pre*` keywords (e.g. `rc`).
     #[usage(long = "preid", value_name = "ID")]
     pub preid: ::std::option::Option<::std::string::String>,
-    /// GPG-sign the created tag (`git tag -s`)
+    /// GPG-sign the created tag (`git tag -s`).
     #[usage(long = "sign-git-tag")]
     pub sign_git_tag: bool,
-    #[usage(
-        arg,
-        name = "NEW_VERSION",
-        help = "Bump keyword or an explicit version string",
-        long_help = "Bump keyword or an explicit version string.\n\nAccepts `major`, `minor`, `patch`, `premajor`, `preminor`, `prepatch`, `prerelease`, `from-git`, or an explicit version. `from-git` reads the nearest reachable version-like Git tag. When omitted, prints the current version."
-    )]
+    /// Bump keyword or an explicit version string.
+    ///
+    /// Accepts `major`, `minor`, `patch`, `premajor`, `preminor`,
+    /// `prepatch`, `prerelease`, `from-git`, or an explicit version.
+    /// `from-git` reads the nearest reachable version-like Git tag.
+    /// When omitted, prints the current version.
+    #[usage(arg, name = "NEW_VERSION")]
     pub new_version: ::std::option::Option<::std::string::String>,
 }
 
@@ -4587,67 +5550,73 @@ pub struct VersionArgs {
     effect = "read"
 )]
 pub struct ViewArgs {
-    #[usage(
-        help = "Print the full JSON of the selected version instead of the summary",
-        long_help = "Print the full JSON of the selected version instead of the summary.\n\nMutually exclusive with `field`.",
-        long = "json"
-    )]
+    /// Print the full JSON of the selected version instead of the summary.
+    ///
+    /// Mutually exclusive with `field`.
+    #[usage(long = "json")]
     pub json: bool,
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    #[usage(
-        arg,
-        name = "PACKAGE",
-        help = "Package to view, optionally with a version or dist-tag",
-        long_help = "Package to view, optionally with a version or dist-tag.\n\nExamples: `lodash`, `lodash@4.17.21`, `react@next`, `express@^4`."
-    )]
+    /// Package to view, optionally with a version or dist-tag.
+    ///
+    /// Examples: `lodash`, `lodash@4.17.21`, `react@next`, `express@^4`.
+    #[usage(arg, name = "PACKAGE")]
     pub package: ::std::option::Option<::std::string::String>,
-    #[usage(
-        arg,
-        name = "FIELD",
-        help = "Dotted path into the version metadata to print",
-        long_help = "Dotted path into the version metadata to print.\n\nExamples: `version`, `dependencies`, `dist.tarball`, `maintainers.0.name`. When omitted, prints a formatted summary."
-    )]
+    /// Dotted path into the version metadata to print.
+    ///
+    /// Examples: `version`, `dependencies`, `dist.tarball`,
+    /// `maintainers.0.name`. When omitted, prints a formatted summary.
+    #[usage(arg, name = "FIELD")]
     pub field: ::std::option::Option<::std::string::String>,
 }
 
@@ -4655,50 +5624,66 @@ pub struct ViewArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct WhoamiArgs {
-    #[usage(
-        help = "Number of retry attempts for failed registry fetches",
-        long_help = "Number of retry attempts for failed registry fetches.\n\nOverrides `fetchRetries` / `fetch-retries` from `.npmrc` / `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to fail fast in scripted test runs.",
-        long = "fetch-retries",
-        value_name = "N"
-    )]
+    /// Number of retry attempts for failed registry fetches.
+    ///
+    /// Overrides `fetchRetries` / `fetch-retries` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Pair with `--fetch-timeout` to
+    /// fail fast in scripted test runs.
+    #[usage(long = "fetch-retries", help_heading = "Network", value_name = "N")]
     pub fetch_retries: ::std::option::Option<::std::string::String>,
+    /// Exponential backoff factor between retry attempts.
+    ///
+    /// Overrides `fetchRetryFactor` / `fetch-retry-factor` from
+    /// `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the
+    /// underlying `FetchPolicy.retry_factor` is `u32`. Fractional
+    /// values like `1.5` are rejected by the CLI parser.
     #[usage(
-        help = "Exponential backoff factor between retry attempts",
-        long_help = "Exponential backoff factor between retry attempts.\n\nOverrides `fetchRetryFactor` / `fetch-retry-factor` from `.npmrc` / `aube-workspace.yaml` when set. Integer-only — the underlying `FetchPolicy.retry_factor` is `u32`. Fractional values like `1.5` are rejected by clap.",
         long = "fetch-retry-factor",
+        help_heading = "Network",
         value_name = "N"
     )]
     pub fetch_retry_factor: ::std::option::Option<::std::string::String>,
+    /// Upper bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Upper bound (ms) on the computed retry backoff",
-        long_help = "Upper bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMaxtimeout` / `fetch-retry-maxtimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-maxtimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_maxtimeout: ::std::option::Option<::std::string::String>,
+    /// Lower bound (ms) on the computed retry backoff.
+    ///
+    /// Overrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from
+    /// `.npmrc` / `aube-workspace.yaml` when set.
     #[usage(
-        help = "Lower bound (ms) on the computed retry backoff",
-        long_help = "Lower bound (ms) on the computed retry backoff.\n\nOverrides `fetchRetryMintimeout` / `fetch-retry-mintimeout` from `.npmrc` / `aube-workspace.yaml` when set.",
         long = "fetch-retry-mintimeout",
+        help_heading = "Network",
         value_name = "MS"
     )]
     pub fetch_retry_mintimeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Per-request HTTP timeout in milliseconds",
-        long_help = "Per-request HTTP timeout in milliseconds.\n\nOverrides `fetchTimeout` / `fetch-timeout` from `.npmrc` / `aube-workspace.yaml` when set. Applied via `reqwest`'s `.timeout()` so it covers headers + body together.",
-        long = "fetch-timeout",
-        value_name = "MS"
-    )]
+    /// Per-request HTTP timeout in milliseconds.
+    ///
+    /// Overrides `fetchTimeout` / `fetch-timeout` from `.npmrc` /
+    /// `aube-workspace.yaml` when set. Applied via `reqwest`'s
+    /// `.timeout()` so it covers headers + body together.
+    #[usage(long = "fetch-timeout", help_heading = "Network", value_name = "MS")]
     pub fetch_timeout: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Override the default registry URL for this invocation",
-        long_help = "Override the default registry URL for this invocation.\n\nUse this npm registry URL for package metadata, tarballs, audit requests, dist-tags, and registry writes.",
-        long = "registry",
-        value_name = "URL"
-    )]
+    /// Override the default registry URL for this invocation.
+    ///
+    /// Use this npm registry URL for package metadata, tarballs,
+    /// audit requests, dist-tags, and registry writes.
+    #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
-    /// Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints
-    #[usage(arg, name = "ARGS", hide, double_dash = "automatic")]
+    #[usage(
+        arg,
+        name = "ARGS",
+        help = "Unused; captured so `aube <cmd> foo bar` parses instead of erroring on unexpected args before the fallback message prints.",
+        long_help = "Unused; captured so `aube <cmd> foo bar` parses instead of\nerroring on unexpected args before the fallback message prints.",
+        hide,
+        double_dash = "automatic"
+    )]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -4710,13 +5695,13 @@ pub struct WhoamiArgs {
 )]
 pub struct WhyArgs {
     /// Only follow chains that start at a devDependency
-    #[usage(long = "dev", short = 'D')]
+    #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
     /// Only follow chains that start at a production (or optional) dependency
-    #[usage(long = "prod", long = "production", short = 'P')]
+    #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
     /// Output as JSON — an array of chain objects
-    #[usage(long = "json")]
+    #[usage(long = "json", conflicts = "--parseable")]
     pub json: bool,
     /// Append each node's `.aube/<dep_path>` store path to the tree output
     #[usage(long = "long")]
@@ -4731,7 +5716,7 @@ pub struct WhyArgs {
 
 /// A fast Node.js package manager
 #[derive(Cli)]
-#[usage(bin = "aube", name = "aube", version = "1.36.0")]
+#[usage(bin = "aube", name = "aube")]
 pub struct Cli {
     /// Change to directory before running (like `make -C` or `mise --cd`)
     #[usage(
@@ -4743,94 +5728,89 @@ pub struct Cli {
         value_name = "DIR"
     )]
     pub dir: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Scope command execution to workspace packages matching PATTERN",
-        long_help = "Scope command execution to workspace packages matching PATTERN.\n\nSupports exact names (`my-pkg`), globs (`@scope/*`, `*-plugin`), paths (`./packages/api`), graph selectors (`pkg...`, `...pkg`), git-ref selectors (`[origin/main]`), and exclusions (`!pkg`). Repeatable; matches are OR-ed.\n\nCurrently honored by `run`, `test`, `start`, `stop`, `restart`, `install`, `exec`, `list`, `publish`, `deploy`, `add`, `remove`, `update`, `why`, and implicit-script invocations.",
-        long = "filter",
-        short = 'F',
-        global,
-        value_name = "WORKSPACE",
-        var
-    )]
+    /// Scope command execution to workspace packages matching PATTERN.
+    ///
+    /// Supports exact names (`my-pkg`), globs (`@scope/*`, `*-plugin`),
+    /// paths (`./packages/api`), graph selectors (`pkg...`, `...pkg`),
+    /// git-ref selectors (`[origin/main]`), and exclusions (`!pkg`).
+    /// Repeatable; matches are OR-ed.
+    ///
+    /// Currently honored by `run`, `test`, `start`, `stop`, `restart`,
+    /// `install`, `exec`, `list`, `publish`, `deploy`, `add`, `remove`,
+    /// `update`, `why`, and implicit-script invocations.
+    #[usage(long = "filter", short = 'F', global, value_name = "WORKSPACE", var)]
     pub filter: ::std::vec::Vec<::std::string::String>,
-    #[usage(
-        help = "Run the command across every workspace package",
-        long_help = "Run the command across every workspace package.\n\nEquivalent to `--filter=*`; if `--filter` is also given, `--recursive` is a no-op and the explicit filter wins. Honored by the same commands as `--filter`.",
-        long = "recursive",
-        short = 'r',
-        global
-    )]
+    /// Run the command across every workspace package.
+    ///
+    /// Equivalent to `--filter=*`; if `--filter` is also given,
+    /// `--recursive` is a no-op and the explicit filter wins. Honored
+    /// by the same commands as `--filter`.
+    #[usage(long = "recursive", short = 'r', global)]
     pub recursive: bool,
     /// Enable verbose/debug logging (shortcut for `--loglevel debug`)
     #[usage(long = "verbose", short = 'v', global)]
     pub verbose: bool,
-    #[usage(
-        help = "Print version and check for updates",
-        long_help = "Print version and check for updates.\n\nManual flag so we can run the async update notifier alongside the version print — clap's auto `Action::Version` exits inside `parse_from`, before the tokio runtime is built.",
-        long = "version",
-        short = 'V',
-        global
-    )]
-    pub version: bool,
-    #[usage(
-        help = "Group workspace command output after each package finishes",
-        long_help = "Group workspace command output after each package finishes.\n\nAccepted for pnpm compatibility; aube's workspace fanout is currently sequential, so output is already grouped.",
-        long = "aggregate-output",
-        global,
-        hide
-    )]
-    pub aggregate_output: bool,
-    #[usage(
-        help = "Force colored output even when stderr is not a TTY",
-        long_help = "Force colored output even when stderr is not a TTY.\n\nOverrides `NO_COLOR` / `CLICOLOR=0`. Mutually exclusive with `--no-color`.",
-        long = "color",
-        global
-    )]
-    pub color: bool,
-    /// Enable cold-install deep diagnostics. Modes: summary  — sum_ms / mean / max / %wall table at end trace    — summary + critical path + starvation + what-if + lifecycle live     — like trace, plus print every span >= 100ms to stderr live full     — like trace, plus write JSONL trace to a file (defaults to ./aube-diag.jsonl)
+    /// Print version and check for updates.
     ///
-    /// Quick form: `--diag` with no value defaults to `trace`. Output file path can be set via `--diag-file`. Threshold for live mode via `--diag-threshold-ms`.
-    #[usage(long = "diag", global, value_name = "MODE")]
+    /// Manual flag so we can run the async update notifier alongside
+    /// the version print — clap's auto `Action::Version` exits inside
+    /// `parse_from`, before the tokio runtime is built.
+    #[usage(long = "version", short = 'V', global)]
+    pub version: bool,
+    /// Group workspace command output after each package finishes.
+    ///
+    /// Accepted for pnpm compatibility; aube's workspace fanout is
+    /// currently sequential, so output is already grouped.
+    #[usage(long = "aggregate-output", global, hide, conflicts = "--stream")]
+    pub aggregate_output: bool,
+    /// Force colored output even when stderr is not a TTY.
+    ///
+    /// Overrides `NO_COLOR` / `CLICOLOR=0`. Mutually exclusive with
+    /// `--no-color`.
+    #[usage(long = "color", global, conflicts = "--no-color")]
+    pub color: bool,
+    #[usage(
+        help = "Enable cold-install deep diagnostics. Modes:   summary  — sum_ms / mean / max / %wall table at end   trace    — summary + critical path + starvation + what-if + lifecycle   live     — like trace, plus print every span >= 100ms to stderr live   full     — like trace, plus write JSONL trace to a file (defaults to ./aube-diag.jsonl)",
+        long_help = "Enable cold-install deep diagnostics. Modes:\n  summary  — sum_ms / mean / max / %wall table at end\n  trace    — summary + critical path + starvation + what-if + lifecycle\n  live     — like trace, plus print every span >= 100ms to stderr live\n  full     — like trace, plus write JSONL trace to a file (defaults to ./aube-diag.jsonl)\n\nQuick form: `--diag` with no value defaults to `trace`.\nOutput file path can be set via `--diag-file`. Threshold for live\nmode via `--diag-threshold-ms`.",
+        long = "diag",
+        global,
+        default_missing = "trace",
+        value_name = "MODE",
+        value_optional
+    )]
     pub diag: ::std::option::Option<::std::string::String>,
     /// Path for `--diag full` JSONL trace (default: ./aube-diag.jsonl)
     #[usage(long = "diag-file", global, value_name = "PATH")]
     pub diag_file: ::std::option::Option<::std::string::String>,
-    /// Live-mode threshold: only print spans whose duration is >= N ms (default 100)
+    /// Live-mode threshold: only print spans whose duration is >= N ms (default 100).
     #[usage(long = "diag-threshold-ms", global, value_name = "MS")]
     pub diag_threshold_ms: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Error when a workspace selector matches no packages",
-        long_help = "Error when a workspace selector matches no packages.\n\nAccepted globally; selected commands already fail on empty matches.",
-        long = "fail-if-no-match",
-        global
-    )]
+    /// Error when a workspace selector matches no packages.
+    ///
+    /// Accepted globally; selected commands already fail on empty matches.
+    #[usage(long = "fail-if-no-match", global)]
     pub fail_if_no_match: bool,
-    #[usage(
-        help = "Production-only variant of `--filter`",
-        long_help = "Production-only variant of `--filter`.\n\nSame selector grammar as `--filter`, but graph walks (`pkg...`, `...pkg`) only follow `dependencies` / `optionalDependencies` / `peerDependencies` edges — `devDependencies` (and packages reachable solely through them) are skipped. Non-graph forms (exact name, glob, path, `[git-ref]`) behave identically to `--filter`. Repeatable; can be combined with `--filter`.",
-        long = "filter-prod",
-        global,
-        value_name = "PATTERN",
-        var
-    )]
+    /// Production-only variant of `--filter`.
+    ///
+    /// Same selector grammar as `--filter`, but graph walks (`pkg...`,
+    /// `...pkg`) only follow `dependencies` / `optionalDependencies` /
+    /// `peerDependencies` edges — `devDependencies` (and packages
+    /// reachable solely through them) are skipped. Non-graph forms
+    /// (exact name, glob, path, `[git-ref]`) behave identically to
+    /// `--filter`. Repeatable; can be combined with `--filter`.
+    #[usage(long = "filter-prod", global, value_name = "PATTERN", var)]
     pub filter_prod: ::std::vec::Vec<::std::string::String>,
-    #[usage(
-        help = "Ignore workspace discovery for commands that support workspace fanout",
-        long_help = "Ignore workspace discovery for commands that support workspace fanout.\n\nParsed for pnpm compatibility.",
-        long = "ignore-workspace",
-        global,
-        hide
-    )]
+    /// Ignore workspace discovery for commands that support workspace fanout.
+    ///
+    /// Parsed for pnpm compatibility.
+    #[usage(long = "ignore-workspace", global, hide)]
     pub ignore_workspace: bool,
-    #[usage(
-        help = "Include the workspace root in recursive workspace operations",
-        long_help = "Include the workspace root in recursive workspace operations.\n\nParsed for pnpm compatibility.",
-        long = "include-workspace-root",
-        global,
-        hide
-    )]
+    /// Include the workspace root in recursive workspace operations.
+    ///
+    /// Parsed for pnpm compatibility.
+    #[usage(long = "include-workspace-root", global, hide)]
     pub include_workspace_root: bool,
-    /// Set the log level. Logs at or above this level are shown
+    /// Set the log level. Logs at or above this level are shown.
     #[usage(
         long = "loglevel",
         global,
@@ -4838,16 +5818,22 @@ pub struct Cli {
         choices("trace", "debug", "info", "warn", "error", "silent")
     )]
     pub loglevel: ::std::option::Option<::std::string::String>,
-    #[usage(
-        help = "Disable colored output",
-        long_help = "Disable colored output.\n\nOverrides `FORCE_COLOR` / `CLICOLOR_FORCE` and sets `NO_COLOR=1` so downstream libraries (miette, clx, child processes) all see the same choice.",
-        long = "no-color",
-        global
-    )]
+    /// Disable colored output.
+    ///
+    /// Overrides `FORCE_COLOR` / `CLICOLOR_FORCE` and sets `NO_COLOR=1`
+    /// so downstream libraries (miette, clx, child processes) all see
+    /// the same choice.
+    #[usage(long = "no-color", global)]
     pub no_color: bool,
+    /// Output format: default, append-only, ndjson, silent.
+    ///
+    /// `default` renders the progress UI when stderr is a TTY;
+    /// `append-only` disables the progress UI in favor of plain
+    /// line-at-a-time logs; `ndjson` swaps the tracing fmt layer for
+    /// the JSON formatter (one JSON object per log event on stderr)
+    /// and is what tooling wrappers should consume; `silent`
+    /// suppresses all non-error output (alias for `--loglevel silent`).
     #[usage(
-        help = "Output format: default, append-only, ndjson, silent",
-        long_help = "Output format: default, append-only, ndjson, silent.\n\n`default` renders the progress UI when stderr is a TTY; `append-only` disables the progress UI in favor of plain line-at-a-time logs; `ndjson` swaps the tracing fmt layer for the JSON formatter (one JSON object per log event on stderr) and is what tooling wrappers should consume; `silent` suppresses all non-error output (alias for `--loglevel silent`).",
         long = "reporter",
         global,
         value_name = "NAME",
@@ -4857,41 +5843,31 @@ pub struct Cli {
     /// Suppress all non-error output (alias for `--loglevel silent`)
     #[usage(long = "silent", global)]
     pub silent: bool,
-    #[usage(
-        help = "Stream workspace command output as each child process writes it",
-        long_help = "Stream workspace command output as each child process writes it.\n\nAccepted for pnpm compatibility; aube's workspace fanout is currently sequential.",
-        long = "stream",
-        global,
-        hide
-    )]
+    /// Stream workspace command output as each child process writes it.
+    ///
+    /// Accepted for pnpm compatibility; aube's workspace fanout is
+    /// currently sequential.
+    #[usage(long = "stream", global, hide, conflicts = "--aggregate-output")]
     pub stream: bool,
-    #[usage(
-        help = "Route lifecycle and workspace command output through stderr",
-        long_help = "Route lifecycle and workspace command output through stderr.\n\nAccepted for pnpm compatibility.",
-        long = "use-stderr",
-        global,
-        hide
-    )]
+    /// Route lifecycle and workspace command output through stderr.
+    ///
+    /// Accepted for pnpm compatibility.
+    #[usage(long = "use-stderr", global, hide)]
     pub use_stderr: bool,
-    #[usage(
-        help = "Prefer workspace packages when resolving dependencies",
-        long_help = "Prefer workspace packages when resolving dependencies.\n\nParsed for pnpm compatibility; aube already resolves workspace packages when a workspace is present.",
-        long = "workspace-packages",
-        global,
-        hide
-    )]
+    /// Prefer workspace packages when resolving dependencies.
+    ///
+    /// Parsed for pnpm compatibility; aube already resolves workspace
+    /// packages when a workspace is present.
+    #[usage(long = "workspace-packages", global, hide)]
     pub workspace_packages: bool,
-    /// Run from the workspace root regardless of the current package
+    /// Run from the workspace root regardless of the current package.
     #[usage(long = "workspace-root", global)]
     pub workspace_root: bool,
-    #[usage(
-        help = "Automatically answer yes to prompts",
-        long_help = "Automatically answer yes to prompts.\n\nParsed for pnpm compatibility; aube does not currently prompt on these paths.",
-        long = "yes",
-        short = 'y',
-        global,
-        hide
-    )]
+    /// Automatically answer yes to prompts.
+    ///
+    /// Parsed for pnpm compatibility; aube does not currently prompt
+    /// on these paths.
+    #[usage(long = "yes", short = 'y', global, hide)]
     pub yes: bool,
     #[usage(subcommand)]
     pub command: ::std::option::Option<Commands>,
@@ -4899,7 +5875,7 @@ pub struct Cli {
 
 #[derive(Subcommands)]
 pub enum Commands {
-    /// Bootstrap aube's cached node-gyp and print the executable path
+    /// Bootstrap aube's cached node-gyp and print the executable path.
     #[usage(name = "__node-gyp-bootstrap", hide)]
     NodeGypBootstrap(Box<NodeGypBootstrapArgs>),
     /// Manage package access and visibility on the registry
@@ -4911,12 +5887,8 @@ pub enum Commands {
     /// Add a dependency
     #[usage(name = "add", alias = "a")]
     Add(Box<AddArgs>),
-    /// Approve ignored dependency build scripts
-    #[usage(
-        name = "approve-builds",
-        help = "Approve ignored dependency build scripts",
-        long_help = "Approve ignored dependency build scripts.\n\nWrites entries under `allowBuilds` in `aube-workspace.yaml` (or `pnpm-workspace.yaml` if present)."
-    )]
+    /// Approve ignored dependency build scripts.
+    #[usage(name = "approve-builds")]
     ApproveBuilds(Box<ApproveBuildsArgs>),
     /// Check installed packages against the registry advisory DB
     #[usage(name = "audit")]
@@ -4936,34 +5908,20 @@ pub enum Commands {
     /// Print the cached package index JSON for `<name>@<version>`
     #[usage(name = "cat-index")]
     CatIndex(Box<CatIndexArgs>),
-    /// Verify installed packages can resolve their declared deps
-    #[usage(
-        name = "check",
-        help = "Verify installed packages can resolve their declared deps",
-        long_help = "Verify installed packages can resolve their declared deps.\n\nWalks the `node_modules/` symlink tree and confirms every dependency in each `package.json` resolves to a real entry."
-    )]
+    /// Verify installed packages can resolve their declared deps.
+    #[usage(name = "check")]
     Check(Box<CheckArgs>),
-    /// Clean install: delete node_modules, then install with frozen lockfile
-    #[usage(
-        name = "ci",
-        help = "Clean install: delete node_modules, then install with frozen lockfile",
-        long_help = "Clean install: delete node_modules, then install with frozen lockfile.\n\nUse in CI to guarantee a reproducible install from the committed lockfile.",
-        alias = "clean-install",
-        alias_hidden("ic", "install-clean")
-    )]
+    /// Clean install: delete node_modules, then install with frozen lockfile.
+    #[usage(name = "ci", alias("clean-install", "ic", "install-clean"))]
     Ci(Box<CiArgs>),
-    /// Remove `node_modules` across every workspace project
-    #[usage(
-        name = "clean",
-        help = "Remove `node_modules` across every workspace project",
-        long_help = "Remove `node_modules` across every workspace project.\n\n`--lockfile` / `-l` also deletes lockfiles. A `clean` script in the root `package.json` overrides the built-in."
-    )]
+    /// Remove `node_modules` across every workspace project.
+    #[usage(name = "clean")]
     Clean(Box<CleanArgs>),
     /// Generate shell completions (bash, zsh, fish)
     #[usage(name = "completion")]
     Completion(Box<CompletionArgs>),
     /// Read and write settings in `.npmrc`
-    #[usage(name = "config", alias_hidden = "c")]
+    #[usage(name = "config", alias = "c")]
     Config(Box<ConfigArgs>),
     /// Scaffold a project from a `create-*` starter kit (via dlx)
     #[usage(name = "create")]
@@ -5014,16 +5972,10 @@ pub enum Commands {
     #[usage(name = "init")]
     Init(Box<InitArgs>),
     /// Install all dependencies
-    #[usage(name = "install", alias_hidden = "i")]
+    #[usage(name = "install", alias = "i")]
     Install(Box<InstallArgs>),
-    /// Install dependencies, then run the `test` script (pnpm compat alias)
-    #[usage(
-        name = "install-test",
-        help = "Install dependencies, then run the `test` script (pnpm compat alias)",
-        long_help = "Install dependencies, then run the `test` script (pnpm compat alias).\n\nHidden from help because `aube test` already auto-installs.",
-        hide,
-        alias_hidden = "it"
-    )]
+    /// Install dependencies, then run the `test` script (pnpm compat alias).
+    #[usage(name = "install-test", hide, alias = "it")]
     InstallTest(Box<InstallTestArgs>),
     /// Alias for `list --long` (hidden; prefer `list --long`)
     #[usage(name = "la", hide)]
@@ -5041,7 +5993,7 @@ pub enum Commands {
     #[usage(name = "ll", hide)]
     Ll(Box<LlArgs>),
     /// Store a registry auth token in the user's ~/.npmrc
-    #[usage(name = "login", alias_hidden = "adduser")]
+    #[usage(name = "login", alias = "adduser")]
     Login(Box<LoginArgs>),
     /// Remove a registry auth token from the user's ~/.npmrc
     #[usage(name = "logout")]
@@ -5076,34 +6028,31 @@ pub enum Commands {
     /// Print the current package prefix directory
     #[usage(name = "prefix")]
     Prefix(Box<PrefixArgs>),
-    /// Remove extraneous packages from project `node_modules`
-    #[usage(
-        name = "prune",
-        help = "Remove extraneous packages from project `node_modules`",
-        long_help = "Remove extraneous packages from project `node_modules`.\n\nReads the lockfile, computes the packages still reachable from each importer, and removes stale top-level links, stale virtual-store entries, and dangling .bin links. Does not modify package.json or the lockfile."
-    )]
+    /// Remove extraneous packages from project `node_modules`.
+    #[usage(name = "prune")]
     Prune(Box<PruneArgs>),
     /// Publish the current package to the registry
     #[usage(name = "publish")]
     Publish(Box<PublishArgs>),
-    /// Alias for `clean` — remove `node_modules` across every workspace project
-    #[usage(
-        name = "purge",
-        help = "Alias for `clean` — remove `node_modules` across every workspace project",
-        long_help = "Alias for `clean` — remove `node_modules` across every workspace project.\n\nA `purge` script in the root `package.json` overrides the built-in."
-    )]
+    /// Alias for `clean` — remove `node_modules` across every workspace project.
+    #[usage(name = "purge")]
     Purge(Box<PurgeArgs>),
     /// Query packages in the resolved dependency graph
     #[usage(name = "query")]
     Query(Box<QueryArgs>),
     /// Re-run root lifecycle scripts and allowlisted dependency builds
-    #[usage(name = "rebuild", alias = "rb")]
+    #[usage(
+        name = "rebuild",
+        help = "Re-run root lifecycle scripts and allowlisted dependency builds",
+        long_help = "`aube rebuild [<pkg>...]` — without args, re-run the root package's\npreinstall hook, then install / postinstall work for dependency\npackages allowed by the active `allowBuilds` /\n`onlyBuiltDependencies` policy, then the root package's install /\npostinstall / prepare lifecycle hooks.\n\nWith one or more package names, run lifecycle scripts only for the\nnamed deps and skip the root hooks. Match is by graph `name`, which\nis the in-tree alias when one is configured (so `aube rebuild\nmy-alias` works for a manifest entry like\n`\"my-alias\": \"npm:real-pkg@1.0\"`, matching pnpm).\n\nUnlike the other lifecycle shortcuts, `rebuild` intentionally does not\nauto-install: `aube install` already runs these same four hooks after\nlinking, so triggering an install here would double-run every script\non a stale tree. Users who actually want a fresh install should run\n`aube install`.",
+        alias = "rb"
+    )]
     Rebuild(Box<RebuildArgs>),
     /// Run a supported command across workspace packages
     #[usage(name = "recursive", alias("multi", "m"))]
     Recursive(Box<RecursiveArgs>),
     /// Remove a dependency
-    #[usage(name = "remove", alias = "rm", alias_hidden("uninstall", "un", "uni"))]
+    #[usage(name = "remove", alias("rm", "uninstall", "un", "uni"))]
     Remove(Box<RemoveArgs>),
     /// Restart a package (shortcut for `run restart`; falls back to `stop` + `start`)
     #[usage(name = "restart")]
@@ -5112,7 +6061,7 @@ pub enum Commands {
     #[usage(name = "root")]
     Root(Box<RootArgs>),
     /// Run a script defined in package.json
-    #[usage(name = "run", alias_hidden = "run-script")]
+    #[usage(name = "run", alias = "run-script")]
     Run(Box<RunArgs>),
     /// Manage the project's Node.js runtime (pin, install, inspect)
     #[usage(name = "runtime", alias = "rt")]
@@ -5157,19 +6106,19 @@ pub enum Commands {
     #[usage(name = "undeprecate")]
     Undeprecate(Box<UndeprecateArgs>),
     /// Unlink a package (remove linked entries from node_modules)
-    #[usage(name = "unlink", alias_hidden = "dislink")]
+    #[usage(name = "unlink", alias = "dislink")]
     Unlink(Box<UnlinkArgs>),
     /// Remove a package (or a single version) from the registry
     #[usage(name = "unpublish")]
     Unpublish(Box<UnpublishArgs>),
     /// Update dependencies
-    #[usage(name = "update", alias_hidden("up", "upgrade"))]
+    #[usage(name = "update", alias("up", "upgrade"))]
     Update(Box<UpdateArgs>),
     /// Bump the version in package.json (and optionally create a git commit + tag)
     #[usage(name = "version")]
     Version(Box<VersionArgs>),
     /// Print package metadata from the registry
-    #[usage(name = "view", alias("info", "show"), alias_hidden = "v")]
+    #[usage(name = "view", alias("info", "show", "v"))]
     View(Box<ViewArgs>),
     /// Report the current registry user (not implemented — use `npm whoami`)
     #[usage(name = "whoami", hide)]
