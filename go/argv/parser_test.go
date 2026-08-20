@@ -360,6 +360,39 @@ func TestDefaultMissing(t *testing.T) {
 	}
 }
 
+func TestOptionalFlagValue(t *testing.T) {
+	color := &Flag{Key: 9, Name: "color", Longs: []string{"color"}, Shorts: []byte{'c'},
+		TakesValue: true, ValueOptional: true}
+	verbose := &Flag{Key: 10, Name: "verbose", Longs: []string{"verbose"}, Shorts: []byte{'v'}}
+	rest := &Arg{Key: 11, Name: "rest"}
+	cmd := &Command{Name: "ex", Flags: []*Flag{color, verbose}, Args: []*Arg{rest}}
+
+	for _, tc := range []struct {
+		name string
+		argv []string
+		want string
+	}{
+		{"bare long", []string{"--color"}, "flag:color"},
+		{"explicit long", []string{"--color=never"}, "flag:color=never"},
+		{"detached long", []string{"--color", "never"}, "flag:color=never"},
+		{"later flag", []string{"--color", "--verbose"}, "flag:color flag:verbose"},
+		{"bare short", []string{"-c"}, "flag:color"},
+		{"attached short", []string{"-cnever"}, "flag:color=never"},
+		{"explicit empty", []string{"--color="}, "flag:color="},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := collect(cmd, tc.argv...); got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+
+	color.RequireEquals = true
+	if got := collect(cmd, "--color", "rest"); got != "flag:color arg:rest=rest" {
+		t.Fatalf("require equals: got %q", got)
+	}
+}
+
 // Bind only: choices live in Check. A missing default that is not on the list
 // still binds, and Check is what refuses it — the same path as `--color=wat`.
 func TestDefaultMissingGoesThroughChoices(t *testing.T) {

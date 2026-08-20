@@ -343,14 +343,15 @@ func (p *Parser) longFlag(token string) bool {
 				// `token`, not `--`+name: with no attached value the token is the
 				// spelling, and slicing it costs nothing on a path that must not
 				// allocate.
-				v, ok := p.takeDetachedValue(flag, token, 0)
+				v, present, ok := p.takeDetachedValue(flag, token, 0)
 				if !ok {
 					return false
 				}
 				value = v
+				hasValue = present
 			}
 		}
-		if flag.Variadic {
+		if flag.Variadic && hasValue {
 			p.startCollecting(flag, value)
 		}
 		return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: hasValue})
@@ -424,22 +425,24 @@ func (p *Parser) shortFlag() bool {
 	// one separating =.
 	p.bundle = ""
 	var value string
+	hasValue := true
 	switch {
 	case rest == "":
-		v, ok := p.takeDetachedValue(flag, "", b)
+		v, present, ok := p.takeDetachedValue(flag, "", b)
 		if !ok {
 			return false
 		}
 		value = v
+		hasValue = present
 	case rest[0] == '=':
 		value = rest[1:]
 	default:
 		value = rest
 	}
-	if flag.Variadic {
+	if flag.Variadic && hasValue {
 		p.startCollecting(flag, value)
 	}
-	return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: true})
+	return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: hasValue})
 }
 
 // takeDetachedValue takes the following token as a flag's value.
@@ -449,14 +452,14 @@ func (p *Parser) shortFlag() bool {
 // form is available for the deliberate case. Declared, the next token is taken
 // whatever it looks like, including `--`. RequireEquals refuses the following
 // word either way. The negative-number exception means `--offset -1` still works.
-func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string, bool) {
+func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string, bool, bool) {
 	if flag.RequireEquals {
 		return p.missingOrDefault(flag, long, short)
 	}
 	if p.pos < len(p.argv) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos]) || (flag.AllowNegativeNumbers && isNegativeNumber(p.argv[p.pos]))) {
 		v := p.argv[p.pos]
 		p.pos++
-		return v, true
+		return v, true, true
 	}
 	return p.missingOrDefault(flag, long, short)
 }
@@ -465,10 +468,14 @@ func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string,
 //
 // DefaultMissing binds without consuming the next token, so `--color --verbose`
 // still sets verbose and `--inspect 80` with RequireEquals leaves `80` for a
-// positional. Empty DefaultMissing is unset, and is then the missing-value error.
-func (p *Parser) missingOrDefault(flag *Flag, long string, short byte) (string, bool) {
+// positional. Empty DefaultMissing is unset; ValueOptional then emits a bare
+// occurrence, while a required value produces the missing-value error.
+func (p *Parser) missingOrDefault(flag *Flag, long string, short byte) (string, bool, bool) {
 	if flag.DefaultMissing != "" {
-		return flag.DefaultMissing, true
+		return flag.DefaultMissing, true, true
+	}
+	if flag.ValueOptional {
+		return "", false, true
 	}
 	// The form the user actually wrote, carried so the advice can use it. A flag
 	// answers to several spellings and the first is not always the one in front of
@@ -484,7 +491,7 @@ func (p *Parser) missingOrDefault(flag *Flag, long string, short byte) (string, 
 		typed = "-" + string(short)
 	}
 	p.fail(Error{Code: CodeMissingFlagValue, Flag: flag, Token: typed})
-	return "", false
+	return "", false, false
 }
 
 func (p *Parser) word(token string) bool {

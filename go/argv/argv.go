@@ -128,6 +128,10 @@ type Flag struct {
 	Negate string
 	// TakesValue is whether the flag takes a value.
 	TakesValue bool
+	// ValueOptional is whether an occurrence may omit that value. A bare flag
+	// still emits an event, with HasValue false, instead of producing a
+	// missing-value error.
+	ValueOptional bool
 	// Variadic is whether one occurrence of this flag keeps taking values, until a
 	// flag-like token or the end of the command line.
 	//
