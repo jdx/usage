@@ -313,6 +313,9 @@ impl Spec {
                 "args_conflicts_with_subcommands" => {
                     schema.cmd.args_conflicts_with_subcommands = node.arg(0)?.ensure_bool()?;
                 }
+                "subcommand_precedence_over_arg" => {
+                    schema.cmd.subcommand_precedence_over_arg = node.arg(0)?.ensure_bool()?;
+                }
                 "example" => {
                     let code = node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
                     let mut example = SpecExample::new(code.trim().to_string());
@@ -613,6 +616,11 @@ impl Display for Spec {
         }
         if self.cmd.args_conflicts_with_subcommands {
             let mut node = KdlNode::new("args_conflicts_with_subcommands");
+            node.push(true);
+            nodes.push(node);
+        }
+        if self.cmd.subcommand_precedence_over_arg {
+            let mut node = KdlNode::new("subcommand_precedence_over_arg");
             node.push(true);
             nodes.push(node);
         }

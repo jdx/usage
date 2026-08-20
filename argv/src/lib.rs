@@ -194,6 +194,8 @@ pub struct Command<'a> {
     /// Once this command binds a flag or positional, selecting one of its
     /// subcommands is an error.
     pub args_conflicts_with_subcommands: bool,
+    /// Let a known subcommand interrupt a variadic argument that would otherwise consume it.
+    pub subcommand_precedence_over_arg: bool,
     /// Disable delimiter splitting for positional values after `--` or on an
     /// automatic trailing argument. Inherited by subcommands.
     pub dont_delimit_trailing_values: bool,
@@ -241,6 +243,7 @@ impl Command<'_> {
         arg_required_else_help: false,
         subcommand_negates_reqs: false,
         args_conflicts_with_subcommands: false,
+        subcommand_precedence_over_arg: false,
         dont_delimit_trailing_values: false,
         unknown_flags: ::core::option::Option::None,
         version: false,
@@ -1248,6 +1251,18 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         // still part of the token being processed.
         if !self.bundle.is_empty() {
             return Some(self.short_flag());
+        }
+
+        if self.cmd.subcommand_precedence_over_arg && !self.flags_stopped {
+            if let Some(token) = self.argv.get(self.pos).map(bytes) {
+                if let Some(sub) = self.find_subcommand(token) {
+                    if self.cmd.args_conflicts_with_subcommands && self.command_arg_found {
+                        return Some(Err(Error::SubcommandConflict { subcommand: sub }));
+                    }
+                    self.pos += 1;
+                    return Some(self.descend(sub).map(|()| Event::Command(sub)));
+                }
+            }
         }
 
         // A variadic flag keeps claiming tokens until one of them could be

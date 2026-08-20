@@ -59,6 +59,15 @@ enum ArgumentConflictCommand {
     Run,
 }
 
+#[derive(Cli)]
+#[command(bin = "precedence", subcommand_precedence_over_arg)]
+struct Precedence {
+    #[arg(long, num_args = 1..)]
+    values: Vec<String>,
+    #[command(subcommand)]
+    command: Option<ArgumentConflictCommand>,
+}
+
 #[derive(Subcommands, serde::Deserialize)]
 enum InlineCommand {
     /// Run a named benchmark.
@@ -982,6 +991,20 @@ fn typed_parent_arguments_exclude_a_later_subcommand() {
         kdl.contains("args_conflicts_with_subcommands #true"),
         "{kdl}"
     );
+}
+
+#[test]
+fn typed_subcommands_can_interrupt_variadic_values() {
+    let parsed = Precedence::parse_from(&[
+        OsStr::new("--values"),
+        OsStr::new("a"),
+        OsStr::new("b"),
+        OsStr::new("run"),
+    ])
+    .expect("the known child should end the variadic flag");
+    assert_eq!(parsed.values, ["a", "b"]);
+    assert!(matches!(parsed.command, Some(ArgumentConflictCommand::Run)));
+    assert!(Precedence::to_kdl().contains("subcommand_precedence_over_arg #true"));
 }
 
 #[test]

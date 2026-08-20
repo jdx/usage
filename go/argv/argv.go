@@ -75,6 +75,8 @@ type Command struct {
 	// ArgsConflictWithSubcommands rejects selecting a child after this command
 	// has already bound a flag or positional.
 	ArgsConflictWithSubcommands bool
+	// SubcommandPrecedenceOverArg lets a known child interrupt a variadic value owner.
+	SubcommandPrecedenceOverArg bool
 	// DontDelimitTrailingValues disables delimiter splitting after -- and for
 	// automatic trailing arguments. It is inherited by subcommands.
 	DontDelimitTrailingValues bool

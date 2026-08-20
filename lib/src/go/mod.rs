@@ -386,6 +386,12 @@ impl<'a> Emitter<'a> {
                     "true".into(),
                 ));
             }
+            if e.cmd.subcommand_precedence_over_arg {
+                lines.push(Line::Field(
+                    "SubcommandPrecedenceOverArg".into(),
+                    "true".into(),
+                ));
+            }
             if e.cmd.dont_delimit_trailing_values {
                 lines.push(Line::Field(
                     "DontDelimitTrailingValues".into(),

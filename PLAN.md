@@ -509,7 +509,8 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [ ] **Remaining command parsing policy** —
       `args_conflicts_with_subcommands` is now portable across KDL, typed Rust,
       usage-lib, generated Go, and the clap bridge. Remaining:
-      `subcommand_precedence_over_arg` and `allow_missing_positional`.
+      `subcommand_precedence_over_arg` is now portable and lets a known child
+      interrupt a variadic value owner. Remaining: `allow_missing_positional`.
 - [x] **`args_override_self`.** Repeated scalar flags are corrections by default;
       the later value wins. `args_override_self=false` opts a command into duplicate
       errors. KDL, usage-lib, the typed derive/static metadata, generated Go, and the
