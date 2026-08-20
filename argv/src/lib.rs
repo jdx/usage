@@ -189,6 +189,8 @@ pub struct Command<'a> {
     /// bound values: an environment variable or default may fill a field, but neither means
     /// the user supplied an argument to this invocation.
     pub arg_required_else_help: bool,
+    /// Selecting a subcommand suppresses this command's required arguments.
+    pub subcommand_negates_reqs: bool,
     /// Disable delimiter splitting for positional values after `--` or on an
     /// automatic trailing argument. Inherited by subcommands.
     pub dont_delimit_trailing_values: bool,
@@ -234,6 +236,7 @@ impl Command<'_> {
         default_subcommand: ::core::option::Option::None,
         external_subcommand: false,
         arg_required_else_help: false,
+        subcommand_negates_reqs: false,
         dont_delimit_trailing_values: false,
         unknown_flags: ::core::option::Option::None,
         version: false,

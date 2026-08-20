@@ -1519,6 +1519,9 @@ fn parse_partial_with_env(
                 && !overridden_flags.contains(&flag.name)
                 && (flag_was_parsed(flag) || flag_has_env(flag, custom_env))
         });
+    let requirements_apply = |command_index: usize| {
+        command_index + 1 == out.cmds.len() || !out.cmds[command_index].subcommand_negates_reqs
+    };
 
     if out.cmd.arg_required_else_help && !command_has_argv {
         out.errors.push(render_help_err(spec, &out.cmd, false));
@@ -1549,7 +1552,13 @@ fn parse_partial_with_env(
     // Not `skip(out.args.len())`: a `--` may have jumped the cursor past an arg that stayed
     // empty, so position and fill count can disagree. Ask `out.args` which args it holds.
     if !exclusive_present {
-        for arg in out.cmd.args.iter() {
+        for arg in out
+            .cmds
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| requirements_apply(*index))
+            .flat_map(|(_, cmd)| &cmd.args)
+        {
             if out.args.contains_key(arg) {
                 continue;
             }
@@ -1644,7 +1653,12 @@ fn parse_partial_with_env(
         // named it, which is what clap says too: an unmet `requires` is a required
         // argument that was not provided. Named by its own name, resolved through the
         // same matcher, so a `requires="-f"` reports `--force` rather than the selector.
-        if !exclusive_present {
+        let owner = out
+            .cmds
+            .iter()
+            .rposition(|cmd| cmd.flags.iter().any(|declared| declared.name == flag.name))
+            .unwrap_or(out.cmds.len() - 1);
+        if !exclusive_present && requirements_apply(owner) {
             for other in &flag.requires {
                 if !selector_is_satisfied(other, &out, &overridden_flags, custom_env) {
                     let name = selector_flag_name(other, &out).unwrap_or_else(|| other.clone());
@@ -1674,7 +1688,12 @@ fn parse_partial_with_env(
 
     // Positionals can declare the same pairwise conflict as flags. Their selector is
     // the bare argument name, while a flag keeps its dashed spelling.
-    for arg in out.cmds.iter().flat_map(|cmd| &cmd.args) {
+    for (command_index, arg) in out
+        .cmds
+        .iter()
+        .enumerate()
+        .flat_map(|(index, cmd)| cmd.args.iter().map(move |arg| (index, arg)))
+    {
         let given = arg_is_explicit(arg, &out, custom_env);
         if !given {
             continue;
@@ -1689,7 +1708,7 @@ fn parse_partial_with_env(
                 });
             }
         }
-        if !exclusive_present {
+        if !exclusive_present && requirements_apply(command_index) {
             for other in &arg.requires {
                 if !selector_is_satisfied(other, &out, &overridden_flags, custom_env) {
                     let name = selector_flag_name(other, &out).unwrap_or_else(|| other.clone());
@@ -1765,7 +1784,12 @@ fn parse_partial_with_env(
     // Every command in the chain, not only the selected one: a group may name global
     // flags, which belong to an ancestor and are declared there.
     let mut group_errors: Vec<UsageErr> = Vec::new();
-    for group in out.cmds.iter().flat_map(|cmd| &cmd.groups) {
+    for (command_index, group) in out
+        .cmds
+        .iter()
+        .enumerate()
+        .flat_map(|(index, cmd)| cmd.groups.iter().map(move |group| (index, group)))
+    {
         // Counted by the *flag* a selector resolves to, not by the selector. `-f` and
         // `--file` are two spellings of one flag, and a group naming both — or naming one
         // flag twice — would otherwise report that flag as conflicting with itself the
@@ -1800,7 +1824,7 @@ fn parse_partial_with_env(
             .members
             .iter()
             .any(|selector| selector_is_satisfied(selector, &out, &overridden_flags, custom_env));
-        if group.required && !satisfied && !exclusive_present {
+        if group.required && requirements_apply(command_index) && !satisfied && !exclusive_present {
             // The members are what a user has to type, so they are in the message; the
             // group's name is there too, since a command with several groups would
             // otherwise report the same sentence twice with nothing to tell them apart.
@@ -1814,6 +1838,14 @@ fn parse_partial_with_env(
 
     if !exclusive_present {
         for flag in unique_flags(out.available_flags.values()) {
+            let owner = out
+                .cmds
+                .iter()
+                .rposition(|cmd| cmd.flags.iter().any(|declared| declared.name == flag.name))
+                .unwrap_or(out.cmds.len() - 1);
+            if !requirements_apply(owner) {
+                continue;
+            }
             if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
                 continue;
             }
@@ -4894,6 +4926,43 @@ flag "--file <file>" required_unless="--stdin"
             let err = parse(&spec, &input(words)).unwrap_err();
             assert!(err.to_string().contains("cannot be used multiple times"));
         }
+    }
+
+    #[test]
+    fn a_subcommand_can_negate_only_its_parents_requirements() {
+        let base = r#"name "ex"
+bin "ex"
+flag "--config" required=#true
+flag "--mode" requires="--config"
+flag "--other"
+arg "<input>"
+group "source" "--config" "--other" required=#true
+cmd "run" { flag "--child" required=#true }
+"#;
+        let strict: Spec = base.parse().unwrap();
+        let err = parse(&strict, &input(&["ex", "run"])).unwrap_err();
+        let message = err.to_string();
+        assert!(
+            message.contains("input") || message.contains("config"),
+            "{message}"
+        );
+
+        let negated: Spec = base
+            .replacen("bin \"ex\"", "bin \"ex\"\nsubcommand_negates_reqs #true", 1)
+            .parse()
+            .unwrap();
+        let err = parse(&negated, &input(&["ex", "run"])).unwrap_err();
+        assert!(
+            err.to_string().contains("child"),
+            "the selected command keeps its own requirements: {err}"
+        );
+
+        let mut child_optional = negated.clone();
+        child_optional.cmd.subcommands["run"].flags[0].required = false;
+        parse(&child_optional, &input(&["ex", "run"]))
+            .expect("the child selection satisfies all parent requirements");
+        parse(&child_optional, &input(&["ex", "--mode", "run"]))
+            .expect("parent requires relationships are negated too");
     }
 
     #[test]

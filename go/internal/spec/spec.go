@@ -101,6 +101,7 @@ type Cmd struct {
 	ArgRequiredElseHelp       bool        `json:"arg_required_else_help"`
 	DontDelimitTrailingValues bool        `json:"dont_delimit_trailing_values"`
 	ArgsOverrideSelf          bool        `json:"args_override_self"`
+	SubcommandNegatesReqs     bool        `json:"subcommand_negates_reqs"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.
@@ -606,6 +607,7 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		UnknownFlags:              unknown,
 		ExternalSubcommand:        c.ExternalSubcommand,
 		ArgRequiredElseHelp:       c.ArgRequiredElseHelp,
+		SubcommandNegatesReqs:     c.SubcommandNegatesReqs,
 		DontDelimitTrailingValues: c.DontDelimitTrailingValues,
 		Key:                       b.next(),
 	}

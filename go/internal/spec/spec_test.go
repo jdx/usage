@@ -63,6 +63,16 @@ func TestAFlagsDefaultCanBeDeclaredOnItsValue(t *testing.T) {
 	}
 }
 
+func TestSubcommandRequirementPolicyReachesTheCommandTable(t *testing.T) {
+	root, _ := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", SubcommandNegatesReqs: true},
+	})
+	if !root.SubcommandNegatesReqs {
+		t.Error("subcommand_negates_reqs was lost while lowering JSON tables")
+	}
+}
+
 func TestVariadicFlagMinimumComesFromItsValue(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",

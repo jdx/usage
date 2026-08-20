@@ -141,6 +141,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let arg_required_else_help = cli.arg_required_else_help;
     let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
     let args_override_self = cli.args_override_self;
+    let subcommand_negates_reqs = cli.subcommand_negates_reqs;
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -422,6 +423,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 version: #has_version,
                 unknown_flags: #unknown_flags,
                 arg_required_else_help: #arg_required_else_help,
+                subcommand_negates_reqs: #subcommand_negates_reqs,
                 dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 name: #name,
                 key: #root_key,
@@ -3445,6 +3447,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let arg_required_else_help = cli.arg_required_else_help;
     let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
     let args_override_self = cli.args_override_self;
+    let subcommand_negates_reqs = cli.subcommand_negates_reqs;
     let before_help = option_expr(cli.before_help.as_ref());
     let before_long_help = option_expr(cli.before_long_help.as_ref());
     let after_help = option_expr(cli.after_help.as_ref());
@@ -3555,6 +3558,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 key: #command_key,
                 unknown_flags: #unknown_flags,
                 arg_required_else_help: #arg_required_else_help,
+                subcommand_negates_reqs: #subcommand_negates_reqs,
                 dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,
@@ -4712,6 +4716,16 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
 /// from the environment or a default.
 fn post_binding(cli: &Cli) -> TokenStream {
     let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
+    let subcommand_satisfies_requirements = if cli.subcommand_negates_reqs
+        && cli
+            .fields
+            .iter()
+            .any(|field| matches!(field.kind, Kind::Subcommand { .. }))
+    {
+        quote!(partial.__usage_selected.is_some())
+    } else {
+        quote!(false)
+    };
     let direct_exclusive_present = cli.fields.iter().filter_map(|field| {
         if !field.exclusive {
             return None;
@@ -5531,7 +5545,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // An exclusive occurrence is the command's escape from requiredness, just as in clap:
         // `--version` remains usable on a command that otherwise requires an input. Conflicts
         // and other validation still ran above; only errors about absent siblings are skipped.
-        if !__usage_exclusive_present {
+        if !__usage_exclusive_present && !(#subcommand_satisfies_requirements) {
             #(#requirement_checks)*
             #(#conditional_requirement_checks)*
             #(#required_checks)*

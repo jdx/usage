@@ -123,6 +123,15 @@ func CheckRelationships(meta Metadata, entries []uint64, sourceOf func(uint64) S
 // as `--feature`, its negation, or a truthy environment value.
 func CheckRelationshipsWithValues(meta Metadata, entries []uint64,
 	sourceOf func(uint64) Source, valuesOf func(uint64) []string) *Error {
+	return CheckRelationshipsWithValuesAndRequirements(meta, entries, sourceOf, valuesOf,
+		func(uint64) bool { return true })
+}
+
+// CheckRelationshipsWithValuesAndRequirements additionally selects which entries have their
+// positive requirement rules enforced. Conflicts always apply.
+func CheckRelationshipsWithValuesAndRequirements(meta Metadata, entries []uint64,
+	sourceOf func(uint64) Source, valuesOf func(uint64) []string,
+	requirementsOf func(uint64) bool) *Error {
 	given := func(key uint64) bool { return sourceOf(key).Given() }
 
 	for _, key := range entries {
@@ -143,6 +152,9 @@ func CheckRelationshipsWithValues(meta Metadata, entries []uint64,
 					}
 					return e
 				}
+			}
+			if !requirementsOf(key) {
+				continue
 			}
 			for _, other := range m.Requires {
 				if sourceOf(other) == Unset {
@@ -174,6 +186,9 @@ func CheckRelationshipsWithValues(meta Metadata, entries []uint64,
 		//	--file defaulted, required_unless="--stdin", nothing typed  → fine
 		//	--stdin defaulted, --file required_unless="--stdin"         → --file missing
 		if sourceOf(key) != Unset {
+			continue
+		}
+		if !requirementsOf(key) {
 			continue
 		}
 

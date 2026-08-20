@@ -377,6 +377,9 @@ impl<'a> Emitter<'a> {
             if e.cmd.arg_required_else_help {
                 lines.push(Line::Field("ArgRequiredElseHelp".into(), "true".into()));
             }
+            if e.cmd.subcommand_negates_reqs {
+                lines.push(Line::Field("SubcommandNegatesReqs".into(), "true".into()));
+            }
             if e.cmd.dont_delimit_trailing_values {
                 lines.push(Line::Field(
                     "DontDelimitTrailingValues".into(),
@@ -1867,6 +1870,22 @@ cmd "run" arg_required_else_help=#true {
         assert!(
             out.contains("p.Command().ArgRequiredElseHelp && p.CommandStart() == len(args)"),
             "the typed parser should enforce it before fallbacks:\n{out}"
+        );
+    }
+
+    #[test]
+    fn subcommand_negates_requirements_reaches_generated_go() {
+        let out = go(
+            "name \"ex\"\nbin \"ex\"\nsubcommand_negates_reqs #true\nflag \"--config\" required=#true\ncmd \"run\"\n",
+        );
+        assert!(out.contains("SubcommandNegatesReqs: true"), "{out}");
+        assert!(
+            out.contains("checkRequirements := i == len(chain)-1 || !cmd.SubcommandNegatesReqs"),
+            "{out}"
+        );
+        assert!(
+            out.contains("CheckRelationshipsWithValuesAndRequirements"),
+            "{out}"
         );
     }
 

@@ -70,6 +70,8 @@ type Command struct {
 	ExternalSubcommand bool
 	// ArgRequiredElseHelp shows this command's help when no argv token follows its name.
 	ArgRequiredElseHelp bool
+	// SubcommandNegatesReqs lets a selected child satisfy this command's requirements.
+	SubcommandNegatesReqs bool
 	// DontDelimitTrailingValues disables delimiter splitting after -- and for
 	// automatic trailing arguments. It is inherited by subcommands.
 	DontDelimitTrailingValues bool

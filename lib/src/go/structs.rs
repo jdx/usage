@@ -323,9 +323,11 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \n\t// Only the commands the words actually selected are judged: a required\n\
          \t// flag on a command nobody ran is not missing.\n\
          \tvar scope []uint64\n\
-         \tfor _, cmd := range chain {{\n\
-         \t\tfor _, f := range cmd.Flags {{\n\t\t\tscope = append(scope, f.Key)\n\t\t}}\n\
-         \t\tfor _, a := range cmd.Args {{\n\t\t\tscope = append(scope, a.Key)\n\t\t}}\n\
+         \trequirements := map[uint64]bool{{}}\n\
+         \tfor i, cmd := range chain {{\n\
+         \t\tcheckRequirements := i == len(chain)-1 || !cmd.SubcommandNegatesReqs\n\
+         \t\tfor _, f := range cmd.Flags {{\n\t\t\tscope = append(scope, f.Key)\n\t\t\trequirements[f.Key] = checkRequirements\n\t\t}}\n\
+         \t\tfor _, a := range cmd.Args {{\n\t\t\tscope = append(scope, a.Key)\n\t\t\trequirements[a.Key] = checkRequirements\n\t\t}}\n\
          \t}}\n\
          \tsources := map[uint64]argv.Source{{}}\n\
          \tfilled := map[uint64][]string{{}}\n\
@@ -340,7 +342,9 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \t\tvalues, source := filled[key], sources[key]\n\
          {conditional_value}\
          {duplicate_occurrences}\
-         \t\tif err := argv.Check(Meta.Lookup(key), values, {check_occurrences}); err != nil {{\n\
+         \t\tentryMeta := Meta.Lookup(key)\n\
+         \t\tif entryMeta != nil && !requirements[key] {{\n\t\t\tcopy := *entryMeta\n\t\t\tcopy.Required = false\n\t\t\tentryMeta = &copy\n\t\t}}\n\
+         \t\tif err := argv.Check(entryMeta, values, {check_occurrences}); err != nil {{\n\
          \t\t\treturn nil, err\n\t\t}}\n\
          \t\t// What the environment or a default supplied has to reach the field\n\
          \t\t// too. A front door that enforces a default and then hands back the\n\
@@ -358,16 +362,16 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
     if has_relationship_values {
         let _ = writeln!(
             out,
-            "\tif err := argv.CheckRelationshipsWithValues(Meta, scope, func(k uint64) argv.Source {{\n\
+            "\tif err := argv.CheckRelationshipsWithValuesAndRequirements(Meta, scope, func(k uint64) argv.Source {{\n\
              \t\treturn sources[k]\n\t}}, func(k uint64) []string {{\n\
              \t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n\
-             \t}}); err != nil {{\n\t\treturn nil, err\n\t}}"
+             \t}}, func(k uint64) bool {{ return requirements[k] }}); err != nil {{\n\t\treturn nil, err\n\t}}"
         );
     } else {
         let _ = writeln!(
             out,
-            "\tif err := argv.CheckRelationships(Meta, scope, func(k uint64) argv.Source {{\n\
-             \t\treturn sources[k]\n\t}}); err != nil {{\n\t\treturn nil, err\n\t}}"
+            "\tif err := argv.CheckRelationshipsWithValuesAndRequirements(Meta, scope, func(k uint64) argv.Source {{\n\
+             \t\treturn sources[k]\n\t}}, nil, func(k uint64) bool {{ return requirements[k] }}); err != nil {{\n\t\treturn nil, err\n\t}}"
         );
     }
     let _ = writeln!(out, "\treturn out, nil\n}}\n");
