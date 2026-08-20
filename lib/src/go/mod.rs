@@ -544,6 +544,9 @@ impl Emitter<'_> {
             if choices.ignore_case {
                 fields.push("IgnoreCase: true".to_string());
             }
+            if !choices.strict {
+                fields.push("AllowUnknownChoices: true".to_string());
+            }
         }
         // A default can be written in either place, and usage-lib falls back to
         // the one on the value. `env` deliberately does not follow the same
@@ -700,6 +703,9 @@ fn arg_meta(
         ));
         if choices.ignore_case {
             fields.push("IgnoreCase: true".to_string());
+        }
+        if !choices.strict {
+            fields.push("AllowUnknownChoices: true".to_string());
         }
     }
     if !arg.default.is_empty() {
@@ -1603,12 +1609,12 @@ cmd "config" {
     }
 
     #[test]
-    fn rich_choices_keep_acceptance_and_visibility_separate() {
+    fn rich_choices_keep_acceptance_visibility_and_strictness_separate() {
         let out = go(r#"
 name "ex"
 bin "ex"
 flag "--color <when>" {
-    choices ignore_case=#true {
+    choices ignore_case=#true strict=#false {
         choice "always" {
             alias "yes"
             alias "on" hide=#true
@@ -1627,6 +1633,7 @@ flag "--color <when>" {
             "{entry}"
         );
         assert!(entry.contains("IgnoreCase: true"), "{entry}");
+        assert!(entry.contains("AllowUnknownChoices: true"), "{entry}");
     }
 
     /// Inheritance is resolved here so the parser reads one field per command.

@@ -71,6 +71,8 @@ type Meta struct {
 	// AcceptedChoices also includes hidden values and aliases.
 	AcceptedChoices []string
 	IgnoreCase      bool
+	// AllowUnknownChoices keeps Choices presentational rather than restrictive.
+	AllowUnknownChoices bool
 	// Default fills in when neither the command line nor the environment did.
 	Default []string
 	// Env names an environment variable to fall back to. Empty means none.
@@ -325,7 +327,7 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 	if len(accepted) == 0 {
 		accepted = m.Choices
 	}
-	if len(accepted) > 0 {
+	if len(accepted) > 0 && !m.AllowUnknownChoices {
 		// Every value, not just the first: a variadic can be given a good value
 		// and a bad one, and so can a repeatable flag across occurrences.
 		for _, v := range values {
