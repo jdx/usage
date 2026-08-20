@@ -253,7 +253,6 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
         out.push('…');
     }
     if flag.takes_value {
-        let name = meta.value_name.unwrap_or(flag.name);
         // Angled where the value must be given, squared where it need not — the same brackets
         // an argument uses, and for the same reason. pitchfork's `--bump` is the fleet's case.
         let (open, close) = if meta.value_optional {
@@ -261,8 +260,31 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
         } else {
             ('<', '>')
         };
-        let _ = write!(out, " {open}{name}{close}");
-        if flag.variadic {
+        let exact = exact_arity(meta.value_var_min, meta.value_var_max);
+        if meta.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
+            let name = meta
+                .value_names
+                .first()
+                .copied()
+                .or(meta.value_name)
+                .unwrap_or(flag.name);
+            for _ in 0..exact.unwrap() {
+                let _ = write!(out, " {open}{name}{close}");
+            }
+        } else if meta.value_names.len() <= 1 {
+            let name = meta
+                .value_names
+                .first()
+                .copied()
+                .or(meta.value_name)
+                .unwrap_or(flag.name);
+            let _ = write!(out, " {open}{name}{close}");
+        } else {
+            for name in meta.value_names {
+                let _ = write!(out, " {open}{name}{close}");
+            }
+        }
+        if flag.variadic && meta.value_names.len() <= 1 && exact.is_none() {
             out.push('…');
         }
     }
@@ -308,15 +330,42 @@ pub(crate) fn arg_usage(meta: &ArgMeta<'_>) -> String {
     // value without it does not reach this argument at all — and the brackets go *outside*
     // it, as usage-lib writes it: `[-- COMMAND]…`, one optional thing rather than a literal
     // `--` followed by an optional word.
-    if arg.double_dash == DoubleDash::Required {
-        let _ = write!(out, "{open}-- {}{close}", arg.name);
+    let exact = exact_arity(meta.var_min, meta.var_max);
+    if meta.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
+        for index in 0..exact.unwrap() {
+            if index > 0 {
+                out.push(' ');
+            }
+            let _ = write!(out, "{open}{}{close}", arg.name);
+        }
+    } else if meta.value_names.len() <= 1 {
+        if arg.double_dash == DoubleDash::Required {
+            let _ = write!(out, "{open}-- {}{close}", arg.name);
+        } else {
+            let _ = write!(out, "{open}{}{close}", arg.name);
+        }
     } else {
-        let _ = write!(out, "{open}{}{close}", arg.name);
+        if arg.double_dash == DoubleDash::Required {
+            out.push_str("-- ");
+        }
+        for (index, name) in meta.value_names.iter().enumerate() {
+            if index > 0 {
+                out.push(' ');
+            }
+            let _ = write!(out, "{open}{name}{close}");
+        }
     }
-    if arg.var {
+    if arg.var && meta.value_names.len() <= 1 && exact.is_none() {
         out.push('…');
     }
     out
+}
+
+fn exact_arity(min: Option<usize>, max: Option<usize>) -> Option<usize> {
+    match (min, max) {
+        (Some(min), Some(max)) if min == max => Some(min),
+        _ => None,
+    }
 }
 
 /// Everything `-h` prints.

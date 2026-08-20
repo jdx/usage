@@ -80,6 +80,17 @@ struct ClapSpellings {
     path: Option<String>,
 }
 
+#[derive(Cli)]
+#[command(bin = "fixed-arity")]
+struct FixedArity {
+    #[arg(long, num_args = 2, value_names = ["START", "END"])]
+    pair: Vec<String>,
+    #[arg(long, num_args = 2, value_name = "ITEM")]
+    pair_same: Vec<String>,
+    #[arg(long, value_names = ["INPUT"])]
+    input: Option<String>,
+}
+
 #[derive(usage::Args)]
 struct FlattenedRelationshipTargets {
     #[usage(long, default = "nested-default")]
@@ -615,6 +626,40 @@ fn clap_field_ids_and_aliases_need_no_rewrite() {
     assert!(
         kdl.contains("alias --quietly --silent-output hide=#true"),
         "{kdl}"
+    );
+}
+
+#[test]
+fn clap_value_arity_stays_on_each_flag_occurrence() {
+    let parsed = FixedArity::parse_from(&[
+        OsStr::new("--pair"),
+        OsStr::new("a"),
+        OsStr::new("b"),
+        OsStr::new("--input"),
+        OsStr::new("file"),
+    ])
+    .expect("the fixed-arity occurrence should consume exactly two values");
+    assert_eq!(parsed.pair, ["a", "b"]);
+    assert!(parsed.pair_same.is_empty());
+    assert_eq!(parsed.input.as_deref(), Some("file"));
+
+    let kdl = FixedArity::to_kdl();
+    assert!(kdl.contains("flag --pair"), "{kdl}");
+    assert!(kdl.contains("arg \"<START> <END>\""), "{kdl}");
+    assert!(!kdl.contains("flag --pair var_min=2"), "{kdl}");
+    assert!(kdl.contains("arg <INPUT>"), "{kdl}");
+    let help = usage::help::render(FixedArity::spec(), FixedArity::command(), false)
+        .expect("the root has help to render");
+    assert!(help.contains("--input <INPUT>"), "{help}");
+    assert!(help.contains("--pair-same <ITEM> <ITEM>"), "{help}");
+    assert!(
+        kdl.contains("flag --pair-same") && kdl.contains("arg \"<ITEM> <ITEM>\""),
+        "{kdl}"
+    );
+
+    assert!(
+        FixedArity::parse_from(&[OsStr::new("--pair"), OsStr::new("only-one")]).is_err(),
+        "a partial fixed-arity occurrence must fail its value minimum"
     );
 }
 

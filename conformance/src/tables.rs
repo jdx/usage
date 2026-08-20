@@ -321,6 +321,7 @@ fn flag_meta(
         help: opt(&f.help),
         long_help: opt(&f.help_long),
         value_name: arg.map(|a| leak(&a.name)),
+        value_names: arg.map_or(&[], |a| strs(&a.value_names)),
         // The value's own bracket bit, which is not the flag's — usage-lib renders a flag from
         // two independent `required` bits and a spec can write either without the other. Folded
         // with the value's own default the way usage-lib folds a positional's, so
@@ -343,8 +344,10 @@ fn flag_meta(
         // The separator as declared, a `char`: the metadata is the cold model and says what
         // the spec said, where the binding table beside it holds the byte binding counts by.
         delimiter: arg.and_then(|a| a.delimiter),
-        var_min: f.var_min.or(arg.and_then(|a| a.var_min)),
-        var_max: f.var_max.or(arg.and_then(|a| a.var_max)),
+        var_min: f.var_min,
+        var_max: f.var_max,
+        value_var_min: arg.and_then(|a| a.var_min),
+        value_var_max: arg.and_then(|a| a.var_max),
         overrides: strs(&f.overrides),
         conflicts: strs(&f.conflicts),
         requires: strs(&f.requires),
@@ -387,6 +390,7 @@ fn arg_meta(
     let choices = a.choices.as_ref();
     ArgMeta {
         arg: table,
+        value_names: strs(&a.value_names),
         help: opt(&a.help),
         long_help: opt(&a.help_long),
         env: opt(&a.env),

@@ -57,6 +57,43 @@ func TestHiddenFlagAliasesStayOutOfHelp(t *testing.T) {
 	}
 }
 
+func TestFixedArityHelpKeepsDistinctValueNames(t *testing.T) {
+	flag := &Flag{Key: 2, Name: "range", Longs: []string{"range"}, TakesValue: true, Variadic: true}
+	arg := &Arg{Key: 3, Name: "PAIR", Var: true}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{flag}, Args: []*Arg{arg}}
+	help := HelpTable{
+		{Key: 1},
+		{Key: 2, ValueDemanded: true, ValueNames: []string{"START", "END"}},
+		{Key: 3, Demanded: true, ValueNames: []string{"LEFT", "RIGHT"}},
+	}
+	page := ShortHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	for _, want := range []string{"--range <START> <END>", "<LEFT> <RIGHT>"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("missing %q in:\n%s", want, page)
+		}
+	}
+}
+
+func TestFixedArityHelpRepeatsOneValueName(t *testing.T) {
+	flag := &Flag{Key: 2, Name: "pair", Longs: []string{"pair"}, TakesValue: true, Variadic: true}
+	arg := &Arg{Key: 3, Name: "ITEM", Var: true}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{flag}, Args: []*Arg{arg}}
+	help := HelpTable{
+		{Key: 1},
+		{Key: 2, ValueName: "ITEM", ValueArity: 2, ValueDemanded: true},
+		{Key: 3, ValueArity: 2, Demanded: true},
+	}
+	page := ShortHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	for _, want := range []string{"--pair <ITEM> <ITEM>", "<ITEM> <ITEM>"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("missing %q in:\n%s", want, page)
+		}
+	}
+	if strings.Contains(page, "<ITEM>…") {
+		t.Errorf("exact arity must not render as variadic:\n%s", page)
+	}
+}
+
 // A description that ends in a break adds no blank line.
 //
 // clap's `long_about` often ends with one — a `///` block whose last line is

@@ -296,6 +296,7 @@ func (f *Flag) defaults() []string {
 // Arg is one positional argument, or a flag's value, in the lowered spec.
 type Arg struct {
 	Name                 string   `json:"name"`
+	ValueNames           []string `json:"value_names"`
 	Required             bool     `json:"required"`
 	Var                  bool     `json:"var"`
 	VarMax               int      `json:"var_max"`
@@ -836,6 +837,8 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		Demanded:      f.Required && len(f.Default) == 0,
 		Repeatable:    f.Var,
 		ValueName:     valueName,
+		ValueNames:    valueNames(f.Arg),
+		ValueArity:    exactArity(f.Arg),
 		ValueDemanded: valueDemanded,
 		Short:         first(f.Help, f.HelpFirstLine),
 		Long:          first(f.HelpLong, f.Help),
@@ -857,7 +860,7 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		IgnoreCase:        f.Arg != nil && f.Arg.Choices != nil && f.Arg.Choices.IgnoreCase,
 		Default:           f.defaults(),
 		Env:               f.Env,
-		VarMin:            clampVarMax(f.VarMin),
+		VarMin:            clampVarMax(f.valueMinimum()),
 		Validate:          valueValidation(f.Arg),
 		ValidateError:     valueValidationError(f.Arg),
 		// Occurrences. The per-occurrence value bound is a limit binding applies,
@@ -879,6 +882,19 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 	return out
 }
 
+// valueMinimum is the post-binding minimum for this flag. A variadic value has
+// one occurrence, so its nested minimum is also its total minimum; an ordinary
+// repeatable flag instead uses the flag-level occurrence minimum.
+func (f *Flag) valueMinimum() int {
+	if f.Arg != nil && f.Arg.Var {
+		if f.Arg.VarMin != 0 {
+			return f.Arg.VarMin
+		}
+		return f.VarMin
+	}
+	return f.VarMin
+}
+
 func (b *builder) arg(a *Arg) *argv.Arg {
 	out := &argv.Arg{
 		Key:                  b.next(),
@@ -895,14 +911,16 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 		out.VarMax = clampVarMax(a.VarMax)
 	}
 	b.recordHelp(out.Key, argv.Help{
-		Hide:     a.Hide,
-		Demanded: a.Required && len(a.Default) == 0,
-		Short:    first(a.Help, a.HelpFirstLine),
-		Long:     first(a.HelpLong, a.Help),
-		Heading:  a.HelpHeading,
-		Choices:  a.Choices.visible(),
-		Env:      a.Env,
-		Default:  a.Default,
+		Hide:       a.Hide,
+		Demanded:   a.Required && len(a.Default) == 0,
+		ValueNames: a.ValueNames,
+		ValueArity: exactArity(a),
+		Short:      first(a.Help, a.HelpFirstLine),
+		Long:       first(a.HelpLong, a.Help),
+		Heading:    a.HelpHeading,
+		Choices:    a.Choices.visible(),
+		Env:        a.Env,
+		Default:    a.Default,
 	})
 	b.record(out.Key, argv.Meta{
 		Name:            a.Name,
@@ -921,6 +939,20 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 		// fail an invocation that never broke it.
 	})
 	return out
+}
+
+func valueNames(a *Arg) []string {
+	if a == nil || len(a.ValueNames) == 0 {
+		return nil
+	}
+	return a.ValueNames
+}
+
+func exactArity(a *Arg) uint32 {
+	if a != nil && a.Var && a.VarMin > 1 && a.VarMin == a.VarMax {
+		return uint32(a.VarMin)
+	}
+	return 0
 }
 
 func valueValidation(arg *Arg) string {

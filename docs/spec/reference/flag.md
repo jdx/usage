@@ -18,6 +18,7 @@ flag "--include... <pattern>"                   // same as above, ellipsis on fl
 flag "--include <pattern>..."                   // arg is variadic (--include a b c in one invocation)
 flag "--include <pattern>" var=#true var_min=1  // at least 1 value required
 flag "--include <pattern>" var=#true var_max=5  // up to 5 values allowed
+flag "--range <start> <end>"                    // one occurrence takes exactly two values
 
 flag "--color" negate="--no-color" default=#true // $usage_color=#true by default
                                                  // --no-color will set $usage_color=#false

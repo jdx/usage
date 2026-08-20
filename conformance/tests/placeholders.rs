@@ -46,6 +46,38 @@ struct Ex {
     quiet: bool,
 }
 
+#[derive(Debug, PartialEq, Cli)]
+#[usage(bin = "fixed")]
+struct Fixed {
+    /// A pair consumed by one flag occurrence.
+    #[arg(long, num_args = 2, value_names = ["START", "END"])]
+    range: Vec<String>,
+    /// Two positional values with distinct labels.
+    #[arg(num_args = 2, value_names = ["LEFT", "RIGHT"])]
+    pair: Vec<String>,
+}
+
+#[test]
+fn fixed_arity_values_keep_each_placeholder() {
+    use std::ffi::OsStr;
+
+    let argv = ["--range", "1", "2", "a", "b"].map(OsStr::new);
+    let parsed = Fixed::parse_from(&argv).expect("two values per field should parse");
+    assert_eq!(parsed.range, ["1", "2"]);
+    assert_eq!(parsed.pair, ["a", "b"]);
+
+    let spec: LibSpec = Fixed::to_kdl().parse().expect("generated fixed-arity spec");
+    let range = spec.cmd.flags[0].arg.as_ref().unwrap();
+    assert_eq!(range.value_names, ["START", "END"]);
+    assert_eq!((range.var_min, range.var_max), (Some(2), Some(2)));
+    assert_eq!(spec.cmd.args[0].value_names, ["LEFT", "RIGHT"]);
+
+    let page = usage_argv::help::render(Fixed::spec(), Fixed::spec().root.cmd, false)
+        .expect("fixed-arity help");
+    assert!(page.contains("--range <START> <END>"), "{page}");
+    assert!(page.contains("[LEFT] [RIGHT]"), "{page}");
+}
+
 #[test]
 fn a_value_is_named_after_its_field_shouted() {
     let spec: LibSpec = Ex::to_kdl().parse().expect("valid spec");

@@ -215,6 +215,8 @@ pub struct Field {
     /// which reads oddly when the two differ in case or shape — a spec saying
     /// `--tool <TOOL>` came back as `--tool <tool>`, because the name was all there was.
     pub value_name: Option<String>,
+    /// Ordered placeholders for one fixed-arity value occurrence.
+    pub value_names: Vec<String>,
     /// The values this may take. Checked after the parse, since a choice list is
     /// about what a value *means* rather than which token it came from.
     pub choices: Vec<String>,
@@ -231,6 +233,14 @@ pub struct Field {
     pub complete_type: Option<String>,
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
+    /// Bounds on the values consumed by one flag occurrence.
+    ///
+    /// Clap's `num_args` is per occurrence, while the spec's flag-level
+    /// `var_min`/`var_max` count occurrences. Keeping the two axes distinct is
+    /// what lets `--pair A B --pair C D` round-trip without turning the value
+    /// arity into an occurrence limit.
+    pub value_var_min: Option<usize>,
+    pub value_var_max: Option<usize>,
     /// Flags this one displaces. Applied while parsing rather than after it: the
     /// question is which of them came last, so the answer is decided by the token
     /// that arrives, not by the state it leaves behind.
@@ -1345,6 +1355,7 @@ impl Field {
             default_value_t: None,
             help_heading: None,
             value_name: None,
+            value_names: Vec::new(),
             required_collection: false,
             choices: Vec::new(),
             validate: None,
@@ -1352,6 +1363,8 @@ impl Field {
             value_enum: false,
             var_min: None,
             var_max: None,
+            value_var_min: None,
+            value_var_max: None,
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
@@ -1458,6 +1471,7 @@ impl Field {
             default_value_t: None,
             help_heading: None,
             value_name: None,
+            value_names: Vec::new(),
             required_collection: false,
             choices: Vec::new(),
             validate: None,
@@ -1465,6 +1479,8 @@ impl Field {
             value_enum: false,
             var_min: None,
             var_max: None,
+            value_var_min: None,
+            value_var_max: None,
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
@@ -1565,6 +1581,7 @@ impl Field {
             default_value_t: None,
             help_heading: None,
             value_name: None,
+            value_names: Vec::new(),
             required_collection: false,
             choices: Vec::new(),
             validate: None,
@@ -1572,6 +1589,8 @@ impl Field {
             value_enum: false,
             var_min: None,
             var_max: None,
+            value_var_min: None,
+            value_var_max: None,
             overrides: Vec::new(),
             conflicts: Vec::new(),
             requires: Vec::new(),
@@ -1644,6 +1663,8 @@ impl Field {
         let mut help_heading = None;
         let mut effect = None;
         let mut value_name = None;
+        let mut value_names: Vec<String> = Vec::new();
+        let mut num_args: Option<(usize, Option<usize>)> = None;
         let mut required_collection = false;
         let mut help_attr: Option<String> = None;
         let mut long_help_attr: Option<String> = None;
@@ -1845,13 +1866,13 @@ impl Field {
                     "help_heading" => help_heading = Some(string_value(&meta)?),
                     "effect" => effect = Some(effect_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
+                    "value_names" => value_names = selectors(&meta)?,
                     "num_args" => {
-                        return Err(syn::Error::new_spanned(
-                            &meta,
-                            "clap's `num_args` maps to the Rust field shape plus \
-                             `var_min`/`var_max`; use `Option<T>`, `Vec<T>`, and those \
-                             bounds to declare the same arity",
-                        ));
+                        let (min, max) = num_args_value(&meta)?;
+                        num_args = Some((min, max));
+                        if max.is_none_or(|max| max > 1) {
+                            variadic = true;
+                        }
                     }
                     "value_parser" => {
                         return Err(syn::Error::new_spanned(
@@ -1901,7 +1922,7 @@ impl Field {
                                  `value_terminator`, `require_equals`, \
                                  `default_missing`, `default_if`, \
                                  `required_if`, \
-                                 `required_unless`, `help_heading`, `value_name`, \
+                                 `required_unless`, `help_heading`, `value_name`, `value_names`, `num_args`, \
                                  `verbatim_doc_comment`, \
                                  `visible_alias`, `visible_aliases`, `required`, \
                                  `double_dash`, and `skip`"
@@ -2011,6 +2032,17 @@ impl Field {
             ty: value_ty,
             optional_collection,
         } = ValueKind::from_type(&field.ty, count, span)?;
+        let is_flag = !longs.is_empty() || !shorts.is_empty();
+        let (mut value_var_min, mut value_var_max) = (None, None);
+        if let Some((min, max)) = num_args {
+            if is_flag {
+                value_var_min = Some(min);
+                value_var_max = max;
+            } else {
+                var_min = Some(min);
+                var_max = max;
+            }
+        }
         // The spec records a default and the generated code applies it; anything it
         // cannot apply would be documented and then ignored.
         //
@@ -2121,10 +2153,34 @@ impl Field {
                 ));
             }
         }
-        if (var_min.is_some() || var_max.is_some()) && shape != Shape::Many {
+        if let (Some(min), Some(max)) = (value_var_min, value_var_max) {
+            if min > max {
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "`num_args` begins at {min} but ends at {max}, so nothing could satisfy it"
+                    ),
+                ));
+            }
+        }
+        if (var_min.is_some_and(|min| min > 1)
+            || var_max.is_none() && var_min.is_some()
+            || var_max.is_some_and(|max| max > 1)
+            || value_var_min.is_some_and(|min| min > 1)
+            || value_var_max.is_none() && value_var_min.is_some()
+            || value_var_max.is_some_and(|max| max > 1))
+            && shape != Shape::Many
+        {
             return Err(syn::Error::new(
                 span,
                 "`var_min` and `var_max` count values, so the field has to be a `Vec`",
+            ));
+        }
+        if num_args.is_some() && is_flag && value_var_min == Some(0) && default_missing.is_none() {
+            return Err(syn::Error::new(
+                span,
+                "a flag whose `num_args` begins at zero distinguishes an absent flag from a \
+                 present flag with no value; use `default_missing` for a portable optional value",
             ));
         }
         if !choices.is_empty() {
@@ -2173,7 +2229,6 @@ impl Field {
                  `long` or `short` to declare the flag",
             ));
         }
-        let is_flag = !longs.is_empty() || !shorts.is_empty();
         // Only a flag's value has a say in this. A positional's brackets come from its type
         // already — `Option<T>` renders `[NAME]` and `T` renders `<NAME>` — so the attribute
         // would be read by nothing, and a declaration nothing reads is worse than an error: the
@@ -2210,7 +2265,7 @@ impl Field {
                  that takes several values is a `Vec` field",
             ));
         }
-        if !is_flag && variadic {
+        if !is_flag && variadic && num_args.is_none() {
             return Err(syn::Error::new(
                 span,
                 "`variadic` describes a flag whose one occurrence keeps taking values; \
@@ -2341,6 +2396,17 @@ impl Field {
         // counting them is the whole point. Left uninferred, the emitted spec said `count`
         // without `var` where mise's says both, and help rendered `-v --verbose` for a flag
         // that can be given again.
+        if is_flag && value_names.len() > 1 {
+            variadic = true;
+        }
+        // usage-native bounds on a variadic flag describe the values consumed by
+        // its one occurrence. On a merely repeatable flag they instead count
+        // occurrences. Clap's `num_args` was already placed on the value axis
+        // above; move native bounds there once the final flag shape is known.
+        if is_flag && variadic && value_var_min.is_none() && value_var_max.is_none() {
+            value_var_min = var_min.take();
+            value_var_max = var_max.take();
+        }
         let repeatable =
             repeatable || (is_flag && !variadic && (shape == Shape::Many || shape == Shape::Count));
 
@@ -2583,6 +2649,45 @@ impl Field {
                 ));
             }
         }
+        if !value_names.is_empty() {
+            if matches!(shape, Shape::Bool | Shape::Count) {
+                return Err(syn::Error::new(
+                    span,
+                    "`value_names` names value placeholders, and this field takes no value",
+                ));
+            }
+            if value_names.len() > 1 && shape != Shape::Many {
+                return Err(syn::Error::new(
+                    span,
+                    "more than one `value_names` entry requires a `Vec<T>` field",
+                ));
+            }
+            if value_names.len() > 1 {
+                let arity = value_names.len();
+                let bounds = if is_flag {
+                    (&mut value_var_min, &mut value_var_max)
+                } else {
+                    (&mut var_min, &mut var_max)
+                };
+                match (*bounds.0, *bounds.1) {
+                    (None, None) => {
+                        *bounds.0 = Some(arity);
+                        *bounds.1 = Some(arity);
+                    }
+                    (Some(min), Some(max)) if min == arity && max == arity => {}
+                    _ => {
+                        return Err(syn::Error::new(
+                            span,
+                            format!(
+                                "{} value names describe a fixed arity of {arity}; set \
+                                 `num_args = {arity}` or matching `var_min`/`var_max`",
+                                value_names.len()
+                            ),
+                        ));
+                    }
+                }
+            }
+        }
 
         // A positional is named by the same rule, and its name *is* its placeholder: clap
         // prints `<TAG> [PREV_TAG]` for `tag: String, prev_tag: Option<String>`, so a spec
@@ -2624,6 +2729,7 @@ impl Field {
             help_heading,
             effect,
             value_name,
+            value_names,
             required_collection,
             choices,
             validate,
@@ -2633,6 +2739,8 @@ impl Field {
             value_enum,
             var_min,
             var_max,
+            value_var_min,
+            value_var_max,
             overrides,
             conflicts,
             requires,
@@ -3143,6 +3251,57 @@ fn int_value(meta: &Meta) -> syn::Result<usize> {
         other => Err(syn::Error::new_spanned(
             other,
             "expected a whole number, as in `var_min = 1`",
+        )),
+    }
+}
+
+fn num_args_value(meta: &Meta) -> syn::Result<(usize, Option<usize>)> {
+    fn bound(expr: &Expr) -> syn::Result<usize> {
+        match expr {
+            Expr::Lit(ExprLit {
+                lit: Lit::Int(value),
+                ..
+            }) => value.base10_parse(),
+            other => Err(syn::Error::new_spanned(
+                other,
+                "`num_args` bounds must be whole-number literals",
+            )),
+        }
+    }
+
+    let value = &meta.require_name_value()?.value;
+    match value {
+        Expr::Lit(ExprLit {
+            lit: Lit::Int(value),
+            ..
+        }) => {
+            let count = value.base10_parse()?;
+            Ok((count, Some(count)))
+        }
+        Expr::Range(range) => {
+            let min = range.start.as_deref().map(bound).transpose()?.unwrap_or(0);
+            let mut max = range.end.as_deref().map(bound).transpose()?;
+            if matches!(range.limits, syn::RangeLimits::HalfOpen(_)) {
+                if let Some(end) = max.as_mut() {
+                    *end = end.checked_sub(1).ok_or_else(|| {
+                        syn::Error::new_spanned(
+                            value,
+                            "an exclusive `num_args` range cannot end at zero",
+                        )
+                    })?;
+                }
+            }
+            if max.is_some_and(|max| min > max) {
+                return Err(syn::Error::new_spanned(
+                    value,
+                    "the `num_args` range has no possible value count",
+                ));
+            }
+            Ok((min, max))
+        }
+        other => Err(syn::Error::new_spanned(
+            other,
+            "expected a count or range, as in `num_args = 2` or `num_args = 1..=3`",
         )),
     }
 }
@@ -4218,16 +4377,79 @@ mod tests {
     }
 
     #[test]
-    fn lossy_clap_field_spellings_get_migration_diagnostics() {
-        let arity = rejection(
+    fn clap_field_spellings_preserve_supported_metadata() {
+        let parsed = cli(r#"
+            struct Ex {
+                #[arg(long, num_args = 2, value_names = ["START", "END"])]
+                pair: Vec<String>,
+            }
+        "#)
+        .expect("fixed arity and distinct labels are representable");
+        assert_eq!(parsed.fields[0].var_min, None);
+        assert_eq!(parsed.fields[0].var_max, None);
+        assert_eq!(parsed.fields[0].value_var_min, Some(2));
+        assert_eq!(parsed.fields[0].value_var_max, Some(2));
+        assert_eq!(parsed.fields[0].value_names, ["START", "END"]);
+
+        let inferred = cli(r#"
+            struct Ex {
+                #[arg(long, value_names = ["LEFT", "RIGHT"])]
+                pair: Vec<String>,
+            }
+        "#)
+        .expect("value_names alone infer fixed arity");
+        assert_eq!(inferred.fields[0].var_min, None);
+        assert_eq!(inferred.fields[0].var_max, None);
+        assert_eq!(inferred.fields[0].value_var_min, Some(2));
+        assert_eq!(inferred.fields[0].value_var_max, Some(2));
+        assert_eq!(inferred.fields[0].value_names, ["LEFT", "RIGHT"]);
+
+        let optional_value = rejection(
             r#"
             struct Ex {
-                #[arg(long, num_args = 2)]
-                pair: Vec<String>,
+                #[arg(long, num_args = 0..=2)]
+                values: Vec<String>,
             }
         "#,
         );
-        assert!(arity.contains("var_min"), "{arity}");
+        assert!(
+            optional_value.contains("default_missing"),
+            "{optional_value}"
+        );
+
+        let positional = cli(r#"
+            struct Ex {
+                #[arg(num_args = 0..=2)]
+                values: Vec<String>,
+            }
+        "#)
+        .expect("a positional can consume no values without a present-empty flag state");
+        assert_eq!(positional.fields[0].var_min, Some(0));
+        assert_eq!(positional.fields[0].var_max, Some(2));
+
+        let usage_bounds = cli(r#"
+            struct Ex {
+                #[usage(long, variadic, var_min = 2, var_max = 3)]
+                values: Vec<String>,
+                #[usage(long, var_min = 2, var_max = 4)]
+                tags: Vec<String>,
+            }
+        "#)
+        .expect("usage bounds follow the declared collection axis");
+        assert_eq!(usage_bounds.fields[0].var_min, None);
+        assert_eq!(usage_bounds.fields[0].value_var_min, Some(2));
+        assert_eq!(usage_bounds.fields[0].value_var_max, Some(3));
+        assert_eq!(usage_bounds.fields[1].var_min, Some(2));
+        assert_eq!(usage_bounds.fields[1].var_max, Some(4));
+        assert_eq!(usage_bounds.fields[1].value_var_min, None);
+
+        cli(r#"
+            struct Ex {
+                #[arg(long, num_args = 0..=2, default_missing = "auto")]
+                values: Vec<String>,
+            }
+        "#)
+        .expect("default_missing represents the present flag with no explicit value");
 
         let parser = rejection(
             r#"

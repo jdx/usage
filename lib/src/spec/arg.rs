@@ -10,7 +10,9 @@ use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
-use crate::{string, SpecChoice, SpecChoiceAlias, SpecChoices};
+use crate::{string, SpecChoices};
+#[cfg(feature = "clap")]
+use crate::{SpecChoice, SpecChoiceAlias};
 
 #[derive(Debug, Default, Clone, Serialize, PartialEq, Eq, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "snake_case")]
@@ -47,6 +49,10 @@ pub enum SpecDoubleDashChoices {
 pub struct SpecArg {
     /// Name of the argument (used in help text)
     pub name: String,
+    /// Ordered placeholders for a fixed-arity value, such as `START` and `END`.
+    /// Empty means the argument's `name` is the sole placeholder.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub value_names: Vec<String>,
     /// Generated usage string (e.g., "<file>" or "[file]")
     pub usage: String,
     /// Short help text shown in command listings
@@ -234,6 +240,13 @@ impl SpecArg {
                 "var" => arg.var = child.arg(0)?.ensure_bool()?,
                 "var_min" => arg.var_min = child.arg(0)?.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = child.arg(0)?.ensure_usize().map(Some)?,
+                "value_names" => {
+                    arg.value_names = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|entry| entry.ensure_string())
+                        .collect::<Result<Vec<_>, _>>()?;
+                }
                 "allow_negative_numbers" => {
                     arg.allow_negative_numbers = child.arg(0)?.ensure_bool()?;
                 }
@@ -251,6 +264,25 @@ impl SpecArg {
                 "double_dash" => arg.double_dash = child.arg(0)?.ensure_string()?.parse()?,
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
             }
+        }
+        if let Some(first) = arg.value_names.first() {
+            arg.name.clone_from(first);
+        }
+        if arg.value_names.len() > 1 {
+            let arity = arg.value_names.len();
+            match (arg.var_min, arg.var_max) {
+                (None, None) => {
+                    arg.var_min = Some(arity);
+                    arg.var_max = Some(arity);
+                }
+                (Some(min), Some(max)) if min == arity && max == arity => {}
+                _ => bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "{arity} value names require var_min={arity} and var_max={arity}"
+                ),
+            }
+            arg.var = true;
         }
         if arg.validate_error.is_some() && arg.validate.is_none() {
             bail_parse!(
@@ -293,6 +325,41 @@ impl SpecArg {
 
 impl SpecArg {
     pub fn usage(&self) -> String {
+        let exact_arity = self.var.then_some(()).and_then(|()| {
+            self.var_min
+                .zip(self.var_max)
+                .filter(|(min, max)| min == max && *min > 1)
+                .map(|(arity, _)| arity)
+        });
+        if self.value_names.len() > 1 || exact_arity.is_some() {
+            let labels = if self.value_names.len() > 1 {
+                self.value_names.clone()
+            } else {
+                vec![
+                    self.value_names
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| self.name.clone());
+                    exact_arity.expect("branch checked")
+                ]
+            };
+            let placeholders = labels
+                .iter()
+                .map(|name| {
+                    if self.required {
+                        format!("<{name}>")
+                    } else {
+                        format!("[{name}]")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            return if self.double_dash == SpecDoubleDashChoices::Required {
+                format!("-- {placeholders}")
+            } else {
+                placeholders
+            };
+        }
         let name = if self.double_dash == SpecDoubleDashChoices::Required {
             format!("-- {}", self.name)
         } else {
@@ -412,9 +479,40 @@ impl From<&SpecArg> for KdlNode {
 
 impl From<&str> for SpecArg {
     fn from(input: &str) -> Self {
+        let (input, after_double_dash) = input
+            .strip_prefix("-- ")
+            .map_or((input, false), |rest| (rest, true));
+        if let Some(placeholders) = fixed_placeholders(input) {
+            let required = placeholders
+                .iter()
+                .all(|placeholder| placeholder.starts_with('<'));
+            let value_names = placeholders
+                .iter()
+                .map(|placeholder| placeholder[1..placeholder.len() - 1].to_string())
+                .collect::<Vec<_>>();
+            return SpecArg {
+                name: value_names[0].clone(),
+                value_names,
+                required,
+                var: true,
+                var_min: Some(placeholders.len()),
+                var_max: Some(placeholders.len()),
+                double_dash: if after_double_dash {
+                    SpecDoubleDashChoices::Required
+                } else {
+                    SpecDoubleDashChoices::Optional
+                },
+                ..Default::default()
+            };
+        }
         let mut arg = SpecArg {
             name: input.to_string(),
             required: true,
+            double_dash: if after_double_dash {
+                SpecDoubleDashChoices::Required
+            } else {
+                SpecDoubleDashChoices::Optional
+            },
             ..Default::default()
         };
         // Handle trailing ellipsis: "foo..." or "foo…" or "<foo>..." or "[foo]..."
@@ -438,6 +536,13 @@ impl From<&str> for SpecArg {
             }
             _ => {}
         }
+        // The single-placeholder shorthand encloses the separator with the value:
+        // `[-- target]`. Multi-placeholder canonical output puts it before the
+        // placeholders (`-- [START] [END]`) and was handled above.
+        if let Some(name) = arg.name.strip_prefix("-- ") {
+            arg.double_dash = SpecDoubleDashChoices::Required;
+            arg.name = name.to_string();
+        }
         // Also handle ellipsis inside brackets: "[args...]" or "<args...>"
         if !arg.var {
             if let Some(name) = arg
@@ -449,18 +554,46 @@ impl From<&str> for SpecArg {
                 arg.name = name.to_string();
             }
         }
-        if let Some(name) = arg.name.strip_prefix("-- ") {
-            arg.double_dash = SpecDoubleDashChoices::Required;
-            arg.name = name.to_string();
-        }
         arg
     }
 }
 impl FromStr for SpecArg {
     type Err = UsageErr;
     fn from_str(input: &str) -> std::result::Result<Self, UsageErr> {
+        if fixed_placeholders(input.strip_prefix("-- ").unwrap_or(input)).is_some_and(
+            |placeholders| {
+                placeholders
+                    .windows(2)
+                    .any(|pair| pair[0].starts_with('<') != pair[1].starts_with('<'))
+            },
+        ) {
+            let message =
+                "fixed-arity placeholders must be either all required or all optional".to_string();
+            return Err(UsageErr::InvalidInput(
+                message,
+                (0, input.len()).into(),
+                miette::NamedSource::new("argument", input.to_string()),
+            ));
+        }
         Ok(input.into())
     }
+}
+
+/// Return a multi-placeholder declaration without allocating for the overwhelmingly common
+/// single-placeholder case.
+fn fixed_placeholders(input: &str) -> Option<Vec<&str>> {
+    if !input.bytes().any(|byte| byte.is_ascii_whitespace()) {
+        return None;
+    }
+    let placeholders: Vec<_> = input.split_whitespace().collect();
+    (placeholders.len() > 1
+        && placeholders.iter().all(|placeholder| {
+            matches!(
+                (placeholder.chars().next(), placeholder.chars().last()),
+                (Some('<'), Some('>')) | (Some('['), Some(']'))
+            )
+        }))
+    .then_some(placeholders)
 }
 
 /// A clap argument's defaults, as the spec has to record them.
@@ -506,6 +639,12 @@ pub(crate) fn value_bounds(source: &clap::Arg, target: &mut SpecArg, zero_values
     }
 
     let Some(range) = source.get_num_args() else {
+        if target.value_names.len() > 1 {
+            let arity = target.value_names.len();
+            target.var = true;
+            target.var_min = Some(arity);
+            target.var_max = Some(arity);
+        }
         return;
     };
     let min = range.min_values();
@@ -517,6 +656,32 @@ pub(crate) fn value_bounds(source: &clap::Arg, target: &mut SpecArg, zero_values
     target.var = true;
     target.var_min = Some(min);
     target.var_max = (max != usize::MAX).then_some(max);
+}
+
+/// Value labels that can survive the spec's fixed-arity representation.
+///
+/// Clap permits several labels beside a ranged `num_args`; usage gives distinct labels only to
+/// an exact number of slots. Keep the first display label for a range and let the fidelity report
+/// name the loss instead of emitting KDL that cannot be parsed back.
+#[cfg(feature = "clap")]
+pub(crate) fn value_names_from_clap(source: &clap::Arg) -> Vec<String> {
+    let names: Vec<String> = source
+        .get_value_names()
+        .unwrap_or_default()
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    if names.len() <= 1 {
+        return names;
+    }
+    let mismatched_range = source.get_num_args().is_some_and(|range| {
+        range.min_values() != names.len() || range.max_values() != names.len()
+    });
+    if source.get_value_delimiter().is_some() || mismatched_range {
+        names.into_iter().take(1).collect()
+    } else {
+        names
+    }
 }
 
 #[cfg(feature = "clap")]
@@ -578,14 +743,13 @@ impl From<&clap::Arg> for SpecArg {
             clap::ArgAction::Count | clap::ArgAction::Append
         ) || delimiter.is_some();
         let choices = choices_from_clap(arg);
+        let value_names = value_names_from_clap(arg);
         let mut arg = Self {
-            name: arg
-                .get_value_names()
-                .unwrap_or_default()
+            name: value_names
                 .first()
                 .cloned()
-                .map(|name| name.to_string())
                 .unwrap_or_else(|| source.get_id().to_string()),
+            value_names,
             usage: "".into(),
             required,
             double_dash: if arg.is_last_set() {
@@ -949,7 +1113,7 @@ mod possible_value_tests {
 
 #[cfg(test)]
 mod tests {
-    use crate::Spec;
+    use crate::{Spec, SpecArg};
     use insta::assert_snapshot;
 
     #[test]
@@ -1044,6 +1208,101 @@ arg "<output>" {
         assert_eq!(arg.name, "args");
         assert!(arg.var);
         assert!(!arg.required);
+    }
+
+    #[test]
+    fn fixed_arity_placeholders_round_trip() {
+        let spec: Spec = "arg \"<START> <END>\"\n".parse().unwrap();
+        let arg = &spec.cmd.args[0];
+        assert_eq!(arg.value_names, ["START", "END"]);
+        assert_eq!((arg.var_min, arg.var_max), (Some(2), Some(2)));
+        assert_eq!(arg.usage, "<START> <END>");
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.args[0].value_names, ["START", "END"]);
+    }
+
+    #[test]
+    fn fixed_arity_placeholders_reject_mismatched_bounds() {
+        let error = "arg \"<START> <END>\" var_min=1 var_max=2\n"
+            .parse::<Spec>()
+            .unwrap_err();
+        assert!(
+            format!("{error:?}").contains("require var_min=2 and var_max=2"),
+            "{error:?}"
+        );
+    }
+
+    #[test]
+    fn a_single_value_name_replaces_the_display_name() {
+        let spec: Spec = "arg \"<input>\" { value_names \"INPUT\" }\n"
+            .parse()
+            .unwrap();
+        let arg = &spec.cmd.args[0];
+        assert_eq!(arg.name, "INPUT");
+        assert_eq!(arg.usage, "<INPUT>");
+
+        let built = SpecArg::builder()
+            .name("input")
+            .required(true)
+            .value_names(["INPUT"])
+            .build();
+        assert_eq!(built.name, "INPUT");
+        assert_eq!(built.usage, "<INPUT>");
+    }
+
+    #[test]
+    fn builder_fixed_arity_survives_later_bound_setters() {
+        let after = SpecArg::builder()
+            .value_names(["START", "END"])
+            .var(false)
+            .var_min(1)
+            .var_max(4)
+            .build();
+        let before = SpecArg::builder()
+            .var(false)
+            .var_min(1)
+            .var_max(4)
+            .value_names(["START", "END"])
+            .build();
+        for arg in [after, before] {
+            assert!(arg.var);
+            assert_eq!((arg.var_min, arg.var_max), (Some(2), Some(2)));
+            assert_eq!(arg.usage, "[START] [END]");
+        }
+    }
+
+    #[test]
+    fn one_label_with_exact_bounds_renders_each_value_slot() {
+        let spec: Spec = "arg \"<item>…\" var_min=2 var_max=2 { value_names \"ITEM\" }\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.args[0].usage, "<ITEM> <ITEM>");
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.args[0].value_names, ["ITEM", "ITEM"]);
+        assert_eq!(
+            (reparsed.cmd.args[0].var_min, reparsed.cmd.args[0].var_max),
+            (Some(2), Some(2))
+        );
+
+        let built = SpecArg::builder()
+            .value_names(["ITEM"])
+            .required(true)
+            .var(true)
+            .var_min(2)
+            .var_max(2)
+            .build();
+        assert_eq!(built.usage, "<ITEM> <ITEM>");
+    }
+
+    #[test]
+    fn fixed_arity_placeholders_reject_mixed_requiredness() {
+        let error = "arg \"<START> [END]\"\n".parse::<Spec>().unwrap_err();
+        assert!(
+            format!("{error:?}")
+                .contains("fixed-arity placeholders must be either all required or all optional"),
+            "{error:?}"
+        );
     }
 
     #[test]

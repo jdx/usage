@@ -426,6 +426,25 @@ impl SpecArgBuilder {
         self
     }
 
+    /// Set the ordered placeholders for a fixed-arity value.
+    pub fn value_names<I, S>(mut self, names: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner.value_names = names.into_iter().map(Into::into).collect();
+        if let Some(first) = self.inner.value_names.first() {
+            self.inner.name.clone_from(first);
+        }
+        if self.inner.value_names.len() > 1 {
+            let arity = self.inner.value_names.len();
+            self.inner.var = true;
+            self.inner.var_min = Some(arity);
+            self.inner.var_max = Some(arity);
+        }
+        self
+    }
+
     /// Add a default value (can be called multiple times for var args)
     pub fn default_value(mut self, value: impl Into<String>) -> Self {
         self.inner.default.push(value.into());
@@ -572,6 +591,12 @@ impl SpecArgBuilder {
     pub fn build(mut self) -> SpecArg {
         if self.inner.validate.is_none() {
             self.inner.validate_error = None;
+        }
+        if self.inner.value_names.len() > 1 {
+            let arity = self.inner.value_names.len();
+            self.inner.var = true;
+            self.inner.var_min = Some(arity);
+            self.inner.var_max = Some(arity);
         }
         self.inner.usage = self.inner.usage();
         self.inner
