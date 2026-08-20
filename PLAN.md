@@ -957,6 +957,11 @@ looking at the clap surface, not only at the spec.
       `--usage-spec` solely to expose the new canonical metadata; that new entry
       point has no clap-era behavior to preserve and is excluded from tak's
       compatibility baseline.
+      The six completed typed adopters now supply current `usage-rs` fixtures and
+      regenerated shadows for hk, fnox, pitchfork, aube, tak, and communique. Their
+      delimiter, optional-value, relationship, and command-policy metadata is therefore
+      visible to the gate. mise remains on its clap-era fixture until its router port can
+      emit the replacement metadata.
 - [x] **Docs and manpages on a fleet spec.** communique's checked-in spec and
       the KDL its shadow emits render the same markdown (index and every
       command) and the same manpage. usage-cli's own
@@ -1042,9 +1047,10 @@ a prerequisite for trying a CLI.
       parsers. Adoption is measured by what it lets mise delete, listed below.
       Do not start this until the clap-only rows in **Trying the fleet** that
       mise actually uses are either implemented or accepted as lost.
-- [ ] **pitchfork** — not part of the five typed experiments, but already
-      generates its spec from clap. It is the next small adopter after those
-      experiment branches become mergeable.
+- [x] **pitchfork** — jdx/Pitchfork#754 removes clap, parses its typed command tree
+      with `usage-rs`, uses the built-in completion protocol, and passes its Rust and
+      bats suites against the stacked usage revision. Its refreshed spec is part of the
+      fleet gate alongside the five original typed experiments.
 - [~] **Other languages** — Go now parses, validates, renders help and answers
   completions from generated static tables, verified against the shared corpus.
   JavaScript and Python implementations remain open.

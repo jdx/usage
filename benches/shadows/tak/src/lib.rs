@@ -7,172 +7,193 @@
 
 use usage_derive::{Args, Cli, Subcommands};
 
-/// Benchmark a command, or everything declared in tak.toml
+/// Benchmark a command, or everything declared in tak.toml.
 #[derive(Args)]
 pub struct RunArgs {
-    /// Name to record this measurement under. With no command, selects a single benchmark from tak.toml instead of running all of them
-    #[usage(long = "bench", value_name = "BENCH")]
+    #[usage(
+        help = "Name to record this measurement under. With no command, selects a single benchmark from tak.toml instead of running all of them.",
+        long_help = "Name to record this measurement under. With no command, selects a\nsingle benchmark from tak.toml instead of running all of them.",
+        long = "bench",
+        value_name = "BENCH"
+    )]
     pub bench: ::std::option::Option<::std::string::String>,
-    /// Timed runs. Overrides tak.toml when both are given
+    /// Timed runs. Overrides tak.toml when both are given.
     #[usage(long = "runs", value_name = "RUNS")]
     pub runs: ::std::option::Option<::std::string::String>,
-    /// Untimed warmup runs. Overrides tak.toml when both are given
+    /// Untimed warmup runs. Overrides tak.toml when both are given.
     #[usage(long = "warmup", value_name = "WARMUP")]
     pub warmup: ::std::option::Option<::std::string::String>,
-    /// Skip instruction counting even where valgrind is available
+    /// Skip instruction counting even where valgrind is available.
     #[usage(long = "no-counters")]
     pub no_counters: bool,
-    /// Append the result to refs/notes/tak for the current commit
+    /// Append the result to refs/notes/tak for the current commit.
     #[usage(long = "record")]
     pub record: bool,
-    /// Command to benchmark, after `--`. Omit to run what tak.toml declares
+    /// Command to benchmark, after `--`. Omit to run what tak.toml declares.
     #[usage(arg, name = "CMD", double_dash = "required")]
     pub cmd: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Show recorded history for a commit
+/// Show recorded history for a commit.
 #[derive(Args)]
 pub struct HistoryArgs {
-    /// Remote to refresh notes from
+    /// Remote to refresh notes from.
     #[usage(long = "remote", value_name = "REMOTE", default = "origin")]
     pub remote: ::std::option::Option<::std::string::String>,
-    /// Revision to read. Defaults to HEAD
+    /// Revision to read. Defaults to HEAD.
     #[usage(arg, name = "REV", default = "HEAD")]
     pub rev: ::std::option::Option<::std::string::String>,
 }
 
-/// Push recorded measurements to the remote
+/// Push recorded measurements to the remote.
 #[derive(Args)]
 pub struct PushArgs {
+    /// Remote to use for git-notes synchronization.
     #[usage(long = "remote", value_name = "REMOTE", default = "origin")]
     pub remote: ::std::option::Option<::std::string::String>,
 }
 
-/// Teach plain `git fetch` about the notes ref
+/// Teach plain `git fetch` about the notes ref.
 #[derive(Args)]
 pub struct InitArgs {
+    /// Remote to use for git-notes synchronization.
     #[usage(long = "remote", value_name = "REMOTE", default = "origin")]
     pub remote: ::std::option::Option<::std::string::String>,
 }
 
+/// Benchmark published release binaries to bootstrap history.
+///
+/// A new adopter's first chart is empty. Rather than rebuilding a project at
+/// a hundred historical commits, download what it already published.
 #[derive(Args)]
 pub struct BackfillArgs {
-    /// Repository to pull releases from, as "owner/name". Defaults to the `origin` remote of the current repository
-    #[usage(long = "repo", value_name = "REPO")]
+    #[usage(
+        help = "Repository to pull releases from, as \"owner/name\". Defaults to the `origin` remote of the current repository.",
+        long_help = "Repository to pull releases from, as \"owner/name\". Defaults to the\n`origin` remote of the current repository.",
+        long = "repo",
+        value_name = "REPO"
+    )]
     pub repo: ::std::option::Option<::std::string::String>,
-    /// Executable name to look for inside each release archive. Defaults to the repository name
-    #[usage(long = "bin", value_name = "BIN")]
+    #[usage(
+        help = "Executable name to look for inside each release archive. Defaults to the repository name.",
+        long_help = "Executable name to look for inside each release archive. Defaults to\nthe repository name.",
+        long = "bin",
+        value_name = "BIN"
+    )]
     pub bin: ::std::option::Option<::std::string::String>,
-    /// Name to record measurements under
+    /// Name to record measurements under.
     #[usage(long = "bench", value_name = "BENCH", default = "release")]
     pub bench: ::std::option::Option<::std::string::String>,
-    /// Most recent releases to measure
+    /// Most recent releases to measure.
     #[usage(long = "limit", value_name = "LIMIT", default = "20")]
     pub limit: ::std::option::Option<::std::string::String>,
-    /// Timed runs per release
+    /// Timed runs per release.
     #[usage(long = "runs", value_name = "RUNS", default = "10")]
     pub runs: ::std::option::Option<::std::string::String>,
-    /// Measure but do not write to refs/notes/tak
+    /// Measure but do not write to refs/notes/tak.
     #[usage(long = "dry-run")]
     pub dry_run: bool,
-    /// Arguments passed to the downloaded binary, after `--`. Defaults to `--version`, which every CLI answers cheaply
-    #[usage(arg, name = "ARGS", double_dash = "required")]
+    #[usage(
+        arg,
+        name = "ARGS",
+        help = "Arguments passed to the downloaded binary, after `--`. Defaults to `--version`, which every CLI answers cheaply.",
+        long_help = "Arguments passed to the downloaded binary, after `--`.\nDefaults to `--version`, which every CLI answers cheaply.",
+        double_dash = "required"
+    )]
     pub args: ::std::vec::Vec<::std::string::String>,
 }
 
+/// Compare this commit's measurements against another's.
+///
+/// Fails when an instruction count has risen by more than `gate_pct`. Wall
+/// clock is reported and never gated.
 #[derive(Args)]
 pub struct CompareArgs {
-    /// Revision to compare. Defaults to HEAD
+    /// Revision to compare. Defaults to HEAD.
     #[usage(long = "rev", value_name = "REV", default = "HEAD")]
     pub rev: ::std::option::Option<::std::string::String>,
-    /// Remote to refresh notes from
+    /// Remote to refresh notes from.
     #[usage(long = "remote", value_name = "REMOTE", default = "origin")]
     pub remote: ::std::option::Option<::std::string::String>,
-    /// Report without failing, whatever the numbers say
+    /// Report without failing, whatever the numbers say.
     #[usage(long = "no-gate")]
     pub no_gate: bool,
-    /// Revision to compare against
+    /// Revision to compare against.
     #[usage(arg, name = "BASE", default = "origin/main")]
     pub base: ::std::option::Option<::std::string::String>,
 }
 
-/// Diagnose the git-notes plumbing
+/// Diagnose the git-notes plumbing.
 #[derive(Args)]
 pub struct DoctorArgs {}
 
-/// Show every setting, its resolved value, and where that value came from
+/// Show every setting, its resolved value, and where that value came from.
 #[derive(Args)]
 pub struct SettingsArgs {
-    /// Include the full description of each setting
+    /// Include the full description of each setting.
     #[usage(long = "docs")]
     pub docs: bool,
 }
 
-/// Generate the CLI specification used to build the documentation
+/// Generate the CLI specification used to build the documentation.
 #[derive(Args)]
 pub struct UsageArgs {}
 
-/// CLI performance, tracked
 #[derive(Cli)]
 #[usage(bin = "tak", name = "tak")]
 pub struct Cli {
-    /// Remove a variable from the environment of measured commands. Repeatable. Replaces the default list rather than adding to it
-    #[usage(long = "env-deny", global, value_name = "VAR", var)]
+    #[usage(
+        help = "Remove a variable from the environment of measured commands. Repeatable. Replaces the default list rather than adding to it.",
+        long_help = "Remove a variable from the environment of measured commands. Repeatable.\nReplaces the default list rather than adding to it.",
+        long = "env-deny",
+        global,
+        value_name = "VAR",
+        var
+    )]
     pub env_deny: ::std::vec::Vec<::std::string::String>,
-    /// Keep a variable that --env-deny would remove. Repeatable
+    /// Keep a variable that --env-deny would remove. Repeatable.
     #[usage(long = "env-allow", global, value_name = "VAR", var)]
     pub env_allow: ::std::vec::Vec<::std::string::String>,
-    /// Percentage an instruction count may rise before `compare` fails
+    /// Percentage an instruction count may rise before `compare` fails.
     #[usage(long = "gate-pct", global, value_name = "PCT")]
     pub gate_pct: ::std::option::Option<::std::string::String>,
-    /// Leave the line naming tak off the end of generated reports
+    /// Leave the line naming tak off the end of generated reports.
     #[usage(long = "no-credit", global)]
     pub no_credit: bool,
-    /// Machine class to record under. Overrides the derived name
+    /// Machine class to record under. Overrides the derived name.
     #[usage(long = "runner", global, value_name = "CLASS")]
     pub runner: ::std::option::Option<::std::string::String>,
-    /// Trust wall time because this machine is dedicated to the benchmark
-    #[usage(long = "dedicated", global)]
-    pub dedicated: bool,
     #[usage(subcommand)]
-    pub command: ::std::option::Option<Commands>,
+    pub command: Commands,
 }
 
 #[derive(Subcommands)]
 pub enum Commands {
-    /// Benchmark a command, or everything declared in tak.toml
+    /// Benchmark a command, or everything declared in tak.toml.
     #[usage(name = "run")]
     Run(Box<RunArgs>),
-    /// Show recorded history for a commit
+    /// Show recorded history for a commit.
     #[usage(name = "history")]
     History(Box<HistoryArgs>),
-    /// Push recorded measurements to the remote
+    /// Push recorded measurements to the remote.
     #[usage(name = "push")]
     Push(Box<PushArgs>),
-    /// Teach plain `git fetch` about the notes ref
+    /// Teach plain `git fetch` about the notes ref.
     #[usage(name = "init")]
     Init(Box<InitArgs>),
-    /// Benchmark published release binaries to bootstrap history
-    #[usage(
-        name = "backfill",
-        help = "Benchmark published release binaries to bootstrap history",
-        long_help = "Benchmark published release binaries to bootstrap history.\n\nA new adopter's first chart is empty. Rather than rebuilding a project at a hundred historical commits, download what it already published."
-    )]
+    /// Benchmark published release binaries to bootstrap history.
+    #[usage(name = "backfill")]
     Backfill(Box<BackfillArgs>),
-    /// Compare this commit's measurements against another's
-    #[usage(
-        name = "compare",
-        help = "Compare this commit's measurements against another's",
-        long_help = "Compare this commit's measurements against another's.\n\nFails when a gated metric has risen by more than `gate_pct`. Wall clock gates only for measurements recorded on dedicated hardware."
-    )]
+    /// Compare this commit's measurements against another's.
+    #[usage(name = "compare")]
     Compare(Box<CompareArgs>),
-    /// Diagnose the git-notes plumbing
+    /// Diagnose the git-notes plumbing.
     #[usage(name = "doctor")]
     Doctor(Box<DoctorArgs>),
-    /// Show every setting, its resolved value, and where that value came from
+    /// Show every setting, its resolved value, and where that value came from.
     #[usage(name = "settings")]
     Settings(Box<SettingsArgs>),
-    /// Generate the CLI specification used to build the documentation
+    /// Generate the CLI specification used to build the documentation.
     #[usage(name = "usage", hide)]
     Usage(Box<UsageArgs>),
 }

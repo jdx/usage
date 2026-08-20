@@ -23,6 +23,15 @@ enum Command {
     Version,
 }
 
+#[test]
+fn required_root_subcommand_survives_spec_emission() {
+    let kdl = Ex::to_kdl();
+    assert!(kdl.contains("subcommand_required #true"), "{kdl}");
+
+    let spec: usage_parser::Spec = kdl.parse().expect("usage-lib should read derive output");
+    assert!(spec.cmd.subcommand_required);
+}
+
 #[derive(Cli)]
 #[command(bin = "negated-requirements", subcommand_negates_reqs)]
 #[allow(dead_code)]

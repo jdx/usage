@@ -93,16 +93,21 @@ pub enum CacheCommands {
 #[derive(Args)]
 pub struct CheckArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -116,14 +121,32 @@ pub struct CheckArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -132,20 +155,24 @@ pub struct CheckArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -157,10 +184,21 @@ pub struct CheckArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -175,8 +213,20 @@ pub struct CheckArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// Run on specific files
     #[usage(arg, name = "FILES")]
@@ -194,7 +244,8 @@ pub struct CompletionArgs {
 
 /// Print effective runtime settings (JSON format)
 ///
-/// Shows the merged configuration from all sources including CLI flags, environment variables, git config, user config, and project config.
+/// Shows the merged configuration from all sources including CLI flags,
+/// environment variables, git config, user config, and project config.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigDumpArgs {
@@ -210,7 +261,8 @@ pub struct ConfigDumpArgs {
 
 /// Explain where a configuration value comes from
 ///
-/// Shows the resolved value, its source (env/git/cli/default), and the full precedence chain showing all layers that could affect it.
+/// Shows the resolved value, its source (env/git/cli/default), and
+/// the full precedence chain showing all layers that could affect it.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigExplainArgs {
@@ -221,27 +273,33 @@ pub struct ConfigExplainArgs {
 
 /// Get a specific configuration value
 ///
-/// Available keys: jobs, enabled_profiles, disabled_profiles, fail_fast, display_skip_reasons, warnings, exclude, skip_steps, skip_hooks, stage
+/// Available keys: jobs, enabled_profiles, disabled_profiles, fail_fast,
+/// display_skip_reasons, warnings, exclude, skip_steps, skip_hooks, stage
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigGetArgs {
     /// Configuration key to retrieve
     ///
-    /// Available keys: jobs, enabled_profiles, disabled_profiles, fail_fast, display_skip_reasons, warnings, exclude, skip_steps, skip_hooks, stage
+    /// Available keys: jobs, enabled_profiles, disabled_profiles, fail_fast,
+    /// display_skip_reasons, warnings, exclude, skip_steps, skip_hooks, stage
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
 }
 
 /// Show the configuration source precedence order
 ///
-/// Lists all configuration sources in order of precedence to help understand where configuration values come from.
+/// Lists all configuration sources in order of precedence to help
+/// understand where configuration values come from.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigSourcesArgs {}
 
 /// Configuration introspection and management
 ///
-/// View and inspect hk's configuration from all sources. Configuration is merged from multiple sources in precedence order: CLI flags > Environment variables > Git config (local) > User config (.hkrc.pkl) > Git config (global) > Project config (hk.pkl) > Built-in defaults.
+/// View and inspect hk's configuration from all sources.
+/// Configuration is merged from multiple sources in precedence order:
+/// CLI flags > Environment variables > Git config (local) > User config (.hkrc.pkl) >
+/// Git config (global) > Project config (hk.pkl) > Built-in defaults.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigArgs {
@@ -269,16 +327,21 @@ pub enum ConfigCommands {
 #[derive(Args)]
 pub struct FixArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -292,14 +355,32 @@ pub struct FixArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -308,20 +389,24 @@ pub struct FixArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -333,10 +418,21 @@ pub struct FixArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -351,8 +447,20 @@ pub struct FixArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// Run on specific files
     #[usage(arg, name = "FILES")]
@@ -376,12 +484,31 @@ pub struct InitArgs {
     pub mise: bool,
 }
 
+/// Sets up git hooks to run hk.
+///
+/// The recommended setup is `hk install --global`, which installs hooks
+/// once into the user's `~/.gitconfig` so every repository on the machine
+/// picks them up automatically. In a project without an `hk.pkl`, the
+/// installed hook exits silently — no-op — so it's safe to enable
+/// everywhere. Requires Git 2.54+.
+///
+/// Without `--global`, hooks are installed into the current repo only.
+/// On Git 2.54+ this uses config-based hooks (`hook.<name>.command`),
+/// which keeps `.git/hooks/` untouched and composes cleanly with other
+/// hook managers. On older Git it falls back to writing script shims.
+///
+/// If hk is already configured globally (any `hook.hk-*` entry in
+/// `~/.gitconfig`), the per-repo install is skipped — and any stale
+/// local hooks are cleaned up — so the global install remains the
+/// single source of truth and hk doesn't fire twice per event. Pass
+/// `--force-local` to install local hooks anyway.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct InstallArgs {
     #[usage(
         help = "Install local hooks even when hk is already configured globally\n(any `hook.hk-*` entry in `~/.gitconfig`). By default a per-repo\ninstall is skipped in that case to avoid hk firing twice per\nevent. Not compatible with `--global`.",
-        long = "force-local"
+        long = "force-local",
+        conflicts = "--global"
     )]
     pub force_local: bool,
     #[usage(
@@ -391,7 +518,8 @@ pub struct InstallArgs {
     pub global: bool,
     #[usage(
         help = "Force using the legacy `.git/hooks/` script shims instead of Git\n2.54+ config-based hooks. Not compatible with `--global`.",
-        long = "legacy"
+        long = "legacy",
+        conflicts = "--global"
     )]
     pub legacy: bool,
     #[usage(
@@ -402,7 +530,7 @@ pub struct InstallArgs {
     pub mise: bool,
 }
 
-/// Runs an MCP server for coding agents over standard input/output
+/// Runs an MCP server for coding agents over standard input/output.
 #[derive(Args)]
 pub struct McpArgs {
     /// Restrict hk tools to this project root (defaults to the current directory)
@@ -433,8 +561,12 @@ pub struct MigratePreCommitArgs {
         default = "hk.pkl"
     )]
     pub output: ::std::option::Option<::std::string::String>,
-    /// Root path for hk pkl files (e.g., "pkl" for local, or package URL prefix) If specified, will use {root}/Config.pkl and {root}/Builtins.pkl
-    #[usage(long = "hk-pkl-root", value_name = "HK_PKL_ROOT")]
+    #[usage(
+        help = "Root path for hk pkl files (e.g., \"pkl\" for local, or package URL prefix) If specified, will use {root}/Config.pkl and {root}/Builtins.pkl",
+        long_help = "Root path for hk pkl files (e.g., \"pkl\" for local, or package URL prefix)\nIf specified, will use {root}/Config.pkl and {root}/Builtins.pkl",
+        long = "hk-pkl-root",
+        value_name = "HK_PKL_ROOT"
+    )]
     pub hk_pkl_root: ::std::option::Option<::std::string::String>,
 }
 
@@ -456,16 +588,21 @@ pub enum MigrateCommands {
 #[derive(Args)]
 pub struct RunCommitMsgArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -479,14 +616,32 @@ pub struct RunCommitMsgArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -495,20 +650,24 @@ pub struct RunCommitMsgArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -520,10 +679,21 @@ pub struct RunCommitMsgArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -538,8 +708,20 @@ pub struct RunCommitMsgArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// The path to the file that contains the commit message
     #[usage(arg, name = "COMMIT_MSG_FILE")]
@@ -552,16 +734,21 @@ pub struct RunCommitMsgArgs {
 #[derive(Args)]
 pub struct RunPostCheckoutArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -575,14 +762,32 @@ pub struct RunPostCheckoutArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -591,20 +796,24 @@ pub struct RunPostCheckoutArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -616,10 +825,21 @@ pub struct RunPostCheckoutArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -634,8 +854,20 @@ pub struct RunPostCheckoutArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// SHA of the HEAD before the checkout
     #[usage(arg, name = "PREV_HEAD")]
@@ -654,16 +886,21 @@ pub struct RunPostCheckoutArgs {
 #[derive(Args)]
 pub struct RunPostCommitArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -677,14 +914,32 @@ pub struct RunPostCommitArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -693,20 +948,24 @@ pub struct RunPostCommitArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -718,10 +977,21 @@ pub struct RunPostCommitArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -736,8 +1006,20 @@ pub struct RunPostCommitArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// Run on specific files
     #[usage(arg, name = "FILES")]
@@ -747,16 +1029,21 @@ pub struct RunPostCommitArgs {
 #[derive(Args)]
 pub struct RunPostMergeArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -770,14 +1057,32 @@ pub struct RunPostMergeArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -786,20 +1091,24 @@ pub struct RunPostMergeArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -811,10 +1120,21 @@ pub struct RunPostMergeArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -829,8 +1149,20 @@ pub struct RunPostMergeArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// Flag indicating whether the merge was a squash merge (1) or not (0)
     #[usage(arg, name = "IS_SQUASH")]
@@ -843,16 +1175,21 @@ pub struct RunPostMergeArgs {
 #[derive(Args)]
 pub struct RunPostRewriteArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -866,14 +1203,32 @@ pub struct RunPostRewriteArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -882,20 +1237,24 @@ pub struct RunPostRewriteArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -907,10 +1266,21 @@ pub struct RunPostRewriteArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -925,8 +1295,20 @@ pub struct RunPostRewriteArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// The command that triggered the rewrite ("amend" or "rebase")
     #[usage(arg, name = "COMMAND")]
@@ -936,20 +1318,25 @@ pub struct RunPostRewriteArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
 }
 
-/// Sets up git hooks to run hk
+/// Run the pre-commit hook
 #[derive(Args)]
 pub struct RunPreCommitArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -963,14 +1350,32 @@ pub struct RunPreCommitArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -979,20 +1384,24 @@ pub struct RunPreCommitArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -1004,10 +1413,21 @@ pub struct RunPreCommitArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -1022,8 +1442,20 @@ pub struct RunPreCommitArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// Run on specific files
     #[usage(arg, name = "FILES")]
@@ -1033,16 +1465,21 @@ pub struct RunPreCommitArgs {
 #[derive(Args)]
 pub struct RunPrePushArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -1056,14 +1493,32 @@ pub struct RunPrePushArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -1072,20 +1527,24 @@ pub struct RunPrePushArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -1097,10 +1556,21 @@ pub struct RunPrePushArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -1115,8 +1585,20 @@ pub struct RunPrePushArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// Remote name
     #[usage(arg, name = "REMOTE")]
@@ -1132,16 +1614,21 @@ pub struct RunPrePushArgs {
 #[derive(Args)]
 pub struct RunPreRebaseArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -1155,14 +1642,32 @@ pub struct RunPreRebaseArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -1171,20 +1676,24 @@ pub struct RunPreRebaseArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -1196,10 +1705,21 @@ pub struct RunPreRebaseArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -1214,8 +1734,20 @@ pub struct RunPreRebaseArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// The upstream from which the series was forked
     #[usage(arg, name = "UPSTREAM")]
@@ -1231,16 +1763,21 @@ pub struct RunPreRebaseArgs {
 #[derive(Args)]
 pub struct RunPrepareCommitMsgArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -1254,14 +1791,32 @@ pub struct RunPrepareCommitMsgArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -1270,20 +1825,24 @@ pub struct RunPrepareCommitMsgArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -1295,10 +1854,21 @@ pub struct RunPrepareCommitMsgArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -1313,8 +1883,20 @@ pub struct RunPrepareCommitMsgArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     /// The path to the file that contains the commit message so far
     #[usage(arg, name = "COMMIT_MSG_FILE")]
@@ -1334,16 +1916,21 @@ pub struct RunPrepareCommitMsgArgs {
 #[derive(Args)]
 pub struct RunArgs {
     /// Run on all files instead of just staged files
-    #[usage(long = "all", short = 'a')]
+    #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
     pub all: bool,
     /// Run check command instead of fix command
-    #[usage(long = "check", short = 'c')]
+    #[usage(long = "check", short = 'c', overrides = "--fix")]
     pub check: bool,
     /// Exclude files that otherwise would have been selected
     #[usage(long = "exclude", short = 'e', value_name = "EXCLUDE", var)]
     pub exclude: ::std::vec::Vec<::std::string::String>,
-    /// Run fix command instead of check command (this is the default behavior unless HK_FIX=0)
-    #[usage(long = "fix", short = 'f')]
+    #[usage(
+        help = "Run fix command instead of check command (this is the default behavior unless HK_FIX=0)",
+        long_help = "Run fix command instead of check command\n(this is the default behavior unless HK_FIX=0)",
+        long = "fix",
+        short = 'f',
+        overrides = "--check"
+    )]
     pub fix: bool,
     /// Run on files that match these glob patterns
     #[usage(long = "glob", short = 'g', value_name = "GLOB", var)]
@@ -1357,14 +1944,32 @@ pub struct RunArgs {
     /// Run only specific step(s)
     #[usage(long = "step", short = 'S', value_name = "STEP", var)]
     pub step: ::std::vec::Vec<::std::string::String>,
-    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan
-    #[usage(long = "why", short = 'W', value_name = "STEP")]
+    /// Show detailed reasons for inclusion/exclusion. Pass a step name to focus on one step, or omit the value to show reasons for all steps. Implies --plan.
+    #[usage(
+        long = "why",
+        short = 'W',
+        default_missing = "",
+        value_name = "STEP",
+        value_optional
+    )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
-    #[usage(long = "fail-fast")]
+    #[usage(long = "fail-fast", overrides = "--no-fail-fast")]
     pub fail_fast: bool,
     /// Read the exact file list from a NUL-delimited file, or from stdin with `-` (except hooks that reserve stdin)
-    #[usage(long = "files0-from", value_name = "PATH")]
+    #[usage(
+        long = "files0-from",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--staged",
+            "--to-ref",
+            "--unstaged"
+        ),
+        value_name = "PATH"
+    )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
     #[usage(
@@ -1373,20 +1978,24 @@ pub struct RunArgs {
         choices("human", "json", "jsonl")
     )]
     pub format: ::std::option::Option<::std::string::String>,
-    /// Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`
-    #[usage(long = "from-hook", hide)]
+    #[usage(
+        help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
+        long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
+        long = "from-hook",
+        hide
+    )]
     pub from_hook: bool,
     /// Start reference for checking files (requires --to-ref)
     #[usage(long = "from-ref", value_name = "FROM_REF")]
     pub from_ref: ::std::option::Option<::std::string::String>,
     /// Continue on failures (opposite of --fail-fast)
-    #[usage(long = "no-fail-fast")]
+    #[usage(long = "no-fail-fast", overrides = "--fail-fast")]
     pub no_fail_fast: bool,
     /// Disable auto-staging of fixed files
-    #[usage(long = "no-stage")]
+    #[usage(long = "no-stage", overrides = "--stage")]
     pub no_stage: bool,
     /// Check only files changed in the current PR/branch (shortcut for --from-ref DEFAULT_BRANCH --to-ref HEAD)
-    #[usage(long = "pr")]
+    #[usage(long = "pr", conflicts("--all", "--from-ref", "--glob", "--to-ref"))]
     pub pr: bool,
     /// Reject commands with unknown or destructive effects before execution
     #[usage(long = "safe")]
@@ -1398,10 +2007,21 @@ pub struct RunArgs {
     #[usage(long = "skip-step", value_name = "STEP", var)]
     pub skip_step: ::std::vec::Vec<::std::string::String>,
     /// Enable auto-staging of fixed files
-    #[usage(long = "stage")]
+    #[usage(long = "stage", overrides = "--no-stage")]
     pub stage: bool,
     /// Run on staged files only without stashing unstaged changes
-    #[usage(long = "staged")]
+    #[usage(
+        long = "staged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--unstaged"
+        )
+    )]
     pub staged: bool,
     /// Stash method to use for git hooks
     #[usage(
@@ -1416,8 +2036,20 @@ pub struct RunArgs {
     /// End reference for checking files (requires --from-ref)
     #[usage(long = "to-ref", value_name = "TO_REF")]
     pub to_ref: ::std::option::Option<::std::string::String>,
-    /// Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed
-    #[usage(long = "unstaged")]
+    #[usage(
+        help = "Run on unstaged and untracked files only (excludes staged files), without stashing. Useful for linting files an agent just changed.",
+        long_help = "Run on unstaged and untracked files only (excludes staged files),\nwithout stashing. Useful for linting files an agent just changed.",
+        long = "unstaged",
+        conflicts(
+            "--all",
+            "--from-ref",
+            "--glob",
+            "--pr",
+            "--stash",
+            "--to-ref",
+            "--staged"
+        )
+    )]
     pub unstaged: bool,
     #[usage(arg, name = "OTHER", hide)]
     pub other: ::std::option::Option<::std::string::String>,
@@ -1440,7 +2072,7 @@ pub enum RunCommands {
     PostMerge(Box<RunPostMergeArgs>),
     #[usage(name = "post-rewrite")]
     PostRewrite(Box<RunPostRewriteArgs>),
-    /// Sets up git hooks to run hk
+    /// Run the pre-commit hook
     #[usage(name = "pre-commit", alias = "pc")]
     PreCommit(Box<RunPreCommitArgs>),
     #[usage(name = "pre-push", alias = "pp")]
@@ -1463,10 +2095,10 @@ pub struct TestArgs {
     #[usage(long = "list")]
     pub list: bool,
     /// Filter by test name (repeatable)
-    #[usage(long = "name", value_name = "NAME", var)]
+    #[usage(long = "name", value_name = "NAME", variadic, var_min = 1)]
     pub name: ::std::vec::Vec<::std::string::String>,
     /// Filter by step name (repeatable)
-    #[usage(long = "step", value_name = "STEP", var)]
+    #[usage(long = "step", value_name = "STEP", variadic, var_min = 1)]
     pub step: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -1502,7 +2134,7 @@ pub struct UtilCheckAddedLargeFilesArgs {
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct UtilCheckByteOrderMarkerArgs {
-    /// Output a diff of the change
+    /// Output a diff of the change.
     #[usage(long = "diff", short = 'd')]
     pub diff: bool,
     /// Files to check
@@ -1521,12 +2153,14 @@ pub struct UtilCheckCaseConflictArgs {
 
 /// Check for conventional commit message
 ///
-/// Titles starting with `fixup! `, `squash! `, or `amend! ` (temporary commits created for `git rebase --autosquash`) skip validation.
+/// Titles starting with `fixup! `, `squash! `, or `amend! ` (temporary commits
+/// created for `git rebase --autosquash`) skip validation.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct UtilCheckConventionalCommitArgs {
     #[usage(
         long = "allowed-types",
+        delimiter = ',',
         value_name = "ALLOWED_TYPES",
         default = "build,chore,ci,docs,feat,fix,perf,refactor,revert,style,test",
         var
@@ -1580,8 +2214,8 @@ pub struct UtilDetectPrivateKeyArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct UtilEndOfFileFixerArgs {
-    /// Output a diff of the change. Cannot use with `fix`
-    #[usage(long = "diff", short = 'd')]
+    /// Output a diff of the change. Cannot use with `fix`.
+    #[usage(long = "diff", short = 'd', conflicts = "--fix")]
     pub diff: bool,
     /// Fix files to end with exactly one newline
     #[usage(long = "fix", short = 'f')]
@@ -1619,8 +2253,8 @@ pub struct UtilFixSmartQuotesArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct UtilMixedLineEndingArgs {
-    /// Output a diff of the change. Cannot use with `fix`
-    #[usage(long = "diff", short = 'd')]
+    /// Output a diff of the change. Cannot use with `fix`.
+    #[usage(long = "diff", short = 'd', conflicts = "--fix")]
     pub diff: bool,
     /// Fix mixed line endings by normalizing to LF
     #[usage(long = "fix", short = 'f')]
@@ -1635,7 +2269,7 @@ pub struct UtilMixedLineEndingArgs {
 #[usage(effect = "read")]
 pub struct UtilNoCommitToBranchArgs {
     /// Branch names to protect (default: main, master)
-    #[usage(long = "branch", value_name = "BRANCH", var)]
+    #[usage(long = "branch", delimiter = ',', value_name = "BRANCH", var)]
     pub branch: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -1661,8 +2295,8 @@ pub struct UtilPythonDebugStatementsArgs {
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct UtilTrailingWhitespaceArgs {
-    /// Output a diff of the change. Cannot use with `fix`
-    #[usage(long = "diff", short = 'd')]
+    /// Output a diff of the change. Cannot use with `fix`.
+    #[usage(long = "diff", short = 'd', conflicts = "--fix")]
     pub diff: bool,
     /// Fix trailing whitespace by removing it
     #[usage(long = "fix", short = 'f')]
@@ -1742,7 +2376,6 @@ pub struct ValidateArgs {}
 #[usage(effect = "read")]
 pub struct VersionArgs {}
 
-/// A tool for managing git hooks
 #[derive(Cli)]
 #[usage(bin = "hk", name = "hk", version = "1.55.0")]
 pub struct Cli {
@@ -1763,23 +2396,41 @@ pub struct Cli {
     /// Number of jobs to run in parallel
     #[usage(long = "jobs", short = 'j', global, value_name = "JOBS")]
     pub jobs: ::std::option::Option<::std::string::String>,
-    /// Profiles to enable/disable prefix with ! to disable e.g. --profile slow --profile !fast
-    #[usage(long = "profile", short = 'p', global, value_name = "PROFILE", var)]
+    #[usage(
+        help = "Profiles to enable/disable prefix with ! to disable e.g. --profile slow --profile !fast",
+        long_help = "Profiles to enable/disable\nprefix with ! to disable\ne.g. --profile slow --profile !fast",
+        long = "profile",
+        short = 'p',
+        global,
+        value_name = "PROFILE",
+        var
+    )]
     pub profile: ::std::vec::Vec<::std::string::String>,
     /// Shorthand for --profile=slow
     #[usage(long = "slow", short = 's', global)]
     pub slow: bool,
     /// Enables verbose output
-    #[usage(long = "verbose", short = 'v', global, count)]
+    #[usage(
+        long = "verbose",
+        short = 'v',
+        global,
+        count,
+        overrides("--quiet", "--silent")
+    )]
     pub verbose: u8,
     /// Disables progress output
     #[usage(long = "no-progress", short = 'n', global)]
     pub no_progress: bool,
     /// Suppresses non-essential output (info messages, progress indicators). Failed-step diagnostics are still shown
-    #[usage(long = "quiet", short = 'q', global)]
+    #[usage(
+        long = "quiet",
+        short = 'q',
+        global,
+        overrides("--verbose", "--silent")
+    )]
     pub quiet: bool,
     /// Suppresses all output including warnings. Only errors are shown
-    #[usage(long = "silent", global)]
+    #[usage(long = "silent", global, overrides("--quiet", "--verbose"))]
     pub silent: bool,
     /// Enable tracing spans and performance diagnostics
     #[usage(long = "trace", global)]
@@ -1788,7 +2439,7 @@ pub struct Cli {
     #[usage(long = "json", global)]
     pub json: bool,
     #[usage(subcommand)]
-    pub command: ::std::option::Option<Commands>,
+    pub command: Commands,
 }
 
 #[derive(Subcommands)]
@@ -1815,17 +2466,12 @@ pub enum Commands {
     #[usage(name = "fix", alias = "f")]
     Fix(Box<FixArgs>),
     /// Generates a new hk.pkl file for a project
-    #[usage(name = "init", alias_hidden = "generate")]
+    #[usage(name = "init", alias = "generate")]
     Init(Box<InitArgs>),
-    /// Sets up git hooks to run hk
-    #[usage(
-        name = "install",
-        help = "Sets up git hooks to run hk",
-        long_help = "Sets up git hooks to run hk.\n\nThe recommended setup is `hk install --global`, which installs hooks once into the user's `~/.gitconfig` so every repository on the machine picks them up automatically. In a project without an `hk.pkl`, the installed hook exits silently — no-op — so it's safe to enable everywhere. Requires Git 2.54+.\n\nWithout `--global`, hooks are installed into the current repo only. On Git 2.54+ this uses config-based hooks (`hook.<name>.command`), which keeps `.git/hooks/` untouched and composes cleanly with other hook managers. On older Git it falls back to writing script shims.\n\nIf hk is already configured globally (any `hook.hk-*` entry in `~/.gitconfig`), the per-repo install is skipped — and any stale local hooks are cleaned up — so the global install remains the single source of truth and hk doesn't fire twice per event. Pass `--force-local` to install local hooks anyway.",
-        alias = "i"
-    )]
+    /// Sets up git hooks to run hk.
+    #[usage(name = "install", alias = "i")]
     Install(Box<InstallArgs>),
-    /// Runs an MCP server for coding agents over standard input/output
+    /// Runs an MCP server for coding agents over standard input/output.
     #[usage(name = "mcp")]
     Mcp(Box<McpArgs>),
     /// Migrate from other hook managers to hk

@@ -89,6 +89,13 @@ pub enum DaemonCommands {
 }
 
 /// Disable fnox shell integration in the current shell session
+///
+/// This removes the hook that automatically loads secrets when entering
+/// directories with fnox.toml files. It also restores environment variables
+/// to their state before fnox was activated.
+///
+/// Note: This only affects the current shell session. To re-enable fnox,
+/// run the activation command again for your shell.
 #[derive(Args)]
 pub struct DeactivateArgs {}
 
@@ -103,8 +110,11 @@ pub struct EditArgs {}
 /// Execute a command with secrets as environment variables
 #[derive(Args)]
 pub struct ExecArgs {
-    /// Run the command in fnox's process, keeping the same PID and receiving signals directly; supports environment-only secrets without leases and does not inherit ambient FNOX_AGE_KEY or FNOX_AGE_KEY_FILE values. Available on Linux, macOS, and other Unix-like systems
-    #[usage(long = "replace")]
+    #[usage(
+        help = "Run the command in fnox's process, keeping the same PID and receiving signals directly; supports environment-only secrets without leases and does not inherit ambient FNOX_AGE_KEY or FNOX_AGE_KEY_FILE values. Available on Linux, macOS, and other Unix-like systems",
+        long_help = "Run the command in fnox's process, keeping the same PID and receiving signals\ndirectly; supports environment-only secrets without leases and does not inherit\nambient FNOX_AGE_KEY or FNOX_AGE_KEY_FILE values. Available on Linux,\nmacOS, and other Unix-like systems",
+        long = "replace"
+    )]
     pub replace: bool,
     /// Command to run
     #[usage(arg, name = "COMMAND", double_dash = "automatic")]
@@ -237,7 +247,7 @@ pub struct LeaseCreateArgs {
         default = "fnox-lease"
     )]
     pub label: ::std::option::Option<::std::string::String>,
-    /// Lease backend name (from `[leases.<name>]` config). Creates all backends if omitted
+    /// Lease backend name (from `[leases.<name>]` config). Creates all backends if omitted.
     #[usage(arg, name = "BACKEND_NAME")]
     pub backend_name: ::std::option::Option<::std::string::String>,
 }
@@ -347,6 +357,7 @@ pub struct ProviderAddArgs {
             "bitwarden-sm",
             "infisical",
             "keepass",
+            "keeper-sm",
             "keychain",
             "password-store",
             "passwordstate",
@@ -442,6 +453,11 @@ pub enum ProxyCommands {
 }
 
 /// Re-encrypt secrets with current provider configuration
+///
+/// When you add or remove recipients from an encryption provider (e.g. age),
+/// existing secrets remain encrypted with the old recipient set. This command
+/// decrypts and re-encrypts all matching secrets with the current provider
+/// configuration.
 #[derive(Args)]
 pub struct ReencryptArgs {
     /// Skip confirmation prompt
@@ -525,6 +541,9 @@ pub struct SetArgs {
     /// Default value to use if secret is not found
     #[usage(long = "default", value_name = "DEFAULT")]
     pub default: ::std::option::Option<::std::string::String>,
+    /// Read the secret value verbatim from a UTF-8 file
+    #[usage(long = "from-file", conflicts = "VALUE", value_name = "FROM_FILE")]
+    pub from_file: ::std::option::Option<::std::string::String>,
     /// What to do if the secret is missing (error, warn, ignore)
     #[usage(
         long = "if-missing",
@@ -535,12 +554,14 @@ pub struct SetArgs {
     /// Secret key (environment variable name)
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
-    #[usage(
-        arg,
-        name = "VALUE",
-        help = "Secret value to store",
-        long_help = "Secret value to store.\n\nIf omitted: reads from stdin when piped (`echo \"x\" | fnox set KEY`), or prompts interactively with hidden input.\n\nPassing secrets as arguments exposes them in shell history and `ps` output. For sensitive values, prefer stdin or the interactive prompt."
-    )]
+    /// Secret value to store.
+    ///
+    /// If omitted: reads from stdin when piped (`echo "x" | fnox set KEY`),
+    /// or prompts interactively with hidden input.
+    ///
+    /// Passing secrets as arguments exposes them in shell history and `ps` output.
+    /// For sensitive values, prefer stdin or the interactive prompt.
+    #[usage(arg, name = "VALUE")]
     pub value: ::std::option::Option<::std::string::String>,
 }
 
@@ -570,7 +591,7 @@ pub struct SyncArgs {
     #[usage(long = "filter", value_name = "FILTER")]
     pub filter: ::std::option::Option<::std::string::String>,
     /// Write sync overrides to the local override file next to the config file
-    #[usage(long = "local-file")]
+    #[usage(long = "local-file", conflicts = "--global")]
     pub local_file: bool,
     /// Only sync these specific secret keys
     #[usage(arg, name = "KEYS")]
@@ -591,7 +612,7 @@ pub struct VersionArgs {}
 
 /// A flexible secret management tool by @jdx
 #[derive(Cli)]
-#[usage(bin = "fnox", name = "fnox", version = "1.32.0")]
+#[usage(bin = "fnox", name = "fnox", version = "1.33.1")]
 pub struct Cli {
     /// Path to the configuration file (default: fnox.toml, searches parent directories)
     #[usage(
@@ -602,8 +623,15 @@ pub struct Cli {
         default = "fnox.toml"
     )]
     pub config: ::std::option::Option<::std::string::String>,
-    /// Profile to use (default: default, or FNOX_PROFILE env var). Supports multiple profiles separated by commas or repeated flags; later profiles overlay earlier ones
-    #[usage(long = "profile", short = 'P', global, value_name = "PROFILE", var)]
+    #[usage(
+        help = "Profile to use (default: default, or FNOX_PROFILE env var). Supports multiple profiles separated by commas or repeated flags; later profiles overlay earlier ones.",
+        long_help = "Profile to use (default: default, or FNOX_PROFILE env var). Supports multiple\nprofiles separated by commas or repeated flags; later profiles overlay earlier ones.",
+        long = "profile",
+        short = 'P',
+        global,
+        value_name = "PROFILE",
+        var
+    )]
     pub profile: ::std::vec::Vec<::std::string::String>,
     /// Enable verbose logging
     #[usage(long = "verbose", short = 'v', global)]
@@ -624,13 +652,18 @@ pub struct Cli {
     #[usage(long = "no-defaults", global)]
     pub no_defaults: bool,
     /// Disable prompts and browser-based auth flows; use cached/non-interactive auth only (env: FNOX_NON_INTERACTIVE)
-    #[usage(long = "non-interactive", global)]
+    #[usage(long = "non-interactive", global, env = "FNOX_NON_INTERACTIVE")]
     pub non_interactive: bool,
-    /// Target profile for write commands (set, remove, import, sync, provider add/remove). Required when multiple profiles are active; defaults to the single active profile otherwise
-    #[usage(long = "write-profile", global, value_name = "WRITE_PROFILE")]
+    #[usage(
+        help = "Target profile for write commands (set, remove, import, sync, provider add/remove). Required when multiple profiles are active; defaults to the single active profile otherwise.",
+        long_help = "Target profile for write commands (set, remove, import, sync, provider add/remove).\nRequired when multiple profiles are active; defaults to the single active profile otherwise.",
+        long = "write-profile",
+        global,
+        value_name = "WRITE_PROFILE"
+    )]
     pub write_profile: ::std::option::Option<::std::string::String>,
     #[usage(subcommand)]
-    pub command: ::std::option::Option<Commands>,
+    pub command: Commands,
 }
 
 #[derive(Subcommands)]
@@ -690,7 +723,7 @@ pub enum Commands {
     #[usage(name = "mcp")]
     Mcp(Box<McpArgs>),
     /// List available profiles
-    #[usage(name = "profiles", alias_hidden = "profile")]
+    #[usage(name = "profiles", alias = "profile")]
     Profiles(Box<ProfilesArgs>),
     /// Manage providers (defaults to list)
     #[usage(name = "provider")]

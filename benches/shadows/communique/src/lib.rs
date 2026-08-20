@@ -60,6 +60,7 @@ pub struct InitArgs {
 
 /// Show the companies sponsoring communique and the jdx.dev open source tools
 #[derive(Args)]
+#[usage(effect = "read")]
 pub struct SponsorsArgs {}
 
 /// Generates a usage spec for the CLI
@@ -83,7 +84,7 @@ pub struct Cli {
     #[usage(long = "config", short = 'c', global, value_name = "CONFIG")]
     pub config: ::std::option::Option<::std::string::String>,
     #[usage(subcommand)]
-    pub command: ::std::option::Option<Commands>,
+    pub command: Commands,
 }
 
 #[derive(Subcommands)]

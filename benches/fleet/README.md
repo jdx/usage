@@ -2,10 +2,11 @@
 
 One spec per jdx CLI, checked in as a fixture.
 
-Each is the output of that CLI's own `usage` subcommand — `clap_usage` over its clap
-definition — copied verbatim. They are here for the same reason `benches/mise.usage.kdl` is:
-the comparison needs a fixed input, and a reviewer needs to be able to read the diff when one
-of them changes.
+Each is the output of that CLI's own `usage` subcommand, copied verbatim. The fixtures now come
+from the typed `usage-rs` fleet rewrites; they therefore exercise the metadata the replacement
+actually emits instead of the subset an older `clap_usage` bridge could recover. They are here
+for the same reason `benches/mise.usage.kdl` is: the comparison needs a fixed input, and a
+reviewer needs to be able to read the diff when one of them changes.
 
 ## Why more than mise
 
@@ -26,5 +27,5 @@ None of the three is exotic. Each was simply outside one CLI's vocabulary.
 
 These are snapshots, not links. A CLI that changes its own flags will not update the copy here,
 and that is fine — the fixture's job is to hold a shape the renderers must agree on, not to
-track a moving target. Refresh one by re-running its `usage` subcommand and committing the
-diff, the same way `benches/mise.usage.kdl` is refreshed.
+track a moving target. Refresh one from its usage-migration branch by re-running its `usage`
+subcommand and committing the diff, the same way `benches/mise.usage.kdl` is refreshed.
