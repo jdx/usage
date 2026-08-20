@@ -328,8 +328,15 @@ fn without_hidden(cmd: &SpecCommand, long: bool) -> SpecCommand {
             }
     });
     visible.subcommands.retain(|_, sub| !sub.hide);
-    for sub in visible.subcommands.values_mut() {
-        *sub = without_hidden(sub, long);
+    // Ordinary help only lists immediate subcommands, so their fields are never
+    // rendered on this page. Walking and cloning the whole remaining tree here
+    // makes rendering every page quadratic on a fleet-sized CLI. Flattened help
+    // is the one mode that renders descendant fields and therefore needs the
+    // recursive filtering.
+    if visible.flatten_help {
+        for sub in visible.subcommands.values_mut() {
+            *sub = without_hidden(sub, long);
+        }
     }
     visible
 }
