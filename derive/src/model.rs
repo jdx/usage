@@ -911,6 +911,25 @@ impl Cli {
                      one claim about the whole emitted spec, and only the root emits one",
                 ));
             }
+            // Package metadata describes the emitted spec, not one command. Like
+            // `min_usage_version`, these values have no nested KDL location and would
+            // otherwise be accepted and silently dropped by `emit_args`.
+            if let Some(name) = [
+                ("author", self.author.is_some()),
+                ("license", self.license.is_some()),
+                ("repository", self.repository.is_some()),
+            ]
+            .into_iter()
+            .find_map(|(name, present)| present.then_some(name))
+            {
+                return Err(self.misplaced(
+                    ident,
+                    format!(
+                        "`{name}` belongs on the root, where `#[derive(Cli)]` is: package \
+                         metadata describes the whole emitted spec, not one command"
+                    ),
+                ));
+            }
             // A spec declares one `default_subcommand`, at the top.
             if self.default_subcommand.is_some() {
                 return Err(self.misplaced(
@@ -5587,6 +5606,26 @@ mod tests {
             err.contains("`min_usage_version` belongs on the root"),
             "unhelpful: {err}"
         );
+    }
+
+    #[test]
+    fn package_metadata_belongs_on_the_root() {
+        for attribute in ["author", "license", "repository"] {
+            let body = format!(
+                r#"
+                #[usage({attribute} = "value")]
+                struct Ex {{
+                    #[usage(long)]
+                    plain: bool,
+                }}
+                "#
+            );
+            let err = position_error(&body, false);
+            assert!(
+                err.contains(&format!("`{attribute}` belongs on the root")),
+                "unhelpful for {attribute}: {err}"
+            );
+        }
     }
 
     #[test]
