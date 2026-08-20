@@ -24,10 +24,10 @@ fn reports_detectable_losses_with_locations() {
         .arg(Arg::new("target"))
         .group(ArgGroup::new("input").args(["config", "target"]));
 
-    let (_spec, report) = spec_with_report(&mut command, "ex");
+    let (spec, report) = spec_with_report(&mut command, "ex");
+    assert!(spec.cmd.arg_required_else_help);
     let features: Vec<_> = report.losses().iter().map(|loss| loss.feature).collect();
     for expected in [
-        FidelityFeature::ArgRequiredElseHelp,
         FidelityFeature::Environment,
         FidelityFeature::ValueHint,
         FidelityFeature::ValueTerminator,

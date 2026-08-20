@@ -16,7 +16,6 @@ pub enum FidelityFeature {
     DistinctValueNames,
     GranularHide,
     DontDelimitTrailingValues,
-    ArgRequiredElseHelp,
     AllowMissingPositional,
     ArgsConflictWithSubcommands,
     ArgsOverrideSelf,
@@ -91,11 +90,6 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         cmd.is_dont_delimit_trailing_values_set(),
         FidelityFeature::DontDelimitTrailingValues,
         "dont_delimit_trailing_values",
-    );
-    command_loss(
-        cmd.is_arg_required_else_help_set(),
-        FidelityFeature::ArgRequiredElseHelp,
-        "arg_required_else_help",
     );
     command_loss(
         cmd.is_allow_missing_positional_set(),
