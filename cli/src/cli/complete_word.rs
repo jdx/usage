@@ -697,28 +697,28 @@ impl CompleteWord {
     ) -> Vec<String> {
         trace!("complete_path: {ctoken}");
         let path = PathBuf::from(ctoken);
-        let mut dir = path.parent().unwrap_or(&path).to_path_buf();
-        if dir.is_relative() {
-            dir = base.join(dir);
-        }
-        let mut prefix = path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
-        if path.is_dir() && ctoken.ends_with('/') {
-            dir = path.to_path_buf();
-            prefix = "".to_string();
+        let trailing_separator =
+            ctoken.ends_with(std::path::MAIN_SEPARATOR) || (cfg!(windows) && ctoken.ends_with('/'));
+        let (parent, prefix) = if trailing_separator {
+            (path.as_path(), "")
+        } else {
+            (
+                path.parent().unwrap_or_else(|| Path::new("")),
+                path.file_name()
+                    .unwrap_or_default()
+                    .to_str()
+                    .unwrap_or_default(),
+            )
         };
-        std::fs::read_dir(dir)
-            .ok()
+
+        resolve_path_dirs(base, parent)
             .into_iter()
-            .flatten()
+            .flat_map(|dir| std::fs::read_dir(dir).ok().into_iter().flatten())
             .filter_map(Result::ok)
             .filter(|de| {
                 let name = de.file_name();
                 let name = name.to_string_lossy();
-                !name.starts_with('.') && name.starts_with(&prefix)
+                !name.starts_with('.') && name.starts_with(prefix)
             })
             .filter(|de| filter(&de.path()))
             .map(|de| {
@@ -770,6 +770,40 @@ impl CompleteWord {
             .map(|value| (value, String::new()))
             .collect()
     }
+}
+
+/// Existing directories described by a possibly abbreviated path.
+///
+/// Exact parents keep the old single-directory fast path. When one does not exist, resolve its
+/// parent first and expand the final segment as a directory prefix; recursion is what lets every
+/// component be partial (`tar/de` -> `target/debug`) rather than only the component at the cursor.
+fn resolve_path_dirs(base: &Path, path: &Path) -> Vec<PathBuf> {
+    let exact = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        base.join(path)
+    };
+    if exact.is_dir() {
+        return vec![exact];
+    }
+
+    let Some(prefix) = path.file_name().and_then(|name| name.to_str()) else {
+        return Vec::new();
+    };
+    let parent = path.parent().unwrap_or_else(|| Path::new(""));
+    resolve_path_dirs(base, parent)
+        .into_iter()
+        .flat_map(|dir| std::fs::read_dir(dir).ok().into_iter().flatten())
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry.file_type().is_ok_and(|kind| kind.is_dir())
+                && entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|name| !name.starts_with('.') && name.starts_with(prefix))
+        })
+        .map(|entry| entry.path())
+        .collect()
 }
 
 fn complete_usernames(prefix: &str) -> Vec<(String, String)> {

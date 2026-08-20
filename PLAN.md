@@ -576,6 +576,12 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 **API surface**
 
 - [ ] **`update_from` / `try_update_from`** — merge a parse into an existing struct.
+      **Design input needed:** define whether requirements and value-conditional relationships
+      see the existing typed value when argv omits a field, whether environment/default values
+      replace existing values during an update, whether collections append or replace, and
+      whether selecting a different subcommand replaces the old variant. The generated parser
+      cannot seed its byte-level partial from an arbitrary `FromStr` type, so these choices must
+      be explicit rather than inherited accidentally from the current full-parse path.
 - [x] **The builder** — `Command::new`, `augment_args`, `CommandFactory`,
       `ArgMatches::get_one`, hand-written `FromArgMatches`. Architectural, and
       deliberate: usage-lib interprets a spec at run time and covers the dynamic
@@ -1339,12 +1345,14 @@ above are where it lands.
       accepting unknown values. Strict validation remains the default. mise's
       tool names are this exact shape: a registry to offer, arbitrary backends
       still legal.
-- [ ] **Completion runtime niceties** — completions that work when the binary
-      is invoked through a shell alias (clap#1764, stalled since 2020), and
-      multi-segment path completion, `tar/de/inc` completing to
-      `target/debug/incremental` (clap#5279). usage owns the registration
-      scripts and the `complete-word` runtime, so each is implementable once,
-      for every shell.
+- [ ] **Completion through shell aliases** (clap#1764, stalled since 2020).
+      The runtime already ignores argv0, but registration differs by shell; define whether usage
+      should discover aliases, install a default completion handler, or expose an explicit alias
+      registration API before changing every generated script.
+- [x] **Multi-segment path completion** (clap#5279). The shared runtime resolves the
+      typed parent path and preserves every segment in the candidate, so
+      `target/de/inc` completes to `target/debug/incremental/`; an end-to-end regression
+      exercises the same `complete-word` entry all generated shell scripts call.
 - [x] **`--flag=false` on booleans** (clap#5577; clap#1649 closed with 28
       reactions behind it) — **semantic decided (2026-08-19): opt-in per flag,
       and `=`-attached only.** `--flag=false` binds; `--flag false` never does,
