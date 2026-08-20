@@ -387,6 +387,15 @@ struct ClapSpellings {
 }
 
 #[derive(Cli)]
+#[command(bin = "clap-override-id")]
+struct ClapOverrideId {
+    #[arg(long, overrides_with = "installed_tool")]
+    reset: bool,
+    #[arg(id = "installed_tool", long = "installed")]
+    tool: Option<String>,
+}
+
+#[derive(Cli)]
 #[command(bin = "fixed-arity")]
 struct FixedArity {
     #[arg(long, num_args = 2, value_names = ["START", "END"])]
@@ -1109,6 +1118,22 @@ fn relationships_resolve_targets_inside_flattened_args() {
     assert!(kdl.contains("overrides=--nested"), "{kdl}");
     assert!(kdl.contains("requires=--key"), "{kdl}");
     assert!(kdl.contains("required_if=--json"), "{kdl}");
+}
+
+#[test]
+fn clap_override_ids_emit_portable_flag_selectors() {
+    let parsed = ClapOverrideId::parse_from(&[
+        OsStr::new("--installed"),
+        OsStr::new("tool"),
+        OsStr::new("--reset"),
+    ])
+    .expect("the later override should displace the clap-id target");
+    assert!(parsed.reset);
+    assert_eq!(parsed.tool, None);
+
+    let kdl = ClapOverrideId::to_kdl();
+    assert!(kdl.contains("overrides=--installed"), "{kdl}");
+    assert!(!kdl.contains("overrides=installed_tool"), "{kdl}");
 }
 
 #[test]

@@ -1436,9 +1436,18 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let validate_error = option_str(field.validate_error.as_deref());
     let (var_min, var_max) = bounds_tokens(field);
     let (value_var_min, value_var_max) = value_bounds_tokens(field);
-    // Written as declared, in the spec's own spelling, so the emitted KDL says what
-    // the struct says.
-    let overrides = &field.overrides;
+    // clap relationship attributes name Rust argument IDs. The portable spec names
+    // flags by their dashed selector, so normalize IDs after the whole command is
+    // available (the target may be declared later in the struct).
+    let overrides: Vec<String> = field
+        .overrides
+        .iter()
+        .map(|selector| {
+            cli.field_for_selector(selector)
+                .and_then(Cli::selector_for_field)
+                .unwrap_or_else(|| selector.clone())
+        })
+        .collect();
     let conflicts: Vec<String> = field
         .conflicts
         .iter()
