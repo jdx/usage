@@ -5,6 +5,7 @@ expression: "Ex::to_kdl()"
 name ex
 bin ex
 about "A tool with commands inside commands"
+subcommand_required #true
 flag "-v --verbose" help="Say more" global=#true
 cmd settings help="Manage settings" subcommand_required=#true {
     flag --file help="Which settings file" {
