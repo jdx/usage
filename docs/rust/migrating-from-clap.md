@@ -208,7 +208,8 @@ Command-level presentation settings keep their clap spellings:
 #[command(
     subcommand_help_heading = "Actions",
     subcommand_value_name = "ACTION",
-    next_line_help
+    next_line_help,
+    flatten_help
 )]
 struct Cli {
     #[command(subcommand)]

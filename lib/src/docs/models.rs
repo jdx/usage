@@ -48,6 +48,13 @@ pub struct SpecCommand {
     pub subcommand_required: bool,
     pub subcommand_help_heading: Option<String>,
     pub next_line_help: bool,
+    pub flatten_help: bool,
+    pub args_conflicts_with_subcommands: bool,
+    pub flattened_usage: Vec<String>,
+    /// Visible descendants rendered as sections when an ancestor flattens help.
+    pub flattened_subcommands: Vec<SpecCommand>,
+    /// The flattening parent's layout policy for this section.
+    pub flattened_next_line_help: bool,
     pub restart_token: Option<String>,
     pub help: Option<String>,
     pub help_long: Option<String>,
@@ -418,6 +425,23 @@ impl From<&crate::SpecCommand> for SpecCommand {
         use crate::docs::layout::{help_width, max_usage_width, render_help_text};
 
         let terminal_width = help_width(cmd.term_width, cmd.max_term_width);
+        let flattened_usage = if cmd.flatten_help {
+            let mut lines = Vec::new();
+            if !cmd.subcommand_required || cmd.args_conflicts_with_subcommands {
+                lines.push(cmd.usage_without_subcommands());
+            }
+            let mut children: Vec<_> = cmd
+                .subcommands
+                .values()
+                .filter(|sub| !sub.hide)
+                .map(crate::SpecCommand::usage)
+                .collect();
+            children.sort();
+            lines.extend(children);
+            lines
+        } else {
+            Vec::new()
+        };
 
         // Calculate layout for args
         let args_usage_col_width = max_usage_width(cmd.args.iter().map(|a| a.usage.as_str()));
@@ -482,6 +506,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             subcommand_help_heading,
             subcommand_value_name: _,
             next_line_help,
+            flatten_help,
             // Consumed above while laying help out; templates need only the result.
             term_width: _,
             max_term_width: _,
@@ -506,7 +531,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             dont_delimit_trailing_values: _,
             args_override_self: _,
             subcommand_negates_reqs: _,
-            args_conflicts_with_subcommands: _,
+            args_conflicts_with_subcommands,
             subcommand_precedence_over_arg: _,
             allow_missing_positional: _,
             // Rendered above, or deliberately absent from the docs model.
@@ -522,13 +547,26 @@ impl From<&crate::SpecCommand> for SpecCommand {
             groups: _,
         } = cmd;
 
+        let subcommands: IndexMap<_, _> = subcommands
+            .iter()
+            .map(|(k, v)| (k.clone(), SpecCommand::from(v)))
+            .collect();
+        let mut flattened_subcommands = Vec::new();
+        if *flatten_help {
+            let mut visible: Vec<_> = subcommands.values().filter(|sub| !sub.hide).collect();
+            visible.sort_by(|a, b| a.name.cmp(&b.name));
+            for sub in visible {
+                let mut section = sub.clone();
+                section.flattened_next_line_help = *next_line_help;
+                flattened_subcommands.push(section);
+                flattened_subcommands.extend(sub.flattened_subcommands.iter().cloned());
+            }
+        }
+
         Self {
             full_cmd: full_cmd.clone(),
             usage: usage.clone(),
-            subcommands: subcommands
-                .iter()
-                .map(|(k, v)| (k.clone(), SpecCommand::from(v)))
-                .collect(),
+            subcommands,
             flag_groups: group_by_heading(&flags, |f| f.help_heading.as_deref()),
             arg_groups: group_by_heading(&args, |a| a.help_heading.as_deref()),
             args,
@@ -539,6 +577,11 @@ impl From<&crate::SpecCommand> for SpecCommand {
             subcommand_required: *subcommand_required,
             subcommand_help_heading: subcommand_help_heading.clone(),
             next_line_help: *next_line_help,
+            flatten_help: *flatten_help,
+            args_conflicts_with_subcommands: *args_conflicts_with_subcommands,
+            flattened_usage,
+            flattened_subcommands,
+            flattened_next_line_help: false,
             restart_token: restart_token.clone(),
             // The renderer owns the line break after a command description. Keeping one
             // embedded in the text creates an extra blank in next-line help.

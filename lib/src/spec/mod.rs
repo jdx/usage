@@ -331,6 +331,9 @@ impl Spec {
                 "next_line_help" => {
                     schema.cmd.next_line_help = node.arg(0)?.ensure_bool()?;
                 }
+                "flatten_help" => {
+                    schema.cmd.flatten_help = node.arg(0)?.ensure_bool()?;
+                }
                 "term_width" => {
                     schema.cmd.term_width = Some(node.arg(0)?.ensure_usize()?);
                 }
@@ -667,6 +670,11 @@ impl Display for Spec {
         }
         if self.cmd.next_line_help {
             let mut node = KdlNode::new("next_line_help");
+            node.push(true);
+            nodes.push(node);
+        }
+        if self.cmd.flatten_help {
+            let mut node = KdlNode::new("flatten_help");
             node.push(true);
             nodes.push(node);
         }

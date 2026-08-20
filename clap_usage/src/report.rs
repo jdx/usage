@@ -12,8 +12,6 @@ pub enum FidelityFeature {
     NonUtf8Default,
     ValueArity,
     DistinctValueNames,
-    FlattenHelp,
-    NextLineHelp,
     DisableHelpFlag,
     DisableHelpSubcommand,
     DisableVersionFlag,
@@ -75,11 +73,6 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         }
     };
 
-    command_loss(
-        cmd.is_flatten_help_set(),
-        FidelityFeature::FlattenHelp,
-        "flatten_help",
-    );
     command_loss(
         cmd.is_disable_help_flag_set(),
         FidelityFeature::DisableHelpFlag,

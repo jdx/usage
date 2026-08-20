@@ -6,9 +6,7 @@ impl MarkdownRenderer {
     pub fn render_flag(&self, flag: &crate::SpecFlag) -> Result<String, UsageErr> {
         let mut flag = SpecFlag::from(flag);
         flag.render_md(self);
-        let mut ctx = self.clone();
-        ctx.insert("flag", &flag);
-        ctx.render("flag_template.md.tera")
+        self.render_with("flag_template.md.tera", |ctx| ctx.insert("flag", &flag))
     }
 }
 

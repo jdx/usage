@@ -1,6 +1,9 @@
 package argv
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // What a help page prints.
 //
@@ -86,6 +89,8 @@ type Help struct {
 	SubcommandHelpHeading string
 	SubcommandValueName   string
 	NextLineHelp          bool
+	FlattenHelp           bool
+	SubcommandRequired    bool
 	// Examples are worked invocations, printed last.
 	Examples []Example
 }
@@ -119,6 +124,10 @@ const inlineLimit = 2
 // Hidden entries are absent from the line as they are from the sections — help
 // describes what a user is invited to type.
 func UsageLine(path []string, cmd *Command, help HelpTable) string {
+	return usageLine(path, cmd, help, true)
+}
+
+func usageLine(path []string, cmd *Command, help HelpTable, includeSubcommands bool) string {
 	var out strings.Builder
 	out.WriteString(strings.Join(path, " "))
 
@@ -177,7 +186,7 @@ func UsageLine(path []string, cmd *Command, help HelpTable) string {
 		}
 	}
 
-	if len(cmd.Subcommands) > 0 {
+	if includeSubcommands && len(cmd.Subcommands) > 0 {
 		name := "SUBCOMMAND"
 		if h := help.Lookup(cmd.Key); h != nil && h.SubcommandValueName != "" {
 			name = h.SubcommandValueName
@@ -185,6 +194,32 @@ func UsageLine(path []string, cmd *Command, help HelpTable) string {
 		out.WriteString(" <" + name + ">")
 	}
 	return out.String()
+}
+
+func usageLines(path []string, cmd *Command, help HelpTable) []string {
+	h := help.Lookup(cmd.Key)
+	if h == nil || !h.FlattenHelp {
+		return []string{UsageLine(path, cmd, help)}
+	}
+	visible := make([]*Command, 0, len(cmd.Subcommands))
+	for _, sub := range cmd.Subcommands {
+		if subHelp := help.Lookup(sub.Key); subHelp == nil || !subHelp.Hide {
+			visible = append(visible, sub)
+		}
+	}
+	if len(visible) == 0 {
+		return []string{UsageLine(path, cmd, help)}
+	}
+	sort.Slice(visible, func(i, j int) bool { return visible[i].Name < visible[j].Name })
+	lines := make([]string, 0, len(visible)+1)
+	if !h.SubcommandRequired || cmd.ArgsConflictWithSubcommands {
+		lines = append(lines, usageLine(path, cmd, help, false))
+	}
+	for _, sub := range visible {
+		subPath := append(append([]string{}, path...), sub.Name)
+		lines = append(lines, UsageLine(subPath, sub, help))
+	}
+	return lines
 }
 
 // flagUsage is how one flag appears in the usage line: `-f --force`, plus its

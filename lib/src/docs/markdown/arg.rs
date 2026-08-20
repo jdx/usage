@@ -6,9 +6,7 @@ impl MarkdownRenderer {
     pub fn render_arg(&self, arg: &crate::SpecArg) -> Result<String, UsageErr> {
         let mut arg = SpecArg::from(arg);
         arg.render_md(self);
-        let mut ctx = self.clone();
-        ctx.insert("arg", &arg);
-        ctx.render("arg_template.md.tera")
+        self.render_with("arg_template.md.tera", |ctx| ctx.insert("arg", &arg))
     }
 }
 

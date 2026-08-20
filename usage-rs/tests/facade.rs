@@ -164,6 +164,28 @@ struct NextLineHelp {
     mode: String,
 }
 
+#[derive(Debug, Cli)]
+#[usage(bin = "flat-help", flatten_help)]
+#[allow(dead_code)]
+struct FlatHelp {
+    #[usage(subcommand)]
+    command: FlatCommand,
+}
+
+#[derive(Debug, Subcommands)]
+#[allow(dead_code)]
+enum FlatCommand {
+    /// Run a task.
+    Run(FlatRun),
+}
+
+#[derive(Debug, Args)]
+#[allow(dead_code)]
+struct FlatRun {
+    /// Task name.
+    task: String,
+}
+
 #[derive(Cli)]
 #[command(
     bin = "presented",
@@ -1211,6 +1233,22 @@ fn typed_next_line_help_reaches_help_and_the_portable_spec() {
     assert!(kdl.contains("next_line_help #true"), "{kdl}");
     let portable: usage_parser::Spec = kdl.parse().unwrap();
     assert!(portable.cmd.next_line_help);
+}
+
+#[test]
+fn typed_flatten_help_reaches_help_and_the_portable_spec() {
+    let spec = FlatHelp::spec();
+    assert!(spec.root.flatten_help);
+    let page = usage::argv::help::short_help(spec, &["flat-help"], &[spec.root]);
+    assert!(page.contains("Usage: flat-help run"), "{page}");
+    assert!(!page.contains("\nCommands:\n"), "{page}");
+    assert!(page.contains("\nrun:\nRun a task."), "{page}");
+    assert!(page.contains("<TASK>"), "{page}");
+
+    let kdl = FlatHelp::to_kdl();
+    assert!(kdl.contains("flatten_help #true"), "{kdl}");
+    let portable: usage_parser::Spec = kdl.parse().unwrap();
+    assert!(portable.cmd.flatten_help);
 }
 
 #[test]

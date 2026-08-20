@@ -328,6 +328,16 @@ fn without_hidden(cmd: &SpecCommand, long: bool) -> SpecCommand {
             }
     });
     visible.subcommands.retain(|_, sub| !sub.hide);
+    // Ordinary help only lists immediate subcommands, so their fields are never
+    // rendered on this page. Walking and cloning the whole remaining tree here
+    // makes rendering every page quadratic on a fleet-sized CLI. Flattened help
+    // is the one mode that renders descendant fields and therefore needs the
+    // recursive filtering.
+    if visible.flatten_help {
+        for sub in visible.subcommands.values_mut() {
+            *sub = without_hidden(sub, long);
+        }
+    }
     visible
 }
 
@@ -954,6 +964,51 @@ cmd "run" help="Run it"
                 "{page}"
             );
             assert!(page.contains("  run\n    Run it"), "{page}");
+        }
+    }
+
+    #[test]
+    fn flatten_help_expands_subcommands_instead_of_listing_them() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+flatten_help #true
+next_line_help #true
+cmd "run" help="Run it" {
+    arg "<task>" help="Task name" env="TASK" default="build" {
+        choices {
+            choice "build"
+            choice "test"
+        }
+    }
+    flag "--dry-run" help="Only show changes"
+    flatten_help #true
+    cmd "nested" help="Nested operation" {
+        flag "--deep" help="Deep option"
+    }
+}
+        "# }
+        .unwrap();
+
+        for page in [
+            render_help(&spec, &spec.cmd, false),
+            render_help(&spec, &spec.cmd, true),
+        ] {
+            assert!(
+                page.contains("Usage: testcli\n       testcli run"),
+                "{page}"
+            );
+            assert!(!page.contains("\nCommands:\n"), "{page}");
+            assert!(page.contains("\nrun:\nRun it"), "{page}");
+            assert!(page.contains("[task]"), "{page}");
+            assert!(page.contains("--dry-run"), "{page}");
+            assert!(page.contains("\nrun nested:\nNested operation"), "{page}");
+            assert!(page.contains("--deep"), "{page}");
+            assert!(
+                page.contains(
+                    "    [possible values: build, test]\n    [env: TASK]\n    (default: build)"
+                ),
+                "{page}"
+            );
         }
     }
 }
