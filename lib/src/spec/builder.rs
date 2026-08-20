@@ -835,6 +835,14 @@ impl SpecCommandBuilder {
         self
     }
 
+    /// Set whether a later scalar flag occurrence replaces an earlier one.
+    ///
+    /// Enabled by default. Set false to reject duplicate scalar flags.
+    pub fn args_override_self(mut self, enabled: bool) -> Self {
+        self.inner.args_override_self = enabled;
+        self
+    }
+
     /// Set what running this command does to the world
     pub fn effect(mut self, effect: SpecCommandEffect) -> Self {
         self.inner.effect = Some(effect);

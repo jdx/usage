@@ -80,6 +80,10 @@ func TestCheck(t *testing.T) {
 		// only evidence it was given.
 		{"a required flag that holds no value", Meta{Name: "v", Flag: true, Required: true},
 			nil, 1, 0, true},
+		{"a strict scalar repeated", Meta{Name: "jobs", Flag: true, RejectDuplicate: true},
+			[]string{"2"}, 2, CodeDuplicateFlag, false},
+		{"a permissive scalar repeated", Meta{Name: "jobs", Flag: true},
+			[]string{"2"}, 2, 0, true},
 
 		{"a value outside the choices", Meta{Name: "shell", Choices: []string{"bash", "zsh"}},
 			[]string{"csh"}, 1, CodeInvalidChoice, false},

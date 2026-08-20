@@ -108,6 +108,9 @@ pub struct SpecCommand {
     /// Whether delimiter splitting is disabled after `--` or for an automatic trailing arg.
     #[serde(skip_serializing_if = "is_false")]
     pub dont_delimit_trailing_values: bool,
+    /// Whether a later occurrence of a single-valued argument replaces the earlier one.
+    /// Permissive by default; set false to report duplicates.
+    pub args_override_self: bool,
     /// Token that resets argument parsing, allowing multiple command invocations.
     /// e.g., `mise run lint ::: test ::: check` with restart_token=":::"
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -179,6 +182,7 @@ impl Default for SpecCommand {
             external_subcommand: false,
             arg_required_else_help: false,
             dont_delimit_trailing_values: false,
+            args_override_self: true,
             restart_token: None,
             help: None,
             help_long: None,
@@ -289,6 +293,7 @@ impl SpecCommand {
                 "dont_delimit_trailing_values" => {
                     cmd.dont_delimit_trailing_values = v.ensure_bool()?
                 }
+                "args_override_self" => cmd.args_override_self = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
                 "unknown_flags" => {
                     let raw = v.ensure_string()?;
@@ -421,6 +426,9 @@ impl SpecCommand {
                     cmd.dont_delimit_trailing_values =
                         child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
+                "args_override_self" => {
+                    cmd.args_override_self = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
                 "effect" => {
                     let arg = child.ensure_arg_len(1..=1)?.arg(0)?;
@@ -533,6 +541,7 @@ impl SpecCommand {
             external_subcommand,
             arg_required_else_help,
             dont_delimit_trailing_values,
+            args_override_self,
             restart_token,
             subcommands,
             complete,
@@ -608,6 +617,7 @@ impl SpecCommand {
         self.external_subcommand = external_subcommand;
         self.arg_required_else_help = arg_required_else_help;
         self.dont_delimit_trailing_values = dont_delimit_trailing_values;
+        self.args_override_self = args_override_self;
         if effect.is_some() {
             self.effect = effect;
         }
@@ -713,6 +723,7 @@ impl From<&SpecCommand> for KdlNode {
             external_subcommand,
             arg_required_else_help,
             dont_delimit_trailing_values,
+            args_override_self,
             restart_token,
             unknown_flags,
             aliases,
@@ -762,6 +773,9 @@ impl From<&SpecCommand> for KdlNode {
         if *dont_delimit_trailing_values {
             node.entries_mut()
                 .push(KdlEntry::new_prop("dont_delimit_trailing_values", true));
+        }
+        if !*args_override_self {
+            node.push(KdlEntry::new_prop("args_override_self", false));
         }
         if let Some(restart_token) = &restart_token {
             node.entries_mut()
@@ -1012,6 +1026,7 @@ impl From<&clap::Command> for SpecCommand {
         spec.subcommand_required = cmd.is_subcommand_required_set();
         spec.arg_required_else_help = cmd.is_arg_required_else_help_set();
         spec.dont_delimit_trailing_values = cmd.is_dont_delimit_trailing_values_set();
+        spec.args_override_self = cmd.is_args_override_self();
         for subcmd in cmd.get_subcommands() {
             let mut scmd: SpecCommand = subcmd.into();
             scmd.name = subcmd.get_name().to_string();
@@ -1361,5 +1376,21 @@ cmd "hidden" hide=#true
         let node: kdl::KdlNode = (&spec).into();
         let kdl = node.to_string();
         assert!(kdl.contains("unknown_flags=error"), "{kdl}");
+    }
+
+    #[cfg(feature = "clap")]
+    #[test]
+    fn the_clap_bridge_preserves_args_override_self() {
+        use super::SpecCommand;
+
+        let strict: SpecCommand = (&clap::Command::new("strict")).into();
+        assert!(!strict.args_override_self, "clap is strict by default");
+
+        let permissive: SpecCommand =
+            (&clap::Command::new("permissive").args_override_self(true)).into();
+        assert!(permissive.args_override_self);
+
+        let node: kdl::KdlNode = (&strict).into();
+        assert!(node.to_string().contains("args_override_self=#false"));
     }
 }

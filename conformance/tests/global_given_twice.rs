@@ -17,6 +17,7 @@ use usage_derive::{Args, Cli, Subcommands};
 
 /// Do the thing
 #[derive(Args)]
+#[usage(args_override_self = false)]
 struct Sub {
     /// Its own flag
     #[usage(long)]
@@ -27,6 +28,7 @@ struct Sub {
 
 /// Deeper still
 #[derive(Args)]
+#[usage(args_override_self = false)]
 struct Leaf {
     #[usage(long)]
     leafy: bool,
@@ -46,6 +48,7 @@ enum Commands {
 
 /// What every level shares, spliced in rather than declared again
 #[derive(Args)]
+#[usage(args_override_self = false)]
 struct Shared {
     /// Global, and living in a flattened group — whose partial is its own, so the
     /// level markers have to be cleared through it rather than around it
@@ -57,7 +60,7 @@ struct Shared {
 }
 
 #[derive(Cli)]
-#[usage(bin = "ex")]
+#[usage(bin = "ex", args_override_self = false)]
 struct Ex {
     /// Say yes to everything
     #[usage(long, short = 'y', global)]

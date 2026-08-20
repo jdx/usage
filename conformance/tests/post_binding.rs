@@ -417,7 +417,7 @@ fn required_unless_is_satisfied_by_the_other_flag() {
 /// Only `--file` declares the override, which is enough: the relationship holds
 /// between the two flags, so the later one wins whichever way round they are given.
 #[derive(Cli)]
-#[usage(bin = "ovr")]
+#[usage(bin = "ovr", args_override_self = false)]
 struct Ovr {
     /// Read from a file
     #[usage(long, overrides("--stdin", "--url"))]
@@ -570,7 +570,7 @@ fn each_occurrence_of_a_bounded_flag_counts_for_itself() {
 /// holds something when nobody gives it one. Its spec said so and the derive could not, so it
 /// was the last thing mise's 211-command spec could express that the derive could not.
 #[derive(Cli)]
-#[usage(bin = "ex")]
+#[usage(bin = "ex", args_override_self = false)]
 struct Defaulted {
     /// Filesystem events to filter to
     #[usage(long, var, default = "create", default = "remove", default = "modify")]

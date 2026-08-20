@@ -6,6 +6,7 @@ expression: output
 name example
 bin example
 unknown_flags error
+args_override_self #false
 usage "Usage: example [OPTIONS]"
 flag --file help="some input file" {
     arg <FILE>

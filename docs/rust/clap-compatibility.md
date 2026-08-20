@@ -96,7 +96,8 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | `no_binary_name`                                     | yes       | yes       | n/a       | yes       | n/a     | yes        | `parse_from` is words-only; full-argv helpers honor the command policy.                                                 |
 | `infer_subcommands`, `infer_long_args`               | no        | no        | no        | no        | no      | no         | Intentional non-goal: usage requires exact flag and subcommand spellings.                                               |
 | `arg_required_else_help`                             | yes       | yes       | yes       | yes       | yes     | yes        | Bare selected commands request short help; defaults and environment values do not count as argv.                        |
-| remaining subcommand/argument policies               | no        | no        | no        | no        | no      | no         | `args_conflicts_with_subcommands`, precedence, missing positionals, and self-override are not represented.              |
+| `args_override_self`                                 | yes       | yes       | yes       | yes       | yes     | yes        | Usage defaults to permissive last-one-wins behavior; set false for strict duplicate checking.                           |
+| remaining subcommand/argument policies               | no        | no        | no        | no        | no      | no         | `args_conflicts_with_subcommands`, precedence, and missing positionals are not represented.                             |
 | unknown flags                                        | different | different | different | different | yes     | different  | usage is permissive by default; `unknown_flags = "error"` opts into strict parsing.                                     |
 
 ## Help, version, and generated artifacts

@@ -110,6 +110,7 @@ pub struct Cli {
     pub arg_required_else_help: bool,
     /// Disable delimiter splitting after `--` and for automatic trailing args.
     pub dont_delimit_trailing_values: bool,
+    pub args_override_self: bool,
     /// Declared descriptions, for the case a doc comment cannot express: a long form that does
     /// not contain the short one.
     pub about_attr: Option<proc_macro2::TokenStream>,
@@ -554,6 +555,7 @@ impl Cli {
             no_binary_name: false,
             arg_required_else_help: false,
             dont_delimit_trailing_values: false,
+            args_override_self: true,
             about_attr: None,
             long_about_attr: None,
             before_help: None,
@@ -695,6 +697,7 @@ impl Cli {
                     "dont_delimit_trailing_values" => {
                         cli.dont_delimit_trailing_values = flag_value(&meta)?
                     }
+                    "args_override_self" => cli.args_override_self = flag_value(&meta)?,
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
@@ -706,7 +709,7 @@ impl Cli {
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, \
+                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, \
                                  `next_help_heading`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"

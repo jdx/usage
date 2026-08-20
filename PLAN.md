@@ -505,8 +505,12 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       empty command line still means help.
 - [ ] **Remaining command parsing policy** —
       `args_conflicts_with_subcommands`, `subcommand_negates_reqs`,
-      `subcommand_precedence_over_arg`, `allow_missing_positional`, and
-      `args_override_self`.
+      `subcommand_precedence_over_arg`, and `allow_missing_positional`.
+- [x] **`args_override_self`.** Repeated scalar flags are corrections by default;
+      the later value wins. `args_override_self=false` opts a command into duplicate
+      errors. KDL, usage-lib, the typed derive/static metadata, generated Go, and the
+      clap bridge carry the policy. Repeatable, variadic, and count flags retain their
+      collecting behavior.
 
 **Help output**
 
@@ -854,12 +858,10 @@ checked-in `mise.usage.kdl` for both parsers.
       tree, ~160µs validating it, and ~24µs actually parsing — so even against clap's
       parse alone, with the tree already built and paid for, this is 12× faster.
 - [x] **Differential fuzzing** — proptest over argv on the mise spec, against
-      usage-lib **and clap**. Two parsers was the wrong design and the first run showed
-      it: every disagreement had usage-argv stricter than usage-lib, which reads as a
-      pile of usage-argv bugs until clap is asked the same question and sides with
-      usage-argv. usage-lib is lax — it accepts a missing subcommand, a missing flag
-      value, and a repeated non-repeatable flag. So clap is the standard for
-      _accepting_, being what mise ships, while usage-lib stays the standard for
+      usage-lib **and clap**. The three-way comparison distinguishes intentional usage
+      defaults from regressions: unknown flags and scalar repeats are permissive unless a
+      command opts into strictness, while missing subcommands and flag values remain errors.
+      Fleet commands can request clap parity explicitly; usage-lib stays the standard for
       rendering.
       It found one real usage-argv bug — a lone `-` selecting the root's default
       subcommand instead of binding as a value — now fixed.
@@ -1396,10 +1398,9 @@ including telling you to delete the label afterwards.
       ("a repeat is a correction… the later occurrence wins") and `long-unknown` ("more likely
       data in transit than a mistake", with `unknown_flags "error"` as the opt-in). Acting on
       the wrong reading got as far as three failing conformance vectors.
-      One refusal comes from a different layer: for repeated command-line occurrences,
-      `Error::DuplicateFlag` is constructed only in `derive/src/codegen.rs`, never by
-      usage-argv's parser, so a derive-generated binary still rejects a repeated flag as clap
-      does. Separately, `Spec::to_kdl` validates `duplicate_flag_form` at the spec boundary so
+      Repeated command-line occurrences now follow the same permissive principle: a later
+      scalar corrects an earlier one, while `args_override_self=false` opts a command into
+      strict duplicate errors. Separately, `Spec::to_kdl` validates `duplicate_flag_form` at the spec boundary so
       two declarations cannot claim the same spelling. Unknown flags are intentionally different: usage parsers
       are permissive by default and a command opts into `unknown_flags="error"` when it owns the
       whole grammar. That is what fleet adopters should declare for clap parity, while forwarding
@@ -1412,9 +1413,9 @@ including telling you to delete the label afterwards.
       a position, not a compatibility concession: clap's strict default is held
       to be the wrong one — a wrapper appending to a command line it did not
       write is ordinary, which is the grammar's "data in transit" rationale —
-      and what `mise run` tasks accept does not change. The derive's strictness
-      about a _repeated_ non-repeatable flag is a separate rule and unchanged.
-      The migration guide presents the difference as intentional, with strict
+      and what `mise run` tasks accept does not change. Repeated scalar flags follow the same
+      default and have their own `args_override_self=false` strict opt-in.
+      The migration guide presents both differences as intentional, with strict
       one root-level line away, as communique's rewrite already declares it.
 - [x] A flag missing its value is dropped silently — now an error, in `parse` but
       not `parse_partial`, since a half-typed flag is exactly what a completion is

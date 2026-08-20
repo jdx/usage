@@ -47,6 +47,7 @@ func TestEveryCodeRendersSomethingSpecific(t *testing.T) {
 		{Code: CodeVarTooFew, Name: "files", Bound: 2, Got: 1},
 		{Code: CodeVarTooMany, Name: "tag", Bound: 1, Got: 3},
 		{Code: CodeConflictingFlags, Name: "file", Other: "stdin"},
+		{Code: CodeDuplicateFlag, Name: "jobs", Spelling: "--jobs"},
 	}
 	for _, e := range cases {
 		got := explain(e, nil)

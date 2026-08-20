@@ -304,6 +304,9 @@ impl Spec {
                 "dont_delimit_trailing_values" => {
                     schema.cmd.dont_delimit_trailing_values = node.arg(0)?.ensure_bool()?;
                 }
+                "args_override_self" => {
+                    schema.cmd.args_override_self = node.arg(0)?.ensure_bool()?;
+                }
                 "example" => {
                     let code = node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
                     let mut example = SpecExample::new(code.trim().to_string());
@@ -592,6 +595,11 @@ impl Display for Spec {
             node.push(true);
             nodes.push(node);
         }
+        if !self.cmd.args_override_self {
+            let mut node = KdlNode::new("args_override_self");
+            node.push(false);
+            nodes.push(node);
+        }
         if !self.usage.is_empty() {
             let mut node = KdlNode::new("usage");
             node.push(string_entry(None, &self.usage));
@@ -765,6 +773,7 @@ source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}
         name test
         bin test
         unknown_flags error
+        args_override_self #false
         usage "Usage: test"
         "#);
     }
