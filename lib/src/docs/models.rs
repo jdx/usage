@@ -35,8 +35,8 @@ pub struct SpecCommand {
     pub full_cmd: Vec<String>,
     pub usage: String,
     pub subcommands: IndexMap<String, SpecCommand>,
-    /// The same children in help presentation order rather than document-tree order.
-    pub help_subcommands: Vec<SpecCommand>,
+    /// Immediate children in help presentation order, without duplicating their trees.
+    pub help_subcommands: Vec<HelpCommand>,
     pub args: Vec<SpecArg>,
     pub flags: Vec<SpecFlag>,
     /// `flags`, partitioned by `help_heading`. Same flags, same order.
@@ -74,6 +74,31 @@ pub struct SpecCommand {
     pub examples: Vec<SpecExample>,
     // pub complete: IndexMap<String, SpecComplete>,
     pub rendered: bool,
+}
+
+/// The fields an immediate child contributes to its parent's command list.
+///
+/// Keeping this separate from [`SpecCommand`] avoids cloning every descendant tree for every
+/// ancestor merely to put one level of command summaries in presentation order.
+#[derive(Debug, Serialize, Clone)]
+pub struct HelpCommand {
+    pub usage: String,
+    pub deprecated: Option<String>,
+    pub aliases: Vec<String>,
+    pub help: Option<String>,
+    pub help_long: Option<String>,
+}
+
+impl From<&SpecCommand> for HelpCommand {
+    fn from(cmd: &SpecCommand) -> Self {
+        Self {
+            usage: cmd.usage.clone(),
+            deprecated: cmd.deprecated.clone(),
+            aliases: cmd.aliases.clone(),
+            help: cmd.help.clone(),
+            help_long: cmd.help_long.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -567,26 +592,34 @@ impl From<&crate::SpecCommand> for SpecCommand {
             .iter()
             .map(|(key, command)| (key.clone(), SpecCommand::from(command)))
             .collect();
-        let mut help_order: Vec<_> = subcommands.iter().collect();
-        help_order.sort_by(|(a_name, a), (b_name, b)| {
-            a.display_order
-                .unwrap_or(999)
-                .cmp(&b.display_order.unwrap_or(999))
-                .then_with(|| a.usage().cmp(&b.usage()))
-                .then_with(|| a_name.cmp(b_name))
+        let mut help_order: Vec<_> = subcommands
+            .iter()
+            .map(|(name, command)| (command.display_order.unwrap_or(999), command.usage(), name))
+            .collect();
+        help_order.sort_by(|a, b| {
+            a.0.cmp(&b.0)
+                .then_with(|| a.1.cmp(&b.1))
+                .then_with(|| a.2.cmp(b.2))
         });
-        let help_subcommands: Vec<SpecCommand> = help_order
-            .into_iter()
-            .map(|(key, _)| {
-                rendered_subcommands
-                    .get(key)
-                    .expect("rendered subcommand retains its key")
-                    .clone()
+        let help_subcommands: Vec<HelpCommand> = help_order
+            .iter()
+            .map(|(_, _, key)| {
+                HelpCommand::from(
+                    rendered_subcommands
+                        .get(*key)
+                        .expect("rendered subcommand retains its key"),
+                )
             })
             .collect();
         let mut flattened_subcommands = Vec::new();
         if *flatten_help {
-            for sub in help_subcommands.iter().filter(|sub| !sub.hide) {
+            for (_, _, key) in help_order {
+                let sub = rendered_subcommands
+                    .get(key)
+                    .expect("rendered subcommand retains its key");
+                if sub.hide {
+                    continue;
+                }
                 let mut section = sub.clone();
                 section.flattened_next_line_help = *next_line_help;
                 flattened_subcommands.push(section);
