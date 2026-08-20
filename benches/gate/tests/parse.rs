@@ -26,9 +26,9 @@ fn a_tool_is_installed_globally() {
 
 #[test]
 fn a_task_runs_with_arguments_after_a_separator() {
-    // The shape that made the derive's validation wrong: `[ARGS]…` before the `--` and
-    // `[-- ARGS_LAST]…` after it. `tasks run` is where mise's spec declares it; the
-    // top-level `run` carries no positionals of its own — see the note in the PR.
+    // `TASK` now declares `double_dash=automatic`: once the task name binds, every later token
+    // is task argv. That includes flag-looking words and a literal `--`; none return to mise's
+    // own flags or reach the older `ARGS_LAST` compatibility field.
     let a = argv([
         "tasks",
         "run",
@@ -45,12 +45,12 @@ fn a_task_runs_with_arguments_after_a_separator() {
     let Some(TasksCommands::Run(run)) = tasks.command else {
         panic!("expected `tasks run`")
     };
-    // The words, not just that a command was selected: a regression that merged the two
-    // sides of the `--` or dropped either would otherwise leave this green.
+    // The words, not just that a command was selected: dropping a flag-looking word or the
+    // separator itself would otherwise leave this green.
     assert_eq!(run.task.as_deref(), Some("build"));
-    assert_eq!(run.args, ["extra"]);
-    assert_eq!(run.args_last, ["--verbose"]);
-    assert!(run.dry_run);
+    assert_eq!(run.args, ["extra", "--dry-run", "--", "--verbose"]);
+    assert!(run.args_last.is_empty());
+    assert!(!run.dry_run);
 }
 
 #[test]

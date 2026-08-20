@@ -865,7 +865,7 @@ pub struct BootstrapPackagesImportArgs {
     /// write to the global config (~/.config/mise/config.toml)
     #[argh(switch, long = "global", short = 'g')]
     pub global: bool,
-    /// only import packages for this manager. Currently only `brew` is supported
+    /// only import packages for this manager. Currently only `brew` is supported.
     #[argh(option, long = "manager", short = 'm')]
     pub manager: Option<String>,
     /// import every linked formula, including dependencies
@@ -883,7 +883,7 @@ pub struct BootstrapPackagesImportArgs {
 #[derive(FromArgs)]
 #[argh(subcommand, name = "prune")]
 pub struct BootstrapPackagesPruneArgs {
-    /// only prune packages for this manager. Currently only `brew` is supported
+    /// only prune packages for this manager
     #[argh(option, long = "manager", short = 'm')]
     pub manager: Option<String>,
     /// print what would be removed without deleting anything
@@ -1040,6 +1040,12 @@ pub struct BootstrapRemoteArgs {
     /// sSH connection timeout in seconds
     #[argh(option, long = "connect-timeout")]
     pub connect_timeout: Option<String>,
+    /// dereference one source-relative symbolic link; repeat for multiple links
+    #[argh(option, long = "copy-link")]
+    pub copy_link: Vec<String>,
+    /// dereference every symbolic link in the source archive
+    #[argh(switch, long = "copy-links")]
+    pub copy_links: bool,
     /// additional archive pattern to exclude; repeat for multiple patterns
     #[argh(option, long = "exclude")]
     pub exclude: Vec<String>,
@@ -1073,6 +1079,9 @@ pub struct BootstrapRemoteArgs {
     /// prompt securely for missing secret inputs on the remote host
     #[argh(switch, long = "prompt-secrets")]
     pub prompt_secrets: bool,
+    /// config environments to load on the remote host; repeat or delimit with commas (for example, ci,dotfiles)
+    #[argh(option, long = "remote-env")]
+    pub remote_env: Vec<String>,
     /// existing mise executable name or path; relative paths use the staged project
     #[argh(option, long = "remote-mise")]
     pub remote_mise: Option<String>,
@@ -1599,7 +1608,7 @@ pub enum ConfigCommands {
 #[derive(FromArgs)]
 #[argh(subcommand, name = "current")]
 pub struct CurrentArgs {
-    /// plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc
+    /// plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc.
     #[argh(positional)]
     pub plugin: Option<String>,
 }
@@ -1928,6 +1937,9 @@ pub struct GenerateBootstrapArgs {
     /// directory to put localized data into
     #[argh(option, long = "localized-dir")]
     pub localized_dir: Option<String>,
+    /// also write a Windows launcher, `<WRITE>.cmd`
+    #[argh(switch, long = "windows")]
+    pub windows: bool,
 }
 
 /// generate a mise.toml file
@@ -1979,6 +1991,9 @@ pub struct GenerateGitPreCommitArgs {
     /// which hook to generate (saves to .git/hooks/$hook)
     #[argh(option, long = "hook")]
     pub hook: Option<String>,
+    /// mise flags to embed in the generated hook, given after `--`
+    #[argh(positional)]
+    pub mise_arg: Vec<String>,
 }
 
 /// generate a GitHub Action workflow file
@@ -2045,6 +2060,9 @@ pub struct GenerateToolStubArgs {
     /// specify mise version for the bootstrap script
     #[argh(option, long = "bootstrap-version")]
     pub bootstrap_version: Option<String>,
+    /// checksum algorithm to use when downloading artifacts
+    #[argh(option, long = "checksum-algorithm")]
+    pub checksum_algorithm: Option<String>,
     /// fetch checksums and sizes for an existing tool stub file
     #[argh(switch, long = "fetch")]
     pub fetch: bool,
@@ -2244,6 +2262,9 @@ pub struct InstallArgs {
     /// like --dry-run but exits with code 1 if there are tools to install
     #[argh(switch, long = "dry-run-code")]
     pub dry_run_code: bool,
+    /// also install tools required by tasks in the current scope
+    #[argh(switch, long = "include-task-tools")]
+    pub include_task_tools: bool,
     /// only install versions released before this date or older than this duration
     #[argh(option, long = "minimum-release-age")]
     pub minimum_release_age: Option<String>,
@@ -2590,12 +2611,15 @@ pub enum OciCommands {
 #[derive(FromArgs)]
 #[argh(subcommand, name = "outdated")]
 pub struct OutdatedArgs {
+    /// compares against the latest versions available, not what matches the current config
+    #[argh(switch, long = "bump", short = 'b')]
+    pub bump: bool,
     /// output in JSON format
     #[argh(switch, long = "json", short = 'J')]
     pub json: bool,
-    /// compares against the latest versions available, not what matches the current config
-    #[argh(switch, long = "bump", short = 'l')]
-    pub bump: bool,
+    /// deprecated shorthand for --bump
+    #[argh(switch, short = 'l')]
+    pub l: bool,
     /// show outdated tools including installed-but-inactive tools not present in the current config
     #[argh(switch, long = "inactive")]
     pub inactive: bool,
@@ -2903,7 +2927,7 @@ pub struct RegistryArgs {
     /// output in JSON format
     #[argh(switch, long = "json", short = 'J')]
     pub json: bool,
-    /// include security features for each tool's backends in JSON output
+    /// include security features for each tool's backends in JSON output.
     #[argh(switch, long = "security")]
     pub security: bool,
     /// show only the specified tool's full name
@@ -2950,6 +2974,9 @@ pub struct RunArgs {
     /// output affected projects and tasks as JSON without running tasks
     #[argh(switch, long = "affected-json")]
     pub affected_json: bool,
+    /// open the interactive selector with all tasks from the entire monorepo
+    #[argh(switch, long = "all")]
+    pub all: bool,
     /// continue running tasks even if one fails
     #[argh(switch, long = "continue-on-error", short = 'c')]
     pub continue_on_error: bool,
@@ -3570,6 +3597,9 @@ pub struct TasksRunArgs {
     /// output affected projects and tasks as JSON without running tasks
     #[argh(switch, long = "affected-json")]
     pub affected_json: bool,
+    /// open the interactive selector with all tasks from the entire monorepo
+    #[argh(switch, long = "all")]
+    pub all: bool,
     /// continue running tasks even if one fails
     #[argh(switch, long = "continue-on-error", short = 'c')]
     pub continue_on_error: bool,
@@ -3669,10 +3699,10 @@ pub struct TasksRunArgs {
     /// tasks to run
     #[argh(positional)]
     pub task: String,
-    /// arguments to pass to the tasks. Use ":::" to separate tasks
+    /// arguments to pass to the tasks. Use ":::" to separate tasks.
     #[argh(positional)]
     pub args: String,
-    /// arguments to pass to the tasks. Use ":::" to separate tasks
+    /// arguments to pass to the tasks. Use ":::" to separate tasks.
     #[argh(positional)]
     pub args_last: Vec<String>,
 }
@@ -3905,10 +3935,10 @@ pub struct TrustArgs {
     /// show the trusted status of config files from the current directory and its parents.
     #[argh(switch, long = "show")]
     pub show: bool,
-    /// no longer trust this config, will prompt in the future
+    /// remove explicit trust for this config
     #[argh(switch, long = "untrust")]
     pub untrust: bool,
-    /// the config file to trust
+    /// the config file whose trust status to change
     #[argh(positional)]
     pub config_file: Option<String>,
 }
@@ -3946,7 +3976,7 @@ pub struct UnsetArgs {
     pub env_key: Vec<String>,
 }
 
-/// no longer trust a config, will prompt in the future
+/// remove explicit trust for a config
 #[derive(FromArgs)]
 #[argh(subcommand, name = "untrust")]
 pub struct UntrustArgs {
@@ -3980,15 +4010,18 @@ pub struct UnuseArgs {
 #[derive(FromArgs)]
 #[argh(subcommand, name = "upgrade")]
 pub struct UpgradeArgs {
+    /// upgrades to the latest version available, bumping the version in mise.toml
+    #[argh(switch, long = "bump", short = 'b')]
+    pub bump: bool,
     /// display multiselect menu to choose which tools to upgrade
     #[argh(switch, long = "interactive", short = 'i')]
     pub interactive: bool,
     /// number of jobs to run in parallel
     #[argh(option, long = "jobs", short = 'j')]
     pub jobs: Option<String>,
-    /// upgrades to the latest version available, bumping the version in mise.toml
-    #[argh(switch, long = "bump", short = 'l')]
-    pub bump: bool,
+    /// deprecated shorthand for --bump
+    #[argh(switch, short = 'l')]
+    pub l: bool,
     /// just print what would be done, don't actually do it
     #[argh(switch, long = "dry-run", short = 'n')]
     pub dry_run: bool,
@@ -4013,6 +4046,9 @@ pub struct UpgradeArgs {
     /// do not uninstall the versions that were upgraded away from
     #[argh(switch, long = "no-prune")]
     pub no_prune: bool,
+    /// uninstall the versions that were upgraded away from
+    #[argh(switch, long = "prune")]
+    pub prune: bool,
     /// connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
     #[argh(switch, long = "raw")]
     pub raw: bool,
@@ -4057,7 +4093,7 @@ pub struct UseArgs {
     /// only install versions released before this date or older than this duration
     #[argh(option, long = "minimum-release-age")]
     pub minimum_release_age: Option<String>,
-    /// save exact version to config file
+    /// save the resolved concrete version to the config file
     #[argh(switch, long = "pin")]
     pub pin: bool,
     /// connect backend install command stdin/stdout/stderr directly to the terminal Implies `--jobs=1`
@@ -4165,7 +4201,7 @@ pub struct WatchArgs {
     /// configure event emission
     #[argh(option, long = "emit-events-to")]
     pub emit_events_to: Option<String>,
-    /// only emit events to stdout, run no commands
+    /// only emit events to stdout, run no commands.
     #[argh(switch, long = "only-emit-events")]
     pub only_emit_events: bool,
     /// add env vars to the command
@@ -4204,7 +4240,7 @@ pub struct WatchArgs {
     /// files to load filters from
     #[argh(option, long = "filter-file")]
     pub filter_file: Vec<String>,
-    /// experimental] Filter programs
+    /// experimental] Filter programs.
     #[argh(option, long = "filter-prog", short = 'J')]
     pub filter_prog: Vec<String>,
     /// filename patterns to filter out
@@ -4281,7 +4317,7 @@ pub struct Cli {
     /// force the operation
     #[argh(switch, long = "force", short = 'f')]
     pub force: bool,
-    /// how many jobs to run in parallel [default: 8]
+    /// how many jobs to run in parallel; values below 1 are treated as 1 [default: 8]
     #[argh(option, long = "jobs", short = 'j')]
     pub jobs: Option<String>,
     /// dry run, don't actually do anything
@@ -4472,7 +4508,7 @@ pub enum Commands {
     Uninstall(UninstallArgs),
     /// remove environment variable(s) from the config file.
     Unset(UnsetArgs),
-    /// no longer trust a config, will prompt in the future
+    /// remove explicit trust for a config
     Untrust(UntrustArgs),
     /// removes installed tool versions from mise.toml
     Unuse(UnuseArgs),

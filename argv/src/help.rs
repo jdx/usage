@@ -1505,13 +1505,24 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
 
     // mise puts an Examples section here on 115 commands, which is why a page without it is
     // missing the part a reader came for.
-    if let Some(after) = meta
+    let after = meta
         .after_long_help
         .or(meta.after_help)
         .or(spec.root.after_long_help)
-        .or(spec.root.after_help)
-    {
+        .or(spec.root.after_help);
+    if let Some(after) = after {
         let _ = writeln!(out, "\n{after}");
+    }
+    if spec.author.is_some() || spec.license.is_some() {
+        // The template starts the footer in a new paragraph. A trailing newline in
+        // `after_help` remains meaningful and therefore adds another blank line.
+        out.push('\n');
+        if let Some(author) = spec.author {
+            let _ = writeln!(out, "Author: {author}");
+        }
+        if let Some(license) = spec.license {
+            let _ = writeln!(out, "License: {license}");
+        }
     }
 
     let trimmed = out.trim();

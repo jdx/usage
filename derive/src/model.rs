@@ -1997,9 +1997,12 @@ impl Field {
         }
 
         let rust_name = ident.unraw().to_string();
+        // clap treats the conventional suffix used to escape Rust keywords as a Rust-only
+        // detail: `type_` is exposed as `--type` / `TYPE`, not `--type-` / `TYPE_`.
+        let inferred_name = rust_name.strip_suffix('_').unwrap_or(&rust_name);
         let mut name = rename_all
-            .map(|style| style.apply(&rust_name))
-            .unwrap_or_else(|| to_kebab(&rust_name));
+            .map(|style| style.apply(inferred_name))
+            .unwrap_or_else(|| to_kebab(inferred_name));
         let mut name_given = false;
         let mut longs: Vec<String> = Vec::new();
         let mut visible_long_aliases: Vec<String> = Vec::new();
@@ -2684,7 +2687,17 @@ impl Field {
         if !choices.is_empty() && !allow_unknown_choices {
             // Each of them, not the first: a collection's second default is as unusable as its
             // first if the choices do not allow it.
-            if let Some(default) = default.iter().find(|d| !choices.contains(d)) {
+            let invalid_default = default.iter().find_map(|declared| {
+                if shape == Shape::Many {
+                    if let Some(delimiter) = delimiter {
+                        return declared
+                            .split(delimiter)
+                            .find(|part| !choices.iter().any(|choice| choice == part));
+                    }
+                }
+                (!choices.contains(declared)).then_some(declared.as_str())
+            });
+            if let Some(default) = invalid_default {
                 return Err(syn::Error::new(
                     span,
                     format!(
@@ -2869,11 +2882,11 @@ impl Field {
             ));
         }
 
-        // `required` is for the one case the type cannot express. Anywhere else it either
-        // repeats what the type says or contradicts it, and both are worth refusing: a
-        // declaration that changes nothing is a declaration someone will trust.
+        // Collections and switches cannot express occurrence requiredness in their Rust
+        // type. clap permits `required` on both, and generated clap-compatible definitions
+        // use it for commands whose only valid spelling includes a switch.
         if required_collection
-            && shape != Shape::Many
+            && !matches!(shape, Shape::Many | Shape::Bool | Shape::Count)
             && !(subcommand_negates_reqs && shape == Shape::Optional)
         {
             return Err(syn::Error::new(
@@ -2889,8 +2902,8 @@ impl Field {
                                         for a collecting field, where the type cannot say it"
                     }
                     _ => {
-                        "`required` is only for a collecting field, which is the one shape \
-                          whose type cannot say whether a value is needed"
+                        "`required` is only for a collecting field or switch, whose type \
+                          cannot say whether an occurrence is needed"
                     }
                 },
             ));
@@ -2986,12 +2999,10 @@ impl Field {
         // And an `Option<Vec<_>>` is shaped like any other collection, so `required` was
         // accepted there too — after which the field can never be `None` and the `Option` means
         // nothing at all.
-        // `required` is for the one shape whose type cannot say it. Anywhere else it repeats
-        // what the type says or contradicts it, and a declaration that changes nothing is one
-        // someone will eventually trust. (This guard was lost while two fixes for the same
-        // review finding met in the middle; the test for it is what noticed.)
+        // Collections and switches cannot express occurrence requiredness in their Rust type.
+        // Anywhere else this repeats or contradicts the type.
         if required_collection
-            && shape != Shape::Many
+            && !matches!(shape, Shape::Many | Shape::Bool | Shape::Count)
             && !(subcommand_negates_reqs && shape == Shape::Optional)
         {
             return Err(syn::Error::new(
@@ -3006,8 +3017,8 @@ impl Field {
                                         a collecting field, where the type cannot say it"
                     }
                     _ => {
-                        "`required` is only for a collecting field, which is the one shape \
-                          whose type cannot say whether a value is needed"
+                        "`required` is only for a collecting field or switch, whose type \
+                          cannot say whether an occurrence is needed"
                     }
                 },
             ));
@@ -5152,6 +5163,20 @@ mod tests {
 
     #[test]
     fn clap_field_spellings_preserve_supported_metadata() {
+        let keyword = cli(r#"
+            struct Ex {
+                #[arg(long)]
+                type_: Option<String>,
+            }
+        "#)
+        .expect("a Rust keyword escape is not part of clap's public name");
+        assert_eq!(keyword.fields[0].name, "type");
+        assert_eq!(keyword.fields[0].value_name.as_deref(), Some("TYPE"));
+        let Kind::Flag { longs, .. } = &keyword.fields[0].kind else {
+            panic!("long should make this a flag");
+        };
+        assert_eq!(longs, &["type"]);
+
         let parsed = cli(r#"
             struct Ex {
                 #[arg(long, num_args = 2, value_names = ["START", "END"])]
@@ -5679,6 +5704,14 @@ mod tests {
         "#,
         );
         assert!(err.contains("the default `z`"), "unhelpful message: {err}");
+
+        cli(r#"
+            struct Ex {
+                #[usage(long, var, delimiter = ',', choices("a", "b"), default = "a,b")]
+                out: Vec<String>,
+            }
+        "#)
+        .expect("a delimited collection default is validated value by value");
     }
 
     #[test]
@@ -7150,6 +7183,19 @@ mod tests {
                 "{condition} produced an unhelpful message: {err}"
             );
         }
+    }
+
+    #[test]
+    fn required_switch_is_clap_compatible() {
+        let cli = cli(r#"
+            struct Ex {
+                #[arg(long, required = true)]
+                brew: bool,
+            }
+        "#)
+        .unwrap();
+
+        assert!(cli.fields[0].required_collection);
     }
 
     #[test]

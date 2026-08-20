@@ -304,8 +304,8 @@ func TestGeneratedParseFillsTheStructs(t *testing.T) {
 	}
 }
 
-// The shape that made the Rust derive's validation wrong, through the front door.
-func TestGeneratedParseSplitsArgsAcrossASeparator(t *testing.T) {
+// An automatic trailing argument forwards even a literal separator, matching the typed fixture.
+func TestGeneratedParseKeepsAutomaticTrailingArgsTogether(t *testing.T) {
 	cli, err := Parse([]string{"tasks", "run", "build", "extra", "--", "--verbose"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -317,11 +317,11 @@ func TestGeneratedParseSplitsArgsAcrossASeparator(t *testing.T) {
 	if run.Task != "build" {
 		t.Errorf("want build, got %q", run.Task)
 	}
-	if len(run.Args) != 1 || run.Args[0] != "extra" {
-		t.Errorf("want [extra] before the separator, got %q", run.Args)
+	if len(run.Args) != 3 || run.Args[0] != "extra" || run.Args[1] != "--" || run.Args[2] != "--verbose" {
+		t.Errorf("want [extra -- --verbose], got %q", run.Args)
 	}
-	if len(run.ArgsLast) != 1 || run.ArgsLast[0] != "--verbose" {
-		t.Errorf("want [--verbose] after it, got %q", run.ArgsLast)
+	if len(run.ArgsLast) != 0 {
+		t.Errorf("the compatibility field should stay empty, got %q", run.ArgsLast)
 	}
 }
 

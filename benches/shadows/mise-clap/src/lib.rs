@@ -33,7 +33,10 @@ pub struct ActivateArgs {
     pub shell: Option<String>,
     /// Do not automatically call hook-env
     ///
-    /// This can be helpful for debugging mise. If you run `eval "$(mise activate --no-hook-env)"`, then you can call `mise hook-env` manually which will output the env vars to stdout without actually modifying the environment. That way you can do things like `mise hook-env --trace` to get more information or just see the values that hook-env is outputting.
+    /// This can be helpful for debugging mise. If you run `eval "$(mise activate --no-hook-env)"`, then
+    /// you can call `mise hook-env` manually which will output the env vars to stdout without actually
+    /// modifying the environment. That way you can do things like `mise hook-env --trace` to get more
+    /// information or just see the values that hook-env is outputting.
     #[arg(long = "no-hook-env")]
     pub no_hook_env: bool,
     #[arg(
@@ -106,7 +109,7 @@ pub struct ToolAliasUnsetArgs {
 #[derive(Args)]
 pub struct ToolAliasArgs {
     /// Filter aliases by tool
-    #[arg(long = "tool", short = 'p', value_name = "TOOL")]
+    #[arg(long = "tool", short = 'p', alias = "plugin", value_name = "TOOL")]
     pub tool: Option<String>,
     /// Don't show table header
     #[arg(long = "no-header")]
@@ -281,10 +284,20 @@ pub struct BootstrapDotfilesAddArgs {
     #[arg(long = "force", short = 'f')]
     pub force: bool,
     /// Write to the global config
-    #[arg(long = "global", short = 'g')]
+    #[arg(
+        long = "global",
+        short = 'g',
+        conflicts_with = "local",
+        conflicts_with = "path"
+    )]
     pub global: bool,
     /// Write to the local config instead of the global config
-    #[arg(long = "local", short = 'l')]
+    #[arg(
+        long = "local",
+        short = 'l',
+        conflicts_with = "global",
+        conflicts_with = "path"
+    )]
     pub local: bool,
     /// Dotfile mode to write
     #[arg(long = "mode", short = 'm', value_name = "MODE")]
@@ -296,7 +309,13 @@ pub struct BootstrapDotfilesAddArgs {
     #[arg(long = "no-apply")]
     pub no_apply: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
+    #[arg(
+        long = "path",
+        short = 'p',
+        conflicts_with = "global",
+        conflicts_with = "local",
+        value_name = "PATH"
+    )]
     pub path: Option<String>,
     /// Source path to use for a single target
     #[arg(long = "source", short = 's', value_name = "PATH")]
@@ -407,7 +426,7 @@ pub enum BootstrapDotfilesCommands {
     #[command(name = "edit")]
     Edit(Box<BootstrapDotfilesEditArgs>),
     /// Show the status of dotfiles from `[dotfiles]`
-    #[command(name = "status", visible_alias = "ls")]
+    #[command(name = "status")]
     Status(Box<BootstrapDotfilesStatusArgs>),
     /// Remove dotfiles applied from `[dotfiles]`
     #[command(name = "unapply")]
@@ -763,8 +782,7 @@ pub struct BootstrapPackagesApplyArgs {
     /// Refresh package manager metadata first (apk: `--update-cache`, apt: `apt-get update`)
     #[arg(long = "update")]
     pub update: bool,
-    /// Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]
-    #[arg(value_name = "PACKAGE", num_args = 0..)]
+    #[arg(value_name = "PACKAGE", help = "Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]", long_help = "Packages in `manager:package` form; defaults to everything configured\nin [bootstrap.packages]", num_args = 0..)]
     pub package: Vec<String>,
 }
 
@@ -778,7 +796,13 @@ pub struct BootstrapPackagesBrewTapArgs {
     #[arg(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
+    #[arg(
+        long = "path",
+        short = 'p',
+        alias = "file",
+        conflicts_with = "local",
+        value_name = "PATH"
+    )]
     pub path: Option<String>,
     /// Tap name, e.g. `owner/repo`
     #[arg(value_name = "TAP")]
@@ -798,7 +822,13 @@ pub struct BootstrapPackagesBrewUntapArgs {
     #[arg(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
+    #[arg(
+        long = "path",
+        short = 'p',
+        alias = "file",
+        conflicts_with = "local",
+        value_name = "PATH"
+    )]
     pub path: Option<String>,
     /// Tap name(s), e.g. `owner/repo`
     #[arg(value_name = "TAPS", required = true, num_args = 0..)]
@@ -833,12 +863,23 @@ pub enum BootstrapPackagesBrewCommands {
 #[derive(Args)]
 pub struct BootstrapPackagesImportArgs {
     /// Write to the config file for this environment (mise.<ENV>.toml)
-    #[arg(long = "env", short = 'e', value_name = "ENV")]
+    #[arg(
+        long = "env",
+        short = 'e',
+        conflicts_with = "global",
+        conflicts_with = "path",
+        value_name = "ENV"
+    )]
     pub env: Option<String>,
     /// Write to the global config (~/.config/mise/config.toml)
-    #[arg(long = "global", short = 'g')]
+    #[arg(
+        long = "global",
+        short = 'g',
+        conflicts_with = "env",
+        conflicts_with = "path"
+    )]
     pub global: bool,
-    /// Only import packages for this manager. Currently only `brew` is supported
+    /// Only import packages for this manager. Currently only `brew` is supported.
     #[arg(long = "manager", short = 'm', value_name = "MANAGER", value_parser = ::clap::builder::PossibleValuesParser::new(["brew"]), default_value = "brew")]
     pub manager: Option<String>,
     /// Import every linked formula, including dependencies
@@ -848,19 +889,25 @@ pub struct BootstrapPackagesImportArgs {
     #[arg(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
+    #[arg(
+        long = "path",
+        short = 'p',
+        alias = "file",
+        conflicts_with = "global",
+        value_name = "PATH"
+    )]
     pub path: Option<String>,
 }
 
 /// Prune installed system packages no longer declared in `[bootstrap.packages]`
 ///
-/// Currently supports Homebrew formulae only. Pruning removes linked formulae
-/// that are not needed by the current config or by trusted, loadable tracked
-/// configs.
+/// Supports Homebrew formulae and conservatively removable, mise-owned casks.
+/// Pruning keeps packages needed by the current config or by trusted, loadable
+/// tracked configs.
 #[derive(Args)]
 pub struct BootstrapPackagesPruneArgs {
-    /// Only prune packages for this manager. Currently only `brew` is supported
-    #[arg(long = "manager", short = 'm', value_name = "MANAGER", value_parser = ::clap::builder::PossibleValuesParser::new(["brew"]), default_value = "brew")]
+    /// Only prune packages for this manager
+    #[arg(long = "manager", short = 'm', value_name = "MANAGER", value_parser = ::clap::builder::PossibleValuesParser::new(["brew", "brew-cask"]), default_value = "brew")]
     pub manager: Option<String>,
     /// Print what would be removed without deleting anything
     #[arg(long = "dry-run", short = 'n')]
@@ -887,7 +934,7 @@ pub struct BootstrapPackagesStatusArgs {
 /// that are already installed: apk/apt/dnf/pacman upgrade to the newest available
 /// version (apk, apt, and dnf honor a version pinned in config), brew pours the
 /// formula's current bottle and replaces the old keg, brew-cask installs
-/// the current cask artifact, flatpak updates applications and runtimes, and mas upgrades App Store apps. Packages that
+/// the current cask artifact, flatpak and flatpak-user update applications and runtimes, and mas upgrades App Store apps. Packages that
 /// are not installed yet are skipped — use `mise bootstrap packages apply`
 /// for those.
 ///
@@ -903,8 +950,7 @@ pub struct BootstrapPackagesUpgradeArgs {
     /// Skip the confirmation prompt
     #[arg(long = "yes", short = 'y')]
     pub yes: bool,
-    /// Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]
-    #[arg(value_name = "PACKAGE", num_args = 0..)]
+    #[arg(value_name = "PACKAGE", help = "Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]", long_help = "Packages in `manager:package` form; defaults to everything configured\nin [bootstrap.packages]", num_args = 0..)]
     pub package: Vec<String>,
 }
 
@@ -922,16 +968,32 @@ pub struct BootstrapPackagesUpgradeArgs {
 #[derive(Args)]
 pub struct BootstrapPackagesUseArgs {
     /// Write to the config file for this environment (mise.<ENV>.toml)
-    #[arg(long = "env", short = 'e', value_name = "ENV")]
+    #[arg(
+        long = "env",
+        short = 'e',
+        conflicts_with = "global",
+        conflicts_with = "path",
+        value_name = "ENV"
+    )]
     pub env: Option<String>,
-    /// Write to the global config (~/.config/mise/config.toml) instead of the local one
-    #[arg(long = "global", short = 'g')]
+    #[arg(
+        help = "Write to the global config (~/.config/mise/config.toml) instead of the local one",
+        long_help = "Write to the global config (~/.config/mise/config.toml) instead of the\nlocal one",
+        long = "global",
+        short = 'g'
+    )]
     pub global: bool,
     /// Print the commands that would run without writing config or installing
     #[arg(long = "dry-run", short = 'n')]
     pub dry_run: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
+    #[arg(
+        long = "path",
+        short = 'p',
+        alias = "file",
+        conflicts_with = "global",
+        value_name = "PATH"
+    )]
     pub path: Option<String>,
     /// Skip the confirmation prompt
     #[arg(long = "yes", short = 'y')]
@@ -1023,7 +1085,12 @@ pub struct BootstrapRemoteArgs {
     #[arg(long = "all")]
     pub all: bool,
     /// Explicit remote shell command that installs mise and places it on PATH
-    #[arg(long = "bootstrap-command", value_name = "COMMAND")]
+    #[arg(
+        long = "bootstrap-command",
+        conflicts_with = "mise_bin",
+        conflicts_with = "remote_mise",
+        value_name = "COMMAND"
+    )]
     pub bootstrap_command: Option<String>,
     /// SSH connection timeout in seconds
     #[arg(
@@ -1032,6 +1099,12 @@ pub struct BootstrapRemoteArgs {
         default_value = "10"
     )]
     pub connect_timeout: Option<String>,
+    /// Dereference one source-relative symbolic link; repeat for multiple links
+    #[arg(long = "copy-link", value_name = "PATH")]
+    pub copy_link: Vec<String>,
+    /// Dereference every symbolic link in the source archive
+    #[arg(long = "copy-links")]
+    pub copy_links: bool,
     /// Additional archive pattern to exclude; repeat for multiple patterns
     #[arg(long = "exclude", value_name = "PATTERN")]
     pub exclude: Vec<String>,
@@ -1054,10 +1127,15 @@ pub struct BootstrapRemoteArgs {
     #[arg(long = "keep-staging")]
     pub keep_staging: bool,
     /// Local mise binary to upload (escape hatch for custom architectures)
-    #[arg(long = "mise-bin", value_name = "MISE_BIN")]
+    #[arg(
+        long = "mise-bin",
+        conflicts_with = "remote_mise",
+        conflicts_with = "bootstrap_command",
+        value_name = "MISE_BIN"
+    )]
     pub mise_bin: Option<String>,
     /// Run only one or more remote bootstrap parts
-    #[arg(long = "only", value_name = "ONLY", value_parser = ::clap::builder::PossibleValuesParser::new(["plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"]))]
+    #[arg(long = "only", value_delimiter = ',', conflicts_with = "skip", value_name = "ONLY", value_parser = ::clap::builder::PossibleValuesParser::new(["plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"]))]
     pub only: Vec<String>,
     /// SSH port override
     #[arg(long = "port", value_name = "PORT")]
@@ -1065,11 +1143,19 @@ pub struct BootstrapRemoteArgs {
     /// Prompt securely for missing secret inputs on the remote host
     #[arg(long = "prompt-secrets")]
     pub prompt_secrets: bool,
+    /// Config environments to load on the remote host; repeat or delimit with commas (for example, ci,dotfiles)
+    #[arg(long = "remote-env", value_delimiter = ',', value_name = "ENV")]
+    pub remote_env: Vec<String>,
     /// Existing mise executable name or path; relative paths use the staged project
-    #[arg(long = "remote-mise", value_name = "COMMAND")]
+    #[arg(
+        long = "remote-mise",
+        conflicts_with = "mise_bin",
+        conflicts_with = "bootstrap_command",
+        value_name = "COMMAND"
+    )]
     pub remote_mise: Option<String>,
     /// Skip one or more remote bootstrap parts
-    #[arg(long = "skip", value_name = "SKIP", value_parser = ::clap::builder::PossibleValuesParser::new(["plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"]))]
+    #[arg(long = "skip", value_delimiter = ',', value_name = "SKIP", value_parser = ::clap::builder::PossibleValuesParser::new(["plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"]))]
     pub skip: Vec<String>,
     /// Local directory archived and sent to each target
     #[arg(long = "source", value_name = "SOURCE")]
@@ -1369,8 +1455,9 @@ pub struct BootstrapArgs {
     pub force_dotfiles: bool,
     /// Run only one or more bootstrap parts
     ///
-    /// Can be passed multiple times or as a comma-separated list. Cannot be used with `--skip`.
-    #[arg(long = "only", value_name = "ONLY", value_parser = ::clap::builder::PossibleValuesParser::new(["plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"]))]
+    /// Can be passed multiple times or as a comma-separated list.
+    /// Cannot be used with `--skip`.
+    #[arg(long = "only", value_delimiter = ',', conflicts_with = "skip", value_name = "ONLY", value_parser = ::clap::builder::PossibleValuesParser::new(["plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"]))]
     pub only: Vec<String>,
     /// Prompt securely for missing bootstrap secret inputs
     #[arg(long = "prompt-secrets")]
@@ -1378,7 +1465,7 @@ pub struct BootstrapArgs {
     /// Skip one or more bootstrap parts
     ///
     /// Can be passed multiple times or as a comma-separated list.
-    #[arg(long = "skip", value_name = "SKIP", value_parser = ::clap::builder::PossibleValuesParser::new(["plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"]))]
+    #[arg(long = "skip", value_delimiter = ',', value_name = "SKIP", value_parser = ::clap::builder::PossibleValuesParser::new(["plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"]))]
     pub skip: Vec<String>,
     /// Refresh package manager metadata and update configured repos
     #[arg(long = "update")]
@@ -1389,17 +1476,17 @@ pub struct BootstrapArgs {
 
 #[derive(Subcommand)]
 pub enum BootstrapCommands {
-    #[command(name = "__apply-account-plan")]
+    #[command(name = "__apply-account-plan", hide = true)]
     ApplyAccountPlan(Box<BootstrapApplyAccountPlanArgs>),
-    #[command(name = "__apply-service-plan")]
+    #[command(name = "__apply-service-plan", hide = true)]
     ApplyServicePlan(Box<BootstrapApplyServicePlanArgs>),
-    #[command(name = "__apply-firewall-plan")]
+    #[command(name = "__apply-firewall-plan", hide = true)]
     ApplyFirewallPlan(Box<BootstrapApplyFirewallPlanArgs>),
-    #[command(name = "__apply-system-plan")]
+    #[command(name = "__apply-system-plan", hide = true)]
     ApplySystemPlan(Box<BootstrapApplySystemPlanArgs>),
-    #[command(name = "__inspect-system-files")]
+    #[command(name = "__inspect-system-files", hide = true)]
     InspectSystemFiles(Box<BootstrapInspectSystemFilesArgs>),
-    #[command(name = "__inspect-firewall-plan")]
+    #[command(name = "__inspect-firewall-plan", hide = true)]
     InspectFirewallPlan(Box<BootstrapInspectFirewallPlanArgs>),
     /// Manage Linux users and groups from `[bootstrap.users]` and `[bootstrap.groups]`
     #[command(name = "accounts")]
@@ -1417,7 +1504,7 @@ pub enum BootstrapCommands {
     #[command(name = "firewall")]
     Firewall(Box<BootstrapFirewallArgs>),
     /// Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
-    #[command(name = "launchd")]
+    #[command(name = "launchd", hide = true)]
     Launchd(Box<BootstrapLaunchdArgs>),
     /// Manage Linux bootstrap config from `[bootstrap.linux]`
     #[command(name = "linux")]
@@ -1426,7 +1513,7 @@ pub enum BootstrapCommands {
     #[command(name = "macos")]
     Macos(Box<BootstrapMacosArgs>),
     /// Manage macOS defaults from `[bootstrap.macos.defaults]`
-    #[command(name = "macos-defaults")]
+    #[command(name = "macos-defaults", hide = true)]
     MacosDefaults(Box<BootstrapMacosDefaultsArgs>),
     /// Manage mise shell activation from `[bootstrap.mise_shell_activate]`
     #[command(name = "mise-shell-activate", alias = "shell")]
@@ -1456,7 +1543,7 @@ pub enum BootstrapCommands {
     #[command(name = "status", visible_alias = "ls")]
     Status(Box<BootstrapStatusArgs>),
     /// Manage systemd user services from `[bootstrap.linux.systemd.units]`
-    #[command(name = "systemd")]
+    #[command(name = "systemd", hide = true)]
     Systemd(Box<BootstrapSystemdArgs>),
     /// Manage current-user bootstrap settings from `[bootstrap.user]`
     #[command(name = "user")]
@@ -1470,10 +1557,14 @@ pub struct CacheClearArgs {
     #[arg(long = "outdate", hide = true)]
     pub outdate: bool,
     /// Clear output cache entries for a task name or pattern
-    #[arg(long = "task", value_name = "TASK")]
+    #[arg(
+        long = "task",
+        conflicts_with = "tool",
+        conflicts_with = "outdate",
+        value_name = "TASK"
+    )]
     pub task: Option<String>,
-    /// Tool(s) to clear cache for e.g.: node, python
-    #[arg(value_name = "TOOL", num_args = 0..)]
+    #[arg(value_name = "TOOL", help = "Tool(s) to clear cache for e.g.: node, python", long_help = "Tool(s) to clear cache for\ne.g.: node, python", num_args = 0..)]
     pub tool: Vec<String>,
 }
 
@@ -1493,8 +1584,7 @@ pub struct CachePruneArgs {
     /// Just show what would be pruned
     #[arg(long = "dry-run")]
     pub dry_run: bool,
-    /// Tool(s) to prune cache for e.g.: node, python
-    #[arg(value_name = "TOOL", num_args = 0..)]
+    #[arg(value_name = "TOOL", help = "Tool(s) to prune cache for e.g.: node, python", long_help = "Tool(s) to prune cache for\ne.g.: node, python", num_args = 0..)]
     pub tool: Vec<String>,
 }
 
@@ -1538,7 +1628,7 @@ pub enum CacheCommands {
 #[derive(Args)]
 pub struct CompletionArgs {
     /// Shell type to generate completions for
-    #[arg(long = "shell", short = 's', hide = true, value_name = "SHELL_TYPE", value_parser = ::clap::builder::PossibleValuesParser::new(["bash", "fish", "powershell", "zsh"]))]
+    #[arg(long = "shell", short = 's', hide = true, value_name = "SHELL")]
     pub shell: Option<String>,
     /// Include the bash completion library in the bash completion script
     ///
@@ -1554,7 +1644,7 @@ pub struct CompletionArgs {
     )]
     pub usage: bool,
     /// Shell type to generate completions for
-    #[arg(value_name = "SHELL", value_parser = ::clap::builder::PossibleValuesParser::new(["bash", "fish", "powershell", "zsh"]))]
+    #[arg(value_name = "SHELL", required_unless_present = "shell")]
     pub shell_2: Option<String>,
 }
 
@@ -1580,7 +1670,7 @@ pub struct ConfigLsArgs {
     #[arg(long = "json", short = 'J')]
     pub json: bool,
     /// Do not print table header
-    #[arg(long = "no-header")]
+    #[arg(long = "no-header", alias = "no-headers")]
     pub no_header: bool,
     /// List all tracked config files
     #[arg(long = "tracked-configs")]
@@ -1614,7 +1704,7 @@ pub struct ConfigArgs {
     #[arg(long = "json", short = 'J')]
     pub json: bool,
     /// Do not print table header
-    #[arg(long = "no-header")]
+    #[arg(long = "no-header", alias = "no-headers")]
     pub no_header: bool,
     /// List all tracked config files
     #[arg(long = "tracked-configs")]
@@ -1642,8 +1732,11 @@ pub enum ConfigCommands {
 /// and/or version. It's designed to fit into scripts more easily.
 #[derive(Args)]
 pub struct CurrentArgs {
-    /// Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc
-    #[arg(value_name = "PLUGIN")]
+    #[arg(
+        value_name = "PLUGIN",
+        help = "Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc.",
+        long_help = "Plugin to show versions of\ne.g.: ruby, node, cargo:eza, npm:prettier, etc."
+    )]
     pub plugin: Option<String>,
 }
 
@@ -1685,16 +1778,18 @@ pub struct DirenvArgs {
 #[derive(Subcommand)]
 pub enum DirenvCommands {
     /// Output direnv function to use mise inside direnv
-    #[command(name = "activate")]
+    #[command(name = "activate", hide = true)]
     Activate(Box<DirenvActivateArgs>),
     #[command(
         name = "envrc",
-        about = "[internal] This is an internal command that writes an envrc file\nfor direnv to consume."
+        about = "[internal] This is an internal command that writes an envrc file\nfor direnv to consume.",
+        hide = true
     )]
     Envrc(Box<DirenvEnvrcArgs>),
     #[command(
         name = "exec",
-        about = "[internal] This is an internal command that writes an envrc file\nfor direnv to consume."
+        about = "[internal] This is an internal command that writes an envrc file\nfor direnv to consume.",
+        hide = true
     )]
     Exec(Box<DirenvExecArgs>),
 }
@@ -1710,10 +1805,20 @@ pub struct DotfilesAddArgs {
     #[arg(long = "force", short = 'f')]
     pub force: bool,
     /// Write to the global config
-    #[arg(long = "global", short = 'g')]
+    #[arg(
+        long = "global",
+        short = 'g',
+        conflicts_with = "local",
+        conflicts_with = "path"
+    )]
     pub global: bool,
     /// Write to the local config instead of the global config
-    #[arg(long = "local", short = 'l')]
+    #[arg(
+        long = "local",
+        short = 'l',
+        conflicts_with = "global",
+        conflicts_with = "path"
+    )]
     pub local: bool,
     /// Dotfile mode to write
     #[arg(long = "mode", short = 'm', value_name = "MODE")]
@@ -1725,7 +1830,13 @@ pub struct DotfilesAddArgs {
     #[arg(long = "no-apply")]
     pub no_apply: bool,
     /// Write to this config file or directory
-    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
+    #[arg(
+        long = "path",
+        short = 'p',
+        conflicts_with = "global",
+        conflicts_with = "local",
+        value_name = "PATH"
+    )]
     pub path: Option<String>,
     /// Source path to use for a single target
     #[arg(long = "source", short = 's', value_name = "PATH")]
@@ -1829,19 +1940,19 @@ pub struct DotfilesArgs {
 #[derive(Subcommand)]
 pub enum DotfilesCommands {
     /// Add or update dotfiles in `[dotfiles]`
-    #[command(name = "add")]
+    #[command(name = "add", hide = true)]
     Add(Box<DotfilesAddArgs>),
     /// Apply dotfiles from `[dotfiles]`
-    #[command(name = "apply")]
+    #[command(name = "apply", hide = true)]
     Apply(Box<DotfilesApplyArgs>),
     /// Edit a managed dotfile source
-    #[command(name = "edit")]
+    #[command(name = "edit", hide = true)]
     Edit(Box<DotfilesEditArgs>),
     /// Show the status of dotfiles from `[dotfiles]`
-    #[command(name = "status", visible_alias = "ls")]
+    #[command(name = "status", hide = true, visible_alias = "ls")]
     Status(Box<DotfilesStatusArgs>),
     /// Remove dotfiles applied from `[dotfiles]`
-    #[command(name = "unapply")]
+    #[command(name = "unapply", hide = true)]
     Unapply(Box<DotfilesUnapplyArgs>),
 }
 
@@ -1893,16 +2004,21 @@ pub struct EnArgs {
 #[derive(Args)]
 pub struct EnvArgs {
     /// Output in dotenv format
-    #[arg(long = "dotenv", short = 'D')]
+    #[arg(long = "dotenv", short = 'D', overrides_with = "shell")]
     pub dotenv: bool,
     /// Output in JSON format
-    #[arg(long = "json", short = 'J')]
+    #[arg(long = "json", short = 'J', overrides_with = "shell")]
     pub json: bool,
     /// Shell type to generate environment variables for
-    #[arg(long = "shell", short = 's', value_name = "SHELL", value_parser = ::clap::builder::PossibleValuesParser::new(["bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"]))]
+    #[arg(
+        long = "shell",
+        short = 's',
+        overrides_with = "json",
+        value_name = "SHELL"
+    )]
     pub shell: Option<String>,
     /// Output in JSON format with additional information (source, tool)
-    #[arg(long = "json-extended")]
+    #[arg(long = "json-extended", overrides_with = "shell")]
     pub json_extended: bool,
     /// Only show redacted environment variables
     #[arg(long = "redacted")]
@@ -1927,12 +2043,18 @@ pub struct EnvArgs {
 #[derive(Args)]
 pub struct ExecArgs {
     /// Command string to execute
-    #[arg(long = "command", short = 'c', value_name = "C")]
+    #[arg(
+        long = "command",
+        short = 'c',
+        conflicts_with = "command_2",
+        value_name = "COMMAND"
+    )]
     pub command: Option<String>,
     #[arg(
-        help = "Number of jobs to run in parallel\n[default: 4]",
+        help = "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]",
         long = "jobs",
         short = 'j',
+        env = "MISE_JOBS",
         value_name = "JOBS"
     )]
     pub jobs: Option<String>,
@@ -1975,14 +2097,17 @@ pub struct ExecArgs {
     /// Skip automatic dependency preparation
     #[arg(long = "no-deps")]
     pub no_deps: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
-    #[arg(long = "raw")]
+    #[arg(
+        help = "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1",
+        long_help = "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies --jobs=1",
+        long = "raw",
+        overrides_with = "jobs"
+    )]
     pub raw: bool,
-    /// Tool(s) to start e.g.: node@20 python@3.10
-    #[arg(value_name = "TOOL@VERSION", num_args = 0..)]
+    #[arg(value_name = "TOOL@VERSION", help = "Tool(s) to start e.g.: node@20 python@3.10", long_help = "Tool(s) to start\ne.g.: node@20 python@3.10", num_args = 0..)]
     pub tool_version: Vec<String>,
     /// Command string to execute (same as --command)
-    #[arg(value_name = "COMMAND", num_args = 0.., last = true)]
+    #[arg(value_name = "COMMAND", conflicts_with = "command", required_unless_present = "command", num_args = 0.., last = true)]
     pub command_2: Vec<String>,
 }
 
@@ -1997,8 +2122,12 @@ pub struct FmtArgs {
     /// Check if the configs are formatted, no formatting is done
     #[arg(long = "check", short = 'c')]
     pub check: bool,
-    /// Read config from stdin and write its formatted version into stdout
-    #[arg(long = "stdin", short = 's')]
+    #[arg(
+        help = "Read config from stdin and write its formatted version into stdout",
+        long_help = "Read config from stdin and write its formatted version into\nstdout",
+        long = "stdin",
+        short = 's'
+    )]
     pub stdin: bool,
 }
 
@@ -2016,7 +2145,7 @@ pub struct GenerateBootstrapArgs {
     #[arg(long = "version", short = 'V', value_name = "VERSION")]
     pub version: Option<String>,
     /// instead of outputting the script to stdout, write to a file and make it executable
-    #[arg(long = "write", short = 'w', value_name = "WRITE")]
+    #[arg(long = "write", short = 'w', num_args = 0..=1, default_missing_value = "./bin/mise", value_name = "WRITE")]
     pub write: Option<String>,
     /// Directory to put localized data into
     #[arg(
@@ -2025,13 +2154,23 @@ pub struct GenerateBootstrapArgs {
         default_value = ".mise"
     )]
     pub localized_dir: Option<String>,
+    /// Also write a Windows launcher, `<WRITE>.cmd`
+    ///
+    /// Windows cannot execute the `#!/usr/bin/env bash` script, so a contributor who clones the
+    /// project on Windows has nothing to run without this.
+    ///
+    /// Generated on every host, not only on Windows: the file is committed, and whoever runs it
+    /// on Windows is not the person who generated it. Requires `--write`, since stdout cannot
+    /// carry two files.
+    #[arg(long = "windows", requires = "write")]
+    pub windows: bool,
 }
 
 /// Generate a mise.toml file
 #[derive(Args)]
 pub struct GenerateConfigArgs {
     /// Generate the global config file (~/.config/mise/config.toml)
-    #[arg(long = "global", short = 'g')]
+    #[arg(long = "global", short = 'g', conflicts_with = "path")]
     pub global: bool,
     /// Show what would be generated without writing to file
     #[arg(long = "dry-run", short = 'n')]
@@ -2085,6 +2224,13 @@ pub struct GenerateGitPreCommitArgs {
     /// Which hook to generate (saves to .git/hooks/$hook)
     #[arg(long = "hook", value_name = "HOOK", default_value = "pre-commit")]
     pub hook: Option<String>,
+    /// mise flags to embed in the generated hook, given after `--`
+    ///
+    /// These are inserted between `mise` and `run`, so the hook carries the same context you
+    /// would pass on the command line. Useful when the config is not at the repository root,
+    /// since git runs hooks from the top level: `-- -C subdir` makes the hook find it.
+    #[arg(value_name = "MISE_ARG", num_args = 0.., last = true)]
+    pub mise_arg: Vec<String>,
 }
 
 /// Generate a GitHub Action workflow file
@@ -2135,6 +2281,7 @@ pub struct GenerateTaskDocsArgs {
 ///
 /// By default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap`
 /// so contributors to a project can execute mise tasks without installing mise into their system.
+/// When a parent and nested task both exist, the parent stub is written to `<parent>/_default`.
 #[derive(Args)]
 pub struct GenerateTaskStubsArgs {
     /// Directory to create task stubs inside of
@@ -2180,18 +2327,48 @@ pub struct GenerateToolStubArgs {
     ///
     /// By default, uses the latest version from the install script.
     /// Use this to pin to a specific version (e.g., "2025.1.0").
-    #[arg(long = "bootstrap-version", value_name = "BOOTSTRAP_VERSION")]
+    #[arg(
+        long = "bootstrap-version",
+        requires = "bootstrap",
+        value_name = "BOOTSTRAP_VERSION"
+    )]
     pub bootstrap_version: Option<String>,
+    /// Checksum algorithm to use when downloading artifacts
+    ///
+    /// Accepts `blake3` or `sha256` and defaults to `blake3`.
+    /// Cannot be used with `--lock` or `--skip-download` because those modes do not
+    /// calculate checksums.
+    #[arg(long = "checksum-algorithm", conflicts_with = "lock", conflicts_with = "skip_download", value_name = "CHECKSUM_ALGORITHM", value_parser = ::clap::builder::PossibleValuesParser::new(["blake3", "sha256"]), default_value = "blake3")]
+    pub checksum_algorithm: Option<String>,
     /// Fetch checksums and sizes for an existing tool stub file
     ///
-    /// This reads an existing stub file and fills in any missing checksum/size fields by downloading the files. URLs must already be present in the stub.
-    #[arg(long = "fetch")]
+    /// This reads an existing stub file and fills in any missing checksum/size fields
+    /// by downloading the files. URLs must already be present in the stub.
+    #[arg(
+        long = "fetch",
+        conflicts_with = "url",
+        conflicts_with = "platform_url",
+        conflicts_with = "version",
+        conflicts_with = "bin",
+        conflicts_with = "platform_bin",
+        conflicts_with = "skip_download",
+        conflicts_with = "lock"
+    )]
     pub fetch: bool,
     /// HTTP backend type to use
     #[arg(long = "http", value_name = "HTTP", default_value = "http")]
     pub http: Option<String>,
-    /// Resolve and embed lockfile data (exact version + platform URLs/checksums) into an existing stub file for reproducible installs without runtime API calls
-    #[arg(long = "lock")]
+    #[arg(
+        help = "Resolve and embed lockfile data (exact version + platform URLs/checksums) into an existing stub file for reproducible installs without runtime API calls",
+        long_help = "Resolve and embed lockfile data (exact version + platform URLs/checksums)\ninto an existing stub file for reproducible installs without runtime API calls",
+        long = "lock",
+        conflicts_with = "url",
+        conflicts_with = "platform_url",
+        conflicts_with = "bin",
+        conflicts_with = "platform_bin",
+        conflicts_with = "fetch",
+        conflicts_with = "skip_download"
+    )]
     pub lock: bool,
     /// Platform-specific binary paths in the format platform:path
     ///
@@ -2200,11 +2377,15 @@ pub struct GenerateToolStubArgs {
     pub platform_bin: Vec<String>,
     /// Platform-specific URLs in the format platform:url or just url (auto-detect platform)
     ///
-    /// When the output file already exists, new platforms will be appended to the existing platforms table. Existing platform URLs will be updated if specified again.
+    /// When the output file already exists, new platforms will be appended to the existing
+    /// platforms table. Existing platform URLs will be updated if specified again.
     ///
-    /// If only a URL is provided (without platform:), the platform will be automatically detected from the URL filename.
+    /// If only a URL is provided (without platform:), the platform will be automatically
+    /// detected from the URL filename.
     ///
-    /// Examples: --platform-url linux-x64:https://... --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
+    /// Examples:
+    /// --platform-url linux-x64:https://...
+    /// --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
     #[arg(long = "platform-url", value_name = "PLATFORM_URL")]
     pub platform_url: Vec<String>,
     /// Skip downloading for checksum and binary path detection (faster but less informative)
@@ -2270,8 +2451,12 @@ pub struct GithubTokenArgs {
     /// Print only the token value
     #[arg(long = "raw")]
     pub raw: bool,
-    /// Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow
-    #[arg(long = "refresh")]
+    #[arg(
+        help = "Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow",
+        long_help = "Mint a fresh OAuth token even if the cached one has not\nexpired, via the refresh-token grant or a new device-code flow",
+        long = "refresh",
+        requires = "oauth"
+    )]
     pub refresh: bool,
     /// Show the full unmasked token
     #[arg(long = "unmask")]
@@ -2291,7 +2476,7 @@ pub struct GithubArgs {
 #[derive(Subcommand)]
 pub enum GithubCommands {
     /// Display the GitHub token mise will use for a given host
-    #[command(name = "token")]
+    #[command(name = "token", hide = true)]
     Token(Box<GithubTokenArgs>),
 }
 
@@ -2309,7 +2494,8 @@ pub enum GithubCommands {
 pub struct GlobalArgs {
     #[arg(
         help = "Save fuzzy version to `~/.tool-versions`\ne.g.: `mise global --fuzzy node@20` will save `node 20` to ~/.tool-versions\nthis is the default behavior unless MISE_ASDF_COMPAT=1",
-        long = "fuzzy"
+        long = "fuzzy",
+        overrides_with = "pin"
     )]
     pub fuzzy: bool,
     /// Get the path of the global config file
@@ -2317,11 +2503,12 @@ pub struct GlobalArgs {
     pub path: bool,
     #[arg(
         help = "Save exact version to `~/.tool-versions`\ne.g.: `mise global --pin node@20` will save `node 20.0.0` to ~/.tool-versions",
-        long = "pin"
+        long = "pin",
+        overrides_with = "fuzzy"
     )]
     pub pin: bool,
     /// Remove the tool(s) from ~/.tool-versions
-    #[arg(long = "remove", value_name = "TOOL")]
+    #[arg(long = "remove", alias = "rm", alias = "unset", value_name = "TOOL")]
     pub remove: Vec<String>,
     #[arg(value_name = "TOOL@VERSION", help = "Tool(s) to add to .tool-versions\ne.g.: node@20\nIf this is a single tool with no version, the current value of the global\n.tool-versions will be displayed", num_args = 0..)]
     pub tool_version: Vec<String>,
@@ -2337,7 +2524,7 @@ pub struct HookEnvArgs {
     #[arg(long = "quiet", short = 'q')]
     pub quiet: bool,
     /// Shell type to generate script for
-    #[arg(long = "shell", short = 's', value_name = "SHELL", value_parser = ::clap::builder::PossibleValuesParser::new(["bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"]))]
+    #[arg(long = "shell", short = 's', value_name = "SHELL")]
     pub shell: Option<String>,
     /// Reason for calling hook-env (e.g., "precmd", "chpwd")
     #[arg(long = "reason", hide = true, value_name = "REASON", value_parser = ::clap::builder::PossibleValuesParser::new(["precmd", "chpwd"]))]
@@ -2351,7 +2538,7 @@ pub struct HookEnvArgs {
 #[derive(Args)]
 pub struct HookNotFoundArgs {
     /// Shell type to generate script for
-    #[arg(long = "shell", short = 's', value_name = "SHELL", value_parser = ::clap::builder::PossibleValuesParser::new(["bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"]))]
+    #[arg(long = "shell", short = 's', value_name = "SHELL")]
     pub shell: Option<String>,
     /// Attempted bin to run
     #[arg(value_name = "BIN")]
@@ -2375,7 +2562,7 @@ pub struct ImplodeArgs {
 #[derive(Args)]
 pub struct EditArgs {
     /// Edit the global config file (~/.config/mise/config.toml)
-    #[arg(long = "global", short = 'g')]
+    #[arg(long = "global", short = 'g', conflicts_with = "path")]
     pub global: bool,
     /// Show what would be generated without writing to file
     #[arg(long = "dry-run", short = 'n')]
@@ -2399,13 +2586,17 @@ pub struct EditArgs {
 /// Tools will be installed in parallel. To disable, set `--jobs=1` or `MISE_JOBS=1`
 #[derive(Args)]
 pub struct InstallArgs {
-    /// Force reinstall even if already installed
-    #[arg(long = "force", short = 'f')]
+    #[arg(
+        help = "Force reinstall even if already installed\nWith no tools specified, reinstall all configured tools",
+        long = "force",
+        short = 'f'
+    )]
     pub force: bool,
     #[arg(
-        help = "Number of jobs to run in parallel\n[default: 4]",
+        help = "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]",
         long = "jobs",
         short = 'j',
+        env = "MISE_JOBS",
         value_name = "JOBS"
     )]
     pub jobs: Option<String>,
@@ -2422,34 +2613,47 @@ pub struct InstallArgs {
     /// This is useful for scripts to check if tools need to be installed.
     #[arg(long = "dry-run-code")]
     pub dry_run_code: bool,
+    /// Also install tools required by tasks in the current scope
+    ///
+    /// This prepares task tools without running task commands or dependencies.
+    /// Combine with --monorepo to include tasks from every configured root.
+    #[arg(long = "include-task-tools")]
+    pub include_task_tools: bool,
     /// Only install versions released before this date or older than this duration
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-    #[arg(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
+    #[arg(
+        long = "minimum-release-age",
+        alias = "before",
+        value_name = "MINIMUM_RELEASE_AGE"
+    )]
     pub minimum_release_age: Option<String>,
     /// Install tools from every [monorepo].config_roots config root
     ///
     /// Uses the active MISE_ENV and requires monorepo_root = true plus explicit
     /// [monorepo].config_roots in the monorepo root config.
-    #[arg(long = "monorepo")]
+    #[arg(long = "monorepo", env = "MISE_MONOREPO")]
     pub monorepo: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
-    #[arg(long = "raw")]
+    #[arg(
+        help = "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1",
+        long_help = "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies --jobs=1",
+        long = "raw",
+        overrides_with = "jobs"
+    )]
     pub raw: bool,
     /// Install tool(s) to a shared directory
     ///
     /// Installs to the specified directory instead of the default install location.
     /// May require elevated permissions depending on the path.
-    #[arg(long = "shared", value_name = "SHARED")]
+    #[arg(long = "shared", conflicts_with = "system", value_name = "SHARED")]
     pub shared: Option<String>,
     /// Install tool(s) to the system-wide shared directory
     ///
     /// Installs to /usr/local/share/mise/installs (or MISE_SYSTEM_DATA_DIR/installs).
     /// May require elevated permissions (e.g. sudo).
-    #[arg(long = "system")]
+    #[arg(long = "system", conflicts_with = "shared")]
     pub system: bool,
-    /// Tool(s) to install e.g.: node@20
-    #[arg(value_name = "TOOL@VERSION", num_args = 0..)]
+    #[arg(value_name = "TOOL@VERSION", help = "Tool(s) to install e.g.: node@20", long_help = "Tool(s) to install\ne.g.: node@20", num_args = 0..)]
     pub tool_version: Vec<String>,
 }
 
@@ -2458,8 +2662,11 @@ pub struct InstallArgs {
 /// Used for building a tool to a directory for use outside of mise
 #[derive(Args)]
 pub struct InstallIntoArgs {
-    /// Tool to install e.g.: node@20
-    #[arg(value_name = "TOOL@VERSION")]
+    #[arg(
+        value_name = "TOOL@VERSION",
+        help = "Tool to install e.g.: node@20",
+        long_help = "Tool to install\ne.g.: node@20"
+    )]
     pub tool_version: String,
     /// Path to install the tool into
     #[arg(value_name = "PATH")]
@@ -2478,13 +2685,22 @@ pub struct LatestArgs {
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
     /// Overrides per-tool `minimum_release_age` options and the global `minimum_release_age` setting.
-    #[arg(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
+    #[arg(
+        long = "minimum-release-age",
+        alias = "before",
+        conflicts_with = "installed",
+        value_name = "MINIMUM_RELEASE_AGE"
+    )]
     pub minimum_release_age: Option<String>,
     /// Tool to get the latest version of
     #[arg(value_name = "TOOL@VERSION")]
     pub tool_version: String,
-    /// The version prefix to use when querying the latest version same as the first argument after the "@" used for asdf compatibility
-    #[arg(value_name = "ASDF_VERSION", hide = true)]
+    #[arg(
+        value_name = "ASDF_VERSION",
+        help = "The version prefix to use when querying the latest version same as the first argument after the \"@\" used for asdf compatibility",
+        long_help = "The version prefix to use when querying the latest version\nsame as the first argument after the \"@\"\nused for asdf compatibility",
+        hide = true
+    )]
     pub asdf_version: Option<String>,
 }
 
@@ -2520,19 +2736,24 @@ pub struct LocalArgs {
         short = 'p'
     )]
     pub parent: bool,
-    /// Save fuzzy version to `.tool-versions` e.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions This is the default behavior unless MISE_ASDF_COMPAT=1
-    #[arg(long = "fuzzy")]
+    #[arg(
+        help = "Save fuzzy version to `.tool-versions` e.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions This is the default behavior unless MISE_ASDF_COMPAT=1",
+        long_help = "Save fuzzy version to `.tool-versions`\ne.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions\nThis is the default behavior unless MISE_ASDF_COMPAT=1",
+        long = "fuzzy",
+        overrides_with = "pin"
+    )]
     pub fuzzy: bool,
     /// Get the path of the config file
     #[arg(long = "path")]
     pub path: bool,
     #[arg(
         help = "Save exact version to `.tool-versions`\ne.g.: `mise local --pin node@20` will save `node 20.0.0` to .tool-versions",
-        long = "pin"
+        long = "pin",
+        overrides_with = "fuzzy"
     )]
     pub pin: bool,
     /// Remove the tool(s) from .tool-versions
-    #[arg(long = "remove", value_name = "TOOL")]
+    #[arg(long = "remove", alias = "rm", alias = "unset", value_name = "TOOL")]
     pub remove: Vec<String>,
     #[arg(value_name = "TOOL@VERSION", help = "Tool(s) to add to .tool-versions/mise.toml\ne.g.: node@20\nif this is a single tool with no version,\nthe current value of .tool-versions/mise.toml will be displayed", num_args = 0..)]
     pub tool_version: Vec<String>,
@@ -2541,7 +2762,8 @@ pub struct LocalArgs {
 /// Update lockfile checksums and URLs for all specified platforms
 ///
 /// Updates checksums and download URLs for all platforms already specified in the lockfile.
-/// If no lockfile exists, shows what would be created based on the current configuration.
+/// If no lockfile exists, shows what would be created based on the current configuration,
+/// including tools declared by tasks.
 /// This allows you to refresh lockfile data for platforms other than the one you're currently on.
 /// Operates on the lockfile in the current config root. Use TOOL arguments to target specific tools.
 #[derive(Args)]
@@ -2552,8 +2774,13 @@ pub struct LockArgs {
         short = 'g'
     )]
     pub global: bool,
-    /// Number of jobs to run in parallel
-    #[arg(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[arg(
+        help = "Number of jobs to run in parallel\nValues below 1 are treated as 1",
+        long = "jobs",
+        short = 'j',
+        env = "MISE_JOBS",
+        value_name = "JOBS"
+    )]
     pub jobs: Option<String>,
     /// Show what would be updated without making changes
     #[arg(long = "dry-run", short = 'n')]
@@ -2562,6 +2789,7 @@ pub struct LockArgs {
         help = "Comma-separated list of platforms to target\ne.g.: linux-x64,macos-arm64,windows-x64\nIf not specified, all platforms already in lockfile will be updated",
         long = "platform",
         short = 'p',
+        value_delimiter = ',',
         value_name = "PLATFORM"
     )]
     pub platform: Vec<String>,
@@ -2598,9 +2826,13 @@ pub struct LockArgs {
     /// This only affects fuzzy version matches like "20" or "latest".
     /// Explicitly pinned versions like "22.5.0" are not filtered.
     /// Existing matching lockfile entries are preserved and are not downgraded solely by this flag.
-    #[arg(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
+    #[arg(
+        long = "minimum-release-age",
+        alias = "before",
+        value_name = "MINIMUM_RELEASE_AGE"
+    )]
     pub minimum_release_age: Option<String>,
-    #[arg(value_name = "TOOL", help = "Tool(s) to update in lockfile\ne.g.: node python\nIf not specified, all tools in lockfile will be updated", num_args = 0..)]
+    #[arg(value_name = "TOOL", help = "Tool(s) to update in lockfile\ne.g.: node python\nIf not specified, all configured and task-specific tools will be updated", num_args = 0..)]
     pub tool: Vec<String>,
 }
 
@@ -2617,48 +2849,63 @@ pub struct LsArgs {
     #[arg(long = "current", short = 'c')]
     pub current: bool,
     /// Only show tool versions currently specified in the global mise.toml
-    #[arg(long = "global", short = 'g')]
+    #[arg(long = "global", short = 'g', conflicts_with = "local")]
     pub global: bool,
-    /// Only show tool versions that are installed (Hides tools defined in mise.toml but not installed)
-    #[arg(long = "installed", short = 'i')]
+    #[arg(
+        help = "Only show tool versions that are installed (Hides tools defined in mise.toml but not installed)",
+        long_help = "Only show tool versions that are installed\n(Hides tools defined in mise.toml but not installed)",
+        long = "installed",
+        short = 'i'
+    )]
     pub installed: bool,
     /// Output in JSON format
     #[arg(long = "json", short = 'J')]
     pub json: bool,
     /// Only show tool versions currently specified in the local mise.toml
-    #[arg(long = "local", short = 'l')]
+    #[arg(long = "local", short = 'l', conflicts_with = "global")]
     pub local: bool,
     /// Display missing tool versions
-    #[arg(long = "missing", short = 'm')]
+    #[arg(long = "missing", short = 'm', conflicts_with = "installed")]
     pub missing: bool,
     /// Don't fetch information such as outdated versions
     #[arg(long = "offline", short = 'o', hide = true)]
     pub offline: bool,
-    #[arg(long = "plugin", short = 'p', hide = true, value_name = "TOOL_FLAG")]
+    #[arg(long = "plugin", short = 'p', hide = true, value_name = "PLUGIN")]
     pub plugin: Option<String>,
     /// Display all tracked config sources for tools
-    #[arg(long = "all-sources")]
+    #[arg(
+        long = "all-sources",
+        conflicts_with = "current",
+        conflicts_with = "global",
+        conflicts_with = "local",
+        conflicts_with = "prunable"
+    )]
     pub all_sources: bool,
     /// List tools from every [monorepo].config_roots config root
     ///
     /// Uses the active MISE_ENV and requires monorepo_root = true plus explicit
     /// [monorepo].config_roots in the monorepo root config.
-    #[arg(long = "monorepo")]
+    #[arg(
+        long = "monorepo",
+        env = "MISE_MONOREPO",
+        conflicts_with = "all_sources",
+        conflicts_with = "prunable"
+    )]
     pub monorepo: bool,
     /// Don't display headers
-    #[arg(long = "no-header")]
+    #[arg(long = "no-header", alias = "no-headers", conflicts_with = "json")]
     pub no_header: bool,
     /// Display whether a version is outdated
     #[arg(long = "outdated")]
     pub outdated: bool,
     /// Display versions matching this prefix
-    #[arg(long = "prefix", value_name = "PREFIX")]
+    #[arg(long = "prefix", requires = "installed_tool", value_name = "PREFIX")]
     pub prefix: Option<String>,
     /// List only tools that can be pruned with `mise prune`
     #[arg(long = "prunable")]
     pub prunable: bool,
     /// Only show tool versions from [TOOL]
-    #[arg(value_name = "INSTALLED_TOOL", num_args = 0..)]
+    #[arg(value_name = "INSTALLED_TOOL", conflicts_with = "plugin", num_args = 0..)]
     pub installed_tool: Vec<String>,
 }
 
@@ -2668,12 +2915,20 @@ pub struct LsArgs {
 #[derive(Args)]
 pub struct LsRemoteArgs {
     /// Show all installed plugins and versions
-    #[arg(long = "all")]
+    #[arg(
+        long = "all",
+        conflicts_with = "tool_version",
+        conflicts_with = "prefix"
+    )]
     pub all: bool,
     /// Only show versions released before this age or date
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-    #[arg(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
+    #[arg(
+        long = "minimum-release-age",
+        alias = "before",
+        value_name = "MINIMUM_RELEASE_AGE"
+    )]
     pub minimum_release_age: Option<String>,
     /// Output in JSON format (includes version metadata like created_at timestamps when available)
     #[arg(long = "json", short = 'J')]
@@ -2692,10 +2947,14 @@ pub struct LsRemoteArgs {
     ///
     /// This prevents metadata consumers from accepting empty fallback results
     /// when a backend's metadata-producing upstream request fails.
-    #[arg(long = "strict-metadata")]
+    #[arg(
+        long = "strict-metadata",
+        requires = "json",
+        requires = "no_versions_host"
+    )]
     pub strict_metadata: bool,
     /// Tool to get versions for
-    #[arg(value_name = "TOOL@VERSION")]
+    #[arg(value_name = "TOOL@VERSION", required_unless_present = "all")]
     pub tool_version: Option<String>,
     #[arg(
         value_name = "PREFIX",
@@ -2759,7 +3018,12 @@ pub struct OciBuildArgs {
     pub from: Option<String>,
     /// Also include tools from the global / system config (default: project-only)
     ///
-    /// By default `mise oci build` only packages tools declared in the project's mise config (and any parent configs at-or-below the project root, e.g. a monorepo root config). Personal dev tools in `~/.config/mise/config.toml` are excluded so they don't bake into a project image. Pass `--include-global` to revert to the old "merge all loaded configs" behavior.
+    /// By default `mise oci build` only packages tools declared in the
+    /// project's mise config (and any parent configs at-or-below the
+    /// project root, e.g. a monorepo root config). Personal dev tools in
+    /// `~/.config/mise/config.toml` are excluded so they don't bake into a
+    /// project image. Pass `--include-global` to revert to the old
+    /// "merge all loaded configs" behavior.
     #[arg(long = "include-global")]
     pub include_global: bool,
     /// Tag to record in the image index (the org.opencontainers.image.ref.name annotation)
@@ -2773,7 +3037,9 @@ pub struct OciBuildArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry in generated layers
     ///
-    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
+    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
+    /// omitted, it defaults to UID. This affects file ownership only; [oci].user
+    /// controls the image USER directive.
     #[arg(long = "owner", value_name = "UID[:GID]")]
     pub owner: Option<String>,
 }
@@ -2801,14 +3067,29 @@ pub struct OciBuildArgs {
 pub struct OciPushArgs {
     /// Reuse unchanged tool layers from this image instead of the destination ref
     ///
-    /// Must live in the same repository as the destination. Useful when each push gets a unique tag (e.g. per-commit tags in CI): `--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`.
-    #[arg(long = "cache-from", value_name = "REF")]
+    /// Must live in the same repository as the destination. Useful when each
+    /// push gets a unique tag (e.g. per-commit tags in CI):
+    /// `--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`.
+    #[arg(
+        long = "cache-from",
+        conflicts_with = "no_cache",
+        conflicts_with = "image_dir",
+        value_name = "REF"
+    )]
     pub cache_from: Option<String>,
     /// Base image for the build (ignored with --image-dir)
     #[arg(long = "from", value_name = "FROM")]
     pub from: Option<String>,
     /// Push an already-built OCI image layout (skip the build step)
-    #[arg(long = "image-dir", value_name = "IMAGE_DIR")]
+    #[arg(
+        long = "image-dir",
+        conflicts_with = "from",
+        conflicts_with = "mount_point",
+        conflicts_with = "no_mise",
+        conflicts_with = "owner",
+        conflicts_with = "include_global",
+        value_name = "IMAGE_DIR"
+    )]
     pub image_dir: Option<String>,
     /// Also include tools from the global / system config (default: project-only)
     ///
@@ -2826,12 +3107,17 @@ pub struct OciPushArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
     ///
-    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
+    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
+    /// omitted, it defaults to UID. This affects file ownership only; [oci].user
+    /// controls the image USER directive.
     #[arg(long = "owner", value_name = "UID[:GID]")]
     pub owner: Option<String>,
     /// Maintain the tag as a multi-arch image index
     ///
-    /// Pushes this build's manifest by digest and points the tag at an OCI image index containing one entry per platform, preserving entries other architectures pushed. Run `mise oci push --update-index` from one runner per platform to assemble a multi-arch tag.
+    /// Pushes this build's manifest by digest and points the tag at an OCI
+    /// image index containing one entry per platform, preserving entries
+    /// other architectures pushed. Run `mise oci push --update-index` from
+    /// one runner per platform to assemble a multi-arch tag.
     #[arg(long = "update-index")]
     pub update_index: bool,
     /// Destination registry reference (e.g. `ghcr.io/me/devenv:latest`)
@@ -2857,7 +3143,15 @@ pub struct OciRunArgs {
     #[arg(long = "from", value_name = "FROM")]
     pub from: Option<String>,
     /// Use an already-built OCI image layout instead of building fresh
-    #[arg(long = "image-dir", value_name = "IMAGE_DIR")]
+    #[arg(
+        long = "image-dir",
+        conflicts_with = "from",
+        conflicts_with = "mount_point",
+        conflicts_with = "no_mise",
+        conflicts_with = "owner",
+        conflicts_with = "include_global",
+        value_name = "IMAGE_DIR"
+    )]
     pub image_dir: Option<String>,
     /// Also include tools from the global / system config (default: project-only)
     ///
@@ -2866,7 +3160,11 @@ pub struct OciRunArgs {
     pub include_global: bool,
     /// Keep the loaded image in the engine's storage after the run
     ///
-    /// By default, both the container (`--rm`) and the loaded image are removed when the command exits, so repeated `mise oci run` calls don't accumulate images in podman / docker storage. Pass `--keep` to retain the image under the tag mise used (`mise-oci:run-*` for docker; the pulled image ID for podman).
+    /// By default, both the container (`--rm`) and the loaded image are
+    /// removed when the command exits, so repeated `mise oci run` calls
+    /// don't accumulate images in podman / docker storage. Pass `--keep`
+    /// to retain the image under the tag mise used (`mise-oci:run-*` for
+    /// docker; the pulled image ID for podman).
     #[arg(long = "keep")]
     pub keep: bool,
     /// Override in-image mount point (ignored with --image-dir)
@@ -2877,13 +3175,16 @@ pub struct OciRunArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
     ///
-    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
+    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
+    /// omitted, it defaults to UID. This affects file ownership only; [oci].user
+    /// controls the image USER directive.
     #[arg(long = "owner", value_name = "UID[:GID]")]
     pub owner: Option<String>,
     /// Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)
     ///
-    /// Note: unlike `docker run -v`, there's no `-v` short flag here because mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
-    #[arg(long = "volume", value_name = "HOST:CONTAINER")]
+    /// Note: unlike `docker run -v`, there's no `-v` short flag here because
+    /// mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
+    #[arg(long = "volume", alias = "mount", value_name = "HOST:CONTAINER")]
     pub volume: Vec<String>,
     /// Set environment variable in the container (repeatable, `KEY=VAL`)
     #[arg(long = "env", short = 'e', value_name = "KEY=VAL")]
@@ -2935,21 +3236,24 @@ pub enum OciCommands {
 /// See `mise upgrade` to upgrade these versions.
 #[derive(Args)]
 pub struct OutdatedArgs {
-    /// Output in JSON format
-    #[arg(long = "json", short = 'J')]
-    pub json: bool,
     /// Compares against the latest versions available, not what matches the current config
     ///
     /// For example, if you have `node = "20"` in your config by default `mise outdated` will only
     /// show other 20.x versions, not 21.x or 22.x versions.
     ///
     /// Using this flag, if there are 21.x or newer versions it will display those instead of 20.x.
-    #[arg(long = "bump", short = 'l')]
+    #[arg(long = "bump", short = 'b')]
     pub bump: bool,
+    /// Output in JSON format
+    #[arg(long = "json", short = 'J')]
+    pub json: bool,
+    /// Deprecated shorthand for --bump
+    #[arg(short = 'l', hide = true)]
+    pub l: bool,
     /// Show outdated tools including installed-but-inactive tools not present in the current config
     ///
     /// By default, `mise outdated` only shows tools that come from the current config.
-    #[arg(long = "inactive")]
+    #[arg(long = "inactive", conflicts_with = "local")]
     pub inactive: bool,
     /// Only show outdated tools defined in local config files
     ///
@@ -2995,21 +3299,28 @@ pub struct PluginsInstallArgs {
     #[arg(
         help = "Install all missing plugins\nThis will only install plugins that have matching shorthands.\ni.e.: they don't need the full git repo url",
         long = "all",
-        short = 'a'
+        short = 'a',
+        conflicts_with = "new_plugin",
+        conflicts_with = "force"
     )]
     pub all: bool,
     /// Reinstall even if plugin exists
     #[arg(long = "force", short = 'f')]
     pub force: bool,
-    /// Number of jobs to run in parallel
-    #[arg(long = "jobs", short = 'j', value_name = "JOBS")]
+    #[arg(
+        help = "Number of jobs to run in parallel\nValues below 1 are treated as 1",
+        long = "jobs",
+        short = 'j',
+        value_name = "JOBS"
+    )]
     pub jobs: Option<String>,
     /// Show installation output
     #[arg(long = "verbose", short = 'v', action = ::clap::ArgAction::Count)]
     pub verbose: u8,
     #[arg(
         value_name = "NEW_PLUGIN",
-        help = "The name of the plugin to install\ne.g.: cmake, poetry\nCan specify multiple plugins: `mise plugins install cmake poetry`"
+        help = "The name of the plugin to install\ne.g.: cmake, poetry\nCan specify multiple plugins: `mise plugins install cmake poetry`",
+        required_unless_present = "all"
     )]
     pub new_plugin: Option<String>,
     /// The git url of the plugin
@@ -3055,7 +3366,8 @@ pub struct PluginsLsArgs {
         help = "The built-in plugins only\nNormally these are not shown",
         long = "core",
         short = 'c',
-        hide = true
+        hide = true,
+        conflicts_with = "all"
     )]
     pub core: bool,
     #[arg(
@@ -3067,7 +3379,8 @@ pub struct PluginsLsArgs {
     #[arg(
         help = "Show the git url for each plugin\ne.g.: https://github.com/mise-plugins/vfox-cmake.git",
         long = "urls",
-        short = 'u'
+        short = 'u',
+        alias = "url"
     )]
     pub urls: bool,
     #[arg(
@@ -3077,17 +3390,24 @@ pub struct PluginsLsArgs {
     )]
     pub refs: bool,
     /// List installed plugins
-    #[arg(long = "user", hide = true)]
+    #[arg(long = "user", hide = true, conflicts_with = "all")]
     pub user: bool,
 }
 
 #[derive(Args)]
 pub struct PluginsLsRemoteArgs {
-    /// Show the git url for each plugin e.g.: https://github.com/mise-plugins/mise-poetry.git
-    #[arg(long = "urls", short = 'u')]
+    #[arg(
+        help = "Show the git url for each plugin e.g.: https://github.com/mise-plugins/mise-poetry.git",
+        long_help = "Show the git url for each plugin\ne.g.: https://github.com/mise-plugins/mise-poetry.git",
+        long = "urls",
+        short = 'u'
+    )]
     pub urls: bool,
-    /// Only show the name of each plugin by default it will show a "*" next to installed plugins
-    #[arg(long = "only-names")]
+    #[arg(
+        help = "Only show the name of each plugin by default it will show a \"*\" next to installed plugins",
+        long_help = "Only show the name of each plugin\nby default it will show a \"*\" next to installed plugins",
+        long = "only-names"
+    )]
     pub only_names: bool,
 }
 
@@ -3095,7 +3415,7 @@ pub struct PluginsLsRemoteArgs {
 #[derive(Args)]
 pub struct PluginsUninstallArgs {
     /// Remove all plugins
-    #[arg(long = "all", short = 'a')]
+    #[arg(long = "all", short = 'a', conflicts_with = "plugin")]
     pub all: bool,
     /// Also remove the plugin's installs, downloads, and cache
     #[arg(long = "purge", short = 'p')]
@@ -3111,7 +3431,7 @@ pub struct PluginsUninstallArgs {
 #[derive(Args)]
 pub struct PluginsUpdateArgs {
     #[arg(
-        help = "Number of jobs to run in parallel\nDefault: 4",
+        help = "Number of jobs to run in parallel\nValues below 1 are treated as 1\nDefault: 4",
         long = "jobs",
         short = 'j',
         value_name = "JOBS"
@@ -3133,13 +3453,15 @@ pub struct PluginsArgs {
     #[arg(
         help = "The built-in plugins only\nNormally these are not shown",
         long = "core",
-        short = 'c'
+        short = 'c',
+        conflicts_with = "all"
     )]
     pub core: bool,
     #[arg(
         help = "Show the git url for each plugin\ne.g.: https://github.com/mise-plugins/vfox-cmake.git",
         long = "urls",
-        short = 'u'
+        short = 'u',
+        alias = "url"
     )]
     pub urls: bool,
     #[arg(
@@ -3152,7 +3474,7 @@ pub struct PluginsArgs {
     ///
     /// This is the default behavior but can be used with --core
     /// to show core and user plugins
-    #[arg(long = "user")]
+    #[arg(long = "user", conflicts_with = "all")]
     pub user: bool,
     #[command(subcommand)]
     pub command: Option<PluginsCommands>,
@@ -3216,7 +3538,7 @@ pub struct DepsInstallArgs {
     ///
     /// Requires monorepo_root = true plus explicit [monorepo].config_roots in
     /// the monorepo root config. Providers are named like //apps/api:uv.
-    #[arg(long = "monorepo")]
+    #[arg(long = "monorepo", env = "MISE_MONOREPO")]
     pub monorepo: bool,
     /// Run specific deps rule(s) only
     #[arg(long = "only", value_name = "ONLY")]
@@ -3267,7 +3589,7 @@ pub struct DepsArgs {
     ///
     /// Requires monorepo_root = true plus explicit [monorepo].config_roots in
     /// the monorepo root config. Providers are named like //apps/api:uv.
-    #[arg(long = "monorepo")]
+    #[arg(long = "monorepo", env = "MISE_MONOREPO")]
     pub monorepo: bool,
     /// Run specific deps rule(s) only
     #[arg(long = "only", value_name = "ONLY")]
@@ -3349,11 +3671,12 @@ pub struct RegistryArgs {
     /// Output in JSON format
     #[arg(long = "json", short = 'J')]
     pub json: bool,
-    #[arg(
-        help = "Include security features for each tool's backends in JSON output",
-        long_help = "Include security features for each tool's backends in JSON output.\n\nRequires --json. Security info is de-duplicated across all of a tool's backends. This can add noticeable time for large listings since each backend's security info is resolved individually.",
-        long = "security"
-    )]
+    /// Include security features for each tool's backends in JSON output.
+    ///
+    /// Requires --json. Security info is de-duplicated across
+    /// all of a tool's backends. This can add noticeable time for large
+    /// listings since each backend's security info is resolved individually.
+    #[arg(long = "security", requires = "json")]
     pub security: bool,
     /// Show only the specified tool's full name
     #[arg(value_name = "NAME")]
@@ -3426,21 +3749,34 @@ pub struct RunArgs {
     #[arg(
         help = "Git base revision for --affected\nDefaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1",
         long = "affected-base",
+        requires = "affected",
         value_name = "REV"
     )]
     pub affected_base: Option<String>,
     /// Explain why projects and tasks were selected by --affected
-    #[arg(long = "affected-explain")]
+    #[arg(
+        long = "affected-explain",
+        requires = "affected",
+        conflicts_with = "affected_json"
+    )]
     pub affected_explain: bool,
     #[arg(
         help = "Git head revision for --affected\nDefaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD",
         long = "affected-head",
+        requires = "affected",
         value_name = "REV"
     )]
     pub affected_head: Option<String>,
     /// Output affected projects and tasks as JSON without running tasks
-    #[arg(long = "affected-json")]
+    #[arg(
+        long = "affected-json",
+        requires = "affected",
+        conflicts_with = "affected_explain"
+    )]
     pub affected_json: bool,
+    /// Open the interactive selector with all tasks from the entire monorepo
+    #[arg(long = "all", conflicts_with = "affected")]
+    pub all: bool,
     /// Continue running tasks even if one fails
     #[arg(long = "continue-on-error", short = 'c')]
     pub continue_on_error: bool,
@@ -3451,9 +3787,10 @@ pub struct RunArgs {
     #[arg(long = "force", short = 'f')]
     pub force: bool,
     #[arg(
-        help = "Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var",
+        help = "Number of tasks to run in parallel\nValues below 1 are treated as 1\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var",
         long = "jobs",
         short = 'j',
+        env = "MISE_JOBS",
         value_name = "JOBS"
     )]
     pub jobs: Option<String>,
@@ -3469,10 +3806,15 @@ pub struct RunArgs {
     /// - `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output
     /// - `quiet` - Don't show extra output
     /// - `silent` - Don't show any output including stdout and stderr from the task except for errors
-    #[arg(long = "output", short = 'o', value_name = "OUTPUT")]
+    #[arg(
+        long = "output",
+        short = 'o',
+        env = "MISE_TASK_OUTPUT",
+        value_name = "OUTPUT"
+    )]
     pub output: Option<String>,
     /// Don't show extra output
-    #[arg(long = "quiet", short = 'q')]
+    #[arg(long = "quiet", short = 'q', env = "MISE_QUIET")]
     pub quiet: bool,
     #[arg(
         help = "Read/write directly to stdin/stdout/stderr instead of by line\nRedactions are not applied with this option\nConfigure with `raw` config or `MISE_RAW` env var",
@@ -3488,10 +3830,15 @@ pub struct RunArgs {
     #[arg(long = "shell", short = 's', value_name = "SHELL")]
     pub shell: Option<String>,
     /// Don't show any output except for errors
-    #[arg(long = "silent", short = 'S')]
+    #[arg(long = "silent", short = 'S', env = "MISE_SILENT")]
     pub silent: bool,
-    /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
-    #[arg(long = "tool", short = 't', value_name = "TOOL@VERSION")]
+    #[arg(
+        help = "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10",
+        long_help = "Tool(s) to run in addition to what is in mise.toml files\ne.g.: node@20 python@3.10",
+        long = "tool",
+        short = 't',
+        value_name = "TOOL@VERSION"
+    )]
     pub tool: Vec<String>,
     #[arg(
         help = "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'",
@@ -3527,7 +3874,7 @@ pub struct RunArgs {
     #[arg(long = "fresh-env")]
     pub fresh_env: bool,
     /// Do not use cache on remote tasks
-    #[arg(long = "no-cache")]
+    #[arg(long = "no-cache", env = "MISE_TASK_REMOTE_NO_CACHE")]
     pub no_cache: bool,
     /// Skip automatic dependency preparation
     #[arg(long = "no-deps")]
@@ -3535,10 +3882,10 @@ pub struct RunArgs {
     /// Hides elapsed time after each task completes
     ///
     /// Default to always hide with `MISE_TASK_TIMINGS=0`
-    #[arg(long = "no-timings")]
+    #[arg(long = "no-timings", alias = "no-timing")]
     pub no_timings: bool,
     /// Run only the specified tasks skipping all dependencies
-    #[arg(long = "skip-deps")]
+    #[arg(long = "skip-deps", env = "MISE_TASK_SKIP_DEPENDS")]
     pub skip_deps: bool,
     /// Skip installing tools before running tasks
     ///
@@ -3553,16 +3900,20 @@ pub struct RunArgs {
     /// - `write-only` - Write new results without reading cached results
     /// - `off` - Disable task output caching
     /// - `local-only` - Read and write only the local cache; currently equivalent to `read-write`
-    #[arg(long = "task-cache", value_name = "TASK_CACHE", value_parser = ::clap::builder::PossibleValuesParser::new(["read-write", "read-only", "write-only", "off", "local-only"]), default_value = "read-write")]
+    #[arg(long = "task-cache", env = "MISE_TASK_CACHE", value_name = "TASK_CACHE", value_parser = ::clap::builder::PossibleValuesParser::new(["read-write", "read-only", "write-only", "off", "local-only"]), default_value = "read-write")]
     pub task_cache: Option<String>,
     /// Explain the inputs that produced each task's output cache key
     #[arg(long = "task-cache-explain")]
     pub task_cache_explain: bool,
     /// Output cache-key input details as JSON Lines without running tasks
-    #[arg(long = "task-cache-explain-json")]
+    #[arg(
+        long = "task-cache-explain-json",
+        requires = "dry_run",
+        conflicts_with = "task_cache_explain"
+    )]
     pub task_cache_explain_json: bool,
     /// Report task output cache hits, restored bytes, and time saved
-    #[arg(long = "task-cache-stats")]
+    #[arg(long = "task-cache-stats", conflicts_with = "dry_run")]
     pub task_cache_stats: bool,
     #[arg(
         help = "Timeout for the task to complete\ne.g.: 30s, 5m",
@@ -3573,7 +3924,7 @@ pub struct RunArgs {
     /// Shows elapsed time after each task completes
     ///
     /// Default to always show with `MISE_TASK_TIMINGS=1`
-    #[arg(long = "timings", hide = true)]
+    #[arg(long = "timings", alias = "timing", hide = true)]
     pub timings: bool,
 }
 
@@ -3586,13 +3937,18 @@ pub struct RunArgs {
 #[derive(Args)]
 pub struct SearchArgs {
     /// Show interactive search
-    #[arg(long = "interactive", short = 'i')]
+    #[arg(
+        long = "interactive",
+        short = 'i',
+        conflicts_with = "match_type",
+        conflicts_with = "no_header"
+    )]
     pub interactive: bool,
     /// Match type: equal, contains, or fuzzy
     #[arg(long = "match-type", short = 'm', value_name = "MATCH_TYPE", value_parser = ::clap::builder::PossibleValuesParser::new(["equal", "contains", "fuzzy"]), default_value = "fuzzy")]
     pub match_type: Option<String>,
     /// Don't display headers
-    #[arg(long = "no-header")]
+    #[arg(long = "no-header", alias = "no-headers")]
     pub no_header: bool,
     /// The tool to search for
     #[arg(value_name = "NAME")]
@@ -3635,28 +3991,47 @@ pub struct SelfUpdateArgs {
 #[derive(Args)]
 pub struct SetArgs {
     /// Create/modify an environment-specific config file like .mise.<env>.toml
-    #[arg(long = "env", short = 'E', value_name = "ENV")]
+    #[arg(
+        long = "env",
+        short = 'E',
+        overrides_with = "global",
+        overrides_with = "file",
+        value_name = "ENV"
+    )]
     pub env: Option<String>,
     /// Set the environment variable in the global config file
-    #[arg(long = "global", short = 'g')]
+    #[arg(
+        long = "global",
+        short = 'g',
+        overrides_with = "file",
+        overrides_with = "env"
+    )]
     pub global: bool,
     /// [experimental] Encrypt the value with age before storing
-    #[arg(long = "age-encrypt")]
+    #[arg(long = "age-encrypt", requires = "env_var")]
     pub age_encrypt: bool,
     /// [experimental] Age identity file for encryption
     ///
     /// Defaults to ~/.config/mise/age.txt if it exists
-    #[arg(long = "age-key-file", value_name = "PATH")]
+    #[arg(long = "age-key-file", requires = "age_encrypt", value_name = "PATH")]
     pub age_key_file: Option<String>,
     /// [experimental] Age recipient (x25519 public key) for encryption
     ///
     /// Can be used multiple times. Requires --age-encrypt.
-    #[arg(long = "age-recipient", value_name = "RECIPIENT")]
+    #[arg(
+        long = "age-recipient",
+        requires = "age_encrypt",
+        value_name = "RECIPIENT"
+    )]
     pub age_recipient: Vec<String>,
     /// [experimental] SSH recipient (public key or path) for age encryption
     ///
     /// Can be used multiple times. Requires --age-encrypt.
-    #[arg(long = "age-ssh-recipient", value_name = "PATH_OR_PUBKEY")]
+    #[arg(
+        long = "age-ssh-recipient",
+        requires = "age_encrypt",
+        value_name = "PATH_OR_PUBKEY"
+    )]
     pub age_ssh_recipient: Vec<String>,
     /// Render completions
     #[arg(long = "complete", hide = true)]
@@ -3687,8 +4062,9 @@ pub struct SetArgs {
     pub remove: Vec<String>,
     /// Read the value from stdin (for multiline input)
     ///
-    /// When using --stdin, provide a single key without a value. The value will be read from stdin until EOF.
-    #[arg(long = "stdin")]
+    /// When using --stdin, provide a single key without a value.
+    /// The value will be read from stdin until EOF.
+    #[arg(long = "stdin", requires = "env_var", conflicts_with = "prompt")]
     pub stdin: bool,
     #[arg(value_name = "ENV_VAR", help = "Environment variable(s) to set\ne.g.: NODE_ENV=production", num_args = 0..)]
     pub env_var: Vec<String>,
@@ -3734,24 +4110,26 @@ pub struct SettingsGetArgs {
 /// Note that aliases are also stored in this file
 /// but managed separately with `mise tool-alias`
 #[derive(Args)]
+#[group(skip)]
+#[command(group = ::clap::ArgGroup::new("output").required(false).multiple(false))]
 pub struct SettingsLsArgs {
     /// List all settings
     #[arg(long = "all", short = 'a')]
     pub all: bool,
     /// Output in JSON format
-    #[arg(long = "json", short = 'J')]
+    #[arg(long = "json", short = 'J', group = "output")]
     pub json: bool,
     /// Use the local config file instead of the global one
     #[arg(long = "local", short = 'l', global = true)]
     pub local: bool,
     /// Output in TOML format
-    #[arg(long = "toml", short = 'T')]
+    #[arg(long = "toml", short = 'T', group = "output")]
     pub toml: bool,
     /// Print all settings with descriptions for shell completions
     #[arg(long = "complete", hide = true)]
     pub complete: bool,
     /// Output in JSON format with sources
-    #[arg(long = "json-extended")]
+    #[arg(long = "json-extended", group = "output")]
     pub json_extended: bool,
     /// Name of setting
     #[arg(value_name = "SETTING")]
@@ -3789,25 +4167,28 @@ pub struct SettingsUnsetArgs {
     pub key: String,
 }
 
+/// Manage settings
 #[derive(Args)]
+#[group(skip)]
+#[command(group = ::clap::ArgGroup::new("output").required(false).multiple(false))]
 pub struct SettingsArgs {
     /// List all settings
     #[arg(long = "all", short = 'a')]
     pub all: bool,
     /// Output in JSON format
-    #[arg(long = "json", short = 'J')]
+    #[arg(long = "json", short = 'J', group = "output")]
     pub json: bool,
     /// Use the local config file instead of the global one
     #[arg(long = "local", short = 'l', global = true)]
     pub local: bool,
     /// Output in TOML format
-    #[arg(long = "toml", short = 'T')]
+    #[arg(long = "toml", short = 'T', group = "output")]
     pub toml: bool,
     /// Print all settings with descriptions for shell completions
     #[arg(long = "complete", hide = true)]
     pub complete: bool,
     /// Output in JSON format with sources
-    #[arg(long = "json-extended")]
+    #[arg(long = "json-extended", group = "output")]
     pub json_extended: bool,
     /// Name of setting
     #[arg(value_name = "SETTING")]
@@ -3847,17 +4228,22 @@ pub enum SettingsCommands {
 #[derive(Args)]
 pub struct ShellArgs {
     #[arg(
-        help = "Number of jobs to run in parallel\n[default: 4]",
+        help = "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]",
         long = "jobs",
         short = 'j',
+        env = "MISE_JOBS",
         value_name = "JOBS"
     )]
     pub jobs: Option<String>,
     /// Removes a previously set version
     #[arg(long = "unset", short = 'u')]
     pub unset: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
-    #[arg(long = "raw")]
+    #[arg(
+        help = "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1",
+        long_help = "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies --jobs=1",
+        long = "raw",
+        overrides_with = "jobs"
+    )]
     pub raw: bool,
     /// Tool(s) to use
     #[arg(value_name = "TOOL@VERSION", required = true, num_args = 0..)]
@@ -3940,17 +4326,19 @@ pub struct SponsorsArgs {}
 ///
 /// For example, use this to import all Homebrew node installs into mise
 ///
-/// This won't overwrite any existing installs but will overwrite any existing symlinks
+/// This won't overwrite managed installs, runtime aliases, or links from other providers.
 #[derive(Args)]
+#[group(skip)]
+#[command(group = ::clap::ArgGroup::new("SyncNodeType").required(true).multiple(true))]
 pub struct SyncNodeArgs {
     /// Get tool versions from Homebrew
-    #[arg(long = "brew")]
+    #[arg(long = "brew", group = "SyncNodeType")]
     pub brew: bool,
     /// Get tool versions from nodenv
-    #[arg(long = "nodenv")]
+    #[arg(long = "nodenv", group = "SyncNodeType")]
     pub nodenv: bool,
     /// Get tool versions from nvm
-    #[arg(long = "nvm")]
+    #[arg(long = "nvm", group = "SyncNodeType")]
     pub nvm: bool,
 }
 
@@ -3958,7 +4346,7 @@ pub struct SyncNodeArgs {
 ///
 /// For example, use this to import all pyenv installs into mise
 ///
-/// This won't overwrite any existing installs but will overwrite any existing symlinks
+/// This won't overwrite managed installs, runtime aliases, or links from other providers.
 #[derive(Args)]
 pub struct SyncPythonArgs {
     /// Get tool versions from pyenv
@@ -3973,7 +4361,7 @@ pub struct SyncPythonArgs {
 #[derive(Args)]
 pub struct SyncRubyArgs {
     /// Get tool versions from Homebrew
-    #[arg(long = "brew")]
+    #[arg(long = "brew", required = true)]
     pub brew: bool,
 }
 
@@ -4059,7 +4447,7 @@ pub struct TasksAddArgs {
 #[derive(Args)]
 pub struct TasksDepsArgs {
     /// Collapse repeated dependencies after their first occurrence
-    #[arg(long = "compact")]
+    #[arg(long = "compact", conflicts_with = "dot")]
     pub compact: bool,
     /// Display dependencies in DOT format
     #[arg(long = "dot")]
@@ -4091,10 +4479,10 @@ pub struct TasksGraphArgs {
     #[arg(long = "json", short = 'J')]
     pub json: bool,
     /// Explain provider attribution for inferred projects and tasks
-    #[arg(long = "explain")]
+    #[arg(long = "explain", conflicts_with = "json")]
     pub explain: bool,
     /// Do not print table headers
-    #[arg(long = "no-header")]
+    #[arg(long = "no-header", alias = "no-headers")]
     pub no_header: bool,
 }
 
@@ -4112,13 +4500,13 @@ pub struct TasksInfoArgs {
 #[derive(Args)]
 pub struct TasksLsArgs {
     /// Only show global tasks
-    #[arg(long = "global", short = 'g')]
+    #[arg(long = "global", short = 'g', overrides_with = "local")]
     pub global: bool,
     /// Output in JSON format
     #[arg(long = "json", short = 'J')]
     pub json: bool,
     /// Only show non-global tasks
-    #[arg(long = "local", short = 'l')]
+    #[arg(long = "local", short = 'l', overrides_with = "global")]
     pub local: bool,
     /// Show all columns
     #[arg(long = "extended", short = 'x')]
@@ -4135,10 +4523,15 @@ pub struct TasksLsArgs {
     #[arg(long = "hidden")]
     pub hidden: bool,
     /// Only show task names, one per line. Useful for piping to fzf and similar tools.
-    #[arg(long = "name-only")]
+    #[arg(
+        long = "name-only",
+        conflicts_with = "json",
+        conflicts_with = "extended",
+        conflicts_with = "usage"
+    )]
     pub name_only: bool,
     /// Do not print table header
-    #[arg(long = "no-header")]
+    #[arg(long = "no-header", alias = "no-headers")]
     pub no_header: bool,
     /// Sort by column. Default is name.
     #[arg(long = "sort", value_name = "COLUMN", value_parser = ::clap::builder::PossibleValuesParser::new(["name", "alias", "description", "source"]))]
@@ -4183,21 +4576,34 @@ pub struct TasksRunArgs {
     #[arg(
         help = "Git base revision for --affected\nDefaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1",
         long = "affected-base",
+        requires = "affected",
         value_name = "REV"
     )]
     pub affected_base: Option<String>,
     /// Explain why projects and tasks were selected by --affected
-    #[arg(long = "affected-explain")]
+    #[arg(
+        long = "affected-explain",
+        requires = "affected",
+        conflicts_with = "affected_json"
+    )]
     pub affected_explain: bool,
     #[arg(
         help = "Git head revision for --affected\nDefaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD",
         long = "affected-head",
+        requires = "affected",
         value_name = "REV"
     )]
     pub affected_head: Option<String>,
     /// Output affected projects and tasks as JSON without running tasks
-    #[arg(long = "affected-json")]
+    #[arg(
+        long = "affected-json",
+        requires = "affected",
+        conflicts_with = "affected_explain"
+    )]
     pub affected_json: bool,
+    /// Open the interactive selector with all tasks from the entire monorepo
+    #[arg(long = "all", conflicts_with = "task", conflicts_with = "affected")]
+    pub all: bool,
     /// Continue running tasks even if one fails
     #[arg(long = "continue-on-error", short = 'c')]
     pub continue_on_error: bool,
@@ -4208,9 +4614,10 @@ pub struct TasksRunArgs {
     #[arg(long = "force", short = 'f')]
     pub force: bool,
     #[arg(
-        help = "Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var",
+        help = "Number of tasks to run in parallel\nValues below 1 are treated as 1\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var",
         long = "jobs",
         short = 'j',
+        env = "MISE_JOBS",
         value_name = "JOBS"
     )]
     pub jobs: Option<String>,
@@ -4226,10 +4633,15 @@ pub struct TasksRunArgs {
     /// - `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output
     /// - `quiet` - Don't show extra output
     /// - `silent` - Don't show any output including stdout and stderr from the task except for errors
-    #[arg(long = "output", short = 'o', value_name = "OUTPUT")]
+    #[arg(
+        long = "output",
+        short = 'o',
+        env = "MISE_TASK_OUTPUT",
+        value_name = "OUTPUT"
+    )]
     pub output: Option<String>,
     /// Don't show extra output
-    #[arg(long = "quiet", short = 'q')]
+    #[arg(long = "quiet", short = 'q', env = "MISE_QUIET")]
     pub quiet: bool,
     #[arg(
         help = "Read/write directly to stdin/stdout/stderr instead of by line\nRedactions are not applied with this option\nConfigure with `raw` config or `MISE_RAW` env var",
@@ -4245,10 +4657,15 @@ pub struct TasksRunArgs {
     #[arg(long = "shell", short = 's', value_name = "SHELL")]
     pub shell: Option<String>,
     /// Don't show any output except for errors
-    #[arg(long = "silent", short = 'S')]
+    #[arg(long = "silent", short = 'S', env = "MISE_SILENT")]
     pub silent: bool,
-    /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
-    #[arg(long = "tool", short = 't', value_name = "TOOL@VERSION")]
+    #[arg(
+        help = "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10",
+        long_help = "Tool(s) to run in addition to what is in mise.toml files\ne.g.: node@20 python@3.10",
+        long = "tool",
+        short = 't',
+        value_name = "TOOL@VERSION"
+    )]
     pub tool: Vec<String>,
     #[arg(
         help = "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'",
@@ -4284,7 +4701,7 @@ pub struct TasksRunArgs {
     #[arg(long = "fresh-env")]
     pub fresh_env: bool,
     /// Do not use cache on remote tasks
-    #[arg(long = "no-cache")]
+    #[arg(long = "no-cache", env = "MISE_TASK_REMOTE_NO_CACHE")]
     pub no_cache: bool,
     /// Skip automatic dependency preparation
     #[arg(long = "no-deps")]
@@ -4292,10 +4709,10 @@ pub struct TasksRunArgs {
     /// Hides elapsed time after each task completes
     ///
     /// Default to always hide with `MISE_TASK_TIMINGS=0`
-    #[arg(long = "no-timings")]
+    #[arg(long = "no-timings", alias = "no-timing")]
     pub no_timings: bool,
     /// Run only the specified tasks skipping all dependencies
-    #[arg(long = "skip-deps")]
+    #[arg(long = "skip-deps", env = "MISE_TASK_SKIP_DEPENDS")]
     pub skip_deps: bool,
     /// Skip installing tools before running tasks
     ///
@@ -4310,16 +4727,20 @@ pub struct TasksRunArgs {
     /// - `write-only` - Write new results without reading cached results
     /// - `off` - Disable task output caching
     /// - `local-only` - Read and write only the local cache; currently equivalent to `read-write`
-    #[arg(long = "task-cache", value_name = "TASK_CACHE", value_parser = ::clap::builder::PossibleValuesParser::new(["read-write", "read-only", "write-only", "off", "local-only"]), default_value = "read-write")]
+    #[arg(long = "task-cache", env = "MISE_TASK_CACHE", value_name = "TASK_CACHE", value_parser = ::clap::builder::PossibleValuesParser::new(["read-write", "read-only", "write-only", "off", "local-only"]), default_value = "read-write")]
     pub task_cache: Option<String>,
     /// Explain the inputs that produced each task's output cache key
     #[arg(long = "task-cache-explain")]
     pub task_cache_explain: bool,
     /// Output cache-key input details as JSON Lines without running tasks
-    #[arg(long = "task-cache-explain-json")]
+    #[arg(
+        long = "task-cache-explain-json",
+        requires = "dry_run",
+        conflicts_with = "task_cache_explain"
+    )]
     pub task_cache_explain_json: bool,
     /// Report task output cache hits, restored bytes, and time saved
-    #[arg(long = "task-cache-stats")]
+    #[arg(long = "task-cache-stats", conflicts_with = "dry_run")]
     pub task_cache_stats: bool,
     #[arg(
         help = "Timeout for the task to complete\ne.g.: 30s, 5m",
@@ -4330,18 +4751,17 @@ pub struct TasksRunArgs {
     /// Shows elapsed time after each task completes
     ///
     /// Default to always show with `MISE_TASK_TIMINGS=1`
-    #[arg(long = "timings", hide = true)]
+    #[arg(long = "timings", alias = "timing", hide = true)]
     pub timings: bool,
     #[arg(
         value_name = "TASK",
-        help = "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2",
-        default_value = "default"
+        help = "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2\nDefaults to `default` when omitted"
     )]
     pub task: Option<String>,
-    /// Arguments to pass to the tasks. Use ":::" to separate tasks
+    /// Arguments to pass to the tasks. Use ":::" to separate tasks.
     #[arg(value_name = "ARGS", num_args = 0..)]
     pub args: Vec<String>,
-    /// Arguments to pass to the tasks. Use ":::" to separate tasks
+    /// Arguments to pass to the tasks. Use ":::" to separate tasks.
     #[arg(value_name = "ARGS_LAST", hide = true, num_args = 0.., last = true)]
     pub args_last: Vec<String>,
 }
@@ -4363,13 +4783,13 @@ pub struct TasksValidateArgs {
 #[derive(Args)]
 pub struct TasksArgs {
     /// Only show global tasks
-    #[arg(long = "global", short = 'g')]
+    #[arg(long = "global", short = 'g', overrides_with = "local")]
     pub global: bool,
     /// Output in JSON format
     #[arg(long = "json", short = 'J')]
     pub json: bool,
     /// Only show non-global tasks
-    #[arg(long = "local", short = 'l')]
+    #[arg(long = "local", short = 'l', overrides_with = "global")]
     pub local: bool,
     /// Show all columns
     #[arg(long = "extended", short = 'x')]
@@ -4386,10 +4806,15 @@ pub struct TasksArgs {
     #[arg(long = "hidden")]
     pub hidden: bool,
     /// Only show task names, one per line. Useful for piping to fzf and similar tools.
-    #[arg(long = "name-only")]
+    #[arg(
+        long = "name-only",
+        conflicts_with = "json",
+        conflicts_with = "extended",
+        conflicts_with = "usage"
+    )]
     pub name_only: bool,
     /// Do not print table header
-    #[arg(long = "no-header")]
+    #[arg(long = "no-header", alias = "no-headers")]
     pub no_header: bool,
     /// Sort by column. Default is name.
     #[arg(long = "sort", value_name = "COLUMN", value_parser = ::clap::builder::PossibleValuesParser::new(["name", "alias", "description", "source"]))]
@@ -4441,30 +4866,39 @@ pub enum TasksCommands {
 #[derive(Args)]
 pub struct TestToolArgs {
     /// Test every tool specified in registry/
-    #[arg(long = "all", short = 'a')]
+    #[arg(
+        long = "all",
+        short = 'a',
+        conflicts_with = "tools",
+        conflicts_with = "all_config"
+    )]
     pub all: bool,
     #[arg(
-        help = "Number of tool tests to run in parallel\n[default: 4]",
+        help = "Number of tool tests to run in parallel\nValues below 1 are treated as 1\n[default: 4]",
         long = "jobs",
         short = 'j',
+        env = "MISE_TEST_TOOL_JOBS",
         value_name = "JOBS"
     )]
     pub jobs: Option<String>,
     /// Test all tools specified in config files
-    #[arg(long = "all-config")]
+    #[arg(long = "all-config", conflicts_with = "tools", conflicts_with = "all")]
     pub all_config: bool,
     /// Also test tools not defined in registry/, guessing how to test it
     #[arg(long = "include-non-defined")]
     pub include_non_defined: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
-    #[arg(long = "raw")]
+    #[arg(
+        help = "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1",
+        long_help = "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies --jobs=1",
+        long = "raw",
+        overrides_with = "jobs"
+    )]
     pub raw: bool,
     /// Tool(s) to test
-    #[arg(value_name = "TOOLS", num_args = 0..)]
+    #[arg(value_name = "TOOLS", required_unless_present = "all", required_unless_present = "all_config", num_args = 0..)]
     pub tools: Vec<String>,
 }
 
-/// Forgejo token
 #[derive(Args)]
 pub struct TokenForgejoArgs {
     /// Show the full unmasked token
@@ -4475,17 +4909,23 @@ pub struct TokenForgejoArgs {
     pub host: Option<String>,
 }
 
-/// GitHub token
 #[derive(Args)]
 pub struct TokenGithubArgs {
-    /// Resolve only via the native GitHub OAuth source (cache, refresh, or device-code flow), bypassing other token sources
-    #[arg(long = "oauth")]
+    #[arg(
+        help = "Resolve only via the native GitHub OAuth source (cache, refresh, or device-code flow), bypassing other token sources",
+        long_help = "Resolve only via the native GitHub OAuth source (cache,\nrefresh, or device-code flow), bypassing other token sources",
+        long = "oauth"
+    )]
     pub oauth: bool,
     /// Print only the token value
     #[arg(long = "raw")]
     pub raw: bool,
-    /// Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow. Use after changing the GitHub App's installations or permissions: cached tokens keep their original access until they expire
-    #[arg(long = "refresh")]
+    #[arg(
+        help = "Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow. Use after changing the GitHub App's installations or permissions: cached tokens keep their original access until they expire",
+        long_help = "Mint a fresh OAuth token even if the cached one has not\nexpired, via the refresh-token grant or a new device-code flow.\nUse after changing the GitHub App's installations or permissions:\ncached tokens keep their original access until they expire",
+        long = "refresh",
+        requires = "oauth"
+    )]
     pub refresh: bool,
     /// Show the full unmasked token
     #[arg(long = "unmask")]
@@ -4495,7 +4935,6 @@ pub struct TokenGithubArgs {
     pub host: Option<String>,
 }
 
-/// GitLab token
 #[derive(Args)]
 pub struct TokenGitlabArgs {
     /// Show the full unmasked token
@@ -4516,42 +4955,56 @@ pub struct TokenArgs {
 #[derive(Subcommand)]
 pub enum TokenCommands {
     /// Forgejo token
-    #[command(name = "forgejo")]
+    #[command(
+        name = "forgejo",
+        about = "Forgejo token",
+        long_about = "Display the Forgejo token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default."
+    )]
     Forgejo(Box<TokenForgejoArgs>),
     /// GitHub token
-    #[command(name = "github")]
+    #[command(
+        name = "github",
+        about = "GitHub token",
+        long_about = "Display the GitHub token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default."
+    )]
     Github(Box<TokenGithubArgs>),
     /// GitLab token
-    #[command(name = "gitlab")]
+    #[command(
+        name = "gitlab",
+        about = "GitLab token",
+        long_about = "Display the GitLab token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default."
+    )]
     Gitlab(Box<TokenGitlabArgs>),
 }
 
 /// Gets information about a tool
 #[derive(Args)]
+#[group(skip)]
+#[command(group = ::clap::ArgGroup::new("ToolInfoFilter").required(false).multiple(false))]
 pub struct ToolArgs {
     /// Output in JSON format
     #[arg(long = "json", short = 'J')]
     pub json: bool,
     /// Only show active versions
-    #[arg(long = "active")]
+    #[arg(long = "active", group = "ToolInfoFilter")]
     pub active: bool,
     /// Only show backend field
-    #[arg(long = "backend")]
+    #[arg(long = "backend", group = "ToolInfoFilter")]
     pub backend: bool,
     /// Only show config source
-    #[arg(long = "config-source")]
+    #[arg(long = "config-source", group = "ToolInfoFilter")]
     pub config_source: bool,
     /// Only show description field
-    #[arg(long = "description")]
+    #[arg(long = "description", group = "ToolInfoFilter")]
     pub description: bool,
     /// Only show installed versions
-    #[arg(long = "installed")]
+    #[arg(long = "installed", group = "ToolInfoFilter")]
     pub installed: bool,
     /// Only show requested versions
-    #[arg(long = "requested")]
+    #[arg(long = "requested", group = "ToolInfoFilter")]
     pub requested: bool,
     /// Only show tool options
-    #[arg(long = "tool-options")]
+    #[arg(long = "tool-options", group = "ToolInfoFilter")]
     pub tool_options: bool,
     /// Tool name to get information about
     #[arg(value_name = "TOOL")]
@@ -4560,27 +5013,42 @@ pub struct ToolArgs {
 
 /// Execute a tool stub
 ///
-/// Tool stubs are executable files containing TOML configuration that specify which tool to run and how to run it. They provide a convenient way to create portable, self-contained executables that automatically manage tool installation and execution.
+/// Tool stubs are executable files containing TOML configuration that specify
+/// which tool to run and how to run it. They provide a convenient way to create
+/// portable, self-contained executables that automatically manage tool installation
+/// and execution.
 ///
-/// A tool stub consists of: - A shebang line: #!/usr/bin/env -S mise tool-stub - TOML configuration specifying the tool, version, and options - Optional comments describing the tool's purpose
+/// A tool stub consists of:
+/// - A shebang line: #!/usr/bin/env -S mise tool-stub
+/// - TOML configuration specifying the tool, version, and options
+/// - Optional comments describing the tool's purpose
 ///
-/// Example stub file: #!/usr/bin/env -S mise tool-stub # Node.js v20 development environment
+/// Example stub file:
+///   #!/usr/bin/env -S mise tool-stub
+///   # Node.js v20 development environment
 ///
-/// tool = "node" version = "20.0.0" bin = "node"
+///   tool = "node"
+///   version = "20.0.0"
+///   bin = "node"
 ///
-/// The stub will automatically install the specified tool version if missing and execute it with any arguments passed to the stub.
+/// The stub will automatically install the specified tool version if missing
+/// and execute it with any arguments passed to the stub.
 ///
 /// For more information, see: https://mise.jdx.dev/dev-tools/tool-stubs.html
 #[derive(Args)]
 pub struct ToolStubArgs {
     /// Path to the TOML tool stub file to execute
     ///
-    /// The stub file must contain TOML configuration specifying the tool and version to run. At minimum, it should specify a 'version' field. Other common fields include 'tool', 'bin', and backend-specific options.
+    /// The stub file must contain TOML configuration specifying the tool
+    /// and version to run. At minimum, it should specify a 'version' field.
+    /// Other common fields include 'tool', 'bin', and backend-specific options.
     #[arg(value_name = "FILE")]
     pub file: String,
     /// Arguments to pass to the tool
     ///
-    /// All arguments after the stub file path will be forwarded to the underlying tool. Use '--' to separate mise arguments from tool arguments if needed.
+    /// All arguments after the stub file path will be forwarded to the
+    /// underlying tool. Use '--' to separate mise arguments from tool arguments
+    /// if needed.
     #[arg(value_name = "ARGS", num_args = 0..)]
     pub args: Vec<String>,
 }
@@ -4588,17 +5056,18 @@ pub struct ToolStubArgs {
 /// Marks a config file as trusted
 ///
 /// This means mise is allowed to parse the file when it needs to read config
-/// that may execute code or affect the environment. mise checks trust before
-/// parsing `mise.toml`. Without trust, mise may prompt, skip the config in some
-/// discovery paths, fail with an untrusted-config error when it cannot prompt,
-/// or assume trust in detected CI unless paranoid mode is enabled.
+/// that may execute code or affect the environment. Without trust, mise may
+/// prompt, skip the config in some discovery paths, or fail with an
+/// untrusted-config error when it cannot prompt.
 ///
-/// Safe config files do not require trust: files that only contain
-/// `min_version`, `[tools]` entries with plain version strings (or arrays
-/// of them), and `[tasks]` (no templates and no tool options) are loaded
-/// without prompting, since nothing in them executes code at load time —
-/// tools install and tasks run only on explicit commands like `mise install`
-/// or `mise run`.
+/// In normal mode, commands that execute project-defined behavior (`mise run`,
+/// naked task invocations such as `mise <TASK>`, `mise install`, `mise exec`,
+/// and `mise watch`) automatically trust their active config. Paranoid mode
+/// requires explicit, content-bound trust for every non-global config.
+///
+/// In normal mode, safe config files do not require trust: files that only contain
+/// `min_version`, `[tools]` entries with plain version strings (or arrays of
+/// them), and `[tasks]` without templates or tool options.
 ///
 /// Trust is shared across git worktrees: a config file inside a linked
 /// worktree is trusted when the equivalent path in the repository's main
@@ -4610,20 +5079,25 @@ pub struct TrustArgs {
     ///
     /// Subdirectories are walked respecting .gitignore, skipping hidden directories
     /// and common build/dependency directories (node_modules, vendor, target, dist, build).
-    #[arg(long = "all", short = 'a')]
+    #[arg(
+        long = "all",
+        short = 'a',
+        conflicts_with = "ignore",
+        conflicts_with = "untrust"
+    )]
     pub all: bool,
     /// Do not trust this config and ignore it in the future
-    #[arg(long = "ignore")]
+    #[arg(long = "ignore", conflicts_with = "untrust")]
     pub ignore: bool,
     #[arg(
         help = "Show the trusted status of config files from the current directory and its parents.\nDoes not trust or untrust any files.",
         long = "show"
     )]
     pub show: bool,
-    /// No longer trust this config, will prompt in the future
+    /// Remove explicit trust for this config
     #[arg(long = "untrust")]
     pub untrust: bool,
-    /// The config file to trust
+    /// The config file whose trust status to change
     #[arg(value_name = "CONFIG_FILE")]
     pub config_file: Option<String>,
 }
@@ -4645,7 +5119,7 @@ pub struct UninstallArgs {
     #[arg(long = "dry-run-code")]
     pub dry_run_code: bool,
     /// Tool(s) to remove
-    #[arg(value_name = "INSTALLED_TOOL@VERSION", num_args = 0..)]
+    #[arg(value_name = "INSTALLED_TOOL@VERSION", required_unless_present = "all", num_args = 0..)]
     pub installed_tool_version: Vec<String>,
 }
 
@@ -4658,17 +5132,18 @@ pub struct UnsetArgs {
     ///
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
     ///
-    /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`. Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
+    /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`.
+    /// Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
     #[arg(long = "file", short = 'f', alias = "path", value_name = "FILE")]
     pub file: Option<String>,
     /// Use the global config file
-    #[arg(long = "global", short = 'g')]
+    #[arg(long = "global", short = 'g', overrides_with = "file")]
     pub global: bool,
     #[arg(value_name = "ENV_KEY", help = "Environment variable(s) to remove\ne.g.: NODE_ENV", num_args = 0..)]
     pub env_key: Vec<String>,
 }
 
-/// No longer trust a config, will prompt in the future
+/// Remove explicit trust for a config
 #[derive(Args)]
 pub struct UntrustArgs {
     /// The config file to untrust
@@ -4697,15 +5172,34 @@ pub struct UntrustArgs {
 #[derive(Args)]
 pub struct UnuseArgs {
     /// Create/modify an environment-specific config file like .mise.<env>.toml
-    #[arg(long = "env", short = 'e', value_name = "ENV")]
+    #[arg(
+        long = "env",
+        short = 'e',
+        overrides_with = "global",
+        overrides_with = "path",
+        value_name = "ENV"
+    )]
     pub env: Option<String>,
     /// Use the global config file (`~/.config/mise/config.toml`) instead of the local one
-    #[arg(long = "global", short = 'g')]
+    #[arg(
+        long = "global",
+        short = 'g',
+        overrides_with = "path",
+        overrides_with = "env"
+    )]
     pub global: bool,
     /// Specify a path to a config file or directory
     ///
-    /// If a directory is specified, it will look for a config file in that directory following the rules above.
-    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
+    /// If a directory is specified, it will look for a config file in that directory following
+    /// the rules above.
+    #[arg(
+        long = "path",
+        short = 'p',
+        alias = "file",
+        overrides_with = "global",
+        overrides_with = "env",
+        value_name = "PATH"
+    )]
     pub path: Option<String>,
     /// Do not also prune the installed version
     #[arg(long = "no-prune")]
@@ -4724,16 +5218,6 @@ pub struct UnuseArgs {
 /// This will update mise.lock if it is enabled, see https://mise.jdx.dev/configuration/settings.html#lockfile
 #[derive(Args)]
 pub struct UpgradeArgs {
-    /// Display multiselect menu to choose which tools to upgrade
-    #[arg(long = "interactive", short = 'i')]
-    pub interactive: bool,
-    #[arg(
-        help = "Number of jobs to run in parallel\n[default: 4]",
-        long = "jobs",
-        short = 'j',
-        value_name = "JOBS"
-    )]
-    pub jobs: Option<String>,
     /// Upgrades to the latest version available, bumping the version in mise.toml
     ///
     /// For example, if you have `node = "20.0.0"` in your mise.toml but 22.1.0 is the latest available,
@@ -4741,8 +5225,26 @@ pub struct UpgradeArgs {
     ///
     /// It keeps the same precision as what was there before, so if you instead had `node = "20"`, it
     /// would change your config to `node = "22"`.
-    #[arg(long = "bump", short = 'l')]
+    #[arg(long = "bump", short = 'b')]
     pub bump: bool,
+    /// Display multiselect menu to choose which tools to upgrade
+    #[arg(
+        long = "interactive",
+        short = 'i',
+        conflicts_with = "installed_tool_version"
+    )]
+    pub interactive: bool,
+    #[arg(
+        help = "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]",
+        long = "jobs",
+        short = 'j',
+        env = "MISE_JOBS",
+        value_name = "JOBS"
+    )]
+    pub jobs: Option<String>,
+    /// Deprecated shorthand for --bump
+    #[arg(short = 'l', hide = true)]
+    pub l: bool,
     /// Just print what would be done, don't actually do it
     #[arg(long = "dry-run", short = 'n')]
     pub dry_run: bool,
@@ -4759,7 +5261,7 @@ pub struct UpgradeArgs {
     #[arg(long = "dry-run-code")]
     pub dry_run_code: bool,
     /// Upgrade all tools, including installed-but-inactive tools not present in the current config
-    #[arg(long = "inactive")]
+    #[arg(long = "inactive", conflicts_with = "local")]
     pub inactive: bool,
     /// Only upgrade tools defined in local config files
     ///
@@ -4774,7 +5276,11 @@ pub struct UpgradeArgs {
     ///
     /// This only affects fuzzy version matches like "20" or "latest".
     /// Explicitly pinned versions like "22.5.0" are not filtered.
-    #[arg(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
+    #[arg(
+        long = "minimum-release-age",
+        alias = "before",
+        value_name = "MINIMUM_RELEASE_AGE"
+    )]
     pub minimum_release_age: Option<String>,
     /// Placeholder for future monorepo upgrades; `mise upgrade --monorepo` is not implemented yet.
     #[arg(long = "monorepo")]
@@ -4784,10 +5290,22 @@ pub struct UpgradeArgs {
     /// By default the old version is removed once the new one installs, unless another
     /// tracked config or tool stub still needs it. Use this to keep it anyway, e.g. when
     /// something outside of mise points at the old install directory.
-    #[arg(long = "no-prune")]
+    ///
+    /// Set `upgrade.auto_prune = false` to make this the default.
+    #[arg(long = "no-prune", overrides_with = "prune")]
     pub no_prune: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
-    #[arg(long = "raw")]
+    /// Uninstall the versions that were upgraded away from
+    ///
+    /// This is already the default. Use it to override `upgrade.auto_prune = false`
+    /// for a single run.
+    #[arg(long = "prune", overrides_with = "no_prune")]
+    pub prune: bool,
+    #[arg(
+        help = "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1",
+        long_help = "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies --jobs=1",
+        long = "raw",
+        overrides_with = "jobs"
+    )]
     pub raw: bool,
     #[arg(value_name = "INSTALLED_TOOL@VERSION", help = "Tool(s) to upgrade\ne.g.: node@20 python@3.10\nIf not specified, all current tools will be upgraded", num_args = 0..)]
     pub installed_tool_version: Vec<String>,
@@ -4821,18 +5339,30 @@ pub struct UsageArgs {}
 #[derive(Args)]
 pub struct UseArgs {
     /// Create/modify an environment-specific config file like .mise.<env>.toml
-    #[arg(long = "env", short = 'e', value_name = "ENV")]
+    #[arg(
+        long = "env",
+        short = 'e',
+        overrides_with = "global",
+        overrides_with = "path",
+        value_name = "ENV"
+    )]
     pub env: Option<String>,
     /// Force reinstall even if already installed
-    #[arg(long = "force", short = 'f')]
+    #[arg(long = "force", short = 'f', requires = "tool_version")]
     pub force: bool,
     /// Use the global config file (`~/.config/mise/config.toml`) instead of the local one
-    #[arg(long = "global", short = 'g')]
+    #[arg(
+        long = "global",
+        short = 'g',
+        overrides_with = "path",
+        overrides_with = "env"
+    )]
     pub global: bool,
     #[arg(
-        help = "Number of jobs to run in parallel\n[default: 4]",
+        help = "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]",
         long = "jobs",
         short = 'j',
+        env = "MISE_JOBS",
         value_name = "JOBS"
     )]
     pub jobs: Option<String>,
@@ -4841,8 +5371,15 @@ pub struct UseArgs {
     pub dry_run: bool,
     /// Specify a path to a config file or directory
     ///
-    /// If a directory is specified, it will look for a config file in that directory following the rules above.
-    #[arg(long = "path", short = 'p', alias = "file", value_name = "PATH")]
+    /// If a directory is specified, it will look for a config file in that directory following
+    /// the rules above.
+    #[arg(
+        long = "path",
+        short = 'p',
+        overrides_with = "global",
+        overrides_with = "env",
+        value_name = "PATH"
+    )]
     pub path: Option<String>,
     /// Like --dry-run but exits with code 1 if there are changes to make
     ///
@@ -4853,24 +5390,37 @@ pub struct UseArgs {
     ///
     /// e.g.: `mise use --fuzzy node@20` will save 20 as the version
     /// this is the default behavior unless `MISE_PIN=1`
-    #[arg(long = "fuzzy")]
+    #[arg(long = "fuzzy", overrides_with = "pin")]
     pub fuzzy: bool,
     /// Only install versions released before this date or older than this duration
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-    #[arg(long = "minimum-release-age", value_name = "MINIMUM_RELEASE_AGE")]
-    pub minimum_release_age: Option<String>,
     #[arg(
-        help = "Save exact version to config file\ne.g.: `mise use --pin node@20` will save 20.0.0 as the version\nSet `MISE_PIN=1` to make this the default behavior",
-        long_help = "Save exact version to config file\ne.g.: `mise use --pin node@20` will save 20.0.0 as the version\nSet `MISE_PIN=1` to make this the default behavior\n\nConsider using mise.lock as a better alternative to pinning in mise.toml:\nhttps://mise.jdx.dev/configuration/settings.html#lockfile",
-        long = "pin"
+        long = "minimum-release-age",
+        alias = "before",
+        value_name = "MINIMUM_RELEASE_AGE"
     )]
+    pub minimum_release_age: Option<String>,
+    /// Save the resolved concrete version to the config file
+    ///
+    /// If the request exactly matches an available release, that release is preferred over
+    /// installed fuzzy matches. Use `prefix:` to explicitly request recursive prefix matching.
+    /// e.g.: `mise use --pin node@20` will save the resolved `20.x.y` version
+    /// Set `MISE_PIN=1` to make this the default behavior
+    ///
+    /// Consider using mise.lock as a better alternative to pinning in mise.toml:
+    /// https://mise.jdx.dev/configuration/settings.html#lockfile
+    #[arg(long = "pin", overrides_with = "fuzzy")]
     pub pin: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies `--jobs=1`
-    #[arg(long = "raw")]
+    #[arg(
+        help = "Connect backend install command stdin/stdout/stderr directly to the terminal Implies `--jobs=1`",
+        long_help = "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies `--jobs=1`",
+        long = "raw",
+        overrides_with = "jobs"
+    )]
     pub raw: bool,
     /// Remove the tool(s) from config file
-    #[arg(long = "remove", value_name = "TOOL")]
+    #[arg(long = "remove", alias = "rm", alias = "unset", value_name = "TOOL")]
     pub remove: Vec<String>,
     /// Tool(s) to add to config file
     ///
@@ -4923,39 +5473,64 @@ pub struct WatchArgs {
     ///
     /// By default, Watchexec watches the current directory.
     ///
-    /// When watching a single file, it's often better to watch the containing directory instead, and filter on the filename. Some editors may replace the file with a new one when saving, and some platforms may not detect that or further changes.
+    /// When watching a single file, it's often better to watch the containing directory instead,
+    /// and filter on the filename. Some editors may replace the file with a new one when saving,
+    /// and some platforms may not detect that or further changes.
     ///
-    /// Upon starting, Watchexec resolves a "project origin" from the watched paths. See the help for '--project-origin' for more information.
+    /// Upon starting, Watchexec resolves a "project origin" from the watched paths. See the help
+    /// for '--project-origin' for more information.
     ///
     /// This option can be specified multiple times to watch multiple files or directories.
     ///
-    /// The special value '/dev/null', provided as the only path watched, will cause Watchexec to not watch any paths. Other event sources (like signals or key events) may still be used.
-    #[arg(long = "watch", short = 'w', value_name = "PATH")]
+    /// The special value '/dev/null', provided as the only path watched, will cause Watchexec to
+    /// not watch any paths. Other event sources (like signals or key events) may still be used.
+    #[arg(
+        long = "watch",
+        short = 'w',
+        help_heading = "Filtering",
+        value_name = "PATH"
+    )]
     pub watch: Vec<String>,
     /// Watch a specific directory, non-recursively
     ///
     /// Unlike '-w', folders watched with this option are not recursed into.
     ///
     /// This option can be specified multiple times to watch multiple directories non-recursively.
-    #[arg(long = "watch-non-recursive", short = 'W', value_name = "PATH")]
+    #[arg(
+        long = "watch-non-recursive",
+        short = 'W',
+        help_heading = "Filtering",
+        value_name = "PATH"
+    )]
     pub watch_non_recursive: Vec<String>,
     /// Watch files and directories from a file
     ///
     /// Each line in the file will be interpreted as if given to '-w'.
     ///
-    /// For more complex uses (like watching non-recursively), use the argfile capability: build a file containing command-line options and pass it to watchexec with `@path/to/argfile`.
+    /// For more complex uses (like watching non-recursively), use the argfile capability: build a
+    /// file containing command-line options and pass it to watchexec with `@path/to/argfile`.
     ///
     /// The special value '-' will read from STDIN; this in incompatible with '--stdin-quit'.
-    #[arg(long = "watch-file", short = 'F', value_name = "PATH")]
+    #[arg(
+        long = "watch-file",
+        short = 'F',
+        help_heading = "Filtering",
+        value_name = "PATH"
+    )]
     pub watch_file: Option<String>,
     /// Clear screen before running command
     ///
     /// If this doesn't completely clear the screen, try '--clear=reset'.
-    #[arg(long = "clear", short = 'c', value_name = "MODE", value_parser = ::clap::builder::PossibleValuesParser::new(["clear", "reset"]))]
+    #[arg(long = "clear", short = 'c', num_args = 0..=1, default_missing_value = "clear", help_heading = "Output", value_name = "MODE", value_parser = ::clap::builder::PossibleValuesParser::new(["clear", "reset"]))]
     pub clear: Option<String>,
     /// What to do when receiving events while the command is running
     ///
-    /// Default is to 'do-nothing', which ignores events while the command is running, so that changes that occur due to the command are ignored, like compilation outputs. You can also use 'queue' which will run the command once again when the current run has finished if any events occur while it's running, or 'restart', which terminates the running command and starts a new one. Finally, there's 'signal', which only sends a signal; this can be useful with programs that can reload their configuration without a full restart.
+    /// Default is to 'do-nothing', which ignores events while the command is running, so that
+    /// changes that occur due to the command are ignored, like compilation outputs. You can also
+    /// use 'queue' which will run the command once again when the current run has finished if any
+    /// events occur while it's running, or 'restart', which terminates the running command and starts
+    /// a new one. Finally, there's 'signal', which only sends a signal; this can be useful with
+    /// programs that can reload their configuration without a full restart.
     ///
     /// The signal can be specified with the '--signal' option.
     #[arg(long = "on-busy-update", short = 'o', value_name = "MODE", value_parser = ::clap::builder::PossibleValuesParser::new(["queue", "do-nothing", "restart", "signal"]), default_value = "do-nothing")]
@@ -4963,57 +5538,92 @@ pub struct WatchArgs {
     /// Restart the process if it's still running
     ///
     /// This is a shorthand for '--on-busy-update=restart'.
-    #[arg(long = "restart", short = 'r')]
+    #[arg(long = "restart", short = 'r', conflicts_with = "on_busy_update")]
     pub restart: bool,
     /// Send a signal to the process when it's still running
     ///
-    /// Specify a signal to send to the process when it's still running. This implies '--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is controlled by '--stop-signal'.
+    /// Specify a signal to send to the process when it's still running. This implies
+    /// '--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is
+    /// controlled by '--stop-signal'.
     ///
     /// See the long documentation for '--stop-signal' for syntax.
     ///
-    /// Signals are not supported on Windows at the moment, and will always be overridden to 'kill'. See '--stop-signal' for more on Windows "signals".
-    #[arg(long = "signal", short = 's', value_name = "SIGNAL")]
+    /// Signals are not supported on Windows at the moment, and will always be overridden to 'kill'.
+    /// See '--stop-signal' for more on Windows "signals".
+    #[arg(
+        long = "signal",
+        short = 's',
+        conflicts_with = "restart",
+        value_name = "SIGNAL"
+    )]
     pub signal: Option<String>,
     /// Signal to send to stop the command
     ///
-    /// This is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is provided). The restart behaviour is to send the signal, wait for the command to exit, and if it hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.
+    /// This is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is
+    /// provided). The restart behaviour is to send the signal, wait for the command to exit, and if
+    /// it hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.
     ///
     /// The default on unix is "SIGTERM".
     ///
-    /// Input is parsed as a full signal name (like "SIGTERM"), a short signal name (like "TERM"), or a signal number (like "15"). All input is case-insensitive.
+    /// Input is parsed as a full signal name (like "SIGTERM"), a short signal name (like "TERM"),
+    /// or a signal number (like "15"). All input is case-insensitive.
     ///
-    /// On Windows this option is technically supported but only supports the "KILL" event, as Watchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it has termination (here called "KILL" or "STOP") and "CTRL+C", "CTRL+BREAK", and "CTRL+CLOSE" events. For portability the unix signals "SIGKILL", "SIGINT", "SIGTERM", and "SIGHUP" are respectively mapped to these.
+    /// On Windows this option is technically supported but only supports the "KILL" event, as
+    /// Watchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it
+    /// has termination (here called "KILL" or "STOP") and "CTRL+C", "CTRL+BREAK", and "CTRL+CLOSE"
+    /// events. For portability the unix signals "SIGKILL", "SIGINT", "SIGTERM", and "SIGHUP" are
+    /// respectively mapped to these.
     #[arg(long = "stop-signal", value_name = "SIGNAL")]
     pub stop_signal: Option<String>,
     /// Time to wait for the command to exit gracefully
     ///
-    /// This is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal is sent, Watchexec will wait for the command to exit. If it hasn't exited after this time, it is forcefully terminated.
+    /// This is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal
+    /// is sent, Watchexec will wait for the command to exit. If it hasn't exited after this time,
+    /// it is forcefully terminated.
     ///
-    /// Takes a unit-less value in seconds, or a time span value such as "5min 20s". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Takes a unit-less value in seconds, or a time span value such as "5min 20s".
+    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// The default is 10 seconds. Set to 0 to immediately force-kill the command.
     ///
-    /// This has no practical effect on Windows as the command is always forcefully terminated; see '--stop-signal' for why.
+    /// This has no practical effect on Windows as the command is always forcefully terminated; see
+    /// '--stop-signal' for why.
     #[arg(long = "stop-timeout", value_name = "TIMEOUT", default_value = "10s")]
     pub stop_timeout: Option<String>,
     /// Translate signals from the OS to signals to send to the command
     ///
-    /// Takes a pair of signal names, separated by a colon, such as "TERM:INT" to map SIGTERM to SIGINT. The first signal is the one received by watchexec, and the second is the one sent to the command. The second can be omitted to discard the first signal, such as "TERM:" to not do anything on SIGTERM.
+    /// Takes a pair of signal names, separated by a colon, such as "TERM:INT" to map SIGTERM to
+    /// SIGINT. The first signal is the one received by watchexec, and the second is the one sent to
+    /// the command. The second can be omitted to discard the first signal, such as "TERM:" to
+    /// not do anything on SIGTERM.
     ///
-    /// If SIGINT or SIGTERM are mapped, then they no longer quit Watchexec. Besides making it hard to quit Watchexec itself, this is useful to send pass a Ctrl-C to the command without also terminating Watchexec and the underlying program with it, e.g. with "INT:INT".
+    /// If SIGINT or SIGTERM are mapped, then they no longer quit Watchexec. Besides making it hard
+    /// to quit Watchexec itself, this is useful to send pass a Ctrl-C to the command without also
+    /// terminating Watchexec and the underlying program with it, e.g. with "INT:INT".
     ///
     /// This option can be specified multiple times to map multiple signals.
     ///
-    /// Signal syntax is case-insensitive for short names (like "TERM", "USR2") and long names (like "SIGKILL", "SIGHUP"). Signal numbers are also supported (like "15", "31"). On Windows, the forms "STOP", "CTRL+C", and "CTRL+BREAK" are also supported to receive, but Watchexec cannot yet deliver other "signals" than a STOP.
+    /// Signal syntax is case-insensitive for short names (like "TERM", "USR2") and long names (like
+    /// "SIGKILL", "SIGHUP"). Signal numbers are also supported (like "15", "31"). On Windows, the
+    /// forms "STOP", "CTRL+C", and "CTRL+BREAK" are also supported to receive, but Watchexec cannot
+    /// yet deliver other "signals" than a STOP.
     #[arg(long = "map-signal", value_name = "SIGNAL:SIGNAL")]
     pub map_signal: Vec<String>,
     /// Time to wait for new events before taking action
     ///
-    /// When an event is received, Watchexec will wait for up to this amount of time before handling it (such as running the command). This is essential as what you might perceive as a single change may actually emit many events, and without this behaviour, Watchexec would run much too often. Additionally, it's not infrequent that file writes are not atomic, and each write may emit an event, so this is a good way to avoid running a command while a file is partially written.
+    /// When an event is received, Watchexec will wait for up to this amount of time before handling
+    /// it (such as running the command). This is essential as what you might perceive as a single
+    /// change may actually emit many events, and without this behaviour, Watchexec would run much
+    /// too often. Additionally, it's not infrequent that file writes are not atomic, and each write
+    /// may emit an event, so this is a good way to avoid running a command while a file is
+    /// partially written.
     ///
-    /// An alternative use is to set a high value (like "30min" or longer), to save power or bandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that every accumulated event will build up in memory.
+    /// An alternative use is to set a high value (like "30min" or longer), to save power or
+    /// bandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that
+    /// every accumulated event will build up in memory.
     ///
-    /// Takes a unit-less value in milliseconds, or a time span value such as "5sec 20ms". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Takes a unit-less value in milliseconds, or a time span value such as "5sec 20ms".
+    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// The default is 50 milliseconds. Setting to 0 is highly discouraged.
     #[arg(
@@ -5025,15 +5635,18 @@ pub struct WatchArgs {
     pub debounce: Option<String>,
     /// Exit when stdin closes
     ///
-    /// This watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is closed. This is used by some process managers to avoid leaving zombie processes around.
+    /// This watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is
+    /// closed. This is used by some process managers to avoid leaving zombie processes around.
     #[arg(long = "stdin-quit")]
     pub stdin_quit: bool,
     /// Don't load gitignores
     ///
-    /// Among other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note that Watchexec will detect which of these is in use, if any, and only load the relevant files. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.
+    /// Among other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note
+    /// that Watchexec will detect which of these is in use, if any, and only load the relevant
+    /// files. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.
     ///
     /// This option is useful if you want to watch files that are ignored by Git.
-    #[arg(long = "no-vcs-ignore")]
+    #[arg(long = "no-vcs-ignore", help_heading = "Filtering")]
     pub no_vcs_ignore: bool,
     /// Don't load project-local ignores
     ///
@@ -5054,7 +5667,7 @@ pub struct WatchArgs {
     /// VCS ignore files (Git, Mercurial, Bazaar, Darcs, Fossil) are only used if the corresponding
     /// VCS is discovered to be in use for the project/origin. For example, a .bzrignore in a Git
     /// repository will be discarded.
-    #[arg(long = "no-project-ignore")]
+    #[arg(long = "no-project-ignore", help_heading = "Filtering")]
     pub no_project_ignore: bool,
     /// Don't load global ignores
     ///
@@ -5071,87 +5684,109 @@ pub struct WatchArgs {
     ///
     /// Like for project files, Git and Bazaar global files will only be used for the corresponding
     /// VCS as used in the project.
-    #[arg(long = "no-global-ignore")]
+    #[arg(long = "no-global-ignore", help_heading = "Filtering")]
     pub no_global_ignore: bool,
     /// Don't use internal default ignores
     ///
-    /// Watchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`, `.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and Watchexec log files.
-    #[arg(long = "no-default-ignore")]
+    /// Watchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`,
+    /// `.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and
+    /// Watchexec log files.
+    #[arg(long = "no-default-ignore", help_heading = "Filtering")]
     pub no_default_ignore: bool,
     /// Don't discover ignore files at all
     ///
-    /// This is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but even more efficient as it will skip all the ignore discovery mechanisms from the get go.
+    /// This is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but
+    /// even more efficient as it will skip all the ignore discovery mechanisms from the get go.
     ///
     /// Note that default ignores are still loaded, see '--no-default-ignore'.
-    #[arg(long = "no-discover-ignore")]
+    #[arg(long = "no-discover-ignore", help_heading = "Filtering")]
     pub no_discover_ignore: bool,
     /// Don't ignore anything at all
     ///
     /// This is a shorthand for '--no-discover-ignore', '--no-default-ignore'.
     ///
-    /// Note that ignores explicitly loaded via other command line options, such as '--ignore' or '--ignore-file', will still be used.
-    #[arg(long = "ignore-nothing")]
+    /// Note that ignores explicitly loaded via other command line options, such as '--ignore' or
+    /// '--ignore-file', will still be used.
+    #[arg(long = "ignore-nothing", help_heading = "Filtering")]
     pub ignore_nothing: bool,
     /// Wait until first change before running command
     ///
-    /// By default, Watchexec will run the command once immediately. With this option, it will instead wait until an event is detected before running the command as normal.
+    /// By default, Watchexec will run the command once immediately. With this option, it will
+    /// instead wait until an event is detected before running the command as normal.
     #[arg(long = "postpone", short = 'p')]
     pub postpone: bool,
     /// Sleep before running the command
     ///
-    /// This option will cause Watchexec to sleep for the specified amount of time before running the command, after an event is detected. This is like using "sleep 5 && command" in a shell, but portable and slightly more efficient.
+    /// This option will cause Watchexec to sleep for the specified amount of time before running
+    /// the command, after an event is detected. This is like using "sleep 5 && command" in a shell,
+    /// but portable and slightly more efficient.
     ///
-    /// Takes a unit-less value in seconds, or a time span value such as "2min 5s". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Takes a unit-less value in seconds, or a time span value such as "2min 5s".
+    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     #[arg(long = "delay-run", value_name = "DURATION")]
     pub delay_run: Option<String>,
     /// Poll for filesystem changes
     ///
-    /// By default, and where available, Watchexec uses the operating system's native file system watching capabilities. This option disables that and instead uses a polling mechanism, which is less efficient but can work around issues with some file systems (like network shares) or edge cases.
+    /// By default, and where available, Watchexec uses the operating system's native file system
+    /// watching capabilities. This option disables that and instead uses a polling mechanism, which
+    /// is less efficient but can work around issues with some file systems (like network shares) or
+    /// edge cases.
     ///
-    /// Optionally takes a unit-less value in milliseconds, or a time span value such as "2s 500ms", to use as the polling interval. If not specified, the default is 30 seconds. Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Optionally takes a unit-less value in milliseconds, or a time span value such as "2s 500ms",
+    /// to use as the polling interval. If not specified, the default is 30 seconds.
+    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// Aliased as '--force-poll'.
-    #[arg(long = "poll", value_name = "INTERVAL")]
+    #[arg(long = "poll", alias = "force-poll", num_args = 0..=1, default_missing_value = "30s", value_name = "INTERVAL")]
     pub poll: Option<String>,
     /// Use a different shell
     ///
-    /// By default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes, and either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec detects is the running shell.
+    /// By default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes,
+    /// and either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec
+    /// detects is the running shell.
     ///
-    /// With this option, you can override that and use a different shell, for example one with more features or one which has your custom aliases and functions.
+    /// With this option, you can override that and use a different shell, for example one with more
+    /// features or one which has your custom aliases and functions.
     ///
-    /// If the value has spaces, it is parsed as a command line, and the first word used as the shell program, with the rest as arguments to the shell.
+    /// If the value has spaces, it is parsed as a command line, and the first word used as the
+    /// shell program, with the rest as arguments to the shell.
     ///
     /// The command is run with the '-c' flag (except for 'cmd' on Windows, where it's '/C').
     ///
-    /// The special value 'none' can be used to disable shell use entirely. In that case, the command provided to Watchexec will be parsed, with the first word being the executable and the rest being the arguments, and executed directly. Note that this parsing is rudimentary, and may not work as expected in all cases.
+    /// The special value 'none' can be used to disable shell use entirely. In that case, the
+    /// command provided to Watchexec will be parsed, with the first word being the executable and
+    /// the rest being the arguments, and executed directly. Note that this parsing is rudimentary,
+    /// and may not work as expected in all cases.
     ///
-    /// Using 'none' is a little more efficient and can enable a stricter interpretation of the input, but it also means that you can't use shell features like globbing, redirection, control flow, logic, or pipes.
+    /// Using 'none' is a little more efficient and can enable a stricter interpretation of the
+    /// input, but it also means that you can't use shell features like globbing, redirection,
+    /// control flow, logic, or pipes.
     ///
     /// Examples:
     ///
     /// Use without shell:
     ///
-    /// $ watchexec -n -- zsh -x -o shwordsplit scr
+    ///   $ watchexec -n -- zsh -x -o shwordsplit scr
     ///
     /// Use with powershell core:
     ///
-    /// $ watchexec --shell=pwsh -- Test-Connection localhost
+    ///   $ watchexec --shell=pwsh -- Test-Connection localhost
     ///
     /// Use with CMD.exe:
     ///
-    /// $ watchexec --shell=cmd -- dir
+    ///   $ watchexec --shell=cmd -- dir
     ///
     /// Use with a different unix shell:
     ///
-    /// $ watchexec --shell=bash -- 'echo $BASH_VERSION'
+    ///   $ watchexec --shell=bash -- 'echo $BASH_VERSION'
     ///
     /// Use with a unix shell and options:
     ///
-    /// $ watchexec --shell='zsh -x -o shwordsplit' -- scr
-    #[arg(long = "shell", value_name = "SHELL")]
+    ///   $ watchexec --shell='zsh -x -o shwordsplit' -- scr
+    #[arg(long = "shell", help_heading = "Command", value_name = "SHELL")]
     pub shell: Option<String>,
     /// Shorthand for '--shell=none'
-    #[arg(short = 'n')]
+    #[arg(short = 'n', help_heading = "Command")]
     pub n: bool,
     /// Configure event emission
     ///
@@ -5253,131 +5888,262 @@ pub struct WatchArgs {
     /// numbers of files will either cause the environment to be truncated, or may error or crash
     /// the process entirely. The $WATCHEXEC_COMMON_PATH is also unintuitive, as demonstrated by the
     /// multiple confused queries that have landed in my inbox over the years.
-    #[arg(long = "emit-events-to", value_name = "MODE", value_parser = ::clap::builder::PossibleValuesParser::new(["environment", "stdio", "file", "json-stdio", "json-file", "none"]), default_value = "none")]
+    #[arg(long = "emit-events-to", help_heading = "Command", value_name = "MODE", value_parser = ::clap::builder::PossibleValuesParser::new(["environment", "stdio", "file", "json-stdio", "json-file", "none"]), default_value = "none")]
     pub emit_events_to: Option<String>,
+    /// Only emit events to stdout, run no commands.
+    ///
+    /// This is a convenience option for using Watchexec as a file watcher, without running any
+    /// commands. It is almost equivalent to using `cat` as the command, except that it will not
+    /// spawn a new process for each event.
+    ///
+    /// This option requires `--emit-events-to` to be set, and restricts the available modes to
+    /// `stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin
+    /// of the command.
     #[arg(
-        help = "Only emit events to stdout, run no commands",
-        long_help = "Only emit events to stdout, run no commands.\n\nThis is a convenience option for using Watchexec as a file watcher, without running any commands. It is almost equivalent to using `cat` as the command, except that it will not spawn a new process for each event.\n\nThis option requires `--emit-events-to` to be set, and restricts the available modes to `stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin of the command.",
-        long = "only-emit-events"
+        long = "only-emit-events",
+        help_heading = "Output",
+        conflicts_with = "manual"
     )]
     pub only_emit_events: bool,
     /// Add env vars to the command
     ///
-    /// This is a convenience option for setting environment variables for the command, without setting them for the Watchexec process itself.
+    /// This is a convenience option for setting environment variables for the command, without
+    /// setting them for the Watchexec process itself.
     ///
     /// Use key=value syntax. Multiple variables can be set by repeating the option.
-    #[arg(long = "env", short = 'E', value_name = "KEY=VALUE")]
+    #[arg(
+        long = "env",
+        short = 'E',
+        help_heading = "Command",
+        value_name = "KEY=VALUE"
+    )]
     pub env: Vec<String>,
     /// Configure how the process is wrapped
     ///
-    /// By default, Watchexec will run the command in a session on macOS, in a process group on other Unix platforms, and in a Job Object in Windows.
+    /// By default, Watchexec will run the command in a session on macOS, in a process group on
+    /// other Unix platforms, and in a Job Object in Windows.
     ///
     /// Some Unix programs prefer running in a session, while others do not work in a process group.
     ///
-    /// Use 'group' to use a process group, 'session' to use a process session, and 'none' to run the command directly. On Windows, either of 'group' or 'session' will use a Job Object.
-    #[arg(long = "wrap-process", value_name = "MODE", value_parser = ::clap::builder::PossibleValuesParser::new(["group", "session", "none"]))]
+    /// Use 'group' to use a process group, 'session' to use a process session, and 'none' to run
+    /// the command directly. On Windows, either of 'group' or 'session' will use a Job Object.
+    #[arg(long = "wrap-process", help_heading = "Command", value_name = "MODE", value_parser = ::clap::builder::PossibleValuesParser::new(["group", "session", "none"]))]
     pub wrap_process: Option<String>,
     /// Alert when commands start and end
     ///
-    /// With this, Watchexec will emit a desktop notification when a command starts and ends, on supported platforms. On unsupported platforms, it may silently do nothing, or log a warning.
-    #[arg(long = "notify", short = 'N')]
+    /// With this, Watchexec will emit a desktop notification when a command starts and ends, on
+    /// supported platforms. On unsupported platforms, it may silently do nothing, or log a warning.
+    #[arg(long = "notify", short = 'N', help_heading = "Output")]
     pub notify: bool,
     /// When to use terminal colours
     ///
     /// Setting the environment variable `NO_COLOR` to any value is equivalent to `--color=never`.
-    #[arg(long = "color", value_name = "MODE", value_parser = ::clap::builder::PossibleValuesParser::new(["auto", "always", "never"]), default_value = "auto")]
+    #[arg(long = "color", alias = "colour", help_heading = "Output", value_name = "MODE", value_parser = ::clap::builder::PossibleValuesParser::new(["auto", "always", "never"]), default_value = "auto")]
     pub color: Option<String>,
     /// Print how long the command took to run
     ///
-    /// This may not be exactly accurate, as it includes some overhead from Watchexec itself. Use the `time` utility, high-precision timers, or benchmarking tools for more accurate results.
-    #[arg(long = "timings")]
+    /// This may not be exactly accurate, as it includes some overhead from Watchexec itself. Use
+    /// the `time` utility, high-precision timers, or benchmarking tools for more accurate results.
+    #[arg(long = "timings", help_heading = "Output")]
     pub timings: bool,
     /// Don't print starting and stopping messages
     ///
-    /// By default Watchexec will print a message when the command starts and stops. This option disables this behaviour, so only the command's output, warnings, and errors will be printed.
-    #[arg(long = "quiet", short = 'q')]
+    /// By default Watchexec will print a message when the command starts and stops. This option
+    /// disables this behaviour, so only the command's output, warnings, and errors will be printed.
+    #[arg(long = "quiet", short = 'q', help_heading = "Output")]
     pub quiet: bool,
     /// Ring the terminal bell on command completion
-    #[arg(long = "bell")]
+    #[arg(long = "bell", help_heading = "Output")]
     pub bell: bool,
     /// Set the project origin
     ///
-    /// Watchexec will attempt to discover the project's "origin" (or "root") by searching for a variety of markers, like files or directory patterns. It does its best but sometimes gets it it wrong, and you can override that with this option.
+    /// Watchexec will attempt to discover the project's "origin" (or "root") by searching for a
+    /// variety of markers, like files or directory patterns. It does its best but sometimes gets it
+    /// it wrong, and you can override that with this option.
     ///
-    /// The project origin is used to determine the path of certain ignore files, which VCS is being used, the meaning of a leading '/' in filtering patterns, and maybe more in the future.
+    /// The project origin is used to determine the path of certain ignore files, which VCS is being
+    /// used, the meaning of a leading '/' in filtering patterns, and maybe more in the future.
     ///
     /// When set, Watchexec will also not bother searching, which can be significantly faster.
     #[arg(long = "project-origin", value_name = "DIRECTORY")]
     pub project_origin: Option<String>,
     /// Set the working directory
     ///
-    /// By default, the working directory of the command is the working directory of Watchexec. You can change that with this option. Note that paths may be less intuitive to use with this.
+    /// By default, the working directory of the command is the working directory of Watchexec. You
+    /// can change that with this option. Note that paths may be less intuitive to use with this.
     #[arg(long = "workdir", value_name = "DIRECTORY")]
     pub workdir: Option<String>,
     /// Filename extensions to filter to
     ///
-    /// This is a quick filter to only emit events for files with the given extensions. Extensions can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can be given by repeating the option or by separating them with commas.
-    #[arg(long = "exts", short = 'e', value_name = "EXTENSIONS")]
+    /// This is a quick filter to only emit events for files with the given extensions. Extensions
+    /// can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can
+    /// be given by repeating the option or by separating them with commas.
+    #[arg(
+        long = "exts",
+        short = 'e',
+        value_delimiter = ',',
+        help_heading = "Filtering",
+        value_name = "EXTENSIONS"
+    )]
     pub exts: Vec<String>,
     /// Filename patterns to filter to
     ///
-    /// Provide a glob-like filter pattern, and only events for files matching the pattern will be emitted. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
-    #[arg(long = "filter", short = 'f', value_name = "PATTERN")]
+    /// Provide a glob-like filter pattern, and only events for files matching the pattern will be
+    /// emitted. Multiple patterns can be given by repeating the option. Events that are not from
+    /// files (e.g. signals, keyboard events) will pass through untouched.
+    #[arg(
+        long = "filter",
+        short = 'f',
+        help_heading = "Filtering",
+        value_name = "PATTERN"
+    )]
     pub filter: Vec<String>,
     /// Files to load filters from
     ///
-    /// Provide a path to a file containing filters, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--filter' option.
+    /// Provide a path to a file containing filters, one per line. Empty lines and lines starting
+    /// with '#' are ignored. Uses the same pattern format as the '--filter' option.
     ///
     /// This can also be used via the $WATCHEXEC_FILTER_FILES environment variable.
-    #[arg(long = "filter-file", value_name = "PATH")]
-    pub filter_file: Vec<String>,
     #[arg(
-        help = "[experimental] Filter programs",
-        long_help = "[experimental] Filter programs.\n\n/!\\ This option is EXPERIMENTAL and may change and/or vanish without notice.\n\nProvide your own custom filter programs in jaq (similar to jq) syntax. Programs are given an event in the same format as described in '--emit-events-to' and must return a boolean. Invalid programs will make watchexec fail to start; use '-v' to see program runtime errors.\n\nIn addition to the jaq stdlib, watchexec adds some custom filter definitions:\n\n- 'path | file_meta' returns file metadata or null if the file does not exist.\n\n- 'path | file_size' returns the size of the file at path, or null if it does not exist.\n\n- 'path | file_read(bytes)' returns a string with the first n bytes of the file at path. If the file is smaller than n bytes, the whole file is returned. There is no filter to read the whole file at once to encourage limiting the amount of data read and processed.\n\n- 'string | hash', and 'path | file_hash' return the hash of the string or file at path. No guarantee is made about the algorithm used: treat it as an opaque value.\n\n- 'any | kv_store(key)', 'kv_fetch(key)', and 'kv_clear' provide a simple key-value store. Data is kept in memory only, there is no persistence. Consistency is not guaranteed.\n\n- 'any | printout', 'any | printerr', and 'any | log(level)' will print or log any given value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and pass the value through (so '[1] | log(\"debug\") | .[]' will produce a '1' and log '[1]').\n\nAll filtering done with such programs, and especially those using kv or filesystem access, is much slower than the other filtering methods. If filtering is too slow, events will back up and stall watchexec. Take care when designing your filters.\n\nIf the argument to this option starts with an '@', the rest of the argument is taken to be the path to a file containing a jaq program.\n\nJaq programs are run in order, after all other filters, and short-circuit: if a filter (jaq or not) rejects an event, execution stops there, and no other filters are run. Additionally, they stop after outputting the first value, so you'll want to use 'any' or 'all' when iterating, otherwise only the first item will be processed, which can be quite confusing!\n\nFind user-contributed programs or submit your own useful ones at <https://github.com/watchexec/watchexec/discussions/592>.\n\n## Examples:\n\nRegexp ignore filter on paths:\n\n'all(.tags[] | select(.kind == \"path\"); .absolute | test(\"[.]test[.]js$\")) | not'\n\nPass any event that creates a file:\n\n'any(.tags[] | select(.kind == \"fs\"); .simple == \"create\")'\n\nPass events that touch executable files:\n\n'any(.tags[] | select(.kind == \"path\" && .filetype == \"file\"); .absolute | metadata | .executable)'\n\nIgnore files that start with shebangs:\n\n'any(.tags[] | select(.kind == \"path\" && .filetype == \"file\"); .absolute | read(2) == \"#!\") | not'",
+        long = "filter-file",
+        value_delimiter = ':',
+        env = "WATCHEXEC_FILTER_FILES",
+        help_heading = "Filtering",
+        value_name = "PATH"
+    )]
+    pub filter_file: Vec<String>,
+    /// [experimental] Filter programs.
+    ///
+    /// /!\ This option is EXPERIMENTAL and may change and/or vanish without notice.
+    ///
+    /// Provide your own custom filter programs in jaq (similar to jq) syntax. Programs are given
+    /// an event in the same format as described in '--emit-events-to' and must return a boolean.
+    /// Invalid programs will make watchexec fail to start; use '-v' to see program runtime errors.
+    ///
+    /// In addition to the jaq stdlib, watchexec adds some custom filter definitions:
+    ///
+    ///   - 'path | file_meta' returns file metadata or null if the file does not exist.
+    ///
+    ///   - 'path | file_size' returns the size of the file at path, or null if it does not exist.
+    ///
+    ///   - 'path | file_read(bytes)' returns a string with the first n bytes of the file at path.
+    ///     If the file is smaller than n bytes, the whole file is returned. There is no filter to
+    ///     read the whole file at once to encourage limiting the amount of data read and processed.
+    ///
+    ///   - 'string | hash', and 'path | file_hash' return the hash of the string or file at path.
+    ///     No guarantee is made about the algorithm used: treat it as an opaque value.
+    ///
+    ///   - 'any | kv_store(key)', 'kv_fetch(key)', and 'kv_clear' provide a simple key-value store.
+    ///     Data is kept in memory only, there is no persistence. Consistency is not guaranteed.
+    ///
+    ///   - 'any | printout', 'any | printerr', and 'any | log(level)' will print or log any given
+    ///     value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and
+    ///     pass the value through (so '[1] | log("debug") | .[]' will produce a '1' and log '[1]').
+    ///
+    /// All filtering done with such programs, and especially those using kv or filesystem access,
+    /// is much slower than the other filtering methods. If filtering is too slow, events will back
+    /// up and stall watchexec. Take care when designing your filters.
+    ///
+    /// If the argument to this option starts with an '@', the rest of the argument is taken to be
+    /// the path to a file containing a jaq program.
+    ///
+    /// Jaq programs are run in order, after all other filters, and short-circuit: if a filter (jaq
+    /// or not) rejects an event, execution stops there, and no other filters are run. Additionally,
+    /// they stop after outputting the first value, so you'll want to use 'any' or 'all' when
+    /// iterating, otherwise only the first item will be processed, which can be quite confusing!
+    ///
+    /// Find user-contributed programs or submit your own useful ones at
+    /// <https://github.com/watchexec/watchexec/discussions/592>.
+    ///
+    /// ## Examples:
+    ///
+    /// Regexp ignore filter on paths:
+    ///
+    ///   'all(.tags[] | select(.kind == "path"); .absolute | test("[.]test[.]js$")) | not'
+    ///
+    /// Pass any event that creates a file:
+    ///
+    ///   'any(.tags[] | select(.kind == "fs"); .simple == "create")'
+    ///
+    /// Pass events that touch executable files:
+    ///
+    ///   'any(.tags[] | select(.kind == "path" && .filetype == "file"); .absolute | metadata | .executable)'
+    ///
+    /// Ignore files that start with shebangs:
+    ///
+    ///   'any(.tags[] | select(.kind == "path" && .filetype == "file"); .absolute | read(2) == "#!") | not'
+    #[arg(
         long = "filter-prog",
         short = 'J',
+        help_heading = "Filtering",
         value_name = "EXPRESSION"
     )]
     pub filter_prog: Vec<String>,
     /// Filename patterns to filter out
     ///
-    /// Provide a glob-like filter pattern, and events for files matching the pattern will be excluded. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
-    #[arg(long = "ignore", short = 'i', value_name = "PATTERN")]
+    /// Provide a glob-like filter pattern, and events for files matching the pattern will be
+    /// excluded. Multiple patterns can be given by repeating the option. Events that are not from
+    /// files (e.g. signals, keyboard events) will pass through untouched.
+    #[arg(
+        long = "ignore",
+        short = 'i',
+        help_heading = "Filtering",
+        value_name = "PATTERN"
+    )]
     pub ignore: Vec<String>,
     /// Files to load ignores from
     ///
-    /// Provide a path to a file containing ignores, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--ignore' option.
+    /// Provide a path to a file containing ignores, one per line. Empty lines and lines starting
+    /// with '#' are ignored. Uses the same pattern format as the '--ignore' option.
     ///
     /// This can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.
-    #[arg(long = "ignore-file", value_name = "PATH")]
+    #[arg(
+        long = "ignore-file",
+        value_delimiter = ':',
+        env = "WATCHEXEC_IGNORE_FILES",
+        help_heading = "Filtering",
+        value_name = "PATH"
+    )]
     pub ignore_file: Vec<String>,
     /// Filesystem events to filter to
     ///
-    /// This is a quick filter to only emit events for the given types of filesystem changes. Choose from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be given by repeating the option or by separating them with commas. By default, this is all types except for 'access'.
+    /// This is a quick filter to only emit events for the given types of filesystem changes. Choose
+    /// from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be
+    /// given by repeating the option or by separating them with commas. By default, this is all
+    /// types except for 'access'.
     ///
-    /// This may apply filtering at the kernel level when possible, which can be more efficient, but may be more confusing when reading the logs.
-    #[arg(long = "fs-events", value_name = "EVENTS", value_parser = ::clap::builder::PossibleValuesParser::new(["access", "create", "remove", "rename", "modify", "metadata"]), default_value = "create")]
+    /// This may apply filtering at the kernel level when possible, which can be more efficient, but
+    /// may be more confusing when reading the logs.
+    #[arg(long = "fs-events", value_delimiter = ',', help_heading = "Filtering", value_name = "EVENTS", value_parser = ::clap::builder::PossibleValuesParser::new(["access", "create", "remove", "rename", "modify", "metadata"]), default_value = "create,remove,rename,modify,metadata")]
     pub fs_events: Vec<String>,
     /// Don't emit fs events for metadata changes
     ///
-    /// This is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the '--fs-events' option is non-sensical and not allowed.
-    #[arg(long = "no-meta")]
+    /// This is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the
+    /// '--fs-events' option is non-sensical and not allowed.
+    #[arg(
+        long = "no-meta",
+        help_heading = "Filtering",
+        conflicts_with = "fs_events"
+    )]
     pub no_meta: bool,
     /// Print events that trigger actions
     ///
-    /// This prints the events that triggered the action when handling it (after debouncing), in a human readable form. This is useful for debugging filters.
+    /// This prints the events that triggered the action when handling it (after debouncing), in a
+    /// human readable form. This is useful for debugging filters.
     ///
     /// Use '-vvv' instead when you need more diagnostic information.
-    #[arg(long = "print-events")]
+    #[arg(long = "print-events", help_heading = "Debugging")]
     pub print_events: bool,
     /// Show the manual page
     ///
-    /// This shows the manual page for Watchexec, if the output is a terminal and the 'man' program is available. If not, the manual page is printed to stdout in ROFF format (suitable for writing to a watchexec.1 file).
-    #[arg(long = "manual")]
+    /// This shows the manual page for Watchexec, if the output is a terminal and the 'man' program
+    /// is available. If not, the manual page is printed to stdout in ROFF format (suitable for
+    /// writing to a watchexec.1 file).
+    #[arg(long = "manual", help_heading = "Debugging")]
     pub manual: bool,
     #[arg(
         value_name = "TASK",
-        help = "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: `mise run task1 arg1 arg2 ::: task2 arg1 arg2`"
+        help = "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: `mise run task1 arg1 arg2 ::: task2 arg1 arg2`\nDefaults to `default`"
     )]
     pub task: Option<String>,
     /// Task and arguments to run
@@ -5418,13 +6184,13 @@ pub struct WhichArgs {
     #[arg(long = "complete", hide = true)]
     pub complete: bool,
     /// Show the plugin name instead of the path
-    #[arg(long = "plugin")]
+    #[arg(long = "plugin", conflicts_with = "version")]
     pub plugin: bool,
     /// Show the version instead of the path
-    #[arg(long = "version")]
+    #[arg(long = "version", conflicts_with = "plugin")]
     pub version: bool,
     /// The bin to look up
-    #[arg(value_name = "BIN_NAME")]
+    #[arg(value_name = "BIN_NAME", required_unless_present = "complete")]
     pub bin_name: Option<String>,
 }
 
@@ -5447,8 +6213,14 @@ pub struct Cli {
     /// Force the operation
     #[arg(long = "force", short = 'f', hide = true)]
     pub force: bool,
-    /// How many jobs to run in parallel [default: 8]
-    #[arg(long = "jobs", short = 'j', global = true, value_name = "JOBS")]
+    /// How many jobs to run in parallel; values below 1 are treated as 1 [default: 8]
+    #[arg(
+        long = "jobs",
+        short = 'j',
+        global = true,
+        env = "MISE_JOBS",
+        value_name = "JOBS"
+    )]
     pub jobs: Option<String>,
     /// Dry run, don't actually do anything
     #[arg(long = "dry-run", short = 'n', hide = true)]
@@ -5459,19 +6231,36 @@ pub struct Cli {
         short = 'P',
         global = true,
         hide = true,
+        conflicts_with = "env",
         value_name = "PROFILE"
     )]
     pub profile: Vec<String>,
     /// Suppress non-error messages
-    #[arg(long = "quiet", short = 'q', global = true)]
+    #[arg(
+        long = "quiet",
+        short = 'q',
+        global = true,
+        overrides_with = "silent",
+        overrides_with = "trace",
+        overrides_with = "verbose",
+        overrides_with = "debug",
+        overrides_with = "log_level"
+    )]
     pub quiet: bool,
     #[arg(long = "shell", short = 's', hide = true, value_name = "SHELL")]
     pub shell: Option<String>,
-    /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
-    #[arg(long = "tool", short = 't', hide = true, value_name = "TOOL@VERSION")]
+    #[arg(
+        help = "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10",
+        long_help = "Tool(s) to run in addition to what is in mise.toml files\ne.g.: node@20 python@3.10",
+        long = "tool",
+        short = 't',
+        hide = true,
+        env = "MISE_QUIET",
+        value_name = "TOOL@VERSION"
+    )]
     pub tool: Vec<String>,
     /// Show extra output (use -vv for even more)
-    #[arg(long = "verbose", short = 'v', global = true, action = ::clap::ArgAction::Count)]
+    #[arg(long = "verbose", short = 'v', global = true, action = ::clap::ArgAction::Count, overrides_with = "quiet", overrides_with = "silent", overrides_with = "trace", overrides_with = "debug")]
     pub verbose: u8,
     #[arg(long = "version", short = 'V', hide = true)]
     pub version: bool,
@@ -5479,9 +6268,18 @@ pub struct Cli {
     #[arg(long = "yes", short = 'y', global = true)]
     pub yes: bool,
     /// Sets log level to debug
-    #[arg(long = "debug", global = true, hide = true)]
+    #[arg(
+        long = "debug",
+        global = true,
+        hide = true,
+        overrides_with = "quiet",
+        overrides_with = "trace",
+        overrides_with = "verbose",
+        overrides_with = "silent",
+        overrides_with = "log_level"
+    )]
     pub debug: bool,
-    #[arg(long = "log-level", global = true, hide = true, value_name = "LEVEL", value_parser = ::clap::builder::PossibleValuesParser::new(["trace", "debug", "info", "warning", "error"]))]
+    #[arg(long = "log-level", global = true, hide = true, overrides_with = "quiet", overrides_with = "trace", overrides_with = "verbose", overrides_with = "silent", overrides_with = "debug", value_name = "LEVEL", value_parser = ::clap::builder::PossibleValuesParser::new(["trace", "debug", "info", "warning", "error"]))]
     pub log_level: Option<String>,
     /// Do not load any config files
     ///
@@ -5501,7 +6299,7 @@ pub struct Cli {
     /// Hides elapsed time after each task completes
     ///
     /// Default to always hide with `MISE_TASK_TIMINGS=0`
-    #[arg(long = "no-timings", hide = true)]
+    #[arg(long = "no-timings", alias = "no-timing", hide = true)]
     pub no_timings: bool,
     #[arg(long = "output", value_name = "OUTPUT")]
     pub output: Option<String>,
@@ -5516,15 +6314,32 @@ pub struct Cli {
     #[arg(long = "locked", global = true)]
     pub locked: bool,
     /// Suppress all task output and mise non-error messages
-    #[arg(long = "silent", global = true)]
+    #[arg(
+        long = "silent",
+        global = true,
+        overrides_with = "quiet",
+        overrides_with = "trace",
+        overrides_with = "verbose",
+        overrides_with = "debug",
+        overrides_with = "log_level"
+    )]
     pub silent: bool,
     /// Shows elapsed time after each task completes
     ///
     /// Default to always show with `MISE_TASK_TIMINGS=1`
-    #[arg(long = "timings", hide = true)]
+    #[arg(long = "timings", alias = "timing", hide = true)]
     pub timings: bool,
     /// Sets log level to trace
-    #[arg(long = "trace", global = true, hide = true)]
+    #[arg(
+        long = "trace",
+        global = true,
+        hide = true,
+        overrides_with = "quiet",
+        overrides_with = "silent",
+        overrides_with = "verbose",
+        overrides_with = "debug",
+        overrides_with = "log_level"
+    )]
     pub trace: bool,
     #[arg(
         value_name = "TASK",
@@ -5550,7 +6365,7 @@ pub enum Commands {
     #[command(name = "tool-alias", aliases = ["alias", "aliases"])]
     ToolAlias(Box<ToolAliasArgs>),
     /// [internal] simulates asdf for plugins that call "asdf" internally
-    #[command(name = "asdf")]
+    #[command(name = "asdf", hide = true)]
     Asdf(Box<AsdfArgs>),
     /// Manage backends
     #[command(name = "backends", aliases = ["b", "backend", "backend-list"])]
@@ -5559,7 +6374,7 @@ pub enum Commands {
     #[command(name = "bin-paths")]
     BinPaths(Box<BinPathsArgs>),
     /// Set up a machine for the current config in one command
-    #[command(name = "bootstrap", visible_alias = "bs")]
+    #[command(name = "bootstrap", alias = "bs")]
     Bootstrap(Box<BootstrapArgs>),
     /// Manage the mise cache
     #[command(name = "cache")]
@@ -5571,16 +6386,16 @@ pub enum Commands {
     #[command(name = "config", visible_alias = "cfg", alias = "toml")]
     Config(Box<ConfigArgs>),
     /// Shows current active and installed runtime versions
-    #[command(name = "current")]
+    #[command(name = "current", hide = true)]
     Current(Box<CurrentArgs>),
     /// Disable mise for current shell session
     #[command(name = "deactivate")]
     Deactivate(Box<DeactivateArgs>),
     /// Output direnv function to use mise inside direnv
-    #[command(name = "direnv")]
+    #[command(name = "direnv", hide = true)]
     Direnv(Box<DirenvArgs>),
     /// Manage dotfiles from `[dotfiles]` (deprecated)
-    #[command(name = "dotfiles")]
+    #[command(name = "dotfiles", hide = true)]
     Dotfiles(Box<DotfilesArgs>),
     /// Check mise installation for possible problems
     #[command(name = "doctor", visible_alias = "dr")]
@@ -5601,16 +6416,16 @@ pub enum Commands {
     #[command(name = "generate", visible_alias = "gen", alias = "g")]
     Generate(Box<GenerateArgs>),
     /// GitHub related commands
-    #[command(name = "github")]
+    #[command(name = "github", hide = true)]
     Github(Box<GithubArgs>),
     /// Sets/gets the global tool version(s)
-    #[command(name = "global")]
+    #[command(name = "global", hide = true)]
     Global(Box<GlobalArgs>),
     /// [internal] called by activate hook to update env vars directory change
-    #[command(name = "hook-env")]
+    #[command(name = "hook-env", hide = true)]
     HookEnv(Box<HookEnvArgs>),
     /// [internal] called by shell when a command is not found
-    #[command(name = "hook-not-found")]
+    #[command(name = "hook-not-found", hide = true)]
     HookNotFound(Box<HookNotFoundArgs>),
     /// Removes mise CLI and all related data
     #[command(name = "implode")]
@@ -5631,7 +6446,7 @@ pub enum Commands {
     #[command(name = "link", visible_alias = "ln")]
     Link(Box<LinkArgs>),
     /// Sets/gets tool version in local .tool-versions or mise.toml
-    #[command(name = "local", alias = "l")]
+    #[command(name = "local", hide = true, alias = "l")]
     Local(Box<LocalArgs>),
     /// Update lockfile checksums and URLs for all specified platforms
     #[command(name = "lock")]
@@ -5667,7 +6482,7 @@ pub enum Commands {
     #[command(name = "registry")]
     Registry(Box<RegistryArgs>),
     /// internal command to generate markdown from help
-    #[command(name = "render-help")]
+    #[command(name = "render-help", hide = true)]
     RenderHelp(Box<RenderHelpArgs>),
     /// Creates new shims based on bin paths from currently installed tools.
     #[command(name = "reshim")]
@@ -5685,11 +6500,7 @@ pub enum Commands {
     #[command(name = "set", aliases = ["ev", "env-vars"])]
     Set(Box<SetArgs>),
     /// Manage settings
-    #[command(
-        name = "settings",
-        about = "Manage settings",
-        long_about = "Show current settings\n\nThis is the contents of ~/.config/mise/config.toml\n\nNote that aliases are also stored in this file\nbut managed separately with `mise tool-alias`"
-    )]
+    #[command(name = "settings")]
     Settings(Box<SettingsArgs>),
     /// Sets a tool version for the current session.
     #[command(name = "shell", visible_alias = "sh")]
@@ -5727,7 +6538,7 @@ pub enum Commands {
     /// Remove environment variable(s) from the config file.
     #[command(name = "unset")]
     Unset(Box<UnsetArgs>),
-    /// No longer trust a config, will prompt in the future
+    /// Remove explicit trust for a config
     #[command(name = "untrust")]
     Untrust(Box<UntrustArgs>),
     /// Removes installed tool versions from mise.toml
@@ -5737,7 +6548,7 @@ pub enum Commands {
     #[command(name = "upgrade", visible_alias = "up")]
     Upgrade(Box<UpgradeArgs>),
     /// Generate a usage CLI spec
-    #[command(name = "usage")]
+    #[command(name = "usage", hide = true)]
     Usage(Box<UsageArgs>),
     /// Installs a tool and adds the version to mise.toml.
     #[command(name = "use", visible_alias = "u")]

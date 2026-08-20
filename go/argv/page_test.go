@@ -36,6 +36,18 @@ func TestExamplesFallBackToTheRoot(t *testing.T) {
 	}
 }
 
+func TestLongHelpEndsWithAuthorshipAndLicense(t *testing.T) {
+	root := &Command{Name: "ex", Key: 1}
+	spec := HelpSpec{Bin: "ex", Author: "A. Person", License: "MIT"}
+	page := LongHelp(spec, []string{"ex"}, []*Command{root}, HelpTable{{Key: 1}})
+	if !strings.HasSuffix(page, "Author: A. Person\nLicense: MIT\n") {
+		t.Fatalf("missing long-page footer:\n%s", page)
+	}
+	if strings.Contains(ShortHelp(spec, []string{"ex"}, []*Command{root}, HelpTable{{Key: 1}}), "Author:") {
+		t.Fatal("short help should not print the long-page footer")
+	}
+}
+
 func TestHiddenFlagAliasesStayOutOfHelp(t *testing.T) {
 	flag := &Flag{
 		Key: 2, Name: "output",
