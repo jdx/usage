@@ -1178,3 +1178,155 @@ mod help_metadata {
         }
     }
 }
+
+mod default_missing_value {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro")]
+    struct ClapCli {
+        #[arg(
+            long,
+            num_args = 0..=1,
+            require_equals = true,
+            default_missing_value = "always"
+        )]
+        color: Option<String>,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error")]
+    struct UsageCli {
+        #[usage(long, require_equals, default_missing = "always")]
+        color: Option<String>,
+    }
+
+    #[test]
+    fn absent_bare_and_explicit_values_have_the_same_states() {
+        for argv in [
+            [].as_slice(),
+            ["--color"].as_slice(),
+            ["--color=never"].as_slice(),
+        ] {
+            let clap =
+                ClapCli::try_parse_from(std::iter::once("micro").chain(argv.iter().copied()))
+                    .unwrap();
+            let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+            let usage = UsageCli::parse_from(&words).unwrap();
+            assert_eq!(usage.color, clap.color, "{argv:?}");
+        }
+    }
+}
+
+mod flatten_and_skip {
+    use super::*;
+
+    #[derive(Debug, clap::Args)]
+    struct ClapShared {
+        #[arg(long)]
+        verbose: bool,
+        #[arg(skip)]
+        cache_generation: u32,
+    }
+
+    #[derive(Debug, usage_derive::Args)]
+    struct UsageShared {
+        #[usage(long)]
+        verbose: bool,
+        #[usage(skip)]
+        cache_generation: u32,
+    }
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro")]
+    struct ClapCli {
+        #[command(flatten)]
+        shared: ClapShared,
+        input: Option<String>,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error")]
+    struct UsageCli {
+        #[usage(flatten)]
+        shared: UsageShared,
+        #[usage(arg)]
+        input: Option<String>,
+    }
+
+    #[test]
+    fn flattened_values_bind_and_skipped_values_default() {
+        let clap = ClapCli::try_parse_from(["micro", "--verbose", "input"]).unwrap();
+        let usage = UsageCli::parse_from(&[OsStr::new("--verbose"), OsStr::new("input")]).unwrap();
+        assert_eq!(usage.shared.verbose, clap.shared.verbose);
+        assert_eq!(usage.shared.cache_generation, clap.shared.cache_generation);
+        assert_eq!(usage.input, clap.input);
+    }
+}
+
+mod trailing_values {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro")]
+    struct ClapCli {
+        #[arg(last = true)]
+        rest: Vec<String>,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error")]
+    struct UsageCli {
+        #[usage(arg, double_dash = "required")]
+        rest: Vec<String>,
+    }
+
+    #[test]
+    fn a_separator_is_required_and_not_collected() {
+        let clap = ClapCli::try_parse_from(["micro", "--", "--literal", "tail"]).unwrap();
+        let usage = UsageCli::parse_from(&[
+            OsStr::new("--"),
+            OsStr::new("--literal"),
+            OsStr::new("tail"),
+        ])
+        .unwrap();
+        assert_eq!(usage.rest, clap.rest);
+
+        let clap = ClapCli::try_parse_from(["micro", "tail"]).unwrap_err();
+        let usage = UsageCli::parse_from(&[OsStr::new("tail")]).unwrap_err();
+        assert_eq!(clap.kind(), clap::error::ErrorKind::UnknownArgument);
+        assert!(matches!(usage, Error::ArgRequiresDoubleDash { .. }));
+    }
+}
+
+mod long_version {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro", version = "1.2.3", long_version = "1.2.3\ncommit abc")]
+    struct ClapCli {}
+
+    #[derive(Debug, Cli)]
+    #[usage(
+        bin = "micro",
+        version = "1.2.3",
+        long_version = "1.2.3\ncommit abc",
+        unknown_flags = "error"
+    )]
+    struct UsageCli {}
+
+    fn usage_exit(argv: &[&str]) -> Exit {
+        let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+        let error = UsageCli::parse_from(&words).expect_err("version exits");
+        usage_error(UsageCli::spec(), &words, error)
+    }
+
+    #[test]
+    fn short_and_long_actions_emit_the_same_versions() {
+        assert_eq!(usage_exit(&["-V"]), clap_exit::<ClapCli>(&["-V"]));
+        assert_eq!(
+            usage_exit(&["--version"]),
+            clap_exit::<ClapCli>(&["--version"])
+        );
+    }
+}
