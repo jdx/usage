@@ -2196,6 +2196,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             ::std::option::Option::None
         }
 
+        #[allow(dead_code)]
         pub fn displace(partial: &mut Partial, selector: &str) -> bool {
             match selector {
                 #(#displace_arms)*
@@ -2205,6 +2206,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             false
         }
 
+        #[allow(dead_code)]
         pub fn event_matches(
             event: &usage_argv::Event<'_, '_, '_>,
             selector: &str,
