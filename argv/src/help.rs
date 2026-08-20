@@ -797,7 +797,9 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
                 write_indented(out, about.trim_end(), 4);
                 continue;
             }
-            let _ = write!(out, "  {about}");
+            // The row writes its own newline below. Trim trailing whitespace in both
+            // layouts, as usage-lib does before choosing a layout.
+            let _ = write!(out, "  {}", about.trim_end());
         }
         out.push('\n');
     }
@@ -1755,7 +1757,33 @@ pub fn render_at_styled(
 
 #[cfg(test)]
 mod style_tests {
-    use super::{styled_help, Style};
+    use super::{commands_section, styled_help, Style};
+    use crate::spec::CommandMeta;
+    use crate::Command;
+
+    #[test]
+    fn short_command_rows_trim_trailing_help_whitespace() {
+        let sub_cmd = Command {
+            name: "run",
+            ..Command::EMPTY
+        };
+        let sub_meta = CommandMeta {
+            cmd: &sub_cmd,
+            about: Some("run it\n"),
+            ..CommandMeta::EMPTY
+        };
+        let subcommands = [&sub_meta];
+        let root_meta = CommandMeta {
+            subcommands: &subcommands,
+            ..CommandMeta::EMPTY
+        };
+        let mut page = String::new();
+
+        commands_section(&mut page, &[], &root_meta);
+
+        assert!(page.contains("  run  run it\n  help"));
+        assert!(!page.contains("  run  run it\n\n  help"));
+    }
 
     #[test]
     fn coloured_help_styles_structure_without_changing_plain_text() {

@@ -190,7 +190,7 @@ func TestADescriptionEndingInABreakAddsNoBlankLine(t *testing.T) {
 	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{sub}}
 	help := HelpTable{
 		{Key: 1},
-		{Key: 2, Short: "run it", Long: "run it\n\nExamples:\n\n    $ ex run\n"},
+		{Key: 2, Short: "run it\n", Long: "run it\n\nExamples:\n\n    $ ex run\n"},
 	}
 	spec := HelpSpec{Name: "ex", Bin: "ex"}
 
@@ -208,5 +208,10 @@ func TestADescriptionEndingInABreakAddsNoBlankLine(t *testing.T) {
 	parent := LongHelp(spec, []string{"ex"}, []*Command{root}, help)
 	if strings.Contains(parent, "$ ex run\n\n\n") {
 		t.Errorf("a listed command's description should not double it either:\n%q", parent)
+	}
+
+	shortParent := ShortHelp(spec, []string{"ex"}, []*Command{root}, help)
+	if strings.Contains(shortParent, "run it\n\n  help") {
+		t.Errorf("short command help should not add a blank line either:\n%q", shortParent)
 	}
 }

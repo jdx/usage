@@ -263,7 +263,9 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 					writeIndented(out, trimEnd(h.Short), 4)
 					continue
 				}
-				out.WriteString("  " + h.Short)
+				// The row owns its terminating newline. Trim the description in both
+				// layouts, as usage-lib does before selecting a layout.
+				out.WriteString("  " + trimEnd(h.Short))
 			}
 		}
 		out.WriteString("\n")
