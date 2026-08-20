@@ -109,7 +109,7 @@ impl Cli {
                 }
                 return Ok(());
             }
-            Err(usage_rs::Error::Version) => {
+            Err(usage_rs::Error::Version { .. }) => {
                 println!("{}", version());
                 return Ok(());
             }

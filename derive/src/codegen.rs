@@ -317,13 +317,28 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let built = built_value(cli, &sub_build, &field_finals);
 
     let min_usage_version = option_str(cli.min_usage_version.as_deref());
-    let has_version = cli.version.is_some();
+    let has_version = cli.version.is_some() || cli.long_version.is_some();
     let runtime_version = cli
         .runtime_version
         .as_ref()
         .or(cli.version.as_ref())
+        .or(cli.runtime_long_version.as_ref())
+        .or(cli.long_version.as_ref())
         .cloned()
         .unwrap_or_else(|| quote!(""));
+    let long_version = cli
+        .long_version
+        .as_ref()
+        .map(|tokens| quote!(::core::option::Option::Some(#tokens)))
+        .unwrap_or_else(|| quote!(::core::option::Option::None));
+    let runtime_long_version = cli
+        .runtime_long_version
+        .as_ref()
+        .or(cli.long_version.as_ref())
+        .cloned();
+    let output_long_version = runtime_long_version
+        .clone()
+        .unwrap_or_else(|| runtime_version.clone());
     let runtime_name_decl = cli.runtime_name.as_ref().map(|runtime_name| {
         quote! {
             let __usage_runtime_name: &'static str = #runtime_name;
@@ -338,6 +353,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
         quote! {
             let __usage_runtime_version =
                 ::std::string::ToString::to_string(&(#runtime_version));
+        }
+    });
+    let runtime_long_version_decl = runtime_long_version.as_ref().map(|value| {
+        quote! {
+            let __usage_runtime_long_version =
+                ::std::string::ToString::to_string(&(#value));
         }
     });
     let effective_name = if cli.runtime_name.is_some() {
@@ -358,17 +379,29 @@ pub fn emit(cli: &Cli) -> TokenStream {
         quote!(Self::spec().version)
     };
     let has_runtime_identity = cli.runtime_name.is_some() || cli.runtime_bin.is_some();
-    let effective_spec = if has_runtime_identity || cli.runtime_version.is_some() {
+    let effective_long_version = if runtime_long_version.is_some() {
+        quote!(::std::option::Option::Some(
+            __usage_runtime_long_version.as_str()
+        ))
+    } else {
+        quote!(Self::spec().long_version)
+    };
+    let effective_spec = if has_runtime_identity
+        || cli.runtime_version.is_some()
+        || runtime_long_version.is_some()
+    {
         quote! {
             // Portable literals remain in `SPEC`; runtime expressions are evaluated only on
             // cold output paths. Successful argv parsing still reads the static tables directly.
             #runtime_name_decl
             #runtime_bin_decl
             #runtime_version_decl
+            #runtime_long_version_decl
             let __usage_runtime_spec = usage_argv::spec::Spec {
                 name: #effective_name,
                 bin: #effective_bin,
                 version: #effective_version,
+                long_version: #effective_long_version,
                 ..*Self::spec()
             };
             let __usage_spec = &__usage_runtime_spec;
@@ -576,7 +609,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         // failure, answered by whoever knows the version string.
                         if usage_argv::is_version_flag(flag) {
                             return ::std::result::Result::Err(
-                                usage_argv::Error::Version,
+                                usage_argv::Error::Version {
+                                    long: flag.key == usage_argv::VERSION_LONG_KEY,
+                                },
                             );
                         }
                     }
@@ -633,6 +668,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 name: #name,
                 bin: #bin,
                 version: #version,
+                long_version: #long_version,
                 author: #author,
                 license: #license,
                 repository: #repository,
@@ -767,9 +803,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     match Self::parse_from(&__usage_argv) {
                         ::std::result::Result::Ok(parsed) => parsed,
                         // Not failures: someone asked a question, and the answer goes to stdout.
-                        ::std::result::Result::Err(usage_argv::Error::Version) => {
+                        ::std::result::Result::Err(usage_argv::Error::Version { long }) => {
                             #runtime_program_for_version
-                            let __usage_version = #runtime_version;
+                            let __usage_version = if long {
+                                #output_long_version
+                            } else {
+                                #runtime_version
+                            };
                             ::std::println!("{__usage_bin} {__usage_version}");
                             ::std::process::exit(0);
                         }

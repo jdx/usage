@@ -7,6 +7,7 @@ min_usage_version "1.0.0" // the minimum version of usage this CLI supports
 name "My CLI"        // a friendly name for the CLI
 bin "mycli"          // the name of the binary
 version "1.0.0"      // the version of the CLI
+long_version "1.0.0\ncommit abc123" // extended text for --version; -V uses version
 author "nobody"      // the author of the CLI
 license "MIT"        // SPDX license the CLI is released under
 repository "https://github.com/me/myproj" // where the source lives

@@ -115,7 +115,7 @@ fn a_version_is_answered_in_both_spellings() {
         let words = [word];
         let a = argv(&words);
         assert!(
-            matches!(Versioned::parse_from(&a), Err(Error::Version)),
+            matches!(Versioned::parse_from(&a), Err(Error::Version { .. })),
             "`{word}` should be a version request"
         );
     }
@@ -139,7 +139,7 @@ fn a_subcommand_does_not_inherit_it() {
     // `ex other --version` is asking a question the subcommand has no answer to.
     let a = argv(&["other", "--version"]);
     assert!(
-        !matches!(Versioned::parse_from(&a), Err(Error::Version)),
+        !matches!(Versioned::parse_from(&a), Err(Error::Version { .. })),
         "a subcommand should not answer the root's question"
     );
 }
@@ -156,7 +156,10 @@ fn a_declared_short_wins_over_the_supplied_one() {
     // And the spelling it did *not* take still answers, which is what makes this better than
     // clap's answer of refusing to start: nothing is lost, only what was claimed is claimed.
     let a = argv(&["--version"]);
-    assert!(matches!(OwnShort::parse_from(&a), Err(Error::Version)));
+    assert!(matches!(
+        OwnShort::parse_from(&a),
+        Err(Error::Version { .. })
+    ));
 }
 
 #[test]
@@ -168,7 +171,10 @@ fn a_declared_long_takes_the_word_and_its_value() {
 
     // And `-V`, unclaimed, still answers.
     let a = argv(&["-V"]);
-    assert!(matches!(OwnLong::parse_from(&a), Err(Error::Version)));
+    assert!(matches!(
+        OwnLong::parse_from(&a),
+        Err(Error::Version { .. })
+    ));
 }
 
 #[test]

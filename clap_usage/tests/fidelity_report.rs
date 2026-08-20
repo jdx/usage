@@ -2,6 +2,31 @@ use clap::{Arg, ArgAction, ArgGroup, Command, ValueHint};
 use clap_usage::{spec_with_report, FidelityFeature};
 
 #[test]
+fn long_version_is_lossless() {
+    let mut command = Command::new("ex")
+        .version("1.2.3")
+        .long_version("1.2.3\ncommit abc123");
+    let (spec, report) = spec_with_report(&mut command, "ex");
+
+    assert_eq!(spec.version.as_deref(), Some("1.2.3"));
+    assert_eq!(spec.long_version.as_deref(), Some("1.2.3\ncommit abc123"));
+    assert!(report.is_lossless(), "{report:#?}");
+}
+
+#[test]
+fn disabled_long_version_flag_is_reported() {
+    let mut command = Command::new("ex")
+        .long_version("commit abc123")
+        .disable_version_flag(true);
+    let (_, report) = spec_with_report(&mut command, "ex");
+
+    assert!(report
+        .losses()
+        .iter()
+        .any(|loss| loss.feature == FidelityFeature::DisableVersionFlag));
+}
+
+#[test]
 fn reports_detectable_losses_with_locations() {
     let mut command = Command::new("ex")
         .arg_required_else_help(true)

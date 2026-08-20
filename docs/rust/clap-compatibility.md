@@ -119,7 +119,7 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | `term_width`, `max_term_width`                     | yes    | yes  | yes | yes | yes    | no      | Fixed width overrides a detected-width cap; clap exposes no bridge getters for these settings. |
 | help styles and color                              | n/a    | n/a  | n/a | yes | lossy  | no      | Help and diagnostics use automatic ANSI styles; clap's custom style palette is not portable.   |
 | built-in help/version action and flag control      | no     | no   | no  | no  | no     | no      | Custom actions and disabling or relocating built-ins are not represented.                      |
-| `--version` / `-V`, dynamic version                | yes    | yes  | yes | yes | yes    | yes     | Literal and runtime versions propagate through nested commands.                                |
+| `--version` / `-V`, dynamic and long versions      | yes    | yes  | yes | yes | yes    | yes     | `long_version` customizes `--version`; `-V` keeps the concise value.                           |
 | `author`, `license`, `repository`                  | yes    | n/a  | yes | yes | yes    | partial | Package metadata is rendered in Markdown and manpages; clap exposes author but not license.    |
 | completion generation                              | yes    | yes  | yes | yes | lossy  | yes     | Bash, fish, Nushell, PowerShell, and zsh plus runtime overlays are supported; Elvish is not.   |
 | KDL, markdown, JSON, and manpages                  | yes    | n/a  | yes | yes | yes    | yes     | Direct derived KDL feeds the existing generators; broader canonicalization remains open.       |

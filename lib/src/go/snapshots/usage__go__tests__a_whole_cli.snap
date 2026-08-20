@@ -19,6 +19,9 @@ import "github.com/jdx/usage/go/argv"
 // without the parse tables carrying a string binding never reads.
 const Version = "1.2.3"
 
+// LongVersion is the extended text printed for `--version`; `-V` uses Version.
+const LongVersion = "1.2.3\ncommit abc123"
+
 // Keys identify a table entry without a string comparison: switch on the Key an
 // event carries rather than on its Name, which is there for diagnostics.
 const (
@@ -130,7 +133,7 @@ var HelpText = argv.HelpTable{
 
 // HelpMeta is what a page needs from the spec's root rather than from any one
 // command: the header, and the text that brackets every page.
-var HelpMeta = argv.HelpSpec{Name: "ex", Bin: "ex", Version: "1.2.3"}
+var HelpMeta = argv.HelpSpec{Name: "ex", Bin: "ex", Version: "1.2.3", LongVersion: "1.2.3\ncommit abc123"}
 
 // Cli is the whole command line.
 type Cli struct {

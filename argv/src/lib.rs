@@ -633,11 +633,11 @@ pub enum Error<'t, 'v> {
     /// clap has them. The caller renders — this crate does not print, because a library that
     /// writes to stdout on its own is one an adopter cannot embed.
     Help { cmd: &'t Command<'t>, long: bool },
-    /// `--version` was asked for. Not a failure either — the caller prints and leaves.
+    /// `--version` or `-V` was asked for. Not a failure either — the caller prints and leaves.
     ///
-    /// Carries nothing: the version string lives in the spec rather than the parse tables,
-    /// and the caller that answers this has it.
-    Version,
+    /// The version string lives in the spec rather than the parse tables. `long` lets the
+    /// caller choose `long_version` for `--version` while `-V` retains the concise value.
+    Version { long: bool },
 }
 
 /// The high half of every key one declaration's items get.

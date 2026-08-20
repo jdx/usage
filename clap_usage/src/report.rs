@@ -83,7 +83,8 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         "disable_help_subcommand",
     );
     command_loss(
-        cmd.get_version().is_some() && cmd.is_disable_version_flag_set(),
+        (cmd.get_version().is_some() || cmd.get_long_version().is_some())
+            && cmd.is_disable_version_flag_set(),
         FidelityFeature::DisableVersionFlag,
         "disable_version_flag",
     );

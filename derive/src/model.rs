@@ -44,6 +44,10 @@ pub struct Cli {
     /// The expression printed for `--version` when the portable spec uses an
     /// explicitly supplied literal.
     pub runtime_version: Option<proc_macro2::TokenStream>,
+    /// Extended text printed for `--version`; `-V` continues to use `version`.
+    pub long_version: Option<proc_macro2::TokenStream>,
+    /// Runtime expression paired with the portable `long_version` literal.
+    pub runtime_long_version: Option<proc_macro2::TokenStream>,
     /// Whether this CLI answers a completion request.
     ///
     /// Opt in rather than supplied like `--help`: it is a hidden command a binary carries and a
@@ -551,6 +555,8 @@ impl Cli {
         let mut verbatim_doc_comment = false;
         let mut version_spec_given = false;
         let mut version_needs_spec = false;
+        let mut long_version_spec_given = false;
+        let mut long_version_needs_spec = false;
         let mut cli = Cli {
             ident: input.ident.clone(),
             composable: false,
@@ -576,6 +582,8 @@ impl Cli {
                 .map(|a| a.path().span()),
             version: None,
             runtime_version: None,
+            long_version: None,
+            runtime_long_version: None,
             about: None,
             long_about: None,
             author: None,
@@ -700,6 +708,33 @@ impl Cli {
                         cli.version = Some(quote::quote!(#literal));
                         version_spec_given = true;
                     }
+                    "long_version" => {
+                        let value = match &meta {
+                            Meta::Path(_) => quote::quote!(env!("CARGO_PKG_VERSION")),
+                            Meta::NameValue(value) => {
+                                quote::ToTokens::to_token_stream(&value.value)
+                            }
+                            Meta::List(_) => {
+                                return Err(syn::Error::new_spanned(
+                                    &meta,
+                                    "`long_version` is a Rust expression, as in `long_version = build::LONG_VERSION`, or is written on its own for the package version",
+                                ));
+                            }
+                        };
+                        cli.runtime_long_version = Some(value.clone());
+                        if let Meta::NameValue(value) = &meta {
+                            long_version_needs_spec =
+                                matches!(value.value, Expr::Call(_) | Expr::MethodCall(_));
+                        }
+                        if !long_version_spec_given {
+                            cli.long_version = Some(value);
+                        }
+                    }
+                    "long_version_spec" => {
+                        let literal = string_value(&meta)?;
+                        cli.long_version = Some(quote::quote!(#literal));
+                        long_version_spec_given = true;
+                    }
                     // A doc comment's long form always contains its short one — the short form
                     // *is* the comment's first paragraph. A spec keeps `about` and `about_long`
                     // independent, and mise's differ entirely: "Dev tools, env vars, and tasks
@@ -771,7 +806,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `author`, `license`, `repository`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount` and \
@@ -790,6 +825,12 @@ impl Cli {
             return Err(syn::Error::new_spanned(
                 &input.ident,
                 "a computed `version` needs `version_spec = \"...\"`: the expression is evaluated for `--version`, while the literal is emitted into the portable spec",
+            ));
+        }
+        if long_version_needs_spec && !long_version_spec_given {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "a computed `long_version` needs `long_version_spec = \"...\"`: the expression is evaluated for `--version`, while the literal is emitted into the portable spec",
             ));
         }
         if name_needs_spec && !name_spec_given {

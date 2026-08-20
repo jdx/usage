@@ -222,6 +222,7 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         name: leak(&spec.name),
         bin: Some(leak(&spec.bin)),
         version: opt(&spec.version),
+        long_version: opt(&spec.long_version),
         author: opt(&spec.author),
         license: opt(&spec.license),
         repository: opt(&spec.repository),
