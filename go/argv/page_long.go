@@ -1,6 +1,7 @@
 package argv
 
 import (
+	"slices"
 	"sort"
 	"strings"
 )
@@ -181,7 +182,6 @@ func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help
 	if h := help.Lookup(cmd.Key); h != nil && h.SubcommandHelpHeading != "" {
 		heading = h.SubcommandHelpHeading
 	}
-	out.WriteString("\n" + heading + ":\n")
 	sort.SliceStable(lines, func(i, j int) bool {
 		left, right := helpOrder(help, lines[i].sub.Key, 999), helpOrder(help, lines[j].sub.Key, 999)
 		if left != right {
@@ -190,26 +190,50 @@ func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help
 		return lines[i].usage < lines[j].usage
 	})
 
+	headings := []string{""}
 	for _, l := range lines {
-		out.WriteString("  " + l.usage)
-		h := help.Lookup(l.sub.Key)
-		if h != nil && len(h.VisibleAliases) > 0 {
-			out.WriteString(" [aliases: " + strings.Join(h.VisibleAliases, ", ") + "]")
+		if h := headingOf(help, l.sub.Key); h == heading {
+			continue
+		} else if h != "" && !slices.Contains(headings, h) {
+			headings = append(headings, h)
 		}
-		out.WriteString("\n")
-		if h != nil {
-			// Trailing whitespace trimmed: the blank line after each entry is
-			// written below, and a description that happens to end in a newline
-			// added a second one — a stray blank in the middle of the list.
-			if about := trimEnd(firstOf(h.Long, h.Short)); about != "" {
-				writeIndented(out, about, 4)
-			}
-		}
-		// A blank line between entries, which the wider layout can afford and
-		// which keeps a multi-line description from running into the next name.
-		out.WriteString("\n")
 	}
-	out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
+	for _, section := range headings {
+		title := section
+		if title == "" {
+			title = heading
+		}
+		out.WriteString("\n" + title + ":\n")
+		for _, l := range lines {
+			itemSection := headingOf(help, l.sub.Key)
+			if itemSection == heading {
+				itemSection = ""
+			}
+			if itemSection != section {
+				continue
+			}
+			out.WriteString("  " + l.usage)
+			h := help.Lookup(l.sub.Key)
+			if h != nil && len(h.VisibleAliases) > 0 {
+				out.WriteString(" [aliases: " + strings.Join(h.VisibleAliases, ", ") + "]")
+			}
+			out.WriteString("\n")
+			if h != nil {
+				// Trailing whitespace trimmed: the blank line after each entry is
+				// written below, and a description that happens to end in a newline
+				// added a second one — a stray blank in the middle of the list.
+				if about := trimEnd(firstOf(h.Long, h.Short)); about != "" {
+					writeIndented(out, about, 4)
+				}
+			}
+			// A blank line between entries, which the wider layout can afford and
+			// which keeps a multi-line description from running into the next name.
+			out.WriteString("\n")
+		}
+		if section == "" {
+			out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
+		}
+	}
 }
 
 func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool) {

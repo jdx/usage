@@ -139,6 +139,38 @@ func TestSubcommandPresentation(t *testing.T) {
 	}
 }
 
+func TestSubcommandHelpHeadings(t *testing.T) {
+	run := &Command{Name: "run", Key: 2}
+	clean := &Command{Name: "clean", Key: 3}
+	status := &Command{Name: "status", Key: 4}
+	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{run, clean, status}}
+	help := HelpTable{
+		{Key: 1},
+		{Key: 2, Short: "run it", Heading: "Core commands"},
+		{Key: 3, Short: "remove old state", Heading: "Maintenance"},
+		{Key: 4, Short: "show status", Heading: "Commands"},
+	}
+	for _, page := range []string{
+		ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+		LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+	} {
+		commands := strings.Index(page, "\nCommands:\n")
+		core := strings.Index(page, "\nCore commands:\n")
+		maintenance := strings.Index(page, "\nMaintenance:\n")
+		if commands < 0 || core < commands || maintenance < commands {
+			t.Fatalf("command headings are missing or out of order:\n%s", page)
+		}
+		if strings.Count(page, "\nCommands:\n") != 1 {
+			t.Fatalf("default-equivalent heading was duplicated:\n%s", page)
+		}
+		defaultEnd := min(core, maintenance)
+		if !strings.Contains(page[commands:defaultEnd], "status") || !strings.Contains(page[commands:defaultEnd], "help") ||
+			!strings.Contains(page[core:], "run") || !strings.Contains(page[maintenance:], "clean") {
+			t.Fatalf("commands are in the wrong sections:\n%s", page)
+		}
+	}
+}
+
 func TestExplicitDisplayOrder(t *testing.T) {
 	second := &Flag{Key: 2, Name: "second", Longs: []string{"second"}}
 	first := &Flag{Key: 3, Name: "first", Longs: []string{"first"}}

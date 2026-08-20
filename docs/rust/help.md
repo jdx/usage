@@ -56,7 +56,7 @@ convenience entry point for CLIs that want immediate print-and-exit behavior.
 - `usage = "…"` on the root replaces the generated synopsis line(s) verbatim.
 - `before_help`, `after_help`, `before_long_help`, `after_long_help` add text around the page —
   `after_long_help` is the conventional home for an Examples section.
-- `help_heading` on a field groups it under a heading.
+- `help_heading` on a field or subcommand variant groups it under a heading.
 - `display_order = n` on a field or subcommand controls its position within a help section
   without changing positional parsing order.
 - `next_line_help` on a command puts every argument, flag, and subcommand description beneath

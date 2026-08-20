@@ -313,7 +313,9 @@
 //! list. They may be written on the `Args` struct that owns the command or on its
 //! `Subcommands` variant; when both say some, the lists are joined. The parser matches both;
 //! the difference is only whether help and completions mention them.
-//! `display_order = n` on the variant controls where the command is presented in help.
+//! `help_heading = "Maintenance"` on a variant groups that command under a named section
+//! in its parent's help. `display_order = n` controls where it is presented within the
+//! section.
 //!
 //! # Settings and the flags that set them
 //!

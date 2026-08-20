@@ -32,9 +32,10 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- endif %}
 
 {%- if cmd.subcommands and not cmd.flatten_help %}
+{%- for group in cmd.subcommand_groups %}
 
-{{ cmd.subcommand_help_heading | default(value="Commands") }}:
-{%- for cmd in cmd.help_subcommands %}
+{{ group.heading | default(value=cmd.subcommand_help_heading | default(value="Commands")) }}:
+{%- for cmd in group.items %}
   {{ cmd.usage | trim }}
 {%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
@@ -43,8 +44,11 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
     {{ help | indent(width=4) }}
 {%- endif %}
 {% endfor %}
+{%- if not group.heading %}
   help
     Print this message or the help of the given subcommand(s)
+{%- endif %}
+{%- endfor %}
 {%- endif %}
 
 {%- for group in cmd.arg_groups %}
