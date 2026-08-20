@@ -2060,6 +2060,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         })
     });
     quote! {
+        #[allow(dead_code)]
         pub fn argument_state(
             partial: &Partial,
             selector: &str,
@@ -2072,6 +2073,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             ::std::option::Option::None
         }
 
+        #[allow(dead_code)]
         pub fn argument_matches(
             partial: &Partial,
             selector: &str,
