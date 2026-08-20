@@ -41,6 +41,7 @@ type Vector struct {
 	Argv   []string          `json:"argv"`
 	Argv0  *string           `json:"argv0"`
 	Env    map[string]string `json:"env"`
+	Mounts map[string]string `json:"mounts"`
 	Expect Expect            `json:"expect"`
 	// Layer says which layer of a parser the vector is a question for. Absent
 	// means binding, which is the default and most of them.
@@ -94,10 +95,16 @@ func TestCorpus(t *testing.T) {
 			}
 			ran++
 
-			s, ok := lowered[v.Spec]
+			mountKey, err := json.Marshal(v.Mounts)
+			if err != nil {
+				t.Fatalf("encoding mount outputs: %v", err)
+			}
+			key := v.Spec + "\x00" + string(mountKey)
+			s, ok := lowered[key]
 			if !ok {
 				s = lower(t, usageBin, v.Spec)
-				lowered[v.Spec] = s
+				resolveMounts(t, usageBin, &s.Cmd, v.Mounts)
+				lowered[key] = s
 			}
 
 			got, gotErr := run(s, v.Argv, v.Argv0, v.Env)
@@ -138,6 +145,77 @@ func TestCorpus(t *testing.T) {
 	if skipped != len(notYet) {
 		t.Errorf("skipped %d vectors but `notYet` lists %d; a listed id may have been "+
 			"renamed, which would silently stop excluding anything", skipped, len(notYet))
+	}
+}
+
+// resolveMounts composes injected mount stdout before building static tables.
+// usage-lib receives the same map at parse time; Go deliberately never starts
+// processes from its parser, so its corpus adapter performs the equivalent
+// deterministic lowering here.
+func resolveMounts(t *testing.T, usageBin string, cmd *spec.Cmd, outputs map[string]string) {
+	t.Helper()
+	for _, mount := range cmd.Mounts {
+		output, ok := outputs[mount.Run]
+		if !ok {
+			t.Fatalf("no injected output for mount command %q", mount.Run)
+		}
+		mounted := lower(t, usageBin, output)
+		resolveMounts(t, usageBin, &mounted.Cmd, outputs)
+		mergeMountedCommand(cmd, &mounted.Cmd)
+	}
+	cmd.Mounts = nil
+	for i := range cmd.Subcommands {
+		resolveMounts(t, usageBin, &cmd.Subcommands[i].Cmd, outputs)
+	}
+}
+
+func mergeMountedCommand(dst, mounted *spec.Cmd) {
+	if mounted.Name != "" {
+		dst.Name = mounted.Name
+	}
+	if len(mounted.Args) > 0 {
+		dst.Args = mounted.Args
+	}
+	if len(mounted.Flags) > 0 {
+		dst.Flags = mounted.Flags
+	}
+	if len(mounted.Aliases) > 0 {
+		dst.Aliases = mounted.Aliases
+	}
+	if len(mounted.HiddenAliases) > 0 {
+		dst.HiddenAliases = mounted.HiddenAliases
+	}
+	if mounted.UnknownFlags != nil {
+		dst.UnknownFlags = mounted.UnknownFlags
+	}
+	dst.ExternalSubcommand = mounted.ExternalSubcommand
+	dst.ArgRequiredElseHelp = mounted.ArgRequiredElseHelp
+	dst.DisableHelpFlag = mounted.DisableHelpFlag
+	dst.DisableHelpSubcommand = mounted.DisableHelpSubcommand
+	dst.DisableVersionFlag = mounted.DisableVersionFlag
+	dst.DontDelimitTrailingValues = mounted.DontDelimitTrailingValues
+	dst.ArgsOverrideSelf = mounted.ArgsOverrideSelf
+	dst.SubcommandNegatesReqs = mounted.SubcommandNegatesReqs
+	dst.ArgsConflictWithSubcommands = mounted.ArgsConflictWithSubcommands
+	dst.SubcommandPrecedenceOverArg = mounted.SubcommandPrecedenceOverArg
+	dst.AllowMissingPositional = mounted.AllowMissingPositional
+	dst.SubcommandRequired = mounted.SubcommandRequired
+	mergeSubcommands(&dst.Subcommands, mounted.Subcommands)
+}
+
+func mergeSubcommands(dst *spec.Subcommands, additions spec.Subcommands) {
+	for _, addition := range additions {
+		replaced := false
+		for i := range *dst {
+			if (*dst)[i].Name == addition.Name {
+				(*dst)[i] = addition
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			*dst = append(*dst, addition)
+		}
 	}
 }
 

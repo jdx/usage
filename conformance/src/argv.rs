@@ -45,10 +45,16 @@ impl Outcome {
 
 /// Parse a vector with usage-argv.
 pub fn run(vector: &Vector) -> Outcome {
-    let spec: Spec = match vector.spec.parse() {
+    let mut spec: Spec = match vector.spec.parse() {
         Ok(spec) => spec,
         Err(e) => return Outcome::BadSpec(e.to_string()),
     };
+    if !vector.mounts.is_empty() {
+        let outputs = vector.mounts.clone().into_iter().collect();
+        if let Err(error) = spec.resolve_mount_outputs(&outputs) {
+            return Outcome::BadSpec(error.to_string());
+        }
+    }
 
     if let Some(reason) = out_of_scope(vector) {
         return Outcome::OutOfScope(reason);
