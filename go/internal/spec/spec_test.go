@@ -174,9 +174,11 @@ func TestChoicesAreReadThroughTheValue(t *testing.T) {
 }
 
 func TestRichChoicesSeparateAcceptanceFromVisibility(t *testing.T) {
+	notStrict := false
 	choices := &Choices{
 		Choices:    []string{"always", "never"},
 		IgnoreCase: true,
+		Strict:     &notStrict,
 		Details: []Choice{
 			{Value: "always", Aliases: []ChoiceAlias{{Value: "yes"}, {Value: "on", Hide: true}}},
 			{Value: "never", Hide: true},
@@ -189,6 +191,9 @@ func TestRichChoicesSeparateAcceptanceFromVisibility(t *testing.T) {
 	entry := metaFor(t, meta, root, "color")
 	if !entry.IgnoreCase {
 		t.Error("ignore_case was lost")
+	}
+	if !entry.AllowUnknownChoices {
+		t.Error("strict=false was lost")
 	}
 	if !reflect.DeepEqual(entry.Choices, []string{"always", "yes"}) {
 		t.Errorf("visible choices: %q", entry.Choices)

@@ -246,6 +246,8 @@ pub struct Field {
     /// The values this may take. Checked after the parse, since a choice list is
     /// about what a value *means* rather than which token it came from.
     pub choices: Vec<String>,
+    /// Keep declared choices for presentation without rejecting other values.
+    pub allow_unknown_choices: bool,
     /// Portable expr expression evaluated for each raw value after binding.
     pub validate: Option<String>,
     /// Message reported when `validate` returns false.
@@ -1585,6 +1587,7 @@ impl Field {
             value_names: Vec::new(),
             required_collection: false,
             choices: Vec::new(),
+            allow_unknown_choices: false,
             validate: None,
             validate_error: None,
             value_enum: false,
@@ -1714,6 +1717,7 @@ impl Field {
             value_names: Vec::new(),
             required_collection: false,
             choices: Vec::new(),
+            allow_unknown_choices: false,
             validate: None,
             validate_error: None,
             value_enum: false,
@@ -1837,6 +1841,7 @@ impl Field {
             value_names: Vec::new(),
             required_collection: false,
             choices: Vec::new(),
+            allow_unknown_choices: false,
             validate: None,
             validate_error: None,
             value_enum: false,
@@ -1944,6 +1949,7 @@ impl Field {
         let mut hide_long_help = false;
         let mut is_arg = false;
         let mut choices: Vec<String> = Vec::new();
+        let mut allow_unknown_choices = false;
         let mut validate: Option<String> = None;
         let mut validate_error: Option<String> = None;
         let mut complete: Option<syn::Path> = None;
@@ -2093,6 +2099,7 @@ impl Field {
                             ));
                         }
                     }
+                    "choices_strict" => allow_unknown_choices = !flag_value(&meta)?,
                     "validate" => validate = Some(string_value(&meta)?),
                     "validate_error" => validate_error = Some(string_value(&meta)?),
                     // Both spellings the spec has: one target as a value, several as a
@@ -2515,7 +2522,7 @@ impl Field {
                  present flag with no value; use `default_missing` for a portable optional value",
             ));
         }
-        if !choices.is_empty() {
+        if !choices.is_empty() && !allow_unknown_choices {
             // Each of them, not the first: a collection's second default is as unusable as its
             // first if the choices do not allow it.
             if let Some(default) = default.iter().find(|d| !choices.contains(d)) {
@@ -2552,6 +2559,18 @@ impl Field {
                     ),
                 ));
             }
+        }
+        if allow_unknown_choices && value_enum {
+            return Err(syn::Error::new(
+                span,
+                "`choices_strict = false` cannot build a ValueEnum from an unknown word; use a string-like field with `choices(...)`",
+            ));
+        }
+        if allow_unknown_choices && choices.is_empty() {
+            return Err(syn::Error::new(
+                span,
+                "`choices_strict = false` needs a `choices(...)` list to present",
+            ));
         }
 
         if longs.is_empty() && shorts.is_empty() && !hidden_longs.is_empty() {
@@ -3083,6 +3102,7 @@ impl Field {
             value_names,
             required_collection,
             choices,
+            allow_unknown_choices,
             validate,
             validate_error,
             complete,
@@ -6350,6 +6370,29 @@ mod tests {
         "#,
         );
         assert!(err.contains("takes no value"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn non_strict_choices_need_a_string_vocabulary_to_present() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, choices_strict = false)]
+                backend: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("needs a `choices(...)` list"), "{err}");
+
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, value_enum, choices_strict = false)]
+                backend: Option<Backend>,
+            }
+        "#,
+        );
+        assert!(err.contains("cannot build a ValueEnum"), "{err}");
     }
 
     #[test]
