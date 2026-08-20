@@ -258,4 +258,20 @@ cmd "sub" help="a subcommand"
         - [`mycli sub`](/sub.md)
         ");
     }
+
+    #[test]
+    fn generated_reference_lists_every_visible_flag_alias() {
+        let spec: Spec = r#"
+bin "mycli"
+flag "-t -f --tail --follow" help="Follow output"
+"#
+        .parse()
+        .unwrap();
+        let ctx = MarkdownRenderer::new(spec.clone()).with_multi(true);
+        let rendered = ctx.render_cmd(&spec.cmd).unwrap();
+        assert!(
+            rendered.contains("### `-t -f --tail --follow`"),
+            "{rendered}"
+        );
+    }
 }

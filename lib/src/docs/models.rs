@@ -623,12 +623,43 @@ fn column_usage(flag: &crate::SpecFlag) -> String {
     format!("{short:<SHORT_COL$}{after}")
 }
 
+/// Every visible spelling for generated reference documentation.
+///
+/// Interactive help keeps the compact first short/long pair in its aligned
+/// column, while a reference page should document aliases users can type.
+fn reference_usage(flag: &crate::SpecFlag) -> String {
+    let mut forms: Vec<String> = flag
+        .short
+        .iter()
+        .filter(|short| !flag.hidden_short_aliases.contains(short))
+        .map(|short| format!("-{short}"))
+        .chain(
+            flag.long
+                .iter()
+                .filter(|long| !flag.hidden_aliases.contains(long))
+                .map(|long| format!("--{long}")),
+        )
+        .collect();
+    if flag.usage.trim().starts_with(&format!("{}:", flag.name)) {
+        forms.insert(0, format!("{}:", flag.name));
+    }
+    let mut usage = forms.join(" ");
+    if flag.var {
+        usage.push('…');
+    }
+    if let Some(arg) = &flag.arg {
+        usage.push(' ');
+        usage.push_str(&arg.usage());
+    }
+    usage
+}
+
 impl From<&crate::SpecFlag> for SpecFlag {
     fn from(flag: &crate::SpecFlag) -> Self {
         Self {
             name: flag.name.clone(),
             effect: flag.effect,
-            usage: flag.usage.clone(),
+            usage: reference_usage(flag),
             display_usage: column_usage(flag),
             help: said(&flag.help),
             help_long: flag.help_long.clone(),
