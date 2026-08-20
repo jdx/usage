@@ -903,39 +903,42 @@ impl Cli {
 
     /// How a group names one of its member fields in the emitted spec.
     ///
-    /// The long form when there is one, since that is how a spec refers to a flag
-    /// everywhere else; a short form otherwise, which selectors accept just as readily.
+    /// Flags use their long form when there is one, or their short form otherwise.
+    /// Positionals use their bare argument name.
     pub fn selector_for_field(field: &Field) -> Option<String> {
-        let Kind::Flag { longs, shorts, .. } = &field.kind else {
-            return None;
-        };
-        longs
-            .first()
-            .map(|long| format!("--{long}"))
-            .or_else(|| shorts.first().map(|short| format!("-{short}")))
+        match &field.kind {
+            Kind::Flag { longs, shorts, .. } => longs
+                .first()
+                .map(|long| format!("--{long}"))
+                .or_else(|| shorts.first().map(|short| format!("-{short}"))),
+            Kind::Arg { .. } => Some(field.name.clone()),
+            _ => None,
+        }
     }
 
     pub fn field_for_selector(&self, selector: &str) -> Option<&Field> {
         self.fields.iter().find(|field| {
-            let Kind::Flag {
-                longs,
-                shorts,
-                negate,
-                ..
-            } = &field.kind
-            else {
-                return false;
-            };
-            match selector.strip_prefix("--") {
-                Some(long) => longs.iter().chain(negate.iter()).any(|l| l == long),
-                // A short is one character; `-abc` is three flags rather than a name.
-                None => selector
-                    .strip_prefix('-')
-                    .and_then(|rest| {
-                        let mut chars = rest.chars();
-                        chars.next().filter(|_| chars.next().is_none())
-                    })
-                    .is_some_and(|short| shorts.contains(&short)),
+            match &field.kind {
+                Kind::Flag {
+                    longs,
+                    shorts,
+                    negate,
+                    ..
+                } => match selector.strip_prefix("--") {
+                    Some(long) => longs.iter().chain(negate.iter()).any(|l| l == long),
+                    // A short is one character; `-abc` is three flags rather than a name.
+                    None => selector
+                        .strip_prefix('-')
+                        .and_then(|rest| {
+                            let mut chars = rest.chars();
+                            chars.next().filter(|_| chars.next().is_none())
+                        })
+                        .is_some_and(|short| shorts.contains(&short)),
+                },
+                Kind::Arg { .. } => {
+                    selector == field.name || selector == to_kebab(&field.ident.to_string())
+                }
+                _ => false,
             }
         })
     }
@@ -1078,7 +1081,7 @@ impl Cli {
             }
         }
 
-        // Groups: every member is a flag, every declared group has members, and a group
+        // Groups: every member is an argument, every declared group has members, and a group
         // holds at least two of them — the same floor the spec enforces, checked here so
         // it fails where it is written rather than when the spec is emitted.
         let mut group_members: Vec<(&str, Vec<&Field>)> = Vec::new();
@@ -1086,11 +1089,11 @@ impl Cli {
             let Some(name) = field.group.as_deref() else {
                 continue;
             };
-            if !matches!(field.kind, Kind::Flag { .. }) {
+            if !matches!(field.kind, Kind::Flag { .. } | Kind::Arg { .. }) {
                 return Err(syn::Error::new(
                     field.span,
-                    "`group` describes a relationship between flags, so the field needs \
-                     a `long` or a `short`",
+                    "`group` describes a relationship between arguments, so the field \
+                     must be a flag or positional",
                 ));
             }
             // `group("")` on the struct is refused as nameless; two fields saying
@@ -1113,8 +1116,8 @@ impl Cli {
                 return Err(syn::Error::new(
                     members[0].span,
                     format!(
-                        "group `{name}` has one flag in it; a rule about a single flag \
-                         belongs on that flag, as `required` or `requires`"
+                        "group `{name}` has one argument in it; a rule about a single \
+                         argument belongs on that argument"
                     ),
                 ));
             }
@@ -1145,7 +1148,7 @@ impl Cli {
             }
         }
 
-        // Every relationship names a flag that exists. Resolving these at compile time
+        // Every relationship names an entry that exists. Resolving these at compile time
         // is the advantage of declaring them in code: a spec written by hand can only
         // find a typo'd selector at parse time, or never, since a selector naming
         // nothing quietly holds no relationship at all.
@@ -1162,8 +1165,9 @@ impl Cli {
                         return Err(syn::Error::new(
                             field.span,
                             format!(
-                                "`{option} = \"{selector}\"` names no flag on this \
-                                 command; write it as the spec does, `--long` or `-s`"
+                                "`{option} = \"{selector}\"` names no argument on this \
+                                 command; use `--long` or `-s` for a flag, or the bare \
+                                 name for a positional"
                             ),
                         ));
                     };
@@ -2083,10 +2087,8 @@ impl Field {
                 "`negate` names a second long form, so the field needs a `long`",
             ));
         }
-        // Relationships hold between flags. The spec records them on a flag and has no
-        // place for them on an argument, so accepting one here would enforce something
-        // the emitted spec cannot say — and docs and completions would describe a
-        // different CLI from the one that runs.
+        // Most relationship families still live on flags. Pairwise conflicts also live
+        // on positionals, matching clap's argument-id model and the spec's bare selector.
         for (option, selectors) in [
             ("overrides", &overrides),
             ("conflicts", &conflicts),
@@ -2094,7 +2096,7 @@ impl Field {
             ("required_if", &required_if),
             ("required_unless", &required_unless),
         ] {
-            if !selectors.is_empty() && !is_flag {
+            if !selectors.is_empty() && !is_flag && option != "conflicts" {
                 return Err(syn::Error::new(
                     span,
                     format!(
@@ -4112,7 +4114,10 @@ mod tests {
             }
         "#,
         );
-        assert!(err.contains("names no flag"), "unhelpful message: {err}");
+        assert!(
+            err.contains("names no argument"),
+            "unhelpful message: {err}"
+        );
 
         let err = rejection(
             r#"
@@ -5295,7 +5300,7 @@ mod tests {
     }
 
     #[test]
-    fn a_group_is_declared_once_and_joined_by_at_least_two_flags() {
+    fn a_group_is_declared_once_and_joined_by_at_least_two_arguments() {
         // Two declarations would be read first-match-wins, so the second one's
         // properties would be silently dropped — a `required` written and not enforced.
         let err = rejection(
@@ -5312,7 +5317,7 @@ mod tests {
         );
         assert!(err.contains("declared twice"), "unhelpful message: {err}");
 
-        // A group of one is a statement about that flag.
+        // A group of one is a statement about that argument.
         let err = rejection(
             r#"
             struct Ex {
@@ -5321,7 +5326,10 @@ mod tests {
             }
         "#,
         );
-        assert!(err.contains("one flag in it"), "unhelpful message: {err}");
+        assert!(
+            err.contains("one argument in it"),
+            "unhelpful message: {err}"
+        );
 
         // And a declaration nothing joins holds for nothing.
         let err = rejection(
@@ -5338,18 +5346,15 @@ mod tests {
             "unhelpful message: {err}"
         );
 
-        // A positional cannot be in one, as it cannot hold any other relationship.
-        let err = rejection(
-            r#"
+        cli(r#"
             struct Ex {
                 #[usage(group = "input")]
-                target: String,
+                target: Option<String>,
                 #[usage(long, group = "input")]
                 url: Option<String>,
             }
-        "#,
-        );
-        assert!(err.contains("between flags"), "unhelpful message: {err}");
+        "#)
+        .expect("a positional can join a group");
 
         // A group with no name answers to nothing, whichever way it is written.
         let err = rejection(
@@ -5456,23 +5461,16 @@ mod tests {
     }
 
     #[test]
-    fn a_relationship_needs_a_flag_to_hold_between() {
-        // The spec records these on a flag and has nowhere to put them on an argument,
-        // so enforcing one here would describe a CLI the emitted spec does not.
-        let err = rejection(
-            r#"
+    fn a_positional_can_declare_a_conflict() {
+        cli(r#"
             struct Ex {
                 #[usage(long)]
                 force: bool,
                 #[usage(conflicts = "--force")]
                 file: String,
             }
-        "#,
-        );
-        assert!(
-            err.contains("relationship between flags"),
-            "unhelpful message: {err}"
-        );
+        "#)
+        .expect("a positional conflict is representable in the spec");
     }
 
     #[test]

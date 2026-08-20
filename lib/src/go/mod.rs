@@ -418,7 +418,7 @@ impl Emitter<'_> {
                 by_key.insert(named.number, self.flag_meta(flag, named, e, commands));
             }
             for (arg, named) in &e.args {
-                by_key.insert(named.number, arg_meta(self.spec, arg, named));
+                by_key.insert(named.number, arg_meta(self.spec, arg, named, e, commands));
             }
         }
 
@@ -598,7 +598,13 @@ fn complete_type<'a>(spec: &'a Spec, name: &str) -> Option<&'a str> {
         .and_then(|c| c.type_.as_deref())
 }
 
-fn arg_meta(spec: &Spec, arg: &SpecArg, named: &Named) -> String {
+fn arg_meta(
+    spec: &Spec,
+    arg: &SpecArg,
+    named: &Named,
+    owner: &Emitted,
+    commands: &[Emitted],
+) -> String {
     let mut fields = vec![
         format!("Key: {}", named.key),
         format!("Name: {}", go_string(&arg.name)),
@@ -635,6 +641,10 @@ fn arg_meta(spec: &Spec, arg: &SpecArg, named: &Named) -> String {
     if let Some(min) = arg.var_min {
         fields.push(format!("VarMin: {}", clamp_var_max(min)));
     }
+    let conflicts = resolve_relationship(&arg.conflicts, owner, commands);
+    if !conflicts.is_empty() {
+        fields.push(format!("Conflicts: {}", key_slice(&conflicts)));
+    }
     // No VarMax: for an argument the bound is a limit binding applies, which is
     // what makes `[a]… [b]` fillable at all, so judging it again would fail an
     // invocation that never broke it.
@@ -658,6 +668,13 @@ fn resolve_relationship(names: &[String], owner: &Emitted, commands: &[Emitted])
         // the scope a token has, in the order a token gets it, so a subcommand
         // redeclaring an inherited name shadows it here as it does at parse time.
         let mut found = match_flag(owner, name, false);
+        if found.is_none() && !name.starts_with('-') {
+            found = owner
+                .args
+                .iter()
+                .find(|(arg, _)| arg.name == *name)
+                .map(|(_, named)| named.key.clone());
+        }
         if found.is_none() {
             let path = &owner.cmd.full_cmd;
             for depth in (0..path.len()).rev() {
@@ -1876,6 +1893,28 @@ cmd "run" {
         assert!(
             !entry_of(&out, "solo").contains("Conflicts"),
             "a non-global should not resolve from below:\n{out}"
+        );
+    }
+
+    #[test]
+    fn positional_conflicts_reach_go_metadata_in_both_directions() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--from-file <file>" conflicts="value"
+arg "[value]" conflicts="--from-file"
+"#);
+
+        assert!(
+            entry_of(&out, "from-file").contains("Conflicts: []uint64{ArgValue}"),
+            "{out}"
+        );
+        assert!(
+            out.lines().any(|line| {
+                line.contains("{Key: ArgValue, Name: \"value\"")
+                    && line.contains("Conflicts: []uint64{FlagFromFile}")
+            }),
+            "{out}"
         );
     }
 

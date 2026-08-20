@@ -235,11 +235,11 @@
 //! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
 //! | `arg` | force a field to be positional |
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |
-//! | `conflicts = "--other"` | a flag this one cannot be given with |
+//! | `conflicts = "--other"` | an argument this one cannot be given with |
 //! | `requires = "--other"` | a flag that must also be given when this one is |
 //! | `requires_if("value", "--other")` | a flag required when this one explicitly has `value` |
 //! | `requires_ifs(("a", "--x"), ("b", "--y"))` | several value-conditional requirements |
-//! | `group = "input"` | the group this flag is one of; see below |
+//! | `group = "input"` | the group this argument is one of; see below |
 //! | `exclusive` | this flag has to be given on its own, positionals included |
 //! | `delimiter = ','` | one word becomes several values; the field has to be a `Vec` |
 //! | `allow_hyphen_values` | a flag's detached value may look like a flag, including `--` |
@@ -248,8 +248,9 @@
 //! | `required_if = "--other"` | a flag whose presence makes this one necessary |
 //! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
 //!
-//! These name a flag the way the spec does — `"--long"` or `"-s"` — and take several
-//! as a list: `conflicts("--file", "--url")`. A selector naming no flag on the command
+//! These name a flag as `"--long"` or `"-s"`, and a positional by its bare name. They
+//! take several as a list: `conflicts("--file", "target")`. A selector naming no argument
+//! on the command
 //! is a compile error, which is the advantage of declaring a relationship in code: in a
 //! hand-written spec a typo'd selector is a relationship that quietly does not hold.
 //!

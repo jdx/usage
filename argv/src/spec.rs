@@ -600,7 +600,7 @@ pub const fn concat_aliases<const N: usize>(groups: &[&[&'static str]]) -> [&'st
     out
 }
 
-/// A set of one command's flags that relate to one another as a set.
+/// A set of one command's arguments that relate to one another as a set.
 ///
 /// Pairwise `conflicts` can say "at most one of these", once per pair; what it cannot
 /// say is that one of them is *needed*, which is a statement about the set.
@@ -609,8 +609,8 @@ pub struct GroupMeta<'a> {
     /// What the group is called. It appears in the message a failed check produces, and
     /// it is how a reader tells two groups on one command apart.
     pub name: &'a str,
-    /// The flags in the group, as selectors — `--long` or `-s`, the way every other
-    /// relationship names a flag.
+    /// The entries in the group, as selectors — `--long` or `-s` for flags, and the
+    /// bare argument name for a positional.
     pub members: &'a [&'a str],
     /// Whether at least one member has to be given.
     pub required: bool,
@@ -921,6 +921,8 @@ pub struct ArgMeta<'a> {
     /// it, and help output has to show it.
     pub required: bool,
     pub hide: bool,
+    /// Entries that cannot be given alongside this positional.
+    pub conflicts: &'a [&'a str],
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
     /// The character one word is split on to make several positional values.
@@ -952,6 +954,7 @@ impl ArgMeta<'_> {
         validate_error: None,
         required: true,
         hide: false,
+        conflicts: &[],
         var_min: None,
         var_max: None,
         delimiter: None,
@@ -1638,6 +1641,9 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if meta.hide {
         out.push_str(" hide=#true");
     }
+    if meta.conflicts.len() == 1 {
+        write!(out, " conflicts={}", quoted(meta.conflicts[0]))?;
+    }
     if let Some(min) = meta.var_min {
         write!(out, " var_min={min}")?;
     }
@@ -1676,7 +1682,8 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         || !meta.choices.is_empty()
         || !meta.accepted_choices.is_empty()
         || !meta.choice_details.is_empty()
-        || meta.default.len() > 1;
+        || meta.default.len() > 1
+        || meta.conflicts.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -1687,6 +1694,14 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if let Some(long_help) = meta.long_help {
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
+    }
+    if meta.conflicts.len() > 1 {
+        indent(out, inner)?;
+        out.push_str("conflicts");
+        for conflict in meta.conflicts {
+            write!(out, " {}", quoted(conflict))?;
+        }
+        out.push('\n');
     }
     write_many_defaults(out, meta.default, inner)?;
     write_choices(

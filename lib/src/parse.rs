@@ -1661,6 +1661,25 @@ fn parse_partial_with_env(
         }
     }
 
+    // Positionals can declare the same pairwise conflict as flags. Their selector is
+    // the bare argument name, while a flag keeps its dashed spelling.
+    for arg in out.cmds.iter().flat_map(|cmd| &cmd.args) {
+        let given = arg_is_explicit(arg, &out, custom_env);
+        if !given {
+            continue;
+        }
+        for other in &arg.conflicts {
+            if selector_is_explicit(other, &out, &overridden_flags, custom_env) {
+                out.errors.push(UsageErr::InvalidFlag {
+                    token: arg.name.clone(),
+                    reason: format!("conflicts with {other}"),
+                    span: (0, 0).into(),
+                    input: format!("{} {other}", arg.name),
+                });
+            }
+        }
+    }
+
     // An exclusive flag is the whole-command form of a conflict: `--version` means the
     // rest of the line has nothing to act on. Everything the invocation supplied counts,
     // positionals included, which is what distinguishes it from being in a group with
@@ -2157,14 +2176,17 @@ fn selector_is_explicit(
     overridden_flags: &HashSet<String>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> bool {
-    out.available_flags
+    let flag_is_explicit = out
+        .available_flags
         .values()
         .chain(out.flags.keys())
         .any(|flag| {
             flag_matches_selector(flag, selector)
                 && !overridden_flags.contains(&flag.name)
                 && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
-        })
+        });
+    flag_is_explicit
+        || selector_arg(selector, out).is_some_and(|arg| arg_is_explicit(arg, out, custom_env))
 }
 
 /// The name of the flag a selector points at, for an error that has to name it.
@@ -2178,6 +2200,7 @@ fn selector_flag_name(selector: &str, out: &ParseOutput) -> Option<String> {
         .chain(out.flags.keys())
         .find(|flag| flag_matches_selector(flag, selector))
         .map(|flag| flag.name.clone())
+        .or_else(|| selector_arg(selector, out).map(|arg| arg.name.clone()))
 }
 
 /// Whether a selector's flag ended up with a value, however it got one.
@@ -2198,7 +2221,8 @@ fn selector_is_satisfied(
     if selector_is_explicit(selector, out, overridden_flags, custom_env) {
         return true;
     }
-    out.available_flags
+    let flag_is_satisfied = out
+        .available_flags
         .values()
         .chain(out.flags.keys())
         .filter(|flag| flag_matches_selector(flag, selector))
@@ -2209,7 +2233,32 @@ fn selector_is_satisfied(
                     || flag.default_if.iter().any(|condition| {
                         default_if_condition_matches(condition, out, overridden_flags, custom_env)
                     }))
-        })
+        });
+    flag_is_satisfied || selector_arg(selector, out).is_some_and(|arg| !arg.default.is_empty())
+}
+
+fn selector_arg<'a>(selector: &str, out: &'a ParseOutput) -> Option<&'a SpecArg> {
+    // Bare words are positional selectors. Keep accepting a flag's internal name above
+    // for existing specs; when both exist, the dashed flag spelling removes ambiguity.
+    if selector.starts_with('-') {
+        return None;
+    }
+    out.cmds
+        .iter()
+        .flat_map(|cmd| &cmd.args)
+        .find(|arg| arg.name == selector)
+}
+
+fn arg_is_explicit(
+    arg: &SpecArg,
+    out: &ParseOutput,
+    custom_env: Option<&HashMap<String, String>>,
+) -> bool {
+    out.args.keys().any(|given| given.name == arg.name)
+        || arg
+            .env
+            .as_ref()
+            .is_some_and(|env| env_contains(custom_env, env))
 }
 
 fn apply_flag_overrides(
@@ -4213,6 +4262,42 @@ flag "--file <file>" required_unless="--stdin"
 
         let err = parse(&spec, &input(&["ex", "--file", "a.txt", "--stdin"])).unwrap_err();
         assert!(err.to_string().contains("group input"), "{err}");
+    }
+
+    #[test]
+    fn positional_selectors_work_in_conflicts_and_groups() {
+        let conflicts: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--from-file <path>\" conflicts=\"value\"\narg \"[value]\"\n"
+            .parse()
+            .unwrap();
+        parse(&conflicts, &input(&["ex", "--from-file", "vars.env"]))
+            .expect("the flag alone is valid");
+        parse(&conflicts, &input(&["ex", "literal"])).expect("the positional alone is valid");
+        assert!(parse(
+            &conflicts,
+            &input(&["ex", "--from-file", "vars.env", "literal"])
+        )
+        .is_err());
+
+        let positional_source: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--from-file <path>\"\narg \"[value]\" conflicts=\"--from-file\"\n"
+            .parse()
+            .unwrap();
+        assert!(parse(
+            &positional_source,
+            &input(&["ex", "--from-file", "vars.env", "literal"])
+        )
+        .is_err());
+
+        let group: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--file <path>\"\narg \"[target]\"\ngroup \"input\" \"--file\" \"target\" required=#true\n"
+            .parse()
+            .unwrap();
+        assert!(parse(&group, &input(&["ex"])).is_err());
+        parse(&group, &input(&["ex", "target-name"]))
+            .expect("a positional satisfies a required group");
+        assert!(parse(
+            &group,
+            &input(&["ex", "--file", "input.txt", "target-name"])
+        )
+        .is_err());
     }
 
     #[test]

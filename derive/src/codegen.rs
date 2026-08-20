@@ -166,11 +166,11 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let flag_metas = flags
         .iter()
         .enumerate()
-        .map(|(i, f)| flag_meta(i, f, &cli.ident));
+        .map(|(i, f)| flag_meta(cli, i, f, &cli.ident));
     let arg_metas = args
         .iter()
         .enumerate()
-        .map(|(i, f)| arg_meta(i, f, &cli.ident));
+        .map(|(i, f)| arg_meta(cli, i, f, &cli.ident));
 
     // Both the plain slices and, when a field is flattened, the joined arrays.
     let tables = tables(cli);
@@ -1157,7 +1157,7 @@ fn completer_tokens(
     (decl, quote!(::std::option::Option::Some(#wrapper)))
 }
 
-fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
+fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let name = format_ident!("FLAG_META_{i}");
     let table = format_ident!("FLAG_{i}");
     let help = option_str(field.help.as_deref());
@@ -1189,7 +1189,15 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     // Written as declared, in the spec's own spelling, so the emitted KDL says what
     // the struct says.
     let overrides = &field.overrides;
-    let conflicts = &field.conflicts;
+    let conflicts: Vec<String> = field
+        .conflicts
+        .iter()
+        .map(|selector| {
+            cli.field_for_selector(selector)
+                .and_then(Cli::selector_for_field)
+                .unwrap_or_else(|| selector.clone())
+        })
+        .collect();
     let requires = &field.requires;
     let requires_if = field.requires_if.iter().map(|condition| {
         let value = &condition.value;
@@ -1262,7 +1270,7 @@ fn flag_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     }
 }
 
-fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
+fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let name = format_ident!("ARG_META_{i}");
     let table = format_ident!("ARG_{i}");
     let help = option_str(field.help.as_deref());
@@ -1273,6 +1281,15 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let defaults = &field.default;
     let default = quote!(&[#(#defaults),*]);
     let hide = field.hide;
+    let conflicts: Vec<String> = field
+        .conflicts
+        .iter()
+        .map(|selector| {
+            cli.field_for_selector(selector)
+                .and_then(Cli::selector_for_field)
+                .unwrap_or_else(|| selector.clone())
+        })
+        .collect();
     // `String` must be filled; `Option` and `Vec` need not be.
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
@@ -1301,6 +1318,7 @@ fn arg_meta(i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
             default: #default,
             help_heading: #help_heading,
             hide: #hide,
+            conflicts: &[#(#conflicts),*],
             required: #required,
             accepted_choices: #accepted_choices,
             choices: #choices,
@@ -2976,11 +2994,11 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let flag_metas = flags
         .iter()
         .enumerate()
-        .map(|(i, f)| flag_meta(i, f, &cli.ident));
+        .map(|(i, f)| flag_meta(cli, i, f, &cli.ident));
     let arg_metas = args
         .iter()
         .enumerate()
-        .map(|(i, f)| arg_meta(i, f, &cli.ident));
+        .map(|(i, f)| arg_meta(cli, i, f, &cli.ident));
     // Both the plain slices and, when a field is flattened, the joined arrays.
     let tables = tables(cli);
     let table_decls = &tables.decls;

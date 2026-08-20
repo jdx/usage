@@ -56,6 +56,18 @@ struct InlineEx {
     command: InlineCommand,
 }
 
+#[derive(Cli)]
+#[usage(bin = "positional-relations")]
+#[usage(group("input", required))]
+struct PositionalRelations {
+    #[usage(long, conflicts = "value", group = "input")]
+    from_file: Option<String>,
+    #[usage(conflicts("--from-file", "--stdin"), group = "input")]
+    value: Option<String>,
+    #[usage(long)]
+    stdin: bool,
+}
+
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 enum Shell {
@@ -484,6 +496,45 @@ fn emitted_specs_preserve_value_enum_aliases_and_case_policy() {
     );
     #[cfg(not(windows))]
     assert!(!kdl.contains("power-shell"), "{kdl}");
+}
+
+#[test]
+fn positional_relationships_parse_and_emit_losslessly() {
+    let from_file =
+        PositionalRelations::parse_from(&[OsStr::new("--from-file"), OsStr::new("vars.env")])
+            .expect("the flag satisfies the group");
+    assert_eq!(from_file.from_file.as_deref(), Some("vars.env"));
+    assert!(!from_file.stdin);
+
+    let positional = PositionalRelations::parse_from(&[OsStr::new("literal")])
+        .expect("the positional satisfies the group");
+    assert_eq!(positional.value.as_deref(), Some("literal"));
+
+    let err = PositionalRelations::parse_from(&[
+        OsStr::new("--from-file"),
+        OsStr::new("vars.env"),
+        OsStr::new("literal"),
+    ]);
+    assert!(err.is_err(), "the flag conflicts with the positional");
+
+    let kdl = PositionalRelations::to_kdl();
+    assert!(
+        kdl.contains("conflicts \"--from-file\" \"--stdin\""),
+        "{kdl}"
+    );
+    assert_eq!(
+        kdl.matches("conflicts=\"VALUE\"").count(),
+        1,
+        "a single flag conflict should be emitted once: {kdl}"
+    );
+    assert!(
+        !kdl.contains("arg \"[VALUE]\" conflicts="),
+        "several positional conflicts belong only in the child node: {kdl}"
+    );
+    assert!(
+        kdl.contains("group \"input\" \"--from-file\" \"VALUE\""),
+        "{kdl}"
+    );
 }
 
 #[test]

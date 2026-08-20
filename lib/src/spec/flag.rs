@@ -1311,6 +1311,22 @@ mod tests {
         let stdin = spec.cmd.flags.iter().find(|f| f.name == "stdin").unwrap();
         assert!(stdin.conflicts.is_empty());
 
+        let positional = clap::Command::new("ex")
+            .arg(
+                clap::Arg::new("from-file")
+                    .long("from-file")
+                    .conflicts_with("value"),
+            )
+            .arg(clap::Arg::new("value"));
+        let spec: Spec = (&positional).into();
+        let from_file = spec
+            .cmd
+            .flags
+            .iter()
+            .find(|f| f.name == "from-file")
+            .unwrap();
+        assert_eq!(from_file.conflicts, vec!["value".to_string()]);
+
         // A short-only target is named `-q`, since that is the only name it has.
         // Taking only the long form dropped the conflict and left the spec accepting a
         // combination clap rejects.

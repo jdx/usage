@@ -225,6 +225,25 @@ func TestARelationshipCanNameAnInheritedGlobal(t *testing.T) {
 	}
 }
 
+func TestConflictsCanNamePositionals(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex",
+			Flags: []Flag{{Name: "from-file", Long: []string{"from-file"}, Conflicts: []string{"value"}}},
+			Args:  []Arg{{Name: "value", Conflicts: []string{"--from-file"}}},
+		},
+	})
+
+	fromFile := metaFor(t, meta, root, "from-file")
+	value := metaFor(t, meta, root, "value")
+	if !reflect.DeepEqual(fromFile.Conflicts, []uint64{root.Args[0].Key}) {
+		t.Fatalf("flag should resolve the positional selector: %v", fromFile.Conflicts)
+	}
+	if !reflect.DeepEqual(value.Conflicts, []uint64{root.Flags[0].Key}) {
+		t.Fatalf("positional should resolve the flag selector: %v", value.Conflicts)
+	}
+}
+
 // A subcommand redeclaring an inherited name shadows it, here as at parse time.
 func TestALocalFlagShadowsTheGlobalOfTheSameName(t *testing.T) {
 	root, meta := build(&Spec{

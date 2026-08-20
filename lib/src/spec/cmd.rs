@@ -958,8 +958,20 @@ impl From<&clap::Command> for SpecCommand {
             spec.hidden_aliases.push(alias.to_string());
         }
         for arg in cmd.get_arguments() {
+            let conflicts: Vec<String> = cmd
+                .get_arg_conflicts_with(arg)
+                .iter()
+                .filter_map(|other| match (other.get_long(), other.get_short()) {
+                    (Some(long), _) => Some(format!("--{long}")),
+                    (None, Some(short)) => Some(format!("-{short}")),
+                    (None, None) if other.is_positional() => Some(SpecArg::from(*other).name),
+                    (None, None) => None,
+                })
+                .collect();
             if arg.is_positional() {
-                spec.args.push(arg.into())
+                let mut positional: SpecArg = arg.into();
+                positional.conflicts = conflicts;
+                spec.args.push(positional)
             } else {
                 let mut flag: SpecFlag = arg.into();
                 // clap keeps conflicts on the command rather than on the argument, so
@@ -969,19 +981,7 @@ impl From<&clap::Command> for SpecCommand {
                 // A short-only flag is named `-s`, which selectors accept as readily as
                 // `--long`: taking only the long form would have dropped the conflict
                 // and let the spec accept a combination clap rejects.
-                flag.conflicts = cmd
-                    .get_arg_conflicts_with(arg)
-                    .iter()
-                    .filter_map(|other| match (other.get_long(), other.get_short()) {
-                        (Some(long), _) => Some(format!("--{long}")),
-                        (None, Some(short)) => Some(format!("-{short}")),
-                        // A positional, which the spec has no way to name in a
-                        // conflict. Dropping it is a loss, but writing `--<name>` would
-                        // be a selector matching nothing, which is worse: it reads as a
-                        // relationship that holds.
-                        (None, None) => None,
-                    })
-                    .collect();
+                flag.conflicts = conflicts;
                 spec.flags.push(flag)
             }
         }
@@ -999,10 +999,7 @@ impl From<&clap::Command> for SpecCommand {
                 .filter_map(|arg| match (arg.get_long(), arg.get_short()) {
                     (Some(long), _) => Some(format!("--{long}")),
                     (None, Some(short)) => Some(format!("-{short}")),
-                    // A positional. The spec names group members the way it names every
-                    // other relationship — by flag — so there is nothing to write here,
-                    // and inventing a selector that matches nothing would read as a rule
-                    // that holds.
+                    (None, None) if arg.is_positional() => Some(SpecArg::from(arg).name),
                     (None, None) => None,
                 })
                 .collect();
