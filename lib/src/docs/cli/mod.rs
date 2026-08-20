@@ -144,7 +144,7 @@ fn supplied_flags(
     if spec.disable_help != Some(true) {
         out.extend(build("help", "help", 'h', "Print help"));
     }
-    if is_root && spec.version.is_some() {
+    if is_root && (spec.version.is_some() || spec.long_version.is_some()) {
         out.extend(build("version", "version", 'V', "Print version"));
     }
     out
@@ -832,6 +832,25 @@ flag "--verbose" help="Enable verbose output"
 
         assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         TestCLI 1.2.3
+        Usage: testcli [--verbose]
+
+        Flags:
+              --verbose  Enable verbose output
+          -h, --help     Print help
+          -V, --version  Print version
+        ");
+    }
+
+    #[test]
+    fn test_render_help_with_only_long_version() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+long_version "1.2.3\ncommit abc123"
+flag "--verbose" help="Enable verbose output"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         Usage: testcli [--verbose]
 
         Flags:
