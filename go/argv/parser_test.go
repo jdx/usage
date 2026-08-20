@@ -86,6 +86,22 @@ func collect(cmd *Command, args ...string) string {
 	return strings.Join(out, " ")
 }
 
+func TestAllowMissingPositionalReservesLastWord(t *testing.T) {
+	optional := &Arg{Key: 90, Name: "optional"}
+	required := &Arg{Key: 91, Name: "required", Required: true}
+	cmd := &Command{
+		Name:                   "ex",
+		Args:                   []*Arg{optional, required},
+		AllowMissingPositional: true,
+	}
+	if got := collect(cmd, "value"); got != "arg:required=value" {
+		t.Fatalf("one word: got %q", got)
+	}
+	if got := collect(cmd, "optional", "required"); got != "arg:optional=optional arg:required=required" {
+		t.Fatalf("two words: got %q", got)
+	}
+}
+
 func TestBinding(t *testing.T) {
 	cases := []struct {
 		name string

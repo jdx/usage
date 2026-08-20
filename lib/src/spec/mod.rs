@@ -316,6 +316,9 @@ impl Spec {
                 "subcommand_precedence_over_arg" => {
                     schema.cmd.subcommand_precedence_over_arg = node.arg(0)?.ensure_bool()?;
                 }
+                "allow_missing_positional" => {
+                    schema.cmd.allow_missing_positional = node.arg(0)?.ensure_bool()?;
+                }
                 "example" => {
                     let code = node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
                     let mut example = SpecExample::new(code.trim().to_string());
@@ -621,6 +624,11 @@ impl Display for Spec {
         }
         if self.cmd.subcommand_precedence_over_arg {
             let mut node = KdlNode::new("subcommand_precedence_over_arg");
+            node.push(true);
+            nodes.push(node);
+        }
+        if self.cmd.allow_missing_positional {
+            let mut node = KdlNode::new("allow_missing_positional");
             node.push(true);
             nodes.push(node);
         }

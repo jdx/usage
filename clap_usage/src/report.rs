@@ -13,7 +13,6 @@ pub enum FidelityFeature {
     ValueArity,
     DistinctValueNames,
     GranularHide,
-    AllowMissingPositional,
     FlattenHelp,
     NextLineHelp,
     SubcommandHelpHeading,
@@ -79,11 +78,6 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         }
     };
 
-    command_loss(
-        cmd.is_allow_missing_positional_set(),
-        FidelityFeature::AllowMissingPositional,
-        "allow_missing_positional",
-    );
     command_loss(
         cmd.is_flatten_help_set(),
         FidelityFeature::FlattenHelp,

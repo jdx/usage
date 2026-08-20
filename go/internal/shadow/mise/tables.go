@@ -1139,8 +1139,8 @@ var cmdToolAliasGet = &argv.Command{
 	Name: "get",
 	Key:  CmdToolAliasGet,
 	Args: []*argv.Arg{
-		{Key: ArgToolAliasGetTool, Name: "TOOL"},
-		{Key: ArgToolAliasGetAlias, Name: "ALIAS"},
+		{Key: ArgToolAliasGetTool, Name: "TOOL", Required: true},
+		{Key: ArgToolAliasGetAlias, Name: "ALIAS", Required: true},
 	},
 }
 
@@ -1163,8 +1163,8 @@ var cmdToolAliasSet = &argv.Command{
 	Key:     CmdToolAliasSet,
 	Aliases: []string{"add", "create"},
 	Args: []*argv.Arg{
-		{Key: ArgToolAliasSetTool, Name: "TOOL"},
-		{Key: ArgToolAliasSetAlias, Name: "ALIAS"},
+		{Key: ArgToolAliasSetTool, Name: "TOOL", Required: true},
+		{Key: ArgToolAliasSetAlias, Name: "ALIAS", Required: true},
 		{Key: ArgToolAliasSetValue, Name: "VALUE"},
 	},
 }
@@ -1175,7 +1175,7 @@ var cmdToolAliasUnset = &argv.Command{
 	Key:     CmdToolAliasUnset,
 	Aliases: []string{"rm", "remove", "delete", "del"},
 	Args: []*argv.Arg{
-		{Key: ArgToolAliasUnsetTool, Name: "TOOL"},
+		{Key: ArgToolAliasUnsetTool, Name: "TOOL", Required: true},
 		{Key: ArgToolAliasUnsetAlias, Name: "ALIAS"},
 	},
 }
@@ -1347,7 +1347,7 @@ var cmdBootstrapDotfilesAdd = &argv.Command{
 		{Key: FlagBootstrapDotfilesAddYes, Name: "yes", Longs: []string{"yes"}, Shorts: []byte{'y'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgBootstrapDotfilesAddTarget, Name: "TARGET", Var: true},
+		{Key: ArgBootstrapDotfilesAddTarget, Name: "TARGET", Required: true, Var: true},
 	},
 }
 
@@ -1376,7 +1376,7 @@ var cmdBootstrapDotfilesEdit = &argv.Command{
 		{Key: FlagBootstrapDotfilesEditYes, Name: "yes", Longs: []string{"yes"}, Shorts: []byte{'y'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgBootstrapDotfilesEditTarget, Name: "TARGET"},
+		{Key: ArgBootstrapDotfilesEditTarget, Name: "TARGET", Required: true},
 	},
 }
 
@@ -1683,7 +1683,7 @@ var cmdBootstrapPackagesBrewTap = &argv.Command{
 		{Key: FlagBootstrapPackagesBrewTapPath, Name: "path", Longs: []string{"path", "file"}, Shorts: []byte{'p'}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgBootstrapPackagesBrewTapTap, Name: "TAP"},
+		{Key: ArgBootstrapPackagesBrewTapTap, Name: "TAP", Required: true},
 		{Key: ArgBootstrapPackagesBrewTapUrl, Name: "URL"},
 	},
 }
@@ -1699,7 +1699,7 @@ var cmdBootstrapPackagesBrewUntap = &argv.Command{
 		{Key: FlagBootstrapPackagesBrewUntapPath, Name: "path", Longs: []string{"path", "file"}, Shorts: []byte{'p'}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgBootstrapPackagesBrewUntapTaps, Name: "TAPS", Var: true},
+		{Key: ArgBootstrapPackagesBrewUntapTaps, Name: "TAPS", Required: true, Var: true},
 	},
 }
 
@@ -1767,7 +1767,7 @@ var cmdBootstrapPackagesUse = &argv.Command{
 		{Key: FlagBootstrapPackagesUseYes, Name: "yes", Longs: []string{"yes"}, Shorts: []byte{'y'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgBootstrapPackagesUsePackage, Name: "PACKAGE", Var: true},
+		{Key: ArgBootstrapPackagesUsePackage, Name: "PACKAGE", Required: true, Var: true},
 	},
 }
 
@@ -1866,7 +1866,7 @@ var cmdBootstrapReposExec = &argv.Command{
 	},
 	Args: []*argv.Arg{
 		{Key: ArgBootstrapReposExecPath, Name: "PATH", Var: true},
-		{Key: ArgBootstrapReposExecCommand, Name: "COMMAND", Var: true, DoubleDash: argv.DoubleDashRequired},
+		{Key: ArgBootstrapReposExecCommand, Name: "COMMAND", Required: true, Var: true, DoubleDash: argv.DoubleDashRequired},
 	},
 }
 
@@ -2053,7 +2053,7 @@ var cmdCacheTask = &argv.Command{
 		{Key: FlagCacheTaskJson, Name: "json", Longs: []string{"json"}, Shorts: []byte{'J'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgCacheTaskTask, Name: "TASK"},
+		{Key: ArgCacheTaskTask, Name: "TASK", Required: true},
 	},
 }
 
@@ -2118,7 +2118,7 @@ var cmdConfigSet = &argv.Command{
 		{Key: FlagConfigSetType, Name: "type", Longs: []string{"type"}, Shorts: []byte{'t'}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgConfigSetKey, Name: "KEY"},
+		{Key: ArgConfigSetKey, Name: "KEY", Required: true},
 		{Key: ArgConfigSetValue, Name: "VALUE"},
 	},
 }
@@ -2186,7 +2186,7 @@ var cmdDotfilesAdd = &argv.Command{
 		{Key: FlagDotfilesAddYes, Name: "yes", Longs: []string{"yes"}, Shorts: []byte{'y'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgDotfilesAddTarget, Name: "TARGET", Var: true},
+		{Key: ArgDotfilesAddTarget, Name: "TARGET", Required: true, Var: true},
 	},
 }
 
@@ -2215,7 +2215,7 @@ var cmdDotfilesEdit = &argv.Command{
 		{Key: FlagDotfilesEditYes, Name: "yes", Longs: []string{"yes"}, Shorts: []byte{'y'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgDotfilesEditTarget, Name: "TARGET"},
+		{Key: ArgDotfilesEditTarget, Name: "TARGET", Required: true},
 	},
 }
 
@@ -2447,7 +2447,7 @@ var cmdGenerateToolStub = &argv.Command{
 		{Key: FlagGenerateToolStubVersion, Name: "version", Longs: []string{"version"}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgGenerateToolStubOutput, Name: "OUTPUT"},
+		{Key: ArgGenerateToolStubOutput, Name: "OUTPUT", Required: true},
 	},
 }
 
@@ -2509,7 +2509,7 @@ var cmdHookNotFound = &argv.Command{
 		{Key: FlagHookNotFoundShell, Name: "shell", Longs: []string{"shell"}, Shorts: []byte{'s'}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgHookNotFoundBin, Name: "BIN"},
+		{Key: ArgHookNotFoundBin, Name: "BIN", Required: true},
 	},
 }
 
@@ -2564,8 +2564,8 @@ var cmdInstallInto = &argv.Command{
 	Name: "install-into",
 	Key:  CmdInstallInto,
 	Args: []*argv.Arg{
-		{Key: ArgInstallIntoToolVersion, Name: "TOOL@VERSION"},
-		{Key: ArgInstallIntoPath, Name: "PATH"},
+		{Key: ArgInstallIntoToolVersion, Name: "TOOL@VERSION", Required: true},
+		{Key: ArgInstallIntoPath, Name: "PATH", Required: true},
 	},
 }
 
@@ -2578,7 +2578,7 @@ var cmdLatest = &argv.Command{
 		{Key: FlagLatestMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age"}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgLatestToolVersion, Name: "TOOL@VERSION"},
+		{Key: ArgLatestToolVersion, Name: "TOOL@VERSION", Required: true},
 		{Key: ArgLatestAsdfVersion, Name: "ASDF_VERSION"},
 	},
 }
@@ -2592,8 +2592,8 @@ var cmdLink = &argv.Command{
 		{Key: FlagLinkForce, Name: "force", Longs: []string{"force"}, Shorts: []byte{'f'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgLinkToolVersion, Name: "TOOL@VERSION"},
-		{Key: ArgLinkPath, Name: "PATH"},
+		{Key: ArgLinkToolVersion, Name: "TOOL@VERSION", Required: true},
+		{Key: ArgLinkPath, Name: "PATH", Required: true},
 	},
 }
 
@@ -2723,7 +2723,7 @@ var cmdOciPush = &argv.Command{
 		{Key: FlagOciPushUpdateIndex, Name: "update-index", Longs: []string{"update-index"}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgOciPushRef, Name: "REF"},
+		{Key: ArgOciPushRef, Name: "REF", Required: true},
 	},
 }
 
@@ -2820,7 +2820,7 @@ var cmdPluginsLink = &argv.Command{
 		{Key: FlagPluginsLinkForce, Name: "force", Longs: []string{"force"}, Shorts: []byte{'f'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgPluginsLinkName, Name: "NAME"},
+		{Key: ArgPluginsLinkName, Name: "NAME", Required: true},
 		{Key: ArgPluginsLinkDir, Name: "DIR"},
 	},
 }
@@ -2906,7 +2906,7 @@ var cmdDepsAdd = &argv.Command{
 		{Key: FlagDepsAddDev, Name: "dev", Longs: []string{"dev"}, Shorts: []byte{'D'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgDepsAddPackages, Name: "PACKAGES", Var: true},
+		{Key: ArgDepsAddPackages, Name: "PACKAGES", Required: true, Var: true},
 	},
 }
 
@@ -2933,7 +2933,7 @@ var cmdDepsRemove = &argv.Command{
 	Name: "remove",
 	Key:  CmdDepsRemove,
 	Args: []*argv.Arg{
-		{Key: ArgDepsRemovePackages, Name: "PACKAGES", Var: true},
+		{Key: ArgDepsRemovePackages, Name: "PACKAGES", Required: true, Var: true},
 	},
 }
 
@@ -3113,7 +3113,7 @@ var cmdSettingsAdd = &argv.Command{
 		{Key: FlagSettingsAddLocal, Name: "local", Longs: []string{"local"}, Shorts: []byte{'l'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgSettingsAddSetting, Name: "SETTING"},
+		{Key: ArgSettingsAddSetting, Name: "SETTING", Required: true},
 		{Key: ArgSettingsAddValue, Name: "VALUE"},
 	},
 }
@@ -3126,7 +3126,7 @@ var cmdSettingsGet = &argv.Command{
 		{Key: FlagSettingsGetLocal, Name: "local", Longs: []string{"local"}, Shorts: []byte{'l'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgSettingsGetSetting, Name: "SETTING"},
+		{Key: ArgSettingsGetSetting, Name: "SETTING", Required: true},
 	},
 }
 
@@ -3157,7 +3157,7 @@ var cmdSettingsSet = &argv.Command{
 		{Key: FlagSettingsSetLocal, Name: "local", Longs: []string{"local"}, Shorts: []byte{'l'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgSettingsSetSetting, Name: "SETTING"},
+		{Key: ArgSettingsSetSetting, Name: "SETTING", Required: true},
 		{Key: ArgSettingsSetValue, Name: "VALUE"},
 	},
 }
@@ -3171,7 +3171,7 @@ var cmdSettingsUnset = &argv.Command{
 		{Key: FlagSettingsUnsetLocal, Name: "local", Longs: []string{"local"}, Shorts: []byte{'l'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgSettingsUnsetKey, Name: "KEY"},
+		{Key: ArgSettingsUnsetKey, Name: "KEY", Required: true},
 	},
 }
 
@@ -3186,7 +3186,7 @@ var cmdShell = &argv.Command{
 		{Key: FlagShellRaw, Name: "raw", Longs: []string{"raw"}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgShellToolVersion, Name: "TOOL@VERSION", Var: true},
+		{Key: ArgShellToolVersion, Name: "TOOL@VERSION", Required: true, Var: true},
 	},
 }
 
@@ -3205,7 +3205,7 @@ var cmdShellAliasGet = &argv.Command{
 	Name: "get",
 	Key:  CmdShellAliasGet,
 	Args: []*argv.Arg{
-		{Key: ArgShellAliasGetShellAlias, Name: "shell_alias"},
+		{Key: ArgShellAliasGetShellAlias, Name: "shell_alias", Required: true},
 	},
 }
 
@@ -3225,7 +3225,7 @@ var cmdShellAliasSet = &argv.Command{
 	Key:     CmdShellAliasSet,
 	Aliases: []string{"add", "create"},
 	Args: []*argv.Arg{
-		{Key: ArgShellAliasSetShellAlias, Name: "shell_alias"},
+		{Key: ArgShellAliasSetShellAlias, Name: "shell_alias", Required: true},
 		{Key: ArgShellAliasSetCommand, Name: "COMMAND"},
 	},
 }
@@ -3236,7 +3236,7 @@ var cmdShellAliasUnset = &argv.Command{
 	Key:     CmdShellAliasUnset,
 	Aliases: []string{"rm", "remove", "delete", "del"},
 	Args: []*argv.Arg{
-		{Key: ArgShellAliasUnsetShellAlias, Name: "shell_alias"},
+		{Key: ArgShellAliasUnsetShellAlias, Name: "shell_alias", Required: true},
 	},
 }
 
@@ -3330,7 +3330,7 @@ var cmdTasksAdd = &argv.Command{
 		{Key: FlagTasksAddSilent, Name: "silent", Longs: []string{"silent"}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgTasksAddTask, Name: "TASK"},
+		{Key: ArgTasksAddTask, Name: "TASK", Required: true},
 		{Key: ArgTasksAddRun, Name: "RUN", Var: true, DoubleDash: argv.DoubleDashRequired},
 	},
 }
@@ -3357,7 +3357,7 @@ var cmdTasksEdit = &argv.Command{
 		{Key: FlagTasksEditPath, Name: "path", Longs: []string{"path"}, Shorts: []byte{'p'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgTasksEditTask, Name: "TASK"},
+		{Key: ArgTasksEditTask, Name: "TASK", Required: true},
 	},
 }
 
@@ -3380,7 +3380,7 @@ var cmdTasksInfo = &argv.Command{
 		{Key: FlagTasksInfoJson, Name: "json", Longs: []string{"json"}, Shorts: []byte{'J'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgTasksInfoTask, Name: "TASK"},
+		{Key: ArgTasksInfoTask, Name: "TASK", Required: true},
 	},
 }
 
@@ -3545,7 +3545,7 @@ var cmdTool = &argv.Command{
 		{Key: FlagToolToolOptions, Name: "tool-options", Longs: []string{"tool-options"}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgToolTool, Name: "TOOL"},
+		{Key: ArgToolTool, Name: "TOOL", Required: true},
 	},
 }
 
@@ -3554,7 +3554,7 @@ var cmdToolStub = &argv.Command{
 	Name: "tool-stub",
 	Key:  CmdToolStub,
 	Args: []*argv.Arg{
-		{Key: ArgToolStubFile, Name: "FILE"},
+		{Key: ArgToolStubFile, Name: "FILE", Required: true},
 		{Key: ArgToolStubArgs, Name: "ARGS", Var: true, DoubleDash: argv.DoubleDashAutomatic},
 	},
 }
@@ -3622,7 +3622,7 @@ var cmdUnuse = &argv.Command{
 		{Key: FlagUnuseNoPrune, Name: "no-prune", Longs: []string{"no-prune"}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgUnuseInstalledToolVersion, Name: "INSTALLED_TOOL@VERSION", Var: true},
+		{Key: ArgUnuseInstalledToolVersion, Name: "INSTALLED_TOOL@VERSION", Required: true, Var: true},
 	},
 }
 
@@ -3755,7 +3755,7 @@ var cmdWhere = &argv.Command{
 	Name: "where",
 	Key:  CmdWhere,
 	Args: []*argv.Arg{
-		{Key: ArgWhereToolVersion, Name: "TOOL@VERSION"},
+		{Key: ArgWhereToolVersion, Name: "TOOL@VERSION", Required: true},
 		{Key: ArgWhereAsdfVersion, Name: "ASDF_VERSION"},
 	},
 }

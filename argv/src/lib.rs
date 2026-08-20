@@ -196,6 +196,9 @@ pub struct Command<'a> {
     pub args_conflicts_with_subcommands: bool,
     /// Let a known subcommand interrupt a variadic argument that would otherwise consume it.
     pub subcommand_precedence_over_arg: bool,
+    /// Let a later required positional take a word while an earlier optional positional
+    /// remains empty.
+    pub allow_missing_positional: bool,
     /// Disable delimiter splitting for positional values after `--` or on an
     /// automatic trailing argument. Inherited by subcommands.
     pub dont_delimit_trailing_values: bool,
@@ -244,6 +247,7 @@ impl Command<'_> {
         subcommand_negates_reqs: false,
         args_conflicts_with_subcommands: false,
         subcommand_precedence_over_arg: false,
+        allow_missing_positional: false,
         dont_delimit_trailing_values: false,
         unknown_flags: ::core::option::Option::None,
         version: false,
@@ -392,6 +396,9 @@ pub struct Arg<'a> {
     /// Caller-assigned identifier, echoed back in [`Event::Arg`]. See
     /// [`Command::key`] on why it is this wide.
     pub key: u64,
+    /// Whether post-binding requires this positional to have a value. Kept in the hot
+    /// table because `allow_missing_positional` must reserve words for later required args.
+    pub required: bool,
     /// Whether this argument keeps taking values once it has one.
     pub var: bool,
     /// How many words a variadic may take before the next argument gets the rest.
@@ -423,6 +430,7 @@ impl Arg<'_> {
     /// A single-value argument, for use with struct update syntax.
     pub const REQUIRED: Arg<'static> = Arg {
         key: 0,
+        required: true,
         var: false,
         var_max: ::core::option::Option::None,
         delimiter: ::core::option::Option::None,
@@ -1647,6 +1655,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
         }
 
+        self.reserve_for_required_positionals();
         let Some(arg) = self.next_arg() else {
             return Err(Error::UnexpectedArg { token });
         };
@@ -1744,6 +1753,37 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
     fn next_arg(&self) -> Option<&'t Arg<'t>> {
         self.cmd.args.get(self.arg_pos).copied()
+    }
+
+    /// Skip empty optional positionals when every remaining value is needed by a later
+    /// required positional. This is clap's opt-in `allow_missing_positional` policy.
+    fn reserve_for_required_positionals(&mut self) {
+        if !self.cmd.allow_missing_positional || self.arg_taken != 0 {
+            return;
+        }
+        loop {
+            let Some(current) = self.next_arg() else {
+                return;
+            };
+            if current.required {
+                return;
+            }
+            let required_after = self.cmd.args[self.arg_pos + 1..]
+                .iter()
+                .filter(|arg| arg.required)
+                .count();
+            if required_after == 0 {
+                return;
+            }
+            let remaining_values = 1 + self.argv[self.pos..]
+                .iter()
+                .filter(|word| self.flags_stopped || !is_flag_like(bytes(word)))
+                .count();
+            if remaining_values > required_after {
+                return;
+            }
+            self.advance_arg();
+        }
     }
 
     /// Flags in scope: this command's own, then any ancestor's globals.
@@ -2077,6 +2117,53 @@ mod tests {
             panic!("expected a flag");
         };
         assert_eq!(value, Some(&b"-1"[..]));
+    }
+
+    #[test]
+    fn missing_optional_positional_reserves_the_last_word() {
+        static OPTIONAL: Arg = Arg {
+            key: 90,
+            name: "optional",
+            required: false,
+            ..Arg::REQUIRED
+        };
+        static REQUIRED: Arg = Arg {
+            key: 91,
+            name: "required",
+            ..Arg::REQUIRED
+        };
+        static CMD: Command = Command {
+            name: "ex",
+            args: &[&OPTIONAL, &REQUIRED],
+            allow_missing_positional: true,
+            ..Command::EMPTY
+        };
+
+        let one = argv(["value"]);
+        assert_eq!(
+            parse(&CMD, &one).unwrap(),
+            vec![Event::Arg {
+                arg: &REQUIRED,
+                value: b"value",
+                delimit: true
+            }]
+        );
+        let two = argv(["optional", "required"]);
+        assert_eq!(
+            parse(&CMD, &two).unwrap(),
+            vec![
+                Event::Arg {
+                    arg: &OPTIONAL,
+                    value: b"optional",
+                    delimit: true
+                },
+                Event::Arg {
+                    arg: &REQUIRED,
+                    value: b"required",
+                    delimit: true
+                },
+            ]
+        );
     }
 
     #[test]

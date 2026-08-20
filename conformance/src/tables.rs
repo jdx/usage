@@ -113,6 +113,7 @@ pub fn build(
         subcommand_negates_reqs: cmd.subcommand_negates_reqs,
         args_conflicts_with_subcommands: cmd.args_conflicts_with_subcommands,
         subcommand_precedence_over_arg: cmd.subcommand_precedence_over_arg,
+        allow_missing_positional: cmd.allow_missing_positional,
         dont_delimit_trailing_values: cmd.dont_delimit_trailing_values,
         key: 0,
     }));
@@ -295,6 +296,7 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
 fn build_arg(a: &SpecArg) -> &'static Arg<'static> {
     Box::leak(Box::new(Arg {
         key: 0,
+        required: a.required,
         name: leak(&a.name),
         var: a.var,
         var_max: a

@@ -100,7 +100,7 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | `subcommand_negates_reqs`                            | yes       | yes       | yes       | yes       | yes     | yes        | A selected child suppresses its parent's positive requirements, not conflicts or the child's requirements.              |
 | `args_conflicts_with_subcommands`                    | yes       | yes       | yes       | yes       | yes     | yes        | Parent flags or positionals exclude a later child subcommand.                                                           |
 | `subcommand_precedence_over_arg`                     | yes       | yes       | yes       | yes       | yes     | yes        | A known child can end a variadic flag or positional value owner.                                                        |
-| remaining subcommand/argument policies               | no        | no        | no        | no        | no      | no         | `allow_missing_positional` is not represented.                                                                          |
+| `allow_missing_positional`                           | yes       | yes       | yes       | yes       | yes     | yes        | Later required positionals can claim the remaining words while earlier optional fields stay empty.                      |
 | unknown flags                                        | different | different | different | different | yes     | different  | usage is permissive by default; `unknown_flags = "error"` opts into strict parsing.                                     |
 
 ## Help, version, and generated artifacts

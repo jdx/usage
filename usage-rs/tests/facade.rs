@@ -68,6 +68,15 @@ struct Precedence {
     command: Option<ArgumentConflictCommand>,
 }
 
+#[derive(Cli)]
+#[command(bin = "missing-positional", allow_missing_positional)]
+struct MissingPositional {
+    #[arg()]
+    optional: Option<String>,
+    #[arg()]
+    required: String,
+}
+
 #[derive(Subcommands, serde::Deserialize)]
 enum InlineCommand {
     /// Run a named benchmark.
@@ -1005,6 +1014,20 @@ fn typed_subcommands_can_interrupt_variadic_values() {
     assert_eq!(parsed.values, ["a", "b"]);
     assert!(matches!(parsed.command, Some(ArgumentConflictCommand::Run)));
     assert!(Precedence::to_kdl().contains("subcommand_precedence_over_arg #true"));
+}
+
+#[test]
+fn typed_parser_can_reserve_a_word_for_a_required_positional() {
+    let parsed = MissingPositional::parse_from(&[OsStr::new("required")])
+        .expect("the last word belongs to the later required positional");
+    assert_eq!(parsed.optional, None);
+    assert_eq!(parsed.required, "required");
+
+    let parsed = MissingPositional::parse_from(&[OsStr::new("optional"), OsStr::new("required")])
+        .expect("an extra word still fills the optional positional first");
+    assert_eq!(parsed.optional.as_deref(), Some("optional"));
+    assert_eq!(parsed.required, "required");
+    assert!(MissingPositional::to_kdl().contains("allow_missing_positional #true"));
 }
 
 #[test]

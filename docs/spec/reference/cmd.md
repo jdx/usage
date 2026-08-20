@@ -203,6 +203,18 @@ or positional that would otherwise consume it.
 subcommand_precedence_over_arg #true
 ```
 
+### Allow a missing optional positional
+
+`allow_missing_positional` lets a later required positional claim the last
+available word while an earlier optional positional remains empty. Without the
+opt-in, positional binding remains strictly left to right.
+
+```kdl
+allow_missing_positional #true
+arg "[optional]"
+arg "<required>"
+```
+
 ### Preserve delimiters in trailing values
 
 `dont_delimit_trailing_values` keeps a positional token whole after `--`, or once a
