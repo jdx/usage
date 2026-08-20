@@ -177,13 +177,17 @@ func TestNextLineHelp(t *testing.T) {
 func TestFlattenHelp(t *testing.T) {
 	arg := &Arg{Name: "task", Key: 3, Required: true}
 	flag := &Flag{Name: "dry-run", Key: 4, Longs: []string{"dry-run"}}
-	sub := &Command{Name: "run", Key: 2, Args: []*Arg{arg}, Flags: []*Flag{flag}}
+	deep := &Flag{Name: "deep", Key: 6, Longs: []string{"deep"}}
+	nested := &Command{Name: "nested", Key: 5, Flags: []*Flag{deep}}
+	sub := &Command{Name: "run", Key: 2, Args: []*Arg{arg}, Flags: []*Flag{flag}, Subcommands: []*Command{nested}}
 	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{sub}}
 	help := HelpTable{
 		{Key: 1, FlattenHelp: true},
-		{Key: 2, Short: "Run it"},
+		{Key: 2, Short: "Run it", FlattenHelp: true, NextLineHelp: true},
 		{Key: 3, Short: "Task name", Demanded: true},
 		{Key: 4, Short: "Only show changes"},
+		{Key: 5, Short: "Nested operation"},
+		{Key: 6, Short: "Deep option"},
 	}
 
 	for _, page := range []string{
@@ -195,6 +199,8 @@ func TestFlattenHelp(t *testing.T) {
 			"\nrun:\nRun it",
 			"<task>",
 			"--dry-run",
+			"\nrun nested:\nNested operation",
+			"--deep\n    Deep option",
 		} {
 			if !strings.Contains(page, want) {
 				t.Fatalf("missing %q in:\n%s", want, page)

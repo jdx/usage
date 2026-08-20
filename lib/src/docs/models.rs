@@ -51,6 +51,10 @@ pub struct SpecCommand {
     pub flatten_help: bool,
     pub args_conflicts_with_subcommands: bool,
     pub flattened_usage: Vec<String>,
+    /// Visible descendants rendered as sections when an ancestor flattens help.
+    pub flattened_subcommands: Vec<SpecCommand>,
+    /// The flattening parent's layout policy for this section.
+    pub flattened_next_line_help: bool,
     pub restart_token: Option<String>,
     pub help: Option<String>,
     pub help_long: Option<String>,
@@ -543,13 +547,26 @@ impl From<&crate::SpecCommand> for SpecCommand {
             groups: _,
         } = cmd;
 
+        let subcommands: IndexMap<_, _> = subcommands
+            .iter()
+            .map(|(k, v)| (k.clone(), SpecCommand::from(v)))
+            .collect();
+        let mut flattened_subcommands = Vec::new();
+        if *flatten_help {
+            let mut visible: Vec<_> = subcommands.values().filter(|sub| !sub.hide).collect();
+            visible.sort_by(|a, b| a.name.cmp(&b.name));
+            for sub in visible {
+                let mut section = sub.clone();
+                section.flattened_next_line_help = *next_line_help;
+                flattened_subcommands.push(section);
+                flattened_subcommands.extend(sub.flattened_subcommands.iter().cloned());
+            }
+        }
+
         Self {
             full_cmd: full_cmd.clone(),
             usage: usage.clone(),
-            subcommands: subcommands
-                .iter()
-                .map(|(k, v)| (k.clone(), SpecCommand::from(v)))
-                .collect(),
+            subcommands,
             flag_groups: group_by_heading(&flags, |f| f.help_heading.as_deref()),
             arg_groups: group_by_heading(&args, |a| a.help_heading.as_deref()),
             args,
@@ -563,6 +580,8 @@ impl From<&crate::SpecCommand> for SpecCommand {
             flatten_help: *flatten_help,
             args_conflicts_with_subcommands: *args_conflicts_with_subcommands,
             flattened_usage,
+            flattened_subcommands,
+            flattened_next_line_help: false,
             restart_token: restart_token.clone(),
             // The renderer owns the line break after a command description. Keeping one
             // embedded in the text creates an extra blank in next-line help.

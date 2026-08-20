@@ -249,7 +249,7 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 			longAnnotations(out, fh, true)
 		}
 		if h != nil && h.FlattenHelp {
-			flatCommandsLong(out, subPath, sub, help, nextLine)
+			flatCommandsLong(out, subPath, sub, help, h.NextLineHelp)
 		}
 		out.WriteString("\n")
 	}

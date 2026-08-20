@@ -163,7 +163,7 @@ Global flags:
 {%- endif %}
 
 {%- if cmd.flatten_help %}
-{%- for sub in cmd.subcommands | values | sort(attribute="usage") %}
+{%- for sub in cmd.flattened_subcommands %}
 
 {{ sub.full_cmd | join(sep=" ") }}:
 {%- set about = sub.help_long | default(value=sub.help | default(value='')) %}
@@ -172,7 +172,7 @@ Global flags:
 {%- endif %}
 {%- for group in sub.arg_groups %}
 {%- for arg in group.items %}
-{%- if cmd.next_line_help %}
+{%- if sub.flattened_next_line_help %}
   {{ arg.usage | trim }}
 {%- set help = arg.help_long | default(value=arg.help | default(value='')) %}
 {%- if help %}
@@ -196,7 +196,7 @@ Global flags:
 {%- endfor %}
 {%- for group in sub.flag_groups %}
 {%- for flag in group.items %}
-{%- if cmd.next_line_help %}
+{%- if sub.flattened_next_line_help %}
   {{ flag.display_usage }}
 {%- set help = flag.help_long | default(value=flag.help | default(value='')) %}
 {%- if help %}

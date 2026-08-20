@@ -111,7 +111,7 @@ Global flags:
 {%- endif %}
 
 {%- if cmd.flatten_help %}
-{%- for sub in cmd.subcommands | values | sort(attribute="usage") %}
+{%- for sub in cmd.flattened_subcommands %}
 
 {{ sub.full_cmd | join(sep=" ") }}:
 {%- if sub.help %}
@@ -119,9 +119,9 @@ Global flags:
 {%- endif %}
 {%- for group in sub.arg_groups %}
 {%- for arg in group.items %}
-  {% if arg.help %}{% if cmd.next_line_help %}{{ arg.usage | trim }}
+  {% if arg.help %}{% if sub.flattened_next_line_help %}{{ arg.usage | trim }}
     {{ arg.help | indent(width=4) }}{% else %}{{ arg.usage | trim | ljust(width=arg.usage_col_width) }}  {{ arg.help }}{% endif %}{% else %}{{ arg.usage | trim }}{% endif %}
-{%- if cmd.next_line_help %}
+{%- if sub.flattened_next_line_help %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
     [possible values: {{ arg.choices.choices | join(sep=", ") }}]{%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
@@ -140,9 +140,9 @@ Global flags:
 {%- endfor %}
 {%- for group in sub.flag_groups %}
 {%- for flag in group.items %}
-  {% if flag.help %}{% if cmd.next_line_help %}{{ flag.display_usage }}
+  {% if flag.help %}{% if sub.flattened_next_line_help %}{{ flag.display_usage }}
     {{ flag.help | indent(width=4) }}{% else %}{{ flag.display_usage | ljust(width=flag.usage_col_width) }}  {{ flag.help }}{% endif %}{% else %}{{ flag.display_usage }}{% endif %}
-{%- if cmd.next_line_help %}
+{%- if sub.flattened_next_line_help %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}

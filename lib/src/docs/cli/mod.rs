@@ -974,6 +974,10 @@ cmd "run" help="Run it" {
         }
     }
     flag "--dry-run" help="Only show changes"
+    flatten_help #true
+    cmd "nested" help="Nested operation" {
+        flag "--deep" help="Deep option"
+    }
 }
         "# }
         .unwrap();
@@ -990,6 +994,8 @@ cmd "run" help="Run it" {
             assert!(page.contains("\nrun:\nRun it"), "{page}");
             assert!(page.contains("[task]"), "{page}");
             assert!(page.contains("--dry-run"), "{page}");
+            assert!(page.contains("\nrun nested:\nNested operation"), "{page}");
+            assert!(page.contains("--deep"), "{page}");
             assert!(
                 page.contains(
                     "    [possible values: build, test]\n    [env: TASK]\n    (default: build)"

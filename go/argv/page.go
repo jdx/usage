@@ -347,7 +347,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 			annotations(out, fh, true)
 		}
 		if h != nil && h.FlattenHelp {
-			flatCommandsShort(out, subPath, sub, help, nextLine)
+			flatCommandsShort(out, subPath, sub, help, h.NextLineHelp)
 		}
 		out.WriteString("\n")
 	}
