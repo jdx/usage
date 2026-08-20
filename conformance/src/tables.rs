@@ -315,6 +315,7 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
             usage::SpecFlagAction::Help => usage_argv::ArgAction::Help,
             usage::SpecFlagAction::HelpShort => usage_argv::ArgAction::HelpShort,
             usage::SpecFlagAction::HelpLong => usage_argv::ArgAction::HelpLong,
+            usage::SpecFlagAction::HelpAll => usage_argv::ArgAction::HelpAll,
             usage::SpecFlagAction::Version => usage_argv::ArgAction::Version,
         },
     }))

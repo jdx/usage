@@ -75,7 +75,7 @@ command received an argv token; environment and default fallbacks do not count.
 
 Help and version entry points migrate in place too. `disable_help_flag`,
 `disable_help_subcommand`, and `disable_version_flag` remove the synthesized entries, while
-`#[arg(action = usage::ArgAction::HelpShort)]` (or `Help`, `HelpLong`, and `Version`) can put
+`#[arg(action = usage::ArgAction::HelpShort)]` (or `Help`, `HelpLong`, `HelpAll`, and `Version`) can put
 the action on any declared flag and keep that flag's own help text.
 
 `#[command(subcommand_negates_reqs)]` also migrates in place. Selecting a child suppresses

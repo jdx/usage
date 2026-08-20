@@ -38,7 +38,9 @@ use std::fmt::Write as _;
 use heck::AsPascalCase;
 
 use crate::spec::unknown_flags::UnknownFlags;
-use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecDoubleDashChoices, SpecFlag};
+use crate::{
+    Spec, SpecArg, SpecChoices, SpecCommand, SpecDoubleDashChoices, SpecFlag, SpecFlagAction,
+};
 
 /// How to emit.
 #[derive(Debug, Clone, Default)]
@@ -1403,6 +1405,17 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
     if flag.bool_value {
         fields.push("BoolValue: true".to_string());
     }
+    let action = match flag.action {
+        SpecFlagAction::Set => None,
+        SpecFlagAction::Help => Some("argv.ActionHelp"),
+        SpecFlagAction::HelpShort => Some("argv.ActionHelpShort"),
+        SpecFlagAction::HelpLong => Some("argv.ActionHelpLong"),
+        SpecFlagAction::HelpAll => Some("argv.ActionHelpAll"),
+        SpecFlagAction::Version => Some("argv.ActionVersion"),
+    };
+    if let Some(action) = action {
+        fields.push(format!("Action: {action}"));
+    }
     // Only a variadic *argument* is greedy. The spec's flag-level `var` means the
     // flag may be repeated and takes one value each time, which needs nothing from
     // the parser: it reports every occurrence separately either way. Conflating the
@@ -2087,6 +2100,15 @@ cmd "run" arg_required_else_help=#true {
             out.contains("(ev.Value == \"true\") != ev.Negated"),
             "{out}"
         );
+    }
+
+    #[test]
+    fn flag_actions_reach_generated_go() {
+        let out = go(
+            "name \"ex\"\nbin \"ex\"\nflag \"--help-all\" action=\"help_all\"\nflag \"--version\" action=\"version\"\n",
+        );
+        assert!(out.contains("Action: argv.ActionHelpAll"), "{out}");
+        assert!(out.contains("Action: argv.ActionVersion"), "{out}");
     }
 
     #[test]

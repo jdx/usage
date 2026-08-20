@@ -190,7 +190,7 @@ disable_version_flag #true
 ```
 
 The same properties are accepted on a `cmd` node. A declared flag can then relocate the
-behavior with `action="help"`, `help_short`, `help_long`, or `version`; its ordinary `help`
+behavior with `action="help"`, `help_short`, `help_long`, `help_all`, or `version`; its ordinary `help`
 text is what the help page displays.
 
 ### Let a subcommand satisfy parent requirements

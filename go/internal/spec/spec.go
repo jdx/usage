@@ -650,6 +650,8 @@ func flagAction(action string) argv.ArgAction {
 		return argv.ActionHelpShort
 	case "help_long":
 		return argv.ActionHelpLong
+	case "help_all":
+		return argv.ActionHelpAll
 	case "version":
 		return argv.ActionVersion
 	default:
