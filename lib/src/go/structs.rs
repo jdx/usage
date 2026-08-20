@@ -462,6 +462,9 @@ fn flag_assign(flag: &SpecFlag, owner: &str, field: &str) -> String {
         // A count is the number of occurrences, which is what the parser reports
         // one event at a time.
         "int" => format!("\t\t\t\t{owner}.{field}++"),
+        "bool" if flag.bool_value => format!(
+            "\t\t\t\tif ev.HasValue {{\n\t\t\t\t\t{owner}.{field} = (ev.Value == \"true\") != ev.Negated\n\t\t\t\t}} else {{\n\t\t\t\t\t{owner}.{field} = !ev.Negated\n\t\t\t\t}}"
+        ),
         "bool" => format!("\t\t\t\t{owner}.{field} = !ev.Negated"),
         "[]string" => format!(
             "\t\t\t\tif ev.HasValue {{\n\t\t\t\t\t{owner}.{field} = append({owner}.{field}, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)\n\t\t\t\t}}"
