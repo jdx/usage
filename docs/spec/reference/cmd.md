@@ -169,6 +169,20 @@ The policy observes argv belonging to the selected command. A global flag before
 subcommand does not count as that subcommand's argument, and values supplied later by an
 environment variable or default do not suppress help.
 
+### Let a subcommand satisfy parent requirements
+
+`subcommand_negates_reqs` makes required arguments, flags, groups, and conditional
+requirements on a parent optional when a child is selected:
+
+```kdl
+subcommand_negates_reqs #true
+arg "<input>"
+cmd "inspect"
+```
+
+`ex inspect` is valid, while bare `ex` still requires `input`. Conflicts continue to apply,
+and the selected child must still satisfy its own requirements.
+
 ### Preserve delimiters in trailing values
 
 `dont_delimit_trailing_values` keeps a positional token whole after `--`, or once a

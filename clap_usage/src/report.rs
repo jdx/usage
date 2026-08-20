@@ -16,7 +16,6 @@ pub enum FidelityFeature {
     AllowMissingPositional,
     ArgsConflictWithSubcommands,
     SubcommandPrecedenceOverArg,
-    SubcommandNegatesRequirements,
     FlattenHelp,
     NextLineHelp,
     SubcommandHelpHeading,
@@ -96,11 +95,6 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         cmd.is_subcommand_precedence_over_arg_set(),
         FidelityFeature::SubcommandPrecedenceOverArg,
         "subcommand_precedence_over_arg",
-    );
-    command_loss(
-        cmd.is_subcommand_negates_reqs_set(),
-        FidelityFeature::SubcommandNegatesRequirements,
-        "subcommand_negates_reqs",
     );
     command_loss(
         cmd.is_flatten_help_set(),

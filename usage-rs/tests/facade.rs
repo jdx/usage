@@ -23,6 +23,26 @@ enum Command {
     Version,
 }
 
+#[derive(Cli)]
+#[command(bin = "negated-requirements", subcommand_negates_reqs)]
+#[allow(dead_code)]
+struct NegatedRequirements {
+    #[arg(long, required = true)]
+    config: Option<String>,
+    #[command(subcommand)]
+    command: Option<NegatedCommand>,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum NegatedCommand {
+    Run {
+        #[arg(long)]
+        target: String,
+    },
+    Show,
+}
+
 #[derive(Subcommands, serde::Deserialize)]
 enum InlineCommand {
     /// Run a named benchmark.
@@ -913,6 +933,23 @@ fn a_parent_repeat_policy_applies_through_flattening() {
             "a repeated spelling remains a duplicate"
         );
     }
+}
+
+#[test]
+fn typed_subcommands_negate_only_parent_requirements() {
+    assert!(NegatedRequirements::parse_from(&[]).is_err());
+    NegatedRequirements::parse_from(&[OsStr::new("show")])
+        .expect("the selected child satisfies the parent requirement");
+    assert!(NegatedRequirements::parse_from(&[OsStr::new("run")]).is_err());
+    NegatedRequirements::parse_from(&[
+        OsStr::new("run"),
+        OsStr::new("--target"),
+        OsStr::new("release"),
+    ])
+    .expect("the selected child still enforces its own requirement");
+
+    let kdl = NegatedRequirements::to_kdl();
+    assert!(kdl.contains("subcommand_negates_reqs #true"), "{kdl}");
 }
 
 #[test]

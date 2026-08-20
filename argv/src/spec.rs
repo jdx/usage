@@ -1134,6 +1134,9 @@ impl Spec<'_> {
         if !self.root.args_override_self {
             writeln!(out, "args_override_self #false")?;
         }
+        if self.root.cmd.subcommand_negates_reqs {
+            writeln!(out, "subcommand_negates_reqs #true")?;
+        }
         // A `complete` block for every completer this CLI declares, naming the command that
         // asks the binary itself. Written rather than declared, so there is one place a
         // completer is said to exist: the Rust function. Everything that reads a spec — the
@@ -1382,6 +1385,9 @@ fn write_command<'a>(
     }
     if !meta.args_override_self {
         out.push_str(" args_override_self=#false");
+    }
+    if meta.cmd.subcommand_negates_reqs {
+        out.push_str(" subcommand_negates_reqs=#true");
     }
     out.push_str(" {\n");
 

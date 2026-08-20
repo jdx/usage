@@ -503,9 +503,12 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       command receives no argv tokens. This deliberately reads argv rather than
       bound values: an environment variable or default may fill a field, but an
       empty command line still means help.
+- [x] **`subcommand_negates_reqs`.** A selected child suppresses every positive
+      requirement declared by its parent while conflicts and the child's own requirements
+      still apply. KDL, usage-lib, typed Rust, generated Go, and the clap bridge agree.
 - [ ] **Remaining command parsing policy** —
-      `args_conflicts_with_subcommands`, `subcommand_negates_reqs`,
-      `subcommand_precedence_over_arg`, and `allow_missing_positional`.
+      `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, and
+      `allow_missing_positional`.
 - [x] **`args_override_self`.** Repeated scalar flags are corrections by default;
       the later value wins. `args_override_self=false` opts a command into duplicate
       errors. KDL, usage-lib, the typed derive/static metadata, generated Go, and the

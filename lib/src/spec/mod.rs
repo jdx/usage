@@ -307,6 +307,9 @@ impl Spec {
                 "args_override_self" => {
                     schema.cmd.args_override_self = node.arg(0)?.ensure_bool()?;
                 }
+                "subcommand_negates_reqs" => {
+                    schema.cmd.subcommand_negates_reqs = node.arg(0)?.ensure_bool()?;
+                }
                 "example" => {
                     let code = node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
                     let mut example = SpecExample::new(code.trim().to_string());
@@ -598,6 +601,11 @@ impl Display for Spec {
         if !self.cmd.args_override_self {
             let mut node = KdlNode::new("args_override_self");
             node.push(false);
+            nodes.push(node);
+        }
+        if self.cmd.subcommand_negates_reqs {
+            let mut node = KdlNode::new("subcommand_negates_reqs");
+            node.push(true);
             nodes.push(node);
         }
         if !self.usage.is_empty() {

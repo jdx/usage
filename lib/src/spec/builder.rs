@@ -843,6 +843,12 @@ impl SpecCommandBuilder {
         self
     }
 
+    /// Set whether selecting a subcommand suppresses this command's requirements.
+    pub fn subcommand_negates_reqs(mut self, enabled: bool) -> Self {
+        self.inner.subcommand_negates_reqs = enabled;
+        self
+    }
+
     /// Set what running this command does to the world
     pub fn effect(mut self, effect: SpecCommandEffect) -> Self {
         self.inner.effect = Some(effect);

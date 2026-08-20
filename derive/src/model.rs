@@ -111,6 +111,7 @@ pub struct Cli {
     /// Disable delimiter splitting after `--` and for automatic trailing args.
     pub dont_delimit_trailing_values: bool,
     pub args_override_self: bool,
+    pub subcommand_negates_reqs: bool,
     /// Declared descriptions, for the case a doc comment cannot express: a long form that does
     /// not contain the short one.
     pub about_attr: Option<proc_macro2::TokenStream>,
@@ -556,6 +557,7 @@ impl Cli {
             arg_required_else_help: false,
             dont_delimit_trailing_values: false,
             args_override_self: true,
+            subcommand_negates_reqs: false,
             about_attr: None,
             long_about_attr: None,
             before_help: None,
@@ -698,6 +700,7 @@ impl Cli {
                         cli.dont_delimit_trailing_values = flag_value(&meta)?
                     }
                     "args_override_self" => cli.args_override_self = flag_value(&meta)?,
+                    "subcommand_negates_reqs" => cli.subcommand_negates_reqs = flag_value(&meta)?,
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
@@ -709,7 +712,7 @@ impl Cli {
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, \
+                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, \
                                  `next_help_heading`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"
@@ -765,6 +768,7 @@ impl Cli {
                 field,
                 cli.rename_all,
                 cli.rename_all_env,
+                cli.subcommand_negates_reqs,
             )?);
         }
         if let Some(heading) = &cli.next_help_heading {
@@ -1678,6 +1682,7 @@ impl Field {
         field: &syn::Field,
         rename_all: Option<CasingStyle>,
         rename_all_env: CasingStyle,
+        subcommand_negates_reqs: bool,
     ) -> syn::Result<Self> {
         let ident = field
             .ident
@@ -2442,7 +2447,10 @@ impl Field {
         // `required` is for the one case the type cannot express. Anywhere else it either
         // repeats what the type says or contradicts it, and both are worth refusing: a
         // declaration that changes nothing is a declaration someone will trust.
-        if required_collection && shape != Shape::Many {
+        if required_collection
+            && shape != Shape::Many
+            && !(subcommand_negates_reqs && shape == Shape::Optional)
+        {
             return Err(syn::Error::new(
                 span,
                 match shape {
@@ -2566,7 +2574,10 @@ impl Field {
         // what the type says or contradicts it, and a declaration that changes nothing is one
         // someone will eventually trust. (This guard was lost while two fixes for the same
         // review finding met in the middle; the test for it is what noticed.)
-        if required_collection && shape != Shape::Many {
+        if required_collection
+            && shape != Shape::Many
+            && !(subcommand_negates_reqs && shape == Shape::Optional)
+        {
             return Err(syn::Error::new(
                 span,
                 match shape {

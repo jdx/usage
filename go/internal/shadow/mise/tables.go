@@ -10485,12 +10485,16 @@ func Parse(args []string) (*Cli, error) {
 	// Only the commands the words actually selected are judged: a required
 	// flag on a command nobody ran is not missing.
 	var scope []uint64
-	for _, cmd := range chain {
+	requirements := map[uint64]bool{}
+	for i, cmd := range chain {
+		checkRequirements := i == len(chain)-1 || !cmd.SubcommandNegatesReqs
 		for _, f := range cmd.Flags {
 			scope = append(scope, f.Key)
+			requirements[f.Key] = checkRequirements
 		}
 		for _, a := range cmd.Args {
 			scope = append(scope, a.Key)
+			requirements[a.Key] = checkRequirements
 		}
 	}
 	sources := map[uint64]argv.Source{}
@@ -10503,7 +10507,13 @@ func Parse(args []string) (*Cli, error) {
 	argv.ApplyDefaultIf(Meta, scope, filled, sources, nil)
 	for _, key := range scope {
 		values, source := filled[key], sources[key]
-		if err := argv.Check(Meta.Lookup(key), values, seen[key]); err != nil {
+		entryMeta := Meta.Lookup(key)
+		if entryMeta != nil && !requirements[key] {
+			copy := *entryMeta
+			copy.Required = false
+			entryMeta = &copy
+		}
+		if err := argv.Check(entryMeta, values, seen[key]); err != nil {
 			return nil, err
 		}
 		// What the environment or a default supplied has to reach the field
@@ -14173,9 +14183,9 @@ func Parse(args []string) (*Cli, error) {
 			}
 		}
 	}
-	if err := argv.CheckRelationships(Meta, scope, func(k uint64) argv.Source {
+	if err := argv.CheckRelationshipsWithValuesAndRequirements(Meta, scope, func(k uint64) argv.Source {
 		return sources[k]
-	}); err != nil {
+	}, nil, func(k uint64) bool { return requirements[k] }); err != nil {
 		return nil, err
 	}
 	return out, nil
