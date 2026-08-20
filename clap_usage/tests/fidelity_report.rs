@@ -88,6 +88,17 @@ fn subcommand_presentation_is_lossless() {
 }
 
 #[test]
+fn next_line_help_is_lossless() {
+    let mut command = Command::new("ex")
+        .next_line_help(true)
+        .arg(Arg::new("config").long("config").help("Config file"))
+        .subcommand(Command::new("run").about("Run it"));
+    let (spec, report) = spec_with_report(&mut command, "ex");
+    assert!(report.is_lossless(), "{report:#?}");
+    assert!(spec.cmd.next_line_help);
+}
+
+#[test]
 fn ranged_distinct_value_names_are_reported_as_lossy() {
     let mut command = Command::new("ex").arg(
         Arg::new("range")

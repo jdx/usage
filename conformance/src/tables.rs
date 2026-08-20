@@ -151,6 +151,7 @@ pub fn build(
         subcommand_required: cmd.subcommand_required,
         subcommand_help_heading: opt(&cmd.subcommand_help_heading),
         subcommand_value_name: opt(&cmd.subcommand_value_name),
+        next_line_help: cmd.next_line_help,
         term_width: cmd.term_width,
         max_term_width: cmd.max_term_width,
         args_override_self: cmd.args_override_self,

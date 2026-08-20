@@ -638,6 +638,23 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
         |a| a.help_heading,
         |out, a| {
             let usage = arg_usage(a);
+            if meta.next_line_help {
+                let _ = writeln!(out, "  {usage}");
+                if let Some(help) = a.help.filter(|h| !h.trim().is_empty()) {
+                    write_indented(out, help, 4);
+                }
+                long_annotations(
+                    out,
+                    if a.hide_possible_values {
+                        &[]
+                    } else {
+                        a.choices
+                    },
+                    if a.hide_env { None } else { a.env },
+                    if a.hide_default_value { &[] } else { a.default },
+                );
+                return;
+            }
             match a.help.filter(|h| !h.trim().is_empty()) {
                 Some(help) => {
                     let _ = write!(out, "  {usage:<arg_col$}  {help}");
@@ -667,6 +684,23 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
         .max()
         .unwrap_or(0);
     let short_entry = |out: &mut String, f: &FlagMeta<'_>, usage: String| {
+        if meta.next_line_help {
+            let _ = writeln!(out, "  {usage}");
+            if let Some(help) = f.help.filter(|h| !h.trim().is_empty()) {
+                write_indented(out, help, 4);
+            }
+            long_annotations(
+                out,
+                if f.hide_possible_values {
+                    &[]
+                } else {
+                    f.choices
+                },
+                if f.hide_env { None } else { f.env },
+                if f.hide_default_value { &[] } else { f.default },
+            );
+            return;
+        }
         match f.help.filter(|h| !h.trim().is_empty()) {
             Some(help) => {
                 let _ = write!(out, "  {usage:<flag_col$}  {help}");
@@ -758,14 +792,28 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
             let _ = write!(out, " [aliases: {}]", visible_aliases.join(", "));
         }
         if let Some(about) = sub.about {
-            let _ = write!(out, "  {about}");
+            if meta.next_line_help {
+                out.push('\n');
+                write_indented(out, about.trim_end(), 4);
+                continue;
+            }
+            // The row writes its own newline below. Trim trailing whitespace in both
+            // layouts, as usage-lib does before choosing a layout.
+            let _ = write!(out, "  {}", about.trim_end());
         }
         out.push('\n');
     }
-    let _ = writeln!(
-        out,
-        "  help  Print this message or the help of the given subcommand(s)"
-    );
+    if meta.next_line_help {
+        let _ = writeln!(
+            out,
+            "  help\n    Print this message or the help of the given subcommand(s)"
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "  help  Print this message or the help of the given subcommand(s)"
+        );
+    }
 }
 
 /// One section per heading, unheaded first, in the order the headings first appear.
@@ -1017,7 +1065,14 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
         |a| a.help_heading,
         |out, a| {
             let text = a.long_help.or(a.help);
-            entry(out, &arg_usage(a), text, arg_col, width);
+            entry(
+                out,
+                &arg_usage(a),
+                text,
+                arg_col,
+                width,
+                meta.next_line_help,
+            );
             long_annotations(
                 out,
                 if a.hide_possible_values {
@@ -1046,7 +1101,14 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
         |f| f.help_heading,
         |out, f| {
             let text = f.long_help.or(f.help);
-            entry(out, &column_usage(f), text, flag_col, width);
+            entry(
+                out,
+                &column_usage(f),
+                text,
+                flag_col,
+                width,
+                meta.next_line_help,
+            );
             long_annotations(
                 out,
                 if f.hide_possible_values {
@@ -1070,7 +1132,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
         |_| None,
         |out, (f, usage)| {
             let text = f.long_help.or(f.help);
-            entry(out, usage, text, flag_col, width);
+            entry(out, usage, text, flag_col, width, meta.next_line_help);
             long_annotations(
                 out,
                 if f.hide_possible_values {
@@ -1146,7 +1208,14 @@ fn write_indented(out: &mut String, text: &str, indent: usize) {
 }
 
 /// One entry: its usage, and its help either beside it or beneath it.
-fn entry(out: &mut String, usage: &str, help: Option<&str>, col: usize, width: usize) {
+fn entry(
+    out: &mut String,
+    usage: &str,
+    help: Option<&str>,
+    col: usize,
+    width: usize,
+    next_line: bool,
+) {
     let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
         let _ = writeln!(out, "  {usage}");
         return;
@@ -1156,7 +1225,7 @@ fn entry(out: &mut String, usage: &str, help: Option<&str>, col: usize, width: u
     // there is room left for it to say anything.
     let indent = 2 + col + 2;
     let room = width.saturating_sub(indent);
-    if help.contains('\n') || room < 10 {
+    if next_line || help.contains('\n') || room < 10 {
         let _ = writeln!(out, "  {usage}");
         write_indented(out, help, 4);
         return;
@@ -1688,7 +1757,33 @@ pub fn render_at_styled(
 
 #[cfg(test)]
 mod style_tests {
-    use super::{styled_help, Style};
+    use super::{commands_section, styled_help, Style};
+    use crate::spec::CommandMeta;
+    use crate::Command;
+
+    #[test]
+    fn short_command_rows_trim_trailing_help_whitespace() {
+        let sub_cmd = Command {
+            name: "run",
+            ..Command::EMPTY
+        };
+        let sub_meta = CommandMeta {
+            cmd: &sub_cmd,
+            about: Some("run it\n"),
+            ..CommandMeta::EMPTY
+        };
+        let subcommands = [&sub_meta];
+        let root_meta = CommandMeta {
+            subcommands: &subcommands,
+            ..CommandMeta::EMPTY
+        };
+        let mut page = String::new();
+
+        commands_section(&mut page, &[], &root_meta);
+
+        assert!(page.contains("  run  run it\n  help"));
+        assert!(!page.contains("  run  run it\n\n  help"));
+    }
 
     #[test]
     fn coloured_help_styles_structure_without_changing_plain_text() {

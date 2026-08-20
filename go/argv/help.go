@@ -85,6 +85,7 @@ type Help struct {
 	AfterLongHelp         string
 	SubcommandHelpHeading string
 	SubcommandValueName   string
+	NextLineHelp          bool
 	// Examples are worked invocations, printed last.
 	Examples []Example
 }

@@ -139,6 +139,41 @@ func TestSubcommandPresentation(t *testing.T) {
 	}
 }
 
+func TestNextLineHelp(t *testing.T) {
+	arg := &Arg{Name: "input", Key: 2, Required: true}
+	flag := &Flag{Name: "verbose", Key: 3, Longs: []string{"verbose"}}
+	annotated := &Flag{Name: "mode", Key: 5, Longs: []string{"mode"}}
+	sub := &Command{Name: "run", Key: 4}
+	root := &Command{Name: "ex", Key: 1, Args: []*Arg{arg}, Flags: []*Flag{flag, annotated}, Subcommands: []*Command{sub}}
+	help := HelpTable{
+		{Key: 1, NextLineHelp: true},
+		{Key: 2, Short: "Input file"},
+		{Key: 3, Short: "Enable verbose output"},
+		{Key: 4, Short: "Run it\n"},
+		{Key: 5, Env: "MODE", Default: []string{"fast"}, Choices: []string{"fast", "slow"}},
+	}
+
+	shortPage := ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	if strings.Contains(shortPage, "    Run it\n\n  help") {
+		t.Fatalf("trailing command help newline became a blank line:\n%s", shortPage)
+	}
+	for _, page := range []string{
+		shortPage,
+		LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+	} {
+		for _, want := range []string{
+			"  [input]\n    Input file",
+			"  --verbose\n    Enable verbose output",
+			"  run\n    Run it",
+			"  --mode\n    [possible values: fast, slow]\n    [env: MODE]\n    (default: fast)",
+		} {
+			if !strings.Contains(page, want) {
+				t.Fatalf("missing %q in:\n%s", want, page)
+			}
+		}
+	}
+}
+
 // A description that ends in a break adds no blank line.
 //
 // clap's `long_about` often ends with one — a `///` block whose last line is
@@ -155,7 +190,7 @@ func TestADescriptionEndingInABreakAddsNoBlankLine(t *testing.T) {
 	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{sub}}
 	help := HelpTable{
 		{Key: 1},
-		{Key: 2, Short: "run it", Long: "run it\n\nExamples:\n\n    $ ex run\n"},
+		{Key: 2, Short: "run it\n", Long: "run it\n\nExamples:\n\n    $ ex run\n"},
 	}
 	spec := HelpSpec{Name: "ex", Bin: "ex"}
 
@@ -173,5 +208,10 @@ func TestADescriptionEndingInABreakAddsNoBlankLine(t *testing.T) {
 	parent := LongHelp(spec, []string{"ex"}, []*Command{root}, help)
 	if strings.Contains(parent, "$ ex run\n\n\n") {
 		t.Errorf("a listed command's description should not double it either:\n%q", parent)
+	}
+
+	shortParent := ShortHelp(spec, []string{"ex"}, []*Command{root}, help)
+	if strings.Contains(shortParent, "run it\n\n  help") {
+		t.Errorf("short command help should not add a blank line either:\n%q", shortParent)
 	}
 }

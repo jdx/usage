@@ -81,11 +81,6 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         "flatten_help",
     );
     command_loss(
-        cmd.is_next_line_help_set(),
-        FidelityFeature::NextLineHelp,
-        "next_line_help",
-    );
-    command_loss(
         cmd.is_disable_help_flag_set(),
         FidelityFeature::DisableHelpFlag,
         "disable_help_flag",

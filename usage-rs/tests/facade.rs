@@ -153,6 +153,17 @@ struct SizedHelp {
     output: Option<String>,
 }
 
+#[derive(Debug, Cli)]
+#[usage(bin = "next-help", next_line_help)]
+#[allow(dead_code)]
+struct NextLineHelp {
+    /// Config file.
+    #[usage(long)]
+    config: Option<String>,
+    #[arg(long, env = "NEXT_HELP_MODE", default = "fast")]
+    mode: String,
+}
+
 #[derive(Cli)]
 #[command(
     bin = "presented",
@@ -1180,6 +1191,26 @@ fn typed_help_width_reaches_help_and_the_portable_spec() {
     let portable: usage_parser::Spec = kdl.parse().unwrap();
     assert_eq!(portable.cmd.term_width, Some(36));
     assert_eq!(portable.cmd.max_term_width, Some(20));
+}
+
+#[test]
+fn typed_next_line_help_reaches_help_and_the_portable_spec() {
+    let spec = NextLineHelp::spec();
+    assert!(spec.root.next_line_help);
+    let page = usage::argv::help::short_help(spec, &["next-help"], &[spec.root]);
+    assert!(
+        page.contains("--config <CONFIG>\n    Config file."),
+        "{page}"
+    );
+    assert!(
+        page.contains("--mode <MODE>\n    [env: NEXT_HELP_MODE]\n    (default: fast)"),
+        "{page}"
+    );
+
+    let kdl = NextLineHelp::to_kdl();
+    assert!(kdl.contains("next_line_help #true"), "{kdl}");
+    let portable: usage_parser::Spec = kdl.parse().unwrap();
+    assert!(portable.cmd.next_line_help);
 }
 
 #[test]

@@ -205,7 +205,11 @@ Command-level presentation settings keep their clap spellings:
 
 ```rust
 #[derive(usage::Cli)]
-#[command(subcommand_help_heading = "Actions", subcommand_value_name = "ACTION")]
+#[command(
+    subcommand_help_heading = "Actions",
+    subcommand_value_name = "ACTION",
+    next_line_help
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,

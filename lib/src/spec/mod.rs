@@ -328,6 +328,9 @@ impl Spec {
                 "subcommand_value_name" => {
                     schema.cmd.subcommand_value_name = Some(node.arg(0)?.ensure_string()?);
                 }
+                "next_line_help" => {
+                    schema.cmd.next_line_help = node.arg(0)?.ensure_bool()?;
+                }
                 "term_width" => {
                     schema.cmd.term_width = Some(node.arg(0)?.ensure_usize()?);
                 }
@@ -660,6 +663,11 @@ impl Display for Spec {
         if let Some(name) = &self.cmd.subcommand_value_name {
             let mut node = KdlNode::new("subcommand_value_name");
             node.push(string_entry(None, name));
+            nodes.push(node);
+        }
+        if self.cmd.next_line_help {
+            let mut node = KdlNode::new("next_line_help");
+            node.push(true);
             nodes.push(node);
         }
         if let Some(width) = self.cmd.term_width {

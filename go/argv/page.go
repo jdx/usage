@@ -104,6 +104,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	commandsSection(&out, path[min(1, len(path)):], cmd, help)
 
 	args := visibleArgs(cmd, help, false)
+	nextLineHelp := meta != nil && meta.NextLineHelp
 	argCol := 0
 	for _, a := range args {
 		if n := width(argUsage(a, help.Lookup(a.Key))); n > argCol {
@@ -116,6 +117,14 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			a := args[i]
 			h := help.Lookup(a.Key)
 			usage := argUsage(a, h)
+			if nextLineHelp {
+				w.WriteString("  " + usage + "\n")
+				if text := helpText(h); text != "" {
+					writeIndented(w, text, 4)
+				}
+				longAnnotations(w, h, true)
+				return
+			}
 			if help := helpText(h); help != "" {
 				w.WriteString("  " + pad(usage, argCol) + "  " + help)
 			} else {
@@ -145,12 +154,27 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		h := help.Lookup(f.key)
 		if f.supplied != "" {
 			// A flag the parser supplies has no table entry; its help is fixed.
+			if nextLineHelp {
+				w.WriteString("  " + f.usage + "\n")
+				if text := f.suppliedHelp; text != "" {
+					writeIndented(w, text, 4)
+				}
+				return
+			}
 			if text := f.suppliedHelp; text != "" {
 				w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
 			} else {
 				w.WriteString("  " + f.usage)
 			}
 			w.WriteString("\n")
+			return
+		}
+		if nextLineHelp {
+			w.WriteString("  " + f.usage + "\n")
+			if text := helpText(h); text != "" {
+				writeIndented(w, text, 4)
+			}
+			longAnnotations(w, h, true)
 			return
 		}
 		if text := helpText(h); text != "" {
@@ -213,8 +237,12 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 		return
 	}
 	heading := "Commands"
-	if h := help.Lookup(cmd.Key); h != nil && h.SubcommandHelpHeading != "" {
-		heading = h.SubcommandHelpHeading
+	nextLineHelp := false
+	if h := help.Lookup(cmd.Key); h != nil {
+		if h.SubcommandHelpHeading != "" {
+			heading = h.SubcommandHelpHeading
+		}
+		nextLineHelp = h.NextLineHelp
 	}
 	out.WriteString("\n" + heading + ":\n")
 
@@ -230,12 +258,23 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 				out.WriteString(" [aliases: " + strings.Join(h.VisibleAliases, ", ") + "]")
 			}
 			if h.Short != "" {
-				out.WriteString("  " + h.Short)
+				if nextLineHelp {
+					out.WriteString("\n")
+					writeIndented(out, trimEnd(h.Short), 4)
+					continue
+				}
+				// The row owns its terminating newline. Trim the description in both
+				// layouts, as usage-lib does before selecting a layout.
+				out.WriteString("  " + trimEnd(h.Short))
 			}
 		}
 		out.WriteString("\n")
 	}
-	out.WriteString("  help  Print this message or the help of the given subcommand(s)\n")
+	if nextLineHelp {
+		out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
+	} else {
+		out.WriteString("  help  Print this message or the help of the given subcommand(s)\n")
+	}
 }
 
 // groupsSection writes one section per heading, unheaded first, in the order the

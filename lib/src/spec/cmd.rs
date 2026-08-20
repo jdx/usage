@@ -100,6 +100,9 @@ pub struct SpecCommand {
     /// Placeholder used for subcommands in the synopsis.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subcommand_value_name: Option<String>,
+    /// Put each argument, flag, and subcommand description on the following line.
+    #[serde(skip_serializing_if = "is_false")]
+    pub next_line_help: bool,
     /// Fixed help width. Zero disables wrapping.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub term_width: Option<usize>,
@@ -204,6 +207,7 @@ impl Default for SpecCommand {
             subcommand_required: false,
             subcommand_help_heading: None,
             subcommand_value_name: None,
+            next_line_help: false,
             term_width: None,
             max_term_width: None,
             external_subcommand: false,
@@ -321,6 +325,7 @@ impl SpecCommand {
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "subcommand_help_heading" => cmd.subcommand_help_heading = Some(v.ensure_string()?),
                 "subcommand_value_name" => cmd.subcommand_value_name = Some(v.ensure_string()?),
+                "next_line_help" => cmd.next_line_help = v.ensure_bool()?,
                 "term_width" => cmd.term_width = Some(v.ensure_usize()?),
                 "max_term_width" => cmd.max_term_width = Some(v.ensure_usize()?),
                 "external_subcommand" => cmd.external_subcommand = v.ensure_bool()?,
@@ -465,6 +470,9 @@ impl SpecCommand {
                 "subcommand_value_name" => {
                     cmd.subcommand_value_name =
                         Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?)
+                }
+                "next_line_help" => {
+                    cmd.next_line_help = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
                 "term_width" => {
                     cmd.term_width = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_usize()?)
@@ -617,6 +625,7 @@ impl SpecCommand {
             subcommand_required,
             subcommand_help_heading,
             subcommand_value_name,
+            next_line_help,
             term_width,
             max_term_width,
             external_subcommand,
@@ -705,6 +714,7 @@ impl SpecCommand {
         if subcommand_value_name.is_some() {
             self.subcommand_value_name = subcommand_value_name;
         }
+        self.next_line_help = next_line_help;
         if term_width.is_some() {
             self.term_width = term_width;
         }
@@ -823,6 +833,7 @@ impl From<&SpecCommand> for KdlNode {
             subcommand_required,
             subcommand_help_heading,
             subcommand_value_name,
+            next_line_help,
             term_width,
             max_term_width,
             external_subcommand,
@@ -879,6 +890,9 @@ impl From<&SpecCommand> for KdlNode {
         }
         if let Some(name) = subcommand_value_name {
             node.push(KdlEntry::new_prop("subcommand_value_name", name.clone()));
+        }
+        if *next_line_help {
+            node.push(KdlEntry::new_prop("next_line_help", true));
         }
         if let Some(width) = term_width {
             node.push(KdlEntry::new_prop("term_width", *width as i128));
@@ -1162,6 +1176,7 @@ impl From<&clap::Command> for SpecCommand {
         spec.subcommand_required = cmd.is_subcommand_required_set();
         spec.subcommand_help_heading = cmd.get_subcommand_help_heading().map(str::to_string);
         spec.subcommand_value_name = cmd.get_subcommand_value_name().map(str::to_string);
+        spec.next_line_help = cmd.is_next_line_help_set();
         spec.arg_required_else_help = cmd.is_arg_required_else_help_set();
         spec.dont_delimit_trailing_values = cmd.is_dont_delimit_trailing_values_set();
         spec.args_override_self = cmd.is_args_override_self();
