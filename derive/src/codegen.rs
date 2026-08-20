@@ -144,6 +144,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let subcommand_negates_reqs = cli.subcommand_negates_reqs;
     let args_conflicts_with_subcommands = cli.args_conflicts_with_subcommands;
     let subcommand_precedence_over_arg = cli.subcommand_precedence_over_arg;
+    let allow_missing_positional = cli.allow_missing_positional;
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -428,6 +429,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 subcommand_negates_reqs: #subcommand_negates_reqs,
                 args_conflicts_with_subcommands: #args_conflicts_with_subcommands,
                 subcommand_precedence_over_arg: #subcommand_precedence_over_arg,
+                allow_missing_positional: #allow_missing_positional,
                 dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 name: #name,
                 key: #root_key,
@@ -1108,6 +1110,8 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     let key = key_ident("ARG", Some(i));
     let field_name = &field.name;
     let var = field.shape == Shape::Many;
+    let required =
+        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
     let Kind::Arg { double_dash } = &field.kind else {
         unreachable!("filtered by the caller");
     };
@@ -1136,6 +1140,7 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     quote! {
         pub static #name: usage_argv::Arg = usage_argv::Arg {
             key: #key,
+            required: #required,
             name: #field_name,
             var: #var,
             var_max: #var_max,
@@ -3454,6 +3459,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let subcommand_negates_reqs = cli.subcommand_negates_reqs;
     let args_conflicts_with_subcommands = cli.args_conflicts_with_subcommands;
     let subcommand_precedence_over_arg = cli.subcommand_precedence_over_arg;
+    let allow_missing_positional = cli.allow_missing_positional;
     let before_help = option_expr(cli.before_help.as_ref());
     let before_long_help = option_expr(cli.before_long_help.as_ref());
     let after_help = option_expr(cli.after_help.as_ref());
@@ -3567,6 +3573,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 subcommand_negates_reqs: #subcommand_negates_reqs,
                 args_conflicts_with_subcommands: #args_conflicts_with_subcommands,
                 subcommand_precedence_over_arg: #subcommand_precedence_over_arg,
+                allow_missing_positional: #allow_missing_positional,
                 dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,

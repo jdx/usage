@@ -119,6 +119,9 @@ pub struct SpecCommand {
     pub args_conflicts_with_subcommands: bool,
     #[serde(skip_serializing_if = "is_false")]
     pub subcommand_precedence_over_arg: bool,
+    /// Allow required positionals after optional positionals to claim the remaining words.
+    #[serde(skip_serializing_if = "is_false")]
+    pub allow_missing_positional: bool,
     /// Token that resets argument parsing, allowing multiple command invocations.
     /// e.g., `mise run lint ::: test ::: check` with restart_token=":::"
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -194,6 +197,7 @@ impl Default for SpecCommand {
             subcommand_negates_reqs: false,
             args_conflicts_with_subcommands: false,
             subcommand_precedence_over_arg: false,
+            allow_missing_positional: false,
             restart_token: None,
             help: None,
             help_long: None,
@@ -312,6 +316,7 @@ impl SpecCommand {
                 "subcommand_precedence_over_arg" => {
                     cmd.subcommand_precedence_over_arg = v.ensure_bool()?
                 }
+                "allow_missing_positional" => cmd.allow_missing_positional = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
                 "unknown_flags" => {
                     let raw = v.ensure_string()?;
@@ -459,6 +464,10 @@ impl SpecCommand {
                     cmd.subcommand_precedence_over_arg =
                         child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
+                "allow_missing_positional" => {
+                    cmd.allow_missing_positional =
+                        child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
                 "effect" => {
                     let arg = child.ensure_arg_len(1..=1)?.arg(0)?;
@@ -575,6 +584,7 @@ impl SpecCommand {
             subcommand_negates_reqs,
             args_conflicts_with_subcommands,
             subcommand_precedence_over_arg,
+            allow_missing_positional,
             restart_token,
             subcommands,
             complete,
@@ -654,6 +664,7 @@ impl SpecCommand {
         self.subcommand_negates_reqs = subcommand_negates_reqs;
         self.args_conflicts_with_subcommands = args_conflicts_with_subcommands;
         self.subcommand_precedence_over_arg = subcommand_precedence_over_arg;
+        self.allow_missing_positional = allow_missing_positional;
         if effect.is_some() {
             self.effect = effect;
         }
@@ -763,6 +774,7 @@ impl From<&SpecCommand> for KdlNode {
             subcommand_negates_reqs,
             args_conflicts_with_subcommands,
             subcommand_precedence_over_arg,
+            allow_missing_positional,
             restart_token,
             unknown_flags,
             aliases,
@@ -824,6 +836,9 @@ impl From<&SpecCommand> for KdlNode {
         }
         if *subcommand_precedence_over_arg {
             node.push(KdlEntry::new_prop("subcommand_precedence_over_arg", true));
+        }
+        if *allow_missing_positional {
+            node.push(KdlEntry::new_prop("allow_missing_positional", true));
         }
         if let Some(restart_token) = &restart_token {
             node.entries_mut()
@@ -1078,6 +1093,7 @@ impl From<&clap::Command> for SpecCommand {
         spec.subcommand_negates_reqs = cmd.is_subcommand_negates_reqs_set();
         spec.args_conflicts_with_subcommands = cmd.is_args_conflicts_with_subcommands_set();
         spec.subcommand_precedence_over_arg = cmd.is_subcommand_precedence_over_arg_set();
+        spec.allow_missing_positional = cmd.is_allow_missing_positional_set();
         for subcmd in cmd.get_subcommands() {
             let mut scmd: SpecCommand = subcmd.into();
             scmd.name = subcmd.get_name().to_string();
@@ -1468,5 +1484,16 @@ cmd "hidden" hide=#true
         assert!(node
             .to_string()
             .contains("args_conflicts_with_subcommands=#true"));
+    }
+
+    #[cfg(feature = "clap")]
+    #[test]
+    fn the_clap_bridge_preserves_allow_missing_positional() {
+        use super::SpecCommand;
+
+        let spec: SpecCommand = (&clap::Command::new("ex").allow_missing_positional(true)).into();
+        assert!(spec.allow_missing_positional);
+        let node: kdl::KdlNode = (&spec).into();
+        assert!(node.to_string().contains("allow_missing_positional=#true"));
     }
 }

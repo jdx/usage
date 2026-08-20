@@ -1143,6 +1143,9 @@ impl Spec<'_> {
         if self.root.cmd.subcommand_precedence_over_arg {
             writeln!(out, "subcommand_precedence_over_arg #true")?;
         }
+        if self.root.cmd.allow_missing_positional {
+            writeln!(out, "allow_missing_positional #true")?;
+        }
         // A `complete` block for every completer this CLI declares, naming the command that
         // asks the binary itself. Written rather than declared, so there is one place a
         // completer is said to exist: the Rust function. Everything that reads a spec — the
@@ -1400,6 +1403,9 @@ fn write_command<'a>(
     }
     if meta.cmd.subcommand_precedence_over_arg {
         out.push_str(" subcommand_precedence_over_arg=#true");
+    }
+    if meta.cmd.allow_missing_positional {
+        out.push_str(" allow_missing_positional=#true");
     }
     out.push_str(" {\n");
 

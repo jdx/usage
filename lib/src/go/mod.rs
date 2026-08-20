@@ -392,6 +392,9 @@ impl<'a> Emitter<'a> {
                     "true".into(),
                 ));
             }
+            if e.cmd.allow_missing_positional {
+                lines.push(Line::Field("AllowMissingPositional".into(), "true".into()));
+            }
             if e.cmd.dont_delimit_trailing_values {
                 lines.push(Line::Field(
                     "DontDelimitTrailingValues".into(),
@@ -1300,6 +1303,9 @@ fn arg_literal(arg: &SpecArg, named: &Named) -> String {
         format!("Key: {}", named.key),
         format!("Name: {}", go_string(&arg.name)),
     ];
+    if arg.required {
+        fields.push("Required: true".to_string());
+    }
     if arg.var {
         fields.push("Var: true".to_string());
         if let Some(max) = arg.var_max {
@@ -1907,6 +1913,16 @@ cmd "run" arg_required_else_help=#true {
             "name \"ex\"\nbin \"ex\"\nargs_conflicts_with_subcommands #true\nflag \"--verbose\"\ncmd \"run\"\n",
         );
         assert!(out.contains("ArgsConflictWithSubcommands: true"), "{out}");
+    }
+
+    #[test]
+    fn allow_missing_positional_reaches_generated_go() {
+        let out = go(
+            "name \"ex\"\nbin \"ex\"\nallow_missing_positional #true\narg \"[optional]\"\narg \"<required>\"\n",
+        );
+        assert!(out.contains("AllowMissingPositional: true"), "{out}");
+        assert!(out.contains("Name: \"optional\""), "{out}");
+        assert!(out.contains("Name: \"required\", Required: true"), "{out}");
     }
 
     #[test]

@@ -48,7 +48,7 @@ var Root = &argv.Command{
 		{Key: FlagInclude, Name: "include", Longs: []string{"include"}, TakesValue: true, Variadic: true},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgFile, Name: "file"},
+		{Key: ArgFile, Name: "file", Required: true},
 		{Key: ArgRest, Name: "rest", Var: true},
 	},
 	Subcommands: []*argv.Command{cmdInstall, cmdConfig},
@@ -64,7 +64,7 @@ var cmdInstall = &argv.Command{
 		{Key: FlagInstallForce, Name: "force", Longs: []string{"force"}, Shorts: []byte{'f'}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgInstallPkg, Name: "pkg"},
+		{Key: ArgInstallPkg, Name: "pkg", Required: true},
 	},
 }
 

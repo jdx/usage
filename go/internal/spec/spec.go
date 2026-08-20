@@ -104,6 +104,7 @@ type Cmd struct {
 	SubcommandNegatesReqs       bool        `json:"subcommand_negates_reqs"`
 	ArgsConflictWithSubcommands bool        `json:"args_conflicts_with_subcommands"`
 	SubcommandPrecedenceOverArg bool        `json:"subcommand_precedence_over_arg"`
+	AllowMissingPositional      bool        `json:"allow_missing_positional"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.
@@ -612,6 +613,7 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		SubcommandNegatesReqs:       c.SubcommandNegatesReqs,
 		ArgsConflictWithSubcommands: c.ArgsConflictWithSubcommands,
 		SubcommandPrecedenceOverArg: c.SubcommandPrecedenceOverArg,
+		AllowMissingPositional:      c.AllowMissingPositional,
 		DontDelimitTrailingValues:   c.DontDelimitTrailingValues,
 		Key:                         b.next(),
 	}
@@ -941,6 +943,7 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 	out := &argv.Arg{
 		Key:                  b.next(),
 		Name:                 a.Name,
+		Required:             a.Required,
 		Var:                  a.Var,
 		DoubleDash:           doubleDash(a.DoubleDash),
 		AllowNegativeNumbers: a.AllowNegativeNumbers,

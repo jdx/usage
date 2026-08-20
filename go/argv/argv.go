@@ -77,6 +77,9 @@ type Command struct {
 	ArgsConflictWithSubcommands bool
 	// SubcommandPrecedenceOverArg lets a known child interrupt a variadic value owner.
 	SubcommandPrecedenceOverArg bool
+	// AllowMissingPositional lets later required positionals claim remaining words
+	// while earlier optional positionals stay empty.
+	AllowMissingPositional bool
 	// DontDelimitTrailingValues disables delimiter splitting after -- and for
 	// automatic trailing arguments. It is inherited by subcommands.
 	DontDelimitTrailingValues bool
@@ -180,6 +183,9 @@ type Flag struct {
 type Arg struct {
 	// Key is a caller-assigned identifier, echoed back in the event.
 	Key uint64
+	// Required is used while binding when AllowMissingPositional reserves words
+	// for later required positionals.
+	Required bool
 	// Name is unused by binding, kept so a table entry can carry its own name for
 	// diagnostics.
 	Name string

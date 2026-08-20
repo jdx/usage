@@ -1372,6 +1372,29 @@ fn parse_partial_with_env(
             continue;
         }
 
+        if out.cmd.allow_missing_positional {
+            while let Some(current) = out.cmd.args.get(next_arg_idx) {
+                if current.required || out.args.contains_key(current) {
+                    break;
+                }
+                let required_after = out.cmd.args[next_arg_idx + 1..]
+                    .iter()
+                    .filter(|arg| arg.required)
+                    .count();
+                if required_after == 0 {
+                    break;
+                }
+                let remaining_values = 1 + input
+                    .iter()
+                    .filter(|word| !enable_flags || !is_flag_like(word))
+                    .count();
+                if remaining_values > required_after {
+                    break;
+                }
+                next_arg_idx += 1;
+            }
+        }
+
         if let Some(arg) = out.cmd.args.get(next_arg_idx) {
             if arg.var
                 && out.args.contains_key(arg)
@@ -5037,6 +5060,36 @@ cmd "run"
             .unwrap();
         let out = parse(&precedence, &input(&["ex", "--values", "a", "run"])).unwrap();
         assert_eq!(out.cmd.name, "run");
+    }
+
+    #[test]
+    fn a_required_positional_can_follow_an_unfilled_optional_one() {
+        let base = r#"name "ex"
+bin "ex"
+arg "[optional]"
+arg "<required>"
+"#;
+        let plain: Spec = base.parse().unwrap();
+        let err = parse(&plain, &input(&["ex", "value"])).unwrap_err();
+        assert!(err.to_string().contains("required"), "{err}");
+
+        let enabled: Spec = base
+            .replacen(
+                "bin \"ex\"",
+                "bin \"ex\"\nallow_missing_positional #true",
+                1,
+            )
+            .parse()
+            .unwrap();
+        let out = parse(&enabled, &input(&["ex", "value"])).unwrap();
+        assert!(!out.args.keys().any(|arg| arg.name == "optional"));
+        let value = &out
+            .args
+            .iter()
+            .find(|(arg, _)| arg.name == "required")
+            .unwrap()
+            .1;
+        assert!(matches!(value, ParseValue::String(value) if value == "value"));
     }
 
     #[test]

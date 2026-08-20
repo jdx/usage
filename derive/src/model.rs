@@ -114,6 +114,7 @@ pub struct Cli {
     pub subcommand_negates_reqs: bool,
     pub args_conflicts_with_subcommands: bool,
     pub subcommand_precedence_over_arg: bool,
+    pub allow_missing_positional: bool,
     /// Declared descriptions, for the case a doc comment cannot express: a long form that does
     /// not contain the short one.
     pub about_attr: Option<proc_macro2::TokenStream>,
@@ -562,6 +563,7 @@ impl Cli {
             subcommand_negates_reqs: false,
             args_conflicts_with_subcommands: false,
             subcommand_precedence_over_arg: false,
+            allow_missing_positional: false,
             about_attr: None,
             long_about_attr: None,
             before_help: None,
@@ -711,6 +713,7 @@ impl Cli {
                     "subcommand_precedence_over_arg" => {
                         cli.subcommand_precedence_over_arg = flag_value(&meta)?
                     }
+                    "allow_missing_positional" => cli.allow_missing_positional = flag_value(&meta)?,
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
@@ -722,7 +725,7 @@ impl Cli {
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, \
+                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"

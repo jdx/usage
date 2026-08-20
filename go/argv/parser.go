@@ -565,6 +565,7 @@ func (p *Parser) word(token string) bool {
 		}
 	}
 
+	p.reserveForRequiredPositionals()
 	arg := p.nextArg()
 	if arg == nil {
 		return p.fail(Error{Code: CodeUnexpectedArg, Token: token})
@@ -659,6 +660,36 @@ func (p *Parser) nextArg() *Arg {
 		return p.cmd.Args[p.argPos]
 	}
 	return nil
+}
+
+// reserveForRequiredPositionals implements the opt-in clap policy that lets a
+// later required positional claim the last available word while an earlier
+// optional positional remains empty.
+func (p *Parser) reserveForRequiredPositionals() {
+	if !p.cmd.AllowMissingPositional || p.argTaken != 0 {
+		return
+	}
+	for p.argPos < len(p.cmd.Args) && !p.cmd.Args[p.argPos].Required {
+		requiredAfter := 0
+		for _, arg := range p.cmd.Args[p.argPos+1:] {
+			if arg.Required {
+				requiredAfter++
+			}
+		}
+		if requiredAfter == 0 {
+			return
+		}
+		remainingValues := 1
+		for _, word := range p.argv[p.pos:] {
+			if p.flagsStopped || !isFlagLike(word) {
+				remainingValues++
+			}
+		}
+		if remainingValues > requiredAfter {
+			return
+		}
+		p.advanceArg()
+	}
 }
 
 // eachInScope calls fn with every flag a token here could name: this command's
