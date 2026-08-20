@@ -3,7 +3,7 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
 use usage_derive::{Args, Cli, Subcommands};
 
@@ -232,8 +232,8 @@ pub struct DaemonsAddArgs {
     )]
     pub expected_port: ::std::vec::Vec<::std::string::String>,
     /// Automatically find an available port if the expected port is in use
-    #[usage(long = "bump", value_name = "BUMP", value_optional)]
-    pub bump: ::std::option::Option<::std::string::String>,
+    #[usage(long = "bump", value_optional, value_name = "BUMP")]
+    pub bump: ::std::option::Option<::std::option::Option<::std::string::String>>,
     /// Daemon dependencies that must start first (can be specified multiple times)
     #[usage(long = "depends", value_name = "DEPENDS", var)]
     pub depends: ::std::vec::Vec<::std::string::String>,
@@ -988,8 +988,8 @@ pub struct RunArgs {
     )]
     pub expected_port: ::std::vec::Vec<::std::string::String>,
     /// Automatically find an available port if the expected port is in use
-    #[usage(long = "bump", value_name = "BUMP", value_optional)]
-    pub bump: ::std::option::Option<::std::string::String>,
+    #[usage(long = "bump", value_optional, value_name = "BUMP")]
+    pub bump: ::std::option::Option<::std::option::Option<::std::string::String>>,
     /// Shell command to poll for readiness (exit code 0 = ready)
     #[usage(long = "cmd", value_name = "CMD")]
     pub cmd: ::std::option::Option<::std::string::String>,
@@ -1184,8 +1184,8 @@ pub struct StartArgs {
     )]
     pub expected_port: ::std::vec::Vec<::std::string::String>,
     /// Automatically find an available port if the expected port is in use
-    #[usage(long = "bump", value_name = "BUMP", value_optional)]
-    pub bump: ::std::option::Option<::std::string::String>,
+    #[usage(long = "bump", value_optional, value_name = "BUMP")]
+    pub bump: ::std::option::Option<::std::option::Option<::std::string::String>>,
     /// Suppress startup log output
     #[usage(long = "quiet", short = 'q')]
     pub quiet: bool,

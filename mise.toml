@@ -201,6 +201,9 @@ run = [
     "cargo run -q -p xtask -- gen-shadow benches/fleet/aube.usage.kdl benches/shadows/aube usage",
     "cargo run -q -p xtask -- gen-shadow benches/fleet/tak.usage.kdl benches/shadows/tak usage",
     "cargo run -q -p xtask -- gen-shadow benches/fleet/communique.usage.kdl benches/shadows/communique usage",
+    "cargo run -q -p xtask -- gen-shadow benches/external/fd.usage.kdl benches/shadows/external-fd usage",
+    "cargo run -q -p xtask -- gen-shadow benches/external/tokei.usage.kdl benches/shadows/external-tokei usage",
+    "cargo run -q -p xtask -- gen-shadow benches/external/starship.usage.kdl benches/shadows/external-starship usage",
 ]
 
 # The Go tables the shadow test parses against, from the same spec and for the same

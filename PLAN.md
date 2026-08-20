@@ -864,11 +864,15 @@ feature list is not an exhaustive audit.
       defaults, and help/version collisions. `update_from` gets its own stateful
       cases if that API is implemented. Single-feature parity is not enough where
       settings resolve in an order.
-- [ ] **External clap adopters.** Before calling the replacement generally ready,
-      port or shadow at least three maintained, non-jdx clap CLIs chosen for
-      different shapes: a derive-heavy CLI, a builder-heavy CLI, and one using
-      custom validation/completions. Record every unsupported feature they expose;
-      do not silently narrow the sample to what already works.
+- [x] **External clap adopters.** Source-derived probes pin and exercise three
+      maintained, non-jdx clap CLIs with different shapes: fd (derive-heavy),
+      tokei (builder-heavy), and starship (custom values/completions). fd's complete
+      57-flag clap command is captured and compiled as a typed usage shadow;
+      tokei's complete 18-flag builder command and starship's complete 15-command,
+      55-flag tree are captured and compile as typed shadows beside their reduced
+      executable probes. The audit in
+      `benches/external/README.md` records the unsupported surface instead of
+      silently dropping the remaining bridge losses and migration adaptations.
 - [x] **Migration and non-goal documentation.** The Rust migration guide publishes an attribute mapping guide,
       examples for the common `Parser` / `Args` / `Subcommand` / `ValueEnum`
       rewrites, compile-fail examples for unsupported combinations, the clap
@@ -1401,8 +1405,8 @@ above are where it lands.
       positionals.
 - [x] **`license` metadata** (clap#1768) — `author`, `license`, and `repository`
       are first-class typed root attributes, survive direct KDL emission, and render
-      in Markdown and manpages. GPL display requirements no longer need an
-      application-owned documentation patch.
+      in Markdown, manpages, and generated Go long help. GPL display requirements no
+      longer need an application-owned documentation patch.
 
 Demand also attaches to boxes already open above: fixed arity with distinct
 value names is clap#1717 + clap#1682 (31 votes combined); `Option` on a

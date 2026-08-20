@@ -287,7 +287,11 @@ func (p *Parser) step() bool {
 			}
 		}
 
-		if isNegativeNumber(token) {
+		// An exact declared short outranks the numeric shape. This keeps ordinary negative
+		// numbers available as values while allowing clap-compatible spellings such as fd's
+		// `-0` / `--print0` switch.
+		declaredNumericShort := len(token) == 2 && token[1] >= '0' && token[1] <= '9' && p.findShort(token[1]) != nil
+		if isNegativeNumber(token) && !declaredNumericShort {
 			if arg := p.nextArg(); arg != nil && arg.AllowNegativeNumbers {
 				return p.word(token)
 			}

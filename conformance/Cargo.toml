@@ -24,6 +24,7 @@ usage-lib = { workspace = true }
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive", "env"] }
+clap_usage = { workspace = true }
 insta = "1"
 usage-derive = { workspace = true }
 usage-validation = { workspace = true }

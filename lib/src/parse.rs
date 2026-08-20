@@ -867,7 +867,9 @@ fn parse_partial_with_env(
             variadic_flag_active = false;
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
-        } else if !is_command_word(&input[idx]) {
+        } else if !is_command_word(&input[idx])
+            || declared_numeric_short(&out.available_flags, &input[idx])
+        {
             // Check if this is a known flag
             let word = input[idx].clone();
             let flag_key = get_flag_key(&word);
@@ -1282,7 +1284,9 @@ fn parse_partial_with_env(
         // `-a` declared is not a bundle at all, so it must not set `a` on the way to
         // discovering that `z` names nothing. A grouped continuation is exempt — its
         // token was already checked when it arrived.
-        let positional_negative_number = is_negative_number(&w)
+        let declared_numeric_short = declared_numeric_short(&out.available_flags, &w);
+        let positional_negative_number = !declared_numeric_short
+            && is_negative_number(&w)
             && out
                 .cmd
                 .args
@@ -2744,6 +2748,15 @@ fn record_scalar_flag_occurrence(
 /// treated every token that `starts_with('-')` as a flag.
 fn is_command_word(token: &str) -> bool {
     (!is_flag_like(token) || is_negative_number(token)) && token != "-"
+}
+
+/// Whether an otherwise numeric-looking token is an exact declared short flag.
+///
+/// This check belongs in both parse phases: phase 1 must skip the flag while it
+/// searches for a later subcommand, and phase 2 must bind it instead of offering
+/// it to an `allow_negative_numbers` positional.
+fn declared_numeric_short(available_flags: &BTreeMap<String, Arc<SpecFlag>>, token: &str) -> bool {
+    token.len() == 2 && token.as_bytes()[1].is_ascii_digit() && available_flags.contains_key(token)
 }
 
 /// Whether an unmatched word belongs to the root's default command.
@@ -5332,7 +5345,7 @@ arg "<required>"
     #[test]
     fn unknown_flags_can_be_rejected_for_the_whole_cli() {
         let spec: Spec =
-            "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"--force\"\narg \"[rest]...\" allow_negative_numbers=#true\n"
+            "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"--force\"\nflag \"-0 --print0\"\narg \"[rest]...\" allow_negative_numbers=#true\n"
                 .parse()
                 .unwrap();
         let err = parse(&spec, &["ex".to_string(), "--wat".to_string()]).unwrap_err();
@@ -5346,6 +5359,31 @@ arg "<required>"
         let out = parse(&spec, &["ex".to_string(), "-1".to_string()]).unwrap();
         let rest = out.args.keys().find(|a| a.name == "rest").unwrap();
         assert_eq!(out.args[rest].to_string(), "-1");
+
+        let out = parse(&spec, &["ex".to_string(), "-0".to_string()]).unwrap();
+        let print0 = out.flags.keys().find(|flag| flag.name == "print0").unwrap();
+        assert!(matches!(out.flags[print0], ParseValue::Bool(true)));
+    }
+
+    #[test]
+    fn a_declared_digit_short_does_not_stop_the_subcommand_scan() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+unknown_flags "error"
+flag "-0 --print0" global=#true
+cmd "run" {
+  flag "--force"
+}
+"#
+        .parse()
+        .unwrap();
+        let out = parse(&spec, &input(&["ex", "-0", "run", "--force"])).unwrap();
+        assert_eq!(out.cmd.name, "run");
+        let print0 = out.flags.keys().find(|flag| flag.name == "print0").unwrap();
+        let force = out.flags.keys().find(|flag| flag.name == "force").unwrap();
+        assert!(matches!(out.flags[print0], ParseValue::Bool(true)));
+        assert!(matches!(out.flags[force], ParseValue::Bool(true)));
     }
 
     #[test]

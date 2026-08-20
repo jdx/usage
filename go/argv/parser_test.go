@@ -152,6 +152,7 @@ func TestBinding(t *testing.T) {
 		{"a bundle is rejected whole", strict, []string{"-fz"}, "err:unknown_flag"},
 		{"a lone dash is still a value", strict, []string{"-"}, "arg:file=-"},
 		{"a negative number is still a value", strict, []string{"-1"}, "arg:file=-1"},
+		{"an undeclared digit short stays a value", strict, []string{"-0"}, "arg:file=-0"},
 	}
 
 	for _, c := range cases {
@@ -160,6 +161,19 @@ func TestBinding(t *testing.T) {
 				t.Errorf("%v\n  want %s\n  got  %s", c.argv, c.want, got)
 			}
 		})
+	}
+}
+
+func TestDeclaredDigitShortOutranksNegativeNumber(t *testing.T) {
+	print0 := &Flag{Key: 90, Name: "print0", Shorts: []byte{'0'}}
+	value := &Arg{Key: 91, Name: "value", AllowNegativeNumbers: true}
+	cmd := &Command{Name: "fd", Flags: []*Flag{print0}, Args: []*Arg{value}, UnknownFlags: UnknownFlagsError}
+
+	if got := collect(cmd, "-0"); got != "flag:print0" {
+		t.Fatalf("declared digit short: want flag:print0, got %s", got)
+	}
+	if got := collect(cmd, "-1"); got != "arg:value=-1" {
+		t.Fatalf("ordinary negative: want arg:value=-1, got %s", got)
 	}
 }
 
