@@ -660,7 +660,7 @@ impl Cli {
                     "group" => cli.groups.push(group_decl(&meta)?),
                     "rename_all" => {
                         let case = string_value(&meta)?;
-                        if !matches!(case.as_str(), "kebab-case" | "kebab") {
+                        if !matches!(CasingStyle::parse(&meta)?, CasingStyle::Kebab) {
                             return Err(syn::Error::new_spanned(
                                 &meta,
                                 format!(
@@ -4036,6 +4036,22 @@ mod tests {
             panic!("long should make this a flag");
         };
         assert_eq!(longs, &["output", "out", "dest"]);
+    }
+
+    #[test]
+    fn clap_kebab_casing_aliases_are_no_ops() {
+        for case in ["kebab", "kebab-case", "kebab_case", "KebabCase"] {
+            cli(&format!(
+                r#"
+                    #[command(rename_all = "{case}")]
+                    struct Ex {{
+                        #[arg(long)]
+                        output_path: Option<String>,
+                    }}
+                "#
+            ))
+            .unwrap_or_else(|err| panic!("{case} should mean kebab case: {err}"));
+        }
     }
 
     #[test]
