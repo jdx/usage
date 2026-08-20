@@ -11,4 +11,3 @@ flag --file help="some input file" {
     arg <FILE>
 }
 flag --usage default="false"
-flag "-h --help" help="Print help"

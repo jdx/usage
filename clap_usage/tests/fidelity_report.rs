@@ -63,7 +63,9 @@ fn reports_nested_paths_and_leaves_supported_commands_clean() {
                 .allow_negative_numbers(true),
         ),
     );
-    let (_, report) = spec_with_report(&mut nested, "ex");
+    let (spec, report) = spec_with_report(&mut nested, "ex");
+    assert!(!spec.cmd.subcommands.contains_key("help"));
+    assert_eq!(report.losses().len(), 1, "{report:#?}");
     let loss = report
         .losses()
         .iter()
@@ -97,6 +99,18 @@ fn builds_action_derived_arity_before_reporting() {
         .losses()
         .iter()
         .any(|loss| loss.feature == FidelityFeature::ValueArity));
+}
+
+#[test]
+fn building_metadata_does_not_mutate_the_callers_command() {
+    let mut command = Command::new("ex").subcommand(Command::new("run"));
+    let argument_count = command.get_arguments().count();
+    let subcommand_count = command.get_subcommands().count();
+    let (spec, _) = spec_with_report(&mut command, "ex");
+
+    assert_eq!(command.get_arguments().count(), argument_count);
+    assert_eq!(command.get_subcommands().count(), subcommand_count);
+    assert!(!spec.cmd.subcommands.contains_key("help"));
 }
 
 #[test]
