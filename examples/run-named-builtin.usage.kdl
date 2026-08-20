@@ -1,0 +1,2 @@
+arg "<url>"
+complete "url" run="printf 'run-result\\n'"

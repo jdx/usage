@@ -620,15 +620,14 @@ impl CompleteWord {
             .get(&name)
             .or(cmd.complete.get(&name))
             .unwrap_or(&EMPTY_COMPL);
-        let type_ = complete.type_.as_ref().unwrap_or(&name);
-
-        // A closed completer answers even when its answer is nothing: it knows the whole set
-        // of candidates, so an unmatched prefix means no matches rather than "ask somebody
-        // else". Returning empty-and-open here is what let a mistyped setting name complete
-        // to the contents of the working directory.
-        let (builtin, closed) = self.complete_builtin(cx, type_, ctoken);
-        if !builtin.is_empty() || closed {
-            return Ok((builtin, closed));
+        if let Some(type_) = complete.type_.as_deref() {
+            // An explicitly declared closed completer answers even when its answer is nothing:
+            // it knows the whole set of candidates, so an unmatched prefix means no matches
+            // rather than "ask somebody else".
+            let (builtin, closed) = self.complete_builtin(cx, type_, ctoken);
+            if !builtin.is_empty() || closed {
+                return Ok((builtin, closed));
+            }
         }
 
         if let Some(choices) = &arg.choices {
@@ -673,6 +672,18 @@ impl CompleteWord {
                 // had nothing to say about this prefix.
                 false,
             ));
+        }
+
+        // Argument-name inference is only a fallback. An existing spec may legitimately name
+        // an argument `url`, `email`, `username`, or another reserved word and attach `run=`;
+        // treating the inferred type as explicit would close the set before that command ran.
+        // The same is true in the other direction: an explicitly declared open type such as
+        // `command_args` must not fall through to a different builtin inferred from its name.
+        if complete.type_.is_none() {
+            let (builtin, closed) = self.complete_builtin(cx, &name, ctoken);
+            if !builtin.is_empty() || closed {
+                return Ok((builtin, closed));
+            }
         }
 
         Ok((vec![], false))
