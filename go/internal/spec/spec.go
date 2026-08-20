@@ -41,10 +41,11 @@ type Spec struct {
 	// Multicall is whether argv[0]'s basename selects a subcommand (busybox-style
 	// applets). clap's multicall. The dispatcher names (Name / Bin) are skipped;
 	// any other basename is parsed as the first word.
-	Multicall bool   `json:"multicall"`
-	Version   string `json:"version"`
-	About     string `json:"about"`
-	AboutLong string `json:"about_long"`
+	Multicall   bool   `json:"multicall"`
+	Version     string `json:"version"`
+	LongVersion string `json:"long_version"`
+	About       string `json:"about"`
+	AboutLong   string `json:"about_long"`
 	// Complete is the completers a spec declares, keyed by the lowercased name of
 	// the argument or flag value they belong to — which is how usage-lib keys
 	// them, and how a lookup has to be spelled.
@@ -62,6 +63,7 @@ func (s *Spec) HelpSpec() argv.HelpSpec {
 		Name:           s.Name,
 		Bin:            s.Bin,
 		Version:        s.Version,
+		LongVersion:    s.LongVersion,
 		About:          s.About,
 		LongAbout:      s.AboutLong,
 		BeforeHelp:     s.BeforeHelp,
