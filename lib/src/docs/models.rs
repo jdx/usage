@@ -37,6 +37,8 @@ pub struct SpecCommand {
     pub subcommands: IndexMap<String, SpecCommand>,
     /// Immediate children in help presentation order, without duplicating their trees.
     pub help_subcommands: Vec<HelpCommand>,
+    /// Visible subcommand summaries partitioned by their own `help_heading`.
+    pub subcommand_groups: Vec<Group<HelpCommand>>,
     pub args: Vec<SpecArg>,
     pub flags: Vec<SpecFlag>,
     /// `flags`, partitioned by `help_heading`. Same flags, same order.
@@ -47,6 +49,7 @@ pub struct SpecCommand {
     pub deprecated: Option<String>,
     pub effect: Option<SpecCommandEffect>,
     pub hide: bool,
+    pub help_heading: Option<String>,
     pub display_order: Option<usize>,
     pub subcommand_required: bool,
     pub subcommand_help_heading: Option<String>,
@@ -87,6 +90,7 @@ pub struct HelpCommand {
     pub aliases: Vec<String>,
     pub help: Option<String>,
     pub help_long: Option<String>,
+    pub help_heading: Option<String>,
 }
 
 impl From<&SpecCommand> for HelpCommand {
@@ -97,6 +101,7 @@ impl From<&SpecCommand> for HelpCommand {
             aliases: cmd.aliases.clone(),
             help: cmd.help.clone(),
             help_long: cmd.help_long.clone(),
+            help_heading: cmd.help_heading.clone(),
         }
     }
 }
@@ -542,6 +547,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             deprecated,
             effect,
             hide,
+            help_heading,
             display_order,
             subcommand_required,
             subcommand_help_heading,
@@ -604,13 +610,37 @@ impl From<&crate::SpecCommand> for SpecCommand {
         let help_subcommands: Vec<HelpCommand> = help_order
             .iter()
             .map(|(_, _, key)| {
-                HelpCommand::from(
+                let mut command = HelpCommand::from(
                     rendered_subcommands
                         .get(*key)
                         .expect("rendered subcommand retains its key"),
-                )
+                );
+                command.help_heading = command
+                    .help_heading
+                    .as_ref()
+                    .filter(|heading| {
+                        heading.as_str() != subcommand_help_heading.as_deref().unwrap_or("Commands")
+                    })
+                    .cloned();
+                command
             })
             .collect();
+        let mut subcommand_groups =
+            group_by_heading(&help_subcommands, |command| command.help_heading.as_deref());
+        subcommand_groups.sort_by_key(|group| group.heading.is_some());
+        if !help_subcommands.is_empty()
+            && subcommand_groups
+                .first()
+                .is_none_or(|group| group.heading.is_some())
+        {
+            subcommand_groups.insert(
+                0,
+                Group {
+                    heading: None,
+                    items: Vec::new(),
+                },
+            );
+        }
         let mut flattened_subcommands = Vec::new();
         if *flatten_help {
             for (_, _, key) in help_order {
@@ -632,6 +662,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             usage: usage.clone(),
             subcommands: rendered_subcommands,
             help_subcommands,
+            subcommand_groups,
             flag_groups: group_by_heading(&flags, |f| f.help_heading.as_deref()),
             arg_groups: group_by_heading(&args, |a| a.help_heading.as_deref()),
             args,
@@ -639,6 +670,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             deprecated: deprecated.clone(),
             effect: *effect,
             hide: *hide,
+            help_heading: help_heading.clone(),
             display_order: *display_order,
             subcommand_required: *subcommand_required,
             subcommand_help_heading: subcommand_help_heading.clone(),

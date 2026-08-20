@@ -1,6 +1,7 @@
 package argv
 
 import (
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -257,8 +258,6 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 		}
 		nextLineHelp = h.NextLineHelp
 	}
-	out.WriteString("\n" + heading + ":\n")
-
 	sort.SliceStable(lines, func(i, j int) bool {
 		left, right := helpOrder(help, lines[i].sub.Key, 999), helpOrder(help, lines[j].sub.Key, 999)
 		if left != right {
@@ -267,31 +266,55 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 		return lines[i].usage < lines[j].usage
 	})
 
+	headings := []string{""}
 	for _, l := range lines {
-		out.WriteString("  " + l.usage)
-		if h := help.Lookup(l.sub.Key); h != nil {
-			// Visible aliases only: a hidden alias works and is not advertised,
-			// which is the whole of the distinction.
-			if len(h.VisibleAliases) > 0 {
-				out.WriteString(" [aliases: " + strings.Join(h.VisibleAliases, ", ") + "]")
+		if h := headingOf(help, l.sub.Key); h == heading {
+			continue
+		} else if h != "" && !slices.Contains(headings, h) {
+			headings = append(headings, h)
+		}
+	}
+	for _, section := range headings {
+		title := section
+		if title == "" {
+			title = heading
+		}
+		out.WriteString("\n" + title + ":\n")
+		for _, l := range lines {
+			itemSection := headingOf(help, l.sub.Key)
+			if itemSection == heading {
+				itemSection = ""
 			}
-			if h.Short != "" {
-				if nextLineHelp {
-					out.WriteString("\n")
-					writeIndented(out, trimEnd(h.Short), 4)
-					continue
+			if itemSection != section {
+				continue
+			}
+			out.WriteString("  " + l.usage)
+			if h := help.Lookup(l.sub.Key); h != nil {
+				// Visible aliases only: a hidden alias works and is not advertised,
+				// which is the whole of the distinction.
+				if len(h.VisibleAliases) > 0 {
+					out.WriteString(" [aliases: " + strings.Join(h.VisibleAliases, ", ") + "]")
 				}
-				// The row owns its terminating newline. Trim the description in both
-				// layouts, as usage-lib does before selecting a layout.
-				out.WriteString("  " + trimEnd(h.Short))
+				if h.Short != "" {
+					if nextLineHelp {
+						out.WriteString("\n")
+						writeIndented(out, trimEnd(h.Short), 4)
+						continue
+					}
+					// The row owns its terminating newline. Trim the description in both
+					// layouts, as usage-lib does before selecting a layout.
+					out.WriteString("  " + trimEnd(h.Short))
+				}
+			}
+			out.WriteString("\n")
+		}
+		if section == "" {
+			if nextLineHelp {
+				out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
+			} else {
+				out.WriteString("  help  Print this message or the help of the given subcommand(s)\n")
 			}
 		}
-		out.WriteString("\n")
-	}
-	if nextLineHelp {
-		out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
-	} else {
-		out.WriteString("  help  Print this message or the help of the given subcommand(s)\n")
 	}
 }
 
