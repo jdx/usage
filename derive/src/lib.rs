@@ -251,9 +251,17 @@
 //! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
 //! | `arg` | force a field to be positional |
 //! | `id = "name"` | clap-compatible spelling for the field identity / positional name |
+//! | `value_name = "NAME"` | clap-compatible positional name, or the placeholder for a flag value |
+//! | `default_value = "x"` | clap-compatible spelling for a portable `default` |
+//! | `default_missing_value = "x"` | clap-compatible spelling for `default_missing` |
+//! | `default_value_if("other", predicate, "x")` | clap-compatible conditional default for portable presence and equality predicates |
+//! | `value_delimiter = ','` | clap-compatible spelling for `delimiter` |
+//! | `value_parser = ["a", "b"]` | clap-compatible literal choice list; typed parsers remain the field type's `FromStr` |
+//! | `last` | clap-compatible spelling for a positional requiring `--` |
 //! | `visible_alias = "other"` | clap-compatible advertised long alias; the plural array spelling also works |
 //! | `alias = "other"` | clap-compatible hidden long alias; the plural array spelling also works |
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |
+//! | `overrides_with = "other"` | clap-compatible spelling; `overrides_with_all = ["a", "b"]` also works |
 //! | `conflicts = "--other"` | an argument this one cannot be given with |
 //! | `requires = "--other"` | a flag that must also be given when this one is |
 //! | `requires_if("value", "--other")` | a flag required when this one explicitly has `value` |
