@@ -108,7 +108,7 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
             // so the position has to be taken from the request rather than from the parser.
             //
             // Nothing else can be typed there: a topic takes no flags and fills no argument.
-            Err(Error::Help { cmd, .. }) => {
+            Err(Error::Help { cmd, .. }) if parser.help_span() != (0, 0) => {
                 return Position {
                     cmd,
                     flags_possible: false,
@@ -122,6 +122,11 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
                     flags: Vec::new(),
                 }
             }
+            // A declared help or version action is a flag in the grammar, just like the
+            // synthetic entries. Parsing an invocation stops so the caller can print it;
+            // walking a partial line instead consumes the flag and keeps discovering the
+            // position after it.
+            Err(Error::Help { .. } | Error::Version { .. }) => continue,
             Err(_) => break,
         }
     }
@@ -2311,6 +2316,42 @@ mod tests {
         // A flag that takes none does not, and neither does one already given its value.
         assert!(position_at("mise use --jobs 4 ").awaiting_value.is_none());
         assert!(position_at("mise --verbose ").awaiting_value.is_none());
+    }
+
+    #[test]
+    fn declared_builtin_actions_do_not_turn_completion_into_a_help_topic() {
+        static ASSIST: Flag = Flag {
+            key: 100,
+            name: "assist",
+            longs: &["assist"],
+            action: crate::ArgAction::Help,
+            ..Flag::BOOL
+        };
+        static REVISION: Flag = Flag {
+            key: 101,
+            name: "revision",
+            longs: &["revision"],
+            action: crate::ArgAction::Version,
+            ..Flag::BOOL
+        };
+        static TARGET: Arg = Arg {
+            key: 102,
+            name: "TARGET",
+            ..Arg::REQUIRED
+        };
+        static APP: Command = Command {
+            name: "app",
+            flags: &[&ASSIST, &REVISION],
+            args: &[&TARGET],
+            ..Command::EMPTY
+        };
+
+        for action in ["--assist", "--revision"] {
+            let position = walk(&APP, &[action.to_string()]);
+            assert!(!position.help_topic, "{action} became a help topic");
+            assert_eq!(position.next_arg.map(|arg| arg.name), Some("TARGET"));
+            assert!(position.flags_possible);
+        }
     }
 
     #[test]
