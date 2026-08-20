@@ -12,6 +12,27 @@ import (
 // the `usage` CLI. The corpus is where the lowering itself is exercised.
 func build(s *Spec) (*argv.Command, argv.Metadata) { return s.Build() }
 
+func TestLongVersionSurvivesJSONLowering(t *testing.T) {
+	var s Spec
+	if err := json.Unmarshal([]byte(`{
+		"name":"ex",
+		"bin":"ex",
+		"version":"1.2.3",
+		"long_version":"ex 1.2.3 (abcdef)",
+		"cmd":{"name":"ex"}
+	}`), &s); err != nil {
+		t.Fatal(err)
+	}
+
+	help := s.HelpSpec()
+	if help.Version != "1.2.3" {
+		t.Errorf("short version: got %q", help.Version)
+	}
+	if help.LongVersion != "ex 1.2.3 (abcdef)" {
+		t.Errorf("long version: got %q", help.LongVersion)
+	}
+}
+
 func metaFor(t *testing.T, meta argv.Metadata, root *argv.Command, name string) *argv.Meta {
 	t.Helper()
 	for _, f := range root.Flags {
