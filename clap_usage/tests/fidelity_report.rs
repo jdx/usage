@@ -31,16 +31,79 @@ fn reports_detectable_losses_with_locations() {
         FidelityFeature::Environment,
         FidelityFeature::ValueHint,
         FidelityFeature::GranularHide,
-        FidelityFeature::ValueArity,
-        FidelityFeature::DistinctValueNames,
     ] {
         assert!(
             features.contains(&expected),
             "missing {expected:?}: {report:#?}"
         );
     }
+    let pair = spec
+        .cmd
+        .flags
+        .iter()
+        .find(|flag| flag.name == "pair")
+        .unwrap();
+    assert_eq!(pair.arg.as_ref().unwrap().value_names, ["START", "END"]);
+    assert_eq!(
+        (
+            pair.arg.as_ref().unwrap().var_min,
+            pair.arg.as_ref().unwrap().var_max
+        ),
+        (Some(2), Some(2))
+    );
+    assert!(!features.contains(&FidelityFeature::DistinctValueNames));
     assert!(report.losses().iter().all(|loss| loss.command == ["ex"]));
     assert!(!report.is_lossless());
+}
+
+#[test]
+fn fixed_arity_distinct_value_names_are_lossless() {
+    let mut command = Command::new("ex").arg(
+        Arg::new("pair")
+            .long("pair")
+            .num_args(2)
+            .value_names(["START", "END"]),
+    );
+    let (spec, report) = spec_with_report(&mut command, "ex");
+    assert!(report.is_lossless(), "{report:#?}");
+    let arg = spec.cmd.flags[0].arg.as_ref().unwrap();
+    assert_eq!(arg.value_names, ["START", "END"]);
+    assert_eq!((arg.var_min, arg.var_max), (Some(2), Some(2)));
+}
+
+#[test]
+fn ranged_distinct_value_names_are_reported_as_lossy() {
+    let mut command = Command::new("ex").arg(
+        Arg::new("range")
+            .long("range")
+            .num_args(2..=4)
+            .value_names(["START", "END"]),
+    );
+    let report = spec_with_report(&mut command, "ex").1;
+    assert!(report
+        .losses()
+        .iter()
+        .any(|loss| loss.feature == FidelityFeature::DistinctValueNames));
+}
+
+#[test]
+fn delimited_distinct_value_names_are_reported_and_not_emitted_as_fixed_arity() {
+    let mut command = Command::new("ex").arg(
+        Arg::new("pair")
+            .long("pair")
+            .num_args(2)
+            .value_delimiter(',')
+            .value_names(["START", "END"]),
+    );
+    let (spec, report) = spec_with_report(&mut command, "ex");
+    let arg = spec.cmd.flags[0].arg.as_ref().unwrap();
+    assert_eq!(arg.value_names, ["START"]);
+    assert_eq!((arg.var_min, arg.var_max), (None, None));
+    assert!(report
+        .losses()
+        .iter()
+        .any(|loss| loss.feature == FidelityFeature::DistinctValueNames));
+    spec.to_string().parse::<usage::Spec>().unwrap();
 }
 
 #[test]
@@ -85,14 +148,31 @@ fn reports_delimited_arity_that_the_bridge_cannot_count() {
 }
 
 #[test]
-fn builds_action_derived_arity_before_reporting() {
-    let mut command =
-        Command::new("ex").arg(Arg::new("values").long("values").action(ArgAction::Append));
+fn append_action_fixed_arity_is_lossless() {
+    let mut command = Command::new("ex").arg(
+        Arg::new("values")
+            .long("values")
+            .action(ArgAction::Append)
+            .num_args(2),
+    );
     let (_, report) = spec_with_report(&mut command, "ex");
-    assert!(report
-        .losses()
-        .iter()
-        .any(|loss| loss.feature == FidelityFeature::ValueArity));
+    assert!(report.is_lossless(), "{report:#?}");
+}
+
+#[test]
+fn value_names_infer_fixed_arity_without_num_args() {
+    let mut command = Command::new("ex")
+        .arg(Arg::new("pair").long("pair").value_names(["LEFT", "RIGHT"]))
+        .arg(Arg::new("coords").value_names(["X", "Y"]));
+    let (spec, report) = spec_with_report(&mut command, "ex");
+    assert!(report.is_lossless(), "{report:#?}");
+    let flag = spec.cmd.flags[0].arg.as_ref().unwrap();
+    assert_eq!((flag.var_min, flag.var_max), (Some(2), Some(2)));
+    assert_eq!(
+        (spec.cmd.args[0].var_min, spec.cmd.args[0].var_max),
+        (Some(2), Some(2))
+    );
+    spec.to_string().parse::<usage::Spec>().unwrap();
 }
 
 #[test]

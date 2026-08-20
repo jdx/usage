@@ -14,6 +14,7 @@ arg "<file>" var=#true // multiple args can be passed (e.g. mycli file1 file2 fi
 arg "<file>..."        // shorthand for var=#true (trailing ellipsis)
 arg "<file>" var=#true var_min=3 // at least 3 args must be passed
 arg "<file>" var=#true var_max=3 // up to 3 args can be passed
+arg "<start> <end>" var_min=2 var_max=2 // exactly two values with distinct labels
 arg "<number>" allow_negative_numbers=#true // -1 is a value, --force is still flag-like
 arg "<item>..." value_terminator=";" // stop before ; without storing it
 ```
@@ -21,6 +22,10 @@ arg "<item>..." value_terminator=";" // stop before ; without storing it
 `allow_negative_numbers` accepts a leading-minus integer or decimal where a normal
 dash-prefixed token would be treated as a flag. `value_terminator` is valid only on a
 variadic argument; it ends that argument without binding the terminator token.
+
+Several placeholders in one argument declare fixed arity. Each label is retained in
+help and generated Rust and Go tables; `var_min` and `var_max` must match the number
+of placeholders.
 
 `validate` is an [expr](https://expr-lang.org/) expression evaluated once for each
 value after defaults and environment fallbacks are applied. The only variable is

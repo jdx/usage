@@ -202,18 +202,11 @@ fn argument_losses(arg: &Arg, path: &[String], losses: &mut BTreeSet<FidelityLos
             break;
         }
     }
-    if let Some(names) = arg.get_value_names().filter(|names| names.len() > 1) {
-        add(
-            FidelityFeature::DistinctValueNames,
-            format!("value_names={names:?}"),
-        );
-    }
     if let Some(range) = arg.get_num_args() {
         let takes_values = matches!(arg.get_action(), ArgAction::Set | ArgAction::Append);
         let lost = takes_values
             && (arg.get_value_delimiter().is_some()
-                || !arg.is_positional()
-                    && (range.min_values() == 0 || matches!(arg.get_action(), ArgAction::Append)));
+                || !arg.is_positional() && range.min_values() == 0);
         if lost {
             add(
                 FidelityFeature::ValueArity,
@@ -225,6 +218,21 @@ fn argument_losses(arg: &Arg, path: &[String], losses: &mut BTreeSet<FidelityLos
                 ),
             );
         }
+    }
+    let value_names = arg.get_value_names().unwrap_or_default();
+    if value_names.len() > 1
+        && (arg.get_value_delimiter().is_some()
+            || arg.get_num_args().is_some_and(|range| {
+                range.min_values() != value_names.len() || range.max_values() != value_names.len()
+            }))
+    {
+        add(
+            FidelityFeature::DistinctValueNames,
+            format!(
+                "{} value names with ranged or delimiter-split arity",
+                value_names.len()
+            ),
+        );
     }
     let mut hidden = Vec::new();
     if arg.is_hide_default_value_set() {

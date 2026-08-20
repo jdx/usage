@@ -34,6 +34,12 @@ type Help struct {
 	// ValueName is what a flag's value is called. Empty for a flag that takes
 	// none.
 	ValueName string
+	// ValueNames preserves a fixed-arity value's distinct placeholders. It is
+	// empty for the ordinary single-name case represented by ValueName.
+	ValueNames []string
+	// ValueArity is the exact number of values when a fixed-arity argument uses
+	// one placeholder for every slot. Zero means the arity is not exact.
+	ValueArity uint32
 	// ValueDemanded is the same required-and-undefaulted test as [Help.Demanded],
 	// applied to the flag's *value* rather than to the flag.
 	//
@@ -228,8 +234,18 @@ func flagUsageShown(f *Flag, show shown, h *Help) string {
 		if h != nil && h.ValueDemanded {
 			open, close = "<", ">"
 		}
-		out.WriteString(" " + open + name + close)
-		if f.Variadic {
+		if h != nil && len(h.ValueNames) > 1 {
+			for _, valueName := range h.ValueNames {
+				out.WriteString(" " + open + valueName + close)
+			}
+		} else if h != nil && h.ValueArity > 1 {
+			for i := uint32(0); i < h.ValueArity; i++ {
+				out.WriteString(" " + open + name + close)
+			}
+		} else {
+			out.WriteString(" " + open + name + close)
+		}
+		if f.Variadic && (h == nil || (len(h.ValueNames) <= 1 && h.ValueArity == 0)) {
 			out.WriteString("…")
 		}
 	}
@@ -247,12 +263,33 @@ func argUsage(a *Arg, h *Help) string {
 	// typing the value without it does not reach this argument at all — and the
 	// brackets go outside it, as usage-lib writes it: `[-- COMMAND]…`, one
 	// optional thing rather than a literal `--` followed by an optional word.
-	if a.DoubleDash == DoubleDashRequired {
+	if h != nil && (len(h.ValueNames) > 1 || h.ValueArity > 1) {
+		if a.DoubleDash == DoubleDashRequired {
+			out.WriteString("-- ")
+		}
+		names := h.ValueNames
+		if len(names) <= 1 {
+			name := a.Name
+			if len(names) == 1 {
+				name = names[0]
+			}
+			names = make([]string, h.ValueArity)
+			for i := range names {
+				names[i] = name
+			}
+		}
+		for i, name := range names {
+			if i > 0 {
+				out.WriteByte(' ')
+			}
+			out.WriteString(open + name + close)
+		}
+	} else if a.DoubleDash == DoubleDashRequired {
 		out.WriteString(open + "-- " + a.Name + close)
 	} else {
 		out.WriteString(open + a.Name + close)
 	}
-	if a.Var {
+	if a.Var && (h == nil || (len(h.ValueNames) <= 1 && h.ValueArity == 0)) {
 		out.WriteString("…")
 	}
 	return out.String()

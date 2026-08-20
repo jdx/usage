@@ -417,13 +417,17 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       usage-argv, generated Go, and the clap bridge. It suppresses delimiter
       splitting only after `--` or once a `double_dash="automatic"`
       positional begins; the same argument still splits ordinary values.
-- [ ] **Fixed arity and distinct value names** — clap can say
-      `num_args(2)` with `<START> <END>`. `var_min` / `var_max` express the bound,
+- [x] **Fixed arity and distinct value names** — clap can say
+      `num_args(2)` with `<START> <END>`. Nested value `var_min` / `var_max`
+      express the per-occurrence bound without becoming limits on repeatable flag
+      occurrences,
       and the clap bridge now preserves it for positionals and non-repeatable value
-      flags. Optional-value ranges beginning at zero and repeatable `Append` ranges
-      remain bridge-lossy because their per-occurrence semantics cannot be represented
-      as one accumulated bound. The derive also has one display name for the collection,
-      so distinct `<START> <END>` labels are still absent.
+      flags. Repeatable `Append` ranges are enforced per occurrence. Optional-value ranges
+      beginning at zero remain bridge-lossy when clap exposes no `default_missing_value`.
+      Distinct names beside a non-fixed range are reported as lossy and reduced to the first
+      label so the emitted KDL remains valid. `#[arg(num_args = 2, value_names = ["START", "END"])]`
+      now preserves the exact bound and each display label through the derive, KDL,
+      clap bridge, Rust and Go parsers, help, and generated tables.
 - [x] **`allow_hyphen_values` on the derive path** — the spec said it and
       usage-lib honoured it (`lib/src/parse.rs`); usage-argv now has the same
       bit on `Flag`, so a detached value that looks like a flag binds when
@@ -652,8 +656,10 @@ feature list is not an exhaustive audit.
       can remain on the command. Hidden `alias` / `aliases` retain their parse-only
       visibility through KDL, Rust and Go tables, help, completion, and the clap
       bridge. Non-default `rename_all` / `rename_all_env` casing and bare `env`
-      now migrate in place; `num_args` and `value_parser` produce targeted
-      migration diagnostics instead of a generic unknown-option error.
+      now migrate in place. `num_args` maps to portable bounds (including fixed
+      arity with distinct `value_names`); optional-value shapes that need
+      per-occurrence presence semantics and arbitrary `value_parser` callbacks
+      produce targeted migration diagnostics instead of a generic unknown-option error.
 - [x] **Command-with-arguments completion hints.** `ExecutablePath`,
       `CommandName`, `CommandString`, and `CommandWithArguments` lower to
       shell-native completion types. A forwarded argv vector offers commands for

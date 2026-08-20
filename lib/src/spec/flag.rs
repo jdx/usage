@@ -865,7 +865,10 @@ impl FromStr for SpecFlag {
             } else if part.starts_with('<') && part.ends_with('>')
                 || part.starts_with('[') && part.ends_with(']')
             {
-                flag.arg = Some(part.to_string().parse()?);
+                flag.arg = Some(match flag.arg.take() {
+                    Some(existing) => format!("{} {part}", existing.usage()).parse()?,
+                    None => part.to_string().parse()?,
+                });
             } else {
                 return Err(InvalidFlag {
                     token: part.to_string(),
@@ -922,12 +925,15 @@ impl From<&clap::Arg> for SpecFlag {
         long.extend(hidden_aliases.iter().cloned());
         let name = get_name_from_short_and_long(&short, &long).unwrap_or_default();
         let arg = if let clap::ArgAction::Set | clap::ArgAction::Append = c.get_action() {
+            let value_names = crate::spec::arg::value_names_from_clap(c);
             let mut arg = SpecArg::from(
-                c.get_value_names()
-                    .map(|s| s.iter().map(|s| s.to_string()).join(" "))
-                    .unwrap_or(name.clone())
+                value_names
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| name.clone())
                     .as_str(),
             );
+            arg.value_names = value_names;
 
             arg.choices = crate::spec::arg::choices_from_clap(c);
 
@@ -965,14 +971,9 @@ impl From<&clap::Arg> for SpecFlag {
                 }
             }
 
-            // clap's range is per occurrence. A non-repeatable `Set` flag has one
-            // occurrence, so the spec's collecting bound says exactly the same thing.
-            // `Append` can occur several times; carrying its minimum as a total would let
-            // one long occurrence hide another short one, so leave that for an explicit
-            // per-occurrence model rather than weakening the rule silently.
-            if matches!(c.get_action(), clap::ArgAction::Set) {
-                crate::spec::arg::value_bounds(c, &mut arg, false);
-            }
+            // These bounds live on the nested value argument and are enforced per occurrence.
+            // That preserves both a single `Set` and each repetition of `Append`.
+            crate::spec::arg::value_bounds(c, &mut arg, false);
 
             Some(arg)
         } else {
@@ -1121,6 +1122,11 @@ mod tests {
         assert_snapshot!("-f --flag <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>");
         assert_snapshot!("-f --flag… <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag… <arg>");
         assert_snapshot!("-f --flag <arg>…".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>…");
+        let range = "--range <start> <end>".parse::<SpecFlag>().unwrap();
+        let arg = range.arg.as_ref().unwrap();
+        assert_eq!(arg.value_names, ["start", "end"]);
+        assert_eq!((arg.var_min, arg.var_max), (Some(2), Some(2)));
+        assert_snapshot!(range, @"--range <start> <end>");
         assert_snapshot!("myflag: -f".parse::<SpecFlag>().unwrap(), @"myflag: -f");
         assert_snapshot!("myflag: -f --flag <arg>".parse::<SpecFlag>().unwrap(), @"myflag: -f --flag <arg>");
     }
@@ -1438,6 +1444,59 @@ mod tests {
             (reparsed.cmd.args[0].var_min, reparsed.cmd.args[0].var_max),
             (Some(2), Some(4))
         );
+    }
+
+    #[test]
+    fn append_value_count_bounds_are_per_occurrence() {
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("pair")
+                .long("pair")
+                .action(clap::ArgAction::Append)
+                .num_args(2),
+        );
+        let spec = Spec::from(&cmd);
+        let flag = &spec.cmd.flags[0];
+        let values = flag.arg.as_ref().unwrap();
+        assert!(flag.var);
+        assert_eq!((values.var_min, values.var_max), (Some(2), Some(2)));
+
+        crate::parse(
+            &spec,
+            &["ex", "--pair", "a", "b", "--pair", "c", "d"].map(str::to_string),
+        )
+        .expect("each occurrence satisfies the fixed cardinality");
+
+        let err = crate::parse(
+            &spec,
+            &["ex", "--pair", "a", "--pair", "c", "d"].map(str::to_string),
+        )
+        .unwrap_err();
+        assert!(format!("{err:?}").contains("requires at least 2 value(s), got 1"));
+    }
+
+    #[test]
+    fn ranged_value_names_do_not_emit_invalid_fixed_arity() {
+        let cmd = clap::Command::new("ex")
+            .arg(
+                clap::Arg::new("range")
+                    .long("range")
+                    .action(clap::ArgAction::Set)
+                    .num_args(2..=4)
+                    .value_names(["START", "END"]),
+            )
+            .arg(
+                clap::Arg::new("files")
+                    .num_args(1..=3)
+                    .value_names(["FIRST", "REST"]),
+            );
+        let spec = Spec::from(&cmd);
+        assert_eq!(
+            spec.cmd.flags[0].arg.as_ref().unwrap().value_names,
+            ["START"]
+        );
+        assert_eq!(spec.cmd.args[0].value_names, ["FIRST"]);
+        let rendered = spec.to_string();
+        let _: Spec = rendered.parse().expect("the generated KDL must parse back");
     }
 
     #[test]

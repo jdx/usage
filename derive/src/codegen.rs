@@ -1035,7 +1035,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
     let takes_value = field.takes_value();
     // The bound on one occurrence's values. A repeatable flag's bound counts occurrences
     // instead, which no single token can decide, so that one stays a post-binding check.
-    let var_max = match field.var_max.filter(|_| *variadic) {
+    let var_max = match field.value_var_max.filter(|_| *variadic) {
         Some(max) => {
             // Saturating, not `as`: on a 64-bit target a bound above `u32::MAX` would
             // narrow, and `4294967296` narrows to zero — a limit of "none" read as a limit
@@ -1215,6 +1215,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let env = option_str(field.env.as_deref());
     let help_heading = option_str(field.help_heading.as_deref());
     let value_name = option_str(field.value_name.as_deref());
+    let value_names = &field.value_names;
     let complete_type = option_str(field.complete_type.as_deref());
     let defaults = &field.default;
     let default = quote!(&[#(#defaults),*]);
@@ -1240,6 +1241,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
     let (var_min, var_max) = bounds_tokens(field);
+    let (value_var_min, value_var_max) = value_bounds_tokens(field);
     // Written as declared, in the spec's own spelling, so the emitted KDL says what
     // the struct says.
     let overrides = &field.overrides;
@@ -1296,6 +1298,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             default: #default,
             help_heading: #help_heading,
             value_name: #value_name,
+            value_names: &[#(#value_names),*],
             hide: #hide,
             count: #count,
             repeatable: #repeatable,
@@ -1312,6 +1315,8 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             validate_error: #validate_error,
             var_min: #var_min,
             var_max: #var_max,
+            value_var_min: #value_var_min,
+            value_var_max: #value_var_max,
             overrides: &[#(#overrides),*],
             conflicts: &[#(#conflicts),*],
             requires: &[#(#requires),*],
@@ -1334,6 +1339,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     let env = option_str(field.env.as_deref());
     let help_heading = option_str(field.help_heading.as_deref());
     let complete_type = option_str(field.complete_type.as_deref());
+    let value_names = &field.value_names;
     let defaults = &field.default;
     let default = quote!(&[#(#defaults),*]);
     let hide = field.hide;
@@ -1355,7 +1361,11 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
         choices_tokens(field);
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
-    let (var_min, var_max) = bounds_tokens(field);
+    let (var_min, var_max) = if matches!(field.kind, Kind::Flag { .. }) {
+        value_bounds_tokens(field)
+    } else {
+        bounds_tokens(field)
+    };
     let delimiter = match field.delimiter {
         Some(c) => quote!(::std::option::Option::Some(#c)),
         None => quote!(::std::option::Option::None),
@@ -1368,6 +1378,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
             complete: #completer,
             complete_type: #complete_type,
             arg: &#table,
+            value_names: &[#(#value_names),*],
             help: #help,
             long_help: #long_help,
             env: #env,
@@ -1430,6 +1441,15 @@ fn bounds_tokens(field: &Field) -> (TokenStream, TokenStream) {
         None => quote!(::std::option::Option::None),
     };
     (render(field.var_min), render(field.var_max))
+}
+
+/// Bounds on the values consumed by one flag occurrence.
+fn value_bounds_tokens(field: &Field) -> (TokenStream, TokenStream) {
+    let render = |bound: Option<usize>| match bound {
+        Some(n) => quote!(::std::option::Option::Some(#n)),
+        None => quote!(::std::option::Option::None),
+    };
+    (render(field.value_var_min), render(field.value_var_max))
 }
 
 /// Which kind of thing a key belongs to, in the bits above its index.
@@ -4830,12 +4850,17 @@ fn post_binding(cli: &Cli) -> TokenStream {
     });
 
     let bound_checks = cli.fields.iter().filter_map(|f| {
-        if f.var_min.is_none() && f.var_max.is_none() {
+        let (var_min, var_max) = if matches!(f.kind, Kind::Flag { variadic: true, .. }) {
+            (f.value_var_min, f.value_var_max)
+        } else {
+            (f.var_min, f.var_max)
+        };
+        if (var_min.is_none() && var_max.is_none()) || f.shape != Shape::Many {
             return None;
         }
         let ident = &f.ident;
         let name = &f.name;
-        let min = match f.var_min {
+        let min = match var_min {
             Some(min) => quote! {
                 if got < #min {
                     return ::std::result::Result::Err(
@@ -4860,7 +4885,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 ..
             }
         ) && f.repeatable;
-        let max = match f.var_max.filter(|_| counts_occurrences) {
+        let max = match var_max.filter(|_| counts_occurrences) {
             Some(max) => quote! {
                 if got > #max {
                     return ::std::result::Result::Err(

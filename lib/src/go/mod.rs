@@ -524,7 +524,13 @@ impl Emitter<'_> {
         if let Some(env) = &flag.env {
             fields.push(format!("Env: {}", go_string(env)));
         }
-        if let Some(min) = flag.var_min {
+        let minimum = flag
+            .arg
+            .as_ref()
+            .filter(|arg| arg.var)
+            .and_then(|arg| arg.var_min)
+            .or(flag.var_min);
+        if let Some(min) = minimum {
             fields.push(format!("VarMin: {}", clamp_var_max(min)));
         }
         // Occurrences. The per-occurrence value bound is a limit binding applies
@@ -971,6 +977,12 @@ fn flag_help(flag: &SpecFlag, named: &Named) -> String {
         if arg.required && arg.default.is_empty() {
             fields.push("ValueDemanded: true".to_string());
         }
+        if !arg.value_names.is_empty() {
+            fields.push(format!("ValueNames: {}", string_slice(&arg.value_names)));
+        }
+        if arg.var && arg.var_min == arg.var_max && arg.var_min.is_some_and(|n| n > 1) {
+            fields.push(format!("ValueArity: {}", arg.var_min.unwrap()));
+        }
     }
     // The whole `help`, not its first line: usage-lib's short page prints the
     // text as declared, and mise has flags whose help is two lines.
@@ -1014,6 +1026,12 @@ fn arg_help(arg: &SpecArg, named: &Named) -> String {
     }
     if arg.required && arg.default.is_empty() {
         fields.push("Demanded: true".to_string());
+    }
+    if !arg.value_names.is_empty() {
+        fields.push(format!("ValueNames: {}", string_slice(&arg.value_names)));
+    }
+    if arg.var && arg.var_min == arg.var_max && arg.var_min.is_some_and(|n| n > 1) {
+        fields.push(format!("ValueArity: {}", arg.var_min.unwrap()));
     }
     if let Some(help) = arg.help.as_deref().or(arg.help_first_line.as_deref()) {
         fields.push(format!("Short: {}", go_string(help)));
@@ -1822,7 +1840,7 @@ cmd "root" {
 name "ex"
 bin "ex"
 flag "--include <pattern>..." {
-    arg "<pattern>..." var=#true var_max=2
+    arg "<pattern>..." var=#true var_min=2 var_max=2
 }
 flag "--tag <t>" var=#true var_max=1
 "#);
@@ -1830,8 +1848,34 @@ flag "--tag <t>" var=#true var_max=1
             out.contains("Name: \"include\", Longs: []string{\"include\"}, TakesValue: true, Variadic: true, VarMax: 2"),
             "{out}"
         );
+        assert!(
+            out.contains("Name: \"include\", Flag: true") && out.contains("VarMin: 2"),
+            "the nested value minimum must reach post-binding metadata:\n{out}"
+        );
         let tag = out.lines().find(|l| l.contains("\"tag\"")).unwrap();
         assert!(!tag.contains("VarMax"), "occurrence bound leaked: {tag}");
+    }
+
+    #[test]
+    fn exact_arity_with_one_label_reaches_go_help() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--pair <ITEM>..." {
+    arg "<ITEM>..." var=#true var_min=2 var_max=2 {
+        value_names "ITEM"
+    }
+}
+arg "<ITEM>..." var=#true var_min=2 var_max=2 {
+    value_names "ITEM"
+}
+"#);
+        assert_eq!(out.matches("ValueArity: 2").count(), 2, "{out}");
+        assert_eq!(
+            out.matches("ValueNames: []string{\"ITEM\"}").count(),
+            2,
+            "{out}"
+        );
     }
 
     #[test]

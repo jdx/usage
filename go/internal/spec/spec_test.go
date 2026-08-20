@@ -63,6 +63,32 @@ func TestAFlagsDefaultCanBeDeclaredOnItsValue(t *testing.T) {
 	}
 }
 
+func TestVariadicFlagMinimumComesFromItsValue(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "include", Long: []string{"include"}, VarMin: 7, VarMax: 8,
+				Arg: &Arg{Name: "pattern", Var: true, VarMin: 2, VarMax: 3}},
+			{Name: "fallback", Long: []string{"fallback"}, VarMin: 4,
+				Arg: &Arg{Name: "value", Var: true}},
+		}},
+	})
+
+	include := metaFor(t, meta, root, "include")
+	if include.VarMin != 2 {
+		t.Errorf("nested value minimum should win for a variadic occurrence: got %d", include.VarMin)
+	}
+	if include.VarMax != 8 {
+		t.Errorf("flag-level maximum should remain an occurrence bound: got %d", include.VarMax)
+	}
+	if root.Flags[0].VarMax != 3 {
+		t.Errorf("nested value maximum should reach the parse table: got %d", root.Flags[0].VarMax)
+	}
+	if got := metaFor(t, meta, root, "fallback").VarMin; got != 4 {
+		t.Errorf("an unset nested minimum should retain the flag-level minimum: got %d", got)
+	}
+}
+
 // The other half of the same question, and the answer is the opposite one:
 // usage-lib does not read a nested `env`, so neither does this. Verified against
 // it rather than assumed — `arg "<m>" env="EX_MODE"` inside a flag leaves the

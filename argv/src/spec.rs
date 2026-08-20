@@ -769,6 +769,8 @@ pub struct FlagMeta<'a> {
     pub long_help: Option<&'a str>,
     /// The placeholder for the flag's value, such as `n` in `--jobs <n>`.
     pub value_name: Option<&'a str>,
+    /// Ordered placeholders for one fixed-arity occurrence.
+    pub value_names: &'a [&'a str],
     pub env: Option<&'a str>,
     pub default: &'a [&'a str],
     /// Canonical choices plus aliases accepted by the value type.
@@ -807,6 +809,10 @@ pub struct FlagMeta<'a> {
     pub repeatable: bool,
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
+    /// Bounds on values consumed by one occurrence, distinct from the
+    /// flag-level occurrence bounds above.
+    pub value_var_min: Option<usize>,
+    pub value_var_max: Option<usize>,
     /// Flags this one displaces when both are given.
     pub overrides: &'a [&'a str],
     /// Flags that cannot be given alongside this one.
@@ -854,6 +860,7 @@ impl FlagMeta<'_> {
         help: None,
         long_help: None,
         value_name: None,
+        value_names: &[],
         env: None,
         default: &[],
         accepted_choices: &[],
@@ -870,6 +877,8 @@ impl FlagMeta<'_> {
         repeatable: false,
         var_min: None,
         var_max: None,
+        value_var_min: None,
+        value_var_max: None,
         overrides: &[],
         conflicts: &[],
         delimiter: None,
@@ -906,6 +915,8 @@ pub struct DefaultIf<'a> {
 #[derive(Debug, Clone, Copy)]
 pub struct ArgMeta<'a> {
     pub arg: &'a Arg<'a>,
+    /// Ordered placeholders for a fixed-arity positional.
+    pub value_names: &'a [&'a str],
     pub help: Option<&'a str>,
     pub long_help: Option<&'a str>,
     pub env: Option<&'a str>,
@@ -947,6 +958,7 @@ impl ArgMeta<'_> {
         complete: None,
         complete_type: None,
         arg: &Arg::REQUIRED,
+        value_names: &[],
         help: None,
         long_help: None,
         env: None,
@@ -1598,12 +1610,40 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     write_many_list(out, "required_unless", meta.required_unless, inner)?;
     if meta.flag.takes_value {
         indent(out, inner)?;
-        let name = meta.value_name.unwrap_or(meta.flag.name);
-        write!(
-            out,
-            "arg {}",
-            quoted(&placeholder(name, meta.flag.variadic, meta.value_optional))
-        )?;
+        let exact = exact_arity(meta.value_var_min, meta.value_var_max);
+        let rendered = if meta.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
+            let name = meta
+                .value_names
+                .first()
+                .copied()
+                .or(meta.value_name)
+                .unwrap_or(meta.flag.name);
+            (0..exact.unwrap())
+                .map(|_| placeholder(name, false, meta.value_optional))
+                .collect::<Vec<_>>()
+                .join(" ")
+        } else if meta.value_names.len() <= 1 {
+            let name = meta
+                .value_names
+                .first()
+                .copied()
+                .or(meta.value_name)
+                .unwrap_or(meta.flag.name);
+            placeholder(name, meta.flag.variadic, meta.value_optional)
+        } else {
+            meta.value_names
+                .iter()
+                .map(|name| placeholder(name, false, meta.value_optional))
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        write!(out, "arg {}", quoted(&rendered))?;
+        if let Some(min) = meta.value_var_min {
+            write!(out, " var_min={min}")?;
+        }
+        if let Some(max) = meta.value_var_max {
+            write!(out, " var_max={max}")?;
+        }
         // Square brackets alone would round-trip as required, since usage-lib reads the
         // brackets *and* the attribute: `[BUMP]` without it comes back `required=#true`.
         if meta.value_optional {
@@ -1990,8 +2030,42 @@ fn placeholder(name: &str, variadic: bool, optional: bool) -> String {
     format!("{open}{name}{close}{ellipsis}")
 }
 
+fn exact_arity(min: Option<usize>, max: Option<usize>) -> Option<usize> {
+    match (min, max) {
+        (Some(min), Some(max)) if min == max => Some(min),
+        _ => None,
+    }
+}
+
 /// A positional's placeholder: angle brackets when required, square when not.
 fn arg_placeholder(name: &str, meta: &ArgMeta<'_>) -> String {
+    if let Some(arity) =
+        exact_arity(meta.var_min, meta.var_max).filter(|n| *n > 1 && meta.value_names.len() <= 1)
+    {
+        let values = (0..arity)
+            .map(|_| placeholder(name, false, !meta.required))
+            .collect::<Vec<_>>()
+            .join(" ");
+        return values;
+    }
+    if meta.value_names.len() > 1 {
+        let (open, close) = if meta.required {
+            ('<', '>')
+        } else {
+            ('[', ']')
+        };
+        let values = meta
+            .value_names
+            .iter()
+            .map(|name| format!("{open}{name}{close}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        return if meta.arg.double_dash == DoubleDash::Required {
+            format!("-- {values}")
+        } else {
+            values
+        };
+    }
     let ellipsis = if meta.arg.var { "..." } else { "" };
     if meta.required {
         format!("<{name}>{ellipsis}")

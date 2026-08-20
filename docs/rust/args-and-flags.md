@@ -71,6 +71,7 @@ jobs: Option<u32>,
 | `global`                                | Usable on any subcommand below this one                                                 |
 | `var` / `variadic`                      | Repeatable / greedy multi-value (see above)                                             |
 | `var_min = n` / `var_max = n`           | Bounds on how many values a `Vec` may hold                                              |
+| `num_args = n` / `num_args = a..=b`     | clap-compatible spelling for exact or ranged `Vec` cardinality                          |
 | `choices("a", "b")`                     | Restrict values to a fixed set                                                          |
 | `value_enum`                            | Take choices from a `#[derive(ValueEnum)]` type                                         |
 | `delimiter = ','`                       | Split one word into several values ([Validation](/rust/validation#delimiters))          |
@@ -88,6 +89,7 @@ jobs: Option<u32>,
 | `complete = my_fn`                      | Custom completion function ([Completions](/rust/completions))                           |
 | `value_hint = ValueHint::FilePath`      | Ask the shell for path completion (see below)                                           |
 | `value_name = "…"`                      | The placeholder shown in help (`--file <PATH>`)                                         |
+| `value_names = ["A", "B"]`              | Distinct placeholders for a fixed multi-value field                                     |
 | `help = "…"` / `long_help = "…"`        | Help text (doc comments are usually nicer)                                              |
 | `help_heading = "…"`                    | Group the entry under a heading in help output                                          |
 | `hide`                                  | Omit from help, docs, and completions                                                   |
@@ -119,6 +121,21 @@ needs the same thing already has `double_dash = "automatic"`. Emitted KDL:
 
 `#[usage(value_terminator = ";")]` ends a `Vec` without storing the terminator.
 It works on variadic flags and positionals and emits `value_terminator=";"` in KDL.
+
+Fixed multi-value fields can retain clap's familiar attribute unchanged:
+
+```rust
+#[arg(long, num_args = 2, value_names = ["START", "END"])]
+range: Vec<String>,
+```
+
+One `--range` occurrence consumes exactly two values and help prints
+`--range <START> <END>`. The generated KDL uses the same two placeholders and
+puts `var_min=2 var_max=2` on the flag's nested `arg`, not on the flag itself.
+That distinction matters: bounds on the nested value apply to every occurrence,
+while flag-level bounds count how many times a repeatable flag appears. A range
+such as `num_args = 1..=3` sets the corresponding nested bounds; distinct
+`value_names` require an exact bound matching their count.
 
 `#[usage(require_equals)]` is clap's attribute of the same name: `--inspect=9229` binds
 and `--inspect 9229` is a missing value. The flag has to take a value. Emitted KDL:
