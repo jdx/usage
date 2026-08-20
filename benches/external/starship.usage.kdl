@@ -1,0 +1,236 @@
+name starship
+bin starship
+version "1.26.0"
+long_version #"""
+1.26.0
+branch:main
+commit_hash:6d38f35
+build_time:2026-08-20 21:05:10 +00:00
+build_env:rustc 1.97.1 (8bab26f4f 2026-07-14),stable-x86_64-unknown-linux-gnu
+"""#
+about "The cross-shell prompt for astronauts. ☄🌌️"
+unknown_flags error
+arg_required_else_help #true
+args_override_self #false
+subcommand_required #true
+usage "Usage: starship <COMMAND>"
+cmd bug-report display_order=0 args_override_self=#false help="Create a pre-populated GitHub issue with information about your configuration" unknown_flags=error
+cmd completions display_order=1 args_override_self=#false help="Generate starship shell completions for your shell to stdout" unknown_flags=error {
+    arg <SHELL> {
+        choices {
+            choice bash
+            choice elvish
+            choice fish
+            choice nushell
+            choice powershell {
+                alias pwsh hide=#true
+                alias power-shell hide=#true
+            }
+            choice zsh
+        }
+    }
+}
+cmd config display_order=2 args_override_self=#false help="Edit the starship configuration" unknown_flags=error {
+    arg "[NAME]" help="Configuration key to edit" required=#false
+    arg "[VALUE]" help="Value to place into that key" required=#false
+}
+cmd explain display_order=3 args_override_self=#false help="Explains the currently showing modules" unknown_flags=error {
+    flag "-s --status" help="The status code of the previously run command as an unsigned or signed 32bit integer" {
+        arg <STATUS_CODE>
+    }
+    flag --pipestatus help="Bash, Fish and Zsh support returning codes for each process in a pipeline" var=#true {
+        arg <PIPESTATUS>… var=#true delimiter=" "
+    }
+    flag "-w --terminal-width" help="The width of the current interactive terminal" default="80" {
+        arg <TERMINAL_WIDTH>
+    }
+    flag "-p --path" help="The path that the prompt should render for" {
+        arg <PATH>
+    }
+    flag "-P --logical-path" help="The logical path that the prompt should render for. This path should be a virtual/logical representation of the PATH argument" {
+        arg <LOGICAL_PATH>
+    }
+    flag "-d --cmd-duration" help="The execution duration of the last command, in milliseconds" {
+        arg <CMD_DURATION>
+    }
+    flag "-k --keymap" help="The keymap of fish/zsh/cmd" default=viins {
+        arg <KEYMAP>
+    }
+    flag "-j --jobs" help="The number of currently running jobs" default="0" {
+        arg <JOBS>
+    }
+    flag --shlvl help="The current value of SHLVL, for shells that mis-handle it in $()" {
+        arg <SHLVL>
+    }
+    complete path type=path
+    complete logical_path type=path
+}
+cmd init display_order=4 args_override_self=#false help="Prints the shell function used to execute starship" unknown_flags=error {
+    flag --print-full-init default="false"
+    arg <SHELL>
+}
+cmd module display_order=5 args_override_self=#false help="Prints a specific prompt module" unknown_flags=error {
+    flag "-l --list" help="List out all supported modules" default="false"
+    flag "-s --status" help="The status code of the previously run command as an unsigned or signed 32bit integer" {
+        arg <STATUS_CODE>
+    }
+    flag --pipestatus help="Bash, Fish and Zsh support returning codes for each process in a pipeline" var=#true {
+        arg <PIPESTATUS>… var=#true delimiter=" "
+    }
+    flag "-w --terminal-width" help="The width of the current interactive terminal" default="80" {
+        arg <TERMINAL_WIDTH>
+    }
+    flag "-p --path" help="The path that the prompt should render for" {
+        arg <PATH>
+    }
+    flag "-P --logical-path" help="The logical path that the prompt should render for. This path should be a virtual/logical representation of the PATH argument" {
+        arg <LOGICAL_PATH>
+    }
+    flag "-d --cmd-duration" help="The execution duration of the last command, in milliseconds" {
+        arg <CMD_DURATION>
+    }
+    flag "-k --keymap" help="The keymap of fish/zsh/cmd" default=viins {
+        arg <KEYMAP>
+    }
+    flag "-j --jobs" help="The number of currently running jobs" default="0" {
+        arg <JOBS>
+    }
+    flag --shlvl help="The current value of SHLVL, for shells that mis-handle it in $()" {
+        arg <SHLVL>
+    }
+    arg "[NAME]" help="The name of the module to be printed" required=#false
+    complete path type=path
+    complete logical_path type=path
+}
+cmd preset display_order=6 args_override_self=#false help="Prints a preset config" unknown_flags=error {
+    flag "-o --output" help="Output the preset to a file instead of stdout" conflicts=--list {
+        arg <OUTPUT>
+    }
+    flag "-f --force" help="Forcibly overwrite the output file if it already exists" default="false"
+    flag "-l --list" help="List out all preset names" default="false"
+    arg "[NAME]" help="The name of preset to be printed" required=#false {
+        choices bracketed-segments catppuccin-powerline gruvbox-rainbow jetpack nerd-font-symbols no-empty-icons no-nerd-font no-runtime-versions pastel-powerline plain-text-symbols pure-preset tokyo-night
+    }
+    complete output type=path
+}
+cmd print-config display_order=7 args_override_self=#false help="Prints the computed starship configuration" unknown_flags=error {
+    flag "-d --default" help="Print the default instead of the computed config" default="false"
+    arg "[NAME]…" help="Configuration keys to print" required=#false var=#true var_min=1
+}
+cmd prompt display_order=8 args_override_self=#false help="Prints the full starship prompt" unknown_flags=error {
+    flag --right help="Print the right prompt (instead of the standard left prompt)" default="false"
+    flag --profile help="Print the prompt with the specified profile name (instead of the standard left prompt)" conflicts=--right {
+        arg <PROFILE>
+    }
+    flag --continuation help="Print the continuation prompt (instead of the standard left prompt)" default="false" {
+        conflicts "--right" "--profile"
+    }
+    flag "-s --status" help="The status code of the previously run command as an unsigned or signed 32bit integer" {
+        arg <STATUS_CODE>
+    }
+    flag --pipestatus help="Bash, Fish and Zsh support returning codes for each process in a pipeline" var=#true {
+        arg <PIPESTATUS>… var=#true delimiter=" "
+    }
+    flag "-w --terminal-width" help="The width of the current interactive terminal" default="80" {
+        arg <TERMINAL_WIDTH>
+    }
+    flag "-p --path" help="The path that the prompt should render for" {
+        arg <PATH>
+    }
+    flag "-P --logical-path" help="The logical path that the prompt should render for. This path should be a virtual/logical representation of the PATH argument" {
+        arg <LOGICAL_PATH>
+    }
+    flag "-d --cmd-duration" help="The execution duration of the last command, in milliseconds" {
+        arg <CMD_DURATION>
+    }
+    flag "-k --keymap" help="The keymap of fish/zsh/cmd" default=viins {
+        arg <KEYMAP>
+    }
+    flag "-j --jobs" help="The number of currently running jobs" default="0" {
+        arg <JOBS>
+    }
+    flag --shlvl help="The current value of SHLVL, for shells that mis-handle it in $()" {
+        arg <SHLVL>
+    }
+    complete path type=path
+    complete logical_path type=path
+}
+cmd session display_order=9 args_override_self=#false help="Generate random session key" unknown_flags=error
+cmd statusline display_order=10 args_override_self=#false help="Prints the statusline with a specific profile" unknown_flags=error {
+    flag --profile {
+        arg <PROFILE>
+    }
+    flag "-s --status" help="The status code of the previously run command as an unsigned or signed 32bit integer" {
+        arg <STATUS_CODE>
+    }
+    flag --pipestatus help="Bash, Fish and Zsh support returning codes for each process in a pipeline" var=#true {
+        arg <PIPESTATUS>… var=#true delimiter=" "
+    }
+    flag "-w --terminal-width" help="The width of the current interactive terminal" default="80" {
+        arg <TERMINAL_WIDTH>
+    }
+    flag "-p --path" help="The path that the prompt should render for" {
+        arg <PATH>
+    }
+    flag "-P --logical-path" help="The logical path that the prompt should render for. This path should be a virtual/logical representation of the PATH argument" {
+        arg <LOGICAL_PATH>
+    }
+    flag "-d --cmd-duration" help="The execution duration of the last command, in milliseconds" {
+        arg <CMD_DURATION>
+    }
+    flag "-k --keymap" help="The keymap of fish/zsh/cmd" default=viins {
+        arg <KEYMAP>
+    }
+    flag "-j --jobs" help="The number of currently running jobs" default="0" {
+        arg <JOBS>
+    }
+    flag --shlvl help="The current value of SHLVL, for shells that mis-handle it in $()" {
+        arg <SHLVL>
+    }
+    arg <PROVIDER> help="The statusline provider to use" {
+        choices {
+            choice claude-code {
+                alias claude hide=#true
+            }
+        }
+    }
+    complete path type=path
+    complete logical_path type=path
+}
+cmd time hide=#true display_order=11 args_override_self=#false help="Prints time in milliseconds" unknown_flags=error
+cmd timings display_order=12 args_override_self=#false help="Prints timings of all active modules" unknown_flags=error {
+    flag "-s --status" help="The status code of the previously run command as an unsigned or signed 32bit integer" {
+        arg <STATUS_CODE>
+    }
+    flag --pipestatus help="Bash, Fish and Zsh support returning codes for each process in a pipeline" var=#true {
+        arg <PIPESTATUS>… var=#true delimiter=" "
+    }
+    flag "-w --terminal-width" help="The width of the current interactive terminal" default="80" {
+        arg <TERMINAL_WIDTH>
+    }
+    flag "-p --path" help="The path that the prompt should render for" {
+        arg <PATH>
+    }
+    flag "-P --logical-path" help="The logical path that the prompt should render for. This path should be a virtual/logical representation of the PATH argument" {
+        arg <LOGICAL_PATH>
+    }
+    flag "-d --cmd-duration" help="The execution duration of the last command, in milliseconds" {
+        arg <CMD_DURATION>
+    }
+    flag "-k --keymap" help="The keymap of fish/zsh/cmd" default=viins {
+        arg <KEYMAP>
+    }
+    flag "-j --jobs" help="The number of currently running jobs" default="0" {
+        arg <JOBS>
+    }
+    flag --shlvl help="The current value of SHLVL, for shells that mis-handle it in $()" {
+        arg <SHLVL>
+    }
+    complete path type=path
+    complete logical_path type=path
+}
+cmd toggle display_order=13 args_override_self=#false help="Toggle a given starship module" unknown_flags=error {
+    arg <NAME> help="The name of the module to be toggled"
+    arg "[VALUE]" help="The key of the config to be toggled" required=#false default=disabled
+}
+

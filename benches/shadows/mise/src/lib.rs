@@ -3,7 +3,7 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
 use usage_derive::{Args, Cli, Subcommands};
 
@@ -2502,9 +2502,9 @@ pub struct GenerateBootstrapArgs {
     #[usage(
         long = "write",
         short = 'w',
+        value_optional,
         default_missing = "./bin/mise",
-        value_name = "WRITE",
-        value_optional
+        value_name = "WRITE"
     )]
     pub write: ::std::option::Option<::std::string::String>,
     /// Directory to put localized data into
@@ -6242,9 +6242,9 @@ pub struct WatchArgs {
         long = "clear",
         short = 'c',
         help_heading = "Output",
+        value_optional,
         default_missing = "clear",
         value_name = "MODE",
-        value_optional,
         choices("clear", "reset")
     )]
     pub clear: ::std::option::Option<::std::string::String>,
@@ -6478,9 +6478,9 @@ pub struct WatchArgs {
     #[usage(
         long = "poll",
         alias = "force-poll",
+        value_optional,
         default_missing = "30s",
-        value_name = "INTERVAL",
-        value_optional
+        value_name = "INTERVAL"
     )]
     pub poll: ::std::option::Option<::std::string::String>,
     /// Use a different shell

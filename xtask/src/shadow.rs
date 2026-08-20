@@ -79,6 +79,14 @@ impl Dialect {
         }
     }
 
+    fn optional_option(self) -> &'static str {
+        if self.plain_types() {
+            "Option<Option<String>>"
+        } else {
+            "::std::option::Option<::std::option::Option<::std::string::String>>"
+        }
+    }
+
     fn vec(self) -> &'static str {
         if self.plain_types() {
             "Vec<String>"
@@ -207,7 +215,7 @@ fn header(out: &mut String, spec_path: &Path, dialect: Dialect) {
          //!\n\
          //! Do not edit: regenerate it. It exists to be compiled and parsed against, so\n\
          //! that the parser can be measured at a real CLI's scale rather than a toy one.\n\
-         #![allow(dead_code)]\n\n\
+         #![allow(dead_code, unused_imports)]\n\n\
          {imports}\n\n"
     ));
 }
@@ -912,6 +920,8 @@ fn flag_type(flag: &SpecFlag, dialect: Dialect) -> &'static str {
         "u8"
     } else if flag.var || arg.var {
         dialect.vec()
+    } else if flag.value_optional && flag.default_missing.is_none() {
+        dialect.optional_option()
     } else if flag.required {
         dialect.string()
     } else {
@@ -1056,11 +1066,21 @@ fn usage_flag_opts(
     if let Some(delimiter) = flag.arg.as_ref().and_then(|a| a.delimiter) {
         opts.push(format!("delimiter = {delimiter:?}"));
     }
+    if let Some(terminator) = flag
+        .arg
+        .as_ref()
+        .and_then(|a| a.value_terminator.as_deref())
+    {
+        opts.push(format!("value_terminator = {terminator:?}"));
+    }
     if flag.allow_hyphen_values() {
         opts.push("allow_hyphen_values".into());
     }
     if flag.require_equals {
         opts.push("require_equals".into());
+    }
+    if flag.value_optional || flag.arg.as_ref().is_some_and(|arg| !arg.required) {
+        opts.push("value_optional".into());
     }
     if let Some(missing) = &flag.default_missing {
         opts.push(format!("default_missing = {missing:?}"));
@@ -1093,9 +1113,6 @@ fn usage_flag_opts(
         // `arg "[BUMP]" required=#false`: the value may be left off. Dropping it rendered
         // pitchfork's `--bump` as `<BUMP>` where its own spec says `[BUMP]`, and said nothing
         // about having dropped anything.
-        if !arg.required {
-            opts.push("value_optional".into());
-        }
         if let Some(choices) = &arg.choices {
             opts.push(format!("choices({})", quoted_list(&choices.choices)));
         }
@@ -1195,16 +1212,26 @@ fn clap_flag_opts(
     if let Some(delimiter) = flag.arg.as_ref().and_then(|a| a.delimiter) {
         opts.push(format!("value_delimiter = {delimiter:?}"));
     }
+    if let Some(terminator) = flag
+        .arg
+        .as_ref()
+        .and_then(|a| a.value_terminator.as_deref())
+    {
+        opts.push(format!("value_terminator = {terminator:?}"));
+    }
     if flag.allow_hyphen_values() {
         opts.push("allow_hyphen_values = true".into());
     }
     if flag.require_equals {
         opts.push("require_equals = true".into());
     }
+    let variadic_value = flag.arg.as_ref().is_some_and(|arg| arg.var);
+    if !variadic_value && (flag.value_optional || flag.default_missing.is_some()) {
+        opts.push("num_args = 0..=1".into());
+    }
     if let Some(missing) = &flag.default_missing {
         // clap's setter exists even though the getter does not, so the clap shadow
         // can say this even though a spec regenerated from clap would drop it.
-        opts.push("num_args = 0..=1".into());
         opts.push(format!("default_missing_value = {missing:?}"));
     }
     if flag.effect.is_some() {
@@ -1271,14 +1298,18 @@ fn clap_flag_opts(
         // A `Vec` already appends in clap; what needs saying is the other kind of
         // collecting, where one occurrence keeps taking values.
         if arg.var {
-            let least = arg.var_min.unwrap_or(1);
+            let least = if flag.value_optional || flag.default_missing.is_some() {
+                0
+            } else {
+                arg.var_min.unwrap_or(1)
+            };
             match arg.var_max {
                 Some(max) => opts.push(format!("num_args = {least}..={max}")),
                 None => opts.push(format!("num_args = {least}..")),
             }
         } else if !arg.required {
-            if flag.default_missing.is_some() {
-                // Already written as `num_args = 0..=1` beside `default_missing_value`.
+            if flag.default_missing.is_some() || flag.value_optional {
+                // Already written as `num_args = 0..=1` beside the flag-level option.
             } else {
                 // Noted, not emitted. `num_args = 0..=1` was the obvious translation and it is the
                 // wrong one: `value_optional` is help-only — usage-lib's parser refuses a bare
@@ -1635,6 +1666,9 @@ fn usage_arg_opts(arg: &SpecArg, group: Option<&str>, skipped: &mut Skipped) -> 
             opts.push(format!("var_max = {max}"));
         }
     }
+    if let Some(terminator) = &arg.value_terminator {
+        opts.push(format!("value_terminator = {terminator:?}"));
+    }
     double_dash(arg, |mode| opts.push(format!("double_dash = {mode:?}")));
     opts
 }
@@ -1695,6 +1729,9 @@ fn clap_arg_opts(
             Some(max) => opts.push(format!("num_args = {least}..={max}")),
             None => opts.push(format!("num_args = {least}..")),
         }
+    }
+    if let Some(terminator) = &arg.value_terminator {
+        opts.push(format!("value_terminator = {terminator:?}"));
     }
     // clap calls it `last`: the argument after the `--`. It has no name for the other three.
     clap_double_dash(arg, skipped, || opts.push("last = true".into()));
@@ -2104,6 +2141,62 @@ mod tests {
         );
         assert!(out.contains(r#"env = "EX_FILE""#), "{out}");
         assert!(out.contains(r#"help_heading = "Input""#), "{out}");
+    }
+
+    #[test]
+    fn variadic_value_terminators_survive_generated_shadows() {
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"-x --exec\" var=#true value_terminator=\";\" { arg \"<cmd>…\" var=#true var_min=1 value_terminator=\";\" }\narg \"[rest]…\" value_terminator=\"STOP\"\n";
+
+        for dialect in [Dialect::Usage, Dialect::Clap] {
+            let (out, skipped) = rendered_as(spec, dialect);
+            assert!(
+                skipped.counts.is_empty(),
+                "{} dropped {:?}:\n{out}",
+                dialect.as_str(),
+                skipped.counts
+            );
+            assert!(out.contains(r#"value_terminator = ";""#), "{out}");
+            assert!(out.contains(r#"value_terminator = "STOP""#), "{out}");
+        }
+    }
+
+    #[test]
+    fn optional_flag_values_survive_generated_shadows() {
+        let spec =
+            "name \"ex\"\nbin \"ex\"\nflag \"--mode\" value_optional=#true { arg \"<MODE>\" }\n";
+
+        let (usage, usage_skipped) = rendered_as(spec, Dialect::Usage);
+        assert!(usage_skipped.counts.is_empty());
+        assert!(usage.contains("value_optional"), "{usage}");
+        assert_eq!(usage.matches("value_optional").count(), 1, "{usage}");
+
+        let (clap, clap_skipped) = rendered_as(spec, Dialect::Clap);
+        assert!(clap_skipped.counts.is_empty());
+        assert!(clap.contains("num_args = 0..=1"), "{clap}");
+        assert_eq!(clap.matches("num_args").count(), 1, "{clap}");
+    }
+
+    #[test]
+    fn optional_value_arity_is_emitted_once_for_combined_properties() {
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"--mode\" value_optional=#true default_missing=\"auto\" { arg \"[MODE]\" required=#false }\n";
+
+        let (usage, usage_skipped) = rendered_as(spec, Dialect::Usage);
+        assert!(
+            usage_skipped.counts.is_empty(),
+            "{:?}",
+            usage_skipped.counts
+        );
+        assert_eq!(usage.matches("value_optional").count(), 1, "{usage}");
+
+        let (clap, clap_skipped) = rendered_as(spec, Dialect::Clap);
+        assert!(clap_skipped.counts.is_empty(), "{:?}", clap_skipped.counts);
+        assert_eq!(clap.matches("num_args").count(), 1, "{clap}");
+        assert!(clap.contains("default_missing_value"), "{clap}");
+
+        let variadic = "name \"ex\"\nbin \"ex\"\nflag \"--mode\" value_optional=#true var=#true { arg \"[MODE]…\" required=#false var=#true var_min=1 }\n";
+        let (clap, _) = rendered_as(variadic, Dialect::Clap);
+        assert_eq!(clap.matches("num_args").count(), 1, "{clap}");
+        assert!(clap.contains("num_args = 0.."), "{clap}");
     }
 
     #[test]

@@ -3,7 +3,7 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
 use usage_derive::{Args, Cli, Subcommands};
 
@@ -535,9 +535,9 @@ pub struct AuditArgs {
     /// `--fix=update` refreshes the lockfile without writing overrides.
     #[usage(
         long = "fix",
+        value_optional,
         default_missing = "override",
         value_name = "FIX",
-        value_optional,
         choices("update", "override")
     )]
     pub fix: ::std::option::Option<::std::string::String>,
@@ -4074,18 +4074,18 @@ pub struct RunArgs {
     #[usage(
         long = "inspect",
         require_equals,
+        value_optional,
         default_missing = "",
-        value_name = "[[HOST:]PORT]",
-        value_optional
+        value_name = "[[HOST:]PORT]"
     )]
     pub inspect: ::std::option::Option<::std::string::String>,
     /// Forward `--inspect-brk` to a Node-backed script or local binary.
     #[usage(
         long = "inspect-brk",
         require_equals,
+        value_optional,
         default_missing = "",
-        value_name = "[[HOST:]PORT]",
-        value_optional
+        value_name = "[[HOST:]PORT]"
     )]
     pub inspect_brk: ::std::option::Option<::std::string::String>,
     /// Continue recursive execution after a script fails.
@@ -5774,9 +5774,9 @@ pub struct Cli {
         long_help = "Enable cold-install deep diagnostics. Modes:\n  summary  — sum_ms / mean / max / %wall table at end\n  trace    — summary + critical path + starvation + what-if + lifecycle\n  live     — like trace, plus print every span >= 100ms to stderr live\n  full     — like trace, plus write JSONL trace to a file (defaults to ./aube-diag.jsonl)\n\nQuick form: `--diag` with no value defaults to `trace`.\nOutput file path can be set via `--diag-file`. Threshold for live\nmode via `--diag-threshold-ms`.",
         long = "diag",
         global,
+        value_optional,
         default_missing = "trace",
-        value_name = "MODE",
-        value_optional
+        value_name = "MODE"
     )]
     pub diag: ::std::option::Option<::std::string::String>,
     /// Path for `--diag full` JSONL trace (default: ./aube-diag.jsonl)

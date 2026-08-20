@@ -1,0 +1,32 @@
+[
+    FidelityLoss {
+        command: [
+            "fd",
+        ],
+        argument: Some(
+            "gen_completions",
+        ),
+        feature: ValueArity,
+        detail: "num_args=0..=1, action=Set",
+    },
+    FidelityLoss {
+        command: [
+            "fd",
+        ],
+        argument: Some(
+            "hyperlink",
+        ),
+        feature: ValueArity,
+        detail: "num_args=0..=1, action=Set",
+    },
+    FidelityLoss {
+        command: [
+            "fd",
+        ],
+        argument: Some(
+            "strip_cwd_prefix",
+        ),
+        feature: ValueArity,
+        detail: "num_args=0..=1, action=Set",
+    },
+]

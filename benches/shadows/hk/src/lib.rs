@@ -3,7 +3,7 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
 use usage_derive::{Args, Cli, Subcommands};
 
@@ -125,9 +125,9 @@ pub struct CheckArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -359,9 +359,9 @@ pub struct FixArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -620,9 +620,9 @@ pub struct RunCommitMsgArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -766,9 +766,9 @@ pub struct RunPostCheckoutArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -918,9 +918,9 @@ pub struct RunPostCommitArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1061,9 +1061,9 @@ pub struct RunPostMergeArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1207,9 +1207,9 @@ pub struct RunPostRewriteArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1354,9 +1354,9 @@ pub struct RunPreCommitArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1497,9 +1497,9 @@ pub struct RunPrePushArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1646,9 +1646,9 @@ pub struct RunPreRebaseArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1795,9 +1795,9 @@ pub struct RunPrepareCommitMsgArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1948,9 +1948,9 @@ pub struct RunArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
