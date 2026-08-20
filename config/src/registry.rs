@@ -72,6 +72,8 @@ pub struct PropMeta {
     pub parse: Option<Parser>,
     /// Environment variables that set it, highest precedence first.
     pub envs: &'static [&'static str],
+    /// Deprecated environment aliases, consulted after every current name.
+    pub deprecated_envs: &'static [&'static str],
     /// The flags that set it, as the spec's `cli` node declares them: `["--jobs", "-j"]`.
     ///
     /// Documentation for the most part — an explanation that lists the environment variables and not
@@ -114,6 +116,7 @@ impl PropMeta {
             scope: Scope::Any,
             parse: None,
             envs: &[],
+            deprecated_envs: &[],
             cli: &[],
             bindings: &[],
             choices: &[],

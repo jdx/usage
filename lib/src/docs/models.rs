@@ -358,6 +358,14 @@ fn describe_sources(
             described.push(format!("`{first}` (or {})", aliases.join(", ")));
         }
     }
+    if !prop.deprecated_envs.is_empty() {
+        let names: Vec<String> = prop
+            .deprecated_envs
+            .iter()
+            .map(|env| format!("`{env}`"))
+            .collect();
+        described.push(format!("{} (deprecated)", names.join(", ")));
+    }
     for (kind, keys) in &prop.bindings {
         let declared = config.sources.get(kind);
         let name = declared

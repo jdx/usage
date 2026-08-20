@@ -113,6 +113,7 @@ fn what_the_spec_said_about_each_setting_is_what_the_registry_holds() {
     // generator used to read and drop — leaving the registry unable to say a setting is settable from
     // the command line at all.
     assert_eq!(meta(prop::JOBS).cli, &["--jobs", "-j"]);
+    assert_eq!(meta(prop::JOBS).deprecated_envs, &["HK_JOBS_OLD"]);
     assert!(
         meta(prop::EXCLUDE).cli.is_empty(),
         "most settings have no flag"
