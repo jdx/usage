@@ -59,6 +59,7 @@ flag "--jobs <N>" allow_negative_numbers=#true // --jobs -1 binds "-1"
 flag "--item <ITEM>" var=#true value_terminator=";" // ; ends this occurrence
 flag "--inspect <PORT>" require_equals=#true   // --inspect=9229 yes, --inspect 9229 no
 flag "--color <WHEN>" default_missing="always" // --color is always; --color=never is never
+flag "--bump [LEVEL]" value_optional=#true      // absent, bare, and valued are distinct
 flag "--bin-names" {
   default_if "--json" "true" // --json implies --bin-names
 }
@@ -246,6 +247,16 @@ A short's attached form still binds (`-i9229`, `-i=9229`); only the following
 word is refused. Combined with [`allow_hyphen_values`](#allow_hyphen_values),
 the attached form can still pass a dash-prefixed value (`--args=--force`);
 the detached form stays refused.
+
+A flag that takes no value cannot declare it.
+
+## `value_optional`
+
+A value-taking flag may be present without a value. This is executable parser
+policy: `flag "--bump [LEVEL]" value_optional=#true` distinguishes an absent
+flag, a bare `--bump`, and `--bump=major`. The nested argument's square brackets
+remain presentational on their own, so a spec can render `[LEVEL]` without
+silently changing what argv accepts.
 
 A flag that takes no value cannot declare it.
 

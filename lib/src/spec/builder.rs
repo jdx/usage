@@ -262,6 +262,12 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Allow this flag to be present without a value.
+    pub fn value_optional(mut self, optional: bool) -> Self {
+        self.inner.value_optional = optional;
+        self
+    }
+
     /// Value used when the flag is present but no value is given.
     pub fn default_missing(mut self, value: impl Into<String>) -> Self {
         self.inner.default_missing = Some(value.into());

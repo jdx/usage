@@ -214,6 +214,12 @@ pub struct SpecFlag {
     /// is the fleet case.
     #[serde(skip_serializing_if = "is_false")]
     pub require_equals: bool,
+    /// Whether a value-taking flag may be present without a value.
+    ///
+    /// This is executable parser policy, distinct from the nested argument's
+    /// `required` bit, which controls whether help renders `<VALUE>` or `[VALUE]`.
+    #[serde(skip_serializing_if = "is_false")]
+    pub value_optional: bool,
     /// Value used when the flag is present but no value is given.
     ///
     /// clap's `default_missing_value`: `--color` binds this string, `--color=never`
@@ -300,6 +306,7 @@ impl SpecFlag {
                 "requires" => flag.requires = vec![v.ensure_string()?],
                 "exclusive" => flag.exclusive = v.ensure_bool()?,
                 "require_equals" => flag.require_equals = v.ensure_bool()?,
+                "value_optional" => flag.value_optional = v.ensure_bool()?,
                 "default_missing" => flag.default_missing = Some(v.ensure_string()?),
                 // Written on the flag and kept on its argument, as `allow_hyphen_values`
                 // is: the value is what gets split, and `flag "--tags <tag>"` is where a
@@ -501,6 +508,7 @@ impl SpecFlag {
                 }
                 "exclusive" => flag.exclusive = child.arg(0)?.ensure_bool()?,
                 "require_equals" => flag.require_equals = child.arg(0)?.ensure_bool()?,
+                "value_optional" => flag.value_optional = child.arg(0)?.ensure_bool()?,
                 "default_missing" => {
                     flag.default_missing = Some(child.arg(0)?.ensure_string()?);
                 }
@@ -591,6 +599,13 @@ impl SpecFlag {
                 ctx,
                 node.node.name().span(),
                 "flag must have value to require equals"
+            );
+        }
+        if flag.value_optional && flag.arg.is_none() {
+            bail_parse!(
+                ctx,
+                node.node.name().span(),
+                "flag must have a value to make that value optional"
             );
         }
         if flag.default_missing.is_some() && flag.arg.is_none() {
@@ -877,6 +892,9 @@ impl From<&SpecFlag> for KdlNode {
         if flag.require_equals {
             node.push(KdlEntry::new_prop("require_equals", true));
         }
+        if flag.value_optional {
+            node.push(KdlEntry::new_prop("value_optional", true));
+        }
         if let Some(missing) = &flag.default_missing {
             node.push(string_entry(Some("default_missing"), missing));
         }
@@ -1077,7 +1095,7 @@ impl From<&clap::Arg> for SpecFlag {
 
             // These bounds live on the nested value argument and are enforced per occurrence.
             // That preserves both a single `Set` and each repetition of `Append`.
-            crate::spec::arg::value_bounds(c, &mut arg, false);
+            crate::spec::arg::value_bounds(c, &mut arg, true);
 
             Some(arg)
         } else {
@@ -1109,6 +1127,9 @@ impl From<&clap::Arg> for SpecFlag {
             // This one clap does expose, unlike `requires` just above.
             exclusive: c.is_exclusive_set(),
             require_equals: c.is_require_equals_set(),
+            value_optional: arg.is_some()
+                && c.get_num_args()
+                    .is_some_and(|n| n.min_values() == 0 && n.max_values() > 0),
             // clap 4 has `Arg::default_missing_value` as a setter with no getter.
             default_missing: None,
             help,
@@ -1469,6 +1490,41 @@ mod tests {
     }
 
     #[test]
+    fn optional_flag_value_policy_round_trips_separately_from_help() {
+        let spec: Spec = "flag \"--bump [LEVEL]\" value_optional=#true\n"
+            .parse()
+            .unwrap();
+        let bump = &spec.cmd.flags[0];
+        assert!(bump.value_optional);
+        assert!(!bump.arg.as_ref().unwrap().required);
+
+        let rendered = spec.to_string();
+        assert!(rendered.contains("value_optional=#true"), "{rendered}");
+        let reparsed: Spec = rendered.parse().unwrap();
+        assert!(reparsed.cmd.flags[0].value_optional);
+
+        let presentation_only: Spec = "flag \"--bump [LEVEL]\"\n".parse().unwrap();
+        assert!(!presentation_only.cmd.flags[0].value_optional);
+
+        let command = clap::Command::new("ex").arg(
+            clap::Arg::new("bump")
+                .long("bump")
+                .action(clap::ArgAction::Set)
+                .num_args(0..=1),
+        );
+        let bridged = Spec::from(&command);
+        assert!(bridged.cmd.flags[0].value_optional);
+
+        let zero_arity = clap::Command::new("ex").arg(
+            clap::Arg::new("plain")
+                .long("plain")
+                .action(clap::ArgAction::Set)
+                .num_args(0),
+        );
+        assert!(!Spec::from(&zero_arity).cmd.flags[0].value_optional);
+    }
+
+    #[test]
     fn default_missing_round_trips_and_cannot_come_across_from_clap() {
         let spec: Spec = "flag \"--color <WHEN>\" default_missing=\"always\"\n"
             .parse()
@@ -1637,7 +1693,7 @@ mod tests {
     }
 
     #[test]
-    fn an_optional_flag_value_is_not_misreported_as_a_supported_bound() {
+    fn an_optional_flag_value_carries_its_policy_and_bound() {
         let cmd = clap::Command::new("ex").arg(
             clap::Arg::new("values")
                 .long("values")
@@ -1647,8 +1703,9 @@ mod tests {
         let spec = Spec::from(&cmd);
         let values = spec.cmd.flags[0].arg.as_ref().unwrap();
 
-        assert_eq!(values.var_min, None);
-        assert_eq!(values.var_max, None);
+        assert!(spec.cmd.flags[0].value_optional);
+        assert_eq!(values.var_min, Some(0));
+        assert_eq!(values.var_max, Some(3));
         assert_eq!(spec.cmd.flags[0].var_min, None);
         assert_eq!(spec.cmd.flags[0].var_max, None);
     }

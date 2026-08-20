@@ -781,11 +781,10 @@ pub(crate) fn default_values(arg: &clap::Arg) -> Vec<String> {
 
 /// Carry clap's value-count range into the spec where the two parsers mean the same thing.
 ///
-/// A positional may accept zero values: its ordinary optionality already gives the binder a
-/// path that consumes nothing. A flag with `num_args(0..)` is different — a bare occurrence is
-/// itself valid — and needs optional-value binding, which the clap bridge cannot recover
-/// losslessly without `default_missing_value` (a setter with no getter). Leave that range absent
-/// rather than writing a bound that claims the bare flag is supported.
+/// A positional may accept zero values through its ordinary optionality. A flag
+/// with `num_args(0..)` additionally permits a bare occurrence; callers pass
+/// `zero_values_supported` only when they also carry that executable policy on
+/// the containing flag.
 #[cfg(feature = "clap")]
 pub(crate) fn value_bounds(source: &clap::Arg, target: &mut SpecArg, zero_values_supported: bool) {
     // clap verifies num_args against raw command-line tokens and only splits each token on the

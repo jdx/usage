@@ -352,6 +352,12 @@ pub struct Flag<'a> {
     /// attached form (`-i9229`, `-i=9229`) still binds: only the following word
     /// is refused.
     pub require_equals: bool,
+    /// Whether this value-taking flag may be present without a value.
+    ///
+    /// A missing value emits the flag event with `value: None`; bindings such as
+    /// `Option<Option<T>>` can therefore distinguish an absent flag from a bare
+    /// flag and from a flag with an explicit value.
+    pub value_optional: bool,
     /// Value used when the flag is present but no value is given.
     ///
     /// clap's `default_missing_value` and the spec's `default_missing`. `--color`
@@ -379,6 +385,7 @@ impl Flag<'_> {
         allow_negative_numbers: false,
         value_terminator: ::core::option::Option::None,
         require_equals: false,
+        value_optional: false,
         default_missing: ::core::option::Option::None,
         global: false,
     };
@@ -1413,15 +1420,17 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
         if let Some(flag) = self.find_long(name) {
             let value = if flag.takes_value {
-                Some(match attached {
-                    Some(v) => v,
+                match attached {
+                    Some(v) => Some(v),
                     None => self.take_detached_value(flag)?,
-                })
+                }
             } else {
                 None
             };
             if flag.variadic {
-                self.start_collecting(flag, value.unwrap_or(b""))?;
+                if let Some(value) = value {
+                    self.start_collecting(flag, value)?;
+                }
             }
             return Ok(Event::Flag {
                 flag,
@@ -1511,16 +1520,18 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         let value = if rest.is_empty() {
             self.take_detached_value(flag)?
         } else if rest[0] == b'=' {
-            &rest[1..]
+            Some(&rest[1..])
         } else {
-            rest
+            Some(rest)
         };
         if flag.variadic {
-            self.start_collecting(flag, value)?;
+            if let Some(value) = value {
+                self.start_collecting(flag, value)?;
+            }
         }
         Ok(Event::Flag {
             flag,
-            value: Some(value),
+            value,
             negated: false,
         })
     }
@@ -1531,7 +1542,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     /// `--jobs --force` is far more likely a forgotten value than a deliberate
     /// one, and the attached form is available for the deliberate case. Declared,
     /// the next token is taken whatever it looks like, including `--`.
-    fn take_detached_value(&mut self, flag: &'t Flag<'t>) -> Result<&'v [u8], Error<'t, 'v>> {
+    fn take_detached_value(
+        &mut self,
+        flag: &'t Flag<'t>,
+    ) -> Result<Option<&'v [u8]>, Error<'t, 'v>> {
         if flag.require_equals {
             return self.missing_or_default(flag);
         }
@@ -1542,15 +1556,16 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                     || (flag.allow_negative_numbers && is_negative_number(bytes(next))) =>
             {
                 self.pos += 1;
-                Ok(bytes(next))
+                Ok(Some(bytes(next)))
             }
             _ => self.missing_or_default(flag),
         }
     }
 
-    fn missing_or_default(&self, flag: &'t Flag<'t>) -> Result<&'v [u8], Error<'t, 'v>> {
+    fn missing_or_default(&self, flag: &'t Flag<'t>) -> Result<Option<&'v [u8]>, Error<'t, 'v>> {
         match flag.default_missing {
-            Some(value) => Ok(value),
+            Some(value) => Ok(Some(value)),
+            None if flag.value_optional => Ok(None),
             None => Err(Error::MissingFlagValue { flag }),
         }
     }
@@ -3034,6 +3049,83 @@ mod tests {
                 value: Some(b""),
                 negated: false
             }]
+        );
+    }
+
+    #[test]
+    fn optional_flag_value_distinguishes_bare_and_explicit_forms() {
+        static BUMP: Flag = Flag {
+            key: 11,
+            name: "bump",
+            longs: &["bump"],
+            takes_value: true,
+            value_optional: true,
+            ..Flag::BOOL
+        };
+        static OPTIONAL: Command = Command {
+            name: "ex",
+            flags: &[&BUMP],
+            ..Command::EMPTY
+        };
+
+        assert_eq!(parse(&OPTIONAL, &argv([])).unwrap(), vec![]);
+        assert_eq!(
+            parse(&OPTIONAL, &argv(["--bump"])).unwrap(),
+            vec![Event::Flag {
+                flag: &BUMP,
+                value: None,
+                negated: false,
+            }]
+        );
+        assert_eq!(
+            parse(&OPTIONAL, &argv(["--bump=5"])).unwrap(),
+            vec![Event::Flag {
+                flag: &BUMP,
+                value: Some(b"5"),
+                negated: false,
+            }]
+        );
+
+        static INCLUDE: Flag = Flag {
+            key: 12,
+            name: "include",
+            longs: &["include"],
+            takes_value: true,
+            variadic: true,
+            value_optional: true,
+            ..Flag::BOOL
+        };
+        static VERBOSE: Flag = Flag {
+            key: 13,
+            name: "verbose",
+            longs: &["verbose"],
+            ..Flag::BOOL
+        };
+        static VARIADIC: Command = Command {
+            name: "ex",
+            flags: &[&INCLUDE, &VERBOSE],
+            args: &[&REST],
+            ..Command::EMPTY
+        };
+        assert_eq!(
+            parse(&VARIADIC, &argv(["--include", "--verbose", "file"])).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &INCLUDE,
+                    value: None,
+                    negated: false,
+                },
+                Event::Flag {
+                    flag: &VERBOSE,
+                    value: None,
+                    negated: false,
+                },
+                Event::Arg {
+                    arg: &REST,
+                    value: b"file",
+                    delimit: true,
+                },
+            ]
         );
     }
 

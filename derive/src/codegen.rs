@@ -1070,6 +1070,11 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         None => quote!(::core::option::Option::None),
     };
     let require_equals = field.require_equals;
+    // `value_optional` can be a presentation-only declaration for clap/spec
+    // compatibility. Only a nested Option can represent a genuinely bare value
+    // in the typed result; `default_missing` turns the bare form into a value
+    // before binding.
+    let value_optional = field.optional_value_type || field.default_missing.is_some();
     let default_missing = match field.default_missing.as_deref() {
         Some(value) => quote!(::core::option::Option::Some(#value.as_bytes())),
         None => quote!(::core::option::Option::None),
@@ -1089,6 +1094,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             allow_negative_numbers: #allow_negative_numbers,
             value_terminator: #value_terminator,
             require_equals: #require_equals,
+            value_optional: #value_optional,
             default_missing: #default_missing,
             global: #global,
         };
@@ -1819,6 +1825,9 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
         // Saturating, because a `u8` field given 256 occurrences would otherwise
         // panic in debug and wrap to zero in release.
         Shape::Count => quote!(partial.#ident = partial.#ident.saturating_add(1);),
+        Shape::Optional if field.optional_value_type => quote! {
+            partial.#ident = value.map(__usage_text);
+        },
         Shape::Optional => quote! {
             partial.#ident = ::std::option::Option::Some(__usage_value_text(value));
         },
@@ -2810,6 +2819,7 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
 /// number, or a type of the adopter's own.
 fn field_final(field: &Field) -> TokenStream {
     let ident = &field.ident;
+    let given = format_ident!("__given_{}", ident);
     let name = &field.name;
     if matches!(field.kind, Kind::Skip) {
         // clap's skip: not parsed, filled from Default when the struct is built.
@@ -2902,6 +2912,20 @@ fn field_final(field: &Field) -> TokenStream {
             // A `match` rather than `.map`, and a loop rather than `.collect`, for the same
             // reason the text path below uses them: the conversion can fail, and a `return`
             // inside a closure would leave the error in the closure's own return type.
+            Shape::Optional if field.optional_value_type => {
+                let value = converted(quote!(__usage_value));
+                quote! {
+                    #ident: match partial.#ident {
+                        ::std::option::Option::Some(__usage_value) => {
+                            ::std::option::Option::Some(::std::option::Option::Some(#value))
+                        }
+                        ::std::option::Option::None if partial.#given => {
+                            ::std::option::Option::Some(::std::option::Option::None)
+                        }
+                        ::std::option::Option::None => ::std::option::Option::None,
+                    }
+                }
+            }
             Shape::Optional => {
                 let value = converted(quote!(__usage_value));
                 quote! {
@@ -2990,6 +3014,20 @@ fn field_final(field: &Field) -> TokenStream {
         Shape::Required => {
             let one = converted(quote!(partial.#ident));
             quote!(#ident: #one)
+        }
+        Shape::Optional if field.optional_value_type => {
+            let one = converted(quote!(__usage_value));
+            quote! {
+                #ident: match partial.#ident {
+                    ::std::option::Option::Some(__usage_value) => {
+                        ::std::option::Option::Some(::std::option::Option::Some(#one))
+                    }
+                    ::std::option::Option::None if partial.#given => {
+                        ::std::option::Option::Some(::std::option::Option::None)
+                    }
+                    ::std::option::Option::None => ::std::option::Option::None,
+                }
+            }
         }
         Shape::Optional => {
             let one = converted(quote!(__usage_value));

@@ -1292,6 +1292,9 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
     if flag.arg.is_some() {
         fields.push("TakesValue: true".to_string());
     }
+    if flag.value_optional {
+        fields.push("ValueOptional: true".to_string());
+    }
     // Only a variadic *argument* is greedy. The spec's flag-level `var` means the
     // flag may be repeated and takes one value each time, which needs nothing from
     // the parser: it reports every occurrence separately either way. Conflating the
@@ -1953,6 +1956,15 @@ cmd "run" arg_required_else_help=#true {
         assert!(out.contains("AllowMissingPositional: true"), "{out}");
         assert!(out.contains("Name: \"optional\""), "{out}");
         assert!(out.contains("Name: \"required\", Required: true"), "{out}");
+    }
+
+    #[test]
+    fn optional_flag_values_reach_generated_go() {
+        let out = go("name \"ex\"\nbin \"ex\"\nflag \"--color [WHEN]\" value_optional=#true\n");
+        assert!(
+            out.contains("TakesValue: true, ValueOptional: true"),
+            "{out}"
+        );
     }
 
     #[test]

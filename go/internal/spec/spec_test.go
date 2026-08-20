@@ -629,6 +629,18 @@ func TestDefaultMissingCarries(t *testing.T) {
 	}
 }
 
+func TestValueOptionalCarries(t *testing.T) {
+	root, _ := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Flags: []Flag{
+			{Name: "color", Long: []string{"color"}, ValueOptional: true, Arg: &Arg{Name: "WHEN"}},
+		}},
+	})
+	if !root.Flags[0].ValueOptional {
+		t.Error("value_optional should carry")
+	}
+}
+
 func TestDefaultIfResolves(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",

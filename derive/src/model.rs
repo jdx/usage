@@ -172,6 +172,8 @@ pub struct Field {
     pub value_ty: Option<Type>,
     /// Written as `Option<Vec<T>>`, so "never given" and "given nothing" differ.
     pub optional_collection: bool,
+    /// Written as `Option<Option<T>>`, so absent, bare, and valued flags differ.
+    pub optional_value_type: bool,
     /// Whether the words come from the type, via [`ValueEnum`].
     ///
     /// The alternative is `choices("a", "b")` written on the field, which is the same list
@@ -210,10 +212,7 @@ pub struct Field {
     pub required_collection: bool,
     /// Whether the flag's value may be left off: `[BUMP]` rather than `<BUMP>`.
     ///
-    /// Help and the emitted spec only. usage-lib's parser refuses a bare `--bump` exactly as it
-    /// refuses a bare `--port`, so this binds nothing differently — which is why it is stated
-    /// here and not inferred from the type, where `Option<String>` already means the *flag* is
-    /// optional and says nothing about its value.
+    /// `Option<Option<T>>` infers this; `default_missing` also makes the value optional.
     pub value_optional: bool,
     /// The placeholder for a flag's value in help and in the emitted spec: `n` in
     /// `--jobs <n>`.
@@ -1434,6 +1433,7 @@ impl Field {
             shape: Shape::Bool,
             value_ty: None,
             optional_collection: false,
+            optional_value_type: false,
             help: None,
             long_help: None,
             env: None,
@@ -1559,6 +1559,7 @@ impl Field {
             shape: Shape::Bool,
             value_ty: None,
             optional_collection: false,
+            optional_value_type: false,
             help: None,
             long_help: None,
             env: None,
@@ -1678,6 +1679,7 @@ impl Field {
             shape: Shape::Bool,
             value_ty: None,
             optional_collection: false,
+            optional_value_type: false,
             help: None,
             long_help: None,
             env: None,
@@ -2178,6 +2180,7 @@ impl Field {
             shape,
             ty: value_ty,
             optional_collection,
+            optional_value_type,
         } = ValueKind::from_type(&field.ty, count, span)?;
         let is_flag = !longs.is_empty() || !shorts.is_empty();
         let (mut value_var_min, mut value_var_max) = (None, None);
@@ -2189,6 +2192,17 @@ impl Field {
                 var_min = Some(min);
                 var_max = max;
             }
+        }
+        if optional_value_type {
+            if !is_flag {
+                return Err(syn::Error::new(
+                    span,
+                    "`Option<Option<T>>` represents a flag that may omit its value, so it needs `long` or `short`",
+                ));
+            }
+            value_optional = true;
+            value_var_min.get_or_insert(0);
+            value_var_max.get_or_insert(1);
         }
         // The spec records a default and the generated code applies it; anything it
         // cannot apply would be documented and then ignored.
@@ -2323,7 +2337,12 @@ impl Field {
                 "`var_min` and `var_max` count values, so the field has to be a `Vec`",
             ));
         }
-        if num_args.is_some() && is_flag && value_var_min == Some(0) && default_missing.is_none() {
+        if num_args.is_some()
+            && is_flag
+            && value_var_min == Some(0)
+            && default_missing.is_none()
+            && !optional_value_type
+        {
             return Err(syn::Error::new(
                 span,
                 "a flag whose `num_args` begins at zero distinguishes an absent flag from a \
@@ -2872,6 +2891,7 @@ impl Field {
             shape,
             value_ty,
             optional_collection,
+            optional_value_type,
             help,
             long_help,
             env,
@@ -2943,6 +2963,8 @@ pub struct ValueKind {
     /// distinction mise's root draws three times. Values collect the same way; only the
     /// field it is finally put into differs.
     pub optional_collection: bool,
+    /// Whether one flag occurrence may have no value (`Option<Option<T>>`).
+    pub optional_value_type: bool,
 }
 
 impl ValueKind {
@@ -2951,6 +2973,7 @@ impl ValueKind {
             shape,
             ty: None,
             optional_collection: false,
+            optional_value_type: false,
         };
         let name = type_name(ty);
         if count {
@@ -2975,6 +2998,15 @@ impl ValueKind {
                 shape: Shape::Many,
                 ty: Some(inner),
                 optional_collection: true,
+                optional_value_type: false,
+            });
+        }
+        if let Some(inner) = peel(ty, "Option").as_ref().and_then(|o| peel(o, "Option")) {
+            return Ok(ValueKind {
+                shape: Shape::Optional,
+                ty: Some(inner),
+                optional_collection: false,
+                optional_value_type: true,
             });
         }
         for (wrapper, shape) in [("Option", Shape::Optional), ("Vec", Shape::Many)] {
@@ -2983,6 +3015,7 @@ impl ValueKind {
                     shape,
                     ty: Some(inner),
                     optional_collection: false,
+                    optional_value_type: false,
                 });
             }
         }
@@ -2993,6 +3026,7 @@ impl ValueKind {
             shape: Shape::Required,
             ty: Some(ty.clone()),
             optional_collection: false,
+            optional_value_type: false,
         })
     }
 }

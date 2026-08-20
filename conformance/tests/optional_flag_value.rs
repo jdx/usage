@@ -64,7 +64,42 @@ fn the_reference_renders_it_the_same_way() {
 fn the_emitted_spec_says_both_halves() {
     let kdl = Ex::to_kdl();
     assert!(kdl.contains(r#"arg "[BUMP]" required=#false"#), "{kdl}");
+    assert!(!kdl.contains("value_optional=#true"), "{kdl}");
     assert!(kdl.contains("arg <PORT>"), "{kdl}");
+}
+
+#[test]
+fn portable_tables_keep_help_optionality_separate_from_binding() {
+    let presentation: LibSpec = Ex::to_kdl().parse().unwrap();
+    let presentation = usage_conformance::tables::build_spec(&presentation);
+    let bare = [OsStr::new("--bump")];
+    let mut parser = usage_argv::Parser::new(presentation.root.cmd, &bare);
+    let presentation_error = loop {
+        match parser.next_event() {
+            Some(Ok(_)) => {}
+            Some(Err(_)) => break true,
+            None => break false,
+        }
+    };
+    assert!(presentation_error);
+
+    let executable: LibSpec = r#"
+name "ex"
+flag "--bump [BUMP]" value_optional=#true
+"#
+    .parse()
+    .unwrap();
+    let executable = usage_conformance::tables::build_spec(&executable);
+    let mut parser = usage_argv::Parser::new(executable.root.cmd, &bare);
+    let mut events = Vec::new();
+    while let Some(event) = parser.next_event() {
+        events.push(event.unwrap());
+    }
+    assert_eq!(events.len(), 1);
+    assert!(matches!(
+        events[0],
+        usage_argv::Event::Flag { value: None, .. }
+    ));
 }
 
 #[test]

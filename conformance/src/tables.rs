@@ -290,6 +290,7 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
             .and_then(|arg| arg.value_terminator.as_deref())
             .map(|value| leak(value).as_bytes()),
         require_equals: f.require_equals,
+        value_optional: f.value_optional,
         default_missing: f.default_missing.as_deref().map(|s| leak(s).as_bytes()),
         global: f.global,
     }))
