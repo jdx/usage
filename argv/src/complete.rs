@@ -80,7 +80,7 @@ pub struct Position<'t> {
 /// and reports the state it reached, rather than discarding it the way a real parse must.
 pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
     let argv: Vec<&std::ffi::OsStr> = words.iter().map(std::ffi::OsStr::new).collect();
-    let mut parser = Parser::new(root, &argv);
+    let mut parser = Parser::for_completion(root, &argv);
     let mut awaiting_value = None;
     let mut last_arg = None;
     let mut last_arg_values = 0u32;
@@ -122,11 +122,6 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
                     flags: Vec::new(),
                 }
             }
-            // A declared help or version action is a flag in the grammar, just like the
-            // synthetic entries. Parsing an invocation stops so the caller can print it;
-            // walking a partial line instead consumes the flag and keeps discovering the
-            // position after it.
-            Err(Error::Help { .. } | Error::Version { .. }) => continue,
             Err(_) => break,
         }
     }
@@ -2347,9 +2342,9 @@ mod tests {
         };
 
         for action in ["--assist", "--revision"] {
-            let position = walk(&APP, &[action.to_string()]);
+            let position = walk(&APP, &[action.to_string(), "filled".to_string()]);
             assert!(!position.help_topic, "{action} became a help topic");
-            assert_eq!(position.next_arg.map(|arg| arg.name), Some("TARGET"));
+            assert_eq!(position.next_arg, None, "{action} stopped the walk early");
             assert!(position.flags_possible);
         }
     }
