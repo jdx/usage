@@ -191,6 +191,9 @@ pub struct Command<'a> {
     pub arg_required_else_help: bool,
     /// Selecting a subcommand suppresses this command's required arguments.
     pub subcommand_negates_reqs: bool,
+    /// Once this command binds a flag or positional, selecting one of its
+    /// subcommands is an error.
+    pub args_conflicts_with_subcommands: bool,
     /// Disable delimiter splitting for positional values after `--` or on an
     /// automatic trailing argument. Inherited by subcommands.
     pub dont_delimit_trailing_values: bool,
@@ -237,6 +240,7 @@ impl Command<'_> {
         external_subcommand: false,
         arg_required_else_help: false,
         subcommand_negates_reqs: false,
+        args_conflicts_with_subcommands: false,
         dont_delimit_trailing_values: false,
         unknown_flags: ::core::option::Option::None,
         version: false,
@@ -517,6 +521,8 @@ pub enum Error<'t, 'v> {
     /// A word was offered to a `double_dash = "required"` argument before any
     /// `--` had been seen.
     ArgRequiresDoubleDash { arg: &'t Arg<'t> },
+    /// A subcommand was selected after this command had already bound an argument.
+    SubcommandConflict { subcommand: &'t Command<'t> },
     /// The command tree is deeper than [`MAX_DEPTH`].
     TooDeep,
 
@@ -1060,6 +1066,10 @@ pub struct Parser<'t, 'a, 'v> {
     /// Whether any word has been bound to a positional of `cmd`. Once one has,
     /// no further word can select a subcommand.
     arg_filled: bool,
+    /// Whether this command has bound any flag or positional. Unlike
+    /// `arg_filled`, flags count because clap's command policy treats both as
+    /// arguments that exclude a later subcommand.
+    command_arg_found: bool,
     /// Whether flag interpretation has stopped. A `--` does this, and so does an
     /// `automatic` argument taking a value.
     flags_stopped: bool,
@@ -1114,6 +1124,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             arg_pos: 0,
             arg_taken: 0,
             arg_filled: false,
+            command_arg_found: false,
             flags_stopped: false,
             separator_seen: false,
             default_taken: false,
@@ -1223,6 +1234,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             return None;
         }
         let event = self.step();
+        if matches!(event, Some(Ok(Event::Flag { .. } | Event::Arg { .. }))) {
+            self.command_arg_found = true;
+        }
         if let Some(Err(_)) = event {
             self.done = true;
         }
@@ -1524,6 +1538,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         // to equal a subcommand name is just a value.
         if !self.arg_filled && !self.flags_stopped {
             if let Some(sub) = self.find_subcommand(token) {
+                if self.cmd.args_conflicts_with_subcommands && self.command_arg_found {
+                    return Err(Error::SubcommandConflict { subcommand: sub });
+                }
                 self.descend(sub)?;
                 return Ok(Event::Command(sub));
             }
@@ -1678,6 +1695,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         self.arg_pos = 0;
         self.arg_taken = 0;
         self.arg_filled = false;
+        self.command_arg_found = false;
         Ok(())
     }
 
@@ -1910,6 +1928,13 @@ mod tests {
         flags: &[&FORCE, &JOBS, &COLOR, &VERBOSE],
         args: &[&FILE, &REST],
         subcommands: &[&INSTALL],
+        ..Command::EMPTY
+    };
+    static ARGUMENT_CONFLICT: Command = Command {
+        name: "ex",
+        flags: &[&FORCE],
+        subcommands: &[&INSTALL],
+        args_conflicts_with_subcommands: true,
         ..Command::EMPTY
     };
 
@@ -2254,6 +2279,15 @@ mod tests {
                 "{token}"
             );
         }
+    }
+
+    #[test]
+    fn a_parent_argument_can_exclude_a_later_subcommand() {
+        let a = argv(["--force", "install"]);
+        assert!(matches!(
+            parse(&ARGUMENT_CONFLICT, &a),
+            Err(Error::SubcommandConflict { subcommand }) if subcommand.name == "install"
+        ));
     }
 
     #[test]

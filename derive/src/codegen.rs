@@ -142,6 +142,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
     let args_override_self = cli.args_override_self;
     let subcommand_negates_reqs = cli.subcommand_negates_reqs;
+    let args_conflicts_with_subcommands = cli.args_conflicts_with_subcommands;
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -424,6 +425,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 unknown_flags: #unknown_flags,
                 arg_required_else_help: #arg_required_else_help,
                 subcommand_negates_reqs: #subcommand_negates_reqs,
+                args_conflicts_with_subcommands: #args_conflicts_with_subcommands,
                 dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 name: #name,
                 key: #root_key,
@@ -3448,6 +3450,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
     let args_override_self = cli.args_override_self;
     let subcommand_negates_reqs = cli.subcommand_negates_reqs;
+    let args_conflicts_with_subcommands = cli.args_conflicts_with_subcommands;
     let before_help = option_expr(cli.before_help.as_ref());
     let before_long_help = option_expr(cli.before_long_help.as_ref());
     let after_help = option_expr(cli.after_help.as_ref());
@@ -3559,6 +3562,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 unknown_flags: #unknown_flags,
                 arg_required_else_help: #arg_required_else_help,
                 subcommand_negates_reqs: #subcommand_negates_reqs,
+                args_conflicts_with_subcommands: #args_conflicts_with_subcommands,
                 dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,

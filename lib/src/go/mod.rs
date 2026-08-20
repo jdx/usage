@@ -380,6 +380,12 @@ impl<'a> Emitter<'a> {
             if e.cmd.subcommand_negates_reqs {
                 lines.push(Line::Field("SubcommandNegatesReqs".into(), "true".into()));
             }
+            if e.cmd.args_conflicts_with_subcommands {
+                lines.push(Line::Field(
+                    "ArgsConflictWithSubcommands".into(),
+                    "true".into(),
+                ));
+            }
             if e.cmd.dont_delimit_trailing_values {
                 lines.push(Line::Field(
                     "DontDelimitTrailingValues".into(),
@@ -1887,6 +1893,14 @@ cmd "run" arg_required_else_help=#true {
             out.contains("CheckRelationshipsWithValuesAndRequirements"),
             "{out}"
         );
+    }
+
+    #[test]
+    fn argument_subcommand_conflicts_reach_generated_go() {
+        let out = go(
+            "name \"ex\"\nbin \"ex\"\nargs_conflicts_with_subcommands #true\nflag \"--verbose\"\ncmd \"run\"\n",
+        );
+        assert!(out.contains("ArgsConflictWithSubcommands: true"), "{out}");
     }
 
     #[test]

@@ -114,6 +114,9 @@ pub struct SpecCommand {
     /// Whether selecting a subcommand satisfies this command's required arguments.
     #[serde(skip_serializing_if = "is_false")]
     pub subcommand_negates_reqs: bool,
+    /// Whether binding an argument prevents selecting a later subcommand.
+    #[serde(skip_serializing_if = "is_false")]
+    pub args_conflicts_with_subcommands: bool,
     /// Token that resets argument parsing, allowing multiple command invocations.
     /// e.g., `mise run lint ::: test ::: check` with restart_token=":::"
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -187,6 +190,7 @@ impl Default for SpecCommand {
             dont_delimit_trailing_values: false,
             args_override_self: true,
             subcommand_negates_reqs: false,
+            args_conflicts_with_subcommands: false,
             restart_token: None,
             help: None,
             help_long: None,
@@ -299,6 +303,9 @@ impl SpecCommand {
                 }
                 "args_override_self" => cmd.args_override_self = v.ensure_bool()?,
                 "subcommand_negates_reqs" => cmd.subcommand_negates_reqs = v.ensure_bool()?,
+                "args_conflicts_with_subcommands" => {
+                    cmd.args_conflicts_with_subcommands = v.ensure_bool()?
+                }
                 "hide" => cmd.hide = v.ensure_bool()?,
                 "unknown_flags" => {
                     let raw = v.ensure_string()?;
@@ -438,6 +445,10 @@ impl SpecCommand {
                     cmd.subcommand_negates_reqs =
                         child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
+                "args_conflicts_with_subcommands" => {
+                    cmd.args_conflicts_with_subcommands =
+                        child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
                 "effect" => {
                     let arg = child.ensure_arg_len(1..=1)?.arg(0)?;
@@ -552,6 +563,7 @@ impl SpecCommand {
             dont_delimit_trailing_values,
             args_override_self,
             subcommand_negates_reqs,
+            args_conflicts_with_subcommands,
             restart_token,
             subcommands,
             complete,
@@ -629,6 +641,7 @@ impl SpecCommand {
         self.dont_delimit_trailing_values = dont_delimit_trailing_values;
         self.args_override_self = args_override_self;
         self.subcommand_negates_reqs = subcommand_negates_reqs;
+        self.args_conflicts_with_subcommands = args_conflicts_with_subcommands;
         if effect.is_some() {
             self.effect = effect;
         }
@@ -736,6 +749,7 @@ impl From<&SpecCommand> for KdlNode {
             dont_delimit_trailing_values,
             args_override_self,
             subcommand_negates_reqs,
+            args_conflicts_with_subcommands,
             restart_token,
             unknown_flags,
             aliases,
@@ -791,6 +805,9 @@ impl From<&SpecCommand> for KdlNode {
         }
         if *subcommand_negates_reqs {
             node.push(KdlEntry::new_prop("subcommand_negates_reqs", true));
+        }
+        if *args_conflicts_with_subcommands {
+            node.push(KdlEntry::new_prop("args_conflicts_with_subcommands", true));
         }
         if let Some(restart_token) = &restart_token {
             node.entries_mut()
@@ -1043,6 +1060,7 @@ impl From<&clap::Command> for SpecCommand {
         spec.dont_delimit_trailing_values = cmd.is_dont_delimit_trailing_values_set();
         spec.args_override_self = cmd.is_args_override_self();
         spec.subcommand_negates_reqs = cmd.is_subcommand_negates_reqs_set();
+        spec.args_conflicts_with_subcommands = cmd.is_args_conflicts_with_subcommands_set();
         for subcmd in cmd.get_subcommands() {
             let mut scmd: SpecCommand = subcmd.into();
             scmd.name = subcmd.get_name().to_string();
@@ -1419,5 +1437,19 @@ cmd "hidden" hide=#true
         assert!(spec.subcommand_negates_reqs);
         let node: kdl::KdlNode = (&spec).into();
         assert!(node.to_string().contains("subcommand_negates_reqs=#true"));
+    }
+
+    #[cfg(feature = "clap")]
+    #[test]
+    fn the_clap_bridge_preserves_argument_subcommand_conflicts() {
+        use super::SpecCommand;
+
+        let spec: SpecCommand =
+            (&clap::Command::new("ex").args_conflicts_with_subcommands(true)).into();
+        assert!(spec.args_conflicts_with_subcommands);
+        let node: kdl::KdlNode = (&spec).into();
+        assert!(node
+            .to_string()
+            .contains("args_conflicts_with_subcommands=#true"));
     }
 }

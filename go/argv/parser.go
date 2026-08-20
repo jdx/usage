@@ -62,6 +62,9 @@ type Parser struct {
 	// argFilled records whether any word has been bound to a positional of cmd.
 	// Once one has, no further word can select a subcommand.
 	argFilled bool
+	// commandArgFound includes flags as well as positionals for the command
+	// policy that makes either exclude a later subcommand.
+	commandArgFound bool
 	// flagsStopped records whether flag interpretation has stopped. A -- does
 	// this, and so does an automatic argument taking a value.
 	flagsStopped bool
@@ -187,6 +190,9 @@ func (p *Parser) fail(e Error) bool {
 // emit records an event and reports that iteration continues.
 func (p *Parser) emit(e Event) bool {
 	p.event = e
+	if e.Kind == KindFlag || e.Kind == KindArg {
+		p.commandArgFound = true
+	}
 	return true
 }
 
@@ -474,6 +480,9 @@ func (p *Parser) word(token string) bool {
 	// equal a subcommand name is just a value.
 	if !p.argFilled && !p.flagsStopped {
 		if sub := p.findSubcommand(token); sub != nil {
+			if p.cmd.ArgsConflictWithSubcommands && p.commandArgFound {
+				return p.fail(Error{Code: CodeSubcommandConflict, Token: token, Cmd: p.cmd})
+			}
 			if !p.descend(sub) {
 				return false
 			}
@@ -596,6 +605,7 @@ func (p *Parser) descend(sub *Command) bool {
 	p.argPos = 0
 	p.argTaken = 0
 	p.argFilled = false
+	p.commandArgFound = false
 	return true
 }
 

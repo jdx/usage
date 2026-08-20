@@ -183,6 +183,17 @@ cmd "inspect"
 `ex inspect` is valid, while bare `ex` still requires `input`. Conflicts continue to apply,
 and the selected child must still satisfy its own requirements.
 
+### Make parent arguments conflict with subcommands
+
+`args_conflicts_with_subcommands` makes arguments on a command and its child
+subcommands mutually exclusive. Once that command binds a flag or positional, a
+later child name is rejected; arguments after a selected child belong to the
+child as usual:
+
+```kdl
+args_conflicts_with_subcommands #true
+```
+
 ### Preserve delimiters in trailing values
 
 `dont_delimit_trailing_values` keeps a positional token whole after `--`, or once a

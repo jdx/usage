@@ -111,6 +111,7 @@ pub fn build(
         external_subcommand: cmd.external_subcommand,
         arg_required_else_help: cmd.arg_required_else_help,
         subcommand_negates_reqs: cmd.subcommand_negates_reqs,
+        args_conflicts_with_subcommands: cmd.args_conflicts_with_subcommands,
         dont_delimit_trailing_values: cmd.dont_delimit_trailing_values,
         key: 0,
     }));

@@ -112,6 +112,7 @@ pub struct Cli {
     pub dont_delimit_trailing_values: bool,
     pub args_override_self: bool,
     pub subcommand_negates_reqs: bool,
+    pub args_conflicts_with_subcommands: bool,
     /// Declared descriptions, for the case a doc comment cannot express: a long form that does
     /// not contain the short one.
     pub about_attr: Option<proc_macro2::TokenStream>,
@@ -558,6 +559,7 @@ impl Cli {
             dont_delimit_trailing_values: false,
             args_override_self: true,
             subcommand_negates_reqs: false,
+            args_conflicts_with_subcommands: false,
             about_attr: None,
             long_about_attr: None,
             before_help: None,
@@ -701,6 +703,9 @@ impl Cli {
                     }
                     "args_override_self" => cli.args_override_self = flag_value(&meta)?,
                     "subcommand_negates_reqs" => cli.subcommand_negates_reqs = flag_value(&meta)?,
+                    "args_conflicts_with_subcommands" => {
+                        cli.args_conflicts_with_subcommands = flag_value(&meta)?
+                    }
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
@@ -712,7 +717,7 @@ impl Cli {
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, \
+                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, \
                                  `next_help_heading`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"

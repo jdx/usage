@@ -98,7 +98,8 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | `arg_required_else_help`                             | yes       | yes       | yes       | yes       | yes     | yes        | Bare selected commands request short help; defaults and environment values do not count as argv.                        |
 | `args_override_self`                                 | yes       | yes       | yes       | yes       | yes     | yes        | Usage defaults to permissive last-one-wins behavior; set false for strict duplicate checking.                           |
 | `subcommand_negates_reqs`                            | yes       | yes       | yes       | yes       | yes     | yes        | A selected child suppresses its parent's positive requirements, not conflicts or the child's requirements.              |
-| remaining subcommand/argument policies               | no        | no        | no        | no        | no      | no         | `args_conflicts_with_subcommands`, precedence, and missing positionals are not represented.                             |
+| `args_conflicts_with_subcommands`                    | yes       | yes       | yes       | yes       | yes     | yes        | Parent flags or positionals exclude a later child subcommand.                                                           |
+| remaining subcommand/argument policies               | no        | no        | no        | no        | no      | no         | Subcommand precedence and missing positionals are not represented.                                                      |
 | unknown flags                                        | different | different | different | different | yes     | different  | usage is permissive by default; `unknown_flags = "error"` opts into strict parsing.                                     |
 
 ## Help, version, and generated artifacts

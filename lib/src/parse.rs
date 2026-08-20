@@ -722,6 +722,7 @@ fn parse_partial_with_env(
     // drops the parent's non-global flags and a mounted command may declare the same name as
     // a global seen here. Recording the owner keeps a word bound to the flag it was read as.
     let mut prefix_bindings: VecDeque<Option<(Arc<SpecFlag>, usize)>> = VecDeque::new();
+    let mut command_arg_found = false;
     let mut idx = 0;
     // Track whether we've already applied the default_subcommand to prevent
     // multiple switches (e.g., if default is "run" and there's a task named "run")
@@ -784,6 +785,12 @@ fn parse_partial_with_env(
             out.cmd = mounted;
         }
         if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
+            if out.cmd.args_conflicts_with_subcommands && command_arg_found {
+                bail!(
+                    "subcommand '{}' cannot be used with arguments on its parent command",
+                    input[idx]
+                );
+            }
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
             subcommand.mount(&mount_prefix_words(&prefix_flags))?;
@@ -803,6 +810,7 @@ fn parse_partial_with_env(
             // A descent already ran the new command's mounts, above.
             mounts_resolved = true;
             prefix_flags.clear();
+            command_arg_found = false;
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
         } else if !is_command_word(&input[idx]) {
@@ -823,6 +831,7 @@ fn parse_partial_with_env(
                 .cloned()
                 .filter(|_| is_bundle)
             {
+                command_arg_found = true;
                 // Skip the flag and keep scanning. Both global and non-global flags may precede
                 // a subcommand (`mycli --verbose run task`, `mycli run --force task`), and
                 // stopping at one would hide the subcommand — and any mount on it — from the
@@ -874,6 +883,12 @@ fn parse_partial_with_env(
                         .find_subcommand(default_name)
                         .filter(|_| default_accepts_word(&out.cmd, default_name, &input[idx]))
                     {
+                        if out.cmd.args_conflicts_with_subcommands && command_arg_found {
+                            bail!(
+                                "subcommand '{}' cannot be used with arguments on its parent command",
+                                subcommand.name
+                            );
+                        }
                         let mut subcommand = subcommand.clone();
                         // Pass prefix words (global flags before this) to mount
                         subcommand.mount(&mount_prefix_words(&prefix_flags))?;
@@ -887,6 +902,7 @@ fn parse_partial_with_env(
                         out.cmd = subcommand.clone();
                         command_has_argv = true;
                         prefix_flags.clear();
+                        command_arg_found = false;
                         // This descent ran the new command's mounts, so lazy
                         // discovery must not run them a second time.
                         mounts_resolved = true;
@@ -4963,6 +4979,26 @@ cmd "run" { flag "--child" required=#true }
             .expect("the child selection satisfies all parent requirements");
         parse(&child_optional, &input(&["ex", "--mode", "run"]))
             .expect("parent requires relationships are negated too");
+    }
+
+    #[test]
+    fn a_parent_argument_can_conflict_with_a_later_subcommand() {
+        let spec: Spec = r#"name "ex"
+bin "ex"
+args_conflicts_with_subcommands #true
+flag "--verbose"
+cmd "run"
+"#
+        .parse()
+        .unwrap();
+
+        parse(&spec, &input(&["ex", "run"]))
+            .expect("the subcommand is valid without a parent argument");
+        let err = parse(&spec, &input(&["ex", "--verbose", "run"])).unwrap_err();
+        assert!(
+            err.to_string().contains("cannot be used with arguments"),
+            "{err}"
+        );
     }
 
     #[test]
