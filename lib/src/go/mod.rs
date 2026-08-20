@@ -1015,6 +1015,15 @@ fn command_help(e: &Emitted) -> String {
     if let Some(long) = &e.cmd.help_long {
         fields.push(format!("Long: {}", go_string(long)));
     }
+    if let Some(message) = &e.cmd.deprecated {
+        fields.push(format!("Deprecated: {}", go_string(message)));
+    }
+    if let Some(at) = &e.cmd.deprecated_warn_at {
+        fields.push(format!("DeprecatedWarnAt: {}", go_string(at)));
+    }
+    if let Some(at) = &e.cmd.deprecated_remove_at {
+        fields.push(format!("DeprecatedRemoveAt: {}", go_string(at)));
+    }
     if let Some(heading) = &e.cmd.subcommand_help_heading {
         fields.push(format!("SubcommandHelpHeading: {}", go_string(heading)));
     }
@@ -1085,6 +1094,15 @@ fn command_help(e: &Emitted) -> String {
 
 fn flag_help(flag: &SpecFlag, named: &Named) -> String {
     let mut fields = vec![format!("Key: {}", named.key)];
+    if let Some(message) = &flag.deprecated {
+        fields.push(format!("Deprecated: {}", go_string(message)));
+    }
+    if let Some(at) = &flag.deprecated_warn_at {
+        fields.push(format!("DeprecatedWarnAt: {}", go_string(at)));
+    }
+    if let Some(at) = &flag.deprecated_remove_at {
+        fields.push(format!("DeprecatedRemoveAt: {}", go_string(at)));
+    }
     if flag.hide {
         fields.push("Hide: true".to_string());
     }

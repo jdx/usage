@@ -662,6 +662,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
         // description is written here, so one already in the text doubles it.
         let _ = writeln!(out, "{}\n", about.trim_end());
     }
+    command_deprecation(&mut out, meta, 0);
     usage_section(&mut out, spec, path, meta);
 
     // The path without the binary, which is what a listed subcommand shows: usage-lib prints
@@ -727,6 +728,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                 },
                 if a.hide_env { None } else { a.env },
                 if a.hide_default_value { &[] } else { a.default },
+                None,
             );
         },
     );
@@ -754,6 +756,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                 if f.hide_env { None } else { f.env },
                 if f.hide_default_value { &[] } else { f.default },
             );
+            flag_deprecation(out, f, 4);
             return;
         }
         match f.help.filter(|h| !h.trim().is_empty()) {
@@ -764,6 +767,8 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                 let _ = write!(out, "  {usage}");
             }
         }
+        let deprecation =
+            deprecation_label(f.deprecated, f.deprecated_warn_at, f.deprecated_remove_at);
         annotations(
             out,
             if f.hide_possible_values {
@@ -773,6 +778,7 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
             },
             if f.hide_env { None } else { f.env },
             if f.hide_default_value { &[] } else { f.default },
+            deprecation.as_deref(),
         );
     };
     groups_section(
@@ -876,6 +882,13 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
                 // layouts, as usage-lib does before choosing a layout.
                 let _ = write!(out, "  {}", about.trim_end());
             }
+            if let Some(label) = deprecation_label(
+                sub.deprecated,
+                sub.deprecated_warn_at,
+                sub.deprecated_remove_at,
+            ) {
+                let _ = write!(out, "  {label}");
+            }
             out.push('\n');
         }
         if heading.is_none() && !meta.cmd.disable_help_subcommand {
@@ -904,6 +917,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
         if let Some(about) = sub.about.filter(|about| !about.trim().is_empty()) {
             let _ = writeln!(out, "{}", about.trim_end());
         }
+        command_deprecation(out, sub, 0);
 
         let mut args: Vec<_> = sub
             .args
@@ -952,20 +966,43 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                 } else {
                     arg.default
                 },
+                None,
             );
         }
         for flag in flags {
             let usage = column_usage(flag);
-            if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
-                if meta.next_line_help {
-                    let _ = writeln!(out, "  {usage}");
+            if meta.next_line_help {
+                let _ = writeln!(out, "  {usage}");
+                if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
                     write_indented(out, help, 4);
-                } else {
-                    let _ = write!(out, "  {usage:<flag_col$}  {help}");
                 }
+                long_annotations(
+                    out,
+                    if flag.hide_possible_values {
+                        &[]
+                    } else {
+                        flag.choices
+                    },
+                    if flag.hide_env { None } else { flag.env },
+                    if flag.hide_default_value {
+                        &[]
+                    } else {
+                        flag.default
+                    },
+                );
+                flag_deprecation(out, flag, 4);
+                continue;
+            }
+            if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
+                let _ = write!(out, "  {usage:<flag_col$}  {help}");
             } else {
                 let _ = write!(out, "  {usage}");
             }
+            let deprecation = deprecation_label(
+                flag.deprecated,
+                flag.deprecated_warn_at,
+                flag.deprecated_remove_at,
+            );
             annotations(
                 out,
                 if flag.hide_possible_values {
@@ -979,6 +1016,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                 } else {
                     flag.default
                 },
+                deprecation.as_deref(),
             );
         }
         if sub.flatten_help {
@@ -1051,7 +1089,13 @@ fn command_help_section<'a>(sub: &'a CommandMeta<'a>, default_title: &str) -> Op
 }
 
 /// The bracketed notes after an entry's help: choices, environment, default.
-fn annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &[&str]) {
+fn annotations(
+    out: &mut String,
+    choices: &[&str],
+    env: Option<&str>,
+    default: &[&str],
+    suffix: Option<&str>,
+) {
     if !choices.is_empty() {
         let _ = write!(out, " [{}]", choices.join(", "));
     }
@@ -1060,6 +1104,9 @@ fn annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &
     }
     if !default.is_empty() {
         let _ = write!(out, " (default: {})", default.join(", "));
+    }
+    if let Some(suffix) = suffix {
+        let _ = write!(out, " {suffix}");
     }
     out.push('\n');
 }
@@ -1249,6 +1296,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
         // description is written here, so one already in the text doubles it.
         let _ = writeln!(out, "{}\n", about.trim_end());
     }
+    command_deprecation(&mut out, meta, 0);
     usage_section(&mut out, spec, path, meta);
 
     if !meta.flatten_help {
@@ -1329,6 +1377,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
                 if f.hide_env { None } else { f.env },
                 if f.hide_default_value { &[] } else { f.default },
             );
+            flag_deprecation(out, f, 4);
         },
     );
     // After the command's own, and under a heading that says where they came from: `--config`
@@ -1353,6 +1402,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
                 if f.hide_env { None } else { f.env },
                 if f.hide_default_value { &[] } else { f.default },
             );
+            flag_deprecation(out, f, 4);
         },
     );
     if meta.flatten_help {
@@ -1496,6 +1546,47 @@ fn long_annotations(out: &mut String, choices: &[&str], env: Option<&str>, defau
     }
 }
 
+fn deprecation_label(
+    message: Option<&str>,
+    warn_at: Option<&str>,
+    remove_at: Option<&str>,
+) -> Option<String> {
+    if message.is_none() && warn_at.is_none() && remove_at.is_none() {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if let Some(message) = message {
+        parts.push(message.to_string());
+    }
+    if let Some(at) = warn_at {
+        parts.push(format!("warns at {at}"));
+    }
+    if let Some(at) = remove_at {
+        parts.push(format!("removed at {at}"));
+    }
+    Some(format!("[deprecated: {}]", parts.join("; ")))
+}
+
+fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize) {
+    if let Some(label) = deprecation_label(
+        meta.deprecated,
+        meta.deprecated_warn_at,
+        meta.deprecated_remove_at,
+    ) {
+        let _ = writeln!(out, "{}{label}", " ".repeat(indent));
+    }
+}
+
+fn flag_deprecation(out: &mut String, meta: &FlagMeta<'_>, indent: usize) {
+    if let Some(label) = deprecation_label(
+        meta.deprecated,
+        meta.deprecated_warn_at,
+        meta.deprecated_remove_at,
+    ) {
+        let _ = writeln!(out, "{}{label}", " ".repeat(indent));
+    }
+}
+
 /// The commands list, with each command's help beneath its usage.
 fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
     let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
@@ -1552,6 +1643,7 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
                 // the middle of the list.
                 write_indented(out, about.trim_end(), 4);
             }
+            command_deprecation(out, sub, 4);
             // A blank line between entries, which the wider layout can afford and which keeps a
             // multi-line description from running into the next command's name.
             out.push('\n');
@@ -1579,6 +1671,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
         {
             let _ = writeln!(out, "{}", about.trim_end());
         }
+        command_deprecation(out, sub, 0);
 
         let mut args: Vec<_> = sub
             .args
@@ -1649,6 +1742,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                     flag.default
                 },
             );
+            flag_deprecation(out, flag, 4);
         }
         if sub.flatten_help {
             flat_commands_long(out, &sub_path, sub, width);
@@ -2097,9 +2191,96 @@ pub fn render_at_styled(
 
 #[cfg(test)]
 mod style_tests {
-    use super::{commands_section, styled_help, Style};
-    use crate::spec::CommandMeta;
-    use crate::Command;
+    use super::{commands_section, flat_commands_short, styled_help, Style};
+    use crate::spec::{CommandMeta, FlagMeta};
+    use crate::{Command, Flag};
+
+    #[test]
+    fn flattened_next_line_deprecation_follows_help_without_a_blank_row() {
+        let flag = Flag {
+            name: "old",
+            longs: &["old"],
+            ..Flag::BOOL
+        };
+        let flag_meta = FlagMeta {
+            flag: &flag,
+            help: Some("Use the old mode"),
+            deprecated: Some("use --new"),
+            ..FlagMeta::EMPTY
+        };
+        let sub_cmd = Command {
+            name: "run",
+            ..Command::EMPTY
+        };
+        let sub_meta = CommandMeta {
+            cmd: &sub_cmd,
+            flags: &[flag_meta],
+            ..CommandMeta::EMPTY
+        };
+        let subcommands = [&sub_meta];
+        let root_meta = CommandMeta {
+            next_line_help: true,
+            subcommands: &subcommands,
+            ..CommandMeta::EMPTY
+        };
+        let mut page = String::new();
+
+        flat_commands_short(&mut page, &["tool"], &root_meta);
+
+        assert!(
+            page.contains("    Use the old mode\n    [deprecated: use --new]"),
+            "{page}"
+        );
+        assert!(!page.contains("Use the old mode\n\n    [deprecated"));
+    }
+
+    #[test]
+    fn flattened_next_line_flags_without_help_still_end_their_usage_rows() {
+        let old = Flag {
+            name: "old",
+            longs: &["old"],
+            ..Flag::BOOL
+        };
+        let new = Flag {
+            name: "new",
+            longs: &["new"],
+            ..Flag::BOOL
+        };
+        let flags = [
+            FlagMeta {
+                flag: &old,
+                deprecated: Some("use --new"),
+                ..FlagMeta::EMPTY
+            },
+            FlagMeta {
+                flag: &new,
+                ..FlagMeta::EMPTY
+            },
+        ];
+        let sub_cmd = Command {
+            name: "run",
+            ..Command::EMPTY
+        };
+        let sub_meta = CommandMeta {
+            cmd: &sub_cmd,
+            flags: &flags,
+            ..CommandMeta::EMPTY
+        };
+        let subcommands = [&sub_meta];
+        let root_meta = CommandMeta {
+            next_line_help: true,
+            subcommands: &subcommands,
+            ..CommandMeta::EMPTY
+        };
+        let mut page = String::new();
+
+        flat_commands_short(&mut page, &["tool"], &root_meta);
+
+        assert!(page.contains("--old\n"), "{page}");
+        assert!(page.contains("[deprecated: use --new]\n"), "{page}");
+        assert!(page.contains("--new\n"), "{page}");
+        assert!(!page.contains("--old    [deprecated"), "{page}");
+    }
 
     #[test]
     fn short_command_rows_trim_trailing_help_whitespace() {

@@ -61,6 +61,10 @@ type Help struct {
 	// Short is the one-line help, and Long the fuller text `--help` prefers.
 	Short string
 	Long  string
+	// Deprecated is the migration message, with optional warn/remove milestones.
+	Deprecated         string
+	DeprecatedWarnAt   string
+	DeprecatedRemoveAt string
 	// Heading groups an entry into a section of the page. Presentational only.
 	Heading string
 	// DisplayOrderSet distinguishes an explicit zero from declaration order.

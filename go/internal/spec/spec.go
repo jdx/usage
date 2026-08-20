@@ -87,6 +87,9 @@ type Cmd struct {
 	Hide                        bool        `json:"hide"`
 	Help                        string      `json:"help"`
 	HelpLong                    string      `json:"help_long"`
+	Deprecated                  string      `json:"deprecated"`
+	DeprecatedWarnAt            string      `json:"deprecated_warn_at"`
+	DeprecatedRemoveAt          string      `json:"deprecated_remove_at"`
 	HelpHeading                 string      `json:"help_heading"`
 	DisplayOrder                *uint32     `json:"display_order"`
 	Usage                       string      `json:"usage"`
@@ -233,6 +236,9 @@ type Flag struct {
 	Help               string   `json:"help"`
 	HelpFirstLine      string   `json:"help_first_line"`
 	HelpLong           string   `json:"help_long"`
+	Deprecated         string   `json:"deprecated"`
+	DeprecatedWarnAt   string   `json:"deprecated_warn_at"`
+	DeprecatedRemoveAt string   `json:"deprecated_remove_at"`
 	HelpHeading        string   `json:"help_heading"`
 	// The four that name another flag. They arrive as written, dashes included.
 	Conflicts         []string       `json:"conflicts"`
@@ -679,7 +685,10 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		// a command: the page renderer falls back for itself, so carrying the same
 		// string twice would only put it in the table twice. What matters is that
 		// the two producers of this table agree — see TestTheTwoProducersAgree.
-		Long: c.HelpLong,
+		Long:               c.HelpLong,
+		Deprecated:         c.Deprecated,
+		DeprecatedWarnAt:   c.DeprecatedWarnAt,
+		DeprecatedRemoveAt: c.DeprecatedRemoveAt,
 		// Visible only: the parse table merges the hidden ones in beside these,
 		// because binding does not care which is which. A spec may declare the same
 		// alias twice, once hidden, and hiding wins — usage-lib reports it in both
@@ -947,18 +956,21 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 		HideLongHelp:       f.HideLongHelp,
 		// Required *and* undefaulted: a required flag with a default is one the
 		// user never has to type, so the line brackets it.
-		Demanded:      f.Required && len(f.Default) == 0,
-		Repeatable:    f.Var,
-		ValueName:     valueName,
-		ValueNames:    valueNames(f.Arg),
-		ValueArity:    exactArity(f.Arg),
-		ValueDemanded: valueDemanded,
-		Short:         first(f.Help, f.HelpFirstLine),
-		Long:          first(f.HelpLong, f.Help),
-		Heading:       f.HelpHeading,
-		Choices:       f.choices(),
-		Env:           f.Env,
-		Default:       f.defaults(),
+		Demanded:           f.Required && len(f.Default) == 0,
+		Repeatable:         f.Var,
+		ValueName:          valueName,
+		ValueNames:         valueNames(f.Arg),
+		ValueArity:         exactArity(f.Arg),
+		ValueDemanded:      valueDemanded,
+		Short:              first(f.Help, f.HelpFirstLine),
+		Long:               first(f.HelpLong, f.Help),
+		Deprecated:         f.Deprecated,
+		DeprecatedWarnAt:   f.DeprecatedWarnAt,
+		DeprecatedRemoveAt: f.DeprecatedRemoveAt,
+		Heading:            f.HelpHeading,
+		Choices:            f.choices(),
+		Env:                f.Env,
+		Default:            f.defaults(),
 	})
 	b.record(out.Key, argv.Meta{
 		Name:                f.Name,

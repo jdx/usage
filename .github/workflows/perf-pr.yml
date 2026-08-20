@@ -9,9 +9,9 @@ name: perf-pr
 # person who can still do something about it.
 #
 # Nothing here writes to refs/notes/tak. A pull request's measurements are
-# recorded locally, used for the comparison, and discarded with the runner. Only
-# main contributes to the history — a branch's numbers are not the trunk's, and
-# a series that mixes them cannot be read.
+# base and pull-request measurements are recorded locally, used for the comparison,
+# and discarded with the runner. Only main contributes to the persistent history —
+# a branch's numbers are not the trunk's, and a series that mixes them cannot be read.
 
 on:
   pull_request:
@@ -74,6 +74,38 @@ jobs:
           }
           valgrind --version
 
+      - name: Find the base commit
+        id: base
+        env:
+          # The generic context resolved to main for a reopened stacked PR even
+          # though the event and PR both named the stack parent. Read the
+          # authoritative pull-request payload directly.
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch --quiet origin "$BASE_REF"
+          # The merge base, not the branch tip: comparing against a moving
+          # target attributes other people's commits to this pull request.
+          base=$(git merge-base "origin/$BASE_REF" HEAD)
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+          echo "comparing against $base on $BASE_REF"
+
+      # Stack-parent commits are intentionally absent from the persistent tak history. Measure
+      # the exact merge base in a linked worktree so the comparison below has a same-runner
+      # baseline instead of passing with "nothing was compared". Git notes are shared between
+      # linked worktrees, but both measurements remain local to this disposable runner.
+      - name: Measure the base commit
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+          MISE_TRUSTED_CONFIG_PATHS: /tmp/usage-perf-base
+        run: |
+          base_worktree=/tmp/usage-perf-base
+          git worktree add --detach "$base_worktree" "$BASE_SHA"
+          trap 'git worktree remove --force "$base_worktree"' EXIT
+          (
+            cd "$base_worktree"
+            mise run perf:record
+          )
+
       # `--record` writes a git note locally and nothing more. There is no
       # `tak push` in this workflow and there should never be one.
       - name: Measure this pull request
@@ -86,18 +118,6 @@ jobs:
       # above, and the task exists for running this by hand.
       - name: Measure the shadow against clap, argh and bpaf
         run: ./tasks/perf-shadow.sh /tmp/shadow-report.md || true
-
-      - name: Find the base commit
-        id: base
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          git fetch --quiet origin "$BASE_REF"
-          # The merge base, not the branch tip: comparing against a moving
-          # target attributes other people's commits to this pull request.
-          base=$(git merge-base "origin/$BASE_REF" HEAD)
-          echo "sha=$base" >> "$GITHUB_OUTPUT"
-          echo "comparing against $base on $BASE_REF"
 
       # Deliberately not `continue-on-error`. That would hide a compare that
       # died for an unrelated reason behind a green check. The exit code is

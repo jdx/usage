@@ -154,6 +154,12 @@ pub struct SpecFlag {
     /// Deprecation message if this flag is deprecated
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
+    /// Version at which consumers should begin warning about this flag.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deprecated_warn_at: Option<String>,
+    /// Version at which consumers expect this flag to be removed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deprecated_remove_at: Option<String>,
     /// Whether this flag can be specified multiple times
     #[serde(skip_serializing_if = "is_false")]
     pub var: bool,
@@ -338,6 +344,8 @@ impl SpecFlag {
                         None => Some(v.ensure_string()?),
                     }
                 }
+                "deprecated_warn_at" => flag.deprecated_warn_at = Some(v.ensure_string()?),
+                "deprecated_remove_at" => flag.deprecated_remove_at = Some(v.ensure_string()?),
                 "global" => flag.global = v.ensure_bool()?,
                 "count" => flag.count = v.ensure_bool()?,
                 "action" => {
@@ -464,6 +472,12 @@ impl SpecFlag {
                         Ok(false) => None,
                         _ => Some(child.arg(0)?.ensure_string()?),
                     }
+                }
+                "deprecated_warn_at" => {
+                    flag.deprecated_warn_at = Some(child.arg(0)?.ensure_string()?)
+                }
+                "deprecated_remove_at" => {
+                    flag.deprecated_remove_at = Some(child.arg(0)?.ensure_string()?)
                 }
                 "global" => flag.global = child.arg(0)?.ensure_bool()?,
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
@@ -1007,6 +1021,12 @@ impl From<&SpecFlag> for KdlNode {
         if let Some(deprecated) = &flag.deprecated {
             node.push(string_entry(Some("deprecated"), deprecated));
         }
+        if let Some(at) = &flag.deprecated_warn_at {
+            node.push(string_entry(Some("deprecated_warn_at"), at));
+        }
+        if let Some(at) = &flag.deprecated_remove_at {
+            node.push(string_entry(Some("deprecated_remove_at"), at));
+        }
         // Serialize default values
         if !flag.default.is_empty() {
             if flag.default.len() == 1 {
@@ -1211,6 +1231,8 @@ impl From<&clap::Arg> for SpecFlag {
             required_if_eq_all: vec![],
             required_unless: vec![],
             required_unless_all: vec![],
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
             conflicts: vec![],
             // clap 4.6 has `Arg::requires` and its variants as setters with no getter, so
             // there is nothing to read here however the `Arg` was built. Left empty rather

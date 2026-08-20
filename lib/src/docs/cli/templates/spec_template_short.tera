@@ -15,6 +15,10 @@
 
 {% endif -%}
 {%- endif -%}
+{%- if cmd.deprecated or cmd.deprecated_warn_at or cmd.deprecated_remove_at %}
+[deprecated:{% if cmd.deprecated %} {{ cmd.deprecated }}{% endif %}{% if cmd.deprecated_warn_at %}{% if cmd.deprecated %};{% endif %} warns at {{ cmd.deprecated_warn_at }}{% endif %}{% if cmd.deprecated_remove_at %}{% if cmd.deprecated or cmd.deprecated_warn_at %};{% endif %} removed at {{ cmd.deprecated_remove_at }}{% endif %}]
+
+{%- endif -%}
 {%- if cmd.flatten_help and cmd.flattened_usage %}
 {%- for usage in cmd.flattened_usage %}
 {% if loop.first %}Usage: {% else %}       {% endif %}{{ (spec.bin ~ " " ~ usage) | trim }}
@@ -30,7 +34,7 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {{ group.heading | default(value=cmd.subcommand_help_heading | default(value="Commands")) }}:
 {%- for cmd in group.items %}
   {{ cmd.usage | trim }}
-{%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}
+{%- if cmd.deprecated or cmd.deprecated_warn_at or cmd.deprecated_remove_at %} [deprecated:{% if cmd.deprecated %} {{ cmd.deprecated }}{% endif %}{% if cmd.deprecated_warn_at %}{% if cmd.deprecated %};{% endif %} warns at {{ cmd.deprecated_warn_at }}{% endif %}{% if cmd.deprecated_remove_at %}{% if cmd.deprecated or cmd.deprecated_warn_at %};{% endif %} removed at {{ cmd.deprecated_remove_at }}{% endif %}]{%- endif %}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
 {%- if cmd.help %}{% if next_line_help %}
     {{ cmd.help | indent(width=4) }}{% else %}  {{ cmd.help }}{% endif %}{%- endif %}
@@ -87,6 +91,8 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if not flag.hide_env and flag.env %} [env: {{ flag.env }}]{%- endif %}
 {%- if not flag.hide_default_value and flag.default %} (default: {{ flag.default | join(sep=", ") }}){%- endif %}
 {%- endif %}
+{%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}{% if cmd.next_line_help %}
+    {% else %} {% endif %}[deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]{%- endif %}
 {%- endfor %}
 {%- endfor %}
 
@@ -111,6 +117,8 @@ Global flags:
 {%- if not flag.hide_env and flag.env %} [env: {{ flag.env }}]{%- endif %}
 {%- if not flag.hide_default_value and flag.default %} (default: {{ flag.default | join(sep=", ") }}){%- endif %}
 {%- endif %}
+{%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}{% if cmd.next_line_help %}
+    {% else %} {% endif %}[deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]{%- endif %}
 {%- endfor %}
 {%- endif %}
 
@@ -120,6 +128,9 @@ Global flags:
 {{ sub.full_cmd | join(sep=" ") }}:
 {%- if sub.help %}
 {{ sub.help | trim }}
+{%- endif %}
+{%- if sub.deprecated or sub.deprecated_warn_at or sub.deprecated_remove_at %}
+[deprecated:{% if sub.deprecated %} {{ sub.deprecated }}{% endif %}{% if sub.deprecated_warn_at %}{% if sub.deprecated %};{% endif %} warns at {{ sub.deprecated_warn_at }}{% endif %}{% if sub.deprecated_remove_at %}{% if sub.deprecated or sub.deprecated_warn_at %};{% endif %} removed at {{ sub.deprecated_remove_at }}{% endif %}]
 {%- endif %}
 {%- for group in sub.arg_groups %}
 {%- for arg in group.items %}
@@ -161,6 +172,8 @@ Global flags:
 {%- if not flag.hide_env and flag.env %} [env: {{ flag.env }}]{%- endif %}
 {%- if not flag.hide_default_value and flag.default %} (default: {{ flag.default | join(sep=", ") }}){%- endif %}
 {%- endif %}
+{%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}{% if sub.flattened_next_line_help %}
+    {% else %} {% endif %}[deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]{%- endif %}
 {%- endfor %}
 {%- endfor %}
 {%- endfor %}
