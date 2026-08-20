@@ -93,6 +93,20 @@ struct HiddenHelp {
     mode: String,
 }
 
+#[derive(Debug, Cli)]
+#[usage(bin = "optional-value")]
+struct OptionalValue {
+    #[usage(long)]
+    bump: Option<Option<u32>>,
+}
+
+#[derive(Debug, Cli)]
+#[usage(bin = "help-optional-value")]
+struct HelpOptionalValue {
+    #[usage(long, value_optional)]
+    bump: Option<u32>,
+}
+
 #[derive(Cli)]
 #[command(
     bin = "presented",
@@ -1072,6 +1086,39 @@ fn typed_granular_help_hides_reach_the_portable_spec() {
         assert!(kdl.contains(&format!("{property}=#true")), "{kdl}");
     }
     assert_eq!(HiddenHelp::parse_from(&[]).unwrap().mode, "fast");
+}
+
+#[test]
+fn nested_option_distinguishes_absent_bare_and_valued_flags() {
+    assert_eq!(OptionalValue::parse_from(&[]).unwrap().bump, None);
+    assert_eq!(
+        OptionalValue::parse_from(&[OsStr::new("--bump")])
+            .unwrap()
+            .bump,
+        Some(None)
+    );
+    assert_eq!(
+        OptionalValue::parse_from(&[OsStr::new("--bump=5")])
+            .unwrap()
+            .bump,
+        Some(Some(5))
+    );
+    let kdl = OptionalValue::to_kdl();
+    assert!(kdl.contains("flag --bump"), "{kdl}");
+    assert!(kdl.contains("[BUMP]"), "{kdl}");
+}
+
+#[test]
+fn help_only_optional_values_still_require_a_typed_value() {
+    assert!(HelpOptionalValue::parse_from(&[OsStr::new("--bump")]).is_err());
+    assert_eq!(
+        HelpOptionalValue::parse_from(&[OsStr::new("--bump=5")])
+            .unwrap()
+            .bump,
+        Some(5)
+    );
+    let kdl = HelpOptionalValue::to_kdl();
+    assert!(kdl.contains("[BUMP]"), "{kdl}");
 }
 
 #[test]

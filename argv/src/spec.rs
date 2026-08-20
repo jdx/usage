@@ -1641,6 +1641,9 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if meta.flag.require_equals {
         out.push_str(" require_equals=#true");
     }
+    if meta.flag.value_optional {
+        out.push_str(" value_optional=#true");
+    }
     if let Some(missing) = meta.flag.default_missing {
         write!(
             out,

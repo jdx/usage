@@ -147,6 +147,11 @@ The flag has to take a value. Help shows the value as optional. Emitted KDL:
 `flag "--color <WHEN>" default_missing="always"`. Combined with `require_equals`,
 a following word is still refused.
 
+An `Option<Option<T>>` field preserves all three optional-value states: an absent
+flag is `None`, a bare `--bump` is `Some(None)`, and `--bump=5` is
+`Some(Some(5))`. It infers a zero-or-one value range and renders `[BUMP]` in help
+and the portable spec.
+
 `#[usage(default_if("--json", "true"))]` is clap's `default_value_if` with
 `ArgPredicate::IsPresent`. Three arguments (`default_if("--output", "json", "pretty")`)
 are `Equals`. First match wins. The target's own argv and env suppress it. An

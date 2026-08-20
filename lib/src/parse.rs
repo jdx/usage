@@ -1037,8 +1037,8 @@ fn parse_partial_with_env(
             continue;
         }
 
-        // A flag with `default_missing` that cannot take this token as a detached
-        // value binds that string and leaves the token for whatever comes next:
+        // A flag whose value may be omitted that cannot take this token as a detached
+        // value finishes bare and leaves the token for whatever comes next:
         // `--color --verbose` colours with the missing value and still sets verbose,
         // and `--inspect 9229` with `require_equals` binds the missing value rather
         // than treating 9229 as the port.
@@ -1046,7 +1046,7 @@ fn parse_partial_with_env(
             && !attached_continuation
             && !out.flag_awaiting_value.is_empty()
             && out.flag_awaiting_value.last().is_some_and(|flag| {
-                flag.default_missing.is_some()
+                (flag.default_missing.is_some() || flag.value_optional)
                     && (flag.require_equals
                         || (is_flag_like(&w)
                             && !flag.allow_hyphen_values()
@@ -2834,7 +2834,7 @@ fn value_count(value: &ParseValue) -> usize {
     }
 }
 
-/// Bind [`SpecFlag::default_missing`] to a flag that was given with no value.
+/// Finish a value-optional flag that was given with no value.
 ///
 /// Returns whether anything was bound. Completions keep the flag waiting — a
 /// half-typed `--color ` is a question about the value — so this is asked only
@@ -2852,8 +2852,29 @@ fn try_bind_default_missing(
     let Some(flag) = flag_awaiting_value.last() else {
         return Ok(false);
     };
-    let Some(value) = flag.default_missing.clone() else {
-        return Ok(false);
+    let value = match flag.default_missing.clone() {
+        Some(value) => value,
+        None if flag.value_optional => {
+            let flag = flag_awaiting_value.pop().unwrap();
+            // Presence in the map distinguishes this from an absent flag; an
+            // empty collection distinguishes it from an explicitly empty
+            // `--flag=` string without inventing a sentinel value.
+            let collecting = flag.var || flag.arg.as_ref().is_some_and(|arg| arg.var);
+            if collecting {
+                // A variadic occurrence stays pending after each value. Reaching the next
+                // flag (or EOF) closes that same occurrence; it must not erase what it took.
+                flags
+                    .entry(flag)
+                    .or_insert_with(|| ParseValue::MultiString(Vec::new()));
+            } else {
+                // A scalar pending here is a new bare occurrence. The normal permissive
+                // repeat policy makes the later occurrence a correction, including a
+                // correction from an explicit value back to the bare tri-state.
+                flags.insert(flag, ParseValue::MultiString(Vec::new()));
+            }
+            return Ok(true);
+        }
+        None => return Ok(false),
     };
     if let Some(arg) = flag.arg.as_ref() {
         validate_choice_value(
@@ -7625,6 +7646,66 @@ flag "-v --verbose"
         let parsed = parse(&spec, &input(&["test", "-c", "-v"])).unwrap();
         assert_eq!(flag_string_value(&parsed, "color"), "always");
         assert!(parsed.flags.keys().any(|f| f.name == "verbose"));
+    }
+
+    #[test]
+    fn test_optional_flag_value_preserves_bare_and_explicit_empty_forms() {
+        let spec = r#"
+flag "--bump [LEVEL]" value_optional=#true
+flag "--verbose"
+arg "[FILE]"
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let absent = parse(&spec, &input(&["test"])).unwrap();
+        assert!(!absent.flags.keys().any(|flag| flag.name == "bump"));
+
+        let bare = parse(&spec, &input(&["test", "--bump", "--verbose", "file.txt"])).unwrap();
+        let bump = bare
+            .flags
+            .iter()
+            .find(|(flag, _)| flag.name == "bump")
+            .map(|(_, value)| value)
+            .unwrap();
+        assert!(matches!(bump, ParseValue::MultiString(values) if values.is_empty()));
+        assert!(bare.flags.keys().any(|flag| flag.name == "verbose"));
+        assert_eq!(arg_value(&bare, "FILE"), "file.txt");
+
+        let explicit = parse(&spec, &input(&["test", "--bump=", "file.txt"])).unwrap();
+        assert_eq!(flag_string_value(&explicit, "bump"), "");
+
+        let corrected = parse(
+            &spec,
+            &input(&["test", "--bump=2", "--bump", "--verbose", "file.txt"]),
+        )
+        .unwrap();
+        let bump = corrected
+            .flags
+            .iter()
+            .find(|(flag, _)| flag.name == "bump")
+            .map(|(_, value)| value)
+            .unwrap();
+        assert!(matches!(bump, ParseValue::MultiString(values) if values.is_empty()));
+
+        let collecting = r#"
+flag "--tag [TAG]..." value_optional=#true
+flag "--verbose"
+"#
+        .parse::<Spec>()
+        .unwrap();
+        let valued = parse(
+            &collecting,
+            &input(&["test", "--tag", "one", "two", "--verbose"]),
+        )
+        .unwrap();
+        let tag = valued
+            .flags
+            .iter()
+            .find(|(flag, _)| flag.name == "tag")
+            .map(|(_, value)| value)
+            .unwrap();
+        assert!(matches!(tag, ParseValue::MultiString(values) if values == &["one", "two"]));
     }
 
     #[test]

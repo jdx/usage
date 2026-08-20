@@ -149,8 +149,8 @@ equivalent yet:
 
 - `example` nodes exist in the spec format but cannot be declared from the derive — put an
   Examples section in `after_long_help` instead (mise does this).
-- `value_optional` alone affects help. Pair it with `default_missing` to define what a bare flag
-  binds; arbitrary zero-or-one value ranges from clap are not inferred.
+- A declared `value_optional` needs either `default_missing` or an
+  `Option<Option<T>>` field to define what a bare flag binds.
 - Rust `value_parser` functions are not portable metadata. Values use `FromStr`; use
   `validate` for a portable expression rule and `validate_error` for its diagnostic.
 - Long flags and subcommands require exact spellings. Diagnostics can suggest a close match, but

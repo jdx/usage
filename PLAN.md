@@ -514,6 +514,10 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       errors. KDL, usage-lib, the typed derive/static metadata, generated Go, and the
       clap bridge carry the policy. Repeatable, variadic, and count flags retain their
       collecting behavior.
+- [x] **Optional flag values.** `Option<Option<T>>` distinguishes an absent flag,
+      a bare flag, and an explicit value. The derive infers zero-or-one value arity,
+      usage-argv binds all three states, and emitted KDL/help use an optional
+      placeholder without requiring a synthetic `default_missing`.
 
 **Help output**
 
