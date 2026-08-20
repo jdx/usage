@@ -30,6 +30,7 @@ pub fn spec_with_report<S: Into<String>>(
     cmd: &mut Command,
     bin_name: S,
 ) -> (usage::Spec, FidelityReport) {
+    cmd.build();
     let report = report(cmd);
     (spec(cmd, bin_name), report)
 }

@@ -10,4 +10,5 @@ usage "Usage: example [OPTIONS]"
 flag --file help="some input file" {
     arg <FILE>
 }
-flag --usage
+flag --usage default="false"
+flag "-h --help" help="Print help"
