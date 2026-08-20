@@ -1184,13 +1184,17 @@ relationship families, remaining command parsing policy, fixed arity, the full
 `ValueHint` vocabulary) are not
 repeated here.
 
-- [ ] **The completer channel is unescaped Tera into `sh -c`.** aube's
+- [x] **The completer channel is unescaped Tera into `sh -c`.** aube's
       `completion.usage.kdl` documents the quote-escaping gymnastics, and its
       `extra.usage.kdl` records a `-C` non-forwarding limitation outright:
       "usage's only channel for the typed words is tera interpolation into a
       `sh -c` string, with no shell-quoting filter". A quoting filter — or a
       structured argv channel — is owed before dynamic completers are a
-      recommendation rather than a hazard.
+      recommendation rather than a hazard. The completion renderer now provides a
+      `shell_quote` and `shell_join` filters backed by `shell_words`, reject invalid inputs,
+      and documents that interpolation remains raw unless the author opts into the
+      filter. `run=` remains a shell program rather than being narrowed to an argv
+      vector, preserving pipelines and the modern shell-out completion use case.
 - [ ] **A multicall CLI cannot describe its applets.** aube's 80 lines of spec
       surgery for `aubr`/`aubx` is the requirement written as a workaround: a
       spec (or the derive) should declare a sub-view — name, bin, a subset of
