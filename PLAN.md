@@ -558,10 +558,13 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       `HelpShort`, `HelpLong` and `Version`, plus `disable_help_flag`,
       `disable_help_subcommand` and `disable_version_flag`. A clap
       CLI can move or remove these entry points; usage currently supplies its own.
-- [ ] **Ordering and remaining metadata** — explicit `display_order`, the full
-      `ValueHint` vocabulary, `long_version`, and custom help/version
-      text. Declaration order and path hints cover the common cases, not the
-      complete clap surface.
+- [x] **The full `ValueHint` vocabulary.** Typed declarations and the clap bridge
+      lower every stable clap hint into portable completion types. Username and
+      hostname hints use system candidates where the usage CLI owns completion;
+      open-ended identity/network values suppress the incorrect path fallback.
+- [ ] **Ordering and remaining metadata** — explicit `display_order`,
+      `long_version`, and custom help/version text. Declaration order covers the
+      common case, not the complete clap surface.
 
 **API surface**
 

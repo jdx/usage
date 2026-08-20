@@ -435,6 +435,24 @@ struct CompletionDedup {
     output: Option<PathBuf>,
 }
 
+#[derive(Cli)]
+#[usage(bin = "value-hints")]
+#[allow(dead_code)]
+struct ValueHints {
+    #[usage(long, value_hint = usage::ValueHint::Unknown)]
+    unknown: Option<String>,
+    #[usage(long, value_hint = usage::ValueHint::Other)]
+    other: Option<String>,
+    #[usage(long, value_hint = usage::ValueHint::Username)]
+    username: Option<String>,
+    #[usage(long, value_hint = usage::ValueHint::Hostname)]
+    hostname: Option<String>,
+    #[usage(long, value_hint = usage::ValueHint::Url)]
+    url: Option<String>,
+    #[usage(long, value_hint = usage::ValueHint::EmailAddress)]
+    email: Option<String>,
+}
+
 #[derive(Args)]
 struct SharedArgs {
     #[usage(long)]
@@ -589,6 +607,24 @@ fn identical_builtin_completers_are_emitted_once() {
 
     let kdl = CompletionDedup::to_kdl();
     assert_eq!(kdl.matches("complete path type=path").count(), 1, "{kdl}");
+}
+
+#[test]
+fn the_full_value_hint_vocabulary_reaches_portable_completion_types() {
+    let kdl = ValueHints::to_kdl();
+    for (name, type_) in [
+        ("unknown", "unknown"),
+        ("other", "none"),
+        ("username", "username"),
+        ("hostname", "hostname"),
+        ("url", "url"),
+        ("email", "email"),
+    ] {
+        assert!(
+            kdl.contains(&format!("complete {name} type={type_}")),
+            "{kdl}"
+        );
+    }
 }
 
 #[test]

@@ -149,8 +149,13 @@ func filesAt(pos Position, split SplitLine, candidates []Candidate, meta Metadat
 		if m.ValueName != "" {
 			named = m.ValueName
 		}
-		if asked := declaredFiles(m.CompleteType, pos); asked != NoFiles {
-			return asked
+		if m.CompleteType != "" {
+			if asked := declaredFiles(m.CompleteType, pos); asked != NoFiles {
+				return asked
+			}
+			if !strings.EqualFold(m.CompleteType, "unknown") {
+				return NoFiles
+			}
 		}
 	}
 	if asked := filesFor(named); asked != NoFiles {

@@ -675,18 +675,23 @@ fn declared_files_at_cursor(
     } else {
         (None, None)
     };
-    complete_type
-        .and_then(|type_| {
-            declared_files(
-                type_,
-                if after_restart {
-                    0
-                } else {
-                    position.next_arg_values
-                },
-            )
-        })
-        .or_else(|| name.and_then(files_for))
+    match complete_type {
+        Some(type_) => declared_files(
+            type_,
+            if after_restart {
+                0
+            } else {
+                position.next_arg_values
+            },
+        )
+        .or_else(|| {
+            type_
+                .eq_ignore_ascii_case("unknown")
+                .then(|| name.and_then(files_for))
+                .flatten()
+        }),
+        None => name.and_then(files_for),
+    }
 }
 
 /// What could be typed at the cursor, given a spec and a split line.
@@ -740,18 +745,23 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
     } else {
         (None, false, None)
     };
-    let asked_for = complete_type
-        .and_then(|type_| {
-            declared_files(
-                type_,
-                if after_restart {
-                    0
-                } else {
-                    position.next_arg_values
-                },
-            )
-        })
-        .or_else(|| named.and_then(files_for));
+    let asked_for = match complete_type {
+        Some(type_) => declared_files(
+            type_,
+            if after_restart {
+                0
+            } else {
+                position.next_arg_values
+            },
+        )
+        .or_else(|| {
+            type_
+                .eq_ignore_ascii_case("unknown")
+                .then(|| named.and_then(files_for))
+                .flatten()
+        }),
+        None => named.and_then(files_for),
+    };
 
     // An argument that requires a separator is not fillable yet, so nothing else belongs here —
     // not even a path, which the parser would reject exactly as it rejects a value.
@@ -770,7 +780,10 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
     // between "there is nothing else this can be" and "nothing matched what you typed".
     // Offering the working directory for a mistyped choice answers the second as though it were
     // the first.
-    let closed = !candidates.is_empty() || declares_choices || position.help_topic;
+    let declared_non_file_type = complete_type
+        .is_some_and(|type_| !type_.eq_ignore_ascii_case("unknown") && asked_for.is_none());
+    let closed =
+        !candidates.is_empty() || declares_choices || declared_non_file_type || position.help_topic;
 
     let files = if flag_like || needs_separator {
         None
@@ -2786,6 +2799,56 @@ mod tests {
     fn executable_paths_and_command_names_are_distinct_shell_requests() {
         assert_eq!(files_for("executable"), Some(Files::ExecutablePaths));
         assert_eq!(files_for("command"), Some(Files::Commands));
+    }
+
+    #[test]
+    fn open_ended_value_hints_suppress_path_fallback() {
+        static URL: Arg = Arg {
+            key: 80,
+            name: "URL",
+            ..Arg::REQUIRED
+        };
+        static ROOT: Command = Command {
+            name: "ex",
+            args: &[&URL],
+            ..Command::EMPTY
+        };
+        static URL_META: CommandMeta = CommandMeta {
+            cmd: &ROOT,
+            args: &[ArgMeta {
+                arg: &URL,
+                complete_type: Some("url"),
+                ..ArgMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        static URL_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &URL_META,
+            ..Spec::EMPTY
+        };
+        static UNKNOWN_META: CommandMeta = CommandMeta {
+            cmd: &ROOT,
+            args: &[ArgMeta {
+                arg: &URL,
+                complete_type: Some("unknown"),
+                ..ArgMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        static UNKNOWN_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &UNKNOWN_META,
+            ..Spec::EMPTY
+        };
+
+        assert_eq!(complete(&URL_SPEC, &at_end("ex ")).files, None);
+        assert_eq!(
+            complete(&UNKNOWN_SPEC, &at_end("ex ")).files,
+            Some(Files::Any)
+        );
     }
 
     #[test]

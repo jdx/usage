@@ -412,6 +412,11 @@ impl CompleteWord {
                 );
             }
             "command" => return (self.complete_commands(ctoken), true),
+            "username" => return (complete_usernames(ctoken), true),
+            "hostname" => return (complete_hostnames(ctoken), true),
+            "none" | "url" | "email" => return (vec![], true),
+            // `Unknown` asks for the shell's normal fallback, so this stays open.
+            "unknown" => {}
             "command_args" => {
                 let command_was_bound = cx.parsed.next_arg.as_ref().is_some_and(|next| {
                     // `parse_partial` records the cursor with a fresh `Arc` around a
@@ -754,6 +759,57 @@ impl CompleteWord {
             .map(|value| (value, String::new()))
             .collect()
     }
+}
+
+fn complete_usernames(prefix: &str) -> Vec<(String, String)> {
+    let mut found = BTreeSet::new();
+    for key in ["USER", "USERNAME"] {
+        if let Ok(value) = env::var(key) {
+            if value.starts_with(prefix) {
+                found.insert(value);
+            }
+        }
+    }
+    if let Ok(passwd) = std::fs::read_to_string("/etc/passwd") {
+        for line in passwd.lines() {
+            if let Some(name) = line
+                .split(':')
+                .next()
+                .filter(|name| name.starts_with(prefix))
+            {
+                found.insert(name.to_string());
+            }
+        }
+    }
+    found
+        .into_iter()
+        .map(|value| (value, String::new()))
+        .collect()
+}
+
+fn complete_hostnames(prefix: &str) -> Vec<(String, String)> {
+    let mut found = BTreeSet::new();
+    for key in ["HOSTNAME", "COMPUTERNAME"] {
+        if let Ok(value) = env::var(key) {
+            if value.starts_with(prefix) {
+                found.insert(value);
+            }
+        }
+    }
+    if let Ok(hosts) = std::fs::read_to_string("/etc/hosts") {
+        for line in hosts.lines() {
+            let line = line.split('#').next().unwrap_or_default();
+            for name in line.split_whitespace().skip(1) {
+                if name.starts_with(prefix) {
+                    found.insert(name.to_string());
+                }
+            }
+        }
+    }
+    found
+        .into_iter()
+        .map(|value| (value, String::new()))
+        .collect()
 }
 
 fn command_name_starts_with(name: &str, prefix: &str, case_insensitive: bool) -> bool {

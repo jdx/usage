@@ -416,17 +416,24 @@ fn value_hint(meta: &Meta) -> syn::Result<String> {
         ));
     };
     match variant.ident.to_string().as_str() {
+        "Unknown" => Ok("unknown".to_string()),
+        "Other" => Ok("none".to_string()),
         "FilePath" | "AnyPath" => Ok("path".to_string()),
         "DirPath" => Ok("dir".to_string()),
         "ExecutablePath" => Ok("executable".to_string()),
         "CommandName" | "CommandString" => Ok("command".to_string()),
         "CommandWithArguments" => Ok("command_args".to_string()),
+        "Username" => Ok("username".to_string()),
+        "Hostname" => Ok("hostname".to_string()),
+        "Url" => Ok("url".to_string()),
+        "EmailAddress" => Ok("email".to_string()),
         other => Err(syn::Error::new_spanned(
             value,
             format!(
                 "`ValueHint::{other}` has no usage completion type yet; supported hints are \
-                 `FilePath`, `AnyPath`, `DirPath`, `ExecutablePath`, `CommandName`, \
-                 `CommandString`, and `CommandWithArguments`"
+                 `Unknown`, `Other`, `FilePath`, `AnyPath`, `DirPath`, `ExecutablePath`, \
+                 `CommandName`, `CommandString`, `CommandWithArguments`, `Username`, \
+                 `Hostname`, `Url`, and `EmailAddress`"
             ),
         )),
     }
