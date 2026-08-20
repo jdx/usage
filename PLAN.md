@@ -710,6 +710,10 @@ feature list is not an exhaustive audit.
       The generated build also takes a zero-cost shared reference to every field, so a
       parse-only compatibility flag does not trip an adopter's `deny(dead_code)` merely
       because application code intentionally accepts and ignores it.
+      Process termination emitted by `Cli::parse()` is likewise isolated behind the
+      runtime's entry-point boundary, so an adopter that disallows direct
+      `std::process::exit` calls does not receive a lint at the derive site; embedders keep
+      using the returning `parse_from*` entry points.
 - [x] **Command-with-arguments completion hints.** `ExecutablePath`,
       `CommandName`, `CommandString`, and `CommandWithArguments` lower to
       shell-native completion types. A forwarded argv vector offers commands for
