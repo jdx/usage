@@ -167,6 +167,8 @@ pub struct Cli {
     /// properties live here, because a group that says nothing but "these three are
     /// exclusive" should not need declaring twice.
     pub groups: Vec<GroupDecl>,
+    /// Spec-declared executable views promoted from subcommands.
+    pub views: Vec<ViewDecl>,
     pub fields: Vec<Field>,
 }
 
@@ -183,6 +185,15 @@ pub struct GroupDecl {
     /// than replacing `Field::group`, because clap lets one field belong to both
     /// its Args group and an explicitly named group.
     pub members: Vec<String>,
+}
+
+pub struct ViewDecl {
+    pub id: String,
+    pub name: String,
+    pub bin: String,
+    pub root: String,
+    pub all_globals: bool,
+    pub globals: Vec<String>,
 }
 
 /// One field, resolved to the thing it declares.
@@ -689,6 +700,7 @@ impl Cli {
             restart_token: None,
             mount: None,
             groups: Vec::new(),
+            views: Vec::new(),
             fields: Vec::new(),
         };
 
@@ -904,6 +916,33 @@ impl Cli {
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
+                    "view" => {
+                        let view = view_decl(&meta)?;
+                        if cli.views.iter().any(|declared| declared.id == view.id) {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                format!("a view named `{}` is already declared", view.id),
+                            ));
+                        }
+                        if let Some(declared) = cli.views.iter().find(|declared| {
+                            [declared.id.as_str(), declared.bin.as_str()]
+                                .iter()
+                                .any(|prior| {
+                                    [view.id.as_str(), view.bin.as_str()].iter().any(|current| {
+                                        program_basename(prior) == program_basename(current)
+                                    })
+                                })
+                        }) {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                format!(
+                                    "view `{}` and view `{}` collide after executable basename normalization in the identifier and executable namespaces",
+                                    declared.id, view.id,
+                                ),
+                            ));
+                        }
+                        cli.views.push(view);
+                    }
                     "rename_all" => cli.rename_all = Some(CasingStyle::parse(&meta)?),
                     "rename_all_env" => cli.rename_all_env = CasingStyle::parse(&meta)?,
                     other => {
@@ -915,7 +954,7 @@ impl Cli {
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount` and \
-                                 `group` here, and the description comes from the doc \
+                                 `group` and `view` here, and the description comes from the doc \
                                  comment"
                             ),
                         ));
@@ -1007,6 +1046,25 @@ impl Cli {
                 cli.name = bin.clone();
             }
             cli.runtime_name = cli.runtime_bin.clone();
+        }
+        for view in &cli.views {
+            let host_name = program_basename(&cli.name);
+            let host_bin = cli.bin.as_deref().map(program_basename);
+            if [view.id.as_str(), view.bin.as_str()]
+                .iter()
+                .any(|selector| {
+                    let selector = program_basename(selector);
+                    selector == host_name || host_bin.is_some_and(|bin| selector == bin)
+                })
+            {
+                return Err(syn::Error::new_spanned(
+                    &input.ident,
+                    format!(
+                        "view `{}` uses the host command's name or bin as an executable selector",
+                        view.id
+                    ),
+                ));
+            }
         }
         cli.check()?;
         Ok(cli)
@@ -1120,6 +1178,12 @@ impl Cli {
                     ident,
                     "`no_binary_name` belongs on the root, where `#[derive(Cli)]` is: it \
                      selects the input contract of the whole CLI's clap-shaped parser",
+                ));
+            }
+            if !self.views.is_empty() {
+                return Err(self.misplaced(
+                    ident,
+                    "`view(...)` belongs on the root, where `#[derive(Cli)]` is: executable views project commands from the whole emitted spec, and nested `Args` do not emit a spec",
                 ));
             }
             return Ok(());
@@ -3619,6 +3683,80 @@ fn group_decl(meta: &Meta) -> syn::Result<GroupDecl> {
     Ok(decl)
 }
 
+fn program_basename(program: &str) -> &str {
+    let basename = program.rsplit(['/', '\\']).next().unwrap_or(program);
+    match basename.get(basename.len().saturating_sub(4)..) {
+        Some(extension) if extension.eq_ignore_ascii_case(".exe") => {
+            &basename[..basename.len() - 4]
+        }
+        _ => basename,
+    }
+}
+
+/// `view("aubr", root = "run", globals)` promotes `run` to the executable surface
+/// named `aubr`. `global = "--flag"` may be repeated instead of carrying all globals.
+fn view_decl(meta: &Meta) -> syn::Result<ViewDecl> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "a view is declared as `view(\"aubr\", root = \"run\", globals)`",
+        ));
+    };
+    list.parse_args_with(|input: syn::parse::ParseStream| {
+        let id: syn::LitStr = input.parse()?;
+        let mut view = ViewDecl {
+            id: id.value(),
+            name: id.value(),
+            bin: id.value(),
+            root: String::new(),
+            all_globals: false,
+            globals: Vec::new(),
+        };
+        while !input.is_empty() {
+            input.parse::<syn::Token![,]>()?;
+            if input.is_empty() {
+                break;
+            }
+            let property: syn::Ident = input.parse()?;
+            let property_name = property.to_string();
+            if property_name == "globals" && !input.peek(syn::Token![=]) {
+                view.all_globals = true;
+                continue;
+            }
+            input.parse::<syn::Token![=]>()?;
+            let value: syn::LitStr = input.parse()?;
+            match property_name.as_str() {
+                "name" => view.name = value.value(),
+                "bin" => view.bin = value.value(),
+                "root" => view.root = value.value(),
+                "global" => view.globals.push(value.value()),
+                other => {
+                    return Err(syn::Error::new_spanned(
+                        property,
+                        format!(
+                            "unknown view property `{other}`; a view takes `name`, `bin`, \
+                             `root`, bare `globals`, and repeated `global = \"--flag\"`"
+                        ),
+                    ));
+                }
+            }
+        }
+        if view.id.is_empty() || view.name.is_empty() || view.bin.is_empty() {
+            return Err(syn::Error::new_spanned(
+                id,
+                "a view's identifier, name, and bin cannot be empty",
+            ));
+        }
+        if view.root.trim().is_empty() {
+            return Err(syn::Error::new_spanned(
+                meta,
+                "a view needs `root = \"command path\"`",
+            ));
+        }
+        Ok(view)
+    })
+}
+
 fn clap_group_default(attr: &Attribute, ident: &syn::Ident) -> GroupDecl {
     GroupDecl {
         name: ident.unraw().to_string(),
@@ -5340,6 +5478,76 @@ mod tests {
                 double_dash: DoubleDash::Required
             }
         ));
+    }
+
+    #[test]
+    fn executable_views_are_declared_on_the_root() {
+        let parsed = cli(r#"
+            #[usage(
+                view("aubr", root = "run", globals),
+                view("aubx", name = "Aube Execute", root = "dlx", global = "--quiet")
+            )]
+            struct Ex {}
+        "#)
+        .unwrap();
+
+        assert_eq!(parsed.views.len(), 2);
+        assert_eq!(parsed.views[0].id, "aubr");
+        assert_eq!(parsed.views[0].root, "run");
+        assert!(parsed.views[0].all_globals);
+        assert_eq!(parsed.views[1].name, "Aube Execute");
+        assert_eq!(parsed.views[1].globals, ["--quiet"]);
+    }
+
+    #[test]
+    fn executable_views_are_rejected_on_nested_args() {
+        let err = position_error(
+            r#"
+            #[usage(view("runner", root = "run"))]
+            struct Nested {}
+            "#,
+            false,
+        );
+        assert!(err.contains("`view(...)` belongs on the root"), "{err}");
+    }
+
+    #[test]
+    fn executable_view_identifiers_and_bins_share_one_dispatch_namespace() {
+        let err = rejection(
+            r#"
+            #[usage(
+                view("runner", bin = "run-bin", root = "run"),
+                view("other", bin = "runner", root = "other")
+            )]
+            struct Ex {}
+        "#,
+        );
+        assert!(
+            err.contains("identifier and executable namespaces"),
+            "{err}"
+        );
+
+        let err = rejection(
+            r#"
+            #[usage(
+                view("first", bin = "runner", root = "run"),
+                view("second", bin = "/tmp/runner.exe", root = "other")
+            )]
+            struct Ex {}
+        "#,
+        );
+        assert!(err.contains("basename normalization"), "{err}");
+    }
+
+    #[test]
+    fn executable_views_cannot_capture_the_host_program() {
+        for declaration in [
+            r#"#[usage(name = "host", view("host", root = "run"))]"#,
+            r#"#[usage(bin = "host", view("view", bin = "/tmp/host.exe", root = "run"))]"#,
+        ] {
+            let err = rejection(&format!("{declaration} struct Host {{}}"));
+            assert!(err.contains("host command's name or bin"), "{err}");
+        }
     }
 
     #[test]

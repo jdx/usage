@@ -1244,7 +1244,7 @@ repeated here.
       and documents that interpolation remains raw unless the author opts into the
       filter. `run=` remains a shell program rather than being narrowed to an argv
       vector, preserving pipelines and the modern shell-out completion use case.
-- [ ] **A multicall CLI cannot describe its applets.** aube's 80 lines of spec
+- [x] **A multicall CLI cannot describe its applets.** aube's 80 lines of spec
       surgery for `aubr`/`aubx` is the requirement written as a workaround: a
       spec (or the derive) should declare a sub-view — name, bin, a subset of
       commands, the global flags — without the host mutating a generated spec
@@ -1254,7 +1254,10 @@ repeated here.
       carrying name, bin, the command subset, and which globals carry over,
       that help, completions and docs all read, with the derive lowering an
       attribute into it. Not a derive-only emission, and not a blessed
-      transform API: the spec defines.
+      transform API: the spec defines. Root `view` nodes now promote a command
+      path, rename its executable surface, and carry all or selected globals.
+      Derives emit them, argv0 dispatch and built-in completions project through
+      them, and the documentation generators materialize the same portable view.
 - [x] **Post-parse hooks stay application-owned.** `parse_from` and
       `parse_from_argv` return `Error::Help` and `Error::Version` instead of
       exiting, so aube can run its notifier or customize version output before

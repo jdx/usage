@@ -15,6 +15,10 @@ Generate a manpage from a usage spec
 
 A usage spec taken in as a file, use "-" to read from stdin
 
+### `--view <VIEW>`
+
+Render one spec-declared executable view
+
 ### `-o --out-file <OUT_FILE>`
 
 **Effect**: modifies state

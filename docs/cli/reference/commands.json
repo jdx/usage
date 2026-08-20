@@ -644,7 +644,7 @@
           },
           "json": {
             "full_cmd": ["generate", "json"],
-            "usage": "generate json [-f --file <FILE>] [--spec <SPEC>]",
+            "usage": "generate json [FLAGS]",
             "subcommands": {},
             "args": [],
             "flags": [
@@ -683,6 +683,23 @@
                   "hide": false
                 },
                 "overrides": ["--file"]
+              },
+              {
+                "name": "view",
+                "usage": "--view <VIEW>",
+                "help": "Render one spec-declared executable view",
+                "help_first_line": "Render one spec-declared executable view",
+                "short": [],
+                "long": ["view"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "VIEW",
+                  "usage": "<VIEW>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
               }
             ],
             "mounts": [],
@@ -833,6 +850,23 @@
                 }
               },
               {
+                "name": "view",
+                "usage": "--view <VIEW>",
+                "help": "Render one spec-declared executable view",
+                "help_first_line": "Render one spec-declared executable view",
+                "short": [],
+                "long": ["view"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "VIEW",
+                  "usage": "<VIEW>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
                 "name": "out-file",
                 "usage": "-o --out-file <OUT_FILE>",
                 "help": "Output file path, or \"-\" for stdout (default)",
@@ -906,6 +940,23 @@
                 "arg": {
                   "name": "FILE",
                   "usage": "<FILE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "view",
+                "usage": "--view <VIEW>",
+                "help": "Render one spec-declared executable view",
+                "help_first_line": "Render one spec-declared executable view",
+                "short": [],
+                "long": ["view"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "VIEW",
+                  "usage": "<VIEW>",
                   "required": true,
                   "double_dash": "Optional",
                   "hide": false

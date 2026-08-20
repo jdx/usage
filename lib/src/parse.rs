@@ -680,6 +680,10 @@ fn parse_partial_with_env(
     mount_outputs: Option<&HashMap<String, String>>,
     mount_timing: MountTiming,
 ) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
+    if let Some(view) = input.first().and_then(|argv0| spec.view_for_program(argv0)) {
+        let viewed = spec.for_view(view)?;
+        return parse_partial_with_env(&viewed, input, custom_env, mount_outputs, mount_timing);
+    }
     trace!("parse_partial: {input:?}");
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
     let argv0 = input.pop_front();
@@ -3292,6 +3296,51 @@ mod tests {
             return value;
         }
         panic!("expected first parsed value to be ParseValue::String");
+    }
+
+    #[test]
+    fn custom_environment_parser_dispatches_executable_views() {
+        let spec: Spec = r#"
+bin "ex"
+view "runner" root="run"
+cmd "run" {
+    flag "--token <token>" env="TOKEN"
+}
+        "#
+        .parse()
+        .unwrap();
+        let parsed = Parser::new(&spec)
+            .with_env([("TOKEN".to_string(), "secret".to_string())].into())
+            .parse(&input(&["runner"]))
+            .unwrap();
+
+        assert_eq!(parsed.cmd.name, "runner");
+        assert!(parsed.flags.iter().any(|(flag, value)| flag.name == "token"
+            && matches!(value, ParseValue::String(value) if value == "secret")));
+    }
+
+    #[test]
+    fn an_executable_view_keeps_the_hosts_version_action() {
+        let spec: Spec = r#"
+bin "ex"
+version "1.2.3"
+flag "-V --version" action="version"
+flag "--verbose" global=#true
+view "runner" root="run" globals=#true
+cmd "run"
+        "#
+        .parse()
+        .unwrap();
+
+        let error = Parser::new(&spec)
+            .parse(&input(&["runner", "--version"]))
+            .expect_err("the host version action should answer before view projection");
+        assert_eq!(error.to_string(), "1.2.3");
+
+        let error = Parser::new(&spec)
+            .parse(&input(&["runner", "--verbose", "--version"]))
+            .expect_err("the host version action should remain after a carried global");
+        assert_eq!(error.to_string(), "1.2.3");
     }
 
     fn flag_string_value<'a>(parsed: &'a ParseOutput, name: &str) -> &'a str {

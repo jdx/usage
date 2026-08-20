@@ -23,7 +23,7 @@
 
 use core::fmt::Write as _;
 
-use crate::spec::{CommandMeta, Spec};
+use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
 use crate::{Command, Error};
 
 /// Whether to colour, and what with.
@@ -334,8 +334,12 @@ fn value_bound_to(
     argv: &[&std::ffi::OsStr],
     name: &str,
     refused: &[&str],
+    view: Option<&ViewMeta<'_>>,
 ) -> Option<String> {
     let mut parser = crate::Parser::new(root, argv);
+    if let Some(view) = view {
+        parser = parser.with_view(view);
+    }
     let mut last = None;
     while let Some(event) = parser.next_event() {
         let value = match event {
@@ -373,9 +377,16 @@ fn value_bound_to(
 /// how `ex beta shared --betaglobl` came back describing `ex alpha shared`, suggesting alpha's
 /// globals and not beta's. The route is the only thing that tells the two apart, so the route is
 /// what gets carried.
-fn path_taken<'t>(root: &'t Command<'t>, argv: &[&std::ffi::OsStr]) -> Vec<&'t Command<'t>> {
+fn path_taken<'t>(
+    root: &'t Command<'t>,
+    argv: &[&std::ffi::OsStr],
+    view: Option<&'t ViewMeta<'t>>,
+) -> Vec<&'t Command<'t>> {
     let mut path = vec![root];
     let mut parser = crate::Parser::new(root, argv);
+    if let Some(view) = view {
+        parser = parser.with_view(view);
+    }
     while let Some(event) = parser.next_event() {
         match event {
             Ok(crate::Event::Command(cmd)) => path.push(cmd),
@@ -422,9 +433,77 @@ pub fn render(
     error: &Error<'_, '_>,
     style: Style,
 ) -> String {
-    let taken = path_taken(spec.root.cmd, argv);
+    render_inner(spec, argv, error, style, None)
+}
+
+/// Render a parse failure through a spec-declared executable view.
+pub fn render_view<'a>(
+    spec: &'a Spec<'a>,
+    argv: &[&std::ffi::OsStr],
+    error: &Error<'_, '_>,
+    style: Style,
+    view: &'a ViewMeta<'a>,
+) -> String {
+    let words = argv.get(1..).unwrap_or_default();
+    let mut rewritten =
+        Vec::with_capacity(words.len() + view.root.split_ascii_whitespace().count());
+    rewritten.extend(view.root.split_ascii_whitespace().map(std::ffi::OsStr::new));
+    rewritten.extend_from_slice(words);
+    render_inner(spec, &rewritten, error, style, Some(view))
+}
+
+fn render_inner<'a>(
+    spec: &'a Spec<'a>,
+    argv: &[&std::ffi::OsStr],
+    error: &Error<'_, '_>,
+    style: Style,
+    view: Option<&'a ViewMeta<'a>>,
+) -> String {
+    let canonical_spec = spec;
+    let taken = path_taken(spec.root.cmd, argv, view);
     let cmd = *taken.last().expect("the root is always on the path");
-    let resolved = resolve(spec, &taken);
+    let mut resolved = resolve(spec, &taken);
+    let mut projected_spec = None;
+    let mut projected_flags: Vec<FlagMeta<'_>> = Vec::new();
+    let mut projected_groups = Vec::new();
+    let projection = view.and_then(|view| {
+        let depth = view.root.split_ascii_whitespace().count();
+        resolved
+            .as_ref()
+            .and_then(|(_, chain)| chain.get(depth).copied())
+            .map(|promoted| (view, depth, promoted))
+    });
+    if let Some((_, _, promoted)) = projection {
+        let (flags, groups) =
+            crate::help::view_root_fields(spec, promoted, view.expect("a projection has a view"));
+        projected_flags = flags;
+        projected_groups = groups;
+    }
+    let projected_root = projection.map(|(_, _, promoted)| CommandMeta {
+        flags: &projected_flags,
+        groups: &projected_groups,
+        ..*promoted
+    });
+    if let (Some((view, depth, promoted)), Some(root), Some((names, chain))) =
+        (projection, projected_root.as_ref(), resolved.as_mut())
+    {
+        chain[0] = root;
+        chain.drain(1..=depth.min(chain.len().saturating_sub(1)));
+        names.drain(1..=depth.min(names.len().saturating_sub(1)));
+        names[0] = view.bin;
+        projected_spec = Some(Spec {
+            name: view.name,
+            bin: Some(view.bin),
+            about: promoted.about,
+            long_about: promoted.long_about,
+            usage: None,
+            default_subcommand: None,
+            multicall: false,
+            root,
+            ..*spec
+        });
+    }
+    let spec = projected_spec.as_ref().unwrap_or(spec);
     let chain: &[&CommandMeta<'_>] = resolved.as_ref().map(|(_, c)| &c[..]).unwrap_or(&[]);
     let here = chain.last().copied();
     let path = resolved
@@ -435,6 +514,7 @@ pub fn render(
         (Some((names, _)), Some(meta)) => crate::help::usage_line(names, meta),
         _ => path.clone(),
     };
+    let presented_route: Vec<&Command<'_>> = chain.iter().map(|meta| meta.cmd).collect();
 
     let mut out = String::new();
     let mut with_usage = false;
@@ -561,7 +641,11 @@ pub fn render(
             } else {
                 crate::help::Style::PLAIN
             };
-            if let Some(help) = crate::help::render_at_styled(spec, &taken, false, help_style) {
+            // `spec`, `chain`, and this route have already been projected above. Feeding the
+            // canonical host route through the view renderer a second time makes it look for
+            // host-only ancestors under the promoted root and loses the useful full help page.
+            let help = crate::help::render_at_styled(spec, &presented_route, false, help_style);
+            if let Some(help) = help {
                 return help;
             }
             with_usage = true;
@@ -607,13 +691,14 @@ pub fn render(
         }
         Error::InvalidChoice { name, choices } => {
             let shown_name = shown(here, name);
-            match value_bound_to(spec.root.cmd, argv, name, choices) {
+            let typed = value_bound_to(canonical_spec.root.cmd, argv, name, choices, view);
+            match typed.as_deref() {
                 Some(value) => {
                     let _ = writeln!(
                         out,
                         "{} invalid value '{}' for '{}'",
                         style.error("error:"),
-                        style.invalid(&value),
+                        style.invalid(value),
                         style.literal(&shown_name)
                     );
                 }
@@ -630,7 +715,7 @@ pub fn render(
             }
             let listed: Vec<String> = choices.iter().map(|c| style.valid(c)).collect();
             let _ = writeln!(out, "  [possible values: {}]", listed.join(", "));
-            if let Some(typed) = value_bound_to(spec.root.cmd, argv, name, choices) {
+            if let Some(typed) = typed {
                 out.push_str(&tip(
                     style,
                     "value",
@@ -950,6 +1035,66 @@ mod tests {
     }
 
     #[test]
+    fn a_view_missing_subcommand_prints_the_promoted_choices() {
+        static CHILD: Command = Command {
+            name: "child",
+            ..Command::EMPTY
+        };
+        static RUN: Command = Command {
+            name: "run",
+            subcommands: &[&CHILD],
+            ..Command::EMPTY
+        };
+        static HOST: Command = Command {
+            name: "host",
+            subcommands: &[&RUN],
+            ..Command::EMPTY
+        };
+        static CHILD_META: CommandMeta = CommandMeta {
+            cmd: &CHILD,
+            about: Some("Do the child thing"),
+            ..CommandMeta::EMPTY
+        };
+        static RUN_META: CommandMeta = CommandMeta {
+            cmd: &RUN,
+            subcommands: &[&CHILD_META],
+            ..CommandMeta::EMPTY
+        };
+        static HOST_META: CommandMeta = CommandMeta {
+            cmd: &HOST,
+            subcommands: &[&RUN_META],
+            ..CommandMeta::EMPTY
+        };
+        static VIEW: ViewMeta = ViewMeta {
+            id: "runner",
+            name: "runner",
+            bin: "runner",
+            root: "run",
+            all_globals: false,
+            globals: &[],
+        };
+        static VIEW_SPEC: Spec = Spec {
+            name: "host",
+            bin: Some("host"),
+            root: &HOST_META,
+            views: &[VIEW],
+            ..Spec::EMPTY
+        };
+
+        let message = render_view(
+            &VIEW_SPEC,
+            &[std::ffi::OsStr::new("runner")],
+            &Error::MissingSubcommand,
+            Style::PLAIN,
+            &VIEW,
+        );
+        assert!(message.contains("Usage: runner"), "{message}");
+        assert!(message.contains("Commands:"), "{message}");
+        assert!(message.contains("child"), "{message}");
+        assert!(!message.contains("requires a subcommand"), "{message}");
+    }
+
+    #[test]
     fn a_missing_value_names_what_it_wanted() {
         // No usage block: the shape of the command line was right, one value was missing — which
         // is the distinction clap draws too.
@@ -1109,6 +1254,41 @@ mod tests {
         assert!(
             message.starts_with("error: invalid value 'fsh' for '[SHELLS]…'"),
             "named a value that was fine: {message}"
+        );
+    }
+
+    #[test]
+    fn a_view_recovers_the_choice_value_from_the_canonical_parse() {
+        static VIEW: ViewMeta = ViewMeta {
+            id: "runner",
+            name: "runner",
+            bin: "runner",
+            root: "use",
+            all_globals: false,
+            globals: &[],
+        };
+        static VIEW_SPEC: Spec = Spec {
+            views: &[VIEW],
+            ..SPEC
+        };
+        let argv = [std::ffi::OsStr::new("runner"), std::ffi::OsStr::new("nod")];
+        let message = render_view(
+            &VIEW_SPEC,
+            &argv,
+            &Error::InvalidChoice {
+                name: "TOOL",
+                choices: &["node", "python"],
+            },
+            Style::PLAIN,
+            &VIEW,
+        );
+        assert!(
+            message.contains("invalid value 'nod' for '<TOOL>'"),
+            "{message}"
+        );
+        assert!(
+            message.contains("tip: a similar value exists: 'node'"),
+            "{message}"
         );
     }
 

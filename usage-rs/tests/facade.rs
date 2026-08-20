@@ -16,6 +16,483 @@ struct Ex {
     command: Command,
 }
 
+#[derive(Cli)]
+#[usage(
+    bin = "view-host",
+    version = "1.2.3",
+    before_help = "HOST-ONLY SURROUNDING HELP",
+    unknown_flags = "error",
+    view(
+        "view-run",
+        root = "run",
+        global = "--verbose",
+        global = "--flat-required",
+        global = "--flat-default",
+        global = "--help-all"
+    )
+)]
+#[cfg_attr(feature = "completions", usage(completion))]
+struct ViewHost {
+    #[arg(long, global)]
+    root_token: String,
+    #[arg(long, global, required = true)]
+    verbose: bool,
+    #[arg(long, global)]
+    color: bool,
+    #[arg(long = "help-all", global, action = usage::ArgAction::HelpAll)]
+    help_all: bool,
+    #[command(flatten)]
+    view_globals: ViewGlobals,
+    #[arg(long)]
+    root_number: u32,
+    #[command(subcommand)]
+    command: ViewCommand,
+}
+
+#[derive(Args)]
+struct ViewGlobals {
+    #[arg(long, global, required = true)]
+    flat_required: bool,
+    #[arg(long, global, default_value = "carried")]
+    flat_default: String,
+    #[arg(long, global)]
+    flat_hidden: String,
+}
+
+#[derive(Subcommands)]
+enum ViewCommand {
+    /// Run one task.
+    Run {
+        #[arg(short = 'v', long)]
+        verbose: bool,
+        #[arg(long)]
+        dry_run: bool,
+        task: String,
+    },
+}
+
+#[test]
+fn executable_views_emit_and_dispatch_from_argv0() {
+    let kdl = ViewHost::to_kdl();
+    assert!(kdl.contains("view view-run root=run"), "{kdl}");
+    let portable: usage_parser::Spec = kdl.parse().expect("usage-lib should read the view");
+    let view = portable
+        .for_view("view-run")
+        .expect("the declared command should materialize");
+    assert_eq!(view.bin, "view-run");
+    assert_eq!(view.cmd.name, "view-run");
+    assert!(view.cmd.flags.iter().any(|flag| flag.name == "verbose"));
+
+    let parsed = ViewHost::parse_from_argv(&[
+        OsStr::new("/usr/local/bin/view-run"),
+        OsStr::new("--verbose"),
+        OsStr::new("--flat-required"),
+        OsStr::new("--dry-run"),
+        OsStr::new("build"),
+    ])
+    .expect("argv0 should promote the declared command");
+    assert_eq!(parsed.root_token, "");
+    assert!(parsed.verbose);
+    assert!(parsed.view_globals.flat_required);
+    assert_eq!(parsed.view_globals.flat_default, "carried");
+    assert_eq!(parsed.view_globals.flat_hidden, "");
+    assert_eq!(parsed.root_number, 0);
+    assert!(!parsed.color);
+    let ViewCommand::Run {
+        verbose,
+        dry_run,
+        task,
+    } = parsed.command;
+    assert!(verbose);
+    assert!(dry_run);
+    assert_eq!(task, "build");
+
+    assert!(matches!(
+        ViewHost::parse_from_argv(&[
+            OsStr::new("view-run"),
+            OsStr::new("--flat-required"),
+            OsStr::new("build")
+        ]),
+        Err(usage::Error::MissingRequired { name: "verbose" })
+    ));
+
+    assert!(matches!(
+        ViewHost::parse_from_argv(&[
+            OsStr::new("view-run"),
+            OsStr::new("--verbose"),
+            OsStr::new("build")
+        ]),
+        Err(usage::Error::MissingRequired {
+            name: "flat-required"
+        })
+    ));
+
+    let root_error = match ViewHost::parse_from(&[
+        OsStr::new("--flat-required"),
+        OsStr::new("run"),
+        OsStr::new("build"),
+    ]) {
+        Err(error) => error,
+        Ok(_) => panic!("the host root should enforce its required fields"),
+    };
+    assert!(
+        matches!(
+            root_error,
+            usage::Error::MissingRequired {
+                name: "flat-hidden"
+            }
+        ),
+        "{root_error:?}"
+    );
+
+    let help_argv = [OsStr::new("view-run"), OsStr::new("--help")];
+    let (cmd, long) =
+        match ViewHost::parse_from_argv(&[OsStr::new("view-run"), OsStr::new("--help")]) {
+            Err(usage::Error::Help { cmd, long }) => (cmd, long),
+            _ => panic!("the view should return the promoted command's help request"),
+        };
+    let route = usage::help::route_to_view(
+        ViewHost::command(),
+        &help_argv,
+        cmd,
+        &ViewHost::spec().views[0],
+    )
+    .expect("the injected route should be recoverable");
+    let page = usage::help::render_view_at_styled(
+        ViewHost::spec(),
+        &route,
+        &ViewHost::spec().views[0],
+        long,
+        usage::help::Style::PLAIN,
+    )
+    .expect("the view should have a help page");
+    assert!(page.contains("Usage: view-run"), "{page}");
+    assert!(!page.contains("view-host run"), "{page}");
+    assert!(page.contains("--verbose"), "{page}");
+    assert_eq!(page.matches("--verbose").count(), 1, "{page}");
+    assert!(!page.contains("--color"), "{page}");
+    assert!(!page.contains("HOST-ONLY SURROUNDING HELP"), "{page}");
+
+    assert!(matches!(
+        ViewHost::parse_from_argv(&[
+            OsStr::new("view-run"),
+            OsStr::new("--color"),
+            OsStr::new("build")
+        ]),
+        Err(usage::Error::UnknownFlag { .. })
+    ));
+
+    let bad_argv = [OsStr::new("view-run"), OsStr::new("--dry-ru")];
+    let error = match ViewHost::parse_from_argv(&[OsStr::new("view-run"), OsStr::new("--dry-ru")]) {
+        Err(error) => error,
+        Ok(_) => panic!("strict parsing should reject the misspelled view flag"),
+    };
+    let diagnostic = usage::render_failure_view(
+        ViewHost::spec(),
+        &bad_argv,
+        &error,
+        &ViewHost::spec().views[0],
+    );
+    assert!(diagnostic.contains("Usage: view-run"), "{diagnostic}");
+    assert!(!diagnostic.contains("view-host run"), "{diagnostic}");
+    assert!(diagnostic.contains("--dry-run"), "{diagnostic}");
+
+    let omitted_argv = [OsStr::new("view-run"), OsStr::new("--root-token")];
+    let omitted_error = match ViewHost::parse_from_argv(&omitted_argv) {
+        Err(error) => error,
+        Ok(_) => panic!("an omitted host global must remain outside the view"),
+    };
+    let omitted_diagnostic = usage::render_failure_view(
+        ViewHost::spec(),
+        &omitted_argv,
+        &omitted_error,
+        &ViewHost::spec().views[0],
+    );
+    assert_eq!(
+        omitted_diagnostic.matches("--root-token").count(),
+        1,
+        "an omitted host flag must not be suggested by view diagnostics: {omitted_diagnostic}"
+    );
+    assert!(
+        omitted_diagnostic.contains("Usage: view-run"),
+        "{omitted_diagnostic}"
+    );
+
+    let help_all_argv = [OsStr::new("view-run"), OsStr::new("--help-all")];
+    let help_all_cmd = match ViewHost::parse_from_argv(&help_all_argv) {
+        Err(usage::Error::HelpAll { cmd }) => cmd,
+        _ => panic!("the view should return recursive help"),
+    };
+    let route = usage::help::route_to_view(
+        ViewHost::command(),
+        &help_all_argv,
+        help_all_cmd,
+        &ViewHost::spec().views[0],
+    )
+    .expect("the view help-all route should be recoverable");
+    let all = usage::help::render_all_view_at_styled(
+        ViewHost::spec(),
+        &route,
+        &ViewHost::spec().views[0],
+        usage::help::Style::PLAIN,
+    )
+    .expect("the view should have recursive help");
+    assert!(all.contains("Usage: view-run"), "{all}");
+    assert!(!all.contains("view-host run"), "{all}");
+    assert!(!all.contains("HOST-ONLY SURROUNDING HELP"), "{all}");
+
+    assert!(matches!(
+        ViewHost::parse_from_argv(&[OsStr::new("view-run"), OsStr::new("--version")]),
+        Err(usage::Error::Version { long: true })
+    ));
+}
+
+#[cfg(feature = "completions")]
+#[test]
+fn executable_views_generate_scripts_for_their_binary() {
+    let script = ViewHost::completion_script_for("view-run", usage::complete::Shell::Bash)
+        .expect("the view is declared");
+    assert!(script.contains("view-run"), "{script}");
+
+    let answer = ViewHost::completion_request(&[
+        "__complete_word__".into(),
+        "--shell".into(),
+        "bash".into(),
+        "--line".into(),
+        "view-run --".into(),
+    ])
+    .expect("the hidden completion request should be recognized");
+    assert!(answer.contains("--dry-run"), "{answer}");
+    assert!(answer.contains("--verbose"), "{answer}");
+    assert!(answer.contains("--flat-required"), "{answer}");
+    assert!(!answer.contains("--color"), "{answer}");
+}
+
+#[derive(Cli)]
+#[usage(
+    bin = "nested-view-host",
+    unknown_flags = "error",
+    completion,
+    view("nested-run", root = "admin run")
+)]
+struct NestedViewHost {
+    #[command(flatten)]
+    host: NestedViewHostArgs,
+    #[command(subcommand)]
+    command: NestedViewTop,
+}
+
+#[derive(Args)]
+struct NestedViewHostArgs {
+    #[arg(long, complete = host_probe_words)]
+    probe: Option<String>,
+}
+
+#[cfg(feature = "completions")]
+fn host_probe_words(
+    _partial: &<NestedViewHostArgs as usage_argv::spec::CommandArgs>::Partial,
+    _ctx: &usage::complete::CompleteCtx<'_>,
+) -> Vec<usage::complete::Candidate<'static>> {
+    vec![usage::complete::Candidate::new("host-probe")]
+}
+
+#[derive(Subcommands)]
+enum NestedViewTop {
+    Admin(NestedViewAdmin),
+}
+
+#[derive(Args)]
+struct NestedViewAdmin {
+    #[arg(long, global)]
+    intermediate: bool,
+    #[arg(long)]
+    intermediate_required: String,
+    #[arg(long)]
+    intermediate_number: u32,
+    #[arg(long, default_value = "parent-default")]
+    intermediate_default: Option<String>,
+    #[arg(long, env = "PATH")]
+    intermediate_env: Option<String>,
+    #[command(subcommand)]
+    command: NestedViewAdminCommand,
+}
+
+#[derive(Subcommands)]
+enum NestedViewAdminCommand {
+    Run(NestedViewRun),
+}
+
+#[derive(Args)]
+struct NestedViewRun {
+    #[arg(long)]
+    leaf: bool,
+    #[arg(long, complete = nested_view_words)]
+    probe: Option<String>,
+}
+
+#[cfg(feature = "completions")]
+fn nested_view_words(
+    _partial: &<NestedViewRun as usage_argv::spec::CommandArgs>::Partial,
+    ctx: &usage::complete::CompleteCtx<'_>,
+) -> Vec<usage::complete::Candidate<'static>> {
+    vec![usage::complete::Candidate::new(format!(
+        "{}@{}",
+        ctx.words.join("|"),
+        ctx.cword
+    ))]
+}
+
+#[test]
+fn nested_views_drop_intermediate_command_globals() {
+    let parsed = NestedViewHost::parse_from_argv(&[OsStr::new("nested-run"), OsStr::new("--leaf")])
+        .expect("the promoted leaf command should parse");
+    let NestedViewTop::Admin(admin) = parsed.command;
+    assert!(!admin.intermediate);
+    assert_eq!(admin.intermediate_required, "");
+    assert_eq!(admin.intermediate_number, 0);
+    assert_eq!(admin.intermediate_default, None);
+    assert_eq!(admin.intermediate_env, None);
+    let NestedViewAdminCommand::Run(run) = admin.command;
+    assert!(run.leaf);
+    assert_eq!(run.probe, None);
+
+    assert!(matches!(
+        NestedViewHost::parse_from_argv(&[OsStr::new("nested-run"), OsStr::new("--intermediate")]),
+        Err(usage::Error::UnknownFlag { .. })
+    ));
+
+    let portable: usage_parser::Spec = NestedViewHost::to_kdl().parse().unwrap();
+    let view = portable.for_view("nested-run").unwrap();
+    assert!(!view
+        .cmd
+        .flags
+        .iter()
+        .any(|flag| flag.name == "intermediate"));
+}
+
+#[cfg(feature = "completions")]
+#[test]
+fn view_completers_receive_the_users_original_line() {
+    let answer = NestedViewHost::completion_request(&[
+        "__complete_word__".into(),
+        "--shell".into(),
+        "bash".into(),
+        "--line".into(),
+        "nested-run --probe ".into(),
+        "--candidates".into(),
+        "probe".into(),
+    ])
+    .expect("the hidden completion request should be recognized");
+    assert_eq!(answer, "nested-run|--probe|@2\n");
+}
+
+#[derive(Cli)]
+#[allow(clippy::duplicated_attributes)]
+#[usage(
+    bin = "view-group-host",
+    unknown_flags = "error",
+    group("mode", required),
+    view("view-group-run", root = "run", global = "--left", global = "--right"),
+    view("view-group-left", root = "run", global = "--left")
+)]
+struct ViewGroupHost {
+    #[arg(long, global, group = "mode")]
+    left: bool,
+    #[arg(long, global, group = "mode")]
+    right: bool,
+    #[command(subcommand)]
+    command: ViewGroupCommand,
+}
+
+#[derive(Subcommands)]
+enum ViewGroupCommand {
+    Run,
+}
+
+struct ViewLeafValue(String);
+
+impl std::str::FromStr for ViewLeafValue {
+    type Err = std::convert::Infallible;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(Self(value.to_owned()))
+    }
+}
+
+#[derive(Args)]
+struct ViewLeafArgs {
+    #[usage(long)]
+    value: ViewLeafValue,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum ViewLeafCommand {
+    Run(ViewLeafArgs),
+    Other {
+        #[usage(long)]
+        value: ViewLeafValue,
+    },
+}
+
+#[derive(Cli)]
+#[usage(bin = "view-leaf-host", view("view-leaf", root = "run"))]
+struct ViewLeafHost {
+    #[usage(subcommand)]
+    command: ViewLeafCommand,
+}
+
+#[test]
+fn a_direct_view_does_not_require_leaf_or_sibling_values_to_default() {
+    let parsed = ViewLeafHost::parse_from_argv(&[
+        OsStr::new("view-leaf"),
+        OsStr::new("--value"),
+        OsStr::new("kept"),
+    ])
+    .expect("the promoted leaf parses its own required value");
+    let ViewLeafCommand::Run(args) = parsed.command else {
+        panic!("the view should select run")
+    };
+    assert_eq!(args.value.0, "kept");
+}
+
+#[test]
+fn executable_views_enforce_required_groups_of_carried_globals() {
+    assert!(matches!(
+        ViewGroupHost::parse_from_argv(&[OsStr::new("view-group-run")]),
+        Err(usage::Error::MissingGroup {
+            group: "mode",
+            members: &["--left", "--right"],
+        })
+    ));
+    assert!(matches!(
+        ViewGroupHost::parse_from_argv(&[OsStr::new("view-group-left")]),
+        Err(usage::Error::MissingGroup {
+            group: "mode",
+            members: &["--left"],
+        })
+    ));
+
+    let parsed =
+        ViewGroupHost::parse_from_argv(&[OsStr::new("view-group-run"), OsStr::new("--left")])
+            .expect("a carried member should satisfy its required group");
+    assert!(parsed.left);
+    assert!(!parsed.right);
+
+    let spec = ViewGroupHost::spec();
+    let route = [spec.root.cmd, spec.root.subcommands[0].cmd];
+    let page = usage::help::render_view_at_styled(
+        spec,
+        &route,
+        &spec.views[1],
+        false,
+        usage::help::Style::PLAIN,
+    )
+    .expect("the singleton projection should render");
+    assert!(page.contains("<--left>"), "{page}");
+    assert!(!page.contains("--right"), "{page}");
+}
+
 #[derive(Subcommands)]
 enum Command {
     Show(Show),
@@ -770,6 +1247,35 @@ enum UnitArgsCommand {
 struct UnitArgsCli {
     #[usage(subcommand)]
     command: UnitArgsCommand,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct NonDefaultValue(String);
+
+impl std::str::FromStr for NonDefaultValue {
+    type Err = std::convert::Infallible;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(Self(value.to_owned()))
+    }
+}
+
+#[derive(Args)]
+struct NonDefaultArgs {
+    #[usage(long)]
+    value: NonDefaultValue,
+}
+
+#[derive(Subcommands)]
+enum NonDefaultCommand {
+    Run(NonDefaultArgs),
+}
+
+#[derive(Cli)]
+#[usage(bin = "non-default")]
+struct NonDefaultCli {
+    #[usage(subcommand)]
+    command: NonDefaultCommand,
 }
 
 #[derive(Cli)]
@@ -1821,6 +2327,15 @@ fn typed_flatten_help_reaches_help_and_the_portable_spec() {
     assert!(kdl.contains("flatten_help #true"), "{kdl}");
     let portable: usage_parser::Spec = kdl.parse().unwrap();
     assert!(portable.cmd.flatten_help);
+}
+
+#[test]
+fn args_without_views_do_not_require_value_defaults() {
+    let parsed =
+        NonDefaultCli::parse_from(&[OsStr::new("run"), OsStr::new("--value"), OsStr::new("kept")])
+            .unwrap();
+    let NonDefaultCommand::Run(args) = parsed.command;
+    assert_eq!(args.value, NonDefaultValue("kept".to_owned()));
 }
 
 #[test]
