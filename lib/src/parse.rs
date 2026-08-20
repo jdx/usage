@@ -3036,6 +3036,9 @@ fn choice_error(
     custom_env: Option<&HashMap<String, String>>,
 ) -> Option<String> {
     let choices = choices?;
+    if !choices.strict {
+        return None;
+    }
     let values = choices.values_with_env(custom_env);
     if choices.matches_with_env(value, custom_env) {
         return None;
@@ -3066,7 +3069,8 @@ fn validate_choices(
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
     if is_help_arg(spec, cmd, value)
-        && choices.is_some_and(|choices| !choices.matches_with_env(value, custom_env))
+        && choices
+            .is_some_and(|choices| choices.strict && !choices.matches_with_env(value, custom_env))
     {
         errors.push(render_help_err(spec, cmd, value.len() > 2));
         return Ok(true);

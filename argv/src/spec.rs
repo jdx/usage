@@ -835,6 +835,8 @@ pub struct FlagMeta<'a> {
     /// Per-canonical presentation metadata used when emitting a lossless spec.
     pub choice_details: &'a [ChoiceMeta<'a>],
     pub ignore_case: bool,
+    /// Accept values outside `choices` while retaining the list for help and completion.
+    pub allow_unknown_choices: bool,
     /// Portable expr expression evaluated for each raw value.
     pub validate: Option<&'a str>,
     /// Message reported when validation returns false.
@@ -935,6 +937,7 @@ impl FlagMeta<'_> {
         choice_aliases: &[],
         choice_details: &[],
         ignore_case: false,
+        allow_unknown_choices: false,
         validate: None,
         validate_error: None,
         required: false,
@@ -1014,6 +1017,8 @@ pub struct ArgMeta<'a> {
     /// Per-canonical presentation metadata used when emitting a lossless spec.
     pub choice_details: &'a [ChoiceMeta<'a>],
     pub ignore_case: bool,
+    /// Accept values outside `choices` while retaining the list for help and completion.
+    pub allow_unknown_choices: bool,
     /// Portable expr expression evaluated for each raw value.
     pub validate: Option<&'a str>,
     /// Message reported when validation returns false.
@@ -1066,6 +1071,7 @@ impl ArgMeta<'_> {
         choice_aliases: &[],
         choice_details: &[],
         ignore_case: false,
+        allow_unknown_choices: false,
         validate: None,
         validate_error: None,
         required: true,
@@ -1946,7 +1952,7 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
                 meta.accepted_choices,
                 meta.choice_aliases,
                 meta.choice_details,
-                meta.ignore_case,
+                (meta.ignore_case, meta.allow_unknown_choices),
                 inner + 1,
             )?;
             indent(out, inner)?;
@@ -1962,7 +1968,7 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
             meta.accepted_choices,
             meta.choice_aliases,
             meta.choice_details,
-            meta.ignore_case,
+            (meta.ignore_case, meta.allow_unknown_choices),
             inner,
         )?;
     }
@@ -2137,7 +2143,7 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         meta.accepted_choices,
         meta.choice_aliases,
         meta.choice_details,
-        meta.ignore_case,
+        (meta.ignore_case, meta.allow_unknown_choices),
         inner,
     )?;
     indent(out, depth)?;
@@ -2210,7 +2216,7 @@ fn write_choices(
     accepted_choices: &[&str],
     aliases: &[(&str, &str)],
     details: &[ChoiceMeta<'_>],
-    ignore_case: bool,
+    policy: (bool, bool),
     depth: usize,
 ) -> core::fmt::Result {
     if choices.is_empty() && accepted_choices.is_empty() && details.is_empty() {
@@ -2218,8 +2224,12 @@ fn write_choices(
     }
     indent(out, depth)?;
     out.push_str("choices");
+    let (ignore_case, allow_unknown) = policy;
     if ignore_case {
         out.push_str(" ignore_case=#true");
+    }
+    if allow_unknown {
+        out.push_str(" strict=#false");
     }
 
     if !details.is_empty() {
@@ -3034,7 +3044,7 @@ mod tests {
             &["shown", "secret", "short", "secret-short"],
             &[("shown", "short"), ("shown", "secret-short")],
             &[],
-            false,
+            (false, false),
             0,
         )
         .unwrap();
@@ -3044,7 +3054,7 @@ mod tests {
         );
 
         out.clear();
-        write_choices(&mut out, &[], &["secret"], &[], &[], false, 0).unwrap();
+        write_choices(&mut out, &[], &["secret"], &[], &[], (false, false), 0).unwrap();
         assert_eq!(
             out, "choices {\n    choice secret hide=#true\n}\n",
             "an entirely hidden set must still be emitted"
@@ -3073,7 +3083,7 @@ mod tests {
                     aliases: &[],
                 },
             ],
-            false,
+            (false, false),
             0,
         )
         .unwrap();

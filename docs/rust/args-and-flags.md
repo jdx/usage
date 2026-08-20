@@ -73,6 +73,7 @@ jobs: Option<u32>,
 | `var_min = n` / `var_max = n`                           | Bounds on how many values a `Vec` may hold                                              |
 | `num_args = n` / `num_args = a..=b`                     | clap-compatible spelling for exact or ranged `Vec` cardinality                          |
 | `choices("a", "b")`                                     | Restrict values to a fixed set                                                          |
+| `choices_strict = false`                                | Keep choices as suggestions while accepting other values                                |
 | `value_enum`                                            | Take choices from a `#[derive(ValueEnum)]` type                                         |
 | `delimiter = ','`                                       | Split one word into several values ([Validation](/rust/validation#delimiters))          |
 | `allow_hyphen_values`                                   | Detached flag value may look like a flag, including `--`                                |
@@ -102,6 +103,19 @@ jobs: Option<u32>,
 | `setting = "key"`                                       | Bind to a config setting (generates `parse_from_with_settings`)                         |
 | `verbatim_doc_comment`                                  | Keep the doc comment's line breaks in help                                              |
 | `skip`                                                  | Not an argument; filled from `Default` when the struct is built                         |
+
+### Suggested values without strict validation
+
+Use `choices_strict = false` when the declared choices should drive help and
+completion but other values remain valid:
+
+```rust
+#[usage(long, choices("core", "git"), choices_strict = false)]
+backend: Option<String>,
+```
+
+The portable form is `choices strict=#false core git`. Strict validation remains
+the default.
 
 `#[usage(skip)]` is clap's `#[arg(skip)]`: the field stays on the struct so a rewrite can keep
 computed state beside parsed state, and nothing about it reaches the spec, the parse tables, or

@@ -6,7 +6,7 @@ use crate::error::UsageErr;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::NodeHelper;
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct SpecChoices {
     pub choices: Vec<String>,
@@ -16,9 +16,32 @@ pub struct SpecChoices {
     /// Match canonical values and aliases without regard to ASCII case.
     #[serde(default, skip_serializing_if = "crate::spec::is_false")]
     pub ignore_case: bool,
+    /// Whether values outside the declared set are rejected.
+    #[serde(
+        default = "default_strict",
+        skip_serializing_if = "crate::spec::is_true"
+    )]
+    pub strict: bool,
     #[cfg(feature = "unstable_choices_env")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
+}
+
+const fn default_strict() -> bool {
+    true
+}
+
+impl Default for SpecChoices {
+    fn default() -> Self {
+        Self {
+            choices: Vec::new(),
+            details: Vec::new(),
+            ignore_case: false,
+            strict: true,
+            #[cfg(feature = "unstable_choices_env")]
+            env: None,
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -81,6 +104,7 @@ impl SpecChoices {
                 #[cfg(feature = "unstable_choices_env")]
                 "env" => config.set_env(Some(v.ensure_string()?)),
                 "ignore_case" => config.ignore_case = v.ensure_bool()?,
+                "strict" => config.strict = v.ensure_bool()?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported choices key {k}"),
             }
         }
@@ -305,6 +329,9 @@ impl From<&SpecChoices> for KdlNode {
         }
         if arg.ignore_case {
             node.push(KdlEntry::new_prop("ignore_case", true));
+        }
+        if !arg.strict {
+            node.push(KdlEntry::new_prop("strict", false));
         }
         #[cfg(feature = "unstable_choices_env")]
         if let Some(env) = arg.env() {

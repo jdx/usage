@@ -1334,9 +1334,11 @@ above are where it lands.
       output. The markdown generator already walks the tree; a `--help-all`
       output mode is cheap, and doubles as the golden file the help-parity
       tests already want.
-- [ ] **Non-strict choices** (clap#5885) — known values complete, document and
-      suggest; an unknown value is still accepted. mise's tool names are this
-      exact shape: a registry to offer, arbitrary backends still legal.
+- [x] **Non-strict choices** (clap#5885) — `choices strict=#false` and typed
+      `choices_strict = false` keep known values in help and completion while
+      accepting unknown values. Strict validation remains the default. mise's
+      tool names are this exact shape: a registry to offer, arbitrary backends
+      still legal.
 - [ ] **Completion runtime niceties** — completions that work when the binary
       is invoked through a shell alias (clap#1764, stalled since 2020), and
       multi-segment path completion, `tar/de/inc` completing to
