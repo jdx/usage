@@ -259,6 +259,10 @@ pub struct Field {
     /// clap's `allow_hyphen_values`, and the spec's property of the same name. Only
     /// a flag that takes a value can declare it: there is nothing to take otherwise.
     pub allow_hyphen_values: bool,
+    /// Accept negative numbers without accepting every flag-like value.
+    pub allow_negative_numbers: bool,
+    /// Stop a variadic value at this token without binding the token itself.
+    pub value_terminator: Option<String>,
     /// Whether the value must be attached with `=`. clap's `require_equals`.
     pub require_equals: bool,
     /// Value used when the flag is present but no value is given.
@@ -1349,6 +1353,8 @@ impl Field {
             default_if: Vec::new(),
             delimiter: None,
             allow_hyphen_values: false,
+            allow_negative_numbers: false,
+            value_terminator: None,
             require_equals: false,
             default_missing: None,
             exclusive: false,
@@ -1460,6 +1466,8 @@ impl Field {
             default_if: Vec::new(),
             delimiter: None,
             allow_hyphen_values: false,
+            allow_negative_numbers: false,
+            value_terminator: None,
             require_equals: false,
             default_missing: None,
             exclusive: false,
@@ -1565,6 +1573,8 @@ impl Field {
             default_if: Vec::new(),
             delimiter: None,
             allow_hyphen_values: false,
+            allow_negative_numbers: false,
+            value_terminator: None,
             require_equals: false,
             default_missing: None,
             exclusive: false,
@@ -1651,6 +1661,8 @@ impl Field {
         let mut exclusive = false;
         let mut delimiter: Option<char> = None;
         let mut allow_hyphen_values = false;
+        let mut allow_negative_numbers = false;
+        let mut value_terminator = None;
         let mut require_equals = false;
         let mut default_missing = None;
         let mut required_if: Vec<String> = Vec::new();
@@ -1785,6 +1797,8 @@ impl Field {
                     "group" => group = Some(string_value(&meta)?),
                     "exclusive" => exclusive = flag_value(&meta)?,
                     "allow_hyphen_values" => allow_hyphen_values = flag_value(&meta)?,
+                    "allow_negative_numbers" => allow_negative_numbers = flag_value(&meta)?,
+                    "value_terminator" => value_terminator = Some(string_value(&meta)?),
                     "require_equals" => require_equals = flag_value(&meta)?,
                     "default_missing" => default_missing = Some(string_value(&meta)?),
                     "delimiter" => {
@@ -1877,7 +1891,8 @@ impl Field {
                                  `validate_error`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
-                                 `delimiter`, `allow_hyphen_values`, `require_equals`, \
+                                 `delimiter`, `allow_hyphen_values`, `allow_negative_numbers`, \
+                                 `value_terminator`, `require_equals`, \
                                  `default_missing`, `default_if`, \
                                  `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
@@ -2487,6 +2502,23 @@ impl Field {
                 ));
             }
         }
+        if allow_negative_numbers && matches!(shape, Shape::Bool | Shape::Count) {
+            return Err(syn::Error::new(
+                span,
+                "`allow_negative_numbers` needs a field that takes a value",
+            ));
+        }
+        if let Some(terminator) = &value_terminator {
+            if terminator.is_empty() {
+                return Err(syn::Error::new(span, "`value_terminator` cannot be empty"));
+            }
+            if shape != Shape::Many {
+                return Err(syn::Error::new(
+                    span,
+                    "`value_terminator` only changes a collection; use it on a `Vec<T>` field",
+                ));
+            }
+        }
 
         if require_equals {
             if !matches!(kind, Kind::Flag { .. }) {
@@ -2602,6 +2634,8 @@ impl Field {
             default_if,
             delimiter,
             allow_hyphen_values,
+            allow_negative_numbers,
+            value_terminator,
             require_equals,
             default_missing,
             exclusive,

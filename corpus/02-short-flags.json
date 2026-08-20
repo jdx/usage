@@ -159,14 +159,14 @@
     {
       "id": "short-exponent-number-is-a-value",
       "doc": "`-1e5` is a number, so it is a value even where unknown flags are refused. The two parsers disagreed about this when one used a float parse and the other a hand-written scanner, which is why the edges are pinned here.",
-      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\" allow_negative_numbers=#true\n",
       "argv": ["-1e5"],
       "expect": { "ok": { "args": { "offset": "-1e5" } } }
     },
     {
       "id": "short-fractional-exponent-is-a-value",
       "doc": "A signed exponent on a fraction is still a number.",
-      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\" allow_negative_numbers=#true\n",
       "argv": ["-1.5e-3"],
       "expect": { "ok": { "args": { "offset": "-1.5e-3" } } }
     },

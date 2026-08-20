@@ -30,7 +30,6 @@ fn reports_detectable_losses_with_locations() {
     for expected in [
         FidelityFeature::Environment,
         FidelityFeature::ValueHint,
-        FidelityFeature::ValueTerminator,
         FidelityFeature::GranularHide,
         FidelityFeature::ValueArity,
         FidelityFeature::DistinctValueNames,
@@ -63,14 +62,11 @@ fn reports_nested_paths_and_leaves_supported_commands_clean() {
     );
     let (spec, report) = spec_with_report(&mut nested, "ex");
     assert!(!spec.cmd.subcommands.contains_key("help"));
-    assert_eq!(report.losses().len(), 1, "{report:#?}");
-    let loss = report
-        .losses()
-        .iter()
-        .find(|loss| loss.argument.as_deref() == Some("number"))
-        .expect("nested argument loss");
-    assert_eq!(loss.command, ["ex", "run"]);
-    assert_eq!(loss.feature, FidelityFeature::AllowNegativeNumbers);
+    assert!(report.is_lossless(), "{report:#?}");
+    assert!(spec.cmd.subcommands["run"].flags[0]
+        .arg
+        .as_ref()
+        .is_some_and(|arg| arg.allow_negative_numbers));
 }
 
 #[test]

@@ -407,10 +407,15 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       parser function in the spec. clap's arbitrary `value_parser` remains inherently
       opaque to `clap_usage`, so an existing clap command must declare the equivalent
       rule when moving to the typed usage rewrite.
-- [ ] **Token-boundary controls** — `allow_negative_numbers`, `value_terminator`
-      and `dont_delimit_trailing_values`. `allow_hyphen_values` is the broader
-      answer to the first one, but accepting every dash-word is not equivalent to
-      accepting only a negative number; the other two have no spelling at all.
+- [x] **Narrow token-boundary controls** — `allow_negative_numbers` and
+      `value_terminator` now round-trip through KDL, the typed Rust derive, static
+      metadata, usage-lib, generated Go, and the clap bridge. The first accepts only
+      negative numeric tokens rather than every dash-word; the second ends a variadic
+      owner without binding the terminator.
+- [ ] **Trailing delimiter policy** — `dont_delimit_trailing_values` still has no
+      portable spelling. It is command-wide in clap and suppresses delimiter splitting
+      only after the final positional begins, so it needs an explicit command/argument
+      boundary rather than changing `delimiter` globally.
 - [ ] **Fixed arity and distinct value names** — clap can say
       `num_args(2)` with `<START> <END>`. `var_min` / `var_max` express the bound,
       and the clap bridge now preserves it for positionals and non-repeatable value
@@ -584,8 +589,8 @@ feature list is not an exhaustive audit.
 - [x] **A clap-to-spec fidelity report.** `spec_with_report` and
       `generate_with_report` return deterministic structured losses with command
       path, argument ID, feature, and source detail. The report covers detectable
-      arity/name loss, environment bindings, hidden flag aliases, value hints and
-      terminators, non-portable delimiters/defaults, granular hides, and command
+      arity/name loss, environment bindings, hidden flag aliases, value hints,
+      non-portable delimiters/defaults, granular hides, and command
       parsing/help settings. Setter-only
       state such as `requires` and `default_missing_value` remains inherently
       undetectable and is named as **usage-only** in the matrix and integration docs.

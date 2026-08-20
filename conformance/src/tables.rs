@@ -275,6 +275,12 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
             .filter(char::is_ascii)
             .map(|d| d as u8),
         allow_hyphen_values: f.allow_hyphen_values(),
+        allow_negative_numbers: f.arg.as_ref().is_some_and(|arg| arg.allow_negative_numbers),
+        value_terminator: f
+            .arg
+            .as_ref()
+            .and_then(|arg| arg.value_terminator.as_deref())
+            .map(|value| leak(value).as_bytes()),
         require_equals: f.require_equals,
         default_missing: f.default_missing.as_deref().map(|s| leak(s).as_bytes()),
         global: f.global,
@@ -291,6 +297,11 @@ fn build_arg(a: &SpecArg) -> &'static Arg<'static> {
             .filter(|_| a.var)
             .map(|max| u32::try_from(max).unwrap_or(u32::MAX)),
         delimiter: a.delimiter.filter(char::is_ascii).map(|d| d as u8),
+        allow_negative_numbers: a.allow_negative_numbers,
+        value_terminator: a
+            .value_terminator
+            .as_deref()
+            .map(|value| leak(value).as_bytes()),
         double_dash: double_dash(&a.double_dash),
     }))
 }

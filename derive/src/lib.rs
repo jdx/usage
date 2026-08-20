@@ -250,6 +250,8 @@
 //! | `exclusive` | this flag has to be given on its own, positionals included |
 //! | `delimiter = ','` | one word becomes several values; the field has to be a `Vec` |
 //! | `allow_hyphen_values` | a flag's detached value may look like a flag, including `--` |
+//! | `allow_negative_numbers` | accept negative numeric tokens without accepting every dash-word |
+//! | `value_terminator = ";"` | end a variadic field without storing the terminator |
 //! | `require_equals` | `--flag=value` is accepted and `--flag value` is not |
 //! | `default_missing = "always"` | the value when the flag is given with none |
 //! | `required_if = "--other"` | a flag whose presence makes this one necessary |

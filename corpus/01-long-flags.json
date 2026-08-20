@@ -109,8 +109,8 @@
     },
     {
       "id": "long-value-accepts-negative-number",
-      "doc": "A negative number is a value, not a flag, so it may be given detached. Without this exception no CLI could accept `--offset -1`.",
-      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--offset <n>\"\n",
+      "doc": "A flag can opt into accepting a negative number as its detached value without accepting every dash-prefixed word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--offset <n>\" allow_negative_numbers=#true\n",
       "argv": ["--offset", "-1"],
       "expect": { "ok": { "flags": { "offset": "-1" } } }
     },
@@ -217,8 +217,8 @@
     },
     {
       "id": "unknown-flags-error-still-takes-negative-numbers",
-      "doc": "Even when refusing unknown flags, a negative number is a value. This is the carve-out oclif had to add back after making rejection its default.",
-      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\"\n",
+      "doc": "Even when refusing unknown flags, a positional can opt into the narrower negative-number carve-out.",
+      "spec": "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\narg \"[offset]\" allow_negative_numbers=#true\n",
       "argv": ["-1"],
       "expect": { "ok": { "args": { "offset": "-1" } } }
     },

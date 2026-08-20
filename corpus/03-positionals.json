@@ -145,8 +145,8 @@
     },
     {
       "id": "arg-value-looks-like-negative-number",
-      "doc": "A negative number is a value, not an unknown flag. A leading `-` followed by a digit cannot begin a flag name, so the token is offered to the next argument.",
-      "spec": "name \"ex\"\nbin \"ex\"\narg \"<offset>\"\n",
+      "doc": "A positional can opt into treating a negative number as a value rather than an unknown flag.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"<offset>\" allow_negative_numbers=#true\n",
       "argv": ["-1"],
       "expect": {
         "ok": {

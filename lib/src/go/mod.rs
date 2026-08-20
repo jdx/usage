@@ -1171,6 +1171,14 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
     if flag.allow_hyphen_values() {
         fields.push("AllowHyphenValues: true".to_string());
     }
+    if let Some(arg) = &flag.arg {
+        if arg.allow_negative_numbers {
+            fields.push("AllowNegativeNumbers: true".to_string());
+        }
+        if let Some(terminator) = &arg.value_terminator {
+            fields.push(format!("ValueTerminator: {}", go_string(terminator)));
+        }
+    }
     if flag.require_equals {
         fields.push("RequireEquals: true".to_string());
     }
@@ -1193,6 +1201,12 @@ fn arg_literal(arg: &SpecArg, named: &Named) -> String {
         if let Some(max) = arg.var_max {
             fields.push(format!("VarMax: {}", clamp_var_max(max)));
         }
+    }
+    if arg.allow_negative_numbers {
+        fields.push("AllowNegativeNumbers: true".to_string());
+    }
+    if let Some(terminator) = &arg.value_terminator {
+        fields.push(format!("ValueTerminator: {}", go_string(terminator)));
     }
     let double_dash = match arg.double_dash {
         SpecDoubleDashChoices::Required => Some("argv.DoubleDashRequired"),
