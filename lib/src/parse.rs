@@ -1980,13 +1980,29 @@ fn parse_partial_with_env(
     // Validate var_min/var_max constraints for variadic flags. These are bounds on
     // repeated occurrences of the flag itself. Bounds on its nested argument are enforced
     // by binding once per occurrence, where the per-occurrence count is still available.
-    for (flag, value) in &out.flags {
+    for flag in unique_flags(out.available_flags.values()) {
         if flag.var {
-            let count = match value {
-                ParseValue::MultiString(values) => values.len(),
-                ParseValue::MultiBool(values) => values.len(),
-                _ => continue,
+            let bound = match out.flags.get(flag) {
+                Some(ParseValue::MultiString(values)) => values.len(),
+                Some(ParseValue::MultiBool(values)) => values.len(),
+                Some(_) => 1,
+                None => 0,
             };
+            // A partial parse deliberately leaves the final value-optional flag pending so
+            // completion can still answer for it. It is nevertheless a real occurrence for
+            // the repeated flag's bounds; the full parser closes it just after this phase.
+            let pending = out
+                .flag_awaiting_value
+                .iter()
+                .filter(|pending| {
+                    Arc::ptr_eq(pending, flag)
+                        && (pending.value_optional || pending.default_missing.is_some())
+                })
+                .count();
+            let count = bound + pending;
+            if count == 0 {
+                continue;
+            }
             if let Some(min) = flag.var_min {
                 if count < min {
                     out.errors.push(UsageErr::VarFlagTooFew {
@@ -2859,8 +2875,19 @@ fn try_bind_default_missing(
             // Presence in the map distinguishes this from an absent flag; an
             // empty collection distinguishes it from an explicitly empty
             // `--flag=` string without inventing a sentinel value.
-            let collecting = flag.var || flag.arg.as_ref().is_some_and(|arg| arg.var);
-            if collecting {
+            let variadic_value = flag.arg.as_ref().is_some_and(|arg| arg.var);
+            if flag.var {
+                // A repeated bare occurrence is still an occurrence. The string collection
+                // uses an empty value for it, just as the concrete `default_missing` path
+                // pushes one value per occurrence; otherwise bounds and consumers silently
+                // lose every bare repeat after the first.
+                flags
+                    .entry(flag)
+                    .or_insert_with(|| ParseValue::MultiString(Vec::new()))
+                    .try_as_multi_string_mut()
+                    .unwrap()
+                    .push(String::new());
+            } else if variadic_value {
                 // A variadic occurrence stays pending after each value. Reaching the next
                 // flag (or EOF) closes that same occurrence; it must not erase what it took.
                 flags
@@ -7706,6 +7733,64 @@ flag "--verbose"
             .map(|(_, value)| value)
             .unwrap();
         assert!(matches!(tag, ParseValue::MultiString(values) if values == &["one", "two"]));
+    }
+
+    #[test]
+    fn test_repeatable_bare_optional_values_count_each_occurrence() {
+        let spec = r#"
+flag "--tag [TAG]" var=#true var_min=2 var_max=2 value_optional=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--tag", "--tag"])).unwrap();
+        let tag = parsed
+            .flags
+            .iter()
+            .find(|(flag, _)| flag.name == "tag")
+            .map(|(_, value)| value)
+            .unwrap();
+        assert!(matches!(tag, ParseValue::MultiString(values) if values == &["", ""]));
+
+        assert!(parse(&spec, &input(&["test", "--tag"])).is_err());
+        assert!(parse(&spec, &input(&["test", "--tag", "--tag", "--tag"])).is_err());
+    }
+
+    #[test]
+    fn test_repeatable_variadic_optional_values_do_not_gain_bare_occurrences() {
+        let spec = r#"
+flag "--tag [TAG]..." var=#true value_optional=#true
+flag "--verbose"
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        for argv in [
+            &["test", "--tag", "one", "two"][..],
+            &["test", "--tag", "one", "two", "--verbose"][..],
+            &["test", "--tag", "one", "--tag", "two"][..],
+        ] {
+            let parsed = parse(&spec, &input(argv)).unwrap();
+            let tag = parsed
+                .flags
+                .iter()
+                .find(|(flag, _)| flag.name == "tag")
+                .map(|(_, value)| value)
+                .unwrap();
+            assert!(
+                matches!(tag, ParseValue::MultiString(values) if values == &["one", "two"]),
+                "argv={argv:?}: {tag:?}"
+            );
+        }
+
+        let bare = parse(&spec, &input(&["test", "--tag", "--verbose"])).unwrap();
+        let tag = bare
+            .flags
+            .iter()
+            .find(|(flag, _)| flag.name == "tag")
+            .map(|(_, value)| value)
+            .unwrap();
+        assert!(matches!(tag, ParseValue::MultiString(values) if values == &[""]));
     }
 
     #[test]
