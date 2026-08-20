@@ -1429,8 +1429,9 @@ docs.
       argument, prefix filtering after the restart, and flags remaining available.
       This is the observable contract restart tokens have while a line is partial;
       successful binding remains one invocation at a time.
-- [ ] **Mounts** — `mount` resolves a sub-spec by running a command mid-parse,
-      which makes a vector depend on an external process. Needs stubbing.
+- [x] **Mounts** — corpus vectors inject deterministic stdout by exact `run`
+      declaration, so usage-lib exercises discovery without spawning a process
+      and static-table runners compose the same mounted sub-spec before binding.
 - [x] **Completion parsing** — `corpus/complete` is the separate partial-input
       corpus, with line/cursor positions, candidates, path fallback, and explicit
       reference-agreement labels. It runs against usage-argv and usage-cli.

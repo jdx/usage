@@ -18,6 +18,7 @@ use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use log::{info, warn};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
 use std::path::{Path, PathBuf};
@@ -114,6 +115,44 @@ pub struct Spec {
 }
 
 impl Spec {
+    /// Resolve every mount from supplied command outputs without spawning processes.
+    ///
+    /// This is intended for deterministic generators and conformance harnesses. The
+    /// map is keyed by each mount's exact `run` declaration. Missing entries are an
+    /// error, so injecting a partial view cannot silently execute the remainder.
+    pub fn resolve_mount_outputs(
+        &mut self,
+        outputs: &HashMap<String, String>,
+    ) -> Result<(), UsageErr> {
+        self.resolve_mount_outputs_at_root(outputs, true)
+    }
+
+    pub(crate) fn resolve_mount_outputs_at_root(
+        &mut self,
+        outputs: &HashMap<String, String>,
+        apply_default_subcommand: bool,
+    ) -> Result<(), UsageErr> {
+        fn resolve(
+            cmd: &mut SpecCommand,
+            outputs: &HashMap<String, String>,
+            skip_mounts: bool,
+        ) -> Result<(), UsageErr> {
+            if !skip_mounts && !cmd.mounts.is_empty() {
+                cmd.mount(&[], Some(outputs))?;
+                cmd.mounts.clear();
+            }
+            for subcommand in cmd.subcommands.values_mut() {
+                resolve(subcommand, outputs, false)?;
+            }
+            Ok(())
+        }
+
+        let default_outranks_root_mounts = apply_default_subcommand
+            && self.default_subcommand.is_some()
+            && !self.cmd.mounts.iter().any(|mount| mount.overrides_default);
+        resolve(&mut self.cmd, outputs, default_outranks_root_mounts)
+    }
+
     /// Parse a spec from a file.
     ///
     /// Automatically detects whether the file is:
@@ -1466,5 +1505,21 @@ echo "hello"
         assert_eq!(spec.name, "my-script.usage.kdl");
         assert_eq!(spec.bin, "my-script.usage.kdl");
         assert!(spec.cmd.name.is_empty());
+    }
+
+    #[test]
+    fn injected_nested_mounts_ignore_the_mounted_specs_root_default() {
+        let mut spec: Spec = "mount run=outer".parse().unwrap();
+        let outputs = HashMap::from([
+            (
+                "outer".to_string(),
+                "default_subcommand run\nmount run=nested\ncmd run".to_string(),
+            ),
+            ("nested".to_string(), "cmd leaf".to_string()),
+        ]);
+
+        spec.resolve_mount_outputs(&outputs).unwrap();
+
+        assert!(spec.cmd.subcommands.contains_key("leaf"));
     }
 }

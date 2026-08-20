@@ -873,7 +873,11 @@ impl SpecCommand {
         self.subcommands.get(name)
     }
 
-    pub(crate) fn mount(&mut self, global_flag_args: &[String]) -> Result<(), UsageErr> {
+    pub(crate) fn mount(
+        &mut self,
+        global_flag_args: &[String],
+        injected: Option<&HashMap<String, String>>,
+    ) -> Result<(), UsageErr> {
         for mount in self.mounts.iter().cloned().collect_vec() {
             let cmd = if global_flag_args.is_empty() {
                 mount.run.clone()
@@ -890,8 +894,19 @@ impl SpecCommand {
                 // Join tokens back into a properly quoted command string
                 shell_words::join(tokens)
             };
-            let output = sh(&cmd)?;
+            let output = match injected {
+                Some(outputs) => outputs
+                    .get(&mount.run)
+                    .cloned()
+                    .ok_or_else(|| UsageErr::MissingMountOutput(mount.run.clone()))?,
+                None => sh(&cmd)?,
+            };
             let mut spec: Spec = output.parse()?;
+            if let Some(outputs) = injected {
+                // A mounted spec's root is merged into this command, so its root-only
+                // default-subcommand precedence does not apply while composing mounts.
+                spec.resolve_mount_outputs_at_root(outputs, false)?;
+            }
             // The subcommands emitted by a mount describe another program, so mark them (and
             // everything below them) as mounted. See `SpecCommand::mounted`.
             for cmd in spec.cmd.subcommands.values_mut() {

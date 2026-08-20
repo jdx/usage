@@ -62,7 +62,11 @@ pub fn run(vector: &Vector) -> Observed {
     let mut input = vec![vector.argv0.clone().unwrap_or_else(|| spec.bin.clone())];
     input.extend(vector.argv.iter().cloned());
 
-    match Parser::new(&spec).with_env(env).parse(&input) {
+    match Parser::new(&spec)
+        .with_env(env)
+        .with_mount_outputs(vector.mounts.clone().into_iter().collect())
+        .parse(&input)
+    {
         Ok(out) => {
             let cmd = out
                 .cmds
