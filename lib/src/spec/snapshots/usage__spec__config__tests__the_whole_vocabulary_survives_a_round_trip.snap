@@ -96,6 +96,9 @@ expression: "serde_json::to_string_pretty(&spec.config).unwrap()"
         "HK_JOBS",
         "HK_JOB"
       ],
+      "deprecated_envs": [
+        "HK_JOBS_OLD"
+      ],
       "cli": [
         "--jobs",
         "-j"

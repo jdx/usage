@@ -132,6 +132,14 @@ fn prop_meta(key: &str, prop: &SpecConfigProp, problems: &mut Vec<String>) -> St
         let list: Vec<String> = envs.iter().map(|env| rust_str(env)).collect();
         let _ = writeln!(fields, "        envs: &[{}],", list.join(", "));
     }
+    if !prop.deprecated_envs.is_empty() {
+        let list: Vec<String> = prop
+            .deprecated_envs
+            .iter()
+            .map(|env| rust_str(env))
+            .collect();
+        let _ = writeln!(fields, "        deprecated_envs: &[{}],", list.join(", "));
+    }
     if !prop.cli.is_empty() {
         let flags: Vec<String> = prop.cli.iter().map(|flag| rust_str(flag)).collect();
         let _ = writeln!(fields, "        cli: &[{}],", flags.join(", "));

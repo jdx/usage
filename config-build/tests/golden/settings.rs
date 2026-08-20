@@ -30,6 +30,7 @@ pub static SETTINGS_PROPS: &[::usage_config::PropMeta] = &[
     ::usage_config::PropMeta {
         default: Some(::usage_config::Const::Int(4)),
         envs: &["HK_JOBS", "HK_JOB"],
+        deprecated_envs: &["HK_JOBS_OLD"],
         cli: &["--jobs", "-j"],
         bindings: &[("git", "hk.jobs")],
         help: Some("How many jobs to run at once"),
