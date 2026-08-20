@@ -3846,6 +3846,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .effect
         .clone()
         .unwrap_or_else(|| quote!(::core::option::Option::None));
+    let hide = cli.hide;
     quote! {
         #[doc(hidden)]
         #[allow(
@@ -3903,6 +3904,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 deprecated_warn_at: #deprecated_warn_at,
                 deprecated_remove_at: #deprecated_remove_at,
                 hidden_aliases: &[#(#hidden_aliases),*],
+                hide: #hide,
                 restart_token: #restart_token,
                 subcommand_required: #subcommand_required,
                 subcommand_help_heading: #subcommand_help_heading,
@@ -4378,7 +4380,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         before_long_help: #before_long_help,
                         after_help: #after_help,
                         after_long_help: #after_long_help,
-                        hide: #hide,
+                        hide: #hide || <#ty as usage_argv::spec::CommandArgs>::META.hide,
                         help_heading: #help_heading,
                         display_order: #display_order,
                         hidden_aliases: &#hidden_name,
