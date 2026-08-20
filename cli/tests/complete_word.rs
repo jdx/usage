@@ -695,6 +695,28 @@ complete "command" type="command_args"
 }
 
 #[test]
+fn complete_word_command_args_restarts_with_executables() {
+    let usage = cargo::cargo_bin!("usage");
+    let executable = usage.file_name().unwrap().to_string_lossy().into_owned();
+    let spec = r#"
+name "mycli"
+bin "mycli"
+cmd "run" restart_token=":::" {
+    arg "<COMMAND>..." double_dash="automatic"
+}
+complete "command" type="command_args"
+"#;
+    Command::new(usage)
+        .args([
+            "cw", "--shell", "fish", "--spec", spec, "--", "mycli", "run", "usage", ":::", "",
+        ])
+        .env("PATH", usage.parent().unwrap())
+        .assert()
+        .success()
+        .stdout(contains(executable));
+}
+
+#[test]
 fn complete_word_subcommands_without_shell() {
     let mut cmd = cmd("basic.usage.kdl", None);
     cmd.args(["plugins", "install"]);
