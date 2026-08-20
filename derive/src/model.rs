@@ -290,8 +290,11 @@ pub struct Field {
     pub group: Option<String>,
     /// Flags whose presence makes this one necessary.
     pub required_if: Vec<String>,
+    pub required_if_eq: Vec<ConditionalValue>,
+    pub required_if_eq_all: Vec<ConditionalValue>,
     /// Flags whose presence makes this one unnecessary.
     pub required_unless: Vec<String>,
+    pub required_unless_all: Vec<String>,
     pub hide: bool,
     /// Whether the flag may be given more than once, taking one value each time.
     ///
@@ -306,6 +309,12 @@ pub struct Field {
 pub struct ConditionalRequirement {
     pub value: String,
     pub requires: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConditionalValue {
+    pub selector: String,
+    pub value: String,
 }
 
 /// A default that applies when another flag is given.
@@ -963,7 +972,7 @@ impl Cli {
     }
 
     pub fn field_for_selector(&self, selector: &str) -> Option<&Field> {
-        self.fields.iter().find(|field| {
+        let matches = |field: &&Field| {
             match &field.kind {
                 Kind::Flag {
                     longs,
@@ -986,7 +995,24 @@ impl Cli {
                 }
                 _ => false,
             }
-        })
+        };
+        if selector.starts_with('-') {
+            return self.fields.iter().find(matches);
+        }
+
+        // The portable selector vocabulary gives bare words to positionals and dashed
+        // spellings to flags. Accept clap's bare argument IDs only as a fallback, after a
+        // positional has had the unambiguous portable meaning.
+        self.fields
+            .iter()
+            .find(|field| matches!(field.kind, Kind::Arg { .. }) && matches(field))
+            .or_else(|| {
+                self.fields.iter().find(|field| {
+                    matches!(field.kind, Kind::Flag { .. })
+                        && (selector == field.name
+                            || selector == to_kebab(&field.ident.to_string()))
+                })
+            })
     }
 
     /// Reject declarations that would compile into a CLI nobody could use.
@@ -1209,6 +1235,7 @@ impl Cli {
                 ("requires", &field.requires),
                 ("required_if", &field.required_if),
                 ("required_unless", &field.required_unless),
+                ("required_unless_all", &field.required_unless_all),
             ] {
                 for selector in selectors {
                     let Some(target) = self.field_for_selector(selector) else {
@@ -1231,6 +1258,29 @@ impl Cli {
                         return Err(syn::Error::new(
                             field.span,
                             format!("`{option} = \"{selector}\"` names its own field"),
+                        ));
+                    }
+                }
+            }
+            for (option, conditions) in [
+                ("required_if_eq", &field.required_if_eq),
+                ("required_if_eq_all", &field.required_if_eq_all),
+            ] {
+                for condition in conditions {
+                    let selector = &condition.selector;
+                    let Some(target) = self.field_for_selector(selector) else {
+                        if has_flatten {
+                            continue;
+                        }
+                        return Err(syn::Error::new(
+                            field.span,
+                            format!("`{option}` names no argument `{selector}` on this command"),
+                        ));
+                    };
+                    if target.ident == field.ident {
+                        return Err(syn::Error::new(
+                            field.span,
+                            format!("`{option}` names its own field"),
                         ));
                     }
                 }
@@ -1379,7 +1429,10 @@ impl Field {
             exclusive: false,
             group: None,
             required_if: Vec::new(),
+            required_if_eq: Vec::new(),
+            required_if_eq_all: Vec::new(),
             required_unless: Vec::new(),
+            required_unless_all: Vec::new(),
             hide: false,
             repeatable: false,
             span,
@@ -1495,7 +1548,10 @@ impl Field {
             exclusive: false,
             group: None,
             required_if: Vec::new(),
+            required_if_eq: Vec::new(),
+            required_if_eq_all: Vec::new(),
             required_unless: Vec::new(),
+            required_unless_all: Vec::new(),
             hide: false,
             repeatable: false,
             span,
@@ -1605,7 +1661,10 @@ impl Field {
             exclusive: false,
             group: None,
             required_if: Vec::new(),
+            required_if_eq: Vec::new(),
+            required_if_eq_all: Vec::new(),
             required_unless: Vec::new(),
+            required_unless_all: Vec::new(),
             hide: false,
             repeatable: false,
             span,
@@ -1693,7 +1752,10 @@ impl Field {
         let mut require_equals = false;
         let mut default_missing = None;
         let mut required_if: Vec<String> = Vec::new();
+        let mut required_if_eq: Vec<ConditionalValue> = Vec::new();
+        let mut required_if_eq_all: Vec<ConditionalValue> = Vec::new();
         let mut required_unless: Vec<String> = Vec::new();
+        let mut required_unless_all: Vec<String> = Vec::new();
 
         for attr in attrs(&field.attrs) {
             for meta in nested(attr)? {
@@ -1814,9 +1876,11 @@ impl Field {
                     // Both spellings the spec has: one target as a value, several as a
                     // list. A flag selector never contains a comma, so unlike `choices`
                     // there is nothing to lose by accepting the shorter form.
-                    "overrides" => overrides = selectors(&meta)?,
-                    "conflicts" => conflicts = selectors(&meta)?,
-                    "requires" => requires = selectors(&meta)?,
+                    "overrides" => overrides.extend(selectors(&meta)?),
+                    "conflicts" | "conflicts_with" | "conflicts_with_all" => {
+                        conflicts.extend(selectors(&meta)?);
+                    }
+                    "requires" | "requires_all" => requires.extend(selectors(&meta)?),
                     "requires_if" => requires_if.push(requirement_if(&meta)?),
                     "requires_ifs" => requires_if.extend(requirements_if(&meta)?),
                     "default_if" => default_if.push(default_if_attr(&meta)?),
@@ -1842,7 +1906,20 @@ impl Field {
                         delimiter = Some(c);
                     }
                     "required_if" => required_if = selectors(&meta)?,
+                    "required_if_eq" => required_if_eq.push(required_if_eq_attr(&meta)?),
+                    "required_if_eq_any" => {
+                        required_if_eq.extend(required_if_eq_many_attr(&meta)?);
+                    }
+                    "required_if_eq_all" => {
+                        required_if_eq_all.extend(required_if_eq_many_attr(&meta)?);
+                    }
                     "required_unless" => required_unless = selectors(&meta)?,
+                    "required_unless_present" | "required_unless_present_any" => {
+                        required_unless = selectors(&meta)?;
+                    }
+                    "required_unless_present_all" => {
+                        required_unless_all = selectors(&meta)?;
+                    }
                     "value_enum" => value_enum = flag_value(&meta)?,
                     "var_min" => var_min = Some(int_value(&meta)?),
                     "var_max" => var_max = Some(int_value(&meta)?),
@@ -2278,16 +2355,11 @@ impl Field {
                 "`negate` names a second long form, so the field needs a `long`",
             ));
         }
-        // Most relationship families still live on flags. Pairwise conflicts also live
-        // on positionals, matching clap's argument-id model and the spec's bare selector.
-        for (option, selectors) in [
-            ("overrides", &overrides),
-            ("conflicts", &conflicts),
-            ("requires", &requires),
-            ("required_if", &required_if),
-            ("required_unless", &required_unless),
-        ] {
-            if !selectors.is_empty() && !is_flag && option != "conflicts" {
+        // Overrides change token binding and therefore still live on flags. The
+        // post-parse relationship families use argument selectors and work for both
+        // flags and positionals, matching clap's argument-id model.
+        for (option, selectors) in [("overrides", &overrides)] {
+            if !selectors.is_empty() && !is_flag {
                 return Err(syn::Error::new(
                     span,
                     format!(
@@ -2300,8 +2372,7 @@ impl Field {
         if !requires_if.is_empty() && !is_flag {
             return Err(syn::Error::new(
                 span,
-                "`requires_if` describes a relationship between flags, so the field \
-                 needs a `long` or a `short`",
+                "`requires_if` describes a relationship between flags, so the field needs a `long` or a `short`",
             ));
         }
         if !default_if.is_empty() && !is_flag {
@@ -2355,7 +2426,9 @@ impl Field {
         // `required_unless` says the field may be absent when another flag stands in for
         // it. A bare `String` has nowhere to put absent, so its type would keep claiming
         // the value is mandatory and the exception could never take effect.
-        if !required_unless.is_empty() && shape == Shape::Required {
+        if (!required_unless.is_empty() || !required_unless_all.is_empty())
+            && shape == Shape::Required
+        {
             return Err(syn::Error::new(
                 span,
                 "`required_unless` says this may be left out, so the field needs \
@@ -2512,10 +2585,13 @@ impl Field {
         if required_collection {
             let contradiction = if optional_collection {
                 Some("an `Option<Vec<_>>` says the whole collection may be absent")
-            } else if !required_if.is_empty() {
-                Some("`required_if` says it is required only sometimes")
-            } else if !required_unless.is_empty() {
-                Some("`required_unless` says it is required only sometimes")
+            } else if !required_if.is_empty()
+                || !required_if_eq.is_empty()
+                || !required_if_eq_all.is_empty()
+            {
+                Some("a `required_if` condition says it is required only sometimes")
+            } else if !required_unless.is_empty() || !required_unless_all.is_empty() {
+                Some("a `required_unless` condition says it is required only sometimes")
             } else {
                 None
             };
@@ -2755,7 +2831,10 @@ impl Field {
             exclusive,
             group,
             required_if,
+            required_if_eq,
+            required_if_eq_all,
             required_unless,
+            required_unless_all,
             hide,
             repeatable,
             span,
@@ -3144,6 +3223,78 @@ fn requirements_if(meta: &Meta) -> syn::Result<Vec<ConditionalRequirement>> {
             let value = string_expr(elems.next().expect("length checked"))?;
             let requires = string_expr(elems.next().expect("length checked"))?;
             Ok(ConditionalRequirement { value, requires })
+        })
+        .collect()
+}
+
+fn required_if_eq_attr(meta: &Meta) -> syn::Result<ConditionalValue> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`required_if_eq` takes a selector and value",
+        ));
+    };
+    let args = list.parse_args_with(
+        syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+    )?;
+    if args.len() != 2 {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`required_if_eq` takes exactly a selector and value",
+        ));
+    }
+    let mut args = args.into_iter();
+    Ok(ConditionalValue {
+        selector: args.next().expect("length checked").value(),
+        value: args.next().expect("length checked").value(),
+    })
+}
+
+fn required_if_eq_many_attr(meta: &Meta) -> syn::Result<Vec<ConditionalValue>> {
+    let expressions: Vec<syn::Expr> = match meta {
+        Meta::List(list) => list
+            .parse_args_with(
+                syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+            )?
+            .into_iter()
+            .collect(),
+        Meta::NameValue(value) => match &value.value {
+            syn::Expr::Array(array) => array.elems.iter().cloned().collect(),
+            other => {
+                return Err(syn::Error::new_spanned(
+                    other,
+                    "expected an array of `(selector, value)` pairs",
+                ));
+            }
+        },
+        Meta::Path(_) => Vec::new(),
+    };
+    if expressions.is_empty() {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "expected at least one `(selector, value)` pair",
+        ));
+    }
+    expressions
+        .into_iter()
+        .map(|expr| {
+            let syn::Expr::Tuple(pair) = expr else {
+                return Err(syn::Error::new_spanned(
+                    expr,
+                    "expected a `(selector, value)` pair",
+                ));
+            };
+            if pair.elems.len() != 2 {
+                return Err(syn::Error::new_spanned(
+                    pair,
+                    "expected a `(selector, value)` pair",
+                ));
+            }
+            let mut elems = pair.elems.into_iter();
+            Ok(ConditionalValue {
+                selector: string_expr(elems.next().expect("length checked"))?,
+                value: string_expr(elems.next().expect("length checked"))?,
+            })
         })
         .collect()
 }
@@ -4276,7 +4427,7 @@ mod tests {
     }
 
     #[test]
-    fn a_selector_resolves_by_long_short_or_negation() {
+    fn a_selector_resolves_by_clap_id_long_short_or_negation() {
         let cli = cli(r#"
             struct Ex {
                 #[usage(long, negate = "no-color")]
@@ -4296,9 +4447,9 @@ mod tests {
         assert_eq!(named("-f").as_deref(), Some("force"));
         assert_eq!(named("--force").as_deref(), Some("force"));
         assert_eq!(named("--nope"), None);
-        // Not a name: `-fx` is two flags bundled, and a bare word is not a selector.
+        // `-fx` is two flags bundled. A bare word is the clap argument ID.
         assert_eq!(named("-fx"), None);
-        assert_eq!(named("force"), None);
+        assert_eq!(named("force").as_deref(), Some("force"));
     }
 
     #[test]
@@ -4634,6 +4785,45 @@ mod tests {
         "#,
         );
         assert!(err.contains("names no flag"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn repeated_relationship_attributes_accumulate() {
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, conflicts_with = "raw", conflicts_with = "tail")]
+                json: bool,
+                #[usage(long)]
+                raw: bool,
+                #[usage(long)]
+                tail: bool,
+            }
+        "#)
+        .expect("repeated selectors should compile");
+
+        assert_eq!(cli.fields[0].conflicts, ["raw", "tail"]);
+    }
+
+    #[test]
+    fn a_bare_selector_prefers_a_positional_to_a_clap_flag_id() {
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long)]
+                file: bool,
+                #[usage(name = "file")]
+                input: Option<String>,
+            }
+        "#)
+        .expect("the names occupy distinct selector namespaces");
+
+        assert!(matches!(
+            cli.field_for_selector("file").map(|field| &field.kind),
+            Some(Kind::Arg { .. })
+        ));
+        assert!(matches!(
+            cli.field_for_selector("--file").map(|field| &field.kind),
+            Some(Kind::Flag { .. })
+        ));
     }
 
     #[test]
@@ -6118,6 +6308,50 @@ mod tests {
             err.contains("make it an `Option`"),
             "unhelpful message: {err}"
         );
+
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long)]
+                url: Option<String>,
+                #[usage(long)]
+                stdin: bool,
+                #[usage(long, required_unless_present_all = ["--url", "--stdin"])]
+                file: String,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("make it an `Option`"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn required_collection_rejects_every_conditional_requirement_family() {
+        for condition in [
+            "required_if = \"--mode\"",
+            "required_if_eq(\"--mode\", \"fast\")",
+            "required_if_eq_all = [(\"--mode\", \"fast\")]",
+            "required_unless = \"--mode\"",
+            "required_unless_present_all = [\"--mode\"]",
+        ] {
+            let source = format!(
+                r#"
+                struct Ex {{
+                    #[usage(long)]
+                    mode: Option<String>,
+                    #[usage(long, required, {condition})]
+                    item: Vec<String>,
+                }}
+            "#
+            );
+            let err = rejection(&source);
+            assert!(
+                err.contains("required only sometimes"),
+                "{condition} produced an unhelpful message: {err}"
+            );
+        }
     }
 
     #[test]

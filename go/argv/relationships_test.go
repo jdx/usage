@@ -217,6 +217,55 @@ func TestValueConditionalRequirements(t *testing.T) {
 	}
 }
 
+func TestCompleteRelationshipFamilies(t *testing.T) {
+	all := []uint64{keyFile, keyStdin, keyURL}
+	values := func(key uint64) []string {
+		switch key {
+		case keyStdin:
+			return []string{"remote"}
+		case keyURL:
+			return []string{"global"}
+		default:
+			return nil
+		}
+	}
+
+	meta := pair(nil, nil, "")
+	meta[0].RequiredIfEq = []ValueCondition{{Key: keyStdin, Value: "remote"}}
+	if err := CheckRelationshipsWithValues(meta, all, set(keyStdin), values); err == nil {
+		t.Fatal("a matching any-value condition should make file required")
+	}
+	meta[0].RequiredIfEq = nil
+	meta[0].RequiredIfEqAll = []ValueCondition{
+		{Key: keyStdin, Value: "remote"},
+		{Key: keyURL, Value: "global"},
+	}
+	if err := CheckRelationshipsWithValues(meta, all, set(keyStdin), values); err != nil {
+		t.Fatalf("one of two all-value conditions should not require file: %v", err)
+	}
+	if err := CheckRelationshipsWithValues(meta, all, set(keyStdin, keyURL), values); err == nil {
+		t.Fatal("both all-value conditions should make file required")
+	}
+
+	meta[0].RequiredIfEqAll = nil
+	meta[0].RequiredUnlessAll = []uint64{keyStdin, keyURL}
+	if err := CheckRelationships(meta, all, set(keyStdin)); err == nil {
+		t.Fatal("one of two required-unless-all partners is insufficient")
+	}
+	if err := CheckRelationships(meta, all, set(keyStdin, keyURL)); err != nil {
+		t.Fatalf("every required-unless-all partner should waive file: %v", err)
+	}
+
+	meta[0].RequiredUnlessAll = nil
+	meta[2].Requires = []uint64{keyFile, keyStdin}
+	if err := CheckRelationships(meta, all, set(keyURL, keyFile)); err == nil {
+		t.Fatal("requires_all should report the unsatisfied stdin partner")
+	}
+	if err := CheckRelationships(meta, all, set(keyURL, keyFile, keyStdin)); err != nil {
+		t.Fatalf("requires_all should accept every satisfied partner: %v", err)
+	}
+}
+
 func TestRelationshipValuesNormalizesBooleans(t *testing.T) {
 	m := &Meta{RequiresIfBoolean: true}
 	cases := []struct {

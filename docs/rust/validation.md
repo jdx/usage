@@ -28,7 +28,7 @@ are `VarTooFew`/`VarTooMany`. For enum-shaped values prefer
 
 ## Flag relations
 
-`conflicts`, `requires`, `overrides`, `required_if`, and `required_unless` relate one flag to
+`conflicts`, `requires`, `required_if`, `required_if_eq`, and `required_unless` relate arguments to
 another. Targets are named the way the KDL spec names them (`"--long"` or `"-s"`), and naming a
 flag that doesn't exist is a compile error:
 

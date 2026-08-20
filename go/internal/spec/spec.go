@@ -212,17 +212,26 @@ type Flag struct {
 	HelpLong      string   `json:"help_long"`
 	HelpHeading   string   `json:"help_heading"`
 	// The four that name another flag. They arrive as written, dashes included.
-	Conflicts      []string     `json:"conflicts"`
-	Overrides      []string     `json:"overrides"`
-	RequiredIf     []string     `json:"required_if"`
-	RequiredUnless []string     `json:"required_unless"`
-	RequiresIf     []RequiresIf `json:"requires_if"`
-	DefaultIf      []DefaultIf  `json:"default_if"`
-	RequireEquals  bool         `json:"require_equals"`
+	Conflicts         []string       `json:"conflicts"`
+	Overrides         []string       `json:"overrides"`
+	RequiredIf        []string       `json:"required_if"`
+	RequiredIfEq      []RequiredIfEq `json:"required_if_eq"`
+	RequiredIfEqAll   []RequiredIfEq `json:"required_if_eq_all"`
+	RequiredUnless    []string       `json:"required_unless"`
+	RequiredUnlessAll []string       `json:"required_unless_all"`
+	Requires          []string       `json:"requires"`
+	RequiresIf        []RequiresIf   `json:"requires_if"`
+	DefaultIf         []DefaultIf    `json:"default_if"`
+	RequireEquals     bool           `json:"require_equals"`
 	// Empty means unset: usage-lib stores Option, and a missing default of "" is
 	// not carried across the lowering. The corpus never uses one.
 	DefaultMissing string `json:"default_missing"`
 	Arg            *Arg   `json:"arg"`
+}
+
+type RequiredIfEq struct {
+	Selector string `json:"selector"`
+	Value    string `json:"value"`
 }
 
 // RequiresIf is one explicit value and the flag that value requires.
@@ -295,27 +304,33 @@ func (f *Flag) defaults() []string {
 
 // Arg is one positional argument, or a flag's value, in the lowered spec.
 type Arg struct {
-	Name                 string   `json:"name"`
-	ValueNames           []string `json:"value_names"`
-	Required             bool     `json:"required"`
-	Var                  bool     `json:"var"`
-	VarMax               int      `json:"var_max"`
-	VarMin               int      `json:"var_min"`
-	DoubleDash           string   `json:"double_dash"`
-	AllowNegativeNumbers bool     `json:"allow_negative_numbers"`
-	ValueTerminator      string   `json:"value_terminator"`
-	Delimiter            string   `json:"delimiter"`
-	Choices              *Choices `json:"choices"`
-	Default              []string `json:"default"`
-	Env                  string   `json:"env"`
-	Hide                 bool     `json:"hide"`
-	Help                 string   `json:"help"`
-	HelpFirstLine        string   `json:"help_first_line"`
-	HelpLong             string   `json:"help_long"`
-	HelpHeading          string   `json:"help_heading"`
-	Validate             string   `json:"validate"`
-	ValidateError        string   `json:"validate_error"`
-	Conflicts            []string `json:"conflicts"`
+	Name                 string         `json:"name"`
+	ValueNames           []string       `json:"value_names"`
+	Required             bool           `json:"required"`
+	Var                  bool           `json:"var"`
+	VarMax               int            `json:"var_max"`
+	VarMin               int            `json:"var_min"`
+	DoubleDash           string         `json:"double_dash"`
+	AllowNegativeNumbers bool           `json:"allow_negative_numbers"`
+	ValueTerminator      string         `json:"value_terminator"`
+	Delimiter            string         `json:"delimiter"`
+	Choices              *Choices       `json:"choices"`
+	Default              []string       `json:"default"`
+	Env                  string         `json:"env"`
+	Hide                 bool           `json:"hide"`
+	Help                 string         `json:"help"`
+	HelpFirstLine        string         `json:"help_first_line"`
+	HelpLong             string         `json:"help_long"`
+	HelpHeading          string         `json:"help_heading"`
+	Validate             string         `json:"validate"`
+	ValidateError        string         `json:"validate_error"`
+	Conflicts            []string       `json:"conflicts"`
+	Requires             []string       `json:"requires"`
+	RequiredIf           []string       `json:"required_if"`
+	RequiredIfEq         []RequiredIfEq `json:"required_if_eq"`
+	RequiredIfEqAll      []RequiredIfEq `json:"required_if_eq_all"`
+	RequiredUnless       []string       `json:"required_unless"`
+	RequiredUnlessAll    []string       `json:"required_unless_all"`
 }
 
 // Example is a worked invocation a page prints.
@@ -697,6 +712,15 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		}
 		return out
 	}
+	resolveConditions := func(conditions []RequiredIfEq) []argv.ValueCondition {
+		var out []argv.ValueCondition
+		for _, condition := range conditions {
+			if key, ok := find(condition.Selector); ok {
+				out = append(out, argv.ValueCondition{Key: key, Value: condition.Value})
+			}
+		}
+		return out
+	}
 	resolveDefaultIf := func(conditions []DefaultIf) []argv.DefaultIf {
 		var out []argv.DefaultIf
 		for _, condition := range conditions {
@@ -714,7 +738,11 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		m.Conflicts = resolve(src.Conflicts)
 		m.Overrides = resolve(src.Overrides)
 		m.RequiredUnless = resolve(src.RequiredUnless)
+		m.RequiredUnlessAll = resolve(src.RequiredUnlessAll)
 		m.RequiredIf = resolve(src.RequiredIf)
+		m.RequiredIfEq = resolveConditions(src.RequiredIfEq)
+		m.RequiredIfEqAll = resolveConditions(src.RequiredIfEqAll)
+		m.Requires = resolve(src.Requires)
 		m.RequiresIf = resolveValues(src.RequiresIf)
 		m.DefaultIf = resolveDefaultIf(src.DefaultIf)
 	}
@@ -722,6 +750,12 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		src := &c.Args[i]
 		m := &b.meta[out.Args[i].Key-1]
 		m.Conflicts = resolve(src.Conflicts)
+		m.Requires = resolve(src.Requires)
+		m.RequiredIf = resolve(src.RequiredIf)
+		m.RequiredIfEq = resolveConditions(src.RequiredIfEq)
+		m.RequiredIfEqAll = resolveConditions(src.RequiredIfEqAll)
+		m.RequiredUnless = resolve(src.RequiredUnless)
+		m.RequiredUnlessAll = resolve(src.RequiredUnlessAll)
 	}
 }
 

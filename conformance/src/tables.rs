@@ -27,7 +27,7 @@ use usage::spec::cmd::SpecExample;
 use usage::{Spec, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
 use usage_argv::spec::{
     ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf, Effect, Example, FlagMeta,
-    GroupMeta, RequiresIf,
+    GroupMeta, RequiredIfEq, RequiresIf,
 };
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
@@ -374,7 +374,28 @@ fn flag_meta(
         ),
         exclusive: f.exclusive,
         required_if: strs(&f.required_if),
+        required_if_eq: Box::leak(
+            f.required_if_eq
+                .iter()
+                .map(|condition| RequiredIfEq {
+                    selector: leak(&condition.selector),
+                    value: leak(&condition.value),
+                })
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
+        required_if_eq_all: Box::leak(
+            f.required_if_eq_all
+                .iter()
+                .map(|condition| RequiredIfEq {
+                    selector: leak(&condition.selector),
+                    value: leak(&condition.value),
+                })
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
         required_unless: strs(&f.required_unless),
+        required_unless_all: strs(&f.required_unless_all),
         help_heading: opt(&f.help_heading),
         effect: f.effect.map(effect),
         complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
@@ -405,6 +426,30 @@ fn arg_meta(
         required: a.required,
         hide: a.hide,
         conflicts: strs(&a.conflicts),
+        requires: strs(&a.requires),
+        required_if: strs(&a.required_if),
+        required_if_eq: Box::leak(
+            a.required_if_eq
+                .iter()
+                .map(|condition| RequiredIfEq {
+                    selector: leak(&condition.selector),
+                    value: leak(&condition.value),
+                })
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
+        required_if_eq_all: Box::leak(
+            a.required_if_eq_all
+                .iter()
+                .map(|condition| RequiredIfEq {
+                    selector: leak(&condition.selector),
+                    value: leak(&condition.value),
+                })
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
+        required_unless: strs(&a.required_unless),
+        required_unless_all: strs(&a.required_unless_all),
         delimiter: a.delimiter,
         var_min: a.var_min,
         var_max: a.var_max,

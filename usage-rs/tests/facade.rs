@@ -124,6 +124,45 @@ struct FlattenedRelationships {
     shared: FlattenedRelationshipTargets,
 }
 
+#[derive(Cli)]
+#[usage(bin = "relationship-families")]
+#[allow(dead_code)]
+struct RelationshipFamilies {
+    #[arg(long)]
+    mode: Option<String>,
+    #[arg(long)]
+    scope: Option<String>,
+    #[arg(long, required_if_eq("mode", "remote"))]
+    token: Option<String>,
+    #[arg(
+        long,
+        required_if_eq_all = [("mode", "remote"), ("scope", "global")]
+    )]
+    approval: Option<String>,
+    #[arg(long, required_unless_present_any = ["stdin", "file"])]
+    input: Option<String>,
+    #[arg(long, required_unless_present_all = ["stdin", "file"])]
+    checksum: Option<String>,
+    #[arg(long)]
+    stdin: bool,
+    #[arg(long)]
+    file: Option<String>,
+    #[arg(requires_all = ["mode", "scope"])]
+    request: Option<String>,
+}
+
+#[derive(Cli)]
+#[usage(bin = "single-unless-all")]
+#[allow(dead_code)]
+struct SingleUnlessAll {
+    #[arg(long)]
+    stdin: bool,
+    #[arg(long, required_unless_present_all = ["stdin"])]
+    token: Option<String>,
+    #[arg(required_unless_present_all = ["stdin"])]
+    target: Option<String>,
+}
+
 #[derive(usage::Args)]
 #[command(next_help_heading = "Network")]
 #[allow(dead_code)]
@@ -721,6 +760,84 @@ fn relationships_resolve_targets_inside_flattened_args() {
     assert!(kdl.contains("overrides=--nested"), "{kdl}");
     assert!(kdl.contains("requires=--key"), "{kdl}");
     assert!(kdl.contains("required_if=--json"), "{kdl}");
+}
+
+#[test]
+fn complete_relationship_families_follow_clap_truth_tables() {
+    assert!(RelationshipFamilies::parse_from(&[
+        OsStr::new("--mode"),
+        OsStr::new("remote"),
+        OsStr::new("--stdin"),
+    ])
+    .is_err());
+    assert!(RelationshipFamilies::parse_from(&[
+        OsStr::new("--mode"),
+        OsStr::new("remote"),
+        OsStr::new("--token"),
+        OsStr::new("secret"),
+        OsStr::new("--scope"),
+        OsStr::new("global"),
+        OsStr::new("--stdin"),
+    ])
+    .is_err());
+    RelationshipFamilies::parse_from(&[
+        OsStr::new("--mode"),
+        OsStr::new("remote"),
+        OsStr::new("--token"),
+        OsStr::new("secret"),
+        OsStr::new("--scope"),
+        OsStr::new("global"),
+        OsStr::new("--approval"),
+        OsStr::new("yes"),
+        OsStr::new("--stdin"),
+        OsStr::new("--file"),
+        OsStr::new("input.txt"),
+    ])
+    .expect("all conditional requirements are satisfied");
+
+    assert!(RelationshipFamilies::parse_from(
+        &[OsStr::new("--stdin"), OsStr::new("request.json"),]
+    )
+    .is_err());
+    RelationshipFamilies::parse_from(&[
+        OsStr::new("--mode"),
+        OsStr::new("local"),
+        OsStr::new("--scope"),
+        OsStr::new("project"),
+        OsStr::new("--stdin"),
+        OsStr::new("--checksum"),
+        OsStr::new("sum"),
+        OsStr::new("request.json"),
+    ])
+    .expect("requires_all accepts every satisfied target");
+
+    let kdl = RelationshipFamilies::to_kdl();
+    assert!(kdl.contains("required_if_eq --mode remote"), "{kdl}");
+    assert!(
+        kdl.contains("required_if_eq_all --mode remote --scope global"),
+        "{kdl}"
+    );
+    assert!(kdl.contains("required_unless --stdin --file"), "{kdl}");
+    assert!(kdl.contains("required_unless_all --stdin --file"), "{kdl}");
+    assert!(kdl.contains("requires --mode --scope"), "{kdl}");
+}
+
+#[test]
+fn single_unless_all_survives_the_short_property_form() {
+    let kdl = SingleUnlessAll::to_kdl();
+    assert!(
+        kdl.matches("required_unless_all=--stdin").count() >= 2,
+        "{kdl}"
+    );
+    let reparsed: usage_parser::Spec = kdl.parse().expect("the emitted properties parse back");
+    let token = reparsed
+        .cmd
+        .flags
+        .iter()
+        .find(|flag| flag.name == "token")
+        .unwrap();
+    assert_eq!(token.required_unless_all, ["--stdin"]);
+    assert_eq!(reparsed.cmd.args[0].required_unless_all, ["--stdin"]);
 }
 
 #[test]

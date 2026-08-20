@@ -1254,14 +1254,19 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
                 .unwrap_or_else(|| selector.clone())
         })
         .collect();
-    let requires = &field.requires;
+    let canonical = |selector: &String| {
+        cli.field_for_selector(selector)
+            .and_then(Cli::selector_for_field)
+            .unwrap_or_else(|| selector.clone())
+    };
+    let requires: Vec<String> = field.requires.iter().map(canonical).collect();
     let requires_if = field.requires_if.iter().map(|condition| {
         let value = &condition.value;
-        let requires = &condition.requires;
+        let requires = canonical(&condition.requires);
         quote!(usage_argv::spec::RequiresIf { value: #value, requires: #requires })
     });
     let default_if = field.default_if.iter().map(|condition| {
-        let selector = &condition.selector;
+        let selector = canonical(&condition.selector);
         let value = &condition.value;
         let when = match &condition.when {
             Some(when) => quote!(::core::option::Option::Some(#when)),
@@ -1274,8 +1279,34 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
         Some(c) => quote!(::std::option::Option::Some(#c)),
         None => quote!(::std::option::Option::None),
     };
-    let required_if = &field.required_if;
-    let required_unless = &field.required_unless;
+    let required_if: Vec<String> = field
+        .required_if
+        .iter()
+        .map(|selector| {
+            cli.field_for_selector(selector)
+                .and_then(Cli::selector_for_field)
+                .unwrap_or_else(|| selector.clone())
+        })
+        .collect();
+    let required_if_eq = field.required_if_eq.iter().map(|condition| {
+        let selector = cli
+            .field_for_selector(&condition.selector)
+            .and_then(Cli::selector_for_field)
+            .unwrap_or_else(|| condition.selector.clone());
+        let value = &condition.value;
+        quote!(usage_argv::spec::RequiredIfEq { selector: #selector, value: #value })
+    });
+    let required_if_eq_all = field.required_if_eq_all.iter().map(|condition| {
+        let selector = cli
+            .field_for_selector(&condition.selector)
+            .and_then(Cli::selector_for_field)
+            .unwrap_or_else(|| condition.selector.clone());
+        let value = &condition.value;
+        quote!(usage_argv::spec::RequiredIfEq { selector: #selector, value: #value })
+    });
+    let required_unless: Vec<String> = field.required_unless.iter().map(canonical).collect();
+    let required_unless_all: Vec<String> =
+        field.required_unless_all.iter().map(canonical).collect();
 
     let (completer_decl, completer) = completer_tokens(i, field, "flag", owner);
 
@@ -1325,7 +1356,10 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             exclusive: #exclusive,
             delimiter: #delimiter,
             required_if: &[#(#required_if),*],
+            required_if_eq: &[#(#required_if_eq),*],
+            required_if_eq_all: &[#(#required_if_eq_all),*],
             required_unless: &[#(#required_unless),*],
+            required_unless_all: &[#(#required_unless_all),*],
             ..usage_argv::spec::FlagMeta::EMPTY
         };
     }
@@ -1352,6 +1386,26 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
                 .unwrap_or_else(|| selector.clone())
         })
         .collect();
+    let canonical = |selector: &String| {
+        cli.field_for_selector(selector)
+            .and_then(Cli::selector_for_field)
+            .unwrap_or_else(|| selector.clone())
+    };
+    let requires: Vec<String> = field.requires.iter().map(canonical).collect();
+    let required_if: Vec<String> = field.required_if.iter().map(canonical).collect();
+    let required_if_eq = field.required_if_eq.iter().map(|condition| {
+        let selector = canonical(&condition.selector);
+        let value = &condition.value;
+        quote!(usage_argv::spec::RequiredIfEq { selector: #selector, value: #value })
+    });
+    let required_if_eq_all = field.required_if_eq_all.iter().map(|condition| {
+        let selector = canonical(&condition.selector);
+        let value = &condition.value;
+        quote!(usage_argv::spec::RequiredIfEq { selector: #selector, value: #value })
+    });
+    let required_unless: Vec<String> = field.required_unless.iter().map(canonical).collect();
+    let required_unless_all: Vec<String> =
+        field.required_unless_all.iter().map(canonical).collect();
     // `String` must be filled; `Option` and `Vec` need not be.
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
@@ -1386,6 +1440,12 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
             help_heading: #help_heading,
             hide: #hide,
             conflicts: &[#(#conflicts),*],
+            requires: &[#(#requires),*],
+            required_if: &[#(#required_if),*],
+            required_if_eq: &[#(#required_if_eq),*],
+            required_if_eq_all: &[#(#required_if_eq_all),*],
+            required_unless: &[#(#required_unless),*],
+            required_unless_all: &[#(#required_unless_all),*],
             required: #required,
             accepted_choices: #accepted_choices,
             choices: #choices,
@@ -5308,7 +5368,12 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // order they arrived in — only whether they arrived — so both are answered here,
     // beside plain required-ness, from the same `__given_*` flags.
     let relationship_required_checks = cli.fields.iter().filter_map(move |f| {
-        if f.required_if.is_empty() && f.required_unless.is_empty() {
+        if f.required_if.is_empty()
+            && f.required_if_eq.is_empty()
+            && f.required_if_eq_all.is_empty()
+            && f.required_unless.is_empty()
+            && f.required_unless_all.is_empty()
+        {
             return None;
         }
         // A field with a default is already filled, so no condition can make it
@@ -5335,6 +5400,35 @@ fn post_binding(cli: &Cli) -> TokenStream {
             .iter()
             .filter_map(selector_given)
             .collect();
+        let if_eq: Vec<_> = f
+            .required_if_eq
+            .iter()
+            .map(|condition| {
+                let selector = cli
+                    .field_for_selector(&condition.selector)
+                    .and_then(Cli::selector_for_field)
+                    .unwrap_or_else(|| condition.selector.clone());
+                let value = &condition.value;
+                quote!(argument_matches(partial, #selector, #value.as_bytes()).unwrap_or(false))
+            })
+            .collect();
+        let if_eq_all: Vec<_> = f
+            .required_if_eq_all
+            .iter()
+            .map(|condition| {
+                let selector = cli
+                    .field_for_selector(&condition.selector)
+                    .and_then(Cli::selector_for_field)
+                    .unwrap_or_else(|| condition.selector.clone());
+                let value = &condition.value;
+                quote!(argument_matches(partial, #selector, #value.as_bytes()).unwrap_or(false))
+            })
+            .collect();
+        let unless_all_given: Vec<_> = f
+            .required_unless_all
+            .iter()
+            .filter_map(selector_given)
+            .collect();
         // Absent, with nothing standing in for it: a default or an environment
         // variable has already filled the field and set `__given_*`.
         let missing = quote! {
@@ -5349,16 +5443,43 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 }
             }
         });
-        let required_unless = (!unless_given.is_empty()).then(|| {
+        let required_if_eq = (!if_eq.is_empty()).then(|| {
             quote! {
-                if !(#(#unless_given)||*) {
+                if #(#if_eq)||* {
                     #missing
                 }
             }
         });
+        let required_if_eq_all = (!if_eq_all.is_empty()).then(|| {
+            quote! {
+                if #(#if_eq_all)&&* {
+                    #missing
+                }
+            }
+        });
+        let required_unless =
+            (!unless_given.is_empty() || !unless_all_given.is_empty()).then(|| {
+                let any = if unless_given.is_empty() {
+                    quote!(false)
+                } else {
+                    quote!(#(#unless_given)||*)
+                };
+                let all = if unless_all_given.is_empty() {
+                    quote!(false)
+                } else {
+                    quote!(#(#unless_all_given)&&*)
+                };
+                quote! {
+                    if !(#any || #all) {
+                        #missing
+                    }
+                }
+            });
         Some(quote! {
             if !partial.#given {
                 #required_if
+                #required_if_eq
+                #required_if_eq_all
                 #required_unless
             }
         })

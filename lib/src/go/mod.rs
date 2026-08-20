@@ -543,11 +543,35 @@ impl Emitter<'_> {
             ("Conflicts", &flag.conflicts),
             ("Overrides", &flag.overrides),
             ("RequiredUnless", &flag.required_unless),
+            ("RequiredUnlessAll", &flag.required_unless_all),
             ("RequiredIf", &flag.required_if),
+            ("Requires", &flag.requires),
         ] {
             let keys = resolve_relationship(names, owner, commands);
             if !keys.is_empty() {
                 fields.push(format!("{label}: {}", key_slice(&keys)));
+            }
+        }
+        for (label, conditions) in [
+            ("RequiredIfEq", &flag.required_if_eq),
+            ("RequiredIfEqAll", &flag.required_if_eq_all),
+        ] {
+            let values = conditions
+                .iter()
+                .filter_map(|condition| {
+                    resolve_relationship(std::slice::from_ref(&condition.selector), owner, commands)
+                        .into_iter()
+                        .next()
+                        .map(|key| {
+                            format!("{{Key: {key}, Value: {}}}", go_string(&condition.value))
+                        })
+                })
+                .collect::<Vec<_>>();
+            if !values.is_empty() {
+                fields.push(format!(
+                    "{label}: []argv.ValueCondition{{{}}}",
+                    values.join(", ")
+                ));
             }
         }
         let requires_if = flag
@@ -652,6 +676,37 @@ fn arg_meta(
     let conflicts = resolve_relationship(&arg.conflicts, owner, commands);
     if !conflicts.is_empty() {
         fields.push(format!("Conflicts: {}", key_slice(&conflicts)));
+    }
+    for (label, names) in [
+        ("Requires", &arg.requires),
+        ("RequiredIf", &arg.required_if),
+        ("RequiredUnless", &arg.required_unless),
+        ("RequiredUnlessAll", &arg.required_unless_all),
+    ] {
+        let keys = resolve_relationship(names, owner, commands);
+        if !keys.is_empty() {
+            fields.push(format!("{label}: {}", key_slice(&keys)));
+        }
+    }
+    for (label, conditions) in [
+        ("RequiredIfEq", &arg.required_if_eq),
+        ("RequiredIfEqAll", &arg.required_if_eq_all),
+    ] {
+        let values = conditions
+            .iter()
+            .filter_map(|condition| {
+                resolve_relationship(std::slice::from_ref(&condition.selector), owner, commands)
+                    .into_iter()
+                    .next()
+                    .map(|key| format!("{{Key: {key}, Value: {}}}", go_string(&condition.value)))
+            })
+            .collect::<Vec<_>>();
+        if !values.is_empty() {
+            fields.push(format!(
+                "{label}: []argv.ValueCondition{{{}}}",
+                values.join(", ")
+            ));
+        }
     }
     // No VarMax: for an argument the bound is a limit binding applies, which is
     // what makes `[a]… [b]` fillable at all, so judging it again would fail an
@@ -1991,6 +2046,26 @@ flag "--schema <file>"
             out.contains("argv.CheckRelationshipsWithValues"),
             "the emitted parser must enforce the metadata:\n{out}"
         );
+    }
+
+    #[test]
+    fn required_if_eq_makes_generated_go_supply_values() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--token <token>" {
+    required_if_eq "--mode" "remote"
+}
+flag "--mode <mode>"
+"#);
+        assert!(
+            entry_of(&out, "token").contains(
+                "RequiredIfEq: []argv.ValueCondition{{Key: FlagMode, Value: \"remote\"}}"
+            ),
+            "{out}"
+        );
+        assert!(out.contains("resolved := map[uint64][]string{}"), "{out}");
+        assert!(out.contains("argv.CheckRelationshipsWithValues"), "{out}");
     }
 
     #[test]

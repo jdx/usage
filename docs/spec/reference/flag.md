@@ -30,6 +30,15 @@ flag "--dir <dir>"    // args named "<dir>" will be completed as directories
 
 flag "--file <file>" required_if="--dir"     // if --dir is set, --file must also be set
 flag "--file <file>" required_unless="--dir" // either --file or --dir must be present
+flag "--token <token>" {
+  required_if_eq "--mode" "remote"
+}
+flag "--approval <approval>" {
+  required_if_eq_all "--mode" "remote" "--scope" "global"
+}
+flag "--checksum <checksum>" {
+  required_unless_all "--stdin" "--file"
+}
 flag "--file <file>" overrides="--stdin" // --file and --stdin override each other; the last one wins
 flag "--file <file>" conflicts="--stdin" // --file and --stdin cannot be given together
 flag "--out <path>" requires="--format"  // giving --out means --format must be given too
@@ -106,6 +115,11 @@ flag, not a rule about the command line as a whole.
 written in different places. `--out` needing `--format` is `requires="--format"` on
 `--out`, or `required_if="--out"` on `--format`; the first keeps the rule on the flag it
 is about, which is usually where a reader looks for it.
+
+`required_if_eq SELECTOR VALUE` makes the target required when an explicitly supplied
+value matches. Repeat the node for “any”; `required_if_eq_all` takes selector/value pairs
+and activates only when every pair matches. `required_unless` is waived by any named
+argument, while `required_unless_all` is waived only when all of them are present.
 
 A value from the environment or a default satisfies a requirement, on the same principle
 `conflicts` follows: the question is whether the other flag ended up with a value, not

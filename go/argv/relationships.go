@@ -144,6 +144,13 @@ func CheckRelationshipsWithValues(meta Metadata, entries []uint64,
 					return e
 				}
 			}
+			for _, other := range m.Requires {
+				if sourceOf(other) == Unset {
+					if required := meta.Lookup(other); required != nil {
+						return missingRequired(required)
+					}
+				}
+			}
 			if valuesOf != nil {
 				values := valuesOf(key)
 				for _, condition := range m.RequiresIf {
@@ -178,13 +185,34 @@ func CheckRelationshipsWithValues(meta Metadata, entries []uint64,
 
 		// Required unless one of these is present. With none of them present the
 		// requirement stands.
-		if len(m.RequiredUnless) > 0 && !anySet(m.RequiredUnless, given) {
+		unlessAny := anySet(m.RequiredUnless, given)
+		unlessAll := len(m.RequiredUnlessAll) > 0 && allSet(m.RequiredUnlessAll, given)
+		if (len(m.RequiredUnless) > 0 || len(m.RequiredUnlessAll) > 0) && !(unlessAny || unlessAll) {
 			return missingRequired(m)
 		}
 
 		// Required because one of these is present.
 		if len(m.RequiredIf) > 0 && anySet(m.RequiredIf, given) {
 			return missingRequired(m)
+		}
+		if valuesOf != nil {
+			matches := func(condition ValueCondition) bool {
+				return given(condition.Key) && containsValue(valuesOf(condition.Key), condition.Value)
+			}
+			for _, condition := range m.RequiredIfEq {
+				if matches(condition) {
+					return missingRequired(m)
+				}
+			}
+			if len(m.RequiredIfEqAll) > 0 {
+				all := true
+				for _, condition := range m.RequiredIfEqAll {
+					all = all && matches(condition)
+				}
+				if all {
+					return missingRequired(m)
+				}
+			}
 		}
 	}
 	return nil
@@ -214,4 +242,13 @@ func anySet(keys []uint64, isSet func(uint64) bool) bool {
 		}
 	}
 	return false
+}
+
+func allSet(keys []uint64, isSet func(uint64) bool) bool {
+	for _, k := range keys {
+		if !isSet(k) {
+			return false
+		}
+	}
+	return true
 }
