@@ -953,6 +953,36 @@ cmd "run" help="Run it\n"
     }
 
     #[test]
+    fn test_render_help_honors_explicit_display_order() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+flag "--unset" help="Unordered"
+flag "--later" help="Later" display_order=20
+flag "--first" help="First" display_order=10
+cmd "zulu" help="Unordered"
+cmd "later" help="Later" display_order=20
+cmd "first" help="First" display_order=10
+cmd "alpha" help="Unordered"
+        "# }
+        .unwrap();
+
+        let page = render_help(&spec, &spec.cmd, false);
+        let commands = page.split_once("\nCommands:\n").unwrap().1;
+        assert!(
+            commands.find("first").unwrap() < commands.find("later").unwrap()
+                && commands.find("later").unwrap() < commands.find("alpha").unwrap()
+                && commands.find("alpha").unwrap() < commands.find("zulu").unwrap(),
+            "{page}"
+        );
+        let flags = page.split_once("\nFlags:\n").unwrap().1;
+        assert!(
+            flags.find("--first").unwrap() < flags.find("--later").unwrap()
+                && flags.find("--later").unwrap() < flags.find("--unset").unwrap(),
+            "{page}"
+        );
+    }
+
+    #[test]
     fn test_render_help_with_next_line_layout() {
         let spec = crate::spec! { r#"
 bin "testcli"

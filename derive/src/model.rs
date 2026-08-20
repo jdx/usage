@@ -213,6 +213,8 @@ pub struct Field {
     /// the explicit portable spelling emitted in static metadata.
     pub default_value_t: Option<proc_macro2::TokenStream>,
     pub help_heading: Option<String>,
+    /// Explicit placement within its help section.
+    pub display_order: Option<usize>,
     /// What supplying this flag does to the world, when it says.
     ///
     /// A flag can only *raise* what its command does — `--dry-run` does not make a writing
@@ -1533,6 +1535,7 @@ impl Field {
             default: Vec::new(),
             default_value_t: None,
             help_heading: None,
+            display_order: None,
             value_name: None,
             value_names: Vec::new(),
             required_collection: false,
@@ -1659,6 +1662,7 @@ impl Field {
             default: Vec::new(),
             default_value_t: None,
             help_heading: None,
+            display_order: None,
             value_name: None,
             value_names: Vec::new(),
             required_collection: false,
@@ -1779,6 +1783,7 @@ impl Field {
             default: Vec::new(),
             default_value_t: None,
             help_heading: None,
+            display_order: None,
             value_name: None,
             value_names: Vec::new(),
             required_collection: false,
@@ -1870,6 +1875,7 @@ impl Field {
         let mut default: Vec<String> = Vec::new();
         let mut default_value_t = None;
         let mut help_heading = None;
+        let mut display_order = None;
         let mut effect = None;
         let mut value_name = None;
         let mut value_names: Vec<String> = Vec::new();
@@ -2103,6 +2109,7 @@ impl Field {
                         });
                     }
                     "help_heading" => help_heading = Some(string_value(&meta)?),
+                    "display_order" => display_order = Some(int_value(&meta)?),
                     "effect" => effect = Some(effect_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
                     "value_names" => value_names = selectors(&meta)?,
@@ -2163,7 +2170,7 @@ impl Field {
                                  `value_terminator`, `require_equals`, \
                                  `default_missing`, `default_if`, \
                                  `required_if`, \
-                                 `required_unless`, `help_heading`, `value_name`, `value_names`, `num_args`, \
+                                 `required_unless`, `help_heading`, `display_order`, `value_name`, `value_names`, `num_args`, \
                                  `verbatim_doc_comment`, \
                                  `visible_alias`, `visible_aliases`, `required`, \
                                  `double_dash`, and `skip`"
@@ -2991,6 +2998,7 @@ impl Field {
             default,
             default_value_t,
             help_heading,
+            display_order,
             effect,
             value_name,
             value_names,
@@ -3851,6 +3859,8 @@ fn unit_struct_ident(enum_ident: &syn::Ident, variant: &syn::Ident) -> syn::Iden
 /// One variant: a command name and the struct holding its flags and arguments.
 pub struct Variant {
     pub ident: syn::Ident,
+    /// Explicit placement within the parent's command section.
+    pub display_order: Option<usize>,
     /// Whether the command is kept out of help and completions.
     ///
     /// A spec says `hide=#true` on a `cmd`; mise hides eight commands that way, `asdf` and
@@ -4018,6 +4028,7 @@ impl Variant {
         let mut hidden_aliases: Vec<String> = Vec::new();
         let mut effect = None;
         let mut hide = false;
+        let mut display_order = None;
         let mut external = false;
         let mut help_attr: Option<proc_macro2::TokenStream> = None;
         let mut long_help_attr: Option<proc_macro2::TokenStream> = None;
@@ -4035,6 +4046,7 @@ impl Variant {
                     "alias" => aliases.extend(selectors(&meta)?),
                     "alias_hidden" => hidden_aliases.extend(selectors(&meta)?),
                     "hide" => hide = flag_value(&meta)?,
+                    "display_order" => display_order = Some(int_value(&meta)?),
                     "external_subcommand" => external = flag_value(&meta)?,
                     "effect" => {
                         // Checked where it is written, and checked again by the struct's own
@@ -4057,7 +4069,7 @@ impl Variant {
                             path,
                             format!(
                                 "unknown option `{other}` on a variant; a subcommand \
-                                 variant takes `name`, `alias`, `alias_hidden`, \
+                                 variant takes `name`, `alias`, `alias_hidden`, `display_order`, \
                                  `external_subcommand`, `help`, `long_help`, `before_help`, \
                                  `before_long_help`, `after_help`, `after_long_help`, and `verbatim_doc_comment` here, \
                                  and its description comes from the doc comment"
@@ -4157,6 +4169,7 @@ impl Variant {
                 hide: false,
                 name,
                 effect: None,
+                display_order: None,
                 unit: false,
                 inline_fields: None,
                 ty: held,
@@ -4218,6 +4231,7 @@ impl Variant {
 
         Ok(Variant {
             ident: variant.ident.clone(),
+            display_order,
             hide,
             name,
             effect,

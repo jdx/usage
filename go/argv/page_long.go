@@ -182,7 +182,13 @@ func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help
 		heading = h.SubcommandHelpHeading
 	}
 	out.WriteString("\n" + heading + ":\n")
-	sortLines(lines, func(i int) string { return lines[i].usage })
+	sort.SliceStable(lines, func(i, j int) bool {
+		left, right := helpOrder(help, lines[i].sub.Key, 999), helpOrder(help, lines[j].sub.Key, 999)
+		if left != right {
+			return left < right
+		}
+		return lines[i].usage < lines[j].usage
+	})
 
 	for _, l := range lines {
 		out.WriteString("  " + l.usage)
@@ -208,7 +214,7 @@ func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help
 
 func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool) {
 	visible := append([]*Command{}, cmd.Subcommands...)
-	sort.Slice(visible, func(i, j int) bool { return visible[i].Name < visible[j].Name })
+	orderCommands(visible, help)
 	for _, sub := range visible {
 		h := help.Lookup(sub.Key)
 		if h != nil && h.Hide {
@@ -236,6 +242,7 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 			flags = append(flags, f)
 			flagCol = max(flagCol, width(columnUsage(f, allShown(f), help)))
 		}
+		orderFlags(flags, help)
 		for _, a := range args {
 			ah := help.Lookup(a.Key)
 			entry(out, argUsage(a, ah), firstOf(metaField(ah, func(x *Help) string { return x.Long }),

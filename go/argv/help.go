@@ -63,6 +63,9 @@ type Help struct {
 	Long  string
 	// Heading groups an entry into a section of the page. Presentational only.
 	Heading string
+	// DisplayOrderSet distinguishes an explicit zero from declaration order.
+	DisplayOrder    uint32
+	DisplayOrderSet bool
 
 	// The rest a page prints and the usage line does not.
 

@@ -133,7 +133,8 @@ fn help_structure(
                 !arg.hide_short_help
             }
     };
-    let args: Vec<_> = meta.args.iter().filter(visible_arg).collect();
+    let mut args: Vec<_> = meta.args.iter().filter(visible_arg).collect();
+    order_args(&mut args, meta.args);
     if args.iter().any(|arg| arg.help_heading.is_none()) {
         headings.push("Arguments".to_string());
     }
@@ -151,7 +152,8 @@ fn help_structure(
                 !flag.hide_short_help
             }
     };
-    let own: Vec<_> = own.into_iter().filter(visible_flag).collect();
+    let mut own: Vec<_> = own.into_iter().filter(visible_flag).collect();
+    order_flags(&mut own, meta.flags);
     let inherited: Vec<_> = inherited
         .into_iter()
         .filter(|(flag, _)| {
@@ -186,7 +188,7 @@ fn help_structure(
 
 fn flat_help_headings(path: &[&str], meta: &CommandMeta<'_>, headings: &mut Vec<String>) {
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    visible.sort_by_key(|sub| sub.cmd.name);
+    order_commands(&mut visible);
     for sub in visible {
         let mut sub_path = path.to_vec();
         sub_path.push(sub.cmd.name);
@@ -666,11 +668,12 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
     // after the name it belonged to, so nothing in `-h` lined up with anything — and `-h` is
     // the form most people type. One column per section over its visible entries, which is
     // the rule the long page already follows.
-    let args: Vec<&ArgMeta<'_>> = meta
+    let mut args: Vec<&ArgMeta<'_>> = meta
         .args
         .iter()
         .filter(|a| !a.hide && !a.hide_short_help)
         .collect();
+    order_args(&mut args, meta.args);
     let arg_col = args
         .iter()
         .map(|a| arg_usage(a).chars().count())
@@ -801,7 +804,8 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
 
 /// The list of subcommands, and the `help` command every CLI with subcommands has.
 fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
-    let visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
+    let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
+    order_commands(&mut visible);
     // Nothing visible, no section — `mise direnv` and `mise dotfiles` have subcommands and
     // every one of them is hidden. The usage *line* still says `<SUBCOMMAND>`, because
     // usage-lib computes it before filtering and stores it; matching the reference means
@@ -823,7 +827,12 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
             (usage_line(&sub_path, sub), *sub)
         })
         .collect();
-    lines.sort_by(|a, b| a.0.cmp(&b.0));
+    lines.sort_by(|a, b| {
+        a.1.display_order
+            .unwrap_or(999)
+            .cmp(&b.1.display_order.unwrap_or(999))
+            .then_with(|| a.0.cmp(&b.0))
+    });
 
     for (usage, sub) in &lines {
         let _ = write!(out, "  {usage}");
@@ -866,7 +875,7 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
 
 fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    visible.sort_by_key(|sub| sub.cmd.name);
+    order_commands(&mut visible);
     for sub in visible {
         let mut sub_path = path.to_vec();
         sub_path.push(sub.cmd.name);
@@ -875,16 +884,18 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
             let _ = writeln!(out, "{}", about.trim_end());
         }
 
-        let args: Vec<_> = sub
+        let mut args: Vec<_> = sub
             .args
             .iter()
             .filter(|arg| !arg.hide && !arg.hide_short_help)
             .collect();
-        let flags: Vec<&FlagMeta<'_>> = sub
+        order_args(&mut args, sub.args);
+        let mut flags: Vec<&FlagMeta<'_>> = sub
             .flags
             .iter()
             .filter(|flag| !flag.flag.global && !flag.hide && !flag.hide_short_help)
             .collect();
+        order_flags(&mut flags, sub.flags);
         let arg_col = args
             .iter()
             .map(|arg| arg_usage(arg).chars().count())
@@ -981,6 +992,37 @@ fn groups_section<'m, T: 'm>(
             write_item(out, item);
         }
     }
+}
+
+fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>]) {
+    items.sort_by_key(|item| {
+        item.display_order.unwrap_or_else(|| {
+            declared
+                .iter()
+                .position(|candidate| core::ptr::eq(candidate, *item))
+                .unwrap_or(usize::MAX)
+        })
+    });
+}
+
+fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a>]) {
+    items.sort_by_key(|item| {
+        item.display_order.unwrap_or_else(|| {
+            declared
+                .iter()
+                .position(|candidate| core::ptr::eq(candidate, *item))
+                .unwrap_or(usize::MAX)
+        })
+    });
+}
+
+fn order_commands(items: &mut Vec<&&CommandMeta<'_>>) {
+    items.sort_by(|a, b| {
+        a.display_order
+            .unwrap_or(999)
+            .cmp(&b.display_order.unwrap_or(999))
+            .then_with(|| a.cmd.name.cmp(b.cmd.name))
+    });
 }
 
 /// The bracketed notes after an entry's help: choices, environment, default.
@@ -1190,11 +1232,12 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
 
     // One column width per section, over its visible entries — the same two the reference
     // computes, and separately, so a long flag does not push the arguments out.
-    let args: Vec<&ArgMeta<'_>> = meta
+    let mut args: Vec<&ArgMeta<'_>> = meta
         .args
         .iter()
         .filter(|a| !a.hide && !a.hide_long_help)
         .collect();
+    order_args(&mut args, meta.args);
     let arg_col = args
         .iter()
         .map(|a| arg_usage(a).chars().count())
@@ -1430,7 +1473,8 @@ fn long_annotations(out: &mut String, choices: &[&str], env: Option<&str>, defau
 
 /// The commands list, with each command's help beneath its usage.
 fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
-    let visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
+    let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
+    order_commands(&mut visible);
     if visible.is_empty() {
         return;
     }
@@ -1445,7 +1489,12 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
             (usage_line(&sub_path, sub), *sub)
         })
         .collect();
-    lines.sort_by(|a, b| a.0.cmp(&b.0));
+    lines.sort_by(|a, b| {
+        a.1.display_order
+            .unwrap_or(999)
+            .cmp(&b.1.display_order.unwrap_or(999))
+            .then_with(|| a.0.cmp(&b.0))
+    });
 
     for (usage, sub) in &lines {
         let _ = write!(out, "  {usage}");
@@ -1479,7 +1528,7 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
 
 fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, width: usize) {
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    visible.sort_by_key(|sub| sub.cmd.name);
+    order_commands(&mut visible);
     for sub in visible {
         let mut sub_path = path.to_vec();
         sub_path.push(sub.cmd.name);
@@ -1492,16 +1541,18 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
             let _ = writeln!(out, "{}", about.trim_end());
         }
 
-        let args: Vec<_> = sub
+        let mut args: Vec<_> = sub
             .args
             .iter()
             .filter(|arg| !arg.hide && !arg.hide_long_help)
             .collect();
-        let flags: Vec<&FlagMeta<'_>> = sub
+        order_args(&mut args, sub.args);
+        let mut flags: Vec<&FlagMeta<'_>> = sub
             .flags
             .iter()
             .filter(|flag| !flag.flag.global && !flag.hide && !flag.hide_long_help)
             .collect();
+        order_flags(&mut flags, sub.flags);
         let arg_col = args
             .iter()
             .map(|arg| arg_usage(arg).chars().count())
@@ -1807,7 +1858,7 @@ fn own_and_global<'a>(
             keep.push((f as *const _, show));
         }
     }
-    let inherited: Vec<(&FlagMeta<'_>, String)> = ancestors
+    let mut inherited: Vec<(&FlagMeta<'_>, String)> = ancestors
         .iter()
         .flat_map(|meta| meta.flags.iter())
         .filter_map(|f| {
@@ -1816,6 +1867,18 @@ fn own_and_global<'a>(
                 .map(|(_, show)| (f, column_usage_masked(f, show)))
         })
         .collect();
+    let inherited_positions: Vec<*const FlagMeta<'_>> = inherited
+        .iter()
+        .map(|(flag, _)| *flag as *const _)
+        .collect();
+    inherited.sort_by_key(|(flag, _)| {
+        flag.display_order.unwrap_or_else(|| {
+            inherited_positions
+                .iter()
+                .position(|candidate| core::ptr::eq(*candidate, *flag as *const _))
+                .unwrap_or(usize::MAX)
+        })
+    });
 
     // Last in the command's own section, which is where clap has them: they carry no
     // `help_heading`, so a CLI that groups its flags gets them at the end of the ungrouped
@@ -1825,6 +1888,7 @@ fn own_and_global<'a>(
     // negations, and a `--help` the page offers while something else binds it is exactly the
     // lie this whole model exists to prevent.
     let mut own = own;
+    order_flags(&mut own, here.flags);
     // Forms *and* negations: `long_flag` asks `find_negation` before it offers `--version`,
     // so a declared negation beats a supplied flag even though it loses to a long.
     let claimed: Vec<String> = taken
