@@ -793,11 +793,11 @@ feature list is not an exhaustive audit.
       been removed; the clap integration now recommends the matching
       `clap_usage = "6"`. Concrete workspace and generated-artifact versions remain
       release-plz's responsibility.
-- [ ] **Completion ecosystem coverage.** Decide whether general clap parity includes
-      every shell in `clap_complete` and every `ValueHint`. At minimum, either add
-      Elvish beside bash, fish, PowerShell and zsh or document it as a launch non-goal;
-      keep Nushell as an explicit usage extension rather than accidentally counting
-      it as clap parity.
+- [x] **Completion ecosystem coverage.** The 6.0 clap-parity set is bash, fish,
+      PowerShell and zsh. Nushell remains an explicit usage extension and does not
+      substitute for a clap-supported shell in the compatibility count. Elvish is a
+      documented post-6.0 non-goal rather than a release gate; the compatibility
+      matrix continues to mark completion output lossy for a clap CLI that ships it.
 
 ### The gate
 
