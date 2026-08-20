@@ -242,6 +242,36 @@ func TestOnlyTheClaimedSpellingIsWithdrawn(t *testing.T) {
 	}
 }
 
+func TestHiddenFlagAliasesBindWithoutBeingCompleted(t *testing.T) {
+	flag := &Flag{
+		Key: 2, Name: "output",
+		Longs: []string{"output", "quietly"}, HiddenLongs: []string{"quietly"},
+		Shorts: []byte{'o', 'q'}, HiddenShorts: []byte{'q'},
+	}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{flag}}
+	help := HelpTable{{Key: 1}, {Key: 2}}
+	meta := Metadata{{Key: 1}, {Key: 2}}
+
+	for _, spelling := range []string{"--quietly", "-q"} {
+		p := New(root, []string{spelling})
+		if !p.Next() || p.Event().Flag != flag || p.Err() != nil {
+			t.Fatalf("hidden alias %s should bind: event=%+v err=%v", spelling, p.Event(), p.Err())
+		}
+	}
+
+	got := values(Candidates(Walk(root, nil), "-", help, meta))
+	for _, spelling := range []string{"--output", "-o"} {
+		if !offered(got, spelling) {
+			t.Errorf("visible spelling %s should be offered: %v", spelling, got)
+		}
+	}
+	for _, spelling := range []string{"--quietly", "-q"} {
+		if offered(got, spelling) {
+			t.Errorf("hidden alias %s should not be offered: %v", spelling, got)
+		}
+	}
+}
+
 // Whichever flag the parser binds a spelling to is the flag that offers it.
 //
 // `binds` asks the parser, rather than asserting what the scope rules ought to

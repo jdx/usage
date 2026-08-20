@@ -213,7 +213,7 @@
 //! [Settings]: #settings-and-the-flags-that-set-them
 //!
 //! Named fields accept both `#[usage(...)]` and clap-compatible `#[arg(...)]`.
-//! Lossless clap spellings such as `id` and visible aliases may therefore stay in
+//! Lossless clap spellings such as `id` and visible or hidden aliases may therefore stay in
 //! place while a CLI changes derives.
 //!
 //! | option | meaning |
@@ -240,6 +240,7 @@
 //! | `arg` | force a field to be positional |
 //! | `id = "name"` | clap-compatible spelling for the field identity / positional name |
 //! | `visible_alias = "other"` | clap-compatible advertised long alias; the plural array spelling also works |
+//! | `alias = "other"` | clap-compatible hidden long alias; the plural array spelling also works |
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |
 //! | `conflicts = "--other"` | an argument this one cannot be given with |
 //! | `requires = "--other"` | a flag that must also be given when this one is |

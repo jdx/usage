@@ -613,8 +613,18 @@ impl From<&crate::SpecFlag> for SpecFlag {
             help_long: flag.help_long.clone(),
             help_md: flag.help_md.clone(),
             help_first_line: flag.help_first_line.clone(),
-            short: flag.short.clone(),
-            long: flag.long.clone(),
+            short: flag
+                .short
+                .iter()
+                .filter(|short| !flag.hidden_short_aliases.contains(short))
+                .copied()
+                .collect(),
+            long: flag
+                .long
+                .iter()
+                .filter(|long| !flag.hidden_aliases.contains(long))
+                .cloned()
+                .collect(),
             required: flag.required,
             deprecated: flag.deprecated.clone(),
             var: flag.var,

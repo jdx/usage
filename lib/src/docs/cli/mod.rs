@@ -241,12 +241,12 @@ fn inherited_flags(
             let long = f
                 .long
                 .iter()
-                .find(|l| !taken.contains(&format!("--{l}")))
+                .find(|l| !f.hidden_aliases.contains(l) && !taken.contains(&format!("--{l}")))
                 .cloned();
             let short = f
                 .short
                 .iter()
-                .find(|s| !taken.contains(&format!("-{s}")))
+                .find(|s| !f.hidden_short_aliases.contains(s) && !taken.contains(&format!("-{s}")))
                 .copied();
             let mine = forms(f);
             let negate = f.negate.as_ref().is_some_and(|n| {

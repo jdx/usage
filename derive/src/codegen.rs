@@ -986,6 +986,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
     let field_name = &field.name;
     let Kind::Flag {
         longs,
+        hidden_longs: _,
         shorts,
         negate,
         global,
@@ -1171,6 +1172,10 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let hide = field.hide;
     let count = field.shape == Shape::Count;
     let repeatable = field.repeatable;
+    let hidden_longs = match &field.kind {
+        Kind::Flag { hidden_longs, .. } => hidden_longs,
+        _ => unreachable!("flag metadata is generated only for flags"),
+    };
     // Same rule as an argument: a `String` has nowhere to put "absent". The runtime
     // check already enforced it; the spec has to say it too, or docs and completions
     // describe a different CLI from the one that runs.
@@ -1245,6 +1250,8 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             hide: #hide,
             count: #count,
             repeatable: #repeatable,
+            hidden_shorts: &[],
+            hidden_longs: &[#(#hidden_longs),*],
             required: #required,
             value_optional: #value_optional,
             accepted_choices: #accepted_choices,

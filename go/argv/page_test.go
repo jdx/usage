@@ -36,6 +36,27 @@ func TestExamplesFallBackToTheRoot(t *testing.T) {
 	}
 }
 
+func TestHiddenFlagAliasesStayOutOfHelp(t *testing.T) {
+	flag := &Flag{
+		Key: 2, Name: "output",
+		Longs: []string{"output", "quietly"}, HiddenLongs: []string{"quietly"},
+		Shorts: []byte{'o', 'q'}, HiddenShorts: []byte{'q'},
+	}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{flag}}
+	help := HelpTable{{Key: 1}, {Key: 2, Short: "write output"}}
+	page := LongHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	for _, visible := range []string{"--output", "-o"} {
+		if !strings.Contains(page, visible) {
+			t.Errorf("visible spelling %s should appear:\n%s", visible, page)
+		}
+	}
+	for _, hidden := range []string{"--quietly", "-q"} {
+		if strings.Contains(page, hidden) {
+			t.Errorf("hidden alias %s should not appear:\n%s", hidden, page)
+		}
+	}
+}
+
 // A description that ends in a break adds no blank line.
 //
 // clap's `long_about` often ends with one — a `///` block whose last line is

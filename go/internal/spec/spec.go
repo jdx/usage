@@ -182,9 +182,11 @@ func (s Subcommands) Get(name string) (Cmd, bool) {
 
 // Flag is one flag in the lowered spec.
 type Flag struct {
-	Name  string   `json:"name"`
-	Long  []string `json:"long"`
-	Short []string `json:"short"`
+	Name               string   `json:"name"`
+	Long               []string `json:"long"`
+	Short              []string `json:"short"`
+	HiddenAliases      []string `json:"hidden_aliases"`
+	HiddenShortAliases []string `json:"hidden_short_aliases"`
 	// Negate arrives with its dashes, as usage-lib stores it. The table wants the
 	// bare name.
 	Negate string `json:"negate"`
@@ -791,11 +793,12 @@ func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (
 }
 func (b *builder) flag(f *Flag) *argv.Flag {
 	out := &argv.Flag{
-		Key:        b.next(),
-		Name:       f.Name,
-		Longs:      f.Long,
-		Negate:     strings.TrimLeft(f.Negate, "-"),
-		TakesValue: f.Arg != nil,
+		Key:         b.next(),
+		Name:        f.Name,
+		Longs:       f.Long,
+		HiddenLongs: f.HiddenAliases,
+		Negate:      strings.TrimLeft(f.Negate, "-"),
+		TakesValue:  f.Arg != nil,
 		// Stored on the nested arg as double_dash=automatic, the same place
 		// usage-lib keeps allow_hyphen_values. Trailing positionals use Arg.DoubleDash
 		// on the command, not here.
@@ -810,6 +813,11 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 			// One byte: a cluster is walked a byte at a time, so a multi-byte short
 			// could never be matched anyway.
 			out.Shorts = append(out.Shorts, s[0])
+		}
+	}
+	for _, s := range f.HiddenShortAliases {
+		if s != "" {
+			out.HiddenShorts = append(out.HiddenShorts, s[0])
 		}
 	}
 	valueName, valueDemanded := "", false

@@ -759,6 +759,10 @@ impl CommandMeta<'_> {
 #[derive(Debug, Clone, Copy)]
 pub struct FlagMeta<'a> {
     pub flag: &'a Flag<'a>,
+    /// Short forms accepted by the parser but omitted from help and completion.
+    pub hidden_shorts: &'a [u8],
+    /// Long forms accepted by the parser but omitted from help and completion.
+    pub hidden_longs: &'a [&'a str],
     /// Short help, shown by `-h`.
     pub help: Option<&'a str>,
     /// Long help, shown by `--help`.
@@ -845,6 +849,8 @@ impl FlagMeta<'_> {
         complete: None,
         complete_type: None,
         flag: &Flag::BOOL,
+        hidden_shorts: &[],
+        hidden_longs: &[],
         help: None,
         long_help: None,
         value_name: None,
@@ -1446,7 +1452,7 @@ fn write_completers(
 
 fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt::Result {
     indent(out, depth)?;
-    write!(out, "flag {}", quoted(&flag_forms(meta.flag)))?;
+    write!(out, "flag {}", quoted(&flag_forms(meta)))?;
 
     if let Some(help) = meta.help {
         write!(out, " help={}", quoted(help))?;
@@ -1513,6 +1519,8 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     write_single_list(out, "required_unless", meta.required_unless)?;
 
     let has_children = meta.long_help.is_some()
+        || !meta.hidden_shorts.is_empty()
+        || !meta.hidden_longs.is_empty()
         || meta.flag.takes_value
         || !meta.choices.is_empty()
         || meta.default.len() > 1
@@ -1533,6 +1541,17 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if let Some(long_help) = meta.long_help {
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
+    }
+    if !meta.hidden_shorts.is_empty() || !meta.hidden_longs.is_empty() {
+        indent(out, inner)?;
+        out.push_str("alias");
+        for alias in meta.hidden_shorts {
+            write!(out, " {}", quoted(&format!("-{}", *alias as char)))?;
+        }
+        for alias in meta.hidden_longs {
+            write!(out, " {}", quoted(&format!("--{alias}")))?;
+        }
+        out.push_str(" hide=#true\n");
     }
     write_many_defaults(out, meta.default, inner)?;
     write_many_list(out, "overrides", meta.overrides, inner)?;
@@ -1916,9 +1935,13 @@ fn write_choices(
 }
 
 /// The `-s --long` form a spec uses to declare a flag.
-fn flag_forms(flag: &Flag<'_>) -> String {
+fn flag_forms(meta: &FlagMeta<'_>) -> String {
+    let flag = meta.flag;
     let mut forms = String::new();
     for short in flag.shorts {
+        if meta.hidden_shorts.contains(short) {
+            continue;
+        }
         if !forms.is_empty() {
             forms.push(' ');
         }
@@ -1928,6 +1951,9 @@ fn flag_forms(flag: &Flag<'_>) -> String {
         forms.push(*short as char);
     }
     for long in flag.longs {
+        if meta.hidden_longs.contains(long) {
+            continue;
+        }
         if !forms.is_empty() {
             forms.push(' ');
         }
@@ -2690,7 +2716,15 @@ mod tests {
             shorts: b"jw",
             ..Flag::VALUE
         };
-        assert_eq!(flag_forms(&F), "-j -w --jobs --workers");
+        assert_eq!(
+            flag_forms(&FlagMeta {
+                flag: &F,
+                hidden_shorts: b"w",
+                hidden_longs: &["workers"],
+                ..FlagMeta::EMPTY
+            }),
+            "-j --jobs"
+        );
     }
 
     #[test]

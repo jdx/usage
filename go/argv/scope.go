@@ -45,13 +45,43 @@ func (s shown) nothing() bool { return !s.hasLong && !s.hasShort && !s.negate }
 
 func allShown(f *Flag) shown {
 	out := shown{negate: f.Negate != ""}
-	if len(f.Longs) > 0 {
-		out.long, out.hasLong = f.Longs[0], true
+	for _, l := range f.Longs {
+		if !has(f.HiddenLongs, l) {
+			out.long, out.hasLong = l, true
+			break
+		}
 	}
-	if len(f.Shorts) > 0 {
-		out.short, out.hasShort = f.Shorts[0], true
+	for _, s := range f.Shorts {
+		if !hasByte(f.HiddenShorts, s) {
+			out.short, out.hasShort = s, true
+			break
+		}
 	}
 	return out
+}
+
+func visibleFormsOf(f *Flag) []string {
+	out := make([]string, 0, len(f.Longs)+len(f.Shorts))
+	for _, l := range f.Longs {
+		if !has(f.HiddenLongs, l) {
+			out = append(out, "--"+l)
+		}
+	}
+	for _, s := range f.Shorts {
+		if !hasByte(f.HiddenShorts, s) {
+			out = append(out, "-"+string(s))
+		}
+	}
+	return out
+}
+
+func hasByte(list []byte, value byte) bool {
+	for _, candidate := range list {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
 }
 
 func formsOf(f *Flag) []string {
@@ -120,13 +150,13 @@ func negationSurvives(f *Flag, negation string, takenNegations, everyForm []stri
 func surviving(f *Flag, taken, takenNegations, everyForm []string) shown {
 	var out shown
 	for _, l := range f.Longs {
-		if !has(taken, "--"+l) {
+		if !has(f.HiddenLongs, l) && !has(taken, "--"+l) {
 			out.long, out.hasLong = l, true
 			break
 		}
 	}
 	for _, s := range f.Shorts {
-		if !has(taken, "-"+string(s)) {
+		if !hasByte(f.HiddenShorts, s) && !has(taken, "-"+string(s)) {
 			out.short, out.hasShort = s, true
 			break
 		}

@@ -100,12 +100,18 @@ type Flag struct {
 	Name string
 	// Longs are long forms, written without the leading --.
 	Longs []string
+	// HiddenLongs are accepted long aliases omitted from help and completion.
+	// Every entry also appears in Longs so parsing remains table-driven.
+	HiddenLongs []string
 	// Shorts are short forms, as single bytes.
 	//
 	// Should be ASCII. A cluster like -xyz is walked one byte at a time, so a
 	// non-ASCII short can never be matched, and the remainder after a value-taking
 	// one — which becomes its value — would begin in the middle of a character.
 	Shorts []byte
+	// HiddenShorts are accepted short aliases omitted from help and completion.
+	// Every entry also appears in Shorts.
+	HiddenShorts []byte
 	// Negate is a long form that sets the flag to false, written without the --.
 	// Empty means the flag has none.
 	Negate string

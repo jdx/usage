@@ -270,7 +270,7 @@ func flagsInScope(chain []*Command) []inScope {
 	// nearer has taken it" is just "not seen yet".
 	offer := func(f *Flag) {
 		var left []string
-		for _, form := range formsOf(f) {
+		for _, form := range visibleFormsOf(f) {
 			if !has(taken, form) {
 				left = append(left, form)
 			}

@@ -146,8 +146,18 @@ impl<'a> Shown<'a> {
     /// Everything the flag has, for a command's own flags — nothing above them to claim any.
     fn all(meta: &'a FlagMeta<'a>) -> Self {
         Shown {
-            long: meta.flag.longs.first().copied(),
-            short: meta.flag.shorts.first().copied(),
+            long: meta
+                .flag
+                .longs
+                .iter()
+                .copied()
+                .find(|long| !meta.hidden_longs.contains(long)),
+            short: meta
+                .flag
+                .shorts
+                .iter()
+                .copied()
+                .find(|short| !meta.hidden_shorts.contains(short)),
             negate: meta.flag.negate.is_some(),
         }
     }
@@ -176,13 +186,10 @@ impl<'a> Shown<'a> {
                 .longs
                 .iter()
                 .copied()
-                .find(|l| !taken.contains(&format!("--{l}"))),
-            short: meta
-                .flag
-                .shorts
-                .iter()
-                .copied()
-                .find(|s| !taken.contains(&format!("-{}", *s as char))),
+                .find(|l| !meta.hidden_longs.contains(l) && !taken.contains(&format!("--{l}"))),
+            short: meta.flag.shorts.iter().copied().find(|s| {
+                !meta.hidden_shorts.contains(s) && !taken.contains(&format!("-{}", *s as char))
+            }),
             negate: meta.flag.negate.is_some_and(|n| {
                 let spelling = format!("--{n}");
                 // A long anywhere in scope wins over this, this flag's own excepted.
@@ -534,12 +541,14 @@ fn annotations(out: &mut String, choices: &[&str], env: Option<&str>, default: &
 pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
     meta.flag
         .longs
-        .first()
+        .iter()
+        .find(|long| !meta.hidden_longs.contains(long))
         .map(|long| format!("--{long}"))
         .or_else(|| {
             meta.flag
                 .shorts
-                .first()
+                .iter()
+                .find(|short| !meta.hidden_shorts.contains(short))
                 .map(|short| format!("-{}", *short as char))
         })
         .unwrap_or_else(|| meta.flag.name.to_string())
