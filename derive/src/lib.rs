@@ -203,6 +203,8 @@
 //! `long_about`, `before_help`, `after_help`,
 //! clap-compatible `visible_alias(es)`, hidden `alias(es)`, and `hide` may stay on an
 //! `Args` struct and are inherited by every subcommand variant that mounts it —
+//! clap's `#[group(required = ..., multiple = ...)]` may also stay on an `Args`
+//! struct; its direct flags and positionals become the implicit group members —
 //! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
 //! `default_subcommand`, `multicall` — argv[0]'s basename selects a subcommand —
 //! `arg_required_else_help` — a selected command with no argv of its own shows short help —
@@ -369,7 +371,7 @@ mod crate_name;
 mod model;
 
 /// Compile a struct into a parser and a spec. See the [crate docs](crate).
-#[proc_macro_derive(Cli, attributes(usage, command, arg))]
+#[proc_macro_derive(Cli, attributes(usage, command, arg, group))]
 pub fn derive_cli(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let parsed = model::Cli::from_input(&input)
@@ -388,7 +390,7 @@ pub fn derive_cli(input: TokenStream) -> TokenStream {
 /// tables and metadata as [`Cli`], minus the program-level parts a subcommand does
 /// not have — a name, a version, an entry point — plus the trait a parent uses to
 /// route events into it.
-#[proc_macro_derive(Args, attributes(usage, command, arg))]
+#[proc_macro_derive(Args, attributes(usage, command, arg, group))]
 pub fn derive_args(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     // `restart_token` and `mount` are per-command and belong here; `default_subcommand` is
