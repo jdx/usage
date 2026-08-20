@@ -42,6 +42,26 @@ mod tests {
     }
 
     #[test]
+    fn explicit_optionality_and_aliases_are_documented() {
+        let page = rendered(
+            r#"
+name "ex"
+bin "ex"
+config {
+    prop "jobs" type="uint" optional=#false {
+        alias "parallelism" "threads"
+    }
+}
+"#,
+        );
+        assert!(
+            page.contains("**aliases**: `parallelism`, `threads`"),
+            "{page}"
+        );
+        assert!(page.contains("**optional**: false"), "{page}");
+    }
+
+    #[test]
     fn the_facts_list_starts_on_its_own_line_whatever_its_first_item_is() {
         // The blank line that opens the list was emitted inside the `type_` branch, so a prop
         // with a default and no declared type put its first list item straight against the

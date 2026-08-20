@@ -700,6 +700,8 @@ fn registry_of(settings: &[Setting]) -> Result<Registry, String> {
             hide: false,
             deprecated: setting.deprecated.as_deref().map(leak),
             renamed_to: setting.renamed_to.as_deref().map(leak),
+            aliases: &[],
+            optional: None,
             help: None,
         });
     }
