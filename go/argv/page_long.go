@@ -159,6 +159,15 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	if after != "" {
 		out.WriteString("\n" + after + "\n")
 	}
+	if spec.Author != "" || spec.License != "" {
+		out.WriteByte('\n')
+		if spec.Author != "" {
+			out.WriteString("Author: " + spec.Author + "\n")
+		}
+		if spec.License != "" {
+			out.WriteString("License: " + spec.License + "\n")
+		}
+	}
 
 	return strings.TrimSpace(out.String()) + "\n"
 }

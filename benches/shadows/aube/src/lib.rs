@@ -648,7 +648,7 @@ pub struct BinArgs {
 /// Open package bug tracker URLs
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube bugs\n\n  $ aube bugs react\n\n  $ aube issues react react-dom",
+    after_long_help = "Examples:\n\n  $ aube bugs\n\n  $ aube bugs react\n\n  $ aube issues react react-dom\n",
     effect = "read"
 )]
 pub struct BugsArgs {
@@ -2992,7 +2992,7 @@ pub struct LinkArgs {
 /// Print the resolved dependency tree
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube list\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  ├── express 4.19.2\n  ├── lodash 4.17.21\n  └── zod 3.23.8\n\n  devDependencies:\n  ├── typescript 5.4.5\n  └── vitest 1.6.0\n\n  # Show the full transitive tree\n  $ aube list --depth Infinity\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  ├─┬ express 4.19.2\n  │ ├── accepts 1.3.8\n  │ ├── body-parser 1.20.2\n  │ └── ...\n\n  # Only direct production deps\n  $ aube list --prod\n\n  # Machine-readable: one path per line (real store locations)\n  $ aube list --parseable\n  /home/user/project\n  /home/user/project/node_modules/.aube/express@4.19.2/node_modules/express\n  /home/user/project/node_modules/.aube/lodash@4.17.21/node_modules/lodash\n\n  # Filter to a single package\n  $ aube list express",
+    after_long_help = "Examples:\n\n  $ aube list\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  ├── express 4.19.2\n  ├── lodash 4.17.21\n  └── zod 3.23.8\n\n  devDependencies:\n  ├── typescript 5.4.5\n  └── vitest 1.6.0\n\n  # Show the full transitive tree\n  $ aube list --depth Infinity\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  ├─┬ express 4.19.2\n  │ ├── accepts 1.3.8\n  │ ├── body-parser 1.20.2\n  │ └── ...\n\n  # Only direct production deps\n  $ aube list --prod\n\n  # Machine-readable: one path per line (real store locations)\n  $ aube list --parseable\n  /home/user/project\n  /home/user/project/node_modules/.aube/express@4.19.2/node_modules/express\n  /home/user/project/node_modules/.aube/lodash@4.17.21/node_modules/lodash\n\n  # Filter to a single package\n  $ aube list express\n",
     effect = "read"
 )]
 pub struct ListArgs {
@@ -3523,7 +3523,7 @@ pub struct PatchRemoveArgs {
 
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube peers check\n  All peer dependencies are satisfied.\n\n  # With issues\n  $ aube peers check\n  1 unmet, 1 missing peer dependencies:\n\n  ├─┬ @emotion/react@11.11.4\n  │ └── ✕ unmet peer react@>=16.8: found 17.0.2\n  └─┬ react-dom@18.2.0\n    └── ✕ missing peer react@^18.0.0\n\n  # Machine-readable\n  $ aube peers check --json",
+    after_long_help = "Examples:\n\n  $ aube peers check\n  All peer dependencies are satisfied.\n\n  # With issues\n  $ aube peers check\n  1 unmet, 1 missing peer dependencies:\n\n  ├─┬ @emotion/react@11.11.4\n  │ └── ✕ unmet peer react@>=16.8: found 17.0.2\n  └─┬ react-dom@18.2.0\n    └── ✕ missing peer react@^18.0.0\n\n  # Machine-readable\n  $ aube peers check --json\n",
     effect = "read"
 )]
 pub struct PeersCheckArgs {
@@ -5053,7 +5053,7 @@ pub struct TokenArgs {
 /// Check one package version for a publishing-trust downgrade
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube trust check @hono/node-server@1.19.17\n  @hono/node-server@1.19.17: pass\n  published: 2026-07-27T03:07:48.993Z\n  current evidence: trusted publisher\n  strongest earlier evidence: trusted publisher (2.0.10)\n\n  # Evaluate the underlying policy even when aube has a built-in exception\n  $ aube trust check @hono/node-server@1.19.15 --ignore-default-excludes\n\n  # Machine-readable report\n  $ aube trust check @hono/node-server@1.19.17 --json",
+    after_long_help = "Examples:\n\n  $ aube trust check @hono/node-server@1.19.17\n  @hono/node-server@1.19.17: pass\n  published: 2026-07-27T03:07:48.993Z\n  current evidence: trusted publisher\n  strongest earlier evidence: trusted publisher (2.0.10)\n\n  # Evaluate the underlying policy even when aube has a built-in exception\n  $ aube trust check @hono/node-server@1.19.15 --ignore-default-excludes\n\n  # Machine-readable report\n  $ aube trust check @hono/node-server@1.19.17 --json\n",
     effect = "read"
 )]
 pub struct TrustCheckArgs {
@@ -5546,7 +5546,7 @@ pub struct VersionArgs {
 /// Print package metadata from the registry
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube view\n  my-package@1.0.0 | MIT | deps: 0 | versions: 1\n\n  $ aube view react\n  react@18.3.1 | MIT | deps: 1 | versions: 2037\n  React is a JavaScript library for building user interfaces.\n  https://react.dev/\n\n  keywords: react\n\n  dist\n  .tarball: https://registry.npmjs.org/react/-/react-18.3.1.tgz\n  .shasum:  a0b2eb79...\n  .integrity: sha512-...\n\n  # A specific version\n  $ aube view react@17.0.2\n\n  # A single field\n  $ aube view react version\n  18.3.1\n\n  $ aube view react dist.tarball\n  https://registry.npmjs.org/react/-/react-18.3.1.tgz\n\n  # All versions ever published\n  $ aube view react versions --json\n\n  # Raw JSON for the resolved version\n  $ aube view react@next --json",
+    after_long_help = "Examples:\n\n  $ aube view\n  my-package@1.0.0 | MIT | deps: 0 | versions: 1\n\n  $ aube view react\n  react@18.3.1 | MIT | deps: 1 | versions: 2037\n  React is a JavaScript library for building user interfaces.\n  https://react.dev/\n\n  keywords: react\n\n  dist\n  .tarball: https://registry.npmjs.org/react/-/react-18.3.1.tgz\n  .shasum:  a0b2eb79...\n  .integrity: sha512-...\n\n  # A specific version\n  $ aube view react@17.0.2\n\n  # A single field\n  $ aube view react version\n  18.3.1\n\n  $ aube view react dist.tarball\n  https://registry.npmjs.org/react/-/react-18.3.1.tgz\n\n  # All versions ever published\n  $ aube view react versions --json\n\n  # Raw JSON for the resolved version\n  $ aube view react@next --json\n",
     effect = "read"
 )]
 pub struct ViewArgs {
@@ -5690,7 +5690,7 @@ pub struct WhoamiArgs {
 /// Print reverse dependency chains explaining why a package is installed
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n  $ aube why debug\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  express 4.19.2\n  └── debug 2.6.9\n  body-parser 1.20.2\n  └── debug 2.6.9\n\n  # Only follow chains starting at a devDependency\n  $ aube why --dev typescript\n\n  # Include each node's store path\n  $ aube why --long debug\n\n  # Tab-separated, one chain per line (pipe-friendly)\n  $ aube why --parseable debug\n\n  # JSON: an array of chain objects\n  $ aube why --json debug",
+    after_long_help = "Examples:\n\n  $ aube why debug\n  my-app@1.0.0 /home/user/project\n\n  dependencies:\n  express 4.19.2\n  └── debug 2.6.9\n  body-parser 1.20.2\n  └── debug 2.6.9\n\n  # Only follow chains starting at a devDependency\n  $ aube why --dev typescript\n\n  # Include each node's store path\n  $ aube why --long debug\n\n  # Tab-separated, one chain per line (pipe-friendly)\n  $ aube why --parseable debug\n\n  # JSON: an array of chain objects\n  $ aube why --json debug\n",
     effect = "read"
 )]
 pub struct WhyArgs {

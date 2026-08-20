@@ -1525,13 +1525,25 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
 
     // mise puts an Examples section here on 115 commands, which is why a page without it is
     // missing the part a reader came for.
-    if let Some(after) = meta
+    let after = meta
         .after_long_help
         .or(meta.after_help)
         .or(spec.root.after_long_help)
-        .or(spec.root.after_help)
-    {
+        .or(spec.root.after_help);
+    if let Some(after) = after {
         let _ = writeln!(out, "\n{after}");
+    }
+    if spec.author.is_some() || spec.license.is_some() {
+        // The reference template starts the footer in a new paragraph without trimming the
+        // configured trailing help. A newline deliberately present in `after_help` therefore
+        // remains an additional blank line before package metadata.
+        out.push('\n');
+        if let Some(author) = spec.author {
+            let _ = writeln!(out, "Author: {author}");
+        }
+        if let Some(license) = spec.license {
+            let _ = writeln!(out, "License: {license}");
+        }
     }
 
     let trimmed = out.trim();
@@ -2408,9 +2420,9 @@ fn recursive_help<'a>(
 mod style_tests {
     use super::{
         commands_section, flag_notes, flag_usage, flat_commands_short, inline_environment_notes,
-        styled_flag_usage, styled_help, Style,
+        long_help, styled_flag_usage, styled_help, Style,
     };
-    use crate::spec::{CommandMeta, FlagMeta};
+    use crate::spec::{CommandMeta, FlagMeta, Spec};
     use crate::{Command, Flag};
 
     #[test]
@@ -2566,6 +2578,32 @@ mod style_tests {
 
         assert!(page.contains("  run  run it\n  help"));
         assert!(!page.contains("  run  run it\n\n  help"));
+    }
+
+    #[test]
+    fn long_help_preserves_configured_spacing_before_package_metadata() {
+        let command = Command {
+            name: "ex",
+            ..Command::EMPTY
+        };
+        let root = CommandMeta {
+            cmd: &command,
+            after_help: Some("More help.\n"),
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            author: Some("Example Author"),
+            root: &root,
+            ..Spec::EMPTY
+        };
+
+        let page = long_help(&spec, &["ex"], &[&root]);
+
+        assert!(
+            page.contains("More help.\n\n\nAuthor: Example Author\n"),
+            "{page}"
+        );
     }
 
     #[test]
