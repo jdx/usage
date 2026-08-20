@@ -23,6 +23,126 @@ enum Command {
     Version,
 }
 
+#[derive(Args)]
+struct RepeatedGlobalChild {
+    #[arg(long)]
+    cd: Option<String>,
+}
+
+#[derive(Subcommands)]
+enum RepeatedGlobalCommand {
+    Run(RepeatedGlobalChild),
+}
+
+#[derive(Cli)]
+#[usage(bin = "repeated-global")]
+struct RepeatedGlobal {
+    #[arg(long, global, default_value = "/default")]
+    cd: Option<String>,
+    #[command(subcommand)]
+    command: RepeatedGlobalCommand,
+}
+
+#[test]
+fn a_redeclared_global_value_reaches_the_ancestor_and_child() {
+    let parsed = RepeatedGlobal::parse_from(&[OsStr::new("run"), OsStr::new("--cd=/tmp")])
+        .expect("the child spelling should bind at both levels like clap");
+    assert_eq!(parsed.cd.as_deref(), Some("/tmp"));
+    let RepeatedGlobalCommand::Run(run) = parsed.command;
+    assert_eq!(run.cd.as_deref(), Some("/tmp"));
+}
+
+#[derive(Args)]
+struct FlattenedGlobal {
+    #[arg(long, global)]
+    cd: Option<String>,
+}
+
+#[derive(Cli)]
+#[usage(bin = "flattened-repeated-global")]
+struct FlattenedRepeatedGlobal {
+    #[command(flatten)]
+    global: FlattenedGlobal,
+    #[command(subcommand)]
+    command: RepeatedGlobalCommand,
+}
+
+#[test]
+fn a_redeclared_global_value_reaches_a_flattened_ancestor_field() {
+    let parsed =
+        FlattenedRepeatedGlobal::parse_from(&[OsStr::new("run"), OsStr::new("--cd=/flattened")])
+            .expect("the child spelling should mirror through a flattened global group");
+    assert_eq!(parsed.global.cd.as_deref(), Some("/flattened"));
+    let RepeatedGlobalCommand::Run(run) = parsed.command;
+    assert_eq!(run.cd.as_deref(), Some("/flattened"));
+}
+
+#[derive(Args)]
+struct GlobalAliasChild {
+    #[arg(long = "work-dir", alias = "dir")]
+    work_dir: Option<String>,
+}
+
+#[derive(Subcommands)]
+enum GlobalAliasCommand {
+    Run(GlobalAliasChild),
+}
+
+#[derive(Cli)]
+#[usage(bin = "global-alias")]
+struct GlobalAliasCli {
+    #[arg(long = "directory", alias = "dir", global)]
+    directory: Option<String>,
+    #[command(subcommand)]
+    command: GlobalAliasCommand,
+}
+
+#[test]
+fn a_shared_alias_does_not_fill_an_unrelated_global() {
+    let parsed = GlobalAliasCli::parse_from(&[OsStr::new("run"), OsStr::new("--dir=/tmp")])
+        .expect("the nearer child alias should parse");
+    assert_eq!(parsed.directory, None);
+    let GlobalAliasCommand::Run(run) = parsed.command;
+    assert_eq!(run.work_dir.as_deref(), Some("/tmp"));
+}
+
+#[derive(Subcommands)]
+enum IncompatibleGlobalCommand {
+    Run {
+        #[arg(long)]
+        mode: bool,
+        #[arg(long)]
+        jobs: String,
+    },
+}
+
+#[derive(Cli)]
+#[usage(bin = "incompatible-global")]
+struct IncompatibleGlobalCli {
+    #[arg(long, global, default_value = "fast", value_parser = ["fast", "slow"])]
+    mode: String,
+    #[arg(long, global, default_value = "1")]
+    jobs: u32,
+    #[command(subcommand)]
+    command: IncompatibleGlobalCommand,
+}
+
+#[test]
+fn incompatible_child_bindings_do_not_fill_ancestor_globals() {
+    let parsed = IncompatibleGlobalCli::parse_from(&[
+        OsStr::new("run"),
+        OsStr::new("--mode"),
+        OsStr::new("--jobs"),
+        OsStr::new("many"),
+    ])
+    .expect("the child declarations own their values");
+    assert_eq!(parsed.mode, "fast");
+    assert_eq!(parsed.jobs, 1);
+    let IncompatibleGlobalCommand::Run { mode, jobs } = parsed.command;
+    assert!(mode);
+    assert_eq!(jobs, "many");
+}
+
 #[derive(Cli)]
 #[usage(
     bin = "metadata",
