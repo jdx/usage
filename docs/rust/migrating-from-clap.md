@@ -66,6 +66,10 @@ enum Command {
 Unknown flags are values by default, which is useful for wrapper CLIs. Add
 `unknown_flags = "error"` on each command where unknown flag-like words must be rejected.
 
+Repeated scalar flags also use permissive last-one-wins behavior by default. Add
+`#[command(args_override_self = false)]` on commands that should reject a second occurrence.
+The clap bridge records clap's setting, so generated specs retain the source command's policy.
+
 `#[command(arg_required_else_help)]` migrates in place. usage checks whether the selected
 command received an argv token; environment and default fallbacks do not count.
 

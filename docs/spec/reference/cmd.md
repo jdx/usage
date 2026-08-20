@@ -183,6 +183,18 @@ arg "<values>..." delimiter=","
 `ex a,b -- c,d` binds `a`, `b`, and `c,d`. The policy is inherited by
 subcommands, matching clap's command-wide setting.
 
+### Repeated scalar flags
+
+Later occurrences of a single-valued flag replace earlier ones by default. Set
+`args_override_self` to false on commands that require strict duplicate checking:
+
+```kdl
+args_override_self #false
+cmd "publish" args_override_self=#false
+```
+
+Repeatable, variadic, and count flags continue collecting or counting regardless of this setting.
+
 ### Global flags and mounted commands
 
 A mounted command describes a different program, so the flags of the commands it is mounted under

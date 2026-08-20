@@ -708,6 +708,8 @@ pub struct CommandMeta<'a> {
     /// everything reading that spec — help, docs, completions — otherwise describes a
     /// command as runnable when it is not.
     pub subcommand_required: bool,
+    /// Whether later single-valued occurrences replace earlier ones.
+    pub args_override_self: bool,
     /// Text printed above the usage line, and below everything else.
     ///
     /// The spec's `before_help`/`after_help` and their long forms. mise puts an Examples
@@ -743,6 +745,7 @@ impl CommandMeta<'_> {
         mount: None,
         restart_token: None,
         subcommand_required: false,
+        args_override_self: true,
         before_help: None,
         before_long_help: None,
         after_help: None,
@@ -1128,6 +1131,9 @@ impl Spec<'_> {
         if self.root.cmd.dont_delimit_trailing_values {
             writeln!(out, "dont_delimit_trailing_values #true")?;
         }
+        if !self.root.args_override_self {
+            writeln!(out, "args_override_self #false")?;
+        }
         // A `complete` block for every completer this CLI declares, naming the command that
         // asks the binary itself. Written rather than declared, so there is one place a
         // completer is said to exist: the Rust function. Everything that reads a spec — the
@@ -1373,6 +1379,9 @@ fn write_command<'a>(
     }
     if meta.cmd.dont_delimit_trailing_values {
         out.push_str(" dont_delimit_trailing_values=#true");
+    }
+    if !meta.args_override_self {
+        out.push_str(" args_override_self=#false");
     }
     out.push_str(" {\n");
 
@@ -2472,6 +2481,19 @@ pub trait CommandArgs: Sized {
     fn check<'t, 'v>(partial: &mut Self::Partial) -> Result<(), crate::Error<'t, 'v>> {
         let _ = partial;
         Ok(())
+    }
+
+    /// Run checks under the repeat policy of the command that composed these args.
+    ///
+    /// A flattened argument group is part of its parent's command, so the parent's
+    /// `args_override_self` setting governs repeats in the group as well. Hand-written
+    /// implementations keep their existing behavior through this default.
+    fn check_with_args_override_self<'t, 'v>(
+        partial: &mut Self::Partial,
+        args_override_self: bool,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        let _ = args_override_self;
+        Self::check(partial)
     }
 
     /// Build the struct from what was collected.

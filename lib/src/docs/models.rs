@@ -484,6 +484,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             external_subcommand: _,
             arg_required_else_help: _,
             dont_delimit_trailing_values: _,
+            args_override_self: _,
             // Rendered above, or deliberately absent from the docs model.
             args: _,
             flags: _,

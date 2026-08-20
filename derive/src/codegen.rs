@@ -140,6 +140,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let no_binary_name = cli.no_binary_name;
     let arg_required_else_help = cli.arg_required_else_help;
     let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
+    let args_override_self = cli.args_override_self;
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -452,6 +453,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 long_about: #long_about,
                 restart_token: #restart_token,
                 subcommand_required: #subcommand_required,
+                args_override_self: #args_override_self,
                 mount: #mount,
                 before_help: #before_help,
                 before_long_help: #before_long_help,
@@ -494,6 +496,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 // otherwise leave the parameter unused in the user's crate, where
                 // nobody can silence it.
                 let _ = &partial;
+                let args_override_self = #args_override_self;
                 #post
                 ::std::result::Result::Ok(())
             }
@@ -1732,14 +1735,14 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
         let overridden = format_ident!("__overridden_{}", ident);
         quote!(partial.#overridden = false;)
     });
-    let duplicate = rejects_duplicate(field).then(|| {
+    let duplicate = rejects_duplicate(cli, field).then(|| {
         let duplicated = format_ident!("__duplicated_{}", ident);
         if has_negate(field) {
             let negated = format_ident!("__negated_{}", ident);
             // For a global the question is asked per level, exactly as in the arm
             // below: clap accepts `--colour sub --colour` when `--colour` is global
             // and negatable just as when it is plain.
-            let (guard, mark) = if duplicates_per_level(field) {
+            let (guard, mark) = if duplicates_per_level(cli, field) {
                 let here = format_ident!("__here_{}", ident);
                 (quote!(partial.#here), quote!(partial.#here = true;))
             } else {
@@ -1750,12 +1753,12 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
                     // The positive and negative spellings override one another: the
                     // last of `--color --no-color` wins just like an explicit
                     // `overrides` pair. Repeating the same spelling is still an error.
-                    partial.#duplicated = partial.#negated == negated;
+                    partial.#duplicated |= partial.#negated == negated;
                 }
                 #mark
                 partial.#negated = negated;
             }
-        } else if duplicates_per_level(field) {
+        } else if duplicates_per_level(cli, field) {
             let here = format_ident!("__here_{}", ident);
             quote! {
                 if partial.#here {
@@ -1824,8 +1827,8 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
 /// subcommand — the inner occurrence simply wins, which is what makes `mise -y install -y` a
 /// line that works today. Repeating it at *one* level is still an error there, so the check
 /// cannot simply be dropped: it has to be per level, which is what `__here_` records.
-fn duplicates_per_level(field: &Field) -> bool {
-    rejects_duplicate(field) && matches!(field.kind, Kind::Flag { global: true, .. })
+fn duplicates_per_level(cli: &Cli, field: &Field) -> bool {
+    rejects_duplicate(cli, field) && matches!(field.kind, Kind::Flag { global: true, .. })
 }
 
 /// Clearing those markers, to run when a command word is read: descending starts a new level.
@@ -1833,7 +1836,7 @@ fn reset_per_level(cli: &Cli) -> TokenStream {
     let resets = cli
         .fields
         .iter()
-        .filter(|f| duplicates_per_level(f))
+        .filter(|f| duplicates_per_level(cli, f))
         .map(|f| {
             let here = format_ident!("__here_{}", f.ident);
             quote!(partial.#here = false;)
@@ -1844,25 +1847,13 @@ fn reset_per_level(cli: &Cli) -> TokenStream {
 /// Whether another occurrence is a command-line mistake rather than another value.
 ///
 /// Counts and collections repeat by definition, and `var` explicitly opts a value-taking flag
-/// into repetition. Every other flag matches clap's default of one occurrence.
-///
-/// **This is stricter than the grammar, deliberately.** The corpus specifies the opposite for a
-/// *spec-driven* parse — `long-repeated-keeps-the-last` says "a repeat is a correction, typically
-/// a wrapper appending to a command line it did not write" — and usage-argv's parser and
-/// usage-lib both honour that. The rule lives here, in the derive's post-binding layer, and
-/// nowhere else: `Error::DuplicateFlag` is constructed at one call site, in this file.
-///
-/// Kept, because the two cases are not the same case. A spec parsed at run time may well be
-/// describing someone else's command line, which is the wrapper the corpus has in mind. A
-/// derived CLI is an authored, fixed surface, where `--jobs 1 --jobs 2` is far likelier to be a
-/// mistake than an amendment — and it is what clap does, so an adopter replacing clap sees no
-/// change. Dropping it would make a derived binary quietly accept a line clap rejects today,
-/// which is the direction that costs an adopter rather than the one that helps.
-///
-/// Recorded because it looks like an inconsistency and is not one. `differential.rs` in the gate
-/// carries the same note from the other end.
-fn rejects_duplicate(field: &Field) -> bool {
-    matches!(field.kind, Kind::Flag { .. })
+/// into repetition. Every other flag is strict only when the command opts out of usage's
+/// permissive `args_override_self` default. This is a post-binding question: the allocation-free
+/// parser reports occurrences, and the generated command decides whether a second one is an
+/// error. `differential.rs` pins the permissive default against clap's strict one.
+fn rejects_duplicate(cli: &Cli, field: &Field) -> bool {
+    (!cli.args_override_self || cli.composable)
+        && matches!(field.kind, Kind::Flag { .. })
         && !matches!(field.shape, Shape::Count | Shape::Many)
         && !field.repeatable
 }
@@ -1886,7 +1877,7 @@ fn has_negate(field: &Field) -> bool {
 fn displacements(cli: &Cli, field: &Field) -> Vec<TokenStream> {
     let mut displacements: Vec<TokenStream> = displaced_by(cli, field)
         .into_iter()
-        .map(displace_statement)
+        .map(|displaced| displace_statement(cli, displaced))
         .collect();
     for selector in field
         .overrides
@@ -1909,11 +1900,11 @@ fn displacements(cli: &Cli, field: &Field) -> Vec<TokenStream> {
     displacements
 }
 
-fn displace_statement(field: &Field) -> TokenStream {
+fn displace_statement(cli: &Cli, field: &Field) -> TokenStream {
     let reset = reset_to_default(field);
     let given = format_ident!("__given_{}", field.ident);
     let overridden = format_ident!("__overridden_{}", field.ident);
-    let duplicated = rejects_duplicate(field).then(|| {
+    let duplicated = rejects_duplicate(cli, field).then(|| {
         let duplicated = format_ident!("__duplicated_{}", field.ident);
         quote!(partial.#duplicated = false;)
     });
@@ -2251,7 +2242,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             return None;
         }
         let selectors = field_selectors(field);
-        let statement = displace_statement(field);
+        let statement = displace_statement(cli, field);
         Some(quote! {
             #(#selectors)|* => {
                 #statement
@@ -2406,13 +2397,13 @@ fn partial_struct(cli: &Cli) -> TokenStream {
             let overridden = format_ident!("__overridden_{}", ident);
             quote!(pub #overridden: bool,)
         });
-        let duplicated = rejects_duplicate(f).then(|| {
+        let duplicated = rejects_duplicate(cli, f).then(|| {
             let duplicated = format_ident!("__duplicated_{}", ident);
             quote!(pub #duplicated: bool,)
         });
         // Given at *this* level, for a global — see `duplicates_per_level`. Only for those
         // fields, so nothing else carries a `bool` no code reads.
-        let here = duplicates_per_level(f).then(|| {
+        let here = duplicates_per_level(cli, f).then(|| {
             let here = format_ident!("__here_{}", ident);
             quote!(pub #here: bool,)
         });
@@ -2740,11 +2731,11 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             let overridden = format_ident!("__overridden_{}", ident);
             quote!(#overridden: false,)
         });
-        let duplicated = rejects_duplicate(f).then(|| {
+        let duplicated = rejects_duplicate(cli, f).then(|| {
             let duplicated = format_ident!("__duplicated_{}", ident);
             quote!(#duplicated: false,)
         });
-        let here = duplicates_per_level(f).then(|| {
+        let here = duplicates_per_level(cli, f).then(|| {
             let here = format_ident!("__here_{}", ident);
             quote!(#here: false,)
         });
@@ -3163,7 +3154,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                 .iter()
                 .filter(|selector| cli.field_for_selector(selector).is_none())
                 .map(move |selector| {
-                    let statement = displace_statement(field);
+                    let statement = displace_statement(cli, field);
                     quote! {
                         if <#ty as usage_argv::spec::CommandArgs>::event_matches(
                             event,
@@ -3453,6 +3444,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let unknown_flags = unknown_flags_tokens(cli);
     let arg_required_else_help = cli.arg_required_else_help;
     let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
+    let args_override_self = cli.args_override_self;
     let before_help = option_expr(cli.before_help.as_ref());
     let before_long_help = option_expr(cli.before_long_help.as_ref());
     let after_help = option_expr(cli.after_help.as_ref());
@@ -3585,6 +3577,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 hidden_aliases: &[#(#hidden_aliases),*],
                 restart_token: #restart_token,
                 subcommand_required: #subcommand_required,
+                args_override_self: #args_override_self,
                 mount: #mount,
                 before_help: #before_help,
                 before_long_help: #before_long_help,
@@ -3621,8 +3614,9 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             /// Separate from `build` because only the *selected* command's
             /// requirements apply: a flag that `install` requires says nothing about
             /// an invocation that ran `run`.
-            pub fn check<'t, 'v>(
+            pub fn check_with_args_override_self<'t, 'v>(
                 partial: &mut Partial,
+                args_override_self: bool,
             ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
                 // Read unconditionally: a command that declares nothing to check would
                 // otherwise leave the parameter unused in the user's crate, where
@@ -3630,6 +3624,12 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 let _ = &partial;
                 #post
                 ::std::result::Result::Ok(())
+            }
+
+            pub fn check<'t, 'v>(
+                partial: &mut Partial,
+            ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                check_with_args_override_self(partial, #args_override_self)
             }
 
             #settings_defs
@@ -3656,6 +3656,13 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     partial: &mut Self::Partial,
                 ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
                     check(partial)
+                }
+
+                fn check_with_args_override_self<'t, 'v>(
+                    partial: &mut Self::Partial,
+                    args_override_self: bool,
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                    check_with_args_override_self(partial, args_override_self)
                 }
 
                 #presence
@@ -4758,21 +4765,28 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 || <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident)
                     .is_some()
             {
-                <#ty as usage_argv::spec::CommandArgs>::check(&mut partial.#ident)?;
+                <#ty as usage_argv::spec::CommandArgs>::check_with_args_override_self(
+                    &mut partial.#ident,
+                    args_override_self,
+                )?;
             }
         })
     });
-    let duplicate_checks = cli.fields.iter().filter(|f| rejects_duplicate(f)).map(|f| {
-        let duplicated = format_ident!("__duplicated_{}", f.ident);
-        let name = &f.name;
-        quote! {
-            if partial.#duplicated {
-                return ::std::result::Result::Err(
-                    usage_argv::Error::DuplicateFlag { name: #name },
-                );
+    let duplicate_checks = cli
+        .fields
+        .iter()
+        .filter(|f| rejects_duplicate(cli, f))
+        .map(|f| {
+            let duplicated = format_ident!("__duplicated_{}", f.ident);
+            let name = &f.name;
+            quote! {
+                if !args_override_self && partial.#duplicated {
+                    return ::std::result::Result::Err(
+                        usage_argv::Error::DuplicateFlag { name: #name },
+                    );
+                }
             }
-        }
-    });
+        });
     // Applied here rather than in `start`, and this is not a detail: `start` builds the
     // partial for *every* command in the CLI, selected or not, so a declared default was
     // costing a `String` per default per command — 60 allocations to parse a bare `mise`,

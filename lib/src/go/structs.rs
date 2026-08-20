@@ -100,6 +100,83 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
 
 fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
     let root = &commands[0];
+    let mut strict_keys = commands
+        .iter()
+        .flat_map(|command| {
+            command
+                .flags
+                .iter()
+                .filter(|(flag, _)| {
+                    !command.cmd.args_override_self
+                        && !flag.var
+                        && !flag.count
+                        && !flag.arg.as_ref().is_some_and(|arg| arg.var)
+                })
+                .map(|(_, named)| named.key.as_str())
+        })
+        .collect::<Vec<_>>();
+    strict_keys.sort_unstable();
+    strict_keys.dedup();
+    let mut strict_negate_keys = commands
+        .iter()
+        .flat_map(|command| {
+            command
+                .flags
+                .iter()
+                .filter(|(flag, _)| !command.cmd.args_override_self && flag.negate.is_some())
+                .map(|(_, named)| named.key.as_str())
+        })
+        .collect::<Vec<_>>();
+    strict_negate_keys.sort_unstable();
+    strict_negate_keys.dedup();
+    let duplicate_state = if strict_keys.is_empty() {
+        String::new()
+    } else {
+        let polarity = if strict_negate_keys.is_empty() {
+            ""
+        } else {
+            "\tpolaritySeen := map[uint64]uint8{}\n"
+        };
+        format!(
+            "\tlevelSeen := map[uint64]int{{}}\n{polarity}\tstrictSeen := map[uint64]bool{{}}\n\tduplicateSeen := map[uint64]bool{{}}\n"
+        )
+    };
+    let duplicate_event = if strict_keys.is_empty() {
+        String::new()
+    } else {
+        let keys = strict_keys.join(", ");
+        let per_kind = if strict_negate_keys.is_empty() {
+            "\t\t\t\tlevelSeen[ev.Flag.Key]++\n\t\t\t\tif levelSeen[ev.Flag.Key] > 1 {\n\t\t\t\t\tduplicateSeen[ev.Flag.Key] = true\n\t\t\t\t}\n".to_string()
+        } else {
+            let negate_keys = strict_negate_keys.join(", ");
+            format!(
+                "\t\t\t\tswitch ev.Flag.Key {{\n\t\t\t\tcase {negate_keys}:\n\t\t\t\t\tpolarity := uint8(1)\n\t\t\t\t\tif ev.Negated {{\n\t\t\t\t\t\tpolarity = 2\n\t\t\t\t\t}}\n\t\t\t\t\tif polaritySeen[ev.Flag.Key]&polarity != 0 {{\n\t\t\t\t\t\tduplicateSeen[ev.Flag.Key] = true\n\t\t\t\t\t}}\n\t\t\t\t\tpolaritySeen[ev.Flag.Key] |= polarity\n\t\t\t\tdefault:\n\t\t\t\t\tlevelSeen[ev.Flag.Key]++\n\t\t\t\t\tif levelSeen[ev.Flag.Key] > 1 {{\n\t\t\t\t\t\tduplicateSeen[ev.Flag.Key] = true\n\t\t\t\t\t}}\n\t\t\t\t}}\n"
+            )
+        };
+        format!(
+            "\t\t\tswitch ev.Flag.Key {{\n\t\t\tcase {keys}:\n\t\t\t\tstrictSeen[ev.Flag.Key] = true\n{per_kind}\t\t\t}}\n"
+        )
+    };
+    let duplicate_occurrences = if strict_keys.is_empty() {
+        ""
+    } else {
+        "\t\toccurrences := seen[key]\n\t\tif strictSeen[key] {\n\t\t\toccurrences = 1\n\t\t\tif duplicateSeen[key] {\n\t\t\t\toccurrences = 2\n\t\t\t}\n\t\t}\n"
+    };
+    let check_occurrences = if strict_keys.is_empty() {
+        "seen[key]"
+    } else {
+        "occurrences"
+    };
+    let duplicate_command = if strict_keys.is_empty() {
+        String::new()
+    } else {
+        let polarity = if strict_negate_keys.is_empty() {
+            ""
+        } else {
+            "\t\t\tpolaritySeen = map[uint64]uint8{}\n"
+        };
+        format!("\t\t\tlevelSeen = map[uint64]int{{}}\n{polarity}")
+    };
     let has_relationship_values = commands.iter().any(|command| {
         command.flags.iter().any(|(flag, _)| {
             !flag.requires_if.is_empty()
@@ -159,6 +236,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \t// before any of it is handed back.\n\
          \tgiven := map[uint64][]string{{}}\n\
          \tseen := map[uint64]int{{}}\n\
+         {duplicate_state}\
          {conditional_state}\
          \tchain := []*argv.Command{{Root}}\n\
          \n\tp := argv.New(Root, args)\n\
@@ -166,6 +244,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \t\tev := p.Event()\n\
          \t\tswitch ev.Kind {{\n\
          \t\tcase argv.KindCommand:\n\
+         {duplicate_command}\
          \t\t\tchain = append(chain, ev.Command)\n\
          \t\t\tswitch ev.Command.Key {{"
     );
@@ -192,6 +271,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
     let _ = writeln!(
         out,
         "\t\t\t}}\n\t\tcase argv.KindFlag:\n\t\t\tseen[ev.Flag.Key]++\n\
+         {duplicate_event}\
          {conditional_event}\
          \t\t\tif ev.HasValue {{\n\
          \t\t\t\tgiven[ev.Flag.Key] = append(given[ev.Flag.Key], argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)\n\
@@ -259,7 +339,8 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \tfor _, key := range scope {{\n\
          \t\tvalues, source := filled[key], sources[key]\n\
          {conditional_value}\
-         \t\tif err := argv.Check(Meta.Lookup(key), values, seen[key]); err != nil {{\n\
+         {duplicate_occurrences}\
+         \t\tif err := argv.Check(Meta.Lookup(key), values, {check_occurrences}); err != nil {{\n\
          \t\t\treturn nil, err\n\t\t}}\n\
          \t\t// What the environment or a default supplied has to reach the field\n\
          \t\t// too. A front door that enforces a default and then hands back the\n\

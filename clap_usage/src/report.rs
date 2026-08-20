@@ -15,7 +15,6 @@ pub enum FidelityFeature {
     GranularHide,
     AllowMissingPositional,
     ArgsConflictWithSubcommands,
-    ArgsOverrideSelf,
     SubcommandPrecedenceOverArg,
     SubcommandNegatesRequirements,
     FlattenHelp,
@@ -92,11 +91,6 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         cmd.is_args_conflicts_with_subcommands_set(),
         FidelityFeature::ArgsConflictWithSubcommands,
         "args_conflicts_with_subcommands",
-    );
-    command_loss(
-        cmd.is_args_override_self(),
-        FidelityFeature::ArgsOverrideSelf,
-        "args_override_self",
     );
     command_loss(
         cmd.is_subcommand_precedence_over_arg_set(),

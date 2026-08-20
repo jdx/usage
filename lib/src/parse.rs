@@ -713,14 +713,15 @@ fn parse_partial_with_env(
     // - Global flags affect all commands and should be passed to mount points
     let mut prefix_flags: Vec<(Arc<SpecFlag>, Vec<String>)> = vec![];
     // Which flag each word skipped here belongs to, aligned with the leading words left in
-    // `input`: `Some((flag, negated))` for a flag word, `None` for its value (or anything
-    // unresolved).
+    // `input`: `Some((flag, command_level))` for a flag word, `None` for its value (or
+    // anything unresolved). The level matters to strict parsing: clap permits an inherited
+    // global once on each side of a subcommand boundary.
     //
     // The words stay in `input` for Phase 2 to re-parse — that is how they reach `out.flags`
     // and `as_env()` — but by then the recognized flags have changed, because each descent
     // drops the parent's non-global flags and a mounted command may declare the same name as
     // a global seen here. Recording the owner keeps a word bound to the flag it was read as.
-    let mut prefix_bindings: VecDeque<Option<(Arc<SpecFlag>, bool)>> = VecDeque::new();
+    let mut prefix_bindings: VecDeque<Option<(Arc<SpecFlag>, usize)>> = VecDeque::new();
     let mut idx = 0;
     // Track whether we've already applied the default_subcommand to prevent
     // multiple switches (e.g., if default is "run" and there's a task named "run")
@@ -829,7 +830,7 @@ fn parse_partial_with_env(
                 //
                 // Only globals are forwarded to mounts: a non-global flag belongs to the
                 // command that declared it, not to what is mounted below it.
-                prefix_bindings.push_back(Some((Arc::clone(&f), false)));
+                prefix_bindings.push_back(Some((Arc::clone(&f), out.cmds.len() - 1)));
                 let mut forwarded = f.global.then(|| vec![word.clone()]);
                 idx += 1;
 
@@ -931,6 +932,11 @@ fn parse_partial_with_env(
     // Args already reported as having been offered a word before the `--` they require, so a
     // variadic one does not report the same violation for every word it is offered.
     let mut double_dash_violations: HashSet<String> = HashSet::new();
+    // Scalar occurrences are scoped to the command level where they were written. Inherited
+    // globals may therefore appear once before and once after a subcommand under clap's strict
+    // `args_override_self(false)` policy. The bitset also keeps both forms of a negatable flag:
+    // opposite forms may override one another, while repeating either spelling is an error.
+    let mut scalar_occurrences: HashMap<(usize, usize), u8> = HashMap::new();
 
     while !input.is_empty() {
         let mut w = input.pop_front().unwrap();
@@ -1079,6 +1085,10 @@ fn parse_partial_with_env(
             let word = split.map(|(word, _)| word).unwrap_or(&w);
             let bound_flag = binding.as_ref().map(|(flag, _)| flag);
             if let Some(f) = bound_flag.or_else(|| out.available_flags.get(word)) {
+                let command_level = binding
+                    .as_ref()
+                    .map(|(_, level)| *level)
+                    .unwrap_or(out.cmds.len() - 1);
                 parsed_flag_spellings
                     .entry(Arc::as_ptr(f) as usize)
                     .or_default()
@@ -1096,6 +1106,14 @@ fn parse_partial_with_env(
                 // positionals would re-split one token into two, so `ex --force=yes`
                 // would fill an argument the caller never typed a word for.
                 if f.arg.is_some() {
+                    record_scalar_flag_occurrence(
+                        &out.cmds,
+                        f,
+                        command_level,
+                        None,
+                        &mut scalar_occurrences,
+                        &mut out.errors,
+                    );
                     let f = Arc::clone(f);
                     out.flag_awaiting_value.push(Arc::clone(&f));
                     // The `=` has already settled that this text is the value, so it
@@ -1133,12 +1151,20 @@ fn parse_partial_with_env(
                     arr.push(true);
                 } else {
                     let negate = f.negate.clone().unwrap_or_default();
+                    let value = word != negate;
                     // Which form was typed is a question about the name, so it is
                     // asked of `word` rather than the whole token: the attached value
                     // is dropped just above, and comparing `--no-color=yes` against
                     // `--no-color` would take the negation down with it.
-                    out.flags
-                        .insert(Arc::clone(f), ParseValue::Bool(word != negate));
+                    record_scalar_flag_occurrence(
+                        &out.cmds,
+                        f,
+                        command_level,
+                        Some(value),
+                        &mut scalar_occurrences,
+                        &mut out.errors,
+                    );
+                    out.flags.insert(Arc::clone(f), ParseValue::Bool(value));
                 }
                 continue;
             }
@@ -1184,6 +1210,10 @@ fn parse_partial_with_env(
                 .map(|(flag, _)| flag)
                 .or_else(|| out.available_flags.get(&format!("-{short}")))
             {
+                let command_level = binding
+                    .as_ref()
+                    .map(|(_, level)| *level)
+                    .unwrap_or(out.cmds.len() - 1);
                 parsed_flag_spellings
                     .entry(Arc::as_ptr(f) as usize)
                     .or_default()
@@ -1205,6 +1235,14 @@ fn parse_partial_with_env(
                 // and bind the following word.
                 grouped_flag = !rest.is_empty();
                 if f.arg.is_some() {
+                    record_scalar_flag_occurrence(
+                        &out.cmds,
+                        f,
+                        command_level,
+                        None,
+                        &mut scalar_occurrences,
+                        &mut out.errors,
+                    );
                     out.flag_awaiting_value.push(Arc::clone(f));
                 } else if f.count {
                     let arr = out
@@ -1216,8 +1254,16 @@ fn parse_partial_with_env(
                     arr.push(true);
                 } else {
                     let negate = f.negate.clone().unwrap_or_default();
-                    out.flags
-                        .insert(Arc::clone(f), ParseValue::Bool(w != negate));
+                    let value = w != negate;
+                    record_scalar_flag_occurrence(
+                        &out.cmds,
+                        f,
+                        command_level,
+                        Some(value),
+                        &mut scalar_occurrences,
+                        &mut out.errors,
+                    );
+                    out.flags.insert(Arc::clone(f), ParseValue::Bool(value));
                 }
                 continue;
             }
@@ -2439,6 +2485,34 @@ fn is_negative_number(token: &str) -> bool {
     token.strip_prefix('-').is_some_and(is_number)
 }
 
+fn record_scalar_flag_occurrence(
+    cmds: &[SpecCommand],
+    flag: &Arc<SpecFlag>,
+    command_level: usize,
+    bool_value: Option<bool>,
+    occurrences: &mut HashMap<(usize, usize), u8>,
+    errors: &mut Vec<UsageErr>,
+) {
+    let strict = cmds
+        .get(command_level)
+        .is_some_and(|cmd| !cmd.args_override_self);
+    let collects_values = flag.var || flag.arg.as_ref().is_some_and(|arg| arg.var);
+    if !strict || flag.count || collects_values {
+        return;
+    }
+
+    let bit = match bool_value {
+        Some(false) if flag.negate.is_some() => 0b10,
+        _ => 0b01,
+    };
+    let key = (Arc::as_ptr(flag) as usize, command_level);
+    let seen = occurrences.entry(key).or_default();
+    if *seen & bit != 0 {
+        errors.push(UsageErr::DuplicateFlag(flag.name.clone()));
+    }
+    *seen |= bit;
+}
+
 /// A token that can select a subcommand, trigger a mount, or be forwarded as an
 /// external command.
 ///
@@ -2515,7 +2589,7 @@ fn bind_pending_flag_value(
     flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
     word: &mut String,
     input: &mut VecDeque<String>,
-    prefix_bindings: &mut VecDeque<Option<(Arc<SpecFlag>, bool)>>,
+    prefix_bindings: &mut VecDeque<Option<(Arc<SpecFlag>, usize)>>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
     // Held before the drain pops it, along with what the flag is already carrying: a
@@ -2579,7 +2653,7 @@ fn collect_variadic_flag_values(
     flag: &Arc<SpecFlag>,
     carried: usize,
     input: &mut VecDeque<String>,
-    prefix_bindings: &mut VecDeque<Option<(Arc<SpecFlag>, bool)>>,
+    prefix_bindings: &mut VecDeque<Option<(Arc<SpecFlag>, usize)>>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
     let max = flag
@@ -4745,6 +4819,81 @@ flag "--file <file>" required_unless="--stdin"
         .unwrap();
         let rest = out.args.keys().find(|a| a.name == "rest").unwrap();
         assert_eq!(out.args[rest].to_string(), "--wat x");
+    }
+
+    #[test]
+    fn repeated_scalar_flags_override_by_default_and_can_be_strict() {
+        let permissive: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\nflag \"--verbose\"\n"
+            .parse()
+            .unwrap();
+        let out = parse(&permissive, &input(&["ex", "--jobs", "1", "--jobs", "2"]))
+            .expect("a repeat is a correction by default");
+        let jobs = out.flags.keys().find(|f| f.name == "jobs").unwrap();
+        assert_eq!(out.flags[jobs].to_string(), "2");
+        parse(&permissive, &input(&["ex", "--verbose", "--verbose"]))
+            .expect("switches use the same default");
+
+        let strict: Spec = "name \"ex\"\nbin \"ex\"\nargs_override_self #false\nflag \"--jobs <n>\"\nflag \"--verbose\"\n"
+            .parse()
+            .unwrap();
+        for words in [
+            &["ex", "--jobs", "1", "--jobs", "2"][..],
+            &["ex", "--verbose", "--verbose"][..],
+        ] {
+            let err = parse(&strict, &input(words)).unwrap_err();
+            assert!(
+                err.to_string().contains("cannot be used multiple times"),
+                "{err}"
+            );
+        }
+
+        let reparsed: Spec = strict.to_string().parse().unwrap();
+        assert!(!reparsed.cmd.args_override_self);
+    }
+
+    #[test]
+    fn strict_negated_flags_allow_opposite_forms_but_reject_the_same_form() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nargs_override_self #false\nflag \"--color\" negate=\"--no-color\"\n"
+            .parse()
+            .unwrap();
+
+        let out = parse(&spec, &input(&["ex", "--color", "--no-color"]))
+            .expect("opposite forms override each other");
+        let color = out.flags.keys().find(|f| f.name == "color").unwrap();
+        assert!(matches!(out.flags[color], ParseValue::Bool(false)));
+
+        for words in [
+            &["ex", "--color", "--color"][..],
+            &["ex", "--no-color", "--no-color"][..],
+        ] {
+            let err = parse(&spec, &input(words)).unwrap_err();
+            assert!(err.to_string().contains("cannot be used multiple times"));
+        }
+    }
+
+    #[test]
+    fn strict_global_flags_may_repeat_across_command_levels() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nargs_override_self #false\nflag \"--color\" negate=\"--no-color\" global=#true\nflag \"--jobs <n>\" global=#true\ncmd \"run\" {\n  args_override_self #false\n}\n"
+            .parse()
+            .unwrap();
+
+        let out = parse(
+            &spec,
+            &input(&[
+                "ex", "--color", "--jobs", "1", "run", "--color", "--jobs", "2",
+            ]),
+        )
+        .expect("an inherited global is allowed once at each command level");
+        let jobs = out.flags.keys().find(|f| f.name == "jobs").unwrap();
+        assert_eq!(out.flags[jobs].to_string(), "2");
+
+        for words in [
+            &["ex", "--color", "--color", "run", "--no-color"][..],
+            &["ex", "--jobs", "1", "run", "--jobs", "2", "--jobs", "3"][..],
+        ] {
+            let err = parse(&spec, &input(words)).unwrap_err();
+            assert!(err.to_string().contains("cannot be used multiple times"));
+        }
     }
 
     #[test]

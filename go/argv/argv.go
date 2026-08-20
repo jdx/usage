@@ -344,6 +344,9 @@ const (
 	// CodeInvalidValue means a value was given that the target type could not be
 	// built from.
 	CodeInvalidValue
+	// CodeDuplicateFlag means a strict command received a single-valued flag
+	// more than once.
+	CodeDuplicateFlag
 )
 
 var codeNames = [...]string{
@@ -361,6 +364,7 @@ var codeNames = [...]string{
 	CodeVarTooMany:            "var_too_many",
 	CodeConflictingFlags:      "conflicting_flags",
 	CodeInvalidValue:          "invalid_value",
+	CodeDuplicateFlag:         "duplicate_flag",
 }
 
 // String gives the code the corpus spells it with.

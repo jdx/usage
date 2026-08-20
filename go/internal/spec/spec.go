@@ -100,6 +100,7 @@ type Cmd struct {
 	ExternalSubcommand        bool        `json:"external_subcommand"`
 	ArgRequiredElseHelp       bool        `json:"arg_required_else_help"`
 	DontDelimitTrailingValues bool        `json:"dont_delimit_trailing_values"`
+	ArgsOverrideSelf          bool        `json:"args_override_self"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.
@@ -641,7 +642,7 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	}
 
 	for i := range c.Flags {
-		out.Flags = append(out.Flags, b.flag(&c.Flags[i]))
+		out.Flags = append(out.Flags, b.flag(&c.Flags[i], !c.ArgsOverrideSelf))
 	}
 	for i := range c.Args {
 		out.Args = append(out.Args, b.arg(&c.Args[i]))
@@ -824,7 +825,7 @@ func (b *builder) matchFlag(flags []*argv.Flag, name string, globalsOnly bool) (
 	}
 	return 0, false
 }
-func (b *builder) flag(f *Flag) *argv.Flag {
+func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 	out := &argv.Flag{
 		Key:         b.next(),
 		Name:        f.Name,
@@ -889,6 +890,7 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		ValueName:         valueOf(f),
 		CompleteType:      b.completeType(first(valueOf(f), f.Name)),
 		Required:          f.Required,
+		RejectDuplicate:   strictDuplicates && !f.Var && !f.Count && (f.Arg == nil || !f.Arg.Var),
 		Choices:           f.choices(),
 		AcceptedChoices:   f.acceptedChoices(),
 		IgnoreCase:        f.Arg != nil && f.Arg.Choices != nil && f.Arg.Choices.IgnoreCase,

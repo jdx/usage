@@ -466,6 +466,13 @@ impl Emitter<'_> {
             format!("Name: {}", go_string(&flag.name)),
             "Flag: true".to_string(),
         ];
+        if !owner.cmd.args_override_self
+            && !flag.var
+            && !flag.count
+            && !flag.arg.as_ref().is_some_and(|arg| arg.var)
+        {
+            fields.push("RejectDuplicate: true".to_string());
+        }
         if flag.required {
             fields.push("Required: true".to_string());
         }
@@ -1861,6 +1868,42 @@ cmd "run" arg_required_else_help=#true {
             out.contains("p.Command().ArgRequiredElseHelp && p.CommandStart() == len(args)"),
             "the typed parser should enforce it before fallbacks:\n{out}"
         );
+    }
+
+    #[test]
+    fn strict_duplicate_policy_reaches_metadata() {
+        let permissive = go("name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\"\n");
+        assert!(!permissive.contains("RejectDuplicate"), "{permissive}");
+
+        let strict =
+            go("name \"ex\"\nbin \"ex\"\nargs_override_self #false\nflag \"--jobs <n>\"\n");
+        assert!(strict.contains("RejectDuplicate: true"), "{strict}");
+    }
+
+    #[test]
+    fn strict_negated_flags_track_each_spelling_separately() {
+        let out = go(
+            "name \"ex\"\nbin \"ex\"\nargs_override_self #false\nflag \"--color\" negate=\"--no-color\"\n",
+        );
+        assert!(out.contains("polaritySeen := map[uint64]uint8{}"), "{out}");
+        assert!(
+            out.contains("polaritySeen[ev.Flag.Key]&polarity != 0"),
+            "{out}"
+        );
+        assert!(out.contains("if duplicateSeen[key]"), "{out}");
+    }
+
+    #[test]
+    fn strict_global_duplicate_tracking_resets_at_subcommands() {
+        let out = go(
+            "name \"ex\"\nbin \"ex\"\nargs_override_self #false\nflag \"--jobs <n>\" global=#true\ncmd \"run\" {\n  args_override_self #false\n}\n",
+        );
+        assert!(
+            out.contains("levelSeen = map[uint64]int{}"),
+            "a subcommand should start a new duplicate scope:\n{out}"
+        );
+        assert!(out.contains("strictSeen[ev.Flag.Key] = true"), "{out}");
+        assert!(out.contains("if strictSeen[key]"), "{out}");
     }
 
     /// A subcommand actually named `root` wants the constant the root has.

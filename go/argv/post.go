@@ -63,6 +63,9 @@ type Meta struct {
 	RequiresIfBoolean bool
 	// Required means it must end up with a value, from anywhere.
 	Required bool
+	// RejectDuplicate makes a second occurrence of a single-valued flag an
+	// error. Usage is permissive by default; commands opt into this policy.
+	RejectDuplicate bool
 	// Choices is the visible set shown in diagnostics.
 	Choices []string
 	// AcceptedChoices also includes hidden values and aliases.
@@ -299,6 +302,9 @@ func explicitRelationshipValues(m *Meta, values []string, source Source, negated
 func Check(m *Meta, values []string, occurrences int) *Error {
 	if m == nil {
 		return nil
+	}
+	if m.RejectDuplicate && occurrences > 1 {
+		return &Error{Code: CodeDuplicateFlag, Name: m.Name, Spelling: m.Spelling, Got: occurrences}
 	}
 
 	// `occurrences` is what makes a value-less flag work here: it has no values to

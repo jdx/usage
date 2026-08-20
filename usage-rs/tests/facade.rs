@@ -186,6 +186,22 @@ struct HeadedFlatten {
     shared: HeadedSharedArgs,
 }
 
+#[derive(Args)]
+#[allow(dead_code)]
+struct FlattenedRepeatPolicy {
+    #[arg(long)]
+    jobs: Option<u32>,
+    #[usage(long, negate = "no-color")]
+    color: bool,
+}
+
+#[derive(Cli)]
+#[usage(bin = "strict-flatten", args_override_self = false)]
+struct StrictFlatten {
+    #[usage(flatten)]
+    shared: FlattenedRepeatPolicy,
+}
+
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 enum Shell {
@@ -864,6 +880,38 @@ fn flattened_args_keep_their_help_heading_topology() {
         let network = help.find("Network:").unwrap();
         let authentication = help.find("Authentication:").unwrap();
         assert!(ordinary < network && network < authentication, "{help}");
+    }
+}
+
+#[test]
+fn a_parent_repeat_policy_applies_through_flattening() {
+    assert!(
+        StrictFlatten::parse_from(&[
+            OsStr::new("--jobs"),
+            OsStr::new("1"),
+            OsStr::new("--jobs"),
+            OsStr::new("2"),
+        ])
+        .is_err(),
+        "the strict parent must reject a repeated flattened scalar"
+    );
+
+    let parsed = StrictFlatten::parse_from(&[OsStr::new("--color"), OsStr::new("--no-color")])
+        .expect("opposite negate forms override each other");
+    assert!(!parsed.shared.color);
+
+    for words in [
+        &[OsStr::new("--color"), OsStr::new("--color")][..],
+        &[
+            OsStr::new("--color"),
+            OsStr::new("--color"),
+            OsStr::new("--no-color"),
+        ][..],
+    ] {
+        assert!(
+            StrictFlatten::parse_from(words).is_err(),
+            "a repeated spelling remains a duplicate"
+        );
     }
 }
 

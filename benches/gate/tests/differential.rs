@@ -25,30 +25,27 @@
 //! surfaced. The third was real and is fixed: `subcommand_required` was in the spec and no
 //! parser read it (#992).
 //!
-//! So where do the refusals come from? `Error::DuplicateFlag` is constructed in exactly one
-//! place — `derive/src/codegen.rs` — and never by usage-argv's parser. The layers differ, not
-//! the parsers:
+//! Repeats are permissive in usage by default, including at the derive layer. A command that
+//! owns its entire grammar can opt into clap's rule with `args_override_self=false`:
 //!
 //! | | a flag given twice |
 //! |---|---|
 //! | usage-argv, the parser | accepts, last wins — conformant |
 //! | usage-lib | accepts, last wins — conformant |
-//! | usage-derive's post-binding check | refuses |
+//! | usage-derive, by default | accepts, last wins — conformant |
 //! | clap | refuses |
 //!
-//! Both are right in their own domain. A derive-generated binary is what an adopter compares to
-//! clap, and there the two agree. A spec-driven parse is what mise runs *task* arguments
-//! through, and there a wrapper appending `--jobs 2` to a command line it did not write is the
-//! documented case. So a disagreement of this shape is a fact about the layers, not a defect,
-//! and the arm below says so — do not "fix" usage-lib to close it.
+//! The deliberate default keeps wrappers and task runners from rejecting corrections. Fleet
+//! commands that need clap parity declare strictness explicitly; the gate's generated shadow
+//! leaves the default visible here so tightening it cannot happen accidentally.
 //!
 //! # A verdict is not enough
 //!
 //! Each class below names the *reason* a parser refused, not only that it did. Three booleans
-//! would allow-list every line of a known shape whatever caused it — and one such line is
-//! `mise -y config ls -y`, where usage-argv alone refuses a global given at two levels. It wore
-//! the same three booleans as the bare-`-` divergence and rode through on them until the reasons
-//! were compared. usage-lib's failures are `miette::Error`, a message with no class behind it,
+//! would allow-list every line of a known shape whatever caused it. This previously caught a
+//! global flag incorrectly rejected across a command boundary; the regression test remains even
+//! though permissive repeats have since made that particular line valid more broadly.
+//! usage-lib's failures are `miette::Error`, a message with no class behind it,
 //! so it stays a yes-or-no and the narrowing leans on the two parsers that can say why.
 //!
 //! # Mounts are stripped, and must be
@@ -505,11 +502,11 @@ fn a_bare_word_diverges_because_of_the_mount_not_the_parser() {
 }
 
 #[test]
-fn a_global_may_be_given_once_per_level() {
-    // Found by the generator once `head` let it put tokens before the command path, and fixed
-    // in the commit this test came with. `-y` is `global=#true`; clap lets it be given again on
-    // a subcommand — the inner occurrence wins — and refuses a repeat at one level. usage-argv
-    // now draws the same line, which matters because `mise -y install -y` works today.
+fn a_global_repeat_is_permissive_unless_the_command_opts_into_strictness() {
+    // Found by the generator once `head` let it put tokens before the command path. `-y` is
+    // `global=#true`; clap lets it be given again on
+    // a subcommand — the inner occurrence wins — and refuses a repeat at one level. Usage keeps
+    // the last occurrence at either level unless that command opts into strictness.
     let spec = spec();
     let go = |words: &[&str]| {
         run(
@@ -527,15 +524,16 @@ fn a_global_may_be_given_once_per_level() {
         assert_eq!(o.accepted(), (true, true, true), "{words:?} {o:?}");
     }
 
-    // Twice at one level: refused, and refused by clap too — whether that level is the root or
-    // a command three words in. This is the half a blanket exemption for globals would lose.
+    // Twice at one level: usage's permissive default keeps the later occurrence, while clap's
+    // strict default refuses it.
     for words in [
         &["-y", "-y"][..],
         &["config", "ls", "-y", "-y"][..],
         &["-y", "config", "ls", "-y", "-y"][..],
     ] {
         let o = go(words);
-        assert_eq!(o.argv, Verdict::Conflict, "{words:?} {o:?}");
+        assert_eq!(o.argv, Verdict::Accept, "{words:?} {o:?}");
+        assert!(o.lib, "{words:?} {o:?}");
         assert_eq!(o.clap, Verdict::Conflict, "{words:?} {o:?}");
     }
 }
@@ -682,9 +680,9 @@ fn usage_lib_accepting_a_repeat_is_the_grammar_not_a_defect() {
         "usage-lib must accept an unknown flag: `long-unknown` specifies it. {unknown:?}"
     );
 
-    // And the refusal that does exist comes from the layer above the parser: the derive's
-    // post-binding check, which is what an adopter compares against clap.
-    assert_eq!(repeated.argv, Verdict::Conflict, "{repeated:?}");
+    // The typed derive follows the grammar's permissive default too. A CLI that owns the grammar
+    // opts into strictness explicitly; clap starts strict.
+    assert_eq!(repeated.argv, Verdict::Accept, "{repeated:?}");
     assert_eq!(repeated.clap, Verdict::Conflict, "{repeated:?}");
 }
 

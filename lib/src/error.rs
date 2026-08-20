@@ -23,6 +23,9 @@ pub enum UsageErr {
     #[error("Missing required flag: --{0} <{0}>")]
     MissingFlag(String),
 
+    #[error("Flag --{0} cannot be used multiple times")]
+    DuplicateFlag(String),
+
     /// A required group had none of its members given.
     ///
     /// Its own variant rather than a [`UsageErr::MissingFlag`] holding a sentence,

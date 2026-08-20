@@ -121,6 +121,8 @@ func explain(err *Error, help HelpTable) string {
 		}
 		return "`" + typedAs(err.Spelling, err.Name) + "` and `" +
 			typedAs(err.OtherSpelling, other) + "` cannot be given together"
+	case CodeDuplicateFlag:
+		return "`" + typedAs(err.Spelling, err.Name) + "` cannot be used multiple times"
 	}
 	return "the command line could not be parsed"
 }
