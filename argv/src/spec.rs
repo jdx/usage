@@ -706,6 +706,10 @@ pub struct CommandMeta<'a> {
     pub cmd: &'a Command<'a>,
     pub about: Option<&'a str>,
     pub long_about: Option<&'a str>,
+    /// Why this command is deprecated, plus optional release milestones.
+    pub deprecated: Option<&'a str>,
+    pub deprecated_warn_at: Option<&'a str>,
+    pub deprecated_remove_at: Option<&'a str>,
     /// Aliases that work but are not shown in help or completions. Everything in
     /// `cmd.aliases` and not here is visible.
     pub hidden_aliases: &'a [&'a str],
@@ -780,6 +784,9 @@ impl CommandMeta<'_> {
         cmd: &Command::EMPTY,
         about: None,
         long_about: None,
+        deprecated: None,
+        deprecated_warn_at: None,
+        deprecated_remove_at: None,
         hidden_aliases: &[],
         hide: false,
         help_heading: None,
@@ -821,6 +828,10 @@ pub struct FlagMeta<'a> {
     pub help: Option<&'a str>,
     /// Long help, shown by `--help`.
     pub long_help: Option<&'a str>,
+    /// Why this flag is deprecated, plus optional release milestones.
+    pub deprecated: Option<&'a str>,
+    pub deprecated_warn_at: Option<&'a str>,
+    pub deprecated_remove_at: Option<&'a str>,
     /// The placeholder for the flag's value, such as `n` in `--jobs <n>`.
     pub value_name: Option<&'a str>,
     /// Ordered placeholders for one fixed-arity occurrence.
@@ -928,6 +939,9 @@ impl FlagMeta<'_> {
         hidden_longs: &[],
         help: None,
         long_help: None,
+        deprecated: None,
+        deprecated_warn_at: None,
+        deprecated_remove_at: None,
         value_name: None,
         value_names: &[],
         env: None,
@@ -1205,6 +1219,15 @@ impl Spec<'_> {
         if let Some(long_about) = self.long_about.or(self.root.long_about) {
             prop(out, "long_about", long_about)?;
         }
+        if let Some(message) = self.root.deprecated {
+            prop(out, "deprecated", message)?;
+        }
+        if let Some(at) = self.root.deprecated_warn_at {
+            prop(out, "deprecated_warn_at", at)?;
+        }
+        if let Some(at) = self.root.deprecated_remove_at {
+            prop(out, "deprecated_remove_at", at)?;
+        }
         if let Some(usage) = self.usage {
             prop(out, "usage", usage)?;
         }
@@ -1478,6 +1501,15 @@ fn write_command<'a>(
     if let Some(help) = meta.about {
         write!(out, " help={}", quoted(help))?;
     }
+    if let Some(deprecated) = meta.deprecated {
+        write!(out, " deprecated={}", quoted(deprecated))?;
+    }
+    if let Some(at) = meta.deprecated_warn_at {
+        write!(out, " deprecated_warn_at={}", quoted(at))?;
+    }
+    if let Some(at) = meta.deprecated_remove_at {
+        write!(out, " deprecated_remove_at={}", quoted(at))?;
+    }
     if meta.hide {
         out.push_str(" hide=#true");
     }
@@ -1692,6 +1724,15 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
 
     if let Some(help) = meta.help {
         write!(out, " help={}", quoted(help))?;
+    }
+    if let Some(deprecated) = meta.deprecated {
+        write!(out, " deprecated={}", quoted(deprecated))?;
+    }
+    if let Some(at) = meta.deprecated_warn_at {
+        write!(out, " deprecated_warn_at={}", quoted(at))?;
+    }
+    if let Some(at) = meta.deprecated_remove_at {
+        write!(out, " deprecated_remove_at={}", quoted(at))?;
     }
     if meta.required {
         out.push_str(" required=#true");

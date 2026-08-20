@@ -9,6 +9,9 @@
 {%- endif %}
 
 - **Usage**: `{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`
+{%- if cmd.deprecated or cmd.deprecated_warn_at or cmd.deprecated_remove_at %}
+- **Deprecated**:{% if cmd.deprecated %} {{ cmd.deprecated }}{% if cmd.deprecated_warn_at or cmd.deprecated_remove_at %};{% endif %}{% endif %}{% if cmd.deprecated_warn_at %} Warns at {{ cmd.deprecated_warn_at }}.{% endif %}{% if cmd.deprecated_remove_at %} Removed at {{ cmd.deprecated_remove_at }}.{% endif %}
+{%- endif %}
 {%- if cmd.aliases %}
 - **Aliases**: `{{ cmd.aliases | join(sep="`, `") }}`
 {%- endif %}

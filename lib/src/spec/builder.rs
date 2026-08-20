@@ -423,6 +423,16 @@ impl SpecFlagBuilder {
         self
     }
 
+    pub fn deprecated_warn_at(mut self, version: impl Into<String>) -> Self {
+        self.inner.deprecated_warn_at = Some(version.into());
+        self
+    }
+
+    pub fn deprecated_remove_at(mut self, version: impl Into<String>) -> Self {
+        self.inner.deprecated_remove_at = Some(version.into());
+        self
+    }
+
     /// Set the rendered usage string. `build` derives this when unset.
     pub fn usage(mut self, usage: impl Into<String>) -> Self {
         self.inner.usage = usage.into();
@@ -934,6 +944,16 @@ impl SpecCommandBuilder {
     /// Set deprecated message
     pub fn deprecated(mut self, msg: impl Into<String>) -> Self {
         self.inner.deprecated = Some(msg.into());
+        self
+    }
+
+    pub fn deprecated_warn_at(mut self, version: impl Into<String>) -> Self {
+        self.inner.deprecated_warn_at = Some(version.into());
+        self
+    }
+
+    pub fn deprecated_remove_at(mut self, version: impl Into<String>) -> Self {
+        self.inner.deprecated_remove_at = Some(version.into());
         self
     }
 

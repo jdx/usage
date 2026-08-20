@@ -338,7 +338,7 @@ func describe(key uint64, help HelpTable) string {
 		// renderer's job — see oneLine — because it is the line-based protocols
 		// that need it, and collapsing there keeps both halves of a two-line
 		// description instead of dropping the second.
-		return h.Short
+		return helpText(h)
 	}
 	return ""
 }

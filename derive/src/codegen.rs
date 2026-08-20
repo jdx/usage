@@ -216,6 +216,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .as_ref()
         .map(|value| option_expr(Some(value)))
         .unwrap_or_else(|| option_str(cli.long_about.as_deref()));
+    let deprecated = option_str(cli.deprecated.as_deref());
+    let deprecated_warn_at = option_str(cli.deprecated_warn_at.as_deref());
+    let deprecated_remove_at = option_str(cli.deprecated_remove_at.as_deref());
 
     // The same wiring a nested command uses: the root differs only in how it is
     // entered, so it does not get its own copy.
@@ -507,6 +510,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 cmd: &ROOT,
                 about: #about,
                 long_about: #long_about,
+                deprecated: #deprecated,
+                deprecated_warn_at: #deprecated_warn_at,
+                deprecated_remove_at: #deprecated_remove_at,
                 restart_token: #restart_token,
                 subcommand_required: #subcommand_required,
                 subcommand_help_heading: #subcommand_help_heading,
@@ -1323,6 +1329,9 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let env = option_str(field.env.as_deref());
     let help_heading = option_str(field.help_heading.as_deref());
     let display_order = option_usize(field.display_order);
+    let deprecated = option_str(field.deprecated.as_deref());
+    let deprecated_warn_at = option_str(field.deprecated_warn_at.as_deref());
+    let deprecated_remove_at = option_str(field.deprecated_remove_at.as_deref());
     let value_name = option_str(field.value_name.as_deref());
     let value_names = &field.value_names;
     let complete_type = option_str(field.complete_type.as_deref());
@@ -1442,6 +1451,9 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             display_order: #display_order,
             help: #help,
             long_help: #long_help,
+            deprecated: #deprecated,
+            deprecated_warn_at: #deprecated_warn_at,
+            deprecated_remove_at: #deprecated_remove_at,
             env: #env,
             default: #default,
             help_heading: #help_heading,
@@ -3714,6 +3726,9 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .as_ref()
         .map(|value| option_expr(Some(value)))
         .unwrap_or_else(|| option_str(cli.long_about.as_deref()));
+    let deprecated = option_str(cli.deprecated.as_deref());
+    let deprecated_warn_at = option_str(cli.deprecated_warn_at.as_deref());
+    let deprecated_remove_at = option_str(cli.deprecated_remove_at.as_deref());
     let partial = partial_struct(cli);
     let argument_lookup = argument_lookup_functions(cli);
     let defaults = partial_defaults(cli);
@@ -3800,6 +3815,9 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 effect: #effect,
                 about: #about,
                 long_about: #long_about,
+                deprecated: #deprecated,
+                deprecated_warn_at: #deprecated_warn_at,
+                deprecated_remove_at: #deprecated_remove_at,
                 hidden_aliases: &[#(#hidden_aliases),*],
                 restart_token: #restart_token,
                 subcommand_required: #subcommand_required,
@@ -4204,6 +4222,25 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 Some(long) => option_expr(Some(long)),
                 None => quote!(<#ty as usage_argv::spec::CommandArgs>::META.long_about),
             };
+            let deprecated = v
+                .deprecated
+                .as_deref()
+                .map(|value| option_str(Some(value)))
+                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.deprecated));
+            let deprecated_warn_at = v
+                .deprecated_warn_at
+                .as_deref()
+                .map(|value| option_str(Some(value)))
+                .unwrap_or_else(
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.deprecated_warn_at),
+                );
+            let deprecated_remove_at = v
+                .deprecated_remove_at
+                .as_deref()
+                .map(|value| option_str(Some(value)))
+                .unwrap_or_else(
+                    || quote!(<#ty as usage_argv::spec::CommandArgs>::META.deprecated_remove_at),
+                );
             let before_help = v
                 .before_help
                 .as_ref()
@@ -4250,6 +4287,9 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         cmd: &#cmd,
                         about: #about,
                         long_about: #long_about,
+                        deprecated: #deprecated,
+                        deprecated_warn_at: #deprecated_warn_at,
+                        deprecated_remove_at: #deprecated_remove_at,
                         before_help: #before_help,
                         before_long_help: #before_long_help,
                         after_help: #after_help,

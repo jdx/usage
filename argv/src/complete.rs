@@ -1142,7 +1142,12 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
             if name.starts_with(token) {
                 out.push(Candidate {
                     value: (*name).to_string(),
-                    description: sub.about.map(::std::borrow::Cow::Borrowed),
+                    description: deprecated_description(
+                        sub.about,
+                        sub.deprecated,
+                        sub.deprecated_warn_at,
+                        sub.deprecated_remove_at,
+                    ),
                 });
             }
         }
@@ -1158,7 +1163,14 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
         if meta.is_some_and(|m| m.hide) {
             continue;
         }
-        let description = meta.and_then(|m| m.help);
+        let description = meta.and_then(|m| {
+            deprecated_description(
+                m.help,
+                m.deprecated,
+                m.deprecated_warn_at,
+                m.deprecated_remove_at,
+            )
+        });
         for long in flag.longs {
             if meta.is_some_and(|m| m.hidden_longs.contains(long)) {
                 continue;
@@ -1167,7 +1179,7 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             if value.starts_with(token) {
                 out.push(Candidate {
                     value,
-                    description: description.map(::std::borrow::Cow::Borrowed),
+                    description: description.clone(),
                 });
             }
         }
@@ -1181,7 +1193,7 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             if value.starts_with(token) {
                 out.push(Candidate {
                     value,
-                    description: description.map(::std::borrow::Cow::Borrowed),
+                    description: description.clone(),
                 });
             }
         }
@@ -1213,12 +1225,45 @@ fn short_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> 
             if asked_about {
                 out.push(Candidate {
                     value: format!("-{}", short as char),
-                    description: meta.and_then(|m| m.help).map(::std::borrow::Cow::Borrowed),
+                    description: meta.and_then(|m| {
+                        deprecated_description(
+                            m.help,
+                            m.deprecated,
+                            m.deprecated_warn_at,
+                            m.deprecated_remove_at,
+                        )
+                    }),
                 });
             }
         }
     }
     out
+}
+
+fn deprecated_description<'a>(
+    base: Option<&'a str>,
+    message: Option<&'a str>,
+    warn_at: Option<&'a str>,
+    remove_at: Option<&'a str>,
+) -> Option<std::borrow::Cow<'a, str>> {
+    if message.is_none() && warn_at.is_none() && remove_at.is_none() {
+        return base.map(std::borrow::Cow::Borrowed);
+    }
+    let mut parts = Vec::new();
+    if let Some(message) = message {
+        parts.push(message.to_string());
+    }
+    if let Some(at) = warn_at {
+        parts.push(format!("warns at {at}"));
+    }
+    if let Some(at) = remove_at {
+        parts.push(format!("removed at {at}"));
+    }
+    let label = format!("[deprecated: {}]", parts.join("; "));
+    Some(std::borrow::Cow::Owned(match base {
+        Some(base) if !base.is_empty() => format!("{base} {label}"),
+        _ => label,
+    }))
 }
 
 /// What a positional accepts here — its choices, or the separator that has to come first.

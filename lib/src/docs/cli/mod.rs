@@ -922,22 +922,42 @@ flag "--verbose" help="Enable verbose output"
     fn test_render_help_with_deprecated_command() {
         let spec = crate::spec! { r#"
 bin "testcli"
-cmd "old-cmd" help="Do something" deprecated="use new-cmd instead"
+flag "--old" help="Old switch" deprecated="use --new" deprecated_warn_at="6.1" deprecated_remove_at="7.0"
+cmd "old-cmd" help="Do something" deprecated="use new-cmd instead" deprecated_warn_at="6.2" deprecated_remove_at="7.0"
 cmd "new-cmd" help="Do something better"
         "# }
         .unwrap();
 
         assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
-        Usage: testcli <SUBCOMMAND>
+        Usage: testcli [--old] <SUBCOMMAND>
 
         Commands:
           new-cmd  Do something better
-          old-cmd [deprecated: use new-cmd instead]  Do something
+          old-cmd [deprecated: use new-cmd instead; warns at 6.2; removed at 7.0]  Do something
           help  Print this message or the help of the given subcommand(s)
 
         Flags:
+              --old   Old switch [deprecated: use --new; warns at 6.1; removed at 7.0]
           -h, --help  Print help
         ");
+    }
+
+    #[test]
+    fn deprecation_milestones_do_not_need_a_message() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+flag "--old" help="Old switch" deprecated_remove_at="7.0"
+cmd "old-cmd" help="Do something" deprecated_warn_at="6.2"
+        "# }
+        .unwrap();
+
+        let page = render_help(&spec, &spec.cmd, false);
+        assert!(
+            page.contains("old-cmd [deprecated: warns at 6.2]"),
+            "{page}"
+        );
+        assert!(page.contains("[deprecated: removed at 7.0]"), "{page}");
+        assert!(!page.contains("[deprecated:;"), "{page}");
     }
 
     #[test]
