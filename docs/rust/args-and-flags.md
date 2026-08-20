@@ -76,7 +76,7 @@ jobs: Option<u32>,
 | `delimiter = ','`                       | Split one word into several values ([Validation](/rust/validation#delimiters))          |
 | `allow_hyphen_values`                   | Detached flag value may look like a flag, including `--`                                |
 | `allow_negative_numbers`                | Accept negative numeric tokens without accepting every dash-prefixed word               |
-| `value_terminator = ";"`               | End a variadic field at this token without storing the token                             |
+| `value_terminator = ";"`                | End a variadic field at this token without storing the token                            |
 | `require_equals`                        | Accept `--flag=value` and refuse `--flag value`                                         |
 | `default_missing = "…"`                 | Value when the flag is given with none (`--color` vs `--color=never`)                   |
 | `default_if("--json", "true")`          | Default when another flag is given (two args = present, three = equals)                 |
