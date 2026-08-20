@@ -75,9 +75,7 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | `dont_delimit_trailing_values`                               | yes        | yes  | yes   | yes | yes    | yes        | Preserves delimiters after `--` and on automatic trailing positionals while ordinary values still split.                                                |
 | possible-values parser                                       | yes        | yes  | yes   | yes | yes    | yes        | Use `ValueEnum` or `choices`.                                                                                                                           |
 | arbitrary `value_parser` callbacks                           | usage-only | yes  | lossy | yes | yes    | no         | `FromStr` handles typed conversion and portable `validate` expressions handle declarative rules; Rust callbacks cannot enter KDL.                       |
-| `ValueHint::{FilePath,DirPath}`                              | yes        | yes  | yes   | yes | yes    | lossy      | Shell-native path completion is supported directly; `clap_usage` does not yet lower hints into completion nodes.                                        |
-| executable and command value hints                           | yes        | yes  | yes   | yes | yes    | lossy      | Direct usage declarations work; the clap bridge currently reports and drops these hints.                                                                |
-| identity and network `ValueHint`s                            | no         | no   | no    | no  | no     | lossy      | Username, hostname, URL, email, and related hints are not yet represented.                                                                              |
+| `ValueHint` completion vocabulary                            | yes        | yes  | yes   | yes | yes    | yes        | Every stable clap hint lowers to a portable completion type; open-ended URL/email hints suppress path fallback.                                         |
 
 ## Relationships and command routing
 

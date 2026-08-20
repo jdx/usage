@@ -79,9 +79,10 @@ file: Option<PathBuf>,
 task: Option<String>,
 ```
 
-`ValueHint` (`FilePath`, `DirPath`, `AnyPath`) answers with the shell's own file/directory
-completion and also emits `complete "file" type="path"` into the KDL, so external consumers of
-the spec give the same answer.
+`ValueHint` carries clap's full stable vocabulary. Path, executable, and command hints delegate
+to the shell; username and hostname hints use system candidates; `Other`, URL, and email values
+suppress the shell's misleading filename fallback. Every hint emits a portable `complete`
+type into KDL so external consumers preserve the same policy.
 
 A custom completer is a plain function, referenced by _path_ — a typo is a compile error, not a
 silent dead completer:

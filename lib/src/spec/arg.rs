@@ -841,6 +841,27 @@ pub(crate) fn value_names_from_clap(source: &clap::Arg) -> Vec<String> {
     }
 }
 
+/// The portable completion type corresponding to clap's complete `ValueHint` vocabulary.
+#[cfg(feature = "clap")]
+pub(crate) fn value_hint_type(hint: clap::ValueHint) -> Option<&'static str> {
+    use clap::ValueHint;
+
+    match hint {
+        ValueHint::Unknown => None,
+        ValueHint::Other => Some("none"),
+        ValueHint::AnyPath | ValueHint::FilePath => Some("path"),
+        ValueHint::DirPath => Some("dir"),
+        ValueHint::ExecutablePath => Some("executable"),
+        ValueHint::CommandName | ValueHint::CommandString => Some("command"),
+        ValueHint::CommandWithArguments => Some("command_args"),
+        ValueHint::Username => Some("username"),
+        ValueHint::Hostname => Some("hostname"),
+        ValueHint::Url => Some("url"),
+        ValueHint::EmailAddress => Some("email"),
+        _ => None,
+    }
+}
+
 #[cfg(feature = "clap")]
 pub(crate) fn choices_from_clap(arg: &clap::Arg) -> Option<SpecChoices> {
     let possible = arg.get_possible_values();

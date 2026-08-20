@@ -12,3 +12,4 @@ flag --file help="some input file" {
     arg <FILE>
 }
 flag --usage default="false"
+complete file type=path

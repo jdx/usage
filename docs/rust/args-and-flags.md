@@ -106,10 +106,12 @@ computed state beside parsed state, and nothing about it reaches the spec, the p
 help. Combining it with `long`, `arg`, or any other field option is a compile error. The type
 has to implement `Default`.
 
-`value_hint` accepts `FilePath`, `AnyPath`, `DirPath`, `ExecutablePath`, `CommandName`,
-`CommandString`, and `CommandWithArguments`. The last is for wrapper CLIs and must be a
-positional `Vec` with `double_dash = "automatic"`: its first value completes from the shell's
-commands, while later values fall back to ordinary argument paths.
+`value_hint` accepts clap's full stable vocabulary: `Unknown`, `Other`, `FilePath`, `AnyPath`,
+`DirPath`, `ExecutablePath`, `CommandName`, `CommandString`, `CommandWithArguments`,
+`Username`, `Hostname`, `Url`, and `EmailAddress`. `CommandWithArguments` is for wrapper CLIs
+and must be a positional `Vec` with `double_dash = "automatic"`: its first value completes
+from the shell's commands, while later values fall back to ordinary argument paths. `Other`,
+URL, and email values suppress filename fallback without pretending there is a finite list.
 
 `#[usage(allow_hyphen_values)]` is clap's attribute of the same name: `--args -destroy` binds
 `-destroy` instead of reading `-d` as a short. The flag has to take a value; a positional that

@@ -179,6 +179,25 @@ func TestFlagsDoNotCloseThePositionToPaths(t *testing.T) {
 	}
 }
 
+func TestOpenEndedValueHintsSuppressPathFallback(t *testing.T) {
+	root := &Command{Key: 1, Name: "ex", Args: []*Arg{{Key: 2, Name: "URL"}}}
+	help := HelpTable{{Key: 1}, {Key: 2}}
+
+	for _, typeName := range []string{"none", "username", "hostname", "url", "email"} {
+		meta := Metadata{{Key: 1}, {Key: 2, Name: "URL", CompleteType: typeName}}
+		answer := Request{Shell: Bash, Line: "ex ", Cursor: 3}.Answer(root, help, meta)
+		if answer.Files != NoFiles {
+			t.Errorf("%s should suppress path fallback, got %v", typeName, answer.Files)
+		}
+	}
+
+	meta := Metadata{{Key: 1}, {Key: 2, Name: "URL", CompleteType: "unknown"}}
+	answer := Request{Shell: Bash, Line: "ex ", Cursor: 3}.Answer(root, help, meta)
+	if answer.Files != AnyFile {
+		t.Errorf("unknown should preserve normal fallback, got %v", answer.Files)
+	}
+}
+
 func TestHiddenChoicesCloseThePositionToPaths(t *testing.T) {
 	root := &Command{Key: 1, Name: "ex", Args: []*Arg{{Key: 2, Name: "MODE"}}}
 	help := HelpTable{{Key: 1}, {Key: 2}}
