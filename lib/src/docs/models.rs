@@ -816,8 +816,13 @@ fn reference_usage(flag: &crate::SpecFlag) -> String {
         usage.push('…');
     }
     if let Some(arg) = &flag.arg {
-        usage.push(' ');
-        usage.push_str(&arg.usage());
+        let arg_usage = arg.usage();
+        if flag.require_equals && (flag.value_optional || !arg.required) {
+            usage.push_str(&crate::spec::flag::optional_equals_usage(&arg_usage));
+        } else {
+            usage.push(if flag.require_equals { '=' } else { ' ' });
+            usage.push_str(&arg_usage);
+        }
     }
     usage
 }

@@ -853,10 +853,30 @@ impl SpecFlag {
             out = format!("{out}…");
         }
         if let Some(arg) = &self.arg {
-            out = format!("{} {}", out, arg.usage());
+            let usage = arg.usage();
+            if self.require_equals && (self.value_optional || !arg.required) {
+                out = format!("{out}{}", optional_equals_usage(&usage));
+            } else {
+                let separator = if self.require_equals { "=" } else { " " };
+                out = format!("{out}{separator}{usage}");
+            }
         }
         out
     }
+}
+
+pub(crate) fn optional_equals_usage(usage: &str) -> String {
+    let (value, closing) = if let Some(value) = usage.strip_prefix('[') {
+        (value, ']')
+    } else if let Some(value) = usage.strip_prefix('<') {
+        (value, '>')
+    } else {
+        return format!("={usage}");
+    };
+    let Some(end) = value.find(closing) else {
+        return format!("={usage}");
+    };
+    format!("[={}]{}", &value[..end], &value[end + 1..])
 }
 
 impl From<&SpecFlag> for KdlNode {
@@ -1114,8 +1134,103 @@ impl FromStr for SpecFlag {
     type Err = UsageErr;
     fn from_str(input: &str) -> Result<Self> {
         let mut flag = Self::default();
-        let input = input.replace("...", "…").replace("…", " … ");
+        // Keep a flag-level repetition marker attached when an equals value follows it.
+        // Every other ellipsis becomes its own token so its position still distinguishes
+        // a repeatable flag (`--flag… <ARG>`) from a variadic value (`--flag <ARG>…`).
+        let input = input
+            .replace("...", "…")
+            .replace("…[=", "\u{e000}[=")
+            .replace("…=", "\u{e000}=")
+            .replace("…", " … ")
+            .replace('\u{e000}', "…");
         for part in input.split_whitespace() {
+            if let Some((form, value)) = part
+                .strip_suffix(']')
+                .and_then(|part| part.split_once("[="))
+            {
+                let (form, repeatable) = form
+                    .strip_suffix('…')
+                    .map_or((form, false), |form| (form, true));
+                let recognized = if let Some(long) = form.strip_prefix("--") {
+                    if long.is_empty() {
+                        false
+                    } else {
+                        flag.long.push(long.to_string());
+                        true
+                    }
+                } else if let Some(short) = form.strip_prefix('-') {
+                    if short.chars().count() != 1 {
+                        return Err(InvalidFlag {
+                            token: form.to_string(),
+                            reason:
+                                "short flags must be a single character (use -- for long flags)"
+                                    .to_string(),
+                            span: (0, input.len()).into(),
+                            input: input.to_string(),
+                        });
+                    }
+                    flag.short.push(short.chars().next().unwrap());
+                    true
+                } else {
+                    false
+                };
+                if recognized && !value.is_empty() {
+                    flag.var |= repeatable;
+                    flag.require_equals = true;
+                    flag.arg = Some(match flag.arg.take() {
+                        Some(existing) => format!("{} [{value}]", existing.usage()).parse()?,
+                        None => format!("[{value}]").parse()?,
+                    });
+                    continue;
+                }
+            }
+            if let Some((form, value)) = part.split_once('=') {
+                let (form, repeatable) = form
+                    .strip_suffix('…')
+                    .map_or((form, false), |form| (form, true));
+                let recognized = if let Some(long) = form.strip_prefix("--") {
+                    if long.is_empty() {
+                        false
+                    } else {
+                        flag.long.push(long.to_string());
+                        true
+                    }
+                } else if let Some(short) = form.strip_prefix('-') {
+                    if short.chars().count() != 1 {
+                        return Err(InvalidFlag {
+                            token: form.to_string(),
+                            reason:
+                                "short flags must be a single character (use -- for long flags)"
+                                    .to_string(),
+                            span: (0, input.len()).into(),
+                            input: input.to_string(),
+                        });
+                    }
+                    flag.short.push(short.chars().next().unwrap());
+                    true
+                } else {
+                    false
+                };
+                if recognized {
+                    flag.var |= repeatable;
+                    if !(value.starts_with('<') && value.ends_with('>')
+                        || value.starts_with('[') && value.ends_with(']'))
+                    {
+                        return Err(InvalidFlag {
+                            token: part.to_string(),
+                            reason: "an equals sign must attach <arg> or [arg]".to_string(),
+                            span: (0, input.len()).into(),
+                            input: input.to_string(),
+                        });
+                    }
+                    flag.require_equals = true;
+                    flag.arg = Some(match flag.arg.take() {
+                        Some(existing) => format!("{} {value}", existing.usage()).parse()?,
+                        None => value.to_string().parse()?,
+                    });
+                    continue;
+                }
+            }
             if let Some(name) = part.strip_suffix(':') {
                 flag.name = name.to_string();
             } else if let Some(long) = part.strip_prefix("--") {
@@ -1654,6 +1769,105 @@ mod tests {
         let spec = Spec::from(&cmd);
         let inspect = spec.cmd.flags.iter().find(|f| f.name == "inspect").unwrap();
         assert!(inspect.require_equals);
+        assert_eq!(inspect.usage(), "--inspect=<inspect>");
+        let usage_reparsed: SpecFlag = inspect.usage().parse().unwrap();
+        assert!(usage_reparsed.require_equals);
+        assert_eq!(usage_reparsed.long, ["inspect"]);
+        assert_eq!(usage_reparsed.arg.unwrap().name, "inspect");
+        assert_eq!(
+            crate::docs::models::SpecFlag::from(inspect).usage,
+            "--inspect=<inspect>"
+        );
+
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("color")
+                .long("color")
+                .action(clap::ArgAction::Set)
+                .num_args(0..=1)
+                .require_equals(true),
+        );
+        let spec = Spec::from(&cmd);
+        let color = spec.cmd.flags.iter().find(|f| f.name == "color").unwrap();
+        assert!(color.require_equals);
+        assert!(color.value_optional);
+        assert!(
+            color.arg.as_ref().unwrap().required,
+            "clap's optional arity is flag metadata, not positional presentation"
+        );
+        assert_eq!(color.usage(), "--color[=color]");
+        assert_eq!(
+            crate::docs::models::SpecFlag::from(color).usage,
+            "--color[=color]"
+        );
+
+        let optional: SpecFlag = "--color [WHEN]".parse().unwrap();
+        let optional = SpecFlag {
+            require_equals: true,
+            ..optional
+        };
+        assert_eq!(optional.usage(), "--color[=WHEN]");
+        let reparsed: SpecFlag = optional.usage().parse().unwrap();
+        assert!(reparsed.require_equals);
+        assert!(!reparsed.arg.as_ref().unwrap().required);
+        assert_eq!(reparsed.arg.as_ref().unwrap().name, "WHEN");
+        assert_eq!(
+            crate::docs::models::SpecFlag::from(&optional).usage,
+            "--color[=WHEN]"
+        );
+
+        let variadic: SpecFlag = "--color [WHEN]…".parse().unwrap();
+        let variadic = SpecFlag {
+            require_equals: true,
+            ..variadic
+        };
+        assert_eq!(variadic.usage(), "--color[=WHEN]…");
+        assert_eq!(
+            crate::docs::models::SpecFlag::from(&variadic).usage,
+            "--color[=WHEN]…"
+        );
+        assert_eq!(
+            variadic.usage().parse::<SpecFlag>().unwrap().usage(),
+            "--color[=WHEN]…"
+        );
+
+        let pair: SpecFlag = "--range [START] [END]".parse().unwrap();
+        let pair = SpecFlag {
+            require_equals: true,
+            ..pair
+        };
+        assert_eq!(pair.usage(), "--range[=START] [END]");
+        assert_eq!(
+            crate::docs::models::SpecFlag::from(&pair).usage,
+            "--range[=START] [END]"
+        );
+        assert_eq!(
+            pair.usage().parse::<SpecFlag>().unwrap().usage(),
+            "--range[=START] [END]"
+        );
+
+        let repeatable: SpecFlag = "--tag <TAG>".parse().unwrap();
+        let repeatable = SpecFlag {
+            var: true,
+            require_equals: true,
+            ..repeatable
+        };
+        assert_eq!(repeatable.usage(), "--tag…=<TAG>");
+        let reparsed: SpecFlag = repeatable.usage().parse().unwrap();
+        assert!(reparsed.var);
+        assert!(reparsed.require_equals);
+        assert!(!reparsed.arg.as_ref().unwrap().var);
+
+        let repeatable_optional: SpecFlag = "--color [WHEN]".parse().unwrap();
+        let repeatable_optional = SpecFlag {
+            var: true,
+            require_equals: true,
+            ..repeatable_optional
+        };
+        assert_eq!(repeatable_optional.usage(), "--color…[=WHEN]");
+        let reparsed: SpecFlag = repeatable_optional.usage().parse().unwrap();
+        assert!(reparsed.var);
+        assert!(reparsed.require_equals);
+        assert!(!reparsed.arg.as_ref().unwrap().var);
     }
 
     #[test]
