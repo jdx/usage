@@ -2112,6 +2112,17 @@ pub const fn concat_bindings<const N: usize>(
     joined
 }
 
+/// Presence information exposed across a flattened [`CommandArgs`] boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArgumentState {
+    /// The canonical name used in diagnostics.
+    pub name: &'static str,
+    /// Whether argv or an environment fallback supplied the argument.
+    pub given: bool,
+    /// Whether the argument is satisfied, including an unconditional default.
+    pub satisfied: bool,
+}
+
 pub trait CommandArgs: Sized {
     /// Values collected so far. Partly-filled by construction, since a parse can
     /// stop early.
@@ -2179,6 +2190,23 @@ pub trait CommandArgs: Sized {
     /// exclusivity and its requiredness escape across a command boundary.
     fn exclusive_given(partial: &Self::Partial) -> Option<&'static str> {
         let _ = partial;
+        None
+    }
+
+    /// Find an argument by any selector it accepts.
+    ///
+    /// Parents use this to enforce a relationship declared beside a flattened
+    /// argument group. The default keeps hand-written implementations source compatible.
+    fn argument_state(partial: &Self::Partial, selector: &str) -> Option<ArgumentState> {
+        let _ = (partial, selector);
+        None
+    }
+
+    /// Whether a selected argument has an explicitly supplied value.
+    ///
+    /// This is the value-aware half needed by conditional defaults and requirements.
+    fn argument_matches(partial: &Self::Partial, selector: &str, value: &[u8]) -> Option<bool> {
+        let _ = (partial, selector, value);
         None
     }
 

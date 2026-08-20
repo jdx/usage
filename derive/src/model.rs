@@ -1175,6 +1175,10 @@ impl Cli {
         // is the advantage of declaring them in code: a spec written by hand can only
         // find a typo'd selector at parse time, or never, since a selector naming
         // nothing quietly holds no relationship at all.
+        let has_flatten = self
+            .fields
+            .iter()
+            .any(|field| matches!(field.kind, Kind::Flatten { .. }));
         for field in &self.fields {
             for (option, selectors) in [
                 ("overrides", &field.overrides),
@@ -1185,6 +1189,25 @@ impl Cli {
             ] {
                 for selector in selectors {
                     let Some(target) = self.field_for_selector(selector) else {
+                        // Post-binding relationships can ask an opaque flattened partial
+                        // about presence and values. `overrides` is different: last-one-wins
+                        // has to displace a value while tokens are being bound, and the
+                        // parent cannot mutate an unknown field in another derive expansion.
+                        // Reject it explicitly instead of accepting a declaration that does
+                        // nothing at runtime.
+                        if has_flatten && option != "overrides" {
+                            continue;
+                        }
+                        if has_flatten && option == "overrides" {
+                            return Err(syn::Error::new(
+                                field.span,
+                                format!(
+                                    "`overrides = \"{selector}\"` cannot cross a flatten \
+                                     boundary; declare the override inside the flattened Args \
+                                     type"
+                                ),
+                            ));
+                        }
                         return Err(syn::Error::new(
                             field.span,
                             format!(
@@ -1205,6 +1228,9 @@ impl Cli {
             for condition in &field.requires_if {
                 let selector = &condition.requires;
                 let Some(target) = self.field_for_selector(selector) else {
+                    if has_flatten {
+                        continue;
+                    }
                     return Err(syn::Error::new(
                         field.span,
                         format!(
@@ -1223,6 +1249,9 @@ impl Cli {
             for condition in &field.default_if {
                 let selector = &condition.selector;
                 let Some(target) = self.field_for_selector(selector) else {
+                    if has_flatten {
+                        continue;
+                    }
                     return Err(syn::Error::new(
                         field.span,
                         format!(
@@ -3199,7 +3228,7 @@ fn shout(form: &str) -> String {
     form.to_uppercase().replace('-', "_")
 }
 
-fn to_kebab(s: &str) -> String {
+pub(crate) fn to_kebab(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 4);
     for (i, ch) in s.chars().enumerate() {
         if ch == '_' {
@@ -5662,6 +5691,24 @@ mod tests {
         );
         assert!(
             err.contains("relationship between flags"),
+            "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn overrides_does_not_silently_cross_a_flatten_boundary() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, overrides = "--nested")]
+                force: bool,
+                #[usage(flatten)]
+                shared: Shared,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("cannot cross a flatten boundary"),
             "unhelpful message: {err}"
         );
     }
