@@ -308,7 +308,7 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 			}
 			out.WriteString("\n")
 		}
-		if section == "" {
+		if section == "" && !cmd.DisableHelpSubcommand {
 			if nextLineHelp {
 				out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
 			} else {

@@ -354,6 +354,9 @@ func (p *Parser) longFlag(token string) bool {
 		if flag.Variadic && hasValue {
 			p.startCollecting(flag, value)
 		}
+		if flag.Action != ActionSet {
+			return p.flagAction(flag, true)
+		}
 		return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: hasValue})
 	}
 
@@ -368,13 +371,13 @@ func (p *Parser) longFlag(token string) bool {
 	// for help ends the parse is the caller's decision, and the layer that owns the
 	// target struct is where usage-argv makes it; the parser only says the flag was
 	// given. Use [IsHelpFlag] and [IsVersionFlag] to recognize them.
-	if name == "version" && p.cmd.Version {
+	if name == "version" && p.cmd.Version && !p.cmd.DisableVersionFlag {
 		return p.emit(Event{Kind: KindFlag, Flag: VersionLong})
 	}
 
 	// Every CLI answers to --help, and none of them declares it. Asked after the
 	// command's own flags, for the same reason.
-	if name == "help" {
+	if name == "help" && !p.cmd.DisableHelpFlag {
 		return p.emit(Event{Kind: KindFlag, Flag: HelpLong})
 	}
 
@@ -418,6 +421,10 @@ func (p *Parser) shortFlag() bool {
 
 	if !flag.TakesValue {
 		p.bundle = rest
+		if flag.Action != ActionSet {
+			p.bundle = ""
+			return p.flagAction(flag, false)
+		}
 		return p.emit(Event{Kind: KindFlag, Flag: flag})
 	}
 
@@ -442,7 +449,28 @@ func (p *Parser) shortFlag() bool {
 	if flag.Variadic && hasValue {
 		p.startCollecting(flag, value)
 	}
+	if flag.Action != ActionSet {
+		return p.flagAction(flag, false)
+	}
 	return p.emit(Event{Kind: KindFlag, Flag: flag, Value: value, HasValue: hasValue})
+}
+
+func (p *Parser) flagAction(flag *Flag, longSpelling bool) bool {
+	if flag == HelpLong || flag == HelpShort || flag == VersionLong || flag == VersionShort {
+		return p.emit(Event{Kind: KindFlag, Flag: flag})
+	}
+	switch flag.Action {
+	case ActionHelp:
+		return p.fail(Error{Code: CodeHelp, Cmd: p.cmd, Long: longSpelling})
+	case ActionHelpShort:
+		return p.fail(Error{Code: CodeHelp, Cmd: p.cmd, Long: false})
+	case ActionHelpLong:
+		return p.fail(Error{Code: CodeHelp, Cmd: p.cmd, Long: true})
+	case ActionVersion:
+		return p.fail(Error{Code: CodeVersion, Cmd: p.cmd, Long: longSpelling})
+	default:
+		return p.emit(Event{Kind: KindFlag, Flag: flag})
+	}
 }
 
 // takeDetachedValue takes the following token as a flag's value.
@@ -516,7 +544,7 @@ func (p *Parser) word(token string) bool {
 		// The words after it name a command, resolved here rather than descended
 		// into: descending would bind them, and they are a question rather than an
 		// invocation.
-		if token == "help" && len(p.cmd.Subcommands) > 0 {
+		if token == "help" && !p.cmd.DisableHelpSubcommand && len(p.cmd.Subcommands) > 0 {
 			cmd := p.cmd
 			for p.pos < len(p.argv) {
 				sub := findNamed(cmd, p.argv[p.pos])
@@ -766,9 +794,9 @@ func (p *Parser) findShort(b byte) *Flag {
 	// As for --help: supplied by the parser, and only where the command has not
 	// declared one of its own.
 	switch {
-	case b == 'h':
+	case b == 'h' && !p.cmd.DisableHelpFlag:
 		return HelpShort
-	case b == 'V' && p.cmd.Version:
+	case b == 'V' && p.cmd.Version && !p.cmd.DisableVersionFlag:
 		return VersionShort
 	}
 	return nil

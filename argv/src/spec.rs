@@ -1219,6 +1219,15 @@ impl Spec<'_> {
         if self.root.cmd.arg_required_else_help {
             writeln!(out, "arg_required_else_help #true")?;
         }
+        if self.root.cmd.disable_help_flag {
+            writeln!(out, "disable_help_flag #true")?;
+        }
+        if self.root.cmd.disable_help_subcommand {
+            writeln!(out, "disable_help_subcommand #true")?;
+        }
+        if self.root.cmd.disable_version_flag {
+            writeln!(out, "disable_version_flag #true")?;
+        }
         if self.root.cmd.dont_delimit_trailing_values {
             writeln!(out, "dont_delimit_trailing_values #true")?;
         }
@@ -1528,6 +1537,15 @@ fn write_command<'a>(
     if meta.cmd.arg_required_else_help {
         out.push_str(" arg_required_else_help=#true");
     }
+    if meta.cmd.disable_help_flag {
+        out.push_str(" disable_help_flag=#true");
+    }
+    if meta.cmd.disable_help_subcommand {
+        out.push_str(" disable_help_subcommand=#true");
+    }
+    if meta.cmd.disable_version_flag {
+        out.push_str(" disable_version_flag=#true");
+    }
     if meta.cmd.dont_delimit_trailing_values {
         out.push_str(" dont_delimit_trailing_values=#true");
     }
@@ -1689,6 +1707,19 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     )?;
     if meta.count {
         out.push_str(" count=#true");
+    }
+    if meta.flag.action != crate::ArgAction::Set {
+        write!(
+            out,
+            " action={}",
+            quoted(match meta.flag.action {
+                crate::ArgAction::Set => "set",
+                crate::ArgAction::Help => "help",
+                crate::ArgAction::HelpShort => "help_short",
+                crate::ArgAction::HelpLong => "help_long",
+                crate::ArgAction::Version => "version",
+            })
+        )?;
     }
     if meta.repeatable {
         out.push_str(" var=#true");

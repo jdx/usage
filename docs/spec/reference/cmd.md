@@ -174,6 +174,20 @@ The policy observes argv belonging to the selected command. A global flag before
 subcommand does not count as that subcommand's argument, and values supplied later by an
 environment variable or default do not suppress help.
 
+### Control built-in help and version entry points
+
+Each synthesized entry can be removed independently:
+
+```kdl
+disable_help_flag #true
+disable_help_subcommand #true
+disable_version_flag #true
+```
+
+The same properties are accepted on a `cmd` node. A declared flag can then relocate the
+behavior with `action="help"`, `help_short`, `help_long`, or `version`; its ordinary `help`
+text is what the help page displays.
+
 ### Let a subcommand satisfy parent requirements
 
 `subcommand_negates_reqs` makes required arguments, flags, groups, and conditional

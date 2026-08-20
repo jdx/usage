@@ -554,11 +554,12 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       variants, and `ValueEnum` variants accept clap's full casing vocabulary.
       Bare `env` infers its name using `rename_all_env` (SCREAMING_SNAKE_CASE by
       default); explicit field, flag, command, and environment names still win.
-- [ ] **Built-in action and flag control** — custom `ArgAction::Help`,
+- [x] **Built-in action and flag control** — custom `ArgAction::Help`,
       `HelpShort`, `HelpLong` and `Version`, plus `disable_help_flag`,
       `disable_help_subcommand` and `disable_version_flag`, including custom help
-      text on relocated help/version flags. A clap CLI can move or remove these
-      entry points; usage currently supplies its own.
+      text on relocated help/version flags. Typed Rust, portable KDL, the clap
+      bridge, usage-lib, and generated Go can now move or remove these entry
+      points without losing their action or presentation.
 - [x] **The full `ValueHint` vocabulary.** Typed declarations and the clap bridge
       lower every stable clap hint into portable completion types. Username and
       hostname hints use system candidates where the usage CLI owns completion;

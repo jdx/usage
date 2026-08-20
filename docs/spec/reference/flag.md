@@ -20,6 +20,9 @@ flag "--force" display_order=10         // explicit order within its help sectio
 flag "--file <file>" default="file.txt" // default value for flag
 flag "-v --verbose" count=#true         // instead of true/false $usage_verbose is # of times
                                         // flag was used (e.g. -vvv = 3)
+flag "--assist" action="help_short" help="Show concise help"
+flag "--manual" action="help_long" help="Show full help"
+flag "--release" action="version" help="Print version"
 
 flag "--include <pattern>" var=#true            // flag can be repeated (--include a --include b)
 flag "--include... <pattern>"                   // same as above, ellipsis on flag

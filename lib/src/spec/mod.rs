@@ -304,6 +304,15 @@ impl Spec {
                 "arg_required_else_help" => {
                     schema.cmd.arg_required_else_help = node.arg(0)?.ensure_bool()?;
                 }
+                "disable_help_flag" => {
+                    schema.cmd.disable_help_flag = node.arg(0)?.ensure_bool()?;
+                }
+                "disable_help_subcommand" => {
+                    schema.cmd.disable_help_subcommand = node.arg(0)?.ensure_bool()?;
+                }
+                "disable_version_flag" => {
+                    schema.cmd.disable_version_flag = node.arg(0)?.ensure_bool()?;
+                }
                 "dont_delimit_trailing_values" => {
                     schema.cmd.dont_delimit_trailing_values = node.arg(0)?.ensure_bool()?;
                 }
@@ -629,6 +638,21 @@ impl Display for Spec {
         }
         if self.cmd.arg_required_else_help {
             let mut node = KdlNode::new("arg_required_else_help");
+            node.push(KdlEntry::new(true));
+            nodes.push(node);
+        }
+        if self.cmd.disable_help_flag {
+            let mut node = KdlNode::new("disable_help_flag");
+            node.push(KdlEntry::new(true));
+            nodes.push(node);
+        }
+        if self.cmd.disable_help_subcommand {
+            let mut node = KdlNode::new("disable_help_subcommand");
+            node.push(KdlEntry::new(true));
+            nodes.push(node);
+        }
+        if self.cmd.disable_version_flag {
+            let mut node = KdlNode::new("disable_version_flag");
             node.push(KdlEntry::new(true));
             nodes.push(node);
         }

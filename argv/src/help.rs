@@ -878,7 +878,7 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
             }
             out.push('\n');
         }
-        if heading.is_none() {
+        if heading.is_none() && !meta.cmd.disable_help_subcommand {
             if meta.next_line_help {
                 let _ = writeln!(
                     out,
@@ -1556,7 +1556,7 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
             // multi-line description from running into the next command's name.
             out.push('\n');
         }
-        if heading.is_none() {
+        if heading.is_none() && !meta.cmd.disable_help_subcommand {
             let _ = writeln!(
                 out,
                 "  help\n    Print this message or the help of the given subcommand(s)"
@@ -1804,15 +1804,17 @@ fn supplied_entries(cmd: &Command<'_>, taken: &[String]) -> Vec<&'static FlagMet
     };
 
     let mut out = Vec::new();
-    out.extend(pick(
-        "help",
-        'h',
-        &supplied::HELP_BOTH,
-        &supplied::HELP_LONG_ONLY,
-        &supplied::HELP_SHORT_ONLY,
-    ));
+    if !cmd.disable_help_flag {
+        out.extend(pick(
+            "help",
+            'h',
+            &supplied::HELP_BOTH,
+            &supplied::HELP_LONG_ONLY,
+            &supplied::HELP_SHORT_ONLY,
+        ));
+    }
     // Only where the parser accepts one, which is the root of a CLI that declared a version.
-    if cmd.version {
+    if cmd.version && !cmd.disable_version_flag {
         out.extend(pick(
             "version",
             'V',
