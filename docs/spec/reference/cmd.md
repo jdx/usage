@@ -169,27 +169,6 @@ The policy observes argv belonging to the selected command. A global flag before
 subcommand does not count as that subcommand's argument, and values supplied later by an
 environment variable or default do not suppress help.
 
-### Inferred prefixes
-
-A command can accept an unambiguous prefix of a subcommand name or alias, a long
-flag, or a long flag alias:
-
-```kdl
-infer_subcommands #true
-infer_long_args #true
-
-cmd "install" {
-  alias "add"
-}
-flag "--verbose"
-```
-
-Here `mycli insta`, `mycli a`, and `mycli --verb` resolve to their full
-declarations. A prefix matching two different commands or flags is not accepted;
-an exact spelling always wins. Both settings are inherited by nested commands and
-may also be enabled for one subtree with `infer_subcommands=#true` or
-`infer_long_args=#true` on its `cmd` node.
-
 ### Global flags and mounted commands
 
 A mounted command describes a different program, so the flags of the commands it is mounted under

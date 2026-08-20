@@ -94,10 +94,6 @@ pub struct Cli {
     /// Whether a flag-like token that names no flag is a value or an error. Unset
     /// means the spec's default, which is `value`.
     pub unknown_flags: Option<String>,
-    /// Accept unambiguous prefixes of subcommands, inherited by children.
-    pub infer_subcommands: bool,
-    /// Accept unambiguous prefixes of long flags, inherited by children.
-    pub infer_long_args: bool,
     /// The command a bare invocation means: `mise build` is `mise run build`.
     ///
     /// Only the root has one, and it is what mise sets by hand on the emitted spec today.
@@ -528,8 +524,6 @@ impl Cli {
             about: None,
             long_about: None,
             unknown_flags: None,
-            infer_subcommands: false,
-            infer_long_args: false,
             default_subcommand: None,
             multicall: false,
             no_binary_name: false,
@@ -672,8 +666,6 @@ impl Cli {
                     "multicall" => cli.multicall = flag_value(&meta)?,
                     "no_binary_name" => cli.no_binary_name = flag_value(&meta)?,
                     "arg_required_else_help" => cli.arg_required_else_help = flag_value(&meta)?,
-                    "infer_subcommands" => cli.infer_subcommands = flag_value(&meta)?,
-                    "infer_long_args" => cli.infer_long_args = flag_value(&meta)?,
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
@@ -685,8 +677,8 @@ impl Cli {
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `infer_subcommands`, \
-                                 `infer_long_args`, `next_help_heading`, `restart_token`, `mount` and \
+                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, \
+                                 `next_help_heading`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"
                             ),

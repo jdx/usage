@@ -189,12 +189,6 @@ pub struct Command<'a> {
     /// bound values: an environment variable or default may fill a field, but neither means
     /// the user supplied an argument to this invocation.
     pub arg_required_else_help: bool,
-    /// Accept an unambiguous prefix of a subcommand name or alias.
-    /// Inherited by nested commands.
-    pub infer_subcommands: bool,
-    /// Accept an unambiguous prefix of a long flag or alias.
-    /// Inherited by nested commands.
-    pub infer_long_args: bool,
     /// What an unrecognized flag-like token means here, or `None` to keep whatever the
     /// enclosing command said. See [`UnknownFlags`].
     ///
@@ -237,8 +231,6 @@ impl Command<'_> {
         default_subcommand: ::core::option::Option::None,
         external_subcommand: false,
         arg_required_else_help: false,
-        infer_subcommands: false,
-        infer_long_args: false,
         unknown_flags: ::core::option::Option::None,
         version: false,
         key: 0,
@@ -812,41 +804,6 @@ pub(crate) fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Co
         .or_else(|| subcommands().find(|c| c.aliases.iter().any(|a| a.as_bytes() == name)))
 }
 
-fn find_prefixed<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Command<'t>> {
-    if let Some(exact) = find_named(cmd, name) {
-        return Some(exact);
-    }
-    if name.is_empty() {
-        return None;
-    }
-    let mut found = None;
-    for command in cmd.subcommands {
-        if !command.name.as_bytes().starts_with(name)
-            && !command
-                .aliases
-                .iter()
-                .any(|alias| alias.as_bytes().starts_with(name))
-        {
-            continue;
-        }
-        if found.is_some() {
-            return None;
-        }
-        found = Some(*command);
-    }
-    found
-}
-
-fn has_prefixed_subcommand(cmd: &Command<'_>, name: &[u8]) -> bool {
-    cmd.subcommands.iter().any(|command| {
-        command.name.as_bytes().starts_with(name)
-            || command
-                .aliases
-                .iter()
-                .any(|alias| alias.as_bytes().starts_with(name))
-    })
-}
-
 /// What a caller should print for a parse failure, and what to exit with.
 ///
 /// The one entry point a generated `parse()` reaches for, and the reason it exists here rather
@@ -1051,8 +1008,6 @@ pub struct Parser<'t, 'a, 'v> {
     /// nothing keeps what the enclosing one said, and walking back up the ancestors on
     /// every unrecognized token would pay for the inheritance at the wrong moment.
     unknown_flags: UnknownFlags,
-    infer_subcommands: bool,
-    infer_long_args: bool,
     /// The chain above `cmd`, used to find inherited global flags. Fixed size so
     /// that nothing is allocated.
     ancestors: [Option<&'t Command<'t>>; MAX_DEPTH],
@@ -1119,8 +1074,6 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 // Nothing above the root to inherit from, so the default stands.
                 ::core::option::Option::None => UnknownFlags::Value,
             },
-            infer_subcommands: root.infer_subcommands,
-            infer_long_args: root.infer_long_args,
             ancestors: [None; MAX_DEPTH],
             depth: 0,
             bundle: &[],
@@ -1357,8 +1310,8 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             None => (body, None),
         };
 
-        if let Some((flag, negated)) = self.find_long_form(name) {
-            let value = if flag.takes_value && !negated {
+        if let Some(flag) = self.find_long(name) {
+            let value = if flag.takes_value {
                 Some(match attached {
                     Some(v) => v,
                     None => self.take_detached_value(flag)?,
@@ -1366,13 +1319,21 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             } else {
                 None
             };
-            if flag.variadic && !negated {
+            if flag.variadic {
                 self.start_collecting(flag, value.unwrap_or(b""))?;
             }
             return Ok(Event::Flag {
                 flag,
                 value,
-                negated,
+                negated: false,
+            });
+        }
+
+        if let Some(flag) = self.find_negation(name) {
+            return Ok(Event::Flag {
+                flag,
+                value: None,
+                negated: true,
             });
         }
 
@@ -1494,20 +1455,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         // positional of this command has taken a word, a later word that happens
         // to equal a subcommand name is just a value.
         if !self.arg_filled && !self.flags_stopped {
-            // Exact declared commands outrank the built-in help word. In inferred mode the
-            // built-in participates as a real candidate, so `he` reaches help only when a
-            // sibling such as `helper` does not make the prefix ambiguous.
-            if let Some(sub) = find_named(self.cmd, token) {
-                self.descend(sub)?;
-                return Ok(Event::Command(sub));
-            }
-            let help_prefix =
-                !token.is_empty() && b"help".starts_with(token) && !self.cmd.subcommands.is_empty();
-            let inferred = self
-                .infer_subcommands
-                .then(|| find_prefixed(self.cmd, token))
-                .flatten();
-            if let Some(sub) = inferred.filter(|_| !help_prefix) {
+            if let Some(sub) = self.find_subcommand(token) {
                 self.descend(sub)?;
                 return Ok(Event::Command(sub));
             }
@@ -1523,25 +1471,14 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             //
             // The words after it name a command, resolved here rather than descended into:
             // descending would bind them, and they are a question rather than an invocation.
-            if (token == b"help"
-                || (self.infer_subcommands
-                    && help_prefix
-                    && !has_prefixed_subcommand(self.cmd, token)))
-                && !self.cmd.subcommands.is_empty()
-            {
+            if token == b"help" && !self.cmd.subcommands.is_empty() {
                 let mut cmd = self.cmd;
-                let mut infer_subcommands = self.infer_subcommands;
                 let from = self.pos;
                 while let Some(next) = self.argv.get(self.pos) {
-                    let Some(sub) = (if infer_subcommands {
-                        find_prefixed(cmd, bytes(next))
-                    } else {
-                        find_named(cmd, bytes(next))
-                    }) else {
+                    let Some(sub) = find_named(cmd, bytes(next)) else {
                         break;
                     };
                     cmd = sub;
-                    infer_subcommands |= sub.infer_subcommands;
                     self.pos += 1;
                 }
                 // Kept for `help::route_to`: which mount was asked about is not recoverable
@@ -1647,8 +1584,6 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         self.starts[self.depth] = self.cmd_start;
         self.depth += 1;
         self.cmd = sub;
-        self.infer_subcommands |= sub.infer_subcommands;
-        self.infer_long_args |= sub.infer_long_args;
         // Only a command that says something changes it, which is what inheriting means.
         if let ::core::option::Option::Some(mode) = sub.unknown_flags {
             self.unknown_flags = mode;
@@ -1710,89 +1645,14 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         own.chain(inherited)
     }
 
-    fn find_long_form(&self, name: &[u8]) -> Option<(&'t Flag<'t>, bool)> {
-        if let Some(flag) = self
-            .in_scope()
-            .find(|f| f.longs.iter().any(|long| long.as_bytes() == name))
-        {
-            return Some((flag, false));
-        }
-        if let Some(flag) = self
-            .in_scope()
-            .find(|f| f.negate.is_some_and(|negate| negate.as_bytes() == name))
-        {
-            return Some((flag, true));
-        }
-        // Built-ins are exact entries too, below an authored spelling and above inference.
-        if name == b"help" {
-            return Some((&HELP_LONG, false));
-        }
-        if name == b"version" && self.cmd.version {
-            return Some((&VERSION_LONG, false));
-        }
-        if !self.infer_long_args || name.is_empty() {
-            return None;
-        }
-
-        let mut found: Option<(&Flag<'_>, bool)> = None;
-        for flag in self.in_scope() {
-            let positive = flag.longs.iter().any(|long| {
-                long.as_bytes().starts_with(name)
-                    && !self.long_form_is_shadowed(flag, long.as_bytes())
-            });
-            let negative = !positive
-                && flag.negate.is_some_and(|negate| {
-                    negate.as_bytes().starts_with(name)
-                        && !self.long_form_is_shadowed(flag, negate.as_bytes())
-                });
-            if !positive && !negative {
-                continue;
-            }
-            if found.is_some_and(|(prior, _)| !::core::ptr::eq(prior, flag)) {
-                return None;
-            }
-            found = Some((flag, negative));
-        }
-        for (spelling, flag) in [
-            (b"help".as_slice(), &HELP_LONG),
-            (b"version".as_slice(), &VERSION_LONG),
-        ] {
-            if (spelling == b"version" && !self.cmd.version)
-                || !spelling.starts_with(name)
-                || self.in_scope().any(|candidate| {
-                    candidate
-                        .longs
-                        .iter()
-                        .any(|long| long.as_bytes() == spelling)
-                })
-            {
-                continue;
-            }
-            if found.is_some_and(|(prior, _)| !::core::ptr::eq(prior, flag)) {
-                return None;
-            }
-            found = Some((flag, false));
-        }
-        found
+    fn find_long(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
+        self.in_scope()
+            .find(|f| f.longs.iter().any(|l| l.as_bytes() == name))
     }
 
-    /// Whether a nearer declaration already owns this exact long spelling.
-    ///
-    /// `in_scope` is ordered by precedence. Prefix inference must apply the same
-    /// shadowing as exact lookup: redeclaring `--verbose` on a child does not make
-    /// `--verb` ambiguous merely because an inherited global also spells it that way.
-    fn long_form_is_shadowed(&self, flag: &Flag<'_>, form: &[u8]) -> bool {
-        for prior in self.in_scope() {
-            if ::core::ptr::eq(prior, flag) {
-                return false;
-            }
-            if prior.longs.iter().any(|long| long.as_bytes() == form)
-                || prior.negate.is_some_and(|negate| negate.as_bytes() == form)
-            {
-                return true;
-            }
-        }
-        false
+    fn find_negation(&self, name: &[u8]) -> Option<&'t Flag<'t>> {
+        self.in_scope()
+            .find(|f| f.negate.is_some_and(|n| n.as_bytes() == name))
     }
 
     fn find_short(&self, byte: u8) -> Option<&'t Flag<'t>> {
@@ -1807,6 +1667,12 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             } else {
                 None
             })
+    }
+
+    fn find_subcommand(&self, name: &[u8]) -> Option<&'t Command<'t>> {
+        // Shared with `help` rather than spelled out again, so descending into a command and
+        // asking about one cannot drift apart.
+        find_named(self.cmd, name)
     }
 }
 
@@ -2084,39 +1950,6 @@ mod tests {
             panic!("expected a flag");
         };
         assert_eq!(value, Some(&b"-1"[..]));
-    }
-
-    #[test]
-    fn negation_of_value_flag_does_not_consume_a_value() {
-        static MODE: Flag = Flag {
-            key: 9,
-            name: "mode",
-            longs: &["mode"],
-            negate: Some("no-mode"),
-            ..Flag::VALUE
-        };
-        static NEGATED_VALUE: Command = Command {
-            name: "ex",
-            flags: &[&MODE],
-            args: &[&FILE],
-            ..Command::EMPTY
-        };
-
-        let a = argv(["--no-mode", "input"]);
-        assert_eq!(
-            parse(&NEGATED_VALUE, &a).unwrap(),
-            vec![
-                Event::Flag {
-                    flag: &MODE,
-                    value: None,
-                    negated: true
-                },
-                Event::Arg {
-                    arg: &FILE,
-                    value: b"input"
-                }
-            ]
-        );
     }
 
     #[test]
@@ -2570,81 +2403,6 @@ mod tests {
             ..Command::EMPTY
         };
         assert_unique_subcommand_names(&[&INSTALL, &ADD]);
-    }
-
-    #[test]
-    #[cfg(feature = "spec")]
-    fn inferred_help_keeps_the_route_it_resolved() {
-        let root = Command {
-            name: "ex",
-            subcommands: &[&INSTALL],
-            infer_subcommands: true,
-            ..Command::EMPTY
-        };
-        let a = argv(["help", "insta"]);
-        let Err(Error::Help { cmd, .. }) = parse(&root, &a) else {
-            panic!("expected inferred help")
-        };
-        let route = crate::help::route_to(&root, &a, cmd).expect("the inferred route");
-        assert_eq!(route.len(), 2);
-        assert!(::core::ptr::eq(route[1], &INSTALL));
-    }
-
-    #[test]
-    fn inferred_builtins_participate_in_exactness_and_ambiguity() {
-        static HELP_ALL: Flag = Flag {
-            key: 380,
-            name: "help-all",
-            longs: &["help-all"],
-            ..Flag::BOOL
-        };
-        static HELPER: Command = Command {
-            key: 381,
-            name: "helper",
-            ..Command::EMPTY
-        };
-        let flags = Command {
-            name: "ex",
-            flags: &[&HELP_ALL],
-            infer_long_args: true,
-            unknown_flags: Some(UnknownFlags::Error),
-            ..Command::EMPTY
-        };
-        let exact = argv(["--help"]);
-        assert!(matches!(
-            parse(&flags, &exact),
-            Ok(events) if matches!(events.as_slice(), [Event::Flag { flag, .. }] if is_help_flag(flag))
-        ));
-        let ambiguous = argv(["--he"]);
-        assert!(matches!(
-            parse(&flags, &ambiguous),
-            Err(Error::UnknownFlag { .. })
-        ));
-
-        let lone = Command {
-            name: "ex",
-            infer_long_args: true,
-            ..Command::EMPTY
-        };
-        let inferred = argv(["--he"]);
-        assert!(matches!(
-            parse(&lone, &inferred),
-            Ok(events) if matches!(events.as_slice(), [Event::Flag { flag, .. }] if is_help_flag(flag))
-        ));
-
-        let commands = Command {
-            name: "ex",
-            subcommands: &[&HELPER],
-            infer_subcommands: true,
-            ..Command::EMPTY
-        };
-        let exact = argv(["help"]);
-        assert!(matches!(parse(&commands, &exact), Err(Error::Help { .. })));
-        let ambiguous = argv(["he"]);
-        assert!(matches!(
-            parse(&commands, &ambiguous),
-            Err(Error::UnexpectedArg { .. })
-        ));
     }
 
     #[test]

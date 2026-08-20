@@ -105,12 +105,6 @@ pub struct SpecCommand {
     /// Whether a bare invocation of this command shows its help.
     #[serde(skip_serializing_if = "is_false")]
     pub arg_required_else_help: bool,
-    /// Accept unambiguous prefixes of subcommand names and aliases, inherited by children.
-    #[serde(skip_serializing_if = "is_false")]
-    pub infer_subcommands: bool,
-    /// Accept unambiguous prefixes of long flag names and aliases, inherited by children.
-    #[serde(skip_serializing_if = "is_false")]
-    pub infer_long_args: bool,
     /// Token that resets argument parsing, allowing multiple command invocations.
     /// e.g., `mise run lint ::: test ::: check` with restart_token=":::"
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -181,8 +175,6 @@ impl Default for SpecCommand {
             subcommand_required: false,
             external_subcommand: false,
             arg_required_else_help: false,
-            infer_subcommands: false,
-            infer_long_args: false,
             restart_token: None,
             help: None,
             help_long: None,
@@ -290,8 +282,6 @@ impl SpecCommand {
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "external_subcommand" => cmd.external_subcommand = v.ensure_bool()?,
                 "arg_required_else_help" => cmd.arg_required_else_help = v.ensure_bool()?,
-                "infer_subcommands" => cmd.infer_subcommands = v.ensure_bool()?,
-                "infer_long_args" => cmd.infer_long_args = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
                 "unknown_flags" => {
                     let raw = v.ensure_string()?;
@@ -420,12 +410,6 @@ impl SpecCommand {
                     cmd.arg_required_else_help =
                         child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
-                "infer_subcommands" => {
-                    cmd.infer_subcommands = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
-                }
-                "infer_long_args" => {
-                    cmd.infer_long_args = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
-                }
                 "hide" => cmd.hide = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?,
                 "effect" => {
                     let arg = child.ensure_arg_len(1..=1)?.arg(0)?;
@@ -537,8 +521,6 @@ impl SpecCommand {
             subcommand_required,
             external_subcommand,
             arg_required_else_help,
-            infer_subcommands,
-            infer_long_args,
             restart_token,
             subcommands,
             complete,
@@ -613,8 +595,6 @@ impl SpecCommand {
         self.subcommand_required = subcommand_required;
         self.external_subcommand = external_subcommand;
         self.arg_required_else_help = arg_required_else_help;
-        self.infer_subcommands |= infer_subcommands;
-        self.infer_long_args |= infer_long_args;
         if effect.is_some() {
             self.effect = effect;
         }
@@ -668,36 +648,6 @@ impl SpecCommand {
         self.subcommands.get(name)
     }
 
-    pub(crate) fn find_subcommand_with_prefix(
-        &self,
-        name: &str,
-        infer: bool,
-    ) -> Option<&SpecCommand> {
-        if let Some(exact) = self.find_subcommand(name) {
-            return Some(exact);
-        }
-        if !infer || name.is_empty() {
-            return None;
-        }
-        let mut found = None;
-        for command in self.subcommands.values() {
-            if !command.name.starts_with(name)
-                && !command.aliases.iter().any(|alias| alias.starts_with(name))
-                && !command
-                    .hidden_aliases
-                    .iter()
-                    .any(|alias| alias.starts_with(name))
-            {
-                continue;
-            }
-            if found.is_some() {
-                return None;
-            }
-            found = Some(command);
-        }
-        found
-    }
-
     pub(crate) fn mount(&mut self, global_flag_args: &[String]) -> Result<(), UsageErr> {
         for mount in self.mounts.iter().cloned().collect_vec() {
             let cmd = if global_flag_args.is_empty() {
@@ -749,8 +699,6 @@ impl From<&SpecCommand> for KdlNode {
             subcommand_required,
             external_subcommand,
             arg_required_else_help,
-            infer_subcommands,
-            infer_long_args,
             restart_token,
             unknown_flags,
             aliases,
@@ -796,14 +744,6 @@ impl From<&SpecCommand> for KdlNode {
         if *arg_required_else_help {
             node.entries_mut()
                 .push(KdlEntry::new_prop("arg_required_else_help", true));
-        }
-        if *infer_subcommands {
-            node.entries_mut()
-                .push(KdlEntry::new_prop("infer_subcommands", true));
-        }
-        if *infer_long_args {
-            node.entries_mut()
-                .push(KdlEntry::new_prop("infer_long_args", true));
         }
         if let Some(restart_token) = &restart_token {
             node.entries_mut()

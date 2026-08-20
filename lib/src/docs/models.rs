@@ -494,8 +494,6 @@ impl From<&crate::SpecCommand> for SpecCommand {
             // Presentational output does not describe relationships between flags, the
             // way it already does not describe `conflicts`.
             groups: _,
-            infer_subcommands: _,
-            infer_long_args: _,
         } = cmd;
 
         Self {
