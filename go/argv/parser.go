@@ -509,7 +509,12 @@ func (p *Parser) word(token string) bool {
 		// a subcommand of the default as easily as an argument of it, without this
 		// function having to decide which — and without yielding two events for one
 		// word.
-		if d := p.cmd.DefaultSubcommand; d != nil && !p.defaultTaken && !isFlagLike(token) && token != "--" {
+		d := p.cmd.DefaultSubcommand
+		defaultAcceptsNegative := d != nil &&
+			isNegativeNumber(token) &&
+			len(d.Args) > 0 &&
+			d.Args[0].AllowNegativeNumbers
+		if d != nil && !p.defaultTaken && (!isFlagLike(token) || defaultAcceptsNegative) && token != "--" {
 			p.defaultTaken = true
 			if !p.descend(d) {
 				return false

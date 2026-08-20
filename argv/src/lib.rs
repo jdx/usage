@@ -1562,7 +1562,16 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 // lone `-` a value — conventionally stdin — so it passed this guard and
                 // descended, where mise's `run` has no positional and the parse failed.
                 // usage-lib and clap both bind it to the root's own `[TASK]` instead.
-                if !self.default_taken && !is_flag_like(token) && token != b"--" && token != b"-" {
+                let default_accepts_negative = is_negative_number(token)
+                    && default
+                        .args
+                        .first()
+                        .is_some_and(|arg| arg.allow_negative_numbers);
+                if !self.default_taken
+                    && (!is_flag_like(token) || default_accepts_negative)
+                    && token != b"--"
+                    && token != b"-"
+                {
                     self.default_taken = true;
                     self.descend(default)?;
                     self.pos -= 1;
