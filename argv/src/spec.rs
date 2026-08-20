@@ -2030,15 +2030,15 @@ fn quoted(value: &str) -> String {
 }
 
 fn is_plain_kdl_identifier(value: &str) -> bool {
-    let bytes = value.as_bytes();
     value.chars().all(|c| !is_disallowed_kdl_identifier_char(c))
-        && bytes.first().is_none_or(|c| !c.is_ascii_digit())
-        && !(value
-            .chars()
-            .next()
-            .is_some_and(|c| matches!(c, '.' | '-' | '+'))
-            && bytes.get(1).is_some_and(u8::is_ascii_digit))
+        && !starts_like_kdl_number(value)
         && !matches!(value, "inf" | "-inf" | "nan" | "true" | "false" | "null")
+}
+
+fn starts_like_kdl_number(value: &str) -> bool {
+    let unsigned = value.strip_prefix(['-', '+']).unwrap_or(value).as_bytes();
+    unsigned.first().is_some_and(u8::is_ascii_digit)
+        || (unsigned.first() == Some(&b'.') && unsigned.get(1).is_some_and(u8::is_ascii_digit))
 }
 
 fn is_disallowed_kdl_identifier_char(c: char) -> bool {
@@ -2524,6 +2524,9 @@ mod tests {
         assert_eq!(quoted("true"), r#""true""#);
         assert_eq!(quoted("12"), r#""12""#);
         assert_eq!(quoted("-12"), r#""-12""#);
+        assert_eq!(quoted(".5"), r#"".5""#);
+        assert_eq!(quoted("-.5"), r#""-.5""#);
+        assert_eq!(quoted("+.5"), r#""+.5""#);
         assert_eq!(quoted("with space"), r#""with space""#);
         assert_eq!(quoted(r#"say "hi""#), r#""say \"hi\"""#);
         assert_eq!(quoted("a\\b"), r#""a\\b""#);
