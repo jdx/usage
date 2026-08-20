@@ -26,9 +26,9 @@ fn a_tool_is_installed_globally() {
 
 #[test]
 fn a_task_runs_with_arguments_after_a_separator() {
-    // `TASK` now declares `double_dash=automatic`: once the task name binds, every later token
-    // is task argv. That includes flag-looking words and a literal `--`; none return to mise's
-    // own flags or reach the older `ARGS_LAST` compatibility field.
+    // `TASK` declares `double_dash=automatic`: once the task name binds, later flag-looking
+    // words are task argv. An explicit `--` still has its narrower clap-compatible meaning:
+    // it ends `ARGS` and unlocks the trailing `ARGS_LAST` field.
     let a = argv([
         "tasks",
         "run",
@@ -45,11 +45,11 @@ fn a_task_runs_with_arguments_after_a_separator() {
     let Some(TasksCommands::Run(run)) = tasks.command else {
         panic!("expected `tasks run`")
     };
-    // The words, not just that a command was selected: dropping a flag-looking word or the
-    // separator itself would otherwise leave this green.
+    // The words, not just that a command was selected: dropping a flag-looking word on either
+    // side of the separator would otherwise leave this green.
     assert_eq!(run.task.as_deref(), Some("build"));
-    assert_eq!(run.args, ["extra", "--dry-run", "--", "--verbose"]);
-    assert!(run.args_last.is_empty());
+    assert_eq!(run.args, ["extra", "--dry-run"]);
+    assert_eq!(run.args_last, ["--verbose"]);
     assert!(!run.dry_run);
 }
 
