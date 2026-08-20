@@ -1293,6 +1293,15 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             usage_argv::script::script(&__usage_program, shell)
         }
 
+        /// Register completion under a shell alias while asking this CLI's real binary.
+        pub fn completion_script_for_alias(
+            alias: &str,
+            shell: usage_argv::complete::Shell,
+        ) -> ::std::string::String {
+            let __usage_program = { #completion_program };
+            usage_argv::script::script_for(&__usage_program, alias, shell)
+        }
+
         /// A declared executable view's completion script.
         pub fn completion_script_for(
             view: &str,

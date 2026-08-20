@@ -19,11 +19,14 @@ usage = { package = "usage-rs", version = "6", features = ["completions"] }
 struct Ex { /* … */ }
 ```
 
-This generates two methods and wires the runtime protocol into `parse()`:
+This generates script methods and wires the runtime protocol into `parse()`:
 
 ```rust
 // the script a user installs into their shell
 pub fn completion_script(shell: usage::complete::Shell) -> String;
+
+// register an alias while still invoking this binary for answers
+pub fn completion_script_for_alias(alias: &str, shell: usage::complete::Shell) -> String;
 
 // answer a runtime completion request, if argv is one
 pub fn completion_request(argv: &[OsString]) -> Option<String>;
@@ -56,6 +59,12 @@ struct Completion {
 // in your run function:
 print!("{}", Ex::completion_script(cli.completion.shell.into()));
 ```
+
+Shell aliases are explicit because each shell stores and expands them differently. To complete
+`m` exactly like `mise`, install `Ex::completion_script_for_alias("m", shell)`. The generated
+script registers `m`, but its callback executes `mise`; it does not depend on alias expansion in
+the completion subprocess. Embedders can make the same distinction with
+`usage::script::script_for(real_binary, registered_name, shell)`.
 
 Candidates come from the same tables the parser uses: subcommands and their visible aliases,
 flags in scope at the cursor (globals included, hidden entries excluded), `choices` and

@@ -268,6 +268,30 @@ fn executable_views_generate_scripts_for_their_binary() {
     assert!(!answer.contains("--color"), "{answer}");
 }
 
+#[cfg(feature = "completions")]
+#[test]
+fn completion_scripts_can_register_a_shell_alias() {
+    let script = ViewHost::completion_script_for_alias("vh", usage::complete::Shell::Bash);
+    assert!(
+        script.contains("complete -F _usage_complete_vh 'vh'"),
+        "{script}"
+    );
+    assert!(
+        script.contains("command 'view-host' __complete_word__"),
+        "{script}"
+    );
+
+    let embedded = ViewHost::spec()
+        .view()
+        .completion_app()
+        .completion_script_for_alias("vh", usage::complete::Shell::Fish);
+    assert!(embedded.contains("complete -c 'vh'"), "{embedded}");
+    assert!(
+        embedded.contains("command 'view-host' __complete_word__"),
+        "{embedded}"
+    );
+}
+
 #[derive(Cli)]
 #[usage(
     bin = "nested-view-host",
