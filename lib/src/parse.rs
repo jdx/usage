@@ -762,12 +762,15 @@ fn parse_partial_with_env(
         // and it costs nothing — so discovery waits behind it unless a mount asks to
         // outrank it. Without this, a task runner would spawn its discovery process
         // once per task invocation.
-        let default_catches_it = spec.default_subcommand.is_some()
-            && !out.cmd.mounts.iter().any(|m| m.overrides_default);
+        let default_catches_it = spec.default_subcommand.as_deref().is_some_and(|name| {
+            default_accepts_word(&out.cmd, name, &input[idx])
+                && !out.cmd.mounts.iter().any(|m| m.overrides_default)
+        });
         if !mounts_resolved
             && !out.cmd.mounts.is_empty()
             && !default_catches_it
             && is_command_word(&input[idx])
+            && !is_negative_number(&input[idx])
             && out.cmd.find_subcommand(&input[idx]).is_none()
         {
             mounts_resolved = true;
@@ -865,7 +868,11 @@ fn parse_partial_with_env(
             // `config ls`.
             if !used_default_subcommand && out.cmds.len() == 1 {
                 if let Some(default_name) = &spec.default_subcommand {
-                    if let Some(subcommand) = out.cmd.find_subcommand(default_name) {
+                    if let Some(subcommand) = out
+                        .cmd
+                        .find_subcommand(default_name)
+                        .filter(|_| default_accepts_word(&out.cmd, default_name, &input[idx]))
+                    {
                         let mut subcommand = subcommand.clone();
                         // Pass prefix words (global flags before this) to mount
                         subcommand.mount(&mount_prefix_words(&prefix_flags))?;
@@ -2300,6 +2307,19 @@ fn is_negative_number(token: &str) -> bool {
 /// treated every token that `starts_with('-')` as a flag.
 fn is_command_word(token: &str) -> bool {
     (!is_flag_like(token) || is_negative_number(token)) && token != "-"
+}
+
+/// Whether an unmatched word belongs to the root's default command.
+///
+/// Ordinary words always do. A negative number only does when the default command's
+/// first positional explicitly accepts one; otherwise it stays at the root, matching
+/// usage-argv and generated Go.
+fn default_accepts_word(cmd: &SpecCommand, default_name: &str, token: &str) -> bool {
+    !is_negative_number(token)
+        || cmd
+            .find_subcommand(default_name)
+            .and_then(|default| default.args.first())
+            .is_some_and(|arg| arg.allow_negative_numbers)
 }
 
 /// Digits, at most one `.`, and an optional exponent.
