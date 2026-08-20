@@ -1580,7 +1580,14 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             return self.step();
         }
 
-        if is_negative_number(token)
+        // An exact declared short outranks the numeric shape. This keeps ordinary negative
+        // numbers available as values while allowing clap-compatible spellings such as fd's
+        // `-0` / `--print0` switch.
+        let declared_numeric_short = matches!(token, [b'-', short]
+            if short.is_ascii_digit() && self.find_short(*short).is_some());
+
+        if !declared_numeric_short
+            && is_negative_number(token)
             && self
                 .next_arg()
                 .is_some_and(|arg| arg.allow_negative_numbers)
@@ -1588,7 +1595,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             return Some(self.word(token));
         }
 
-        if is_negative_number(token) && self.cmd.external_subcommand && !self.arg_filled {
+        if !declared_numeric_short
+            && is_negative_number(token)
+            && self.cmd.external_subcommand
+            && !self.arg_filled
+        {
             return Some(self.word(token));
         }
 
@@ -2599,6 +2610,43 @@ mod tests {
             parse(&CMD, &positional),
             Err(Error::UnknownFlag { token: b"-1" })
         );
+    }
+
+    #[test]
+    fn an_exact_declared_digit_short_outranks_a_negative_number() {
+        static PRINT0: Flag = Flag {
+            key: 92,
+            name: "print0",
+            shorts: b"0",
+            ..Flag::BOOL
+        };
+        static VALUE: Arg = Arg {
+            key: 93,
+            name: "value",
+            required: false,
+            allow_negative_numbers: true,
+            ..Arg::REQUIRED
+        };
+        static CMD: Command = Command {
+            name: "fd",
+            flags: &[&PRINT0],
+            args: &[&VALUE],
+            unknown_flags: Some(UnknownFlags::Error),
+            ..Command::EMPTY
+        };
+
+        assert_eq!(
+            parse(&CMD, &argv(["-0"])),
+            Ok(vec![Event::Flag {
+                flag: &PRINT0,
+                value: None,
+                negated: false,
+            }])
+        );
+        assert!(matches!(
+            parse(&CMD, &argv(["-1"])),
+            Ok(events) if matches!(events.as_slice(), [Event::Arg { value: b"-1", .. }])
+        ));
     }
 
     #[test]

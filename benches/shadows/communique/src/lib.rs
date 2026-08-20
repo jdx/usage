@@ -3,9 +3,9 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
-use usage_derive::{Args, Cli, Subcommands};
+use usage_derive::{Args, Cli, Subcommands, ValueEnum};
 
 /// Generate release notes for a git tag
 #[derive(Args)]
@@ -72,7 +72,12 @@ pub struct UsageArgs {}
 
 /// Editorialized release notes powered by AI
 #[derive(Cli)]
-#[usage(bin = "communique", name = "communique", version = "1.3.1")]
+#[usage(
+    bin = "communique",
+    name = "communique",
+    version = "1.3.1",
+    unknown_flags = "error"
+)]
 pub struct Cli {
     /// Enable verbose logging output
     #[usage(long = "verbose", short = 'v', global)]

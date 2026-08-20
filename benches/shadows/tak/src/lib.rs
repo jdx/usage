@@ -3,9 +3,9 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
-use usage_derive::{Args, Cli, Subcommands};
+use usage_derive::{Args, Cli, Subcommands, ValueEnum};
 
 /// Benchmark a command, or everything declared in tak.toml.
 #[derive(Args)]
@@ -140,7 +140,7 @@ pub struct SettingsArgs {
 pub struct UsageArgs {}
 
 #[derive(Cli)]
-#[usage(bin = "tak", name = "tak")]
+#[usage(bin = "tak", name = "tak", unknown_flags = "error")]
 pub struct Cli {
     #[usage(
         help = "Remove a variable from the environment of measured commands. Repeatable. Replaces the default list rather than adding to it.",

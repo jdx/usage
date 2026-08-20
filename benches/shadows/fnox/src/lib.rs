@@ -3,9 +3,9 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
-use usage_derive::{Args, Cli, Subcommands};
+use usage_derive::{Args, Cli, Subcommands, ValueEnum};
 
 /// Output shell activation code to enable automatic secret loading
 #[derive(Args)]
@@ -129,10 +129,10 @@ pub struct ExportArgs {
         long = "format",
         short = 'f',
         value_name = "FORMAT",
-        choices("env", "shell", "json", "yaml", "toml"),
+        value_enum,
         default = "env"
     )]
-    pub format: ::std::option::Option<::std::string::String>,
+    pub format: ::std::option::Option<ExportFormatValue>,
     /// Show what would be exported without writing to file
     #[usage(long = "dry-run", short = 'n')]
     pub dry_run: bool,
@@ -145,6 +145,25 @@ pub struct ExportArgs {
     /// Include metadata comments in env and shell output
     #[usage(long = "header")]
     pub header: bool,
+}
+
+#[derive(ValueEnum)]
+pub enum ExportFormatValue {
+    /// Environment variable format (KEY=value)
+    #[value(name = "env")]
+    Env,
+    /// POSIX shell format (export KEY=value)
+    #[value(name = "shell")]
+    Shell,
+    /// JSON format
+    #[value(name = "json")]
+    Json,
+    /// YAML format
+    #[value(name = "yaml")]
+    Yaml,
+    /// TOML format
+    #[value(name = "toml")]
+    Toml,
 }
 
 /// Get a secret value
@@ -191,13 +210,24 @@ pub struct ImportArgs {
     #[usage(long = "prefix", value_name = "PREFIX")]
     pub prefix: ::std::option::Option<::std::string::String>,
     /// Import source format
-    #[usage(
-        arg,
-        name = "FORMAT",
-        choices("env", "json", "yaml", "toml"),
-        default = "env"
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(arg, name = "FORMAT", value_enum, default = "env")]
+    pub format: ::std::option::Option<ImportFormatValue>,
+}
+
+#[derive(ValueEnum)]
+pub enum ImportFormatValue {
+    /// Environment variable format (KEY=value)
+    #[value(name = "env")]
+    Env,
+    /// JSON format
+    #[value(name = "json")]
+    Json,
+    /// YAML format
+    #[value(name = "yaml")]
+    Yaml,
+    /// TOML format
+    #[value(name = "toml")]
+    Toml,
 }
 
 /// Initialize a new fnox configuration file
@@ -232,10 +262,10 @@ pub struct LeaseCreateArgs {
         long = "format",
         short = 'f',
         value_name = "FORMAT",
-        choices("shell", "json", "env"),
+        value_enum,
         default = "shell"
     )]
-    pub format: ::std::option::Option<::std::string::String>,
+    pub format: ::std::option::Option<LeaseCreateFormatValue>,
     /// Prompt interactively for missing credentials
     #[usage(long = "interactive", short = 'i')]
     pub interactive: bool,
@@ -250,6 +280,16 @@ pub struct LeaseCreateArgs {
     /// Lease backend name (from `[leases.<name>]` config). Creates all backends if omitted.
     #[usage(arg, name = "BACKEND_NAME")]
     pub backend_name: ::std::option::Option<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum LeaseCreateFormatValue {
+    #[value(name = "shell")]
+    Shell,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "env")]
+    Env,
 }
 
 /// List tracked leases
@@ -336,38 +376,87 @@ pub struct ProviderAddArgs {
     #[usage(arg, name = "PROVIDER")]
     pub provider: ::std::string::String,
     /// Provider type
-    #[usage(
-        arg,
-        name = "PROVIDER_TYPE",
-        choices(
-            "1password",
-            "age",
-            "aws",
-            "aws-kms",
-            "aws-ps",
-            "azure-ac",
-            "azure-kms",
-            "azure-sm",
-            "gcp",
-            "gcp-kms",
-            "fido2",
-            "bitwarden",
-            "doppler",
-            "foks",
-            "bitwarden-sm",
-            "infisical",
-            "keepass",
-            "keeper-sm",
-            "keychain",
-            "password-store",
-            "passwordstate",
-            "plain",
-            "proton-pass",
-            "vault",
-            "yubikey"
-        )
-    )]
-    pub provider_type: ::std::string::String,
+    #[usage(arg, name = "PROVIDER_TYPE", value_enum)]
+    pub provider_type: ProviderAddProviderTypeValue,
+}
+
+#[derive(ValueEnum)]
+pub enum ProviderAddProviderTypeValue {
+    /// 1Password
+    #[value(name = "1password")]
+    Value1,
+    /// Age encryption
+    #[value(name = "age")]
+    Age,
+    /// AWS Secrets Manager
+    #[value(name = "aws")]
+    Aws,
+    /// AWS KMS
+    #[value(name = "aws-kms")]
+    AwsKms,
+    /// AWS Parameter Store
+    #[value(name = "aws-ps")]
+    AwsPs,
+    /// Azure App Configuration
+    #[value(name = "azure-ac")]
+    AzureAc,
+    /// Azure Key Vault KMS
+    #[value(name = "azure-kms")]
+    AzureKms,
+    /// Azure Key Vault Secrets Manager
+    #[value(name = "azure-sm")]
+    AzureSm,
+    /// Google Cloud Secret Manager
+    #[value(name = "gcp")]
+    Gcp,
+    /// Google Cloud KMS
+    #[value(name = "gcp-kms")]
+    GcpKms,
+    /// FIDO2 hmac-secret hardware-backed encryption
+    #[value(name = "fido2")]
+    Fido2,
+    /// Bitwarden Password Manager
+    #[value(name = "bitwarden")]
+    Bitwarden,
+    /// Doppler secrets manager
+    #[value(name = "doppler")]
+    Doppler,
+    /// FOKS (Federated Open Key Service)
+    #[value(name = "foks")]
+    Foks,
+    /// Bitwarden Secrets Manager
+    #[value(name = "bitwarden-sm")]
+    BitwardenSm,
+    /// Infisical
+    #[value(name = "infisical")]
+    Infisical,
+    /// KeePass
+    #[value(name = "keepass")]
+    Keepass,
+    /// Keeper Secrets Manager
+    #[value(name = "keeper-sm")]
+    KeeperSm,
+    /// OS Keychain
+    #[value(name = "keychain")]
+    Keychain,
+    /// password-store (pass)
+    #[value(name = "password-store")]
+    PasswordStore,
+    /// Click Studios Passwordstate
+    #[value(name = "passwordstate")]
+    Passwordstate,
+    /// Plain text provider
+    #[value(name = "plain")]
+    Plain,
+    /// Proton Pass
+    #[value(name = "proton-pass")]
+    ProtonPass,
+    /// HashiCorp Vault
+    #[value(name = "vault")]
+    Vault,
+    /// YubiKey HMAC-SHA1 hardware-backed encryption
+    #[value(name = "yubikey")]
+    Yubikey,
 }
 
 /// List available providers
@@ -498,19 +587,22 @@ pub struct ScanArgs {
     #[usage(long = "ignore", short = 'i', value_name = "IGNORE", var)]
     pub ignore: ::std::vec::Vec<::std::string::String>,
     /// Output format
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json"),
-        default = "human"
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum, default = "human")]
+    pub format: ::std::option::Option<ScanFormatValue>,
     /// Show only files with potential secrets
     #[usage(long = "quiet", short = 'q')]
     pub quiet: bool,
     /// Directory to scan (default: current directory)
     #[usage(arg, name = "DIR", default = ".")]
     pub dir: ::std::option::Option<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum ScanFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
 }
 
 /// Generate JSON Schema for fnox configuration
@@ -545,12 +637,8 @@ pub struct SetArgs {
     #[usage(long = "from-file", conflicts = "VALUE", value_name = "FROM_FILE")]
     pub from_file: ::std::option::Option<::std::string::String>,
     /// What to do if the secret is missing (error, warn, ignore)
-    #[usage(
-        long = "if-missing",
-        value_name = "IF_MISSING",
-        choices("error", "warn", "ignore")
-    )]
-    pub if_missing: ::std::option::Option<::std::string::String>,
+    #[usage(long = "if-missing", value_name = "IF_MISSING", value_enum)]
+    pub if_missing: ::std::option::Option<SetIfMissingValue>,
     /// Secret key (environment variable name)
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
@@ -563,6 +651,16 @@ pub struct SetArgs {
     /// For sensitive values, prefer stdin or the interactive prompt.
     #[usage(arg, name = "VALUE")]
     pub value: ::std::option::Option<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum SetIfMissingValue {
+    #[value(name = "error")]
+    Error,
+    #[value(name = "warn")]
+    Warn,
+    #[value(name = "ignore")]
+    Ignore,
 }
 
 /// Show the companies sponsoring fnox and the jdx.dev open source tools
@@ -612,7 +710,12 @@ pub struct VersionArgs {}
 
 /// A flexible secret management tool by @jdx
 #[derive(Cli)]
-#[usage(bin = "fnox", name = "fnox", version = "1.33.1")]
+#[usage(
+    bin = "fnox",
+    name = "fnox",
+    version = "1.33.1",
+    unknown_flags = "error"
+)]
 pub struct Cli {
     /// Path to the configuration file (default: fnox.toml, searches parent directories)
     #[usage(

@@ -153,9 +153,13 @@ fn a_command_that_requires_a_subcommand_refuses_to_stand_alone() {
     let a = argv(["bootstrap", "accounts", "status"]);
     Cli::parse_from(&a).expect("`accounts status` should parse");
 
-    // And the root does not require one: `mise` alone is a whole invocation.
+    // The generated root preserves mise's `arg_required_else_help` policy too.
     let a: [&std::ffi::OsStr; 0] = [];
-    Cli::parse_from(&a).expect("a bare `mise` should parse");
+    match Cli::parse_from(&a) {
+        Err(usage_argv::Error::MissingArgsHelp { .. }) => {}
+        Err(other) => panic!("wrong root error: {other:?}"),
+        Ok(_) => panic!("a bare `mise` should show help"),
+    }
 }
 
 #[test]

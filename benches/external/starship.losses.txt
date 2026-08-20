@@ -1,0 +1,57 @@
+[
+    FidelityLoss {
+        command: [
+            "starship",
+            "explain",
+        ],
+        argument: Some(
+            "pipestatus",
+        ),
+        feature: ValueArity,
+        detail: "num_args=1..=1, action=Append",
+    },
+    FidelityLoss {
+        command: [
+            "starship",
+            "module",
+        ],
+        argument: Some(
+            "pipestatus",
+        ),
+        feature: ValueArity,
+        detail: "num_args=1..=1, action=Append",
+    },
+    FidelityLoss {
+        command: [
+            "starship",
+            "prompt",
+        ],
+        argument: Some(
+            "pipestatus",
+        ),
+        feature: ValueArity,
+        detail: "num_args=1..=1, action=Append",
+    },
+    FidelityLoss {
+        command: [
+            "starship",
+            "statusline",
+        ],
+        argument: Some(
+            "pipestatus",
+        ),
+        feature: ValueArity,
+        detail: "num_args=1..=1, action=Append",
+    },
+    FidelityLoss {
+        command: [
+            "starship",
+            "timings",
+        ],
+        argument: Some(
+            "pipestatus",
+        ),
+        feature: ValueArity,
+        detail: "num_args=1..=1, action=Append",
+    },
+]

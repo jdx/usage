@@ -79,6 +79,14 @@ impl Dialect {
         }
     }
 
+    fn optional_option(self) -> &'static str {
+        if self.plain_types() {
+            "Option<Option<String>>"
+        } else {
+            "::std::option::Option<::std::option::Option<::std::string::String>>"
+        }
+    }
+
     fn vec(self) -> &'static str {
         if self.plain_types() {
             "Vec<String>"
@@ -165,6 +173,7 @@ fn render(spec: &Spec, spec_path: &Path, dialect: Dialect) -> (String, Skipped) 
             bin: &spec.bin,
             name: &spec.name,
             version: spec.version.as_deref(),
+            unknown_flags: spec.unknown_flags.as_ref().map(|mode| mode.as_str()),
             default_subcommand: spec.default_subcommand.as_deref(),
             multicall: spec.multicall,
             about: spec.about.as_deref(),
@@ -195,7 +204,7 @@ fn header(out: &mut String, spec_path: &Path, dialect: Dialect) {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
     let imports = match dialect {
-        Dialect::Usage => "use usage_derive::{Args, Cli, Subcommands};",
+        Dialect::Usage => "use usage_derive::{Args, Cli, Subcommands, ValueEnum};",
         Dialect::Clap => "use clap::{Args, Parser, Subcommand};",
         Dialect::Argh => "use argh::FromArgs;",
         Dialect::Bpaf => "use bpaf::Bpaf;",
@@ -207,7 +216,7 @@ fn header(out: &mut String, spec_path: &Path, dialect: Dialect) {
          //!\n\
          //! Do not edit: regenerate it. It exists to be compiled and parsed against, so\n\
          //! that the parser can be measured at a real CLI's scale rather than a toy one.\n\
-         #![allow(dead_code)]\n\n\
+         #![allow(dead_code, unused_imports)]\n\n\
          {imports}\n\n"
     ));
 }
@@ -293,6 +302,8 @@ struct Run<'a> {
     /// Only printed where there is one, which is why five of the fleet's seven have a banner
     /// and mise does not.
     version: Option<&'a str>,
+    /// The root's unknown-flag policy; commands may override it themselves.
+    unknown_flags: Option<&'a str>,
     /// Only the root has one, and only it declares it.
     default_subcommand: Option<&'a str>,
     /// Busybox-style applets: argv[0]'s basename selects a subcommand.
@@ -436,6 +447,25 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         }
         usage_opts.extend(declared_about.iter().cloned());
     }
+    if dialect == Dialect::Usage {
+        let unknown_flags = if is_root {
+            run.unknown_flags
+        } else {
+            cmd.unknown_flags.as_ref().map(|mode| mode.as_str())
+        };
+        if let Some(mode) = unknown_flags {
+            usage_opts.push(format!("unknown_flags = {mode:?}"));
+        }
+        if !cmd.args_override_self {
+            usage_opts.push("args_override_self = false".into());
+        }
+    }
+    if dialect == Dialect::Usage && cmd.arg_required_else_help {
+        usage_opts.push("arg_required_else_help = true".into());
+    }
+    if matches!(dialect, Dialect::Argh | Dialect::Bpaf) && cmd.arg_required_else_help {
+        run.skipped.note("`arg_required_else_help` on a command");
+    }
     // Text around the rest of the page. clap spells the long forms the same way, so both
     // dialects can carry them.
     for (node, text) in [
@@ -571,6 +601,9 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             if run.multicall {
                 opts.push("multicall = true".into());
             }
+            if cmd.arg_required_else_help {
+                opts.push("arg_required_else_help = true".into());
+            }
             opts.extend(declared_about.iter().cloned());
             out.push_str(&format!("#[command({})]\n", opts.join(", ")));
         }
@@ -583,6 +616,9 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         (false, Dialect::Clap) => {
             out.push_str("#[derive(Args)]\n");
             emit_clap_groups(out, &cmd.groups);
+            if cmd.arg_required_else_help {
+                out.push_str("#[command(arg_required_else_help = true)]\n");
+            }
         }
         // argh declares the command's *name* on the struct rather than on the variant that
         // holds it, so this is where a subcommand says what it answers to.
@@ -638,6 +674,24 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         .iter()
         .map(|arg| (arg, fields.claim(&arg.name)))
         .collect();
+    let mut value_types = BTreeMap::new();
+    if dialect == Dialect::Usage {
+        for (field, _choices) in flags
+            .iter()
+            .filter_map(|(flag, _, field)| flag.arg.as_ref()?.choices.as_ref().map(|c| (field, c)))
+            .chain(
+                args.iter()
+                    .filter_map(|(arg, field)| arg.choices.as_ref().map(|c| (field, c))),
+            )
+            .filter(|(_, choices)| {
+                choices.strict && (choices.ignore_case || !choices.details.is_empty())
+            })
+        {
+            let mut path = ty.path.clone();
+            path.push(field.clone());
+            value_types.insert(field.clone(), run.names.claim(&path, "Value"));
+        }
+    }
     let ids: BTreeMap<String, String> = flags
         .iter()
         .flat_map(|(flag, _, field)| {
@@ -670,6 +724,7 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             },
             dialect,
             &ids,
+            value_types.get(field).map(String::as_str),
             run.skipped,
         );
     }
@@ -695,10 +750,14 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             emit_arg(
                 out,
                 arg,
-                ArgField { rust: field, group },
+                ArgField {
+                    rust: field,
+                    group,
+                    last: at == last_arg,
+                    value_type: value_types.get(field).map(String::as_str),
+                },
                 dialect,
                 &ids,
-                at == last_arg,
                 run.skipped,
             );
         }
@@ -740,6 +799,22 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         out.push_str(&field);
     }
     out.push_str("}\n\n");
+
+    if dialect == Dialect::Usage {
+        for (flag, _, field) in &flags {
+            if let (Some(name), Some(choices)) = (
+                value_types.get(field),
+                flag.arg.as_ref().and_then(|arg| arg.choices.as_ref()),
+            ) {
+                emit_usage_value_enum(out, name, choices);
+            }
+        }
+        for (arg, field) in &args {
+            if let (Some(name), Some(choices)) = (value_types.get(field), arg.choices.as_ref()) {
+                emit_usage_value_enum(out, name, choices);
+            }
+        }
+    }
 
     if !ty.subcommands.is_empty() {
         match dialect {
@@ -900,32 +975,58 @@ impl FieldNames {
 /// Both derives read the type as part of the declaration — a `bool` is a switch, a
 /// `Vec` collects, an `Option` may be absent — so this is where "what kind of flag is
 /// this" is decided, once.
-fn flag_type(flag: &SpecFlag, dialect: Dialect) -> &'static str {
+fn flag_type(flag: &SpecFlag, dialect: Dialect, value_type: Option<&str>) -> String {
     // bpaf counts occurrences through `req_flag` rather than into an integer, so its
     // shadow spells a counted switch as the plain `bool` its `switch` produces — recorded
     // as dropped where the count is emitted.
     let counts = flag.count && dialect != Dialect::Bpaf;
     let Some(arg) = flag.arg.as_ref() else {
-        return if counts { "u8" } else { "bool" };
+        return if counts { "u8" } else { "bool" }.into();
     };
+    if value_type.is_none() {
+        return if counts {
+            "u8".into()
+        } else if flag.var || arg.var {
+            dialect.vec().into()
+        } else if flag.value_optional && flag.default_missing.is_none() {
+            dialect.optional_option().into()
+        } else if flag.required {
+            dialect.string().into()
+        } else {
+            dialect.option().into()
+        };
+    }
+    let scalar = value_type.expect("checked above");
     if counts {
-        "u8"
+        "u8".into()
     } else if flag.var || arg.var {
-        dialect.vec()
+        format!("::std::vec::Vec<{scalar}>")
+    } else if flag.value_optional && flag.default_missing.is_none() {
+        format!("::std::option::Option<::std::option::Option<{scalar}>>")
     } else if flag.required {
-        dialect.string()
+        scalar.into()
     } else {
-        dialect.option()
+        format!("::std::option::Option<{scalar}>")
     }
 }
 
-fn arg_type(arg: &SpecArg, dialect: Dialect) -> &'static str {
+fn arg_type(arg: &SpecArg, dialect: Dialect, value_type: Option<&str>) -> String {
+    if value_type.is_none() {
+        return if arg.var {
+            dialect.vec().into()
+        } else if arg.required {
+            dialect.string().into()
+        } else {
+            dialect.option().into()
+        };
+    }
+    let scalar = value_type.expect("checked above");
     if arg.var {
-        dialect.vec()
+        format!("::std::vec::Vec<{scalar}>")
     } else if arg.required {
-        dialect.string()
+        scalar.into()
     } else {
-        dialect.option()
+        format!("::std::option::Option<{scalar}>")
     }
 }
 
@@ -935,6 +1036,51 @@ fn flag_defaults(flag: &SpecFlag) -> &[String] {
         Some(arg) if !arg.default.is_empty() => &arg.default,
         _ => &flag.default,
     }
+}
+
+/// Emit the typed choice declaration that preserves the parts a flat `choices(...)` list
+/// cannot: aliases, per-choice visibility/help, and case-insensitive matching.
+fn emit_usage_value_enum(out: &mut String, name: &str, choices: &SpecChoices) {
+    out.push_str("#[derive(ValueEnum)]\n");
+    if choices.ignore_case {
+        out.push_str("#[usage(ignore_case)]\n");
+    }
+    writeln!(out, "pub enum {name} {{").expect("writing to a String");
+    let mut variants = HashSet::new();
+    for (index, value) in choices.choices.iter().enumerate() {
+        let detail = choices.details.iter().find(|detail| detail.value == *value);
+        if let Some(help) = detail.and_then(|detail| detail.help.as_deref()) {
+            doc_comment(out, Some(help), None, 1, Dialect::Usage, value);
+        }
+        let mut opts = vec![format!("name = {value:?}")];
+        if detail.is_some_and(|detail| detail.hide) {
+            opts.push("hide".into());
+        }
+        if let Some(detail) = detail {
+            for alias in &detail.aliases {
+                let option = if alias.hide { "alias" } else { "visible_alias" };
+                opts.push(format!("{option} = {:?}", alias.value));
+            }
+        }
+        writeln!(out, "    #[value({})]", opts.join(", ")).expect("writing to a String");
+
+        let mut variant = camel(value);
+        if variant.is_empty() || variant.starts_with(|c: char| c.is_ascii_digit()) {
+            variant = format!("Value{}", index + 1);
+        }
+        if !variants.insert(variant.clone()) {
+            let base = variant.clone();
+            for suffix in 2.. {
+                let candidate = format!("{base}{suffix}");
+                if variants.insert(candidate.clone()) {
+                    variant = candidate;
+                    break;
+                }
+            }
+        }
+        writeln!(out, "    {variant},").expect("writing to a String");
+    }
+    out.push_str("}\n\n");
 }
 
 struct FlagField<'a> {
@@ -949,6 +1095,7 @@ fn emit_flag(
     field: FlagField<'_>,
     dialect: Dialect,
     ids: &BTreeMap<String, String>,
+    value_type: Option<&str>,
     skipped: &mut Skipped,
 ) {
     if flag.bool_value && dialect != Dialect::Usage {
@@ -962,9 +1109,16 @@ fn emit_flag(
         dialect,
         field.rust,
     );
-    let ty = flag_type(flag, dialect);
+    let ty = flag_type(flag, dialect, value_type);
     let opts = match dialect {
-        Dialect::Usage => usage_flag_opts(flag, field.long, ty, field.group, skipped),
+        Dialect::Usage => usage_flag_opts(
+            flag,
+            field.long,
+            &ty,
+            field.group,
+            value_type.is_some(),
+            skipped,
+        ),
         Dialect::Clap => clap_flag_opts(flag, field.long, ids, field.group, skipped),
         Dialect::Argh => argh_flag_opts(flag, field.long, skipped),
         Dialect::Bpaf => bpaf_flag_opts(flag, field.long, skipped),
@@ -978,6 +1132,7 @@ fn usage_flag_opts(
     long: Option<&str>,
     ty: &str,
     group: Option<&str>,
+    value_enum: bool,
     skipped: &mut Skipped,
 ) -> Vec<String> {
     // `flag.help_long`, not `long` — that is the flag's long *name*, which every other caller of
@@ -1056,11 +1211,21 @@ fn usage_flag_opts(
     if let Some(delimiter) = flag.arg.as_ref().and_then(|a| a.delimiter) {
         opts.push(format!("delimiter = {delimiter:?}"));
     }
+    if let Some(terminator) = flag
+        .arg
+        .as_ref()
+        .and_then(|a| a.value_terminator.as_deref())
+    {
+        opts.push(format!("value_terminator = {terminator:?}"));
+    }
     if flag.allow_hyphen_values() {
         opts.push("allow_hyphen_values".into());
     }
     if flag.require_equals {
         opts.push("require_equals".into());
+    }
+    if flag.value_optional || flag.arg.as_ref().is_some_and(|arg| !arg.required) {
+        opts.push("value_optional".into());
     }
     if let Some(missing) = &flag.default_missing {
         opts.push(format!("default_missing = {missing:?}"));
@@ -1093,11 +1258,13 @@ fn usage_flag_opts(
         // `arg "[BUMP]" required=#false`: the value may be left off. Dropping it rendered
         // pitchfork's `--bump` as `<BUMP>` where its own spec says `[BUMP]`, and said nothing
         // about having dropped anything.
-        if !arg.required {
-            opts.push("value_optional".into());
-        }
-        if let Some(choices) = &arg.choices {
+        if value_enum {
+            opts.push("value_enum".into());
+        } else if let Some(choices) = &arg.choices {
             opts.push(format!("choices({})", quoted_list(&choices.choices)));
+            if !choices.strict {
+                opts.push("choices_strict = false".into());
+            }
         }
         let defaults = flag_defaults(flag);
         let collects = flag.var || arg.var;
@@ -1195,16 +1362,26 @@ fn clap_flag_opts(
     if let Some(delimiter) = flag.arg.as_ref().and_then(|a| a.delimiter) {
         opts.push(format!("value_delimiter = {delimiter:?}"));
     }
+    if let Some(terminator) = flag
+        .arg
+        .as_ref()
+        .and_then(|a| a.value_terminator.as_deref())
+    {
+        opts.push(format!("value_terminator = {terminator:?}"));
+    }
     if flag.allow_hyphen_values() {
         opts.push("allow_hyphen_values = true".into());
     }
     if flag.require_equals {
         opts.push("require_equals = true".into());
     }
+    let variadic_value = flag.arg.as_ref().is_some_and(|arg| arg.var);
+    if !variadic_value && (flag.value_optional || flag.default_missing.is_some()) {
+        opts.push("num_args = 0..=1".into());
+    }
     if let Some(missing) = &flag.default_missing {
         // clap's setter exists even though the getter does not, so the clap shadow
         // can say this even though a spec regenerated from clap would drop it.
-        opts.push("num_args = 0..=1".into());
         opts.push(format!("default_missing_value = {missing:?}"));
     }
     if flag.effect.is_some() {
@@ -1271,14 +1448,18 @@ fn clap_flag_opts(
         // A `Vec` already appends in clap; what needs saying is the other kind of
         // collecting, where one occurrence keeps taking values.
         if arg.var {
-            let least = arg.var_min.unwrap_or(1);
+            let least = if flag.value_optional || flag.default_missing.is_some() {
+                0
+            } else {
+                arg.var_min.unwrap_or(1)
+            };
             match arg.var_max {
                 Some(max) => opts.push(format!("num_args = {least}..={max}")),
                 None => opts.push(format!("num_args = {least}..")),
             }
         } else if !arg.required {
-            if flag.default_missing.is_some() {
-                // Already written as `num_args = 0..=1` beside `default_missing_value`.
+            if flag.default_missing.is_some() || flag.value_optional {
+                // Already written as `num_args = 0..=1` beside the flag-level option.
             } else {
                 // Noted, not emitted. `num_args = 0..=1` was the obvious translation and it is the
                 // wrong one: `value_optional` is help-only — usage-lib's parser refuses a bare
@@ -1506,6 +1687,8 @@ fn bpaf_flag_opts(flag: &SpecFlag, long: Option<&str>, skipped: &mut Skipped) ->
 struct ArgField<'a> {
     rust: &'a str,
     group: Option<&'a str>,
+    last: bool,
+    value_type: Option<&'a str>,
 }
 
 fn emit_arg(
@@ -1514,7 +1697,6 @@ fn emit_arg(
     field: ArgField<'_>,
     dialect: Dialect,
     ids: &BTreeMap<String, String>,
-    last: bool,
     skipped: &mut Skipped,
 ) {
     doc_comment(
@@ -1528,17 +1710,17 @@ fn emit_arg(
     // argh allows `Option` or `Vec` in the last position only, so an optional or variadic
     // positional with another behind it has to be declared required. mise has nine, and the
     // argh shadow's grammar is stricter than the spec's for each of them.
-    let collapse = dialect == Dialect::Argh && !last && (arg.var || !arg.required);
+    let collapse = dialect == Dialect::Argh && !field.last && (arg.var || !arg.required);
     if collapse {
         skipped.note("an optional or variadic positional before another positional");
     }
     let ty = if collapse {
-        dialect.string()
+        dialect.string().to_string()
     } else {
-        arg_type(arg, dialect)
+        arg_type(arg, dialect, field.value_type)
     };
     let opts = match dialect {
-        Dialect::Usage => usage_arg_opts(arg, field.group, skipped),
+        Dialect::Usage => usage_arg_opts(arg, field.group, field.value_type.is_some(), skipped),
         Dialect::Clap => clap_arg_opts(arg, field.group, ids, skipped),
         Dialect::Argh => argh_arg_opts(arg, skipped),
         Dialect::Bpaf => bpaf_arg_opts(arg, skipped),
@@ -1547,7 +1729,12 @@ fn emit_arg(
     writeln!(out, "    pub {}: {ty},", field.rust).expect("writing to a String");
 }
 
-fn usage_arg_opts(arg: &SpecArg, group: Option<&str>, skipped: &mut Skipped) -> Vec<String> {
+fn usage_arg_opts(
+    arg: &SpecArg,
+    group: Option<&str>,
+    value_enum: bool,
+    skipped: &mut Skipped,
+) -> Vec<String> {
     let mut opts: Vec<String> = vec!["arg".into(), format!("name = {:?}", arg.name)];
     opts.extend(declared_help(arg.help.as_deref(), arg.help_long.as_deref()));
     if arg.hide {
@@ -1604,8 +1791,13 @@ fn usage_arg_opts(arg: &SpecArg, group: Option<&str>, skipped: &mut Skipped) -> 
     if let Some(heading) = &arg.help_heading {
         opts.push(format!("help_heading = {heading:?}"));
     }
-    if let Some(choices) = &arg.choices {
+    if value_enum {
+        opts.push("value_enum".into());
+    } else if let Some(choices) = &arg.choices {
         opts.push(format!("choices({})", quoted_list(&choices.choices)));
+        if !choices.strict {
+            opts.push("choices_strict = false".into());
+        }
     }
     // A default on a collecting field is refused by the derive: it would be written into
     // the spec and then never applied, which is worse than not saying it.
@@ -1634,6 +1826,9 @@ fn usage_arg_opts(arg: &SpecArg, group: Option<&str>, skipped: &mut Skipped) -> 
         if let Some(max) = arg.var_max {
             opts.push(format!("var_max = {max}"));
         }
+    }
+    if let Some(terminator) = &arg.value_terminator {
+        opts.push(format!("value_terminator = {terminator:?}"));
     }
     double_dash(arg, |mode| opts.push(format!("double_dash = {mode:?}")));
     opts
@@ -1695,6 +1890,9 @@ fn clap_arg_opts(
             Some(max) => opts.push(format!("num_args = {least}..={max}")),
             None => opts.push(format!("num_args = {least}..")),
         }
+    }
+    if let Some(terminator) = &arg.value_terminator {
+        opts.push(format!("value_terminator = {terminator:?}"));
     }
     // clap calls it `last`: the argument after the `--`. It has no name for the other three.
     clap_double_dash(arg, skipped, || opts.push("last = true".into()));
@@ -2107,6 +2305,62 @@ mod tests {
     }
 
     #[test]
+    fn variadic_value_terminators_survive_generated_shadows() {
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"-x --exec\" var=#true value_terminator=\";\" { arg \"<cmd>…\" var=#true var_min=1 value_terminator=\";\" }\narg \"[rest]…\" value_terminator=\"STOP\"\n";
+
+        for dialect in [Dialect::Usage, Dialect::Clap] {
+            let (out, skipped) = rendered_as(spec, dialect);
+            assert!(
+                skipped.counts.is_empty(),
+                "{} dropped {:?}:\n{out}",
+                dialect.as_str(),
+                skipped.counts
+            );
+            assert!(out.contains(r#"value_terminator = ";""#), "{out}");
+            assert!(out.contains(r#"value_terminator = "STOP""#), "{out}");
+        }
+    }
+
+    #[test]
+    fn optional_flag_values_survive_generated_shadows() {
+        let spec =
+            "name \"ex\"\nbin \"ex\"\nflag \"--mode\" value_optional=#true { arg \"<MODE>\" }\n";
+
+        let (usage, usage_skipped) = rendered_as(spec, Dialect::Usage);
+        assert!(usage_skipped.counts.is_empty());
+        assert!(usage.contains("value_optional"), "{usage}");
+        assert_eq!(usage.matches("value_optional").count(), 1, "{usage}");
+
+        let (clap, clap_skipped) = rendered_as(spec, Dialect::Clap);
+        assert!(clap_skipped.counts.is_empty());
+        assert!(clap.contains("num_args = 0..=1"), "{clap}");
+        assert_eq!(clap.matches("num_args").count(), 1, "{clap}");
+    }
+
+    #[test]
+    fn optional_value_arity_is_emitted_once_for_combined_properties() {
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"--mode\" value_optional=#true default_missing=\"auto\" { arg \"[MODE]\" required=#false }\n";
+
+        let (usage, usage_skipped) = rendered_as(spec, Dialect::Usage);
+        assert!(
+            usage_skipped.counts.is_empty(),
+            "{:?}",
+            usage_skipped.counts
+        );
+        assert_eq!(usage.matches("value_optional").count(), 1, "{usage}");
+
+        let (clap, clap_skipped) = rendered_as(spec, Dialect::Clap);
+        assert!(clap_skipped.counts.is_empty(), "{:?}", clap_skipped.counts);
+        assert_eq!(clap.matches("num_args").count(), 1, "{clap}");
+        assert!(clap.contains("default_missing_value"), "{clap}");
+
+        let variadic = "name \"ex\"\nbin \"ex\"\nflag \"--mode\" value_optional=#true var=#true { arg \"[MODE]…\" required=#false var=#true var_min=1 }\n";
+        let (clap, _) = rendered_as(variadic, Dialect::Clap);
+        assert_eq!(clap.matches("num_args").count(), 1, "{clap}");
+        assert!(clap.contains("num_args = 0.."), "{clap}");
+    }
+
+    #[test]
     fn both_dialects_carry_help_a_comment_cannot() {
         // Multi-line help is skipped as a comment for *both* dialects, and only one of them was
         // writing it as an attribute — so the clap shadow had no text for those flags at all,
@@ -2390,6 +2644,33 @@ mod tests {
     }
 
     #[test]
+    fn the_usage_shadow_keeps_command_parsing_policy() {
+        let spec = "name \"ex\"\nbin \"ex\"\nunknown_flags error\narg_required_else_help #true\nargs_override_self #false\n\
+            cmd \"forward\" unknown_flags=value arg_required_else_help=#true args_override_self=#false\n";
+        let (out, skipped) = rendered_as(spec, Dialect::Usage);
+
+        assert!(
+            out.contains(r#"#[usage(bin = "ex", name = "ex", unknown_flags = "error", args_override_self = false, arg_required_else_help = true)]"#),
+            "{out}"
+        );
+        assert!(
+            out.contains(r#"#[usage(unknown_flags = "value", args_override_self = false, arg_required_else_help = true)]"#),
+            "{out}"
+        );
+        assert!(skipped.counts.is_empty(), "{:?}", skipped.counts);
+
+        let (clap, _) = rendered_as(spec, Dialect::Clap);
+        assert!(
+            clap.contains(r#"#[command(name = "ex", arg_required_else_help = true)]"#),
+            "{clap}"
+        );
+        assert!(
+            clap.contains("#[command(arg_required_else_help = true)]"),
+            "{clap}"
+        );
+    }
+
+    #[test]
     fn the_usage_shadow_keeps_hidden_long_aliases_hidden() {
         let spec = "name \"ex\"\nbin \"ex\"\nflag \"--remove\" {\n  alias \"--rm\" \"--unset\" hide=#true\n}\n";
         let (out, skipped) = rendered_as(spec, Dialect::Usage);
@@ -2447,6 +2728,37 @@ mod tests {
             usage.contains("pub jobs: ::std::option::Option<::std::string::String>"),
             "{usage}"
         );
+    }
+
+    #[test]
+    fn usage_shadow_preserves_choice_aliases_and_case_policy() {
+        let spec = r#"name "ex"
+bin "ex"
+flag "--shell <SHELL>" {
+  choices ignore_case=#true {
+    choice "fish" help="Friendly shell" {
+      alias "f"
+      alias "secret-fish" hide=#true
+    }
+    choice "bash"
+  }
+}
+"#;
+
+        let (usage, skipped) = rendered(spec);
+
+        assert!(usage.contains("#[derive(ValueEnum)]"), "{usage}");
+        assert!(usage.contains("#[usage(ignore_case)]"), "{usage}");
+        assert!(
+            usage
+                .contains(r#"#[value(name = "fish", visible_alias = "f", alias = "secret-fish")]"#),
+            "{usage}"
+        );
+        assert!(
+            usage.contains("#[usage(long = \"shell\", value_name = \"SHELL\", value_enum)]"),
+            "{usage}"
+        );
+        assert!(skipped.counts.is_empty(), "{:?}", skipped.counts);
     }
 
     /// The command-level properties clap cannot hear. usage declares all four.

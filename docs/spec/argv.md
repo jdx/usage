@@ -33,9 +33,10 @@ dispatcher names (`name` and `bin`) are skipped, so `busybox ls` still has two
 words after the program name. Path components and a trailing `.exe` are
 stripped so `/usr/bin/ls` and `ls.exe` select the same applet.
 
-A token is **flag-like** when it begins with `-`, is longer than one character,
-and is not a negative number. So `--force`, `-f`, and `-abc` are flag-like; `-`,
-`-1`, `-2.5`, and `-1e5` are not.
+A token is **flag-like** when it begins with `-` and is longer than one character.
+Negative numbers normally remain values, but an exact two-byte spelling such as
+`-0` is a flag when that digit short is explicitly declared. This lets fd keep
+`-0` / `--print0` without turning undeclared `-1`, `-2.5`, or `-1e5` into flags.
 
 A number here means digits, at most one `.`, and optionally an exponent — `e` or
 `E`, an optional `+` or `-`, then at least one digit. So `-1`, `-2.5`, `-1e5`, and

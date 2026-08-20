@@ -3,44 +3,64 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
-use usage_derive::{Args, Cli, Subcommands};
+use usage_derive::{Args, Cli, Subcommands, ValueEnum};
 
 /// Print a hook configuration for an agent or editor
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct AgentHooksArgs {
-    #[usage(
-        long = "target",
-        value_name = "TARGET",
-        choices("codex", "claude-code", "vscode")
-    )]
-    pub target: ::std::string::String,
+    #[usage(long = "target", value_name = "TARGET", value_enum)]
+    pub target: AgentHooksTargetValue,
+}
+
+#[derive(ValueEnum)]
+pub enum AgentHooksTargetValue {
+    #[value(name = "codex")]
+    Codex,
+    #[value(name = "claude-code")]
+    ClaudeCode,
+    #[value(name = "vscode")]
+    Vscode,
 }
 
 /// Print project instructions for a coding agent
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct AgentInstructionsArgs {
-    #[usage(
-        long = "target",
-        value_name = "TARGET",
-        choices("codex", "claude-code", "generic")
-    )]
-    pub target: ::std::string::String,
+    #[usage(long = "target", value_name = "TARGET", value_enum)]
+    pub target: AgentInstructionsTargetValue,
+}
+
+#[derive(ValueEnum)]
+pub enum AgentInstructionsTargetValue {
+    #[value(name = "codex")]
+    Codex,
+    #[value(name = "claude-code")]
+    ClaudeCode,
+    #[value(name = "generic")]
+    Generic,
 }
 
 /// Print an MCP server configuration
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct AgentMcpArgs {
-    #[usage(
-        long = "target",
-        value_name = "TARGET",
-        choices("codex", "claude-desktop", "claude-code", "vscode")
-    )]
-    pub target: ::std::string::String,
+    #[usage(long = "target", value_name = "TARGET", value_enum)]
+    pub target: AgentMcpTargetValue,
+}
+
+#[derive(ValueEnum)]
+pub enum AgentMcpTargetValue {
+    #[value(name = "codex")]
+    Codex,
+    #[value(name = "claude-desktop")]
+    ClaudeDesktop,
+    #[value(name = "claude-code")]
+    ClaudeCode,
+    #[value(name = "vscode")]
+    Vscode,
 }
 
 /// Generate integration snippets for coding agents
@@ -125,9 +145,9 @@ pub struct CheckArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -149,12 +169,8 @@ pub struct CheckArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<CheckFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -231,6 +247,16 @@ pub struct CheckArgs {
     /// Run on specific files
     #[usage(arg, name = "FILES")]
     pub files: ::std::vec::Vec<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum CheckFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
 }
 
 /// Generates shell completion scripts
@@ -359,9 +385,9 @@ pub struct FixArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -383,12 +409,8 @@ pub struct FixArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<FixFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -465,6 +487,16 @@ pub struct FixArgs {
     /// Run on specific files
     #[usage(arg, name = "FILES")]
     pub files: ::std::vec::Vec<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum FixFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
 }
 
 /// Generates a new hk.pkl file for a project
@@ -620,9 +652,9 @@ pub struct RunCommitMsgArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -644,12 +676,8 @@ pub struct RunCommitMsgArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<RunCommitMsgFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -731,6 +759,16 @@ pub struct RunCommitMsgArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
 }
 
+#[derive(ValueEnum)]
+pub enum RunCommitMsgFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
+}
+
 #[derive(Args)]
 pub struct RunPostCheckoutArgs {
     /// Run on all files instead of just staged files
@@ -766,9 +804,9 @@ pub struct RunPostCheckoutArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -790,12 +828,8 @@ pub struct RunPostCheckoutArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<RunPostCheckoutFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -883,6 +917,16 @@ pub struct RunPostCheckoutArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
 }
 
+#[derive(ValueEnum)]
+pub enum RunPostCheckoutFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
+}
+
 #[derive(Args)]
 pub struct RunPostCommitArgs {
     /// Run on all files instead of just staged files
@@ -918,9 +962,9 @@ pub struct RunPostCommitArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -942,12 +986,8 @@ pub struct RunPostCommitArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<RunPostCommitFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -1026,6 +1066,16 @@ pub struct RunPostCommitArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
 }
 
+#[derive(ValueEnum)]
+pub enum RunPostCommitFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
+}
+
 #[derive(Args)]
 pub struct RunPostMergeArgs {
     /// Run on all files instead of just staged files
@@ -1061,9 +1111,9 @@ pub struct RunPostMergeArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1085,12 +1135,8 @@ pub struct RunPostMergeArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<RunPostMergeFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -1172,6 +1218,16 @@ pub struct RunPostMergeArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
 }
 
+#[derive(ValueEnum)]
+pub enum RunPostMergeFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
+}
+
 #[derive(Args)]
 pub struct RunPostRewriteArgs {
     /// Run on all files instead of just staged files
@@ -1207,9 +1263,9 @@ pub struct RunPostRewriteArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1231,12 +1287,8 @@ pub struct RunPostRewriteArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<RunPostRewriteFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -1318,6 +1370,16 @@ pub struct RunPostRewriteArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
 }
 
+#[derive(ValueEnum)]
+pub enum RunPostRewriteFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
+}
+
 /// Run the pre-commit hook
 #[derive(Args)]
 pub struct RunPreCommitArgs {
@@ -1354,9 +1416,9 @@ pub struct RunPreCommitArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1378,12 +1440,8 @@ pub struct RunPreCommitArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<RunPreCommitFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -1462,6 +1520,16 @@ pub struct RunPreCommitArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
 }
 
+#[derive(ValueEnum)]
+pub enum RunPreCommitFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
+}
+
 #[derive(Args)]
 pub struct RunPrePushArgs {
     /// Run on all files instead of just staged files
@@ -1497,9 +1565,9 @@ pub struct RunPrePushArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1521,12 +1589,8 @@ pub struct RunPrePushArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<RunPrePushFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -1611,6 +1675,16 @@ pub struct RunPrePushArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
 }
 
+#[derive(ValueEnum)]
+pub enum RunPrePushFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
+}
+
 #[derive(Args)]
 pub struct RunPreRebaseArgs {
     /// Run on all files instead of just staged files
@@ -1646,9 +1720,9 @@ pub struct RunPreRebaseArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1670,12 +1744,8 @@ pub struct RunPreRebaseArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<RunPreRebaseFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -1760,6 +1830,16 @@ pub struct RunPreRebaseArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
 }
 
+#[derive(ValueEnum)]
+pub enum RunPreRebaseFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
+}
+
 #[derive(Args)]
 pub struct RunPrepareCommitMsgArgs {
     /// Run on all files instead of just staged files
@@ -1795,9 +1875,9 @@ pub struct RunPrepareCommitMsgArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1819,12 +1899,8 @@ pub struct RunPrepareCommitMsgArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<RunPrepareCommitMsgFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -1912,8 +1988,19 @@ pub struct RunPrepareCommitMsgArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
 }
 
+#[derive(ValueEnum)]
+pub enum RunPrepareCommitMsgFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
+}
+
 /// Run a hook
 #[derive(Args)]
+#[usage(arg_required_else_help = true)]
 pub struct RunArgs {
     /// Run on all files instead of just staged files
     #[usage(long = "all", short = 'a', conflicts("--staged", "--unstaged"))]
@@ -1948,9 +2035,9 @@ pub struct RunArgs {
     #[usage(
         long = "why",
         short = 'W',
+        value_optional,
         default_missing = "",
-        value_name = "STEP",
-        value_optional
+        value_name = "STEP"
     )]
     pub why: ::std::option::Option<::std::string::String>,
     /// Abort on first failure
@@ -1972,12 +2059,8 @@ pub struct RunArgs {
     )]
     pub files0_from: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl")
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum)]
+    pub format: ::std::option::Option<RunFormatValue>,
     #[usage(
         help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is present or the event isn't defined. Set automatically by `hk install`.",
         long_help = "Invoked by an installed git hook — gracefully exit 0 when no hk.pkl is\npresent or the event isn't defined. Set automatically by `hk install`.",
@@ -2058,6 +2141,16 @@ pub struct RunArgs {
     pub files: ::std::vec::Vec<::std::string::String>,
     #[usage(subcommand)]
     pub command: ::std::option::Option<RunCommands>,
+}
+
+#[derive(ValueEnum)]
+pub enum RunFormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
 }
 
 #[derive(Subcommands)]
@@ -2377,19 +2470,14 @@ pub struct ValidateArgs {}
 pub struct VersionArgs {}
 
 #[derive(Cli)]
-#[usage(bin = "hk", name = "hk", version = "1.55.0")]
+#[usage(bin = "hk", name = "hk", version = "1.55.0", unknown_flags = "error")]
 pub struct Cli {
     /// Run as if hk was started in this directory
     #[usage(long = "cd", global, value_name = "DIRECTORY")]
     pub cd: ::std::option::Option<::std::string::String>,
     /// Select human or machine-readable execution output
-    #[usage(
-        long = "format",
-        value_name = "FORMAT",
-        choices("human", "json", "jsonl"),
-        default = "human"
-    )]
-    pub format: ::std::option::Option<::std::string::String>,
+    #[usage(long = "format", value_name = "FORMAT", value_enum, default = "human")]
+    pub format: ::std::option::Option<FormatValue>,
     /// Path to user configuration file (deprecated: use ~/.config/hk/config.pkl or hk.local.pkl)
     #[usage(long = "hkrc", global, hide, value_name = "PATH")]
     pub hkrc: ::std::option::Option<::std::string::String>,
@@ -2440,6 +2528,16 @@ pub struct Cli {
     pub json: bool,
     #[usage(subcommand)]
     pub command: Commands,
+}
+
+#[derive(ValueEnum)]
+pub enum FormatValue {
+    #[value(name = "human")]
+    Human,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "jsonl")]
+    Jsonl,
 }
 
 #[derive(Subcommands)]

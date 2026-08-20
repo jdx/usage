@@ -892,6 +892,7 @@ dependencies = [
  "proptest",
  "shadow-aube",
  "shadow-communique",
+ "shadow-fd",
  "shadow-fnox",
  "shadow-hk",
  "shadow-mise",
@@ -1928,6 +1929,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "shadow-fd"
+version = "0.0.0"
+dependencies = [
+ "usage-argv",
+ "usage-derive",
+]
+
+[[package]]
 name = "shadow-fnox"
 version = "0.0.0"
 dependencies = [
@@ -1981,7 +1990,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "shadow-starship"
+version = "0.0.0"
+dependencies = [
+ "usage-argv",
+ "usage-derive",
+]
+
+[[package]]
 name = "shadow-tak"
+version = "0.0.0"
+dependencies = [
+ "usage-argv",
+ "usage-derive",
+]
+
+[[package]]
+name = "shadow-tokei"
 version = "0.0.0"
 dependencies = [
  "usage-argv",
@@ -2456,6 +2481,7 @@ name = "usage-conformance"
 version = "0.0.0"
 dependencies = [
  "clap",
+ "clap_usage",
  "insta",
  "kdl",
  "serde",
