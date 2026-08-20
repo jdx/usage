@@ -301,6 +301,12 @@ pub struct Field {
     pub required_unless: Vec<String>,
     pub required_unless_all: Vec<String>,
     pub hide: bool,
+    pub hide_default_value: bool,
+    pub hide_env: bool,
+    pub hide_env_values: bool,
+    pub hide_possible_values: bool,
+    pub hide_short_help: bool,
+    pub hide_long_help: bool,
     /// Whether the flag may be given more than once, taking one value each time.
     ///
     /// Distinct from [`Kind::Flag::variadic`], which is one occurrence taking
@@ -1454,6 +1460,12 @@ impl Field {
             required_unless: Vec::new(),
             required_unless_all: Vec::new(),
             hide: false,
+            hide_default_value: false,
+            hide_env: false,
+            hide_env_values: false,
+            hide_possible_values: false,
+            hide_short_help: false,
+            hide_long_help: false,
             repeatable: false,
             span,
         }))
@@ -1573,6 +1585,12 @@ impl Field {
             required_unless: Vec::new(),
             required_unless_all: Vec::new(),
             hide: false,
+            hide_default_value: false,
+            hide_env: false,
+            hide_env_values: false,
+            hide_possible_values: false,
+            hide_short_help: false,
+            hide_long_help: false,
             repeatable: false,
             span,
         }))
@@ -1686,6 +1704,12 @@ impl Field {
             required_unless: Vec::new(),
             required_unless_all: Vec::new(),
             hide: false,
+            hide_default_value: false,
+            hide_env: false,
+            hide_env_values: false,
+            hide_possible_values: false,
+            hide_short_help: false,
+            hide_long_help: false,
             repeatable: false,
             span,
         }))
@@ -1750,6 +1774,12 @@ impl Field {
         let mut long_help_attr: Option<String> = None;
         let mut verbatim_doc_comment = false;
         let mut hide = false;
+        let mut hide_default_value = false;
+        let mut hide_env = false;
+        let mut hide_env_values = false;
+        let mut hide_possible_values = false;
+        let mut hide_short_help = false;
+        let mut hide_long_help = false;
         let mut is_arg = false;
         let mut choices: Vec<String> = Vec::new();
         let mut validate: Option<String> = None;
@@ -1840,6 +1870,12 @@ impl Field {
                     // `arg "[BUMP]" required=#false` says.
                     "value_optional" => value_optional = flag_value(&meta)?,
                     "hide" => hide = flag_value(&meta)?,
+                    "hide_default_value" => hide_default_value = flag_value(&meta)?,
+                    "hide_env" => hide_env = flag_value(&meta)?,
+                    "hide_env_values" => hide_env_values = flag_value(&meta)?,
+                    "hide_possible_values" => hide_possible_values = flag_value(&meta)?,
+                    "hide_short_help" => hide_short_help = flag_value(&meta)?,
+                    "hide_long_help" => hide_long_help = flag_value(&meta)?,
                     "arg" => is_arg = flag_value(&meta)?,
                     "env" => match &meta {
                         Meta::Path(_) => {
@@ -2012,7 +2048,9 @@ impl Field {
                             format!(
                                 "unknown option `{other}`; a field takes `name`, `id`, `long`, \
                                  `short`, `negate`, `global`, `var`, `variadic`, \
-                                 `count`, `hide`, `arg`, `env`, `default`, `default_value_t`, `choices`, `validate`, \
+                                 `count`, `hide`, `hide_default_value`, `hide_env`, `hide_env_values`, \
+                                 `hide_possible_values`, `hide_short_help`, `hide_long_help`, \
+                                 `arg`, `env`, `default`, `default_value_t`, `choices`, `validate`, \
                                  `validate_error`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
@@ -2863,6 +2901,12 @@ impl Field {
             required_unless,
             required_unless_all,
             hide,
+            hide_default_value,
+            hide_env,
+            hide_env_values,
+            hide_possible_values,
+            hide_short_help,
+            hide_long_help,
             repeatable,
             span,
         })

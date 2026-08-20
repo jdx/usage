@@ -103,6 +103,24 @@ pub struct SpecArg {
     pub value_terminator: Option<String>,
     /// Whether to hide this argument from help output
     pub hide: bool,
+    /// Hide the default annotation while keeping the default behavior.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_default_value: bool,
+    /// Hide the environment annotation entirely.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_env: bool,
+    /// Hide an environment value while retaining its variable name.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_env_values: bool,
+    /// Hide possible values from help without changing validation.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_possible_values: bool,
+    /// Hide this argument only from short help.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_short_help: bool,
+    /// Hide this argument only from long help.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_long_help: bool,
     /// Arguments and flags that cannot be given alongside this positional.
     ///
     /// A bare selector names another positional by name; flag selectors keep their
@@ -195,6 +213,12 @@ impl SpecArg {
                 "allow_negative_numbers" => arg.allow_negative_numbers = v.ensure_bool()?,
                 "value_terminator" => arg.value_terminator = v.ensure_string().map(Some)?,
                 "hide" => arg.hide = v.ensure_bool()?,
+                "hide_default_value" => arg.hide_default_value = v.ensure_bool()?,
+                "hide_env" => arg.hide_env = v.ensure_bool()?,
+                "hide_env_values" => arg.hide_env_values = v.ensure_bool()?,
+                "hide_possible_values" => arg.hide_possible_values = v.ensure_bool()?,
+                "hide_short_help" => arg.hide_short_help = v.ensure_bool()?,
+                "hide_long_help" => arg.hide_long_help = v.ensure_bool()?,
                 "conflicts" => arg.conflicts = vec![v.ensure_string()?],
                 "requires" => arg.requires = vec![v.ensure_string()?],
                 "required_if" => arg.required_if = vec![v.ensure_string()?],
@@ -283,6 +307,12 @@ impl SpecArg {
                     arg.value_terminator = child.arg(0)?.ensure_string().map(Some)?;
                 }
                 "hide" => arg.hide = child.arg(0)?.ensure_bool()?,
+                "hide_default_value" => arg.hide_default_value = child.arg(0)?.ensure_bool()?,
+                "hide_env" => arg.hide_env = child.arg(0)?.ensure_bool()?,
+                "hide_env_values" => arg.hide_env_values = child.arg(0)?.ensure_bool()?,
+                "hide_possible_values" => arg.hide_possible_values = child.arg(0)?.ensure_bool()?,
+                "hide_short_help" => arg.hide_short_help = child.arg(0)?.ensure_bool()?,
+                "hide_long_help" => arg.hide_long_help = child.arg(0)?.ensure_bool()?,
                 "conflicts" => {
                     arg.conflicts = child
                         .ensure_arg_len(1..)?
@@ -466,6 +496,18 @@ impl From<&SpecArg> for KdlNode {
         }
         if arg.hide {
             node.push(KdlEntry::new_prop("hide", true));
+        }
+        for (name, hidden) in [
+            ("hide_default_value", arg.hide_default_value),
+            ("hide_env", arg.hide_env),
+            ("hide_env_values", arg.hide_env_values),
+            ("hide_possible_values", arg.hide_possible_values),
+            ("hide_short_help", arg.hide_short_help),
+            ("hide_long_help", arg.hide_long_help),
+        ] {
+            if hidden {
+                node.push(KdlEntry::new_prop(name, true));
+            }
         }
         if arg.conflicts.len() == 1 {
             node.push(string_entry(Some("conflicts"), &arg.conflicts[0]));
@@ -888,6 +930,12 @@ impl From<&clap::Arg> for SpecArg {
             allow_negative_numbers: arg.is_allow_negative_numbers_set(),
             value_terminator: None,
             hide,
+            hide_default_value: arg.is_hide_default_value_set(),
+            hide_env: arg.is_hide_env_set(),
+            hide_env_values: arg.is_hide_env_values_set(),
+            hide_possible_values: arg.is_hide_possible_values_set(),
+            hide_short_help: arg.is_hide_short_help_set(),
+            hide_long_help: arg.is_hide_long_help_set(),
             conflicts: Vec::new(),
             requires: Vec::new(),
             required_if: Vec::new(),

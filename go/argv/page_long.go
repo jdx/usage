@@ -65,7 +65,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 
 	// One column width per section, over its visible entries — separately, so a
 	// long flag does not push the arguments out.
-	args := visibleArgs(cmd, help)
+	args := visibleArgs(cmd, help, true)
 	argCol := 0
 	for _, a := range args {
 		if n := width(argUsage(a, help.Lookup(a.Key))); n > argCol {
@@ -82,6 +82,8 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 		})
 
 	own, inherited := ownAndGlobal(chain, help)
+	own = filterHelpMode(own, help, true)
+	inherited = filterHelpMode(inherited, help, true)
 
 	// One column over *both* lists, so the two sections read as one table with a
 	// rule through it rather than two tables that happen to be adjacent.
@@ -99,7 +101,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 		h := help.Lookup(f.key)
 		entry(w, f.usage, firstOf(metaField(h, func(x *Help) string { return x.Long }),
 			metaField(h, func(x *Help) string { return x.Short })), flagCol)
-		longAnnotations(w, h, false)
+		longAnnotations(w, h, true)
 	}
 	groupsSection(&out, "Flags", len(own),
 		func(i int) string {
@@ -221,13 +223,13 @@ func longAnnotations(out *strings.Builder, h *Help, withDefault bool) {
 	if h == nil {
 		return
 	}
-	if len(h.Choices) > 0 {
+	if !h.HidePossibleValues && len(h.Choices) > 0 {
 		out.WriteString("    [possible values: " + strings.Join(h.Choices, ", ") + "]\n")
 	}
-	if h.Env != "" {
+	if !h.HideEnv && h.Env != "" {
 		out.WriteString("    [env: " + h.Env + "]\n")
 	}
-	if withDefault && len(h.Default) > 0 {
+	if withDefault && !h.HideDefaultValue && len(h.Default) > 0 {
 		out.WriteString("    (default: " + strings.Join(h.Default, ", ") + ")\n")
 	}
 }

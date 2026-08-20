@@ -12,7 +12,6 @@ pub enum FidelityFeature {
     NonUtf8Default,
     ValueArity,
     DistinctValueNames,
-    GranularHide,
     FlattenHelp,
     NextLineHelp,
     SubcommandHelpHeading,
@@ -203,27 +202,5 @@ fn argument_losses(arg: &Arg, path: &[String], losses: &mut BTreeSet<FidelityLos
                 value_names.len()
             ),
         );
-    }
-    let mut hidden = Vec::new();
-    if arg.is_hide_default_value_set() {
-        hidden.push("default_value");
-    }
-    if arg.is_hide_possible_values_set() {
-        hidden.push("possible_values");
-    }
-    if arg.is_hide_env_set() {
-        hidden.push("env");
-    }
-    if arg.is_hide_env_values_set() {
-        hidden.push("env_values");
-    }
-    if arg.is_hide_short_help_set() {
-        hidden.push("short_help");
-    }
-    if arg.is_hide_long_help_set() {
-        hidden.push("long_help");
-    }
-    if !hidden.is_empty() {
-        add(FidelityFeature::GranularHide, hidden.join(","));
     }
 }

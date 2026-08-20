@@ -207,15 +207,21 @@ type Flag struct {
 	VarMax int `json:"var_max"`
 	// VarMin is a post-binding check too, and for the same reason: no single
 	// token can tell you a repeatable flag will end up short.
-	VarMin        int      `json:"var_min"`
-	Required      bool     `json:"required"`
-	Default       []string `json:"default"`
-	Env           string   `json:"env"`
-	Hide          bool     `json:"hide"`
-	Help          string   `json:"help"`
-	HelpFirstLine string   `json:"help_first_line"`
-	HelpLong      string   `json:"help_long"`
-	HelpHeading   string   `json:"help_heading"`
+	VarMin             int      `json:"var_min"`
+	Required           bool     `json:"required"`
+	Default            []string `json:"default"`
+	Env                string   `json:"env"`
+	Hide               bool     `json:"hide"`
+	HideDefaultValue   bool     `json:"hide_default_value"`
+	HideEnv            bool     `json:"hide_env"`
+	HideEnvValues      bool     `json:"hide_env_values"`
+	HidePossibleValues bool     `json:"hide_possible_values"`
+	HideShortHelp      bool     `json:"hide_short_help"`
+	HideLongHelp       bool     `json:"hide_long_help"`
+	Help               string   `json:"help"`
+	HelpFirstLine      string   `json:"help_first_line"`
+	HelpLong           string   `json:"help_long"`
+	HelpHeading        string   `json:"help_heading"`
 	// The four that name another flag. They arrive as written, dashes included.
 	Conflicts         []string       `json:"conflicts"`
 	Overrides         []string       `json:"overrides"`
@@ -323,6 +329,12 @@ type Arg struct {
 	Default              []string       `json:"default"`
 	Env                  string         `json:"env"`
 	Hide                 bool           `json:"hide"`
+	HideDefaultValue     bool           `json:"hide_default_value"`
+	HideEnv              bool           `json:"hide_env"`
+	HideEnvValues        bool           `json:"hide_env_values"`
+	HidePossibleValues   bool           `json:"hide_possible_values"`
+	HideShortHelp        bool           `json:"hide_short_help"`
+	HideLongHelp         bool           `json:"hide_long_help"`
 	Help                 string         `json:"help"`
 	HelpFirstLine        string         `json:"help_first_line"`
 	HelpLong             string         `json:"help_long"`
@@ -874,7 +886,13 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 		valueDemanded = f.Arg.Required && len(f.Arg.Default) == 0
 	}
 	b.recordHelp(out.Key, argv.Help{
-		Hide: f.Hide,
+		Hide:               f.Hide,
+		HideDefaultValue:   f.HideDefaultValue,
+		HideEnv:            f.HideEnv,
+		HideEnvValues:      f.HideEnvValues,
+		HidePossibleValues: f.HidePossibleValues,
+		HideShortHelp:      f.HideShortHelp,
+		HideLongHelp:       f.HideLongHelp,
 		// Required *and* undefaulted: a required flag with a default is one the
 		// user never has to type, so the line brackets it.
 		Demanded:      f.Required && len(f.Default) == 0,
@@ -956,16 +974,22 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 		out.VarMax = clampVarMax(a.VarMax)
 	}
 	b.recordHelp(out.Key, argv.Help{
-		Hide:       a.Hide,
-		Demanded:   a.Required && len(a.Default) == 0,
-		ValueNames: a.ValueNames,
-		ValueArity: exactArity(a),
-		Short:      first(a.Help, a.HelpFirstLine),
-		Long:       first(a.HelpLong, a.Help),
-		Heading:    a.HelpHeading,
-		Choices:    a.Choices.visible(),
-		Env:        a.Env,
-		Default:    a.Default,
+		Hide:               a.Hide,
+		HideDefaultValue:   a.HideDefaultValue,
+		HideEnv:            a.HideEnv,
+		HideEnvValues:      a.HideEnvValues,
+		HidePossibleValues: a.HidePossibleValues,
+		HideShortHelp:      a.HideShortHelp,
+		HideLongHelp:       a.HideLongHelp,
+		Demanded:           a.Required && len(a.Default) == 0,
+		ValueNames:         a.ValueNames,
+		ValueArity:         exactArity(a),
+		Short:              first(a.Help, a.HelpFirstLine),
+		Long:               first(a.HelpLong, a.Help),
+		Heading:            a.HelpHeading,
+		Choices:            a.Choices.visible(),
+		Env:                a.Env,
+		Default:            a.Default,
 	})
 	b.record(out.Key, argv.Meta{
 		Name:            a.Name,

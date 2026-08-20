@@ -1039,6 +1039,18 @@ fn flag_help(flag: &SpecFlag, named: &Named) -> String {
     if flag.hide {
         fields.push("Hide: true".to_string());
     }
+    for (name, hidden) in [
+        ("HideDefaultValue", flag.hide_default_value),
+        ("HideEnv", flag.hide_env),
+        ("HideEnvValues", flag.hide_env_values),
+        ("HidePossibleValues", flag.hide_possible_values),
+        ("HideShortHelp", flag.hide_short_help),
+        ("HideLongHelp", flag.hide_long_help),
+    ] {
+        if hidden {
+            fields.push(format!("{name}: true"));
+        }
+    }
     // Required *and* undefaulted, which is what decides the brackets: a required
     // flag with a default is one the user never has to type.
     if flag.required && flag.default.is_empty() {
@@ -1103,6 +1115,18 @@ fn arg_help(arg: &SpecArg, named: &Named) -> String {
     let mut fields = vec![format!("Key: {}", named.key)];
     if arg.hide {
         fields.push("Hide: true".to_string());
+    }
+    for (name, hidden) in [
+        ("HideDefaultValue", arg.hide_default_value),
+        ("HideEnv", arg.hide_env),
+        ("HideEnvValues", arg.hide_env_values),
+        ("HidePossibleValues", arg.hide_possible_values),
+        ("HideShortHelp", arg.hide_short_help),
+        ("HideLongHelp", arg.hide_long_help),
+    ] {
+        if hidden {
+            fields.push(format!("{name}: true"));
+        }
     }
     if arg.required && arg.default.is_empty() {
         fields.push("Demanded: true".to_string());
@@ -1923,6 +1947,23 @@ cmd "run" arg_required_else_help=#true {
         assert!(out.contains("AllowMissingPositional: true"), "{out}");
         assert!(out.contains("Name: \"optional\""), "{out}");
         assert!(out.contains("Name: \"required\", Required: true"), "{out}");
+    }
+
+    #[test]
+    fn granular_help_hides_reach_generated_go() {
+        let out = go(
+            "name \"ex\"\nbin \"ex\"\nflag \"--mode <mode>\" hide_default_value=#true hide_env=#true hide_env_values=#true hide_possible_values=#true hide_short_help=#true hide_long_help=#true\n",
+        );
+        for field in [
+            "HideDefaultValue: true",
+            "HideEnv: true",
+            "HideEnvValues: true",
+            "HidePossibleValues: true",
+            "HideShortHelp: true",
+            "HideLongHelp: true",
+        ] {
+            assert!(out.contains(field), "missing {field}:\n{out}");
+        }
     }
 
     #[test]

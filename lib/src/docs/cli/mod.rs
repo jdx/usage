@@ -5,7 +5,7 @@ use tera::Tera;
 pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     // Convert to docs models to get layout calculations
     let docs_spec = crate::docs::models::Spec::from(spec.clone());
-    let mut docs_cmd = crate::docs::models::SpecCommand::from(&without_hidden(cmd));
+    let mut docs_cmd = crate::docs::models::SpecCommand::from(&without_hidden(cmd, long));
 
     let mut ctx = tera::Context::new();
     ctx.insert("spec", &docs_spec);
@@ -20,7 +20,7 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     //
     // Listed nowhere before this: `communique generate` accepts `--config` from its root and
     // its page mentioned none of it — a flag a user can type and cannot discover.
-    let (mut inherited, ancestors_taken) = inherited_flags(spec, cmd, &docs_cmd.full_cmd);
+    let (mut inherited, ancestors_taken) = inherited_flags(spec, cmd, &docs_cmd.full_cmd, long);
 
     // One column over both lists, so the two sections read as one table with a rule through it
     // rather than two that happen to be adjacent. The width feeds the wrapping as well as the
@@ -186,6 +186,7 @@ fn inherited_flags(
     spec: &Spec,
     cmd: &SpecCommand,
     full_cmd: &[String],
+    long_help: bool,
 ) -> (Vec<crate::docs::models::SpecFlag>, Vec<String>) {
     // Every ancestor, root first, which is the order a reader meets them walking down.
     let mut ancestors: Vec<&SpecCommand> = Vec::new();
@@ -256,7 +257,14 @@ fn inherited_flags(
             // whose every spelling something nearer already took.
             taken.extend(forms(f));
             taken_negations.extend(f.negate.clone());
-            if f.hide || (long.is_none() && short.is_none() && !negate) {
+            if f.hide
+                || if long_help {
+                    f.hide_long_help
+                } else {
+                    f.hide_short_help
+                }
+                || (long.is_none() && short.is_none() && !negate)
+            {
                 continue;
             }
             keep.push((f, long, short, negate));
@@ -301,10 +309,24 @@ fn inherited_flags(
 /// Filtered here rather than in the templates, and before the docs model builds its groups, so
 /// that a heading whose every entry is hidden produces no section — the same rule markdown
 /// already follows.
-fn without_hidden(cmd: &SpecCommand) -> SpecCommand {
+fn without_hidden(cmd: &SpecCommand, long: bool) -> SpecCommand {
     let mut visible = cmd.clone();
-    visible.flags.retain(|flag| !flag.hide);
-    visible.args.retain(|arg| !arg.hide);
+    visible.flags.retain(|flag| {
+        !flag.hide
+            && if long {
+                !flag.hide_long_help
+            } else {
+                !flag.hide_short_help
+            }
+    });
+    visible.args.retain(|arg| {
+        !arg.hide
+            && if long {
+                !arg.hide_long_help
+            } else {
+                !arg.hide_short_help
+            }
+    });
     visible.subcommands.retain(|_, sub| !sub.hide);
     visible
 }
@@ -628,7 +650,7 @@ flag "--verbose" help="Verbose output"
         Usage: testcli [--compress] [--verbose]
 
         Flags:
-              --compress / --no-compress  Compress output
+              --compress / --no-compress  Compress output (default: true)
               --verbose                   Verbose output
           -h, --help                      Print help
         ");
@@ -638,9 +660,54 @@ flag "--verbose" help="Verbose output"
 
         Flags:
               --compress / --no-compress  Compress output
+            (default: true)
               --verbose                   Verbose output
           -h, --help                      Print help
         ");
+    }
+
+    #[test]
+    fn granular_help_hides_preserve_behavior_but_remove_presentation() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+flag "--mode <mode>" help="Select mode" env="MODE" default="fast" hide_default_value=#true hide_env=#true hide_possible_values=#true {
+  choices {
+    choice "fast"
+    choice "slow"
+  }
+}
+flag "--short-only" help="short" hide_long_help=#true
+flag "--long-only" help="long" hide_short_help=#true
+arg "[input]" help="Input" env="INPUT" default="file" hide_default_value=#true hide_env=#true
+        "# }
+        .unwrap();
+
+        let short = render_help(&spec, &spec.cmd, false);
+        assert!(short.contains("--mode <mode>"), "{short}");
+        assert!(short.contains("--short-only"), "{short}");
+        assert!(!short.contains("--long-only"), "{short}");
+        assert!(
+            !short.contains("MODE") && !short.contains("fast, slow"),
+            "{short}"
+        );
+        assert!(
+            !short.contains("default: fast") && !short.contains("default: file"),
+            "{short}"
+        );
+
+        let long = render_help(&spec, &spec.cmd, true);
+        assert!(long.contains("--long-only"), "{long}");
+        assert!(!long.contains("--short-only"), "{long}");
+        assert!(
+            !long.contains("MODE") && !long.contains("possible values"),
+            "{long}"
+        );
+
+        let rendered = spec.to_string();
+        let reparsed: crate::Spec = rendered.parse().unwrap();
+        assert!(reparsed.cmd.flags[0].hide_default_value);
+        assert!(reparsed.cmd.flags[0].hide_env);
+        assert!(reparsed.cmd.flags[0].hide_possible_values);
     }
 
     #[test]

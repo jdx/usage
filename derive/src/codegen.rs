@@ -1234,6 +1234,12 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let defaults = &field.default;
     let default = quote!(&[#(#defaults),*]);
     let hide = field.hide;
+    let hide_default_value = field.hide_default_value;
+    let hide_env = field.hide_env;
+    let hide_env_values = field.hide_env_values;
+    let hide_possible_values = field.hide_possible_values;
+    let hide_short_help = field.hide_short_help;
+    let hide_long_help = field.hide_long_help;
     let count = field.shape == Shape::Count;
     let repeatable = field.repeatable;
     let hidden_longs = match &field.kind {
@@ -1345,6 +1351,12 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             value_name: #value_name,
             value_names: &[#(#value_names),*],
             hide: #hide,
+            hide_default_value: #hide_default_value,
+            hide_env: #hide_env,
+            hide_env_values: #hide_env_values,
+            hide_possible_values: #hide_possible_values,
+            hide_short_help: #hide_short_help,
+            hide_long_help: #hide_long_help,
             count: #count,
             repeatable: #repeatable,
             hidden_shorts: &[],
@@ -1391,6 +1403,12 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     let defaults = &field.default;
     let default = quote!(&[#(#defaults),*]);
     let hide = field.hide;
+    let hide_default_value = field.hide_default_value;
+    let hide_env = field.hide_env;
+    let hide_env_values = field.hide_env_values;
+    let hide_possible_values = field.hide_possible_values;
+    let hide_short_help = field.hide_short_help;
+    let hide_long_help = field.hide_long_help;
     let conflicts: Vec<String> = field
         .conflicts
         .iter()
@@ -1453,6 +1471,12 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
             default: #default,
             help_heading: #help_heading,
             hide: #hide,
+            hide_default_value: #hide_default_value,
+            hide_env: #hide_env,
+            hide_env_values: #hide_env_values,
+            hide_possible_values: #hide_possible_values,
+            hide_short_help: #hide_short_help,
+            hide_long_help: #hide_long_help,
             conflicts: &[#(#conflicts),*],
             requires: &[#(#requires),*],
             required_if: &[#(#required_if),*],

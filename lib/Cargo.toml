@@ -22,7 +22,7 @@ license = { workspace = true }
 name = "usage"
 
 [dependencies]
-clap = { version = "4", features = ["derive", "string"], optional = true }
+clap = { version = "4", features = ["derive", "env", "string"], optional = true }
 heck = "0.5"
 indexmap = { version = "2", features = ["serde"] }
 itertools = "0.15"

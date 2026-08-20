@@ -77,6 +77,22 @@ struct MissingPositional {
     required: String,
 }
 
+#[derive(Cli)]
+#[command(bin = "hidden-help")]
+struct HiddenHelp {
+    #[arg(
+        long,
+        default = "fast",
+        hide_default_value,
+        hide_env,
+        hide_env_values,
+        hide_possible_values,
+        hide_short_help,
+        hide_long_help
+    )]
+    mode: String,
+}
+
 #[derive(Subcommands, serde::Deserialize)]
 enum InlineCommand {
     /// Run a named benchmark.
@@ -1028,6 +1044,22 @@ fn typed_parser_can_reserve_a_word_for_a_required_positional() {
     assert_eq!(parsed.optional.as_deref(), Some("optional"));
     assert_eq!(parsed.required, "required");
     assert!(MissingPositional::to_kdl().contains("allow_missing_positional #true"));
+}
+
+#[test]
+fn typed_granular_help_hides_reach_the_portable_spec() {
+    let kdl = HiddenHelp::to_kdl();
+    for property in [
+        "hide_default_value",
+        "hide_env",
+        "hide_env_values",
+        "hide_possible_values",
+        "hide_short_help",
+        "hide_long_help",
+    ] {
+        assert!(kdl.contains(&format!("{property}=#true")), "{kdl}");
+    }
+    assert_eq!(HiddenHelp::parse_from(&[]).unwrap().mode, "fast");
 }
 
 #[test]

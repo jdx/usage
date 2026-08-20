@@ -103,7 +103,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	// name.
 	commandsSection(&out, path[min(1, len(path)):], cmd, help)
 
-	args := visibleArgs(cmd, help)
+	args := visibleArgs(cmd, help, false)
 	argCol := 0
 	for _, a := range args {
 		if n := width(argUsage(a, help.Lookup(a.Key))); n > argCol {
@@ -125,6 +125,8 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		})
 
 	own, inherited := ownAndGlobal(chain, help)
+	own = filterHelpMode(own, help, false)
+	inherited = filterHelpMode(inherited, help, false)
 
 	// One column over *both* lists, so the two sections read as one table with a
 	// rule through it rather than two tables that happen to be adjacent.
@@ -156,7 +158,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		} else {
 			w.WriteString("  " + f.usage)
 		}
-		annotations(w, h, false)
+		annotations(w, h, true)
 	}
 	groupsSection(&out, "Flags", len(own),
 		func(i int) string {
@@ -306,13 +308,13 @@ func examplesSection(out *strings.Builder, examples []Example) {
 // it. A flag's default shows up in the long page instead.
 func annotations(out *strings.Builder, h *Help, withDefault bool) {
 	if h != nil {
-		if len(h.Choices) > 0 {
+		if !h.HidePossibleValues && len(h.Choices) > 0 {
 			out.WriteString(" [" + strings.Join(h.Choices, ", ") + "]")
 		}
-		if h.Env != "" {
+		if !h.HideEnv && h.Env != "" {
 			out.WriteString(" [env: " + h.Env + "]")
 		}
-		if withDefault && len(h.Default) > 0 {
+		if withDefault && !h.HideDefaultValue && len(h.Default) > 0 {
 			out.WriteString(" (default: " + strings.Join(h.Default, ", ") + ")")
 		}
 	}
@@ -333,13 +335,27 @@ func headingOf(help HelpTable, key uint64) string {
 	return ""
 }
 
-func visibleArgs(cmd *Command, help HelpTable) []*Arg {
+func visibleArgs(cmd *Command, help HelpTable, long bool) []*Arg {
 	out := make([]*Arg, 0, len(cmd.Args))
 	for _, a := range cmd.Args {
-		if h := help.Lookup(a.Key); h != nil && h.Hide {
-			continue
+		if h := help.Lookup(a.Key); h != nil {
+			if h.Hide || (!long && h.HideShortHelp) || (long && h.HideLongHelp) {
+				continue
+			}
 		}
 		out = append(out, a)
+	}
+	return out
+}
+
+func filterHelpMode(flags []shownFlag, help HelpTable, long bool) []shownFlag {
+	out := flags[:0]
+	for _, flag := range flags {
+		h := help.Lookup(flag.key)
+		if h != nil && ((!long && h.HideShortHelp) || (long && h.HideLongHelp)) {
+			continue
+		}
+		out = append(out, flag)
 	}
 	return out
 }

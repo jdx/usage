@@ -57,16 +57,16 @@ Commands:
     {{ help | indent(width=4) }}
 {%- endif %}
 {%- endif %}
-{%- if arg.choices and arg.choices.choices %}
+{%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
     [possible values: {{ arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
-{%- if arg.choices and arg.choices.env %}
+{%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
     [choices env: {{ arg.choices.env }}]
 {%- endif %}
-{%- if arg.env %}
+{%- if not arg.hide_env and arg.env %}
     [env: {{ arg.env }}]
 {%- endif %}
-{%- if arg.default %}
+{%- if not arg.hide_default_value and arg.default %}
     (default: {{ arg.default | join(sep=", ") }})
 {%- endif %}
 {%- endfor %}
@@ -89,14 +89,17 @@ Commands:
     {{ help | indent(width=4) }}
 {%- endif %}
 {%- endif %}
-{%- if flag.arg.choices and flag.arg.choices.choices %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
-{%- if flag.arg.choices and flag.arg.choices.env %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
     [choices env: {{ flag.arg.choices.env }}]
 {%- endif %}
-{%- if flag.env %}
+{%- if not flag.hide_env and flag.env %}
     [env: {{ flag.env }}]
+{%- endif %}
+{%- if not flag.hide_default_value and flag.default %}
+    (default: {{ flag.default | join(sep=", ") }})
 {%- endif %}
 {%- endfor %}
 {%- endfor %}
@@ -118,14 +121,17 @@ Global flags:
     {{ help | indent(width=4) }}
 {%- endif %}
 {%- endif %}
-{%- if flag.arg.choices and flag.arg.choices.choices %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
-{%- if flag.arg.choices and flag.arg.choices.env %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
     [choices env: {{ flag.arg.choices.env }}]
 {%- endif %}
-{%- if flag.env %}
+{%- if not flag.hide_env and flag.env %}
     [env: {{ flag.env }}]
+{%- endif %}
+{%- if not flag.hide_default_value and flag.default %}
+    (default: {{ flag.default | join(sep=", ") }})
 {%- endif %}
 {%- endfor %}
 {%- endif %}
