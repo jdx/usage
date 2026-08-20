@@ -10,12 +10,12 @@ import (
 // nm` reports these as type D, and the package has no init function.
 var (
 	force   = &Flag{Key: 1, Name: "force", Longs: []string{"force"}, Shorts: []byte{'f'}}
-	jobs    = &Flag{Key: 2, Name: "jobs", Longs: []string{"jobs"}, Shorts: []byte{'j'}, TakesValue: true}
+	jobs    = &Flag{Key: 2, Name: "jobs", Longs: []string{"jobs"}, Shorts: []byte{'j'}, TakesValue: true, AllowNegativeNumbers: true}
 	color   = &Flag{Key: 3, Name: "color", Longs: []string{"color"}, Negate: "no-color"}
 	verbose = &Flag{Key: 4, Name: "verbose", Longs: []string{"verbose"}, Shorts: []byte{'v'}, Global: true}
 	include = &Flag{Key: 5, Name: "include", Longs: []string{"include"}, TakesValue: true, Variadic: true}
 
-	file = &Arg{Key: 10, Name: "file"}
+	file = &Arg{Key: 10, Name: "file", AllowNegativeNumbers: true}
 	rest = &Arg{Key: 11, Name: "rest", Var: true}
 
 	install = &Command{
@@ -260,6 +260,31 @@ func TestAllowHyphenValues(t *testing.T) {
 	}
 	if got := collect(cmd, "--args", "--", "-x"); got != "flag:args=-- arg:rest=-x" {
 		t.Errorf("--args -- -x: got %s", got)
+	}
+}
+
+func TestTokenBoundaryControls(t *testing.T) {
+	plain := &Flag{Key: 20, Name: "plain", Longs: []string{"plain"}, TakesValue: true}
+	value := &Arg{Key: 21, Name: "value"}
+	strict := &Command{Name: "ex", Flags: []*Flag{plain}, Args: []*Arg{value}, UnknownFlags: UnknownFlagsError}
+	if got := collect(strict, "--plain", "-1"); got != "err:missing_flag_value" {
+		t.Errorf("negative flag value without opt-in: got %s", got)
+	}
+	if got := collect(strict, "-1"); got != "err:unknown_flag" {
+		t.Errorf("negative positional without opt-in: got %s", got)
+	}
+
+	include := &Flag{Key: 22, Name: "include", Longs: []string{"include"}, TakesValue: true, Variadic: true, ValueTerminator: ";"}
+	after := &Arg{Key: 23, Name: "after"}
+	flagCmd := &Command{Name: "ex", Flags: []*Flag{include}, Args: []*Arg{after}}
+	if got := collect(flagCmd, "--include", "a", ";", "tail"); got != "flag:include=a arg:after=tail" {
+		t.Errorf("flag terminator: got %s", got)
+	}
+
+	items := &Arg{Key: 24, Name: "items", Var: true, ValueTerminator: ";"}
+	argCmd := &Command{Name: "ex", Args: []*Arg{items, after}}
+	if got := collect(argCmd, "a", ";", "tail"); got != "arg:items=a arg:after=tail" {
+		t.Errorf("positional terminator: got %s", got)
 	}
 }
 

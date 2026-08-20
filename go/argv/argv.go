@@ -140,6 +140,11 @@ type Flag struct {
 	// occurrence still stops collecting at a later flag-like token, so a second
 	// occurrence of the flag is not eaten as a value.
 	AllowHyphenValues bool
+	// AllowNegativeNumbers accepts negative numeric tokens as detached values
+	// without accepting arbitrary dash-prefixed words.
+	AllowNegativeNumbers bool
+	// ValueTerminator ends one variadic occurrence without becoming a value.
+	ValueTerminator string
 	// RequireEquals is whether the value must be attached with `=`.
 	//
 	// `--flag=value` is accepted and `--flag value` is not, which is clap's
@@ -176,6 +181,10 @@ type Arg struct {
 	// acceptable. clap's num_args works the same way, and specs are commonly
 	// generated from clap commands.
 	VarMax uint32
+	// AllowNegativeNumbers accepts negative numeric tokens in strict flag mode.
+	AllowNegativeNumbers bool
+	// ValueTerminator ends this variadic positional without becoming a value.
+	ValueTerminator string
 	// DoubleDash is this argument's relationship to the -- separator.
 	DoubleDash DoubleDash
 }

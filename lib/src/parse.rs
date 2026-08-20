@@ -835,7 +835,9 @@ fn parse_partial_with_env(
                 if f.arg.is_some()
                     && !word.contains('=')
                     && idx < input.len()
-                    && !is_flag_like(&input[idx])
+                    && (!is_flag_like(&input[idx])
+                        || (f.arg.as_ref().is_some_and(|arg| arg.allow_negative_numbers)
+                            && is_negative_number(&input[idx])))
                 {
                     if let Some(words) = forwarded.as_mut() {
                         words.push(input[idx].clone());
@@ -961,10 +963,15 @@ fn parse_partial_with_env(
         // below has no path around it.
         if enable_flags
             && w.starts_with('-')
-            && out
-                .flag_awaiting_value
-                .last()
-                .is_some_and(|flag| flag.allow_hyphen_values() && !flag.require_equals)
+            && out.flag_awaiting_value.last().is_some_and(|flag| {
+                !flag.require_equals
+                    && (flag.allow_hyphen_values()
+                        || (flag
+                            .arg
+                            .as_ref()
+                            .is_some_and(|arg| arg.allow_negative_numbers)
+                            && is_negative_number(&w)))
+            })
         {
             // A variadic argument collects here too: which token supplied its first
             // value says nothing about how many it takes.
@@ -996,7 +1003,14 @@ fn parse_partial_with_env(
             && !out.flag_awaiting_value.is_empty()
             && out.flag_awaiting_value.last().is_some_and(|flag| {
                 flag.default_missing.is_some()
-                    && (flag.require_equals || (is_flag_like(&w) && !flag.allow_hyphen_values()))
+                    && (flag.require_equals
+                        || (is_flag_like(&w)
+                            && !flag.allow_hyphen_values()
+                            && !(flag
+                                .arg
+                                .as_ref()
+                                .is_some_and(|arg| arg.allow_negative_numbers)
+                                && is_negative_number(&w))))
             })
         {
             try_bind_default_missing(&mut out.flags, &mut out.flag_awaiting_value, custom_env)?;
@@ -1136,6 +1150,12 @@ fn parse_partial_with_env(
         // `-a` declared is not a bundle at all, so it must not set `a` on the way to
         // discovering that `z` names nothing. A grouped continuation is exempt — its
         // token was already checked when it arrived.
+        let positional_negative_number = is_negative_number(&w)
+            && out
+                .cmd
+                .args
+                .get(next_arg_idx)
+                .is_some_and(|arg| arg.allow_negative_numbers);
         if enable_flags
             && !grouped_flag
             // A word phase 1 already resolved to a flag needs no re-checking, and
@@ -1144,12 +1164,13 @@ fn parse_partial_with_env(
             && w.starts_with('-')
             && w.len() > 1
             && is_flag_like(&w)
+            && !positional_negative_number
             && !short_bundle_is_known(&out.available_flags, &w)
         {
             // Refused if this command asked for that; otherwise it carries on below
             // as one word, with none of its letters applied.
             reject_unknown_flag_if_asked(spec, &out.cmds, &w)?;
-        } else if enable_flags && w.starts_with('-') && w.len() > 1 {
+        } else if enable_flags && !positional_negative_number && w.starts_with('-') && w.len() > 1 {
             let short = w.chars().nth(1).unwrap();
             if let Some(f) = binding
                 .as_ref()
@@ -1268,6 +1289,13 @@ fn parse_partial_with_env(
         }
 
         if let Some(arg) = out.cmd.args.get(next_arg_idx) {
+            if arg.var
+                && out.args.contains_key(arg)
+                && arg.value_terminator.as_deref() == Some(w.as_str())
+            {
+                next_arg_idx += 1;
+                continue;
+            }
             // Before anything else: an arg that requires `--` accepts nothing until one has been
             // seen. Checking ahead of `validate_choices` keeps a discarded word from also being
             // reported as an invalid choice, and from reaching that function's help escape.
@@ -2218,11 +2246,8 @@ fn reject_unknown_flag_if_asked(
     path: &[SpecCommand],
     token: &str,
 ) -> Result<(), UsageErr> {
-    // A lone `-` is a value by convention and a negative number is a value because
-    // no CLI could accept `--offset -1` otherwise. Both reach the short-flag branch
-    // and neither is a misspelled flag, so neither is refused. oclif made exactly
-    // this mistake when it switched to refusing unknown flags, and had to add the
-    // number case back.
+    // A lone `-` is a value by convention. A negative number reaches this only
+    // when no pending value opted into the narrower exception.
     if !is_flag_like(token) {
         return Ok(());
     }
@@ -2253,15 +2278,17 @@ fn effective_unknown_flags(spec: &Spec, path: &[SpecCommand]) -> UnknownFlags {
 /// Whether a token would be read as a flag, for the purpose of rejecting unknown
 /// ones.
 ///
-/// A lone `-` is a value by convention, and a negative number is a value because no
-/// CLI could accept `--offset -1` otherwise. The number has to actually be one:
-/// treating anything after a digit as numeric would let `-1x` slip past a CLI that
-/// asked for unknown flags to be refused.
+/// A lone `-` is a value by convention. Other dash-prefixed tokens are flag-like;
+/// a field may make the narrower negative-number exception.
 fn is_flag_like(token: &str) -> bool {
     match token.strip_prefix('-') {
         None | Some("") => false,
-        Some(rest) => !is_number(rest),
+        Some(_) => true,
     }
+}
+
+fn is_negative_number(token: &str) -> bool {
+    token.strip_prefix('-').is_some_and(is_number)
 }
 
 /// A token that can select a subcommand, trigger a mount, or be forwarded as an
@@ -2272,7 +2299,7 @@ fn is_flag_like(token: &str) -> bool {
 /// same rule; without it, `-1` skipped the external-subcommand path because Phase 1
 /// treated every token that `starts_with('-')` as a flag.
 fn is_command_word(token: &str) -> bool {
-    !is_flag_like(token) && token != "-"
+    (!is_flag_like(token) || is_negative_number(token)) && token != "-"
 }
 
 /// Digits, at most one `.`, and an optional exponent.
@@ -2407,9 +2434,26 @@ fn collect_variadic_flag_values(
         < max
     {
         let Some(next) = input.front() else { break };
+        if flag
+            .arg
+            .as_ref()
+            .and_then(|arg| arg.value_terminator.as_deref())
+            == Some(next.as_str())
+        {
+            input.pop_front();
+            prefix_bindings.pop_front();
+            break;
+        }
         // The separator is left where it is: stopping here hands it to the arm that
         // knows what it means, rather than reading it as one more value.
-        if next == "--" || is_flag_like(next) {
+        if next == "--"
+            || (is_flag_like(next)
+                && !(flag
+                    .arg
+                    .as_ref()
+                    .is_some_and(|arg| arg.allow_negative_numbers)
+                    && is_negative_number(next)))
+        {
             break;
         }
         let mut word = input.pop_front().unwrap();
@@ -4468,7 +4512,7 @@ flag "--file <file>" required_unless="--stdin"
     #[test]
     fn unknown_flags_can_be_rejected_for_the_whole_cli() {
         let spec: Spec =
-            "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"--force\"\narg \"[rest]...\"\n"
+            "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"--force\"\narg \"[rest]...\" allow_negative_numbers=#true\n"
                 .parse()
                 .unwrap();
         let err = parse(&spec, &["ex".to_string(), "--wat".to_string()]).unwrap_err();
@@ -4477,8 +4521,8 @@ flag "--file <file>" required_unless="--stdin"
             "the message should name the token: {err}"
         );
 
-        // A negative number is still a value, which is the carve-out oclif had to
-        // add back after making this its default.
+        // The positional opts into the narrower negative-number carve-out without
+        // accepting arbitrary unknown flags.
         let out = parse(&spec, &["ex".to_string(), "-1".to_string()]).unwrap();
         let rest = out.args.keys().find(|a| a.name == "rest").unwrap();
         assert_eq!(out.args[rest].to_string(), "-1");

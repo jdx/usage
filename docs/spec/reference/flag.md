@@ -38,6 +38,8 @@ flag "--config <file>" {
 flag "--dump" exclusive=#true            // --dump has to be given on its own
 flag "--tags <tag>" var=#true delimiter="," // --tags a,b,c is three values
 flag "--args <ARGS>" allow_hyphen_values=#true // --args -destroy binds "-destroy"
+flag "--jobs <N>" allow_negative_numbers=#true // --jobs -1 binds "-1"
+flag "--item <ITEM>" var=#true value_terminator=";" // ; ends this occurrence
 flag "--inspect <PORT>" require_equals=#true   // --inspect=9229 yes, --inspect 9229 no
 flag "--color <WHEN>" default_missing="always" // --color is always; --color=never is never
 flag "--bin-names" {
@@ -197,6 +199,19 @@ still stops collecting at a later flag-like token, so a second occurrence of the
 flag is not eaten as a value.
 
 A flag that takes no value cannot declare it: there is nothing to take.
+
+## `allow_negative_numbers`
+
+The next token may be a negative integer or decimal without making every dash-prefixed
+word a value. `--jobs -1` binds `-1`, while `--jobs --force` still leaves `--force` to
+normal flag parsing. clap spells this `allow_negative_numbers`, and generated specs
+preserve both its argument-level and command-level forms.
+
+## `value_terminator`
+
+A variadic flag stops collecting when this exact token appears, and the token itself is
+not stored. In `--item one two ; target`, the flag gets `one` and `two`; parsing resumes
+with `target`. clap's `value_terminator` getter is preserved by generated specs.
 
 ## `require_equals`
 

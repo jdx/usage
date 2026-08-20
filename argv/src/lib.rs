@@ -322,6 +322,11 @@ pub struct Flag<'a> {
     /// occurrence still stops collecting at a later flag-like token, so a second
     /// occurrence of the flag is not eaten as a value.
     pub allow_hyphen_values: bool,
+    /// Whether a detached value may be a negative number while other flag-like
+    /// tokens still stop collection or report as flags.
+    pub allow_negative_numbers: bool,
+    /// A token that ends one variadic occurrence without becoming a value.
+    pub value_terminator: ::core::option::Option<&'a [u8]>,
     /// Whether the value must be attached with `=`.
     ///
     /// `--flag=value` is accepted and `--flag value` is not, which is clap's
@@ -353,6 +358,8 @@ impl Flag<'_> {
         var_max: ::core::option::Option::None,
         delimiter: ::core::option::Option::None,
         allow_hyphen_values: false,
+        allow_negative_numbers: false,
+        value_terminator: ::core::option::Option::None,
         require_equals: false,
         default_missing: ::core::option::Option::None,
         global: false,
@@ -386,6 +393,11 @@ pub struct Arg<'a> {
     /// See [`Flag::delimiter`]: a bound counts values, and only this says how many values a
     /// word carries.
     pub delimiter: ::core::option::Option<u8>,
+    /// Whether a negative-number token is accepted as this positional even in
+    /// strict flag mode.
+    pub allow_negative_numbers: bool,
+    /// A token that ends this variadic positional without becoming a value.
+    pub value_terminator: ::core::option::Option<&'a [u8]>,
     /// This argument's relationship to the `--` separator.
     pub double_dash: DoubleDash,
     /// Unused by binding, kept so a table entry can carry its own name for
@@ -400,6 +412,8 @@ impl Arg<'_> {
         var: false,
         var_max: ::core::option::Option::None,
         delimiter: ::core::option::Option::None,
+        allow_negative_numbers: false,
+        value_terminator: ::core::option::Option::None,
         double_dash: DoubleDash::Optional,
         name: "",
     };
@@ -1211,7 +1225,20 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         // something else.
         if let Some(flag) = self.collecting {
             match self.argv.get(self.pos) {
-                Some(next) if !is_flag_like(bytes(next)) && bytes(next) != b"--" => {
+                Some(next)
+                    if flag
+                        .value_terminator
+                        .is_some_and(|terminator| bytes(next) == terminator) =>
+                {
+                    self.pos += 1;
+                    self.collecting = None;
+                    return self.step();
+                }
+                Some(next)
+                    if (!is_flag_like(bytes(next))
+                        || (flag.allow_negative_numbers && is_negative_number(bytes(next))))
+                        && bytes(next) != b"--" =>
+                {
                     self.pos += 1;
                     self.collected += values_in(bytes(next), flag.delimiter);
                     // Same rule as a positional: a bounded occurrence takes that many and
@@ -1277,6 +1304,28 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 self.arg_taken = 0;
             }
             return self.step();
+        }
+
+        if self.arg_taken > 0
+            && self.next_arg().is_some_and(|arg| {
+                arg.value_terminator
+                    .is_some_and(|terminator| token == terminator)
+            })
+        {
+            self.advance_arg();
+            return self.step();
+        }
+
+        if is_negative_number(token)
+            && self
+                .next_arg()
+                .is_some_and(|arg| arg.allow_negative_numbers)
+        {
+            return Some(self.word(token));
+        }
+
+        if is_negative_number(token) && self.cmd.external_subcommand && !self.arg_filled {
+            return Some(self.word(token));
         }
 
         if is_flag_like(token) {
@@ -1435,7 +1484,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             return self.missing_or_default(flag);
         }
         match self.argv.get(self.pos) {
-            Some(next) if flag.allow_hyphen_values || !is_flag_like(bytes(next)) => {
+            Some(next)
+                if flag.allow_hyphen_values
+                    || !is_flag_like(bytes(next))
+                    || (flag.allow_negative_numbers && is_negative_number(bytes(next))) =>
+            {
                 self.pos += 1;
                 Ok(bytes(next))
             }
@@ -1526,7 +1579,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             // command: this word, then every token after it, including flags. Known
             // subcommands already won above, and a default_subcommand already caught.
             if self.cmd.external_subcommand
-                && !is_flag_like(token)
+                && (!is_flag_like(token) || is_negative_number(token))
                 && token != b"--"
                 && token != b"-"
             {
@@ -1700,13 +1753,14 @@ fn values_in(word: &[u8], delimiter: ::core::option::Option<u8>) -> u32 {
 
 /// Whether a token should be read as a flag.
 ///
-/// `-` alone is a value, conventionally stdin. A negative number is a value too,
-/// without which no CLI could accept `--offset -1`.
+/// `-` alone is a value, conventionally stdin. Other dash-prefixed tokens are
+/// flag-like; a field may make the narrower negative-number exception.
 fn is_flag_like(token: &[u8]) -> bool {
-    match token {
-        [b'-', rest @ ..] if !rest.is_empty() => !is_number(rest),
-        _ => false,
-    }
+    matches!(token, [b'-', rest @ ..] if !rest.is_empty())
+}
+
+fn is_negative_number(token: &[u8]) -> bool {
+    token.strip_prefix(b"-").is_some_and(is_number)
 }
 
 /// Whether the text after a `-` is a number, so `-1`, `-2.5`, and `-1e5` are values
@@ -1769,6 +1823,7 @@ mod tests {
         key: 2,
         longs: &["jobs"],
         shorts: b"j",
+        allow_negative_numbers: true,
         ..Flag::VALUE
     };
     static COLOR: Flag = Flag {
@@ -1787,6 +1842,7 @@ mod tests {
     static FILE: Arg = Arg {
         key: 10,
         name: "file",
+        allow_negative_numbers: true,
         ..Arg::REQUIRED
     };
     static REST: Arg = Arg {
@@ -1950,6 +2006,72 @@ mod tests {
             panic!("expected a flag");
         };
         assert_eq!(value, Some(&b"-1"[..]));
+    }
+
+    #[test]
+    fn negative_numbers_are_narrowly_opted_in() {
+        static PLAIN: Flag = Flag {
+            key: 90,
+            name: "plain",
+            longs: &["plain"],
+            ..Flag::VALUE
+        };
+        static VALUE: Arg = Arg {
+            key: 91,
+            name: "value",
+            ..Arg::REQUIRED
+        };
+        static CMD: Command = Command {
+            name: "ex",
+            flags: &[&PLAIN],
+            args: &[&VALUE],
+            unknown_flags: Some(UnknownFlags::Error),
+            ..Command::EMPTY
+        };
+
+        let flag = argv(["--plain", "-1"]);
+        assert_eq!(
+            parse(&CMD, &flag),
+            Err(Error::MissingFlagValue { flag: &PLAIN })
+        );
+        let positional = argv(["-1"]);
+        assert_eq!(
+            parse(&CMD, &positional),
+            Err(Error::UnknownFlag { token: b"-1" })
+        );
+    }
+
+    #[test]
+    fn negation_of_value_flag_does_not_consume_a_value() {
+        static MODE: Flag = Flag {
+            key: 9,
+            name: "mode",
+            longs: &["mode"],
+            negate: Some("no-mode"),
+            ..Flag::VALUE
+        };
+        static NEGATED_VALUE: Command = Command {
+            name: "ex",
+            flags: &[&MODE],
+            args: &[&FILE],
+            ..Command::EMPTY
+        };
+
+        let a = argv(["--no-mode", "input"]);
+        assert_eq!(
+            parse(&NEGATED_VALUE, &a).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &MODE,
+                    value: None,
+                    negated: true
+                },
+                Event::Arg {
+                    arg: &FILE,
+                    value: b"input"
+                }
+            ]
+        );
     }
 
     #[test]
@@ -2817,6 +2939,73 @@ mod tests {
                     flag: &FORCE,
                     value: None,
                     negated: false
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn value_terminators_end_variadic_owners_without_binding() {
+        static INCLUDE: Flag = Flag {
+            key: 92,
+            name: "include",
+            longs: &["include"],
+            takes_value: true,
+            variadic: true,
+            value_terminator: Some(b";"),
+            ..Flag::BOOL
+        };
+        static ITEMS: Arg = Arg {
+            key: 93,
+            name: "items",
+            var: true,
+            value_terminator: Some(b";"),
+            ..Arg::REQUIRED
+        };
+        static AFTER: Arg = Arg {
+            key: 94,
+            name: "after",
+            ..Arg::REQUIRED
+        };
+        static FLAG_CMD: Command = Command {
+            name: "ex",
+            flags: &[&INCLUDE],
+            args: &[&AFTER],
+            ..Command::EMPTY
+        };
+        static ARG_CMD: Command = Command {
+            name: "ex",
+            args: &[&ITEMS, &AFTER],
+            ..Command::EMPTY
+        };
+
+        let flag = argv(["--include", "a", ";", "tail"]);
+        assert_eq!(
+            parse(&FLAG_CMD, &flag).unwrap(),
+            vec![
+                Event::Flag {
+                    flag: &INCLUDE,
+                    value: Some(b"a"),
+                    negated: false,
+                },
+                Event::Arg {
+                    arg: &AFTER,
+                    value: b"tail",
+                },
+            ]
+        );
+
+        let positional = argv(["a", ";", "tail"]);
+        assert_eq!(
+            parse(&ARG_CMD, &positional).unwrap(),
+            vec![
+                Event::Arg {
+                    arg: &ITEMS,
+                    value: b"a",
+                },
+                Event::Arg {
+                    arg: &AFTER,
+                    value: b"tail",
                 },
             ]
         );

@@ -75,6 +75,8 @@ jobs: Option<u32>,
 | `value_enum`                            | Take choices from a `#[derive(ValueEnum)]` type                                         |
 | `delimiter = ','`                       | Split one word into several values ([Validation](/rust/validation#delimiters))          |
 | `allow_hyphen_values`                   | Detached flag value may look like a flag, including `--`                                |
+| `allow_negative_numbers`                | Accept negative numeric tokens without accepting every dash-prefixed word               |
+| `value_terminator = ";"`               | End a variadic field at this token without storing the token                             |
 | `require_equals`                        | Accept `--flag=value` and refuse `--flag value`                                         |
 | `default_missing = "…"`                 | Value when the flag is given with none (`--color` vs `--color=never`)                   |
 | `default_if("--json", "true")`          | Default when another flag is given (two args = present, three = equals)                 |
@@ -111,6 +113,12 @@ commands, while later values fall back to ordinary argument paths.
 `-destroy` instead of reading `-d` as a short. The flag has to take a value; a positional that
 needs the same thing already has `double_dash = "automatic"`. Emitted KDL:
 `flag "--args <ARGS>" allow_hyphen_values=#true`.
+
+`#[usage(allow_negative_numbers)]` is the narrower clap policy: `--jobs -1` binds
+`-1`, while `--jobs --force` still leaves a flag-like token for normal parsing.
+
+`#[usage(value_terminator = ";")]` ends a `Vec` without storing the terminator.
+It works on variadic flags and positionals and emits `value_terminator=";"` in KDL.
 
 `#[usage(require_equals)]` is clap's attribute of the same name: `--inspect=9229` binds
 and `--inspect 9229` is a missing value. The flag has to take a value. Emitted KDL:

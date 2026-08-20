@@ -224,6 +224,8 @@ impl SpecFlag {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self> {
         let mut flag: Self = node.arg(0)?.ensure_string()?.parse()?;
         let mut allow_hyphen_values = false;
+        let mut allow_negative_numbers = false;
+        let mut value_terminator: Option<String> = None;
         let mut delimiter: Option<String> = None;
         for (k, v) in node.props() {
             match k {
@@ -248,6 +250,8 @@ impl SpecFlag {
                 "global" => flag.global = v.ensure_bool()?,
                 "count" => flag.count = v.ensure_bool()?,
                 "allow_hyphen_values" => allow_hyphen_values = v.ensure_bool()?,
+                "allow_negative_numbers" => allow_negative_numbers = v.ensure_bool()?,
+                "value_terminator" => value_terminator = Some(v.ensure_string()?),
                 "default" => {
                     // Support both string and boolean defaults
                     let default_value = match v.value.as_bool() {
@@ -323,6 +327,12 @@ impl SpecFlag {
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
                 "allow_hyphen_values" => {
                     allow_hyphen_values = child.arg(0)?.ensure_bool()?;
+                }
+                "allow_negative_numbers" => {
+                    allow_negative_numbers = child.arg(0)?.ensure_bool()?;
+                }
+                "value_terminator" => {
+                    value_terminator = Some(child.arg(0)?.ensure_string()?);
                 }
                 "default" => {
                     // Support both single value and multiple values
@@ -466,6 +476,40 @@ impl SpecFlag {
         }
         if allow_hyphen_values {
             flag.set_allow_hyphen_values(ctx, node.node.name().span(), true)?;
+        }
+        if allow_negative_numbers {
+            let Some(arg) = flag.arg.as_mut() else {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "flag must have value to allow negative numbers"
+                );
+            };
+            arg.allow_negative_numbers = true;
+        }
+        if let Some(terminator) = value_terminator {
+            let Some(arg) = flag.arg.as_mut() else {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "flag must have a variadic value to have a value terminator"
+                );
+            };
+            if !arg.var {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "value_terminator requires a variadic flag value"
+                );
+            }
+            if terminator.is_empty() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "value_terminator cannot be empty"
+                );
+            }
+            arg.value_terminator = Some(terminator);
         }
         if flag.require_equals && flag.arg.is_none() {
             bail_parse!(
@@ -658,6 +702,20 @@ impl From<&SpecFlag> for KdlNode {
         }
         if flag.allow_hyphen_values() {
             node.push(KdlEntry::new_prop("allow_hyphen_values", true));
+        }
+        if flag
+            .arg
+            .as_ref()
+            .is_some_and(|arg| arg.allow_negative_numbers)
+        {
+            node.push(KdlEntry::new_prop("allow_negative_numbers", true));
+        }
+        if let Some(terminator) = flag
+            .arg
+            .as_ref()
+            .and_then(|arg| arg.value_terminator.as_deref())
+        {
+            node.push(string_entry(Some("value_terminator"), terminator));
         }
         if let Some(negate) = &flag.negate {
             node.push(string_entry(Some("negate"), negate));
@@ -900,6 +958,12 @@ impl From<&clap::Arg> for SpecFlag {
             } else if var || c.get_num_args().is_some_and(|n| n.max_values() > 1) {
                 arg.var = true;
             }
+            arg.allow_negative_numbers = c.is_allow_negative_numbers_set();
+            if arg.var {
+                if let Some(terminator) = c.get_value_terminator() {
+                    arg.value_terminator = Some(terminator.to_string());
+                }
+            }
 
             // clap's range is per occurrence. A non-repeatable `Set` flag has one
             // occurrence, so the spec's collecting bound says exactly the same thing.
@@ -1059,6 +1123,25 @@ mod tests {
         assert_snapshot!("-f --flag <arg>…".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>…");
         assert_snapshot!("myflag: -f".parse::<SpecFlag>().unwrap(), @"myflag: -f");
         assert_snapshot!("myflag: -f --flag <arg>".parse::<SpecFlag>().unwrap(), @"myflag: -f --flag <arg>");
+    }
+
+    #[test]
+    fn clap_token_boundaries_survive_the_bridge() {
+        let command = clap::Command::new("ex")
+            .allow_negative_numbers(true)
+            .arg(
+                clap::Arg::new("item")
+                    .long("item")
+                    .action(clap::ArgAction::Append)
+                    .value_terminator(";"),
+            )
+            .arg(clap::Arg::new("number"));
+        let spec = Spec::from(&command);
+        let item = spec.cmd.flags[0].arg.as_ref().unwrap();
+
+        assert!(item.allow_negative_numbers);
+        assert_eq!(item.value_terminator.as_deref(), Some(";"));
+        assert!(spec.cmd.args[0].allow_negative_numbers);
     }
 
     #[test]

@@ -294,23 +294,25 @@ func (f *Flag) defaults() []string {
 
 // Arg is one positional argument, or a flag's value, in the lowered spec.
 type Arg struct {
-	Name          string   `json:"name"`
-	Required      bool     `json:"required"`
-	Var           bool     `json:"var"`
-	VarMax        int      `json:"var_max"`
-	VarMin        int      `json:"var_min"`
-	DoubleDash    string   `json:"double_dash"`
-	Choices       *Choices `json:"choices"`
-	Default       []string `json:"default"`
-	Env           string   `json:"env"`
-	Hide          bool     `json:"hide"`
-	Help          string   `json:"help"`
-	HelpFirstLine string   `json:"help_first_line"`
-	HelpLong      string   `json:"help_long"`
-	HelpHeading   string   `json:"help_heading"`
-	Validate      string   `json:"validate"`
-	ValidateError string   `json:"validate_error"`
-	Conflicts     []string `json:"conflicts"`
+	Name                 string   `json:"name"`
+	Required             bool     `json:"required"`
+	Var                  bool     `json:"var"`
+	VarMax               int      `json:"var_max"`
+	VarMin               int      `json:"var_min"`
+	DoubleDash           string   `json:"double_dash"`
+	AllowNegativeNumbers bool     `json:"allow_negative_numbers"`
+	ValueTerminator      string   `json:"value_terminator"`
+	Choices              *Choices `json:"choices"`
+	Default              []string `json:"default"`
+	Env                  string   `json:"env"`
+	Hide                 bool     `json:"hide"`
+	Help                 string   `json:"help"`
+	HelpFirstLine        string   `json:"help_first_line"`
+	HelpLong             string   `json:"help_long"`
+	HelpHeading          string   `json:"help_heading"`
+	Validate             string   `json:"validate"`
+	ValidateError        string   `json:"validate_error"`
+	Conflicts            []string `json:"conflicts"`
 }
 
 // Example is a worked invocation a page prints.
@@ -795,10 +797,11 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		// Stored on the nested arg as double_dash=automatic, the same place
 		// usage-lib keeps allow_hyphen_values. Trailing positionals use Arg.DoubleDash
 		// on the command, not here.
-		AllowHyphenValues: f.Arg != nil && strings.EqualFold(f.Arg.DoubleDash, "automatic"),
-		RequireEquals:     f.RequireEquals,
-		DefaultMissing:    f.DefaultMissing,
-		Global:            f.Global,
+		AllowHyphenValues:    f.Arg != nil && strings.EqualFold(f.Arg.DoubleDash, "automatic"),
+		AllowNegativeNumbers: f.Arg != nil && f.Arg.AllowNegativeNumbers,
+		RequireEquals:        f.RequireEquals,
+		DefaultMissing:       f.DefaultMissing,
+		Global:               f.Global,
 	}
 	b.recordNegation(out.Key, f.Negate)
 	for _, s := range f.Short {
@@ -865,16 +868,19 @@ func (b *builder) flag(f *Flag) *argv.Flag {
 		// flag's own var_max counts occurrences and is checked after the parse, so it
 		// does not belong in this table.
 		out.VarMax = clampVarMax(f.Arg.VarMax)
+		out.ValueTerminator = f.Arg.ValueTerminator
 	}
 	return out
 }
 
 func (b *builder) arg(a *Arg) *argv.Arg {
 	out := &argv.Arg{
-		Key:        b.next(),
-		Name:       a.Name,
-		Var:        a.Var,
-		DoubleDash: doubleDash(a.DoubleDash),
+		Key:                  b.next(),
+		Name:                 a.Name,
+		Var:                  a.Var,
+		DoubleDash:           doubleDash(a.DoubleDash),
+		AllowNegativeNumbers: a.AllowNegativeNumbers,
+		ValueTerminator:      a.ValueTerminator,
 	}
 	if a.Var {
 		out.VarMax = clampVarMax(a.VarMax)

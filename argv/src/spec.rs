@@ -1498,6 +1498,16 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if meta.flag.allow_hyphen_values {
         out.push_str(" allow_hyphen_values=#true");
     }
+    if meta.flag.allow_negative_numbers {
+        out.push_str(" allow_negative_numbers=#true");
+    }
+    if let Some(terminator) = meta.flag.value_terminator {
+        write!(
+            out,
+            " value_terminator={}",
+            quoted(::core::str::from_utf8(terminator).unwrap_or_default())
+        )?;
+    }
     if meta.flag.require_equals {
         out.push_str(" require_equals=#true");
     }
@@ -1665,6 +1675,16 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     }
     if let Some(delimiter) = meta.delimiter {
         write!(out, " delimiter={}", quoted(&delimiter.to_string()))?;
+    }
+    if meta.arg.allow_negative_numbers {
+        out.push_str(" allow_negative_numbers=#true");
+    }
+    if let Some(terminator) = meta.arg.value_terminator {
+        write!(
+            out,
+            " value_terminator={}",
+            quoted(::core::str::from_utf8(terminator).unwrap_or_default())
+        )?;
     }
     if meta.arg.double_dash != DoubleDash::Optional {
         let mode = match meta.arg.double_dash {

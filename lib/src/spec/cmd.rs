@@ -926,10 +926,14 @@ impl From<&clap::Command> for SpecCommand {
                 .collect();
             if arg.is_positional() {
                 let mut positional: SpecArg = arg.into();
+                positional.allow_negative_numbers |= cmd.is_allow_negative_numbers_set();
                 positional.conflicts = conflicts;
                 spec.args.push(positional)
             } else {
                 let mut flag: SpecFlag = arg.into();
+                if let Some(value) = &mut flag.arg {
+                    value.allow_negative_numbers |= cmd.is_allow_negative_numbers_set();
+                }
                 // clap keeps conflicts on the command rather than on the argument, so
                 // this is the only place both are in view. Written with dashes,
                 // matching how the spec refers to a flag everywhere else.

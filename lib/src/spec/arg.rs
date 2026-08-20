@@ -82,6 +82,12 @@ pub struct SpecArg {
     /// dropping everything after the first separator.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delimiter: Option<char>,
+    /// Accept negative numeric tokens without accepting arbitrary dash-prefixed words.
+    #[serde(skip_serializing_if = "is_false")]
+    pub allow_negative_numbers: bool,
+    /// End this variadic argument when this token is seen, without binding it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_terminator: Option<String>,
     /// Whether to hide this argument from help output
     pub hide: bool,
     /// Arguments and flags that cannot be given alongside this positional.
@@ -155,6 +161,8 @@ impl SpecArg {
                         ),
                     }
                 }
+                "allow_negative_numbers" => arg.allow_negative_numbers = v.ensure_bool()?,
+                "value_terminator" => arg.value_terminator = v.ensure_string().map(Some)?,
                 "hide" => arg.hide = v.ensure_bool()?,
                 "conflicts" => arg.conflicts = vec![v.ensure_string()?],
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
@@ -226,6 +234,12 @@ impl SpecArg {
                 "var" => arg.var = child.arg(0)?.ensure_bool()?,
                 "var_min" => arg.var_min = child.arg(0)?.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = child.arg(0)?.ensure_usize().map(Some)?,
+                "allow_negative_numbers" => {
+                    arg.allow_negative_numbers = child.arg(0)?.ensure_bool()?;
+                }
+                "value_terminator" => {
+                    arg.value_terminator = child.arg(0)?.ensure_string().map(Some)?;
+                }
                 "hide" => arg.hide = child.arg(0)?.ensure_bool()?,
                 "conflicts" => {
                     arg.conflicts = child
@@ -243,6 +257,20 @@ impl SpecArg {
                 ctx,
                 node.node.name().span(),
                 "validate_error requires a validate expression"
+            );
+        }
+        if arg.value_terminator.as_deref() == Some("") {
+            bail_parse!(
+                ctx,
+                node.node.name().span(),
+                "value_terminator cannot be empty"
+            );
+        }
+        if arg.value_terminator.is_some() && !arg.var {
+            bail_parse!(
+                ctx,
+                node.node.name().span(),
+                "value_terminator requires a variadic argument"
             );
         }
         #[cfg(feature = "validation")]
@@ -317,6 +345,12 @@ impl From<&SpecArg> for KdlNode {
         }
         if let Some(delimiter) = arg.delimiter {
             node.push(string_entry(Some("delimiter"), &delimiter.to_string()));
+        }
+        if arg.allow_negative_numbers {
+            node.push(KdlEntry::new_prop("allow_negative_numbers", true));
+        }
+        if let Some(terminator) = &arg.value_terminator {
+            node.push(string_entry(Some("value_terminator"), terminator));
         }
         if arg.hide {
             node.push(KdlEntry::new_prop("hide", true));
@@ -538,6 +572,7 @@ impl From<&clap::Arg> for SpecArg {
         // either way and the field does collect several values.
         let delimiter = arg.get_value_delimiter();
         let recorded_delimiter = delimiter.filter(char::is_ascii);
+        let value_terminator = arg.get_value_terminator().map(ToString::to_string);
         let var = matches!(
             arg.get_action(),
             clap::ArgAction::Count | clap::ArgAction::Append
@@ -570,6 +605,8 @@ impl From<&clap::Arg> for SpecArg {
             // clap answers for this one, and the same getter `default_values` already
             // uses just above: a default is split by it, and so is a typed value.
             delimiter: recorded_delimiter,
+            allow_negative_numbers: arg.is_allow_negative_numbers_set(),
+            value_terminator: None,
             hide,
             conflicts: Vec::new(),
             default: default_values(arg),
@@ -583,6 +620,9 @@ impl From<&clap::Arg> for SpecArg {
         arg.choices = choices;
 
         value_bounds(source, &mut arg, true);
+        if arg.var {
+            arg.value_terminator = value_terminator;
+        }
 
         arg
     }

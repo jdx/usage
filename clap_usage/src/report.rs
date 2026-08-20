@@ -8,10 +8,8 @@ pub enum FidelityFeature {
     Environment,
     HiddenFlagAlias,
     ValueHint,
-    ValueTerminator,
     NonAsciiDelimiter,
     NonUtf8Default,
-    AllowNegativeNumbers,
     ValueArity,
     DistinctValueNames,
     GranularHide,
@@ -161,12 +159,6 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         FidelityFeature::Color,
         "color",
     );
-    command_loss(
-        cmd.is_allow_negative_numbers_set(),
-        FidelityFeature::AllowNegativeNumbers,
-        "command allow_negative_numbers",
-    );
-
     for arg in cmd.get_arguments() {
         argument_losses(arg, &path, losses);
     }
@@ -198,12 +190,6 @@ fn argument_losses(arg: &Arg, path: &[String], losses: &mut BTreeSet<FidelityLos
             format!("value_hint={:?}", arg.get_value_hint()),
         );
     }
-    if let Some(terminator) = arg.get_value_terminator() {
-        add(
-            FidelityFeature::ValueTerminator,
-            format!("value_terminator={terminator}"),
-        );
-    }
     if let Some(delimiter) = arg
         .get_value_delimiter()
         .filter(|delimiter| !delimiter.is_ascii())
@@ -221,12 +207,6 @@ fn argument_losses(arg: &Arg, path: &[String], losses: &mut BTreeSet<FidelityLos
             );
             break;
         }
-    }
-    if arg.is_allow_negative_numbers_set() {
-        add(
-            FidelityFeature::AllowNegativeNumbers,
-            "allow_negative_numbers".to_string(),
-        );
     }
     if let Some(names) = arg.get_value_names().filter(|names| names.len() > 1) {
         add(

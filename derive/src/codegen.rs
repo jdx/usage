@@ -1047,6 +1047,11 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
 
     let table_delimiter = table_delimiter(field);
     let allow_hyphen_values = field.allow_hyphen_values;
+    let allow_negative_numbers = field.allow_negative_numbers;
+    let value_terminator = match field.value_terminator.as_deref() {
+        Some(value) => quote!(::core::option::Option::Some(#value.as_bytes())),
+        None => quote!(::core::option::Option::None),
+    };
     let require_equals = field.require_equals;
     let default_missing = match field.default_missing.as_deref() {
         Some(value) => quote!(::core::option::Option::Some(#value.as_bytes())),
@@ -1064,6 +1069,8 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             var_max: #var_max,
             delimiter: #table_delimiter,
             allow_hyphen_values: #allow_hyphen_values,
+            allow_negative_numbers: #allow_negative_numbers,
+            value_terminator: #value_terminator,
             require_equals: #require_equals,
             default_missing: #default_missing,
             global: #global,
@@ -1110,6 +1117,11 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     };
 
     let table_delimiter = table_delimiter(field);
+    let allow_negative_numbers = field.allow_negative_numbers;
+    let value_terminator = match field.value_terminator.as_deref() {
+        Some(value) => quote!(::core::option::Option::Some(#value.as_bytes())),
+        None => quote!(::core::option::Option::None),
+    };
     quote! {
         pub static #name: usage_argv::Arg = usage_argv::Arg {
             key: #key,
@@ -1117,6 +1129,8 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
             var: #var,
             var_max: #var_max,
             delimiter: #table_delimiter,
+            allow_negative_numbers: #allow_negative_numbers,
+            value_terminator: #value_terminator,
             double_dash: #double_dash,
         };
     }

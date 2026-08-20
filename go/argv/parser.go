@@ -197,7 +197,12 @@ func (p *Parser) step() bool {
 		if flag := p.collecting; flag != nil {
 			if p.pos < len(p.argv) {
 				next := p.argv[p.pos]
-				if !isFlagLike(next) && next != "--" {
+				if flag.ValueTerminator != "" && next == flag.ValueTerminator {
+					p.pos++
+					p.collecting = nil
+					continue
+				}
+				if (!isFlagLike(next) || (flag.AllowNegativeNumbers && isNegativeNumber(next))) && next != "--" {
 					p.pos++
 					p.collected++
 					// Same rule as a positional: a bounded occurrence takes that many and
@@ -248,6 +253,22 @@ func (p *Parser) step() bool {
 				}
 			}
 			continue
+		}
+
+		if p.argTaken > 0 {
+			if arg := p.nextArg(); arg != nil && arg.ValueTerminator != "" && token == arg.ValueTerminator {
+				p.advanceArg()
+				continue
+			}
+		}
+
+		if isNegativeNumber(token) {
+			if arg := p.nextArg(); arg != nil && arg.AllowNegativeNumbers {
+				return p.word(token)
+			}
+			if p.cmd.ExternalSubcommand && !p.argFilled {
+				return p.word(token)
+			}
 		}
 
 		if isFlagLike(token) {
@@ -407,7 +428,7 @@ func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string,
 	if flag.RequireEquals {
 		return p.missingOrDefault(flag, long, short)
 	}
-	if p.pos < len(p.argv) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos])) {
+	if p.pos < len(p.argv) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos]) || (flag.AllowNegativeNumbers && isNegativeNumber(p.argv[p.pos]))) {
 		v := p.argv[p.pos]
 		p.pos++
 		return v, true
@@ -503,7 +524,7 @@ func (p *Parser) word(token string) bool {
 		// An unmatched word that names no subcommand is forwarded as an external
 		// command: this word, then every token after it, including flags. Known
 		// subcommands already won above, and a default subcommand already caught.
-		if p.cmd.ExternalSubcommand && !isFlagLike(token) && token != "--" && token != "-" {
+		if p.cmd.ExternalSubcommand && (!isFlagLike(token) || isNegativeNumber(token)) && token != "--" && token != "-" {
 			from := p.pos - 1
 			values := p.argv[from:]
 			p.pos = len(p.argv)
@@ -686,10 +707,14 @@ func findNamed(cmd *Command, name string) *Command {
 
 // isFlagLike reports whether a token should be read as a flag.
 //
-// `-` alone is a value, conventionally stdin. A negative number is a value too,
-// without which no CLI could accept `--offset -1`.
+// `-` alone is a value, conventionally stdin. Other dash-prefixed tokens are
+// flag-like; a field may make the narrower negative-number exception.
 func isFlagLike(token string) bool {
-	return len(token) > 1 && token[0] == '-' && !isNumber(token[1:])
+	return len(token) > 1 && token[0] == '-'
+}
+
+func isNegativeNumber(token string) bool {
+	return len(token) > 1 && token[0] == '-' && isNumber(token[1:])
 }
 
 // isNumber reports whether the text after a `-` is a number, so -1, -2.5, and
