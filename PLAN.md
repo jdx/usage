@@ -847,7 +847,8 @@ feature list is not an exhaustive audit.
   external subcommands, `arg_required_else_help`, subcommand requirement/conflict
   policies, conditional defaults, value terminators, skipped optional positionals,
   count/set-false actions, flag and subcommand aliases, case-insensitive value aliases,
-  help headings/placeholders/visibility, and subcommand and value-enum completion candidates. It
+  help headings/placeholders/visibility, default-missing values, flatten/skip, required trailing
+  separators, short/long version output, and subcommand and value-enum completion candidates. It
   records typed values, error classifications, exit status and stream, relevant help,
   and version output; the remaining matrix rows and completion candidates still need
   equivalent minimal pairs. One minimal CLI per matrix row,
