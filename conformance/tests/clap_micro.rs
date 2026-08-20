@@ -1330,3 +1330,263 @@ mod long_version {
         );
     }
 }
+
+mod conditional_relationships {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro")]
+    struct ClapCli {
+        #[arg(long)]
+        mode: Option<String>,
+        #[arg(long)]
+        local: bool,
+        #[arg(
+            long,
+            required_if_eq("mode", "remote"),
+            required_unless_present = "local"
+        )]
+        token: Option<String>,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error")]
+    struct UsageCli {
+        #[usage(long)]
+        mode: Option<String>,
+        #[usage(long)]
+        local: bool,
+        #[usage(long, required_if_eq("--mode", "remote"), required_unless = "--local")]
+        token: Option<String>,
+    }
+
+    #[test]
+    fn value_and_presence_conditions_have_the_same_truth_table() {
+        for argv in [
+            ["--local"].as_slice(),
+            ["--mode", "remote", "--token", "secret"].as_slice(),
+            ["--mode", "local", "--local"].as_slice(),
+        ] {
+            let clap =
+                ClapCli::try_parse_from(std::iter::once("micro").chain(argv.iter().copied()))
+                    .unwrap();
+            let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+            let usage = UsageCli::parse_from(&words).unwrap();
+            assert_eq!(usage.mode, clap.mode, "{argv:?}");
+            assert_eq!(usage.local, clap.local, "{argv:?}");
+            assert_eq!(usage.token, clap.token, "{argv:?}");
+        }
+
+        for argv in [
+            [].as_slice(),
+            ["--mode", "remote"].as_slice(),
+            ["--mode", "local"].as_slice(),
+        ] {
+            let clap =
+                ClapCli::try_parse_from(std::iter::once("micro").chain(argv.iter().copied()))
+                    .unwrap_err();
+            let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+            let usage = UsageCli::parse_from(&words).unwrap_err();
+            assert_eq!(clap.kind(), clap::error::ErrorKind::MissingRequiredArgument);
+            assert!(matches!(usage, Error::MissingRequired { .. }), "{argv:?}");
+        }
+    }
+}
+
+mod overrides_and_positional_conflicts {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro")]
+    struct ClapCli {
+        #[arg(long, overrides_with = "quiet")]
+        verbose: bool,
+        #[arg(long)]
+        quiet: bool,
+        #[arg(conflicts_with = "json")]
+        input: Option<String>,
+        #[arg(long)]
+        json: bool,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error")]
+    struct UsageCli {
+        #[usage(long, overrides = "--quiet")]
+        verbose: bool,
+        #[usage(long)]
+        quiet: bool,
+        #[usage(arg, conflicts = "--json")]
+        input: Option<String>,
+        #[usage(long)]
+        json: bool,
+    }
+
+    #[test]
+    fn the_last_override_wins_and_positionals_can_conflict() {
+        for argv in [
+            ["--verbose", "--quiet"].as_slice(),
+            ["--quiet", "--verbose"].as_slice(),
+        ] {
+            let clap =
+                ClapCli::try_parse_from(std::iter::once("micro").chain(argv.iter().copied()))
+                    .unwrap();
+            let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+            let usage = UsageCli::parse_from(&words).unwrap();
+            assert_eq!((usage.verbose, usage.quiet), (clap.verbose, clap.quiet));
+        }
+
+        let clap = ClapCli::try_parse_from(["micro", "input", "--json"]).unwrap_err();
+        let usage = UsageCli::parse_from(&[OsStr::new("input"), OsStr::new("--json")]).unwrap_err();
+        assert_eq!(clap.kind(), clap::error::ErrorKind::ArgumentConflict);
+        assert!(matches!(usage, Error::ConflictingFlags { .. }));
+    }
+}
+
+mod exclusive_flag {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro")]
+    struct ClapCli {
+        #[arg(long, exclusive = true)]
+        dump: bool,
+        #[arg(long)]
+        output: Option<String>,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error")]
+    struct UsageCli {
+        #[usage(long, exclusive)]
+        dump: bool,
+        #[usage(long)]
+        output: Option<String>,
+    }
+
+    #[test]
+    fn an_exclusive_flag_parses_alone_and_rejects_company() {
+        let clap = ClapCli::try_parse_from(["micro", "--dump"]).unwrap();
+        let usage = UsageCli::parse_from(&[OsStr::new("--dump")]).unwrap();
+        assert_eq!(usage.dump, clap.dump);
+        assert_eq!(usage.output, clap.output);
+
+        let clap = ClapCli::try_parse_from(["micro", "--dump", "--output", "out"]).unwrap_err();
+        let usage = UsageCli::parse_from(&[
+            OsStr::new("--dump"),
+            OsStr::new("--output"),
+            OsStr::new("out"),
+        ])
+        .unwrap_err();
+        assert_eq!(clap.kind(), clap::error::ErrorKind::ArgumentConflict);
+        assert!(matches!(usage, Error::ConflictingFlags { .. }));
+    }
+}
+
+mod automatic_trailing_values {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(
+        name = "micro",
+        trailing_var_arg = true,
+        dont_delimit_trailing_values = true
+    )]
+    struct ClapCli {
+        #[arg(value_delimiter = ',')]
+        rest: Vec<String>,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error", dont_delimit_trailing_values)]
+    struct UsageCli {
+        #[usage(arg, double_dash = "automatic", delimiter = ',')]
+        rest: Vec<String>,
+    }
+
+    #[test]
+    fn automatic_trailing_values_keep_hyphens_and_delimiters_literal() {
+        let clap = ClapCli::try_parse_from(["micro", "a,b", "--literal", "tail"]).unwrap();
+        let usage = UsageCli::parse_from(&[
+            OsStr::new("a,b"),
+            OsStr::new("--literal"),
+            OsStr::new("tail"),
+        ])
+        .unwrap();
+        assert_eq!(usage.rest, clap.rest);
+    }
+}
+
+mod no_binary_name {
+    use super::*;
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro", no_binary_name = true)]
+    struct ClapCli {
+        #[arg(long)]
+        all: bool,
+    }
+
+    #[derive(Debug, Cli)]
+    #[command(name = "micro", no_binary_name = true)]
+    #[usage(unknown_flags = "error")]
+    struct UsageCli {
+        #[usage(long)]
+        all: bool,
+    }
+
+    #[test]
+    fn clap_shaped_entry_points_can_omit_argv0() {
+        let clap = ClapCli::try_parse_from(["--all"]).unwrap();
+        let usage = UsageCli::try_parse_from(&[OsStr::new("--all")]).unwrap();
+        assert_eq!(usage.all, clap.all);
+    }
+}
+
+mod multicall {
+    use super::*;
+
+    #[derive(Debug, clap::Subcommand)]
+    enum ClapCommand {
+        Worker {
+            #[arg(long)]
+            jobs: u8,
+        },
+    }
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro", multicall = true)]
+    struct ClapCli {
+        #[command(subcommand)]
+        command: ClapCommand,
+    }
+
+    #[derive(Debug, usage_derive::Subcommands)]
+    enum UsageCommand {
+        Worker {
+            #[usage(long)]
+            jobs: u8,
+        },
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", multicall, unknown_flags = "error")]
+    struct UsageCli {
+        #[usage(subcommand)]
+        command: UsageCommand,
+    }
+
+    #[test]
+    fn argv0_selects_the_same_applet() {
+        let clap = ClapCli::try_parse_from(["worker", "--jobs", "2"]).unwrap();
+        let usage = UsageCli::parse_from_argv(&[
+            OsStr::new("worker"),
+            OsStr::new("--jobs"),
+            OsStr::new("2"),
+        ])
+        .unwrap();
+        let (ClapCommand::Worker { jobs: clap }, UsageCommand::Worker { jobs: usage }) =
+            (clap.command, usage.command);
+        assert_eq!(usage, clap);
+    }
+}
