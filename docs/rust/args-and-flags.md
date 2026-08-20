@@ -79,6 +79,7 @@ jobs: Option<u32>,
 | `allow_negative_numbers`                                | Accept negative numeric tokens without accepting every dash-prefixed word               |
 | `value_terminator = ";"`                                | End a variadic field at this token without storing the token                            |
 | `require_equals`                                        | Accept `--flag=value` and refuse `--flag value`                                         |
+| `bool_value`                                            | Let a boolean long flag accept attached `=true` or `=false`                             |
 | `default_missing = "…"`                                 | Value when the flag is given with none (`--color` vs `--color=never`)                   |
 | `default_if("--json", "true")`                          | Default when another flag is given (two args = present, three = equals)                 |
 | `group = "name"`                                        | Join a flag group ([Validation](/rust/validation#groups))                               |
@@ -143,6 +144,11 @@ such as `num_args = 1..=3` sets the corresponding nested bounds; distinct
 `#[usage(require_equals)]` is clap's attribute of the same name: `--inspect=9229` binds
 and `--inspect 9229` is a missing value. The flag has to take a value. Emitted KDL:
 `flag "--inspect <PORT>" require_equals=#true`.
+
+`#[usage(bool_value)]` is an opt-in for explicit boolean long-flag values:
+`--color`, `--color=true`, and `--color=false` bind true, true, and false. A
+detached `--color false` never consumes `false`; it remains a positional. The
+portable form is `flag "--color" bool_value=#true`.
 
 `#[usage(default_missing = "always")]` is clap's `default_missing_value`: `--color`
 binds `always`, `--color=never` binds `never`, and an absent flag stays `None`.

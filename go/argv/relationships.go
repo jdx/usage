@@ -9,6 +9,15 @@ func RelationshipValues(m *Meta, values []string, source Source, negated bool) [
 	}
 	switch source {
 	case FromArgv:
+		// An explicit boolean value carries the polarity too. The parser keeps the
+		// value separate from the spelling's negation, just as generated field
+		// binding does, so relationships must combine both pieces the same way.
+		if len(values) > 0 {
+			if (values[len(values)-1] == "true") != negated {
+				return []string{"true"}
+			}
+			return []string{"false"}
+		}
 		if negated {
 			return []string{"false"}
 		}

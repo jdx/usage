@@ -247,6 +247,7 @@ type Flag struct {
 	DefaultIf         []DefaultIf    `json:"default_if"`
 	RequireEquals     bool           `json:"require_equals"`
 	ValueOptional     bool           `json:"value_optional"`
+	BoolValue         bool           `json:"bool_value"`
 	// Empty means unset: usage-lib stores Option, and a missing default of "" is
 	// not carried across the lowering. The corpus never uses one.
 	DefaultMissing string `json:"default_missing"`
@@ -903,6 +904,7 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 		AllowNegativeNumbers: f.Arg != nil && f.Arg.AllowNegativeNumbers,
 		RequireEquals:        f.RequireEquals,
 		ValueOptional:        f.ValueOptional,
+		BoolValue:            f.BoolValue,
 		DefaultMissing:       f.DefaultMissing,
 		Global:               f.Global,
 		Action:               flagAction(f.Action),
@@ -956,7 +958,7 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 	b.record(out.Key, argv.Meta{
 		Name:              f.Name,
 		Flag:              true,
-		RequiresIfBoolean: len(f.RequiresIf) > 0 && f.Arg == nil,
+		RequiresIfBoolean: f.Arg == nil,
 		Spelling:          spelling(f),
 		ValueName:         valueOf(f),
 		CompleteType:      b.completeType(first(valueOf(f), f.Name)),

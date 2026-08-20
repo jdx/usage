@@ -1343,7 +1343,7 @@ above are where it lands.
       `target/debug/incremental` (clap#5279). usage owns the registration
       scripts and the `complete-word` runtime, so each is implementable once,
       for every shell.
-- [ ] **`--flag=false` on booleans** (clap#5577; clap#1649 closed with 28
+- [x] **`--flag=false` on booleans** (clap#5577; clap#1649 closed with 28
       reactions behind it) — **semantic decided (2026-08-19): opt-in per flag,
       and `=`-attached only.** `--flag=false` binds; `--flag false` never does,
       so the `=` settles the next word's role and no existing bool changes
@@ -1352,7 +1352,11 @@ above are where it lands.
       optional value is ambiguous to a human reader even where the grammar
       resolves it (the parser already gives `--color bar`'s `bar` to the
       positionals) — so the recommended declaration is `default_missing` with
-      `require_equals` beside it.
+      `require_equals` beside it. This is now `bool_value=#true` in KDL and
+      `#[usage(bool_value)]` in typed Rust. The Rust and Go binders accept only
+      exact attached `true`/`false`, generated Go and typed structs apply the
+      explicit value (including negated spellings), and detached words remain
+      positionals.
 - [x] **`license` metadata** (clap#1768) — `author`, `license`, and `repository`
       are first-class typed root attributes, survive direct KDL emission, and render
       in Markdown and manpages. GPL display requirements no longer need an

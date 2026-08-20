@@ -11,7 +11,7 @@ import (
 var (
 	force   = &Flag{Key: 1, Name: "force", Longs: []string{"force"}, Shorts: []byte{'f'}}
 	jobs    = &Flag{Key: 2, Name: "jobs", Longs: []string{"jobs"}, Shorts: []byte{'j'}, TakesValue: true, AllowNegativeNumbers: true}
-	color   = &Flag{Key: 3, Name: "color", Longs: []string{"color"}, Negate: "no-color"}
+	color   = &Flag{Key: 3, Name: "color", Longs: []string{"color"}, Negate: "no-color", BoolValue: true}
 	verbose = &Flag{Key: 4, Name: "verbose", Longs: []string{"verbose"}, Shorts: []byte{'v'}, Global: true}
 	include = &Flag{Key: 5, Name: "include", Longs: []string{"include"}, TakesValue: true, Variadic: true}
 
@@ -110,6 +110,10 @@ func TestBinding(t *testing.T) {
 		want string
 	}{
 		{"a bare flag", root, []string{"--force"}, "flag:force"},
+		{"an explicit true switch", root, []string{"--color=true"}, "flag:color=true"},
+		{"an explicit false switch", root, []string{"--color=false"}, "flag:color=false"},
+		{"an explicit false negation", root, []string{"--no-color=false"}, "flag:color=false!"},
+		{"an invalid explicit switch", root, []string{"--color=maybe"}, "err:invalid_choice"},
 		{"an attached value", root, []string{"--jobs=8"}, "flag:jobs=8"},
 		{"a detached value", root, []string{"--jobs", "8"}, "flag:jobs=8"},
 		{"an attached empty value", root, []string{"--jobs="}, "flag:jobs="},

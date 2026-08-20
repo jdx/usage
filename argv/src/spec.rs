@@ -1775,6 +1775,9 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if meta.flag.value_optional {
         out.push_str(" value_optional=#true");
     }
+    if meta.flag.bool_value {
+        out.push_str(" bool_value=#true");
+    }
     if let Some(missing) = meta.flag.default_missing {
         write!(
             out,

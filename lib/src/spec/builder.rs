@@ -268,6 +268,12 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Allow `--flag=true` and `--flag=false` on a boolean switch.
+    pub fn bool_value(mut self, enabled: bool) -> Self {
+        self.inner.bool_value = enabled;
+        self
+    }
+
     /// Value used when the flag is present but no value is given.
     pub fn default_missing(mut self, value: impl Into<String>) -> Self {
         self.inner.default_missing = Some(value.into());
