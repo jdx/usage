@@ -297,6 +297,32 @@ fn conflicting_flags_cannot_both_be_given() {
     );
 }
 
+#[derive(Cli)]
+#[usage(bin = "priority")]
+#[allow(dead_code)]
+struct ConflictPriority {
+    // Deliberately first: declaration order must not let this relationship hide the more
+    // specific flag/flag conflict below.
+    #[usage(conflicts("--all", "--local"))]
+    id: Vec<String>,
+    #[usage(long, conflicts = "--local")]
+    all: bool,
+    #[usage(long, conflicts = "--all")]
+    local: bool,
+}
+
+#[test]
+fn flag_conflicts_are_reported_before_positional_conflicts() {
+    let a = argv(["--all", "--local", "daemon"]);
+    assert!(matches!(
+        ConflictPriority::parse_from(&a),
+        Err(Error::ConflictingFlags {
+            name: "all",
+            other: "local"
+        })
+    ));
+}
+
 #[test]
 fn a_requirement_names_the_flag_that_was_not_given() {
     // Reported as the *other* flag missing rather than as something wrong with

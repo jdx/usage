@@ -103,9 +103,14 @@ type Meta struct {
 	// whichever was given last rather than reported as a mistake.
 	Overrides []uint64
 	// RequiredUnless makes this required when none of them is present.
-	RequiredUnless []uint64
+	RequiredUnless    []uint64
+	RequiredUnlessAll []uint64
 	// RequiredIf makes this required when any of them is present.
-	RequiredIf []uint64
+	RequiredIf      []uint64
+	RequiredIfEq    []ValueCondition
+	RequiredIfEqAll []ValueCondition
+	// Requires names entries that must be satisfied when this one is given.
+	Requires []uint64
 	// RequiresIf names entries required when this entry explicitly has Value.
 	// Defaults do not activate the condition, but may satisfy the requirement.
 	RequiresIf []ValueRequirement
@@ -119,6 +124,11 @@ type Meta struct {
 type ValueRequirement struct {
 	Value string
 	Key   uint64
+}
+
+type ValueCondition struct {
+	Key   uint64
+	Value string
 }
 
 // DefaultIf is one conditional default, resolved to the selector's key.

@@ -53,7 +53,7 @@ err := argv.CheckRelationships(Meta, selectedKeys, sourceOf)
 winners := argv.ApplyOverrides(Meta, tokenOrder)
 ```
 
-`conflicts`, `required_if`, and `required_unless` are judged with a deliberate asymmetry: a
+`conflicts`, `requires`, `required_if`, `required_if_eq`, and `required_unless` are judged with a deliberate asymmetry: a
 defaulted value counts for the entry _being judged_ but not for the _partners judging it_ — so a
 flag with a default doesn't conflict with everything anyone types.
 

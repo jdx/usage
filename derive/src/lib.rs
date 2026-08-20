@@ -256,7 +256,12 @@
 //! | `require_equals` | `--flag=value` is accepted and `--flag value` is not |
 //! | `default_missing = "always"` | the value when the flag is given with none |
 //! | `required_if = "--other"` | a flag whose presence makes this one necessary |
+//! | `required_if_eq("mode", "remote")` | a matching explicit value makes this one necessary |
+//! | `required_if_eq_any = [("mode", "a"), ("mode", "b")]` | any matching value makes this one necessary |
+//! | `required_if_eq_all = [("mode", "a"), ("scope", "global")]` | every value condition must match |
 //! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
+//! | `required_unless_present_any = ["stdin", "file"]` | any present argument makes this unnecessary |
+//! | `required_unless_present_all = ["stdin", "file"]` | every named argument must be present |
 //!
 //! These name a flag as `"--long"` or `"-s"`, and a positional by its bare name. They
 //! take several as a list: `conflicts("--file", "target")`. A selector naming no argument
@@ -286,11 +291,11 @@
 //! two together are "at least one" — clap's two properties, read the same way. A group
 //! with one member, or a declaration no field joins, is a compile error.
 //!
-//! They describe relationships *between flags*, so a positional cannot declare one —
-//! the spec records them on a flag and has nowhere to put them on an argument, and a
-//! check the emitted spec cannot describe would leave docs and completions saying
-//! something else. `required_unless` also needs somewhere to put "absent", so it takes
-//! an `Option` rather than a bare `String`.
+//! These post-parse relationships work on flags and positionals. `overrides` remains a
+//! flag-only binding rule. An argument ID such as `"mode"`, as clap attributes commonly
+//! use, resolves to the same field as the portable `"--mode"` spelling and is emitted in
+//! canonical spec form. A required-unless declaration needs somewhere to put "absent",
+//! so it takes an `Option` rather than a bare `String`.
 //!
 //! A variant may hold its struct in a `Box`, as `Install(Box<Install>)`: an enum is as
 //! large as its biggest variant, so one command with thirty flags otherwise makes every

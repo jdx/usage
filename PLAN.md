@@ -347,8 +347,9 @@ same shape as the `conflicts` hole above, found the same way. The ones the
 fleet actually uses are listed under **Trying the fleet**; the rest stay here
 as a clap-surface audit rather than a rewrite blocker.
 
-One of them the bridge will never carry. clap 4.6 gives `Arg::requires`,
-`requires_if`, `requires_ifs` and `requires_all` as **setters with no getter**,
+One family the bridge will never carry. clap 4.6 gives `Arg::requires`,
+`requires_if`, `requires_ifs`, `requires_all`, `required_if_eq` and the
+`required_unless_present` families as **setters with no getter**,
 and keeps the field `pub(crate)`, so a `Command` cannot be asked what it
 requires. It does appear in `Debug for Arg`, so scraping the debug format would
 technically recover it — declined, because that format carries no compatibility
@@ -478,11 +479,13 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       group members now round-trip through KDL, the derive and static metadata,
       usage-lib, generated Go relationship tables, and the clap bridge. The
       fidelity report no longer calls these preserved declarations losses.
-- [ ] **The complete relationship families** — `requires_all`,
+- [x] **The complete relationship families** — `requires_all`,
       `required_if_eq`, `required_if_eq_all`, `required_if_eq_any`, and the
-      `required_unless_present` all/any variants. The common single-selector
-      forms exist, but a clap migration needs the complete truth table or an
-      explicit non-goal for each omitted form.
+      `required_unless_present` all/any variants. Clap-compatible attributes
+      accept argument IDs and emit canonical spec selectors. Flags and
+      positionals preserve the truth tables through KDL, usage-lib, the typed
+      derive/static metadata, and generated Go tables. `requires_all` lowers to
+      the existing all-target `requires` representation.
 - [x] **`multicall`** — busybox-style applets: argv[0]'s basename selects a
       subcommand when it is not the dispatcher. Spec `multicall #true`,
       usage-lib (which sees argv0), usage-argv / the derive `parse()` /

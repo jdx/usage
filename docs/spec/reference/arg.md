@@ -17,6 +17,15 @@ arg "<file>" var=#true var_max=3 // up to 3 args can be passed
 arg "<start> <end>" var_min=2 var_max=2 // exactly two values with distinct labels
 arg "<number>" allow_negative_numbers=#true // -1 is a value, --force is still flag-like
 arg "<item>..." value_terminator=";" // stop before ; without storing it
+arg "[request]" {
+  requires "--mode" "--scope" // when request is present, both flags are needed
+}
+arg "[token]" {
+  required_if_eq "--mode" "remote"
+}
+arg "[checksum]" {
+  required_unless_all "--stdin" "--file"
+}
 ```
 
 `allow_negative_numbers` accepts a leading-minus integer or decimal where a normal
@@ -26,6 +35,11 @@ variadic argument; it ends that argument without binding the terminator token.
 Several placeholders in one argument declare fixed arity. Each label is retained in
 help and generated Rust and Go tables; `var_min` and `var_max` must match the number
 of placeholders.
+
+Positionals accept the same post-parse relationship nodes as flags: `conflicts`,
+`requires`, `required_if`, `required_if_eq`, `required_if_eq_all`, `required_unless`,
+and `required_unless_all`. Bare selectors name positionals and dashed selectors name
+flags.
 
 `validate` is an [expr](https://expr-lang.org/) expression evaluated once for each
 value after defaults and environment fallbacks are applied. The only variable is

@@ -13,7 +13,7 @@ use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
-use crate::{string, SpecArg, SpecChoices};
+use crate::{string, SpecArg, SpecChoices, SpecRequiredIfEq};
 
 /// A requirement activated by one of a flag's values.
 ///
@@ -104,9 +104,18 @@ pub struct SpecFlag {
     /// Flags whose presence makes this flag required
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub required_if: Vec<String>,
+    /// Value conditions, any one of which makes this flag required.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required_if_eq: Vec<SpecRequiredIfEq>,
+    /// Value conditions which must all match to make this flag required.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required_if_eq_all: Vec<SpecRequiredIfEq>,
     /// Flags whose absence makes this flag required
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub required_unless: Vec<String>,
+    /// Only the presence of every selector waives this flag's requirement.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required_unless_all: Vec<String>,
     /// Deprecation message if this flag is deprecated
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
@@ -236,6 +245,7 @@ impl SpecFlag {
                 "required" => flag.required = v.ensure_bool()?,
                 "required_if" => flag.required_if = vec![v.ensure_string()?],
                 "required_unless" => flag.required_unless = vec![v.ensure_string()?],
+                "required_unless_all" => flag.required_unless_all = vec![v.ensure_string()?],
                 "var" => flag.var = v.ensure_bool()?,
                 "var_min" => flag.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => flag.var_max = v.ensure_usize().map(Some)?,
@@ -305,8 +315,41 @@ impl SpecFlag {
                         .map(|arg| arg.ensure_string())
                         .collect::<Result<Vec<_>>>()?;
                 }
+                "required_if_eq" => {
+                    child.ensure_arg_len(2..=2)?;
+                    flag.required_if_eq.push(SpecRequiredIfEq {
+                        selector: child.arg(0)?.ensure_string()?,
+                        value: child.arg(1)?.ensure_string()?,
+                    });
+                }
+                "required_if_eq_all" => {
+                    let entries = child.args().collect::<Vec<_>>();
+                    if entries.len() < 2 || entries.len() % 2 != 0 {
+                        bail_parse!(
+                            ctx,
+                            child.node.name().span(),
+                            "required_if_eq_all needs selector/value pairs"
+                        );
+                    }
+                    flag.required_if_eq_all = entries
+                        .chunks_exact(2)
+                        .map(|pair| {
+                            Ok(SpecRequiredIfEq {
+                                selector: pair[0].ensure_string()?,
+                                value: pair[1].ensure_string()?,
+                            })
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                }
                 "required_unless" => {
                     flag.required_unless = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|arg| arg.ensure_string())
+                        .collect::<Result<Vec<_>>>()?;
+                }
+                "required_unless_all" => {
+                    flag.required_unless_all = child
                         .ensure_arg_len(1..)?
                         .args()
                         .map(|arg| arg.ensure_string())
@@ -681,7 +724,24 @@ impl From<&SpecFlag> for KdlNode {
             node.push(KdlEntry::new_prop("required", true));
         }
         serialize_flag_list(&mut node, "required_if", &flag.required_if);
+        for condition in &flag.required_if_eq {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut relation = KdlNode::new("required_if_eq");
+            relation.push(string_entry(None, &condition.selector));
+            relation.push(string_entry(None, &condition.value));
+            children.nodes_mut().push(relation);
+        }
+        if !flag.required_if_eq_all.is_empty() {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut relation = KdlNode::new("required_if_eq_all");
+            for condition in &flag.required_if_eq_all {
+                relation.push(string_entry(None, &condition.selector));
+                relation.push(string_entry(None, &condition.value));
+            }
+            children.nodes_mut().push(relation);
+        }
         serialize_flag_list(&mut node, "required_unless", &flag.required_unless);
+        serialize_flag_list(&mut node, "required_unless_all", &flag.required_unless_all);
         if flag.var {
             node.push(KdlEntry::new_prop("var", true));
         }
@@ -988,7 +1048,10 @@ impl From<&clap::Arg> for SpecFlag {
             hidden_aliases,
             required,
             required_if: vec![],
+            required_if_eq: vec![],
+            required_if_eq_all: vec![],
             required_unless: vec![],
+            required_unless_all: vec![],
             conflicts: vec![],
             // clap 4.6 has `Arg::requires` and its variants as setters with no getter, so
             // there is nothing to read here however the `Arg` was built. Left empty rather

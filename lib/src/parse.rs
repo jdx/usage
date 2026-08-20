@@ -1511,7 +1511,45 @@ fn parse_partial_with_env(
             if double_dash_violations.contains(&arg.name) {
                 continue;
             }
-            if arg.required && arg.default.is_empty() {
+            let required_if = arg.required_if.iter().any(|selector| {
+                selector_is_explicit(selector, &out, &overridden_flags, custom_env)
+            });
+            let required_if_eq = arg.required_if_eq.iter().any(|condition| {
+                selector_explicit_has_value(
+                    &condition.selector,
+                    &condition.value,
+                    &out,
+                    &overridden_flags,
+                    custom_env,
+                )
+            });
+            let required_if_eq_all = !arg.required_if_eq_all.is_empty()
+                && arg.required_if_eq_all.iter().all(|condition| {
+                    selector_explicit_has_value(
+                        &condition.selector,
+                        &condition.value,
+                        &out,
+                        &overridden_flags,
+                        custom_env,
+                    )
+                });
+            let unless_any = arg.required_unless.iter().any(|selector| {
+                selector_is_explicit(selector, &out, &overridden_flags, custom_env)
+            });
+            let unless_all = !arg.required_unless_all.is_empty()
+                && arg.required_unless_all.iter().all(|selector| {
+                    selector_is_explicit(selector, &out, &overridden_flags, custom_env)
+                });
+            let required_unless = (!arg.required_unless.is_empty()
+                || !arg.required_unless_all.is_empty())
+                && !(unless_any || unless_all);
+            if (arg.required
+                || required_if
+                || required_if_eq
+                || required_if_eq_all
+                || required_unless)
+                && arg.default.is_empty()
+            {
                 // Check if there's an env var available (custom env map takes precedence)
                 let has_env = arg
                     .env
@@ -1564,7 +1602,11 @@ fn parse_partial_with_env(
             for other in &flag.requires {
                 if !selector_is_satisfied(other, &out, &overridden_flags, custom_env) {
                     let name = selector_flag_name(other, &out).unwrap_or_else(|| other.clone());
-                    out.errors.push(UsageErr::MissingFlag(name));
+                    if other.starts_with('-') {
+                        out.errors.push(UsageErr::MissingFlag(name));
+                    } else {
+                        out.errors.push(UsageErr::MissingArg(name));
+                    }
                 }
             }
             for condition in &flag.requires_if {
@@ -1599,6 +1641,18 @@ fn parse_partial_with_env(
                     span: (0, 0).into(),
                     input: format!("{} {other}", arg.name),
                 });
+            }
+        }
+        if !exclusive_present {
+            for other in &arg.requires {
+                if !selector_is_satisfied(other, &out, &overridden_flags, custom_env) {
+                    let name = selector_flag_name(other, &out).unwrap_or_else(|| other.clone());
+                    if other.starts_with('-') {
+                        out.errors.push(UsageErr::MissingFlag(name));
+                    } else {
+                        out.errors.push(UsageErr::MissingArg(name));
+                    }
+                }
             }
         }
     }
@@ -1723,11 +1777,43 @@ fn parse_partial_with_env(
             let required_if = flag.required_if.iter().any(|selector| {
                 selector_is_explicit(selector, &out, &overridden_flags, custom_env)
             });
-            let required_unless = !flag.required_unless.is_empty()
-                && !flag.required_unless.iter().any(|selector| {
+            let required_if_eq = flag.required_if_eq.iter().any(|condition| {
+                selector_explicit_has_value(
+                    &condition.selector,
+                    &condition.value,
+                    &out,
+                    &overridden_flags,
+                    custom_env,
+                )
+            });
+            let required_if_eq_all = !flag.required_if_eq_all.is_empty()
+                && flag.required_if_eq_all.iter().all(|condition| {
+                    selector_explicit_has_value(
+                        &condition.selector,
+                        &condition.value,
+                        &out,
+                        &overridden_flags,
+                        custom_env,
+                    )
+                });
+            let unless_any = flag.required_unless.iter().any(|selector| {
+                selector_is_explicit(selector, &out, &overridden_flags, custom_env)
+            });
+            let unless_all = !flag.required_unless_all.is_empty()
+                && flag.required_unless_all.iter().all(|selector| {
                     selector_is_explicit(selector, &out, &overridden_flags, custom_env)
                 });
-            if (flag.required || required_if || required_unless) && !has_default && !has_env {
+            let required_unless = (!flag.required_unless.is_empty()
+                || !flag.required_unless_all.is_empty())
+                && !(unless_any || unless_all);
+            if (flag.required
+                || required_if
+                || required_if_eq
+                || required_if_eq_all
+                || required_unless)
+                && !has_default
+                && !has_env
+            {
                 out.errors.push(UsageErr::MissingFlag(flag.name.clone()));
             }
         }
@@ -2091,6 +2177,52 @@ fn explicit_flag_has_value(
             None => value == expected,
         },
     )
+}
+
+fn selector_explicit_has_value(
+    selector: &str,
+    expected: &str,
+    out: &ParseOutput,
+    overridden_flags: &HashSet<String>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> bool {
+    if let Some(flag) = out
+        .available_flags
+        .values()
+        .chain(out.flags.keys())
+        .find(|flag| flag_matches_selector(flag, selector))
+    {
+        return !overridden_flags.contains(&flag.name)
+            && explicit_flag_has_value(flag, expected, out, custom_env);
+    }
+    let Some(arg) = selector_arg(selector, out) else {
+        return false;
+    };
+    let parsed = out
+        .args
+        .iter()
+        .find(|(given, _)| given.name == arg.name)
+        .map(|(_, value)| value);
+    if let Some(value) = parsed {
+        return match value {
+            ParseValue::String(value) => value == expected,
+            ParseValue::MultiString(values) => values.iter().any(|value| value == expected),
+            ParseValue::Bool(value) => value.to_string() == expected,
+            ParseValue::MultiBool(values) => {
+                values.iter().any(|value| value.to_string() == expected)
+            }
+        };
+    }
+    arg.env.as_ref().is_some_and(|env| {
+        let value = match custom_env {
+            Some(values) => values.get(env).cloned(),
+            None => std::env::var(env).ok(),
+        };
+        value.is_some_and(|value| match arg.delimiter {
+            Some(delimiter) => value.split(delimiter).any(|value| value == expected),
+            None => value == expected,
+        })
+    })
 }
 
 fn selector_is_explicit(
@@ -3223,6 +3355,83 @@ flag "--file <file>" required_unless="--stdin"
         );
         parse(&spec, &input(&["test", "--stdin"])).unwrap();
         parse(&spec, &input(&["test", "--file", "input.txt"])).unwrap();
+    }
+
+    #[test]
+    fn complete_required_relationship_truth_tables() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+flag "--mode <mode>"
+flag "--scope <scope>"
+flag "--token <token>" {
+    required_if_eq "--mode" "remote"
+}
+flag "--approval <approval>" {
+    required_if_eq_all "--mode" "remote" "--scope" "global"
+}
+flag "--input <input>" {
+    required_unless "--stdin" "--file"
+}
+flag "--checksum <checksum>" {
+    required_unless_all "--stdin" "--file"
+}
+flag "--stdin"
+flag "--file <file>"
+arg "[request]" {
+    requires "--mode" "--scope"
+}
+"#
+        .parse()
+        .unwrap();
+        let parse_args = |args: &[&str]| {
+            parse(
+                &spec,
+                &args
+                    .iter()
+                    .map(|arg| (*arg).to_string())
+                    .collect::<Vec<_>>(),
+            )
+        };
+
+        assert!(parse_args(&["ex", "--mode", "remote", "--stdin"]).is_err());
+        assert!(parse_args(&[
+            "ex", "--mode", "remote", "--token", "secret", "--scope", "global", "--stdin",
+        ])
+        .is_err());
+        parse_args(&[
+            "ex",
+            "--mode",
+            "remote",
+            "--token",
+            "secret",
+            "--scope",
+            "global",
+            "--approval",
+            "yes",
+            "--stdin",
+            "--file",
+            "in",
+        ])
+        .unwrap();
+        parse_args(&[
+            "ex",
+            "--mode",
+            "local",
+            "--scope",
+            "project",
+            "--stdin",
+            "--checksum",
+            "sum",
+            "request.json",
+        ])
+        .unwrap();
+
+        let reparsed: Spec = spec.to_string().parse().unwrap();
+        assert_eq!(reparsed.cmd.flags[2].required_if_eq.len(), 1);
+        assert_eq!(reparsed.cmd.flags[3].required_if_eq_all.len(), 2);
+        assert_eq!(reparsed.cmd.flags[5].required_unless_all.len(), 2);
+        assert_eq!(reparsed.cmd.args[0].requires.len(), 2);
     }
 
     #[test]

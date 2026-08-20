@@ -14,6 +14,13 @@ use crate::{string, SpecChoices};
 #[cfg(feature = "clap")]
 use crate::{SpecChoice, SpecChoiceAlias};
 
+/// A value comparison that can make another argument required.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SpecRequiredIfEq {
+    pub selector: String,
+    pub value: String,
+}
+
 #[derive(Debug, Default, Clone, Serialize, PartialEq, Eq, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "snake_case")]
 pub enum SpecDoubleDashChoices {
@@ -102,6 +109,24 @@ pub struct SpecArg {
     /// `--long` or `-s` spelling.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub conflicts: Vec<String>,
+    /// Arguments that must also be present when this positional is present.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<String>,
+    /// Presence conditions, any one of which makes this positional required.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required_if: Vec<String>,
+    /// Value conditions, any one of which makes this positional required.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required_if_eq: Vec<SpecRequiredIfEq>,
+    /// Value conditions which must all match to make this positional required.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required_if_eq_all: Vec<SpecRequiredIfEq>,
+    /// Any present selector waives this positional's requirement.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required_unless: Vec<String>,
+    /// Only the presence of every selector waives this positional's requirement.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub required_unless_all: Vec<String>,
     /// Default value(s) if the argument is not provided
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub default: Vec<String>,
@@ -171,6 +196,10 @@ impl SpecArg {
                 "value_terminator" => arg.value_terminator = v.ensure_string().map(Some)?,
                 "hide" => arg.hide = v.ensure_bool()?,
                 "conflicts" => arg.conflicts = vec![v.ensure_string()?],
+                "requires" => arg.requires = vec![v.ensure_string()?],
+                "required_if" => arg.required_if = vec![v.ensure_string()?],
+                "required_unless" => arg.required_unless = vec![v.ensure_string()?],
+                "required_unless_all" => arg.required_unless_all = vec![v.ensure_string()?],
                 "var_min" => arg.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => arg.var_max = v.ensure_usize().map(Some)?,
                 "default" => arg.default = vec![v.ensure_string()?],
@@ -261,6 +290,22 @@ impl SpecArg {
                         .map(|entry| entry.ensure_string())
                         .collect::<Result<Vec<_>, _>>()?;
                 }
+                "requires" => arg.requires = string_args(&child)?,
+                "required_if" => arg.required_if = string_args(&child)?,
+                "required_if_eq" => arg.required_if_eq.push(required_if_eq(&child)?),
+                "required_if_eq_all" => {
+                    let len = child.args().count();
+                    if len < 2 || len % 2 != 0 {
+                        bail_parse!(
+                            ctx,
+                            child.node.name().span(),
+                            "required_if_eq_all needs selector/value pairs"
+                        );
+                    }
+                    arg.required_if_eq_all = required_if_eq_pairs(&child)?;
+                }
+                "required_unless" => arg.required_unless = string_args(&child)?,
+                "required_unless_all" => arg.required_unless_all = string_args(&child)?,
                 "double_dash" => arg.double_dash = child.arg(0)?.ensure_string()?.parse()?,
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
             }
@@ -432,6 +477,14 @@ impl From<&SpecArg> for KdlNode {
             }
             children.nodes_mut().push(conflicts);
         }
+        serialize_selector_list(&mut node, "requires", &arg.requires);
+        serialize_selector_list(&mut node, "required_if", &arg.required_if);
+        serialize_required_if_eq(&mut node, "required_if_eq", &arg.required_if_eq);
+        if !arg.required_if_eq_all.is_empty() {
+            serialize_required_if_eq(&mut node, "required_if_eq_all", &arg.required_if_eq_all);
+        }
+        serialize_selector_list(&mut node, "required_unless", &arg.required_unless);
+        serialize_selector_list(&mut node, "required_unless_all", &arg.required_unless_all);
         // Serialize default values
         if !arg.default.is_empty() {
             if arg.default.len() == 1 {
@@ -474,6 +527,69 @@ impl From<&SpecArg> for KdlNode {
             children.nodes_mut().push(choices.into());
         }
         node
+    }
+}
+
+fn string_args(node: &NodeHelper<'_>) -> Result<Vec<String>, UsageErr> {
+    node.ensure_arg_len(1..)?
+        .args()
+        .map(|entry| entry.ensure_string())
+        .collect()
+}
+
+fn required_if_eq(node: &NodeHelper<'_>) -> Result<SpecRequiredIfEq, UsageErr> {
+    node.ensure_arg_len(2..=2)?;
+    Ok(SpecRequiredIfEq {
+        selector: node.arg(0)?.ensure_string()?,
+        value: node.arg(1)?.ensure_string()?,
+    })
+}
+
+fn required_if_eq_pairs(node: &NodeHelper<'_>) -> Result<Vec<SpecRequiredIfEq>, UsageErr> {
+    let entries = node.args().collect::<Vec<_>>();
+    entries
+        .chunks_exact(2)
+        .map(|pair| {
+            Ok(SpecRequiredIfEq {
+                selector: pair[0].ensure_string()?,
+                value: pair[1].ensure_string()?,
+            })
+        })
+        .collect()
+}
+
+fn serialize_selector_list(node: &mut KdlNode, name: &str, selectors: &[String]) {
+    if selectors.len() == 1 {
+        node.push(string_entry(Some(name), &selectors[0]));
+    } else if !selectors.is_empty() {
+        let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+        let mut relation = KdlNode::new(name);
+        for selector in selectors {
+            relation.push(string_entry(None, selector));
+        }
+        children.nodes_mut().push(relation);
+    }
+}
+
+fn serialize_required_if_eq(node: &mut KdlNode, name: &str, conditions: &[SpecRequiredIfEq]) {
+    if conditions.is_empty() {
+        return;
+    }
+    let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+    if name == "required_if_eq_all" {
+        let mut relation = KdlNode::new(name);
+        for condition in conditions {
+            relation.push(string_entry(None, &condition.selector));
+            relation.push(string_entry(None, &condition.value));
+        }
+        children.nodes_mut().push(relation);
+    } else {
+        for condition in conditions {
+            let mut relation = KdlNode::new(name);
+            relation.push(string_entry(None, &condition.selector));
+            relation.push(string_entry(None, &condition.value));
+            children.nodes_mut().push(relation);
+        }
     }
 }
 
@@ -773,6 +889,12 @@ impl From<&clap::Arg> for SpecArg {
             value_terminator: None,
             hide,
             conflicts: Vec::new(),
+            requires: Vec::new(),
+            required_if: Vec::new(),
+            required_if_eq: Vec::new(),
+            required_if_eq_all: Vec::new(),
+            required_unless: Vec::new(),
+            required_unless_all: Vec::new(),
             default: default_values(arg),
             choices: None,
             validate: None,

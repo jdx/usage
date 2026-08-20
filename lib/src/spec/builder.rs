@@ -34,7 +34,7 @@ use crate::spec::cmd::SpecExample;
 use crate::spec::effect::SpecCommandEffect;
 use crate::{
     spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand, SpecDefaultIf, SpecFlag,
-    SpecRequiresIf,
+    SpecRequiredIfEq, SpecRequiresIf,
 };
 
 /// Builder for SpecFlag
@@ -166,6 +166,35 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Add a selector/value condition that makes this flag required.
+    pub fn required_if_eq(mut self, selector: impl Into<String>, value: impl Into<String>) -> Self {
+        self.inner.required_if_eq.push(SpecRequiredIfEq {
+            selector: selector.into(),
+            value: value.into(),
+        });
+        self
+    }
+
+    /// Set selector/value conditions which must all match to require this flag.
+    pub fn required_if_eq_all<I, S, V>(mut self, conditions: I) -> Self
+    where
+        I: IntoIterator<Item = (S, V)>,
+        S: Into<String>,
+        V: Into<String>,
+    {
+        self.inner
+            .required_if_eq_all
+            .extend(
+                conditions
+                    .into_iter()
+                    .map(|(selector, value)| SpecRequiredIfEq {
+                        selector: selector.into(),
+                        value: value.into(),
+                    }),
+            );
+        self
+    }
+
     /// Add a flag whose absence makes this flag required
     pub fn required_unless(mut self, flag: impl Into<String>) -> Self {
         self.inner.required_unless.push(flag.into());
@@ -180,6 +209,18 @@ impl SpecFlagBuilder {
     {
         self.inner
             .required_unless
+            .extend(flags.into_iter().map(Into::into));
+        self
+    }
+
+    /// Add selectors which must all be present to waive this flag's requirement.
+    pub fn required_unless_all<I, S>(mut self, flags: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner
+            .required_unless_all
             .extend(flags.into_iter().map(Into::into));
         self
     }
@@ -506,6 +547,83 @@ impl SpecArgBuilder {
     /// Set as required
     pub fn required(mut self, is_required: bool) -> Self {
         self.inner.required = is_required;
+        self
+    }
+
+    /// Add arguments that must be satisfied when this positional is present.
+    pub fn requires<I, S>(mut self, selectors: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner
+            .requires
+            .extend(selectors.into_iter().map(Into::into));
+        self
+    }
+
+    /// Add selectors whose presence makes this positional required.
+    pub fn required_if_any<I, S>(mut self, selectors: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner
+            .required_if
+            .extend(selectors.into_iter().map(Into::into));
+        self
+    }
+
+    /// Add a selector/value condition that makes this positional required.
+    pub fn required_if_eq(mut self, selector: impl Into<String>, value: impl Into<String>) -> Self {
+        self.inner.required_if_eq.push(SpecRequiredIfEq {
+            selector: selector.into(),
+            value: value.into(),
+        });
+        self
+    }
+
+    /// Set selector/value conditions which must all match to require this positional.
+    pub fn required_if_eq_all<I, S, V>(mut self, conditions: I) -> Self
+    where
+        I: IntoIterator<Item = (S, V)>,
+        S: Into<String>,
+        V: Into<String>,
+    {
+        self.inner
+            .required_if_eq_all
+            .extend(
+                conditions
+                    .into_iter()
+                    .map(|(selector, value)| SpecRequiredIfEq {
+                        selector: selector.into(),
+                        value: value.into(),
+                    }),
+            );
+        self
+    }
+
+    /// Add selectors where any presence waives this positional's requirement.
+    pub fn required_unless_any<I, S>(mut self, selectors: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner
+            .required_unless
+            .extend(selectors.into_iter().map(Into::into));
+        self
+    }
+
+    /// Add selectors which must all be present to waive this positional's requirement.
+    pub fn required_unless_all<I, S>(mut self, selectors: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.inner
+            .required_unless_all
+            .extend(selectors.into_iter().map(Into::into));
         self
     }
 

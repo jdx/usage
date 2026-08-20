@@ -99,7 +99,7 @@ selected — applies fallbacks and checks:
 
 1. values resolve **argv → env → default_if → default**, per entry
 2. `required`, `choices`, `var_min`/`var_max` are checked
-3. `conflicts`, `required_if`, `required_unless` are checked across the selected commands
+3. `conflicts`, `requires`, `required_if`, `required_if_eq`, and `required_unless` are checked across the selected commands
 
 A value-less flag set from an env var goes through `argv.EnvTruth` (usage-lib's narrow
 allow-list: `1`, `true`, `True`, `TRUE`); a `default` on one compares against the literal

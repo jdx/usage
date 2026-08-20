@@ -841,8 +841,14 @@ pub struct FlagMeta<'a> {
     pub default_if: &'a [DefaultIf<'a>],
     /// Flags that make this one necessary.
     pub required_if: &'a [&'a str],
+    /// Selector/value conditions, any one of which makes this required.
+    pub required_if_eq: &'a [RequiredIfEq<'a>],
+    /// Selector/value conditions which must all match to make this required.
+    pub required_if_eq_all: &'a [RequiredIfEq<'a>],
     /// Flags that make this one unnecessary.
     pub required_unless: &'a [&'a str],
+    /// All selectors must be present to make this unnecessary.
+    pub required_unless_all: &'a [&'a str],
     /// Heading to list this flag under in help output. Presentational: it groups
     /// a long flag list into sections and changes nothing about parsing.
     pub help_heading: Option<&'a str>,
@@ -887,7 +893,10 @@ impl FlagMeta<'_> {
         requires_if: &[],
         default_if: &[],
         required_if: &[],
+        required_if_eq: &[],
+        required_if_eq_all: &[],
         required_unless: &[],
+        required_unless_all: &[],
         help_heading: None,
         effect: None,
     };
@@ -898,6 +907,13 @@ impl FlagMeta<'_> {
 pub struct RequiresIf<'a> {
     pub value: &'a str,
     pub requires: &'a str,
+}
+
+/// A selector/value comparison used by conditional requiredness.
+#[derive(Debug, Clone, Copy)]
+pub struct RequiredIfEq<'a> {
+    pub selector: &'a str,
+    pub value: &'a str,
 }
 
 /// A default that applies when another flag is given.
@@ -940,6 +956,12 @@ pub struct ArgMeta<'a> {
     pub hide: bool,
     /// Entries that cannot be given alongside this positional.
     pub conflicts: &'a [&'a str],
+    pub requires: &'a [&'a str],
+    pub required_if: &'a [&'a str],
+    pub required_if_eq: &'a [RequiredIfEq<'a>],
+    pub required_if_eq_all: &'a [RequiredIfEq<'a>],
+    pub required_unless: &'a [&'a str],
+    pub required_unless_all: &'a [&'a str],
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
     /// The character one word is split on to make several positional values.
@@ -973,6 +995,12 @@ impl ArgMeta<'_> {
         required: true,
         hide: false,
         conflicts: &[],
+        requires: &[],
+        required_if: &[],
+        required_if_eq: &[],
+        required_if_eq_all: &[],
+        required_unless: &[],
+        required_unless_all: &[],
         var_min: None,
         var_max: None,
         delimiter: None,
@@ -1539,6 +1567,7 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     write_single_list(out, "requires", meta.requires)?;
     write_single_list(out, "required_if", meta.required_if)?;
     write_single_list(out, "required_unless", meta.required_unless)?;
+    write_single_list(out, "required_unless_all", meta.required_unless_all)?;
 
     let has_children = meta.long_help.is_some()
         || !meta.hidden_shorts.is_empty()
@@ -1551,8 +1580,11 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         || meta.requires.len() > 1
         || !meta.requires_if.is_empty()
         || !meta.default_if.is_empty()
+        || !meta.required_if_eq.is_empty()
+        || !meta.required_if_eq_all.is_empty()
         || meta.required_if.len() > 1
-        || meta.required_unless.len() > 1;
+        || meta.required_unless.len() > 1
+        || meta.required_unless_all.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -1606,8 +1638,31 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
             )?,
         }
     }
+    for condition in meta.required_if_eq {
+        indent(out, inner)?;
+        writeln!(
+            out,
+            "required_if_eq {} {}",
+            quoted(condition.selector),
+            quoted(condition.value)
+        )?;
+    }
+    if !meta.required_if_eq_all.is_empty() {
+        indent(out, inner)?;
+        out.push_str("required_if_eq_all");
+        for condition in meta.required_if_eq_all {
+            write!(
+                out,
+                " {} {}",
+                quoted(condition.selector),
+                quoted(condition.value)
+            )?;
+        }
+        out.push('\n');
+    }
     write_many_list(out, "required_if", meta.required_if, inner)?;
     write_many_list(out, "required_unless", meta.required_unless, inner)?;
+    write_many_list(out, "required_unless_all", meta.required_unless_all, inner)?;
     if meta.flag.takes_value {
         indent(out, inner)?;
         let exact = exact_arity(meta.value_var_min, meta.value_var_max);
@@ -1756,13 +1811,23 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         }
     }
     write_single_default(out, meta.default)?;
+    write_single_list(out, "requires", meta.requires)?;
+    write_single_list(out, "required_if", meta.required_if)?;
+    write_single_list(out, "required_unless", meta.required_unless)?;
+    write_single_list(out, "required_unless_all", meta.required_unless_all)?;
 
     let has_children = meta.long_help.is_some()
         || !meta.choices.is_empty()
         || !meta.accepted_choices.is_empty()
         || !meta.choice_details.is_empty()
         || meta.default.len() > 1
-        || meta.conflicts.len() > 1;
+        || meta.conflicts.len() > 1
+        || meta.requires.len() > 1
+        || meta.required_if.len() > 1
+        || !meta.required_if_eq.is_empty()
+        || !meta.required_if_eq_all.is_empty()
+        || meta.required_unless.len() > 1
+        || meta.required_unless_all.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -1782,6 +1847,32 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         }
         out.push('\n');
     }
+    write_many_list(out, "requires", meta.requires, inner)?;
+    write_many_list(out, "required_if", meta.required_if, inner)?;
+    for condition in meta.required_if_eq {
+        indent(out, inner)?;
+        writeln!(
+            out,
+            "required_if_eq {} {}",
+            quoted(condition.selector),
+            quoted(condition.value)
+        )?;
+    }
+    if !meta.required_if_eq_all.is_empty() {
+        indent(out, inner)?;
+        out.push_str("required_if_eq_all");
+        for condition in meta.required_if_eq_all {
+            write!(
+                out,
+                " {} {}",
+                quoted(condition.selector),
+                quoted(condition.value)
+            )?;
+        }
+        out.push('\n');
+    }
+    write_many_list(out, "required_unless", meta.required_unless, inner)?;
+    write_many_list(out, "required_unless_all", meta.required_unless_all, inner)?;
     write_many_defaults(out, meta.default, inner)?;
     write_choices(
         out,

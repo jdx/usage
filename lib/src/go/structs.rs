@@ -100,26 +100,32 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
 
 fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
     let root = &commands[0];
-    let has_requires_if = commands
-        .iter()
-        .flat_map(|command| command.flags.iter())
-        .any(|(flag, _)| !flag.requires_if.is_empty());
+    let has_relationship_values = commands.iter().any(|command| {
+        command.flags.iter().any(|(flag, _)| {
+            !flag.requires_if.is_empty()
+                || !flag.required_if_eq.is_empty()
+                || !flag.required_if_eq_all.is_empty()
+        }) || command
+            .args
+            .iter()
+            .any(|(arg, _)| !arg.required_if_eq.is_empty() || !arg.required_if_eq_all.is_empty())
+    });
     let has_default_if = commands
         .iter()
         .flat_map(|command| command.flags.iter())
         .any(|(flag, _)| !flag.default_if.is_empty());
-    let needs_negated = has_requires_if || has_default_if;
+    let needs_negated = has_relationship_values || has_default_if;
     let conditional_state = if needs_negated {
         "\tnegated := map[uint64]bool{}\n"
     } else {
         ""
     };
-    let conditional_resolved = if has_requires_if {
+    let conditional_resolved = if has_relationship_values {
         "\tresolved := map[uint64][]string{}\n"
     } else {
         ""
     };
-    let conditional_value = if has_requires_if {
+    let conditional_value = if has_relationship_values {
         "\t\tresolved[key] = values\n"
     } else {
         ""
@@ -268,7 +274,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
     );
     fallback_cases(out, commands, assigned);
     let _ = writeln!(out, "\t\t\t}}\n\t\t}}\n\t}}");
-    if has_requires_if {
+    if has_relationship_values {
         let _ = writeln!(
             out,
             "\tif err := argv.CheckRelationshipsWithValues(Meta, scope, func(k uint64) argv.Source {{\n\
