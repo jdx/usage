@@ -162,7 +162,11 @@ func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help
 	if len(lines) == 0 {
 		return
 	}
-	out.WriteString("\nCommands:\n")
+	heading := "Commands"
+	if h := help.Lookup(cmd.Key); h != nil && h.SubcommandHelpHeading != "" {
+		heading = h.SubcommandHelpHeading
+	}
+	out.WriteString("\n" + heading + ":\n")
 	sortLines(lines, func(i int) string { return lines[i].usage })
 
 	for _, l := range lines {

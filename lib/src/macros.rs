@@ -290,6 +290,12 @@ macro_rules! __spec_cmd_attr {
     ($builder:expr, subcommand_required, $value:expr) => {
         $builder.subcommand_required($value)
     };
+    ($builder:expr, subcommand_help_heading, $value:expr) => {
+        $builder.subcommand_help_heading($value)
+    };
+    ($builder:expr, subcommand_value_name, $value:expr) => {
+        $builder.subcommand_value_name($value)
+    };
     ($builder:expr, external_subcommand, $value:expr) => {
         $builder.external_subcommand($value)
     };

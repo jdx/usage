@@ -79,10 +79,12 @@ type Help struct {
 	Default []string
 	// BeforeHelp and AfterHelp bracket this command's page, overriding the
 	// spec-wide text. The long variants are preferred by `--help`.
-	BeforeHelp     string
-	AfterHelp      string
-	BeforeLongHelp string
-	AfterLongHelp  string
+	BeforeHelp            string
+	AfterHelp             string
+	BeforeLongHelp        string
+	AfterLongHelp         string
+	SubcommandHelpHeading string
+	SubcommandValueName   string
 	// Examples are worked invocations, printed last.
 	Examples []Example
 }
@@ -175,7 +177,11 @@ func UsageLine(path []string, cmd *Command, help HelpTable) string {
 	}
 
 	if len(cmd.Subcommands) > 0 {
-		out.WriteString(" <SUBCOMMAND>")
+		name := "SUBCOMMAND"
+		if h := help.Lookup(cmd.Key); h != nil && h.SubcommandValueName != "" {
+			name = h.SubcommandValueName
+		}
+		out.WriteString(" <" + name + ">")
 	}
 	return out.String()
 }

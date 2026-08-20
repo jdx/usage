@@ -145,6 +145,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let args_conflicts_with_subcommands = cli.args_conflicts_with_subcommands;
     let subcommand_precedence_over_arg = cli.subcommand_precedence_over_arg;
     let allow_missing_positional = cli.allow_missing_positional;
+    let subcommand_help_heading = option_str(cli.subcommand_help_heading.as_deref());
+    let subcommand_value_name = option_str(cli.subcommand_value_name.as_deref());
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -461,6 +463,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 long_about: #long_about,
                 restart_token: #restart_token,
                 subcommand_required: #subcommand_required,
+                subcommand_help_heading: #subcommand_help_heading,
+                subcommand_value_name: #subcommand_value_name,
                 args_override_self: #args_override_self,
                 mount: #mount,
                 before_help: #before_help,
@@ -3476,6 +3480,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             }
         )
     });
+    let subcommand_help_heading = option_str(cli.subcommand_help_heading.as_deref());
+    let subcommand_value_name = option_str(cli.subcommand_value_name.as_deref());
     let unknown_flags = unknown_flags_tokens(cli);
     let arg_required_else_help = cli.arg_required_else_help;
     let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
@@ -3620,6 +3626,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 hidden_aliases: &[#(#hidden_aliases),*],
                 restart_token: #restart_token,
                 subcommand_required: #subcommand_required,
+                subcommand_help_heading: #subcommand_help_heading,
+                subcommand_value_name: #subcommand_value_name,
                 args_override_self: #args_override_self,
                 mount: #mount,
                 before_help: #before_help,

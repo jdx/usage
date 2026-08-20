@@ -829,6 +829,18 @@ impl SpecCommandBuilder {
         self
     }
 
+    /// Set the heading for this command's subcommand list.
+    pub fn subcommand_help_heading(mut self, heading: impl Into<String>) -> Self {
+        self.inner.subcommand_help_heading = Some(heading.into());
+        self
+    }
+
+    /// Set the synopsis placeholder for a subcommand.
+    pub fn subcommand_value_name(mut self, name: impl Into<String>) -> Self {
+        self.inner.subcommand_value_name = Some(name.into());
+        self
+    }
+
     /// Forward an unmatched word as an external command plus the rest of argv
     pub fn external_subcommand(mut self, enabled: bool) -> Self {
         self.inner.external_subcommand = enabled;

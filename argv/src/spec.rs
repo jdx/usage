@@ -708,6 +708,10 @@ pub struct CommandMeta<'a> {
     /// everything reading that spec — help, docs, completions — otherwise describes a
     /// command as runnable when it is not.
     pub subcommand_required: bool,
+    /// Heading for the list of this command's subcommands.
+    pub subcommand_help_heading: Option<&'a str>,
+    /// Placeholder used for a subcommand in the usage synopsis.
+    pub subcommand_value_name: Option<&'a str>,
     /// Whether later single-valued occurrences replace earlier ones.
     pub args_override_self: bool,
     /// Text printed above the usage line, and below everything else.
@@ -745,6 +749,8 @@ impl CommandMeta<'_> {
         mount: None,
         restart_token: None,
         subcommand_required: false,
+        subcommand_help_heading: None,
+        subcommand_value_name: None,
         args_override_self: true,
         before_help: None,
         before_long_help: None,
@@ -1170,6 +1176,12 @@ impl Spec<'_> {
         if self.root.cmd.allow_missing_positional {
             writeln!(out, "allow_missing_positional #true")?;
         }
+        if let Some(heading) = self.root.subcommand_help_heading {
+            prop(out, "subcommand_help_heading", heading)?;
+        }
+        if let Some(name) = self.root.subcommand_value_name {
+            prop(out, "subcommand_value_name", name)?;
+        }
         // A `complete` block for every completer this CLI declares, naming the command that
         // asks the binary itself. Written rather than declared, so there is one place a
         // completer is said to exist: the Rust function. Everything that reads a spec — the
@@ -1406,6 +1418,12 @@ fn write_command<'a>(
     // demand one, and the spec's own reader treats the pair as a mistake.
     if meta.subcommand_required && !meta.cmd.subcommands.is_empty() {
         out.push_str(" subcommand_required=#true");
+    }
+    if let Some(heading) = meta.subcommand_help_heading {
+        write!(out, " subcommand_help_heading={}", quoted(heading))?;
+    }
+    if let Some(name) = meta.subcommand_value_name {
+        write!(out, " subcommand_value_name={}", quoted(name))?;
     }
     if meta.cmd.external_subcommand {
         out.push_str(" external_subcommand=#true");

@@ -122,6 +122,23 @@ func TestGranularHelpHides(t *testing.T) {
 	}
 }
 
+func TestSubcommandPresentation(t *testing.T) {
+	sub := &Command{Name: "run", Key: 2}
+	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{sub}}
+	help := HelpTable{
+		{Key: 1, SubcommandHelpHeading: "Actions", SubcommandValueName: "ACTION"},
+		{Key: 2, Short: "run it"},
+	}
+	for _, page := range []string{
+		ShortHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+		LongHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+	} {
+		if !strings.Contains(page, "Usage: ex <ACTION>") || !strings.Contains(page, "\nActions:\n") {
+			t.Fatalf("subcommand presentation was not preserved:\n%s", page)
+		}
+	}
+}
+
 // A description that ends in a break adds no blank line.
 //
 // clap's `long_about` often ends with one — a `///` block whose last line is

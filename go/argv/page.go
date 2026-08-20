@@ -212,7 +212,11 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 	if len(lines) == 0 {
 		return
 	}
-	out.WriteString("\nCommands:\n")
+	heading := "Commands"
+	if h := help.Lookup(cmd.Key); h != nil && h.SubcommandHelpHeading != "" {
+		heading = h.SubcommandHelpHeading
+	}
+	out.WriteString("\n" + heading + ":\n")
 
 	// Sorted by the rendered usage rather than by name, as usage-lib sorts them.
 	sortLines(lines, func(i int) string { return lines[i].usage })

@@ -524,8 +524,10 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [x] **The granular hides** — `hide_default_value`, `hide_env`, `hide_env_values`,
       `hide_possible_values`, `hide_short_help`, and `hide_long_help` round-trip
       through KDL and the clap bridge and are honored by Rust and Go help output.
-- [ ] **`help_template`, `next_line_help`, `flatten_help`,
-      `subcommand_help_heading`, `subcommand_value_name`.**
+- [ ] **`help_template`, `next_line_help`, and `flatten_help`.**
+- [x] **`subcommand_help_heading` / `subcommand_value_name`.** Custom subcommand
+      section labels and synopsis placeholders survive KDL, typed Rust, generated
+      Go, and the clap bridge and are rendered by both help implementations.
 - [x] **`verbatim_doc_comment`.** Commands, fields, and subcommand variants can
       preserve doc-comment line breaks and indentation instead of flowing the
       first paragraph. The derive uses the same normalization path for all three.

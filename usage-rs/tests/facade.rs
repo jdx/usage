@@ -93,6 +93,18 @@ struct HiddenHelp {
     mode: String,
 }
 
+#[derive(Cli)]
+#[command(
+    bin = "presented",
+    subcommand_help_heading = "Actions",
+    subcommand_value_name = "ACTION"
+)]
+#[allow(dead_code)]
+struct PresentedSubcommands {
+    #[command(subcommand)]
+    command: Option<ArgumentConflictCommand>,
+}
+
 #[derive(Subcommands, serde::Deserialize)]
 enum InlineCommand {
     /// Run a named benchmark.
@@ -1060,6 +1072,17 @@ fn typed_granular_help_hides_reach_the_portable_spec() {
         assert!(kdl.contains(&format!("{property}=#true")), "{kdl}");
     }
     assert_eq!(HiddenHelp::parse_from(&[]).unwrap().mode, "fast");
+}
+
+#[test]
+fn typed_subcommand_presentation_reaches_help_and_the_spec() {
+    let kdl = PresentedSubcommands::to_kdl();
+    assert!(kdl.contains("subcommand_help_heading Actions"), "{kdl}");
+    assert!(kdl.contains("subcommand_value_name ACTION"), "{kdl}");
+    let spec = PresentedSubcommands::spec();
+    let page = usage::argv::help::short_help(spec, &["presented"], &[spec.root]);
+    assert!(page.contains("<ACTION>"), "{page}");
+    assert!(page.contains("Actions:"), "{page}");
 }
 
 #[test]

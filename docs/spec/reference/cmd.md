@@ -9,6 +9,7 @@ cmd "config" help="Manage the CLI config" {
 
 cmd "config" hide=#true // hide command from docs and completions
 cmd "config" subcommand_required=#true // subcommand is not optional
+cmd "config" subcommand_help_heading="Actions" subcommand_value_name="ACTION"
 
 // these are shown under -h
 cmd "config" before_help="shown before the command"

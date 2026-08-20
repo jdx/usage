@@ -94,6 +94,12 @@ pub struct SpecCommand {
     /// Whether a subcommand must be provided
     #[serde(skip_serializing_if = "is_false")]
     pub subcommand_required: bool,
+    /// Heading used for this command's subcommand section.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subcommand_help_heading: Option<String>,
+    /// Placeholder used for subcommands in the synopsis.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subcommand_value_name: Option<String>,
     /// Whether an unmatched word is forwarded as an external command plus the rest of argv.
     ///
     /// clap's `allow_external_subcommands` / `#[command(external_subcommand)]`. Known
@@ -190,6 +196,8 @@ impl Default for SpecCommand {
             mounted: false,
             flags_from_mount: false,
             subcommand_required: false,
+            subcommand_help_heading: None,
+            subcommand_value_name: None,
             external_subcommand: false,
             arg_required_else_help: false,
             dont_delimit_trailing_values: false,
@@ -303,6 +311,8 @@ impl SpecCommand {
                 }
                 "after_help_md" => cmd.after_help_md = Some(v.ensure_string()?),
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
+                "subcommand_help_heading" => cmd.subcommand_help_heading = Some(v.ensure_string()?),
+                "subcommand_value_name" => cmd.subcommand_value_name = Some(v.ensure_string()?),
                 "external_subcommand" => cmd.external_subcommand = v.ensure_bool()?,
                 "arg_required_else_help" => cmd.arg_required_else_help = v.ensure_bool()?,
                 "dont_delimit_trailing_values" => {
@@ -438,6 +448,14 @@ impl SpecCommand {
                 "subcommand_required" => {
                     cmd.subcommand_required = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
+                "subcommand_help_heading" => {
+                    cmd.subcommand_help_heading =
+                        Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?)
+                }
+                "subcommand_value_name" => {
+                    cmd.subcommand_value_name =
+                        Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?)
+                }
                 "external_subcommand" => {
                     cmd.external_subcommand = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
                 }
@@ -544,7 +562,11 @@ impl SpecCommand {
         //     name = format!("{name} [mounts]");
         // }
         if !self.subcommands.is_empty() {
-            usage = format!("{usage} <SUBCOMMAND>");
+            let name = self
+                .subcommand_value_name
+                .as_deref()
+                .unwrap_or("SUBCOMMAND");
+            usage = format!("{usage} <{name}>");
         }
         usage.trim().to_string()
     }
@@ -577,6 +599,8 @@ impl SpecCommand {
             examples,
             hide,
             subcommand_required,
+            subcommand_help_heading,
+            subcommand_value_name,
             external_subcommand,
             arg_required_else_help,
             dont_delimit_trailing_values,
@@ -657,6 +681,12 @@ impl SpecCommand {
         }
         self.hide = hide;
         self.subcommand_required = subcommand_required;
+        if subcommand_help_heading.is_some() {
+            self.subcommand_help_heading = subcommand_help_heading;
+        }
+        if subcommand_value_name.is_some() {
+            self.subcommand_value_name = subcommand_value_name;
+        }
         self.external_subcommand = external_subcommand;
         self.arg_required_else_help = arg_required_else_help;
         self.dont_delimit_trailing_values = dont_delimit_trailing_values;
@@ -767,6 +797,8 @@ impl From<&SpecCommand> for KdlNode {
             name,
             hide,
             subcommand_required,
+            subcommand_help_heading,
+            subcommand_value_name,
             external_subcommand,
             arg_required_else_help,
             dont_delimit_trailing_values,
@@ -812,6 +844,15 @@ impl From<&SpecCommand> for KdlNode {
         if *subcommand_required {
             node.entries_mut()
                 .push(KdlEntry::new_prop("subcommand_required", true));
+        }
+        if let Some(heading) = subcommand_help_heading {
+            node.push(KdlEntry::new_prop(
+                "subcommand_help_heading",
+                heading.clone(),
+            ));
+        }
+        if let Some(name) = subcommand_value_name {
+            node.push(KdlEntry::new_prop("subcommand_value_name", name.clone()));
         }
         if *external_subcommand {
             node.entries_mut()
@@ -1087,6 +1128,8 @@ impl From<&clap::Command> for SpecCommand {
             spec.groups.push(spec_group);
         }
         spec.subcommand_required = cmd.is_subcommand_required_set();
+        spec.subcommand_help_heading = cmd.get_subcommand_help_heading().map(str::to_string);
+        spec.subcommand_value_name = cmd.get_subcommand_value_name().map(str::to_string);
         spec.arg_required_else_help = cmd.is_arg_required_else_help_set();
         spec.dont_delimit_trailing_values = cmd.is_dont_delimit_trailing_values_set();
         spec.args_override_self = cmd.is_args_override_self();
@@ -1459,6 +1502,24 @@ cmd "hidden" hide=#true
 
         let node: kdl::KdlNode = (&strict).into();
         assert!(node.to_string().contains("args_override_self=#false"));
+    }
+
+    #[cfg(feature = "clap")]
+    #[test]
+    fn the_clap_bridge_preserves_subcommand_presentation() {
+        use super::SpecCommand;
+
+        let spec: SpecCommand = (&clap::Command::new("ex")
+            .subcommand(clap::Command::new("run"))
+            .subcommand_help_heading("Actions")
+            .subcommand_value_name("ACTION"))
+            .into();
+        assert_eq!(spec.subcommand_help_heading.as_deref(), Some("Actions"));
+        assert_eq!(spec.subcommand_value_name.as_deref(), Some("ACTION"));
+        let node: kdl::KdlNode = (&spec).into();
+        let kdl = node.to_string();
+        assert!(kdl.contains("subcommand_help_heading=Actions"), "{kdl}");
+        assert!(kdl.contains("subcommand_value_name=ACTION"), "{kdl}");
     }
 
     #[cfg(feature = "clap")]
