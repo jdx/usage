@@ -198,9 +198,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
         Some(tokens) => quote!(::core::option::Option::Some(#tokens)),
         None => quote!(::core::option::Option::None),
     };
-    let author = option_str(cli.author.as_deref());
-    let license = option_str(cli.license.as_deref());
-    let repository = option_str(cli.repository.as_deref());
+    let author = option_expr(cli.author.as_ref());
+    let license = option_expr(cli.license.as_ref());
+    let repository = option_expr(cli.repository.as_ref());
     let about = cli
         .about_attr
         .as_ref()

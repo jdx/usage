@@ -26,26 +26,29 @@ enum Command {
 #[derive(Cli)]
 #[usage(
     bin = "metadata",
-    author = "Example Maintainers",
-    license = "MIT OR Apache-2.0",
-    repository = "https://example.com/tool"
+    author = env!("CARGO_PKG_AUTHORS"),
+    license = env!("CARGO_PKG_LICENSE"),
+    repository = env!("CARGO_PKG_REPOSITORY")
 )]
 struct PackageMetadata;
 
 #[test]
 fn package_metadata_survives_spec_emission() {
     let kdl = PackageMetadata::to_kdl();
-    assert!(kdl.contains("author \"Example Maintainers\""), "{kdl}");
-    assert!(kdl.contains("license \"MIT OR Apache-2.0\""), "{kdl}");
+    assert!(kdl.contains("author \"Jeff Dickey @jdx\""), "{kdl}");
+    assert!(kdl.contains("license MIT"), "{kdl}");
     assert!(
-        kdl.contains("repository \"https://example.com/tool\""),
+        kdl.contains("repository \"https://github.com/jdx/usage\""),
         "{kdl}"
     );
 
     let spec: usage_parser::Spec = kdl.parse().expect("usage-lib should read derive output");
-    assert_eq!(spec.author.as_deref(), Some("Example Maintainers"));
-    assert_eq!(spec.license.as_deref(), Some("MIT OR Apache-2.0"));
-    assert_eq!(spec.repository.as_deref(), Some("https://example.com/tool"));
+    assert_eq!(spec.author.as_deref(), Some("Jeff Dickey @jdx"));
+    assert_eq!(spec.license.as_deref(), Some("MIT"));
+    assert_eq!(
+        spec.repository.as_deref(),
+        Some("https://github.com/jdx/usage")
+    );
 }
 
 #[test]

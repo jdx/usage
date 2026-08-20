@@ -91,9 +91,13 @@ pub struct Cli {
     /// From the struct's doc comment: first paragraph, and the whole thing.
     pub about: Option<String>,
     pub long_about: Option<String>,
-    pub author: Option<String>,
-    pub license: Option<String>,
-    pub repository: Option<String>,
+    /// Package metadata expressions whose results must be usable as `&'static str`.
+    ///
+    /// Keeping their tokens lets the Cargo-provided `env!("CARGO_PKG_…")` values remain the
+    /// source of truth instead of making adopters repeat those strings in the derive attribute.
+    pub author: Option<proc_macro2::TokenStream>,
+    pub license: Option<proc_macro2::TokenStream>,
+    pub repository: Option<proc_macro2::TokenStream>,
     /// Whether a flag-like token that names no flag is a value or an error. Unset
     /// means the spec's default, which is `value`.
     pub unknown_flags: Option<String>,
@@ -693,9 +697,9 @@ impl Cli {
                     // declared.
                     "about" => cli.about_attr = Some(metadata_expr(&meta)?),
                     "long_about" => cli.long_about_attr = Some(metadata_expr(&meta)?),
-                    "author" => cli.author = Some(string_value(&meta)?),
-                    "license" => cli.license = Some(string_value(&meta)?),
-                    "repository" => cli.repository = Some(string_value(&meta)?),
+                    "author" => cli.author = Some(metadata_expr(&meta)?),
+                    "license" => cli.license = Some(metadata_expr(&meta)?),
+                    "repository" => cli.repository = Some(metadata_expr(&meta)?),
                     "before_help" => cli.before_help = Some(metadata_expr(&meta)?),
                     "next_help_heading" => cli.next_help_heading = Some(string_value(&meta)?),
                     "before_long_help" => cli.before_long_help = Some(metadata_expr(&meta)?),
