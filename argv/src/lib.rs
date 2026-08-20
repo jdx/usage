@@ -1177,6 +1177,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     /// Begin a non-executing parse for completion walking.
+    #[cfg(feature = "complete")]
     pub(crate) fn for_completion(root: &'t Command<'t>, argv: &'a [&'v OsStr]) -> Self {
         Self::with_action_errors(root, argv, false)
     }
