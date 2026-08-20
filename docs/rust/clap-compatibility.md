@@ -116,7 +116,7 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | `verbatim_doc_comment`                             | yes    | n/a  | yes | yes | yes    | n/a    | Commands, fields, and variants preserve line breaks and indentation when requested.          |
 | `rename_all`, `rename_all_env`                     | yes    | n/a  | yes | yes | yes    | n/a    | Full clap casing vocabulary; bare `env` uses the environment casing policy.                  |
 | `help_template`, `next_line_help`, `flatten_help`  | no     | n/a  | no  | no  | no     | no     | No equivalent yet.                                                                           |
-| `term_width`, `max_term_width`                     | no     | n/a  | no  | no  | no     | no     | Help wraps using `COLUMNS`.                                                                  |
+| `term_width`, `max_term_width`                     | yes    | yes  | yes | yes | yes    | no     | Fixed width overrides a detected-width cap; clap exposes no bridge getters for these settings. |
 | help styles and color                              | n/a    | n/a  | n/a | yes | lossy  | no     | Help and diagnostics use automatic ANSI styles; clap's custom style palette is not portable. |
 | built-in help/version action and flag control      | no     | no   | no  | no  | no     | no     | Custom actions and disabling or relocating built-ins are not represented.                    |
 | `--version` / `-V`, dynamic version                | yes    | yes  | yes | yes | yes    | yes    | Literal and runtime versions propagate through nested commands.                              |

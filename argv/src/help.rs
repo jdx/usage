@@ -918,15 +918,23 @@ fn page_examples<'a>(spec: &Spec<'a>, meta: &CommandMeta<'a>) -> &'a [Example<'a
     }
 }
 
-/// The width help is wrapped to, from `COLUMNS`.
+/// The width help is wrapped to.
 ///
-/// usage-lib reads the same variable and falls back to the same 80, so the two agree about
-/// where a line ends whatever the terminal says.
-fn terminal_width() -> usize {
-    std::env::var("COLUMNS")
+/// A fixed width wins over terminal detection and the maximum, as in clap. Zero means
+/// unbounded for either setting. Without a declaration both implementations read `COLUMNS`
+/// and fall back to 80.
+fn terminal_width(meta: &CommandMeta<'_>) -> usize {
+    if let Some(width) = meta.term_width {
+        return if width == 0 { usize::MAX } else { width };
+    }
+    let detected = std::env::var("COLUMNS")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(80)
+        .unwrap_or(80);
+    match meta.max_term_width {
+        Some(0) | None => detected,
+        Some(max) => detected.min(max),
+    }
 }
 
 /// Everything `--help` prints.
@@ -949,7 +957,7 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
         .into_iter()
         .filter(|(flag, _)| !flag.hide_long_help)
         .collect();
-    let width = terminal_width();
+    let width = terminal_width(meta);
     let mut out = String::new();
 
     if let Some(before) = meta

@@ -147,6 +147,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let allow_missing_positional = cli.allow_missing_positional;
     let subcommand_help_heading = option_str(cli.subcommand_help_heading.as_deref());
     let subcommand_value_name = option_str(cli.subcommand_value_name.as_deref());
+    let term_width = option_usize(cli.term_width);
+    let max_term_width = option_usize(cli.max_term_width);
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -465,6 +467,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 subcommand_required: #subcommand_required,
                 subcommand_help_heading: #subcommand_help_heading,
                 subcommand_value_name: #subcommand_value_name,
+                term_width: #term_width,
+                max_term_width: #max_term_width,
                 args_override_self: #args_override_self,
                 mount: #mount,
                 before_help: #before_help,
@@ -2053,6 +2057,13 @@ fn option_expr(value: Option<&TokenStream>) -> TokenStream {
     }
 }
 
+fn option_usize(value: Option<usize>) -> TokenStream {
+    match value {
+        Some(v) => quote!(::std::option::Option::Some(#v)),
+        None => quote!(::std::option::Option::None),
+    }
+}
+
 /// The presence summaries a parent needs to enforce exclusivity across a flattened
 /// `CommandArgs` boundary.
 fn presence_methods(cli: &Cli) -> TokenStream {
@@ -3551,6 +3562,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     });
     let subcommand_help_heading = option_str(cli.subcommand_help_heading.as_deref());
     let subcommand_value_name = option_str(cli.subcommand_value_name.as_deref());
+    let term_width = option_usize(cli.term_width);
+    let max_term_width = option_usize(cli.max_term_width);
     let unknown_flags = unknown_flags_tokens(cli);
     let arg_required_else_help = cli.arg_required_else_help;
     let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
@@ -3697,6 +3710,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 subcommand_required: #subcommand_required,
                 subcommand_help_heading: #subcommand_help_heading,
                 subcommand_value_name: #subcommand_value_name,
+                term_width: #term_width,
+                max_term_width: #max_term_width,
                 args_override_self: #args_override_self,
                 mount: #mount,
                 before_help: #before_help,

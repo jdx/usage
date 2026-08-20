@@ -100,6 +100,12 @@ pub struct SpecCommand {
     /// Placeholder used for subcommands in the synopsis.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subcommand_value_name: Option<String>,
+    /// Fixed help width. Zero disables wrapping.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub term_width: Option<usize>,
+    /// Maximum detected terminal width when `term_width` is unset. Zero disables the cap.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_term_width: Option<usize>,
     /// Whether an unmatched word is forwarded as an external command plus the rest of argv.
     ///
     /// clap's `allow_external_subcommands` / `#[command(external_subcommand)]`. Known
@@ -198,6 +204,8 @@ impl Default for SpecCommand {
             subcommand_required: false,
             subcommand_help_heading: None,
             subcommand_value_name: None,
+            term_width: None,
+            max_term_width: None,
             external_subcommand: false,
             arg_required_else_help: false,
             dont_delimit_trailing_values: false,
@@ -313,6 +321,8 @@ impl SpecCommand {
                 "subcommand_required" => cmd.subcommand_required = v.ensure_bool()?,
                 "subcommand_help_heading" => cmd.subcommand_help_heading = Some(v.ensure_string()?),
                 "subcommand_value_name" => cmd.subcommand_value_name = Some(v.ensure_string()?),
+                "term_width" => cmd.term_width = Some(v.ensure_usize()?),
+                "max_term_width" => cmd.max_term_width = Some(v.ensure_usize()?),
                 "external_subcommand" => cmd.external_subcommand = v.ensure_bool()?,
                 "arg_required_else_help" => cmd.arg_required_else_help = v.ensure_bool()?,
                 "dont_delimit_trailing_values" => {
@@ -455,6 +465,12 @@ impl SpecCommand {
                 "subcommand_value_name" => {
                     cmd.subcommand_value_name =
                         Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?)
+                }
+                "term_width" => {
+                    cmd.term_width = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_usize()?)
+                }
+                "max_term_width" => {
+                    cmd.max_term_width = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_usize()?)
                 }
                 "external_subcommand" => {
                     cmd.external_subcommand = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
@@ -601,6 +617,8 @@ impl SpecCommand {
             subcommand_required,
             subcommand_help_heading,
             subcommand_value_name,
+            term_width,
+            max_term_width,
             external_subcommand,
             arg_required_else_help,
             dont_delimit_trailing_values,
@@ -686,6 +704,12 @@ impl SpecCommand {
         }
         if subcommand_value_name.is_some() {
             self.subcommand_value_name = subcommand_value_name;
+        }
+        if term_width.is_some() {
+            self.term_width = term_width;
+        }
+        if max_term_width.is_some() {
+            self.max_term_width = max_term_width;
         }
         self.external_subcommand = external_subcommand;
         self.arg_required_else_help = arg_required_else_help;
@@ -799,6 +823,8 @@ impl From<&SpecCommand> for KdlNode {
             subcommand_required,
             subcommand_help_heading,
             subcommand_value_name,
+            term_width,
+            max_term_width,
             external_subcommand,
             arg_required_else_help,
             dont_delimit_trailing_values,
@@ -853,6 +879,12 @@ impl From<&SpecCommand> for KdlNode {
         }
         if let Some(name) = subcommand_value_name {
             node.push(KdlEntry::new_prop("subcommand_value_name", name.clone()));
+        }
+        if let Some(width) = term_width {
+            node.push(KdlEntry::new_prop("term_width", *width as i128));
+        }
+        if let Some(width) = max_term_width {
+            node.push(KdlEntry::new_prop("max_term_width", *width as i128));
         }
         if *external_subcommand {
             node.entries_mut()
