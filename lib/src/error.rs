@@ -58,6 +58,9 @@ pub enum UsageErr {
     #[error("{0}")]
     Help(String),
 
+    #[error("{0}")]
+    Version(String),
+
     #[error("Invalid usage config")]
     #[diagnostic(transparent)]
     Miette(#[from] miette::MietteError),

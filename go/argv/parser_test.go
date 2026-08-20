@@ -206,6 +206,26 @@ func TestHelpIsAFlagNotAFailure(t *testing.T) {
 	}
 }
 
+func TestDeclaredBuiltinActionsAndDisabledSyntheticEntries(t *testing.T) {
+	assist := &Flag{Name: "assist", Longs: []string{"assist"}, Action: ActionHelpShort}
+	cmd := &Command{
+		Name:                  "custom",
+		Flags:                 []*Flag{assist},
+		DisableHelpFlag:       true,
+		DisableHelpSubcommand: true,
+	}
+	p := New(cmd, []string{"--assist"})
+	for p.Next() {
+	}
+	err, ok := p.Err().(*Error)
+	if !ok || err.Code != CodeHelp || err.Long {
+		t.Fatalf("custom help action: want short help, got %v", p.Err())
+	}
+	if got := collect(cmd, "--help"); got != "err:unexpected_arg" {
+		t.Fatalf("disabled --help: got %s", got)
+	}
+}
+
 // TestParseAllocatesNothing is the property the design rests on, measured rather
 // than asserted.
 //

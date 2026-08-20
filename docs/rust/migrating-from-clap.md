@@ -73,6 +73,11 @@ The clap bridge records clap's setting, so generated specs retain the source com
 `#[command(arg_required_else_help)]` migrates in place. usage checks whether the selected
 command received an argv token; environment and default fallbacks do not count.
 
+Help and version entry points migrate in place too. `disable_help_flag`,
+`disable_help_subcommand`, and `disable_version_flag` remove the synthesized entries, while
+`#[arg(action = usage::ArgAction::HelpShort)]` (or `Help`, `HelpLong`, and `Version`) can put
+the action on any declared flag and keep that flag's own help text.
+
 `#[command(subcommand_negates_reqs)]` also migrates in place. Selecting a child suppresses
 the parent's positive requirements while leaving conflicts and the child's requirements active.
 

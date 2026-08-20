@@ -141,10 +141,13 @@ fn supplied_flags(
     //
     // usage-argv has no equivalent: `disable_help` is a KDL-only word, so no spec that crate
     // can hold ever carries one, and the two renderers cannot disagree about it.
-    if spec.disable_help != Some(true) {
+    if spec.disable_help != Some(true) && !cmd.disable_help_flag {
         out.extend(build("help", "help", 'h', "Print help"));
     }
-    if is_root && (spec.version.is_some() || spec.long_version.is_some()) {
+    if is_root
+        && (spec.version.is_some() || spec.long_version.is_some())
+        && !cmd.disable_version_flag
+    {
         out.extend(build("version", "version", 'V', "Print version"));
     }
     out

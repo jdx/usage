@@ -400,6 +400,12 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Make this flag request help or version output instead of binding a value.
+    pub fn action(mut self, action: crate::SpecFlagAction) -> Self {
+        self.inner.action = action;
+        self
+    }
+
     pub fn env(mut self, env: impl Into<String>) -> Self {
         self.inner.env = Some(env.into());
         self
@@ -862,6 +868,24 @@ impl SpecCommandBuilder {
     /// Forward an unmatched word as an external command plus the rest of argv
     pub fn external_subcommand(mut self, enabled: bool) -> Self {
         self.inner.external_subcommand = enabled;
+        self
+    }
+
+    /// Enable or disable the synthesized `--help` and `-h` flags.
+    pub fn disable_help_flag(mut self, disabled: bool) -> Self {
+        self.inner.disable_help_flag = disabled;
+        self
+    }
+
+    /// Enable or disable the synthesized `help` subcommand route.
+    pub fn disable_help_subcommand(mut self, disabled: bool) -> Self {
+        self.inner.disable_help_subcommand = disabled;
+        self
+    }
+
+    /// Enable or disable the synthesized `--version` and `-V` flags.
+    pub fn disable_version_flag(mut self, disabled: bool) -> Self {
+        self.inner.disable_version_flag = disabled;
         self
     }
 

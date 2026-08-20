@@ -587,7 +587,11 @@ impl<'a> Parser<'a> {
                 );
             }
         }
-        if let Some(err) = out.errors.iter().find(|e| matches!(e, UsageErr::Help(_))) {
+        if let Some(err) = out
+            .errors
+            .iter()
+            .find(|e| matches!(e, UsageErr::Help(_) | UsageErr::Version(_)))
+        {
             bail!("{err}");
         }
         if !out.errors.is_empty() {
@@ -1124,6 +1128,11 @@ fn parse_partial_with_env(
                     .entry(Arc::as_ptr(f) as usize)
                     .or_default()
                     .insert(word.to_string());
+                if f.action != crate::SpecFlagAction::Set {
+                    out.errors.push(render_action_err(spec, &out.cmd, f, word));
+                    record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                    return Ok((out, overridden_flags));
+                }
                 apply_flag_overrides(
                     f,
                     &out.available_flags,
@@ -1199,7 +1208,7 @@ fn parse_partial_with_env(
                 }
                 continue;
             }
-            if is_help_arg(spec, &w) {
+            if is_help_arg(spec, &out.cmd, &w) {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
@@ -1245,6 +1254,12 @@ fn parse_partial_with_env(
                     .as_ref()
                     .map(|(_, level)| *level)
                     .unwrap_or(out.cmds.len() - 1);
+                if f.action != crate::SpecFlagAction::Set {
+                    out.errors
+                        .push(render_action_err(spec, &out.cmd, f, &format!("-{short}")));
+                    record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                    return Ok((out, overridden_flags));
+                }
                 parsed_flag_spellings
                     .entry(Arc::as_ptr(f) as usize)
                     .or_default()
@@ -1298,7 +1313,7 @@ fn parse_partial_with_env(
                 }
                 continue;
             }
-            if is_help_arg(spec, &w) {
+            if is_help_arg(spec, &out.cmd, &w) {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
@@ -1477,7 +1492,7 @@ fn parse_partial_with_env(
             }
             continue;
         }
-        if is_help_arg(spec, &w) {
+        if is_help_arg(spec, &out.cmd, &w) {
             out.errors
                 .push(render_help_err(spec, &out.cmd, w.len() > 2));
             record_cursor(&mut out, next_arg_idx, seen_double_dash);
@@ -2495,6 +2510,24 @@ fn render_help_err(_spec: &Spec, _cmd: &SpecCommand, _long: bool) -> UsageErr {
     UsageErr::Help("help".to_string())
 }
 
+fn render_action_err(spec: &Spec, cmd: &SpecCommand, flag: &SpecFlag, spelling: &str) -> UsageErr {
+    use crate::SpecFlagAction;
+    match flag.action {
+        SpecFlagAction::Help => render_help_err(spec, cmd, spelling.starts_with("--")),
+        SpecFlagAction::HelpShort => render_help_err(spec, cmd, false),
+        SpecFlagAction::HelpLong => render_help_err(spec, cmd, true),
+        SpecFlagAction::Version => {
+            let value = if spelling.starts_with("--") {
+                spec.long_version.as_ref().or(spec.version.as_ref())
+            } else {
+                spec.version.as_ref()
+            };
+            UsageErr::Version(value.cloned().unwrap_or_default())
+        }
+        SpecFlagAction::Set => unreachable!("binding actions are handled before this helper"),
+    }
+}
+
 #[derive(Copy, Clone)]
 struct ChoiceTarget<'a> {
     kind: &'a str,
@@ -3015,7 +3048,7 @@ fn validate_choices(
     choices: Option<&SpecChoices>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
-    if is_help_arg(spec, value)
+    if is_help_arg(spec, cmd, value)
         && choices.is_some_and(|choices| !choices.matches_with_env(value, custom_env))
     {
         errors.push(render_help_err(spec, cmd, value.len() > 2));
@@ -3076,12 +3109,10 @@ fn report_double_dash_violation(
     }
 }
 
-fn is_help_arg(spec: &Spec, w: &str) -> bool {
+fn is_help_arg(spec: &Spec, cmd: &SpecCommand, w: &str) -> bool {
     spec.disable_help != Some(true)
-        && (w == "--help"
-            || w == "-h"
-            || w == "-?"
-            || (spec.cmd.subcommands.is_empty() && w == "help"))
+        && (((w == "--help" || w == "-h" || w == "-?") && !cmd.disable_help_flag)
+            || (w == "help" && !cmd.disable_help_subcommand && cmd.subcommands.is_empty()))
 }
 
 impl ParseOutput {

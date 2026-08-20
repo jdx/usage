@@ -234,6 +234,12 @@ pub struct Command<'a> {
     /// A field rather than a rule about depth, so a CLI that wants it on a subcommand — clap's
     /// `propagate_version` — has somewhere to say so.
     pub version: bool,
+    /// Do not synthesize `--help` and `-h` for this command.
+    pub disable_help_flag: bool,
+    /// Do not synthesize the `help` subcommand route for this command.
+    pub disable_help_subcommand: bool,
+    /// Do not synthesize `--version` and `-V` for this command.
+    pub disable_version_flag: bool,
     /// Caller-assigned identifier, echoed back in [`Event::Command`].
     ///
     /// Wide enough for a derive to make these unique without coordination: two
@@ -263,6 +269,9 @@ impl Command<'_> {
         dont_delimit_trailing_values: false,
         unknown_flags: ::core::option::Option::None,
         version: false,
+        disable_help_flag: false,
+        disable_help_subcommand: false,
+        disable_version_flag: false,
         key: 0,
     };
 }
@@ -379,6 +388,8 @@ pub struct Flag<'a> {
     /// Whether the flag is recognized by every command beneath the one that
     /// declares it.
     pub global: bool,
+    /// Whether this declared flag binds a field or requests a built-in response.
+    pub action: ArgAction,
 }
 
 impl Flag<'_> {
@@ -400,6 +411,7 @@ impl Flag<'_> {
         value_optional: false,
         default_missing: ::core::option::Option::None,
         global: false,
+        action: ArgAction::Set,
     };
 
     /// A flag that takes a value, for use with struct update syntax.
@@ -407,6 +419,22 @@ impl Flag<'_> {
         takes_value: true,
         ..Flag::BOOL
     };
+}
+
+/// What supplying a declared flag does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ArgAction {
+    /// Bind the flag to its declared field.
+    #[default]
+    Set,
+    /// Show help, choosing the long form for a long spelling and the short form otherwise.
+    Help,
+    /// Always show short help.
+    HelpShort,
+    /// Always show long help.
+    HelpLong,
+    /// Show version information.
+    Version,
 }
 
 /// A positional argument.
@@ -816,6 +844,7 @@ pub static HELP_LONG: Flag<'static> = Flag {
     key: HELP_LONG_KEY,
     name: "help",
     longs: &["help"],
+    action: ArgAction::HelpLong,
     ..Flag::BOOL
 };
 
@@ -832,6 +861,7 @@ pub static VERSION_LONG: Flag<'static> = Flag {
     key: VERSION_LONG_KEY,
     name: "version",
     longs: &["version"],
+    action: ArgAction::Version,
     ..Flag::BOOL
 };
 
@@ -840,6 +870,7 @@ pub static VERSION_SHORT: Flag<'static> = Flag {
     key: VERSION_SHORT_KEY,
     name: "version",
     shorts: b"V",
+    action: ArgAction::Version,
     ..Flag::BOOL
 };
 
@@ -848,6 +879,7 @@ pub static HELP_SHORT: Flag<'static> = Flag {
     key: HELP_SHORT_KEY,
     name: "help",
     shorts: b"h",
+    action: ArgAction::HelpShort,
     ..Flag::BOOL
 };
 
@@ -895,12 +927,15 @@ pub fn render_failure(spec: &spec::Spec<'_>, argv: &[&OsStr], error: &Error<'_, 
 
 /// Whether a flag is one of the two the parser supplies rather than the CLI declaring it.
 pub fn is_help_flag(flag: &Flag<'_>) -> bool {
-    flag.key == HELP_LONG_KEY || flag.key == HELP_SHORT_KEY
+    matches!(
+        flag.action,
+        ArgAction::Help | ArgAction::HelpShort | ArgAction::HelpLong
+    )
 }
 
 /// Whether a flag is one of the two the parser supplies for `--version`.
 pub fn is_version_flag(flag: &Flag<'_>) -> bool {
-    flag.key == VERSION_LONG_KEY || flag.key == VERSION_SHORT_KEY
+    flag.action == ArgAction::Version
 }
 
 /// Resolve a subcommand by name or alias, at compile time.
@@ -1444,6 +1479,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                     self.start_collecting(flag, value)?;
                 }
             }
+            if let Some(error) = self.flag_action(flag, true) {
+                return Err(error);
+            }
             return Ok(Event::Flag {
                 flag,
                 value,
@@ -1461,7 +1499,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
         // Where the CLI declared a version, `--version` answers with it — asked after the
         // command's own flags, so a CLI declaring its own keeps it.
-        if name == b"version" && self.cmd.version {
+        if name == b"version" && self.cmd.version && !self.cmd.disable_version_flag {
             return Ok(Event::Flag {
                 flag: &VERSION_LONG,
                 value: None,
@@ -1471,7 +1509,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
         // Every CLI answers to `--help`, and none of them declares it. Asked *after* the
         // command's own flags, so a CLI that declares its own `--help` keeps it.
-        if name == b"help" {
+        if name == b"help" && !self.cmd.disable_help_flag {
             return Ok(Event::Flag {
                 flag: &HELP_LONG,
                 value: None,
@@ -1519,6 +1557,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
         if !flag.takes_value {
             self.bundle = rest;
+            if let Some(error) = self.flag_action(flag, false) {
+                self.bundle = &[];
+                return Err(error);
+            }
             return Ok(Event::Flag {
                 flag,
                 value: None,
@@ -1541,11 +1583,41 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 self.start_collecting(flag, value)?;
             }
         }
+        if let Some(error) = self.flag_action(flag, false) {
+            return Err(error);
+        }
         Ok(Event::Flag {
             flag,
             value,
             negated: false,
         })
+    }
+
+    fn flag_action(&self, flag: &'t Flag<'t>, long_spelling: bool) -> Option<Error<'t, 'v>> {
+        if matches!(
+            flag.key,
+            HELP_LONG_KEY | HELP_SHORT_KEY | VERSION_LONG_KEY | VERSION_SHORT_KEY
+        ) {
+            return None;
+        }
+        match flag.action {
+            ArgAction::Set => None,
+            ArgAction::Help => Some(Error::Help {
+                cmd: self.cmd,
+                long: long_spelling,
+            }),
+            ArgAction::HelpShort => Some(Error::Help {
+                cmd: self.cmd,
+                long: false,
+            }),
+            ArgAction::HelpLong => Some(Error::Help {
+                cmd: self.cmd,
+                long: true,
+            }),
+            ArgAction::Version => Some(Error::Version {
+                long: long_spelling,
+            }),
+        }
     }
 
     /// Take the following token as a flag's value.
@@ -1606,7 +1678,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             //
             // The words after it name a command, resolved here rather than descended into:
             // descending would bind them, and they are a question rather than an invocation.
-            if token == b"help" && !self.cmd.subcommands.is_empty() {
+            if token == b"help"
+                && !self.cmd.disable_help_subcommand
+                && !self.cmd.subcommands.is_empty()
+            {
                 let mut cmd = self.cmd;
                 let from = self.pos;
                 while let Some(next) = self.argv.get(self.pos) {
@@ -1844,9 +1919,9 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             .find(|f| f.shorts.contains(&byte))
             // As for `--help`: supplied by the parser, and only where the command has not
             // declared a `-h` of its own.
-            .or(if byte == b'h' {
+            .or(if byte == b'h' && !self.cmd.disable_help_flag {
                 Some(&HELP_SHORT)
-            } else if byte == b'V' && self.cmd.version {
+            } else if byte == b'V' && self.cmd.version && !self.cmd.disable_version_flag {
                 Some(&VERSION_SHORT)
             } else {
                 None

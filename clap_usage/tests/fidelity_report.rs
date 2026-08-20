@@ -14,16 +14,43 @@ fn long_version_is_lossless() {
 }
 
 #[test]
-fn disabled_long_version_flag_is_reported() {
+fn disabled_builtin_entries_are_preserved() {
     let mut command = Command::new("ex")
         .long_version("commit abc123")
-        .disable_version_flag(true);
-    let (_, report) = spec_with_report(&mut command, "ex");
+        .disable_help_flag(true)
+        .disable_help_subcommand(true)
+        .disable_version_flag(true)
+        .subcommand(Command::new("run"));
+    let (spec, report) = spec_with_report(&mut command, "ex");
 
-    assert!(report
-        .losses()
-        .iter()
-        .any(|loss| loss.feature == FidelityFeature::DisableVersionFlag));
+    assert!(spec.cmd.disable_help_flag);
+    assert!(spec.cmd.disable_help_subcommand);
+    assert!(spec.cmd.disable_version_flag);
+    assert!(report.is_lossless(), "{report:#?}");
+}
+
+#[test]
+fn custom_builtin_actions_are_preserved() {
+    let mut command = Command::new("ex")
+        .version("1.0.0")
+        .disable_help_flag(true)
+        .arg(
+            Arg::new("assist")
+                .long("assist")
+                .help("Show concise help")
+                .action(ArgAction::HelpShort),
+        )
+        .arg(
+            Arg::new("release")
+                .long("release")
+                .help("Show version")
+                .action(ArgAction::Version),
+        );
+    let (spec, report) = spec_with_report(&mut command, "ex");
+
+    assert_eq!(spec.cmd.flags[0].action, usage::SpecFlagAction::HelpShort);
+    assert_eq!(spec.cmd.flags[1].action, usage::SpecFlagAction::Version);
+    assert!(report.is_lossless(), "{report:#?}");
 }
 
 #[test]
