@@ -82,6 +82,8 @@ struct ClapSpellings {
 
 #[derive(usage::Args)]
 struct FlattenedRelationshipTargets {
+    #[usage(long, default = "nested-default")]
+    nested: Option<String>,
     #[usage(long)]
     frozen: bool,
     #[usage(long, default_if("--preset", "true"))]
@@ -95,6 +97,8 @@ struct FlattenedRelationshipTargets {
 #[derive(Cli)]
 #[usage(bin = "flattened-relationships")]
 struct FlattenedRelationships {
+    #[usage(long, overrides = "--nested")]
+    replace: bool,
     #[usage(long, conflicts = "--frozen")]
     fix: bool,
     #[usage(long, requires = "--key")]
@@ -603,6 +607,24 @@ fn clap_field_ids_and_aliases_need_no_rewrite() {
 
 #[test]
 fn relationships_resolve_targets_inside_flattened_args() {
+    let parent_wins = FlattenedRelationships::parse_from(&[
+        OsStr::new("--nested"),
+        OsStr::new("given"),
+        OsStr::new("--replace"),
+    ])
+    .expect("a parent flag should displace a flattened flag");
+    assert!(parent_wins.replace);
+    assert_eq!(parent_wins.shared.nested.as_deref(), Some("nested-default"));
+
+    let flattened_wins = FlattenedRelationships::parse_from(&[
+        OsStr::new("--replace"),
+        OsStr::new("--nested"),
+        OsStr::new("given"),
+    ])
+    .expect("a later flattened flag should displace its parent peer");
+    assert!(!flattened_wins.replace);
+    assert_eq!(flattened_wins.shared.nested.as_deref(), Some("given"));
+
     assert!(
         FlattenedRelationships::parse_from(&[OsStr::new("--fix"), OsStr::new("--frozen"),])
             .is_err()
@@ -625,17 +647,20 @@ fn relationships_resolve_targets_inside_flattened_args() {
     ])
     .expect("the flattened condition should satisfy the schema relationship");
     assert!(!parsed.fix);
+    assert!(!parsed.replace);
     assert!(!parsed.signed);
     assert!(parsed.mode.is_none());
     assert_eq!(parsed.schema.as_deref(), Some("schema.json"));
     assert_eq!(parsed.output.as_deref(), Some("auto"));
     assert!(parsed.shared.json);
     assert!(!parsed.shared.frozen);
+    assert_eq!(parsed.shared.nested.as_deref(), Some("nested-default"));
     assert!(!parsed.shared.key);
     assert!(!parsed.shared.preset);
 
     let kdl = FlattenedRelationships::to_kdl();
     assert!(kdl.contains("conflicts=\"--frozen\""), "{kdl}");
+    assert!(kdl.contains("overrides=\"--nested\""), "{kdl}");
     assert!(kdl.contains("requires=\"--key\""), "{kdl}");
     assert!(kdl.contains("required_if=\"--json\""), "{kdl}");
 }

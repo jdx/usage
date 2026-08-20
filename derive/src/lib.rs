@@ -361,8 +361,10 @@ pub fn derive_args(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     // `restart_token` and `mount` are per-command and belong here; `default_subcommand` is
     // declared once for the whole spec and does not.
-    let parsed = model::Cli::from_input(&input)
-        .and_then(|cli| cli.check_position(&input.ident, false).map(|()| cli));
+    let parsed = model::Cli::from_input(&input).and_then(|mut cli| {
+        cli.composable = true;
+        cli.check_position(&input.ident, false).map(|()| cli)
+    });
     match parsed {
         Ok(cli) => codegen::emit_args(&cli).into(),
         Err(e) => e.to_compile_error().into(),

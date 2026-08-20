@@ -675,15 +675,15 @@ feature list is not an exhaustive audit.
       parent conflicts, requirements, conditional requirements/defaults, and
       required-if/unless rules resolve against the composed command without a
       dynamic command graph or allocation. Flags use every accepted spelling and
-      positionals use their stable field identity. Binding-time `overrides` remains
-      a separate gap below and is rejected when it names a flattened field rather
-      than compiling into a no-op.
-- [ ] **Binding-time overrides across flatten boundaries.** `overrides` is
+      positionals use their stable field identity. Binding-time `overrides` uses
+      the separate composed hook below because it must act while tokens are bound.
+- [x] **Binding-time overrides across flatten boundaries.** `overrides` is
       last-token-wins and therefore cannot be implemented by the post-binding
       presence/value lookup used for conflicts and requirements. Add a composed
-      displacement hook that can reset an opaque flattened partial, preserve the
-      losing field's default/env suppression, and handle either token order before
-      allowing a parent selector to name a flattened target.
+      displacement hook that resets an opaque flattened partial, preserves the
+      losing field's default/env suppression, and handles either token order. A
+      matching event is identified by the flattened type's static tables, so nested
+      flattening composes without allocation or a runtime command graph.
 - [ ] **Flattened help topology.** clap's `next_help_heading` and flattened flag
       groups preserve meaningful sections in aube's long help. usage flattens the
       fields but discards that struct-level heading, so a migration can preserve
