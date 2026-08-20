@@ -827,12 +827,12 @@ feature list is not an exhaustive audit.
       missing value and forced Aube to adapt that error locally. Run the portable
       cases on Unix and Windows and the byte-value cases on Unix. The mise fuzzer
       remains the scale test; this is the configuration-space test it cannot be.
-- [ ] **Combination and stateful tests.** Pairwise-cover settings that interact:
+- [x] **Combination and stateful tests.** Focused typed conformance cases pair
       defaults with env and delimiters, optional values with `require_equals`,
       globals with overrides, subcommands with required positionals, groups with
-      defaults, and help/version collisions. Add `update_from` cases if that API is
-      implemented. Single-feature parity is not enough where clap resolves settings
-      in an order.
+      defaults, and help/version collisions. `update_from` gets its own stateful
+      cases if that API is implemented. Single-feature parity is not enough where
+      settings resolve in an order.
 - [ ] **External clap adopters.** Before calling the replacement generally ready,
       port or shadow at least three maintained, non-jdx clap CLIs chosen for
       different shapes: a derive-heavy CLI, a builder-heavy CLI, and one using
