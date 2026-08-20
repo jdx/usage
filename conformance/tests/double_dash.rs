@@ -12,6 +12,7 @@
 
 use std::ffi::OsStr;
 
+use usage::parse::ParseValue;
 use usage::Spec as LibSpec;
 use usage_derive::Cli;
 
@@ -47,6 +48,18 @@ struct Keeper {
     /// Everything, `--` included
     #[usage(arg, name = "REST", double_dash = "preserve")]
     rest: Vec<String>,
+}
+
+/// A task runner with ordinary task args before `--` and passthrough args after it.
+#[derive(Cli)]
+#[usage(bin = "split")]
+struct Split {
+    #[usage(arg, name = "TASK", double_dash = "automatic")]
+    task: String,
+    #[usage(arg, name = "ARGS")]
+    args: Vec<String>,
+    #[usage(arg, name = "TRAILING", double_dash = "required")]
+    trailing: Vec<String>,
 }
 
 #[test]
@@ -117,6 +130,47 @@ fn preserve_gives_the_separator_to_the_argument() {
     let parsed = Keeper::parse_from(&argv).expect("should parse");
     assert!(parsed.verbose);
     assert_eq!(parsed.rest, ["a", "--", "b"]);
+}
+
+#[test]
+fn an_explicit_separator_still_ends_an_automatic_argument() {
+    let argv = [
+        OsStr::new("task"),
+        OsStr::new("--"),
+        OsStr::new("mise"),
+        OsStr::new("x"),
+        OsStr::new("--"),
+        OsStr::new("command"),
+    ];
+    let parsed = Split::parse_from(&argv).expect("the separator unlocks the trailing argument");
+    assert_eq!(parsed.task, "task");
+    assert!(parsed.args.is_empty());
+    assert_eq!(parsed.trailing, ["mise", "x", "--", "command"]);
+
+    // The emitted spec is also consumed by usage-lib for completion and shell integrations.
+    // Keep its interpretation identical to the typed parser: the first explicit separator is
+    // syntax even though `automatic` has already stopped flags, while the second is data.
+    let spec: LibSpec = Split::to_kdl().parse().expect("valid spec");
+    let argv = ["split", "task", "--", "mise", "x", "--", "command"].map(str::to_string);
+    let interpreted = usage::Parser::new(&spec)
+        .parse(&argv)
+        .expect("the emitted spec accepts the same command line");
+    let args = interpreted
+        .args
+        .iter()
+        .find(|(arg, _)| arg.name == "ARGS")
+        .map(|(_, value)| value);
+    assert!(args
+        .is_none_or(|value| matches!(value, ParseValue::MultiString(values) if values.is_empty())));
+    let trailing = interpreted
+        .args
+        .iter()
+        .find(|(arg, _)| arg.name == "TRAILING")
+        .map(|(_, value)| value)
+        .expect("TRAILING is present");
+    assert!(
+        matches!(trailing, ParseValue::MultiString(values) if values == &["mise", "x", "--", "command"])
+    );
 }
 
 #[test]
