@@ -73,6 +73,9 @@ func TestTheScriptsWatchForTheMarkerTheRendererWrites(t *testing.T) {
 	if !strings.Contains(Script("mise", Fish), `test -d "$value"; or test -x "$value"`) {
 		t.Error("fish filters executable-path candidates")
 	}
+	if !strings.Contains(Script("mise", Zsh), `_files -g '*(-/,*)'`) {
+		t.Error("zsh keeps directories beside executable-path candidates")
+	}
 	if !strings.Contains(Script("mise", PowerShell), "-CommandType Application, ExternalScript") {
 		t.Error("powershell filters executable-path candidates")
 	}
