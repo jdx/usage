@@ -463,6 +463,15 @@ struct ClapSpellings {
     path: Option<String>,
 }
 
+#[deny(dead_code)]
+#[derive(Cli)]
+#[command(bin = "parse-only-field")]
+struct ParseOnlyField {
+    /// Accepted for compatibility even though the application intentionally ignores it.
+    #[arg(long)]
+    compatibility: bool,
+}
+
 #[derive(Cli)]
 #[command(bin = "clap-override-id")]
 struct ClapOverrideId {
@@ -1101,6 +1110,12 @@ fn clap_field_ids_and_aliases_need_no_rewrite() {
         kdl.contains("alias --quietly --silent-output hide=#true"),
         "{kdl}"
     );
+}
+
+#[test]
+fn parse_only_fields_do_not_trigger_dead_code() {
+    ParseOnlyField::parse_from(&[OsStr::new("--compatibility")])
+        .expect("the compatibility flag should still parse");
 }
 
 #[test]
