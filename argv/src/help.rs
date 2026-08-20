@@ -47,11 +47,21 @@ impl Style {
     /// Colour when stdout is a terminal and the environment permits it.
     pub fn auto() -> Style {
         use std::io::IsTerminal as _;
+        Self::auto_for(std::io::stdout().is_terminal())
+    }
+
+    /// Colour when stderr is a terminal and the environment permits it.
+    pub fn auto_stderr() -> Style {
+        use std::io::IsTerminal as _;
+        Self::auto_for(std::io::stderr().is_terminal())
+    }
+
+    fn auto_for(is_terminal: bool) -> Style {
         let forced = std::env::var_os("CLICOLOR_FORCE").is_some_and(|v| v != "0");
         let refused = std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty());
         if refused {
             Style::PLAIN
-        } else if forced || std::io::stdout().is_terminal() {
+        } else if forced || is_terminal {
             Style::COLOURED
         } else {
             Style::PLAIN
@@ -516,8 +526,13 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
                 .copied()
                 .or(meta.value_name)
                 .unwrap_or(flag.name);
-            for _ in 0..exact.unwrap() {
-                let _ = write!(out, " {open}{name}{close}");
+            for index in 0..exact.unwrap() {
+                let separator = if index == 0 && flag.require_equals {
+                    "="
+                } else {
+                    " "
+                };
+                let _ = write!(out, "{separator}{open}{name}{close}");
             }
         } else if meta.value_names.len() <= 1 {
             let name = meta
@@ -526,10 +541,16 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
                 .copied()
                 .or(meta.value_name)
                 .unwrap_or(flag.name);
-            let _ = write!(out, " {open}{name}{close}");
+            let separator = if flag.require_equals { "=" } else { " " };
+            let _ = write!(out, "{separator}{open}{name}{close}");
         } else {
-            for name in meta.value_names {
-                let _ = write!(out, " {open}{name}{close}");
+            for (index, name) in meta.value_names.iter().enumerate() {
+                let separator = if index == 0 && flag.require_equals {
+                    "="
+                } else {
+                    " "
+                };
+                let _ = write!(out, "{separator}{open}{name}{close}");
             }
         }
         if flag.variadic && meta.value_names.len() <= 1 && exact.is_none() {

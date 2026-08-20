@@ -853,7 +853,8 @@ impl SpecFlag {
             out = format!("{out}…");
         }
         if let Some(arg) = &self.arg {
-            out = format!("{} {}", out, arg.usage());
+            let separator = if self.require_equals { "=" } else { " " };
+            out = format!("{out}{separator}{}", arg.usage());
         }
         out
     }
@@ -1654,6 +1655,11 @@ mod tests {
         let spec = Spec::from(&cmd);
         let inspect = spec.cmd.flags.iter().find(|f| f.name == "inspect").unwrap();
         assert!(inspect.require_equals);
+        assert_eq!(inspect.usage(), "--inspect=<inspect>");
+        assert_eq!(
+            crate::docs::models::SpecFlag::from(inspect).usage,
+            "--inspect=<inspect>"
+        );
     }
 
     #[test]

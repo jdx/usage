@@ -2455,6 +2455,7 @@ dependencies = [
 name = "usage-conformance"
 version = "0.0.0"
 dependencies = [
+ "clap",
  "insta",
  "kdl",
  "serde",
