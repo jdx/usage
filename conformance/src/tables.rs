@@ -149,6 +149,8 @@ pub fn build(
         mount: cmd.mounts.first().map(|m| leak(&m.run)),
         restart_token: opt(&cmd.restart_token),
         subcommand_required: cmd.subcommand_required,
+        subcommand_help_heading: opt(&cmd.subcommand_help_heading),
+        subcommand_value_name: opt(&cmd.subcommand_value_name),
         args_override_self: cmd.args_override_self,
         before_help: opt(&cmd.before_help),
         before_long_help: opt(&cmd.before_help_long),

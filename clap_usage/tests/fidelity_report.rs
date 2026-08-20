@@ -76,6 +76,18 @@ fn fixed_arity_distinct_value_names_are_lossless() {
 }
 
 #[test]
+fn subcommand_presentation_is_lossless() {
+    let mut command = Command::new("ex")
+        .subcommand(Command::new("run"))
+        .subcommand_help_heading("Actions")
+        .subcommand_value_name("ACTION");
+    let (spec, report) = spec_with_report(&mut command, "ex");
+    assert!(report.is_lossless(), "{report:#?}");
+    assert_eq!(spec.cmd.subcommand_help_heading.as_deref(), Some("Actions"));
+    assert_eq!(spec.cmd.subcommand_value_name.as_deref(), Some("ACTION"));
+}
+
+#[test]
 fn ranged_distinct_value_names_are_reported_as_lossy() {
     let mut command = Command::new("ex").arg(
         Arg::new("range")

@@ -105,7 +105,8 @@ pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
     }
 
     if !meta.cmd.subcommands.is_empty() {
-        out.push_str(" <SUBCOMMAND>");
+        let name = meta.subcommand_value_name.unwrap_or("SUBCOMMAND");
+        let _ = write!(out, " <{name}>");
     }
     out
 }
@@ -531,7 +532,8 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
     if visible.is_empty() {
         return;
     }
-    let _ = writeln!(out, "\nCommands:");
+    let heading = meta.subcommand_help_heading.unwrap_or("Commands");
+    let _ = writeln!(out, "\n{heading}:");
 
     // Sorted by the rendered usage rather than by name, as usage-lib sorts them — for a
     // command with no flags or arguments the two agree, and where they differ this is the
@@ -1015,7 +1017,8 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
     if visible.is_empty() {
         return;
     }
-    let _ = writeln!(out, "\nCommands:");
+    let heading = meta.subcommand_help_heading.unwrap_or("Commands");
+    let _ = writeln!(out, "\n{heading}:");
 
     let mut lines: Vec<(String, &&CommandMeta<'_>)> = visible
         .iter()

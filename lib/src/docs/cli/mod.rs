@@ -907,4 +907,19 @@ cmd "new-cmd" help="Do something better"
           -h, --help  Print help
         ");
     }
+
+    #[test]
+    fn test_render_help_with_subcommand_presentation() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+subcommand_help_heading "Actions"
+subcommand_value_name "ACTION"
+cmd "run" help="Run it"
+        "# }
+        .unwrap();
+
+        let page = render_help(&spec, &spec.cmd, false);
+        assert!(page.contains("Usage: testcli <ACTION>"), "{page}");
+        assert!(page.contains("\nActions:\n"), "{page}");
+    }
 }

@@ -14,8 +14,6 @@ pub enum FidelityFeature {
     DistinctValueNames,
     FlattenHelp,
     NextLineHelp,
-    SubcommandHelpHeading,
-    SubcommandValueName,
     DisableHelpFlag,
     DisableHelpSubcommand,
     DisableVersionFlag,
@@ -86,16 +84,6 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         cmd.is_next_line_help_set(),
         FidelityFeature::NextLineHelp,
         "next_line_help",
-    );
-    command_loss(
-        cmd.get_subcommand_help_heading().is_some(),
-        FidelityFeature::SubcommandHelpHeading,
-        "subcommand_help_heading",
-    );
-    command_loss(
-        cmd.get_subcommand_value_name().is_some(),
-        FidelityFeature::SubcommandValueName,
-        "subcommand_value_name",
     );
     command_loss(
         cmd.is_disable_help_flag_set(),

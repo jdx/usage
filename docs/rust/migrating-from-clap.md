@@ -201,6 +201,17 @@ Doc comments remain the source of short and long help. `Cli::to_kdl()` emits the
 `Cli::spec().view()` provides cold-path identity and metadata overlays without moving normal
 parsing onto a dynamic command graph.
 
+Command-level presentation settings keep their clap spellings:
+
+```rust
+#[derive(usage::Cli)]
+#[command(subcommand_help_heading = "Actions", subcommand_value_name = "ACTION")]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+```
+
 For an embedded CLI whose program name is computed, pair `name = expression` with a portable
 `name_spec = "literal"`, and `bin = expression` with `bin_spec = "literal"`. The expression is
 used only by process output; the literal keeps generated specs reproducible.

@@ -981,6 +981,12 @@ fn command_help(e: &Emitted) -> String {
     if let Some(long) = &e.cmd.help_long {
         fields.push(format!("Long: {}", go_string(long)));
     }
+    if let Some(heading) = &e.cmd.subcommand_help_heading {
+        fields.push(format!("SubcommandHelpHeading: {}", go_string(heading)));
+    }
+    if let Some(name) = &e.cmd.subcommand_value_name {
+        fields.push(format!("SubcommandValueName: {}", go_string(name)));
+    }
     // Visible only: the parse table merges hidden aliases in beside these,
     // because binding does not care which is which. A page does.
     let visible: Vec<String> = e

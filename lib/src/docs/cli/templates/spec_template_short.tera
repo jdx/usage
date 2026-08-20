@@ -19,7 +19,7 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {%- if cmd.subcommands %}
 
-Commands:
+{{ cmd.subcommand_help_heading | default(value="Commands") }}:
 {%- for cmd in cmd.subcommands | values | sort(attribute="usage") %}
   {{ cmd.usage | trim }}
 {%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}

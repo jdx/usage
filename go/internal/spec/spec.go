@@ -105,6 +105,8 @@ type Cmd struct {
 	ArgsConflictWithSubcommands bool        `json:"args_conflicts_with_subcommands"`
 	SubcommandPrecedenceOverArg bool        `json:"subcommand_precedence_over_arg"`
 	AllowMissingPositional      bool        `json:"allow_missing_positional"`
+	SubcommandHelpHeading       string      `json:"subcommand_help_heading"`
+	SubcommandValueName         string      `json:"subcommand_value_name"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.
@@ -645,12 +647,14 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		// because binding does not care which is which. A spec may declare the same
 		// alias twice, once hidden, and hiding wins — usage-lib reports it in both
 		// lists, so the visible list has to be filtered rather than taken as it is.
-		VisibleAliases: visibleAliases(c),
-		BeforeHelp:     c.BeforeHelp,
-		AfterHelp:      c.AfterHelp,
-		BeforeLongHelp: c.BeforeHelpLong,
-		AfterLongHelp:  c.AfterHelpLong,
-		Examples:       examples,
+		VisibleAliases:        visibleAliases(c),
+		BeforeHelp:            c.BeforeHelp,
+		AfterHelp:             c.AfterHelp,
+		BeforeLongHelp:        c.BeforeHelpLong,
+		AfterLongHelp:         c.AfterHelpLong,
+		SubcommandHelpHeading: c.SubcommandHelpHeading,
+		SubcommandValueName:   c.SubcommandValueName,
+		Examples:              examples,
 	})
 
 	if n := len(c.Aliases) + len(c.HiddenAliases); n > 0 {
