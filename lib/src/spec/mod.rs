@@ -319,6 +319,9 @@ impl Spec {
                 "allow_missing_positional" => {
                     schema.cmd.allow_missing_positional = node.arg(0)?.ensure_bool()?;
                 }
+                "subcommand_required" => {
+                    schema.cmd.subcommand_required = node.arg(0)?.ensure_bool()?;
+                }
                 "subcommand_help_heading" => {
                     schema.cmd.subcommand_help_heading = Some(node.arg(0)?.ensure_string()?);
                 }
@@ -641,6 +644,11 @@ impl Display for Spec {
         }
         if self.cmd.allow_missing_positional {
             let mut node = KdlNode::new("allow_missing_positional");
+            node.push(true);
+            nodes.push(node);
+        }
+        if self.cmd.subcommand_required && !self.cmd.subcommands.is_empty() {
+            let mut node = KdlNode::new("subcommand_required");
             node.push(true);
             nodes.push(node);
         }

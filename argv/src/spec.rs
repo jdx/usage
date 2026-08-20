@@ -1182,6 +1182,12 @@ impl Spec<'_> {
         if self.root.cmd.allow_missing_positional {
             writeln!(out, "allow_missing_positional #true")?;
         }
+        // Root metadata is written separately from `write_command`, so keep the required
+        // subcommand bit here as well. Without it a required typed enum still parsed correctly,
+        // but its emitted portable spec rendered `[COMMAND]` and accepted an empty invocation.
+        if self.root.subcommand_required && !self.root.cmd.subcommands.is_empty() {
+            writeln!(out, "subcommand_required #true")?;
+        }
         if let Some(heading) = self.root.subcommand_help_heading {
             prop(out, "subcommand_help_heading", heading)?;
         }
