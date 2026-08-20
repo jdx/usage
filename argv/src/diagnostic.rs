@@ -556,7 +556,12 @@ pub fn render(
             // clap prints the command's help page here, including the available subcommands,
             // while keeping exit 2; an error plus only `<SUBCOMMAND>` tells the reader what is
             // missing and withholds the list they need to fix it.
-            if let Some(help) = crate::help::render_at(spec, &taken, false) {
+            let help_style = if style == Style::COLOURED {
+                crate::help::Style::COLOURED
+            } else {
+                crate::help::Style::PLAIN
+            };
+            if let Some(help) = crate::help::render_at_styled(spec, &taken, false, help_style) {
                 return help;
             }
             with_usage = true;
@@ -923,6 +928,12 @@ mod tests {
         assert!(message.contains("use"), "{message}");
         assert!(message.contains("user"), "{message}");
         assert!(!message.contains("requires a subcommand"), "{message}");
+
+        let coloured = render(&SPEC, &[], &Error::MissingSubcommand, Style::COLOURED);
+        assert!(
+            coloured.contains("\u{1b}[1;4;32mCommands:\u{1b}[0m"),
+            "{coloured}"
+        );
     }
 
     #[test]

@@ -771,10 +771,20 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 cmd,
                             ) {
                                 ::std::option::Option::Some(route) => {
-                                    usage_argv::help::render_at(__usage_spec, &route, long)
+                                    usage_argv::help::render_at_styled(
+                                        __usage_spec,
+                                        &route,
+                                        long,
+                                        usage_argv::help::Style::auto(),
+                                    )
                                 }
                                 ::std::option::Option::None => {
-                                    usage_argv::help::render(__usage_spec, cmd, long)
+                                    usage_argv::help::render_styled(
+                                        __usage_spec,
+                                        cmd,
+                                        long,
+                                        usage_argv::help::Style::auto(),
+                                    )
                                 }
                             };
                             match __usage_page {
