@@ -1510,7 +1510,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         let token = bytes(self.argv.get(self.pos)?);
         self.pos += 1;
 
-        if self.flags_stopped {
+        // An automatic trailing argument stops flag interpretation without consuming an
+        // explicit separator. A later `--` must still unlock a required trailing argument
+        // (clap's `last`), while a separator already consumed makes every later `--` data.
+        if self.flags_stopped && (token != b"--" || self.separator_seen) {
             return Some(self.word(token));
         }
 

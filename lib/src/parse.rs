@@ -1108,11 +1108,12 @@ fn parse_partial_with_env(
             try_bind_default_missing(&mut out.flags, &mut out.flag_awaiting_value, custom_env)?;
         }
 
-        // Only while flags are still being read. Once a `--` has done its job, a
-        // second one is an ordinary value: every parser worth comparing against
-        // keeps it (POSIX getopt, argparse, clap, commander, yargs), and jdx/usage#229
-        // was a user reporting the old behavior as the bug it is.
-        if w == "--" && enable_flags {
+        // The first explicit `--` is still a separator after an `automatic` argument has
+        // stopped flag parsing. Once an explicit separator has done its job, a second one is
+        // an ordinary value: every parser worth comparing against keeps it (POSIX getopt,
+        // argparse, clap, commander, yargs), and jdx/usage#229 was a user reporting the old
+        // behavior as the bug it is.
+        if w == "--" && !seen_double_dash {
             enable_flags = false;
 
             // Only preserve the double dash token if we're collecting values for a variadic arg

@@ -1553,6 +1553,11 @@ including telling you to delete the label afterwards.
       [the arg reference](https://usage.jdx.dev/spec/reference/arg) says outright. The
       arg's first value now stops flag interpretation, and that note is gone from the
       reference.
+- [x] An automatic argument made a later explicit `--` ordinary data before it could
+      unlock a `double_dash="required"` argument. This broke mise's nested task
+      passthrough shape (`mise run wrapper -- command ...`): the wrapper received `--`
+      as its executable. The first explicit separator now remains syntax after automatic
+      flag stopping; only separators after that first one are data.
 - [x] An attached value was read a second time as a token, so `--jobs=--force` bound
       `force` and left `jobs` unset. The `=` has already settled that the text is a
       value, so it binds where it is read instead of going back on the queue.
