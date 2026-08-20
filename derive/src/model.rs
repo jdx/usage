@@ -5731,6 +5731,25 @@ mod tests {
     }
 
     #[test]
+    fn verbatim_doc_comments_preserve_paragraph_shape() {
+        let cli = cli(r#"
+            #[command(verbatim_doc_comment)]
+            /// First line.
+            /// Second line.
+            ///
+            ///     indented example
+            struct Ex {}
+        "#)
+        .unwrap();
+
+        assert_eq!(cli.about.as_deref(), Some("First line.\nSecond line."));
+        assert_eq!(
+            cli.long_about.as_deref(),
+            Some("First line.\nSecond line.\n\n    indented example")
+        );
+    }
+
+    #[test]
     fn required_unless_needs_somewhere_to_put_absent() {
         // A bare `String` is always filled, so the exception could never take effect:
         // the shape says mandatory and the attribute says conditional.

@@ -510,8 +510,11 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       whole-entry `hide` and nothing finer.
 - [ ] **`help_template`, `next_line_help`, `flatten_help`,
       `subcommand_help_heading`, `subcommand_value_name`.**
-- [ ] **`verbatim_doc_comment`, `rename_all`, `rename_all_env`** — casing is kebab
-      via `to_kebab`, with no opt-out.
+- [x] **`verbatim_doc_comment`.** Commands, fields, and subcommand variants can
+      preserve doc-comment line breaks and indentation instead of flowing the
+      first paragraph. The derive uses the same normalization path for all three.
+- [ ] **`rename_all`, `rename_all_env`.** Casing is kebab via `to_kebab`, with no
+      opt-out beyond explicit names on each declaration.
 - [ ] **Built-in action and flag control** — custom `ArgAction::Help`,
       `HelpShort`, `HelpLong` and `Version`, plus `disable_help_flag`,
       `disable_help_subcommand` and `disable_version_flag`. A clap
