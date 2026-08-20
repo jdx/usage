@@ -37,6 +37,7 @@ are consulted.
 prop "check" type="bool" {
     cli "--check"              // flags that set it, as declared elsewhere in this spec
     env "HK_CHECK" "HK_LINT"   // several: aliases, highest precedence first
+    deprecated_env "HK_VERIFY" // read last, with a warning
     source "git" "hk.check"    // a source kind declared below
 }
 ```
@@ -108,6 +109,7 @@ And as child nodes, for anything multi-valued or long:
 | --------------------------------- | -------------------------------------------------------------- |
 | `cli "--jobs" "-j"`               | flags that set it                                              |
 | `env "A" "B"`                     | environment variables, highest precedence first                |
+| `deprecated_env "OLD_A"`          | environment aliases read last and reported as deprecated       |
 | `alias "old.key"`                 | equivalent config keys, accepted without a deprecation warning |
 | `source "git" "a.b"`              | its keys in a declared source kind                             |
 | `default "a" "b"`                 | a list default, values typed as written (`default 80 443`)     |

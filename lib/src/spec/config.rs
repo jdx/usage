@@ -446,6 +446,9 @@ pub struct SpecConfigProp {
     pub env: Option<String>,
     /// Every environment variable that sets this, highest precedence first.
     pub envs: Vec<String>,
+    /// Environment aliases still read after current names, with a deprecation warning.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub deprecated_envs: Vec<String>,
     /// Flags that set this, as declared elsewhere in the spec.
     pub cli: Vec<String>,
     /// Keys this setting has in a custom source kind, by kind name.
@@ -504,6 +507,12 @@ impl SpecConfigProp {
             self.env = Some(env.clone());
         }
         self.envs.push(env);
+        self
+    }
+
+    /// A deprecated environment alias, read after every current name.
+    pub fn deprecated_env(mut self, env: impl Into<String>) -> Self {
+        self.deprecated_envs.push(env.into());
         self
     }
 
@@ -596,6 +605,11 @@ impl SpecConfigProp {
         let mut children = KdlDocument::new();
         if self.envs.len() > 1 {
             children.nodes_mut().push(string_list("env", &self.envs));
+        }
+        if !self.deprecated_envs.is_empty() {
+            children
+                .nodes_mut()
+                .push(string_list("deprecated_env", &self.deprecated_envs));
         }
         if !self.aliases.is_empty() {
             children
@@ -760,6 +774,7 @@ impl SpecConfigProp {
                 // second `env` line is the natural parallel — assigning silently dropped the
                 // aliases on the first one.
                 "env" => prop.envs.extend(string_args(&child)?),
+                "deprecated_env" => prop.deprecated_envs.extend(string_args(&child)?),
                 "alias" => prop.aliases.extend(string_args(&child)?),
                 "cli" => prop.cli.extend(string_args(&child)?),
                 "example" => prop.examples.extend(string_args(&child)?),
@@ -924,6 +939,7 @@ impl Default for SpecConfigProp {
             value_type: None,
             env: None,
             envs: Vec::new(),
+            deprecated_envs: Vec::new(),
             cli: Vec::new(),
             bindings: BTreeMap::new(),
             help: None,
@@ -1308,6 +1324,7 @@ config {
         help="Number of parallel jobs" since="1.0.0" help_heading="Performance" {
         cli "--jobs" "-j"
         env "HK_JOBS" "HK_JOB"
+        deprecated_env "HK_JOBS_OLD"
         source "git" "hk.jobs"
         source "pkl" "jobs" "defaults.jobs"
         example "hk check --jobs 4"
@@ -1357,6 +1374,7 @@ config {
         let jobs = &spec.config.props["jobs"];
         assert_eq!(jobs.cli, ["--jobs", "-j"]);
         assert_eq!(jobs.envs, ["HK_JOBS", "HK_JOB"]);
+        assert_eq!(jobs.deprecated_envs, ["HK_JOBS_OLD"]);
         assert_eq!(
             jobs.env.as_deref(),
             Some("HK_JOBS"),

@@ -1588,14 +1588,16 @@ Where they differ is instructive, because it is mostly _drift_:
       spec's `config { prop ... }` block so settings documentation flows through
       the same pipeline as command documentation. Same canonicality rule as the
       parser: code authors, the spec defines.
-- [~] **A prop vocabulary that is the union of the four registries** — `type`
-  (bool, int, string, path, duration, list, map, plus a Rust-type escape
-  hatch), `default`, `env` and `deprecated_env`, `docs`, `deprecated` with
-  warn/remove versions, `enum`, `optional`, `aliases`, `merge`
-  (`replace`/`union` — hk needs union for its list settings), `scope`
-  (mise strips `global_only` settings out of project files, which is a
-  security property, not a preference), and per-source bindings in hk's
-  `sources.{cli,env,git,...}` shape.
+- [x] **A prop vocabulary that is the union of the four registries** — `type`
+      (bool, int, string, path, duration, list, map, plus a Rust-type escape
+      hatch), `default`, `env` and `deprecated_env`, `docs`, `deprecated` with
+      warn/remove versions, `enum`, `optional`, `aliases`, `merge`
+      (`replace`/`union` — hk needs union for its list settings), `scope`
+      (mise strips `global_only` settings out of project files, which is a
+      security property, not a preference), and per-source bindings in hk's
+      `sources.{cli,env,git,...}` shape. Current environment names are ordered;
+      `deprecated_env` names are consulted afterwards, warn when used, and remain
+      visible to generated registries and documentation.
 - [x] **Named, ordered, pluggable layers.** The order is CLI flags, then
       environment, then env-files, then the project file (found upward, with
       `.local` variants outranking their base), then user-global, then system, then
