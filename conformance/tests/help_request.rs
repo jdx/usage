@@ -46,6 +46,50 @@ struct Ex {
 )]
 struct Alternate {}
 
+#[allow(dead_code)]
+#[derive(Args)]
+struct RecursiveLeaf {}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum RecursiveChildren {
+    /// A visible leaf
+    Leaf(Box<RecursiveLeaf>),
+    /// An internal leaf
+    #[usage(hide)]
+    Hidden(Box<RecursiveLeaf>),
+}
+
+#[allow(dead_code)]
+#[derive(Args)]
+struct RecursiveParent {
+    #[usage(subcommand)]
+    command: Option<RecursiveChildren>,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum RecursiveCommands {
+    /// An explicitly early command
+    #[usage(display_order = 1)]
+    Early,
+    /// A visible parent
+    Parent(Box<RecursiveParent>),
+    /// An unordered command
+    Zulu,
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "recursive")]
+struct Recursive {
+    /// Print help for the whole visible command tree
+    #[usage(long, global, action = usage_argv::ArgAction::HelpAll)]
+    help_all: bool,
+    #[usage(subcommand)]
+    command: Option<RecursiveCommands>,
+}
+
 fn ask(tokens: &[&str]) -> (bool, String) {
     let argv: Vec<&OsStr> = tokens.iter().map(OsStr::new).collect();
     match Ex::parse_from(&argv) {
@@ -69,6 +113,78 @@ fn the_long_and_short_forms_ask_for_different_pages() {
     assert_ne!(
         page, short_page,
         "the two forms differ, or there was no reason to tell them apart"
+    );
+}
+
+#[test]
+fn recursive_help_is_portable_and_walks_visible_descendants() {
+    let argv = [OsStr::new("--help-all")];
+    let error = match Recursive::parse_from(&argv) {
+        Err(error) => error,
+        Ok(_) => panic!("expected recursive help"),
+    };
+    let Error::HelpAll { cmd } = error else {
+        panic!("expected recursive help");
+    };
+    let page = usage_argv::help::render_all(Recursive::spec(), cmd).expect("this CLI's command");
+    assert!(page.contains("Usage: recursive"), "{page}");
+    assert!(page.contains("Usage: recursive parent"), "{page}");
+    assert!(page.contains("Usage: recursive parent leaf"), "{page}");
+    assert!(page.contains("Usage: recursive early"), "{page}");
+    assert!(page.contains("Usage: recursive zulu"), "{page}");
+    assert!(!page.contains("Usage: recursive parent hidden"), "{page}");
+    let early = page.find("Usage: recursive early").expect("early page");
+    let parent = page.find("Usage: recursive parent").expect("parent page");
+    assert!(
+        early < parent,
+        "explicit display order precedes unordered commands: {page}"
+    );
+
+    let nested = [OsStr::new("parent"), OsStr::new("--help-all")];
+    let error = match Recursive::parse_from(&nested) {
+        Err(error) => error,
+        Ok(_) => panic!("expected nested recursive help"),
+    };
+    let Error::HelpAll { cmd } = error else {
+        panic!("expected recursive help");
+    };
+    let nested_page =
+        usage_argv::help::render_all(Recursive::spec(), cmd).expect("this CLI's command");
+    assert!(
+        nested_page.contains("Usage: recursive parent"),
+        "{nested_page}"
+    );
+    assert!(
+        !nested_page.contains("\nUsage: recursive\n"),
+        "a subtree request does not prepend the root page: {nested_page}"
+    );
+
+    let kdl = Recursive::to_kdl();
+    assert!(
+        kdl.contains("action=help_all"),
+        "the emitted spec retains the action: {kdl}"
+    );
+    let spec: usage::Spec = kdl.parse().expect("valid generated spec");
+    let error =
+        usage::Parser::new(&spec).parse(&["recursive".to_string(), "--help-all".to_string()]);
+    let reference = error.expect_err("help was requested").to_string();
+    assert!(
+        reference.contains("Usage: recursive parent leaf"),
+        "{reference}"
+    );
+    let early = reference
+        .find("Usage: recursive early")
+        .expect("early reference page");
+    let parent = reference
+        .find("Usage: recursive parent")
+        .expect("parent reference page");
+    assert!(
+        early < parent,
+        "explicit display order precedes unordered commands: {reference}"
+    );
+    assert!(
+        !reference.contains("Usage: recursive parent hidden"),
+        "{reference}"
     );
 }
 

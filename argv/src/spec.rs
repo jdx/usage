@@ -1772,6 +1772,7 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
                 crate::ArgAction::Help => "help",
                 crate::ArgAction::HelpShort => "help_short",
                 crate::ArgAction::HelpLong => "help_long",
+                crate::ArgAction::HelpAll => "help_all",
                 crate::ArgAction::Version => "version",
             })
         )?;

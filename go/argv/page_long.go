@@ -163,6 +163,38 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	return strings.TrimSpace(out.String()) + "\n"
 }
 
+// AllHelp renders long help for the selected command and every visible descendant.
+func AllHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
+	var out strings.Builder
+	var appendPages func([]string, []*Command)
+	appendPages = func(currentPath []string, currentChain []*Command) {
+		if out.Len() > 0 {
+			out.WriteByte('\n')
+		}
+		out.WriteString(LongHelp(spec, currentPath, currentChain, help))
+		current := currentChain[len(currentChain)-1]
+		children := append([]*Command(nil), current.Subcommands...)
+		sort.SliceStable(children, func(i, j int) bool {
+			left := helpOrder(help, children[i].Key, 999)
+			right := helpOrder(help, children[j].Key, 999)
+			if left != right {
+				return left < right
+			}
+			return children[i].Name < children[j].Name
+		})
+		for _, child := range children {
+			if childHelp := help.Lookup(child.Key); childHelp != nil && childHelp.Hide {
+				continue
+			}
+			nextPath := append(append([]string(nil), currentPath...), child.Name)
+			nextChain := append(append([]*Command(nil), currentChain...), child)
+			appendPages(nextPath, nextChain)
+		}
+	}
+	appendPages(path, chain)
+	return out.String()
+}
+
 // longCommandsSection lists the subcommands, each description on its own indented
 // line rather than beside the name.
 func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help HelpTable) {

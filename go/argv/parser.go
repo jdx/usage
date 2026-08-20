@@ -477,6 +477,8 @@ func (p *Parser) flagAction(flag *Flag, longSpelling bool) bool {
 		return p.fail(Error{Code: CodeHelp, Cmd: p.cmd, Long: false})
 	case ActionHelpLong:
 		return p.fail(Error{Code: CodeHelp, Cmd: p.cmd, Long: true})
+	case ActionHelpAll:
+		return p.fail(Error{Code: CodeHelp, Cmd: p.cmd, Long: true, All: true})
 	case ActionVersion:
 		return p.fail(Error{Code: CodeVersion, Cmd: p.cmd, Long: longSpelling})
 	default:

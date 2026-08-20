@@ -2173,6 +2173,17 @@ pub fn render_styled(
     ))
 }
 
+/// Long help for a command and every visible descendant, in depth-first order.
+pub fn render_all(spec: &Spec<'_>, cmd: &Command<'_>) -> Option<String> {
+    render_all_styled(spec, cmd, Style::PLAIN)
+}
+
+/// Recursive long help with an explicit colour policy.
+pub fn render_all_styled(spec: &Spec<'_>, cmd: &Command<'_>, style: Style) -> Option<String> {
+    let (path, chain) = find(spec, cmd)?;
+    Some(recursive_help(spec, path, chain, style))
+}
+
 /// The route the words took to a command, for rendering its page unambiguously.
 ///
 /// Rebuilt by re-parsing, because [`Error::Help`](crate::Error::Help) carries the command and
@@ -2290,6 +2301,66 @@ pub fn render_at_styled(
         &flag_usages,
         &synopsis,
     ))
+}
+
+/// Recursive long help for a command reached by a known route.
+pub fn render_all_at(spec: &Spec<'_>, route: &[&Command<'_>]) -> Option<String> {
+    render_all_at_styled(spec, route, Style::PLAIN)
+}
+
+/// Route-specific recursive long help with an explicit colour policy.
+pub fn render_all_at_styled(
+    spec: &Spec<'_>,
+    route: &[&Command<'_>],
+    style: Style,
+) -> Option<String> {
+    let (path, chain) = route_context(spec, route)?;
+    Some(recursive_help(spec, path, chain, style))
+}
+
+fn recursive_help<'a>(
+    spec: &'a Spec<'a>,
+    path: Vec<&'a str>,
+    chain: Vec<&'a CommandMeta<'a>>,
+    style: Style,
+) -> String {
+    fn append<'a>(
+        out: &mut String,
+        spec: &'a Spec<'a>,
+        path: &mut Vec<&'a str>,
+        chain: &mut Vec<&'a CommandMeta<'a>>,
+        style: Style,
+    ) {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        let page = long_help(spec, path, chain);
+        let (headings, flag_usages, synopsis) = help_structure(spec, path, chain, true);
+        out.push_str(&styled_help(
+            &page,
+            style,
+            &headings,
+            &flag_usages,
+            &synopsis,
+        ));
+
+        let current = *chain.last().expect("a recursive page has a command");
+        let mut children: Vec<_> = current.subcommands.iter().filter(|cmd| !cmd.hide).collect();
+        children.sort_by_key(|cmd| (cmd.display_order.unwrap_or(999), cmd.cmd.name));
+        for child in children {
+            path.push(child.cmd.name);
+            chain.push(child);
+            append(out, spec, path, chain, style);
+            chain.pop();
+            path.pop();
+        }
+    }
+
+    let mut out = String::new();
+    let mut path = path;
+    let mut chain = chain;
+    append(&mut out, spec, &mut path, &mut chain, style);
+    out
 }
 
 #[cfg(test)]

@@ -22,6 +22,7 @@ flag "-v --verbose" count=#true         // instead of true/false $usage_verbose 
                                         // flag was used (e.g. -vvv = 3)
 flag "--assist" action="help_short" help="Show concise help"
 flag "--manual" action="help_long" help="Show full help"
+flag "--help-all" action="help_all" help="Show help for every command"
 flag "--release" action="version" help="Print version"
 
 flag "--include <pattern>" var=#true            // flag can be repeated (--include a --include b)

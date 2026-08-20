@@ -378,3 +378,31 @@ func TestADescriptionEndingInABreakAddsNoBlankLine(t *testing.T) {
 		t.Errorf("short command help should not add a blank line either:\n%q", shortParent)
 	}
 }
+
+func TestAllHelpWalksVisibleDescendants(t *testing.T) {
+	leaf := &Command{Key: 3, Name: "leaf"}
+	hidden := &Command{Key: 4, Name: "hidden"}
+	parent := &Command{Key: 2, Name: "parent", Subcommands: []*Command{hidden, leaf}}
+	early := &Command{Key: 5, Name: "early"}
+	zulu := &Command{Key: 6, Name: "zulu"}
+	root := &Command{Key: 1, Name: "recursive", Subcommands: []*Command{zulu, parent, early}}
+	help := make(HelpTable, 6)
+	help[0] = Help{Key: 1}
+	help[1] = Help{Key: 2, Short: "A visible parent"}
+	help[2] = Help{Key: 3, Short: "A visible leaf"}
+	help[3] = Help{Key: 4, Hide: true}
+	help[4] = Help{Key: 5, DisplayOrder: 1, DisplayOrderSet: true}
+	help[5] = Help{Key: 6}
+	page := AllHelp(HelpSpec{Name: "recursive", Bin: "recursive"}, []string{"recursive"}, []*Command{root}, help)
+	for _, usage := range []string{"Usage: recursive", "Usage: recursive early", "Usage: recursive parent", "Usage: recursive parent leaf", "Usage: recursive zulu"} {
+		if !strings.Contains(page, usage) {
+			t.Fatalf("missing %q:\n%s", usage, page)
+		}
+	}
+	if strings.Contains(page, "Usage: recursive parent hidden") {
+		t.Fatalf("hidden command was rendered:\n%s", page)
+	}
+	if strings.Index(page, "Usage: recursive early") > strings.Index(page, "Usage: recursive parent") {
+		t.Fatalf("explicit display order followed unordered commands:\n%s", page)
+	}
+}

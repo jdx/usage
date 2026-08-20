@@ -555,7 +555,7 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       Bare `env` infers its name using `rename_all_env` (SCREAMING_SNAKE_CASE by
       default); explicit field, flag, command, and environment names still win.
 - [x] **Built-in action and flag control** — custom `ArgAction::Help`,
-      `HelpShort`, `HelpLong` and `Version`, plus `disable_help_flag`,
+      `HelpShort`, `HelpLong`, `HelpAll` and `Version`, plus `disable_help_flag`,
       `disable_help_subcommand` and `disable_version_flag`, including custom help
       text on relocated help/version flags. Typed Rust, portable KDL, the clap
       bridge, usage-lib, and generated Go can now move or remove these entry
@@ -1337,10 +1337,10 @@ above are where it lands.
       spec-level redirect an interpreter applies before parsing, so help and
       completions describe the alias too; clap's unstable `App::replace`
       answer died for lack of interest.
-- [ ] **Recursive help** (clap#4813) — help for a whole command tree in one
-      output. The markdown generator already walks the tree; a `--help-all`
-      output mode is cheap, and doubles as the golden file the help-parity
-      tests already want.
+- [x] **Recursive help** (clap#4813) — `ArgAction::HelpAll` renders long help
+      for the selected command and every visible descendant in one depth-first
+      output. Typed Rust, portable KDL, usage-lib, and generated Go retain the
+      action and share the same hidden-command boundary.
 - [x] **Non-strict choices** (clap#5885) — `choices strict=#false` and typed
       `choices_strict = false` keep known values in help and completion while
       accepting unknown values. Strict validation remains the default. mise's

@@ -202,6 +202,7 @@ const (
 	ActionHelp
 	ActionHelpShort
 	ActionHelpLong
+	ActionHelpAll
 	ActionVersion
 )
 
@@ -443,6 +444,8 @@ type Error struct {
 	Arg *Arg
 	// Cmd is what CodeHelp was asked about.
 	Cmd *Command
+	// All asks for this command and every visible descendant rather than one page.
+	All bool
 	// Long distinguishes --help from -h, which print different amounts.
 	Long bool
 
@@ -541,7 +544,7 @@ var (
 
 // IsHelpFlag reports whether a flag is one the parser supplied for --help or -h.
 func IsHelpFlag(f *Flag) bool {
-	return f != nil && (f.Action == ActionHelp || f.Action == ActionHelpShort || f.Action == ActionHelpLong)
+	return f != nil && (f.Action == ActionHelp || f.Action == ActionHelpShort || f.Action == ActionHelpLong || f.Action == ActionHelpAll)
 }
 
 // IsVersionFlag reports whether a flag is one the parser supplied for --version
