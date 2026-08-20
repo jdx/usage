@@ -2520,7 +2520,7 @@ fn render_action_err(spec: &Spec, cmd: &SpecCommand, flag: &SpecFlag, spelling: 
             let value = if spelling.starts_with("--") {
                 spec.long_version.as_ref().or(spec.version.as_ref())
             } else {
-                spec.version.as_ref()
+                spec.version.as_ref().or(spec.long_version.as_ref())
             };
             UsageErr::Version(value.cloned().unwrap_or_default())
         }
@@ -3185,6 +3185,7 @@ impl Debug for ParseOutput {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SpecFlagAction;
 
     fn input(words: &[&str]) -> Vec<String> {
         words.iter().map(|word| (*word).to_string()).collect()
@@ -3251,6 +3252,24 @@ mod tests {
     fn assert_parse_err(result: Result<ParseOutput, miette::Error>, expected: &str) {
         let err = result.expect_err("expected parser error");
         assert_eq!(format!("{err}"), expected);
+    }
+
+    #[test]
+    fn a_short_version_action_falls_back_to_the_long_version() {
+        let flag = SpecFlag::builder()
+            .short('R')
+            .action(SpecFlagAction::Version)
+            .build();
+        let spec = Spec {
+            name: "test".to_string(),
+            bin: "test".to_string(),
+            long_version: Some("1.2.3\ncommit abc123".to_string()),
+            ..Default::default()
+        };
+        let UsageErr::Version(version) = render_action_err(&spec, &spec.cmd, &flag, "-R") else {
+            panic!("expected version action")
+        };
+        assert_eq!(version, "1.2.3\ncommit abc123");
     }
 
     #[cfg(feature = "unstable_choices_env")]
