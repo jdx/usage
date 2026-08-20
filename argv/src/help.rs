@@ -1249,7 +1249,6 @@ pub fn route_to<'t>(
     if route.is_empty() {
         route.push(root);
     }
-    let mut infer_subcommands = route.iter().any(|cmd| cmd.infer_subcommands);
 
     // Already there for `--help`, whose span is empty. For the `help` word the parse stopped at
     // the command that *saw* it, and the words naming the one being asked about are exactly the
@@ -1270,13 +1269,8 @@ pub fn route_to<'t>(
         // that reached here did. Matching on name and alias together instead answered with
         // whichever subcommand came first, which for a colliding word is a different command
         // than the one the parser selected.
-        let next = if infer_subcommands {
-            crate::find_prefixed(here, word)?
-        } else {
-            crate::find_named(here, word)?
-        };
+        let next = crate::find_named(here, word)?;
         route.push(next);
-        infer_subcommands |= next.infer_subcommands;
     }
     // Only if the walk actually arrived: a caller should fall back rather than be handed a
     // page about some other command.

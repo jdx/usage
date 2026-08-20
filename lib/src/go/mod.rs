@@ -377,13 +377,6 @@ impl<'a> Emitter<'a> {
             if e.cmd.arg_required_else_help {
                 lines.push(Line::Field("ArgRequiredElseHelp".into(), "true".into()));
             }
-            if effective_command_setting(commands, i, |cmd| cmd.infer_subcommands) {
-                lines.push(Line::Field("InferSubcommands".into(), "true".into()));
-            }
-            if effective_command_setting(commands, i, |cmd| cmd.infer_long_args) {
-                lines.push(Line::Field("InferLongArgs".into(), "true".into()));
-            }
-
             if e.root {
                 if let Some(var) = &default_subcommand {
                     lines.push(Line::Field("DefaultSubcommand".into(), var.clone()));
@@ -1116,19 +1109,6 @@ fn effective_unknown_flags(spec: &Spec, commands: &[Emitted], at: usize) -> Unkn
     spec.unknown_flags.unwrap_or_default()
 }
 
-fn effective_command_setting(
-    commands: &[Emitted],
-    at: usize,
-    enabled: impl Fn(&SpecCommand) -> bool,
-) -> bool {
-    let path = &commands[at].cmd.full_cmd;
-    commands.iter().any(|candidate| {
-        candidate.cmd.full_cmd.len() <= path.len()
-            && candidate.cmd.full_cmd[..] == path[..candidate.cmd.full_cmd.len()]
-            && enabled(&candidate.cmd)
-    })
-}
-
 fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
     let mut fields = vec![
         format!("Key: {}", named.key),
@@ -1782,40 +1762,6 @@ cmd "run" arg_required_else_help=#true {
             out.contains("p.Command().ArgRequiredElseHelp && p.CommandStart() == len(args)"),
             "the typed parser should enforce it before fallbacks:\n{out}"
         );
-    }
-
-    #[test]
-    fn inferred_prefix_settings_are_emitted_and_inherited() {
-        let out = go(r#"
-name "ex"
-bin "ex"
-infer_subcommands #true
-infer_long_args #true
-cmd "install" {}
-"#);
-        let block = |var: &str| {
-            let start = out
-                .find(&format!("var {var} ="))
-                .unwrap_or_else(|| panic!("{var} should be emitted, got:\n{out}"));
-            let rest = &out[start..];
-            let end = rest[1..]
-                .find("\nvar ")
-                .map(|i| i + 1)
-                .unwrap_or(rest.len());
-            &rest[..end]
-        };
-        for var in ["Root", "cmdInstall"] {
-            let has_true = |field: &str| {
-                block(var)
-                    .lines()
-                    .any(|line| line.contains(field) && line.ends_with("true,"))
-            };
-            assert!(
-                has_true("InferSubcommands:") && has_true("InferLongArgs:"),
-                "{var} should carry the effective inherited settings:\n{}",
-                block(var)
-            );
-        }
     }
 
     /// A subcommand actually named `root` wants the constant the root has.

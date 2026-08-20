@@ -70,10 +70,6 @@ type Command struct {
 	ExternalSubcommand bool
 	// ArgRequiredElseHelp shows this command's help when no argv token follows its name.
 	ArgRequiredElseHelp bool
-	// InferSubcommands accepts unambiguous prefixes of names and aliases.
-	InferSubcommands bool
-	// InferLongArgs accepts unambiguous prefixes of long flag names and aliases.
-	InferLongArgs bool
 	// UnknownFlags is what an unrecognized flag-like token means here. Already
 	// resolved: inheritance is a question for whoever builds the tables.
 	UnknownFlags UnknownFlags

@@ -99,8 +99,6 @@ type Cmd struct {
 	UnknownFlags        *string     `json:"unknown_flags"`
 	ExternalSubcommand  bool        `json:"external_subcommand"`
 	ArgRequiredElseHelp bool        `json:"arg_required_else_help"`
-	InferSubcommands    bool        `json:"infer_subcommands"`
-	InferLongArgs       bool        `json:"infer_long_args"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.
@@ -418,7 +416,7 @@ func (s *Spec) Build() (*argv.Command, argv.Metadata) {
 // pass for the same reason the first two were.
 func (s *Spec) BuildAll() (*argv.Command, argv.Metadata, argv.HelpTable) {
 	b := &builder{complete: s.Complete}
-	root := b.command(&s.Cmd, unknownFlags(s.UnknownFlags, argv.UnknownFlagsValue), false, false)
+	root := b.command(&s.Cmd, unknownFlags(s.UnknownFlags, argv.UnknownFlagsValue))
 
 	// default_subcommand is a property of the spec rather than of a command, so it
 	// is resolved once, here, against the root's own subcommands. A name that
@@ -576,7 +574,7 @@ func (b *builder) next() uint64 {
 	return b.key
 }
 
-func (b *builder) command(c *Cmd, inherited argv.UnknownFlags, inferSubcommands, inferLongArgs bool) *argv.Command {
+func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	unknown := inherited
 	if c.UnknownFlags != nil {
 		unknown = unknownFlags(*c.UnknownFlags, inherited)
@@ -587,8 +585,6 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags, inferSubcommands,
 		UnknownFlags:        unknown,
 		ExternalSubcommand:  c.ExternalSubcommand,
 		ArgRequiredElseHelp: c.ArgRequiredElseHelp,
-		InferSubcommands:    inferSubcommands || c.InferSubcommands,
-		InferLongArgs:       inferLongArgs || c.InferLongArgs,
 		Key:                 b.next(),
 	}
 	examples := make([]argv.Example, 0, len(c.Examples))
@@ -635,12 +631,7 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags, inferSubcommands,
 	// In scope for everything below, and out of scope again afterwards.
 	b.scope = append(b.scope, out)
 	for i := range c.Subcommands {
-		out.Subcommands = append(out.Subcommands, b.command(
-			&c.Subcommands[i].Cmd,
-			unknown,
-			out.InferSubcommands,
-			out.InferLongArgs,
-		))
+		out.Subcommands = append(out.Subcommands, b.command(&c.Subcommands[i].Cmd, unknown))
 	}
 	b.scope = b.scope[:len(b.scope)-1]
 	return out
