@@ -528,6 +528,9 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       names automatically, honoring `NO_COLOR` and `CLICOLOR_FORCE`; explicit
       plain/coloured rendering stays available for tests and generated artifacts.
       clap's arbitrary `Command::styles` palette is intentionally not reproduced.
+- [x] **Visible aliases in generated references.** Markdown and JSON reference
+      models list every visible short and long spelling while interactive help
+      retains its compact aligned first-pair layout; hidden aliases stay hidden.
 - [ ] **`term_width` / `max_term_width`** — we wrap to `COLUMNS` and take no
       instruction about it.
 - [x] **The granular hides** — `hide_default_value`, `hide_env`, `hide_env_values`,
