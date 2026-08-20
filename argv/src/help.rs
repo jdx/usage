@@ -638,25 +638,26 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
         |a| a.help_heading,
         |out, a| {
             let usage = arg_usage(a);
+            if meta.next_line_help {
+                let _ = writeln!(out, "  {usage}");
+                if let Some(help) = a.help.filter(|h| !h.trim().is_empty()) {
+                    write_indented(out, help, 4);
+                }
+                long_annotations(
+                    out,
+                    if a.hide_possible_values {
+                        &[]
+                    } else {
+                        a.choices
+                    },
+                    if a.hide_env { None } else { a.env },
+                    if a.hide_default_value { &[] } else { a.default },
+                );
+                return;
+            }
             match a.help.filter(|h| !h.trim().is_empty()) {
                 Some(help) => {
-                    if meta.next_line_help {
-                        let _ = writeln!(out, "  {usage}");
-                        write_indented(out, help, 4);
-                        long_annotations(
-                            out,
-                            if a.hide_possible_values {
-                                &[]
-                            } else {
-                                a.choices
-                            },
-                            if a.hide_env { None } else { a.env },
-                            if a.hide_default_value { &[] } else { a.default },
-                        );
-                        return;
-                    } else {
-                        let _ = write!(out, "  {usage:<arg_col$}  {help}");
-                    }
+                    let _ = write!(out, "  {usage:<arg_col$}  {help}");
                 }
                 None => {
                     let _ = write!(out, "  {usage}");
@@ -683,25 +684,26 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
         .max()
         .unwrap_or(0);
     let short_entry = |out: &mut String, f: &FlagMeta<'_>, usage: String| {
+        if meta.next_line_help {
+            let _ = writeln!(out, "  {usage}");
+            if let Some(help) = f.help.filter(|h| !h.trim().is_empty()) {
+                write_indented(out, help, 4);
+            }
+            long_annotations(
+                out,
+                if f.hide_possible_values {
+                    &[]
+                } else {
+                    f.choices
+                },
+                if f.hide_env { None } else { f.env },
+                if f.hide_default_value { &[] } else { f.default },
+            );
+            return;
+        }
         match f.help.filter(|h| !h.trim().is_empty()) {
             Some(help) => {
-                if meta.next_line_help {
-                    let _ = writeln!(out, "  {usage}");
-                    write_indented(out, help, 4);
-                    long_annotations(
-                        out,
-                        if f.hide_possible_values {
-                            &[]
-                        } else {
-                            f.choices
-                        },
-                        if f.hide_env { None } else { f.env },
-                        if f.hide_default_value { &[] } else { f.default },
-                    );
-                    return;
-                } else {
-                    let _ = write!(out, "  {usage:<flag_col$}  {help}");
-                }
+                let _ = write!(out, "  {usage:<flag_col$}  {help}");
             }
             None => {
                 let _ = write!(out, "  {usage}");
@@ -792,7 +794,7 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
         if let Some(about) = sub.about {
             if meta.next_line_help {
                 out.push('\n');
-                write_indented(out, about, 4);
+                write_indented(out, about.trim_end(), 4);
                 continue;
             }
             let _ = write!(out, "  {about}");

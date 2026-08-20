@@ -914,7 +914,7 @@ cmd "new-cmd" help="Do something better"
 bin "testcli"
 subcommand_help_heading "Actions"
 subcommand_value_name "ACTION"
-cmd "run" help="Run it"
+cmd "run" help="Run it\n"
         "# }
         .unwrap();
 
@@ -928,19 +928,29 @@ cmd "run" help="Run it"
         let spec = crate::spec! { r#"
 bin "testcli"
 next_line_help #true
-arg "<input>" help="Input file"
+arg "<input>" help="Input file" env="INPUT" default="fast" {
+    choices {
+        choice "fast"
+        choice "slow"
+    }
+}
 flag "--verbose" help="Enable verbose output"
 cmd "run" help="Run it"
         "# }
         .unwrap();
 
-        for page in [
-            render_help(&spec, &spec.cmd, false),
-            render_help(&spec, &spec.cmd, true),
-        ] {
-            assert!(page.contains("  <input>\n    Input file"), "{page}");
+        let short = render_help(&spec, &spec.cmd, false);
+        assert!(!short.contains("    Run it\n\n  help"), "{short}");
+        for page in [short, render_help(&spec, &spec.cmd, true)] {
+            assert!(page.contains("  [input]\n    Input file"), "{page}");
             assert!(
                 page.contains("--verbose\n    Enable verbose output"),
+                "{page}"
+            );
+            assert!(
+                page.contains(
+                    "    [possible values: fast, slow]\n    [env: INPUT]\n    (default: fast)"
+                ),
                 "{page}"
             );
             assert!(page.contains("  run\n    Run it"), "{page}");

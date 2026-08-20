@@ -540,7 +540,9 @@ impl From<&crate::SpecCommand> for SpecCommand {
             subcommand_help_heading: subcommand_help_heading.clone(),
             next_line_help: *next_line_help,
             restart_token: restart_token.clone(),
-            help: help.clone(),
+            // The renderer owns the line break after a command description. Keeping one
+            // embedded in the text creates an extra blank in next-line help.
+            help: help.as_deref().map(|help| help.trim_end().to_string()),
             // Trailing whitespace trimmed, matching `long_commands_section` in usage-argv.
             // Never intent, and it showed: pitchfork's `daemons add` ends its examples block
             // with a newline, which put a stray blank line in the middle of `Commands:`.

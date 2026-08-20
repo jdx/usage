@@ -160,6 +160,8 @@ struct NextLineHelp {
     /// Config file.
     #[usage(long)]
     config: Option<String>,
+    #[arg(long, env = "NEXT_HELP_MODE", default = "fast")]
+    mode: String,
 }
 
 #[derive(Cli)]
@@ -1198,6 +1200,10 @@ fn typed_next_line_help_reaches_help_and_the_portable_spec() {
     let page = usage::argv::help::short_help(spec, &["next-help"], &[spec.root]);
     assert!(
         page.contains("--config <CONFIG>\n    Config file."),
+        "{page}"
+    );
+    assert!(
+        page.contains("--mode <MODE>\n    [env: NEXT_HELP_MODE]\n    (default: fast)"),
         "{page}"
     );
 

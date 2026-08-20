@@ -117,15 +117,16 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			a := args[i]
 			h := help.Lookup(a.Key)
 			usage := argUsage(a, h)
-			if help := helpText(h); help != "" {
-				if nextLineHelp {
-					w.WriteString("  " + usage + "\n")
-					writeIndented(w, help, 4)
-					longAnnotations(w, h, true)
-					return
-				} else {
-					w.WriteString("  " + pad(usage, argCol) + "  " + help)
+			if nextLineHelp {
+				w.WriteString("  " + usage + "\n")
+				if text := helpText(h); text != "" {
+					writeIndented(w, text, 4)
 				}
+				longAnnotations(w, h, true)
+				return
+			}
+			if help := helpText(h); help != "" {
+				w.WriteString("  " + pad(usage, argCol) + "  " + help)
 			} else {
 				w.WriteString("  " + usage)
 			}
@@ -153,29 +154,31 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		h := help.Lookup(f.key)
 		if f.supplied != "" {
 			// A flag the parser supplies has no table entry; its help is fixed.
-			if text := f.suppliedHelp; text != "" {
-				if nextLineHelp {
-					w.WriteString("  " + f.usage + "\n")
+			if nextLineHelp {
+				w.WriteString("  " + f.usage + "\n")
+				if text := f.suppliedHelp; text != "" {
 					writeIndented(w, text, 4)
-					return
-				} else {
-					w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
 				}
+				return
+			}
+			if text := f.suppliedHelp; text != "" {
+				w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
 			} else {
 				w.WriteString("  " + f.usage)
 			}
 			w.WriteString("\n")
 			return
 		}
-		if text := helpText(h); text != "" {
-			if nextLineHelp {
-				w.WriteString("  " + f.usage + "\n")
+		if nextLineHelp {
+			w.WriteString("  " + f.usage + "\n")
+			if text := helpText(h); text != "" {
 				writeIndented(w, text, 4)
-				longAnnotations(w, h, true)
-				return
-			} else {
-				w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
 			}
+			longAnnotations(w, h, true)
+			return
+		}
+		if text := helpText(h); text != "" {
+			w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
 		} else {
 			w.WriteString("  " + f.usage)
 		}
@@ -257,7 +260,7 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 			if h.Short != "" {
 				if nextLineHelp {
 					out.WriteString("\n")
-					writeIndented(out, h.Short, 4)
+					writeIndented(out, trimEnd(h.Short), 4)
 					continue
 				}
 				out.WriteString("  " + h.Short)
