@@ -489,15 +489,15 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       allocation-free `parse_from` primitive always has that contract, while
       clap-shaped `try_parse_from` includes argv0 by default and honors
       `#[command(no_binary_name)]` by routing directly to the primitive.
-- [ ] **Command parsing policy** — `arg_required_else_help`,
+- [x] **`arg_required_else_help`.** The derive, portable spec, usage-lib,
+      clap bridge, and generated Go front door show short help when the selected
+      command receives no argv tokens. This deliberately reads argv rather than
+      bound values: an environment variable or default may fill a field, but an
+      empty command line still means help.
+- [ ] **Remaining command parsing policy** —
       `args_conflicts_with_subcommands`, `subcommand_negates_reqs`,
-      `subcommand_precedence_over_arg`, `allow_missing_positional`,
-      and `args_override_self`. One design decision is made ahead of the
-      implementation: `arg_required_else_help` reads argv, not bound values.
-      clap counts an environment-supplied value as present (clap#3572), so a
-      user with a configured environment never sees the help — with MISE_*
-      set, that is most mise users. An empty command line means help,
-      whatever the environment holds.
+      `subcommand_precedence_over_arg`, `allow_missing_positional`, and
+      `args_override_self`.
 
 **Help output**
 
@@ -1143,8 +1143,8 @@ in all of them.
 The fleet's workarounds also route around usage, not only clap. These are the
 items the survey adds; the ones already tracked as unchecked boxes under **What
 clap can say that we cannot** (positionals in relationships, the complete
-relationship families, command parsing policy including
-`arg_required_else_help`, fixed arity, the full `ValueHint` vocabulary) are not
+relationship families, remaining command parsing policy, fixed arity, the full
+`ValueHint` vocabulary) are not
 repeated here.
 
 - [ ] **The completer channel is unescaped Tera into `sh -c`.** aube's

@@ -162,7 +162,8 @@ func (p *Parser) FlagsStopped() bool { return p.flagsStopped }
 func (p *Parser) SubcommandsPossible() bool { return !p.argFilled && !p.flagsStopped }
 
 // CommandStart is where the command in scope began: the index in argv just after
-// its name. argv[CommandStart():] is what that command was given.
+// its name, or at the unmatched word routed into a default subcommand.
+// argv[CommandStart():] is what that command was given.
 func (p *Parser) CommandStart() int { return p.cmdStart }
 
 // Collecting reports a variadic flag that is still claiming words, if there is
@@ -509,6 +510,9 @@ func (p *Parser) word(token string) bool {
 				return false
 			}
 			p.pos--
+			// A default command receives the word that caused descent. Keep its argv
+			// boundary at that word so policies and completion callbacks see it.
+			p.cmdStart = p.pos
 			return p.emit(Event{Kind: KindCommand, Command: d})
 		}
 

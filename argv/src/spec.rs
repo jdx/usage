@@ -1082,6 +1082,9 @@ impl Spec<'_> {
         if self.root.cmd.external_subcommand {
             writeln!(out, "external_subcommand #true")?;
         }
+        if self.root.cmd.arg_required_else_help {
+            writeln!(out, "arg_required_else_help #true")?;
+        }
         if self.root.cmd.infer_subcommands {
             writeln!(out, "infer_subcommands #true")?;
         }
@@ -1327,6 +1330,9 @@ fn write_command<'a>(
     }
     if meta.cmd.external_subcommand {
         out.push_str(" external_subcommand=#true");
+    }
+    if meta.cmd.arg_required_else_help {
+        out.push_str(" arg_required_else_help=#true");
     }
     if meta.cmd.infer_subcommands {
         out.push_str(" infer_subcommands=#true");

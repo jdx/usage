@@ -231,6 +231,8 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         out,
         "\t\t\t}}\n\t\t}}\n\t}}\n\
          \tif err := p.Err(); err != nil {{\n\t\treturn nil, err\n\t}}\n\
+         \tif p.Command().ArgRequiredElseHelp && p.CommandStart() == len(args) {{\n\
+         \t\treturn nil, &argv.Error{{Code: argv.CodeHelp, Cmd: p.Command()}}\n\t}}\n\
          \n\t// Only the commands the words actually selected are judged: a required\n\
          \t// flag on a command nobody ran is not missing.\n\
          \tvar scope []uint64\n\

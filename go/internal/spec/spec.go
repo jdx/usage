@@ -81,25 +81,26 @@ type Completer struct {
 
 // Cmd is one command in the lowered spec.
 type Cmd struct {
-	Name               string      `json:"name"`
-	Hide               bool        `json:"hide"`
-	Help               string      `json:"help"`
-	HelpLong           string      `json:"help_long"`
-	Usage              string      `json:"usage"`
-	BeforeHelp         string      `json:"before_help"`
-	AfterHelp          string      `json:"after_help"`
-	BeforeHelpLong     string      `json:"before_help_long"`
-	AfterHelpLong      string      `json:"after_help_long"`
-	Examples           []Example   `json:"examples"`
-	Aliases            []string    `json:"aliases"`
-	HiddenAliases      []string    `json:"hidden_aliases"`
-	Subcommands        Subcommands `json:"subcommands"`
-	Args               []Arg       `json:"args"`
-	Flags              []Flag      `json:"flags"`
-	UnknownFlags       *string     `json:"unknown_flags"`
-	ExternalSubcommand bool        `json:"external_subcommand"`
-	InferSubcommands   bool        `json:"infer_subcommands"`
-	InferLongArgs      bool        `json:"infer_long_args"`
+	Name                string      `json:"name"`
+	Hide                bool        `json:"hide"`
+	Help                string      `json:"help"`
+	HelpLong            string      `json:"help_long"`
+	Usage               string      `json:"usage"`
+	BeforeHelp          string      `json:"before_help"`
+	AfterHelp           string      `json:"after_help"`
+	BeforeHelpLong      string      `json:"before_help_long"`
+	AfterHelpLong       string      `json:"after_help_long"`
+	Examples            []Example   `json:"examples"`
+	Aliases             []string    `json:"aliases"`
+	HiddenAliases       []string    `json:"hidden_aliases"`
+	Subcommands         Subcommands `json:"subcommands"`
+	Args                []Arg       `json:"args"`
+	Flags               []Flag      `json:"flags"`
+	UnknownFlags        *string     `json:"unknown_flags"`
+	ExternalSubcommand  bool        `json:"external_subcommand"`
+	ArgRequiredElseHelp bool        `json:"arg_required_else_help"`
+	InferSubcommands    bool        `json:"infer_subcommands"`
+	InferLongArgs       bool        `json:"infer_long_args"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.
@@ -582,12 +583,13 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags, inferSubcommands,
 	}
 
 	out := &argv.Command{
-		Name:               c.Name,
-		UnknownFlags:       unknown,
-		ExternalSubcommand: c.ExternalSubcommand,
-		InferSubcommands:   inferSubcommands || c.InferSubcommands,
-		InferLongArgs:      inferLongArgs || c.InferLongArgs,
-		Key:                b.next(),
+		Name:                c.Name,
+		UnknownFlags:        unknown,
+		ExternalSubcommand:  c.ExternalSubcommand,
+		ArgRequiredElseHelp: c.ArgRequiredElseHelp,
+		InferSubcommands:    inferSubcommands || c.InferSubcommands,
+		InferLongArgs:       inferLongArgs || c.InferLongArgs,
+		Key:                 b.next(),
 	}
 	examples := make([]argv.Example, 0, len(c.Examples))
 	for _, e := range c.Examples {

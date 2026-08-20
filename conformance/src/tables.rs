@@ -109,6 +109,7 @@ pub fn build(
         version: false,
         unknown_flags,
         external_subcommand: cmd.external_subcommand,
+        arg_required_else_help: cmd.arg_required_else_help,
         infer_subcommands: cmd.infer_subcommands,
         infer_long_args: cmd.infer_long_args,
         key: 0,

@@ -51,7 +51,7 @@ struct Install {
   `#[usage(subcommand)]` field, up to a maximum depth of 16.
 
 Variant attributes: `name`, `alias`, `alias_hidden`, `hide`, `effect`, `help`, `long_help`,
-`verbatim_doc_comment`, `external_subcommand`. Aliases declared on the variant and on the `Args`
+`verbatim_doc_comment`, `external_subcommand`, `arg_required_else_help`. Aliases declared on the variant and on the `Args`
 struct are joined.
 
 Two variants wrapping the _same_ struct is a compile error — each command needs its own

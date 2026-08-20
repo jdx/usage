@@ -202,6 +202,7 @@
 //! On the struct itself: `bin`, `version`, `about`, `long_about`, `before_help`, `after_help`,
 //! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
 //! `default_subcommand`, `multicall` — argv[0]'s basename selects a subcommand —
+//! `arg_required_else_help` — a selected command with no argv of its own shows short help —
 //! `infer_subcommands`, `infer_long_args` — accept unambiguous prefixes and inherit that
 //! policy through nested commands —
 //! `min_usage_version` — the oldest `usage` that can read the emitted

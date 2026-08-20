@@ -398,6 +398,14 @@ func TestExternalSubcommand(t *testing.T) {
 	if got := collect(both, "build"); got != "cmd:run arg:task=build" {
 		t.Errorf("default outranks: got %s", got)
 	}
+
+	p := New(both, []string{"build"})
+	if !p.Next() || p.Event().Kind != KindCommand {
+		t.Fatalf("default descent: event=%+v err=%v", p.Event(), p.Err())
+	}
+	if got := p.CommandStart(); got != 0 {
+		t.Errorf("default command starts at received word: got %d, want 0", got)
+	}
 }
 
 func TestInferredPrefixes(t *testing.T) {

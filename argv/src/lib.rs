@@ -183,6 +183,12 @@ pub struct Command<'a> {
     /// unmatched word is taken, remaining tokens — including `--help` — are not parsed
     /// as this command's flags.
     pub external_subcommand: bool,
+    /// Show this command's help when no argv token follows its name.
+    ///
+    /// This is clap's `arg_required_else_help`. It deliberately observes argv rather than
+    /// bound values: an environment variable or default may fill a field, but neither means
+    /// the user supplied an argument to this invocation.
+    pub arg_required_else_help: bool,
     /// Accept an unambiguous prefix of a subcommand name or alias.
     /// Inherited by nested commands.
     pub infer_subcommands: bool,
@@ -230,6 +236,7 @@ impl Command<'_> {
         subcommands: &[],
         default_subcommand: ::core::option::Option::None,
         external_subcommand: false,
+        arg_required_else_help: false,
         infer_subcommands: false,
         infer_long_args: false,
         unknown_flags: ::core::option::Option::None,
@@ -1173,7 +1180,8 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         self.help_span
     }
 
-    /// Where the command in scope began: the index in `argv` just after its name.
+    /// Where the command in scope began: the index in `argv` just after its name, or at the
+    /// unmatched word routed into a default subcommand.
     ///
     /// `argv[command_start()..]` is what that command was given, which is what a completion
     /// callback needs to be handed its own command's half-parsed struct rather than the root's.
@@ -1568,6 +1576,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                     self.default_taken = true;
                     self.descend(default)?;
                     self.pos -= 1;
+                    // Unlike an explicitly named command, the default command receives the
+                    // word that caused descent. Keep its argv boundary at that word so
+                    // command-level policies and completion callbacks see the same input the
+                    // command parser is about to re-read.
+                    self.cmd_start = self.pos;
                     return Ok(Event::Command(default));
                 }
             }
@@ -2462,6 +2475,21 @@ mod tests {
                     value: b"build"
                 }
             ]
+        );
+    }
+
+    #[test]
+    fn a_default_subcommand_starts_at_the_word_it_receives() {
+        let a = argv(["build"]);
+        let mut parser = Parser::new(&DEFAULTING, &a);
+        assert_eq!(parser.next_event(), Some(Ok(Event::Command(&RUN))));
+        assert_eq!(parser.command_start(), 0);
+        assert_eq!(
+            parser.next_event(),
+            Some(Ok(Event::Arg {
+                arg: &RUN_TASK,
+                value: b"build"
+            }))
         );
     }
 
