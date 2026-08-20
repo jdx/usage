@@ -103,6 +103,7 @@ type Cmd struct {
 	ArgsOverrideSelf            bool        `json:"args_override_self"`
 	SubcommandNegatesReqs       bool        `json:"subcommand_negates_reqs"`
 	ArgsConflictWithSubcommands bool        `json:"args_conflicts_with_subcommands"`
+	SubcommandPrecedenceOverArg bool        `json:"subcommand_precedence_over_arg"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.
@@ -610,6 +611,7 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		ArgRequiredElseHelp:         c.ArgRequiredElseHelp,
 		SubcommandNegatesReqs:       c.SubcommandNegatesReqs,
 		ArgsConflictWithSubcommands: c.ArgsConflictWithSubcommands,
+		SubcommandPrecedenceOverArg: c.SubcommandPrecedenceOverArg,
 		DontDelimitTrailingValues:   c.DontDelimitTrailingValues,
 		Key:                         b.next(),
 	}

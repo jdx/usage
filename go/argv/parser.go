@@ -204,6 +204,19 @@ func (p *Parser) step() bool {
 			return p.shortFlag()
 		}
 
+		if p.cmd.SubcommandPrecedenceOverArg && !p.flagsStopped && p.pos < len(p.argv) {
+			if sub := p.findSubcommand(p.argv[p.pos]); sub != nil {
+				if p.cmd.ArgsConflictWithSubcommands && p.commandArgFound {
+					return p.fail(Error{Code: CodeSubcommandConflict, Token: p.argv[p.pos], Cmd: p.cmd})
+				}
+				p.pos++
+				if !p.descend(sub) {
+					return false
+				}
+				return p.emit(Event{Kind: KindCommand, Command: sub})
+			}
+		}
+
 		// A variadic flag keeps claiming tokens until one of them could be something
 		// else.
 		if flag := p.collecting; flag != nil {

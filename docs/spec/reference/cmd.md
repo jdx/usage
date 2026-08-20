@@ -194,6 +194,15 @@ child as usual:
 args_conflicts_with_subcommands #true
 ```
 
+### Prefer a known subcommand to a variadic value
+
+`subcommand_precedence_over_arg` lets a known child name end a variadic flag
+or positional that would otherwise consume it.
+
+```kdl
+subcommand_precedence_over_arg #true
+```
+
 ### Preserve delimiters in trailing values
 
 `dont_delimit_trailing_values` keeps a positional token whole after `--`, or once a

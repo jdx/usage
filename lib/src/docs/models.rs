@@ -487,6 +487,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             args_override_self: _,
             subcommand_negates_reqs: _,
             args_conflicts_with_subcommands: _,
+            subcommand_precedence_over_arg: _,
             // Rendered above, or deliberately absent from the docs model.
             args: _,
             flags: _,

@@ -855,6 +855,11 @@ impl SpecCommandBuilder {
         self
     }
 
+    pub fn subcommand_precedence_over_arg(mut self, enabled: bool) -> Self {
+        self.inner.subcommand_precedence_over_arg = enabled;
+        self
+    }
+
     /// Set what running this command does to the world
     pub fn effect(mut self, effect: SpecCommandEffect) -> Self {
         self.inner.effect = Some(effect);

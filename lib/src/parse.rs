@@ -723,6 +723,7 @@ fn parse_partial_with_env(
     // a global seen here. Recording the owner keeps a word bound to the flag it was read as.
     let mut prefix_bindings: VecDeque<Option<(Arc<SpecFlag>, usize)>> = VecDeque::new();
     let mut command_arg_found = false;
+    let mut variadic_flag_active = false;
     let mut idx = 0;
     // Track whether we've already applied the default_subcommand to prevent
     // multiple switches (e.g., if default is "run" and there's a task named "run")
@@ -784,6 +785,12 @@ fn parse_partial_with_env(
             }
             out.cmd = mounted;
         }
+        if variadic_flag_active
+            && out.cmd.find_subcommand(&input[idx]).is_some()
+            && !out.cmd.subcommand_precedence_over_arg
+        {
+            break;
+        }
         if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
             if out.cmd.args_conflicts_with_subcommands && command_arg_found {
                 bail!(
@@ -811,6 +818,7 @@ fn parse_partial_with_env(
             mounts_resolved = true;
             prefix_flags.clear();
             command_arg_found = false;
+            variadic_flag_active = false;
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
         } else if !is_command_word(&input[idx]) {
@@ -832,6 +840,7 @@ fn parse_partial_with_env(
                 .filter(|_| is_bundle)
             {
                 command_arg_found = true;
+                variadic_flag_active = f.arg.as_ref().is_some_and(|arg| arg.var);
                 // Skip the flag and keep scanning. Both global and non-global flags may precede
                 // a subcommand (`mycli --verbose run task`, `mycli run --force task`), and
                 // stopping at one would hide the subcommand — and any mount on it — from the
@@ -868,6 +877,11 @@ fn parse_partial_with_env(
                 break;
             }
         } else {
+            if variadic_flag_active && out.cmd.subcommand_precedence_over_arg {
+                prefix_bindings.push_back(None);
+                idx += 1;
+                continue;
+            }
             // Found a word that's not a flag or subcommand
             // Check if we should use the default_subcommand (only once, and only at the
             // root, which is the only place a spec can declare one — `out.cmds` holds just
@@ -903,6 +917,7 @@ fn parse_partial_with_env(
                         command_has_argv = true;
                         prefix_flags.clear();
                         command_arg_found = false;
+                        variadic_flag_active = false;
                         // This descent ran the new command's mounts, so lazy
                         // discovery must not run them a second time.
                         mounts_resolved = true;
@@ -4999,6 +5014,29 @@ cmd "run"
             err.to_string().contains("cannot be used with arguments"),
             "{err}"
         );
+    }
+
+    #[test]
+    fn a_subcommand_can_take_precedence_over_a_variadic_flag() {
+        let base = r#"name "ex"
+bin "ex"
+flag "--values <value>..."
+cmd "run"
+"#;
+        let plain: Spec = base.parse().unwrap();
+        let out = parse(&plain, &input(&["ex", "--values", "a", "run"])).unwrap();
+        assert_eq!(out.cmd.name, "ex");
+
+        let precedence: Spec = base
+            .replacen(
+                "bin \"ex\"",
+                "bin \"ex\"\nsubcommand_precedence_over_arg #true",
+                1,
+            )
+            .parse()
+            .unwrap();
+        let out = parse(&precedence, &input(&["ex", "--values", "a", "run"])).unwrap();
+        assert_eq!(out.cmd.name, "run");
     }
 
     #[test]

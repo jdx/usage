@@ -112,6 +112,7 @@ pub fn build(
         arg_required_else_help: cmd.arg_required_else_help,
         subcommand_negates_reqs: cmd.subcommand_negates_reqs,
         args_conflicts_with_subcommands: cmd.args_conflicts_with_subcommands,
+        subcommand_precedence_over_arg: cmd.subcommand_precedence_over_arg,
         dont_delimit_trailing_values: cmd.dont_delimit_trailing_values,
         key: 0,
     }));
