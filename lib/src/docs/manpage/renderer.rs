@@ -81,6 +81,16 @@ impl ManpageRenderer {
         // CONFIGURATION section
         self.render_configuration(&mut roff);
 
+        if let Some(license) = &self.spec.license {
+            roff.control("SH", ["LICENSE"]);
+            roff.text([roman(license)]);
+        }
+
+        if let Some(repository) = &self.spec.repository {
+            roff.control("SH", ["SOURCE"]);
+            roff.text([roman(repository)]);
+        }
+
         // AUTHOR section (if present)
         if let Some(author) = &self.spec.author {
             roff.control("SH", ["AUTHOR"]);
@@ -675,6 +685,26 @@ config {
         assert!(output.contains(".SH OPTIONS"));
         assert!(output.contains("verbose"));
         assert!(output.contains("output"));
+    }
+
+    #[test]
+    fn package_metadata_reaches_the_manpage() {
+        let spec: Spec = r#"
+            name "metadata"
+            bin "metadata"
+            author "Example Maintainers"
+            license "MIT OR Apache-2.0"
+            repository "https://example.com/tool"
+        "#
+        .parse()
+        .unwrap();
+        let output = ManpageRenderer::new(spec).render().unwrap();
+
+        assert!(output.contains(".SH LICENSE"), "{output}");
+        assert!(output.contains("MIT OR Apache\\-2.0"), "{output}");
+        assert!(output.contains(".SH SOURCE"), "{output}");
+        assert!(output.contains("https://example.com/tool"), "{output}");
+        assert!(output.contains(".SH AUTHOR"), "{output}");
     }
 
     #[test]

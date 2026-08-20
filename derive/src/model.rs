@@ -91,6 +91,13 @@ pub struct Cli {
     /// From the struct's doc comment: first paragraph, and the whole thing.
     pub about: Option<String>,
     pub long_about: Option<String>,
+    /// Package metadata expressions whose results must be usable as `&'static str`.
+    ///
+    /// Keeping their tokens lets the Cargo-provided `env!("CARGO_PKG_…")` values remain the
+    /// source of truth instead of making adopters repeat those strings in the derive attribute.
+    pub author: Option<proc_macro2::TokenStream>,
+    pub license: Option<proc_macro2::TokenStream>,
+    pub repository: Option<proc_macro2::TokenStream>,
     /// Whether a flag-like token that names no flag is a value or an error. Unset
     /// means the spec's default, which is `value`.
     pub unknown_flags: Option<String>,
@@ -562,6 +569,9 @@ impl Cli {
             runtime_version: None,
             about: None,
             long_about: None,
+            author: None,
+            license: None,
+            repository: None,
             unknown_flags: None,
             default_subcommand: None,
             multicall: false,
@@ -687,6 +697,9 @@ impl Cli {
                     // declared.
                     "about" => cli.about_attr = Some(metadata_expr(&meta)?),
                     "long_about" => cli.long_about_attr = Some(metadata_expr(&meta)?),
+                    "author" => cli.author = Some(metadata_expr(&meta)?),
+                    "license" => cli.license = Some(metadata_expr(&meta)?),
+                    "repository" => cli.repository = Some(metadata_expr(&meta)?),
                     "before_help" => cli.before_help = Some(metadata_expr(&meta)?),
                     "next_help_heading" => cli.next_help_heading = Some(string_value(&meta)?),
                     "before_long_help" => cli.before_long_help = Some(metadata_expr(&meta)?),
@@ -745,7 +758,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `author`, `license`, `repository`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount` and \
@@ -896,6 +909,25 @@ impl Cli {
                     ident,
                     "`min_usage_version` belongs on the root, where `#[derive(Cli)]` is: it is \
                      one claim about the whole emitted spec, and only the root emits one",
+                ));
+            }
+            // Package metadata describes the emitted spec, not one command. Like
+            // `min_usage_version`, these values have no nested KDL location and would
+            // otherwise be accepted and silently dropped by `emit_args`.
+            if let Some(name) = [
+                ("author", self.author.is_some()),
+                ("license", self.license.is_some()),
+                ("repository", self.repository.is_some()),
+            ]
+            .into_iter()
+            .find_map(|(name, present)| present.then_some(name))
+            {
+                return Err(self.misplaced(
+                    ident,
+                    format!(
+                        "`{name}` belongs on the root, where `#[derive(Cli)]` is: package \
+                         metadata describes the whole emitted spec, not one command"
+                    ),
                 ));
             }
             // A spec declares one `default_subcommand`, at the top.
@@ -5574,6 +5606,26 @@ mod tests {
             err.contains("`min_usage_version` belongs on the root"),
             "unhelpful: {err}"
         );
+    }
+
+    #[test]
+    fn package_metadata_belongs_on_the_root() {
+        for attribute in ["author", "license", "repository"] {
+            let body = format!(
+                r#"
+                #[usage({attribute} = "value")]
+                struct Ex {{
+                    #[usage(long)]
+                    plain: bool,
+                }}
+                "#
+            );
+            let err = position_error(&body, false);
+            assert!(
+                err.contains(&format!("`{attribute}` belongs on the root")),
+                "unhelpful for {attribute}: {err}"
+            );
+        }
     }
 
     #[test]

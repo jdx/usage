@@ -198,6 +198,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
         Some(tokens) => quote!(::core::option::Option::Some(#tokens)),
         None => quote!(::core::option::Option::None),
     };
+    let author = option_expr(cli.author.as_ref());
+    let license = option_expr(cli.license.as_ref());
+    let repository = option_expr(cli.repository.as_ref());
     let about = cli
         .about_attr
         .as_ref()
@@ -626,6 +629,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 name: #name,
                 bin: #bin,
                 version: #version,
+                author: #author,
+                license: #license,
+                repository: #repository,
                 min_usage_version: #min_usage_version,
                 about: #about,
                 long_about: #long_about,

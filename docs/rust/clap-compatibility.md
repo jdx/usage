@@ -106,22 +106,23 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 
 ## Help, version, and generated artifacts
 
-| clap surface                                       | derive | argv | KDL | lib | output | bridge | Notes                                                                                          |
-| -------------------------------------------------- | ------ | ---- | --- | --- | ------ | ------ | ---------------------------------------------------------------------------------------------- |
-| short/long help and doc comments                   | yes    | yes  | yes | yes | yes    | yes    | First paragraph is short help; the full block is long help.                                    |
-| `help_heading`                                     | yes    | n/a  | yes | yes | yes    | yes    | Flags and arguments are grouped and retain declaration order.                                  |
-| whole-entry `hide`                                 | yes    | yes  | yes | yes | yes    | yes    | Hidden commands, flags, arguments, and values still parse.                                     |
-| granular hide settings                             | yes    | yes  | yes | yes | yes    | yes    | Default, environment, possible-value, short-help, and long-help visibility is independent.     |
-| `subcommand_help_heading`, `subcommand_value_name` | yes    | yes  | yes | yes | yes    | yes    | Customize the subcommand section label and the synopsis placeholder.                           |
-| `verbatim_doc_comment`                             | yes    | n/a  | yes | yes | yes    | n/a    | Commands, fields, and variants preserve line breaks and indentation when requested.            |
-| `rename_all`, `rename_all_env`                     | yes    | n/a  | yes | yes | yes    | n/a    | Full clap casing vocabulary; bare `env` uses the environment casing policy.                    |
-| `help_template`, `next_line_help`, `flatten_help`  | no     | n/a  | no  | no  | no     | no     | No equivalent yet.                                                                             |
-| `term_width`, `max_term_width`                     | yes    | yes  | yes | yes | yes    | no     | Fixed width overrides a detected-width cap; clap exposes no bridge getters for these settings. |
-| help styles and color                              | n/a    | n/a  | n/a | yes | lossy  | no     | Help and diagnostics use automatic ANSI styles; clap's custom style palette is not portable.   |
-| built-in help/version action and flag control      | no     | no   | no  | no  | no     | no     | Custom actions and disabling or relocating built-ins are not represented.                      |
-| `--version` / `-V`, dynamic version                | yes    | yes  | yes | yes | yes    | yes    | Literal and runtime versions propagate through nested commands.                                |
-| completion generation                              | yes    | yes  | yes | yes | lossy  | yes    | Bash, fish, Nushell, PowerShell, and zsh plus runtime overlays are supported; Elvish is not.   |
-| KDL, markdown, JSON, and manpages                  | yes    | n/a  | yes | yes | yes    | yes    | Direct derived KDL feeds the existing generators; broader canonicalization remains open.       |
+| clap surface                                       | derive | argv | KDL | lib | output | bridge  | Notes                                                                                          |
+| -------------------------------------------------- | ------ | ---- | --- | --- | ------ | ------- | ---------------------------------------------------------------------------------------------- |
+| short/long help and doc comments                   | yes    | yes  | yes | yes | yes    | yes     | First paragraph is short help; the full block is long help.                                    |
+| `help_heading`                                     | yes    | n/a  | yes | yes | yes    | yes     | Flags and arguments are grouped and retain declaration order.                                  |
+| whole-entry `hide`                                 | yes    | yes  | yes | yes | yes    | yes     | Hidden commands, flags, arguments, and values still parse.                                     |
+| granular hide settings                             | yes    | yes  | yes | yes | yes    | yes     | Default, environment, possible-value, short-help, and long-help visibility is independent.     |
+| `subcommand_help_heading`, `subcommand_value_name` | yes    | yes  | yes | yes | yes    | yes     | Customize the subcommand section label and the synopsis placeholder.                           |
+| `verbatim_doc_comment`                             | yes    | n/a  | yes | yes | yes    | n/a     | Commands, fields, and variants preserve line breaks and indentation when requested.            |
+| `rename_all`, `rename_all_env`                     | yes    | n/a  | yes | yes | yes    | n/a     | Full clap casing vocabulary; bare `env` uses the environment casing policy.                    |
+| `help_template`, `next_line_help`, `flatten_help`  | no     | n/a  | no  | no  | no     | no      | No equivalent yet.                                                                             |
+| `term_width`, `max_term_width`                     | yes    | yes  | yes | yes | yes    | no      | Fixed width overrides a detected-width cap; clap exposes no bridge getters for these settings. |
+| help styles and color                              | n/a    | n/a  | n/a | yes | lossy  | no      | Help and diagnostics use automatic ANSI styles; clap's custom style palette is not portable.   |
+| built-in help/version action and flag control      | no     | no   | no  | no  | no     | no      | Custom actions and disabling or relocating built-ins are not represented.                      |
+| `--version` / `-V`, dynamic version                | yes    | yes  | yes | yes | yes    | yes     | Literal and runtime versions propagate through nested commands.                                |
+| `author`, `license`, `repository`                  | yes    | n/a  | yes | yes | yes    | partial | Package metadata is rendered in Markdown and manpages; clap exposes author but not license.    |
+| completion generation                              | yes    | yes  | yes | yes | lossy  | yes     | Bash, fish, Nushell, PowerShell, and zsh plus runtime overlays are supported; Elvish is not.   |
+| KDL, markdown, JSON, and manpages                  | yes    | n/a  | yes | yes | yes    | yes     | Direct derived KDL feeds the existing generators; broader canonicalization remains open.       |
 
 ## Usage extensions
 

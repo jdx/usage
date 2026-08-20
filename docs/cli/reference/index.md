@@ -6,6 +6,8 @@
 
 **Version**: 5.1.0
 
+**Repository**: https://github.com/jdx/usage
+
 - **Usage**: `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
 
 ## Flags
