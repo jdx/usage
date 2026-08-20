@@ -2987,6 +2987,27 @@ fn field_final(field: &Field) -> TokenStream {
                 }
             }
         };
+        if field.value_enum {
+            return quote! {{
+                let __usage_text = #text;
+                match <#ty as usage_argv::spec::ValueEnum>::from_choice(&__usage_text) {
+                    ::std::option::Option::Some(parsed) => parsed,
+                    ::std::option::Option::None => {
+                        return ::std::result::Result::Err(
+                            usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                                usage_argv::InvalidValue {
+                                    name: #name,
+                                    value: __usage_text,
+                                    reason: ::std::string::String::from(
+                                        "not one of the declared values",
+                                    ),
+                                },
+                            )),
+                        );
+                    }
+                }
+            }};
+        }
         if is_std_string {
             return text;
         }
@@ -5646,9 +5667,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
 
 /// The word list for a value enum.
 ///
-/// Conversion remains the type's own `FromStr` implementation, like every other typed
-/// field. This derive owns only CLI metadata, so it can coexist with a domain parser whose
-/// accepted syntax or error type is broader than the choices presented in help.
+/// Conversion is generated from the same canonical words and aliases as the metadata, so
+/// parsing, help, and completion cannot drift. A separate domain `FromStr` implementation
+/// may still coexist; value-enum fields do not call it.
 pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
     let ident = &value_enum.ident;
     let runtime = runtime_path();
@@ -5698,6 +5719,19 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
         )
     });
     let ignore_case = value_enum.ignore_case;
+    let parse_arms = value_enum.variants.iter().map(|value| {
+        let ident = &value.ident;
+        let cfg = &value.cfg_attrs;
+        let names = ::std::iter::once(&value.name).chain(value.aliases.iter().map(|a| &a.name));
+        quote! {
+            #(#cfg)*
+            if [#(#names),*].iter().any(|candidate| {
+                *candidate == value || #ignore_case && candidate.eq_ignore_ascii_case(value)
+            }) {
+                return ::std::option::Option::Some(Self::#ident);
+            }
+        }
+    });
 
     quote! {
         #[doc(hidden)]
@@ -5710,6 +5744,11 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
                 const ALIASES: &'static [(&'static str, &'static str)] = &[#(#aliases),*];
                 const DETAILS: &'static [usage_argv::spec::ChoiceMeta<'static>] = &[#(#details),*];
                 const IGNORE_CASE: bool = #ignore_case;
+
+                fn from_choice(value: &str) -> ::std::option::Option<Self> {
+                    #(#parse_arms)*
+                    ::std::option::Option::None
+                }
             }
         };
     }

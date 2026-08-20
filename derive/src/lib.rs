@@ -416,9 +416,9 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 /// it, `hide` keeps the value accepted while omitting it from help and completion,
 /// `alias` is hidden, and `visible_alias` is advertised alongside the canonical word.
 ///
-/// The enum must implement [`FromStr`](std::str::FromStr); this derive owns only its CLI
-/// word metadata and does not replace domain parsing. Variant `cfg` and `cfg_attr`
-/// attributes are copied to their entries in the static word tables.
+/// The derive binds canonical words and aliases directly to their variants; a separate
+/// [`FromStr`](std::str::FromStr) implementation is not required. Variant `cfg` and
+/// `cfg_attr` attributes are copied to their entries in the static word tables.
 ///
 /// A field holding one says `value_enum`, which is what puts the words in the spec — so
 /// help, completions and the check that rejects a wrong word all read the same list, and

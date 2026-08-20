@@ -2383,6 +2383,8 @@ pub trait ValueEnum: Sized {
     /// Presentation metadata for canonical values and aliases.
     const DETAILS: &'static [ChoiceMeta<'static>] = &[];
     const IGNORE_CASE: bool = false;
+    /// Convert one canonical word or alias into its enum variant.
+    fn from_choice(value: &str) -> Option<Self>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
