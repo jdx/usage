@@ -176,7 +176,7 @@ func TestNextLineHelp(t *testing.T) {
 
 func TestFlattenHelp(t *testing.T) {
 	arg := &Arg{Name: "task", Key: 3, Required: true}
-	flag := &Flag{Name: "dry-run", Key: 4, Longs: []string{"dry-run"}}
+	flag := &Flag{Name: "extraordinarily-long-flag", Key: 4, Longs: []string{"extraordinarily-long-flag"}}
 	deep := &Flag{Name: "deep", Key: 6, Longs: []string{"deep"}}
 	nested := &Command{Name: "nested", Key: 5, Flags: []*Flag{deep}}
 	sub := &Command{Name: "run", Key: 2, Args: []*Arg{arg}, Flags: []*Flag{flag}, Subcommands: []*Command{nested}}
@@ -198,7 +198,7 @@ func TestFlattenHelp(t *testing.T) {
 			"Usage: ex\n       ex run",
 			"\nrun:\nRun it",
 			"<task>",
-			"--dry-run",
+			"--extraordinarily-long-flag",
 			"\nrun nested:\nNested operation",
 			"--deep\n    Deep option",
 		} {
@@ -208,6 +208,9 @@ func TestFlattenHelp(t *testing.T) {
 		}
 		if strings.Contains(page, "\nCommands:\n") {
 			t.Fatalf("flattened help still has a Commands section:\n%s", page)
+		}
+		if !strings.Contains(page, "  <task>  Task name") {
+			t.Fatalf("a long flag stretched the argument column:\n%s", page)
 		}
 	}
 }

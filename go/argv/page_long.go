@@ -223,29 +223,30 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 
 		args := visibleArgs(sub, help, true)
 		flags := make([]*Flag, 0, len(sub.Flags))
-		col := 0
+		argCol := 0
 		for _, a := range args {
-			col = max(col, width(argUsage(a, help.Lookup(a.Key))))
+			argCol = max(argCol, width(argUsage(a, help.Lookup(a.Key))))
 		}
+		flagCol := 0
 		for _, f := range sub.Flags {
 			fh := help.Lookup(f.Key)
 			if f.Global || (fh != nil && (fh.Hide || fh.HideLongHelp)) {
 				continue
 			}
 			flags = append(flags, f)
-			col = max(col, width(columnUsage(f, allShown(f), help)))
+			flagCol = max(flagCol, width(columnUsage(f, allShown(f), help)))
 		}
 		for _, a := range args {
 			ah := help.Lookup(a.Key)
 			entry(out, argUsage(a, ah), firstOf(metaField(ah, func(x *Help) string { return x.Long }),
-				metaField(ah, func(x *Help) string { return x.Short })), col, nextLine)
+				metaField(ah, func(x *Help) string { return x.Short })), argCol, nextLine)
 			longAnnotations(out, ah, true)
 		}
 		for _, f := range flags {
 			fh := help.Lookup(f.Key)
 			entry(out, columnUsage(f, allShown(f), help), firstOf(
 				metaField(fh, func(x *Help) string { return x.Long }),
-				metaField(fh, func(x *Help) string { return x.Short })), col, nextLine)
+				metaField(fh, func(x *Help) string { return x.Short })), flagCol, nextLine)
 			longAnnotations(out, fh, true)
 		}
 		if h != nil && h.FlattenHelp {

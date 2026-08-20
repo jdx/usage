@@ -885,10 +885,14 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
             .iter()
             .filter(|flag| !flag.flag.global && !flag.hide && !flag.hide_short_help)
             .collect();
-        let col = args
+        let arg_col = args
             .iter()
             .map(|arg| arg_usage(arg).chars().count())
-            .chain(flags.iter().map(|flag| column_usage(flag).chars().count()))
+            .max()
+            .unwrap_or(0);
+        let flag_col = flags
+            .iter()
+            .map(|flag| column_usage(flag).chars().count())
             .max()
             .unwrap_or(0);
         for arg in args {
@@ -898,7 +902,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                     let _ = writeln!(out, "  {usage}");
                     write_indented(out, help, 4);
                 } else {
-                    let _ = write!(out, "  {usage:<col$}  {help}");
+                    let _ = write!(out, "  {usage:<arg_col$}  {help}");
                 }
             } else {
                 let _ = write!(out, "  {usage}");
@@ -925,7 +929,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                     let _ = writeln!(out, "  {usage}");
                     write_indented(out, help, 4);
                 } else {
-                    let _ = write!(out, "  {usage:<col$}  {help}");
+                    let _ = write!(out, "  {usage:<flag_col$}  {help}");
                 }
             } else {
                 let _ = write!(out, "  {usage}");
@@ -1498,10 +1502,14 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
             .iter()
             .filter(|flag| !flag.flag.global && !flag.hide && !flag.hide_long_help)
             .collect();
-        let col = args
+        let arg_col = args
             .iter()
             .map(|arg| arg_usage(arg).chars().count())
-            .chain(flags.iter().map(|flag| column_usage(flag).chars().count()))
+            .max()
+            .unwrap_or(0);
+        let flag_col = flags
+            .iter()
+            .map(|flag| column_usage(flag).chars().count())
             .max()
             .unwrap_or(0);
         for arg in args {
@@ -1509,7 +1517,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 out,
                 &arg_usage(arg),
                 arg.long_help.or(arg.help),
-                col,
+                arg_col,
                 width,
                 meta.next_line_help,
             );
@@ -1533,7 +1541,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 out,
                 &column_usage(flag),
                 flag.long_help.or(flag.help),
-                col,
+                flag_col,
                 width,
                 meta.next_line_help,
             );

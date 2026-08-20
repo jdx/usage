@@ -304,17 +304,18 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 
 		args := visibleArgs(sub, help, false)
 		flags := make([]*Flag, 0, len(sub.Flags))
-		col := 0
+		argCol := 0
 		for _, a := range args {
-			col = max(col, width(argUsage(a, help.Lookup(a.Key))))
+			argCol = max(argCol, width(argUsage(a, help.Lookup(a.Key))))
 		}
+		flagCol := 0
 		for _, f := range sub.Flags {
 			fh := help.Lookup(f.Key)
 			if f.Global || (fh != nil && (fh.Hide || fh.HideShortHelp)) {
 				continue
 			}
 			flags = append(flags, f)
-			col = max(col, width(columnUsage(f, allShown(f), help)))
+			flagCol = max(flagCol, width(columnUsage(f, allShown(f), help)))
 		}
 		for _, a := range args {
 			ah := help.Lookup(a.Key)
@@ -324,7 +325,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 					out.WriteString("  " + usage + "\n")
 					writeIndented(out, text, 4)
 				} else {
-					out.WriteString("  " + pad(usage, col) + "  " + text)
+					out.WriteString("  " + pad(usage, argCol) + "  " + text)
 				}
 			} else {
 				out.WriteString("  " + usage)
@@ -339,7 +340,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 					out.WriteString("  " + usage + "\n")
 					writeIndented(out, text, 4)
 				} else {
-					out.WriteString("  " + pad(usage, col) + "  " + text)
+					out.WriteString("  " + pad(usage, flagCol) + "  " + text)
 				}
 			} else {
 				out.WriteString("  " + usage)
