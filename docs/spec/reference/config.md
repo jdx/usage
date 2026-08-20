@@ -88,6 +88,7 @@ files, so a setting a repository must not be able to change can say so.
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `type`                                       | the type, see [below](#types). Defaults to `string`                                                          |
 | `default`                                    | the value when nothing supplies one — a typed KDL value: `4`, `#true`, `"x"`                                 |
+| `optional`                                   | explicitly permit or require absence; otherwise inferred from the type and default                           |
 | `default_note`                               | what to print instead of the default, when the real one needs explaining                                     |
 | `help`, `long_help`                          | one line, and the whole markdown story                                                                       |
 | `help_heading`                               | the section to list it under in generated docs                                                               |
@@ -103,16 +104,17 @@ files, so a setting a repository must not be able to change can say so.
 
 And as child nodes, for anything multi-valued or long:
 
-| node                              | meaning                                                       |
-| --------------------------------- | ------------------------------------------------------------- |
-| `cli "--jobs" "-j"`               | flags that set it                                             |
-| `env "A" "B"`                     | environment variables, highest precedence first               |
-| `source "git" "a.b"`              | its keys in a declared source kind                            |
-| `default "a" "b"`                 | a list default, values typed as written (`default 80 443`)    |
-| `long_help "…"`                   | the long form, when a raw string reads better than a property |
-| `example "…"`                     | one invocation worth showing                                  |
-| `choices { choice "a" help="…" }` | the values it accepts, each with its own help                 |
-| `x "ns.key" value`                | see [extensions](#extensions)                                 |
+| node                              | meaning                                                        |
+| --------------------------------- | -------------------------------------------------------------- |
+| `cli "--jobs" "-j"`               | flags that set it                                              |
+| `env "A" "B"`                     | environment variables, highest precedence first                |
+| `alias "old.key"`                 | equivalent config keys, accepted without a deprecation warning |
+| `source "git" "a.b"`              | its keys in a declared source kind                             |
+| `default "a" "b"`                 | a list default, values typed as written (`default 80 443`)     |
+| `long_help "…"`                   | the long form, when a raw string reads better than a property  |
+| `example "…"`                     | one invocation worth showing                                   |
+| `choices { choice "a" help="…" }` | the values it accepts, each with its own help                  |
+| `x "ns.key" value`                | see [extensions](#extensions)                                  |
 
 ## Types
 

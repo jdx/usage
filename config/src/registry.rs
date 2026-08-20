@@ -96,6 +96,10 @@ pub struct PropMeta {
     /// The setting that replaces this one. A value found under the old key is folded into the
     /// new one at the same precedence, with a warning.
     pub renamed_to: Option<&'static str>,
+    /// Equivalent keys accepted without a rename warning.
+    pub aliases: &'static [&'static str],
+    /// An explicit optionality contract, when the declaration does not use inference.
+    pub optional: Option<bool>,
     pub help: Option<&'static str>,
 }
 
@@ -116,6 +120,8 @@ impl PropMeta {
             hide: false,
             deprecated: None,
             renamed_to: None,
+            aliases: &[],
+            optional: None,
             help: None,
         }
     }
@@ -222,7 +228,7 @@ impl Registry {
             .props
             .iter()
             .enumerate()
-            .find(|(_, meta)| meta.key == key)?;
+            .find(|(_, meta)| meta.key == key || meta.aliases.contains(&key))?;
         let mut id = PropId(index as u16);
         let written = meta.key;
         // A chain of renames resolves to its end, so two releases of renaming do not leave the
@@ -252,6 +258,30 @@ impl Registry {
             .iter()
             .position(|meta| meta.key == key)
             .map(|index| PropId(index as u16))
+    }
+
+    /// Whether a table at `key` is itself a setting value rather than a path to
+    /// more-specific settings.
+    ///
+    /// Aliases participate in file lookup, but an alias that is also the prefix
+    /// of a declared dotted key must not swallow that nested value. A leaf alias
+    /// for a map or object still names the whole table.
+    pub fn names_file_value(&self, key: &str) -> bool {
+        let Some(found) = self.lookup(key) else {
+            return false;
+        };
+        let meta = self.get(found.id);
+        // A canonical table setting owns its value. Another declaration's alias below
+        // that key cannot turn the canonical map into a namespace and make the whole
+        // value disappear during flattening.
+        if meta.key == key && matches!(meta.ty.inner(), Ty::Map(_) | Ty::Object | Ty::Any) {
+            return true;
+        }
+        let prefix = format!("{key}.");
+        !self.props.iter().any(|meta| {
+            meta.key.starts_with(&prefix)
+                || meta.aliases.iter().any(|alias| alias.starts_with(&prefix))
+        })
     }
 
     /// The first deprecation notice along the rename chain that starts at `key`.
@@ -393,6 +423,7 @@ mod tests {
     static PROPS: &[PropMeta] = &[
         PropMeta {
             key: "jobs",
+            aliases: &["parallelism"],
             envs: &["HK_JOBS", "HK_JOB"],
             cli: &["--jobs", "-j"],
             bindings: &[("git", "hk.jobs"), ("pkl", "jobs")],
@@ -416,6 +447,58 @@ mod tests {
         },
     ];
     const REGISTRY: Registry = Registry::new(PROPS);
+
+    #[test]
+    fn aliases_resolve_without_becoming_renames() {
+        let found = REGISTRY.lookup("parallelism").expect("alias");
+        assert_eq!(found.id, REGISTRY.lookup("jobs").unwrap().id);
+        assert_eq!(found.renamed_from, None);
+        assert_eq!(REGISTRY.deprecation("parallelism"), None);
+    }
+
+    #[test]
+    fn an_alias_prefix_does_not_swallow_a_nested_file_key() {
+        const PREFIXED: &[PropMeta] = &[
+            PropMeta {
+                aliases: &["old.key"],
+                ..PropMeta::new("replacement", Ty::Map(&Ty::String))
+            },
+            PropMeta::new("old.key.extra", Ty::String),
+            PropMeta {
+                aliases: &["whole.table"],
+                ..PropMeta::new("map", Ty::Map(&Ty::String))
+            },
+        ];
+        let registry = Registry::new(PREFIXED);
+        assert!(!registry.names_file_value("old.key"));
+        assert!(registry.names_file_value("old.key.extra"));
+        assert!(registry.names_file_value("whole.table"));
+    }
+
+    #[test]
+    fn a_canonical_table_value_is_not_turned_into_a_namespace_by_an_alias() {
+        const PROPS: &[PropMeta] = &[
+            PropMeta::new("providers", Ty::Map(&Ty::String)),
+            PropMeta::new("optional", Ty::Option(&Ty::Map(&Ty::String))),
+            PropMeta::new("union", Ty::Any),
+            PropMeta {
+                aliases: &["providers.legacy"],
+                ..PropMeta::new("legacy_provider", Ty::String)
+            },
+            PropMeta {
+                aliases: &["optional.legacy"],
+                ..PropMeta::new("optional_legacy", Ty::String)
+            },
+            PropMeta {
+                aliases: &["union.legacy"],
+                ..PropMeta::new("union_legacy", Ty::String)
+            },
+        ];
+        let registry = Registry::new(PROPS);
+        assert!(registry.names_file_value("providers"));
+        assert!(registry.names_file_value("optional"));
+        assert!(registry.names_file_value("union"));
+    }
 
     #[test]
     fn a_cli_that_binds_what_the_spec_declares_has_no_drift() {

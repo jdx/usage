@@ -193,6 +193,8 @@ pub struct SpecConfigFile {
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SpecConfigProp {
     pub key: String,
+    pub aliases: Vec<String>,
+    pub optional: Option<bool>,
     /// The type as written, or nothing when the spec did not say.
     pub type_: Option<String>,
     pub default: Option<String>,
@@ -292,6 +294,8 @@ impl SpecConfigProp {
     ) -> Self {
         Self {
             key: key.to_string(),
+            aliases: prop.aliases.clone(),
+            optional: prop.optional,
             type_: prop.value_type.as_ref().map(|t| t.to_string()),
             default: prop
                 .default_note
