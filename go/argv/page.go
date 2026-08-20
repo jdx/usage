@@ -24,6 +24,8 @@ type HelpSpec struct {
 	// spec declares one — a `--version` that answers with nothing is worse than
 	// one that is not there.
 	Version string
+	// LongVersion is the extended text used for --version; -V uses Version.
+	LongVersion string
 	// About is the root's description, which the root's page uses in place of the
 	// command's own.
 	About string

@@ -5,6 +5,7 @@ expression: SPEC.to_kdl()
 name ex
 bin ex
 version "1.2.3"
+long_version "1.2.3\ncommit abc123"
 about "does things"
 long_about "Does things, at length."
 usage "Usage: ex <COMMAND>\n       ex --version \"quoted\""

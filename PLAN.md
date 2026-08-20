@@ -556,15 +556,20 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       default); explicit field, flag, command, and environment names still win.
 - [ ] **Built-in action and flag control** — custom `ArgAction::Help`,
       `HelpShort`, `HelpLong` and `Version`, plus `disable_help_flag`,
-      `disable_help_subcommand` and `disable_version_flag`. A clap
-      CLI can move or remove these entry points; usage currently supplies its own.
+      `disable_help_subcommand` and `disable_version_flag`, including custom help
+      text on relocated help/version flags. A clap CLI can move or remove these
+      entry points; usage currently supplies its own.
 - [x] **The full `ValueHint` vocabulary.** Typed declarations and the clap bridge
       lower every stable clap hint into portable completion types. Username and
       hostname hints use system candidates where the usage CLI owns completion;
       open-ended identity/network values suppress the incorrect path fallback.
-- [ ] **Ordering and remaining metadata** — explicit `display_order`,
-      `long_version`, and custom help/version text. Declaration order covers the
-      common case, not the complete clap surface.
+- [x] **Short and long version text.** `version` drives the concise `-V` response,
+      while `long_version` can provide extended `--version` build information.
+      Typed declarations, portable KDL, usage-lib, generated Go, and the clap
+      bridge preserve both; computed values pair with explicit spec literals.
+- [ ] **Explicit `display_order`.** Declaration order covers the common case,
+      but cannot preserve an adopter that deliberately presents fields or
+      subcommands in a different order.
 
 **API surface**
 

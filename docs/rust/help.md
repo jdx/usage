@@ -26,8 +26,9 @@ match Ex::parse_from(&argv) {
     Err(Error::Help { cmd, long }) => {
         print!("{}", help::render(Ex::spec(), cmd, long).unwrap());
     }
-    Err(Error::Version) => {
-        println!("ex {}", env!("CARGO_PKG_VERSION"));
+    Err(Error::Version { long }) => {
+        let version = if long { LONG_VERSION } else { env!("CARGO_PKG_VERSION") };
+        println!("ex {version}");
     }
     Err(err) => {
         eprint!("{}", usage::render_failure(Ex::spec(), &argv, &err));
@@ -37,6 +38,10 @@ match Ex::parse_from(&argv) {
 ```
 
 `Error` is `#[non_exhaustive]` — always keep a fallback arm.
+
+`version` supplies the concise `-V` response. `long_version` optionally supplies a richer
+`--version` response, falling back to `version` when omitted. Computed expressions use matching
+`version_spec` / `long_version_spec` literals so emitted KDL stays portable.
 
 That match is also the post-parse interception point. An application that must
 run an update notifier, rewrite output, or re-exec before answering help or

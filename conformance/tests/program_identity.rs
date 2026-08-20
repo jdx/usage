@@ -82,7 +82,7 @@ fn a_bare_version_is_the_packages_own() {
     let argv = [OsStr::new("--version")];
     assert!(matches!(
         Cli_::parse_from(&argv),
-        Err(usage_argv::Error::Version)
+        Err(usage_argv::Error::Version { .. })
     ));
 }
 
