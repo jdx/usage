@@ -27,11 +27,7 @@ fn reports_detectable_losses_with_locations() {
     let (spec, report) = spec_with_report(&mut command, "ex");
     assert!(spec.cmd.arg_required_else_help);
     let features: Vec<_> = report.losses().iter().map(|loss| loss.feature).collect();
-    for expected in [
-        FidelityFeature::Environment,
-        FidelityFeature::ValueHint,
-        FidelityFeature::GranularHide,
-    ] {
+    for expected in [FidelityFeature::Environment, FidelityFeature::ValueHint] {
         assert!(
             features.contains(&expected),
             "missing {expected:?}: {report:#?}"
@@ -44,6 +40,14 @@ fn reports_detectable_losses_with_locations() {
         .find(|flag| flag.name == "pair")
         .unwrap();
     assert_eq!(pair.arg.as_ref().unwrap().value_names, ["START", "END"]);
+    assert!(
+        spec.cmd
+            .flags
+            .iter()
+            .find(|flag| flag.name == "config")
+            .unwrap()
+            .hide_env_values
+    );
     assert_eq!(
         (
             pair.arg.as_ref().unwrap().var_min,

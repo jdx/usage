@@ -1,5 +1,12 @@
 # `flag`
 
+Help annotations and page variants can be hidden independently without changing
+parsing or fallback behavior. Flags accept `hide_default_value`, `hide_env`,
+`hide_env_values`, `hide_possible_values`, `hide_short_help`, and
+`hide_long_help`. Usage help prints an environment variable's name but never its
+current value, so `hide_env_values` is preserved for clap compatibility without
+changing today's rendered output.
+
 ```kdl
 flag "-u --user <user>" // one way to define a flag
 flag "--user" { // another way to define the same flag

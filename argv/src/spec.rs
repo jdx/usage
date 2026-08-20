@@ -797,6 +797,12 @@ pub struct FlagMeta<'a> {
     /// [`FlagMeta`] and not in [`Flag`] for that reason: a parse never reads it.
     pub value_optional: bool,
     pub hide: bool,
+    pub hide_default_value: bool,
+    pub hide_env: bool,
+    pub hide_env_values: bool,
+    pub hide_possible_values: bool,
+    pub hide_short_help: bool,
+    pub hide_long_help: bool,
     /// Whether repetition is counted rather than collected, as in `-vvv`.
     pub count: bool,
     /// What answers for this flag's value when a shell asks.
@@ -882,6 +888,12 @@ impl FlagMeta<'_> {
         required: false,
         value_optional: false,
         hide: false,
+        hide_default_value: false,
+        hide_env: false,
+        hide_env_values: false,
+        hide_possible_values: false,
+        hide_short_help: false,
+        hide_long_help: false,
         count: false,
         repeatable: false,
         var_min: None,
@@ -957,6 +969,12 @@ pub struct ArgMeta<'a> {
     /// it, and help output has to show it.
     pub required: bool,
     pub hide: bool,
+    pub hide_default_value: bool,
+    pub hide_env: bool,
+    pub hide_env_values: bool,
+    pub hide_possible_values: bool,
+    pub hide_short_help: bool,
+    pub hide_long_help: bool,
     /// Entries that cannot be given alongside this positional.
     pub conflicts: &'a [&'a str],
     pub requires: &'a [&'a str],
@@ -997,6 +1015,12 @@ impl ArgMeta<'_> {
         validate_error: None,
         required: true,
         hide: false,
+        hide_default_value: false,
+        hide_env: false,
+        hide_env_values: false,
+        hide_possible_values: false,
+        hide_short_help: false,
+        hide_long_help: false,
         conflicts: &[],
         requires: &[],
         required_if: &[],
@@ -1539,6 +1563,15 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if meta.hide {
         out.push_str(" hide=#true");
     }
+    write_help_hides(
+        out,
+        meta.hide_default_value,
+        meta.hide_env,
+        meta.hide_env_values,
+        meta.hide_possible_values,
+        meta.hide_short_help,
+        meta.hide_long_help,
+    )?;
     if meta.count {
         out.push_str(" count=#true");
     }
@@ -1783,6 +1816,30 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     Ok(())
 }
 
+fn write_help_hides(
+    out: &mut String,
+    hide_default_value: bool,
+    hide_env: bool,
+    hide_env_values: bool,
+    hide_possible_values: bool,
+    hide_short_help: bool,
+    hide_long_help: bool,
+) -> core::fmt::Result {
+    for (name, hidden) in [
+        ("hide_default_value", hide_default_value),
+        ("hide_env", hide_env),
+        ("hide_env_values", hide_env_values),
+        ("hide_possible_values", hide_possible_values),
+        ("hide_short_help", hide_short_help),
+        ("hide_long_help", hide_long_help),
+    ] {
+        if hidden {
+            write!(out, " {name}=#true")?;
+        }
+    }
+    Ok(())
+}
+
 fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::Result {
     indent(out, depth)?;
     let name = if meta.arg.name.is_empty() {
@@ -1798,6 +1855,15 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if meta.hide {
         out.push_str(" hide=#true");
     }
+    write_help_hides(
+        out,
+        meta.hide_default_value,
+        meta.hide_env,
+        meta.hide_env_values,
+        meta.hide_possible_values,
+        meta.hide_short_help,
+        meta.hide_long_help,
+    )?;
     if meta.conflicts.len() == 1 {
         write!(out, " conflicts={}", quoted(meta.conflicts[0]))?;
     }

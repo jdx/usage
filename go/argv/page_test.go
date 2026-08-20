@@ -94,6 +94,34 @@ func TestFixedArityHelpRepeatsOneValueName(t *testing.T) {
 	}
 }
 
+func TestGranularHelpHides(t *testing.T) {
+	mode := &Flag{Key: 2, Name: "mode", Longs: []string{"mode"}, TakesValue: true}
+	shortOnly := &Flag{Key: 3, Name: "short-only", Longs: []string{"short-only"}}
+	longOnly := &Flag{Key: 4, Name: "long-only", Longs: []string{"long-only"}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{mode, shortOnly, longOnly}}
+	help := HelpTable{
+		{Key: 1},
+		{Key: 2, Short: "mode", Choices: []string{"fast", "slow"}, Env: "MODE", Default: []string{"fast"}, HidePossibleValues: true, HideEnv: true, HideDefaultValue: true},
+		{Key: 3, Short: "short", HideLongHelp: true},
+		{Key: 4, Short: "long", HideShortHelp: true},
+	}
+	short := ShortHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	if !strings.Contains(short, "--short-only") || strings.Contains(short, "--long-only") {
+		t.Fatalf("wrong short-only visibility:\n%s", short)
+	}
+	long := LongHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	if !strings.Contains(long, "--long-only") || strings.Contains(long, "--short-only") {
+		t.Fatalf("wrong long-only visibility:\n%s", long)
+	}
+	for _, page := range []string{short, long} {
+		for _, hidden := range []string{"fast, slow", "MODE", "default: fast"} {
+			if strings.Contains(page, hidden) {
+				t.Fatalf("%q should be hidden:\n%s", hidden, page)
+			}
+		}
+	}
+}
+
 // A description that ends in a break adds no blank line.
 //
 // clap's `long_about` often ends with one — a `///` block whose last line is

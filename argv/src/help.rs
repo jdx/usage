@@ -378,6 +378,14 @@ fn exact_arity(min: Option<usize>, max: Option<usize>) -> Option<usize> {
 pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain);
+    let own: Vec<_> = own
+        .into_iter()
+        .filter(|flag| !flag.hide_short_help)
+        .collect();
+    let inherited: Vec<_> = inherited
+        .into_iter()
+        .filter(|(flag, _)| !flag.hide_short_help)
+        .collect();
     let mut out = String::new();
 
     // Text the command puts above everything else, and below it. The short form has only the
@@ -417,7 +425,11 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
     // after the name it belonged to, so nothing in `-h` lined up with anything — and `-h` is
     // the form most people type. One column per section over its visible entries, which is
     // the rule the long page already follows.
-    let args: Vec<&ArgMeta<'_>> = meta.args.iter().filter(|a| !a.hide).collect();
+    let args: Vec<&ArgMeta<'_>> = meta
+        .args
+        .iter()
+        .filter(|a| !a.hide && !a.hide_short_help)
+        .collect();
     let arg_col = args
         .iter()
         .map(|a| arg_usage(a).chars().count())
@@ -438,7 +450,16 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                     let _ = write!(out, "  {usage}");
                 }
             }
-            annotations(out, a.choices, a.env, a.default);
+            annotations(
+                out,
+                if a.hide_possible_values {
+                    &[]
+                } else {
+                    a.choices
+                },
+                if a.hide_env { None } else { a.env },
+                if a.hide_default_value { &[] } else { a.default },
+            );
         },
     );
     // One column over *both* lists, so the two sections read as one table with a rule through
@@ -458,7 +479,16 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
                 let _ = write!(out, "  {usage}");
             }
         }
-        annotations(out, f.choices, f.env, &[]);
+        annotations(
+            out,
+            if f.hide_possible_values {
+                &[]
+            } else {
+                f.choices
+            },
+            if f.hide_env { None } else { f.env },
+            if f.hide_default_value { &[] } else { f.default },
+        );
     };
     groups_section(
         &mut out,
@@ -714,6 +744,14 @@ fn terminal_width() -> usize {
 pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain);
+    let own: Vec<_> = own
+        .into_iter()
+        .filter(|flag| !flag.hide_long_help)
+        .collect();
+    let inherited: Vec<_> = inherited
+        .into_iter()
+        .filter(|(flag, _)| !flag.hide_long_help)
+        .collect();
     let width = terminal_width();
     let mut out = String::new();
 
@@ -757,7 +795,11 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
 
     // One column width per section, over its visible entries — the same two the reference
     // computes, and separately, so a long flag does not push the arguments out.
-    let args: Vec<&ArgMeta<'_>> = meta.args.iter().filter(|a| !a.hide).collect();
+    let args: Vec<&ArgMeta<'_>> = meta
+        .args
+        .iter()
+        .filter(|a| !a.hide && !a.hide_long_help)
+        .collect();
     let arg_col = args
         .iter()
         .map(|a| arg_usage(a).chars().count())
@@ -771,7 +813,16 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
         |out, a| {
             let text = a.long_help.or(a.help);
             entry(out, &arg_usage(a), text, arg_col, width);
-            long_annotations(out, a.choices, a.env, a.default);
+            long_annotations(
+                out,
+                if a.hide_possible_values {
+                    &[]
+                } else {
+                    a.choices
+                },
+                if a.hide_env { None } else { a.env },
+                if a.hide_default_value { &[] } else { a.default },
+            );
         },
     );
 
@@ -791,7 +842,16 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
         |out, f| {
             let text = f.long_help.or(f.help);
             entry(out, &column_usage(f), text, flag_col, width);
-            long_annotations(out, f.choices, f.env, &[]);
+            long_annotations(
+                out,
+                if f.hide_possible_values {
+                    &[]
+                } else {
+                    f.choices
+                },
+                if f.hide_env { None } else { f.env },
+                if f.hide_default_value { &[] } else { f.default },
+            );
         },
     );
     // After the command's own, and under a heading that says where they came from: `--config`
@@ -806,7 +866,16 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
         |out, (f, usage)| {
             let text = f.long_help.or(f.help);
             entry(out, usage, text, flag_col, width);
-            long_annotations(out, f.choices, f.env, &[]);
+            long_annotations(
+                out,
+                if f.hide_possible_values {
+                    &[]
+                } else {
+                    f.choices
+                },
+                if f.hide_env { None } else { f.env },
+                if f.hide_default_value { &[] } else { f.default },
+            );
         },
     );
 

@@ -20,7 +20,13 @@ type Help struct {
 	Key uint64
 	// Hide keeps an entry out of help without keeping it out of the parse. A
 	// hidden flag still binds; help simply does not invite anyone to type it.
-	Hide bool
+	Hide               bool
+	HideDefaultValue   bool
+	HideEnv            bool
+	HideEnvValues      bool
+	HidePossibleValues bool
+	HideShortHelp      bool
+	HideLongHelp       bool
 	// Demanded is `required` and undefaulted, which is what decides whether the
 	// usage line angles an entry or brackets it.
 	//

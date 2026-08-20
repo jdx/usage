@@ -521,9 +521,9 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       colours headings and flag names by default and exposes `Command::styles`.
 - [ ] **`term_width` / `max_term_width`** — we wrap to `COLUMNS` and take no
       instruction about it.
-- [ ] **The granular hides** — `hide_default_value`, `hide_env`, `hide_env_values`,
-      `hide_possible_values`, `hide_short_help`, `hide_long_help`. We have
-      whole-entry `hide` and nothing finer.
+- [x] **The granular hides** — `hide_default_value`, `hide_env`, `hide_env_values`,
+      `hide_possible_values`, `hide_short_help`, and `hide_long_help` round-trip
+      through KDL and the clap bridge and are honored by Rust and Go help output.
 - [ ] **`help_template`, `next_line_help`, `flatten_help`,
       `subcommand_help_heading`, `subcommand_value_name`.**
 - [x] **`verbatim_doc_comment`.** Commands, fields, and subcommand variants can

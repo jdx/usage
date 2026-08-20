@@ -1,5 +1,10 @@
 # `arg`
 
+Positionals accept `hide_default_value`, `hide_env`, `hide_env_values`,
+`hide_possible_values`, `hide_short_help`, and `hide_long_help`. These affect
+help presentation only; defaults, environment fallback, and validation remain
+active.
+
 ```kdl
 arg "<file>"                             // positional arg, completed as a filename
 arg "<dir>"                              // positional arg, completed as a directory

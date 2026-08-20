@@ -130,6 +130,24 @@ pub struct SpecFlag {
     pub var_max: Option<usize>,
     /// Whether to hide this flag from help output
     pub hide: bool,
+    /// Hide the default annotation while keeping the default behavior.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_default_value: bool,
+    /// Hide the environment annotation entirely.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_env: bool,
+    /// Hide an environment value while retaining its variable name.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_env_values: bool,
+    /// Hide possible values from help without changing validation.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_possible_values: bool,
+    /// Hide this flag only from short help.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_short_help: bool,
+    /// Hide this flag only from long help.
+    #[serde(skip_serializing_if = "is_false")]
+    pub hide_long_help: bool,
     /// Whether this flag is available to all subcommands
     pub global: bool,
     /// Whether this is a count flag (e.g., -vvv counts as 3)
@@ -250,6 +268,12 @@ impl SpecFlag {
                 "var_min" => flag.var_min = v.ensure_usize().map(Some)?,
                 "var_max" => flag.var_max = v.ensure_usize().map(Some)?,
                 "hide" => flag.hide = v.ensure_bool()?,
+                "hide_default_value" => flag.hide_default_value = v.ensure_bool()?,
+                "hide_env" => flag.hide_env = v.ensure_bool()?,
+                "hide_env_values" => flag.hide_env_values = v.ensure_bool()?,
+                "hide_possible_values" => flag.hide_possible_values = v.ensure_bool()?,
+                "hide_short_help" => flag.hide_short_help = v.ensure_bool()?,
+                "hide_long_help" => flag.hide_long_help = v.ensure_bool()?,
                 "deprecated" => {
                     flag.deprecated = match v.value.as_bool() {
                         Some(true) => Some("deprecated".into()),
@@ -359,6 +383,14 @@ impl SpecFlag {
                 "var_min" => flag.var_min = child.arg(0)?.ensure_usize().map(Some)?,
                 "var_max" => flag.var_max = child.arg(0)?.ensure_usize().map(Some)?,
                 "hide" => flag.hide = child.arg(0)?.ensure_bool()?,
+                "hide_default_value" => flag.hide_default_value = child.arg(0)?.ensure_bool()?,
+                "hide_env" => flag.hide_env = child.arg(0)?.ensure_bool()?,
+                "hide_env_values" => flag.hide_env_values = child.arg(0)?.ensure_bool()?,
+                "hide_possible_values" => {
+                    flag.hide_possible_values = child.arg(0)?.ensure_bool()?
+                }
+                "hide_short_help" => flag.hide_short_help = child.arg(0)?.ensure_bool()?,
+                "hide_long_help" => flag.hide_long_help = child.arg(0)?.ensure_bool()?,
                 "deprecated" => {
                     flag.deprecated = match child.arg(0)?.ensure_bool() {
                         Ok(true) => Some("deprecated".into()),
@@ -754,6 +786,18 @@ impl From<&SpecFlag> for KdlNode {
         if flag.hide {
             node.push(KdlEntry::new_prop("hide", true));
         }
+        for (name, hidden) in [
+            ("hide_default_value", flag.hide_default_value),
+            ("hide_env", flag.hide_env),
+            ("hide_env_values", flag.hide_env_values),
+            ("hide_possible_values", flag.hide_possible_values),
+            ("hide_short_help", flag.hide_short_help),
+            ("hide_long_help", flag.hide_long_help),
+        ] {
+            if hidden {
+                node.push(KdlEntry::new_prop(name, true));
+            }
+        }
         if flag.global {
             node.push(KdlEntry::new_prop("global", true));
         }
@@ -1075,6 +1119,12 @@ impl From<&clap::Arg> for SpecFlag {
             var_min: None,
             var_max: None,
             hide,
+            hide_default_value: c.is_hide_default_value_set(),
+            hide_env: c.is_hide_env_set(),
+            hide_env_values: c.is_hide_env_values_set(),
+            hide_possible_values: c.is_hide_possible_values_set(),
+            hide_short_help: c.is_hide_short_help_set(),
+            hide_long_help: c.is_hide_long_help_set(),
             global: c.is_global_set(),
             arg,
             count: matches!(c.get_action(), clap::ArgAction::Count),

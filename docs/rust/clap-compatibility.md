@@ -110,7 +110,7 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | short/long help and doc comments                  | yes    | yes  | yes | yes | yes    | yes    | First paragraph is short help; the full block is long help.                                  |
 | `help_heading`                                    | yes    | n/a  | yes | yes | yes    | yes    | Flags and arguments are grouped and retain declaration order.                                |
 | whole-entry `hide`                                | yes    | yes  | yes | yes | yes    | yes    | Hidden commands, flags, arguments, and values still parse.                                   |
-| granular hide settings                            | no     | n/a  | no  | no  | no     | lossy  | Defaults, env values, and possible values cannot be hidden independently.                    |
+| granular hide settings                            | yes    | yes  | yes | yes | yes    | yes    | Default, environment, possible-value, short-help, and long-help visibility is independent.   |
 | `verbatim_doc_comment`                            | yes    | n/a  | yes | yes | yes    | n/a    | Commands, fields, and variants preserve line breaks and indentation when requested.          |
 | `rename_all`, `rename_all_env`                    | yes    | n/a  | yes | yes | yes    | n/a    | Full clap casing vocabulary; bare `env` uses the environment casing policy.                  |
 | `help_template`, `next_line_help`, `flatten_help` | no     | n/a  | no  | no  | no     | no     | No equivalent yet.                                                                           |
