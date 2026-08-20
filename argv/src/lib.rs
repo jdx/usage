@@ -1153,6 +1153,11 @@ pub struct Parser<'t, 'a, 'v> {
     default_taken: bool,
     /// Set once a fatal error has been reported, so iteration stops.
     done: bool,
+    /// Whether declared built-in actions stop parsing with their action error.
+    ///
+    /// Invocation parsing does; completion walking only needs the grammar position after the
+    /// flag, and must not execute an action while inspecting a partial command line.
+    action_errors: bool,
     /// The `argv` range the `help` *word* resolved as a command path, if one was typed.
     ///
     /// Empty for `--help`, which asks about wherever the parse had got to. For the word, the
@@ -1168,6 +1173,19 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     ///
     /// `argv` excludes the program name.
     pub fn new(root: &'t Command<'t>, argv: &'a [&'v OsStr]) -> Self {
+        Self::with_action_errors(root, argv, true)
+    }
+
+    /// Begin a non-executing parse for completion walking.
+    pub(crate) fn for_completion(root: &'t Command<'t>, argv: &'a [&'v OsStr]) -> Self {
+        Self::with_action_errors(root, argv, false)
+    }
+
+    fn with_action_errors(
+        root: &'t Command<'t>,
+        argv: &'a [&'v OsStr],
+        action_errors: bool,
+    ) -> Self {
         Parser {
             argv,
             pos: 0,
@@ -1194,6 +1212,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             separator_seen: false,
             default_taken: false,
             done: false,
+            action_errors,
             help_span: (0, 0),
         }
     }
@@ -1597,7 +1616,8 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if matches!(
             flag.key,
             HELP_LONG_KEY | HELP_SHORT_KEY | VERSION_LONG_KEY | VERSION_SHORT_KEY
-        ) {
+        ) || !self.action_errors
+        {
             return None;
         }
         match flag.action {
