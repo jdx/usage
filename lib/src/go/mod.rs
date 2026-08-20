@@ -990,6 +990,12 @@ fn command_help(e: &Emitted) -> String {
     if e.cmd.next_line_help {
         fields.push("NextLineHelp: true".to_string());
     }
+    if e.cmd.flatten_help {
+        fields.push("FlattenHelp: true".to_string());
+    }
+    if e.cmd.subcommand_required {
+        fields.push("SubcommandRequired: true".to_string());
+    }
     // Visible only: the parse table merges hidden aliases in beside these,
     // because binding does not care which is which. A page does.
     let visible: Vec<String> = e

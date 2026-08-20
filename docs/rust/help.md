@@ -54,6 +54,8 @@ convenience entry point for CLIs that want immediate print-and-exit behavior.
 - `help_heading` on a field groups it under a heading.
 - `next_line_help` on a command puts every argument, flag, and subcommand description beneath
   its usage instead of in an aligned column beside it.
+- `flatten_help` replaces the command list with a synopsis and argument summary for every
+  visible subcommand.
 - `hide` removes an entry from help, docs, and completions while still parsing.
 
 The rendered output matches what usage-lib renders from the same spec — the two renderers are

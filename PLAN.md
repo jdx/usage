@@ -540,7 +540,10 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       through KDL and the clap bridge and are honored by Rust and Go help output.
 - [x] **`next_line_help`.** Command-wide block layout survives typed metadata,
       KDL, the clap bridge, and both Rust and generated Go help renderers.
-- [ ] **`help_template` and `flatten_help`.**
+- [x] **`flatten_help`.** Visible subcommands can be expanded into their parent's
+      usage synopsis and help sections across typed Rust, KDL, the clap bridge,
+      and Rust and generated Go help.
+- [ ] **`help_template`.**
 - [x] **`subcommand_help_heading` / `subcommand_value_name`.** Custom subcommand
       section labels and synopsis placeholders survive KDL, typed Rust, generated
       Go, and the clap bridge and are rendered by both help implementations.

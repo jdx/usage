@@ -96,12 +96,20 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		out.WriteString(about + "\n\n")
 	}
 
-	out.WriteString("Usage: " + UsageLine(path, cmd, help) + "\n")
+	for i, line := range usageLines(path, cmd, help) {
+		if i == 0 {
+			out.WriteString("Usage: " + line + "\n")
+		} else {
+			out.WriteString("       " + line + "\n")
+		}
+	}
 
 	// The path without the binary, which is what a listed subcommand shows:
 	// usage-lib prints the whole path from the root rather than the child's own
 	// name.
-	commandsSection(&out, path[min(1, len(path)):], cmd, help)
+	if meta == nil || !meta.FlattenHelp {
+		commandsSection(&out, path[min(1, len(path)):], cmd, help)
+	}
 
 	args := visibleArgs(cmd, help, false)
 	nextLineHelp := meta != nil && meta.NextLineHelp
@@ -198,6 +206,9 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	groupsSection(&out, "Global flags", len(inherited),
 		func(int) string { return "" },
 		func(w *strings.Builder, i int) { entry(w, inherited[i]) })
+	if meta != nil && meta.FlattenHelp {
+		flatCommandsShort(&out, path[min(1, len(path)):], cmd, help, nextLineHelp)
+	}
 
 	examplesSection(&out, pageExamples(chain, help, meta))
 
@@ -274,6 +285,71 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 		out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
 	} else {
 		out.WriteString("  help  Print this message or the help of the given subcommand(s)\n")
+	}
+}
+
+func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool) {
+	visible := append([]*Command{}, cmd.Subcommands...)
+	sort.Slice(visible, func(i, j int) bool { return visible[i].Name < visible[j].Name })
+	for _, sub := range visible {
+		h := help.Lookup(sub.Key)
+		if h != nil && h.Hide {
+			continue
+		}
+		subPath := append(append([]string{}, path...), sub.Name)
+		out.WriteString("\n" + strings.Join(subPath, " ") + ":\n")
+		if h != nil && strings.TrimSpace(h.Short) != "" {
+			out.WriteString(trimEnd(h.Short) + "\n")
+		}
+
+		args := visibleArgs(sub, help, false)
+		flags := make([]*Flag, 0, len(sub.Flags))
+		col := 0
+		for _, a := range args {
+			col = max(col, width(argUsage(a, help.Lookup(a.Key))))
+		}
+		for _, f := range sub.Flags {
+			fh := help.Lookup(f.Key)
+			if f.Global || (fh != nil && (fh.Hide || fh.HideShortHelp)) {
+				continue
+			}
+			flags = append(flags, f)
+			col = max(col, width(columnUsage(f, allShown(f), help)))
+		}
+		for _, a := range args {
+			ah := help.Lookup(a.Key)
+			usage := argUsage(a, ah)
+			if text := helpText(ah); text != "" {
+				if nextLine {
+					out.WriteString("  " + usage + "\n")
+					writeIndented(out, text, 4)
+				} else {
+					out.WriteString("  " + pad(usage, col) + "  " + text)
+				}
+			} else {
+				out.WriteString("  " + usage)
+			}
+			annotations(out, ah, true)
+		}
+		for _, f := range flags {
+			fh := help.Lookup(f.Key)
+			usage := columnUsage(f, allShown(f), help)
+			if text := helpText(fh); text != "" {
+				if nextLine {
+					out.WriteString("  " + usage + "\n")
+					writeIndented(out, text, 4)
+				} else {
+					out.WriteString("  " + pad(usage, col) + "  " + text)
+				}
+			} else {
+				out.WriteString("  " + usage)
+			}
+			annotations(out, fh, true)
+		}
+		if h != nil && h.FlattenHelp {
+			flatCommandsShort(out, subPath, sub, help, nextLine)
+		}
+		out.WriteString("\n")
 	}
 }
 

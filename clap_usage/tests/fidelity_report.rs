@@ -99,6 +99,16 @@ fn next_line_help_is_lossless() {
 }
 
 #[test]
+fn flatten_help_is_lossless() {
+    let mut command = Command::new("ex")
+        .flatten_help(true)
+        .subcommand(Command::new("run").about("Run it"));
+    let (spec, report) = spec_with_report(&mut command, "ex");
+    assert!(report.is_lossless(), "{report:#?}");
+    assert!(spec.cmd.flatten_help);
+}
+
+#[test]
 fn ranged_distinct_value_names_are_reported_as_lossy() {
     let mut command = Command::new("ex").arg(
         Arg::new("range")

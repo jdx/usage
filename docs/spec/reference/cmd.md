@@ -11,6 +11,7 @@ cmd "config" hide=#true // hide command from docs and completions
 cmd "config" subcommand_required=#true // subcommand is not optional
 cmd "config" subcommand_help_heading="Actions" subcommand_value_name="ACTION"
 cmd "config" next_line_help=#true // put descriptions below each entry
+cmd "config" flatten_help=#true // expand visible subcommands into this page
 
 // these are shown under -h
 cmd "config" before_help="shown before the command"

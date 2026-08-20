@@ -1,6 +1,9 @@
 package argv
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // The page `--help` prints.
 //
@@ -60,9 +63,17 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 		out.WriteString(about + "\n\n")
 	}
 
-	out.WriteString("Usage: " + UsageLine(path, cmd, help) + "\n")
+	for i, line := range usageLines(path, cmd, help) {
+		if i == 0 {
+			out.WriteString("Usage: " + line + "\n")
+		} else {
+			out.WriteString("       " + line + "\n")
+		}
+	}
 
-	longCommandsSection(&out, path[min(1, len(path)):], cmd, help)
+	if meta == nil || !meta.FlattenHelp {
+		longCommandsSection(&out, path[min(1, len(path)):], cmd, help)
+	}
 
 	// One column width per section, over its visible entries — separately, so a
 	// long flag does not push the arguments out.
@@ -118,6 +129,9 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	groupsSection(&out, "Global flags", len(inherited),
 		func(int) string { return "" },
 		func(w *strings.Builder, i int) { writeFlag(w, inherited[i]) })
+	if meta != nil && meta.FlattenHelp {
+		flatCommandsLong(&out, path[min(1, len(path)):], cmd, help, nextLineHelp)
+	}
 
 	if examples := pageExamples(chain, help, meta); len(examples) > 0 {
 		out.WriteString("\nExamples:\n")
@@ -190,6 +204,55 @@ func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help
 		out.WriteString("\n")
 	}
 	out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
+}
+
+func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool) {
+	visible := append([]*Command{}, cmd.Subcommands...)
+	sort.Slice(visible, func(i, j int) bool { return visible[i].Name < visible[j].Name })
+	for _, sub := range visible {
+		h := help.Lookup(sub.Key)
+		if h != nil && h.Hide {
+			continue
+		}
+		subPath := append(append([]string{}, path...), sub.Name)
+		out.WriteString("\n" + strings.Join(subPath, " ") + ":\n")
+		if about := firstOf(metaField(h, func(x *Help) string { return x.Long }),
+			metaField(h, func(x *Help) string { return x.Short })); strings.TrimSpace(about) != "" {
+			out.WriteString(trimEnd(about) + "\n")
+		}
+
+		args := visibleArgs(sub, help, true)
+		flags := make([]*Flag, 0, len(sub.Flags))
+		col := 0
+		for _, a := range args {
+			col = max(col, width(argUsage(a, help.Lookup(a.Key))))
+		}
+		for _, f := range sub.Flags {
+			fh := help.Lookup(f.Key)
+			if f.Global || (fh != nil && (fh.Hide || fh.HideLongHelp)) {
+				continue
+			}
+			flags = append(flags, f)
+			col = max(col, width(columnUsage(f, allShown(f), help)))
+		}
+		for _, a := range args {
+			ah := help.Lookup(a.Key)
+			entry(out, argUsage(a, ah), firstOf(metaField(ah, func(x *Help) string { return x.Long }),
+				metaField(ah, func(x *Help) string { return x.Short })), col, nextLine)
+			longAnnotations(out, ah, true)
+		}
+		for _, f := range flags {
+			fh := help.Lookup(f.Key)
+			entry(out, columnUsage(f, allShown(f), help), firstOf(
+				metaField(fh, func(x *Help) string { return x.Long }),
+				metaField(fh, func(x *Help) string { return x.Short })), col, nextLine)
+			longAnnotations(out, fh, true)
+		}
+		if h != nil && h.FlattenHelp {
+			flatCommandsLong(out, subPath, sub, help, nextLine)
+		}
+		out.WriteString("\n")
+	}
 }
 
 // entry writes one flag or argument: its help in a column beside it, wrapped — or

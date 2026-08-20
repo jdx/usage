@@ -328,6 +328,9 @@ fn without_hidden(cmd: &SpecCommand, long: bool) -> SpecCommand {
             }
     });
     visible.subcommands.retain(|_, sub| !sub.hide);
+    for sub in visible.subcommands.values_mut() {
+        *sub = without_hidden(sub, long);
+    }
     visible
 }
 
@@ -954,6 +957,45 @@ cmd "run" help="Run it"
                 "{page}"
             );
             assert!(page.contains("  run\n    Run it"), "{page}");
+        }
+    }
+
+    #[test]
+    fn flatten_help_expands_subcommands_instead_of_listing_them() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+flatten_help #true
+next_line_help #true
+cmd "run" help="Run it" {
+    arg "<task>" help="Task name" env="TASK" default="build" {
+        choices {
+            choice "build"
+            choice "test"
+        }
+    }
+    flag "--dry-run" help="Only show changes"
+}
+        "# }
+        .unwrap();
+
+        for page in [
+            render_help(&spec, &spec.cmd, false),
+            render_help(&spec, &spec.cmd, true),
+        ] {
+            assert!(
+                page.contains("Usage: testcli\n       testcli run"),
+                "{page}"
+            );
+            assert!(!page.contains("\nCommands:\n"), "{page}");
+            assert!(page.contains("\nrun:\nRun it"), "{page}");
+            assert!(page.contains("[task]"), "{page}");
+            assert!(page.contains("--dry-run"), "{page}");
+            assert!(
+                page.contains(
+                    "    [possible values: build, test]\n    [env: TASK]\n    (default: build)"
+                ),
+                "{page}"
+            );
         }
     }
 }

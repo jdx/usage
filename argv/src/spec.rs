@@ -726,6 +726,8 @@ pub struct CommandMeta<'a> {
     pub subcommand_value_name: Option<&'a str>,
     /// Put each argument, flag, and subcommand description on the following line.
     pub next_line_help: bool,
+    /// Expand each visible subcommand's summary and arguments into this command's help page.
+    pub flatten_help: bool,
     /// Fixed help width. Zero disables wrapping.
     pub term_width: Option<usize>,
     /// Maximum detected terminal width when `term_width` is unset. Zero disables the cap.
@@ -770,6 +772,7 @@ impl CommandMeta<'_> {
         subcommand_help_heading: None,
         subcommand_value_name: None,
         next_line_help: false,
+        flatten_help: false,
         term_width: None,
         max_term_width: None,
         args_override_self: true,
@@ -1221,6 +1224,9 @@ impl Spec<'_> {
         if self.root.next_line_help {
             writeln!(out, "next_line_help #true")?;
         }
+        if self.root.flatten_help {
+            writeln!(out, "flatten_help #true")?;
+        }
         if let Some(width) = self.root.term_width {
             writeln!(out, "term_width {width}")?;
         }
@@ -1472,6 +1478,9 @@ fn write_command<'a>(
     }
     if meta.next_line_help {
         out.push_str(" next_line_help=#true");
+    }
+    if meta.flatten_help {
+        out.push_str(" flatten_help=#true");
     }
     if let Some(width) = meta.term_width {
         write!(out, " term_width={width}")?;

@@ -174,6 +174,38 @@ func TestNextLineHelp(t *testing.T) {
 	}
 }
 
+func TestFlattenHelp(t *testing.T) {
+	arg := &Arg{Name: "task", Key: 3, Required: true}
+	flag := &Flag{Name: "dry-run", Key: 4, Longs: []string{"dry-run"}}
+	sub := &Command{Name: "run", Key: 2, Args: []*Arg{arg}, Flags: []*Flag{flag}}
+	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{sub}}
+	help := HelpTable{
+		{Key: 1, FlattenHelp: true},
+		{Key: 2, Short: "Run it"},
+		{Key: 3, Short: "Task name", Demanded: true},
+		{Key: 4, Short: "Only show changes"},
+	}
+
+	for _, page := range []string{
+		ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+		LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+	} {
+		for _, want := range []string{
+			"Usage: ex\n       ex run",
+			"\nrun:\nRun it",
+			"<task>",
+			"--dry-run",
+		} {
+			if !strings.Contains(page, want) {
+				t.Fatalf("missing %q in:\n%s", want, page)
+			}
+		}
+		if strings.Contains(page, "\nCommands:\n") {
+			t.Fatalf("flattened help still has a Commands section:\n%s", page)
+		}
+	}
+}
+
 // A description that ends in a break adds no blank line.
 //
 // clap's `long_about` often ends with one — a `///` block whose last line is

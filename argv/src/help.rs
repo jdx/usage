@@ -114,7 +114,9 @@ fn help_structure(
     if !page_examples(spec, meta).is_empty() {
         headings.push("Examples".to_string());
     }
-    if meta.subcommands.iter().any(|sub| !sub.hide) {
+    if meta.flatten_help {
+        flat_help_headings(&path[1.min(path.len())..], meta, &mut headings);
+    } else if meta.subcommands.iter().any(|sub| !sub.hide) {
         headings.push(
             meta.subcommand_help_heading
                 .unwrap_or("Commands")
@@ -180,6 +182,19 @@ fn help_structure(
     usage_section(&mut synopsis, spec, path, meta);
     let synopsis = synopsis.lines().map(str::to_string).collect();
     (headings, flag_usages, synopsis)
+}
+
+fn flat_help_headings(path: &[&str], meta: &CommandMeta<'_>, headings: &mut Vec<String>) {
+    let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
+    visible.sort_by_key(|sub| sub.cmd.name);
+    for sub in visible {
+        let mut sub_path = path.to_vec();
+        sub_path.push(sub.cmd.name);
+        headings.push(sub_path.join(" "));
+        if sub.flatten_help {
+            flat_help_headings(&sub_path, sub, headings);
+        }
+    }
 }
 
 fn styled_help(
@@ -254,6 +269,14 @@ fn styled_help(
 /// assert_eq!(usage_line(&["mise", "use"], &META), "mise use [--force] <TOOL>");
 /// ```
 pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
+    usage_line_with_subcommands(path, meta, true)
+}
+
+fn usage_line_with_subcommands(
+    path: &[&str],
+    meta: &CommandMeta<'_>,
+    include_subcommands: bool,
+) -> String {
     let mut out = String::new();
     for (i, part) in path.iter().enumerate() {
         if i > 0 {
@@ -299,7 +322,7 @@ pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
         }
     }
 
-    if !meta.cmd.subcommands.is_empty() {
+    if include_subcommands && !meta.cmd.subcommands.is_empty() {
         let name = meta.subcommand_value_name.unwrap_or("SUBCOMMAND");
         let _ = write!(out, " <{name}>");
     }
@@ -317,7 +340,27 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
             return;
         }
     }
-    let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+    let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
+    visible.sort_by_key(|sub| sub.cmd.name);
+    if meta.flatten_help && !visible.is_empty() {
+        let mut lines = Vec::new();
+        if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
+            lines.push(usage_line_with_subcommands(path, meta, false));
+        }
+        for sub in visible {
+            let mut sub_path = path.to_vec();
+            sub_path.push(sub.cmd.name);
+            lines.push(usage_line(&sub_path, sub));
+        }
+        if let Some((first, rest)) = lines.split_first() {
+            let _ = writeln!(out, "Usage: {first}");
+            for line in rest {
+                let _ = writeln!(out, "       {line}");
+            }
+        }
+    } else {
+        let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+    }
 }
 
 /// How one flag appears in the usage line: `-f --force`, plus its value if it takes one.
@@ -615,7 +658,9 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
     // The path without the binary, which is what a listed subcommand shows: usage-lib prints
     // `tool-alias get <TOOL>` under `mise tool-alias`, the whole path from the root rather
     // than the child's own name.
-    commands_section(&mut out, &path[1.min(path.len())..], meta);
+    if !meta.flatten_help {
+        commands_section(&mut out, &path[1.min(path.len())..], meta);
+    }
 
     // The short page lines its columns up too. It did not: every description began directly
     // after the name it belonged to, so nothing in `-h` lined up with anything — and `-h` is
@@ -737,6 +782,9 @@ pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) ->
         |_| None,
         |out, (f, usage)| short_entry(out, f, usage.clone()),
     );
+    if meta.flatten_help {
+        flat_commands_short(&mut out, &path[1.min(path.len())..], meta);
+    }
     examples_section(&mut out, spec, meta);
     if let Some(after) = meta.after_help.or(spec.root.after_help) {
         let _ = writeln!(out, "\n{after}");
@@ -813,6 +861,94 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
             out,
             "  help  Print this message or the help of the given subcommand(s)"
         );
+    }
+}
+
+fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
+    let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
+    visible.sort_by_key(|sub| sub.cmd.name);
+    for sub in visible {
+        let mut sub_path = path.to_vec();
+        sub_path.push(sub.cmd.name);
+        let _ = writeln!(out, "\n{}:", sub_path.join(" "));
+        if let Some(about) = sub.about.filter(|about| !about.trim().is_empty()) {
+            let _ = writeln!(out, "{}", about.trim_end());
+        }
+
+        let args: Vec<_> = sub
+            .args
+            .iter()
+            .filter(|arg| !arg.hide && !arg.hide_short_help)
+            .collect();
+        let flags: Vec<&FlagMeta<'_>> = sub
+            .flags
+            .iter()
+            .filter(|flag| !flag.flag.global && !flag.hide && !flag.hide_short_help)
+            .collect();
+        let col = args
+            .iter()
+            .map(|arg| arg_usage(arg).chars().count())
+            .chain(flags.iter().map(|flag| column_usage(flag).chars().count()))
+            .max()
+            .unwrap_or(0);
+        for arg in args {
+            let usage = arg_usage(arg);
+            if let Some(help) = arg.help.filter(|help| !help.trim().is_empty()) {
+                if meta.next_line_help {
+                    let _ = writeln!(out, "  {usage}");
+                    write_indented(out, help, 4);
+                } else {
+                    let _ = write!(out, "  {usage:<col$}  {help}");
+                }
+            } else {
+                let _ = write!(out, "  {usage}");
+            }
+            annotations(
+                out,
+                if arg.hide_possible_values {
+                    &[]
+                } else {
+                    arg.choices
+                },
+                if arg.hide_env { None } else { arg.env },
+                if arg.hide_default_value {
+                    &[]
+                } else {
+                    arg.default
+                },
+            );
+        }
+        for flag in flags {
+            let usage = column_usage(flag);
+            if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
+                if meta.next_line_help {
+                    let _ = writeln!(out, "  {usage}");
+                    write_indented(out, help, 4);
+                } else {
+                    let _ = write!(out, "  {usage:<col$}  {help}");
+                }
+            } else {
+                let _ = write!(out, "  {usage}");
+            }
+            annotations(
+                out,
+                if flag.hide_possible_values {
+                    &[]
+                } else {
+                    flag.choices
+                },
+                if flag.hide_env { None } else { flag.env },
+                if flag.hide_default_value {
+                    &[]
+                } else {
+                    flag.default
+                },
+            );
+        }
+        if sub.flatten_help {
+            flat_commands_short(out, &sub_path, sub);
+        }
+        out.push('\n');
     }
 }
 
@@ -1044,7 +1180,9 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
     }
     usage_section(&mut out, spec, path, meta);
 
-    long_commands_section(&mut out, &path[1.min(path.len())..], meta);
+    if !meta.flatten_help {
+        long_commands_section(&mut out, &path[1.min(path.len())..], meta);
+    }
 
     // One column width per section, over its visible entries — the same two the reference
     // computes, and separately, so a long flag does not push the arguments out.
@@ -1145,6 +1283,9 @@ pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> 
             );
         },
     );
+    if meta.flatten_help {
+        flat_commands_long(&mut out, &path[1.min(path.len())..], meta, width);
+    }
 
     let examples = page_examples(spec, meta);
     if !examples.is_empty() {
@@ -1330,6 +1471,92 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
         out,
         "  help\n    Print this message or the help of the given subcommand(s)"
     );
+}
+
+fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, width: usize) {
+    let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
+    visible.sort_by_key(|sub| sub.cmd.name);
+    for sub in visible {
+        let mut sub_path = path.to_vec();
+        sub_path.push(sub.cmd.name);
+        let _ = writeln!(out, "\n{}:", sub_path.join(" "));
+        if let Some(about) = sub
+            .long_about
+            .or(sub.about)
+            .filter(|about| !about.trim().is_empty())
+        {
+            let _ = writeln!(out, "{}", about.trim_end());
+        }
+
+        let args: Vec<_> = sub
+            .args
+            .iter()
+            .filter(|arg| !arg.hide && !arg.hide_long_help)
+            .collect();
+        let flags: Vec<&FlagMeta<'_>> = sub
+            .flags
+            .iter()
+            .filter(|flag| !flag.flag.global && !flag.hide && !flag.hide_long_help)
+            .collect();
+        let col = args
+            .iter()
+            .map(|arg| arg_usage(arg).chars().count())
+            .chain(flags.iter().map(|flag| column_usage(flag).chars().count()))
+            .max()
+            .unwrap_or(0);
+        for arg in args {
+            entry(
+                out,
+                &arg_usage(arg),
+                arg.long_help.or(arg.help),
+                col,
+                width,
+                meta.next_line_help,
+            );
+            long_annotations(
+                out,
+                if arg.hide_possible_values {
+                    &[]
+                } else {
+                    arg.choices
+                },
+                if arg.hide_env { None } else { arg.env },
+                if arg.hide_default_value {
+                    &[]
+                } else {
+                    arg.default
+                },
+            );
+        }
+        for flag in flags {
+            entry(
+                out,
+                &column_usage(flag),
+                flag.long_help.or(flag.help),
+                col,
+                width,
+                meta.next_line_help,
+            );
+            long_annotations(
+                out,
+                if flag.hide_possible_values {
+                    &[]
+                } else {
+                    flag.choices
+                },
+                if flag.hide_env { None } else { flag.env },
+                if flag.hide_default_value {
+                    &[]
+                } else {
+                    flag.default
+                },
+            );
+        }
+        if sub.flatten_help {
+            flat_commands_long(out, &sub_path, sub, width);
+        }
+        out.push('\n');
+    }
 }
 
 /// The path and metadata for a command, found by identity within a spec.
