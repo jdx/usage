@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-clap_usage = "5"
+clap_usage = "6"
 ```
 
 ## Quick Start
@@ -36,9 +36,11 @@ println!("{spec}");
 ```
 
 The report includes the command path, clap argument ID, feature, and source detail
-for each detectable loss. clap settings that have setters but no public getter
-cannot be detected; the [compatibility matrix](/rust/clap-compatibility) lists
-those as **usage-only**.
+for each detectable loss. `is_lossless()` therefore means lossless for behavior
+visible through clap's public getters, not for every setter clap exposes. Before
+treating the generated spec as fully compatible, audit the declaration against the
+[compatibility matrix](/rust/clap-compatibility), especially its **usage-only** and
+**lossy** bridge rows.
 
 ## Integration Pattern
 

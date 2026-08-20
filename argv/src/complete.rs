@@ -625,9 +625,9 @@ fn files_for(name: &str) -> Option<Files> {
     }
 }
 
-fn declared_files(type_: &str, position: &Position<'_>) -> Option<Files> {
+fn declared_files(type_: &str, next_arg_values: u32) -> Option<Files> {
     if type_.eq_ignore_ascii_case("command_args") {
-        return Some(if position.next_arg_values == 0 {
+        return Some(if next_arg_values == 0 {
             Files::Commands
         } else {
             Files::Any
@@ -649,7 +649,8 @@ fn declared_files_at_cursor(
         return None;
     }
     let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
-    let at_cursor = if restarted(meta, split) {
+    let after_restart = restarted(meta, split);
+    let at_cursor = if after_restart {
         meta.and_then(|m| m.args.first()).map(|m| m.arg)
     } else {
         position
@@ -675,7 +676,16 @@ fn declared_files_at_cursor(
         (None, None)
     };
     complete_type
-        .and_then(|type_| declared_files(type_, position))
+        .and_then(|type_| {
+            declared_files(
+                type_,
+                if after_restart {
+                    0
+                } else {
+                    position.next_arg_values
+                },
+            )
+        })
         .or_else(|| name.and_then(files_for))
 }
 
@@ -700,7 +710,8 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
     // that the two halves cannot disagree. Past a restart token it is the command's *first*
     // argument, whatever the words before the token filled, and everything below follows from
     // that: whether paths belong, whether the set is declared, whether a separator is owed.
-    let at_cursor = if restarted(meta, split) {
+    let after_restart = restarted(meta, split);
+    let at_cursor = if after_restart {
         meta.and_then(|m| m.args.first()).map(|m| m.arg)
     } else {
         position.next_arg
@@ -730,7 +741,16 @@ pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
         (None, false, None)
     };
     let asked_for = complete_type
-        .and_then(|type_| declared_files(type_, &position))
+        .and_then(|type_| {
+            declared_files(
+                type_,
+                if after_restart {
+                    0
+                } else {
+                    position.next_arg_values
+                },
+            )
+        })
         .or_else(|| named.and_then(files_for));
 
     // An argument that requires a separator is not fillable yet, so nothing else belongs here —
@@ -1925,10 +1945,12 @@ mod tests {
     static META_EXEC: CommandMeta = CommandMeta {
         cmd: &EXEC,
         about: Some("Run something"),
+        restart_token: Some(":::"),
         args: &[ArgMeta {
             arg: &FORWARDED,
             help: Some("What to run"),
             choices: &["one", "two"],
+            complete_type: Some("command_args"),
             ..ArgMeta::EMPTY
         }],
         ..CommandMeta::EMPTY
@@ -2891,6 +2913,13 @@ mod tests {
         let mistyped = answer("mise ship fast ::: zzz");
         assert!(mistyped.candidates.is_empty());
         assert_eq!(mistyped.files, None, "a mistyped choice is still a choice");
+    }
+
+    #[test]
+    fn a_restart_makes_command_args_expect_a_command_again() {
+        assert_eq!(answer("mise exec ").files, Some(Files::Commands));
+        assert_eq!(answer("mise exec one ").files, Some(Files::Any));
+        assert_eq!(answer("mise exec one ::: ").files, Some(Files::Commands));
     }
 
     #[test]

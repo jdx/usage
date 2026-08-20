@@ -785,13 +785,14 @@ fn parse_partial_with_env(
     // - Global flags affect all commands and should be passed to mount points
     let mut prefix_flags: Vec<(Arc<SpecFlag>, Vec<String>)> = vec![];
     // Which flag each word skipped here belongs to, aligned with the leading words left in
-    // `input`: `Some(flag)` for a flag word, `None` for its value (or anything unresolved).
+    // `input`: `Some((flag, negated))` for a flag word, `None` for its value (or anything
+    // unresolved).
     //
     // The words stay in `input` for Phase 2 to re-parse — that is how they reach `out.flags`
     // and `as_env()` — but by then the recognized flags have changed, because each descent
     // drops the parent's non-global flags and a mounted command may declare the same name as
     // a global seen here. Recording the owner keeps a word bound to the flag it was read as.
-    let mut prefix_bindings: VecDeque<Option<Arc<SpecFlag>>> = VecDeque::new();
+    let mut prefix_bindings: VecDeque<Option<(Arc<SpecFlag>, bool)>> = VecDeque::new();
     let mut idx = 0;
     // Track whether we've already applied the default_subcommand to prevent
     // multiple switches (e.g., if default is "run" and there's a task named "run")
@@ -896,16 +897,18 @@ fn parse_partial_with_env(
             let is_bundle =
                 word.starts_with("--") || short_bundle_is_known(&out.available_flags, &word);
             let infer_long_args = out.cmds.iter().any(|cmd| cmd.infer_long_args);
-            if let Some(f) = (if word.starts_with("--") {
+            if let Some((f, negated)) = (if word.starts_with("--") {
                 resolve_long_flag(
                     &out.available_flags,
                     &word,
                     infer_long_args,
                     spec.disable_help != Some(true),
                 )
-                .map(|(flag, _)| flag)
             } else {
-                out.available_flags.get(flag_key).cloned()
+                out.available_flags
+                    .get(flag_key)
+                    .cloned()
+                    .map(|flag| (flag, false))
             })
             .filter(|_| is_bundle)
             {
@@ -916,7 +919,7 @@ fn parse_partial_with_env(
                 //
                 // Only globals are forwarded to mounts: a non-global flag belongs to the
                 // command that declared it, not to what is mounted below it.
-                prefix_bindings.push_back(Some(Arc::clone(&f)));
+                prefix_bindings.push_back(Some((Arc::clone(&f), negated)));
                 let mut forwarded = f.global.then(|| vec![word.clone()]);
                 idx += 1;
 
@@ -1154,8 +1157,9 @@ fn parse_partial_with_env(
                 out.cmds.iter().any(|cmd| cmd.infer_long_args),
                 spec.disable_help != Some(true),
             );
+            let bound_flag = binding.as_ref().map(|(flag, _)| flag);
             let resolved_flag = resolved.as_ref().map(|(flag, _)| flag);
-            if let Some(f) = binding.as_ref().or(resolved_flag) {
+            if let Some(f) = bound_flag.or(resolved_flag) {
                 parsed_flag_spellings
                     .entry(Arc::as_ptr(f) as usize)
                     .or_default()
@@ -1209,10 +1213,16 @@ fn parse_partial_with_env(
                         .unwrap();
                     arr.push(true);
                 } else {
-                    let negated = resolved
+                    let negated = binding
                         .as_ref()
-                        .filter(|(resolved, _)| Arc::ptr_eq(resolved, f))
+                        .filter(|(bound, _)| Arc::ptr_eq(bound, f))
                         .map(|(_, negated)| *negated)
+                        .or_else(|| {
+                            resolved
+                                .as_ref()
+                                .filter(|(resolved, _)| Arc::ptr_eq(resolved, f))
+                                .map(|(_, negated)| *negated)
+                        })
                         .unwrap_or_else(|| f.negate.as_deref() == Some(word));
                     // Exact bindings can compare the typed form. Inferred bindings carry
                     // which form matched, because a prefix is deliberately not equal to the
@@ -1260,6 +1270,7 @@ fn parse_partial_with_env(
             let short = w.chars().nth(1).unwrap();
             if let Some(f) = binding
                 .as_ref()
+                .map(|(flag, _)| flag)
                 .or_else(|| out.available_flags.get(&format!("-{short}")))
             {
                 parsed_flag_spellings
@@ -2388,7 +2399,7 @@ fn bind_pending_flag_value(
     flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
     word: &mut String,
     input: &mut VecDeque<String>,
-    prefix_bindings: &mut VecDeque<Option<Arc<SpecFlag>>>,
+    prefix_bindings: &mut VecDeque<Option<(Arc<SpecFlag>, bool)>>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
     // Held before the drain pops it, along with what the flag is already carrying: a
@@ -2452,7 +2463,7 @@ fn collect_variadic_flag_values(
     flag: &Arc<SpecFlag>,
     carried: usize,
     input: &mut VecDeque<String>,
-    prefix_bindings: &mut VecDeque<Option<Arc<SpecFlag>>>,
+    prefix_bindings: &mut VecDeque<Option<(Arc<SpecFlag>, bool)>>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
     let max = flag
@@ -4064,6 +4075,19 @@ flag "--file <file>" required_unless="--stdin"
             parse(&spec, &input(&["ex", "run", "--no-clean"])).is_err(),
             "the inherited negated alias still belongs to the ancestor exclusive flag"
         );
+    }
+
+    #[test]
+    fn an_inferred_negation_keeps_its_prefix_binding_across_redeclaration() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\ninfer_long_args #true\nflag \"--clean\" negate=\"--no-clean\" global=#true\ncmd \"run\" {\n  flag \"--clean\" negate=\"--no-clean\" global=#true\n}\n"
+            .parse()
+            .unwrap();
+
+        let parsed = parse(&spec, &input(&["ex", "--no-cl", "run"]))
+            .expect("the prefix should remain bound to the ancestor declaration");
+        assert!(parsed.flags.iter().any(|(flag, value)| {
+            flag.name == "clean" && matches!(value, ParseValue::Bool(false))
+        }));
     }
 
     #[test]

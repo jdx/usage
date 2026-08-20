@@ -230,7 +230,7 @@ _{bin}() {
     case "$__usage_files" in
         any) _files && __usage_ret=0 ;;
         dirs) _files -/ && __usage_ret=0 ;;
-        executables) _files -g '*(*)' && __usage_ret=0 ;;
+        executables) _files -g '*(-/,*)' && __usage_ret=0 ;;
         commands) _command_names && __usage_ret=0 ;;
     esac
     return $__usage_ret

@@ -20,9 +20,44 @@ use crate::report::{report, FidelityReport};
 /// println!("{spec}");
 /// ```
 pub fn spec<S: Into<String>>(cmd: &mut Command, bin_name: S) -> usage::Spec {
-    let mut spec: usage::Spec = cmd.clone().into();
+    let built = build_without_implicit_entries(cmd);
+    spec_from_built(&built, bin_name)
+}
+
+fn spec_from_built<S: Into<String>>(cmd: &Command, bin_name: S) -> usage::Spec {
+    let mut spec: usage::Spec = cmd.into();
     spec.bin = bin_name.into();
     spec
+}
+
+/// Materialize action-derived metadata without turning clap's generated help and version
+/// entries into declarations in the portable spec.
+fn build_without_implicit_entries(cmd: &Command) -> Command {
+    let mut built = cmd
+        .clone()
+        .disable_help_flag(true)
+        .disable_help_subcommand(true)
+        .disable_version_flag(true);
+    built.build();
+    restore_declared_builtin_settings(&mut built, cmd);
+    built
+}
+
+fn restore_declared_builtin_settings(built: &mut Command, declared: &Command) {
+    let current = std::mem::take(built);
+    *built = current
+        .disable_help_flag(declared.is_disable_help_flag_set())
+        .disable_help_subcommand(declared.is_disable_help_subcommand_set())
+        .disable_version_flag(declared.is_disable_version_flag_set());
+
+    for built_subcommand in built.get_subcommands_mut() {
+        if let Some(declared_subcommand) = declared
+            .get_subcommands()
+            .find(|subcommand| subcommand.get_name() == built_subcommand.get_name())
+        {
+            restore_declared_builtin_settings(built_subcommand, declared_subcommand);
+        }
+    }
 }
 
 /// Build a spec and report every publicly detectable clap behavior it loses.
@@ -30,8 +65,9 @@ pub fn spec_with_report<S: Into<String>>(
     cmd: &mut Command,
     bin_name: S,
 ) -> (usage::Spec, FidelityReport) {
-    let report = report(cmd);
-    (spec(cmd, bin_name), report)
+    let built = build_without_implicit_entries(cmd);
+    let report = report(&built);
+    (spec_from_built(&built, bin_name), report)
 }
 
 /// Write the usage spec for a clap command, with the `@generated` header.

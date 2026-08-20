@@ -173,6 +173,7 @@ impl CompleteWord {
             tera: &ctx,
             spec,
             parsed: &parsed,
+            after_restart_token,
         };
         let mut has_explicit_choices = false;
         // Not `available_flags`: inside a mounted command, the mounting CLI's flags stay
@@ -382,7 +383,7 @@ impl CompleteWord {
                         .keys()
                         .any(|bound| bound.as_ref() == next.as_ref())
                 });
-                if !command_was_bound {
+                if cx.after_restart_token || !command_was_bound {
                     return (self.complete_commands(ctoken), true);
                 }
             }
@@ -757,6 +758,7 @@ struct Ctx<'a> {
     tera: &'a tera::Context,
     spec: &'a Spec,
     parsed: &'a ParseOutput,
+    after_restart_token: bool,
 }
 
 /// A description reduced to one line.

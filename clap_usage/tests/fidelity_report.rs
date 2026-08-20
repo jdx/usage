@@ -63,13 +63,16 @@ fn reports_nested_paths_and_leaves_supported_commands_clean() {
                 .allow_negative_numbers(true),
         ),
     );
-    let (_, report) = spec_with_report(&mut nested, "ex");
-    assert_eq!(report.losses()[0].command, ["ex", "run"]);
-    assert_eq!(report.losses()[0].argument.as_deref(), Some("number"));
-    assert_eq!(
-        report.losses()[0].feature,
-        FidelityFeature::AllowNegativeNumbers
-    );
+    let (spec, report) = spec_with_report(&mut nested, "ex");
+    assert!(!spec.cmd.subcommands.contains_key("help"));
+    assert_eq!(report.losses().len(), 1, "{report:#?}");
+    let loss = report
+        .losses()
+        .iter()
+        .find(|loss| loss.argument.as_deref() == Some("number"))
+        .expect("nested argument loss");
+    assert_eq!(loss.command, ["ex", "run"]);
+    assert_eq!(loss.feature, FidelityFeature::AllowNegativeNumbers);
 }
 
 #[test]
@@ -85,6 +88,29 @@ fn reports_delimited_arity_that_the_bridge_cannot_count() {
         .losses()
         .iter()
         .any(|loss| loss.feature == FidelityFeature::ValueArity));
+}
+
+#[test]
+fn builds_action_derived_arity_before_reporting() {
+    let mut command =
+        Command::new("ex").arg(Arg::new("values").long("values").action(ArgAction::Append));
+    let (_, report) = spec_with_report(&mut command, "ex");
+    assert!(report
+        .losses()
+        .iter()
+        .any(|loss| loss.feature == FidelityFeature::ValueArity));
+}
+
+#[test]
+fn building_metadata_does_not_mutate_the_callers_command() {
+    let mut command = Command::new("ex").subcommand(Command::new("run"));
+    let argument_count = command.get_arguments().count();
+    let subcommand_count = command.get_subcommands().count();
+    let (spec, _) = spec_with_report(&mut command, "ex");
+
+    assert_eq!(command.get_arguments().count(), argument_count);
+    assert_eq!(command.get_subcommands().count(), subcommand_count);
+    assert!(!spec.cmd.subcommands.contains_key("help"));
 }
 
 #[test]
