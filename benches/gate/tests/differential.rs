@@ -380,7 +380,7 @@ fn explained(o: Outcome) -> Option<&'static str> {
         Outcome {
             argv: Accept,
             lib: true,
-            clap: MissingRequired | MissingSubcommand | Conflict,
+            clap: MissingRequired | MissingSubcommand | Conflict | InvalidChoice,
         } => Some("after a positional binds, usage keeps the words; clap still routes them"),
 
         _ => None,
