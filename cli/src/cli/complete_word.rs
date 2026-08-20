@@ -412,6 +412,11 @@ impl CompleteWord {
                 );
             }
             "command" => return (self.complete_commands(ctoken), true),
+            "username" => return (complete_usernames(ctoken), true),
+            "hostname" => return (complete_hostnames(ctoken), true),
+            "none" | "url" | "email" => return (vec![], true),
+            // `Unknown` asks for the shell's normal fallback, so this stays open.
+            "unknown" => {}
             "command_args" => {
                 let command_was_bound = cx.parsed.next_arg.as_ref().is_some_and(|next| {
                     // `parse_partial` records the cursor with a fresh `Arc` around a
@@ -615,15 +620,14 @@ impl CompleteWord {
             .get(&name)
             .or(cmd.complete.get(&name))
             .unwrap_or(&EMPTY_COMPL);
-        let type_ = complete.type_.as_ref().unwrap_or(&name);
-
-        // A closed completer answers even when its answer is nothing: it knows the whole set
-        // of candidates, so an unmatched prefix means no matches rather than "ask somebody
-        // else". Returning empty-and-open here is what let a mistyped setting name complete
-        // to the contents of the working directory.
-        let (builtin, closed) = self.complete_builtin(cx, type_, ctoken);
-        if !builtin.is_empty() || closed {
-            return Ok((builtin, closed));
+        if let Some(type_) = complete.type_.as_deref() {
+            // An explicitly declared closed completer answers even when its answer is nothing:
+            // it knows the whole set of candidates, so an unmatched prefix means no matches
+            // rather than "ask somebody else".
+            let (builtin, closed) = self.complete_builtin(cx, type_, ctoken);
+            if !builtin.is_empty() || closed {
+                return Ok((builtin, closed));
+            }
         }
 
         if let Some(choices) = &arg.choices {
@@ -668,6 +672,18 @@ impl CompleteWord {
                 // had nothing to say about this prefix.
                 false,
             ));
+        }
+
+        // Argument-name inference is only a fallback. An existing spec may legitimately name
+        // an argument `url`, `email`, `username`, or another reserved word and attach `run=`;
+        // treating the inferred type as explicit would close the set before that command ran.
+        // The same is true in the other direction: an explicitly declared open type such as
+        // `command_args` must not fall through to a different builtin inferred from its name.
+        if complete.type_.is_none() {
+            let (builtin, closed) = self.complete_builtin(cx, &name, ctoken);
+            if !builtin.is_empty() || closed {
+                return Ok((builtin, closed));
+            }
         }
 
         Ok((vec![], false))
@@ -754,6 +770,57 @@ impl CompleteWord {
             .map(|value| (value, String::new()))
             .collect()
     }
+}
+
+fn complete_usernames(prefix: &str) -> Vec<(String, String)> {
+    let mut found = BTreeSet::new();
+    for key in ["USER", "USERNAME"] {
+        if let Ok(value) = env::var(key) {
+            if value.starts_with(prefix) {
+                found.insert(value);
+            }
+        }
+    }
+    if let Ok(passwd) = std::fs::read_to_string("/etc/passwd") {
+        for line in passwd.lines() {
+            if let Some(name) = line
+                .split(':')
+                .next()
+                .filter(|name| name.starts_with(prefix))
+            {
+                found.insert(name.to_string());
+            }
+        }
+    }
+    found
+        .into_iter()
+        .map(|value| (value, String::new()))
+        .collect()
+}
+
+fn complete_hostnames(prefix: &str) -> Vec<(String, String)> {
+    let mut found = BTreeSet::new();
+    for key in ["HOSTNAME", "COMPUTERNAME"] {
+        if let Ok(value) = env::var(key) {
+            if value.starts_with(prefix) {
+                found.insert(value);
+            }
+        }
+    }
+    if let Ok(hosts) = std::fs::read_to_string("/etc/hosts") {
+        for line in hosts.lines() {
+            let line = line.split('#').next().unwrap_or_default();
+            for name in line.split_whitespace().skip(1) {
+                if name.starts_with(prefix) {
+                    found.insert(name.to_string());
+                }
+            }
+        }
+    }
+    found
+        .into_iter()
+        .map(|value| (value, String::new()))
+        .collect()
 }
 
 fn command_name_starts_with(name: &str, prefix: &str, case_insensitive: bool) -> bool {

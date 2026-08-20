@@ -1118,6 +1118,7 @@ impl From<&clap::Command> for SpecCommand {
             spec.hidden_aliases.push(alias.to_string());
         }
         for arg in cmd.get_arguments() {
+            let complete_type = crate::spec::arg::value_hint_type(arg.get_value_hint());
             let conflicts: Vec<String> = cmd
                 .get_arg_conflicts_with(arg)
                 .iter()
@@ -1132,6 +1133,17 @@ impl From<&clap::Command> for SpecCommand {
                 let mut positional: SpecArg = arg.into();
                 positional.allow_negative_numbers |= cmd.is_allow_negative_numbers_set();
                 positional.conflicts = conflicts;
+                if let Some(type_) = complete_type {
+                    let name = positional.name.to_lowercase();
+                    spec.complete.insert(
+                        name.clone(),
+                        SpecComplete {
+                            name,
+                            type_: Some(type_.to_string()),
+                            ..Default::default()
+                        },
+                    );
+                }
                 spec.args.push(positional)
             } else {
                 let mut flag: SpecFlag = arg.into();
@@ -1146,6 +1158,17 @@ impl From<&clap::Command> for SpecCommand {
                 // `--long`: taking only the long form would have dropped the conflict
                 // and let the spec accept a combination clap rejects.
                 flag.conflicts = conflicts;
+                if let (Some(type_), Some(value)) = (complete_type, flag.arg.as_ref()) {
+                    let name = value.name.to_lowercase();
+                    spec.complete.insert(
+                        name.clone(),
+                        SpecComplete {
+                            name,
+                            type_: Some(type_.to_string()),
+                            ..Default::default()
+                        },
+                    );
+                }
                 spec.flags.push(flag)
             }
         }

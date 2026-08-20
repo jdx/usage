@@ -1,4 +1,4 @@
-use clap::{Arg, ArgAction, ColorChoice, Command, ValueHint};
+use clap::{Arg, ArgAction, ColorChoice, Command};
 use std::collections::BTreeSet;
 
 /// A clap behavior that the generated usage spec cannot preserve.
@@ -7,7 +7,6 @@ use std::collections::BTreeSet;
 pub enum FidelityFeature {
     Environment,
     HiddenFlagAlias,
-    ValueHint,
     NonAsciiDelimiter,
     NonUtf8Default,
     ValueArity,
@@ -121,12 +120,6 @@ fn argument_losses(arg: &Arg, path: &[String], losses: &mut BTreeSet<FidelityLos
         add(
             FidelityFeature::Environment,
             format!("env={}", env.to_string_lossy()),
-        );
-    }
-    if arg.get_value_hint() != ValueHint::Unknown {
-        add(
-            FidelityFeature::ValueHint,
-            format!("value_hint={:?}", arg.get_value_hint()),
         );
     }
     if let Some(delimiter) = arg

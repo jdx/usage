@@ -90,6 +90,10 @@ use std::ffi::{OsStr, OsString};
 /// parse.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValueHint {
+    /// Let the shell use its normal fallback behavior.
+    Unknown,
+    /// No structured hint applies; suppress the shell's path fallback.
+    Other,
     /// A path to a file.
     FilePath,
     /// A path to either a file or a directory.
@@ -104,6 +108,14 @@ pub enum ValueHint {
     CommandString,
     /// A trailing argv vector: complete the first value as a command, then its arguments.
     CommandWithArguments,
+    /// A local operating-system user name.
+    Username,
+    /// A host name known to the shell or operating system.
+    Hostname,
+    /// A web address. This suppresses path fallback but offers no finite candidate set.
+    Url,
+    /// An email address. This suppresses path fallback but offers no finite candidate set.
+    EmailAddress,
 }
 
 #[cfg(feature = "complete")]

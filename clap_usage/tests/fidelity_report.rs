@@ -26,13 +26,13 @@ fn reports_detectable_losses_with_locations() {
 
     let (spec, report) = spec_with_report(&mut command, "ex");
     assert!(spec.cmd.arg_required_else_help);
+    assert_eq!(spec.cmd.complete["config"].type_.as_deref(), Some("path"));
     let features: Vec<_> = report.losses().iter().map(|loss| loss.feature).collect();
-    for expected in [FidelityFeature::Environment, FidelityFeature::ValueHint] {
-        assert!(
-            features.contains(&expected),
-            "missing {expected:?}: {report:#?}"
-        );
-    }
+    let expected = FidelityFeature::Environment;
+    assert!(
+        features.contains(&expected),
+        "missing {expected:?}: {report:#?}"
+    );
     let pair = spec
         .cmd
         .flags
@@ -58,6 +58,52 @@ fn reports_detectable_losses_with_locations() {
     assert!(!features.contains(&FidelityFeature::DistinctValueNames));
     assert!(report.losses().iter().all(|loss| loss.command == ["ex"]));
     assert!(!report.is_lossless());
+}
+
+#[test]
+fn every_clap_value_hint_is_portable() {
+    let cases = [
+        (ValueHint::Other, Some("none")),
+        (ValueHint::AnyPath, Some("path")),
+        (ValueHint::FilePath, Some("path")),
+        (ValueHint::DirPath, Some("dir")),
+        (ValueHint::ExecutablePath, Some("executable")),
+        (ValueHint::CommandName, Some("command")),
+        (ValueHint::CommandString, Some("command")),
+        (ValueHint::CommandWithArguments, Some("command_args")),
+        (ValueHint::Username, Some("username")),
+        (ValueHint::Hostname, Some("hostname")),
+        (ValueHint::Url, Some("url")),
+        (ValueHint::EmailAddress, Some("email")),
+        (ValueHint::Unknown, None),
+    ];
+    for (hint, expected) in cases {
+        let mut command = if hint == ValueHint::CommandWithArguments {
+            Command::new("ex").trailing_var_arg(true).arg(
+                Arg::new("value")
+                    .action(ArgAction::Append)
+                    .num_args(1..)
+                    .value_hint(hint),
+            )
+        } else {
+            Command::new("ex").arg(
+                Arg::new("value")
+                    .long("value")
+                    .action(ArgAction::Set)
+                    .value_hint(hint),
+            )
+        };
+        let (spec, report) = spec_with_report(&mut command, "ex");
+        assert!(report.is_lossless(), "{hint:?}: {report:#?}");
+        assert_eq!(
+            spec.cmd
+                .complete
+                .get("value")
+                .and_then(|complete| complete.type_.as_deref()),
+            expected,
+            "{hint:?}"
+        );
+    }
 }
 
 #[test]

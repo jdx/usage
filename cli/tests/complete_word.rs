@@ -72,6 +72,11 @@ fn complete_word_completer() {
 }
 
 #[test]
+fn complete_word_run_outranks_a_builtin_inferred_from_the_argument_name() {
+    assert_cmd("run-named-builtin.usage.kdl", &["ru"]).stdout("run-result\n");
+}
+
+#[test]
 fn complete_word_variadic_arg_reuses_completer() {
     assert_cmd("variadic-completion.usage.kdl", &["--", "variadic", ""]).stdout("foo\nbar\n");
     assert_cmd(
