@@ -100,6 +100,13 @@ Leaving off the filter is appropriate only when the interpolation is deliberatel
 syntax. `shell_quote` accepts strings; quote list members individually rather than quoting a
 joined command line.
 
+When a child process needs the complete argv as one command-line string, `shell_join` preserves
+the original word boundaries before `shell_quote` makes that command line one inert argument:
+
+```kdl
+complete "arg" run="mycli __complete --line={{ words | shell_join | shell_quote }}"
+```
+
 Example of completing the second argument based on the first:
 
 ```kdl

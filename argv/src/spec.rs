@@ -1572,7 +1572,7 @@ fn write_completers(
             out,
             " run={}",
             quoted(&format!(
-                "{bin} __complete_word__ --candidates {name} --line '{{{{ words | join(sep=\" \") | replace(from=\"'\", to=\"'\\\"'\\\"'\") }}}}'"
+                "{bin} __complete_word__ --candidates {name} --line={{{{ words | shell_join | shell_quote }}}}"
             ))
         )?;
         // No `descriptions=#true`: that tells the reference to read a description after an
@@ -2863,6 +2863,47 @@ mod tests {
         assert_eq!(quoted(r#"say "hi""#), r#""say \"hi\"""#);
         assert_eq!(quoted("a\\b"), r#""a\\b""#);
         assert_eq!(quoted("one\ntwo"), r#""one\ntwo""#);
+    }
+
+    fn test_completer(_: &CompleteCtx<'_>) -> Vec<Candidate<'static>> {
+        Vec::new()
+    }
+
+    #[test]
+    fn generated_completer_bridges_preserve_the_argv_vector() {
+        static ARG: Arg = Arg {
+            name: "ARG",
+            ..Arg::REQUIRED
+        };
+        static ARG_META: ArgMeta = ArgMeta {
+            arg: &ARG,
+            complete: Some(test_completer),
+            ..ArgMeta::EMPTY
+        };
+        static COMMAND: Command = Command {
+            args: &[&ARG],
+            ..Command::EMPTY
+        };
+        static META: CommandMeta = CommandMeta {
+            cmd: &COMMAND,
+            args: &[ARG_META],
+            ..CommandMeta::EMPTY
+        };
+        static SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &META,
+            ..Spec::EMPTY
+        };
+
+        let kdl = SPEC.to_kdl();
+        assert!(
+            kdl.contains(
+                "__complete_word__ --candidates arg --line={{ words | shell_join | shell_quote }}"
+            ),
+            "{kdl}"
+        );
+        assert!(!kdl.contains("replace(from="), "{kdl}");
     }
 
     #[test]

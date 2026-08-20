@@ -29,6 +29,23 @@ static COMPLETER_TERA: LazyLock<tera::Tera> = LazyLock::new(|| {
             Ok(shell_words::quote(value).into_owned())
         },
     );
+    tera.register_filter(
+        "shell_join",
+        |value: &tera::Value, _: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
+            let values = value
+                .as_array()
+                .ok_or_else(|| tera::Error::message("shell_join expects a list of strings"))?;
+            let words = values
+                .iter()
+                .map(|value| {
+                    value
+                        .as_str()
+                        .ok_or_else(|| tera::Error::message("shell_join expects a list of strings"))
+                })
+                .collect::<tera::TeraResult<Vec<_>>>()?;
+            Ok(shell_words::join(words))
+        },
+    );
     tera
 });
 
@@ -884,5 +901,21 @@ mod tests {
             err.to_string().contains("shell_quote expects a string"),
             "{err}"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_join_preserves_the_argv_vector_when_forwarded_as_one_argument() {
+        let expected = ["ex", "two words", "a'b"];
+        let mut ctx = tera::Context::new();
+        ctx.insert("words", &expected);
+        let rendered = render_completer_run(
+            "printf '%s\\n' {{ words | shell_join | shell_quote }}",
+            &ctx,
+        )
+        .expect("the filters should render");
+        let stdout = usage::sh::sh(&rendered).expect("the rendered command should run");
+        let reparsed = shell_words::split(stdout.trim()).expect("the joined value should parse");
+        assert_eq!(reparsed, expected);
     }
 }

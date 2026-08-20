@@ -1191,7 +1191,7 @@ repeated here.
       `sh -c` string, with no shell-quoting filter". A quoting filter — or a
       structured argv channel — is owed before dynamic completers are a
       recommendation rather than a hazard. The completion renderer now provides a
-      `shell_quote` filter backed by `shell_words::quote`, rejects non-string inputs,
+      `shell_quote` and `shell_join` filters backed by `shell_words`, reject invalid inputs,
       and documents that interpolation remains raw unless the author opts into the
       filter. `run=` remains a shell program rather than being narrowed to an argv
       vector, preserving pipelines and the modern shell-out completion use case.
