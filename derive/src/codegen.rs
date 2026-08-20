@@ -4197,6 +4197,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             // A hidden command still answers to its name; it is simply not offered. Declared on
             // the variant, which is where the command itself is declared.
             let hide = v.hide;
+            let help_heading = option_str(v.help_heading.as_deref());
             let display_order = option_usize(v.display_order);
             quote! {
                 const #hidden_groups: &[&[&str]] = &[
@@ -4215,6 +4216,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         after_help: #after_help,
                         after_long_help: #after_long_help,
                         hide: #hide,
+                        help_heading: #help_heading,
                         display_order: #display_order,
                         hidden_aliases: &#hidden_name,
                         ..*<#ty as usage_argv::spec::CommandArgs>::META

@@ -13,6 +13,7 @@ cmd "config" subcommand_help_heading="Actions" subcommand_value_name="ACTION"
 cmd "config" next_line_help=#true // put descriptions below each entry
 cmd "config" flatten_help=#true // expand visible subcommands into this page
 cmd "config" display_order=10 // present before commands with a greater order
+cmd "config" help_heading="Configuration" // group under this heading in its parent's help
 
 // these are shown under -h
 cmd "config" before_help="shown before the command"

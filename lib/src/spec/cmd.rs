@@ -72,6 +72,9 @@ pub struct SpecCommand {
     pub unknown_flags: Option<UnknownFlags>,
     /// Whether to hide this command from help output
     pub hide: bool,
+    /// Help section this command appears under in its parent's command list.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help_heading: Option<String>,
     /// Explicit placement within its parent's command section.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_order: Option<usize>,
@@ -208,6 +211,7 @@ impl Default for SpecCommand {
             effect: None,
             unknown_flags: None,
             hide: false,
+            help_heading: None,
             display_order: None,
             mounted: false,
             flags_from_mount: false,
@@ -352,6 +356,7 @@ impl SpecCommand {
                 }
                 "allow_missing_positional" => cmd.allow_missing_positional = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
+                "help_heading" => cmd.help_heading = Some(v.ensure_string()?),
                 "display_order" => cmd.display_order = Some(v.ensure_usize()?),
                 "unknown_flags" => {
                     let raw = v.ensure_string()?;
@@ -472,6 +477,9 @@ impl SpecCommand {
                 }
                 "subcommand_required" => {
                     cmd.subcommand_required = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_bool()?
+                }
+                "help_heading" => {
+                    cmd.help_heading = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?)
                 }
                 "subcommand_help_heading" => {
                     cmd.subcommand_help_heading =
@@ -643,6 +651,7 @@ impl SpecCommand {
             hidden_aliases,
             examples,
             hide,
+            help_heading,
             display_order,
             subcommand_required,
             subcommand_help_heading,
@@ -730,6 +739,9 @@ impl SpecCommand {
             self.examples = examples;
         }
         self.hide = hide;
+        if help_heading.is_some() {
+            self.help_heading = help_heading;
+        }
         if display_order.is_some() {
             self.display_order = display_order;
         }
@@ -857,6 +869,7 @@ impl From<&SpecCommand> for KdlNode {
         let SpecCommand {
             name,
             hide,
+            help_heading,
             display_order,
             subcommand_required,
             subcommand_help_heading,
@@ -906,6 +919,10 @@ impl From<&SpecCommand> for KdlNode {
         node.entries_mut().push(name.clone().into());
         if *hide {
             node.entries_mut().push(KdlEntry::new_prop("hide", true));
+        }
+        if let Some(heading) = help_heading {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("help_heading", heading.clone()));
         }
         if let Some(order) = display_order {
             node.entries_mut()

@@ -107,7 +107,8 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | clap surface                                       | derive | argv | KDL | lib | output | bridge  | Notes                                                                                          |
 | -------------------------------------------------- | ------ | ---- | --- | --- | ------ | ------- | ---------------------------------------------------------------------------------------------- |
 | short/long help and doc comments                   | yes    | yes  | yes | yes | yes    | yes     | First paragraph is short help; the full block is long help.                                    |
-| `help_heading`                                     | yes    | n/a  | yes | yes | yes    | yes     | Flags and arguments are grouped and retain declaration order.                                  |
+| `help_heading` on flags and arguments              | yes    | n/a  | yes | yes | yes    | yes     | Flags and arguments are grouped and retain declaration order.                                  |
+| `help_heading` on subcommands                      | yes    | yes  | yes | yes | yes    | n/a     | Commands can be grouped into named sections in their parent's help.                            |
 | whole-entry `hide`                                 | yes    | yes  | yes | yes | yes    | yes     | Hidden commands, flags, arguments, and values still parse.                                     |
 | granular hide settings                             | yes    | yes  | yes | yes | yes    | yes     | Default, environment, possible-value, short-help, and long-help visibility is independent.     |
 | `subcommand_help_heading`, `subcommand_value_name` | yes    | yes  | yes | yes | yes    | yes     | Customize the subcommand section label and the synopsis placeholder.                           |

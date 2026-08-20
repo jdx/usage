@@ -571,6 +571,21 @@ func TestCommandDisplayOrderSurvivesLoweredJSON(t *testing.T) {
 	}
 }
 
+func TestCommandHelpHeadingSurvivesLoweredJSON(t *testing.T) {
+	var s Spec
+	const lowered = `{"name":"ex","bin":"ex","cmd":{"name":"ex","subcommands":{
+		"run":{"name":"run","help_heading":"Core commands"}}}}`
+	if err := json.Unmarshal([]byte(lowered), &s); err != nil {
+		t.Fatalf("lowered spec should decode: %v", err)
+	}
+
+	root, _, help := s.BuildAll()
+	meta := help.Lookup(root.Subcommands[0].Key)
+	if meta == nil || meta.Heading != "Core commands" {
+		t.Fatalf("command help heading was lost: %#v", meta)
+	}
+}
+
 // Decoding into a spec that already holds one replaces its commands.
 //
 // A decoder does not get to assume a fresh value: appending to the receiver would

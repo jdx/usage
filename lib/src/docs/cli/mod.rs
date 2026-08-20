@@ -983,6 +983,33 @@ cmd "alpha" help="Unordered"
     }
 
     #[test]
+    fn test_render_help_groups_subcommands_by_heading() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+cmd "run" help="Run it" help_heading="Core commands"
+cmd "clean" help="Remove old state" help_heading="Maintenance"
+cmd "status" help="Show status" help_heading="Commands"
+        "# }
+        .unwrap();
+
+        for page in [
+            render_help(&spec, &spec.cmd, false),
+            render_help(&spec, &spec.cmd, true),
+        ] {
+            let commands = page.find("\nCommands:\n").expect("default command section");
+            assert_eq!(page.matches("\nCommands:\n").count(), 1, "{page}");
+            let core = page.find("\nCore commands:\n").expect("core section");
+            let maintenance = page.find("\nMaintenance:\n").expect("maintenance section");
+            assert!(commands < core && commands < maintenance, "{page}");
+            let default_end = core.min(maintenance);
+            assert!(page[commands..default_end].contains("status"), "{page}");
+            assert!(page[commands..default_end].contains("help"), "{page}");
+            assert!(page[core..].contains("run"), "{page}");
+            assert!(page[maintenance..].contains("clean"), "{page}");
+        }
+    }
+
+    #[test]
     fn test_render_help_with_next_line_layout() {
         let spec = crate::spec! { r#"
 bin "testcli"

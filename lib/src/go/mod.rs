@@ -996,6 +996,9 @@ fn command_help(e: &Emitted) -> String {
     if e.cmd.hide {
         fields.push("Hide: true".to_string());
     }
+    if let Some(heading) = &e.cmd.help_heading {
+        fields.push(format!("Heading: {}", go_string(heading)));
+    }
     if let Some(order) = e.cmd.display_order {
         fields.push(format!("DisplayOrder: {order}"));
         fields.push("DisplayOrderSet: true".to_string());

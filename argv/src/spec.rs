@@ -711,6 +711,8 @@ pub struct CommandMeta<'a> {
     pub hidden_aliases: &'a [&'a str],
     /// Whether the command is hidden from help and completions.
     pub hide: bool,
+    /// Help section this command appears under in its parent's command list.
+    pub help_heading: Option<&'a str>,
     /// Explicit placement within the parent's command section.
     pub display_order: Option<usize>,
     /// What running this does to the world, for a caller deciding whether to
@@ -780,6 +782,7 @@ impl CommandMeta<'_> {
         long_about: None,
         hidden_aliases: &[],
         hide: false,
+        help_heading: None,
         display_order: None,
         effect: None,
         mount: None,
@@ -1462,6 +1465,9 @@ fn write_command<'a>(
     }
     if meta.hide {
         out.push_str(" hide=#true");
+    }
+    if let Some(heading) = meta.help_heading {
+        write!(out, " help_heading={}", quoted(heading))?;
     }
     let effect = overlays
         .iter()
