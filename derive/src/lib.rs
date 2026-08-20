@@ -236,6 +236,7 @@
 //! | `env` | infer the environment variable from the field, using the command's `rename_all_env` policy |
 //! | `default = "x"` | the value when the command line does not supply one; a `Vec` may be given several, and starts out holding all of them |
 //! | `help_heading = "x"` | the section to list this under in help output |
+//! | `display_order = n` | explicit help order; positional parsing still follows declaration order |
 //! | `verbatim_doc_comment` | preserve line breaks and whitespace in the doc comment instead of flowing its first paragraph |
 //! | `hide` | keep it out of help and completions |
 //! | `effect = "write"` | what supplying this flag does to the world: `read`, `write` or `destructive`. Also goes on an `Args`, where it says what *running* the command does |
@@ -312,6 +313,7 @@
 //! list. They may be written on the `Args` struct that owns the command or on its
 //! `Subcommands` variant; when both say some, the lists are joined. The parser matches both;
 //! the difference is only whether help and completions mention them.
+//! `display_order = n` on the variant controls where the command is presented in help.
 //!
 //! # Settings and the flags that set them
 //!

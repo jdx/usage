@@ -11,6 +11,7 @@ arg "<dir>"                              // positional arg, completed as a direc
 arg "[file]"                             // optional positional arg
 arg "<file>" default="file.txt"          // default value for arg
 arg "<file>" env="MY_FILE"               // arg can be backed by an env var
+arg "<file>" display_order=10             // explicit order in help; parse order is unchanged
 arg "<file>" parse="mycli parse-file {}" // parse arg value with external command
 arg "<port>" validate="int(value) >= 1 && int(value) <= 65535" validate_error="must be a valid port"
 

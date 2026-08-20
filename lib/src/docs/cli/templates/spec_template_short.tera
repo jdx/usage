@@ -27,7 +27,7 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {{ cmd.subcommand_help_heading | default(value="Commands") }}:
 {%- set next_line_help = cmd.next_line_help %}
-{%- for cmd in cmd.subcommands | values | sort(attribute="usage") %}
+{%- for cmd in cmd.help_subcommands %}
   {{ cmd.usage | trim }}
 {%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}

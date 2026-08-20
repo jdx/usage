@@ -139,6 +139,40 @@ func TestSubcommandPresentation(t *testing.T) {
 	}
 }
 
+func TestExplicitDisplayOrder(t *testing.T) {
+	second := &Flag{Key: 2, Name: "second", Longs: []string{"second"}}
+	first := &Flag{Key: 3, Name: "first", Longs: []string{"first"}}
+	secondCmd := &Command{Name: "second", Key: 4}
+	firstCmd := &Command{Name: "first", Key: 5}
+	root := &Command{
+		Name:        "ex",
+		Key:         1,
+		Flags:       []*Flag{second, first},
+		Subcommands: []*Command{secondCmd, firstCmd},
+	}
+	help := HelpTable{
+		{Key: 1},
+		{Key: 2, Short: "shown second", DisplayOrder: 20, DisplayOrderSet: true},
+		{Key: 3, Short: "shown first", DisplayOrder: 10, DisplayOrderSet: true},
+		{Key: 4, Short: "shown second", DisplayOrder: 20, DisplayOrderSet: true},
+		{Key: 5, Short: "shown first", DisplayOrder: 10, DisplayOrderSet: true},
+	}
+
+	for _, page := range []string{
+		ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+		LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+	} {
+		commands := strings.SplitN(page, "\nCommands:\n", 2)[1]
+		if strings.Index(commands, "first") > strings.Index(commands, "second") {
+			t.Fatalf("commands ignored display order:\n%s", page)
+		}
+		flags := strings.SplitN(page, "\nFlags:\n", 2)[1]
+		if strings.Index(flags, "--first") > strings.Index(flags, "--second") {
+			t.Fatalf("flags ignored display order:\n%s", page)
+		}
+	}
+}
+
 func TestNextLineHelp(t *testing.T) {
 	arg := &Arg{Name: "input", Key: 2, Required: true}
 	flag := &Flag{Name: "verbose", Key: 3, Longs: []string{"verbose"}}

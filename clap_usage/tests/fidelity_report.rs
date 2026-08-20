@@ -27,6 +27,22 @@ fn disabled_long_version_flag_is_reported() {
 }
 
 #[test]
+fn display_order_is_lossless() {
+    let mut command = Command::new("ex")
+        .arg(Arg::new("second").long("second").display_order(20))
+        .arg(Arg::new("first").long("first").display_order(10))
+        .subcommand(Command::new("second").display_order(20))
+        .subcommand(Command::new("first").display_order(10));
+    let (spec, report) = spec_with_report(&mut command, "ex");
+
+    assert_eq!(spec.cmd.flags[0].display_order, Some(20));
+    assert_eq!(spec.cmd.flags[1].display_order, Some(10));
+    assert_eq!(spec.cmd.subcommands[0].display_order, Some(20));
+    assert_eq!(spec.cmd.subcommands[1].display_order, Some(10));
+    assert!(report.is_lossless(), "{report:#?}");
+}
+
+#[test]
 fn reports_detectable_losses_with_locations() {
     let mut command = Command::new("ex")
         .arg_required_else_help(true)

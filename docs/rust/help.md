@@ -57,6 +57,8 @@ convenience entry point for CLIs that want immediate print-and-exit behavior.
 - `before_help`, `after_help`, `before_long_help`, `after_long_help` add text around the page —
   `after_long_help` is the conventional home for an Examples section.
 - `help_heading` on a field groups it under a heading.
+- `display_order = n` on a field or subcommand controls its position within a help section
+  without changing positional parsing order.
 - `next_line_help` on a command puts every argument, flag, and subcommand description beneath
   its usage instead of in an aligned column beside it.
 - `flatten_help` replaces the command list with a synopsis and argument summary for every

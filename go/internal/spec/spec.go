@@ -87,6 +87,7 @@ type Cmd struct {
 	Hide                        bool        `json:"hide"`
 	Help                        string      `json:"help"`
 	HelpLong                    string      `json:"help_long"`
+	DisplayOrder                *uint32     `json:"display_order"`
 	Usage                       string      `json:"usage"`
 	BeforeHelp                  string      `json:"before_help"`
 	AfterHelp                   string      `json:"after_help"`
@@ -641,7 +642,7 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	for _, e := range c.Examples {
 		examples = append(examples, argv.Example{Header: e.Header, Code: e.Code, Help: e.Help})
 	}
-	b.recordHelp(out.Key, argv.Help{
+	commandHelp := argv.Help{
 		Hide:  c.Hide,
 		Short: first(c.Help, c.HelpLong),
 		// No fallback to the short text, because the emitter does not write one for
@@ -664,7 +665,12 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		FlattenHelp:           c.FlattenHelp,
 		SubcommandRequired:    c.SubcommandRequired,
 		Examples:              examples,
-	})
+	}
+	if c.DisplayOrder != nil {
+		commandHelp.DisplayOrder = *c.DisplayOrder
+		commandHelp.DisplayOrderSet = true
+	}
+	b.recordHelp(out.Key, commandHelp)
 
 	if n := len(c.Aliases) + len(c.HiddenAliases); n > 0 {
 		out.Aliases = make([]string, 0, n)

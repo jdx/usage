@@ -16,6 +16,7 @@ flag "--user" { // another way to define the same flag
 flag "--user" { alias "-u" hide=#true } // hide alias from docs and completions
 
 flag "-f --force" global=#true          // global can be set on any subcommand
+flag "--force" display_order=10         // explicit order within its help section
 flag "--file <file>" default="file.txt" // default value for flag
 flag "-v --verbose" count=#true         // instead of true/false $usage_verbose is # of times
                                         // flag was used (e.g. -vvv = 3)

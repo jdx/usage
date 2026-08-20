@@ -1,6 +1,9 @@
 package argv
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // Which flags a page offers, and under which spellings.
 //
@@ -222,6 +225,18 @@ func ownAndGlobal(chain []*Command, help HelpTable) (own, inherited []shownFlag)
 			}
 		}
 	}
+	orderShown := func(flags []shownFlag) {
+		positions := map[uint64]int{}
+		for i, flag := range flags {
+			positions[flag.key] = i
+		}
+		sort.SliceStable(flags, func(i, j int) bool {
+			return helpOrder(help, flags[i].key, positions[flags[i].key]) <
+				helpOrder(help, flags[j].key, positions[flags[j].key])
+		})
+	}
+	orderShown(own)
+	orderShown(inherited)
 
 	// Last in the command's own section, which is where clap has them: they carry
 	// no heading, so a CLI that groups its flags gets them at the end of the

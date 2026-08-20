@@ -567,9 +567,10 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       while `long_version` can provide extended `--version` build information.
       Typed declarations, portable KDL, usage-lib, generated Go, and the clap
       bridge preserve both; computed values pair with explicit spec literals.
-- [ ] **Explicit `display_order`.** Declaration order covers the common case,
-      but cannot preserve an adopter that deliberately presents fields or
-      subcommands in a different order.
+- [x] **Explicit `display_order`.** Fields and subcommands retain deliberate
+      presentation order through typed metadata, portable KDL, the clap bridge,
+      usage-lib, and generated Rust and Go help. Positional parsing still follows
+      declaration order; the setting changes presentation only.
 
 **API surface**
 
