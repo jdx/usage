@@ -50,6 +50,30 @@ cmd "cat"
 clap exposes this as `Command::multicall` / `#[command(multicall = true)]`, and
 the bridge reads `is_multicall_set`.
 
+## Executable views
+
+A `view` promotes a command path into a separately named executable surface. It is useful when
+one binary is installed under several names but an applet is more than multicall dispatch: its
+help, docs, and completions should begin at that command and may carry root globals.
+
+```kdl
+name "Aube"
+bin "aube"
+flag "-v --verbose" global=#true
+flag "--config <FILE>" global=#true
+view "aubr" root="run" globals=#true
+view "aubx" name="Aube Execute" root="dlx" {
+  global "--config"
+}
+cmd "run"
+cmd "dlx"
+```
+
+The first string is the stable view identifier and defaults both `name` and `bin`. `root` is a
+space-separated command path. `globals=#true` carries every root global; `global` children carry
+only the named root globals. Generators accept a view explicitly (`usage g markdown --view aubr`)
+or, for completions, select it when the requested binary matches the view's `bin`.
+
 ## Repository
 
 The URL of the CLI's source repository:

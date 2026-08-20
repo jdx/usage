@@ -14,11 +14,18 @@ pub struct Json {
     /// raw string spec input
     #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
+
+    /// Render one spec-declared executable view
+    #[usage(long)]
+    view: Option<String>,
 }
 
 impl Json {
     pub fn run(&self) -> Result<()> {
-        let spec = generate::file_or_spec(&self.file, &self.spec)?;
+        let spec = generate::select_view(
+            generate::file_or_spec(&self.file, &self.spec)?,
+            self.view.as_deref(),
+        )?;
         let json = serde_json::to_string_pretty(&spec).into_diagnostic()?;
         println!("{json}");
         Ok(())

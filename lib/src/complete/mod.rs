@@ -41,6 +41,28 @@ pub struct CompleteOptions {
 /// - `zsh` - Zsh completion using `compdef`
 /// - `powershell` - PowerShell completion using `Register-ArgumentCompleter`
 pub fn complete(options: &CompleteOptions) -> Result<String, UsageErr> {
+    let viewed;
+    let effective;
+    let options = if let Some((spec, view)) = options
+        .spec
+        .as_ref()
+        .and_then(|spec| spec.view_for_program(&options.bin).map(|view| (spec, view)))
+    {
+        viewed = spec.for_view(view)?;
+        effective = CompleteOptions {
+            usage_bin: options.usage_bin.clone(),
+            shell: options.shell.clone(),
+            bin: options.bin.clone(),
+            cache_key: options.cache_key.clone(),
+            spec: Some(viewed),
+            usage_cmd: options.usage_cmd.clone(),
+            include_bash_completion_lib: options.include_bash_completion_lib,
+            source_file: options.source_file.clone(),
+        };
+        &effective
+    } else {
+        options
+    };
     match options.shell.as_str() {
         "bash" => Ok(bash::complete_bash(options)),
         "fish" => Ok(fish::complete_fish(options)),

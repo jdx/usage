@@ -79,8 +79,45 @@ pub struct Position<'t> {
 /// out here", which is exactly the position being asked about. The walk stops at the first one
 /// and reports the state it reached, rather than discarding it the way a real parse must.
 pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
+    walk_inner(root, words, None)
+}
+
+/// Walk a command line through an executable view's selected globals.
+pub fn walk_view<'t>(
+    root: &'t Command<'t>,
+    words: &[String],
+    view: &'t crate::spec::ViewMeta<'t>,
+) -> Position<'t> {
+    // Route through the promoted command without changing the line custom completers see.
+    // Position offsets are translated back afterwards so `CompleteCtx` slices the user's
+    // words, not this internal projection.
+    let mut projected = words.to_vec();
+    let route: Vec<String> = view
+        .root
+        .split_ascii_whitespace()
+        .map(str::to_string)
+        .collect();
+    let count = route.len();
+    projected.splice(0..0, route);
+    let mut position = walk_inner(root, &projected, Some(view));
+    let original_index = |index: usize| index.saturating_sub(count);
+    position.command_start = original_index(position.command_start);
+    for (_, start) in &mut position.path {
+        *start = original_index(*start);
+    }
+    position
+}
+
+fn walk_inner<'t>(
+    root: &'t Command<'t>,
+    words: &[String],
+    view: Option<&'t crate::spec::ViewMeta<'t>>,
+) -> Position<'t> {
     let argv: Vec<&std::ffi::OsStr> = words.iter().map(std::ffi::OsStr::new).collect();
     let mut parser = Parser::for_completion(root, &argv);
+    if let Some(view) = view {
+        parser = parser.with_view(view);
+    }
     let mut awaiting_value = None;
     let mut last_arg = None;
     let mut last_arg_values = 0u32;
@@ -160,6 +197,28 @@ pub fn for_name<'a>(
     name: &str,
     ctx: &CompleteCtx<'_>,
 ) -> Option<Vec<Candidate<'static>>> {
+    let reached = walk(spec.root.cmd, ctx.command_words_start());
+    for_name_at(spec, name, ctx, &reached, None)
+}
+
+/// Answer for a named completer through an executable view.
+pub fn for_name_view<'a>(
+    spec: &'a Spec<'a>,
+    name: &str,
+    ctx: &CompleteCtx<'_>,
+    view: &'a crate::spec::ViewMeta<'a>,
+) -> Option<Vec<Candidate<'static>>> {
+    let reached = walk_view(spec.root.cmd, ctx.command_words_start(), view);
+    for_name_at(spec, name, ctx, &reached, Some(view))
+}
+
+fn for_name_at<'a>(
+    spec: &'a Spec<'a>,
+    name: &str,
+    ctx: &CompleteCtx<'_>,
+    reached: &Position<'a>,
+    view: Option<&'a crate::spec::ViewMeta<'a>>,
+) -> Option<Vec<Candidate<'static>>> {
     fn on(meta: &CommandMeta<'_>, name: &str) -> Option<Completer> {
         for arg in meta.args {
             if arg.arg.name.eq_ignore_ascii_case(name) {
@@ -220,17 +279,34 @@ pub fn for_name<'a>(
     //
     // Tree order last, and only as a fallback: two sibling commands may take a `tool` and mean
     // different things by it, and the one the line reached is the one being asked about.
-    let reached = walk(spec.root.cmd, ctx.command_words_start());
-    let reached_meta =
-        crate::help::find(spec, reached.cmd).and_then(|(_, chain)| chain.last().copied());
-    let owner = if on(spec.root, name).is_some() {
-        spec.root
-    } else if let Some(meta) = reached_meta.filter(|meta| on(meta, name).is_some()) {
-        meta
+    let chain = metadata_chain_on_route(spec, reached).unwrap_or_default();
+    // Cursor identity is stronger than name-keyed declaration order. In particular, an
+    // executable view may promote a field whose completion name is also used by an omitted
+    // host field. Only the promoted field's parser identity can match here.
+    let at_cursor = chain
+        .iter()
+        .rev()
+        .find_map(|meta| at_cursor(meta, name, reached));
+
+    let fallback = if let Some(view) = view {
+        let depth = view.root.split_ascii_whitespace().count();
+        chain.get(depth).copied().and_then(|promoted| {
+            let (flags, groups) = crate::help::view_root_fields(spec, promoted, view);
+            let projected = CommandMeta {
+                flags: &flags,
+                groups: &groups,
+                ..*promoted
+            };
+            on(&projected, name)
+                .or_else(|| chain.last().copied().and_then(|meta| on(meta, name)))
+                .or_else(|| find(promoted, name).and_then(|meta| on(meta, name)))
+        })
     } else {
-        find(spec.root, name)?
+        on(spec.root, name)
+            .or_else(|| chain.last().copied().and_then(|meta| on(meta, name)))
+            .or_else(|| find(spec.root, name).and_then(|meta| on(meta, name)))
     };
-    let completer = at_cursor(owner, name, &reached).or_else(|| on(owner, name))?;
+    let completer = at_cursor.or(fallback)?;
     let mut found = completer(ctx);
     found.retain(|c| c.value.starts_with(ctx.prefix));
     Some(found)
@@ -706,10 +782,30 @@ fn declared_files_at_cursor(
 /// Hidden things are never offered, in any branch. What is *not* here yet: the file fallback
 /// for a word nothing is known about, and the `run=` completions a spec can declare.
 pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
-    let position = walk(spec.root.cmd, split.argv());
+    complete_inner(spec, split, None)
+}
+
+/// Complete through an executable view, omitting root globals it does not carry.
+pub fn complete_view<'a>(
+    spec: &'a Spec<'a>,
+    split: &Split,
+    view: &'a crate::spec::ViewMeta<'a>,
+) -> Completions<'a> {
+    complete_inner(spec, split, Some(view))
+}
+
+fn complete_inner<'a>(
+    spec: &'a Spec<'a>,
+    split: &Split,
+    view: Option<&'a crate::spec::ViewMeta<'a>>,
+) -> Completions<'a> {
+    let position = match view {
+        Some(view) => walk_view(spec.root.cmd, split.argv(), view),
+        None => walk(spec.root.cmd, split.argv()),
+    };
     let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
-    let candidates = candidates(spec, split);
+    let candidates = candidates_inner(spec, split, view);
 
     // Which argument the cursor is at — the same question `candidates` answers, asked once so
     // that the two halves cannot disagree. Past a restart token it is the command's *first*
@@ -1050,7 +1146,18 @@ fn metadata_chain_on_route<'a>(
 
 /// Just the candidates this CLI knows about, without the question of paths.
 pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
-    let position = walk(spec.root.cmd, split.argv());
+    candidates_inner(spec, split, None)
+}
+
+fn candidates_inner<'a>(
+    spec: &'a Spec<'a>,
+    split: &Split,
+    view: Option<&'a crate::spec::ViewMeta<'a>>,
+) -> Vec<Candidate<'a>> {
+    let position = match view {
+        Some(view) => walk_view(spec.root.cmd, split.argv(), view),
+        None => walk(spec.root.cmd, split.argv()),
+    };
     let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
 
@@ -2113,6 +2220,43 @@ mod tests {
             "tool",
             runtime_tools,
         )];
+
+    #[test]
+    fn a_failed_view_name_fallback_keeps_the_cursor_selected_completer() {
+        static DEEP_VIEW: crate::spec::ViewMeta = crate::spec::ViewMeta {
+            id: "installer",
+            name: "installer",
+            bin: "installer",
+            // Deliberately deeper than the metadata route below. A stale named-completion
+            // request may have enough cursor identity to answer even when its view path cannot
+            // be recovered, and the weaker name fallback must not erase that answer.
+            root: "install nested",
+            all_globals: false,
+            globals: &[],
+        };
+        let split = at_end("mise install r");
+        let position = walk(SPEC.root.cmd, split.argv());
+        let words = split.argv();
+        let command_path: Vec<(&Command<'_>, &[String])> = position
+            .path
+            .iter()
+            .map(|(cmd, start)| (*cmd, words.get(*start..).unwrap_or(&[])))
+            .collect();
+        let ctx = CompleteCtx {
+            words: &split.words,
+            cword: split.cword,
+            prefix: &split.prefix,
+            command_words: command_words(&split, &position),
+            command_path: &command_path,
+        };
+
+        let found = for_name_at(&SPEC, "tool", &ctx, &position, Some(&DEEP_VIEW))
+            .expect("the cursor-selected completer should survive fallback failure");
+        assert!(
+            found.iter().any(|candidate| candidate.value == "ruby"),
+            "{found:?}"
+        );
+    }
 
     #[test]
     fn async_overlays_run_only_for_the_field_and_projection_at_the_cursor() {

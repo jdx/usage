@@ -196,10 +196,70 @@ pub fn lint_spec(spec: &Spec, opts: LintOptions) -> Vec<LintIssue> {
         });
     }
 
+    for (position, (id, view)) in spec.views.iter().enumerate() {
+        if let Err(error) = spec.for_view(id) {
+            issues.push(LintIssue {
+                severity: Severity::Error,
+                code: "invalid-view".to_string(),
+                message: error.to_string(),
+                location: Some(format!("view {id}")),
+            });
+        }
+        let host_name = program_basename(&spec.name);
+        let host_bin = program_basename(&spec.bin);
+        if [id.as_str(), view.bin.as_str()].iter().any(|selector| {
+            let selector = program_basename(selector);
+            selector == host_name || (!host_bin.is_empty() && selector == host_bin)
+        }) {
+            issues.push(LintIssue {
+                severity: Severity::Error,
+                code: "view-host-collision".to_string(),
+                message: format!(
+                    "view `{id}` uses the host command's name or bin as an executable selector"
+                ),
+                location: Some(format!("view {id}")),
+            });
+        }
+        if let Some((other, declared)) =
+            spec.views.iter().take(position).find(|(other, declared)| {
+                [other.as_str(), declared.bin.as_str()].iter().any(|prior| {
+                    [id.as_str(), view.bin.as_str()]
+                        .iter()
+                        .any(|current| program_basename(prior) == program_basename(current))
+                })
+            })
+        {
+            let duplicate_bin = program_basename(&declared.bin) == program_basename(&view.bin);
+            issues.push(LintIssue {
+                severity: Severity::Error,
+                code: if duplicate_bin {
+                    "duplicate-view-bin"
+                } else {
+                    "ambiguous-view-program"
+                }
+                .to_string(),
+                message: format!(
+                    "views `{other}` and `{id}` collide after executable basename normalization in the identifier and executable namespaces"
+                ),
+                location: Some(format!("view {id}")),
+            });
+        }
+    }
+
     // Lint the root command
     lint_command(&spec.cmd, &[], spec.about.is_some(), opts, &mut issues);
 
     issues
+}
+
+fn program_basename(program: &str) -> &str {
+    let basename = program.rsplit(['/', '\\']).next().unwrap_or(program);
+    match basename.get(basename.len().saturating_sub(4)..) {
+        Some(extension) if extension.eq_ignore_ascii_case(".exe") => {
+            &basename[..basename.len() - 4]
+        }
+        _ => basename,
+    }
 }
 
 fn lint_command(
@@ -767,6 +827,82 @@ external_subcommand #true
 
         let issues = lint_spec(&spec, LintOptions::default());
         assert!(issues.iter().any(|i| i.code == "multicall-no-subcommands"));
+    }
+
+    #[test]
+    fn test_lint_invalid_executable_view() {
+        let spec: Spec = r#"
+bin "ex"
+flag "--local"
+view "runner" root="missing"
+view "bad-global" root="run" { global "--local" }
+cmd "run"
+        "#
+        .parse()
+        .unwrap();
+
+        let invalid: Vec<_> = lint_spec(&spec, LintOptions::default())
+            .into_iter()
+            .filter(|issue| issue.code == "invalid-view")
+            .collect();
+        assert_eq!(invalid.len(), 2);
+        assert!(invalid.iter().any(|issue| issue
+            .location
+            .as_deref()
+            .is_some_and(|location| location == "view runner")));
+        assert!(invalid.iter().any(|issue| issue
+            .location
+            .as_deref()
+            .is_some_and(|location| location == "view bad-global")));
+    }
+
+    #[test]
+    fn test_lint_ambiguous_executable_view_dispatch() {
+        let spec: Spec = r#"
+bin "ex"
+view "runner" bin="run-bin" root="run"
+view "other" bin="runner" root="other"
+cmd "run"
+cmd "other"
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec, LintOptions::default());
+        assert!(issues
+            .iter()
+            .any(|issue| issue.code == "ambiguous-view-program"));
+
+        let spec: Spec = r#"
+bin "ex"
+view "one" bin="runner" root="run"
+view "two" bin="/tmp/runner.EXE" root="other"
+cmd "run"
+cmd "other"
+        "#
+        .parse()
+        .unwrap();
+        let issues = lint_spec(&spec, LintOptions::default());
+        assert!(issues
+            .iter()
+            .any(|issue| issue.code == "duplicate-view-bin"));
+    }
+
+    #[test]
+    fn test_lint_executable_view_cannot_capture_host() {
+        let spec: Spec = r#"
+name "ex"
+bin "/usr/bin/ex.exe"
+view "ex" root="run"
+cmd "run"
+        "#
+        .parse()
+        .unwrap();
+
+        let issues = lint_spec(&spec, LintOptions::default());
+        assert!(issues
+            .iter()
+            .any(|issue| issue.code == "view-host-collision"));
     }
 
     #[test]

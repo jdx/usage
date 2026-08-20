@@ -406,6 +406,14 @@ const completionSpec: Fig.Spec = {
                 name: "spec",
               },
             },
+            {
+              name: "--view",
+              description: "Render one spec-declared executable view",
+              isRepeatable: false,
+              args: {
+                name: "view",
+              },
+            },
           ],
         },
         {
@@ -473,6 +481,14 @@ const completionSpec: Fig.Spec = {
               },
             },
             {
+              name: "--view",
+              description: "Render one spec-declared executable view",
+              isRepeatable: false,
+              args: {
+                name: "view",
+              },
+            },
+            {
               name: ["-o", "--out-file"],
               description: 'Output file path, or "-" for stdout (default)',
               isRepeatable: false,
@@ -503,6 +519,14 @@ const completionSpec: Fig.Spec = {
               args: {
                 name: "file",
                 template: "filepaths",
+              },
+            },
+            {
+              name: "--view",
+              description: "Render one spec-declared executable view",
+              isRepeatable: false,
+              args: {
+                name: "view",
               },
             },
             {

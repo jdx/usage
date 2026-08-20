@@ -132,6 +132,9 @@ cmd generate help="Generate completions, documentation, and other artifacts from
         flag --spec help="raw string spec input" overrides=--file required_unless=--file {
             arg <SPEC>
         }
+        flag --view help="Render one spec-declared executable view" {
+            arg <VIEW>
+        }
     }
     cmd json-schema help="Generate a JSON Schema for a CLI's config file from its usage spec" effect=read {
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
@@ -156,6 +159,9 @@ cmd generate help="Generate completions, documentation, and other artifacts from
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" required=#true {
             arg <FILE>
         }
+        flag --view help="Render one spec-declared executable view" {
+            arg <VIEW>
+        }
         flag "-o --out-file" help="Output file path, or \"-\" for stdout (default)" effect=write {
             arg <OUT_FILE>
         }
@@ -169,6 +175,9 @@ cmd generate help="Generate completions, documentation, and other artifacts from
         alias md
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" required=#true {
             arg <FILE>
+        }
+        flag --view help="Render one spec-declared executable view" {
+            arg <VIEW>
         }
         flag "-m --multi" help="Render each subcommand as a separate markdown file" conflicts=--out-file
         flag --html-encode help="Escape HTML in markdown"
