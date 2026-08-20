@@ -216,7 +216,7 @@ impl FileLayer {
         // and an *empty* table under a scalar key produced no keys at all, so nothing was set
         // and nothing was said. Handing the table over lets the declared type answer: a `map`
         // takes it, a union takes it, a `uint` refuses it and that refusal is the warning.
-        let names_a_setting = |key: &str| ctx.prop(key).is_some();
+        let names_a_setting = |key: &str| ctx.registry().names_file_value(key);
         let flat =
             parse(format, &text, self.prefix.as_deref(), &names_a_setting).map_err(|why| {
                 LayerError::Unreadable {

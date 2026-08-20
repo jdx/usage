@@ -28,10 +28,16 @@ Read from, in ascending precedence — the last one that names a setting wins:
     branch — a prop with a default but no declared type used to put its first list item
     directly against the heading above (or against a deprecation admonition's closing `:::`),
     which some markdown renderers read as part of that block rather than as a list. #}
-{%- if prop.type_ or prop.default or prop.merge or prop.scope == "global" or prop.scope == "env" or prop.since or prop.sources %}
+{%- if prop.type_ or prop.default or prop.aliases or prop.optional is not none or prop.merge or prop.scope == "global" or prop.scope == "env" or prop.since or prop.sources %}
 {% endif %}
 {%- if prop.type_ %}
 - **type**: `{{ prop.type_ }}`
+{%- endif %}
+{%- if prop.aliases %}
+- **aliases**: {% for alias in prop.aliases %}`{{ alias }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif %}
+{%- if prop.optional is not none %}
+- **optional**: {{ prop.optional }}
 {%- endif %}
 {%- if prop.default %}
 - **default**: {% if prop.default_note %}{{ prop.default_note }}{% else %}`{{ prop.default }}`{% endif %}

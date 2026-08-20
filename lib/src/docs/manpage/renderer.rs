@@ -154,6 +154,12 @@ impl ManpageRenderer {
             if let Some(ty) = &prop.type_ {
                 facts.push(format!("type: {ty}"));
             }
+            if !prop.aliases.is_empty() {
+                facts.push(format!("aliases: {}", prop.aliases.join(", ")));
+            }
+            if let Some(optional) = prop.optional {
+                facts.push(format!("optional: {optional}"));
+            }
             if let Some(default) = &prop.default {
                 facts.push(format!("default: {default}"));
             }

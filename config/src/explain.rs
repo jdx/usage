@@ -121,7 +121,7 @@ pub fn explain(resolved: &Resolved, key: &str) -> Option<String> {
     // reading it off the setting that replaced it printed nothing at all for the one case where it
     // matters — and following the renames from there, because a notice can sit anywhere along a
     // chain: `a` renamed to `b`, and `b` the one carrying the notice that says to use `c`.
-    let deprecated = registry.deprecation(found.renamed_from.unwrap_or(meta.key));
+    let deprecated = registry.deprecation(found.written);
     if let Some(why) = deprecated {
         let _ = writeln!(out, "\n  deprecated: {}", one_line(why));
     }
@@ -345,6 +345,29 @@ mod tests {
         let resolved = resolve(CHAINED, Layers::new()).expect("should resolve");
         let text = explain(&resolved, "threads").expect("declared");
         assert!(text.starts_with("threads is now jobs\n"), "{text}");
+        assert!(text.contains("deprecated: Use jobs instead."), "{text}");
+    }
+
+    #[test]
+    fn an_alias_on_a_renamed_setting_keeps_its_deprecation_notice() {
+        static ALIASED: &[PropMeta] = &[
+            PropMeta {
+                default: Some(Const::Int(4)),
+                ..PropMeta::new("jobs", Ty::Uint)
+            },
+            PropMeta {
+                aliases: &["parallelism"],
+                deprecated: Some("Use jobs instead."),
+                renamed_to: Some("jobs"),
+                ..PropMeta::new("concurrency", Ty::Uint)
+            },
+        ];
+        const REGISTRY: Registry = Registry::new(ALIASED);
+
+        let resolved = resolve(REGISTRY, Layers::new()).expect("should resolve");
+        let text = explain(&resolved, "parallelism").expect("declared alias");
+        assert!(text.starts_with("jobs = 4\n"), "{text}");
+        assert!(!text.contains("is now"), "an alias is not a rename: {text}");
         assert!(text.contains("deprecated: Use jobs instead."), "{text}");
     }
 

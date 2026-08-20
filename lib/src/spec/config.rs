@@ -423,6 +423,16 @@ impl SpecConfig {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct SpecConfigProp {
+    /// Whether absence is a legitimate resolved value.
+    ///
+    /// `None` keeps the inferred rule: an `option<T>` or a property without a default is
+    /// optional. An explicit value lets a registry state the contract instead of relying on
+    /// that inference.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub optional: Option<bool>,
+    /// Equivalent config keys accepted without a deprecation warning.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<String>,
     pub default: Option<SpecConfigValue>,
     pub default_note: Option<String>,
     /// The old five-value type, kept so a spec written against it still means what it said.
@@ -519,6 +529,9 @@ impl SpecConfigProp {
         if let Some(default) = &self.default {
             node.push(default.to_kdl_entry("default"));
         }
+        if let Some(optional) = self.optional {
+            node.push(KdlEntry::new_prop("optional", optional));
+        }
         // The grammar spelling when there is one, the old five-value name otherwise: a
         // spec that said `data_type` keeps saying it, and one that says `type` keeps the
         // richer type it declared. Either way it is written, unlike before — a type parsed
@@ -583,6 +596,11 @@ impl SpecConfigProp {
         let mut children = KdlDocument::new();
         if self.envs.len() > 1 {
             children.nodes_mut().push(string_list("env", &self.envs));
+        }
+        if !self.aliases.is_empty() {
+            children
+                .nodes_mut()
+                .push(string_list("alias", &self.aliases));
         }
         if !self.cli.is_empty() {
             children.nodes_mut().push(string_list("cli", &self.cli));
@@ -700,6 +718,7 @@ impl SpecConfigProp {
                     }
                 }
                 "default_note" => prop.default_note = Some(v.ensure_string()?),
+                "optional" => prop.optional = Some(v.ensure_bool()?),
                 // `data_type` was the old spelling and stays readable; `type` is the
                 // grammar, and setting either fills the other in where they overlap.
                 "data_type" | "type" => {
@@ -741,6 +760,7 @@ impl SpecConfigProp {
                 // second `env` line is the natural parallel — assigning silently dropped the
                 // aliases on the first one.
                 "env" => prop.envs.extend(string_args(&child)?),
+                "alias" => prop.aliases.extend(string_args(&child)?),
                 "cli" => prop.cli.extend(string_args(&child)?),
                 "example" => prop.examples.extend(string_args(&child)?),
                 "long_help" => {
@@ -896,6 +916,8 @@ where
 impl Default for SpecConfigProp {
     fn default() -> Self {
         Self {
+            optional: None,
+            aliases: Vec::new(),
             default: None,
             default_note: None,
             data_type: SpecDataTypes::Null,
@@ -985,6 +1007,28 @@ mod tests {
     use super::{SpecConfigMerge, SpecConfigScope, SpecConfigValue};
     use crate::Spec;
     use insta::assert_snapshot;
+
+    #[test]
+    fn optionality_and_key_aliases_round_trip() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+config {
+    prop "jobs" type="uint" optional=#false {
+        alias "parallelism" "threads"
+    }
+}
+"#
+        .parse()
+        .unwrap();
+        let jobs = &spec.config.props["jobs"];
+        assert_eq!(jobs.optional, Some(false));
+        assert_eq!(jobs.aliases, ["parallelism", "threads"]);
+
+        let written = spec.to_string();
+        let reparsed: Spec = written.parse().unwrap();
+        assert_eq!(reparsed.config.props["jobs"], *jobs, "{written}");
+    }
 
     #[test]
     fn test_config_defaults() {

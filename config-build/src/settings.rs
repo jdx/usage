@@ -184,6 +184,9 @@ fn construct(group: &Group<'_>, name: &str, depth: usize) -> String {
 /// nothing declared a default, in which case the resolution can perfectly well come back with no
 /// value. Writing the field as `T` would mean a failure at run time for a shape the spec allows.
 fn optional(leaf: &Leaf<'_>) -> bool {
+    if let Some(optional) = leaf.prop.optional {
+        return optional;
+    }
     leaf.prop.default.is_none() && leaf.prop.default_list.is_empty()
         || leaf
             .prop

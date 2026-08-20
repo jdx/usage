@@ -179,7 +179,10 @@ pub fn resolve(registry: Registry, layers: Layers<'_>) -> Result<Resolved, Layer
             // Whichever way the old name arrived: on the entry, because the layer looked the
             // key up and `LayerCtx` folded it, or as a raw id this loop folded just now.
             // Keyed on the fold alone, a file layer's deprecated key was folded in silence.
-            let written_key = entry.renamed_from.unwrap_or(written.key);
+            let written_key = entry
+                .written_key
+                .or(entry.renamed_from)
+                .unwrap_or(written.key);
             if let Some(refusal) = refuse(meta.scope, &entry.origin) {
                 // `written_key`, like the two warnings below it: after `LayerCtx` folds a
                 // rename, `written.key` is the *replacement's* name, so a refused value was
@@ -204,7 +207,7 @@ pub fn resolve(registry: Registry, layers: Layers<'_>) -> Result<Resolved, Layer
                     .of(WarningKind::Deprecated),
                 );
             }
-            if written_key != meta.key {
+            if entry.renamed_from.is_some() || prop != entry.prop {
                 // Both names: the key the user wrote, and the one it was read as.
                 resolved.warnings.push(
                     Warning::at(

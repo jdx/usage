@@ -24,6 +24,8 @@ pub struct Entry {
     /// this the resolver cannot tell that anybody used the old name — and the warning that a
     /// deprecated key is in somebody's config file never fires.
     pub renamed_from: Option<&'static str>,
+    /// The exact canonical key or supported alias a keyed layer matched.
+    pub written_key: Option<&'static str>,
 }
 
 impl Entry {
@@ -33,6 +35,7 @@ impl Entry {
             value,
             origin,
             renamed_from: None,
+            written_key: None,
         }
     }
 }
@@ -278,11 +281,26 @@ impl LayerCtx {
             return Err(Warning::at(format!("unknown setting `{key}`"), origin)
                 .of(WarningKind::UnknownSetting));
         };
-        let mut entry = self.entry(found.id, raw, origin)?;
-        // `lookup` already folded, so `entry` had nothing left to fold and nothing to report;
-        // the name the *user* wrote is the one to keep.
-        entry.renamed_from = found.renamed_from.or(entry.renamed_from);
-        Ok(entry)
+        match self.parse(found.id, raw) {
+            Ok(value) => {
+                if let Some(refused) = self.refused(found.id, &value, found.written, &origin) {
+                    return Err(refused);
+                }
+                Ok(Entry {
+                    renamed_from: found.renamed_from,
+                    written_key: Some(found.written),
+                    ..Entry::new(found.id, value, origin)
+                })
+            }
+            Err(err) => Err(Warning::at(
+                format!(
+                    "{} expected {} but has `{}`",
+                    found.written, err.expected, err.found
+                ),
+                origin,
+            )
+            .of(WarningKind::WrongType)),
+        }
     }
 
     /// An entry for a dotted key whose value already has a shape.
@@ -305,21 +323,19 @@ impl LayerCtx {
         let meta = self.registry.get(found.id);
         match meta.ty.coerce(value) {
             Ok(value) => {
-                let key = found.renamed_from.unwrap_or(meta.key);
-                if let Some(refused) = self.refused(found.id, &value, key, &origin) {
+                if let Some(refused) = self.refused(found.id, &value, found.written, &origin) {
                     return Err(refused);
                 }
                 Ok(Entry {
                     renamed_from: found.renamed_from,
+                    written_key: Some(found.written),
                     ..Entry::new(found.id, value, origin)
                 })
             }
             Err(err) => Err(Warning::at(
                 format!(
                     "{} expected {} but has `{}`",
-                    found.renamed_from.unwrap_or(meta.key),
-                    err.expected,
-                    err.found
+                    found.written, err.expected, err.found
                 ),
                 origin,
             )
@@ -346,7 +362,10 @@ mod tests {
     use crate::value::Const;
 
     static PROPS: &[PropMeta] = &[
-        PropMeta::new("jobs", Ty::Uint),
+        PropMeta {
+            aliases: &["parallelism"],
+            ..PropMeta::new("jobs", Ty::Uint)
+        },
         PropMeta {
             parse: Some(Parser::ListByComma),
             ..PropMeta::new("exclude", Ty::List(&Ty::String))
@@ -367,6 +386,7 @@ mod tests {
         // A setting the spec limits to three values, which is hk's `stash` and mise's nine
         // enum-valued settings.
         PropMeta {
+            aliases: &["storage"],
             choices: &[
                 Const::Str("git"),
                 Const::Str("patch-file"),
@@ -409,6 +429,13 @@ mod tests {
         // Which is a different sort of thing from a value of the wrong *type*, and a caller that
         // treats them differently needs to be able to tell.
         assert_eq!(warning.kind, WarningKind::NotAllowed);
+        let alias_warning = ctx
+            .entry_for_key("storage", "svn", origin.clone())
+            .expect_err("alias should use the same choices");
+        assert_eq!(
+            alias_warning.message,
+            "storage expected one of git, patch-file, none but has `svn`"
+        );
         assert_eq!(
             ctx.entry_for_key("jobs", "lots", origin.clone())
                 .expect_err("not a number")
@@ -421,6 +448,9 @@ mod tests {
                 .map(|entry| entry.value),
             Ok(Value::from("git"))
         );
+        let alias = ctx.entry_for_key("storage", "git", origin.clone()).unwrap();
+        assert_eq!(alias.written_key, Some("storage"));
+        assert_eq!(alias.renamed_from, None);
 
         // A list is checked item by item, and the *item* is what the message quotes — naming the
         // whole list would leave the user to work out which of five items was the problem.
@@ -654,6 +684,27 @@ mod tests {
             "jobs expected a non-negative integer but has `lots`"
         );
         assert_eq!(warning.origin, Some(origin));
+
+        let alias_warning = ctx
+            .entry_for_key(
+                "parallelism",
+                "lots",
+                Origin::new(SourceKind::FILE, "config.toml"),
+            )
+            .expect_err("alias value should still be checked");
+        assert_eq!(
+            alias_warning.message,
+            "parallelism expected a non-negative integer but has `lots`"
+        );
+
+        let structured_alias_warning = ctx
+            .entry_from_value(
+                "parallelism",
+                Value::from("lots"),
+                Origin::new(SourceKind::FILE, "config.toml"),
+            )
+            .expect_err("structured alias value should still be checked");
+        assert_eq!(structured_alias_warning.message, alias_warning.message);
 
         // And under an old name, the message says the name that was written — a complaint about
         // a key the user cannot find in their own file is no help at all.
