@@ -31,6 +31,12 @@ var (
 		Args:        []*Arg{file, rest},
 		Subcommands: []*Command{install},
 	}
+	argumentConflict = &Command{
+		Name:                        "ex",
+		Flags:                       []*Flag{force},
+		Subcommands:                 []*Command{install},
+		ArgsConflictWithSubcommands: true,
+	}
 
 	// The same CLI, but one that owns all of its flags and wants typo detection.
 	strictInstall = &Command{
@@ -104,6 +110,7 @@ func TestBinding(t *testing.T) {
 		{"an alias descends", root, []string{"i"}, "cmd:install"},
 		{"a global reaches a subcommand", root, []string{"install", "--verbose"}, "cmd:install flag:verbose"},
 		{"a subcommand flag is not in scope above it", root, []string{"--force", "install"}, "flag:force cmd:install"},
+		{"a parent argument excludes a later subcommand", argumentConflict, []string{"--force", "install"}, "flag:force err:subcommand_conflict"},
 		{"only the descent position routes", root, []string{"other", "install"}, "arg:file=other arg:rest=install"},
 		{"a separator makes values", root, []string{"--", "--force"}, "arg:file=--force"},
 		{"a second separator is a value", root, []string{"--", "a", "--"}, "arg:file=a arg:rest=--"},

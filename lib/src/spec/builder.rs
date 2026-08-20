@@ -849,6 +849,12 @@ impl SpecCommandBuilder {
         self
     }
 
+    /// Set whether arguments on this command exclude a later subcommand.
+    pub fn args_conflicts_with_subcommands(mut self, enabled: bool) -> Self {
+        self.inner.args_conflicts_with_subcommands = enabled;
+        self
+    }
+
     /// Set what running this command does to the world
     pub fn effect(mut self, effect: SpecCommandEffect) -> Self {
         self.inner.effect = Some(effect);

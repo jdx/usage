@@ -14,7 +14,6 @@ pub enum FidelityFeature {
     DistinctValueNames,
     GranularHide,
     AllowMissingPositional,
-    ArgsConflictWithSubcommands,
     SubcommandPrecedenceOverArg,
     FlattenHelp,
     NextLineHelp,
@@ -85,11 +84,6 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         cmd.is_allow_missing_positional_set(),
         FidelityFeature::AllowMissingPositional,
         "allow_missing_positional",
-    );
-    command_loss(
-        cmd.is_args_conflicts_with_subcommands_set(),
-        FidelityFeature::ArgsConflictWithSubcommands,
-        "args_conflicts_with_subcommands",
     );
     command_loss(
         cmd.is_subcommand_precedence_over_arg_set(),

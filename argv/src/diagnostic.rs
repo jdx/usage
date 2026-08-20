@@ -524,6 +524,15 @@ pub fn render(
                 ));
             }
         }
+        Error::SubcommandConflict { subcommand } => {
+            with_usage = true;
+            let _ = writeln!(
+                out,
+                "{} the subcommand '{}' cannot be used with arguments on its parent command",
+                style.error("error:"),
+                style.invalid(subcommand.name)
+            );
+        }
         Error::MissingRequired { name } => {
             with_usage = true;
             let _ = writeln!(

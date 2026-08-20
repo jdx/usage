@@ -72,6 +72,9 @@ type Command struct {
 	ArgRequiredElseHelp bool
 	// SubcommandNegatesReqs lets a selected child satisfy this command's requirements.
 	SubcommandNegatesReqs bool
+	// ArgsConflictWithSubcommands rejects selecting a child after this command
+	// has already bound a flag or positional.
+	ArgsConflictWithSubcommands bool
 	// DontDelimitTrailingValues disables delimiter splitting after -- and for
 	// automatic trailing arguments. It is inherited by subcommands.
 	DontDelimitTrailingValues bool
@@ -316,6 +319,8 @@ const (
 	CodeMissingFlagValue
 	// CodeUnexpectedArg means a word arrived with no argument left to hold it.
 	CodeUnexpectedArg
+	// CodeSubcommandConflict means an argument was bound before a subcommand.
+	CodeSubcommandConflict
 	// CodeArgRequiresDoubleDash means a double_dash="required" argument was
 	// offered a word before any -- had been seen.
 	CodeArgRequiresDoubleDash
@@ -355,6 +360,7 @@ var codeNames = [...]string{
 	CodeUnknownFlag:           "unknown_flag",
 	CodeMissingFlagValue:      "missing_flag_value",
 	CodeUnexpectedArg:         "unexpected_arg",
+	CodeSubcommandConflict:    "subcommand_conflict",
 	CodeArgRequiresDoubleDash: "arg_requires_double_dash",
 	CodeTooDeep:               "too_deep",
 	CodeHelp:                  "help",
@@ -450,6 +456,8 @@ func (e *Error) Error() string {
 		return "missing value for flag: " + e.Flag.Name
 	case CodeUnexpectedArg:
 		return "unexpected argument: " + safe(e.Token)
+	case CodeSubcommandConflict:
+		return "subcommand conflicts with an earlier argument: " + safe(e.Token)
 	case CodeArgRequiresDoubleDash:
 		return "argument requires a -- separator: " + e.Arg.Name
 	case CodeTooDeep:

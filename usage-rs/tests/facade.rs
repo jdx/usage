@@ -43,6 +43,22 @@ enum NegatedCommand {
     Show,
 }
 
+#[derive(Cli)]
+#[command(bin = "argument-conflict", args_conflicts_with_subcommands)]
+#[allow(dead_code)]
+struct ArgumentConflict {
+    #[arg(long)]
+    verbose: bool,
+    #[command(subcommand)]
+    command: Option<ArgumentConflictCommand>,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum ArgumentConflictCommand {
+    Run,
+}
+
 #[derive(Subcommands, serde::Deserialize)]
 enum InlineCommand {
     /// Run a named benchmark.
@@ -950,6 +966,22 @@ fn typed_subcommands_negate_only_parent_requirements() {
 
     let kdl = NegatedRequirements::to_kdl();
     assert!(kdl.contains("subcommand_negates_reqs #true"), "{kdl}");
+}
+
+#[test]
+fn typed_parent_arguments_exclude_a_later_subcommand() {
+    ArgumentConflict::parse_from(&[OsStr::new("run")])
+        .expect("a subcommand without parent arguments remains valid");
+    assert!(
+        ArgumentConflict::parse_from(&[OsStr::new("--verbose"), OsStr::new("run")]).is_err(),
+        "a parent flag must exclude a later subcommand"
+    );
+
+    let kdl = ArgumentConflict::to_kdl();
+    assert!(
+        kdl.contains("args_conflicts_with_subcommands #true"),
+        "{kdl}"
+    );
 }
 
 #[test]
