@@ -6,6 +6,18 @@ pub fn get_terminal_width() -> usize {
         .unwrap_or(80)
 }
 
+/// Resolve a command's help width using clap-compatible precedence.
+pub fn help_width(term_width: Option<usize>, max_term_width: Option<usize>) -> usize {
+    if let Some(width) = term_width {
+        return if width == 0 { usize::MAX } else { width };
+    }
+    let detected = get_terminal_width();
+    match max_term_width {
+        Some(0) | None => detected,
+        Some(max) => detected.min(max),
+    }
+}
+
 /// Calculate maximum usage string width across items
 pub fn max_usage_width<'a>(items: impl Iterator<Item = &'a str>) -> usize {
     items.map(visible_width).max().unwrap_or(0)

@@ -531,8 +531,10 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [x] **Visible aliases in generated references.** Markdown and JSON reference
       models list every visible short and long spelling while interactive help
       retains its compact aligned first-pair layout; hidden aliases stay hidden.
-- [ ] **`term_width` / `max_term_width`** — we wrap to `COLUMNS` and take no
-      instruction about it.
+- [x] **`term_width` / `max_term_width`.** Typed and KDL commands can fix help at
+      a width or cap the detected `COLUMNS` width; zero disables wrapping or the
+      cap, and a fixed width takes precedence. clap does not expose getters for
+      these builder settings, so the clap-to-spec bridge cannot recover them.
 - [x] **The granular hides** — `hide_default_value`, `hide_env`, `hide_env_values`,
       `hide_possible_values`, `hide_short_help`, and `hide_long_help` round-trip
       through KDL and the clap bridge and are honored by Rust and Go help output.

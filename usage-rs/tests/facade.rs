@@ -107,6 +107,15 @@ struct HelpOptionalValue {
     bump: Option<u32>,
 }
 
+#[derive(Debug, Cli)]
+#[usage(bin = "sized-help", term_width = 36, max_term_width = 20)]
+#[allow(dead_code)]
+struct SizedHelp {
+    /// A description long enough to wrap at the command's declared help width.
+    #[usage(long)]
+    output: Option<String>,
+}
+
 #[derive(Cli)]
 #[command(
     bin = "presented",
@@ -1115,6 +1124,25 @@ fn typed_subcommand_presentation_reaches_help_and_the_spec() {
     let page = usage::argv::help::short_help(spec, &["presented"], &[spec.root]);
     assert!(page.contains("<ACTION>"), "{page}");
     assert!(page.contains("Actions:"), "{page}");
+}
+
+#[test]
+fn typed_help_width_reaches_help_and_the_portable_spec() {
+    let spec = SizedHelp::spec();
+    assert_eq!(spec.root.term_width, Some(36));
+    assert_eq!(spec.root.max_term_width, Some(20));
+    let page = usage::argv::help::long_help(spec, &["sized-help"], &[spec.root]);
+    assert!(
+        page.contains("                         description\n"),
+        "fixed width should wrap and override the lower maximum: {page}"
+    );
+
+    let kdl = SizedHelp::to_kdl();
+    assert!(kdl.contains("term_width 36"), "{kdl}");
+    assert!(kdl.contains("max_term_width 20"), "{kdl}");
+    let portable: usage_parser::Spec = kdl.parse().unwrap();
+    assert_eq!(portable.cmd.term_width, Some(36));
+    assert_eq!(portable.cmd.max_term_width, Some(20));
 }
 
 #[test]

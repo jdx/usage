@@ -414,9 +414,9 @@ impl From<crate::Spec> for Spec {
 
 impl From<&crate::SpecCommand> for SpecCommand {
     fn from(cmd: &crate::SpecCommand) -> Self {
-        use crate::docs::layout::{get_terminal_width, max_usage_width, render_help_text};
+        use crate::docs::layout::{help_width, max_usage_width, render_help_text};
 
-        let terminal_width = get_terminal_width();
+        let terminal_width = help_width(cmd.term_width, cmd.max_term_width);
 
         // Calculate layout for args
         let args_usage_col_width = max_usage_width(cmd.args.iter().map(|a| a.usage.as_str()));
@@ -480,6 +480,9 @@ impl From<&crate::SpecCommand> for SpecCommand {
             subcommand_required,
             subcommand_help_heading,
             subcommand_value_name: _,
+            // Consumed above while laying help out; templates need only the result.
+            term_width: _,
+            max_term_width: _,
             help,
             help_long,
             help_md,

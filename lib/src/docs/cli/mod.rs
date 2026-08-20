@@ -53,7 +53,7 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
         }
     }
 
-    let width = crate::docs::layout::get_terminal_width();
+    let width = crate::docs::layout::help_width(cmd.term_width, cmd.max_term_width);
     let col = crate::docs::layout::max_usage_width(
         docs_cmd
             .flag_groups

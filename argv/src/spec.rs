@@ -712,6 +712,10 @@ pub struct CommandMeta<'a> {
     pub subcommand_help_heading: Option<&'a str>,
     /// Placeholder used for a subcommand in the usage synopsis.
     pub subcommand_value_name: Option<&'a str>,
+    /// Fixed help width. Zero disables wrapping.
+    pub term_width: Option<usize>,
+    /// Maximum detected terminal width when `term_width` is unset. Zero disables the cap.
+    pub max_term_width: Option<usize>,
     /// Whether later single-valued occurrences replace earlier ones.
     pub args_override_self: bool,
     /// Text printed above the usage line, and below everything else.
@@ -751,6 +755,8 @@ impl CommandMeta<'_> {
         subcommand_required: false,
         subcommand_help_heading: None,
         subcommand_value_name: None,
+        term_width: None,
+        max_term_width: None,
         args_override_self: true,
         before_help: None,
         before_long_help: None,
@@ -1182,6 +1188,12 @@ impl Spec<'_> {
         if let Some(name) = self.root.subcommand_value_name {
             prop(out, "subcommand_value_name", name)?;
         }
+        if let Some(width) = self.root.term_width {
+            writeln!(out, "term_width {width}")?;
+        }
+        if let Some(width) = self.root.max_term_width {
+            writeln!(out, "max_term_width {width}")?;
+        }
         // A `complete` block for every completer this CLI declares, naming the command that
         // asks the binary itself. Written rather than declared, so there is one place a
         // completer is said to exist: the Rust function. Everything that reads a spec — the
@@ -1424,6 +1436,12 @@ fn write_command<'a>(
     }
     if let Some(name) = meta.subcommand_value_name {
         write!(out, " subcommand_value_name={}", quoted(name))?;
+    }
+    if let Some(width) = meta.term_width {
+        write!(out, " term_width={width}")?;
+    }
+    if let Some(width) = meta.max_term_width {
+        write!(out, " max_term_width={width}")?;
     }
     if meta.cmd.external_subcommand {
         out.push_str(" external_subcommand=#true");

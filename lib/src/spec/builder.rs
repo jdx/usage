@@ -847,6 +847,18 @@ impl SpecCommandBuilder {
         self
     }
 
+    /// Set a fixed help width. Zero disables wrapping.
+    pub fn term_width(mut self, width: usize) -> Self {
+        self.inner.term_width = Some(width);
+        self
+    }
+
+    /// Cap detected terminal width when no fixed width is set. Zero disables the cap.
+    pub fn max_term_width(mut self, width: usize) -> Self {
+        self.inner.max_term_width = Some(width);
+        self
+    }
+
     /// Forward an unmatched word as an external command plus the rest of argv
     pub fn external_subcommand(mut self, enabled: bool) -> Self {
         self.inner.external_subcommand = enabled;
