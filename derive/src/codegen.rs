@@ -139,6 +139,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let multicall = cli.multicall;
     let no_binary_name = cli.no_binary_name;
     let arg_required_else_help = cli.arg_required_else_help;
+    let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
     let usage = option_str(cli.usage.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
@@ -420,6 +421,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 version: #has_version,
                 unknown_flags: #unknown_flags,
                 arg_required_else_help: #arg_required_else_help,
+                dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 name: #name,
                 key: #root_key,
                 flags: #flag_table_ref,
@@ -1699,7 +1701,19 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
             partial.#ident = ::std::option::Option::Some(__usage_value_text(value));
         },
         Shape::Required => quote!(partial.#ident = __usage_value_text(value);),
-        Shape::Many => quote!(partial.#ident.push(__usage_value_text(value));),
+        Shape::Many => match field.delimiter {
+            Some(delimiter) => {
+                let byte = u8::try_from(u32::from(delimiter))
+                    .expect("the model rejects non-ASCII delimiters");
+                quote! {
+                    let value = __usage_value_text(value);
+                    for part in value.split(|b| *b == #byte) {
+                        partial.#ident.push(part.to_vec());
+                    }
+                }
+            }
+            None => quote!(partial.#ident.push(__usage_value_text(value));),
+        },
     };
     let table = format_ident!("FLAG_{i}");
     quote! {
@@ -1865,7 +1879,22 @@ fn arg_arm(i: usize, field: &Field) -> TokenStream {
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
     let body = match field.shape {
-        Shape::Many => quote!(partial.#ident.push(__usage_text(value));),
+        Shape::Many => match field.delimiter {
+            Some(delimiter) => {
+                let byte = u8::try_from(u32::from(delimiter))
+                    .expect("the model rejects non-ASCII delimiters");
+                quote! {
+                    if delimit {
+                        for part in value.split(|b| *b == #byte) {
+                            partial.#ident.push(__usage_text(part));
+                        }
+                    } else {
+                        partial.#ident.push(__usage_text(value));
+                    }
+                }
+            }
+            None => quote!(partial.#ident.push(__usage_text(value));),
+        },
         Shape::Optional => quote! {
             partial.#ident = ::std::option::Option::Some(__usage_text(value));
         },
@@ -2962,9 +2991,23 @@ fn assign_literal(field: &Field, first: &str, all: &[String]) -> TokenStream {
         Shape::Count => quote!(partial.#ident = ::std::default::Default::default();),
         Shape::Many => {
             let defaults = all;
-            quote! {
-                #cleared
-                #(partial.#ident.push(#defaults.as_bytes().to_vec());)*
+            match field.delimiter {
+                Some(delimiter) => {
+                    let byte = u8::try_from(u32::from(delimiter))
+                        .expect("the model rejects non-ASCII delimiters");
+                    quote! {
+                        #cleared
+                        #(
+                            for part in #defaults.as_bytes().split(|b| *b == #byte) {
+                                partial.#ident.push(part.to_vec());
+                            }
+                        )*
+                    }
+                }
+                None => quote! {
+                    #cleared
+                    #(partial.#ident.push(#defaults.as_bytes().to_vec());)*
+                },
             }
         }
     }
@@ -3092,9 +3135,13 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                         _ => false,
                     }
                 }
-                Event::Arg { arg, value } => {
-                    let value = *value;
-                    let _ = value;
+                Event::Arg {
+                    arg,
+                    value,
+                    delimit,
+                } => {
+                    let (value, delimit) = (*value, *delimit);
+                    let _ = (value, delimit);
                     match arg.key {
                         #(#arg_arms)*
                         _ => false,
@@ -3325,6 +3372,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     });
     let unknown_flags = unknown_flags_tokens(cli);
     let arg_required_else_help = cli.arg_required_else_help;
+    let dont_delimit_trailing_values = cli.dont_delimit_trailing_values;
     let before_help = option_expr(cli.before_help.as_ref());
     let before_long_help = option_expr(cli.before_long_help.as_ref());
     let after_help = option_expr(cli.after_help.as_ref());
@@ -3435,6 +3483,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 key: #command_key,
                 unknown_flags: #unknown_flags,
                 arg_required_else_help: #arg_required_else_help,
+                dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,
                 #sub_commands
@@ -4493,9 +4542,21 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
             Shape::Required => quote!(partial.#ident = value.into_bytes();),
             // Cleared first, so the environment *replaces* a declared default instead of
             // adding to it — which is what every other shape does by assigning.
-            Shape::Many => quote! {
-                partial.#ident.clear();
-                partial.#ident.push(value.into_bytes());
+            Shape::Many => match f.delimiter {
+                Some(delimiter) => {
+                    let byte = u8::try_from(u32::from(delimiter))
+                        .expect("the model rejects non-ASCII delimiters");
+                    quote! {
+                        partial.#ident.clear();
+                        for part in value.as_bytes().split(|b| *b == #byte) {
+                            partial.#ident.push(part.to_vec());
+                        }
+                    }
+                }
+                None => quote! {
+                    partial.#ident.clear();
+                    partial.#ident.push(value.into_bytes());
+                },
             },
             Shape::Bool => quote! {
                 partial.#ident = !matches!(
@@ -4641,32 +4702,6 @@ fn post_binding(cli: &Cli) -> TokenStream {
     let declared_defaults = declared_defaults(cli);
 
     let env_fallbacks = env_fallbacks(cli);
-    // One word becomes several values, before anything judges them. Run after the
-    // environment fills what argv left out — a `TAGS=a,b` is one word too — and before
-    // every check, so `choices` sees each value rather than the word that carried them,
-    // and `var_min`/`var_max` count what the user meant rather than what they typed.
-    //
-    // On the cold path deliberately: the binder collects words and knows nothing about
-    // what a value *is*, which is what keeps it free of everything in this function.
-    let delimiter_splits = cli.fields.iter().filter_map(|f| {
-        let delimiter = f.delimiter?;
-        let ident = &f.ident;
-        // A one-byte separator, which every delimiter anyone writes is. Refused at the
-        // attribute otherwise, rather than splitting on half a character.
-        let byte = u8::try_from(u32::from(delimiter)).ok()?;
-        Some(quote! {
-            if !partial.#ident.is_empty() {
-                let mut __usage_split: ::std::vec::Vec<::std::vec::Vec<u8>> =
-                    ::std::vec::Vec::with_capacity(partial.#ident.len());
-                for value in &partial.#ident {
-                    for part in value.split(|b| *b == #byte) {
-                        __usage_split.push(part.to_vec());
-                    }
-                }
-                partial.#ident = __usage_split;
-            }
-        })
-    });
 
     let required_checks = cli.fields.iter().filter_map(|f| {
         // A `String` has nowhere to put "absent", so the type is the declaration; a collection
@@ -5309,10 +5344,6 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // env, and so the environment still overrides an unconditional default.
         #env_fallbacks
         #declared_defaults
-        // Splitting before any check that counts or judges values, so `choices` sees a
-        // value rather than the word that carried several, and the bounds count what the
-        // user meant. After the environment, since `TAGS=a,b` is one word too.
-        #(#delimiter_splits)*
         let __usage_exclusive_present = #exclusive_present;
         #(#duplicate_checks)*
         // Before required-ness: "you gave two flags that cannot go together" is the

@@ -412,10 +412,11 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       metadata, usage-lib, generated Go, and the clap bridge. The first accepts only
       negative numeric tokens rather than every dash-word; the second ends a variadic
       owner without binding the terminator.
-- [ ] **Trailing delimiter policy** — `dont_delimit_trailing_values` still has no
-      portable spelling. It is command-wide in clap and suppresses delimiter splitting
-      only after the final positional begins, so it needs an explicit command/argument
-      boundary rather than changing `delimiter` globally.
+- [x] **Trailing delimiter policy** — `dont_delimit_trailing_values` is a
+      command-wide, inherited setting in KDL, the typed derive, usage-lib,
+      usage-argv, generated Go, and the clap bridge. It suppresses delimiter
+      splitting only after `--` or once a `double_dash="automatic"`
+      positional begins; the same argument still splits ordinary values.
 - [ ] **Fixed arity and distinct value names** — clap can say
       `num_args(2)` with `<START> <END>`. `var_min` / `var_max` express the bound,
       and the clap bridge now preserves it for positionals and non-repeatable value

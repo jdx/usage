@@ -169,6 +169,20 @@ The policy observes argv belonging to the selected command. A global flag before
 subcommand does not count as that subcommand's argument, and values supplied later by an
 environment variable or default do not suppress help.
 
+### Preserve delimiters in trailing values
+
+`dont_delimit_trailing_values` keeps a positional token whole after `--`, or once a
+`double_dash="automatic"` positional begins. The same argument still applies its
+`delimiter` before that boundary:
+
+```kdl
+dont_delimit_trailing_values #true
+arg "<values>..." delimiter=","
+```
+
+`ex a,b -- c,d` binds `a`, `b`, and `c,d`. The policy is inherited by
+subcommands, matching clap's command-wide setting.
+
 ### Global flags and mounted commands
 
 A mounted command describes a different program, so the flags of the commands it is mounted under

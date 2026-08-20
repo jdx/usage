@@ -203,6 +203,7 @@
 //! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
 //! `default_subcommand`, `multicall` — argv[0]'s basename selects a subcommand —
 //! `arg_required_else_help` — a selected command with no argv of its own shows short help —
+//! `dont_delimit_trailing_values` — preserve delimiters after the trailing boundary —
 //! `min_usage_version` — the oldest `usage` that can read the emitted
 //! spec, declared rather than worked out — `effect` — what running this command does to the world, on an `Args`
 //! rather than on the root, which does nothing itself — `completion`, which adds the hidden command a generated shell

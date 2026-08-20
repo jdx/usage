@@ -110,6 +110,7 @@ pub fn build(
         unknown_flags,
         external_subcommand: cmd.external_subcommand,
         arg_required_else_help: cmd.arg_required_else_help,
+        dont_delimit_trailing_values: cmd.dont_delimit_trailing_values,
         key: 0,
     }));
 

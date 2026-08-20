@@ -201,7 +201,7 @@ func Parse(args []string) (*Cli, error) {
 		case argv.KindFlag:
 			seen[ev.Flag.Key]++
 			if ev.HasValue {
-				given[ev.Flag.Key] = append(given[ev.Flag.Key], ev.Value)
+				given[ev.Flag.Key] = append(given[ev.Flag.Key], argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 			} else if given[ev.Flag.Key] == nil {
 				// Given without a value is still given, and nil would read as
 				// absent when the fallbacks are applied.
@@ -216,7 +216,7 @@ func Parse(args []string) (*Cli, error) {
 				out.Jobs = ev.Value
 			case FlagInclude:
 				if ev.HasValue {
-					out.Include = append(out.Include, ev.Value)
+					out.Include = append(out.Include, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 				}
 			case FlagInstallForce:
 				cmdInstallV.Force = !ev.Negated
@@ -225,12 +225,13 @@ func Parse(args []string) (*Cli, error) {
 			}
 		case argv.KindArg:
 			seen[ev.Arg.Key]++
-			given[ev.Arg.Key] = append(given[ev.Arg.Key], ev.Value)
+			values := argv.SplitValue(ev.Value, ev.Arg.Delimiter, ev.Delimit)
+			given[ev.Arg.Key] = append(given[ev.Arg.Key], values...)
 			switch ev.Arg.Key {
 			case ArgFile:
 				out.File = ev.Value
 			case ArgRest:
-				out.Rest = append(out.Rest, ev.Value)
+				out.Rest = append(out.Rest, values...)
 			case ArgInstallPkg:
 				cmdInstallV.Pkg = ev.Value
 			}

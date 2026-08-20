@@ -189,6 +189,9 @@ pub struct Command<'a> {
     /// bound values: an environment variable or default may fill a field, but neither means
     /// the user supplied an argument to this invocation.
     pub arg_required_else_help: bool,
+    /// Disable delimiter splitting for positional values after `--` or on an
+    /// automatic trailing argument. Inherited by subcommands.
+    pub dont_delimit_trailing_values: bool,
     /// What an unrecognized flag-like token means here, or `None` to keep whatever the
     /// enclosing command said. See [`UnknownFlags`].
     ///
@@ -231,6 +234,7 @@ impl Command<'_> {
         default_subcommand: ::core::option::Option::None,
         external_subcommand: false,
         arg_required_else_help: false,
+        dont_delimit_trailing_values: false,
         unknown_flags: ::core::option::Option::None,
         version: false,
         key: 0,
@@ -474,7 +478,12 @@ pub enum Event<'t, 'a, 'v> {
     },
     /// A word was bound to a positional argument. A variadic argument produces
     /// one event per value.
-    Arg { arg: &'t Arg<'t>, value: &'v [u8] },
+    Arg {
+        arg: &'t Arg<'t>,
+        value: &'v [u8],
+        /// Whether this value should be split by the argument's declared delimiter.
+        delimit: bool,
+    },
     /// An unmatched word was forwarded as an external command: the name, then
     /// every remaining token, including flags.
     External { values: &'a [&'v OsStr] },
@@ -1022,6 +1031,8 @@ pub struct Parser<'t, 'a, 'v> {
     /// nothing keeps what the enclosing one said, and walking back up the ancestors on
     /// every unrecognized token would pay for the inheritance at the wrong moment.
     unknown_flags: UnknownFlags,
+    /// Effective inherited trailing-delimiter policy.
+    dont_delimit_trailing_values: bool,
     /// The chain above `cmd`, used to find inherited global flags. Fixed size so
     /// that nothing is allocated.
     ancestors: [Option<&'t Command<'t>>; MAX_DEPTH],
@@ -1088,6 +1099,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 // Nothing above the root to inherit from, so the default stands.
                 ::core::option::Option::None => UnknownFlags::Value,
             },
+            dont_delimit_trailing_values: root.dont_delimit_trailing_values,
             ancestors: [None; MAX_DEPTH],
             depth: 0,
             bundle: &[],
@@ -1611,6 +1623,8 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         self.arg_filled = true;
         // An `automatic` argument stops flag interpretation from here on, as
         // though the caller had typed the separator themselves.
+        let trailing_value = self.separator_seen || arg.double_dash == DoubleDash::Automatic;
+        let delimit = !(self.dont_delimit_trailing_values && trailing_value);
         if arg.double_dash == DoubleDash::Automatic {
             self.flags_stopped = true;
         }
@@ -1618,7 +1632,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         // bound, at which point the words after it belong to whatever comes next. That is
         // what makes `[a]… [b]` expressible at all.
         if arg.var {
-            self.arg_taken += values_in(token, arg.delimiter);
+            self.arg_taken += values_in(token, delimit.then_some(arg.delimiter).flatten());
             // Before advancing, which resets the count: as with a variadic flag, reaching
             // the bound and passing it are the same event once a word can carry several
             // values, and only the second is a mistake.
@@ -1635,7 +1649,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         } else {
             self.advance_arg();
         }
-        Ok(Event::Arg { arg, value: token })
+        Ok(Event::Arg {
+            arg,
+            value: token,
+            delimit,
+        })
     }
 
     fn descend(&mut self, sub: &'t Command<'t>) -> Result<(), Error<'t, 'v>> {
@@ -1650,6 +1668,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if let ::core::option::Option::Some(mode) = sub.unknown_flags {
             self.unknown_flags = mode;
         }
+        self.dont_delimit_trailing_values |= sub.dont_delimit_trailing_values;
         // Where this command's own words start, which is what lets a completion hand a callback
         // the half-parsed struct of the command it was declared on rather than of the root.
         self.cmd_start = self.pos;
@@ -2077,7 +2096,8 @@ mod tests {
                 },
                 Event::Arg {
                     arg: &FILE,
-                    value: b"input"
+                    value: b"input",
+                    delimit: true,
                 }
             ]
         );
@@ -2091,7 +2111,8 @@ mod tests {
             parse(&ROOT, &a).unwrap(),
             vec![Event::Arg {
                 arg: &FILE,
-                value: b"--forc"
+                value: b"--forc",
+                delimit: true,
             }]
         );
 
@@ -2113,11 +2134,13 @@ mod tests {
             vec![
                 Event::Arg {
                     arg: &FILE,
-                    value: b"--wat"
+                    value: b"--wat",
+                    delimit: true,
                 },
                 Event::Arg {
                     arg: &REST,
-                    value: b"keep"
+                    value: b"keep",
+                    delimit: true,
                 },
             ]
         );
@@ -2187,7 +2210,8 @@ mod tests {
             parse(&ROOT, &a).unwrap(),
             vec![Event::Arg {
                 arg: &FILE,
-                value: b"-"
+                value: b"-",
+                delimit: true,
             }]
         );
     }
@@ -2200,15 +2224,18 @@ mod tests {
             vec![
                 Event::Arg {
                     arg: &FILE,
-                    value: b"one"
+                    value: b"one",
+                    delimit: true,
                 },
                 Event::Arg {
                     arg: &REST,
-                    value: b"two"
+                    value: b"two",
+                    delimit: true,
                 },
                 Event::Arg {
                     arg: &REST,
-                    value: b"three"
+                    value: b"three",
+                    delimit: true,
                 },
             ]
         );
@@ -2234,11 +2261,13 @@ mod tests {
             vec![
                 Event::Arg {
                     arg: &FILE,
-                    value: b"other"
+                    value: b"other",
+                    delimit: true,
                 },
                 Event::Arg {
                     arg: &REST,
-                    value: b"install"
+                    value: b"install",
+                    delimit: true,
                 },
             ]
         );
@@ -2256,7 +2285,8 @@ mod tests {
                 Event::Command(&RUN),
                 Event::Arg {
                     arg: &RUN_TASK,
-                    value: b"build"
+                    value: b"build",
+                    delimit: true,
                 },
             ]
         );
@@ -2328,11 +2358,13 @@ mod tests {
                 },
                 Event::Arg {
                     arg: &SHARED_WHAT,
-                    value: b"one"
+                    value: b"one",
+                    delimit: true,
                 },
                 Event::Arg {
                     arg: &REST,
-                    value: b"two"
+                    value: b"two",
+                    delimit: true,
                 },
                 Event::Flag {
                     flag: &FORCE,
@@ -2356,7 +2388,8 @@ mod tests {
                 parse(&DEFAULTING, &a).unwrap(),
                 vec![Event::Arg {
                     arg: &TASK,
-                    value: token.as_bytes()
+                    value: token.as_bytes(),
+                    delimit: true,
                 }],
                 "{token} should bind where it was typed, not in the default subcommand"
             );
@@ -2436,7 +2469,8 @@ mod tests {
                 Event::Command(&RUN),
                 Event::Arg {
                     arg: &RUN_TASK,
-                    value: b"build"
+                    value: b"build",
+                    delimit: true,
                 }
             ]
         );
@@ -2452,7 +2486,8 @@ mod tests {
             parser.next_event(),
             Some(Ok(Event::Arg {
                 arg: &RUN_TASK,
-                value: b"build"
+                value: b"build",
+                delimit: true,
             }))
         );
     }
@@ -2572,7 +2607,8 @@ mod tests {
                 Event::Command(&DEEP),
                 Event::Arg {
                     arg: &RUN_TASK,
-                    value: b"zzz"
+                    value: b"zzz",
+                    delimit: true,
                 },
             ]
         );
@@ -2594,7 +2630,8 @@ mod tests {
                 Event::Command(&RUN),
                 Event::Arg {
                     arg: &RUN_TASK,
-                    value: b"build"
+                    value: b"build",
+                    delimit: true,
                 },
             ]
         );
@@ -2609,7 +2646,8 @@ mod tests {
             parse(&DEFAULTING, &a).unwrap(),
             vec![Event::Arg {
                 arg: &TASK,
-                value: b"build"
+                value: b"build",
+                delimit: true,
             }]
         );
     }
@@ -2649,11 +2687,13 @@ mod tests {
             vec![
                 Event::Arg {
                     arg: &FILE,
-                    value: b"--force"
+                    value: b"--force",
+                    delimit: true,
                 },
                 Event::Arg {
                     arg: &REST,
-                    value: b"-x"
+                    value: b"-x",
+                    delimit: true,
                 },
             ]
         );
@@ -2719,7 +2759,8 @@ mod tests {
                 },
                 Event::Arg {
                     arg: &REST,
-                    value: b"-x"
+                    value: b"-x",
+                    delimit: true,
                 },
             ]
         );
@@ -2896,7 +2937,8 @@ mod tests {
                 },
                 Event::Arg {
                     arg: &REST,
-                    value: b"80"
+                    value: b"80",
+                    delimit: true,
                 },
             ]
         );
@@ -3000,6 +3042,7 @@ mod tests {
                 Event::Arg {
                     arg: &AFTER,
                     value: b"tail",
+                    delimit: true,
                 },
             ]
         );
@@ -3011,10 +3054,12 @@ mod tests {
                 Event::Arg {
                     arg: &ITEMS,
                     value: b"a",
+                    delimit: true,
                 },
                 Event::Arg {
                     arg: &AFTER,
                     value: b"tail",
+                    delimit: true,
                 },
             ]
         );
@@ -3035,7 +3080,8 @@ mod tests {
                 },
                 Event::Arg {
                     arg: &FILE,
-                    value: b"keep-me"
+                    value: b"keep-me",
+                    delimit: true,
                 },
             ]
         );
@@ -3094,11 +3140,13 @@ mod tests {
             vec![
                 Event::Arg {
                     arg: &ARGS,
-                    value: b"--help"
+                    value: b"--help",
+                    delimit: true,
                 },
                 Event::Arg {
                     arg: &ARGS,
-                    value: b"-h"
+                    value: b"-h",
+                    delimit: true,
                 },
             ]
         );
@@ -3123,11 +3171,13 @@ mod tests {
             vec![
                 Event::Arg {
                     arg: &AUTO_ARGS,
-                    value: b"node"
+                    value: b"node",
+                    delimit: true,
                 },
                 Event::Arg {
                     arg: &AUTO_ARGS,
-                    value: b"--help"
+                    value: b"--help",
+                    delimit: true,
                 },
             ]
         );
@@ -3164,7 +3214,8 @@ mod tests {
             parse(&EXEC, &a).unwrap(),
             vec![Event::Arg {
                 arg: &CMD,
-                value: b"ls"
+                value: b"ls",
+                delimit: true,
             }]
         );
 
@@ -3229,11 +3280,13 @@ mod tests {
                 },
                 Event::Arg {
                     arg: &FILES,
-                    value: b"one"
+                    value: b"one",
+                    delimit: true,
                 },
                 Event::Arg {
                     arg: &FILES,
-                    value: b"--force"
+                    value: b"--force",
+                    delimit: true,
                 },
             ]
         );
@@ -3271,7 +3324,8 @@ mod tests {
             parse(&ROOT, &a).unwrap(),
             vec![Event::Arg {
                 arg: &FILE,
-                value: b"-fz"
+                value: b"-fz",
+                delimit: true,
             }]
         );
     }

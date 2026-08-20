@@ -188,7 +188,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         "\t\t\t}}\n\t\tcase argv.KindFlag:\n\t\t\tseen[ev.Flag.Key]++\n\
          {conditional_event}\
          \t\t\tif ev.HasValue {{\n\
-         \t\t\t\tgiven[ev.Flag.Key] = append(given[ev.Flag.Key], ev.Value)\n\
+         \t\t\t\tgiven[ev.Flag.Key] = append(given[ev.Flag.Key], argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)\n\
          \t\t\t}} else if given[ev.Flag.Key] == nil {{\n\
          \t\t\t\t// Given without a value is still given, and nil would read as\n\
          \t\t\t\t// absent when the fallbacks are applied.\n\
@@ -210,7 +210,8 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
     let _ = writeln!(
         out,
         "\t\t\t}}\n\t\tcase argv.KindArg:\n\t\t\tseen[ev.Arg.Key]++\n\
-         \t\t\tgiven[ev.Arg.Key] = append(given[ev.Arg.Key], ev.Value)\n\
+         \t\t\tvalues := argv.SplitValue(ev.Value, ev.Arg.Delimiter, ev.Delimit)\n\
+         \t\t\tgiven[ev.Arg.Key] = append(given[ev.Arg.Key], values...)\n\
          \t\t\tswitch ev.Arg.Key {{"
     );
     for e in commands {
@@ -218,7 +219,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         for (arg, named) in &e.args {
             let field = &assigned[&named.key];
             let assign = if arg.var {
-                format!("\t\t\t\t{owner}.{field} = append({owner}.{field}, ev.Value)")
+                format!("\t\t\t\t{owner}.{field} = append({owner}.{field}, values...)")
             } else {
                 format!("\t\t\t\t{owner}.{field} = ev.Value")
             };
@@ -372,7 +373,7 @@ fn flag_assign(flag: &SpecFlag, owner: &str, field: &str) -> String {
         "int" => format!("\t\t\t\t{owner}.{field}++"),
         "bool" => format!("\t\t\t\t{owner}.{field} = !ev.Negated"),
         "[]string" => format!(
-            "\t\t\t\tif ev.HasValue {{\n\t\t\t\t\t{owner}.{field} = append({owner}.{field}, ev.Value)\n\t\t\t\t}}"
+            "\t\t\t\tif ev.HasValue {{\n\t\t\t\t\t{owner}.{field} = append({owner}.{field}, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)\n\t\t\t\t}}"
         ),
         _ => format!("\t\t\t\t{owner}.{field} = ev.Value"),
     }
