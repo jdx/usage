@@ -27,26 +27,43 @@ use crate::complete::Shell;
 /// single shell word therefore cannot be completed in zsh by anyone, which the assertion says
 /// out loud rather than leaving to be discovered at a prompt.
 pub fn script(bin: &str, shell: Shell) -> String {
+    script_for(bin, bin, shell)
+}
+
+/// A completion script registered for `name` that asks `bin` for its answers.
+///
+/// This is the explicit shell-alias API: sourcing the result completes `name`, while the
+/// callback always executes the real binary. It does not inspect shell configuration or rely
+/// on the shell expanding aliases in a non-interactive completion subprocess.
+pub fn script_for(bin: &str, name: &str, shell: Shell) -> String {
     // A hard assertion, not a debug one: the alternative is a release build quietly writing a
     // script that registers half a name, or one whose apostrophe closes the quoting around it
     // and turns the rest into something else entirely. The name comes from the spec its author
     // wrote, not from anything a user typed, so this is a mistake surfacing where it can be
     // fixed. The accepted set is what binaries are actually called.
     assert!(
+        !name.is_empty()
+            && name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '+')),
+        "a completion script cannot register {name:?}: a binary's name has to be one plain \
+         shell word, and zsh's `#compdef` line has nowhere to put a quote even if it were \
+         quoted everywhere else"
+    );
+    assert!(
         !bin.is_empty()
             && bin
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '+')),
-        "a completion script cannot register {bin:?}: a binary's name has to be one plain \
-         shell word, and zsh's `#compdef` line has nowhere to put a quote even if it were \
-         quoted everywhere else"
+        "a completion script cannot invoke {bin:?}: a binary's name has to be one plain \
+         shell word so it can be quoted safely in every generated script"
     );
     match shell {
-        Shell::Bash => bash(bin),
-        Shell::Zsh => zsh(bin),
-        Shell::Fish => fish(bin),
-        Shell::Nu => nu(bin, &nu_ident(bin)),
-        Shell::PowerShell => powershell(bin),
+        Shell::Bash => bash(bin, name),
+        Shell::Zsh => zsh(bin, name),
+        Shell::Fish => fish(bin, name),
+        Shell::Nu => nu(bin, name, &nu_ident(name)),
+        Shell::PowerShell => powershell(bin, name),
     }
 }
 
@@ -82,11 +99,11 @@ fn header(bin: &str, shell: Shell, comment: &str) -> String {
     )
 }
 
-fn bash(bin: &str) -> String {
+fn bash(bin: &str, name: &str) -> String {
     let head = header(bin, Shell::Bash, "#");
     format!(
         r#"{head}
-_usage_complete_{bin}() {{
+_usage_complete_{name}() {{
     local __usage_out __usage_line __usage_files=
     # Truncated here rather than passed with an offset: every shell counts a cursor in its own
     # units — characters in a UTF-8 locale for bash and zsh, characters for fish and PowerShell —
@@ -133,7 +150,7 @@ _usage_complete_{bin}() {{
         (( ${{#__usage_paths[@]}} )) && COMPREPLY+=("${{__usage_paths[@]}}")
     fi
 }}
-complete -F _usage_complete_{bin} '{bin}'
+complete -F _usage_complete_{name} '{name}'
 "#,
     )
 }
@@ -143,7 +160,7 @@ complete -F _usage_complete_{bin} '{bin}'
 /// `compinit` autoloads a file from `$fpath` called `_mise` and calls the function of that name,
 /// so `_my-tool` is what a `my-tool` completion has to define — and zsh, unlike an identifier,
 /// is perfectly happy with the dash.
-fn zsh(bin: &str) -> String {
+fn zsh(bin: &str, name: &str) -> String {
     let head = header(bin, Shell::Zsh, "#");
     // `compadd` rather than `_describe`, which groups matches sharing a `:`-separated prefix and
     // shows one per group — so mise's `release:create`, `release:docs-sync` and `release:pr`
@@ -154,9 +171,9 @@ fn zsh(bin: &str) -> String {
     // is autoloaded and never registers — while sourcing it keeps working through the `compdef`
     // call at the bottom, which is what hid this.
     format!(
-        r#"#compdef {bin}
+        r#"#compdef {name}
 {head}
-_{bin}() {{
+_{name}() {{
     local -a values=() descriptions=() inserts=()
     local __usage_files= __usage_line __usage_menu=0
     # `$BUFFER[1,CURSOR]` is the text before the cursor, cut with zsh's own offset — see the
@@ -208,25 +225,25 @@ _{bin}() {{
     esac
     return $__usage_ret
 }}
-# Installed either way. Dropped in `$fpath` as `_{bin}`, compinit autoloads the file and calls
-# the function named after it — which is why the function is `_{bin}` and not something tidier.
+# Installed either way. Dropped in `$fpath` as `_{name}`, compinit autoloads the file and calls
+# the function named after it — which is why the function is `_{name}` and not something tidier.
 # Sourced from a config instead, nothing has called it yet, so it registers itself.
-if [ "$funcstack[1]" = "_{bin}" ]; then
-    _{bin} "$@"
+if [ "$funcstack[1]" = "_{name}" ]; then
+    _{name} "$@"
 else
-    compdef _{bin} '{bin}'
+    compdef _{name} '{name}'
 fi
 "#,
     )
 }
 
-fn fish(bin: &str) -> String {
+fn fish(bin: &str, name: &str) -> String {
     let head = header(bin, Shell::Fish, "#");
     // `commandline -cp` is the line up to the cursor, so the cursor is its length — fish has no
     // separate offset to pass, and needs none.
     format!(
         r#"{head}
-function __usage_complete_{bin}
+function __usage_complete_{name}
     set -l line (commandline -cp)
     # `commandline -cp` is already cut at the cursor, so there is nothing to say about where
     # the cursor is: the end of what it gives is where the cursor was.
@@ -274,12 +291,12 @@ end
 
 # `-f` so fish offers no filenames of its own: this CLI says when they belong, and the function
 # produces them itself when they do.
-complete -c '{bin}' -f -a '(__usage_complete_{bin})'
+complete -c '{name}' -f -a '(__usage_complete_{name})'
 "#,
     )
 }
 
-fn nu(bin: &str, ident: &str) -> String {
+fn nu(bin: &str, name: &str, ident: &str) -> String {
     let head = header(bin, Shell::Nu, "#");
     // nushell's external completer is handed the spans it split, never the line — so the line is
     // put back together from them. Lossless in the direction that matters: nushell has already
@@ -342,7 +359,7 @@ def --env __usage_complete_{ident} [spans: list<string>] {{
 # a config that completes several tools should keep completing all of them.
 let __usage_previous_{ident} = ($env.config.completions.external.completer? | default null)
 $env.config.completions.external.completer = {{|spans|
-    if ($spans | get 0) == "{bin}" {{
+    if ($spans | get 0) == "{name}" {{
         __usage_complete_{ident} $spans
     }} else if $__usage_previous_{ident} != null {{
         do $__usage_previous_{ident} $spans
@@ -354,14 +371,14 @@ $env.config.completions.external.completer = {{|spans|
     )
 }
 
-fn powershell(bin: &str) -> String {
+fn powershell(bin: &str, name: &str) -> String {
     let head = header(bin, Shell::PowerShell, "#");
     // PowerShell hands over an AST and a cursor position, and has no way for a native completer
     // to say "you take this one" — so its own file completer is called directly, which is the
     // same machinery it would have used.
     format!(
         r#"{head}
-Register-ArgumentCompleter -Native -CommandName '{bin}' -ScriptBlock {{
+Register-ArgumentCompleter -Native -CommandName '{name}' -ScriptBlock {{
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $marker = [char]1
@@ -448,6 +465,34 @@ mod tests {
             // And nothing about the thing this replaces: no second program, no cached spec.
             assert!(!out.contains("usage complete-word"), "{shell:?}");
             assert!(!out.contains("XDG_CACHE_HOME"), "{shell:?}");
+        }
+    }
+
+    #[test]
+    fn an_alias_registers_separately_from_the_binary_it_invokes() {
+        let cases = [
+            (
+                Shell::Bash,
+                "complete -F _usage_complete_m 'm'",
+                "command 'mise'",
+            ),
+            (Shell::Zsh, "#compdef m", "command 'mise'"),
+            (Shell::Fish, "complete -c 'm'", "command 'mise'"),
+            (Shell::Nu, r#"== "m""#, "^mise __complete_word__"),
+            (
+                Shell::PowerShell,
+                "-CommandName 'm'",
+                "& 'mise' __complete_word__",
+            ),
+        ];
+        for (shell, registration, invocation) in cases {
+            let out = script_for("mise", "m", shell);
+            assert!(out.contains(registration), "{shell:?}: {out}");
+            assert!(out.contains(invocation), "{shell:?}: {out}");
+            if shell == Shell::Zsh {
+                assert!(out.contains("`_m`"), "{out}");
+                assert!(!out.contains("`_mise`"), "{out}");
+            }
         }
     }
 
