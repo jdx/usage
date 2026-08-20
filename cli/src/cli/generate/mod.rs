@@ -76,6 +76,14 @@ pub fn parse_file_or_stdin(file: &Path) -> Result<Spec, UsageErr> {
     }
 }
 
+/// Select a spec-declared executable view for a generator, when requested.
+pub fn select_view(spec: Spec, view: Option<&str>) -> Result<Spec, UsageErr> {
+    match view {
+        Some(view) => spec.for_view(view),
+        None => Ok(spec),
+    }
+}
+
 /// The mirror of [`parse_file_or_stdin`]: `-` means stdout, and so does no path at all.
 ///
 /// Both spellings are collapsed here so a caller never has to ask which of the two it is

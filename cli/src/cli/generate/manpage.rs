@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{parse_file_or_stdin, write_or_stdout};
+use super::{parse_file_or_stdin, select_view, write_or_stdout};
 use usage::docs::manpage::ManpageRenderer;
 use usage_rs::Args;
 
@@ -11,6 +11,10 @@ pub struct Manpage {
     /// A usage spec taken in as a file, use "-" to read from stdin
     #[usage(short, long)]
     file: PathBuf,
+
+    /// Render one spec-declared executable view
+    #[usage(long)]
+    view: Option<String>,
 
     /// Output file path, or "-" for stdout (default)
     #[usage(
@@ -34,7 +38,7 @@ pub struct Manpage {
 
 impl Manpage {
     pub fn run(&self) -> miette::Result<()> {
-        let spec = parse_file_or_stdin(&self.file)?;
+        let spec = select_view(parse_file_or_stdin(&self.file)?, self.view.as_deref())?;
         let renderer = ManpageRenderer::new(spec).with_section(self.section);
         let manpage = renderer.render()?;
 

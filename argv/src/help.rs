@@ -19,7 +19,7 @@
 
 use core::fmt::Write as _;
 
-use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec};
+use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
 use crate::Command;
 use crate::DoubleDash;
 
@@ -2273,6 +2273,25 @@ pub fn route_to<'t>(
     core::ptr::eq(*route.last()?, cmd).then_some(route)
 }
 
+/// Recover a command route from the full argv of a declared executable view.
+///
+/// `argv` includes the view executable as argv0. The promoted root is inserted internally,
+/// matching the derive-generated `parse_from_argv` without requiring callers to reconstruct its
+/// private rewrite.
+pub fn route_to_view<'t>(
+    root: &'t Command<'t>,
+    argv: &[&std::ffi::OsStr],
+    cmd: &Command<'_>,
+    view: &ViewMeta<'_>,
+) -> Option<Vec<&'t Command<'t>>> {
+    let words = argv.get(1..).unwrap_or_default();
+    let mut rewritten =
+        Vec::with_capacity(words.len() + view.root.split_ascii_whitespace().count());
+    rewritten.extend(view.root.split_ascii_whitespace().map(std::ffi::OsStr::new));
+    rewritten.extend_from_slice(words);
+    route_to(root, &rewritten, cmd)
+}
+
 /// The same page, for a command reached by a known route.
 ///
 /// [`render`] has only a `&Command` to go on and finds it by address. That is enough until one
@@ -2335,6 +2354,61 @@ pub fn render_at_styled(
     ))
 }
 
+/// Render help through a spec-declared executable view.
+///
+/// The parser still walks the canonical static tables. This changes only the cold presentation:
+/// the promoted command becomes the displayed root and only the root globals declared by the
+/// view remain inherited.
+pub fn render_view_at_styled(
+    spec: &Spec<'_>,
+    route: &[&Command<'_>],
+    view: &ViewMeta<'_>,
+    long: bool,
+    style: Style,
+) -> Option<String> {
+    let (canonical_path, canonical_chain) = route_context(spec, route)?;
+    let depth = view.root.split_ascii_whitespace().count();
+    let promoted = *canonical_chain.get(depth)?;
+
+    let (root_flags, root_groups) = view_root_fields(spec, promoted, view);
+    let root = CommandMeta {
+        flags: &root_flags,
+        groups: &root_groups,
+        ..*promoted
+    };
+    let mut chain = Vec::with_capacity(canonical_chain.len());
+    chain.push(&root);
+    chain.extend_from_slice(canonical_chain.get(depth + 1..).unwrap_or_default());
+
+    let mut path = Vec::with_capacity(canonical_path.len().saturating_sub(depth));
+    path.push(view.bin);
+    path.extend_from_slice(canonical_path.get(depth + 1..).unwrap_or_default());
+    let viewed = Spec {
+        name: view.name,
+        bin: Some(view.bin),
+        about: promoted.about,
+        long_about: promoted.long_about,
+        usage: None,
+        default_subcommand: None,
+        multicall: false,
+        root: &root,
+        ..*spec
+    };
+    let page = if long {
+        long_help(&viewed, &path, &chain)
+    } else {
+        short_help(&viewed, &path, &chain)
+    };
+    let (headings, flag_usages, synopsis) = help_structure(&viewed, &path, &chain, long);
+    Some(styled_help(
+        &page,
+        style,
+        &headings,
+        &flag_usages,
+        &synopsis,
+    ))
+}
+
 /// Recursive long help for a command reached by a known route.
 pub fn render_all_at(spec: &Spec<'_>, route: &[&Command<'_>]) -> Option<String> {
     render_all_at_styled(spec, route, Style::PLAIN)
@@ -2348,6 +2422,113 @@ pub fn render_all_at_styled(
 ) -> Option<String> {
     let (path, chain) = route_context(spec, route)?;
     Some(recursive_help(spec, path, chain, style))
+}
+
+/// Recursive long help through a spec-declared executable view.
+pub fn render_all_view_at_styled(
+    spec: &Spec<'_>,
+    route: &[&Command<'_>],
+    view: &ViewMeta<'_>,
+    style: Style,
+) -> Option<String> {
+    let (canonical_path, canonical_chain) = route_context(spec, route)?;
+    let depth = view.root.split_ascii_whitespace().count();
+    let promoted = *canonical_chain.get(depth)?;
+    let (root_flags, root_groups) = view_root_fields(spec, promoted, view);
+    let root = CommandMeta {
+        flags: &root_flags,
+        groups: &root_groups,
+        ..*promoted
+    };
+    let mut chain = Vec::with_capacity(canonical_chain.len().saturating_sub(depth));
+    chain.push(&root);
+    chain.extend_from_slice(canonical_chain.get(depth + 1..).unwrap_or_default());
+    let mut path = Vec::with_capacity(canonical_path.len().saturating_sub(depth));
+    path.push(view.bin);
+    path.extend_from_slice(canonical_path.get(depth + 1..).unwrap_or_default());
+    let viewed = Spec {
+        name: view.name,
+        bin: Some(view.bin),
+        about: promoted.about,
+        long_about: promoted.long_about,
+        usage: None,
+        default_subcommand: None,
+        multicall: false,
+        root: &root,
+        ..*spec
+    };
+    Some(recursive_help(&viewed, path, chain, style))
+}
+
+pub(crate) fn view_root_flags<'a>(
+    spec: &'a Spec<'a>,
+    promoted: &CommandMeta<'a>,
+    view: &ViewMeta<'a>,
+) -> Vec<FlagMeta<'a>> {
+    let selected = |flag: &&FlagMeta<'a>| {
+        flag.flag.global
+            && (view.all_globals
+                || view.globals.iter().any(|selector| {
+                    selector
+                        .strip_prefix("--")
+                        .is_some_and(|long| flag.flag.longs.contains(&long))
+                        || selector
+                            .strip_prefix('-')
+                            .filter(|short| short.len() == 1)
+                            .and_then(|short| short.as_bytes().first().copied())
+                            .is_some_and(|short| flag.flag.shorts.contains(&short))
+                }))
+            && !promoted
+                .flags
+                .iter()
+                .any(|local| crate::spec::flag_forms_overlap(flag.flag, local.flag))
+    };
+    let mut flags: Vec<FlagMeta<'a>> = spec.root.flags.iter().filter(selected).copied().collect();
+    flags.extend_from_slice(promoted.flags);
+    flags
+}
+
+pub(crate) fn view_root_fields<'a>(
+    spec: &'a Spec<'a>,
+    promoted: &CommandMeta<'a>,
+    view: &ViewMeta<'a>,
+) -> (Vec<FlagMeta<'a>>, Vec<crate::spec::GroupMeta<'a>>) {
+    let mut flags = view_root_flags(spec, promoted, view);
+    let carried = flags.len().saturating_sub(promoted.flags.len());
+    let matches = |flag: &FlagMeta<'_>, selector: &str| {
+        selector
+            .strip_prefix("--")
+            .is_some_and(|long| flag.flag.longs.contains(&long))
+            || selector
+                .strip_prefix('-')
+                .filter(|short| short.len() == 1)
+                .and_then(|short| short.as_bytes().first().copied())
+                .is_some_and(|short| flag.flag.shorts.contains(&short))
+    };
+    let mut groups = Vec::new();
+    for group in spec.root.groups {
+        let members: Vec<usize> = group
+            .members
+            .iter()
+            .filter_map(|selector| {
+                flags[..carried]
+                    .iter()
+                    .position(|flag| matches(flag, selector))
+            })
+            .collect();
+        match members.as_slice() {
+            [only] if group.required => flags[*only].required = true,
+            [_, _, ..] => {
+                // Help and diagnostics only need the relationship and its requiredness; the
+                // parser continues to enforce the canonical group. Retaining the original
+                // selector slice avoids allocating self-referential metadata on this cold path.
+                groups.push(*group);
+            }
+            _ => {}
+        }
+    }
+    groups.extend_from_slice(promoted.groups);
+    (flags, groups)
 }
 
 fn recursive_help<'a>(

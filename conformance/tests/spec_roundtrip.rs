@@ -332,6 +332,7 @@ static SPEC: Spec = Spec {
     usage: Some("Usage: ex <COMMAND>\n       ex --version \"quoted\""),
     default_subcommand: Some("run"),
     multicall: false,
+    views: &[],
     root: &ROOT_META,
 };
 
@@ -773,6 +774,7 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
         usage: None,
         default_subcommand: None,
         multicall: false,
+        views: &[],
         root: &META,
     };
 
@@ -910,6 +912,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         usage: None,
         default_subcommand: None,
         multicall: false,
+        views: &[],
         root: &ROOT_META_TWO,
     };
 
@@ -929,10 +932,9 @@ fn two_commands_can_mean_different_things_by_one_name() {
         );
     }
 
-    // A root that declares the same name wins over both, which is the order the reference
-    // resolves in — `spec.complete` before `cmd.complete` — and the root's completers are what a
-    // spec writes at the top level. Recorded here rather than assumed, because it is the one
-    // place this order is visible.
+    // A root may also declare the same name. Cursor identity still wins over that name-based
+    // fallback: otherwise a promoted view or an ordinary child argument could silently run the
+    // root completer merely because both fields use a conventional name such as `tool`.
     static ROOT_TOOL: Arg = Arg {
         key: 93,
         name: "TOOL",
@@ -968,6 +970,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         usage: None,
         default_subcommand: None,
         multicall: false,
+        views: &[],
         root: &ROOT_META_THREE,
     };
     let words = ["ex".to_string(), "use".to_string(), String::new()];
@@ -981,8 +984,8 @@ fn two_commands_can_mean_different_things_by_one_name() {
     let found = usage_argv::complete::for_name(&SPEC_THREE, "tool", &ctx).expect("a completer");
     assert_eq!(
         found.iter().map(|c| c.value.as_str()).collect::<Vec<_>>(),
-        ["root"],
-        "the root's wins, as it does in the reference"
+        ["installed"],
+        "the argument under the cursor wins before the root name fallback"
     );
 
     // And the binary answers about the command the line reached, not the first one in the tree.

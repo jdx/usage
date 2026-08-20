@@ -680,6 +680,35 @@ fn parse_partial_with_env(
     mount_outputs: Option<&HashMap<String, String>>,
     mount_timing: MountTiming,
 ) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
+    if let Some(view) = input.first().and_then(|argv0| spec.view_for_program(argv0)) {
+        // A view is another executable surface of this package, not another package. Keep the
+        // host's version action ahead of projection just as the typed parser does: the promoted
+        // command normally has no version flag of its own, while `runner --version` still needs
+        // to identify the package that supplied `runner`.
+        let host_version = input.get(1).is_some_and(|word| {
+            spec.cmd.flags.iter().any(|flag| {
+                flag.action == crate::SpecFlagAction::Version
+                    && flag_keys(flag).iter().any(|spelling| spelling == word)
+            })
+        });
+        if host_version {
+            let mut host_input = input.to_vec();
+            host_input[0] = if spec.bin.is_empty() {
+                spec.name.clone()
+            } else {
+                spec.bin.clone()
+            };
+            return parse_partial_with_env(
+                spec,
+                &host_input,
+                custom_env,
+                mount_outputs,
+                mount_timing,
+            );
+        }
+        let viewed = spec.for_view(view)?;
+        return parse_partial_with_env(&viewed, input, custom_env, mount_outputs, mount_timing);
+    }
     trace!("parse_partial: {input:?}");
     let mut input = input.iter().cloned().collect::<VecDeque<_>>();
     let argv0 = input.pop_front();
@@ -3292,6 +3321,45 @@ mod tests {
             return value;
         }
         panic!("expected first parsed value to be ParseValue::String");
+    }
+
+    #[test]
+    fn custom_environment_parser_dispatches_executable_views() {
+        let spec: Spec = r#"
+bin "ex"
+view "runner" root="run"
+cmd "run" {
+    flag "--token <token>" env="TOKEN"
+}
+        "#
+        .parse()
+        .unwrap();
+        let parsed = Parser::new(&spec)
+            .with_env([("TOKEN".to_string(), "secret".to_string())].into())
+            .parse(&input(&["runner"]))
+            .unwrap();
+
+        assert_eq!(parsed.cmd.name, "runner");
+        assert!(parsed.flags.iter().any(|(flag, value)| flag.name == "token"
+            && matches!(value, ParseValue::String(value) if value == "secret")));
+    }
+
+    #[test]
+    fn an_executable_view_keeps_the_hosts_version_action() {
+        let spec: Spec = r#"
+bin "ex"
+version "1.2.3"
+flag "-V --version" action="version"
+view "runner" root="run"
+cmd "run"
+        "#
+        .parse()
+        .unwrap();
+
+        let error = Parser::new(&spec)
+            .parse(&input(&["runner", "--version"]))
+            .expect_err("the host version action should answer before view projection");
+        assert_eq!(error.to_string(), "1.2.3");
     }
 
     fn flag_string_value<'a>(parsed: &'a ParseOutput, name: &str) -> &'a str {

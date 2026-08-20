@@ -950,6 +950,19 @@ pub fn render_failure(spec: &spec::Spec<'_>, argv: &[&OsStr], error: &Error<'_, 
     diagnostic::render(spec, argv, error, diagnostic::Style::auto())
 }
 
+/// Render a failure through a spec-declared executable view.
+///
+/// `argv` is the original full argv, including the view executable as argv0.
+#[cfg(feature = "diagnostics")]
+pub fn render_failure_view<'a>(
+    spec: &'a spec::Spec<'a>,
+    argv: &[&OsStr],
+    error: &Error<'_, '_>,
+    view: &'a spec::ViewMeta<'a>,
+) -> String {
+    diagnostic::render_view(spec, argv, error, diagnostic::Style::auto(), view)
+}
+
 /// What a caller should print for a parse failure, without the renderer that makes it readable.
 ///
 /// See the other half. A caller that wants the clap-shaped message turns on `diagnostics`;
@@ -957,6 +970,18 @@ pub fn render_failure(spec: &spec::Spec<'_>, argv: &[&OsStr], error: &Error<'_, 
 #[cfg(all(feature = "spec", not(feature = "diagnostics")))]
 pub fn render_failure(spec: &spec::Spec<'_>, argv: &[&OsStr], error: &Error<'_, '_>) -> String {
     let _ = (spec, argv);
+    ::std::format!("error: {error:?}\n")
+}
+
+/// Render a failure through a declared view without the optional diagnostics renderer.
+#[cfg(all(feature = "spec", not(feature = "diagnostics")))]
+pub fn render_failure_view(
+    spec: &spec::Spec<'_>,
+    argv: &[&OsStr],
+    error: &Error<'_, '_>,
+    view: &spec::ViewMeta<'_>,
+) -> String {
+    let _ = (spec, argv, view);
     ::std::format!("error: {error:?}\n")
 }
 
@@ -971,6 +996,38 @@ pub fn is_help_flag(flag: &Flag<'_>) -> bool {
 /// Whether a flag is one of the two the parser supplies for `--version`.
 pub fn is_version_flag(flag: &Flag<'_>) -> bool {
     flag.action == ArgAction::Version
+}
+
+/// Whether one exact root argument selects a declared or synthesized version action.
+///
+/// Declared flags are checked first because they shadow the built-in `--version` and `-V`
+/// spellings. Executable views use this before projection so custom version spellings keep
+/// reporting the package that owns the view.
+pub fn is_version_arg(cmd: &Command<'_>, word: &OsStr) -> bool {
+    let token = word.as_encoded_bytes();
+    if let Some(long) = token.strip_prefix(b"--") {
+        if let Some(flag) = cmd.flags.iter().find(|flag| {
+            flag.longs
+                .iter()
+                .any(|spelling| spelling.as_bytes() == long)
+        }) {
+            return is_version_flag(flag);
+        }
+        if cmd.flags.iter().any(|flag| {
+            flag.negate
+                .is_some_and(|spelling| spelling.as_bytes() == long)
+        }) {
+            return false;
+        }
+        return long == b"version" && cmd.version && !cmd.disable_version_flag;
+    }
+    if let [b'-', short] = token {
+        if let Some(flag) = cmd.flags.iter().find(|flag| flag.shorts.contains(short)) {
+            return is_version_flag(flag);
+        }
+        return *short == b'V' && cmd.version && !cmd.disable_version_flag;
+    }
+    false
 }
 
 /// Resolve a subcommand by name or alias, at compile time.
@@ -1134,6 +1191,12 @@ pub struct Parser<'t, 'a, 'v> {
     pos: usize,
     /// The command currently in scope.
     cmd: &'t Command<'t>,
+    /// The canonical root, used to hide root globals omitted by an executable view.
+    #[cfg(feature = "spec")]
+    root: &'t Command<'t>,
+    /// The executable projection being parsed, if argv0 selected one.
+    #[cfg(feature = "spec")]
+    view: Option<&'t spec::ViewMeta<'t>>,
     /// What an unrecognized flag-like token means in the command currently in scope.
     ///
     /// Carried rather than looked up, because it is inherited: a command that states
@@ -1226,6 +1289,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             argv,
             pos: 0,
             cmd: root,
+            #[cfg(feature = "spec")]
+            root,
+            #[cfg(feature = "spec")]
+            view: None,
             unknown_flags: match root.unknown_flags {
                 ::core::option::Option::Some(mode) => mode,
                 // Nothing above the root to inherit from, so the default stands.
@@ -1251,6 +1318,13 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             action_errors,
             help_span: (0, 0),
         }
+    }
+
+    /// Restrict inherited root globals to those carried by an executable view.
+    #[cfg(feature = "spec")]
+    pub fn with_view(mut self, view: &'t spec::ViewMeta<'t>) -> Self {
+        self.view = Some(view);
+        self
     }
 
     /// The command in scope: the root, or the deepest subcommand selected so far.
@@ -1951,19 +2025,62 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         }
     }
 
+    #[cfg(feature = "spec")]
+    fn view_allows_own_flag(&self, flag: &Flag<'_>) -> bool {
+        match self.view {
+            None => true,
+            // The promoted command keeps its own surface. While the injected path is
+            // still at the host root, however, only explicitly carried globals belong
+            // to the view; root-local flags are not part of the projected executable.
+            Some(view) => !core::ptr::eq(self.cmd, self.root) || view.carries(flag),
+        }
+    }
+
+    #[cfg(not(feature = "spec"))]
+    fn view_allows_own_flag(&self, _flag: &Flag<'_>) -> bool {
+        true
+    }
+
+    #[cfg(feature = "spec")]
+    fn view_allows_inherited_flag(&self, flag: &Flag<'_>) -> bool {
+        match self.view {
+            None => true,
+            // A portable view carries selected host globals, not globals declared
+            // by intermediate commands on a multi-segment promoted path.
+            Some(view) => {
+                self.root
+                    .flags
+                    .iter()
+                    .any(|root| core::ptr::eq(*root, flag))
+                    && view.carries(flag)
+            }
+        }
+    }
+
+    #[cfg(not(feature = "spec"))]
+    fn view_allows_inherited_flag(&self, _flag: &Flag<'_>) -> bool {
+        true
+    }
+
     /// Flags in scope: this command's own, then any ancestor's globals.
     ///
     /// Own flags come first so that a subcommand redeclaring an inherited name
     /// shadows it, which is what mise relies on when it redeclares root globals
     /// on `run` with different shorts.
     fn in_scope(&self) -> impl Iterator<Item = &'t Flag<'t>> + '_ {
-        let own = self.cmd.flags.iter().copied();
+        let own = self
+            .cmd
+            .flags
+            .iter()
+            .copied()
+            .filter(|flag| self.view_allows_own_flag(flag));
         let inherited = self.ancestors[..self.depth]
             .iter()
             .rev()
             .filter_map(|c| *c)
             .flat_map(|c| c.flags.iter().copied())
-            .filter(|f| f.global);
+            .filter(|f| f.global)
+            .filter(|flag| self.view_allows_inherited_flag(flag));
         own.chain(inherited)
     }
 

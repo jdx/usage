@@ -47,6 +47,20 @@ enum BusyCommand {
     Run,
 }
 
+#[derive(Cli)]
+#[usage(bin = "view-host", version = "9.9", view("runner", root = "run"))]
+struct ViewHost {
+    #[arg(long = "build-info", action = clap::ArgAction::Version)]
+    build_info: bool,
+    #[usage(subcommand)]
+    command: Option<ViewCommand>,
+}
+
+#[derive(Subcommands)]
+enum ViewCommand {
+    Run,
+}
+
 #[test]
 fn a_program_is_called_what_its_binary_is_called() {
     // The name defaults to the struct's, and a struct is usually called `Cli`. So `bin` alone
@@ -90,6 +104,17 @@ fn a_bare_version_is_the_packages_own() {
 fn a_written_version_is_taken_as_written() {
     let spec: LibSpec = Renamed::to_kdl().parse().expect("valid spec");
     assert_eq!(spec.version.as_deref(), Some("9.9"));
+}
+
+#[test]
+fn a_view_keeps_a_custom_host_version_action() {
+    use std::ffi::OsStr;
+
+    let argv = [OsStr::new("runner"), OsStr::new("--build-info")];
+    assert!(matches!(
+        ViewHost::parse_from_argv(&argv),
+        Err(usage_argv::Error::Version { .. })
+    ));
 }
 
 #[test]

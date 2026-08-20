@@ -86,6 +86,28 @@ struct Busybox {
 A symlink `ls -> busybox` runs the `ls` variant. `busybox ls` still does too: the
 dispatcher name is skipped. Path components and a trailing `.exe` are stripped.
 
+## Executable views
+
+Use a view when an installed executable should expose one command as its root rather than merely
+selecting a multicall subcommand:
+
+```rust
+#[derive(Cli)]
+#[usage(
+    bin = "aube",
+    completion,
+    view("aubr", root = "run", globals),
+    view("aubx", root = "dlx", global = "--config")
+)]
+struct Aube { /* … */ }
+```
+
+`parse()` and `parse_from_argv()` select the view from argv0 and route directly to its command.
+`to_kdl()` emits portable `view` nodes. With completion support enabled,
+`completion_script_for("aubr", shell)` emits the script registered for that executable, and its
+requests are completed from the promoted command. `global = "--flag"` may be repeated; bare
+`globals` carries every root global.
+
 ## External subcommands
 
 clap's `#[command(external_subcommand)]` is a catch-all variant that holds the unmatched

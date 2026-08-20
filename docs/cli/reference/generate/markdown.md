@@ -15,6 +15,10 @@ Generate markdown documentation from usage specs
 
 A usage spec taken in as a file, use "-" to read from stdin
 
+### `--view <VIEW>`
+
+Render one spec-declared executable view
+
 ### `-m --multi`
 
 Render each subcommand as a separate markdown file

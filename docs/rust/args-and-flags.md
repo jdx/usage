@@ -245,6 +245,7 @@ On the root `#[derive(Cli)]` struct:
 | `unknown_flags = "value"\|"error"`  | Treat unknown flags as values instead of errors                |
 | `default_subcommand = "run"`        | Command to assume when argv names none                         |
 | `multicall`                         | Treat argv[0]'s basename as a subcommand (busybox-style)       |
+| `view("bin", root = "command")`     | Promote a command as another executable surface                |
 | `completion`                        | Generate completion support ([Completions](/rust/completions)) |
 | `settings`                          | Generate config-settings bindings                              |
 | `min_usage_version = "…"`           | Declare the minimum usage version the spec needs               |

@@ -13,6 +13,7 @@ pub mod group;
 pub mod helpers;
 pub mod mount;
 pub mod unknown_flags;
+pub mod view;
 
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
@@ -31,6 +32,7 @@ use crate::spec::config::SpecConfig;
 use crate::spec::context::ParsingContext;
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::{SpecArg, SpecComplete, SpecFlag};
+use view::SpecView;
 
 #[derive(Debug, Default, Clone, Serialize)]
 #[non_exhaustive]
@@ -45,6 +47,9 @@ pub struct Spec {
     pub long_version: Option<String>,
     pub usage: String,
     pub complete: IndexMap<String, SpecComplete>,
+    /// Named executable surfaces promoted from commands in this canonical spec.
+    #[serde(skip_serializing_if = "IndexMap::is_empty")]
+    pub views: IndexMap<String, SpecView>,
     /// Every file this spec was read from: its own path, then each `include`, recursively.
     ///
     /// What a build script has to watch. A generator that watches only the file it was pointed at
@@ -223,7 +228,154 @@ impl Spec {
             && self.cmd.is_empty()
             && self.config.is_empty()
             && self.complete.is_empty()
+            && self.views.is_empty()
             && self.examples.is_empty()
+    }
+
+    /// Materialize one declared executable view.
+    ///
+    /// This is a cold-path operation for documentation and completion generation. The canonical
+    /// spec remains unchanged; the returned spec promotes the view's command to the root and
+    /// carries only the root globals the view declares.
+    pub fn for_view(&self, id: &str) -> Result<Spec, UsageErr> {
+        let view = self
+            .views
+            .get(id)
+            .ok_or_else(|| UsageErr::InvalidView(format!("spec declares no view named `{id}`")))?;
+        let mut command = &self.cmd;
+        for segment in view.root.split_whitespace() {
+            command = command.subcommands.get(segment).ok_or_else(|| {
+                UsageErr::InvalidView(format!(
+                    "view `{id}` promotes `{}`, but `{segment}` is not a command on that path",
+                    view.root
+                ))
+            })?;
+        }
+        let mut promoted = command.clone();
+        let matches_selector = |flag: &SpecFlag, selector: &str| {
+            selector
+                .strip_prefix("--")
+                .is_some_and(|name| flag.long.iter().any(|long| long == name))
+                || selector
+                    .strip_prefix('-')
+                    .filter(|short| short.len() == 1)
+                    .and_then(|short| short.chars().next())
+                    .is_some_and(|short| flag.short.contains(&short))
+        };
+        let carries = |flag: &SpecFlag| {
+            if !flag.global {
+                return false;
+            }
+            view.all_globals
+                || view
+                    .globals
+                    .iter()
+                    .any(|selector| matches_selector(flag, selector))
+        };
+        for selector in &view.globals {
+            if !self
+                .cmd
+                .flags
+                .iter()
+                .any(|flag| flag.global && matches_selector(flag, selector))
+            {
+                return Err(UsageErr::InvalidView(format!(
+                    "view `{id}` carries `{selector}`, but it is not a root global flag"
+                )));
+            }
+        }
+        let globals: Vec<SpecFlag> = self
+            .cmd
+            .flags
+            .iter()
+            .filter(|flag| carries(flag))
+            .cloned()
+            .collect();
+        // A promoted command may redeclare a global spelling. The nearer declaration owns it,
+        // matching ordinary parsing, so do not create a duplicate root flag.
+        let mut globals: Vec<SpecFlag> = globals
+            .into_iter()
+            .filter(|global| {
+                !promoted
+                    .flags
+                    .iter()
+                    .any(|local| spec_flag_forms_overlap(global, local))
+            })
+            .collect();
+        // Root groups are relationships between the root fields, so project them along with
+        // the carried globals. A group reduced to one required member is ordinary requiredness;
+        // keeping it as a one-member group would emit KDL the spec reader deliberately refuses.
+        let mut carried_groups = Vec::new();
+        for group in &self.cmd.groups {
+            let members: Vec<String> = group
+                .members
+                .iter()
+                .filter(|selector| {
+                    globals
+                        .iter()
+                        .any(|flag| flag_matches_selector(flag, selector))
+                })
+                .cloned()
+                .collect();
+            match members.as_slice() {
+                [only] if group.required => {
+                    if let Some(flag) = globals
+                        .iter_mut()
+                        .find(|flag| flag_matches_selector(flag, only))
+                    {
+                        flag.required = true;
+                    }
+                }
+                [_, _, ..] => {
+                    let mut projected = group.clone();
+                    projected.members = members;
+                    carried_groups.push(projected);
+                }
+                _ => {}
+            }
+        }
+        promoted.flags.splice(0..0, globals);
+        promoted.groups.splice(0..0, carried_groups);
+        promoted.name.clone_from(&view.bin);
+        promoted.full_cmd.clear();
+        promoted.aliases.clear();
+        promoted.hidden_aliases.clear();
+        set_subcommand_ancestors(&mut promoted, &[]);
+        promoted.usage = promoted.usage();
+
+        let mut spec = self.clone();
+        spec.name.clone_from(&view.name);
+        spec.bin.clone_from(&view.bin);
+        spec.about = promoted.help.clone();
+        spec.about_long = promoted.help_long.clone();
+        spec.about_md = promoted.help_md.clone();
+        spec.before_help = promoted.before_help.clone();
+        spec.before_help_long = promoted.before_help_long.clone();
+        spec.after_help = promoted.after_help.clone();
+        spec.after_help_long = promoted.after_help_long.clone();
+        spec.examples.clone_from(&promoted.examples);
+        spec.usage = promoted.usage.clone();
+        spec.cmd = promoted;
+        spec.default_subcommand = None;
+        spec.multicall = false;
+        spec.multicall_set = false;
+        spec.views.clear();
+        Ok(spec)
+    }
+
+    /// The stable identifier of the executable view selected by a program name.
+    pub fn view_for_program(&self, program: &str) -> Option<&str> {
+        let basename = crate::parse::multicall_basename(program);
+        if basename == crate::parse::multicall_basename(&self.name)
+            || (!self.bin.is_empty() && basename == crate::parse::multicall_basename(&self.bin))
+        {
+            return None;
+        }
+        self.views.values().find_map(|view| {
+            (basename == crate::parse::multicall_basename(&view.bin)
+                || basename == crate::parse::multicall_basename(&view.id))
+            .then_some(view.id.as_str())
+        })
     }
 
     pub(crate) fn parse(ctx: &ParsingContext, input: &str) -> Result<Spec, UsageErr> {
@@ -299,6 +451,16 @@ impl Spec {
                 "complete" => {
                     let complete = SpecComplete::parse(ctx, &node)?;
                     schema.complete.insert(complete.name.clone(), complete);
+                }
+                "view" => {
+                    let view = SpecView::parse(ctx, &node)?;
+                    if schema.views.insert(view.id.clone(), view).is_some() {
+                        bail_parse!(
+                            ctx,
+                            node.span(),
+                            "a view identifier may be declared only once"
+                        );
+                    }
                 }
                 "disable_help" => schema.disable_help = Some(node.arg(0)?.ensure_bool()?),
                 "min_usage_version" => {
@@ -486,6 +648,7 @@ impl Spec {
         }
         merge_opt!(unknown_flags);
         merge_extend!(complete);
+        merge_extend!(views);
         merge_extend!(examples);
         // An included spec brings the files *it* read, which is how a nested include is watched.
         merge_extend!(sources);
@@ -495,6 +658,48 @@ impl Spec {
         }
         self.cmd.merge(other.cmd);
     }
+}
+
+fn spec_flag_forms_overlap(a: &SpecFlag, b: &SpecFlag) -> bool {
+    fn long_forms(flag: &SpecFlag) -> impl Iterator<Item = &str> {
+        flag.long
+            .iter()
+            .chain(&flag.hidden_aliases)
+            .map(String::as_str)
+            .chain(
+                flag.negate
+                    .as_deref()
+                    .map(|name| name.strip_prefix("--").unwrap_or(name)),
+            )
+    }
+    fn short_forms(flag: &SpecFlag) -> impl Iterator<Item = &char> {
+        flag.short.iter().chain(&flag.hidden_short_aliases)
+    }
+
+    long_forms(a).any(|name| long_forms(b).any(|other| other == name))
+        || short_forms(a).any(|name| short_forms(b).any(|other| other == name))
+}
+
+fn flag_matches_selector(flag: &SpecFlag, selector: &str) -> bool {
+    selector.strip_prefix("--").is_some_and(|name| {
+        flag.long
+            .iter()
+            .chain(&flag.hidden_aliases)
+            .any(|long| long == name)
+            || flag
+                .negate
+                .as_deref()
+                .is_some_and(|negate| negate.strip_prefix("--").unwrap_or(negate) == name)
+    }) || selector
+        .strip_prefix('-')
+        .filter(|short| short.len() == 1)
+        .and_then(|short| short.chars().next())
+        .is_some_and(|short| {
+            flag.short
+                .iter()
+                .chain(&flag.hidden_short_aliases)
+                .any(|candidate| *candidate == short)
+        })
 }
 
 fn check_usage_version(version: &str) {
@@ -798,6 +1003,13 @@ impl Display for Spec {
         for complete in self.cmd.complete.values() {
             nodes.push(complete.into());
         }
+        for view in self.views.values() {
+            let rendered: KdlDocument = view
+                .to_string()
+                .parse()
+                .expect("a view always renders valid KDL");
+            nodes.extend(rendered.nodes().iter().cloned());
+        }
         for cmd in self.cmd.subcommands.values() {
             nodes.push(cmd.into())
         }
@@ -1027,6 +1239,137 @@ cmd "cat"
         );
         let again: Spec = emitted.parse().unwrap();
         assert!(again.multicall);
+    }
+
+    #[test]
+    fn a_declared_view_promotes_a_command_and_selected_globals() {
+        let spec: Spec = r#"
+name "aube"
+bin "aube"
+about_md "Host **markdown**"
+before_help "host before"
+before_long_help "host long before"
+after_help "host after"
+after_long_help "host long after"
+example "aube host" header="host example"
+flag "-v --verbose" global=#true
+flag "--config <FILE>" global=#true
+view "aubr" root="run" {
+  global "--verbose"
+}
+cmd "run" help="Run a package script" {
+  before_help "run before"
+  before_long_help "run long before"
+  after_help "run after"
+  after_long_help "run long after"
+  example "aubr task" header="run example"
+  flag "--if-present"
+  arg "[SCRIPT]"
+  cmd "nested"
+}
+"#
+        .parse()
+        .unwrap();
+
+        let rendered = spec.to_string();
+        assert!(rendered.contains("view aubr root=run"), "{rendered}");
+        let reparsed: Spec = rendered.parse().unwrap();
+        let applet = reparsed.for_view("aubr").unwrap();
+        assert_eq!(applet.name, "aubr");
+        assert_eq!(applet.bin, "aubr");
+        assert_eq!(applet.about.as_deref(), Some("Run a package script"));
+        assert_eq!(applet.about_md, None);
+        assert_eq!(applet.before_help.as_deref(), Some("run before"));
+        assert_eq!(applet.before_help_long.as_deref(), Some("run long before"));
+        assert_eq!(applet.after_help.as_deref(), Some("run after"));
+        assert_eq!(applet.after_help_long.as_deref(), Some("run long after"));
+        assert_eq!(applet.examples.len(), 1);
+        assert_eq!(applet.examples[0].header.as_deref(), Some("run example"));
+        assert!(applet.cmd.flags.iter().any(|flag| flag.name == "verbose"));
+        assert!(applet
+            .cmd
+            .flags
+            .iter()
+            .any(|flag| flag.name == "if-present"));
+        assert!(!applet.cmd.flags.iter().any(|flag| flag.name == "config"));
+        assert!(applet.cmd.subcommands.contains_key("nested"));
+        assert!(applet.views.is_empty());
+        assert!(applet.to_string().contains("bin aubr"));
+    }
+
+    #[test]
+    fn a_promoted_flag_shadows_every_carried_global_spelling() {
+        let spec: Spec = r#"
+bin "host"
+flag "--color" global=#true negate="--no-color"
+view "runner" root=run {
+  global "--color"
+}
+cmd "run" {
+  flag "--no-color"
+}
+"#
+        .parse()
+        .unwrap();
+
+        let view = spec.for_view("runner").unwrap();
+        assert_eq!(view.cmd.flags.len(), 1);
+        assert_eq!(view.cmd.flags[0].long, ["no-color"]);
+    }
+
+    #[test]
+    fn a_view_projects_groups_of_carried_globals() {
+        let spec: Spec = r#"
+bin "host"
+flag "--json" global=#true
+flag "--yaml" global=#true
+flag "--toml" global=#true
+group "format" "--json" "--yaml" "--toml" required=#true
+view "all" root=run globals=#true
+view "json" root=run {
+  global "--json"
+}
+cmd "run"
+"#
+        .parse()
+        .unwrap();
+
+        let all = spec.for_view("all").unwrap();
+        assert_eq!(all.cmd.groups.len(), 1);
+        assert_eq!(all.cmd.groups[0].members, ["--json", "--yaml", "--toml"]);
+        assert!(all.to_string().parse::<Spec>().is_ok());
+
+        let json = spec.for_view("json").unwrap();
+        assert!(json.cmd.groups.is_empty());
+        assert!(
+            json.cmd
+                .flags
+                .iter()
+                .find(|flag| flag.name == "json")
+                .unwrap()
+                .required
+        );
+        assert!(json.to_string().parse::<Spec>().is_ok());
+    }
+
+    #[test]
+    fn a_view_refuses_unknown_commands_and_non_global_carryovers() {
+        let missing: Spec = "bin \"ex\"\nview \"x\" root=missing\n".parse().unwrap();
+        assert!(missing
+            .for_view("x")
+            .unwrap_err()
+            .to_string()
+            .contains("missing"));
+
+        let local: Spec =
+            "bin \"ex\"\nflag \"--local\"\nview \"x\" root=go { global \"--local\" }\ncmd go\n"
+                .parse()
+                .unwrap();
+        assert!(local
+            .for_view("x")
+            .unwrap_err()
+            .to_string()
+            .contains("not a root global"));
     }
 
     #[test]
