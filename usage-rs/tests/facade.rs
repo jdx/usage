@@ -198,6 +198,31 @@ struct PresentedSubcommands {
     command: Option<ArgumentConflictCommand>,
 }
 
+#[derive(Cli)]
+#[command(bin = "ordered")]
+#[allow(dead_code)]
+struct OrderedHelp {
+    /// Shown second.
+    #[arg(long, global, display_order = 20)]
+    second: bool,
+    /// Shown first.
+    #[arg(long, global, display_order = 10)]
+    first: bool,
+    #[command(subcommand)]
+    command: Option<OrderedCommand>,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum OrderedCommand {
+    /// Shown second.
+    #[command(display_order = 20)]
+    Second,
+    /// Shown first.
+    #[command(display_order = 10)]
+    First,
+}
+
 #[derive(Subcommands, serde::Deserialize)]
 enum InlineCommand {
     /// Run a named benchmark.
@@ -1236,6 +1261,38 @@ fn typed_subcommand_presentation_reaches_help_and_the_spec() {
     let page = usage::argv::help::short_help(spec, &["presented"], &[spec.root]);
     assert!(page.contains("<ACTION>"), "{page}");
     assert!(page.contains("Actions:"), "{page}");
+}
+
+#[test]
+fn explicit_display_order_reaches_help_and_the_portable_spec() {
+    let spec = OrderedHelp::spec();
+    let page = usage::argv::help::short_help(spec, &["ordered"], &[spec.root]);
+    let flags = page.split_once("\nFlags:\n").unwrap().1;
+    assert!(
+        flags.find("--first").unwrap() < flags.find("--second").unwrap(),
+        "{page}"
+    );
+    assert!(
+        page.find("first  Shown first.").unwrap() < page.find("second  Shown second.").unwrap(),
+        "{page}"
+    );
+    let child = &spec.root.subcommands[0];
+    let child_page =
+        usage::argv::help::short_help(spec, &["ordered", child.cmd.name], &[spec.root, child]);
+    let globals = child_page.split_once("\nGlobal flags:\n").unwrap().1;
+    assert!(
+        globals.find("--first").unwrap() < globals.find("--second").unwrap(),
+        "{child_page}"
+    );
+
+    let kdl = OrderedHelp::to_kdl();
+    assert!(kdl.contains("display_order=10"), "{kdl}");
+    assert!(kdl.contains("display_order=20"), "{kdl}");
+    let portable: usage_parser::Spec = kdl.parse().unwrap();
+    assert_eq!(portable.cmd.flags[0].display_order, Some(20));
+    assert_eq!(portable.cmd.flags[1].display_order, Some(10));
+    assert_eq!(portable.cmd.subcommands[0].display_order, Some(20));
+    assert_eq!(portable.cmd.subcommands[1].display_order, Some(10));
 }
 
 #[test]

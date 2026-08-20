@@ -92,6 +92,7 @@ jobs: Option<u32>,
 | `value_names = ["A", "B"]`                              | Distinct placeholders for a fixed multi-value field                                     |
 | `help = "…"` / `long_help = "…"`                        | Help text (doc comments are usually nicer)                                              |
 | `help_heading = "…"`                                    | Group the entry under a heading in help output                                          |
+| `display_order = n`                                     | Explicit help order; positional parsing still follows declaration order                 |
 | `hide`                                                  | Omit from help, docs, and completions                                                   |
 | `required`                                              | Explicit required-ness (for `Vec` fields)                                               |
 | `value_optional`                                        | Mark the value optional in help (help-only; the parser still wants one)                 |

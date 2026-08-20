@@ -1302,6 +1302,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let long_help = option_str(field.long_help.as_deref());
     let env = option_str(field.env.as_deref());
     let help_heading = option_str(field.help_heading.as_deref());
+    let display_order = option_usize(field.display_order);
     let value_name = option_str(field.value_name.as_deref());
     let value_names = &field.value_names;
     let complete_type = option_str(field.complete_type.as_deref());
@@ -1417,6 +1418,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             complete: #completer,
             complete_type: #complete_type,
             flag: &#table,
+            display_order: #display_order,
             help: #help,
             long_help: #long_help,
             env: #env,
@@ -1472,6 +1474,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     let long_help = option_str(field.long_help.as_deref());
     let env = option_str(field.env.as_deref());
     let help_heading = option_str(field.help_heading.as_deref());
+    let display_order = option_usize(field.display_order);
     let complete_type = option_str(field.complete_type.as_deref());
     let value_names = &field.value_names;
     let defaults = &field.default;
@@ -1538,6 +1541,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
             complete: #completer,
             complete_type: #complete_type,
             arg: &#table,
+            display_order: #display_order,
             value_names: &[#(#value_names),*],
             help: #help,
             long_help: #long_help,
@@ -4193,6 +4197,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             // A hidden command still answers to its name; it is simply not offered. Declared on
             // the variant, which is where the command itself is declared.
             let hide = v.hide;
+            let display_order = option_usize(v.display_order);
             quote! {
                 const #hidden_groups: &[&[&str]] = &[
                     <#ty as usage_argv::spec::CommandArgs>::META.hidden_aliases,
@@ -4210,6 +4215,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         after_help: #after_help,
                         after_long_help: #after_long_help,
                         hide: #hide,
+                        display_order: #display_order,
                         hidden_aliases: &#hidden_name,
                         ..*<#ty as usage_argv::spec::CommandArgs>::META
                     };

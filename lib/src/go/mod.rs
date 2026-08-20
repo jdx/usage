@@ -996,6 +996,10 @@ fn command_help(e: &Emitted) -> String {
     if e.cmd.hide {
         fields.push("Hide: true".to_string());
     }
+    if let Some(order) = e.cmd.display_order {
+        fields.push(format!("DisplayOrder: {order}"));
+        fields.push("DisplayOrderSet: true".to_string());
+    }
     if let Some(help) = e.cmd.help.as_deref().or(e.cmd.help_long.as_deref()) {
         fields.push(format!("Short: {}", go_string(help)));
     }
@@ -1075,6 +1079,10 @@ fn flag_help(flag: &SpecFlag, named: &Named) -> String {
     if flag.hide {
         fields.push("Hide: true".to_string());
     }
+    if let Some(order) = flag.display_order {
+        fields.push(format!("DisplayOrder: {order}"));
+        fields.push("DisplayOrderSet: true".to_string());
+    }
     for (name, hidden) in [
         ("HideDefaultValue", flag.hide_default_value),
         ("HideEnv", flag.hide_env),
@@ -1149,6 +1157,10 @@ fn flag_help(flag: &SpecFlag, named: &Named) -> String {
 
 fn arg_help(arg: &SpecArg, named: &Named) -> String {
     let mut fields = vec![format!("Key: {}", named.key)];
+    if let Some(order) = arg.display_order {
+        fields.push(format!("DisplayOrder: {order}"));
+        fields.push("DisplayOrderSet: true".to_string());
+    }
     if arg.hide {
         fields.push("Hide: true".to_string());
     }

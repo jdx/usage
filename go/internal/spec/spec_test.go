@@ -541,6 +541,36 @@ func TestSubcommandsKeepTheOrderTheyWereDeclaredIn(t *testing.T) {
 	}
 }
 
+func TestCommandDisplayOrderSurvivesLoweredJSON(t *testing.T) {
+	var s Spec
+	const lowered = `{"name":"ex","bin":"ex","cmd":{"name":"ex","subcommands":{
+		"late":{"name":"late","display_order":20},"early":{"name":"early","display_order":0}}}}`
+	if err := json.Unmarshal([]byte(lowered), &s); err != nil {
+		t.Fatalf("lowered spec should decode: %v", err)
+	}
+
+	root, _, help := s.BuildAll()
+	for _, tc := range []struct {
+		name  string
+		order uint32
+	}{{"late", 20}, {"early", 0}} {
+		var sub *argv.Command
+		for _, candidate := range root.Subcommands {
+			if candidate.Name == tc.name {
+				sub = candidate
+				break
+			}
+		}
+		if sub == nil {
+			t.Fatalf("missing command %q", tc.name)
+		}
+		meta := help.Lookup(sub.Key)
+		if meta == nil || !meta.DisplayOrderSet || meta.DisplayOrder != tc.order {
+			t.Fatalf("%s display order was lost: %#v", tc.name, meta)
+		}
+	}
+}
+
 // Decoding into a spec that already holds one replaces its commands.
 //
 // A decoder does not get to assume a fresh value: appending to the receiver would

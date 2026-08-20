@@ -35,6 +35,8 @@ pub struct SpecCommand {
     pub full_cmd: Vec<String>,
     pub usage: String,
     pub subcommands: IndexMap<String, SpecCommand>,
+    /// Immediate children in help presentation order, without duplicating their trees.
+    pub help_subcommands: Vec<HelpCommand>,
     pub args: Vec<SpecArg>,
     pub flags: Vec<SpecFlag>,
     /// `flags`, partitioned by `help_heading`. Same flags, same order.
@@ -45,6 +47,7 @@ pub struct SpecCommand {
     pub deprecated: Option<String>,
     pub effect: Option<SpecCommandEffect>,
     pub hide: bool,
+    pub display_order: Option<usize>,
     pub subcommand_required: bool,
     pub subcommand_help_heading: Option<String>,
     pub next_line_help: bool,
@@ -71,6 +74,31 @@ pub struct SpecCommand {
     pub examples: Vec<SpecExample>,
     // pub complete: IndexMap<String, SpecComplete>,
     pub rendered: bool,
+}
+
+/// The fields an immediate child contributes to its parent's command list.
+///
+/// Keeping this separate from [`SpecCommand`] avoids cloning every descendant tree for every
+/// ancestor merely to put one level of command summaries in presentation order.
+#[derive(Debug, Serialize, Clone)]
+pub struct HelpCommand {
+    pub usage: String,
+    pub deprecated: Option<String>,
+    pub aliases: Vec<String>,
+    pub help: Option<String>,
+    pub help_long: Option<String>,
+}
+
+impl From<&SpecCommand> for HelpCommand {
+    fn from(cmd: &SpecCommand) -> Self {
+        Self {
+            usage: cmd.usage.clone(),
+            deprecated: cmd.deprecated.clone(),
+            aliases: cmd.aliases.clone(),
+            help: cmd.help.clone(),
+            help_long: cmd.help_long.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -104,6 +132,7 @@ pub struct SpecFlag {
     pub negate: Option<String>,
     pub env: Option<String>,
     pub help_heading: Option<String>,
+    pub display_order: Option<usize>,
     pub rendered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_rendered: Option<String>,
@@ -382,6 +411,7 @@ pub struct SpecArg {
     pub validate_error: Option<String>,
     pub env: Option<String>,
     pub help_heading: Option<String>,
+    pub display_order: Option<usize>,
     pub rendered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_rendered: Option<String>,
@@ -434,10 +464,10 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 .subcommands
                 .values()
                 .filter(|sub| !sub.hide)
-                .map(crate::SpecCommand::usage)
+                .map(|sub| (sub.display_order.unwrap_or(999), sub.usage()))
                 .collect();
             children.sort();
-            lines.extend(children);
+            lines.extend(children.into_iter().map(|(_, usage)| usage));
             lines
         } else {
             Vec::new()
@@ -445,10 +475,11 @@ impl From<&crate::SpecCommand> for SpecCommand {
 
         // Calculate layout for args
         let args_usage_col_width = max_usage_width(cmd.args.iter().map(|a| a.usage.as_str()));
-        let args: Vec<SpecArg> = cmd
+        let mut args: Vec<(usize, SpecArg)> = cmd
             .args
             .iter()
-            .map(|arg| {
+            .enumerate()
+            .map(|(index, arg)| {
                 let mut spec_arg = SpecArg::from(arg);
 
                 // Get help text (prefer help_long over help)
@@ -465,12 +496,21 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 }
 
                 spec_arg.usage_col_width = args_usage_col_width;
-                spec_arg
+                (index, spec_arg)
             })
             .collect();
+        args.sort_by_key(|(_, arg)| arg.display_order.unwrap_or(999));
+        let args: Vec<SpecArg> = args.into_iter().map(|(_, arg)| arg).collect();
 
         // Calculate layout for flags
-        let flags: Vec<SpecFlag> = cmd.flags.iter().map(SpecFlag::from).collect();
+        let mut flags: Vec<(usize, SpecFlag)> = cmd
+            .flags
+            .iter()
+            .enumerate()
+            .map(|(index, flag)| (index, SpecFlag::from(flag)))
+            .collect();
+        flags.sort_by_key(|(_, flag)| flag.display_order.unwrap_or(999));
+        let flags: Vec<SpecFlag> = flags.into_iter().map(|(_, flag)| flag).collect();
         let flags_usage_col_width = max_usage_width(flags.iter().map(|f| f.display_usage.as_str()));
         let flags: Vec<SpecFlag> = flags
             .into_iter()
@@ -502,6 +542,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             deprecated,
             effect,
             hide,
+            display_order,
             subcommand_required,
             subcommand_help_heading,
             subcommand_value_name: _,
@@ -547,15 +588,38 @@ impl From<&crate::SpecCommand> for SpecCommand {
             groups: _,
         } = cmd;
 
-        let subcommands: IndexMap<_, _> = subcommands
+        let rendered_subcommands: IndexMap<String, SpecCommand> = subcommands
             .iter()
-            .map(|(k, v)| (k.clone(), SpecCommand::from(v)))
+            .map(|(key, command)| (key.clone(), SpecCommand::from(command)))
+            .collect();
+        let mut help_order: Vec<_> = subcommands
+            .iter()
+            .map(|(name, command)| (command.display_order.unwrap_or(999), command.usage(), name))
+            .collect();
+        help_order.sort_by(|a, b| {
+            a.0.cmp(&b.0)
+                .then_with(|| a.1.cmp(&b.1))
+                .then_with(|| a.2.cmp(b.2))
+        });
+        let help_subcommands: Vec<HelpCommand> = help_order
+            .iter()
+            .map(|(_, _, key)| {
+                HelpCommand::from(
+                    rendered_subcommands
+                        .get(*key)
+                        .expect("rendered subcommand retains its key"),
+                )
+            })
             .collect();
         let mut flattened_subcommands = Vec::new();
         if *flatten_help {
-            let mut visible: Vec<_> = subcommands.values().filter(|sub| !sub.hide).collect();
-            visible.sort_by(|a, b| a.name.cmp(&b.name));
-            for sub in visible {
+            for (_, _, key) in help_order {
+                let sub = rendered_subcommands
+                    .get(key)
+                    .expect("rendered subcommand retains its key");
+                if sub.hide {
+                    continue;
+                }
                 let mut section = sub.clone();
                 section.flattened_next_line_help = *next_line_help;
                 flattened_subcommands.push(section);
@@ -566,7 +630,8 @@ impl From<&crate::SpecCommand> for SpecCommand {
         Self {
             full_cmd: full_cmd.clone(),
             usage: usage.clone(),
-            subcommands,
+            subcommands: rendered_subcommands,
+            help_subcommands,
             flag_groups: group_by_heading(&flags, |f| f.help_heading.as_deref()),
             arg_groups: group_by_heading(&args, |a| a.help_heading.as_deref()),
             args,
@@ -574,6 +639,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             deprecated: deprecated.clone(),
             effect: *effect,
             hide: *hide,
+            display_order: *display_order,
             subcommand_required: *subcommand_required,
             subcommand_help_heading: subcommand_help_heading.clone(),
             next_line_help: *next_line_help,
@@ -747,6 +813,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
             negate: flag.negate.clone(),
             env: flag.env.clone(),
             help_heading: flag.help_heading.clone(),
+            display_order: flag.display_order,
             rendered: false,
             help_rendered: None,
             help_is_multiline: false,
@@ -793,6 +860,7 @@ impl From<&crate::SpecArg> for SpecArg {
             validate_error: arg.validate_error.clone(),
             env: arg.env.clone(),
             help_heading: arg.help_heading.clone(),
+            display_order: arg.display_order,
             rendered: false,
             help_rendered: None,
             help_is_multiline: false,

@@ -259,8 +259,13 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 	}
 	out.WriteString("\n" + heading + ":\n")
 
-	// Sorted by the rendered usage rather than by name, as usage-lib sorts them.
-	sortLines(lines, func(i int) string { return lines[i].usage })
+	sort.SliceStable(lines, func(i, j int) bool {
+		left, right := helpOrder(help, lines[i].sub.Key, 999), helpOrder(help, lines[j].sub.Key, 999)
+		if left != right {
+			return left < right
+		}
+		return lines[i].usage < lines[j].usage
+	})
 
 	for _, l := range lines {
 		out.WriteString("  " + l.usage)
@@ -292,7 +297,7 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 
 func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool) {
 	visible := append([]*Command{}, cmd.Subcommands...)
-	sort.Slice(visible, func(i, j int) bool { return visible[i].Name < visible[j].Name })
+	orderCommands(visible, help)
 	for _, sub := range visible {
 		h := help.Lookup(sub.Key)
 		if h != nil && h.Hide {
@@ -319,6 +324,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 			flags = append(flags, f)
 			flagCol = max(flagCol, width(columnUsage(f, allShown(f), help)))
 		}
+		orderFlags(flags, help)
 		for _, a := range args {
 			ah := help.Lookup(a.Key)
 			usage := argUsage(a, ah)
@@ -457,6 +463,34 @@ func headingOf(help HelpTable, key uint64) string {
 	return ""
 }
 
+func helpOrder(help HelpTable, key uint64, fallback int) uint32 {
+	if h := help.Lookup(key); h != nil && h.DisplayOrderSet {
+		return h.DisplayOrder
+	}
+	return uint32(fallback)
+}
+
+func orderCommands(commands []*Command, help HelpTable) {
+	sort.SliceStable(commands, func(i, j int) bool {
+		left, right := helpOrder(help, commands[i].Key, 999), helpOrder(help, commands[j].Key, 999)
+		if left != right {
+			return left < right
+		}
+		return commands[i].Name < commands[j].Name
+	})
+}
+
+func orderFlags(flags []*Flag, help HelpTable) {
+	positions := map[uint64]int{}
+	for i, flag := range flags {
+		positions[flag.Key] = i
+	}
+	sort.SliceStable(flags, func(i, j int) bool {
+		return helpOrder(help, flags[i].Key, positions[flags[i].Key]) <
+			helpOrder(help, flags[j].Key, positions[flags[j].Key])
+	})
+}
+
 func visibleArgs(cmd *Command, help HelpTable, long bool) []*Arg {
 	out := make([]*Arg, 0, len(cmd.Args))
 	for _, a := range cmd.Args {
@@ -467,6 +501,14 @@ func visibleArgs(cmd *Command, help HelpTable, long bool) []*Arg {
 		}
 		out = append(out, a)
 	}
+	positions := map[uint64]int{}
+	for i, arg := range out {
+		positions[arg.Key] = i
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return helpOrder(help, out[i].Key, positions[out[i].Key]) <
+			helpOrder(help, out[j].Key, positions[out[j].Key])
+	})
 	return out
 }
 

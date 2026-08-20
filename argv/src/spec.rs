@@ -711,6 +711,8 @@ pub struct CommandMeta<'a> {
     pub hidden_aliases: &'a [&'a str],
     /// Whether the command is hidden from help and completions.
     pub hide: bool,
+    /// Explicit placement within the parent's command section.
+    pub display_order: Option<usize>,
     /// What running this does to the world, for a caller deciding whether to
     /// confirm first. clap cannot express this, which is why mise keeps a
     /// 330-entry table to bolt it on afterwards.
@@ -778,6 +780,7 @@ impl CommandMeta<'_> {
         long_about: None,
         hidden_aliases: &[],
         hide: false,
+        display_order: None,
         effect: None,
         mount: None,
         restart_token: None,
@@ -805,6 +808,8 @@ impl CommandMeta<'_> {
 #[derive(Debug, Clone, Copy)]
 pub struct FlagMeta<'a> {
     pub flag: &'a Flag<'a>,
+    /// Explicit placement within its help section.
+    pub display_order: Option<usize>,
     /// Short forms accepted by the parser but omitted from help and completion.
     pub hidden_shorts: &'a [u8],
     /// Long forms accepted by the parser but omitted from help and completion.
@@ -913,6 +918,7 @@ impl FlagMeta<'_> {
         complete: None,
         complete_type: None,
         flag: &Flag::BOOL,
+        display_order: None,
         hidden_shorts: &[],
         hidden_longs: &[],
         help: None,
@@ -989,6 +995,8 @@ pub struct DefaultIf<'a> {
 #[derive(Debug, Clone, Copy)]
 pub struct ArgMeta<'a> {
     pub arg: &'a Arg<'a>,
+    /// Explicit placement within its help section.
+    pub display_order: Option<usize>,
     /// Ordered placeholders for a fixed-arity positional.
     pub value_names: &'a [&'a str],
     pub help: Option<&'a str>,
@@ -1044,6 +1052,7 @@ impl ArgMeta<'_> {
         complete: None,
         complete_type: None,
         arg: &Arg::REQUIRED,
+        display_order: None,
         value_names: &[],
         help: None,
         long_help: None,
@@ -1486,6 +1495,9 @@ fn write_command<'a>(
     if meta.subcommand_required && !meta.cmd.subcommands.is_empty() {
         out.push_str(" subcommand_required=#true");
     }
+    if let Some(order) = meta.display_order {
+        write!(out, " display_order={order}")?;
+    }
     if let Some(heading) = meta.subcommand_help_heading {
         write!(out, " subcommand_help_heading={}", quoted(heading))?;
     }
@@ -1688,6 +1700,9 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     }
     if let Some(heading) = meta.help_heading {
         write!(out, " help_heading={}", quoted(heading))?;
+    }
+    if let Some(order) = meta.display_order {
+        write!(out, " display_order={order}")?;
     }
     if let Some(effect) = meta.effect {
         write!(out, " effect={}", quoted(effect.as_str()))?;
@@ -1997,6 +2012,9 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     }
     if let Some(heading) = meta.help_heading {
         write!(out, " help_heading={}", quoted(heading))?;
+    }
+    if let Some(order) = meta.display_order {
+        write!(out, " display_order={order}")?;
     }
     if let Some(env) = meta.env {
         write!(out, " env={}", quoted(env))?;

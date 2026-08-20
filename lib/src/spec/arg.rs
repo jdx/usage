@@ -168,6 +168,9 @@ pub struct SpecArg {
     /// like the flag field of the same name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_heading: Option<String>,
+    /// Explicit placement within its help section.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_order: Option<usize>,
 }
 
 impl SpecArg {
@@ -242,6 +245,7 @@ impl SpecArg {
                 "validate" => arg.validate = v.ensure_string().map(Some)?,
                 "validate_error" => arg.validate_error = v.ensure_string().map(Some)?,
                 "help_heading" => arg.help_heading = v.ensure_string().map(Some)?,
+                "display_order" => arg.display_order = v.ensure_usize().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported arg key {k}"),
             }
         }
@@ -270,6 +274,9 @@ impl SpecArg {
                 }
                 "help_heading" => {
                     arg.help_heading = child.arg(0)?.ensure_string().map(Some)?;
+                }
+                "display_order" => {
+                    arg.display_order = child.arg(0)?.ensure_usize().map(Some)?;
                 }
                 "default" => {
                     // Support both single value and multiple values
@@ -560,6 +567,9 @@ impl From<&SpecArg> for KdlNode {
         }
         if let Some(help_heading) = &arg.help_heading {
             node.push(string_entry(Some("help_heading"), help_heading));
+        }
+        if let Some(order) = arg.display_order {
+            node.push(KdlEntry::new_prop("display_order", order as i128));
         }
         if let Some(effect) = &arg.effect {
             node.push(string_entry(Some("effect"), effect.as_str()));
@@ -970,6 +980,7 @@ impl From<&clap::Arg> for SpecArg {
             effect: None,
             env: None,
             help_heading: arg.get_help_heading().map(|s| s.to_string()),
+            display_order: Some(arg.get_display_order()),
         };
         arg.choices = choices;
 

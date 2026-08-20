@@ -72,6 +72,9 @@ pub struct SpecCommand {
     pub unknown_flags: Option<UnknownFlags>,
     /// Whether to hide this command from help output
     pub hide: bool,
+    /// Explicit placement within its parent's command section.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_order: Option<usize>,
     /// True when this command came from a [`SpecMount`], i.e. it describes another
     /// program's CLI that was merged in at parse time.
     ///
@@ -205,6 +208,7 @@ impl Default for SpecCommand {
             effect: None,
             unknown_flags: None,
             hide: false,
+            display_order: None,
             mounted: false,
             flags_from_mount: false,
             subcommand_required: false,
@@ -348,6 +352,7 @@ impl SpecCommand {
                 }
                 "allow_missing_positional" => cmd.allow_missing_positional = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
+                "display_order" => cmd.display_order = Some(v.ensure_usize()?),
                 "unknown_flags" => {
                     let raw = v.ensure_string()?;
                     match raw.parse() {
@@ -638,6 +643,7 @@ impl SpecCommand {
             hidden_aliases,
             examples,
             hide,
+            display_order,
             subcommand_required,
             subcommand_help_heading,
             subcommand_value_name,
@@ -724,6 +730,9 @@ impl SpecCommand {
             self.examples = examples;
         }
         self.hide = hide;
+        if display_order.is_some() {
+            self.display_order = display_order;
+        }
         self.subcommand_required = subcommand_required;
         if subcommand_help_heading.is_some() {
             self.subcommand_help_heading = subcommand_help_heading;
@@ -848,6 +857,7 @@ impl From<&SpecCommand> for KdlNode {
         let SpecCommand {
             name,
             hide,
+            display_order,
             subcommand_required,
             subcommand_help_heading,
             subcommand_value_name,
@@ -896,6 +906,10 @@ impl From<&SpecCommand> for KdlNode {
         node.entries_mut().push(name.clone().into());
         if *hide {
             node.entries_mut().push(KdlEntry::new_prop("hide", true));
+        }
+        if let Some(order) = display_order {
+            node.entries_mut()
+                .push(KdlEntry::new_prop("display_order", *order as i128));
         }
         if *subcommand_required {
             node.entries_mut()
@@ -1172,6 +1186,28 @@ impl From<&clap::Command> for SpecCommand {
                 spec.flags.push(flag)
             }
         }
+        // clap assigns an implicit monotonically increasing order to arguments. Emitting
+        // that number for every ordinary declaration makes generated specs noisy without
+        // changing presentation, since usage already retains declaration order. Keep the
+        // values only when they actually reorder a section.
+        if spec
+            .args
+            .windows(2)
+            .all(|pair| pair[0].display_order <= pair[1].display_order)
+        {
+            for arg in &mut spec.args {
+                arg.display_order = None;
+            }
+        }
+        if spec
+            .flags
+            .windows(2)
+            .all(|pair| pair[0].display_order <= pair[1].display_order)
+        {
+            for flag in &mut spec.flags {
+                flag.display_order = None;
+            }
+        }
         // Groups, which clap does expose — `get_groups`, and `get_args` on each. A group
         // names its members by clap's internal id, so each is resolved back to the flag it
         // points at and written as a selector, the way conflicts are just above.
@@ -1233,7 +1269,20 @@ impl From<&clap::Command> for SpecCommand {
         for subcmd in cmd.get_subcommands() {
             let mut scmd: SpecCommand = subcmd.into();
             scmd.name = subcmd.get_name().to_string();
+            scmd.display_order = Some(subcmd.get_display_order());
             spec.subcommands.insert(scmd.name.clone(), scmd);
+        }
+        // 999 is clap's ordinary subcommand order. Leaving every command at that value lets
+        // usage's existing alphabetical tie-breaker produce the same page without serializing
+        // redundant metadata.
+        if spec
+            .subcommands
+            .iter()
+            .all(|(_, subcommand)| subcommand.display_order == Some(999))
+        {
+            for (_, subcommand) in &mut spec.subcommands {
+                subcommand.display_order = None;
+            }
         }
         spec
     }

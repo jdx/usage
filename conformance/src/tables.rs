@@ -143,6 +143,7 @@ pub fn build(
                 .into_boxed_slice(),
         ),
         hide: cmd.hide,
+        display_order: cmd.display_order,
         effect: cmd.effect.map(effect),
         // A command carries at most one mount in the tables; a spec may list several, and the
         // first is the one the tables can hold.
@@ -420,6 +421,7 @@ fn flag_meta(
         required_unless: strs(&f.required_unless),
         required_unless_all: strs(&f.required_unless_all),
         help_heading: opt(&f.help_heading),
+        display_order: f.display_order,
         effect: f.effect.map(effect),
         complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
         complete: NO_COMPLETER,
@@ -448,6 +450,7 @@ fn arg_meta(
         validate_error: a.validate_error.as_deref().map(leak),
         required: a.required,
         hide: a.hide,
+        display_order: a.display_order,
         hide_default_value: a.hide_default_value,
         hide_env: a.hide_env,
         hide_env_values: a.hide_env_values,

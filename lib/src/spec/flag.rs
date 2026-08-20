@@ -246,6 +246,9 @@ pub struct SpecFlag {
     /// it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_heading: Option<String>,
+    /// Explicit placement within its help section.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_order: Option<usize>,
 }
 
 impl SpecFlag {
@@ -325,6 +328,7 @@ impl SpecFlag {
                 }
                 "env" => flag.env = v.ensure_string().map(Some)?,
                 "help_heading" => flag.help_heading = v.ensure_string().map(Some)?,
+                "display_order" => flag.display_order = v.ensure_usize().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported flag key {k}"),
             }
         }
@@ -451,6 +455,9 @@ impl SpecFlag {
                 "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
                 "help_heading" => {
                     flag.help_heading = child.arg(0)?.ensure_string().map(Some)?;
+                }
+                "display_order" => {
+                    flag.display_order = child.arg(0)?.ensure_usize().map(Some)?;
                 }
                 "alias" => {
                     let hide = child
@@ -904,6 +911,9 @@ impl From<&SpecFlag> for KdlNode {
         if let Some(help_heading) = &flag.help_heading {
             node.push(string_entry(Some("help_heading"), help_heading));
         }
+        if let Some(order) = flag.display_order {
+            node.push(KdlEntry::new_prop("display_order", order as i128));
+        }
         if let Some(effect) = &flag.effect {
             node.push(string_entry(Some("effect"), effect.as_str()));
         }
@@ -1160,6 +1170,7 @@ impl From<&clap::Arg> for SpecFlag {
             effect: None,
             env: None,
             help_heading: c.get_help_heading().map(|s| s.to_string()),
+            display_order: Some(c.get_display_order()),
         };
         if c.is_allow_hyphen_values_set() {
             if let Some(arg) = &mut flag.arg {
