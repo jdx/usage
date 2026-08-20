@@ -169,6 +169,13 @@ fn render(spec: &Spec, spec_path: &Path, dialect: Dialect) -> (String, Skipped) 
             multicall: spec.multicall,
             about: spec.about.as_deref(),
             about_long: spec.about_long.as_deref(),
+            author: spec.author.as_deref(),
+            license: spec.license.as_deref(),
+            repository: spec.repository.as_deref(),
+            before_help: spec.before_help.as_deref(),
+            before_help_long: spec.before_help_long.as_deref(),
+            after_help: spec.after_help.as_deref(),
+            after_help_long: spec.after_help_long.as_deref(),
             dialect,
             skipped: &mut skipped,
             names: &mut names,
@@ -293,9 +300,51 @@ struct Run<'a> {
     /// The spec's own description, which belongs to the root.
     about: Option<&'a str>,
     about_long: Option<&'a str>,
+    author: Option<&'a str>,
+    license: Option<&'a str>,
+    repository: Option<&'a str>,
+    before_help: Option<&'a str>,
+    before_help_long: Option<&'a str>,
+    after_help: Option<&'a str>,
+    after_help_long: Option<&'a str>,
     dialect: Dialect,
     skipped: &'a mut Skipped,
     names: &'a mut Names,
+}
+
+fn emit_clap_groups(out: &mut String, groups: &[SpecGroup]) {
+    if !groups.is_empty() {
+        // Disable clap's implicit Args group, which otherwise includes every field in the
+        // struct. The portable groups below name only their declared members through each
+        // field's `group = ...` attribute.
+        out.push_str("#[group(skip)]\n");
+    }
+    for group in groups {
+        writeln!(
+            out,
+            "#[command(group = ::clap::ArgGroup::new({:?}).required({}).multiple({}))]",
+            group.name, group.required, group.multiple
+        )
+        .expect("writing to a String");
+    }
+}
+
+fn group_for_selectors<'a>(
+    groups: &'a [SpecGroup],
+    selectors: &[String],
+    skipped: &mut Skipped,
+) -> Option<&'a str> {
+    let mut matches = groups.iter().filter(|group| {
+        group
+            .members
+            .iter()
+            .any(|member| selectors.contains(member))
+    });
+    let first = matches.next();
+    if matches.next().is_some() {
+        skipped.note("an argument in more than one group");
+    }
+    first.map(|group| group.name.as_str())
 }
 
 fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, run: &mut Run) {
@@ -317,12 +366,7 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             run.skipped.note("a command's second and later mounts");
         }
     }
-    // Counted rather than emitted, in *both* dialects. Both can express a group — the
-    // derive with `group(…)` and clap with `ArgGroup` — so this is a gap in the shadow
-    // generator rather than in either target, and no spec in the fleet declares one yet
-    // for it to matter to. It is counted so the report cannot claim the shadow expressed
-    // a whole spec that it did not.
-    if !cmd.groups.is_empty() {
+    if !cmd.groups.is_empty() && matches!(run.dialect, Dialect::Argh | Dialect::Bpaf) {
         run.skipped.note("a `group` on a command");
     }
     for (_, sub, sub_ty) in &children {
@@ -381,18 +425,57 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         if let Some(version) = run.version {
             usage_opts.push(format!("version = {version:?}"));
         }
+        if let Some(author) = run.author {
+            usage_opts.push(format!("author = {author:?}"));
+        }
+        if let Some(license) = run.license {
+            usage_opts.push(format!("license = {license:?}"));
+        }
+        if let Some(repository) = run.repository {
+            usage_opts.push(format!("repository = {repository:?}"));
+        }
         usage_opts.extend(declared_about.iter().cloned());
     }
     // Text around the rest of the page. clap spells the long forms the same way, so both
     // dialects can carry them.
     for (node, text) in [
-        ("before_help", cmd.before_help.as_deref()),
-        ("before_long_help", cmd.before_help_long.as_deref()),
-        ("after_help", cmd.after_help.as_deref()),
-        ("after_long_help", cmd.after_help_long.as_deref()),
+        (
+            "before_help",
+            if is_root {
+                run.before_help
+            } else {
+                cmd.before_help.as_deref()
+            },
+        ),
+        (
+            "before_long_help",
+            if is_root {
+                run.before_help_long
+            } else {
+                cmd.before_help_long.as_deref()
+            },
+        ),
+        (
+            "after_help",
+            if is_root {
+                run.after_help
+            } else {
+                cmd.after_help.as_deref()
+            },
+        ),
+        (
+            "after_long_help",
+            if is_root {
+                run.after_help_long
+            } else {
+                cmd.after_help_long.as_deref()
+            },
+        ),
     ] {
         if let Some(text) = text.filter(|t| !t.trim().is_empty()) {
-            usage_opts.push(format!("{node} = {:?}", text.trim_end()));
+            // Trailing newlines are page layout, not incidental source whitespace: the
+            // reference renderer preserves them before author/license footers.
+            usage_opts.push(format!("{node} = {text:?}"));
         }
     }
 
@@ -437,6 +520,33 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
     if is_root && run.multicall {
         usage_opts.push("multicall".into());
     }
+    if dialect == Dialect::Usage {
+        for (enabled, attr) in [
+            (cmd.disable_help_flag, "disable_help_flag"),
+            (cmd.disable_help_subcommand, "disable_help_subcommand"),
+            (cmd.disable_version_flag, "disable_version_flag"),
+        ] {
+            if enabled {
+                usage_opts.push(attr.into());
+            }
+        }
+    }
+    if dialect == Dialect::Usage {
+        for group in &cmd.groups {
+            let mut properties = Vec::new();
+            if group.required {
+                properties.push("required");
+            }
+            if group.multiple {
+                properties.push("multiple");
+            }
+            let suffix = properties
+                .iter()
+                .map(|property| format!(", {property}"))
+                .collect::<String>();
+            usage_opts.push(format!("group({:?}{suffix})", group.name));
+        }
+    }
     match (is_root, dialect) {
         (true, Dialect::Usage) => {
             out.push_str("#[derive(Cli)]\n");
@@ -444,6 +554,7 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         }
         (true, Dialect::Clap) => {
             out.push_str("#[derive(Parser)]\n");
+            emit_clap_groups(out, &cmd.groups);
             // The descriptions go here too when a comment cannot carry them. clap takes an
             // independent `about` and `long_about`, and skipping the comment without writing
             // them left the clap shadow not describing the program at all — a fixture for
@@ -469,7 +580,10 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
                 out.push_str(&format!("#[usage({})]\n", usage_opts.join(", ")));
             }
         }
-        (false, Dialect::Clap) => out.push_str("#[derive(Args)]\n"),
+        (false, Dialect::Clap) => {
+            out.push_str("#[derive(Args)]\n");
+            emit_clap_groups(out, &cmd.groups);
+        }
         // argh declares the command's *name* on the struct rather than on the variant that
         // holds it, so this is where a subcommand says what it answers to.
         (true, Dialect::Argh) => out.push_str("#[derive(FromArgs)]\n"),
@@ -506,7 +620,11 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         .flags
         .iter()
         .filter_map(|flag| {
-            let long = flag.long.first().cloned();
+            let long = flag
+                .long
+                .iter()
+                .find(|long| !flag.hidden_aliases.contains(*long))
+                .cloned();
             if long.is_none() && flag.short.is_empty() {
                 run.skipped.note("a flag with no long or short form");
                 return None;
@@ -514,6 +632,11 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             let field = fields.claim(long.as_deref().unwrap_or(&flag.name));
             Some((flag, long, field))
         })
+        .collect();
+    let args: Vec<(&SpecArg, String)> = cmd
+        .args
+        .iter()
+        .map(|arg| (arg, fields.claim(&arg.name)))
         .collect();
     let ids: BTreeMap<String, String> = flags
         .iter()
@@ -524,9 +647,31 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
                 .chain(flag.short.iter().map(|s| format!("-{s}")))
                 .map(move |selector| (selector, field.clone()))
         })
+        .chain(
+            args.iter()
+                .map(|(arg, field)| (arg.name.clone(), field.clone())),
+        )
         .collect();
     for (flag, long, field) in &flags {
-        emit_flag(out, flag, long.clone(), field, dialect, &ids, run.skipped);
+        let selectors = flag
+            .long
+            .iter()
+            .map(|name| format!("--{name}"))
+            .chain(flag.short.iter().map(|name| format!("-{name}")))
+            .collect::<Vec<_>>();
+        let group = group_for_selectors(&cmd.groups, &selectors, run.skipped);
+        emit_flag(
+            out,
+            flag,
+            FlagField {
+                long: long.as_deref(),
+                rust: field,
+                group,
+            },
+            dialect,
+            &ids,
+            run.skipped,
+        );
     }
     // A positional beside a subcommand is a grammar neither argh nor bpaf can express: the
     // positional wins, so the command word lands in it and the subcommand is never reached.
@@ -538,15 +683,24 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         && !cmd.args.is_empty()
         && matches!(dialect, Dialect::Argh | Dialect::Bpaf);
     if drop_positionals {
-        for _ in &cmd.args {
+        for _ in &args {
             run.skipped
                 .note("a positional on a command that also has subcommands");
         }
     } else {
-        let last_arg = cmd.args.len().saturating_sub(1);
-        for (at, arg) in cmd.args.iter().enumerate() {
-            let field = fields.claim(&arg.name);
-            emit_arg(out, arg, &field, dialect, at == last_arg, run.skipped);
+        let last_arg = args.len().saturating_sub(1);
+        for (at, (arg, field)) in args.iter().enumerate() {
+            let group =
+                group_for_selectors(&cmd.groups, ::std::slice::from_ref(&arg.name), run.skipped);
+            emit_arg(
+                out,
+                arg,
+                ArgField { rust: field, group },
+                dialect,
+                &ids,
+                at == last_arg,
+                run.skipped,
+            );
         }
     }
     if !ty.subcommands.is_empty() {
@@ -647,6 +801,9 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
                         sub.help_long.as_deref(),
                         true,
                     ));
+                    if sub.hide {
+                        opts.push("hide = true".into());
+                    }
                     match sub.aliases.as_slice() {
                         [] => {}
                         [one] => opts.push(format!("visible_alias = {one:?}")),
@@ -780,11 +937,16 @@ fn flag_defaults(flag: &SpecFlag) -> &[String] {
     }
 }
 
+struct FlagField<'a> {
+    long: Option<&'a str>,
+    rust: &'a str,
+    group: Option<&'a str>,
+}
+
 fn emit_flag(
     out: &mut String,
     flag: &SpecFlag,
-    long: Option<String>,
-    field: &str,
+    field: FlagField<'_>,
     dialect: Dialect,
     ids: &BTreeMap<String, String>,
     skipped: &mut Skipped,
@@ -798,23 +960,24 @@ fn emit_flag(
         flag.help_long.as_deref(),
         1,
         dialect,
-        field,
+        field.rust,
     );
     let ty = flag_type(flag, dialect);
     let opts = match dialect {
-        Dialect::Usage => usage_flag_opts(flag, long.as_deref(), ty, skipped),
-        Dialect::Clap => clap_flag_opts(flag, long.as_deref(), ids, skipped),
-        Dialect::Argh => argh_flag_opts(flag, long.as_deref(), skipped),
-        Dialect::Bpaf => bpaf_flag_opts(flag, long.as_deref(), skipped),
+        Dialect::Usage => usage_flag_opts(flag, field.long, ty, field.group, skipped),
+        Dialect::Clap => clap_flag_opts(flag, field.long, ids, field.group, skipped),
+        Dialect::Argh => argh_flag_opts(flag, field.long, skipped),
+        Dialect::Bpaf => bpaf_flag_opts(flag, field.long, skipped),
     };
     writeln!(out, "    #[{}({})]", dialect.attr(), opts.join(", ")).expect("writing to a String");
-    writeln!(out, "    pub {field}: {ty},").expect("writing to a String");
+    writeln!(out, "    pub {}: {ty},", field.rust).expect("writing to a String");
 }
 
 fn usage_flag_opts(
     flag: &SpecFlag,
     long: Option<&str>,
     ty: &str,
+    group: Option<&str>,
     skipped: &mut Skipped,
 ) -> Vec<String> {
     // `flag.help_long`, not `long` — that is the flag's long *name*, which every other caller of
@@ -830,12 +993,17 @@ fn usage_flag_opts(
     if let Some(long) = long {
         opts.push(format!("long = {long:?}"));
     }
-    // Every *other* long, in the order the spec gives them. The derive takes `long` more than
+    // Every *other visible* long, in the order the spec gives them. The derive takes `long` more than
     // once and the parse table holds a list, so a flag written `-p --path --file` is expressible
     // exactly — it was being dropped here, and the drop was invisible in the help comparison
     // (which renders one long form per flag) until a completion offered every name.
-    for extra in flag.long.iter().skip(1) {
+    for extra in flag.long.iter().filter(|candidate| {
+        Some(candidate.as_str()) != long && !flag.hidden_aliases.contains(*candidate)
+    }) {
         opts.push(format!("long = {extra:?}"));
+    }
+    if !flag.hidden_aliases.is_empty() {
+        opts.push(selector_list("alias", &flag.hidden_aliases));
     }
     for short in &flag.short {
         opts.push(format!("short = {short:?}"));
@@ -846,8 +1014,23 @@ fn usage_flag_opts(
     if flag.global {
         opts.push("global".into());
     }
+    if let Some(group) = group {
+        opts.push(format!("group = {group:?}"));
+    }
     if flag.hide {
         opts.push("hide".into());
+    }
+    if flag.hide_default_value {
+        opts.push("hide_default_value".into());
+    }
+    if flag.hide_env {
+        opts.push("hide_env".into());
+    }
+    if flag.hide_env_values {
+        opts.push("hide_env_values".into());
+    }
+    if flag.hide_possible_values {
+        opts.push("hide_possible_values".into());
     }
     if flag.count {
         opts.push("count".into());
@@ -970,7 +1153,7 @@ fn usage_flag_opts(
         }
     }
     if flag.required && flag.arg.is_none() {
-        skipped.note("`required` on a flag that takes no value");
+        opts.push("required".into());
     }
 
     opts
@@ -980,6 +1163,7 @@ fn clap_flag_opts(
     flag: &SpecFlag,
     long: Option<&str>,
     ids: &BTreeMap<String, String>,
+    group: Option<&str>,
     skipped: &mut Skipped,
 ) -> Vec<String> {
     let mut opts: Vec<String> =
@@ -1032,6 +1216,9 @@ fn clap_flag_opts(
     if flag.global {
         opts.push("global = true".into());
     }
+    if let Some(group) = group {
+        opts.push(format!("group = {group:?}"));
+    }
     if flag.hide {
         opts.push("hide = true".into());
     }
@@ -1045,16 +1232,11 @@ fn clap_flag_opts(
         opts.push(format!("help_heading = {heading:?}"));
     }
     // A relationship names the field it points at, so a selector the struct does not
-    // declare is dropped rather than guessed at.
-    // `requires` is the one asymmetric entry: clap has the setter, so the shadow can write
-    // it, and clap exposes no getter, so a spec regenerated from that command comes back
-    // without it. Counted rather than emitted, because the shadow's job is to say what the
-    // clap dialect can carry *round trip* — writing it and silently losing it on the way
-    // back would make the clap side look more faithful than it is.
-    if !flag.requires.is_empty() {
-        skipped.note("`requires` on a flag");
-    }
+    // declare is dropped rather than guessed at. clap cannot expose `requires` again through
+    // Command introspection, but its derive can enforce the declaration. This shadow measures
+    // parser behavior, so keeping the setter is more faithful than dropping the policy.
     for (option, selectors) in [
+        ("requires", &flag.requires),
         ("overrides_with", &flag.overrides),
         ("conflicts_with", &flag.conflicts),
         ("required_unless_present", &flag.required_unless),
@@ -1113,7 +1295,7 @@ fn clap_flag_opts(
             opts.push("required = true".into());
         }
     } else if flag.required {
-        skipped.note("`required` on a flag that takes no value");
+        opts.push("required = true".into());
     }
     opts
 }
@@ -1321,11 +1503,17 @@ fn bpaf_flag_opts(flag: &SpecFlag, long: Option<&str>, skipped: &mut Skipped) ->
     opts
 }
 
+struct ArgField<'a> {
+    rust: &'a str,
+    group: Option<&'a str>,
+}
+
 fn emit_arg(
     out: &mut String,
     arg: &SpecArg,
-    field: &str,
+    field: ArgField<'_>,
     dialect: Dialect,
+    ids: &BTreeMap<String, String>,
     last: bool,
     skipped: &mut Skipped,
 ) {
@@ -1335,7 +1523,7 @@ fn emit_arg(
         arg.help_long.as_deref(),
         1,
         dialect,
-        field,
+        field.rust,
     );
     // argh allows `Option` or `Vec` in the last position only, so an optional or variadic
     // positional with another behind it has to be declared required. mise has nine, and the
@@ -1350,20 +1538,56 @@ fn emit_arg(
         arg_type(arg, dialect)
     };
     let opts = match dialect {
-        Dialect::Usage => usage_arg_opts(arg, skipped),
-        Dialect::Clap => clap_arg_opts(arg, skipped),
+        Dialect::Usage => usage_arg_opts(arg, field.group, skipped),
+        Dialect::Clap => clap_arg_opts(arg, field.group, ids, skipped),
         Dialect::Argh => argh_arg_opts(arg, skipped),
         Dialect::Bpaf => bpaf_arg_opts(arg, skipped),
     };
     writeln!(out, "    #[{}({})]", dialect.attr(), opts.join(", ")).expect("writing to a String");
-    writeln!(out, "    pub {field}: {ty},").expect("writing to a String");
+    writeln!(out, "    pub {}: {ty},", field.rust).expect("writing to a String");
 }
 
-fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
+fn usage_arg_opts(arg: &SpecArg, group: Option<&str>, skipped: &mut Skipped) -> Vec<String> {
     let mut opts: Vec<String> = vec!["arg".into(), format!("name = {:?}", arg.name)];
     opts.extend(declared_help(arg.help.as_deref(), arg.help_long.as_deref()));
     if arg.hide {
         opts.push("hide".into());
+    }
+    if let Some(group) = group {
+        opts.push(format!("group = {group:?}"));
+    }
+    if !arg.conflicts.is_empty() {
+        opts.push(selector_list("conflicts", &arg.conflicts));
+    }
+    if !arg.requires.is_empty() {
+        opts.push(selector_list("requires", &arg.requires));
+    }
+    if !arg.required_if.is_empty() {
+        opts.push(selector_list("required_if", &arg.required_if));
+    }
+    for condition in &arg.required_if_eq {
+        opts.push(format!(
+            "required_if_eq({:?}, {:?})",
+            condition.selector, condition.value
+        ));
+    }
+    if !arg.required_if_eq_all.is_empty() {
+        let conditions = arg
+            .required_if_eq_all
+            .iter()
+            .map(|condition| format!("({:?}, {:?})", condition.selector, condition.value))
+            .collect::<Vec<_>>()
+            .join(", ");
+        opts.push(format!("required_if_eq_all = [{conditions}]"));
+    }
+    if !arg.required_unless.is_empty() {
+        opts.push(selector_list("required_unless", &arg.required_unless));
+    }
+    if !arg.required_unless_all.is_empty() {
+        opts.push(selector_list(
+            "required_unless_all",
+            &arg.required_unless_all,
+        ));
     }
     // The derive refuses `effect` on a positional: supplying a flag changes what
     // happens; a positional is the thing being acted on. Counted rather than
@@ -1415,7 +1639,12 @@ fn usage_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
     opts
 }
 
-fn clap_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
+fn clap_arg_opts(
+    arg: &SpecArg,
+    group: Option<&str>,
+    ids: &BTreeMap<String, String>,
+    skipped: &mut Skipped,
+) -> Vec<String> {
     let mut opts: Vec<String> = vec![format!("value_name = {:?}", arg.name)];
     // clap reads a `Vec` as optional whatever the spec says, so a required variadic has to say
     // so — the same declaration the usage dialect needed, for the same reason.
@@ -1429,6 +1658,21 @@ fn clap_arg_opts(arg: &SpecArg, skipped: &mut Skipped) -> Vec<String> {
     ));
     if arg.hide {
         opts.push("hide = true".into());
+    }
+    if let Some(group) = group {
+        opts.push(format!("group = {group:?}"));
+    }
+    for (option, selectors) in [
+        ("requires", &arg.requires),
+        ("conflicts_with", &arg.conflicts),
+        ("required_unless_present", &arg.required_unless),
+    ] {
+        for selector in selectors {
+            match ids.get(selector) {
+                Some(id) => opts.push(format!("{option} = {id:?}")),
+                None => skipped.note("a positional relationship naming another command"),
+            }
+        }
     }
     if arg.effect.is_some() {
         skipped.note("`effect` on an argument");
@@ -2085,6 +2329,95 @@ mod tests {
         );
         assert!(out.contains("var_min = 1"), "{out}");
         assert!(out.contains("var_max = 5"), "{out}");
+    }
+
+    #[test]
+    fn the_usage_shadow_keeps_required_switches_and_groups() {
+        let spec = "name \"ex\"\nbin \"ex\"\n\
+            group \"source\" \"--brew\" \"--uv\" required=#true multiple=#true\n\
+            flag \"--brew\" required=#true\nflag \"--uv\"\n";
+        let (out, skipped) = rendered_as(spec, Dialect::Usage);
+
+        assert!(
+            out.contains(r#"group("source", required, multiple)"#),
+            "{out}"
+        );
+        assert!(
+            out.contains(r#"long = "brew", group = "source", required"#),
+            "{out}"
+        );
+        assert!(out.contains(r#"long = "uv", group = "source""#), "{out}");
+        assert!(skipped.counts.is_empty(), "{:?}", skipped.counts);
+    }
+
+    #[test]
+    fn a_clap_group_skips_fields_that_are_not_members() {
+        let spec = "name \"ex\"\nbin \"ex\"\n\
+            group \"source\" \"--brew\" \"--uv\"\n\
+            flag \"--brew\"\nflag \"--uv\"\nflag \"--verbose\"\narg \"[task]\"\n";
+        let (out, skipped) = rendered_as(spec, Dialect::Clap);
+
+        assert!(out.contains("#[group(skip)]"), "{out}");
+        assert!(
+            out.contains(
+                r#"#[command(group = ::clap::ArgGroup::new("source").required(false).multiple(false))]"#
+            ) && out.contains(r#"#[arg(long = "brew", group = "source")]"#)
+                && out.contains(r#"#[arg(long = "uv", group = "source")]"#)
+                && out.contains(r#"#[arg(long = "verbose")]"#)
+                && out.contains(r#"#[arg(value_name = "task")]"#),
+            "{out}"
+        );
+        assert!(skipped.counts.is_empty(), "{:?}", skipped.counts);
+    }
+
+    #[test]
+    fn the_usage_shadow_keeps_help_visibility_metadata() {
+        let spec = "name \"ex\"\nbin \"ex\"\ndisable_help_flag #true\n\
+            flag \"--mode <MODE>\" default=fast env=EX_MODE \
+            hide_default_value=#true hide_env=#true hide_env_values=#true \
+            hide_possible_values=#true\n";
+        let (out, _) = rendered_as(spec, Dialect::Usage);
+
+        for declaration in [
+            "disable_help_flag",
+            "hide_default_value",
+            "hide_env",
+            "hide_env_values",
+            "hide_possible_values",
+        ] {
+            assert!(out.contains(declaration), "missing {declaration}: {out}");
+        }
+    }
+
+    #[test]
+    fn the_usage_shadow_keeps_hidden_long_aliases_hidden() {
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"--remove\" {\n  alias \"--rm\" \"--unset\" hide=#true\n}\n";
+        let (out, skipped) = rendered_as(spec, Dialect::Usage);
+
+        assert!(out.contains(r#"long = "remove""#), "{out}");
+        assert!(out.contains(r#"alias("rm", "unset")"#), "{out}");
+        assert!(!out.contains(r#"long = "rm""#), "{out}");
+        assert!(!out.contains(r#"long = "unset""#), "{out}");
+        assert!(skipped.counts.is_empty(), "{:?}", skipped.counts);
+    }
+
+    #[test]
+    fn both_typed_shadows_keep_positional_relationships() {
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"--all\" requires=ITEM\narg \"[ITEM]\" conflicts=--all required_unless=--all requires=--all\n";
+        let (out, skipped) = rendered_as(spec, Dialect::Usage);
+
+        assert!(out.contains(r#"requires = "ITEM""#), "{out}");
+        assert!(out.contains(r#"requires = "--all""#), "{out}");
+        assert!(out.contains(r#"conflicts = "--all""#), "{out}");
+        assert!(out.contains(r#"required_unless = "--all""#), "{out}");
+        assert!(skipped.counts.is_empty(), "{:?}", skipped.counts);
+
+        let (out, skipped) = rendered_as(spec, Dialect::Clap);
+        assert!(out.contains(r#"requires = "item""#), "{out}");
+        assert!(out.contains(r#"requires = "all""#), "{out}");
+        assert!(out.contains(r#"conflicts_with = "all""#), "{out}");
+        assert!(out.contains(r#"required_unless_present = "all""#), "{out}");
+        assert!(skipped.counts.is_empty(), "{:?}", skipped.counts);
     }
 
     #[test]

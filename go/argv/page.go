@@ -32,6 +32,9 @@ type HelpSpec struct {
 	About string
 	// LongAbout is what `--help` prefers over About.
 	LongAbout string
+	// Author and License are printed at the end of every long page.
+	Author  string
+	License string
 	// BeforeHelp and AfterHelp bracket every page that does not override them,
 	// and the long variants are what `--help` prefers.
 	BeforeHelp     string

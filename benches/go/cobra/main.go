@@ -28,7 +28,7 @@ func build() *cobra.Command {
 	root.PersistentFlags().StringArrayP("env", "E", nil, "Set the environment for loading `mise.<ENV>.toml`")
 	root.Flags().BoolP("force", "f", false, "Force the operation")
 	_ = root.Flags().MarkHidden("force")
-	root.PersistentFlags().StringP("jobs", "j", "", "How many jobs to run in parallel [default: 8]")
+	root.PersistentFlags().StringP("jobs", "j", "", "How many jobs to run in parallel; values below 1 are treated as 1 [default: 8]")
 	root.Flags().BoolP("dry-run", "n", false, "Dry run, don't actually do anything")
 	_ = root.Flags().MarkHidden("dry-run")
 	root.PersistentFlags().StringArrayP("profile", "P", nil, "Set the profile (environment)")
@@ -154,7 +154,7 @@ func build() *cobra.Command {
 	cmd27.Flags().StringP("source", "s", "", "Source path to use if the target is not yet managed")
 	cmd27.Flags().BoolP("yes", "y", false, "Skip the confirmation prompt when adding an unmanaged target")
 	cmd24.AddCommand(cmd27)
-	cmd28 := &cobra.Command{Use: "status", Short: "Show the status of dotfiles from `[dotfiles]`", Aliases: []string{"ls"}, Run: func(*cobra.Command, []string) {}}
+	cmd28 := &cobra.Command{Use: "status", Short: "Show the status of dotfiles from `[dotfiles]`", Run: func(*cobra.Command, []string) {}}
 	cmd28.Flags().BoolP("json", "J", false, "Output in JSON format")
 	cmd28.Flags().Bool("missing", false, "Exit with code 1 if any configured dotfiles are not in their desired\nstate (missing, source missing, differs)")
 	cmd24.AddCommand(cmd28)
@@ -272,13 +272,13 @@ func build() *cobra.Command {
 	cmd61 := &cobra.Command{Use: "import", Short: "Import installed system packages into `[bootstrap.packages]`", Long: "Import installed system packages into `[bootstrap.packages]`\n\nCurrently supports Homebrew formulae only. By default, imports linked\nformulae whose active keg receipt says they were installed on request.\nPass `--all` to import every linked formula, including dependencies.", Run: func(*cobra.Command, []string) {}}
 	cmd61.Flags().StringP("env", "e", "", "Write to the config file for this environment (mise.<ENV>.toml)")
 	cmd61.Flags().BoolP("global", "g", false, "Write to the global config (~/.config/mise/config.toml)")
-	cmd61.Flags().StringP("manager", "m", "brew", "Only import packages for this manager. Currently only `brew` is supported")
+	cmd61.Flags().StringP("manager", "m", "brew", "Only import packages for this manager. Currently only `brew` is supported.")
 	cmd61.Flags().Bool("all", false, "Import every linked formula, including dependencies")
 	cmd61.Flags().BoolP("dry-run", "n", false, "Print the config change without writing config")
 	cmd61.Flags().StringP("path", "p", "", "Write to this config file or directory")
 	cmd56.AddCommand(cmd61)
-	cmd62 := &cobra.Command{Use: "prune", Short: "Prune installed system packages no longer declared in `[bootstrap.packages]`", Long: "Prune installed system packages no longer declared in `[bootstrap.packages]`\n\nCurrently supports Homebrew formulae only. Pruning removes linked formulae\nthat are not needed by the current config or by trusted, loadable tracked\nconfigs.", Run: func(*cobra.Command, []string) {}}
-	cmd62.Flags().StringP("manager", "m", "brew", "Only prune packages for this manager. Currently only `brew` is supported")
+	cmd62 := &cobra.Command{Use: "prune", Short: "Prune installed system packages no longer declared in `[bootstrap.packages]`", Long: "Prune installed system packages no longer declared in `[bootstrap.packages]`\n\nSupports Homebrew formulae and conservatively removable, mise-owned casks.\nPruning keeps packages needed by the current config or by trusted, loadable\ntracked configs.", Run: func(*cobra.Command, []string) {}}
+	cmd62.Flags().StringP("manager", "m", "brew", "Only prune packages for this manager")
 	cmd62.Flags().BoolP("dry-run", "n", false, "Print what would be removed without deleting anything")
 	cmd62.Flags().BoolP("yes", "y", false, "Skip the confirmation prompt")
 	cmd56.AddCommand(cmd62)
@@ -286,7 +286,7 @@ func build() *cobra.Command {
 	cmd63.Flags().BoolP("json", "J", false, "Output in JSON format")
 	cmd63.Flags().Bool("missing", false, "Exit with code 1 if any configured packages are not in their desired state")
 	cmd56.AddCommand(cmd63)
-	cmd64 := &cobra.Command{Use: "upgrade", Short: "Upgrade installed bootstrap packages from `[bootstrap.packages]`", Long: "Upgrade installed bootstrap packages from `[bootstrap.packages]`\n\nRefreshes package manager metadata and upgrades the configured packages\nthat are already installed: apk/apt/dnf/pacman upgrade to the newest available\nversion (apk, apt, and dnf honor a version pinned in config), brew pours the\nformula's current bottle and replaces the old keg, brew-cask installs\nthe current cask artifact, flatpak updates applications and runtimes, and mas upgrades App Store apps. Packages that\nare not installed yet are skipped — use `mise bootstrap packages apply`\nfor those.\n\nPackages can also be given explicitly in `manager:package` form.", Aliases: []string{"up"}, Run: func(*cobra.Command, []string) {}}
+	cmd64 := &cobra.Command{Use: "upgrade", Short: "Upgrade installed bootstrap packages from `[bootstrap.packages]`", Long: "Upgrade installed bootstrap packages from `[bootstrap.packages]`\n\nRefreshes package manager metadata and upgrades the configured packages\nthat are already installed: apk/apt/dnf/pacman upgrade to the newest available\nversion (apk, apt, and dnf honor a version pinned in config), brew pours the\nformula's current bottle and replaces the old keg, brew-cask installs\nthe current cask artifact, flatpak and flatpak-user update applications and runtimes, and mas upgrades App Store apps. Packages that\nare not installed yet are skipped — use `mise bootstrap packages apply`\nfor those.\n\nPackages can also be given explicitly in `manager:package` form.", Aliases: []string{"up"}, Run: func(*cobra.Command, []string) {}}
 	cmd64.Flags().StringP("manager", "m", "", "Only upgrade packages for this built-in or plugin manager")
 	cmd64.Flags().BoolP("dry-run", "n", false, "Print the commands that would run without running them")
 	cmd64.Flags().BoolP("yes", "y", false, "Skip the confirmation prompt")
@@ -316,6 +316,8 @@ func build() *cobra.Command {
 	cmd70.Flags().Bool("all", false, "Select every configured inventory host")
 	cmd70.Flags().String("bootstrap-command", "", "Explicit remote shell command that installs mise and places it on PATH")
 	cmd70.Flags().String("connect-timeout", "10", "SSH connection timeout in seconds")
+	cmd70.Flags().StringArray("copy-link", nil, "Dereference one source-relative symbolic link; repeat for multiple links")
+	cmd70.Flags().Bool("copy-links", false, "Dereference every symbolic link in the source archive")
 	cmd70.Flags().StringArray("exclude", nil, "Additional archive pattern to exclude; repeat for multiple patterns")
 	cmd70.Flags().Bool("fail-fast", false, "Stop after the first failed target")
 	cmd70.Flags().Bool("force-dotfiles", false, "Allow remote dotfile conflicts to be replaced")
@@ -327,6 +329,7 @@ func build() *cobra.Command {
 	cmd70.Flags().StringArray("only", nil, "Run only one or more remote bootstrap parts")
 	cmd70.Flags().String("port", "", "SSH port override")
 	cmd70.Flags().Bool("prompt-secrets", false, "Prompt securely for missing secret inputs on the remote host")
+	cmd70.Flags().StringArray("remote-env", nil, "Config environments to load on the remote host; repeat or delimit with commas (for example, ci,dotfiles)")
 	cmd70.Flags().String("remote-mise", "", "Existing mise executable name or path; relative paths use the staged project")
 	cmd70.Flags().StringArray("skip", nil, "Skip one or more remote bootstrap parts")
 	cmd70.Flags().String("source", "", "Local directory archived and sent to each target")
@@ -499,7 +502,7 @@ func build() *cobra.Command {
 	root.AddCommand(cmd113)
 	cmd114 := &cobra.Command{Use: "exec", Short: "Execute a command with tool(s) set", Long: "Execute a command with tool(s) set\n\nuse this to avoid modifying the shell session or running ad-hoc commands with mise tools set.\n\nTools will be loaded from mise.toml, though they can be overridden with <RUNTIME> args\nNote that only the plugin specified will be overridden, so if a `mise.toml` file\nincludes \"node 20\" but you run `mise exec python@3.11`; it will still load node@20.\n\nThe \"--\" separates runtimes from the commands to pass along to the subprocess.", Aliases: []string{"x"}, Run: func(*cobra.Command, []string) {}}
 	cmd114.Flags().StringP("command", "c", "", "Command string to execute")
-	cmd114.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\n[default: 4]")
+	cmd114.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]")
 	cmd114.Flags().StringArray("allow-env", nil, "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'")
 	cmd114.Flags().StringArray("allow-net", nil, "Allow network to specific host (implies --deny-net for everything else)\nmacOS only in v1; on Linux falls back to allowing all network")
 	cmd114.Flags().StringArray("allow-read", nil, "Allow reads from specific path (implies --deny-read for everything else)")
@@ -524,6 +527,7 @@ func build() *cobra.Command {
 	cmd117.Flags().StringP("version", "V", "", "Specify mise version to fetch")
 	cmd117.Flags().StringP("write", "w", "", "instead of outputting the script to stdout, write to a file and make it executable")
 	cmd117.Flags().String("localized-dir", ".mise", "Directory to put localized data into")
+	cmd117.Flags().Bool("windows", false, "Also write a Windows launcher, `<WRITE>.cmd`")
 	cmd116.AddCommand(cmd117)
 	cmd118 := &cobra.Command{Use: "config", Short: "Generate a mise.toml file", Run: func(*cobra.Command, []string) {}}
 	cmd118.Flags().BoolP("global", "g", false, "Generate the global config file (~/.config/mise/config.toml)")
@@ -554,7 +558,7 @@ func build() *cobra.Command {
 	cmd122.Flags().StringP("root", "r", "", "root directory to search for tasks")
 	cmd122.Flags().StringP("style", "s", "simple", "")
 	cmd116.AddCommand(cmd122)
-	cmd123 := &cobra.Command{Use: "task-stubs", Short: "Generates shims to run mise tasks", Long: "Generates shims to run mise tasks\n\nBy default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap`\nso contributors to a project can execute mise tasks without installing mise into their system.", Run: func(*cobra.Command, []string) {}}
+	cmd123 := &cobra.Command{Use: "task-stubs", Short: "Generates shims to run mise tasks", Long: "Generates shims to run mise tasks\n\nBy default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap`\nso contributors to a project can execute mise tasks without installing mise into their system.\nWhen a parent and nested task both exist, the parent stub is written to `<parent>/_default`.", Run: func(*cobra.Command, []string) {}}
 	cmd123.Flags().StringP("dir", "d", "bin", "Directory to create task stubs inside of")
 	cmd123.Flags().StringP("mise-bin", "m", "mise", "Path to a mise bin to use when running the task stub.")
 	cmd116.AddCommand(cmd123)
@@ -562,6 +566,7 @@ func build() *cobra.Command {
 	cmd124.Flags().StringP("bin", "b", "", "Binary path within the extracted archive")
 	cmd124.Flags().Bool("bootstrap", false, "Wrap stub in a bootstrap script that installs mise if not already present")
 	cmd124.Flags().String("bootstrap-version", "", "Specify mise version for the bootstrap script")
+	cmd124.Flags().String("checksum-algorithm", "blake3", "Checksum algorithm to use when downloading artifacts")
 	cmd124.Flags().Bool("fetch", false, "Fetch checksums and sizes for an existing tool stub file")
 	cmd124.Flags().String("http", "http", "HTTP backend type to use")
 	cmd124.Flags().Bool("lock", false, "Resolve and embed lockfile data (exact version + platform URLs/checksums) into an existing stub file for reproducible installs without runtime API calls")
@@ -608,11 +613,12 @@ func build() *cobra.Command {
 	cmd131.Flags().StringP("tool-versions", "t", "", "Path to a .tool-versions file to import tools from")
 	root.AddCommand(cmd131)
 	cmd132 := &cobra.Command{Use: "install", Short: "Install a tool version", Long: "Install a tool version\n\nInstalls a tool version to `~/.local/share/mise/installs/<TOOL>/<VERSION>`\nInstalling alone will not activate the tools so they won't be in PATH.\nTo install and/or activate in one command, use `mise use` which will create a `mise.toml` file\nin the current directory to activate this tool when inside the directory.\nAlternatively, run `mise exec <TOOL>@<VERSION> -- <COMMAND>` to execute a tool without creating config files.\n\nTools will be installed in parallel. To disable, set `--jobs=1` or `MISE_JOBS=1`", Aliases: []string{"i"}, Run: func(*cobra.Command, []string) {}}
-	cmd132.Flags().BoolP("force", "f", false, "Force reinstall even if already installed")
-	cmd132.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\n[default: 4]")
+	cmd132.Flags().BoolP("force", "f", false, "Force reinstall even if already installed\nWith no tools specified, reinstall all configured tools")
+	cmd132.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]")
 	cmd132.Flags().BoolP("dry-run", "n", false, "Show what would be installed without actually installing")
 	cmd132.Flags().CountP("verbose", "v", "Show installation output")
 	cmd132.Flags().Bool("dry-run-code", false, "Like --dry-run but exits with code 1 if there are tools to install")
+	cmd132.Flags().Bool("include-task-tools", false, "Also install tools required by tasks in the current scope")
 	cmd132.Flags().String("minimum-release-age", "", "Only install versions released before this date or older than this duration")
 	cmd132.Flags().Bool("monorepo", false, "Install tools from every [monorepo].config_roots config root")
 	cmd132.Flags().Bool("raw", false, "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1")
@@ -635,9 +641,9 @@ func build() *cobra.Command {
 	cmd136.Flags().Bool("pin", false, "Save exact version to `.tool-versions`\ne.g.: `mise local --pin node@20` will save `node 20.0.0` to .tool-versions")
 	cmd136.Flags().StringArray("remove", nil, "Remove the tool(s) from .tool-versions")
 	root.AddCommand(cmd136)
-	cmd137 := &cobra.Command{Use: "lock", Short: "Update lockfile checksums and URLs for all specified platforms", Long: "Update lockfile checksums and URLs for all specified platforms\n\nUpdates checksums and download URLs for all platforms already specified in the lockfile.\nIf no lockfile exists, shows what would be created based on the current configuration.\nThis allows you to refresh lockfile data for platforms other than the one you're currently on.\nOperates on the lockfile in the current config root. Use TOOL arguments to target specific tools.", Run: func(*cobra.Command, []string) {}}
+	cmd137 := &cobra.Command{Use: "lock", Short: "Update lockfile checksums and URLs for all specified platforms", Long: "Update lockfile checksums and URLs for all specified platforms\n\nUpdates checksums and download URLs for all platforms already specified in the lockfile.\nIf no lockfile exists, shows what would be created based on the current configuration,\nincluding tools declared by tasks.\nThis allows you to refresh lockfile data for platforms other than the one you're currently on.\nOperates on the lockfile in the current config root. Use TOOL arguments to target specific tools.", Run: func(*cobra.Command, []string) {}}
 	cmd137.Flags().BoolP("global", "g", false, "Target only global config lockfiles (~/.config/mise/mise.lock and system config)\nBy default, only the active project config root is locked")
-	cmd137.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel")
+	cmd137.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\nValues below 1 are treated as 1")
 	cmd137.Flags().BoolP("dry-run", "n", false, "Show what would be updated without making changes")
 	cmd137.Flags().StringArrayP("platform", "p", nil, "Comma-separated list of platforms to target\ne.g.: linux-x64,macos-arm64,windows-x64\nIf not specified, all platforms already in lockfile will be updated")
 	cmd137.Flags().Bool("bump", false, "Re-resolve fuzzy version selectors against the latest available versions")
@@ -712,8 +718,8 @@ func build() *cobra.Command {
 	cmd141.AddCommand(cmd144)
 	root.AddCommand(cmd141)
 	cmd145 := &cobra.Command{Use: "outdated", Short: "Shows outdated tool versions", Long: "Shows outdated tool versions\n\nSee `mise upgrade` to upgrade these versions.", Run: func(*cobra.Command, []string) {}}
+	cmd145.Flags().BoolP("bump", "b", false, "Compares against the latest versions available, not what matches the current config")
 	cmd145.Flags().BoolP("json", "J", false, "Output in JSON format")
-	cmd145.Flags().BoolP("bump", "l", false, "Compares against the latest versions available, not what matches the current config")
 	cmd145.Flags().Bool("inactive", false, "Show outdated tools including installed-but-inactive tools not present in the current config")
 	cmd145.Flags().Bool("local", false, "Only show outdated tools defined in local config files")
 	cmd145.Flags().Bool("monorepo", false, "Placeholder for future monorepo outdated checks; `mise outdated --monorepo` is not implemented yet.")
@@ -734,7 +740,7 @@ func build() *cobra.Command {
 	cmd148 := &cobra.Command{Use: "install", Short: "Install a plugin", Long: "Install a plugin\n\nnote that mise can automatically install plugins when you install a tool\ne.g.: `mise install cmake@3.30` will autoinstall the cmake plugin\n\nThis behavior can be modified in ~/.config/mise/config.toml", Aliases: []string{"i", "a", "add"}, Run: func(*cobra.Command, []string) {}}
 	cmd148.Flags().BoolP("all", "a", false, "Install all missing plugins\nThis will only install plugins that have matching shorthands.\ni.e.: they don't need the full git repo url")
 	cmd148.Flags().BoolP("force", "f", false, "Reinstall even if plugin exists")
-	cmd148.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel")
+	cmd148.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\nValues below 1 are treated as 1")
 	cmd148.Flags().CountP("verbose", "v", "Show installation output")
 	cmd147.AddCommand(cmd148)
 	cmd149 := &cobra.Command{Use: "link", Short: "Symlinks a plugin into mise", Long: "Symlinks a plugin into mise\n\nThis is used for developing a plugin.", Aliases: []string{"ln"}, Run: func(*cobra.Command, []string) {}}
@@ -761,7 +767,7 @@ func build() *cobra.Command {
 	cmd152.Flags().BoolP("purge", "p", false, "Also remove the plugin's installs, downloads, and cache")
 	cmd147.AddCommand(cmd152)
 	cmd153 := &cobra.Command{Use: "update", Short: "Updates a plugin to the latest version", Long: "Updates a plugin to the latest version\n\nnote: this updates the plugin itself, not the runtime versions", Aliases: []string{"up", "upgrade"}, Run: func(*cobra.Command, []string) {}}
-	cmd153.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\nDefault: 4")
+	cmd153.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\nValues below 1 are treated as 1\nDefault: 4")
 	cmd147.AddCommand(cmd153)
 	root.AddCommand(cmd147)
 	cmd154 := &cobra.Command{Use: "deps", Short: "[experimental] Manage project dependencies", Long: "[experimental] Manage project dependencies\n\nRuns all applicable dependency install steps for the current project.\nThis checks if dependency lockfiles are newer than installed outputs\n(e.g., package-lock.json vs node_modules/) and runs install commands\nif needed.\n\nProviders with `auto = true` are automatically invoked before `mise x` and `mise run`\nunless skipped with the --no-deps flag.", Aliases: []string{"dep", "prepare"}, Run: func(*cobra.Command, []string) {}}
@@ -800,7 +806,7 @@ func build() *cobra.Command {
 	_ = cmd159.Flags().MarkHidden("complete")
 	cmd159.Flags().Bool("hide-aliased", false, "Hide aliased tools")
 	cmd159.Flags().BoolP("json", "J", false, "Output in JSON format")
-	cmd159.Flags().Bool("security", false, "Include security features for each tool's backends in JSON output")
+	cmd159.Flags().Bool("security", false, "Include security features for each tool's backends in JSON output.")
 	root.AddCommand(cmd159)
 	cmd160 := &cobra.Command{Use: "render-help", Short: "internal command to generate markdown from help", Hidden: true, Run: func(*cobra.Command, []string) {}}
 	root.AddCommand(cmd160)
@@ -813,10 +819,11 @@ func build() *cobra.Command {
 	cmd162.Flags().Bool("affected-explain", false, "Explain why projects and tasks were selected by --affected")
 	cmd162.Flags().String("affected-head", "", "Git head revision for --affected\nDefaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD")
 	cmd162.Flags().Bool("affected-json", false, "Output affected projects and tasks as JSON without running tasks")
+	cmd162.Flags().Bool("all", false, "Open the interactive selector with all tasks from the entire monorepo")
 	cmd162.Flags().BoolP("continue-on-error", "c", false, "Continue running tasks even if one fails")
 	cmd162.Flags().StringP("cd", "C", "", "Change to this directory before executing the command")
 	cmd162.Flags().BoolP("force", "f", false, "Force the tasks to run even if outputs are up to date")
-	cmd162.Flags().StringP("jobs", "j", "", "Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var")
+	cmd162.Flags().StringP("jobs", "j", "", "Number of tasks to run in parallel\nValues below 1 are treated as 1\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var")
 	cmd162.Flags().BoolP("dry-run", "n", false, "Don't actually run the task(s), just print them in order of execution")
 	cmd162.Flags().StringP("output", "o", "", "Change how tasks information is output when running tasks")
 	cmd162.Flags().BoolP("quiet", "q", false, "Don't show extra output")
@@ -873,7 +880,7 @@ func build() *cobra.Command {
 	_ = cmd165.Flags().MarkHidden("remove")
 	cmd165.Flags().Bool("stdin", false, "Read the value from stdin (for multiline input)")
 	root.AddCommand(cmd165)
-	cmd166 := &cobra.Command{Use: "settings", Short: "Manage settings", Long: "Show current settings\n\nThis is the contents of ~/.config/mise/config.toml\n\nNote that aliases are also stored in this file\nbut managed separately with `mise tool-alias`", Run: func(*cobra.Command, []string) {}}
+	cmd166 := &cobra.Command{Use: "settings", Short: "Manage settings", Run: func(*cobra.Command, []string) {}}
 	cmd166.Flags().BoolP("all", "a", false, "List all settings")
 	cmd166.Flags().BoolP("json", "J", false, "Output in JSON format")
 	cmd166.PersistentFlags().BoolP("local", "l", false, "Use the local config file instead of the global one")
@@ -904,7 +911,7 @@ func build() *cobra.Command {
 	cmd166.AddCommand(cmd171)
 	root.AddCommand(cmd166)
 	cmd172 := &cobra.Command{Use: "shell", Short: "Sets a tool version for the current session.", Long: "Sets a tool version for the current session.\n\nOnly works in a session where mise is already activated.\n\nThis works by setting environment variables for the current shell session\nsuch as `MISE_NODE_VERSION=20` which is \"eval\"ed as a shell function created by `mise activate`.", Aliases: []string{"sh"}, Run: func(*cobra.Command, []string) {}}
-	cmd172.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\n[default: 4]")
+	cmd172.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]")
 	cmd172.Flags().BoolP("unset", "u", false, "Removes a previously set version")
 	cmd172.Flags().Bool("raw", false, "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1")
 	root.AddCommand(cmd172)
@@ -923,12 +930,12 @@ func build() *cobra.Command {
 	cmd178 := &cobra.Command{Use: "sponsors", Short: "Show the companies sponsoring mise and the jdx.dev open source tools", Run: func(*cobra.Command, []string) {}}
 	root.AddCommand(cmd178)
 	cmd179 := &cobra.Command{Use: "sync", Short: "Synchronize tools from other version managers with mise", Run: func(*cobra.Command, []string) {}}
-	cmd180 := &cobra.Command{Use: "node", Short: "Symlinks all tool versions from an external tool into mise", Long: "Symlinks all tool versions from an external tool into mise\n\nFor example, use this to import all Homebrew node installs into mise\n\nThis won't overwrite any existing installs but will overwrite any existing symlinks", Run: func(*cobra.Command, []string) {}}
+	cmd180 := &cobra.Command{Use: "node", Short: "Symlinks all tool versions from an external tool into mise", Long: "Symlinks all tool versions from an external tool into mise\n\nFor example, use this to import all Homebrew node installs into mise\n\nThis won't overwrite managed installs, runtime aliases, or links from other providers.", Run: func(*cobra.Command, []string) {}}
 	cmd180.Flags().Bool("brew", false, "Get tool versions from Homebrew")
 	cmd180.Flags().Bool("nodenv", false, "Get tool versions from nodenv")
 	cmd180.Flags().Bool("nvm", false, "Get tool versions from nvm")
 	cmd179.AddCommand(cmd180)
-	cmd181 := &cobra.Command{Use: "python", Short: "Symlinks all tool versions from an external tool into mise", Long: "Symlinks all tool versions from an external tool into mise\n\nFor example, use this to import all pyenv installs into mise\n\nThis won't overwrite any existing installs but will overwrite any existing symlinks", Run: func(*cobra.Command, []string) {}}
+	cmd181 := &cobra.Command{Use: "python", Short: "Symlinks all tool versions from an external tool into mise", Long: "Symlinks all tool versions from an external tool into mise\n\nFor example, use this to import all pyenv installs into mise\n\nThis won't overwrite managed installs, runtime aliases, or links from other providers.", Run: func(*cobra.Command, []string) {}}
 	cmd181.Flags().Bool("pyenv", false, "Get tool versions from pyenv")
 	cmd181.Flags().Bool("uv", false, "Sync tool versions with uv (2-way sync)")
 	cmd179.AddCommand(cmd181)
@@ -1006,10 +1013,11 @@ func build() *cobra.Command {
 	cmd190.Flags().Bool("affected-explain", false, "Explain why projects and tasks were selected by --affected")
 	cmd190.Flags().String("affected-head", "", "Git head revision for --affected\nDefaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD")
 	cmd190.Flags().Bool("affected-json", false, "Output affected projects and tasks as JSON without running tasks")
+	cmd190.Flags().Bool("all", false, "Open the interactive selector with all tasks from the entire monorepo")
 	cmd190.Flags().BoolP("continue-on-error", "c", false, "Continue running tasks even if one fails")
 	cmd190.Flags().StringP("cd", "C", "", "Change to this directory before executing the command")
 	cmd190.Flags().BoolP("force", "f", false, "Force the tasks to run even if outputs are up to date")
-	cmd190.Flags().StringP("jobs", "j", "", "Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var")
+	cmd190.Flags().StringP("jobs", "j", "", "Number of tasks to run in parallel\nValues below 1 are treated as 1\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var")
 	cmd190.Flags().BoolP("dry-run", "n", false, "Don't actually run the task(s), just print them in order of execution")
 	cmd190.Flags().StringP("output", "o", "", "Change how tasks information is output when running tasks")
 	cmd190.Flags().BoolP("quiet", "q", false, "Don't show extra output")
@@ -1047,22 +1055,22 @@ func build() *cobra.Command {
 	root.AddCommand(cmd183)
 	cmd192 := &cobra.Command{Use: "test-tool", Short: "Test a tool installs and executes", Run: func(*cobra.Command, []string) {}}
 	cmd192.Flags().BoolP("all", "a", false, "Test every tool specified in registry/")
-	cmd192.Flags().StringP("jobs", "j", "", "Number of tool tests to run in parallel\n[default: 4]")
+	cmd192.Flags().StringP("jobs", "j", "", "Number of tool tests to run in parallel\nValues below 1 are treated as 1\n[default: 4]")
 	cmd192.Flags().Bool("all-config", false, "Test all tools specified in config files")
 	cmd192.Flags().Bool("include-non-defined", false, "Also test tools not defined in registry/, guessing how to test it")
 	cmd192.Flags().Bool("raw", false, "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1")
 	root.AddCommand(cmd192)
 	cmd193 := &cobra.Command{Use: "token", Short: "Display git provider tokens mise will use", Run: func(*cobra.Command, []string) {}}
-	cmd194 := &cobra.Command{Use: "forgejo", Short: "Forgejo token", Run: func(*cobra.Command, []string) {}}
+	cmd194 := &cobra.Command{Use: "forgejo", Short: "Forgejo token", Long: "Display the Forgejo token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default.", Run: func(*cobra.Command, []string) {}}
 	cmd194.Flags().Bool("unmask", false, "Show the full unmasked token")
 	cmd193.AddCommand(cmd194)
-	cmd195 := &cobra.Command{Use: "github", Short: "GitHub token", Run: func(*cobra.Command, []string) {}}
+	cmd195 := &cobra.Command{Use: "github", Short: "GitHub token", Long: "Display the GitHub token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default.", Run: func(*cobra.Command, []string) {}}
 	cmd195.Flags().Bool("oauth", false, "Resolve only via the native GitHub OAuth source (cache, refresh, or device-code flow), bypassing other token sources")
 	cmd195.Flags().Bool("raw", false, "Print only the token value")
 	cmd195.Flags().Bool("refresh", false, "Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow. Use after changing the GitHub App's installations or permissions: cached tokens keep their original access until they expire")
 	cmd195.Flags().Bool("unmask", false, "Show the full unmasked token")
 	cmd193.AddCommand(cmd195)
-	cmd196 := &cobra.Command{Use: "gitlab", Short: "GitLab token", Run: func(*cobra.Command, []string) {}}
+	cmd196 := &cobra.Command{Use: "gitlab", Short: "GitLab token", Long: "Display the GitLab token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default.", Run: func(*cobra.Command, []string) {}}
 	cmd196.Flags().Bool("unmask", false, "Show the full unmasked token")
 	cmd193.AddCommand(cmd196)
 	root.AddCommand(cmd193)
@@ -1076,13 +1084,13 @@ func build() *cobra.Command {
 	cmd197.Flags().Bool("requested", false, "Only show requested versions")
 	cmd197.Flags().Bool("tool-options", false, "Only show tool options")
 	root.AddCommand(cmd197)
-	cmd198 := &cobra.Command{Use: "tool-stub", Short: "Execute a tool stub", Long: "Execute a tool stub\n\nTool stubs are executable files containing TOML configuration that specify which tool to run and how to run it. They provide a convenient way to create portable, self-contained executables that automatically manage tool installation and execution.\n\nA tool stub consists of: - A shebang line: #!/usr/bin/env -S mise tool-stub - TOML configuration specifying the tool, version, and options - Optional comments describing the tool's purpose\n\nExample stub file: #!/usr/bin/env -S mise tool-stub # Node.js v20 development environment\n\ntool = \"node\" version = \"20.0.0\" bin = \"node\"\n\nThe stub will automatically install the specified tool version if missing and execute it with any arguments passed to the stub.\n\nFor more information, see: https://mise.jdx.dev/dev-tools/tool-stubs.html", Run: func(*cobra.Command, []string) {}}
+	cmd198 := &cobra.Command{Use: "tool-stub", Short: "Execute a tool stub", Long: "Execute a tool stub\n\nTool stubs are executable files containing TOML configuration that specify\nwhich tool to run and how to run it. They provide a convenient way to create\nportable, self-contained executables that automatically manage tool installation\nand execution.\n\nA tool stub consists of:\n- A shebang line: #!/usr/bin/env -S mise tool-stub\n- TOML configuration specifying the tool, version, and options\n- Optional comments describing the tool's purpose\n\nExample stub file:\n  #!/usr/bin/env -S mise tool-stub\n  # Node.js v20 development environment\n\n  tool = \"node\"\n  version = \"20.0.0\"\n  bin = \"node\"\n\nThe stub will automatically install the specified tool version if missing\nand execute it with any arguments passed to the stub.\n\nFor more information, see: https://mise.jdx.dev/dev-tools/tool-stubs.html", Run: func(*cobra.Command, []string) {}}
 	root.AddCommand(cmd198)
-	cmd199 := &cobra.Command{Use: "trust", Short: "Marks a config file as trusted", Long: "Marks a config file as trusted\n\nThis means mise is allowed to parse the file when it needs to read config\nthat may execute code or affect the environment. mise checks trust before\nparsing `mise.toml`. Without trust, mise may prompt, skip the config in some\ndiscovery paths, fail with an untrusted-config error when it cannot prompt,\nor assume trust in detected CI unless paranoid mode is enabled.\n\nSafe config files do not require trust: files that only contain\n`min_version`, `[tools]` entries with plain version strings (or arrays\nof them), and `[tasks]` (no templates and no tool options) are loaded\nwithout prompting, since nothing in them executes code at load time —\ntools install and tasks run only on explicit commands like `mise install`\nor `mise run`.\n\nTrust is shared across git worktrees: a config file inside a linked\nworktree is trusted when the equivalent path in the repository's main\ncheckout has been trusted. Paranoid mode disables this sharing since\nworktrees can check out branches with different config contents.", Run: func(*cobra.Command, []string) {}}
+	cmd199 := &cobra.Command{Use: "trust", Short: "Marks a config file as trusted", Long: "Marks a config file as trusted\n\nThis means mise is allowed to parse the file when it needs to read config\nthat may execute code or affect the environment. Without trust, mise may\nprompt, skip the config in some discovery paths, or fail with an\nuntrusted-config error when it cannot prompt.\n\nIn normal mode, commands that execute project-defined behavior (`mise run`,\nnaked task invocations such as `mise <TASK>`, `mise install`, `mise exec`,\nand `mise watch`) automatically trust their active config. Paranoid mode\nrequires explicit, content-bound trust for every non-global config.\n\nIn normal mode, safe config files do not require trust: files that only contain\n`min_version`, `[tools]` entries with plain version strings (or arrays of\nthem), and `[tasks]` without templates or tool options.\n\nTrust is shared across git worktrees: a config file inside a linked\nworktree is trusted when the equivalent path in the repository's main\ncheckout has been trusted. Paranoid mode disables this sharing since\nworktrees can check out branches with different config contents.", Run: func(*cobra.Command, []string) {}}
 	cmd199.Flags().BoolP("all", "a", false, "Trust all config files in the current directory, its parents, and its subdirectories")
 	cmd199.Flags().Bool("ignore", false, "Do not trust this config and ignore it in the future")
 	cmd199.Flags().Bool("show", false, "Show the trusted status of config files from the current directory and its parents.\nDoes not trust or untrust any files.")
-	cmd199.Flags().Bool("untrust", false, "No longer trust this config, will prompt in the future")
+	cmd199.Flags().Bool("untrust", false, "Remove explicit trust for this config")
 	root.AddCommand(cmd199)
 	cmd200 := &cobra.Command{Use: "uninstall", Short: "Removes installed tool versions", Long: "Removes installed tool versions\n\nThis only removes the installed version, it does not modify mise.toml.", Run: func(*cobra.Command, []string) {}}
 	cmd200.Flags().BoolP("all", "a", false, "Delete all installed versions")
@@ -1093,7 +1101,7 @@ func build() *cobra.Command {
 	cmd201.Flags().StringP("file", "f", "", "Specify a file to use instead of `mise.toml`")
 	cmd201.Flags().BoolP("global", "g", false, "Use the global config file")
 	root.AddCommand(cmd201)
-	cmd202 := &cobra.Command{Use: "untrust", Short: "No longer trust a config, will prompt in the future", Run: func(*cobra.Command, []string) {}}
+	cmd202 := &cobra.Command{Use: "untrust", Short: "Remove explicit trust for a config", Run: func(*cobra.Command, []string) {}}
 	root.AddCommand(cmd202)
 	cmd203 := &cobra.Command{Use: "unuse", Short: "Removes installed tool versions from mise.toml", Long: "Removes installed tool versions from mise.toml\n\nBy default, this will use the `mise.toml` file that has the tool defined.\nIf multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),\nthe lowest precedence file (`mise.toml`) will be used.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations\n\nIn the following order:\n  - If `--global` is set, it will use the global config file.\n  - If `--path` is set, it will use the config file at the given path.\n  - If `--env` is set, it will use `mise.<env>.toml`.\n  - If [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) is set, it will use that instead.\n  - If `MISE_OVERRIDE_CONFIG_FILENAMES` is set, it will the first from that list.\n  - Otherwise just \"mise.toml\" or global config if cwd is home directory.\n\nUse [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.\n\nWill also prune the installed version if no other configurations are using it.", Aliases: []string{"rm", "remove"}, Run: func(*cobra.Command, []string) {}}
 	cmd203.Flags().StringP("env", "e", "", "Create/modify an environment-specific config file like .mise.<env>.toml")
@@ -1102,9 +1110,9 @@ func build() *cobra.Command {
 	cmd203.Flags().Bool("no-prune", false, "Do not also prune the installed version")
 	root.AddCommand(cmd203)
 	cmd204 := &cobra.Command{Use: "upgrade", Short: "Upgrades outdated tools", Long: "Upgrades outdated tools\n\nBy default, this keeps the range specified in mise.toml. So if you have node@20 set, it will\nupgrade to the latest 20.x.x version available. See the `--bump` flag to use the latest version\nand bump the version in mise.toml.\n\nThis will update mise.lock if it is enabled, see https://mise.jdx.dev/configuration/settings.html#lockfile", Aliases: []string{"up"}, Run: func(*cobra.Command, []string) {}}
+	cmd204.Flags().BoolP("bump", "b", false, "Upgrades to the latest version available, bumping the version in mise.toml")
 	cmd204.Flags().BoolP("interactive", "i", false, "Display multiselect menu to choose which tools to upgrade")
-	cmd204.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\n[default: 4]")
-	cmd204.Flags().BoolP("bump", "l", false, "Upgrades to the latest version available, bumping the version in mise.toml")
+	cmd204.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]")
 	cmd204.Flags().BoolP("dry-run", "n", false, "Just print what would be done, don't actually do it")
 	cmd204.Flags().StringArrayP("exclude", "x", nil, "Tool(s) to exclude from upgrading\ne.g.: go python")
 	cmd204.Flags().Bool("dry-run-code", false, "Like --dry-run but exits with code 1 if there are outdated tools")
@@ -1113,6 +1121,7 @@ func build() *cobra.Command {
 	cmd204.Flags().String("minimum-release-age", "", "Only upgrade to versions released before this date or older than this duration")
 	cmd204.Flags().Bool("monorepo", false, "Placeholder for future monorepo upgrades; `mise upgrade --monorepo` is not implemented yet.")
 	cmd204.Flags().Bool("no-prune", false, "Do not uninstall the versions that were upgraded away from")
+	cmd204.Flags().Bool("prune", false, "Uninstall the versions that were upgraded away from")
 	cmd204.Flags().Bool("raw", false, "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1")
 	root.AddCommand(cmd204)
 	cmd205 := &cobra.Command{Use: "usage", Short: "Generate a usage CLI spec", Long: "Generate a usage CLI spec\n\nSee https://usage.jdx.dev for more information on this specification.", Hidden: true, Run: func(*cobra.Command, []string) {}}
@@ -1121,13 +1130,13 @@ func build() *cobra.Command {
 	cmd206.Flags().StringP("env", "e", "", "Create/modify an environment-specific config file like .mise.<env>.toml")
 	cmd206.Flags().BoolP("force", "f", false, "Force reinstall even if already installed")
 	cmd206.Flags().BoolP("global", "g", false, "Use the global config file (`~/.config/mise/config.toml`) instead of the local one")
-	cmd206.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\n[default: 4]")
+	cmd206.Flags().StringP("jobs", "j", "", "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]")
 	cmd206.Flags().BoolP("dry-run", "n", false, "Perform a dry run, showing what would be installed and modified without making changes")
 	cmd206.Flags().StringP("path", "p", "", "Specify a path to a config file or directory")
 	cmd206.Flags().Bool("dry-run-code", false, "Like --dry-run but exits with code 1 if there are changes to make")
 	cmd206.Flags().Bool("fuzzy", false, "Save fuzzy version to config file")
 	cmd206.Flags().String("minimum-release-age", "", "Only install versions released before this date or older than this duration")
-	cmd206.Flags().Bool("pin", false, "Save exact version to config file\ne.g.: `mise use --pin node@20` will save 20.0.0 as the version\nSet `MISE_PIN=1` to make this the default behavior")
+	cmd206.Flags().Bool("pin", false, "Save the resolved concrete version to the config file")
 	cmd206.Flags().Bool("raw", false, "Connect backend install command stdin/stdout/stderr directly to the terminal Implies `--jobs=1`")
 	cmd206.Flags().StringArray("remove", nil, "Remove the tool(s) from config file")
 	root.AddCommand(cmd206)
@@ -1163,7 +1172,7 @@ func build() *cobra.Command {
 	cmd208.Flags().String("poll", "", "Poll for filesystem changes")
 	cmd208.Flags().String("shell", "", "Use a different shell")
 	cmd208.Flags().String("emit-events-to", "none", "Configure event emission")
-	cmd208.Flags().Bool("only-emit-events", false, "Only emit events to stdout, run no commands")
+	cmd208.Flags().Bool("only-emit-events", false, "Only emit events to stdout, run no commands.")
 	cmd208.Flags().StringArrayP("env", "E", nil, "Add env vars to the command")
 	cmd208.Flags().String("wrap-process", "", "Configure how the process is wrapped")
 	cmd208.Flags().BoolP("notify", "N", false, "Alert when commands start and end")
@@ -1176,7 +1185,7 @@ func build() *cobra.Command {
 	cmd208.Flags().StringArrayP("exts", "e", nil, "Filename extensions to filter to")
 	cmd208.Flags().StringArrayP("filter", "f", nil, "Filename patterns to filter to")
 	cmd208.Flags().StringArray("filter-file", nil, "Files to load filters from")
-	cmd208.Flags().StringArrayP("filter-prog", "J", nil, "[experimental] Filter programs")
+	cmd208.Flags().StringArrayP("filter-prog", "J", nil, "[experimental] Filter programs.")
 	cmd208.Flags().StringArrayP("ignore", "i", nil, "Filename patterns to filter out")
 	cmd208.Flags().StringArray("ignore-file", nil, "Files to load ignores from")
 	cmd208.Flags().StringArray("fs-events", nil, "Filesystem events to filter to")

@@ -380,7 +380,7 @@ fn explained(o: Outcome) -> Option<&'static str> {
         Outcome {
             argv: Accept,
             lib: true,
-            clap: MissingRequired | MissingSubcommand | Conflict,
+            clap: MissingRequired | MissingSubcommand | Conflict | InvalidChoice,
         } => Some("after a positional binds, usage keeps the words; clap still routes them"),
 
         _ => None,
@@ -464,6 +464,14 @@ proptest! {
 }
 
 #[test]
+fn clap_shadow_keeps_flag_requirements_from_the_shared_spec() {
+    let outcome = run(&SPEC, &["set".into(), "--stdin".into()]);
+    assert_eq!(outcome.argv, Verdict::MissingRequired);
+    assert!(!outcome.lib);
+    assert_eq!(outcome.clap, Verdict::MissingRequired);
+}
+
+#[test]
 fn a_bare_word_diverges_because_of_the_mount_not_the_parser() {
     // The first reading of this was "usage-argv refuses a lone `-` that clap accepts", filed as
     // a parser bug. It is not: `mise build` behaves identically, and the trace shows why —
@@ -472,8 +480,9 @@ fn a_bare_word_diverges_because_of_the_mount_not_the_parser() {
     // Pinned so the explanation stays attached to the evidence. If usage-argv ever accepts
     // these, it is because the mount got resolved, and this test should say so instead.
     let spec = spec();
-    // `x` is accepted by all three because `x` really is a command — mise's alias for `exec`.
-    // That is what separates this from the `-` case: every word naming *nothing* fails here.
+    // `x` really is a command — mise's alias for `exec` — but that command requires either its
+    // trailing command positional or `--command`. Both typed fixtures carry that positional
+    // relationship.
     for word in ["build", "foo", "node@20"] {
         let o = run(&spec, &[word.to_string()]);
         // The *reason* matters as much as the refusal: what the missing mount costs is a
@@ -496,8 +505,8 @@ fn a_bare_word_diverges_because_of_the_mount_not_the_parser() {
     let o = run(&spec, &["x".to_string()]);
     assert_eq!(
         o.accepted(),
-        (true, true, true),
-        "`x` names a command, so nothing diverges"
+        (false, false, false),
+        "`x` reaches exec, whose positional relationship every typed fixture carries"
     );
 }
 

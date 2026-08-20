@@ -34,7 +34,10 @@ pub struct ActivateArgs {
     pub shell: Option<String>,
     /// Do not automatically call hook-env
     ///
-    /// This can be helpful for debugging mise. If you run `eval "$(mise activate --no-hook-env)"`, then you can call `mise hook-env` manually which will output the env vars to stdout without actually modifying the environment. That way you can do things like `mise hook-env --trace` to get more information or just see the values that hook-env is outputting.
+    /// This can be helpful for debugging mise. If you run `eval "$(mise activate --no-hook-env)"`, then
+    /// you can call `mise hook-env` manually which will output the env vars to stdout without actually
+    /// modifying the environment. That way you can do things like `mise hook-env --trace` to get more
+    /// information or just see the values that hook-env is outputting.
     #[bpaf(long("no-hook-env"), switch)]
     pub no_hook_env: bool,
     #[bpaf(long("shims"), switch)]
@@ -845,7 +848,6 @@ pub struct BootstrapPackagesApplyArgs {
     /// Refresh package manager metadata first (apk: `--update-cache`, apt: `apt-get update`)
     #[bpaf(long("update"), switch)]
     pub update: bool,
-    /// Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]
     #[bpaf(positional("PACKAGE"))]
     pub package: Vec<String>,
 }
@@ -925,7 +927,7 @@ pub struct BootstrapPackagesImportArgs {
     /// Write to the global config (~/.config/mise/config.toml)
     #[bpaf(long("global"), short('g'), switch)]
     pub global: bool,
-    /// Only import packages for this manager. Currently only `brew` is supported
+    /// Only import packages for this manager. Currently only `brew` is supported.
     #[bpaf(long("manager"), short('m'), argument("MANAGER"))]
     pub manager: Option<String>,
     /// Import every linked formula, including dependencies
@@ -941,13 +943,13 @@ pub struct BootstrapPackagesImportArgs {
 
 /// Prune installed system packages no longer declared in `[bootstrap.packages]`
 ///
-/// Currently supports Homebrew formulae only. Pruning removes linked formulae
-/// that are not needed by the current config or by trusted, loadable tracked
-/// configs.
+/// Supports Homebrew formulae and conservatively removable, mise-owned casks.
+/// Pruning keeps packages needed by the current config or by trusted, loadable
+/// tracked configs.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(bootstrappackagespruneargs_p))]
 pub struct BootstrapPackagesPruneArgs {
-    /// Only prune packages for this manager. Currently only `brew` is supported
+    /// Only prune packages for this manager
     #[bpaf(long("manager"), short('m'), argument("MANAGER"))]
     pub manager: Option<String>,
     /// Print what would be removed without deleting anything
@@ -976,7 +978,7 @@ pub struct BootstrapPackagesStatusArgs {
 /// that are already installed: apk/apt/dnf/pacman upgrade to the newest available
 /// version (apk, apt, and dnf honor a version pinned in config), brew pours the
 /// formula's current bottle and replaces the old keg, brew-cask installs
-/// the current cask artifact, flatpak updates applications and runtimes, and mas upgrades App Store apps. Packages that
+/// the current cask artifact, flatpak and flatpak-user update applications and runtimes, and mas upgrades App Store apps. Packages that
 /// are not installed yet are skipped — use `mise bootstrap packages apply`
 /// for those.
 ///
@@ -993,7 +995,6 @@ pub struct BootstrapPackagesUpgradeArgs {
     /// Skip the confirmation prompt
     #[bpaf(long("yes"), short('y'), switch)]
     pub yes: bool,
-    /// Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]
     #[bpaf(positional("PACKAGE"))]
     pub package: Vec<String>,
 }
@@ -1015,7 +1016,6 @@ pub struct BootstrapPackagesUseArgs {
     /// Write to the config file for this environment (mise.<ENV>.toml)
     #[bpaf(long("env"), short('e'), argument("ENV"))]
     pub env: Option<String>,
-    /// Write to the global config (~/.config/mise/config.toml) instead of the local one
     #[bpaf(long("global"), short('g'), switch)]
     pub global: bool,
     /// Print the commands that would run without writing config or installing
@@ -1127,6 +1127,12 @@ pub struct BootstrapRemoteArgs {
     /// SSH connection timeout in seconds
     #[bpaf(long("connect-timeout"), argument("CONNECT_TIMEOUT"))]
     pub connect_timeout: Option<String>,
+    /// Dereference one source-relative symbolic link; repeat for multiple links
+    #[bpaf(long("copy-link"), argument("PATH"))]
+    pub copy_link: Vec<String>,
+    /// Dereference every symbolic link in the source archive
+    #[bpaf(long("copy-links"), switch)]
+    pub copy_links: bool,
     /// Additional archive pattern to exclude; repeat for multiple patterns
     #[bpaf(long("exclude"), argument("PATTERN"))]
     pub exclude: Vec<String>,
@@ -1160,6 +1166,9 @@ pub struct BootstrapRemoteArgs {
     /// Prompt securely for missing secret inputs on the remote host
     #[bpaf(long("prompt-secrets"), switch)]
     pub prompt_secrets: bool,
+    /// Config environments to load on the remote host; repeat or delimit with commas (for example, ci,dotfiles)
+    #[bpaf(long("remote-env"), argument("ENV"))]
+    pub remote_env: Vec<String>,
     /// Existing mise executable name or path; relative paths use the staged project
     #[bpaf(long("remote-mise"), argument("COMMAND"))]
     pub remote_mise: Option<String>,
@@ -1487,7 +1496,8 @@ pub struct BootstrapArgs {
     pub force_dotfiles: bool,
     /// Run only one or more bootstrap parts
     ///
-    /// Can be passed multiple times or as a comma-separated list. Cannot be used with `--skip`.
+    /// Can be passed multiple times or as a comma-separated list.
+    /// Cannot be used with `--skip`.
     #[bpaf(long("only"), argument("ONLY"))]
     pub only: Vec<String>,
     /// Prompt securely for missing bootstrap secret inputs
@@ -1604,7 +1614,6 @@ pub struct CacheClearArgs {
     /// Clear output cache entries for a task name or pattern
     #[bpaf(long("task"), argument("TASK"))]
     pub task: Option<String>,
-    /// Tool(s) to clear cache for e.g.: node, python
     #[bpaf(positional("TOOL"))]
     pub tool: Vec<String>,
 }
@@ -1627,7 +1636,6 @@ pub struct CachePruneArgs {
     /// Just show what would be pruned
     #[bpaf(long("dry-run"), switch)]
     pub dry_run: bool,
-    /// Tool(s) to prune cache for e.g.: node, python
     #[bpaf(positional("TOOL"))]
     pub tool: Vec<String>,
 }
@@ -1676,7 +1684,7 @@ pub enum CacheCommands {
 #[bpaf(generate(completionargs_p))]
 pub struct CompletionArgs {
     /// Shell type to generate completions for
-    #[bpaf(long("shell"), short('s'), argument("SHELL_TYPE"))]
+    #[bpaf(long("shell"), short('s'), argument("SHELL"))]
     pub shell: Option<String>,
     /// Include the bash completion library in the bash completion script
     ///
@@ -1781,7 +1789,6 @@ pub enum ConfigCommands {
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(currentargs_p))]
 pub struct CurrentArgs {
-    /// Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc
     #[bpaf(positional("PLUGIN"))]
     pub plugin: Option<String>,
 }
@@ -2076,7 +2083,7 @@ pub struct EnvArgs {
 #[bpaf(generate(execargs_p))]
 pub struct ExecArgs {
     /// Command string to execute
-    #[bpaf(long("command"), short('c'), argument("C"))]
+    #[bpaf(long("command"), short('c'), argument("COMMAND"))]
     pub command: Option<String>,
     #[bpaf(long("jobs"), short('j'), argument("JOBS"))]
     pub jobs: Option<String>,
@@ -2111,10 +2118,8 @@ pub struct ExecArgs {
     /// Skip automatic dependency preparation
     #[bpaf(long("no-deps"), switch)]
     pub no_deps: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
     #[bpaf(long("raw"), switch)]
     pub raw: bool,
-    /// Tool(s) to start e.g.: node@20 python@3.10
     #[bpaf(positional("TOOL@VERSION"))]
     pub tool_version: Vec<String>,
     /// Command string to execute (same as --command)
@@ -2134,7 +2139,6 @@ pub struct FmtArgs {
     /// Check if the configs are formatted, no formatting is done
     #[bpaf(long("check"), short('c'), switch)]
     pub check: bool,
-    /// Read config from stdin and write its formatted version into stdout
     #[bpaf(long("stdin"), short('s'), switch)]
     pub stdin: bool,
 }
@@ -2159,6 +2163,16 @@ pub struct GenerateBootstrapArgs {
     /// Directory to put localized data into
     #[bpaf(long("localized-dir"), argument("LOCALIZED_DIR"))]
     pub localized_dir: Option<String>,
+    /// Also write a Windows launcher, `<WRITE>.cmd`
+    ///
+    /// Windows cannot execute the `#!/usr/bin/env bash` script, so a contributor who clones the
+    /// project on Windows has nothing to run without this.
+    ///
+    /// Generated on every host, not only on Windows: the file is committed, and whoever runs it
+    /// on Windows is not the person who generated it. Requires `--write`, since stdout cannot
+    /// carry two files.
+    #[bpaf(long("windows"), switch)]
+    pub windows: bool,
 }
 
 /// Generate a mise.toml file
@@ -2217,6 +2231,13 @@ pub struct GenerateGitPreCommitArgs {
     /// Which hook to generate (saves to .git/hooks/$hook)
     #[bpaf(long("hook"), argument("HOOK"))]
     pub hook: Option<String>,
+    /// mise flags to embed in the generated hook, given after `--`
+    ///
+    /// These are inserted between `mise` and `run`, so the hook carries the same context you
+    /// would pass on the command line. Useful when the config is not at the repository root,
+    /// since git runs hooks from the top level: `-- -C subdir` makes the hook find it.
+    #[bpaf(positional("MISE_ARG"), strict, many)]
+    pub mise_arg: Vec<String>,
 }
 
 /// Generate a GitHub Action workflow file
@@ -2269,6 +2290,7 @@ pub struct GenerateTaskDocsArgs {
 ///
 /// By default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap`
 /// so contributors to a project can execute mise tasks without installing mise into their system.
+/// When a parent and nested task both exist, the parent stub is written to `<parent>/_default`.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(generatetaskstubsargs_p))]
 pub struct GenerateTaskStubsArgs {
@@ -2313,15 +2335,22 @@ pub struct GenerateToolStubArgs {
     /// Use this to pin to a specific version (e.g., "2025.1.0").
     #[bpaf(long("bootstrap-version"), argument("BOOTSTRAP_VERSION"))]
     pub bootstrap_version: Option<String>,
+    /// Checksum algorithm to use when downloading artifacts
+    ///
+    /// Accepts `blake3` or `sha256` and defaults to `blake3`.
+    /// Cannot be used with `--lock` or `--skip-download` because those modes do not
+    /// calculate checksums.
+    #[bpaf(long("checksum-algorithm"), argument("CHECKSUM_ALGORITHM"))]
+    pub checksum_algorithm: Option<String>,
     /// Fetch checksums and sizes for an existing tool stub file
     ///
-    /// This reads an existing stub file and fills in any missing checksum/size fields by downloading the files. URLs must already be present in the stub.
+    /// This reads an existing stub file and fills in any missing checksum/size fields
+    /// by downloading the files. URLs must already be present in the stub.
     #[bpaf(long("fetch"), switch)]
     pub fetch: bool,
     /// HTTP backend type to use
     #[bpaf(long("http"), argument("HTTP"))]
     pub http: Option<String>,
-    /// Resolve and embed lockfile data (exact version + platform URLs/checksums) into an existing stub file for reproducible installs without runtime API calls
     #[bpaf(long("lock"), switch)]
     pub lock: bool,
     /// Platform-specific binary paths in the format platform:path
@@ -2331,11 +2360,15 @@ pub struct GenerateToolStubArgs {
     pub platform_bin: Vec<String>,
     /// Platform-specific URLs in the format platform:url or just url (auto-detect platform)
     ///
-    /// When the output file already exists, new platforms will be appended to the existing platforms table. Existing platform URLs will be updated if specified again.
+    /// When the output file already exists, new platforms will be appended to the existing
+    /// platforms table. Existing platform URLs will be updated if specified again.
     ///
-    /// If only a URL is provided (without platform:), the platform will be automatically detected from the URL filename.
+    /// If only a URL is provided (without platform:), the platform will be automatically
+    /// detected from the URL filename.
     ///
-    /// Examples: --platform-url linux-x64:https://... --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
+    /// Examples:
+    /// --platform-url linux-x64:https://...
+    /// --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
     #[bpaf(long("platform-url"), argument("PLATFORM_URL"))]
     pub platform_url: Vec<String>,
     /// Skip downloading for checksum and binary path detection (faster but less informative)
@@ -2404,7 +2437,6 @@ pub struct GithubTokenArgs {
     /// Print only the token value
     #[bpaf(long("raw"), switch)]
     pub raw: bool,
-    /// Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow
     #[bpaf(long("refresh"), switch)]
     pub refresh: bool,
     /// Show the full unmasked token
@@ -2535,7 +2567,6 @@ pub struct EditArgs {
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(installargs_p))]
 pub struct InstallArgs {
-    /// Force reinstall even if already installed
     #[bpaf(long("force"), short('f'), switch)]
     pub force: bool,
     #[bpaf(long("jobs"), short('j'), argument("JOBS"))]
@@ -2553,6 +2584,12 @@ pub struct InstallArgs {
     /// This is useful for scripts to check if tools need to be installed.
     #[bpaf(long("dry-run-code"), switch)]
     pub dry_run_code: bool,
+    /// Also install tools required by tasks in the current scope
+    ///
+    /// This prepares task tools without running task commands or dependencies.
+    /// Combine with --monorepo to include tasks from every configured root.
+    #[bpaf(long("include-task-tools"), switch)]
+    pub include_task_tools: bool,
     /// Only install versions released before this date or older than this duration
     ///
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
@@ -2564,7 +2601,6 @@ pub struct InstallArgs {
     /// [monorepo].config_roots in the monorepo root config.
     #[bpaf(long("monorepo"), switch)]
     pub monorepo: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
     #[bpaf(long("raw"), switch)]
     pub raw: bool,
     /// Install tool(s) to a shared directory
@@ -2579,7 +2615,6 @@ pub struct InstallArgs {
     /// May require elevated permissions (e.g. sudo).
     #[bpaf(long("system"), switch)]
     pub system: bool,
-    /// Tool(s) to install e.g.: node@20
     #[bpaf(positional("TOOL@VERSION"))]
     pub tool_version: Vec<String>,
 }
@@ -2590,7 +2625,6 @@ pub struct InstallArgs {
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(installintoargs_p))]
 pub struct InstallIntoArgs {
-    /// Tool to install e.g.: node@20
     #[bpaf(positional("TOOL@VERSION"))]
     pub tool_version: String,
     /// Path to install the tool into
@@ -2616,7 +2650,6 @@ pub struct LatestArgs {
     /// Tool to get the latest version of
     #[bpaf(positional("TOOL@VERSION"))]
     pub tool_version: String,
-    /// The version prefix to use when querying the latest version same as the first argument after the "@" used for asdf compatibility
     #[bpaf(positional("ASDF_VERSION"))]
     pub asdf_version: Option<String>,
 }
@@ -2648,7 +2681,6 @@ pub struct LinkArgs {
 pub struct LocalArgs {
     #[bpaf(long("parent"), short('p'), switch)]
     pub parent: bool,
-    /// Save fuzzy version to `.tool-versions` e.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions This is the default behavior unless MISE_ASDF_COMPAT=1
     #[bpaf(long("fuzzy"), switch)]
     pub fuzzy: bool,
     /// Get the path of the config file
@@ -2666,7 +2698,8 @@ pub struct LocalArgs {
 /// Update lockfile checksums and URLs for all specified platforms
 ///
 /// Updates checksums and download URLs for all platforms already specified in the lockfile.
-/// If no lockfile exists, shows what would be created based on the current configuration.
+/// If no lockfile exists, shows what would be created based on the current configuration,
+/// including tools declared by tasks.
 /// This allows you to refresh lockfile data for platforms other than the one you're currently on.
 /// Operates on the lockfile in the current config root. Use TOOL arguments to target specific tools.
 #[derive(Debug, Clone, Bpaf)]
@@ -2674,7 +2707,6 @@ pub struct LocalArgs {
 pub struct LockArgs {
     #[bpaf(long("global"), short('g'), switch)]
     pub global: bool,
-    /// Number of jobs to run in parallel
     #[bpaf(long("jobs"), short('j'), argument("JOBS"))]
     pub jobs: Option<String>,
     /// Show what would be updated without making changes
@@ -2734,7 +2766,6 @@ pub struct LsArgs {
     /// Only show tool versions currently specified in the global mise.toml
     #[bpaf(long("global"), short('g'), switch)]
     pub global: bool,
-    /// Only show tool versions that are installed (Hides tools defined in mise.toml but not installed)
     #[bpaf(long("installed"), short('i'), switch)]
     pub installed: bool,
     /// Output in JSON format
@@ -2749,7 +2780,7 @@ pub struct LsArgs {
     /// Don't fetch information such as outdated versions
     #[bpaf(long("offline"), short('o'), switch)]
     pub offline: bool,
-    #[bpaf(long("plugin"), short('p'), argument("TOOL_FLAG"))]
+    #[bpaf(long("plugin"), short('p'), argument("PLUGIN"))]
     pub plugin: Option<String>,
     /// Display all tracked config sources for tools
     #[bpaf(long("all-sources"), switch)]
@@ -2866,7 +2897,12 @@ pub struct OciBuildArgs {
     pub from: Option<String>,
     /// Also include tools from the global / system config (default: project-only)
     ///
-    /// By default `mise oci build` only packages tools declared in the project's mise config (and any parent configs at-or-below the project root, e.g. a monorepo root config). Personal dev tools in `~/.config/mise/config.toml` are excluded so they don't bake into a project image. Pass `--include-global` to revert to the old "merge all loaded configs" behavior.
+    /// By default `mise oci build` only packages tools declared in the
+    /// project's mise config (and any parent configs at-or-below the
+    /// project root, e.g. a monorepo root config). Personal dev tools in
+    /// `~/.config/mise/config.toml` are excluded so they don't bake into a
+    /// project image. Pass `--include-global` to revert to the old
+    /// "merge all loaded configs" behavior.
     #[bpaf(long("include-global"), switch)]
     pub include_global: bool,
     /// Tag to record in the image index (the org.opencontainers.image.ref.name annotation)
@@ -2880,7 +2916,9 @@ pub struct OciBuildArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry in generated layers
     ///
-    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
+    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
+    /// omitted, it defaults to UID. This affects file ownership only; [oci].user
+    /// controls the image USER directive.
     #[bpaf(long("owner"), argument("UID[:GID]"))]
     pub owner: Option<String>,
 }
@@ -2909,7 +2947,9 @@ pub struct OciBuildArgs {
 pub struct OciPushArgs {
     /// Reuse unchanged tool layers from this image instead of the destination ref
     ///
-    /// Must live in the same repository as the destination. Useful when each push gets a unique tag (e.g. per-commit tags in CI): `--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`.
+    /// Must live in the same repository as the destination. Useful when each
+    /// push gets a unique tag (e.g. per-commit tags in CI):
+    /// `--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`.
     #[bpaf(long("cache-from"), argument("REF"))]
     pub cache_from: Option<String>,
     /// Base image for the build (ignored with --image-dir)
@@ -2934,12 +2974,17 @@ pub struct OciPushArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
     ///
-    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
+    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
+    /// omitted, it defaults to UID. This affects file ownership only; [oci].user
+    /// controls the image USER directive.
     #[bpaf(long("owner"), argument("UID[:GID]"))]
     pub owner: Option<String>,
     /// Maintain the tag as a multi-arch image index
     ///
-    /// Pushes this build's manifest by digest and points the tag at an OCI image index containing one entry per platform, preserving entries other architectures pushed. Run `mise oci push --update-index` from one runner per platform to assemble a multi-arch tag.
+    /// Pushes this build's manifest by digest and points the tag at an OCI
+    /// image index containing one entry per platform, preserving entries
+    /// other architectures pushed. Run `mise oci push --update-index` from
+    /// one runner per platform to assemble a multi-arch tag.
     #[bpaf(long("update-index"), switch)]
     pub update_index: bool,
     /// Destination registry reference (e.g. `ghcr.io/me/devenv:latest`)
@@ -2975,7 +3020,11 @@ pub struct OciRunArgs {
     pub include_global: bool,
     /// Keep the loaded image in the engine's storage after the run
     ///
-    /// By default, both the container (`--rm`) and the loaded image are removed when the command exits, so repeated `mise oci run` calls don't accumulate images in podman / docker storage. Pass `--keep` to retain the image under the tag mise used (`mise-oci:run-*` for docker; the pulled image ID for podman).
+    /// By default, both the container (`--rm`) and the loaded image are
+    /// removed when the command exits, so repeated `mise oci run` calls
+    /// don't accumulate images in podman / docker storage. Pass `--keep`
+    /// to retain the image under the tag mise used (`mise-oci:run-*` for
+    /// docker; the pulled image ID for podman).
     #[bpaf(long("keep"), switch)]
     pub keep: bool,
     /// Override in-image mount point (ignored with --image-dir)
@@ -2986,12 +3035,15 @@ pub struct OciRunArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
     ///
-    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
+    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
+    /// omitted, it defaults to UID. This affects file ownership only; [oci].user
+    /// controls the image USER directive.
     #[bpaf(long("owner"), argument("UID[:GID]"))]
     pub owner: Option<String>,
     /// Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)
     ///
-    /// Note: unlike `docker run -v`, there's no `-v` short flag here because mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
+    /// Note: unlike `docker run -v`, there's no `-v` short flag here because
+    /// mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
     #[bpaf(long("volume"), argument("HOST:CONTAINER"))]
     pub volume: Vec<String>,
     /// Set environment variable in the container (repeatable, `KEY=VAL`)
@@ -3047,17 +3099,20 @@ pub enum OciCommands {
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(outdatedargs_p))]
 pub struct OutdatedArgs {
-    /// Output in JSON format
-    #[bpaf(long("json"), short('J'), switch)]
-    pub json: bool,
     /// Compares against the latest versions available, not what matches the current config
     ///
     /// For example, if you have `node = "20"` in your config by default `mise outdated` will only
     /// show other 20.x versions, not 21.x or 22.x versions.
     ///
     /// Using this flag, if there are 21.x or newer versions it will display those instead of 20.x.
-    #[bpaf(long("bump"), short('l'), switch)]
+    #[bpaf(long("bump"), short('b'), switch)]
     pub bump: bool,
+    /// Output in JSON format
+    #[bpaf(long("json"), short('J'), switch)]
+    pub json: bool,
+    /// Deprecated shorthand for --bump
+    #[bpaf(short('l'), switch)]
+    pub l: bool,
     /// Show outdated tools including installed-but-inactive tools not present in the current config
     ///
     /// By default, `mise outdated` only shows tools that come from the current config.
@@ -3111,7 +3166,6 @@ pub struct PluginsInstallArgs {
     /// Reinstall even if plugin exists
     #[bpaf(long("force"), short('f'), switch)]
     pub force: bool,
-    /// Number of jobs to run in parallel
     #[bpaf(long("jobs"), short('j'), argument("JOBS"))]
     pub jobs: Option<String>,
     /// Show installation output
@@ -3165,10 +3219,8 @@ pub struct PluginsLsArgs {
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(pluginslsremoteargs_p))]
 pub struct PluginsLsRemoteArgs {
-    /// Show the git url for each plugin e.g.: https://github.com/mise-plugins/mise-poetry.git
     #[bpaf(long("urls"), short('u'), switch)]
     pub urls: bool,
-    /// Only show the name of each plugin by default it will show a "*" next to installed plugins
     #[bpaf(long("only-names"), switch)]
     pub only_names: bool,
 }
@@ -3422,6 +3474,11 @@ pub struct RegistryArgs {
     /// Output in JSON format
     #[bpaf(long("json"), short('J'), switch)]
     pub json: bool,
+    /// Include security features for each tool's backends in JSON output.
+    ///
+    /// Requires --json. Security info is de-duplicated across
+    /// all of a tool's backends. This can add noticeable time for large
+    /// listings since each backend's security info is resolved individually.
     #[bpaf(long("security"), switch)]
     pub security: bool,
     /// Show only the specified tool's full name
@@ -3505,6 +3562,9 @@ pub struct RunArgs {
     /// Output affected projects and tasks as JSON without running tasks
     #[bpaf(long("affected-json"), switch)]
     pub affected_json: bool,
+    /// Open the interactive selector with all tasks from the entire monorepo
+    #[bpaf(long("all"), switch)]
+    pub all: bool,
     /// Continue running tasks even if one fails
     #[bpaf(long("continue-on-error"), short('c'), switch)]
     pub continue_on_error: bool,
@@ -3545,7 +3605,6 @@ pub struct RunArgs {
     /// Don't show any output except for errors
     #[bpaf(long("silent"), short('S'), switch)]
     pub silent: bool,
-    /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
     #[bpaf(long("tool"), short('t'), argument("TOOL@VERSION"))]
     pub tool: Vec<String>,
     #[bpaf(long("allow-env"), argument("VAR"))]
@@ -3731,7 +3790,8 @@ pub struct SetArgs {
     pub remove: Vec<String>,
     /// Read the value from stdin (for multiline input)
     ///
-    /// When using --stdin, provide a single key without a value. The value will be read from stdin until EOF.
+    /// When using --stdin, provide a single key without a value.
+    /// The value will be read from stdin until EOF.
     #[bpaf(long("stdin"), switch)]
     pub stdin: bool,
     #[bpaf(positional("ENV_VAR"))]
@@ -3838,6 +3898,7 @@ pub struct SettingsUnsetArgs {
     pub key: String,
 }
 
+/// Manage settings
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(settingsargs_p))]
 pub struct SettingsArgs {
@@ -3897,7 +3958,6 @@ pub struct ShellArgs {
     /// Removes a previously set version
     #[bpaf(long("unset"), short('u'), switch)]
     pub unset: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
     #[bpaf(long("raw"), switch)]
     pub raw: bool,
     /// Tool(s) to use
@@ -3988,7 +4048,7 @@ pub struct SponsorsArgs {}
 ///
 /// For example, use this to import all Homebrew node installs into mise
 ///
-/// This won't overwrite any existing installs but will overwrite any existing symlinks
+/// This won't overwrite managed installs, runtime aliases, or links from other providers.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(syncnodeargs_p))]
 pub struct SyncNodeArgs {
@@ -4007,7 +4067,7 @@ pub struct SyncNodeArgs {
 ///
 /// For example, use this to import all pyenv installs into mise
 ///
-/// This won't overwrite any existing installs but will overwrite any existing symlinks
+/// This won't overwrite managed installs, runtime aliases, or links from other providers.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(syncpythonargs_p))]
 pub struct SyncPythonArgs {
@@ -4247,6 +4307,9 @@ pub struct TasksRunArgs {
     /// Output affected projects and tasks as JSON without running tasks
     #[bpaf(long("affected-json"), switch)]
     pub affected_json: bool,
+    /// Open the interactive selector with all tasks from the entire monorepo
+    #[bpaf(long("all"), switch)]
+    pub all: bool,
     /// Continue running tasks even if one fails
     #[bpaf(long("continue-on-error"), short('c'), switch)]
     pub continue_on_error: bool,
@@ -4287,7 +4350,6 @@ pub struct TasksRunArgs {
     /// Don't show any output except for errors
     #[bpaf(long("silent"), short('S'), switch)]
     pub silent: bool,
-    /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
     #[bpaf(long("tool"), short('t'), argument("TOOL@VERSION"))]
     pub tool: Vec<String>,
     #[bpaf(long("allow-env"), argument("VAR"))]
@@ -4366,10 +4428,10 @@ pub struct TasksRunArgs {
     pub timings: bool,
     #[bpaf(positional("TASK"))]
     pub task: Option<String>,
-    /// Arguments to pass to the tasks. Use ":::" to separate tasks
+    /// Arguments to pass to the tasks. Use ":::" to separate tasks.
     #[bpaf(positional("ARGS"))]
     pub args: Vec<String>,
-    /// Arguments to pass to the tasks. Use ":::" to separate tasks
+    /// Arguments to pass to the tasks. Use ":::" to separate tasks.
     #[bpaf(positional("ARGS_LAST"), strict, many)]
     pub args_last: Vec<String>,
 }
@@ -4473,7 +4535,6 @@ pub struct TestToolArgs {
     /// Also test tools not defined in registry/, guessing how to test it
     #[bpaf(long("include-non-defined"), switch)]
     pub include_non_defined: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
     #[bpaf(long("raw"), switch)]
     pub raw: bool,
     /// Tool(s) to test
@@ -4481,7 +4542,6 @@ pub struct TestToolArgs {
     pub tools: Vec<String>,
 }
 
-/// Forgejo token
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(tokenforgejoargs_p))]
 pub struct TokenForgejoArgs {
@@ -4493,17 +4553,14 @@ pub struct TokenForgejoArgs {
     pub host: Option<String>,
 }
 
-/// GitHub token
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(tokengithubargs_p))]
 pub struct TokenGithubArgs {
-    /// Resolve only via the native GitHub OAuth source (cache, refresh, or device-code flow), bypassing other token sources
     #[bpaf(long("oauth"), switch)]
     pub oauth: bool,
     /// Print only the token value
     #[bpaf(long("raw"), switch)]
     pub raw: bool,
-    /// Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow. Use after changing the GitHub App's installations or permissions: cached tokens keep their original access until they expire
     #[bpaf(long("refresh"), switch)]
     pub refresh: bool,
     /// Show the full unmasked token
@@ -4514,7 +4571,6 @@ pub struct TokenGithubArgs {
     pub host: Option<String>,
 }
 
-/// GitLab token
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(tokengitlabargs_p))]
 pub struct TokenGitlabArgs {
@@ -4583,15 +4639,26 @@ pub struct ToolArgs {
 
 /// Execute a tool stub
 ///
-/// Tool stubs are executable files containing TOML configuration that specify which tool to run and how to run it. They provide a convenient way to create portable, self-contained executables that automatically manage tool installation and execution.
+/// Tool stubs are executable files containing TOML configuration that specify
+/// which tool to run and how to run it. They provide a convenient way to create
+/// portable, self-contained executables that automatically manage tool installation
+/// and execution.
 ///
-/// A tool stub consists of: - A shebang line: #!/usr/bin/env -S mise tool-stub - TOML configuration specifying the tool, version, and options - Optional comments describing the tool's purpose
+/// A tool stub consists of:
+/// - A shebang line: #!/usr/bin/env -S mise tool-stub
+/// - TOML configuration specifying the tool, version, and options
+/// - Optional comments describing the tool's purpose
 ///
-/// Example stub file: #!/usr/bin/env -S mise tool-stub # Node.js v20 development environment
+/// Example stub file:
+///   #!/usr/bin/env -S mise tool-stub
+///   # Node.js v20 development environment
 ///
-/// tool = "node" version = "20.0.0" bin = "node"
+///   tool = "node"
+///   version = "20.0.0"
+///   bin = "node"
 ///
-/// The stub will automatically install the specified tool version if missing and execute it with any arguments passed to the stub.
+/// The stub will automatically install the specified tool version if missing
+/// and execute it with any arguments passed to the stub.
 ///
 /// For more information, see: https://mise.jdx.dev/dev-tools/tool-stubs.html
 #[derive(Debug, Clone, Bpaf)]
@@ -4599,12 +4666,16 @@ pub struct ToolArgs {
 pub struct ToolStubArgs {
     /// Path to the TOML tool stub file to execute
     ///
-    /// The stub file must contain TOML configuration specifying the tool and version to run. At minimum, it should specify a 'version' field. Other common fields include 'tool', 'bin', and backend-specific options.
+    /// The stub file must contain TOML configuration specifying the tool
+    /// and version to run. At minimum, it should specify a 'version' field.
+    /// Other common fields include 'tool', 'bin', and backend-specific options.
     #[bpaf(positional("FILE"))]
     pub file: String,
     /// Arguments to pass to the tool
     ///
-    /// All arguments after the stub file path will be forwarded to the underlying tool. Use '--' to separate mise arguments from tool arguments if needed.
+    /// All arguments after the stub file path will be forwarded to the
+    /// underlying tool. Use '--' to separate mise arguments from tool arguments
+    /// if needed.
     #[bpaf(positional("ARGS"))]
     pub args: Vec<String>,
 }
@@ -4612,17 +4683,18 @@ pub struct ToolStubArgs {
 /// Marks a config file as trusted
 ///
 /// This means mise is allowed to parse the file when it needs to read config
-/// that may execute code or affect the environment. mise checks trust before
-/// parsing `mise.toml`. Without trust, mise may prompt, skip the config in some
-/// discovery paths, fail with an untrusted-config error when it cannot prompt,
-/// or assume trust in detected CI unless paranoid mode is enabled.
+/// that may execute code or affect the environment. Without trust, mise may
+/// prompt, skip the config in some discovery paths, or fail with an
+/// untrusted-config error when it cannot prompt.
 ///
-/// Safe config files do not require trust: files that only contain
-/// `min_version`, `[tools]` entries with plain version strings (or arrays
-/// of them), and `[tasks]` (no templates and no tool options) are loaded
-/// without prompting, since nothing in them executes code at load time —
-/// tools install and tasks run only on explicit commands like `mise install`
-/// or `mise run`.
+/// In normal mode, commands that execute project-defined behavior (`mise run`,
+/// naked task invocations such as `mise <TASK>`, `mise install`, `mise exec`,
+/// and `mise watch`) automatically trust their active config. Paranoid mode
+/// requires explicit, content-bound trust for every non-global config.
+///
+/// In normal mode, safe config files do not require trust: files that only contain
+/// `min_version`, `[tools]` entries with plain version strings (or arrays of
+/// them), and `[tasks]` without templates or tool options.
 ///
 /// Trust is shared across git worktrees: a config file inside a linked
 /// worktree is trusted when the equivalent path in the repository's main
@@ -4642,10 +4714,10 @@ pub struct TrustArgs {
     pub ignore: bool,
     #[bpaf(long("show"), switch)]
     pub show: bool,
-    /// No longer trust this config, will prompt in the future
+    /// Remove explicit trust for this config
     #[bpaf(long("untrust"), switch)]
     pub untrust: bool,
-    /// The config file to trust
+    /// The config file whose trust status to change
     #[bpaf(positional("CONFIG_FILE"))]
     pub config_file: Option<String>,
 }
@@ -4682,7 +4754,8 @@ pub struct UnsetArgs {
     ///
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
     ///
-    /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`. Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
+    /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`.
+    /// Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
     #[bpaf(long("file"), short('f'), argument("FILE"))]
     pub file: Option<String>,
     /// Use the global config file
@@ -4692,7 +4765,7 @@ pub struct UnsetArgs {
     pub env_key: Vec<String>,
 }
 
-/// No longer trust a config, will prompt in the future
+/// Remove explicit trust for a config
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(untrustargs_p))]
 pub struct UntrustArgs {
@@ -4730,7 +4803,8 @@ pub struct UnuseArgs {
     pub global: bool,
     /// Specify a path to a config file or directory
     ///
-    /// If a directory is specified, it will look for a config file in that directory following the rules above.
+    /// If a directory is specified, it will look for a config file in that directory following
+    /// the rules above.
     #[bpaf(long("path"), short('p'), argument("PATH"))]
     pub path: Option<String>,
     /// Do not also prune the installed version
@@ -4751,11 +4825,6 @@ pub struct UnuseArgs {
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(upgradeargs_p))]
 pub struct UpgradeArgs {
-    /// Display multiselect menu to choose which tools to upgrade
-    #[bpaf(long("interactive"), short('i'), switch)]
-    pub interactive: bool,
-    #[bpaf(long("jobs"), short('j'), argument("JOBS"))]
-    pub jobs: Option<String>,
     /// Upgrades to the latest version available, bumping the version in mise.toml
     ///
     /// For example, if you have `node = "20.0.0"` in your mise.toml but 22.1.0 is the latest available,
@@ -4763,8 +4832,16 @@ pub struct UpgradeArgs {
     ///
     /// It keeps the same precision as what was there before, so if you instead had `node = "20"`, it
     /// would change your config to `node = "22"`.
-    #[bpaf(long("bump"), short('l'), switch)]
+    #[bpaf(long("bump"), short('b'), switch)]
     pub bump: bool,
+    /// Display multiselect menu to choose which tools to upgrade
+    #[bpaf(long("interactive"), short('i'), switch)]
+    pub interactive: bool,
+    #[bpaf(long("jobs"), short('j'), argument("JOBS"))]
+    pub jobs: Option<String>,
+    /// Deprecated shorthand for --bump
+    #[bpaf(short('l'), switch)]
+    pub l: bool,
     /// Just print what would be done, don't actually do it
     #[bpaf(long("dry-run"), short('n'), switch)]
     pub dry_run: bool,
@@ -4801,9 +4878,16 @@ pub struct UpgradeArgs {
     /// By default the old version is removed once the new one installs, unless another
     /// tracked config or tool stub still needs it. Use this to keep it anyway, e.g. when
     /// something outside of mise points at the old install directory.
+    ///
+    /// Set `upgrade.auto_prune = false` to make this the default.
     #[bpaf(long("no-prune"), switch)]
     pub no_prune: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1
+    /// Uninstall the versions that were upgraded away from
+    ///
+    /// This is already the default. Use it to override `upgrade.auto_prune = false`
+    /// for a single run.
+    #[bpaf(long("prune"), switch)]
+    pub prune: bool,
     #[bpaf(long("raw"), switch)]
     pub raw: bool,
     #[bpaf(positional("INSTALLED_TOOL@VERSION"))]
@@ -4855,7 +4939,8 @@ pub struct UseArgs {
     pub dry_run: bool,
     /// Specify a path to a config file or directory
     ///
-    /// If a directory is specified, it will look for a config file in that directory following the rules above.
+    /// If a directory is specified, it will look for a config file in that directory following
+    /// the rules above.
     #[bpaf(long("path"), short('p'), argument("PATH"))]
     pub path: Option<String>,
     /// Like --dry-run but exits with code 1 if there are changes to make
@@ -4874,9 +4959,17 @@ pub struct UseArgs {
     /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
     #[bpaf(long("minimum-release-age"), argument("MINIMUM_RELEASE_AGE"))]
     pub minimum_release_age: Option<String>,
+    /// Save the resolved concrete version to the config file
+    ///
+    /// If the request exactly matches an available release, that release is preferred over
+    /// installed fuzzy matches. Use `prefix:` to explicitly request recursive prefix matching.
+    /// e.g.: `mise use --pin node@20` will save the resolved `20.x.y` version
+    /// Set `MISE_PIN=1` to make this the default behavior
+    ///
+    /// Consider using mise.lock as a better alternative to pinning in mise.toml:
+    /// https://mise.jdx.dev/configuration/settings.html#lockfile
     #[bpaf(long("pin"), switch)]
     pub pin: bool,
-    /// Connect backend install command stdin/stdout/stderr directly to the terminal Implies `--jobs=1`
     #[bpaf(long("raw"), switch)]
     pub raw: bool,
     /// Remove the tool(s) from config file
@@ -4929,13 +5022,17 @@ pub struct WatchArgs {
     ///
     /// By default, Watchexec watches the current directory.
     ///
-    /// When watching a single file, it's often better to watch the containing directory instead, and filter on the filename. Some editors may replace the file with a new one when saving, and some platforms may not detect that or further changes.
+    /// When watching a single file, it's often better to watch the containing directory instead,
+    /// and filter on the filename. Some editors may replace the file with a new one when saving,
+    /// and some platforms may not detect that or further changes.
     ///
-    /// Upon starting, Watchexec resolves a "project origin" from the watched paths. See the help for '--project-origin' for more information.
+    /// Upon starting, Watchexec resolves a "project origin" from the watched paths. See the help
+    /// for '--project-origin' for more information.
     ///
     /// This option can be specified multiple times to watch multiple files or directories.
     ///
-    /// The special value '/dev/null', provided as the only path watched, will cause Watchexec to not watch any paths. Other event sources (like signals or key events) may still be used.
+    /// The special value '/dev/null', provided as the only path watched, will cause Watchexec to
+    /// not watch any paths. Other event sources (like signals or key events) may still be used.
     #[bpaf(long("watch"), short('w'), argument("PATH"))]
     pub watch: Vec<String>,
     /// Watch a specific directory, non-recursively
@@ -4949,7 +5046,8 @@ pub struct WatchArgs {
     ///
     /// Each line in the file will be interpreted as if given to '-w'.
     ///
-    /// For more complex uses (like watching non-recursively), use the argfile capability: build a file containing command-line options and pass it to watchexec with `@path/to/argfile`.
+    /// For more complex uses (like watching non-recursively), use the argfile capability: build a
+    /// file containing command-line options and pass it to watchexec with `@path/to/argfile`.
     ///
     /// The special value '-' will read from STDIN; this in incompatible with '--stdin-quit'.
     #[bpaf(long("watch-file"), short('F'), argument("PATH"))]
@@ -4961,7 +5059,12 @@ pub struct WatchArgs {
     pub clear: Option<String>,
     /// What to do when receiving events while the command is running
     ///
-    /// Default is to 'do-nothing', which ignores events while the command is running, so that changes that occur due to the command are ignored, like compilation outputs. You can also use 'queue' which will run the command once again when the current run has finished if any events occur while it's running, or 'restart', which terminates the running command and starts a new one. Finally, there's 'signal', which only sends a signal; this can be useful with programs that can reload their configuration without a full restart.
+    /// Default is to 'do-nothing', which ignores events while the command is running, so that
+    /// changes that occur due to the command are ignored, like compilation outputs. You can also
+    /// use 'queue' which will run the command once again when the current run has finished if any
+    /// events occur while it's running, or 'restart', which terminates the running command and starts
+    /// a new one. Finally, there's 'signal', which only sends a signal; this can be useful with
+    /// programs that can reload their configuration without a full restart.
     ///
     /// The signal can be specified with the '--signal' option.
     #[bpaf(long("on-busy-update"), short('o'), argument("MODE"))]
@@ -4973,65 +5076,98 @@ pub struct WatchArgs {
     pub restart: bool,
     /// Send a signal to the process when it's still running
     ///
-    /// Specify a signal to send to the process when it's still running. This implies '--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is controlled by '--stop-signal'.
+    /// Specify a signal to send to the process when it's still running. This implies
+    /// '--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is
+    /// controlled by '--stop-signal'.
     ///
     /// See the long documentation for '--stop-signal' for syntax.
     ///
-    /// Signals are not supported on Windows at the moment, and will always be overridden to 'kill'. See '--stop-signal' for more on Windows "signals".
+    /// Signals are not supported on Windows at the moment, and will always be overridden to 'kill'.
+    /// See '--stop-signal' for more on Windows "signals".
     #[bpaf(long("signal"), short('s'), argument("SIGNAL"))]
     pub signal: Option<String>,
     /// Signal to send to stop the command
     ///
-    /// This is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is provided). The restart behaviour is to send the signal, wait for the command to exit, and if it hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.
+    /// This is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is
+    /// provided). The restart behaviour is to send the signal, wait for the command to exit, and if
+    /// it hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.
     ///
     /// The default on unix is "SIGTERM".
     ///
-    /// Input is parsed as a full signal name (like "SIGTERM"), a short signal name (like "TERM"), or a signal number (like "15"). All input is case-insensitive.
+    /// Input is parsed as a full signal name (like "SIGTERM"), a short signal name (like "TERM"),
+    /// or a signal number (like "15"). All input is case-insensitive.
     ///
-    /// On Windows this option is technically supported but only supports the "KILL" event, as Watchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it has termination (here called "KILL" or "STOP") and "CTRL+C", "CTRL+BREAK", and "CTRL+CLOSE" events. For portability the unix signals "SIGKILL", "SIGINT", "SIGTERM", and "SIGHUP" are respectively mapped to these.
+    /// On Windows this option is technically supported but only supports the "KILL" event, as
+    /// Watchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it
+    /// has termination (here called "KILL" or "STOP") and "CTRL+C", "CTRL+BREAK", and "CTRL+CLOSE"
+    /// events. For portability the unix signals "SIGKILL", "SIGINT", "SIGTERM", and "SIGHUP" are
+    /// respectively mapped to these.
     #[bpaf(long("stop-signal"), argument("SIGNAL"))]
     pub stop_signal: Option<String>,
     /// Time to wait for the command to exit gracefully
     ///
-    /// This is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal is sent, Watchexec will wait for the command to exit. If it hasn't exited after this time, it is forcefully terminated.
+    /// This is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal
+    /// is sent, Watchexec will wait for the command to exit. If it hasn't exited after this time,
+    /// it is forcefully terminated.
     ///
-    /// Takes a unit-less value in seconds, or a time span value such as "5min 20s". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Takes a unit-less value in seconds, or a time span value such as "5min 20s".
+    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// The default is 10 seconds. Set to 0 to immediately force-kill the command.
     ///
-    /// This has no practical effect on Windows as the command is always forcefully terminated; see '--stop-signal' for why.
+    /// This has no practical effect on Windows as the command is always forcefully terminated; see
+    /// '--stop-signal' for why.
     #[bpaf(long("stop-timeout"), argument("TIMEOUT"))]
     pub stop_timeout: Option<String>,
     /// Translate signals from the OS to signals to send to the command
     ///
-    /// Takes a pair of signal names, separated by a colon, such as "TERM:INT" to map SIGTERM to SIGINT. The first signal is the one received by watchexec, and the second is the one sent to the command. The second can be omitted to discard the first signal, such as "TERM:" to not do anything on SIGTERM.
+    /// Takes a pair of signal names, separated by a colon, such as "TERM:INT" to map SIGTERM to
+    /// SIGINT. The first signal is the one received by watchexec, and the second is the one sent to
+    /// the command. The second can be omitted to discard the first signal, such as "TERM:" to
+    /// not do anything on SIGTERM.
     ///
-    /// If SIGINT or SIGTERM are mapped, then they no longer quit Watchexec. Besides making it hard to quit Watchexec itself, this is useful to send pass a Ctrl-C to the command without also terminating Watchexec and the underlying program with it, e.g. with "INT:INT".
+    /// If SIGINT or SIGTERM are mapped, then they no longer quit Watchexec. Besides making it hard
+    /// to quit Watchexec itself, this is useful to send pass a Ctrl-C to the command without also
+    /// terminating Watchexec and the underlying program with it, e.g. with "INT:INT".
     ///
     /// This option can be specified multiple times to map multiple signals.
     ///
-    /// Signal syntax is case-insensitive for short names (like "TERM", "USR2") and long names (like "SIGKILL", "SIGHUP"). Signal numbers are also supported (like "15", "31"). On Windows, the forms "STOP", "CTRL+C", and "CTRL+BREAK" are also supported to receive, but Watchexec cannot yet deliver other "signals" than a STOP.
+    /// Signal syntax is case-insensitive for short names (like "TERM", "USR2") and long names (like
+    /// "SIGKILL", "SIGHUP"). Signal numbers are also supported (like "15", "31"). On Windows, the
+    /// forms "STOP", "CTRL+C", and "CTRL+BREAK" are also supported to receive, but Watchexec cannot
+    /// yet deliver other "signals" than a STOP.
     #[bpaf(long("map-signal"), argument("SIGNAL:SIGNAL"))]
     pub map_signal: Vec<String>,
     /// Time to wait for new events before taking action
     ///
-    /// When an event is received, Watchexec will wait for up to this amount of time before handling it (such as running the command). This is essential as what you might perceive as a single change may actually emit many events, and without this behaviour, Watchexec would run much too often. Additionally, it's not infrequent that file writes are not atomic, and each write may emit an event, so this is a good way to avoid running a command while a file is partially written.
+    /// When an event is received, Watchexec will wait for up to this amount of time before handling
+    /// it (such as running the command). This is essential as what you might perceive as a single
+    /// change may actually emit many events, and without this behaviour, Watchexec would run much
+    /// too often. Additionally, it's not infrequent that file writes are not atomic, and each write
+    /// may emit an event, so this is a good way to avoid running a command while a file is
+    /// partially written.
     ///
-    /// An alternative use is to set a high value (like "30min" or longer), to save power or bandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that every accumulated event will build up in memory.
+    /// An alternative use is to set a high value (like "30min" or longer), to save power or
+    /// bandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that
+    /// every accumulated event will build up in memory.
     ///
-    /// Takes a unit-less value in milliseconds, or a time span value such as "5sec 20ms". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Takes a unit-less value in milliseconds, or a time span value such as "5sec 20ms".
+    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// The default is 50 milliseconds. Setting to 0 is highly discouraged.
     #[bpaf(long("debounce"), short('d'), argument("TIMEOUT"))]
     pub debounce: Option<String>,
     /// Exit when stdin closes
     ///
-    /// This watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is closed. This is used by some process managers to avoid leaving zombie processes around.
+    /// This watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is
+    /// closed. This is used by some process managers to avoid leaving zombie processes around.
     #[bpaf(long("stdin-quit"), switch)]
     pub stdin_quit: bool,
     /// Don't load gitignores
     ///
-    /// Among other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note that Watchexec will detect which of these is in use, if any, and only load the relevant files. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.
+    /// Among other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note
+    /// that Watchexec will detect which of these is in use, if any, and only load the relevant
+    /// files. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.
     ///
     /// This option is useful if you want to watch files that are ignored by Git.
     #[bpaf(long("no-vcs-ignore"), switch)]
@@ -5076,12 +5212,15 @@ pub struct WatchArgs {
     pub no_global_ignore: bool,
     /// Don't use internal default ignores
     ///
-    /// Watchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`, `.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and Watchexec log files.
+    /// Watchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`,
+    /// `.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and
+    /// Watchexec log files.
     #[bpaf(long("no-default-ignore"), switch)]
     pub no_default_ignore: bool,
     /// Don't discover ignore files at all
     ///
-    /// This is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but even more efficient as it will skip all the ignore discovery mechanisms from the get go.
+    /// This is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but
+    /// even more efficient as it will skip all the ignore discovery mechanisms from the get go.
     ///
     /// Note that default ignores are still loaded, see '--no-default-ignore'.
     #[bpaf(long("no-discover-ignore"), switch)]
@@ -5090,65 +5229,84 @@ pub struct WatchArgs {
     ///
     /// This is a shorthand for '--no-discover-ignore', '--no-default-ignore'.
     ///
-    /// Note that ignores explicitly loaded via other command line options, such as '--ignore' or '--ignore-file', will still be used.
+    /// Note that ignores explicitly loaded via other command line options, such as '--ignore' or
+    /// '--ignore-file', will still be used.
     #[bpaf(long("ignore-nothing"), switch)]
     pub ignore_nothing: bool,
     /// Wait until first change before running command
     ///
-    /// By default, Watchexec will run the command once immediately. With this option, it will instead wait until an event is detected before running the command as normal.
+    /// By default, Watchexec will run the command once immediately. With this option, it will
+    /// instead wait until an event is detected before running the command as normal.
     #[bpaf(long("postpone"), short('p'), switch)]
     pub postpone: bool,
     /// Sleep before running the command
     ///
-    /// This option will cause Watchexec to sleep for the specified amount of time before running the command, after an event is detected. This is like using "sleep 5 && command" in a shell, but portable and slightly more efficient.
+    /// This option will cause Watchexec to sleep for the specified amount of time before running
+    /// the command, after an event is detected. This is like using "sleep 5 && command" in a shell,
+    /// but portable and slightly more efficient.
     ///
-    /// Takes a unit-less value in seconds, or a time span value such as "2min 5s". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Takes a unit-less value in seconds, or a time span value such as "2min 5s".
+    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     #[bpaf(long("delay-run"), argument("DURATION"))]
     pub delay_run: Option<String>,
     /// Poll for filesystem changes
     ///
-    /// By default, and where available, Watchexec uses the operating system's native file system watching capabilities. This option disables that and instead uses a polling mechanism, which is less efficient but can work around issues with some file systems (like network shares) or edge cases.
+    /// By default, and where available, Watchexec uses the operating system's native file system
+    /// watching capabilities. This option disables that and instead uses a polling mechanism, which
+    /// is less efficient but can work around issues with some file systems (like network shares) or
+    /// edge cases.
     ///
-    /// Optionally takes a unit-less value in milliseconds, or a time span value such as "2s 500ms", to use as the polling interval. If not specified, the default is 30 seconds. Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Optionally takes a unit-less value in milliseconds, or a time span value such as "2s 500ms",
+    /// to use as the polling interval. If not specified, the default is 30 seconds.
+    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// Aliased as '--force-poll'.
     #[bpaf(long("poll"), argument("INTERVAL"))]
     pub poll: Option<String>,
     /// Use a different shell
     ///
-    /// By default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes, and either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec detects is the running shell.
+    /// By default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes,
+    /// and either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec
+    /// detects is the running shell.
     ///
-    /// With this option, you can override that and use a different shell, for example one with more features or one which has your custom aliases and functions.
+    /// With this option, you can override that and use a different shell, for example one with more
+    /// features or one which has your custom aliases and functions.
     ///
-    /// If the value has spaces, it is parsed as a command line, and the first word used as the shell program, with the rest as arguments to the shell.
+    /// If the value has spaces, it is parsed as a command line, and the first word used as the
+    /// shell program, with the rest as arguments to the shell.
     ///
     /// The command is run with the '-c' flag (except for 'cmd' on Windows, where it's '/C').
     ///
-    /// The special value 'none' can be used to disable shell use entirely. In that case, the command provided to Watchexec will be parsed, with the first word being the executable and the rest being the arguments, and executed directly. Note that this parsing is rudimentary, and may not work as expected in all cases.
+    /// The special value 'none' can be used to disable shell use entirely. In that case, the
+    /// command provided to Watchexec will be parsed, with the first word being the executable and
+    /// the rest being the arguments, and executed directly. Note that this parsing is rudimentary,
+    /// and may not work as expected in all cases.
     ///
-    /// Using 'none' is a little more efficient and can enable a stricter interpretation of the input, but it also means that you can't use shell features like globbing, redirection, control flow, logic, or pipes.
+    /// Using 'none' is a little more efficient and can enable a stricter interpretation of the
+    /// input, but it also means that you can't use shell features like globbing, redirection,
+    /// control flow, logic, or pipes.
     ///
     /// Examples:
     ///
     /// Use without shell:
     ///
-    /// $ watchexec -n -- zsh -x -o shwordsplit scr
+    ///   $ watchexec -n -- zsh -x -o shwordsplit scr
     ///
     /// Use with powershell core:
     ///
-    /// $ watchexec --shell=pwsh -- Test-Connection localhost
+    ///   $ watchexec --shell=pwsh -- Test-Connection localhost
     ///
     /// Use with CMD.exe:
     ///
-    /// $ watchexec --shell=cmd -- dir
+    ///   $ watchexec --shell=cmd -- dir
     ///
     /// Use with a different unix shell:
     ///
-    /// $ watchexec --shell=bash -- 'echo $BASH_VERSION'
+    ///   $ watchexec --shell=bash -- 'echo $BASH_VERSION'
     ///
     /// Use with a unix shell and options:
     ///
-    /// $ watchexec --shell='zsh -x -o shwordsplit' -- scr
+    ///   $ watchexec --shell='zsh -x -o shwordsplit' -- scr
     #[bpaf(long("shell"), argument("SHELL"))]
     pub shell: Option<String>,
     /// Shorthand for '--shell=none'
@@ -5256,27 +5414,40 @@ pub struct WatchArgs {
     /// multiple confused queries that have landed in my inbox over the years.
     #[bpaf(long("emit-events-to"), argument("MODE"))]
     pub emit_events_to: Option<String>,
+    /// Only emit events to stdout, run no commands.
+    ///
+    /// This is a convenience option for using Watchexec as a file watcher, without running any
+    /// commands. It is almost equivalent to using `cat` as the command, except that it will not
+    /// spawn a new process for each event.
+    ///
+    /// This option requires `--emit-events-to` to be set, and restricts the available modes to
+    /// `stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin
+    /// of the command.
     #[bpaf(long("only-emit-events"), switch)]
     pub only_emit_events: bool,
     /// Add env vars to the command
     ///
-    /// This is a convenience option for setting environment variables for the command, without setting them for the Watchexec process itself.
+    /// This is a convenience option for setting environment variables for the command, without
+    /// setting them for the Watchexec process itself.
     ///
     /// Use key=value syntax. Multiple variables can be set by repeating the option.
     #[bpaf(long("env"), short('E'), argument("KEY=VALUE"))]
     pub env: Vec<String>,
     /// Configure how the process is wrapped
     ///
-    /// By default, Watchexec will run the command in a session on macOS, in a process group on other Unix platforms, and in a Job Object in Windows.
+    /// By default, Watchexec will run the command in a session on macOS, in a process group on
+    /// other Unix platforms, and in a Job Object in Windows.
     ///
     /// Some Unix programs prefer running in a session, while others do not work in a process group.
     ///
-    /// Use 'group' to use a process group, 'session' to use a process session, and 'none' to run the command directly. On Windows, either of 'group' or 'session' will use a Job Object.
+    /// Use 'group' to use a process group, 'session' to use a process session, and 'none' to run
+    /// the command directly. On Windows, either of 'group' or 'session' will use a Job Object.
     #[bpaf(long("wrap-process"), argument("MODE"))]
     pub wrap_process: Option<String>,
     /// Alert when commands start and end
     ///
-    /// With this, Watchexec will emit a desktop notification when a command starts and ends, on supported platforms. On unsupported platforms, it may silently do nothing, or log a warning.
+    /// With this, Watchexec will emit a desktop notification when a command starts and ends, on
+    /// supported platforms. On unsupported platforms, it may silently do nothing, or log a warning.
     #[bpaf(long("notify"), short('N'), switch)]
     pub notify: bool,
     /// When to use terminal colours
@@ -5286,12 +5457,14 @@ pub struct WatchArgs {
     pub color: Option<String>,
     /// Print how long the command took to run
     ///
-    /// This may not be exactly accurate, as it includes some overhead from Watchexec itself. Use the `time` utility, high-precision timers, or benchmarking tools for more accurate results.
+    /// This may not be exactly accurate, as it includes some overhead from Watchexec itself. Use
+    /// the `time` utility, high-precision timers, or benchmarking tools for more accurate results.
     #[bpaf(long("timings"), switch)]
     pub timings: bool,
     /// Don't print starting and stopping messages
     ///
-    /// By default Watchexec will print a message when the command starts and stops. This option disables this behaviour, so only the command's output, warnings, and errors will be printed.
+    /// By default Watchexec will print a message when the command starts and stops. This option
+    /// disables this behaviour, so only the command's output, warnings, and errors will be printed.
     #[bpaf(long("quiet"), short('q'), switch)]
     pub quiet: bool,
     /// Ring the terminal bell on command completion
@@ -5299,71 +5472,151 @@ pub struct WatchArgs {
     pub bell: bool,
     /// Set the project origin
     ///
-    /// Watchexec will attempt to discover the project's "origin" (or "root") by searching for a variety of markers, like files or directory patterns. It does its best but sometimes gets it it wrong, and you can override that with this option.
+    /// Watchexec will attempt to discover the project's "origin" (or "root") by searching for a
+    /// variety of markers, like files or directory patterns. It does its best but sometimes gets it
+    /// it wrong, and you can override that with this option.
     ///
-    /// The project origin is used to determine the path of certain ignore files, which VCS is being used, the meaning of a leading '/' in filtering patterns, and maybe more in the future.
+    /// The project origin is used to determine the path of certain ignore files, which VCS is being
+    /// used, the meaning of a leading '/' in filtering patterns, and maybe more in the future.
     ///
     /// When set, Watchexec will also not bother searching, which can be significantly faster.
     #[bpaf(long("project-origin"), argument("DIRECTORY"))]
     pub project_origin: Option<String>,
     /// Set the working directory
     ///
-    /// By default, the working directory of the command is the working directory of Watchexec. You can change that with this option. Note that paths may be less intuitive to use with this.
+    /// By default, the working directory of the command is the working directory of Watchexec. You
+    /// can change that with this option. Note that paths may be less intuitive to use with this.
     #[bpaf(long("workdir"), argument("DIRECTORY"))]
     pub workdir: Option<String>,
     /// Filename extensions to filter to
     ///
-    /// This is a quick filter to only emit events for files with the given extensions. Extensions can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can be given by repeating the option or by separating them with commas.
+    /// This is a quick filter to only emit events for files with the given extensions. Extensions
+    /// can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can
+    /// be given by repeating the option or by separating them with commas.
     #[bpaf(long("exts"), short('e'), argument("EXTENSIONS"))]
     pub exts: Vec<String>,
     /// Filename patterns to filter to
     ///
-    /// Provide a glob-like filter pattern, and only events for files matching the pattern will be emitted. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
+    /// Provide a glob-like filter pattern, and only events for files matching the pattern will be
+    /// emitted. Multiple patterns can be given by repeating the option. Events that are not from
+    /// files (e.g. signals, keyboard events) will pass through untouched.
     #[bpaf(long("filter"), short('f'), argument("PATTERN"))]
     pub filter: Vec<String>,
     /// Files to load filters from
     ///
-    /// Provide a path to a file containing filters, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--filter' option.
+    /// Provide a path to a file containing filters, one per line. Empty lines and lines starting
+    /// with '#' are ignored. Uses the same pattern format as the '--filter' option.
     ///
     /// This can also be used via the $WATCHEXEC_FILTER_FILES environment variable.
     #[bpaf(long("filter-file"), argument("PATH"))]
     pub filter_file: Vec<String>,
+    /// [experimental] Filter programs.
+    ///
+    /// /!\ This option is EXPERIMENTAL and may change and/or vanish without notice.
+    ///
+    /// Provide your own custom filter programs in jaq (similar to jq) syntax. Programs are given
+    /// an event in the same format as described in '--emit-events-to' and must return a boolean.
+    /// Invalid programs will make watchexec fail to start; use '-v' to see program runtime errors.
+    ///
+    /// In addition to the jaq stdlib, watchexec adds some custom filter definitions:
+    ///
+    ///   - 'path | file_meta' returns file metadata or null if the file does not exist.
+    ///
+    ///   - 'path | file_size' returns the size of the file at path, or null if it does not exist.
+    ///
+    ///   - 'path | file_read(bytes)' returns a string with the first n bytes of the file at path.
+    ///     If the file is smaller than n bytes, the whole file is returned. There is no filter to
+    ///     read the whole file at once to encourage limiting the amount of data read and processed.
+    ///
+    ///   - 'string | hash', and 'path | file_hash' return the hash of the string or file at path.
+    ///     No guarantee is made about the algorithm used: treat it as an opaque value.
+    ///
+    ///   - 'any | kv_store(key)', 'kv_fetch(key)', and 'kv_clear' provide a simple key-value store.
+    ///     Data is kept in memory only, there is no persistence. Consistency is not guaranteed.
+    ///
+    ///   - 'any | printout', 'any | printerr', and 'any | log(level)' will print or log any given
+    ///     value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and
+    ///     pass the value through (so '[1] | log("debug") | .[]' will produce a '1' and log '[1]').
+    ///
+    /// All filtering done with such programs, and especially those using kv or filesystem access,
+    /// is much slower than the other filtering methods. If filtering is too slow, events will back
+    /// up and stall watchexec. Take care when designing your filters.
+    ///
+    /// If the argument to this option starts with an '@', the rest of the argument is taken to be
+    /// the path to a file containing a jaq program.
+    ///
+    /// Jaq programs are run in order, after all other filters, and short-circuit: if a filter (jaq
+    /// or not) rejects an event, execution stops there, and no other filters are run. Additionally,
+    /// they stop after outputting the first value, so you'll want to use 'any' or 'all' when
+    /// iterating, otherwise only the first item will be processed, which can be quite confusing!
+    ///
+    /// Find user-contributed programs or submit your own useful ones at
+    /// <https://github.com/watchexec/watchexec/discussions/592>.
+    ///
+    /// ## Examples:
+    ///
+    /// Regexp ignore filter on paths:
+    ///
+    ///   'all(.tags[] | select(.kind == "path"); .absolute | test("[.]test[.]js$")) | not'
+    ///
+    /// Pass any event that creates a file:
+    ///
+    ///   'any(.tags[] | select(.kind == "fs"); .simple == "create")'
+    ///
+    /// Pass events that touch executable files:
+    ///
+    ///   'any(.tags[] | select(.kind == "path" && .filetype == "file"); .absolute | metadata | .executable)'
+    ///
+    /// Ignore files that start with shebangs:
+    ///
+    ///   'any(.tags[] | select(.kind == "path" && .filetype == "file"); .absolute | read(2) == "#!") | not'
     #[bpaf(long("filter-prog"), short('J'), argument("EXPRESSION"))]
     pub filter_prog: Vec<String>,
     /// Filename patterns to filter out
     ///
-    /// Provide a glob-like filter pattern, and events for files matching the pattern will be excluded. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
+    /// Provide a glob-like filter pattern, and events for files matching the pattern will be
+    /// excluded. Multiple patterns can be given by repeating the option. Events that are not from
+    /// files (e.g. signals, keyboard events) will pass through untouched.
     #[bpaf(long("ignore"), short('i'), argument("PATTERN"))]
     pub ignore: Vec<String>,
     /// Files to load ignores from
     ///
-    /// Provide a path to a file containing ignores, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--ignore' option.
+    /// Provide a path to a file containing ignores, one per line. Empty lines and lines starting
+    /// with '#' are ignored. Uses the same pattern format as the '--ignore' option.
     ///
     /// This can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.
     #[bpaf(long("ignore-file"), argument("PATH"))]
     pub ignore_file: Vec<String>,
     /// Filesystem events to filter to
     ///
-    /// This is a quick filter to only emit events for the given types of filesystem changes. Choose from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be given by repeating the option or by separating them with commas. By default, this is all types except for 'access'.
+    /// This is a quick filter to only emit events for the given types of filesystem changes. Choose
+    /// from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be
+    /// given by repeating the option or by separating them with commas. By default, this is all
+    /// types except for 'access'.
     ///
-    /// This may apply filtering at the kernel level when possible, which can be more efficient, but may be more confusing when reading the logs.
+    /// This may apply filtering at the kernel level when possible, which can be more efficient, but
+    /// may be more confusing when reading the logs.
     #[bpaf(long("fs-events"), argument("EVENTS"))]
     pub fs_events: Vec<String>,
     /// Don't emit fs events for metadata changes
     ///
-    /// This is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the '--fs-events' option is non-sensical and not allowed.
+    /// This is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the
+    /// '--fs-events' option is non-sensical and not allowed.
     #[bpaf(long("no-meta"), switch)]
     pub no_meta: bool,
     /// Print events that trigger actions
     ///
-    /// This prints the events that triggered the action when handling it (after debouncing), in a human readable form. This is useful for debugging filters.
+    /// This prints the events that triggered the action when handling it (after debouncing), in a
+    /// human readable form. This is useful for debugging filters.
     ///
     /// Use '-vvv' instead when you need more diagnostic information.
     #[bpaf(long("print-events"), switch)]
     pub print_events: bool,
     /// Show the manual page
     ///
-    /// This shows the manual page for Watchexec, if the output is a terminal and the 'man' program is available. If not, the manual page is printed to stdout in ROFF format (suitable for writing to a watchexec.1 file).
+    /// This shows the manual page for Watchexec, if the output is a terminal and the 'man' program
+    /// is available. If not, the manual page is printed to stdout in ROFF format (suitable for
+    /// writing to a watchexec.1 file).
     #[bpaf(long("manual"), switch)]
     pub manual: bool,
     #[bpaf(positional("TASK"))]
@@ -5421,7 +5674,7 @@ pub struct Cli {
     /// Force the operation
     #[bpaf(long("force"), short('f'), switch)]
     pub force: bool,
-    /// How many jobs to run in parallel [default: 8]
+    /// How many jobs to run in parallel; values below 1 are treated as 1 [default: 8]
     #[bpaf(long("jobs"), short('j'), argument("JOBS"))]
     pub jobs: Option<String>,
     /// Dry run, don't actually do anything
@@ -5435,7 +5688,6 @@ pub struct Cli {
     pub quiet: bool,
     #[bpaf(long("shell"), short('s'), argument("SHELL"))]
     pub shell: Option<String>,
-    /// Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
     #[bpaf(long("tool"), short('t'), argument("TOOL@VERSION"))]
     pub tool: Vec<String>,
     /// Show extra output (use -vv for even more)
@@ -5681,7 +5933,7 @@ pub enum Commands {
     /// Remove environment variable(s) from the config file.
     #[bpaf(command("unset"))]
     Unset(#[bpaf(external(unsetargs_p))] UnsetArgs),
-    /// No longer trust a config, will prompt in the future
+    /// Remove explicit trust for a config
     #[bpaf(command("untrust"))]
     Untrust(#[bpaf(external(untrustargs_p))] UntrustArgs),
     /// Removes installed tool versions from mise.toml
