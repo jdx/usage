@@ -282,6 +282,8 @@ pub struct Spec<'a> {
     /// The binary as invoked, when it differs from `name`.
     pub bin: Option<&'a str>,
     pub version: Option<&'a str>,
+    /// Extended version text used by `--version`; `-V` falls back to `version`.
+    pub long_version: Option<&'a str>,
     /// Package authorship text for generated references.
     pub author: Option<&'a str>,
     /// SPDX expression or other license label for generated references.
@@ -478,6 +480,16 @@ impl<'a> SpecView<'a> {
                     None => self.base.version,
                 }
             },
+            long_version: if self.omit_version {
+                None
+            } else if self.version.is_some() {
+                // A runtime version stamp cannot safely rewrite arbitrary extended text.
+                // Dropping it makes --version fall back to the new concise version instead
+                // of pairing that version with stale build metadata from the embedded spec.
+                None
+            } else {
+                self.base.long_version
+            },
             author: self.base.author,
             license: self.base.license,
             repository: self.base.repository,
@@ -506,6 +518,7 @@ impl Spec<'_> {
         name: "",
         bin: None,
         version: None,
+        long_version: None,
         author: None,
         license: None,
         repository: None,
@@ -1152,6 +1165,9 @@ impl Spec<'_> {
         prop(out, "bin", self.bin.unwrap_or(self.name))?;
         if let Some(version) = self.version {
             prop(out, "version", version)?;
+        }
+        if let Some(version) = self.long_version {
+            prop(out, "long_version", version)?;
         }
         if let Some(author) = self.author {
             prop(out, "author", author)?;
@@ -3234,6 +3250,7 @@ mod tests {
             name: "ex",
             bin: Some("ex"),
             version: Some("1.0.0"),
+            long_version: Some("1.0.0\ncommit old"),
             root: &ROOT_META,
             ..Spec::EMPTY
         };
@@ -3252,6 +3269,7 @@ mod tests {
         assert_eq!(effective.name, "embedded");
         assert_eq!(effective.bin, Some("embedded"));
         assert_eq!(effective.version, Some("2.0.0"));
+        assert_eq!(effective.long_version, None);
 
         let kdl = view.to_kdl();
         assert!(kdl.contains("name embedded"), "{kdl}");
@@ -3261,6 +3279,10 @@ mod tests {
         let base = SPEC.to_kdl();
         assert!(base.contains("name ex"), "{base}");
         assert!(base.contains("version \"1.0.0\""), "{base}");
+        assert!(
+            base.contains("long_version \"1.0.0\\ncommit old\""),
+            "{base}"
+        );
         assert!(!base.contains("effect="), "{base}");
 
         let without_version = SPEC.view().version("2.0.0").omit_version();

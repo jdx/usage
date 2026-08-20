@@ -240,12 +240,25 @@ impl<'a> Emitter<'a> {
             self.spec.bin, self.package
         );
 
-        if let Some(version) = &self.spec.version {
+        if let Some(version) = self
+            .spec
+            .version
+            .as_ref()
+            .or(self.spec.long_version.as_ref())
+        {
             let _ = writeln!(
                 self.out,
                 "// Version is what the spec declares, so a caller answering `--version` has it\n\
                  // without the parse tables carrying a string binding never reads.\n\
                  const Version = {}\n",
+                go_string(version)
+            );
+        }
+        if let Some(version) = &self.spec.long_version {
+            let _ = writeln!(
+                self.out,
+                "// LongVersion is the extended text printed for `--version`; `-V` uses Version.\n\
+                 const LongVersion = {}\n",
                 go_string(version)
             );
         }
@@ -405,7 +418,7 @@ impl<'a> Emitter<'a> {
                 if let Some(var) = &default_subcommand {
                     lines.push(Line::Field("DefaultSubcommand".into(), var.clone()));
                 }
-                if self.spec.version.is_some() {
+                if self.spec.version.is_some() || self.spec.long_version.is_some() {
                     // Only where the CLI declares a version: a `--version` that answers
                     // with nothing is worse than one that is not there.
                     lines.push(Line::Field("Version".into(), "true".into()));
@@ -935,8 +948,16 @@ impl Emitter<'_> {
             format!("Name: {}", go_string(&self.spec.name)),
             format!("Bin: {}", go_string(&self.spec.bin)),
         ];
-        if let Some(version) = &self.spec.version {
+        if let Some(version) = self
+            .spec
+            .version
+            .as_ref()
+            .or(self.spec.long_version.as_ref())
+        {
             fields.push(format!("Version: {}", go_string(version)));
+        }
+        if let Some(version) = &self.spec.long_version {
+            fields.push(format!("LongVersion: {}", go_string(version)));
         }
         // `about` alone, with no fall back to the long one: usage-lib's short page
         // prints nothing where a spec wrote only `about_long`, and the long page
@@ -1542,6 +1563,7 @@ mod tests {
 name "ex"
 bin "ex"
 version "1.2.3"
+long_version "1.2.3\ncommit abc123"
 flag "-v --verbose" global=#true help="be loud"
 flag "--color" negate="--no-color"
 flag "-j --jobs <n>"

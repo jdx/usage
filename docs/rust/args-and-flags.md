@@ -214,6 +214,7 @@ On the root `#[derive(Cli)]` struct:
 | `bin = "…"`                         | The binary name (used in help and the spec)                    |
 | `name = "…"`                        | A friendly display name                                        |
 | `version` / `version = "…"`         | Enable `--version`/`-V`; bare form uses `CARGO_PKG_VERSION`    |
+| `long_version = "…"`                | Extended `--version` text while `-V` stays concise             |
 | `about` / `long_about`              | Description (doc comments work too)                            |
 | `usage = "…"`                       | Verbatim synopsis line(s), replacing the generated one         |
 | `before_help` / `after_help`        | Extra text around the help page (`*_long_help` variants too)   |

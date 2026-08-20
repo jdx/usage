@@ -517,6 +517,10 @@ fn computed_version() -> &'static str {
     "1.2.3+runtime"
 }
 
+fn computed_long_version() -> &'static str {
+    "1.2.3+runtime\ncommit abc123"
+}
+
 #[cfg(feature = "completions")]
 fn runtime_program() -> &'static str {
     "runtime-ex"
@@ -538,6 +542,8 @@ struct RuntimeIdentityEx;
     bin = "dynamic-ex",
     version = computed_version(),
     version_spec = "1.2.3",
+    long_version = computed_long_version(),
+    long_version_spec = "1.2.3\ncommit portable",
     about = DYNAMIC_ABOUT,
     after_long_help = DYNAMIC_AFTER_HELP
 )]
@@ -1313,12 +1319,25 @@ fn runtime_metadata_expressions_have_explicit_portable_values() {
 
     let kdl = DynamicEx::to_kdl();
     assert!(kdl.contains("version \"1.2.3\""), "{kdl}");
+    assert!(
+        kdl.contains("long_version \"1.2.3\\ncommit portable\""),
+        "{kdl}"
+    );
     assert!(kdl.contains("default=\"7\""), "{kdl}");
     assert!(kdl.contains("default=\"0\""), "{kdl}");
     assert!(kdl.contains(DYNAMIC_ABOUT), "{kdl}");
     assert!(kdl.contains(DYNAMIC_AFTER_HELP), "{kdl}");
     let spec: usage_parser::Spec = kdl.parse().expect("the static values should be portable");
     assert_eq!(spec.version.as_deref(), Some("1.2.3"));
+    assert_eq!(spec.long_version.as_deref(), Some("1.2.3\ncommit portable"));
+    assert!(matches!(
+        DynamicEx::parse_from(&[OsStr::new("-V")]),
+        Err(usage::Error::Version { long: false })
+    ));
+    assert!(matches!(
+        DynamicEx::parse_from(&[OsStr::new("--version")]),
+        Err(usage::Error::Version { long: true })
+    ));
 }
 
 #[cfg(feature = "completions")]

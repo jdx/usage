@@ -40,6 +40,8 @@ pub struct Spec {
     pub config: SpecConfig,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub long_version: Option<String>,
     pub usage: String,
     pub complete: IndexMap<String, SpecComplete>,
     /// Every file this spec was read from: its own path, then each `include`, recursively.
@@ -219,6 +221,7 @@ impl Spec {
                     }
                 }
                 "version" => schema.version = Some(node.arg(0)?.ensure_string()?),
+                "long_version" => schema.long_version = Some(node.arg(0)?.ensure_string()?),
                 "author" => schema.author = Some(node.arg(0)?.ensure_string()?),
                 "source_code_link_template" => {
                     schema.source_code_link_template = Some(node.arg(0)?.ensure_string()?)
@@ -422,6 +425,7 @@ impl Spec {
         merge_opt!(source_code_link_template);
         merge_opt!(repository);
         merge_opt!(version);
+        merge_opt!(long_version);
         merge_opt!(author);
         merge_opt!(about_long);
         merge_opt!(about_md);
@@ -530,6 +534,11 @@ impl Display for Spec {
         }
         if let Some(version) = &self.version {
             let mut node = KdlNode::new("version");
+            node.push(string_entry(None, version));
+            nodes.push(node);
+        }
+        if let Some(version) = &self.long_version {
+            let mut node = KdlNode::new("long_version");
             node.push(string_entry(None, version));
             nodes.push(node);
         }
@@ -743,6 +752,7 @@ impl From<&clap::Command> for Spec {
             bin: cmd.get_bin_name().unwrap_or(cmd.get_name()).to_string(),
             cmd: cmd.into(),
             version: cmd.get_version().map(|v| v.to_string()),
+            long_version: cmd.get_long_version().map(|v| v.to_string()),
             about: cmd.get_about().map(|a| a.to_string()),
             about_long: cmd.get_long_about().map(|a| a.to_string()),
             usage: cmd.clone().render_usage().to_string(),
