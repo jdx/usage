@@ -365,6 +365,8 @@ fn flag_meta(
         // *flag* is a different statement and stays in `default` below.
         value_optional: arg.is_some_and(|a| !a.required || !a.default.is_empty()),
         env: opt(&f.env),
+        env_fallback: strs(&f.env_fallback),
+        deprecated_env: strs(&f.deprecated_env),
         default: strs(&f.default),
         accepted_choices: accepted_choices(choices),
         choices: visible_choices(choices),
@@ -459,6 +461,8 @@ fn arg_meta(
         help: opt(&a.help),
         long_help: opt(&a.help_long),
         env: opt(&a.env),
+        env_fallback: strs(&a.env_fallback),
+        deprecated_env: strs(&a.deprecated_env),
         default: strs(&a.default),
         accepted_choices: accepted_choices(choices),
         choices: visible_choices(choices),

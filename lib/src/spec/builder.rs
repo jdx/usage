@@ -417,6 +417,18 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Add an environment variable fallback, consulted in declaration order.
+    pub fn env_fallback(mut self, env: impl Into<String>) -> Self {
+        self.inner.env_fallback.push(env.into());
+        self
+    }
+
+    /// Add a deprecated environment variable alias.
+    pub fn deprecated_env(mut self, env: impl Into<String>) -> Self {
+        self.inner.deprecated_env.push(env.into());
+        self
+    }
+
     /// Set deprecated message
     pub fn deprecated(mut self, msg: impl Into<String>) -> Self {
         self.inner.deprecated = Some(msg.into());
@@ -670,6 +682,18 @@ impl SpecArgBuilder {
 
     pub fn env(mut self, env: impl Into<String>) -> Self {
         self.inner.env = Some(env.into());
+        self
+    }
+
+    /// Add an environment fallback, consulted after the canonical variable.
+    pub fn env_fallback(mut self, env: impl Into<String>) -> Self {
+        self.inner.env_fallback.push(env.into());
+        self
+    }
+
+    /// Add a deprecated environment alias, consulted after ordinary fallbacks.
+    pub fn deprecated_env(mut self, env: impl Into<String>) -> Self {
+        self.inner.deprecated_env.push(env.into());
         self
     }
 

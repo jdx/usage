@@ -391,6 +391,16 @@ impl ManpageRenderer {
             roff.text([italic("Environment: "), bold(env.as_str())]);
             roff.control("RE", [] as [&str; 0]);
         }
+        for env in &flag.env_fallback {
+            roff.control("RS", [] as [&str; 0]);
+            roff.text([italic("Environment fallback: "), bold(env.as_str())]);
+            roff.control("RE", [] as [&str; 0]);
+        }
+        for env in &flag.deprecated_env {
+            roff.control("RS", [] as [&str; 0]);
+            roff.text([italic("Deprecated environment: "), bold(env.as_str())]);
+            roff.control("RE", [] as [&str; 0]);
+        }
     }
 
     fn render_arg(&self, roff: &mut Roff, arg: &SpecArg) {
@@ -409,6 +419,22 @@ impl ManpageRenderer {
             roff.control("RS", [] as [&str; 0]);
             let default_str = arg.default.join(", ");
             roff.text([italic("Default: "), roman(default_str.as_str())]);
+            roff.control("RE", [] as [&str; 0]);
+        }
+
+        if let Some(env) = &arg.env {
+            roff.control("RS", [] as [&str; 0]);
+            roff.text([italic("Environment: "), bold(env.as_str())]);
+            roff.control("RE", [] as [&str; 0]);
+        }
+        for env in &arg.env_fallback {
+            roff.control("RS", [] as [&str; 0]);
+            roff.text([italic("Environment fallback: "), bold(env.as_str())]);
+            roff.control("RE", [] as [&str; 0]);
+        }
+        for env in &arg.deprecated_env {
+            roff.control("RS", [] as [&str; 0]);
+            roff.text([italic("Deprecated environment: "), bold(env.as_str())]);
             roff.control("RE", [] as [&str; 0]);
         }
     }

@@ -164,6 +164,12 @@ pub struct SpecArg {
     /// Environment variable that can provide this argument's value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
+    /// Additional environment variables, consulted in declaration order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub env_fallback: Vec<String>,
+    /// Deprecated environment aliases, consulted after ordinary fallbacks.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub deprecated_env: Vec<String>,
     /// Heading this argument is listed under in help output. Presentational only,
     /// like the flag field of the same name.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -177,6 +183,15 @@ impl SpecArg {
     /// Create a new builder for SpecArg
     pub fn builder() -> SpecArgBuilder {
         SpecArgBuilder::new()
+    }
+
+    /// Environment variable names in the order used to fill this argument.
+    pub fn env_names(&self) -> impl Iterator<Item = &str> {
+        self.env
+            .iter()
+            .map(String::as_str)
+            .chain(self.env_fallback.iter().map(String::as_str))
+            .chain(self.deprecated_env.iter().map(String::as_str))
     }
 
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
@@ -242,6 +257,8 @@ impl SpecArg {
                     }
                 }
                 "env" => arg.env = v.ensure_string().map(Some)?,
+                "env_fallback" => arg.env_fallback = vec![v.ensure_string()?],
+                "deprecated_env" => arg.deprecated_env = vec![v.ensure_string()?],
                 "validate" => arg.validate = v.ensure_string().map(Some)?,
                 "validate_error" => arg.validate_error = v.ensure_string().map(Some)?,
                 "help_heading" => arg.help_heading = v.ensure_string().map(Some)?,
@@ -268,6 +285,8 @@ impl SpecArg {
                     }
                 }
                 "env" => arg.env = child.arg(0)?.ensure_string().map(Some)?,
+                "env_fallback" => arg.env_fallback = string_args(&child)?,
+                "deprecated_env" => arg.deprecated_env = string_args(&child)?,
                 "validate" => arg.validate = child.arg(0)?.ensure_string().map(Some)?,
                 "validate_error" => {
                     arg.validate_error = child.arg(0)?.ensure_string().map(Some)?;
@@ -557,6 +576,8 @@ impl From<&SpecArg> for KdlNode {
         if let Some(env) = &arg.env {
             node.push(string_entry(Some("env"), env));
         }
+        serialize_selector_list(&mut node, "env_fallback", &arg.env_fallback);
+        serialize_selector_list(&mut node, "deprecated_env", &arg.deprecated_env);
         if let Some(validate) = &arg.validate {
             node.push(string_entry(Some("validate"), validate));
         }
@@ -979,6 +1000,8 @@ impl From<&clap::Arg> for SpecArg {
             validate_error: None,
             effect: None,
             env: None,
+            env_fallback: Vec::new(),
+            deprecated_env: Vec::new(),
             help_heading: arg.get_help_heading().map(|s| s.to_string()),
             display_order: Some(arg.get_display_order()),
         };

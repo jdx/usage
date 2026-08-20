@@ -1322,7 +1322,7 @@ above are where it lands.
 - [x] **Deprecation and stability metadata on flags and commands** (clap#3321) —
       `deprecated`, with warn/remove versions, is portable through KDL, typed
       Rust, generated Go, help, docs and completions from one declaration.
-- [ ] **Ordered environment fallbacks and deprecated aliases** — explicit
+- [x] **Ordered environment fallbacks and deprecated aliases** — explicit
       full-name deprecated env aliases (clap#5447) stay greppable, while
       clap#5925's fallback across several env names preserves declaration
       order. This is parser behavior rather than command/flag presentation, so

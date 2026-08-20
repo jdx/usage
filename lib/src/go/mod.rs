@@ -565,6 +565,15 @@ impl Emitter<'_> {
         if let Some(env) = &flag.env {
             fields.push(format!("Env: {}", go_string(env)));
         }
+        if !flag.env_fallback.is_empty() {
+            fields.push(format!("EnvFallback: {}", string_slice(&flag.env_fallback)));
+        }
+        if !flag.deprecated_env.is_empty() {
+            fields.push(format!(
+                "DeprecatedEnv: {}",
+                string_slice(&flag.deprecated_env)
+            ));
+        }
         let minimum = flag
             .arg
             .as_ref()
@@ -713,6 +722,15 @@ fn arg_meta(
     }
     if let Some(env) = &arg.env {
         fields.push(format!("Env: {}", go_string(env)));
+    }
+    if !arg.env_fallback.is_empty() {
+        fields.push(format!("EnvFallback: {}", string_slice(&arg.env_fallback)));
+    }
+    if !arg.deprecated_env.is_empty() {
+        fields.push(format!(
+            "DeprecatedEnv: {}",
+            string_slice(&arg.deprecated_env)
+        ));
     }
     if let Some(min) = arg.var_min {
         fields.push(format!("VarMin: {}", clamp_var_max(min)));
@@ -1168,6 +1186,15 @@ fn flag_help(flag: &SpecFlag, named: &Named) -> String {
     if let Some(env) = &flag.env {
         fields.push(format!("Env: {}", go_string(env)));
     }
+    if !flag.env_fallback.is_empty() {
+        fields.push(format!("EnvFallback: {}", string_slice(&flag.env_fallback)));
+    }
+    if !flag.deprecated_env.is_empty() {
+        fields.push(format!(
+            "DeprecatedEnv: {}",
+            string_slice(&flag.deprecated_env)
+        ));
+    }
     let default = if !flag.default.is_empty() {
         &flag.default
     } else {
@@ -1229,6 +1256,15 @@ fn arg_help(arg: &SpecArg, named: &Named) -> String {
     }
     if let Some(env) = &arg.env {
         fields.push(format!("Env: {}", go_string(env)));
+    }
+    if !arg.env_fallback.is_empty() {
+        fields.push(format!("EnvFallback: {}", string_slice(&arg.env_fallback)));
+    }
+    if !arg.deprecated_env.is_empty() {
+        fields.push(format!(
+            "DeprecatedEnv: {}",
+            string_slice(&arg.deprecated_env)
+        ));
     }
     if !arg.default.is_empty() {
         fields.push(format!("Default: {}", string_slice(&arg.default)));

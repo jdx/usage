@@ -13,7 +13,14 @@ func env(pairs map[string]string) func(string) (string, bool) {
 }
 
 func TestFillOrder(t *testing.T) {
-	meta := &Meta{Name: "jobs", Flag: true, Env: "EX_JOBS", Default: []string{"1"}}
+	meta := &Meta{
+		Name:          "jobs",
+		Flag:          true,
+		Env:           "EX_JOBS",
+		EnvFallback:   []string{"OLD_JOBS", "OLDER_JOBS"},
+		DeprecatedEnv: []string{"DEPRECATED_JOBS"},
+		Default:       []string{"1"},
+	}
 
 	cases := []struct {
 		name   string
@@ -26,6 +33,12 @@ func TestFillOrder(t *testing.T) {
 			[]string{"8"}, FromArgv},
 		{"then the environment", nil, map[string]string{"EX_JOBS": "4"},
 			[]string{"4"}, FromEnv},
+		{"the canonical environment wins over fallbacks", nil,
+			map[string]string{"EX_JOBS": "4", "OLD_JOBS": "3"}, []string{"4"}, FromEnv},
+		{"fallbacks preserve declaration order", nil,
+			map[string]string{"OLD_JOBS": "3", "OLDER_JOBS": "2"}, []string{"3"}, FromEnv},
+		{"deprecated aliases are consulted last", nil,
+			map[string]string{"DEPRECATED_JOBS": "2"}, []string{"2"}, FromEnv},
 		{"then the default", nil, nil, []string{"1"}, FromDefault},
 		// Treating empty as unset would make `EX_JOBS=` mean something no other
 		// empty value in the grammar means.

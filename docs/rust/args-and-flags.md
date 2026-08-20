@@ -69,6 +69,9 @@ jobs: Option<u32>,
 | `negate = "--no-x"`                                     | A negation flag that sets a `bool` back to false                                        |
 | `count`                                                 | Count occurrences into an integer field                                                 |
 | `global`                                                | Usable on any subcommand below this one                                                 |
+| `env = "X"`                                             | Read the value from `X` when argv does not supply it                                    |
+| `env_fallback("A", "B")`                                | Try additional environment variables in declaration order                               |
+| `deprecated_env("OLD_X")`                               | Try deprecated aliases last and label them in generated help/docs                       |
 | `var` / `variadic`                                      | Repeatable / greedy multi-value (see above)                                             |
 | `var_min = n` / `var_max = n`                           | Bounds on how many values a `Vec` may hold                                              |
 | `num_args = n` / `num_args = a..=b`                     | clap-compatible spelling for exact or ranged `Vec` cardinality                          |

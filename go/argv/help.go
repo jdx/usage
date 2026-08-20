@@ -84,9 +84,11 @@ type Help struct {
 	// keeping the two tables separable: a CLI that prints help should not have to
 	// carry the post-binding table, and one that applies the rules should not have
 	// to carry the help strings.
-	Choices []string
-	Env     string
-	Default []string
+	Choices       []string
+	Env           string
+	EnvFallback   []string
+	DeprecatedEnv []string
+	Default       []string
 	// BeforeHelp and AfterHelp bracket this command's page, overriding the
 	// spec-wide text. The long variants are preferred by `--help`.
 	BeforeHelp            string

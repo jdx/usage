@@ -226,6 +226,8 @@ type Flag struct {
 	Required           bool     `json:"required"`
 	Default            []string `json:"default"`
 	Env                string   `json:"env"`
+	EnvFallback        []string `json:"env_fallback"`
+	DeprecatedEnv      []string `json:"deprecated_env"`
 	Hide               bool     `json:"hide"`
 	HideDefaultValue   bool     `json:"hide_default_value"`
 	HideEnv            bool     `json:"hide_env"`
@@ -349,6 +351,8 @@ type Arg struct {
 	Choices              *Choices       `json:"choices"`
 	Default              []string       `json:"default"`
 	Env                  string         `json:"env"`
+	EnvFallback          []string       `json:"env_fallback"`
+	DeprecatedEnv        []string       `json:"deprecated_env"`
 	Hide                 bool           `json:"hide"`
 	HideDefaultValue     bool           `json:"hide_default_value"`
 	HideEnv              bool           `json:"hide_env"`
@@ -970,6 +974,8 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 		Heading:            f.HelpHeading,
 		Choices:            f.choices(),
 		Env:                f.Env,
+		EnvFallback:        f.EnvFallback,
+		DeprecatedEnv:      f.DeprecatedEnv,
 		Default:            f.defaults(),
 	})
 	b.record(out.Key, argv.Meta{
@@ -987,6 +993,8 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 		AllowUnknownChoices: f.Arg != nil && f.Arg.Choices.allowUnknown(),
 		Default:             f.defaults(),
 		Env:                 f.Env,
+		EnvFallback:         f.EnvFallback,
+		DeprecatedEnv:       f.DeprecatedEnv,
 		VarMin:              clampVarMax(f.valueMinimum()),
 		Validate:            valueValidation(f.Arg),
 		ValidateError:       valueValidationError(f.Arg),
@@ -1054,6 +1062,8 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 		Heading:            a.HelpHeading,
 		Choices:            a.Choices.visible(),
 		Env:                a.Env,
+		EnvFallback:        a.EnvFallback,
+		DeprecatedEnv:      a.DeprecatedEnv,
 		Default:            a.Default,
 	})
 	b.record(out.Key, argv.Meta{
@@ -1066,6 +1076,8 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 		AllowUnknownChoices: a.Choices.allowUnknown(),
 		Default:             a.Default,
 		Env:                 a.Env,
+		EnvFallback:         a.EnvFallback,
+		DeprecatedEnv:       a.DeprecatedEnv,
 		VarMin:              clampVarMax(a.VarMin),
 		Validate:            a.Validate,
 		ValidateError:       a.ValidateError,

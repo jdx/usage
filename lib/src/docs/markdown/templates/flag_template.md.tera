@@ -29,3 +29,11 @@
 
 **Environment Variable:** `{{ flag.env }}`
 {%- endif -%}
+{%- if flag.env_fallback | length > 0 %}
+
+**Environment Fallbacks:** {% for env in flag.env_fallback %}`{{ env }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif -%}
+{%- if flag.deprecated_env | length > 0 %}
+
+**Deprecated Environment Variables:** {% for env in flag.deprecated_env %}`{{ env }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif -%}

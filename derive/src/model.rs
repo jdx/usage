@@ -208,6 +208,8 @@ pub struct Field {
     pub deprecated_warn_at: Option<String>,
     pub deprecated_remove_at: Option<String>,
     pub env: Option<String>,
+    pub env_fallback: Vec<String>,
+    pub deprecated_env: Vec<String>,
     /// The setting this flag sets, when the CLI resolves configuration.
     ///
     /// `#[usage(setting = "jobs")]`. The spec's `cli "--jobs"` node is the *documented* binding and
@@ -1595,6 +1597,8 @@ impl Field {
             deprecated_warn_at: None,
             deprecated_remove_at: None,
             env: None,
+            env_fallback: Vec::new(),
+            deprecated_env: Vec::new(),
             setting: None,
             default: Vec::new(),
             default_value_t: None,
@@ -1728,6 +1732,8 @@ impl Field {
             deprecated_warn_at: None,
             deprecated_remove_at: None,
             env: None,
+            env_fallback: Vec::new(),
+            deprecated_env: Vec::new(),
             setting: None,
             default: Vec::new(),
             default_value_t: None,
@@ -1855,6 +1861,8 @@ impl Field {
             deprecated_warn_at: None,
             deprecated_remove_at: None,
             env: None,
+            env_fallback: Vec::new(),
+            deprecated_env: Vec::new(),
             setting: None,
             default: Vec::new(),
             default_value_t: None,
@@ -1949,6 +1957,8 @@ impl Field {
         let mut value_optional = false;
         let mut double_dash = DoubleDash::Optional;
         let mut env = None;
+        let mut env_fallback = Vec::new();
+        let mut deprecated_env = Vec::new();
         let mut bare_env = false;
         let mut setting = None;
         let mut default: Vec<String> = Vec::new();
@@ -2084,6 +2094,8 @@ impl Field {
                             bare_env = false;
                         }
                     },
+                    "env_fallback" => env_fallback.extend(selectors(&meta)?),
+                    "deprecated_env" => deprecated_env.extend(selectors(&meta)?),
                     // The *setting* this flag sets, which is a different thing from the flag's name
                     // and from the environment variable: `--jobs`, `HK_JOBS` and `jobs` are three
                     // spellings of one value, and only the last is what a config file calls it.
@@ -2253,7 +2265,7 @@ impl Field {
                                  `short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `action`, `hide`, `hide_default_value`, `hide_env`, `hide_env_values`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, \
                                  `hide_possible_values`, `hide_short_help`, `hide_long_help`, \
-                                 `arg`, `env`, `default`, `default_value_t`, `choices`, `validate`, \
+                                 `arg`, `env`, `env_fallback`, `deprecated_env`, `default`, `default_value_t`, `choices`, `validate`, \
                                  `validate_error`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
@@ -3135,6 +3147,8 @@ impl Field {
             deprecated_warn_at,
             deprecated_remove_at,
             env,
+            env_fallback,
+            deprecated_env,
             setting,
             default,
             default_value_t,
