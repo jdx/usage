@@ -518,6 +518,9 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       a bare flag, and an explicit value. The derive infers zero-or-one value arity,
       usage-argv binds all three states, and emitted KDL/help use an optional
       placeholder without requiring a synthetic `default_missing`.
+- [x] **Direct `ValueEnum` binding.** The derive converts canonical words and
+      aliases directly to variants, including case-insensitive declarations, so a
+      clap migration does not need to add a redundant `FromStr` implementation.
 
 **Help output**
 

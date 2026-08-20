@@ -317,24 +317,6 @@ enum Shell {
     PowerShell,
 }
 
-impl std::str::FromStr for Shell {
-    type Err = String;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        #[cfg(windows)]
-        if value.eq_ignore_ascii_case("power-shell") {
-            return Ok(Self::PowerShell);
-        }
-        if value.eq_ignore_ascii_case("bash") {
-            Ok(Self::Bash)
-        } else if value.eq_ignore_ascii_case("zsh") || value.eq_ignore_ascii_case("shell-z") {
-            Ok(Self::Zsh)
-        } else {
-            Err(format!("unsupported shell: {value}"))
-        }
-    }
-}
-
 #[derive(Cli)]
 #[usage(bin = "choice-ex")]
 struct ChoiceEx {
@@ -695,6 +677,9 @@ fn defaults_render_clap_shaped_parse_errors() {
 fn emitted_specs_preserve_value_enum_aliases_and_case_policy() {
     let cli = ChoiceEx::parse_from(&[OsStr::new("--shell"), OsStr::new("SHELL-Z")])
         .expect("aliases and ASCII case folding should parse");
+    assert!(matches!(cli.shell, Shell::Zsh));
+    let cli = ChoiceEx::parse_from(&[OsStr::new("--shell"), OsStr::new("Z-SHELL")])
+        .expect("every declared alias should bind without a separate FromStr");
     assert!(matches!(cli.shell, Shell::Zsh));
 
     let kdl = ChoiceEx::to_kdl();

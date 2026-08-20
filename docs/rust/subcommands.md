@@ -175,8 +175,9 @@ hidden spelling, and `visible_alias` advertises the alternate spelling. Plural a
 accept lists. `#[usage(ignore_case)]` applies to the whole enum, and `cfg`-gated variants remain
 gated in every generated metadata table.
 
-The type still implements its own `FromStr`: `ValueEnum` owns the portable CLI metadata and
-does not replace domain parsing.
+`ValueEnum` also binds those words directly to their variants, so the type needs no separate
+`FromStr`. An existing domain `FromStr` implementation may still coexist; value-enum fields
+use the derive's canonical values and aliases.
 
 ## Mounts and restart tokens
 
