@@ -139,6 +139,34 @@ func TestSubcommandPresentation(t *testing.T) {
 	}
 }
 
+func TestNextLineHelp(t *testing.T) {
+	arg := &Arg{Name: "input", Key: 2, Required: true}
+	flag := &Flag{Name: "verbose", Key: 3, Longs: []string{"verbose"}}
+	sub := &Command{Name: "run", Key: 4}
+	root := &Command{Name: "ex", Key: 1, Args: []*Arg{arg}, Flags: []*Flag{flag}, Subcommands: []*Command{sub}}
+	help := HelpTable{
+		{Key: 1, NextLineHelp: true},
+		{Key: 2, Short: "Input file"},
+		{Key: 3, Short: "Enable verbose output"},
+		{Key: 4, Short: "Run it"},
+	}
+
+	for _, page := range []string{
+		ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+		LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+	} {
+		for _, want := range []string{
+			"  [input]\n    Input file",
+			"  --verbose\n    Enable verbose output",
+			"  run\n    Run it",
+		} {
+			if !strings.Contains(page, want) {
+				t.Fatalf("missing %q in:\n%s", want, page)
+			}
+		}
+	}
+}
+
 // A description that ends in a break adds no blank line.
 //
 // clap's `long_about` often ends with one — a `///` block whose last line is

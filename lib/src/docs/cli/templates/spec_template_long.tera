@@ -45,7 +45,13 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {{ group.heading | default(value="Arguments") }}:
 {%- for arg in group.items %}
-{%- if arg.help_rendered %}
+{%- if cmd.next_line_help %}
+  {{ arg.usage | trim }}
+{%- set help = arg.help_long | default(value=arg.help | default(value='')) %}
+{%- if help %}
+    {{ help | indent(width=4) }}
+{%- endif %}
+{%- elif arg.help_rendered %}
   {{ arg.usage | ljust(width=arg.usage_col_width) }}  {{ arg.help_rendered }}
 {%- if arg.help_is_multiline %}
 
@@ -76,7 +82,14 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {{ group.heading | default(value="Flags") }}:
 {%- for flag in group.items %}
-{%- if flag.help_rendered %}
+{%- if cmd.next_line_help %}
+  {{ flag.display_usage }}
+{%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+{%- set help = flag.help_long | default(value=flag.help | default(value='')) %}
+{%- if help %}
+    {{ help | indent(width=4) }}
+{%- endif %}
+{%- elif flag.help_rendered %}
   {{ flag.display_usage | ljust(width=flag.usage_col_width) }}  {{ flag.help_rendered }}
 {%- if flag.help_is_multiline %}
 
@@ -108,7 +121,14 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 Global flags:
 {%- for flag in global_flags %}
-{%- if flag.help_rendered %}
+{%- if cmd.next_line_help %}
+  {{ flag.display_usage }}
+{%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+{%- set help = flag.help_long | default(value=flag.help | default(value='')) %}
+{%- if help %}
+    {{ help | indent(width=4) }}
+{%- endif %}
+{%- elif flag.help_rendered %}
   {{ flag.display_usage | ljust(width=flag.usage_col_width) }}  {{ flag.help_rendered }}
 {%- if flag.help_is_multiline %}
 

@@ -24,6 +24,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	}
 	cmd := chain[len(chain)-1]
 	meta := help.Lookup(cmd.Key)
+	nextLineHelp := meta != nil && meta.NextLineHelp
 	var out strings.Builder
 
 	before := firstOf(metaField(meta, func(h *Help) string { return h.BeforeLongHelp }),
@@ -77,7 +78,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 		func(w *strings.Builder, i int) {
 			h := help.Lookup(args[i].Key)
 			entry(w, argUsage(args[i], h), firstOf(metaField(h, func(x *Help) string { return x.Long }),
-				metaField(h, func(x *Help) string { return x.Short })), argCol)
+				metaField(h, func(x *Help) string { return x.Short })), argCol, nextLineHelp)
 			longAnnotations(w, h, true)
 		})
 
@@ -95,12 +96,12 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	}
 	writeFlag := func(w *strings.Builder, f shownFlag) {
 		if f.supplied != "" {
-			entry(w, f.usage, f.suppliedHelp, flagCol)
+			entry(w, f.usage, f.suppliedHelp, flagCol, nextLineHelp)
 			return
 		}
 		h := help.Lookup(f.key)
 		entry(w, f.usage, firstOf(metaField(h, func(x *Help) string { return x.Long }),
-			metaField(h, func(x *Help) string { return x.Short })), flagCol)
+			metaField(h, func(x *Help) string { return x.Short })), flagCol, nextLineHelp)
 		longAnnotations(w, h, true)
 	}
 	groupsSection(&out, "Flags", len(own),
@@ -193,7 +194,7 @@ func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help
 
 // entry writes one flag or argument: its help in a column beside it, wrapped — or
 // indented underneath, where the text has line breaks of its own.
-func entry(out *strings.Builder, usage, help string, col int) {
+func entry(out *strings.Builder, usage, help string, col int, nextLine bool) {
 	if strings.TrimSpace(help) == "" {
 		out.WriteString("  " + usage + "\n")
 		return
@@ -206,7 +207,7 @@ func entry(out *strings.Builder, usage, help string, col int) {
 	if room < 0 {
 		room = 0
 	}
-	if strings.Contains(help, "\n") || room < 10 {
+	if nextLine || strings.Contains(help, "\n") || room < 10 {
 		out.WriteString("  " + usage + "\n")
 		writeIndented(out, help, 4)
 		return

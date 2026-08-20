@@ -47,6 +47,7 @@ pub struct SpecCommand {
     pub hide: bool,
     pub subcommand_required: bool,
     pub subcommand_help_heading: Option<String>,
+    pub next_line_help: bool,
     pub restart_token: Option<String>,
     pub help: Option<String>,
     pub help_long: Option<String>,
@@ -480,6 +481,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             subcommand_required,
             subcommand_help_heading,
             subcommand_value_name: _,
+            next_line_help,
             // Consumed above while laying help out; templates need only the result.
             term_width: _,
             max_term_width: _,
@@ -536,6 +538,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             hide: *hide,
             subcommand_required: *subcommand_required,
             subcommand_help_heading: subcommand_help_heading.clone(),
+            next_line_help: *next_line_help,
             restart_token: restart_token.clone(),
             help: help.clone(),
             // Trailing whitespace trimmed, matching `long_commands_section` in usage-argv.

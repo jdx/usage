@@ -147,6 +147,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let allow_missing_positional = cli.allow_missing_positional;
     let subcommand_help_heading = option_str(cli.subcommand_help_heading.as_deref());
     let subcommand_value_name = option_str(cli.subcommand_value_name.as_deref());
+    let next_line_help = cli.next_line_help;
     let term_width = option_usize(cli.term_width);
     let max_term_width = option_usize(cli.max_term_width);
     let usage = option_str(cli.usage.as_deref());
@@ -470,6 +471,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 subcommand_required: #subcommand_required,
                 subcommand_help_heading: #subcommand_help_heading,
                 subcommand_value_name: #subcommand_value_name,
+                next_line_help: #next_line_help,
                 term_width: #term_width,
                 max_term_width: #max_term_width,
                 args_override_self: #args_override_self,
@@ -3568,6 +3570,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     });
     let subcommand_help_heading = option_str(cli.subcommand_help_heading.as_deref());
     let subcommand_value_name = option_str(cli.subcommand_value_name.as_deref());
+    let next_line_help = cli.next_line_help;
     let term_width = option_usize(cli.term_width);
     let max_term_width = option_usize(cli.max_term_width);
     let unknown_flags = unknown_flags_tokens(cli);
@@ -3716,6 +3719,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 subcommand_required: #subcommand_required,
                 subcommand_help_heading: #subcommand_help_heading,
                 subcommand_value_name: #subcommand_value_name,
+                next_line_help: #next_line_help,
                 term_width: #term_width,
                 max_term_width: #max_term_width,
                 args_override_self: #args_override_self,

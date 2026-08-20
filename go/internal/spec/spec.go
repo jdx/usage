@@ -107,6 +107,7 @@ type Cmd struct {
 	AllowMissingPositional      bool        `json:"allow_missing_positional"`
 	SubcommandHelpHeading       string      `json:"subcommand_help_heading"`
 	SubcommandValueName         string      `json:"subcommand_value_name"`
+	NextLineHelp                bool        `json:"next_line_help"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.
@@ -655,6 +656,7 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		AfterLongHelp:         c.AfterHelpLong,
 		SubcommandHelpHeading: c.SubcommandHelpHeading,
 		SubcommandValueName:   c.SubcommandValueName,
+		NextLineHelp:          c.NextLineHelp,
 		Examples:              examples,
 	})
 

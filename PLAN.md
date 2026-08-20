@@ -538,7 +538,9 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [x] **The granular hides** — `hide_default_value`, `hide_env`, `hide_env_values`,
       `hide_possible_values`, `hide_short_help`, and `hide_long_help` round-trip
       through KDL and the clap bridge and are honored by Rust and Go help output.
-- [ ] **`help_template`, `next_line_help`, and `flatten_help`.**
+- [x] **`next_line_help`.** Command-wide block layout survives typed metadata,
+      KDL, the clap bridge, and both Rust and generated Go help renderers.
+- [ ] **`help_template` and `flatten_help`.**
 - [x] **`subcommand_help_heading` / `subcommand_value_name`.** Custom subcommand
       section labels and synopsis placeholders survive KDL, typed Rust, generated
       Go, and the clap bridge and are rendered by both help implementations.

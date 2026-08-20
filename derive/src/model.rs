@@ -124,6 +124,7 @@ pub struct Cli {
     pub allow_missing_positional: bool,
     pub subcommand_help_heading: Option<String>,
     pub subcommand_value_name: Option<String>,
+    pub next_line_help: bool,
     pub term_width: Option<usize>,
     pub max_term_width: Option<usize>,
     /// Declared descriptions, for the case a doc comment cannot express: a long form that does
@@ -585,6 +586,7 @@ impl Cli {
             allow_missing_positional: false,
             subcommand_help_heading: None,
             subcommand_value_name: None,
+            next_line_help: false,
             term_width: None,
             max_term_width: None,
             about_attr: None,
@@ -746,6 +748,7 @@ impl Cli {
                     "subcommand_value_name" => {
                         cli.subcommand_value_name = Some(string_value(&meta)?)
                     }
+                    "next_line_help" => cli.next_line_help = flag_value(&meta)?,
                     "term_width" => cli.term_width = Some(int_value(&meta)?),
                     "max_term_width" => cli.max_term_width = Some(int_value(&meta)?),
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
@@ -760,7 +763,7 @@ impl Cli {
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `author`, `license`, `repository`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
-                                 `next_help_heading`, `subcommand_help_heading`, `term_width`, `max_term_width`, \
+                                 `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
                                  comment"

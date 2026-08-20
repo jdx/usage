@@ -20,20 +20,24 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if cmd.subcommands %}
 
 {{ cmd.subcommand_help_heading | default(value="Commands") }}:
+{%- set next_line_help = cmd.next_line_help %}
 {%- for cmd in cmd.subcommands | values | sort(attribute="usage") %}
   {{ cmd.usage | trim }}
 {%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
-{%- if cmd.help %}  {{ cmd.help }}{%- endif %}
+{%- if cmd.help %}{% if next_line_help %}
+    {{ cmd.help | indent(width=4) }}{% else %}  {{ cmd.help }}{% endif %}{%- endif %}
 {%- endfor %}
-  help  Print this message or the help of the given subcommand(s)
+{% if next_line_help %}  help
+    Print this message or the help of the given subcommand(s){% else %}  help  Print this message or the help of the given subcommand(s){% endif %}
 {%- endif %}
 
 {%- for group in cmd.arg_groups %}
 
 {{ group.heading | default(value="Arguments") }}:
 {%- for arg in group.items %}
-  {% if arg.help %}{{ arg.usage | trim | ljust(width=arg.usage_col_width) }}  {{ arg.help }}{% else %}{{ arg.usage | trim }}{% endif %}
+  {% if arg.help %}{% if cmd.next_line_help %}{{ arg.usage | trim }}
+    {{ arg.help | indent(width=4) }}{% else %}{{ arg.usage | trim | ljust(width=arg.usage_col_width) }}  {{ arg.help }}{% endif %}{% else %}{{ arg.usage | trim }}{% endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %} [{{ arg.choices.choices | join(sep=", ") }}]{%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.env %} [choices env: {{ arg.choices.env }}]{%- endif %}
 {%- if not arg.hide_env and arg.env %} [env: {{ arg.env }}]{%- endif %}
@@ -45,7 +49,8 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {{ group.heading | default(value="Flags") }}:
 {%- for flag in group.items %}
-  {% if flag.help %}{{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help }}{% else %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}{% endif %}
+  {% if flag.help %}{% if cmd.next_line_help %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+    {{ flag.help | indent(width=4) }}{% else %}{{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help }}{% endif %}{% else %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}{% endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %} [{{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %} [choices env: {{ flag.arg.choices.env }}]{%- endif %}
 {%- if not flag.hide_env and flag.env %} [env: {{ flag.env }}]{%- endif %}
@@ -57,7 +62,8 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 Global flags:
 {%- for flag in global_flags %}
-  {% if flag.help %}{{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help }}{% else %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}{% endif %}
+  {% if flag.help %}{% if cmd.next_line_help %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+    {{ flag.help | indent(width=4) }}{% else %}{{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help }}{% endif %}{% else %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}{% endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %} [{{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %} [choices env: {{ flag.arg.choices.env }}]{%- endif %}
 {%- if not flag.hide_env and flag.env %} [env: {{ flag.env }}]{%- endif %}

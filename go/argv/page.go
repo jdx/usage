@@ -104,6 +104,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	commandsSection(&out, path[min(1, len(path)):], cmd, help)
 
 	args := visibleArgs(cmd, help, false)
+	nextLineHelp := meta != nil && meta.NextLineHelp
 	argCol := 0
 	for _, a := range args {
 		if n := width(argUsage(a, help.Lookup(a.Key))); n > argCol {
@@ -117,7 +118,14 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			h := help.Lookup(a.Key)
 			usage := argUsage(a, h)
 			if help := helpText(h); help != "" {
-				w.WriteString("  " + pad(usage, argCol) + "  " + help)
+				if nextLineHelp {
+					w.WriteString("  " + usage + "\n")
+					writeIndented(w, help, 4)
+					longAnnotations(w, h, true)
+					return
+				} else {
+					w.WriteString("  " + pad(usage, argCol) + "  " + help)
+				}
 			} else {
 				w.WriteString("  " + usage)
 			}
@@ -146,7 +154,13 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		if f.supplied != "" {
 			// A flag the parser supplies has no table entry; its help is fixed.
 			if text := f.suppliedHelp; text != "" {
-				w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
+				if nextLineHelp {
+					w.WriteString("  " + f.usage + "\n")
+					writeIndented(w, text, 4)
+					return
+				} else {
+					w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
+				}
 			} else {
 				w.WriteString("  " + f.usage)
 			}
@@ -154,7 +168,14 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			return
 		}
 		if text := helpText(h); text != "" {
-			w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
+			if nextLineHelp {
+				w.WriteString("  " + f.usage + "\n")
+				writeIndented(w, text, 4)
+				longAnnotations(w, h, true)
+				return
+			} else {
+				w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
+			}
 		} else {
 			w.WriteString("  " + f.usage)
 		}
@@ -213,8 +234,12 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 		return
 	}
 	heading := "Commands"
-	if h := help.Lookup(cmd.Key); h != nil && h.SubcommandHelpHeading != "" {
-		heading = h.SubcommandHelpHeading
+	nextLineHelp := false
+	if h := help.Lookup(cmd.Key); h != nil {
+		if h.SubcommandHelpHeading != "" {
+			heading = h.SubcommandHelpHeading
+		}
+		nextLineHelp = h.NextLineHelp
 	}
 	out.WriteString("\n" + heading + ":\n")
 
@@ -230,12 +255,21 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 				out.WriteString(" [aliases: " + strings.Join(h.VisibleAliases, ", ") + "]")
 			}
 			if h.Short != "" {
+				if nextLineHelp {
+					out.WriteString("\n")
+					writeIndented(out, h.Short, 4)
+					continue
+				}
 				out.WriteString("  " + h.Short)
 			}
 		}
 		out.WriteString("\n")
 	}
-	out.WriteString("  help  Print this message or the help of the given subcommand(s)\n")
+	if nextLineHelp {
+		out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
+	} else {
+		out.WriteString("  help  Print this message or the help of the given subcommand(s)\n")
+	}
 }
 
 // groupsSection writes one section per heading, unheaded first, in the order the

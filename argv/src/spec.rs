@@ -724,6 +724,8 @@ pub struct CommandMeta<'a> {
     pub subcommand_help_heading: Option<&'a str>,
     /// Placeholder used for a subcommand in the usage synopsis.
     pub subcommand_value_name: Option<&'a str>,
+    /// Put each argument, flag, and subcommand description on the following line.
+    pub next_line_help: bool,
     /// Fixed help width. Zero disables wrapping.
     pub term_width: Option<usize>,
     /// Maximum detected terminal width when `term_width` is unset. Zero disables the cap.
@@ -767,6 +769,7 @@ impl CommandMeta<'_> {
         subcommand_required: false,
         subcommand_help_heading: None,
         subcommand_value_name: None,
+        next_line_help: false,
         term_width: None,
         max_term_width: None,
         args_override_self: true,
@@ -1215,6 +1218,9 @@ impl Spec<'_> {
         if let Some(name) = self.root.subcommand_value_name {
             prop(out, "subcommand_value_name", name)?;
         }
+        if self.root.next_line_help {
+            writeln!(out, "next_line_help #true")?;
+        }
         if let Some(width) = self.root.term_width {
             writeln!(out, "term_width {width}")?;
         }
@@ -1463,6 +1469,9 @@ fn write_command<'a>(
     }
     if let Some(name) = meta.subcommand_value_name {
         write!(out, " subcommand_value_name={}", quoted(name))?;
+    }
+    if meta.next_line_help {
+        out.push_str(" next_line_help=#true");
     }
     if let Some(width) = meta.term_width {
         write!(out, " term_width={width}")?;
