@@ -524,8 +524,10 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 
 **Help output**
 
-- [ ] **Colour.** Errors are styled (`argv/src/diagnostic.rs`); help is not. clap
-      colours headings and flag names by default and exposes `Command::styles`.
+- [x] **Colour.** Process-facing help colours headings, usage literals, and flag
+      names automatically, honoring `NO_COLOR` and `CLICOLOR_FORCE`; explicit
+      plain/coloured rendering stays available for tests and generated artifacts.
+      clap's arbitrary `Command::styles` palette is intentionally not reproduced.
 - [ ] **`term_width` / `max_term_width`** — we wrap to `COLUMNS` and take no
       instruction about it.
 - [x] **The granular hides** — `hide_default_value`, `hide_env`, `hide_env_values`,

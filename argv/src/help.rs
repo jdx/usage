@@ -29,6 +29,201 @@ use crate::DoubleDash;
 /// `[FLAGS]` or `[ARGS]…` and the sections below carry the detail.
 const INLINE_LIMIT: usize = 2;
 
+/// Whether help output is coloured.
+///
+/// Plain rendering remains available for generated documents and snapshots;
+/// process-facing help uses [`Style::auto`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Style {
+    coloured: bool,
+}
+
+impl Style {
+    /// Plain text, suitable for a pipe or a generated artifact.
+    pub const PLAIN: Style = Style { coloured: false };
+    /// ANSI-coloured text, regardless of the output destination.
+    pub const COLOURED: Style = Style { coloured: true };
+
+    /// Colour when stdout is a terminal and the environment permits it.
+    pub fn auto() -> Style {
+        use std::io::IsTerminal as _;
+        let forced = std::env::var_os("CLICOLOR_FORCE").is_some_and(|v| v != "0");
+        let refused = std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty());
+        if refused {
+            Style::PLAIN
+        } else if forced || std::io::stdout().is_terminal() {
+            Style::COLOURED
+        } else {
+            Style::PLAIN
+        }
+    }
+
+    fn wrap(self, code: &str, text: &str) -> String {
+        if self.coloured {
+            format!("\u{1b}[{code}m{text}\u{1b}[0m")
+        } else {
+            text.to_string()
+        }
+    }
+
+    fn heading(self, text: &str) -> String {
+        self.wrap("1;4;32", text)
+    }
+
+    fn literal(self, text: &str) -> String {
+        self.wrap("36", text)
+    }
+}
+
+fn styled_flag_usage(usage: &str, style: Style) -> String {
+    let mut out = String::with_capacity(usage.len());
+    let mut rest = usage;
+    while let Some(start) = rest.find('-') {
+        let previous_allows = start == 0
+            || rest[..start]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_whitespace() || matches!(c, ',' | ':' | '[' | '<'));
+        if !previous_allows {
+            out.push_str(&rest[..=start]);
+            rest = &rest[start + 1..];
+            continue;
+        }
+        let end = rest[start..]
+            .char_indices()
+            .skip(1)
+            .find_map(|(i, c)| (c.is_whitespace() || matches!(c, ',' | ']' | '>')).then_some(i))
+            .unwrap_or(rest.len() - start)
+            + start;
+        out.push_str(&rest[..start]);
+        out.push_str(&style.literal(&rest[start..end]));
+        rest = &rest[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
+fn help_structure(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    long: bool,
+) -> (Vec<String>, Vec<String>, Vec<String>) {
+    let meta = *chain.last().expect("a page is always about some command");
+    let mut headings = Vec::new();
+    if !page_examples(spec, meta).is_empty() {
+        headings.push("Examples".to_string());
+    }
+    if meta.subcommands.iter().any(|sub| !sub.hide) {
+        headings.push(
+            meta.subcommand_help_heading
+                .unwrap_or("Commands")
+                .to_string(),
+        );
+    }
+
+    let (own, inherited) = own_and_global(chain);
+    let visible_arg = |arg: &&ArgMeta<'_>| {
+        !arg.hide
+            && if long {
+                !arg.hide_long_help
+            } else {
+                !arg.hide_short_help
+            }
+    };
+    let args: Vec<_> = meta.args.iter().filter(visible_arg).collect();
+    if args.iter().any(|arg| arg.help_heading.is_none()) {
+        headings.push("Arguments".to_string());
+    }
+    headings.extend(
+        args.iter()
+            .filter_map(|arg| arg.help_heading)
+            .map(str::to_string),
+    );
+
+    let visible_flag = |flag: &&FlagMeta<'_>| {
+        !flag.hide
+            && if long {
+                !flag.hide_long_help
+            } else {
+                !flag.hide_short_help
+            }
+    };
+    let own: Vec<_> = own.into_iter().filter(visible_flag).collect();
+    let inherited: Vec<_> = inherited
+        .into_iter()
+        .filter(|(flag, _)| {
+            if long {
+                !flag.hide_long_help
+            } else {
+                !flag.hide_short_help
+            }
+        })
+        .collect();
+    if own.iter().any(|flag| flag.help_heading.is_none()) {
+        headings.push("Flags".to_string());
+    }
+    headings.extend(
+        own.iter()
+            .filter_map(|flag| flag.help_heading)
+            .map(str::to_string),
+    );
+    if !inherited.is_empty() {
+        headings.push("Global flags".to_string());
+    }
+
+    let mut flag_usages: Vec<String> = own.iter().map(|flag| column_usage(flag)).collect();
+    flag_usages.extend(inherited.into_iter().map(|(_, usage)| usage));
+    flag_usages.sort_by_key(|usage| core::cmp::Reverse(usage.len()));
+
+    let mut synopsis = String::new();
+    usage_section(&mut synopsis, spec, path, meta);
+    let synopsis = synopsis.lines().map(str::to_string).collect();
+    (headings, flag_usages, synopsis)
+}
+
+fn styled_help(
+    page: &str,
+    style: Style,
+    headings: &[String],
+    flag_usages: &[String],
+    synopsis: &[String],
+) -> String {
+    if !style.coloured {
+        return page.to_string();
+    }
+    let mut out = String::with_capacity(page.len());
+    for line in page.split_inclusive('\n') {
+        let (body, newline) = line
+            .strip_suffix('\n')
+            .map_or((line, ""), |body| (body, "\n"));
+        if synopsis.iter().any(|known| known == body) && body.starts_with("Usage:") {
+            let usage = body.strip_prefix("Usage:").unwrap_or_default();
+            out.push_str(&style.heading("Usage:"));
+            out.push_str(&style.literal(usage));
+        } else if synopsis.iter().any(|known| known == body) {
+            out.push_str(&style.literal(body));
+        } else if body
+            .strip_suffix(':')
+            .is_some_and(|heading| headings.iter().any(|known| known == heading))
+        {
+            out.push_str(&style.heading(body));
+        } else {
+            let styled = body.strip_prefix("  ").and_then(|entry| {
+                flag_usages.iter().find_map(|usage| {
+                    entry
+                        .strip_prefix(usage)
+                        .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
+                        .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
+                })
+            });
+            out.push_str(styled.as_deref().unwrap_or(body));
+        }
+        out.push_str(newline);
+    }
+    out
+}
+
 /// The `Usage:` line's body, without the `Usage: ` prefix.
 ///
 /// `path` is the command as invoked, starting with the binary: `["mise", "config", "ls"]`.
@@ -1341,6 +1536,29 @@ pub fn render(spec: &Spec<'_>, cmd: &Command<'_>, long: bool) -> Option<String> 
     })
 }
 
+/// Render a help page with an explicit colour policy.
+pub fn render_styled(
+    spec: &Spec<'_>,
+    cmd: &Command<'_>,
+    long: bool,
+    style: Style,
+) -> Option<String> {
+    let (path, chain) = find(spec, cmd)?;
+    let page = if long {
+        long_help(spec, &path, &chain)
+    } else {
+        short_help(spec, &path, &chain)
+    };
+    let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long);
+    Some(styled_help(
+        &page,
+        style,
+        &headings,
+        &flag_usages,
+        &synopsis,
+    ))
+}
+
 /// The route the words took to a command, for rendering its page unambiguously.
 ///
 /// Rebuilt by re-parsing, because [`Error::Help`](crate::Error::Help) carries the command and
@@ -1408,7 +1626,10 @@ pub fn route_to<'t>(
 /// The route tells them apart, and the parser has it — `Parser::command_path` is the sequence of
 /// commands the words actually went through. Callers holding only a command keep [`render`] and
 /// its answer; callers that parsed something should prefer this.
-pub fn render_at(spec: &Spec<'_>, route: &[&Command<'_>], long: bool) -> Option<String> {
+fn route_context<'a>(
+    spec: &'a Spec<'a>,
+    route: &[&Command<'_>],
+) -> Option<(Vec<&'a str>, Vec<&'a CommandMeta<'a>>)> {
     let mut names = vec![spec.bin.unwrap_or(spec.name)];
     let mut chain = vec![spec.root];
     for cmd in route.iter().skip(1) {
@@ -1422,9 +1643,87 @@ pub fn render_at(spec: &Spec<'_>, route: &[&Command<'_>], long: bool) -> Option<
         names.push(next.cmd.name);
         chain.push(next);
     }
+    Some((names, chain))
+}
+
+pub fn render_at(spec: &Spec<'_>, route: &[&Command<'_>], long: bool) -> Option<String> {
+    let (names, chain) = route_context(spec, route)?;
     Some(if long {
         long_help(spec, &names, &chain)
     } else {
         short_help(spec, &names, &chain)
     })
+}
+
+/// Render a route-specific help page with an explicit colour policy.
+pub fn render_at_styled(
+    spec: &Spec<'_>,
+    route: &[&Command<'_>],
+    long: bool,
+    style: Style,
+) -> Option<String> {
+    let (path, chain) = route_context(spec, route)?;
+    let page = if long {
+        long_help(spec, &path, &chain)
+    } else {
+        short_help(spec, &path, &chain)
+    };
+    let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long);
+    Some(styled_help(
+        &page,
+        style,
+        &headings,
+        &flag_usages,
+        &synopsis,
+    ))
+}
+
+#[cfg(test)]
+mod style_tests {
+    use super::{styled_help, Style};
+
+    #[test]
+    fn coloured_help_styles_structure_without_changing_plain_text() {
+        let page = "A summary ending in:\nUsage: prose is not a synopsis\nExamples:\n\nUsage: ex [OPTIONS]\n       ex --all\n\nOptions:\n  -f, --force  Force it\n    [possible values: --auto]\n    (default: -1)\n";
+        let headings = vec!["Options".to_string()];
+        let usages = vec!["-f, --force".to_string()];
+        let synopsis = vec![
+            "Usage: ex [OPTIONS]".to_string(),
+            "       ex --all".to_string(),
+        ];
+        assert_eq!(
+            styled_help(page, Style::PLAIN, &headings, &usages, &synopsis),
+            page
+        );
+
+        let coloured = styled_help(page, Style::COLOURED, &headings, &usages, &synopsis);
+        assert!(coloured.contains("\u{1b}[1;4;32mUsage:\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[1;4;32mOptions:\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[36m-f\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[36m--force\u{1b}[0m"));
+        assert!(coloured.contains("A summary ending in:\nUsage: prose is not a synopsis"));
+        assert!(coloured.contains("Usage: prose is not a synopsis\nExamples:"));
+        assert!(coloured.contains("\u{1b}[36m       ex --all\u{1b}[0m"));
+        assert!(coloured.contains("[possible values: --auto]"));
+        assert!(coloured.contains("(default: -1)"));
+        assert_eq!(strip_ansi(&coloured), page);
+    }
+
+    fn strip_ansi(text: &str) -> String {
+        let mut out = String::new();
+        let mut chars = text.chars().peekable();
+        while let Some(ch) = chars.next() {
+            if ch == '\u{1b}' && chars.peek() == Some(&'[') {
+                chars.next();
+                for code in chars.by_ref() {
+                    if code == 'm' {
+                        break;
+                    }
+                }
+            } else {
+                out.push(ch);
+            }
+        }
+        out
+    }
 }
