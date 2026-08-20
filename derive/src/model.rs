@@ -658,6 +658,27 @@ impl Cli {
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
+                    "rename_all" => {
+                        let case = string_value(&meta)?;
+                        if !matches!(CasingStyle::parse(&meta)?, CasingStyle::Kebab) {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                format!(
+                                    "usage currently derives kebab-case names; clap's \
+                                     `rename_all = \"{case}\"` needs explicit `name`/`long` \
+                                     declarations for that casing"
+                                ),
+                            ));
+                        }
+                    }
+                    "rename_all_env" => {
+                        return Err(syn::Error::new_spanned(
+                            &meta,
+                            "usage does not infer environment variable names; replace \
+                             clap's `rename_all_env` with explicit `env = \"NAME\"` on \
+                             each field that reads one",
+                        ));
+                    }
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
@@ -1559,6 +1580,7 @@ impl Field {
         let mut name = to_kebab(&ident.to_string());
         let mut name_given = false;
         let mut longs: Vec<String> = Vec::new();
+        let mut visible_long_aliases: Vec<String> = Vec::new();
         let mut bare_longs = 0usize;
         let mut shorts: Vec<char> = Vec::new();
         let mut bare_shorts = 0usize;
@@ -1614,6 +1636,12 @@ impl Field {
                         name = strip_dashes(&string_value(&meta)?);
                         name_given = true;
                     }
+                    // clap calls the parser identity `id`; usage's field name is the
+                    // same stable identity and also supplies the positional placeholder.
+                    "id" => {
+                        name = strip_dashes(&string_value(&meta)?);
+                        name_given = true;
+                    }
                     // Bare `long` takes the field name; `long = "x"` overrides it.
                     // A bare `long` is counted and resolved after the loop, so it
                     // picks up a `name` written later. Explicit ones are stored
@@ -1624,6 +1652,22 @@ impl Field {
                         Meta::Path(_) => bare_longs += 1,
                         _ => longs.push(strip_dashes(&string_value(&meta)?)),
                     },
+                    // clap distinguishes advertised and hidden aliases. Visible aliases
+                    // are losslessly additional long forms in usage.
+                    "visible_alias" | "visible_aliases" => {
+                        visible_long_aliases.extend(
+                            selectors(&meta)?
+                                .into_iter()
+                                .map(|name| strip_dashes(&name)),
+                        );
+                    }
+                    "alias" | "aliases" => {
+                        return Err(syn::Error::new_spanned(
+                            &meta,
+                            "clap's `alias` is hidden from help, while an additional usage \
+                             `long` is visible; hidden flag aliases are not representable yet",
+                        ));
+                    }
                     // Resolved after the loop, for the same reason a bare `long` is:
                     // `short` written before `name = "…"` would otherwise take the
                     // field's first letter rather than the renamed one's.
@@ -1742,6 +1786,22 @@ impl Field {
                     "help_heading" => help_heading = Some(string_value(&meta)?),
                     "effect" => effect = Some(effect_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
+                    "num_args" => {
+                        return Err(syn::Error::new_spanned(
+                            &meta,
+                            "clap's `num_args` maps to the Rust field shape plus \
+                             `var_min`/`var_max`; use `Option<T>`, `Vec<T>`, and those \
+                             bounds to declare the same arity",
+                        ));
+                    }
+                    "value_parser" => {
+                        return Err(syn::Error::new_spanned(
+                            &meta,
+                            "clap's `value_parser` is Rust-only metadata; usage converts \
+                             through the field type's `FromStr`, with `value_enum`, \
+                             `choices`, or portable `validate` for additional constraints",
+                        ));
+                    }
                     // Help text a doc comment cannot carry. A comment's first paragraph is
                     // read the way Rust reads one — line breaks inside it are spaces — so
                     // help whose breaks are meant literally has to be given directly.
@@ -1772,7 +1832,7 @@ impl Field {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!(
-                                "unknown option `{other}`; a field takes `name`, `long`, \
+                                "unknown option `{other}`; a field takes `name`, `id`, `long`, \
                                  `short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `hide`, `arg`, `env`, `default`, `default_value_t`, `choices`, `validate`, \
                                  `validate_error`, \
@@ -1783,7 +1843,8 @@ impl Field {
                                  `required_if`, \
                                  `required_unless`, `help_heading`, `value_name`, \
                                  `verbatim_doc_comment`, \
-                                 `required`, `double_dash`, and `skip`"
+                                 `visible_alias`, `visible_aliases`, `required`, \
+                                 `double_dash`, and `skip`"
                             ),
                         ));
                     }
@@ -1800,6 +1861,7 @@ impl Field {
         for _ in 0..bare_longs {
             longs.insert(0, name.clone());
         }
+        longs.extend(visible_long_aliases);
         for _ in 0..bare_shorts {
             let first = name.chars().next().ok_or_else(|| {
                 syn::Error::new(span, "`short` needs a name to take its first letter from")
@@ -2641,12 +2703,13 @@ pub fn type_name(ty: &Type) -> String {
     }
 }
 
-/// The native `#[usage(...)]` or clap-compatible `#[command(...)]`
-/// attributes on a command struct.
+/// Native `#[usage(...)]` plus clap-compatible `#[command(...)]` and
+/// `#[arg(...)]` attributes. The latter appears on fields (and inline variants),
+/// while the iterator is shared by all three model readers.
 fn attrs(attrs: &[Attribute]) -> impl Iterator<Item = &Attribute> {
-    attrs
-        .iter()
-        .filter(|a| a.path().is_ident("usage") || a.path().is_ident("command"))
+    attrs.iter().filter(|a| {
+        a.path().is_ident("usage") || a.path().is_ident("command") || a.path().is_ident("arg")
+    })
 }
 
 /// Value metadata accepts clap's `#[value(...)]` spelling so an enum can keep its
@@ -3884,7 +3947,7 @@ impl ValueEnum {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Subcommands, ValueEnum};
+    use super::{Cli, Kind, Subcommands, ValueEnum};
 
     fn cli(body: &str) -> syn::Result<Cli> {
         Cli::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
@@ -3954,6 +4017,92 @@ mod tests {
         // Not a name: `-fx` is two flags bundled, and a bare word is not a selector.
         assert_eq!(named("-fx"), None);
         assert_eq!(named("force"), None);
+    }
+
+    #[test]
+    fn clap_id_and_visible_alias_spellings_are_lossless() {
+        let cli = cli(r#"
+            #[command(rename_all = "kebab-case")]
+            struct Ex {
+                #[arg(id = "output", long, visible_aliases = ["out", "dest"])]
+                path: Option<String>,
+            }
+        "#)
+        .expect("lossless clap spellings should compile");
+
+        let field = &cli.fields[0];
+        assert_eq!(field.name, "output");
+        let Kind::Flag { longs, .. } = &field.kind else {
+            panic!("long should make this a flag");
+        };
+        assert_eq!(longs, &["output", "out", "dest"]);
+    }
+
+    #[test]
+    fn clap_kebab_casing_aliases_are_no_ops() {
+        for case in ["kebab", "kebab-case", "kebab_case", "KebabCase"] {
+            cli(&format!(
+                r#"
+                    #[command(rename_all = "{case}")]
+                    struct Ex {{
+                        #[arg(long)]
+                        output_path: Option<String>,
+                    }}
+                "#
+            ))
+            .unwrap_or_else(|err| panic!("{case} should mean kebab case: {err}"));
+        }
+    }
+
+    #[test]
+    fn explicit_long_stays_canonical_after_a_visible_alias() {
+        let cli = cli(r#"
+            struct Ex {
+                #[arg(visible_alias = "out", long = "result")]
+                path: Option<String>,
+            }
+        "#)
+        .expect("attribute order must not change the canonical spelling");
+
+        let field = &cli.fields[0];
+        assert_eq!(field.name, "result");
+        let Kind::Flag { longs, .. } = &field.kind else {
+            panic!("long should make this a flag");
+        };
+        assert_eq!(longs, &["result", "out"]);
+    }
+
+    #[test]
+    fn lossy_clap_field_spellings_get_migration_diagnostics() {
+        let hidden = rejection(
+            r#"
+            struct Ex {
+                #[arg(long, alias = "quietly")]
+                output: Option<String>,
+            }
+        "#,
+        );
+        assert!(hidden.contains("hidden flag aliases"), "{hidden}");
+
+        let arity = rejection(
+            r#"
+            struct Ex {
+                #[arg(long, num_args = 2)]
+                pair: Vec<String>,
+            }
+        "#,
+        );
+        assert!(arity.contains("var_min"), "{arity}");
+
+        let parser = rejection(
+            r#"
+            struct Ex {
+                #[arg(long, value_parser = clap::value_parser!(u16))]
+                port: u16,
+            }
+        "#,
+        );
+        assert!(parser.contains("FromStr"), "{parser}");
     }
 
     #[test]

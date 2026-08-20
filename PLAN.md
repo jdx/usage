@@ -639,6 +639,13 @@ feature list is not an exhaustive audit.
       advertised; usage spells those `alias_hidden` and `alias`. The fnox rewrite
       initially made `completion`'s hidden aliases and `exec run` visible because
       a mechanical rename erased that distinction.
+      `Cli` and named `Args` fields now accept `#[arg(...)]` directly, `id` maps
+      losslessly to the usage field identity, `visible_alias` / `visible_aliases`
+      become advertised long forms, and the default `rename_all = "kebab-case"`
+      can remain on the command. Hidden `alias` / `aliases`, non-default casing,
+      `num_args`, and `value_parser` now produce targeted migration diagnostics
+      instead of a generic unknown-option error. Hidden flag alias representation
+      remains before this item can close.
 - [x] **Command-with-arguments completion hints.** `ExecutablePath`,
       `CommandName`, `CommandString`, and `CommandWithArguments` lower to
       shell-native completion types. A forwarded argv vector offers commands for
