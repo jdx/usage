@@ -108,6 +108,12 @@ A flag declared `require_equals` accepts only the attached form: `--inspect=9229
 binds and `--inspect 9229` is a missing value. A short's attached form
 (`-i9229`, `-i=9229`) still binds.
 
+A boolean switch declared `bool_value` additionally accepts the exact attached
+long forms `--flag=true` and `--flag=false`. It never takes a detached value:
+`--flag false` binds the flag and leaves `false` to the positionals. A negated
+spelling applies the attached value to that spelling, so `--no-flag=false`
+binds the flag true.
+
 A flag declared `default_missing` binds that string when it is given with no
 value: `--color` is `always` if the spec says `default_missing="always"`. An
 attached or (unless `require_equals`) detached value still wins. A following

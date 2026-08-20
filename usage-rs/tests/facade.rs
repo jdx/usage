@@ -145,6 +145,15 @@ struct HelpOptionalValue {
 }
 
 #[derive(Debug, Cli)]
+#[usage(bin = "explicit-bool", args_override_self = false)]
+struct ExplicitBool {
+    #[usage(long, negate = "no-color", bool_value)]
+    color: bool,
+    #[usage(arg)]
+    rest: Option<String>,
+}
+
+#[derive(Debug, Cli)]
 #[usage(bin = "sized-help", term_width = 36, max_term_width = 20)]
 #[allow(dead_code)]
 struct SizedHelp {
@@ -1347,6 +1356,36 @@ fn help_only_optional_values_still_require_a_typed_value() {
     );
     let kdl = HelpOptionalValue::to_kdl();
     assert!(kdl.contains("[BUMP]"), "{kdl}");
+}
+
+#[test]
+fn boolean_flags_can_opt_into_attached_values() {
+    for (token, expected) in [
+        ("--color", true),
+        ("--color=true", true),
+        ("--color=false", false),
+        ("--no-color", false),
+        ("--no-color=false", true),
+    ] {
+        let parsed = ExplicitBool::parse_from(&[OsStr::new(token)]).unwrap();
+        assert_eq!(parsed.color, expected, "{token}");
+    }
+    let parsed =
+        ExplicitBool::parse_from(&[OsStr::new("--color=false"), OsStr::new("positional")]).unwrap();
+    assert_eq!(parsed.rest.as_deref(), Some("positional"));
+    assert!(ExplicitBool::parse_from(&[OsStr::new("--color=maybe")]).is_err());
+    assert!(
+        ExplicitBool::parse_from(&[OsStr::new("--color=false"), OsStr::new("--color=true"),])
+            .is_err()
+    );
+    assert!(
+        ExplicitBool::parse_from(&[OsStr::new("--color=false"), OsStr::new("--no-color=false"),])
+            .unwrap()
+            .color
+    );
+
+    let kdl = ExplicitBool::to_kdl();
+    assert!(kdl.contains("bool_value=#true"), "{kdl}");
 }
 
 #[test]

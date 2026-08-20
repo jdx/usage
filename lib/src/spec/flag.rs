@@ -255,6 +255,12 @@ pub struct SpecFlag {
     /// `required` bit, which controls whether help renders `<VALUE>` or `[VALUE]`.
     #[serde(skip_serializing_if = "is_false")]
     pub value_optional: bool,
+    /// Whether a boolean switch accepts an explicit attached value.
+    ///
+    /// Only `--flag=true` and `--flag=false` are values; a detached word remains
+    /// a positional and the flag still renders without a value placeholder.
+    #[serde(skip_serializing_if = "is_false")]
+    pub bool_value: bool,
     /// Value used when the flag is present but no value is given.
     ///
     /// clap's `default_missing_value`: `--color` binds this string, `--color=never`
@@ -359,6 +365,7 @@ impl SpecFlag {
                 "exclusive" => flag.exclusive = v.ensure_bool()?,
                 "require_equals" => flag.require_equals = v.ensure_bool()?,
                 "value_optional" => flag.value_optional = v.ensure_bool()?,
+                "bool_value" => flag.bool_value = v.ensure_bool()?,
                 "default_missing" => flag.default_missing = Some(v.ensure_string()?),
                 // Written on the flag and kept on its argument, as `allow_hyphen_values`
                 // is: the value is what gets split, and `flag "--tags <tag>"` is where a
@@ -573,6 +580,7 @@ impl SpecFlag {
                 "exclusive" => flag.exclusive = child.arg(0)?.ensure_bool()?,
                 "require_equals" => flag.require_equals = child.arg(0)?.ensure_bool()?,
                 "value_optional" => flag.value_optional = child.arg(0)?.ensure_bool()?,
+                "bool_value" => flag.bool_value = child.arg(0)?.ensure_bool()?,
                 "default_missing" => {
                     flag.default_missing = Some(child.arg(0)?.ensure_string()?);
                 }
@@ -670,6 +678,15 @@ impl SpecFlag {
                 ctx,
                 node.node.name().span(),
                 "flag must have a value to make that value optional"
+            );
+        }
+        if flag.bool_value
+            && (flag.arg.is_some() || flag.count || flag.action != SpecFlagAction::Set)
+        {
+            bail_parse!(
+                ctx,
+                node.node.name().span(),
+                "bool_value is only valid on a boolean switch"
             );
         }
         if flag.default_missing.is_some() && flag.arg.is_none() {
@@ -969,6 +986,9 @@ impl From<&SpecFlag> for KdlNode {
         if flag.value_optional {
             node.push(KdlEntry::new_prop("value_optional", true));
         }
+        if flag.bool_value {
+            node.push(KdlEntry::new_prop("bool_value", true));
+        }
         if let Some(missing) = &flag.default_missing {
             node.push(string_entry(Some("default_missing"), missing));
         }
@@ -1207,6 +1227,8 @@ impl From<&clap::Arg> for SpecFlag {
             value_optional: arg.is_some()
                 && c.get_num_args()
                     .is_some_and(|n| n.min_values() == 0 && n.max_values() > 0),
+            // clap has no attached-value boolean-switch policy.
+            bool_value: false,
             // clap 4 has `Arg::default_missing_value` as a setter with no getter.
             default_missing: None,
             help,
@@ -1607,6 +1629,24 @@ mod tests {
                 .num_args(0),
         );
         assert!(!Spec::from(&zero_arity).cmd.flags[0].value_optional);
+    }
+
+    #[test]
+    fn explicit_boolean_values_round_trip() {
+        let spec: Spec = "flag \"--color\" negate=\"--no-color\" bool_value=#true\n"
+            .parse()
+            .unwrap();
+        assert!(spec.cmd.flags[0].bool_value);
+        let rendered = spec.to_string();
+        assert!(rendered.contains("bool_value=#true"), "{rendered}");
+        assert!(rendered.parse::<Spec>().unwrap().cmd.flags[0].bool_value);
+
+        for invalid in [
+            "flag \"--jobs <N>\" bool_value=#true\n",
+            "flag \"--verbose\" count=#true bool_value=#true\n",
+        ] {
+            assert!(invalid.parse::<Spec>().is_err(), "{invalid}");
+        }
     }
 
     #[test]

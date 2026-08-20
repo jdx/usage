@@ -724,6 +724,15 @@ func TestValueOptionalCarries(t *testing.T) {
 	}
 }
 
+func TestBoolValueCarries(t *testing.T) {
+	root, _ := build(&Spec{Cmd: Cmd{Flags: []Flag{
+		{Name: "color", Long: []string{"color"}, BoolValue: true},
+	}}})
+	if !root.Flags[0].BoolValue {
+		t.Error("bool_value should carry")
+	}
+}
+
 func TestDefaultIfResolves(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",

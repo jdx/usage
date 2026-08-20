@@ -1340,6 +1340,9 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
     if flag.value_optional {
         fields.push("ValueOptional: true".to_string());
     }
+    if flag.bool_value {
+        fields.push("BoolValue: true".to_string());
+    }
     // Only a variadic *argument* is greedy. The spec's flag-level `var` means the
     // flag may be repeated and takes one value each time, which needs nothing from
     // the parser: it reports every occurrence separately either way. Conflating the
@@ -2009,6 +2012,18 @@ cmd "run" arg_required_else_help=#true {
         let out = go("name \"ex\"\nbin \"ex\"\nflag \"--color [WHEN]\" value_optional=#true\n");
         assert!(
             out.contains("TakesValue: true, ValueOptional: true"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn explicit_boolean_values_reach_generated_go() {
+        let out = go(
+            "name \"ex\"\nbin \"ex\"\nflag \"--color\" negate=\"--no-color\" bool_value=#true\n",
+        );
+        assert!(out.contains("BoolValue: true"), "{out}");
+        assert!(
+            out.contains("(ev.Value == \"true\") != ev.Negated"),
             "{out}"
         );
     }

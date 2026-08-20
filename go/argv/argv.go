@@ -138,6 +138,9 @@ type Flag struct {
 	// still emits an event, with HasValue false, instead of producing a
 	// missing-value error.
 	ValueOptional bool
+	// BoolValue allows an attached true or false value on a boolean long flag.
+	// Detached words remain positional and the flag still renders as a switch.
+	BoolValue bool
 	// Variadic is whether one occurrence of this flag keeps taking values, until a
 	// flag-like token or the end of the command line.
 	//

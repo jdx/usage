@@ -303,6 +303,8 @@ pub struct Field {
     pub value_terminator: Option<String>,
     /// Whether the value must be attached with `=`. clap's `require_equals`.
     pub require_equals: bool,
+    /// Whether a boolean long flag accepts `=true` or `=false`.
+    pub bool_value: bool,
     /// Value used when the flag is present but no value is given.
     ///
     /// clap's `default_missing_value`. `--color` binds this string; `--color=never`
@@ -1600,6 +1602,7 @@ impl Field {
             allow_negative_numbers: false,
             value_terminator: None,
             require_equals: false,
+            bool_value: false,
             default_missing: None,
             exclusive: false,
             group: None,
@@ -1728,6 +1731,7 @@ impl Field {
             allow_negative_numbers: false,
             value_terminator: None,
             require_equals: false,
+            bool_value: false,
             default_missing: None,
             exclusive: false,
             group: None,
@@ -1850,6 +1854,7 @@ impl Field {
             allow_negative_numbers: false,
             value_terminator: None,
             require_equals: false,
+            bool_value: false,
             default_missing: None,
             exclusive: false,
             group: None,
@@ -1958,6 +1963,7 @@ impl Field {
         let mut allow_negative_numbers = false;
         let mut value_terminator = None;
         let mut require_equals = false;
+        let mut bool_value = false;
         let mut default_missing = None;
         let mut required_if: Vec<String> = Vec::new();
         let mut required_if_eq: Vec<ConditionalValue> = Vec::new();
@@ -2107,6 +2113,7 @@ impl Field {
                     "allow_negative_numbers" => allow_negative_numbers = flag_value(&meta)?,
                     "value_terminator" => value_terminator = Some(string_value(&meta)?),
                     "require_equals" => require_equals = flag_value(&meta)?,
+                    "bool_value" => bool_value = flag_value(&meta)?,
                     "default_missing" => default_missing = Some(string_value(&meta)?),
                     "delimiter" => {
                         let c = char_value(&meta)?;
@@ -2215,7 +2222,7 @@ impl Field {
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
                                  `delimiter`, `allow_hyphen_values`, `allow_negative_numbers`, \
-                                 `value_terminator`, `require_equals`, \
+                                 `value_terminator`, `require_equals`, `bool_value`, \
                                  `default_missing`, `default_if`, \
                                  `required_if`, \
                                  `required_unless`, `help_heading`, `display_order`, `value_name`, `value_names`, `num_args`, \
@@ -2936,6 +2943,18 @@ impl Field {
                 ));
             }
         }
+        if bool_value && (!matches!(&kind, Kind::Flag { .. }) || !matches!(&shape, Shape::Bool)) {
+            return Err(syn::Error::new_spanned(
+                &ident,
+                "`bool_value` is only valid on a boolean flag",
+            ));
+        }
+        if bool_value && action != ArgAction::Set {
+            return Err(syn::Error::new_spanned(
+                &ident,
+                "`bool_value` binds a field and cannot be combined with a help or version action",
+            ));
+        }
 
         if default_missing.is_some() {
             if !matches!(kind, Kind::Flag { .. }) {
@@ -3083,6 +3102,7 @@ impl Field {
             allow_negative_numbers,
             value_terminator,
             require_equals,
+            bool_value,
             default_missing,
             exclusive,
             group,
@@ -6111,6 +6131,34 @@ mod tests {
         "#,
         );
         assert!(err.contains("takes none"), "unhelpful message: {err}");
+    }
+
+    #[test]
+    fn bool_value_is_a_boolean_flag_option() {
+        let cli = cli(r#"
+            struct Ex {
+                #[usage(long, bool_value)]
+                force: bool,
+            }
+        "#)
+        .expect("should compile");
+        assert!(cli.fields.iter().any(|f| f.bool_value));
+
+        for body in [
+            r#"struct Ex { #[usage(long, bool_value)] jobs: Option<usize> }"#,
+            r#"struct Ex { #[usage(long, count, bool_value)] verbose: u8 }"#,
+        ] {
+            let err = rejection(body);
+            assert!(
+                err.contains("only valid on a boolean flag"),
+                "unhelpful: {err}"
+            );
+        }
+        assert!(
+            rejection(r#"struct Ex { #[usage(arg, bool_value)] force: bool }"#)
+                .contains("has nowhere to put it"),
+            "a positional bool is rejected before flag-only options are considered"
+        );
     }
 
     #[test]
