@@ -1,0 +1,66 @@
+{
+  "section": "mounts",
+  "about": "Mount commands discover specs at parse time. Their stdout is injected by exact run string so the grammar does not depend on a shell, executable, filesystem, or host platform.",
+  "vectors": [
+    {
+      "id": "root-mount-discovers-command",
+      "doc": "An unknown command name triggers the root mount and is re-examined against the commands it contributes.",
+      "spec": "name \"ex\"\nbin \"ex\"\nmount run=\"discover commands\"\n",
+      "argv": ["dynamic", "--force"],
+      "mounts": {
+        "discover commands": "name \"plugins\"\nbin \"plugins\"\ncmd \"dynamic\" {\n  flag \"--force\"\n}\n"
+      },
+      "expect": {
+        "ok": {
+          "cmd": ["dynamic"],
+          "flags": { "force": true }
+        }
+      }
+    },
+    {
+      "id": "nested-mount-discovers-command",
+      "doc": "A mount on a selected command contributes its children at that command rather than at the root.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"plugin\" {\n  mount run=\"discover plugin commands\"\n}\n",
+      "argv": ["plugin", "run", "task"],
+      "mounts": {
+        "discover plugin commands": "name \"plugin\"\nbin \"plugin\"\ncmd \"run\" {\n  arg \"<task>\"\n}\n"
+      },
+      "expect": {
+        "ok": {
+          "cmd": ["plugin", "run"],
+          "args": { "task": "task" }
+        }
+      }
+    },
+    {
+      "id": "mounted-command-owns-colliding-flag",
+      "doc": "After crossing a mount boundary, the mounted command's local spelling owns a name that also belongs to the mounting CLI's global flag.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--env <root-env>\" global=#true\nmount run=\"discover task\"\n",
+      "argv": ["task", "--env", "task-env"],
+      "mounts": {
+        "discover task": "name \"tasks\"\nbin \"tasks\"\ncmd \"task\" {\n  flag \"--env <task-env>\"\n}\n"
+      },
+      "expect": {
+        "ok": {
+          "cmd": ["task"],
+          "flags": { "env": "task-env" }
+        }
+      }
+    },
+    {
+      "id": "mounted-root-flags-merge-at-mount-point",
+      "doc": "Flags on the mounted spec's root are accepted at the command holding the mount, alongside its discovered children.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"plugin\" {\n  mount run=\"discover plugin root\"\n}\n",
+      "argv": ["plugin", "--verbose", "run"],
+      "mounts": {
+        "discover plugin root": "name \"plugin\"\nbin \"plugin\"\nflag \"--verbose\"\ncmd \"run\"\n"
+      },
+      "expect": {
+        "ok": {
+          "cmd": ["plugin", "run"],
+          "flags": { "verbose": true }
+        }
+      }
+    }
+  ]
+}

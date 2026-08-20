@@ -126,6 +126,9 @@ pub enum UsageErr {
 
     #[error("Unsupported shell: {0}")]
     UnsupportedShell(String),
+
+    #[error("No injected output was provided for mount command: {0}")]
+    MissingMountOutput(String),
 }
 pub type Result<T> = std::result::Result<T, UsageErr>;
 

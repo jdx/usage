@@ -18,6 +18,7 @@ use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use log::{info, warn};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
 use std::path::{Path, PathBuf};
@@ -114,6 +115,32 @@ pub struct Spec {
 }
 
 impl Spec {
+    /// Resolve every mount from supplied command outputs without spawning processes.
+    ///
+    /// This is intended for deterministic generators and conformance harnesses. The
+    /// map is keyed by each mount's exact `run` declaration. Missing entries are an
+    /// error, so injecting a partial view cannot silently execute the remainder.
+    pub fn resolve_mount_outputs(
+        &mut self,
+        outputs: &HashMap<String, String>,
+    ) -> Result<(), UsageErr> {
+        fn resolve(
+            cmd: &mut SpecCommand,
+            outputs: &HashMap<String, String>,
+        ) -> Result<(), UsageErr> {
+            if !cmd.mounts.is_empty() {
+                cmd.mount(&[], Some(outputs))?;
+                cmd.mounts.clear();
+            }
+            for subcommand in cmd.subcommands.values_mut() {
+                resolve(subcommand, outputs)?;
+            }
+            Ok(())
+        }
+
+        resolve(&mut self.cmd, outputs)
+    }
+
     /// Parse a spec from a file.
     ///
     /// Automatically detects whether the file is:

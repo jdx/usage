@@ -88,6 +88,11 @@ task commands as if they were statically defined in the usage spec.
 a shebang script therefore needs a POSIX shell to be available; one that invokes a program
 directly, like `mycli mount-usage-tasks` above, works either way.
 
+Tests and deterministic generators can opt out of process execution with
+`usage::parse::Parser::with_mount_outputs`. The supplied map is keyed by the exact
+`run` declaration and must contain every mount the parse reaches; a missing entry
+is an error rather than permission to fall back to the host shell.
+
 ### Mounting at the top level
 
 A `mount` also works as a top-level node, for a CLI whose _own_ commands are

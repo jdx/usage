@@ -40,6 +40,7 @@ the group establishes, and `vectors`:
 | `argv`      | the command line, excluding the program name                                                                                                                       |
 | `argv0`     | the process's argv[0], when that is the question; absent means the spec's `bin`. A `multicall` applet is selected by this basename rather than by a word in `argv` |
 | `env`       | the environment the parse sees; absent means empty                                                                                                                 |
+| `mounts`    | deterministic stdout for mount commands, keyed by the exact `run` string; harnesses inject these instead of spawning a process                                     |
 | `expect`    | `{"ok": {...}}` or `{"error": "code"}`                                                                                                                             |
 | `reference` | whether usage-lib agrees; see below                                                                                                                                |
 
