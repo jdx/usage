@@ -84,7 +84,7 @@ jobs: Option<u32>,
 | `overrides(…)`                          | Later occurrence silently overrides the named flag                                      |
 | `required_if(…)` / `required_unless(…)` | Conditional required-ness                                                               |
 | `complete = my_fn`                      | Custom completion function ([Completions](/rust/completions))                           |
-| `value_hint = ValueHint::FilePath`      | Ask the shell for paths or commands (see below)                                         |
+| `value_hint = ValueHint::FilePath`      | Ask the shell for path completion (see below)                                           |
 | `value_name = "…"`                      | The placeholder shown in help (`--file <PATH>`)                                         |
 | `help = "…"` / `long_help = "…"`        | Help text (doc comments are usually nicer)                                              |
 | `help_heading = "…"`                    | Group the entry under a heading in help output                                          |

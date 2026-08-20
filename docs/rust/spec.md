@@ -97,15 +97,16 @@ with the literal written to portable artifacts:
 struct Cli;
 ```
 
-The name and bin expressions return `&'static str`. They are evaluated only when the process
-renders help, version output, diagnostics, or a completion script. Successful argument parsing
-still reads the static tables directly and does not allocate or build a command graph. `to_kdl()`
-keeps `mycli` and `6.0.0`, so generated artifacts are deterministic and do not depend on the
-embedding process.
+The name and bin expressions return `&'static str`; a computed version implements `ToString`.
+They are evaluated only when the process renders help, version output, diagnostics, or a
+completion script. Successful argument parsing still reads the static tables directly and does
+not allocate or build a command graph. `to_kdl()` keeps `mycli` and `6.0.0`, so generated
+artifacts are deterministic and do not depend on the embedding process. `--version` formats the
+computed version, while `version_spec` remains the static value exported to KDL.
 
-`Cli::runtime_app()` returns the borrowed view with the computed identity applied. For a caller
-that already has different identity values, `Cli::app().name(...).bin(...)` provides the same
-split explicitly.
+`Cli::runtime_app()` returns the borrowed view with the computed name and bin applied; it does
+not currently apply the computed version. For a caller that already has different identity
+values, `Cli::app().name(...).bin(...).version(...)` provides the split explicitly.
 
 ## What the parser does with the spec
 
