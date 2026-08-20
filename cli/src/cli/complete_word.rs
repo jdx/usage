@@ -18,6 +18,24 @@ use usage::{Spec, SpecArg, SpecCommand, SpecComplete, SpecDoubleDashChoices, Spe
 
 use crate::cli::generate;
 
+static COMPLETER_TERA: LazyLock<tera::Tera> = LazyLock::new(|| {
+    let mut tera = tera::Tera::default();
+    tera.register_filter(
+        "shell_quote",
+        |value: &tera::Value, _: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
+            let value = value
+                .as_str()
+                .ok_or_else(|| tera::Error::message("shell_quote expects a string"))?;
+            Ok(shell_words::quote(value).into_owned())
+        },
+    );
+    tera
+});
+
+fn render_completer_run(run: &str, ctx: &tera::Context) -> tera::TeraResult<String> {
+    COMPLETER_TERA.render_str(run, ctx, false)
+}
+
 /// Generate shell completion candidates for a partial command line
 ///
 /// This is used internally by shell completion scripts to provide
@@ -603,7 +621,7 @@ impl CompleteWord {
             ));
         }
         if let Some(run) = &complete.run {
-            let run = tera::Tera::one_off(run, cx.tera, false).into_diagnostic()?;
+            let run = render_completer_run(run, cx.tera).into_diagnostic()?;
             trace!("run: {run}");
             let stdout = sh(&run)?;
             // trace!("stdout: {stdout}");
@@ -829,11 +847,42 @@ fn zsh_shell_quote(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::command_name_starts_with;
+    use super::{command_name_starts_with, render_completer_run};
 
     #[test]
     fn windows_command_prefixes_ignore_ascii_case() {
         assert!(command_name_starts_with("Cargo.EXE", "car", true));
         assert!(!command_name_starts_with("Cargo.EXE", "car", false));
+    }
+
+    #[test]
+    fn completer_templates_can_shell_quote_typed_words() {
+        let mut ctx = tera::Context::new();
+        ctx.insert("word", "a'b; echo injected");
+        let rendered = render_completer_run("printf '%s\\n' {{ word | shell_quote }}", &ctx)
+            .expect("the filter should render");
+        assert_eq!(rendered, "printf '%s\\n' 'a'\\''b; echo injected'");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shell_quoted_template_values_remain_one_literal_argument() {
+        let mut ctx = tera::Context::new();
+        ctx.insert("word", "$(printf injected); a'b");
+        let rendered = render_completer_run("printf '%s\\n' {{ word | shell_quote }}", &ctx)
+            .expect("the filter should render");
+        let stdout = usage::sh::sh(&rendered).expect("the rendered command should run");
+        assert_eq!(stdout, "$(printf injected); a'b\n");
+    }
+
+    #[test]
+    fn shell_quote_rejects_non_strings() {
+        let mut ctx = tera::Context::new();
+        ctx.insert("word", &42);
+        let err = render_completer_run("{{ word | shell_quote }}", &ctx).unwrap_err();
+        assert!(
+            err.to_string().contains("shell_quote expects a string"),
+            "{err}"
+        );
     }
 }

@@ -88,13 +88,25 @@ The run can be customized with [tera](https://keats.github.io/tera/) templates. 
 - `CURRENT`: The index of the word currently being typed, combine with `words` to get the current word e.g. `words[CURRENT]`.
 - `PREV`: The index of the previous word in the prompt (CURRENT-1), combine with `words` to get the previous word e.g. `words[PREV]`.
 
+Values interpolated into `run` are not escaped automatically. Pass every typed word that
+becomes one shell argument through `shell_quote`; the filter emits one POSIX-shell-safe word,
+including spaces, quotes, substitutions, and command separators as literal data:
+
+```kdl
+complete "package" run="mycli complete --query={{ words[CURRENT] | shell_quote }}"
+```
+
+Leaving off the filter is appropriate only when the interpolation is deliberately shell
+syntax. `shell_quote` accepts strings; quote list members individually rather than quoting a
+joined command line.
+
 Example of completing the second argument based on the first:
 
 ```kdl
 arg "<module>"
 arg "<controller>"
 complete "module" run="ls modules"
-complete "controller" run="ls modules/{{words[PREV]}}/controllers"
+complete "controller" run="ls modules/{{ words[PREV] | shell_quote }}/controllers"
 ```
 
 Example of using multiple words (one, two, three) for the completions of the forth argument:
