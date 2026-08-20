@@ -285,6 +285,12 @@ pub struct SpecFlag {
     /// Environment variable that can set this flag's value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
+    /// Ordered environment variables consulted after [`Self::env`].
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub env_fallback: Vec<String>,
+    /// Ordered compatibility aliases consulted last and advertised as deprecated.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub deprecated_env: Vec<String>,
     /// Heading this flag is listed under in help output.
     ///
     /// Purely presentational: it groups a long flag list into sections rather
@@ -309,6 +315,15 @@ impl SpecFlag {
     /// Create a new builder for SpecFlag
     pub fn builder() -> SpecFlagBuilder {
         SpecFlagBuilder::new()
+    }
+
+    /// Environment sources in precedence order: canonical, fallbacks, deprecated aliases.
+    pub fn env_names(&self) -> impl Iterator<Item = &str> {
+        self.env
+            .iter()
+            .map(String::as_str)
+            .chain(self.env_fallback.iter().map(String::as_str))
+            .chain(self.deprecated_env.iter().map(String::as_str))
     }
 
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self> {
@@ -391,6 +406,8 @@ impl SpecFlag {
                     }
                 }
                 "env" => flag.env = v.ensure_string().map(Some)?,
+                "env_fallback" => flag.env_fallback = vec![v.ensure_string()?],
+                "deprecated_env" => flag.deprecated_env = vec![v.ensure_string()?],
                 "help_heading" => flag.help_heading = v.ensure_string().map(Some)?,
                 "display_order" => flag.display_order = v.ensure_usize().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported flag key {k}"),
@@ -531,6 +548,20 @@ impl SpecFlag {
                     }
                 }
                 "env" => flag.env = child.arg(0)?.ensure_string().map(Some)?,
+                "env_fallback" => {
+                    flag.env_fallback = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|entry| entry.ensure_string())
+                        .collect::<Result<_>>()?;
+                }
+                "deprecated_env" => {
+                    flag.deprecated_env = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|entry| entry.ensure_string())
+                        .collect::<Result<_>>()?;
+                }
                 "help_heading" => {
                     flag.help_heading = child.arg(0)?.ensure_string().map(Some)?;
                 }
@@ -1009,6 +1040,8 @@ impl From<&SpecFlag> for KdlNode {
         if let Some(env) = &flag.env {
             node.push(string_entry(Some("env"), env));
         }
+        serialize_flag_list(&mut node, "env_fallback", &flag.env_fallback);
+        serialize_flag_list(&mut node, "deprecated_env", &flag.deprecated_env);
         if let Some(help_heading) = &flag.help_heading {
             node.push(string_entry(Some("help_heading"), help_heading));
         }
@@ -1287,6 +1320,8 @@ impl From<&clap::Arg> for SpecFlag {
             // spec (see the effect docs).
             effect: None,
             env: None,
+            env_fallback: vec![],
+            deprecated_env: vec![],
             help_heading: c.get_help_heading().map(|s| s.to_string()),
             display_order: Some(c.get_display_order()),
         };

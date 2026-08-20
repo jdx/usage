@@ -237,6 +237,8 @@
 //! | `global` | subcommands inherit the flag |
 //! | `env = "X"` | an environment variable that can supply the value |
 //! | `env` | infer the environment variable from the field, using the command's `rename_all_env` policy |
+//! | `env_fallback("OLD_X", "OLDER_X")` | additional environment variables, consulted in declaration order |
+//! | `deprecated_env("LEGACY_X")` | deprecated aliases, consulted after ordinary fallbacks and labeled in help |
 //! | `default = "x"` | the value when the command line does not supply one; a `Vec` may be given several, and starts out holding all of them |
 //! | `help_heading = "x"` | the section to list this under in help output |
 //! | `display_order = n` | explicit help order; positional parsing still follows declaration order |

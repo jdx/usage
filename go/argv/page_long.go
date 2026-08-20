@@ -338,6 +338,14 @@ func longAnnotations(out *strings.Builder, h *Help, withDefault bool) {
 	if !h.HideEnv && h.Env != "" {
 		out.WriteString("    [env: " + h.Env + "]\n")
 	}
+	if !h.HideEnv {
+		for _, env := range h.EnvFallback {
+			out.WriteString("    [env fallback: " + env + "]\n")
+		}
+		for _, env := range h.DeprecatedEnv {
+			out.WriteString("    [deprecated env: " + env + "]\n")
+		}
+	}
 	if withDefault && !h.HideDefaultValue && len(h.Default) > 0 {
 		out.WriteString("    (default: " + strings.Join(h.Default, ", ") + ")\n")
 	}

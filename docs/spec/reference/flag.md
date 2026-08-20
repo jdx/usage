@@ -93,6 +93,13 @@ flag "--env <env>" {
   choices env="DEPLOY_ENVS" // values from $DEPLOY_ENVS, split on commas and/or whitespace
 }
 
+// argv wins, then APP_TOKEN, then the fallbacks from left to right, then the
+// explicitly deprecated alias. The list nodes preserve declaration order.
+flag "--token <token>" env="APP_TOKEN" {
+  env_fallback "APP_AUTH_TOKEN" "TOOL_TOKEN"
+  deprecated_env "OLD_APP_TOKEN"
+}
+
 flag "--filter <pattern>" help_heading="Filtering" // group this flag under a heading in help output
 
 flag "--file <file>" long_help="longer help for --help (as opposed to -h)"

@@ -21,3 +21,11 @@
 
 **Environment Variable:** `{{ arg.env }}`
 {%- endif -%}
+{%- if arg.env_fallback | length > 0 %}
+
+**Environment Fallbacks:** {% for env in arg.env_fallback %}`{{ env }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif %}
+{%- if arg.deprecated_env | length > 0 %}
+
+**Deprecated Environment Variables:** {% for env in arg.deprecated_env %}`{{ env }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif -%}

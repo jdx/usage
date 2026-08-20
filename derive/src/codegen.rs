@@ -1327,6 +1327,8 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let help = option_str(field.help.as_deref());
     let long_help = option_str(field.long_help.as_deref());
     let env = option_str(field.env.as_deref());
+    let env_fallback = &field.env_fallback;
+    let deprecated_env = &field.deprecated_env;
     let help_heading = option_str(field.help_heading.as_deref());
     let display_order = option_usize(field.display_order);
     let deprecated = option_str(field.deprecated.as_deref());
@@ -1455,6 +1457,8 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             deprecated_warn_at: #deprecated_warn_at,
             deprecated_remove_at: #deprecated_remove_at,
             env: #env,
+            env_fallback: &[#(#env_fallback),*],
+            deprecated_env: &[#(#deprecated_env),*],
             default: #default,
             help_heading: #help_heading,
             value_name: #value_name,
@@ -1507,6 +1511,8 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     let help = option_str(field.help.as_deref());
     let long_help = option_str(field.long_help.as_deref());
     let env = option_str(field.env.as_deref());
+    let env_fallback = &field.env_fallback;
+    let deprecated_env = &field.deprecated_env;
     let help_heading = option_str(field.help_heading.as_deref());
     let display_order = option_usize(field.display_order);
     let complete_type = option_str(field.complete_type.as_deref());
@@ -1581,6 +1587,8 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
             help: #help,
             long_help: #long_help,
             env: #env,
+            env_fallback: &[#(#env_fallback),*],
+            deprecated_env: &[#(#deprecated_env),*],
             default: #default,
             help_heading: #help_heading,
             hide: #hide,
@@ -4895,7 +4903,16 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
     let own = cli.fields.iter().filter_map(|f| {
         let ident = &f.ident;
         let given = format_ident!("__given_{}", ident);
-        let var = f.env.as_deref()?;
+        let vars: Vec<&str> = f
+            .env
+            .iter()
+            .map(String::as_str)
+            .chain(f.env_fallback.iter().map(String::as_str))
+            .chain(f.deprecated_env.iter().map(String::as_str))
+            .collect();
+        if vars.is_empty() {
+            return None;
+        }
         let assign = match f.shape {
             // `env::var` gives text, which is right for an environment variable: the
             // partial holds bytes because *argv* may not be UTF-8, and this is not argv.
@@ -4943,11 +4960,14 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
         let standing = displaced_guard(cli, f);
         Some(quote! {
             if !partial.#given #standing {
-                if let ::std::result::Result::Ok(value) = ::std::env::var(#var) {
-                    let mut continue_unset = false;
-                    #assign
-                    if !continue_unset {
-                        partial.#given = true;
+                for __usage_env in [#(#vars),*] {
+                    if let ::std::result::Result::Ok(value) = ::std::env::var(__usage_env) {
+                        let mut continue_unset = false;
+                        #assign
+                        if !continue_unset {
+                            partial.#given = true;
+                            break;
+                        }
                     }
                 }
             }
