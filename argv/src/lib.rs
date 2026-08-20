@@ -81,6 +81,17 @@
 
 #![forbid(unsafe_code)]
 
+/// Terminate at the compiled CLI entry-point boundary.
+///
+/// Kept in the runtime rather than expanded into an adopter crate so a project that
+/// forbids direct `std::process::exit` calls does not attribute the derive's process
+/// boundary to application code. `Cli::parse_from*` continues to return errors.
+#[doc(hidden)]
+#[allow(clippy::disallowed_methods)]
+pub fn __usage_process_exit(status: i32) -> ! {
+    std::process::exit(status)
+}
+
 use std::ffi::{OsStr, OsString};
 
 /// A value's shell-native completion class for `#[usage(value_hint = ...)]`.
