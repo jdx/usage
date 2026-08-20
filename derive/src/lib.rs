@@ -199,7 +199,8 @@
 //! spelling the CLI declares for itself. clap refuses that collision by panicking at startup;
 //! here the declaration simply wins and the other spelling still answers.
 //!
-//! On the struct itself: `bin`, `version`, `about`, `long_about`, `before_help`, `after_help`,
+//! On the struct itself: `bin`, `version`, `author`, `license`, `repository`, `about`,
+//! `long_about`, `before_help`, `after_help`,
 //! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
 //! `default_subcommand`, `multicall` — argv[0]'s basename selects a subcommand —
 //! `arg_required_else_help` — a selected command with no argv of its own shows short help —

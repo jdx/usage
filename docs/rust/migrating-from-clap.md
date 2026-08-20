@@ -212,6 +212,18 @@ struct Cli {
 }
 ```
 
+Package metadata is declared on the root and travels with the generated spec and references:
+
+```rust
+#[derive(usage::Cli)]
+#[command(
+    author = "Example Maintainers",
+    license = "MIT OR Apache-2.0",
+    repository = "https://example.com/tool"
+)]
+struct Cli;
+```
+
 For an embedded CLI whose program name is computed, pair `name = expression` with a portable
 `name_spec = "literal"`, and `bin = expression` with `bin_spec = "literal"`. The expression is
 used only by process output; the literal keeps generated specs reproducible.

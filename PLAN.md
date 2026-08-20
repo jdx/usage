@@ -554,7 +554,7 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       `disable_help_subcommand` and `disable_version_flag`. A clap
       CLI can move or remove these entry points; usage currently supplies its own.
 - [ ] **Ordering and remaining metadata** — explicit `display_order`, the full
-      `ValueHint` vocabulary, `author`, `long_version`, and custom help/version
+      `ValueHint` vocabulary, `long_version`, and custom help/version
       text. Declaration order and path hints cover the common cases, not the
       complete clap surface.
 
@@ -1337,9 +1337,10 @@ above are where it lands.
       resolves it (the parser already gives `--color bar`'s `bar` to the
       positionals) — so the recommended declaration is `default_missing` with
       `require_equals` beside it.
-- [ ] **`license` metadata** (clap#1768) — a spec node rendered into manpages
-      and docs. GPL display requirements want it, and it rounds out the
-      manpage story.
+- [x] **`license` metadata** (clap#1768) — `author`, `license`, and `repository`
+      are first-class typed root attributes, survive direct KDL emission, and render
+      in Markdown and manpages. GPL display requirements no longer need an
+      application-owned documentation patch.
 
 Demand also attaches to boxes already open above: fixed arity with distinct
 value names is clap#1717 + clap#1682 (31 votes combined); `Option` on a

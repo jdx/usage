@@ -9,6 +9,18 @@
 
 **Version**: {{ spec.version }}
 {%- endif %}
+{%- if spec.author %}
+
+**Author**: {{ spec.author }}
+{%- endif %}
+{%- if spec.license %}
+
+**License**: {{ spec.license }}
+{%- endif %}
+{%- if spec.repository %}
+
+**Repository**: {{ spec.repository }}
+{%- endif %}
 
 {%- include "cmd_template.md.tera" %}
 

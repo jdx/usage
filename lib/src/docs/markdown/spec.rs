@@ -35,6 +35,7 @@ impl MarkdownRenderer {
 mod tests {
     use crate::docs::markdown::renderer::MarkdownRenderer;
     use crate::test::SPEC_KITCHEN_SINK;
+    use crate::Spec;
     use insta::assert_snapshot;
 
     #[test]
@@ -145,5 +146,32 @@ mod tests {
 
         #### `-f --force`
         ");
+    }
+
+    #[test]
+    fn package_metadata_reaches_markdown() {
+        let spec: Spec = r#"
+            name "metadata"
+            bin "metadata"
+            author "Example Maintainers"
+            license "MIT OR Apache-2.0"
+            repository "https://example.com/tool"
+        "#
+        .parse()
+        .unwrap();
+        let output = MarkdownRenderer::new(spec).render_spec().unwrap();
+
+        assert!(
+            output.contains("**author**: Example Maintainers"),
+            "{output}"
+        );
+        assert!(
+            output.contains("**license**: MIT OR Apache-2.0"),
+            "{output}"
+        );
+        assert!(
+            output.contains("**repository**: https://example.com/tool"),
+            "{output}"
+        );
     }
 }

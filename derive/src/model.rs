@@ -91,6 +91,9 @@ pub struct Cli {
     /// From the struct's doc comment: first paragraph, and the whole thing.
     pub about: Option<String>,
     pub long_about: Option<String>,
+    pub author: Option<String>,
+    pub license: Option<String>,
+    pub repository: Option<String>,
     /// Whether a flag-like token that names no flag is a value or an error. Unset
     /// means the spec's default, which is `value`.
     pub unknown_flags: Option<String>,
@@ -562,6 +565,9 @@ impl Cli {
             runtime_version: None,
             about: None,
             long_about: None,
+            author: None,
+            license: None,
+            repository: None,
             unknown_flags: None,
             default_subcommand: None,
             multicall: false,
@@ -687,6 +693,9 @@ impl Cli {
                     // declared.
                     "about" => cli.about_attr = Some(metadata_expr(&meta)?),
                     "long_about" => cli.long_about_attr = Some(metadata_expr(&meta)?),
+                    "author" => cli.author = Some(string_value(&meta)?),
+                    "license" => cli.license = Some(string_value(&meta)?),
+                    "repository" => cli.repository = Some(string_value(&meta)?),
                     "before_help" => cli.before_help = Some(metadata_expr(&meta)?),
                     "next_help_heading" => cli.next_help_heading = Some(string_value(&meta)?),
                     "before_long_help" => cli.before_long_help = Some(metadata_expr(&meta)?),
@@ -745,7 +754,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `author`, `license`, `repository`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount` and \

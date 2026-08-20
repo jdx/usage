@@ -5,6 +5,12 @@
 
 {%- if spec.version %}
 - **version**: {{ spec.version }}{% endif %}
+{%- if spec.author %}
+- **author**: {{ spec.author }}{% endif %}
+{%- if spec.license %}
+- **license**: {{ spec.license }}{% endif %}
+{%- if spec.repository %}
+- **repository**: {{ spec.repository }}{% endif %}
 
 {%- if about %}
 

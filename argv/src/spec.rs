@@ -282,6 +282,12 @@ pub struct Spec<'a> {
     /// The binary as invoked, when it differs from `name`.
     pub bin: Option<&'a str>,
     pub version: Option<&'a str>,
+    /// Package authorship text for generated references.
+    pub author: Option<&'a str>,
+    /// SPDX expression or other license label for generated references.
+    pub license: Option<&'a str>,
+    /// Source repository URL for generated references and integrations.
+    pub repository: Option<&'a str>,
     /// The oldest `usage` that can read this spec, when the CLI says.
     ///
     /// Written first, before anything a `usage` too old to understand would choke on — which is
@@ -472,6 +478,9 @@ impl<'a> SpecView<'a> {
                     None => self.base.version,
                 }
             },
+            author: self.base.author,
+            license: self.base.license,
+            repository: self.base.repository,
             min_usage_version: self.base.min_usage_version,
             about: self.base.about,
             long_about: self.base.long_about,
@@ -497,6 +506,9 @@ impl Spec<'_> {
         name: "",
         bin: None,
         version: None,
+        author: None,
+        license: None,
+        repository: None,
         min_usage_version: None,
         about: None,
         long_about: None,
@@ -1134,6 +1146,15 @@ impl Spec<'_> {
         prop(out, "bin", self.bin.unwrap_or(self.name))?;
         if let Some(version) = self.version {
             prop(out, "version", version)?;
+        }
+        if let Some(author) = self.author {
+            prop(out, "author", author)?;
+        }
+        if let Some(license) = self.license {
+            prop(out, "license", license)?;
+        }
+        if let Some(repository) = self.repository {
+            prop(out, "repository", repository)?;
         }
         // A description may be given on the spec or on its root command — a derive
         // naturally has one doc comment and no reason to care which field it lands
