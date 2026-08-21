@@ -1464,7 +1464,11 @@ share of clap's top-voted open requests is usage's existing feature set:
   (clap#5840) comes with it, which clap_complete lacks.
 - Automatic negation flags (clap#815, 66) — `negate`.
 - Argument validation on globals (clap#1546, 48) — globals go through the same
-  post-binding checks as everything else.
+  post-binding checks as everything else. The differential gate now pins the
+  difference on mise's own spec: `--profile` declares `conflicts=--env`, and clap
+  enforces it only while both spellings land on the same command, so
+  `mise --env config set --profile=v` is accepted there and refused by both usage
+  parsers.
 - Partial parsing that captures unknown args instead of erroring (clap#1404) —
   the spec's lax `unknown_flags` mode, which mise task parsing runs on.
 - Command chaining (clap#2222, 29) — `restart_token`.
