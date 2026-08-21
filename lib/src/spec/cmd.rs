@@ -6,6 +6,7 @@ use crate::sh::sh;
 use crate::spec::builder::SpecCommandBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
+use crate::spec::flagset::SpecUse;
 use crate::spec::group::SpecGroup;
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
@@ -47,6 +48,14 @@ pub struct SpecCommand {
     pub args: Vec<SpecArg>,
     /// Flags/options for this command
     pub flags: Vec<SpecFlag>,
+    /// Flagsets this command pulls in, and where in [`Self::flags`] they belong.
+    ///
+    /// `pub(crate)` because it is always empty by the time anyone else can see it: a `use` is
+    /// resolved while the spec is read, so a consumer holding a `SpecCommand` holds the flags
+    /// the sets named. Visible to the rest of the crate only so that other modules can
+    /// destructure `SpecCommand` exhaustively.
+    #[serde(skip)]
+    pub(crate) uses: Vec<SpecUse>,
     /// Mounted external specs
     pub mounts: Vec<SpecMount>,
     /// Sets of flags that relate to one another as a set.
@@ -217,6 +226,7 @@ impl Default for SpecCommand {
             subcommands: IndexMap::new(),
             args: vec![],
             flags: vec![],
+            uses: vec![],
             mounts: vec![],
             groups: vec![],
             deprecated: None,
@@ -417,6 +427,10 @@ impl SpecCommand {
         for child in node.children() {
             match child.name() {
                 "flag" => cmd.flags.push(SpecFlag::parse(ctx, &child)?),
+                "use" => {
+                    let at = cmd.flags.len();
+                    cmd.uses.push(SpecUse::parse(ctx, &child, at)?);
+                }
                 "arg" => {
                     let arg = SpecArg::parse(ctx, &child)?;
                     // As on a flag: splitting a word that has room for one value would
@@ -683,6 +697,7 @@ impl SpecCommand {
             after_help_md,
             args,
             flags,
+            uses,
             mounts,
             groups,
             aliases,
@@ -760,6 +775,13 @@ impl SpecCommand {
         let flags_replaced = !flags.is_empty();
         if flags_replaced {
             self.flags = flags;
+        }
+        // Unresolved `use` nodes travel with the flags they were written among, for the same
+        // reason groups do. In practice this is always empty: a spec resolves its own sets
+        // before it can be merged into another, so the only way to reach here with one is a
+        // command assembled by hand.
+        if !uses.is_empty() {
+            self.uses = uses;
         }
         if !mounts.is_empty() {
             self.mounts = mounts;
@@ -980,6 +1002,9 @@ impl From<&SpecCommand> for KdlNode {
             subcommands,
             complete,
             examples,
+            // Resolved while the spec was read: whatever a `use` named is among `flags`
+            // by now, so emitting the request too would declare those flags twice.
+            uses: _,
             // Derived from the spec rather than written by it.
             full_cmd: _,
             usage: _,

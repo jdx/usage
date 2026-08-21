@@ -1,4 +1,4 @@
-//! Every KDL example on the config reference page parses.
+//! Every KDL example on the config and flagset reference pages parses.
 //!
 //! That page used to document a vocabulary which had never existed — `file`, `findup`,
 //! `default "k" "v"`, `alias`, `config_file` — while the parser accepted only `prop`, which
@@ -71,8 +71,13 @@ fn kdl_blocks(markdown: &str) -> Vec<String> {
 }
 
 #[test]
-fn every_kdl_example_on_the_config_page_parses() {
-    let pages = [Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/config.md")];
+fn every_kdl_example_on_the_checked_pages_parses() {
+    let pages = [
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/config.md"),
+        // Every block on the flagset page is a whole spec or a top-level fragment, so the
+        // page can be held to parsing from the day it was written.
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/flagset.md"),
+    ];
     let mut checked = 0;
     let mut failures = Vec::new();
 

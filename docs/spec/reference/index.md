@@ -30,6 +30,9 @@ example "mycli --version"
 source_code_link_template "https://github.com/me/myproj/blob/main/src/cli/{{path}}.rs"
 
 include file="./my_overrides.usage.kdl" // include another spec, will be merged and override existing values
+
+// a reusable set of flags, pulled into a command with `use` (see ./flagset.md)
+flagset "common" { flag "-v --verbose" }
 ```
 
 ## Multicall
