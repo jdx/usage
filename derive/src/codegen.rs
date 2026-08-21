@@ -610,7 +610,11 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         if !__usage_warnings.is_empty() {
                             ::std::eprint!(
                                 "{}",
-                                usage_argv::render_warnings(&__usage_warnings),
+                                usage_argv::render_warnings_for(
+                                    Self::spec(),
+                                    __usage_all_refs.get(1..).unwrap_or(&[]),
+                                    &__usage_warnings,
+                                ),
                             );
                         }
                         __usage_parsed
@@ -1331,7 +1335,11 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             if !__usage_warnings.is_empty() {
                                 ::std::eprint!(
                                     "{}",
-                                    usage_argv::render_warnings(&__usage_warnings),
+                                    usage_argv::render_warnings_for(
+                                        Self::spec(),
+                                        __usage_all_refs.get(1..).unwrap_or(&[]),
+                                        &__usage_warnings,
+                                    ),
                                 );
                             }
                             parsed

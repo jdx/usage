@@ -1079,9 +1079,37 @@ pub fn render_warnings(warnings: &[warn::Warning<'_>]) -> String {
     diagnostic::render_warnings(warnings, diagnostic::Style::auto())
 }
 
-/// The same wording without the renderer that colours it. See the other half.
+/// The same wording without the renderer that colors it. See the other half.
 #[cfg(all(feature = "spec", not(feature = "diagnostics")))]
 pub fn render_warnings(warnings: &[warn::Warning<'_>]) -> String {
+    warn::render_warnings(warnings)
+}
+
+/// The same, painted the way this command line asked for.
+///
+/// [`render_warnings`] decides from the environment alone, which is all a caller holding
+/// nothing but the warnings can do. A caller that still has the spec and the words can
+/// honor a declared `color=` flag instead, and should: a warning is output like any other,
+/// and `mycli --no-color` meaning "except the warnings" would be a strange rule to explain.
+///
+/// `argv` is the command line without the program name, as [`render_failure`] takes it.
+#[cfg(feature = "diagnostics")]
+pub fn render_warnings_for(
+    spec: &spec::Spec<'_>,
+    argv: &[&OsStr],
+    warnings: &[warn::Warning<'_>],
+) -> String {
+    diagnostic::render_warnings(warnings, diagnostic::Style::resolve(spec, argv))
+}
+
+/// The same wording without the renderer that colors it. See the other half.
+#[cfg(all(feature = "spec", not(feature = "diagnostics")))]
+pub fn render_warnings_for(
+    spec: &spec::Spec<'_>,
+    argv: &[&OsStr],
+    warnings: &[warn::Warning<'_>],
+) -> String {
+    let _ = (spec, argv);
     warn::render_warnings(warnings)
 }
 

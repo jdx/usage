@@ -440,9 +440,11 @@ pub fn color_from_argv(spec: &Spec<'_>, argv: &[&OsStr]) -> Option<ColorChoice> 
             _ => {}
         }
     }
-    // A flag nobody typed still speaks if it was declared with a default: the struct would
-    // have held that value, so the two answers have to agree about it. Weaker than a typed
-    // token by construction — only flags missing from `said` are considered.
+    // A flag nobody typed still speaks if the environment or a `default` answers for it:
+    // the struct would have held that value, so the two answers have to agree about it.
+    // Weaker than a typed token by construction — only flags missing from `said` are
+    // considered — and in the order the binder fills them, argv then environment then
+    // default.
     for meta in scope.iter().flat_map(|cmd| cmd.flags.iter()) {
         let Some(role) = meta.color else {
             continue;
@@ -450,27 +452,43 @@ pub fn color_from_argv(spec: &Spec<'_>, argv: &[&OsStr]) -> Option<ColorChoice> 
         if said.iter().any(|(seen, _)| same_flag(seen, meta.flag)) {
             continue;
         }
-        let Some(default) = meta.default.first() else {
+        let from_env = meta
+            .env
+            .into_iter()
+            .chain(meta.env_fallback.iter().copied())
+            .chain(meta.deprecated_env.iter().copied())
+            .find_map(|name| ::std::env::var(name).ok());
+        let word = match &from_env {
+            Some(value) => Some(value.as_str()),
+            None => meta.default.first().copied(),
+        };
+        let Some(word) = word else {
             continue;
         };
-        let asked = match role {
-            ColorRole::Choice => ColorChoice::parse(default),
-            // The same reading the bound struct gives a `bool`: the negated spelling's
-            // answer for `false`, and for a switch that has no negation, nothing at all —
-            // `false` there is absence rather than a refusal.
-            role => match *default {
-                "true" => role.asks_for(false),
-                "false" if meta.flag.negate.is_some() => role.asks_for(true),
-                _ => None,
-            },
-        };
-        if let Some(asked) = asked {
+        if let Some(asked) = asked_for(role, meta.flag, word) {
             said.push((meta.flag, asked));
         }
     }
     said.into_iter()
         .map(|(_, asked)| asked)
         .reduce(ColorChoice::combine)
+}
+
+/// What a color flag says when the word came from somewhere other than the command line.
+///
+/// The same reading the bound struct gives, because the two have to agree: a `bool` filled
+/// from the environment or a `default` is `true` for anything but the falsy words, and a
+/// `false` is the negated spelling's answer where there is a negation and nothing at all
+/// where there is not — a plain switch has no way to say "no".
+fn asked_for(role: ColorRole, flag: &Flag<'_>, word: &str) -> Option<ColorChoice> {
+    match role {
+        ColorRole::Choice => ColorChoice::parse(word),
+        role => match matches!(word, "" | "0" | "false" | "no" | "off") {
+            false => role.asks_for(false),
+            true if flag.negate.is_some() => role.asks_for(true),
+            true => None,
+        },
+    }
 }
 
 /// The color role declared for `flag`, looked for only among the commands on the

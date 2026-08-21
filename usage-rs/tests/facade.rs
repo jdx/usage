@@ -3444,6 +3444,45 @@ fn what_the_flag_asked_for_beats_what_the_environment_standing_asked_for() {
     assert!(asked(&[]).enabled_for(true));
 }
 
+/// A color flag whose answer can come from the environment, which is the other place a
+/// value arrives from without being typed.
+#[derive(Debug, Cli)]
+#[usage(bin = "enved")]
+struct Enved {
+    #[usage(long, color = "never", env = "USAGE_TEST_NO_COLOR")]
+    no_color: bool,
+}
+
+#[test]
+fn an_environment_answer_reaches_the_help_page_too() {
+    // Serial by construction: one variable, one test, restored before it returns. The
+    // bound struct reads it through the ordinary `env` fallback, and the argv path has to
+    // find the same answer or a CLI's help is painted against its own configuration.
+    let key = "USAGE_TEST_NO_COLOR";
+    let restore = std::env::var(key).ok();
+    let read = || {
+        let bound = usage::ColorPolicy::color(&Enved::parse_from(&[]).expect("parses"));
+        let from_argv = usage::policy::color_from_argv(Enved::spec(), &[]).unwrap_or_default();
+        assert_eq!(bound, from_argv, "{key}={:?}", std::env::var(key).ok());
+        bound
+    };
+
+    unsafe { std::env::set_var(key, "1") };
+    assert_eq!(read(), usage::ColorChoice::Never);
+
+    // A falsy value is what the binder makes of it, and a plain switch has no way to say
+    // "color, please" — so it says nothing, on both paths.
+    unsafe { std::env::set_var(key, "0") };
+    assert_eq!(read(), usage::ColorChoice::Auto);
+
+    unsafe { std::env::remove_var(key) };
+    assert_eq!(read(), usage::ColorChoice::Auto);
+
+    if let Some(value) = restore {
+        unsafe { std::env::set_var(key, value) };
+    }
+}
+
 #[test]
 fn the_argv_answer_about_color_is_the_bound_answer() {
     // Two implementations of one question — one reading argv for help and diagnostics,
