@@ -1,0 +1,140 @@
+name: mbx-dogfood
+
+# Measures jdx/mr-boxington's build cache against this workspace, which is a
+# real 26-member graph rather than a fixture.
+#
+# Deliberately additive and self-contained: it shares no cache, no key and no
+# job with `test`, so nothing here can slow or break the real pipeline, and
+# deleting this one file stops it entirely. It is an experiment on someone
+# else's build, and it should stay that cheap to abandon.
+
+on:
+  push:
+    branches: [main]
+  # So a change to this file is exercised by the PR that makes it.
+  pull_request:
+    paths: [".github/workflows/mbx-dogfood.yml"]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: mbx-dogfood-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pinned: an unannounced mbx release changing its hit rate would land here as
+  # a step change indistinguishable from something this repository did.
+  MBX_VERSION: v0.1.0
+  MBX_REMOTE_URL: https://cache.mise.jdx.dev
+  MBX_REMOTE_NAMESPACE: jdx/usage
+  MBX_REMOTE_OIDC_AUDIENCE: https://cache.mise.jdx.dev
+  CARGO_TERM_COLOR: always
+
+jobs:
+  dogfood:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      # Exchanged for a short-lived cache-server credential. mbx only publishes
+      # from a protected-branch push, so pull requests read the remote and never
+      # write to it — a fork cannot poison this cache.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+
+      # No Swatinem/rust-cache, on purpose. It restores the whole target
+      # directory, so cargo would recompile nothing and mbx would have nothing
+      # to do: the run would look fast and measure zero. Absence here is the
+      # experiment, not an oversight.
+
+      - name: Install mbx
+        run: |
+          set -euo pipefail
+          base="https://github.com/jdx/mr-boxington/releases/download/$MBX_VERSION"
+          # Keep the published name: SHA256SUMS lists assets by it, and
+          # `--ignore-missing` silently skips entries whose file is absent, so
+          # downloading to any other name verifies nothing at all.
+          archive="mbx-x86_64-unknown-linux-musl.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" "$base/$archive"
+          curl -fsSL --retry 3 -o SHA256SUMS "$base/SHA256SUMS"
+          sha256sum --ignore-missing --check SHA256SUMS
+          tar -xzf "$archive"
+          sudo install -m 0755 mbx /usr/local/bin/mbx
+          rm -f mbx "$archive" SHA256SUMS
+          mbx --version
+
+      # `--no-run` compiles every crate and every test binary without running
+      # them, which is the whole dependency graph and none of the shell,
+      # submodule and fixture setup the real suite needs. This job measures
+      # compilation, so it should fail only when compilation fails.
+      - name: Cold build
+        env:
+          MBX_STATS_REPORT: ${{ runner.temp }}/cold.json
+        run: |
+          start=$SECONDS
+          mbx build test --all --all-features --no-run
+          echo "COLD_SECONDS=$((SECONDS - start))" >> "$GITHUB_ENV"
+
+      # The deletion is the assertion, not cleanup. A second build that kept
+      # its target directory would be measuring cargo's freshness checks
+      # instead of the cache.
+      - name: Discard the target directory
+        run: rm -rf target
+
+      - name: Warm build
+        env:
+          MBX_STATS_REPORT: ${{ runner.temp }}/warm.json
+        run: |
+          start=$SECONDS
+          mbx build test --all --all-features --no-run
+          echo "WARM_SECONDS=$((SECONDS - start))" >> "$GITHUB_ENV"
+
+      - name: Summarize
+        if: always()
+        run: |
+          set -euo pipefail
+          row() {
+            local label="$1" file="$2" seconds="${3:-}"
+            [ -f "$file" ] || return 0
+            jq -r --arg label "$label" --arg seconds "$seconds" '
+              "| \($label) | \($seconds)s | \(.lookups) | \(.hits) | \(.misses) | " +
+              "\(if .lookups > 0 then (100 * .hits / .lookups | floor | tostring) + "%" else "n/a" end) | " +
+              "\((.bypasses | add) // 0) | \(.downloaded_bytes) | \(.uploaded_bytes) |"
+            ' "$file"
+          }
+          {
+            echo "### mbx $MBX_VERSION on this workspace"
+            echo
+            echo "| build | wall | lookups | hits | misses | hit rate | bypassed | down | up |"
+            echo "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+            row cold "${RUNNER_TEMP}/cold.json" "${COLD_SECONDS:-?}"
+            row warm "${RUNNER_TEMP}/warm.json" "${WARM_SECONDS:-?}"
+            echo
+            if [ -f "${RUNNER_TEMP}/warm.json" ]; then
+              echo "Bypasses by reason, warm build:"
+              echo '```'
+              jq -r '.bypasses | to_entries[] | "\(.value)\t\(.key)"' "${RUNNER_TEMP}/warm.json"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Without this the job goes green whether or not the cache did anything,
+      # which is the one outcome worth being told about. The warm build restores
+      # from the local store this job just populated, so this holds even on a
+      # pull request that is forbidden from writing to the remote.
+      - name: Assert the warm build restored something
+        run: |
+          set -euo pipefail
+          hits=$(jq -r '.hits' "${RUNNER_TEMP}/warm.json")
+          echo "warm build restored $hits actions"
+          if [ "$hits" -le 0 ]; then
+            echo "::error::the warm build restored nothing; the cache did not work"
+            exit 1
+          fi
