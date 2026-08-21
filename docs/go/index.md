@@ -1,10 +1,11 @@
 # Go Framework
 
-::: warning Experimental — draft docs
-The Go framework is experimental. Its parsing behavior is verified against the same conformance
-corpus as the Rust implementation, but APIs may still change between releases. These docs are a
-draft: some of what they document is still in open pull requests, and details may change before
-release.
+::: danger Not ready for testing
+The Go framework is far more experimental than the [Rust framework](/rust/) and is **not ready
+for any amount of testing yet** — do not build against it. Unlike usage-rs, which is experimental
+but complete enough that `usage-cli` itself is built with it, usage-go's APIs, generated output,
+and behavior are all still in flux, and much of what these pages document only exists in open
+pull requests. These docs are a draft published for review, not an invitation to try it.
 :::
 
 The Go framework builds your CLI from a usage spec — but unlike most Go CLI libraries, your
