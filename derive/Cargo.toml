@@ -18,7 +18,9 @@ shared-version = true
 release = true
 
 [dependencies]
-heck = "0.5"
+# No `heck`: one function's worth of use (`CasingStyle::apply`), and the only crate an adopter
+# compiled here that is not `proc-macro2` / `quote` / `syn`. Its word boundaries are reproduced
+# in `case.rs` — exactly, because `rename_all` is a clone of clap's and clap's uses heck.
 proc-macro2 = "1"
 quote = "1"
 # syn 2 rather than 3, which is already in the tree via clap_derive: nothing here
@@ -36,3 +38,11 @@ syn = { version = "3", features = ["full"] }
 #
 # The crate-level example is therefore `ignore`d here and compiled for real in
 # conformance/tests/derive.rs, which is where the derive is tested anyway.
+
+[dev-dependencies]
+# heck, for tests only: `case::tests` asserts the vendored conversion equals heck's for every
+# string up to four chars over an alphabet that reaches every state of the segmenter, which is
+# the whole reason to trust it. Unlike usage-argv above, this is no publish cycle — heck is
+# third-party and versioned on its own clock — and a dev-dependency is not in an adopter's
+# graph at all: `cargo tree -p usage-rs --edges normal` is the proof.
+heck = "0.5"

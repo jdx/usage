@@ -139,3 +139,50 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
+
+## heck
+
+`derive/src/case.rs` reproduces the word-boundary rules and case conversions of
+[heck](https://github.com/withoutboats/heck). No heck source is vendored, but the
+algorithm is followed closely enough to warrant attribution: usage's `rename_all`
+vocabulary is a clone of `clap_derive`'s, `clap_derive` uses heck, and a declaration
+ported from clap has to produce the same names — so the reimplementation exists to keep
+heck out of every adopter's compile, not to behave differently. `derive/src/case.rs`
+tests itself against heck directly, and `usage-lib` still depends on heck as a normal
+dependency.
+
+heck is distributed under the terms of either the MIT license or the Apache License,
+Version 2.0, at the user's option. Usage takes it under the MIT option, reproduced
+verbatim below from heck's `LICENSE-MIT` (heck 0.5.0, the version in this workspace's
+lockfile):
+
+```
+Copyright (c) 2015 The Rust Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+The Apache-2.0 option is available upstream at
+<https://github.com/withoutboats/heck/blob/master/LICENSE-APACHE>.
