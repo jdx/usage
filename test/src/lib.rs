@@ -7,9 +7,10 @@
 //!
 //! What it is *not* is a second implementation of any of them. Every page here comes from
 //! [`usage_argv::help::page`], the same function `parse()` renders a help request with, and
-//! every failure from [`usage_argv::render_failure`], the same one it prints. A harness that
-//! renders its own approximation of a help page is a harness whose passing tests mean nothing,
-//! so the rule is that nothing in this crate formats a page.
+//! every failure from [`usage_argv::render_failure_plain`], the same renderer it prints with —
+//! asked for plain text, so an assertion does not turn on whether stderr was a terminal. A
+//! harness that renders its own approximation of a help page is a harness whose passing tests
+//! mean nothing, so the rule is that nothing in this crate formats a page.
 //!
 //! ```
 //! # use usage_argv::spec::Spec;
@@ -197,7 +198,10 @@ pub fn outcome<'v, T>(
         }
         Err(Error::HelpAll { cmd }) => Outcome::Help(page(spec, argv, cmd, Page::All, false, 0)),
         Err(error) => Outcome::Failed(Printed {
-            text: usage_argv::render_failure(spec, argv, &error),
+            // The plain renderer, not the process one: `render_failure` asks the environment
+            // whether to colour, and a test whose expected string depends on whether stderr is
+            // a terminal is a test that passes in one place and fails in the other.
+            text: usage_argv::render_failure_plain(spec, argv, &error),
             stderr: true,
             code: 2,
         }),

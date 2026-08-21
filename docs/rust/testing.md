@@ -104,7 +104,7 @@ fn help_has_not_drifted() {
 }
 ```
 
-```
+```text
 === ex ===
 A tool that does things
 ...
@@ -120,9 +120,16 @@ regress.
 
 ## What a shell would offer
 
-With the `completions` feature on, `candidates` answers the question a shell asks: given this
-half-typed line, what could this word be? The line includes the program name, exactly as a shell
-passes it.
+Completion assertions need both features — `test` for the harness, `completions` for the runtime
+that answers a line:
+
+```toml
+[dev-dependencies]
+usage = { package = "usage-rs", version = "6", features = ["test", "completions"] }
+```
+
+`candidates` then answers the question a shell asks: given this half-typed line, what could this
+word be? The line includes the program name, exactly as a shell passes it.
 
 ```rust
 assert_eq!(harness::candidates(Ex::spec(), "ex bui"), ["build"]);
@@ -141,21 +148,19 @@ assert_eq!(answer.files, Some(usage::test::Files::Any));
 completing in the _middle_ of a command line possible at all:
 
 ```rust
+use usage::test::Shell;
+
 let answer = harness::completion_at(Ex::spec(), "ex bui release", "ex bui".len(), Shell::Bash);
 ```
 
 ## The one-line spec test
 
-Structural checks on the declaration itself are not in this module — they are in
-[`to_kdl`](/rust/spec#round-trip-guarantee), which asserts in debug builds that the tree is
-coherent. That test is worth writing beside these:
-
-```rust
-#[test]
-fn spec_is_valid() {
-    let _: usage_parser::Spec = Cli::to_kdl().parse().unwrap();
-}
-```
+Structural checks on the declaration itself are not in this module. They are in `to_kdl`, which
+asserts in debug builds that the tree is coherent — no duplicate keys, no duplicate flag
+spellings across a `flatten` boundary, no argument no word can reach. The one-line test that
+fires them is on the [Spec Output](/rust/spec#round-trip-guarantee) page, and is worth writing
+beside these; it parses the emitted KDL, so it needs `usage-lib` as a dev-dependency of its
+own.
 
 ## What is not covered
 

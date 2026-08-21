@@ -68,13 +68,13 @@ available for low-level adopters that want a thinner surface:
 
 ### Cargo features
 
-| Feature       | Default | What it enables                                                                  |
-| ------------- | :-----: | -------------------------------------------------------------------------------- |
-| `spec`        |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                  |
-| `help`        |   ✅    | `-h` / `--help` page rendering                                                   |
-| `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`                                 |
-| `completions` |         | Shell completion scripts and the runtime completion protocol                     |
-| `test`        |         | `usage::test`: parse, help, and completion assertions (a dev-dependency feature) |
+| Feature       | Default | What it enables                                                                                                   |
+| ------------- | :-----: | ----------------------------------------------------------------------------------------------------------------- |
+| `spec`        |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                                   |
+| `help`        |   ✅    | `-h` / `--help` page rendering                                                                                    |
+| `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`                                                                  |
+| `completions` |         | Shell completion scripts and the runtime completion protocol                                                      |
+| `test`        |         | `usage::test`: parse and help assertions (a dev-dependency feature; completion assertions want `completions` too) |
 
 `#[usage(completion)]` without the `completions` feature is a deliberate `compile_error!` that
 tells you which feature to add. To drop diagnostics (or help) from a binary that does not want

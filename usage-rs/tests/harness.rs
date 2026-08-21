@@ -81,6 +81,27 @@ fn a_failure_comes_back_as_the_text_a_user_reads() {
 }
 
 #[test]
+fn a_failure_is_plain_text_wherever_the_test_runs() {
+    // The process asks the environment whether to colour, and gets a different answer under
+    // `cargo test` in a terminal than in CI. A string a test asserts on cannot turn on that:
+    // this is the regression guard for the harness rendering plain rather than `auto`.
+    //
+    // Set for the whole process rather than for one call, because that is the only way the
+    // renderer can be asked, and nothing else in this binary reads it: the harness never calls
+    // `Style::auto`.
+    unsafe { std::env::set_var("CLICOLOR_FORCE", "1") };
+    let words = harness::argv(["--jobs", "many", "build", "release"]);
+    let message = harness::parse(Ex::spec(), &words.words(), Ex::parse_from)
+        .expect_err("`many` is not a number of jobs");
+    unsafe { std::env::remove_var("CLICOLOR_FORCE") };
+
+    assert!(
+        !message.contains('\u{1b}'),
+        "the message should carry no escape sequences: {message:?}"
+    );
+}
+
+#[test]
 fn an_unknown_flag_falls_through_where_a_cli_stays_lax() {
     // usage is lax by default, so this is a test about what *does* happen rather than about a
     // rejection: `--nope` is left alone, and the word after it is the one with nowhere to go.
