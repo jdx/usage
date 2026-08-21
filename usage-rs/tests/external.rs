@@ -76,3 +76,31 @@ fn direct_dependencies_win_in_a_mixed_configuration() {
 fn workspace_inherited_facade_is_resolved() {
     run_fixture("workspace-inheritance");
 }
+
+/// The endpoint at process level, which is the half `spec_request` unit tests cannot reach.
+///
+/// This fixture is the right one to ask: it declares `unknown_flags = "error"` and takes no
+/// arguments at all, so any ordinary word is a failure — which is how the control below shows
+/// that the request is answered *before* the grammar sees it rather than by passing through it.
+#[test]
+fn a_spec_request_is_answered_before_the_parse() {
+    let control = fixture_output("runtime-identity", &["ordinary-word"]);
+    assert_eq!(
+        control.status.code(),
+        Some(2),
+        "a word this CLI does not accept must fail, or the assertion below proves nothing"
+    );
+
+    let spec = fixture_output("runtime-identity", &["__usage_spec__"]);
+    assert!(
+        spec.status.success(),
+        "{}",
+        String::from_utf8_lossy(&spec.stderr)
+    );
+    let out = String::from_utf8_lossy(&spec.stdout);
+    // The portable identity, not the runtime one: a tool asking a binary for its spec wants
+    // the deterministic document, not what this process happens to be called.
+    assert!(out.contains("name portable-ex"), "{out}");
+    assert!(out.contains("version \"6.0.0\""), "{out}");
+    assert!(!out.contains("runtime-ex"), "{out}");
+}

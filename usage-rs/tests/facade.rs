@@ -2691,3 +2691,164 @@ fn the_facade_exposes_the_dispatch_traits() {
     assert!(!ex.command.run_with(&mut calls));
     assert_eq!(calls, 1);
 }
+
+/// A CLI declaring nothing about the endpoint, which is how most of them will look.
+#[derive(Cli)]
+#[usage(bin = "endpoint-ex", version = "1.0.0")]
+struct EndpointEx {
+    #[usage(long)]
+    force: bool,
+    #[usage(subcommand)]
+    command: EndpointCommand,
+}
+
+#[derive(Subcommands)]
+enum EndpointCommand {
+    /// Build the thing.
+    Build {
+        #[usage(long)]
+        release: bool,
+    },
+}
+
+#[test]
+fn a_spec_request_is_answered_from_the_binary_s_own_tables() {
+    let answer = EndpointEx::spec_request(&[OsStr::new(usage::SPEC_REQUEST)])
+        .expect("the endpoint is on unless a CLI says otherwise");
+    assert_eq!(answer, EndpointEx::to_kdl());
+
+    // What a tool receives has to be a spec, not merely a string: this is the whole contract
+    // of the endpoint, so it is checked through usage-lib rather than by grepping.
+    let spec: usage_parser::Spec = answer.parse().expect("the endpoint should emit a spec");
+    assert_eq!(spec.bin, "endpoint-ex");
+    assert!(spec.cmd.subcommands.contains_key("build"), "{spec:?}");
+}
+
+#[test]
+fn an_ordinary_command_line_is_not_a_spec_request() {
+    assert!(EndpointEx::spec_request(&[]).is_none());
+    assert!(EndpointEx::spec_request(&[OsStr::new("--force")]).is_none());
+
+    // And what is not a request still parses as it always did, which is the half worth
+    // checking on a CLI that gained an entry point it never declared.
+    let argv = ["--force", "build", "--release"].map(OsStr::new);
+    let cli = EndpointEx::parse_from(&argv).expect("valid command line");
+    assert!(cli.force);
+    let EndpointCommand::Build { release } = cli.command;
+    assert!(release);
+
+    // Not the first word, so it is an ordinary value — which is what keeps the endpoint from
+    // eating an argument of a CLI whose arguments are arbitrary text.
+    let later = ["build", usage::SPEC_REQUEST].map(OsStr::new);
+    assert!(EndpointEx::spec_request(&later).is_none());
+}
+
+/// A CLI that declares the spelling itself. Contrived, and the point: a declaration wins.
+#[derive(Cli)]
+#[usage(bin = "declares-ex")]
+struct DeclaresEndpointEx {
+    #[usage(subcommand)]
+    command: DeclaresEndpointCommand,
+}
+
+#[derive(Subcommands)]
+enum DeclaresEndpointCommand {
+    /// Whatever this CLI meant by it.
+    #[usage(name = "__usage_spec__")]
+    UsageSpec {
+        #[usage(long)]
+        mine: bool,
+    },
+}
+
+#[test]
+fn a_declared_command_of_that_name_outranks_the_endpoint() {
+    assert!(DeclaresEndpointEx::spec_request(&[OsStr::new(usage::SPEC_REQUEST)]).is_none());
+    // And it still parses as the command it declared, which is the behavior being protected.
+    let cli =
+        DeclaresEndpointEx::parse_from(&[OsStr::new(usage::SPEC_REQUEST), OsStr::new("--mine")])
+            .expect("the declared command should still parse");
+    let DeclaresEndpointCommand::UsageSpec { mine } = cli.command;
+    assert!(mine);
+}
+
+/// A CLI that does not want to carry the KDL writer at all.
+#[derive(Cli)]
+#[usage(bin = "opted-out-ex", spec_endpoint = false)]
+struct OptedOutEx {
+    #[usage(long)]
+    force: bool,
+}
+
+#[test]
+fn opting_out_leaves_the_spec_itself_alone() {
+    // No `spec_request` is generated — absence is a compile-time property, so what is checked
+    // here is that opting out costs nothing else: the spec and the parse are unchanged.
+    let kdl = OptedOutEx::to_kdl();
+    assert!(kdl.contains("name opted-out-ex"), "{kdl}");
+    let _: usage_parser::Spec = kdl.parse().expect("opting out should not change the spec");
+    let cli = OptedOutEx::parse_from(&[OsStr::new("--force")]).expect("valid command line");
+    assert!(cli.force);
+}
+
+/// The nodes no attribute carries yet, appended from a file beside this test.
+#[derive(Cli)]
+#[usage(bin = "extra-ex", spec_extra = "tests/spec-extra.usage.kdl")]
+struct SpecExtraEx {
+    #[usage(long)]
+    force: bool,
+}
+
+#[test]
+fn spec_extra_joins_the_document_the_endpoint_hands_over() {
+    let kdl = SpecExtraEx::to_kdl();
+    assert!(kdl.contains("name extra-ex"), "{kdl}");
+    assert!(kdl.contains("example \"extra --help\""), "{kdl}");
+
+    // One document, so a tool asking the binary sees the appended nodes too — that is the
+    // reason the hook is on `to_kdl` rather than on the endpoint alone.
+    let answer = SpecExtraEx::spec_request(&[OsStr::new(usage::SPEC_REQUEST)])
+        .expect("the endpoint should answer");
+    assert_eq!(answer, kdl);
+
+    // And the join has to leave something usage-lib can still read, since nothing validated
+    // the appended text at compile time.
+    let spec: usage_parser::Spec = answer.parse().expect("the joined document should parse");
+    assert_eq!(spec.examples.len(), 1);
+    assert_eq!(spec.examples[0].code, "extra --help");
+
+    // Appending nodes to the document changes nothing about the declaration that produced it.
+    let cli = SpecExtraEx::parse_from(&[OsStr::new("--force")]).expect("valid command line");
+    assert!(cli.force);
+}
+
+/// mise's root shape: an unmatched word is a task name rather than a mistake.
+///
+/// This is the one CLI shape where the endpoint changes what a command line means, so the
+/// boundary is pinned rather than argued about. `__complete_word__` already shadows the same
+/// task-name space in the same CLI, which is the precedent the spelling was chosen against.
+#[derive(Cli)]
+#[usage(bin = "task-ex", default_subcommand = "run")]
+struct DefaultSubcommandEx {
+    #[usage(subcommand)]
+    command: DefaultSubcommandCommand,
+}
+
+#[derive(Subcommands)]
+enum DefaultSubcommandCommand {
+    /// Run a task by name.
+    Run { task: String },
+}
+
+#[test]
+fn the_endpoint_wins_over_default_subcommand_routing() {
+    // Any other word still routes to `run`, which is what makes the next assertion a statement
+    // about the endpoint rather than about a CLI that routes nothing.
+    let cli = DefaultSubcommandEx::parse_from(&[OsStr::new("build")]).expect("valid command line");
+    let DefaultSubcommandCommand::Run { task } = cli.command;
+    assert_eq!(task, "build");
+
+    // The request is answered instead of being routed to `run` as a task of that name. A CLI
+    // that wants the word back declares it, or sets `spec_endpoint = false`.
+    assert!(DefaultSubcommandEx::spec_request(&[OsStr::new(usage::SPEC_REQUEST)]).is_some());
+}

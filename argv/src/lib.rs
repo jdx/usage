@@ -1071,6 +1071,29 @@ pub fn render_warnings(warnings: &[warn::Warning<'_>]) -> String {
     warn::render_warnings(warnings)
 }
 
+/// The word a tool sends to ask a binary for its own spec.
+///
+/// Not a flag and not a command: a spec request is not something this CLI *does*, so it is
+/// answered before the parse and stays out of the tables — the same reason
+/// `__complete_word__` is a word rather than a subcommand. It also keeps the endpoint from
+/// perturbing the document it prints, which a declared flag would not.
+pub const SPEC_REQUEST: &str = "__usage_spec__";
+
+/// Whether this argv asks for the spec rather than for the CLI to run.
+///
+/// Only the first word counts: `mycli build __usage_spec__` passes the word through as an
+/// ordinary value, because a request is the whole invocation or it is nothing.
+///
+/// A root that declares a command of that name keeps it, which is the precedence the `help`
+/// subcommand already has. The check is here rather than in the derive because a `Cli` derive
+/// expands one struct and cannot see the variant names of a separate `Subcommands` enum — the
+/// static tables can.
+pub fn is_spec_request(root: &Command<'_>, argv: &[&OsStr]) -> bool {
+    let [first, ..] = argv else { return false };
+    first.as_encoded_bytes() == SPEC_REQUEST.as_bytes()
+        && find_named(root, SPEC_REQUEST.as_bytes()).is_none()
+}
+
 /// Whether a flag is one of the two the parser supplies rather than the CLI declaring it.
 pub fn is_help_flag(flag: &Flag<'_>) -> bool {
     matches!(
@@ -4112,5 +4135,48 @@ mod tests {
             multicall_applet("busybox.exe", "BusyBox", Some("busybox.exe")),
             None
         );
+    }
+
+    #[test]
+    fn a_spec_request_is_the_first_word_and_nothing_else() {
+        let request = [OsStr::new(SPEC_REQUEST)];
+        assert!(is_spec_request(&ROOT, &request));
+
+        // Anywhere but the front it is an ordinary value, which is what makes the endpoint
+        // safe for a CLI whose arguments are arbitrary text.
+        let later = ["install", SPEC_REQUEST].map(OsStr::new);
+        assert!(!is_spec_request(&ROOT, &later));
+        assert!(!is_spec_request(&ROOT, &[]));
+        assert!(!is_spec_request(&ROOT, &[OsStr::new("--help")]));
+    }
+
+    #[test]
+    fn a_declared_command_of_that_name_keeps_it() {
+        static DECLARED: Command = Command {
+            name: SPEC_REQUEST,
+            key: 200,
+            ..Command::EMPTY
+        };
+        static ALIASED: Command = Command {
+            name: "describe",
+            aliases: &[SPEC_REQUEST],
+            key: 201,
+            ..Command::EMPTY
+        };
+        static DECLARES_IT: Command = Command {
+            name: "ex",
+            subcommands: &[&DECLARED],
+            ..Command::EMPTY
+        };
+        static ALIASES_IT: Command = Command {
+            name: "ex",
+            subcommands: &[&ALIASED],
+            ..Command::EMPTY
+        };
+
+        let request = [OsStr::new(SPEC_REQUEST)];
+        assert!(!is_spec_request(&DECLARES_IT, &request));
+        // An alias selects a command just as its name does, so it wins here too.
+        assert!(!is_spec_request(&ALIASES_IT, &request));
     }
 }

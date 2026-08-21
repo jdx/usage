@@ -39,7 +39,14 @@ pub fn run(args: &[String]) -> Result<()> {
             // copies of the crate name, which is not what this binary is called.
             println!("{}", cli::version());
             return Ok(());
-        } else if script == "--usage-spec" {
+        } else if script == "--usage-spec"
+            // The built-in endpoint, answered here rather than by the generated `parse()`:
+            // this CLI hands its command line to `parse_from` and renders its own output, so
+            // nothing generated is ever in a position to intercept. Asked of the runtime so
+            // the spelling and the declaration-wins rule have one definition, and answered
+            // through `generate` so both spellings print the same document.
+            || usage_rs::is_spec_request(Cli::command(), &[std::ffi::OsStr::new(script)])
+        {
             return usage_spec::generate();
         } else if script == "--completions" && args.len() > 2 {
             return usage_spec::complete(args.get(2).unwrap());

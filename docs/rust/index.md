@@ -142,30 +142,20 @@ are the async pair. See [Dispatch](/rust/dispatch).
 ## One declaration, every artifact
 
 Because the derive also emits a usage spec, everything on this site that consumes a spec works
-with your CLI. The pattern `usage-cli` itself ships is a hidden flag that prints the spec:
-
-```rust
-#[usage(long, hide)]
-usage_spec: bool,
-```
-
-```rust
-if cli.usage_spec {
-    println!("{}", Cli::to_kdl().trim());
-    return;
-}
-```
-
-Then generate everything else from it:
+with your CLI — and you do not have to wire anything up for it. Every binary answers
+`__usage_spec__` with its own spec:
 
 ```bash
-mycli --usage-spec > mycli.usage.kdl
+mycli __usage_spec__ > mycli.usage.kdl
 usage g markdown -f mycli.usage.kdl --out-dir docs
 usage g manpage -f mycli.usage.kdl > mycli.1
 usage g completion bash mycli --file mycli.usage.kdl
 ```
 
-See [Spec output](/rust/spec) for the round-trip guarantees and what the emitted KDL looks like.
+`Cli::to_kdl()` is the same document in-process, for a build script or a checked-in artifact.
+
+See [Spec output](/rust/spec) for the round-trip guarantees, what the emitted KDL looks like, and
+how to opt out of the endpoint.
 
 ## Where to go next
 

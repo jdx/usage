@@ -55,6 +55,24 @@ pub struct Cli {
     /// generator is emitted under the same flag, which makes a script that calls a command the
     /// binary lacks a compile error rather than a puzzle at the prompt.
     pub completion: bool,
+    /// Whether this CLI answers `__usage_spec__` with its own spec.
+    ///
+    /// On unless a CLI says otherwise, which is the opposite of `completion` and deliberate: the
+    /// point of the endpoint is that a tool can ask *any* usage binary, and an opt-in nobody
+    /// remembers to write is an endpoint nothing can rely on. `spec_endpoint = false` is for a
+    /// binary that does not want to carry the KDL writer at all.
+    pub spec_endpoint: bool,
+    /// A file whose KDL is appended to the emitted spec.
+    ///
+    /// The escape hatch for a node no attribute carries, so a CLI that needs one keeps a single
+    /// spec rather than a generated one plus a hand-edited copy. It has no in-tree user: this was
+    /// written for usage-cli's `source_code_link_template`, and that gained a real attribute
+    /// (#1184) while this was in review — the canonicality rule preferring vocabulary over a
+    /// hatch, which is the right outcome even though it leaves this unused.
+    ///
+    /// Read at compile time relative to the declaring crate; its content is never parsed here, so
+    /// the round-trip test on the emitted document is what catches a bad file.
+    pub spec_extra: Option<String>,
     /// Whether this CLI resolves settings, when nothing on the root itself says so.
     ///
     /// Only needed when every bound flag lives in a flattened group: the root cannot see another
@@ -664,6 +682,8 @@ impl Cli {
             runtime_name: None,
             runtime_bin: None,
             completion: false,
+            spec_endpoint: true,
+            spec_extra: None,
             settings: false,
             dispatch: Dispatch::default(),
             min_usage_version: None,
@@ -790,6 +810,8 @@ impl Cli {
                     // means false rather than being read as the bare word with something
                     // decorative after it.
                     "completion" => cli.completion = flag_value(&meta)?,
+                    "spec_endpoint" => cli.spec_endpoint = flag_value(&meta)?,
+                    "spec_extra" => cli.spec_extra = Some(string_value(&meta)?),
                     "settings" => cli.settings = flag_value(&meta)?,
                     "run" => cli.dispatch.run = flag_value(&meta)?,
                     "run_with" => cli.dispatch.run_with = flag_value(&meta)?,

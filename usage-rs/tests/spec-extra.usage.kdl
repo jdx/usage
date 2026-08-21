@@ -1,0 +1,3 @@
+// Appended to the derived spec by `#[usage(spec_extra = ...)]`. These are the nodes no
+// attribute carries yet, which is the whole reason the hook exists.
+example "extra --help" header="Getting help" help="What a spec_extra node looks like"
