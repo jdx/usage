@@ -1575,6 +1575,34 @@ mod tests {
     }
 
     #[test]
+    fn a_ty_override_does_not_widen_what_the_field_holds() {
+        // `ty` renames what the *spec* calls a setting; it does not change what the struct
+        // holds, so it must not be a way around the width check. The two checks are separate
+        // functions for exactly this reason — one reads `prop.ty`, the other `prop.read_ty`.
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(ty = "int", default = 256)]
+                small: u8,
+            }
+        "#,
+        );
+        assert!(err.contains("does not fit `u8`"), "unhelpful: {err}");
+
+        // And a type this cannot measure stays permissive rather than refused: an alias for a
+        // container is the ordinary reason `ty` is written at all, and refusing what it cannot
+        // see would make the escape hatch useless.
+        accepted(
+            r#"
+            struct Settings {
+                #[usage(ty = "list<uint>", default(80, 443))]
+                ports: Ports,
+            }
+        "#,
+        );
+    }
+
+    #[test]
     fn two_settings_cannot_answer_to_one_name() {
         // `Registry::lookup` checks keys and aliases together and takes the first match, so a
         // collision does not fail — it makes one of the two settings unreachable by that name,
