@@ -291,3 +291,16 @@ fn the_command_line_outranks_every_other_layer() {
         "and the registry agrees with the struct"
     );
 }
+
+#[test]
+fn the_argv_entry_strips_argv0_and_returns_the_layer() {
+    // What a fleet `main` calls: the process-shaped argv with the settings beside the
+    // struct. `parse_with_settings` wraps this with the same help/version/exit behaviour
+    // as `parse`, which a test cannot hold without leaving the process.
+    let argv = [OsStr::new("ex"), OsStr::new("-j"), OsStr::new("7")];
+    let (cli, layer) = Ex::parse_from_argv_with_settings(&argv).expect("parses");
+    assert_eq!(cli.jobs, Some(7));
+    let resolved =
+        resolve(Settings::SETTINGS_REGISTRY, Layers::new().then(&layer)).expect("resolves");
+    assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(7)));
+}
