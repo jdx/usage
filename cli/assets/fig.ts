@@ -251,11 +251,6 @@ const completionSpec: Fig.Spec = {
               },
             },
             {
-              name: "--include-bash-completion-lib",
-              description: "Include https://github.com/scop/bash-completion",
-              isRepeatable: false,
-            },
-            {
               name: "--usage-bin",
               description:
                 "Override the bin used for calling back to usage-cli",

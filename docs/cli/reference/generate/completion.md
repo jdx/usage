@@ -37,12 +37,6 @@ A .usage.kdl spec file to use for generating completions, use "-" to read from s
 
 A cache key to use for storing the results of calling the CLI with --usage-cmd
 
-### `--include-bash-completion-lib`
-
-Include https://github.com/scop/bash-completion
-
-This is required for usage completions to work in bash, but the user may already provide it
-
 ### `--usage-bin <USAGE_BIN>`
 
 Override the bin used for calling back to usage-cli

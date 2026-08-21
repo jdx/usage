@@ -49,26 +49,6 @@ SOFTWARE.
 The Apache-2.0 option is available upstream at
 <https://github.com/clap-rs/clap/blob/master/LICENSE-APACHE>.
 
-## bash-completion
-
-[`lib/bash-completion/bash_completion`](lib/bash-completion/bash_completion) is a
-verbatim copy of the `bash_completion` script from
-[scop/bash-completion](https://github.com/scop/bash-completion) (version 2.15.0).
-`lib/src/complete/bash.rs` embeds it with `include_str!` and emits it when
-`usage generate completion bash --include-bash-completion-lib` is used, so the
-script is redistributed both in the `usage-lib` crate and in any binary built
-from it.
-
-**bash-completion is licensed under the GNU General Public License, version 2 or
-later** — not MIT. The full license text ships alongside the script in
-[lib/bash-completion/COPYING](lib/bash-completion/COPYING), and the upstream
-copyright header is preserved at the top of the script itself:
-
-```
-Copyright © 2006-2008, Ian Macdonald <ian@caliban.org>
-          © 2009-2020, Bash Completion Maintainers
-```
-
 ## clap adopter probes
 
 `benches/shadows/external-*` and `conformance/tests/external_clap_adopters.rs`

@@ -53,6 +53,14 @@ source ~/.bash_completions/mycli.bash
 mycli --<TAB>
 ```
 
+Generated bash completions call
+[bash-completion](https://github.com/scop/bash-completion)'s helper functions, so it
+must be installed and sourced before the generated script. Install it from your
+package manager (`apt install bash-completion`, `brew install bash-completion@2`, …);
+a generated completion that cannot find it says so instead of failing silently.
+Version 2.11 and newer are supported, which covers every current distribution
+release.
+
 zsh:
 
 ```bash

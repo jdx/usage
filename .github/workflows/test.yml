@@ -43,12 +43,21 @@ jobs:
       # timeout: with one, apt gives up on the stalled mirror in seconds and moves to the
       # next entry in `/etc/apt/apt-mirrors.txt`, which is the archive.ubuntu.com that was
       # answering fine throughout.
-      - name: Install shells for completion integration tests
+      #
+      # `bash-completion` is in the list for the same reason: usage no longer embeds a copy of
+      # it, so the generated bash completion needs the system one loaded, and
+      # `bash_completion_or_skip` panics under CI rather than skipping without it. The image
+      # already ships it; naming it here is what keeps that true if a future one stops.
+      #
+      # Deliberately the distro package rather than a newer build from source: `ubuntu-latest`
+      # is 24.04, whose 2.11 is the oldest version the generated script supports. Testing
+      # against the floor is the point — 26.04 ships 2.16, which would pass either way.
+      - name: Install shells and bash-completion for completion integration tests
         timeout-minutes: 5
         run: |
           sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y zsh fish
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y zsh fish bash-completion
           # pwsh is pre-installed on GitHub ubuntu-latest images. Self-heal
           # if a future image drops it so the integration test still runs
           # (rather than panicking under CI=1).

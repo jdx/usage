@@ -174,7 +174,6 @@ mod tests {
             cache_key: None,
             spec: None,
             usage_cmd: Some("mycli complete --usage".to_string()),
-            include_bash_completion_lib: false,
             source_file: None,
         }));
         assert_snapshot!(complete_fish(&CompleteOptions {
@@ -184,7 +183,6 @@ mod tests {
             cache_key: Some("1.2.3".to_string()),
             spec: None,
             usage_cmd: Some("mycli complete --usage".to_string()),
-            include_bash_completion_lib: false,
             source_file: None,
         }));
         assert_snapshot!(complete_fish(&CompleteOptions {
@@ -194,7 +192,6 @@ mod tests {
             cache_key: None,
             spec: Some(SPEC_KITCHEN_SINK.clone()),
             usage_cmd: None,
-            include_bash_completion_lib: false,
             source_file: None,
         }));
     }

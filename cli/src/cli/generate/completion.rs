@@ -24,12 +24,6 @@ pub struct Completion {
     #[usage(long, requires = "--usage-cmd")]
     cache_key: Option<String>,
 
-    /// Include https://github.com/scop/bash-completion
-    ///
-    /// This is required for usage completions to work in bash, but the user may already provide it
-    #[usage(long, verbatim_doc_comment)]
-    include_bash_completion_lib: bool,
-
     /// Override the bin used for calling back to usage-cli
     ///
     /// You may need to set this if you have a different bin named "usage"
@@ -61,7 +55,6 @@ impl Completion {
             cache_key: self.cache_key.clone(),
             spec,
             usage_cmd: self.usage_cmd.clone(),
-            include_bash_completion_lib: self.include_bash_completion_lib,
             source_file: self.file.as_ref().map(|f| {
                 if f.as_os_str() == "-" {
                     "stdin".to_string()

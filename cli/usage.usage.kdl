@@ -68,9 +68,6 @@ cmd generate help="Generate completions, documentation, and other artifacts from
         flag --cache-key help="A cache key to use for storing the results of calling the CLI with --usage-cmd" requires=--usage-cmd {
             arg <CACHE_KEY>
         }
-        flag --include-bash-completion-lib help="Include https://github.com/scop/bash-completion" {
-            long_help "Include https://github.com/scop/bash-completion\n\nThis is required for usage completions to work in bash, but the user may already provide it"
-        }
         flag --usage-bin help="Override the bin used for calling back to usage-cli" env=JDX_USAGE_BIN default=usage {
             long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
             arg <USAGE_BIN>

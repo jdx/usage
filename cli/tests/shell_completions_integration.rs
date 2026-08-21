@@ -100,6 +100,82 @@ fn skip_if_shell_missing(shell: &str) -> bool {
     true
 }
 
+/// The system bash-completion library, or `None` if it isn't installed.
+///
+/// usage no longer embeds a copy of bash-completion, so the generated bash completion needs
+/// the real one loaded before it — `_init_completion` and `__ltrim_colon_completions` come from
+/// there.
+///
+/// Candidates are the library itself, never the `profile.d/bash_completion.sh` snippet that
+/// Homebrew and others also install: that one is guarded on `$PS1` and so does nothing at all
+/// in a non-interactive shell, which is the only kind these tests run. Sourcing it would look
+/// like success and then fail the completion assertions. `BASH_COMPLETION_USER_DIR` is not
+/// consulted either — it holds per-command completions, not the library.
+///
+/// `USAGE_TEST_BASH_COMPLETION` names a library directly, for testing against a copy that is
+/// not installed system-wide.
+fn bash_completion_candidates() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(path) = env::var_os("USAGE_TEST_BASH_COMPLETION") {
+        candidates.push(PathBuf::from(path));
+    }
+    // Whichever Homebrew is installed: `/opt/homebrew` on Apple Silicon, `/usr/local` on Intel,
+    // and anywhere else if the user relocated it.
+    if let Some(prefix) = env::var_os("HOMEBREW_PREFIX") {
+        candidates.push(PathBuf::from(prefix).join("share/bash-completion/bash_completion"));
+    }
+    candidates.extend(
+        [
+            "/usr/share/bash-completion/bash_completion",
+            "/usr/local/share/bash-completion/bash_completion",
+            "/opt/homebrew/share/bash-completion/bash_completion",
+        ]
+        .into_iter()
+        .map(PathBuf::from),
+    );
+    candidates
+}
+
+/// Returns the first candidate that a non-interactive bash can actually load `_init_completion`
+/// from.
+///
+/// Existing on disk is not the property the test needs — being sourceable into the shell the
+/// test spawns is. Probing for it means a wrapper, a version too old to define the function, or
+/// a path guess that turns out wrong is rejected here rather than surfacing as a puzzling
+/// completion assertion failure further down.
+fn system_bash_completion() -> Option<PathBuf> {
+    bash_completion_candidates().into_iter().find(|candidate| {
+        candidate.is_file()
+            && Command::new(shell_program("bash"))
+                .args(["-c", "source \"$1\" && declare -F _init_completion", "--"])
+                .arg(sh_path(candidate))
+                .output()
+                .is_ok_and(|out| out.status.success())
+    })
+}
+
+/// Returns `Some(path)` to the system bash-completion, or `None` if the test should be skipped.
+///
+/// Panics under `CI` for the same reason [`skip_if_shell_missing`] does: bash-completion is
+/// installed by the workflow, so a run that quietly skipped this test would be reporting a
+/// green bash suite that never exercised a completion.
+///
+/// What CI finds is `ubuntu-latest`'s package, which is 2.11 — deliberately the oldest version
+/// the generated script claims to support, so the claim is tested rather than asserted.
+fn bash_completion_or_skip() -> Option<PathBuf> {
+    if let Some(path) = system_bash_completion() {
+        return Some(path);
+    }
+    if env::var("CI").is_ok_and(|v| !v.is_empty()) {
+        panic!(
+            "no usable bash-completion but CI is set — refusing to skip. Tried: {:?}",
+            bash_completion_candidates()
+        );
+    }
+    eprintln!("Skipping bash completion test - no usable bash-completion library found");
+    None
+}
+
 fn shell_can_run_a_script(shell: &str) -> bool {
     static NEXT: AtomicUsize = AtomicUsize::new(0);
     let dir = env::temp_dir().join(format!(
@@ -369,6 +445,9 @@ fn test_bash_completion_integration() {
     if skip_if_shell_missing("bash") {
         return;
     }
+    let Some(bash_completion) = bash_completion_or_skip() else {
+        return;
+    };
 
     // Build the usage binary
     let usage_bin = build_usage_binary();
@@ -389,12 +468,10 @@ cmd "sub" help="Subcommand" {
     let spec_kdl_file = temp_dir.join("testcli.kdl");
     fs::write(&spec_kdl_file, spec).unwrap();
 
-    // Generate the completion with bash-completion library included
     let output = Command::new(&usage_bin)
         .args(["generate", "completion", "bash", "testcli"])
         .arg("-f")
         .arg(spec_kdl_file.to_str().unwrap())
-        .arg("--include-bash-completion-lib")
         .output()
         .expect("Failed to generate bash completion");
 
@@ -424,7 +501,8 @@ set +e
 # Add usage binary to PATH
 export PATH="{}:$PATH"
 
-# Source our completion (which includes bash-completion library)
+# bash-completion first: the generated completion calls its functions.
+source {}
 source {}
 
 echo "LOAD_SUCCESS"
@@ -519,6 +597,7 @@ fi
 echo "COMPLETION_TEST_DONE"
 "#,
         path_var_entry("bash", usage_bin.parent().unwrap()),
+        sh_path(&bash_completion),
         sh_path(&comp_file),
         sh_path(&temp_dir)
     );
@@ -1577,6 +1656,64 @@ echo "GUARD_EXIT=$?"
 }
 
 #[test]
+fn test_bash_guard_reports_missing_bash_completion() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+
+    // usage no longer ships a copy of bash-completion, so "it isn't installed" is a
+    // reachable state for anyone sourcing a generated completion. It has to say so
+    // rather than fail as `_init_completion: command not found`.
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!("usage_bash_nobc_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let output = Command::new(&usage_bin)
+        .args(["generate", "completion", "bash", "testcli"])
+        .args(["--usage-cmd", "command usage --usage-spec"])
+        .output()
+        .expect("Failed to generate bash completion");
+    let comp_file = temp_dir.join("testcli.bash");
+    fs::write(&comp_file, &output.stdout).unwrap();
+
+    // A non-interactive bash loads no bash-completion of its own, so sourcing only the
+    // generated script is exactly the state being tested.
+    let test_script = format!(
+        r#"#!/usr/bin/env bash
+export PATH="{path}:$PATH"
+source "{comp}"
+_testcli testcli "" testcli 1
+echo "GUARD_EXIT=$?"
+"#,
+        path = path_var_entry("bash", usage_bin.parent().unwrap()),
+        comp = sh_path(&comp_file),
+    );
+    let script_file = temp_dir.join("test.sh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = script_command("bash", &script_file)
+        .output()
+        .expect("Failed to run bash test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        stdout.contains("GUARD_EXIT=1"),
+        "guard should return 1 when bash-completion is not loaded.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("bash-completion is required"),
+        "guard should name bash-completion.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("_init_completion: command not found"),
+        "the guard should fire before bash reports a missing function.\nstderr:\n{stderr}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
 fn test_bash_self_completion_uses_executable_not_shadowing_function() {
     if skip_if_shell_missing("bash") {
         return;
@@ -1588,16 +1725,15 @@ fn test_bash_self_completion_uses_executable_not_shadowing_function() {
 
     // The real usage binary is on $PATH *and* a `usage` function is defined,
     // so the guard passes legitimately — only the spec call can go wrong.
-    // bash-completion isn't loaded here; stub the three helpers so the spec
+    // bash-completion isn't loaded here; stub the helpers it provides so the spec
     // write is the only thing under test.
     let test_script = format!(
         r#"#!/usr/bin/env bash
 export PATH="{usage_dir}:$PATH"
 export XDG_CACHE_HOME="{cache}"
 usage() {{ echo "FUNCTION_MARKER"; }}
-_comp_initialize() {{ return 0; }}
-_comp_compgen() {{ return 0; }}
-_comp_ltrim_colon_completions() {{ return 0; }}
+_init_completion() {{ return 0; }}
+__ltrim_colon_completions() {{ return 0; }}
 source "{asset}"
 _usage usage "" usage 1
 echo "SPEC_BEGIN"

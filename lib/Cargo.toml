@@ -10,11 +10,6 @@ include = [
     "/NOTICE.md",
     "/src/**/*.rs",
     "/src/**/*.tera",
-    # `bash_completion` is GPL-2.0-or-later, so `COPYING` has to travel with it.
-    # See the bash-completion section of NOTICE.md.
-    "/bash-completion/bash_completion",
-    "/bash-completion/COPYING",
-    "/bash-completion/README.md",
 ]
 description = "Library for working with usage specs"
 homepage = { workspace = true }

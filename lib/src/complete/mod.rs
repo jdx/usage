@@ -21,8 +21,6 @@ pub struct CompleteOptions {
     pub spec: Option<Spec>,
     /// Command to run to generate the usage spec dynamically.
     pub usage_cmd: Option<String>,
-    /// Whether to include the bash-completion library sourcing (bash only).
-    pub include_bash_completion_lib: bool,
     /// Source file path for the `@generated` comment.
     pub source_file: Option<String>,
 }
@@ -56,7 +54,6 @@ pub fn complete(options: &CompleteOptions) -> Result<String, UsageErr> {
             cache_key: options.cache_key.clone(),
             spec: Some(viewed),
             usage_cmd: options.usage_cmd.clone(),
-            include_bash_completion_lib: options.include_bash_completion_lib,
             source_file: options.source_file.clone(),
         };
         &effective
