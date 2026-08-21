@@ -164,6 +164,93 @@
         "hidden_aliases": [],
         "examples": []
       },
+      "diff": {
+        "full_cmd": ["diff"],
+        "usage": "diff [FLAGS] <OLD> <NEW>",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "OLD",
+            "usage": "<OLD>",
+            "help": "The spec as it was, typically the released one, use \"-\" to read from stdin",
+            "help_first_line": "The spec as it was, typically the released one, use \"-\" to read from stdin",
+            "required": true,
+            "double_dash": "Optional",
+            "hide": false
+          },
+          {
+            "name": "NEW",
+            "usage": "<NEW>",
+            "help": "The spec as it is now, use \"-\" to read from stdin",
+            "help_first_line": "The spec as it is now, use \"-\" to read from stdin",
+            "required": true,
+            "double_dash": "Optional",
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "format",
+            "usage": "-f --format <FORMAT>",
+            "help": "Output format",
+            "help_first_line": "Output format",
+            "short": ["f"],
+            "long": ["format"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "FORMAT",
+              "usage": "<FORMAT>",
+              "required": true,
+              "double_dash": "Optional",
+              "hide": false,
+              "choices": {
+                "choices": ["text", "json"],
+                "details": [
+                  {
+                    "value": "text"
+                  },
+                  {
+                    "value": "json"
+                  }
+                ]
+              }
+            },
+            "default": ["text"]
+          },
+          {
+            "name": "breaking",
+            "usage": "-b --breaking",
+            "help": "Report only breaking changes",
+            "help_first_line": "Report only breaking changes",
+            "short": ["b"],
+            "long": ["breaking"],
+            "hide": false,
+            "global": false
+          },
+          {
+            "name": "exit-zero",
+            "usage": "--exit-zero",
+            "help": "Exit 0 even when there are breaking changes",
+            "help_first_line": "Exit 0 even when there are breaking changes",
+            "short": [],
+            "long": ["exit-zero"],
+            "hide": false,
+            "global": false
+          }
+        ],
+        "mounts": [],
+        "effect": "read",
+        "unknown_flags": null,
+        "hide": false,
+        "args_override_self": true,
+        "help": "Compare two usage specs and report what changed about the interface",
+        "help_long": "Compare two usage specs and report what changed about the interface\n\nFindings are grouped into breaking changes (a command line that used to work\nnow fails, binds differently, or resolves to a different value), compatible\nchanges (the interface gained something or relaxed a rule), and metadata\nchanges (help text, effect, deprecation — nothing about parsing).\n\nExits 1 when there is a breaking change, so a release job can gate on it, and\neither spec may be \"-\":\n\n  mycli --usage-spec | usage diff released.usage.kdl -\n\n`version` is ignored on purpose: a release bumps it, and a check that fires\nevery release does not get left switched on.",
+        "name": "diff",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": []
+      },
       "exec": {
         "full_cmd": ["exec"],
         "usage": "exec [-h] [--help] <ARGS>…",

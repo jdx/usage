@@ -162,6 +162,43 @@ const completionSpec: Fig.Spec = {
       },
     },
     {
+      name: "diff",
+      description:
+        "Compare two usage specs and report what changed about the interface",
+      options: [
+        {
+          name: ["-f", "--format"],
+          description: "Output format",
+          isRepeatable: false,
+          args: {
+            name: "format",
+            suggestions: ["text", "json"],
+          },
+        },
+        {
+          name: ["-b", "--breaking"],
+          description: "Report only breaking changes",
+          isRepeatable: false,
+        },
+        {
+          name: "--exit-zero",
+          description: "Exit 0 even when there are breaking changes",
+          isRepeatable: false,
+        },
+      ],
+      args: [
+        {
+          name: "old",
+          description:
+            'The spec as it was, typically the released one, use "-" to read from stdin',
+        },
+        {
+          name: "new",
+          description: 'The spec as it is now, use "-" to read from stdin',
+        },
+      ],
+    },
+    {
       name: ["exec", "x"],
       description:
         "Execute a script, parsing args and exposing them as environment variables",

@@ -5,6 +5,7 @@ use miette::Result;
 use usage_rs::{Cli as DeriveCli, Subcommands};
 
 pub mod complete_word;
+mod diff;
 mod exec;
 mod explain;
 pub(crate) mod generate;
@@ -107,6 +108,7 @@ pub(crate) fn version() -> String {
 enum Command {
     Bash(shell::Bash),
     CompleteWord(complete_word::CompleteWord),
+    Diff(diff::Diff),
     Exec(exec::Exec),
     Explain(explain::Explain),
     Fish(shell::Fish),
