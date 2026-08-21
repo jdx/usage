@@ -823,6 +823,13 @@ fn reference_usage(flag: &crate::SpecFlag) -> String {
                 .map(|long| format!("--{long}")),
         )
         .collect();
+    // A flag whose only spelling is its negation — clap's `SetFalse`, tak's `--no-credit` —
+    // has no long or short form to list, so without this the reference heading was empty.
+    if forms.is_empty() {
+        if let Some(negate) = &flag.negate {
+            forms.push(negate.clone());
+        }
+    }
     if flag.usage.trim().starts_with(&format!("{}:", flag.name)) {
         forms.insert(0, format!("{}:", flag.name));
     }
