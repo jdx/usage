@@ -777,10 +777,14 @@ impl SpecCommand {
             self.flags = flags;
         }
         // Unresolved `use` nodes travel with the flags they were written among, for the same
-        // reason groups do. In practice this is always empty: a spec resolves its own sets
-        // before it can be merged into another, so the only way to reach here with one is a
-        // command assembled by hand.
-        if !uses.is_empty() {
+        // reason groups do — including when that means going with none. A `use` is a
+        // declaration of flags, so whoever owns the flag list owns it: an included file that
+        // replaces this command's flags replaces what it says about them, and a `use` left
+        // behind would splice a set into the incoming list at a position from the old one.
+        //
+        // `other.uses` is normally empty either way: a spec resolves its own sets before it
+        // can be merged into another, and what arrives here has been through that already.
+        if flags_replaced || !uses.is_empty() {
             self.uses = uses;
         }
         if !mounts.is_empty() {

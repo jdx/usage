@@ -544,6 +544,58 @@ cmd "remote" {
     }
 
     #[test]
+    fn a_use_goes_with_the_flags_an_include_replaced() {
+        // An included file that declares root flags owns the root's flags — that is what
+        // `include` has always meant, and why the merge drops groups with them. A `use` is a
+        // declaration of flags, so it goes the same way: keeping it would splice the set into
+        // the incoming list at a position from a list that is gone.
+        let dir = tempfile::tempdir().unwrap();
+        let included = dir.path().join("overrides.usage.kdl");
+        let root = dir.path().join("ex.usage.kdl");
+        std::fs::write(&included, "flag \"--from-include\"\n").unwrap();
+        std::fs::write(
+            &root,
+            "bin \"ex\"\nflagset \"common\" {\n    flag \"-v --verbose\"\n}\nflag \"--own\"\n             use \"common\"\ninclude file=\"./overrides.usage.kdl\"\n",
+        )
+        .unwrap();
+
+        let spec = Spec::parse_file(&root).unwrap();
+
+        assert_snapshot!(spec, @r#"
+        name ex
+        bin ex
+        flag --from-include
+        "#);
+    }
+
+    #[test]
+    fn a_use_survives_an_include_that_declares_no_flags() {
+        // The ordinary shape: a file of shared declarations, and a spec that uses them. The
+        // rule above must not reach this one.
+        let dir = tempfile::tempdir().unwrap();
+        let included = dir.path().join("common.usage.kdl");
+        let root = dir.path().join("ex.usage.kdl");
+        std::fs::write(
+            &included,
+            "flagset \"common\" {\n    flag \"-v --verbose\"\n}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &root,
+            "bin \"ex\"\nuse \"common\"\ninclude file=\"./common.usage.kdl\"\n",
+        )
+        .unwrap();
+
+        let spec = Spec::parse_file(&root).unwrap();
+
+        assert_snapshot!(spec, @r#"
+        name ex
+        bin ex
+        flag "-v --verbose"
+        "#);
+    }
+
+    #[test]
     fn a_set_nothing_uses_is_still_resolved() {
         // Every set is flattened whether or not a command asks for one, so a mistake inside
         // an unused set is reported rather than waiting for the day something uses it.
