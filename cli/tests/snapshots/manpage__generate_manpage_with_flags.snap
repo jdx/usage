@@ -563,7 +563,7 @@ e.g.: ruby@3
 .SH "MISE CACHE CLEAR"
 Deletes all cache files in mise
 .PP
-\fBUsage:\fR mise cache clear [OPTIONS] [<PLUGIN>] ...
+\fBUsage:\fR mise cache clear [<PLUGIN>] ...
 .PP
 \fBArguments:\fR
 .PP

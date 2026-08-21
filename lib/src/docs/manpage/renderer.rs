@@ -230,8 +230,9 @@ impl ManpageRenderer {
     fn build_synopsis(&self, cmd: &SpecCommand, _prefix: &str) -> String {
         let mut parts = Vec::new();
 
-        // Add flags summary
-        if !cmd.flags.is_empty() {
+        // Add flags summary. Only for flags this page will actually list: a command whose
+        // every flag is hidden was getting `[OPTIONS]` over a page with no Options section.
+        if cmd.flags.iter().any(|flag| !flag.hide) {
             parts.push("[OPTIONS]".to_string());
         }
 
@@ -480,7 +481,7 @@ impl ManpageRenderer {
             };
 
             // Only render detailed section if the subcommand has flags, args with help, or examples
-            let has_flags = !subcmd.flags.is_empty();
+            let has_flags = subcmd.flags.iter().any(|flag| !flag.hide);
             let has_documented_args = subcmd
                 .args
                 .iter()
