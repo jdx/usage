@@ -396,6 +396,36 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 (Self, #config::CliLayer),
                 usage_argv::Error<'static, 'v>,
             > {
+                Self::__usage_parse_from_with_settings(argv, ::std::option::Option::None)
+            }
+
+            /// [`Self::parse_from_with_settings`], collecting the deprecations it used.
+            ///
+            /// A settings adopter renders these through its own logging rather than to raw
+            /// stderr, which is the whole reason the collecting form exists.
+            pub fn parse_from_with_settings_and_warnings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+                warnings: &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+            ) -> ::std::result::Result<
+                (Self, #config::CliLayer),
+                usage_argv::Error<'static, 'v>,
+            > {
+                Self::__usage_parse_from_with_settings(
+                    argv,
+                    ::std::option::Option::Some(warnings),
+                )
+            }
+
+            #[doc(hidden)]
+            fn __usage_parse_from_with_settings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+                __usage_warnings: ::std::option::Option<
+                    &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+                >,
+            ) -> ::std::result::Result<
+                (Self, #config::CliLayer),
+                usage_argv::Error<'static, 'v>,
+            > {
                 // The layer from what argv left, and only then the rest: `check` fills a field
                 // from its `env` and marks it given, and a variable's value contributed here
                 // would sit in the layer that outranks every other, named after a flag nobody
@@ -405,6 +435,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 read_argv_into(Self::command(), argv, &mut partial)?;
                 let __usage_settings = settings_layer(&partial);
                 check(&mut partial)?;
+                if let ::std::option::Option::Some(__usage_out) = __usage_warnings {
+                    Self::__usage_deprecations(&partial, __usage_out);
+                }
                 let __usage_built = #built;
                 ::std::result::Result::Ok((__usage_built, __usage_settings))
             }
@@ -470,10 +503,40 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 (Self, #config::CliLayer),
                 usage_argv::Error<'static, 'v>,
             > {
+                Self::__usage_parse_from_argv_with_settings(
+                    argv,
+                    ::std::option::Option::None,
+                )
+            }
+
+            /// [`Self::parse_from_argv_with_settings`], collecting the deprecations it used.
+            pub fn parse_from_argv_with_settings_and_warnings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+                warnings: &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+            ) -> ::std::result::Result<
+                (Self, #config::CliLayer),
+                usage_argv::Error<'static, 'v>,
+            > {
+                Self::__usage_parse_from_argv_with_settings(
+                    argv,
+                    ::std::option::Option::Some(warnings),
+                )
+            }
+
+            #[doc(hidden)]
+            fn __usage_parse_from_argv_with_settings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+                __usage_warnings: ::std::option::Option<
+                    &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+                >,
+            ) -> ::std::result::Result<
+                (Self, #config::CliLayer),
+                usage_argv::Error<'static, 'v>,
+            > {
                 let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
                     argv.split_first()
                 else {
-                    return Self::parse_from_with_settings(&[]);
+                    return Self::__usage_parse_from_with_settings(&[], __usage_warnings);
                 };
                 if let ::std::option::Option::Some(__usage_view) =
                     usage_argv::spec::view_for_program(&SPEC, __usage_argv0)
@@ -502,6 +565,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         &mut partial,
                         ::std::option::Option::Some(__usage_view),
                     )?;
+                    if let ::std::option::Option::Some(__usage_out) = __usage_warnings {
+                        Self::__usage_deprecations(&partial, __usage_out);
+                    }
                     return ::std::result::Result::Ok((#built_for_view, __usage_settings));
                 }
                 if SPEC.multicall {
@@ -514,10 +580,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             ::std::vec::Vec::with_capacity(argv.len());
                         __usage_rewritten.push(::std::ffi::OsStr::new(__usage_word));
                         __usage_rewritten.extend_from_slice(__usage_words);
-                        return Self::parse_from_with_settings(&__usage_rewritten);
+                        return Self::__usage_parse_from_with_settings(
+                            &__usage_rewritten,
+                            __usage_warnings,
+                        );
                     }
                 }
-                Self::parse_from_with_settings(__usage_words)
+                Self::__usage_parse_from_with_settings(__usage_words, __usage_warnings)
             }
 
             /// Parse the process's own arguments, and the settings they gave values for.
@@ -527,8 +596,23 @@ pub fn emit(cli: &Cli) -> TokenStream {
             pub fn parse_with_settings() -> (Self, #config::CliLayer) {
                 #completion_intercept
                 #parse_preamble
-                match Self::parse_from_argv_with_settings(&__usage_all_refs) {
-                    ::std::result::Result::Ok(__usage_parsed) => __usage_parsed,
+                // The same as `parse`: this is an entry point that *is* the process, so it is
+                // one of the two that may write to stderr, and a failure prints nothing about
+                // deprecations because what the user typed did not run.
+                let mut __usage_warnings = ::std::vec::Vec::new();
+                match Self::__usage_parse_from_argv_with_settings(
+                    &__usage_all_refs,
+                    ::std::option::Option::Some(&mut __usage_warnings),
+                ) {
+                    ::std::result::Result::Ok(__usage_parsed) => {
+                        if !__usage_warnings.is_empty() {
+                            ::std::eprint!(
+                                "{}",
+                                usage_argv::render_warnings(&__usage_warnings),
+                            );
+                        }
+                        __usage_parsed
+                    }
                     ::std::result::Result::Err(e) => Self::__usage_exit_on_error(
                         e,
                         &__usage_all_refs,

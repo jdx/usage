@@ -242,6 +242,44 @@ fn the_emitted_config_block_is_the_spec_grammar() {
     assert_eq!(cache_dir.optional, Some(true));
 }
 
+/// A CLI whose settings-bound flag is deprecated.
+#[derive(Cli, Debug)]
+#[usage(bin = "dep", version = "2.0.0", config = Settings)]
+struct Deprecated {
+    /// How many jobs to run at once
+    #[usage(long, setting = "jobs", deprecated = "use --parallel")]
+    jobs: Option<u64>,
+}
+
+#[test]
+fn the_settings_entry_reports_the_deprecations_a_parse_used() {
+    // `parse` collects deprecations and prints them; `parse_with_settings` is the same kind of
+    // thing — an entry point that *is* the process — so it has to say the same. It read the
+    // partial and threw the warnings away, so a CLI that adopted settings went quiet about
+    // every deprecation it had, which is the sort of difference nobody notices until a
+    // release removes the flag.
+    let argv = ["dep", "--jobs", "4"].map(OsStr::new);
+    let mut warnings = Vec::new();
+    let (parsed, layer) =
+        Deprecated::parse_from_argv_with_settings_and_warnings(&argv, &mut warnings)
+            .expect("parses");
+    assert_eq!(parsed.jobs, Some(4));
+    assert_eq!(
+        warnings.len(),
+        1,
+        "the deprecated flag this parse used should be reported: {warnings:?}"
+    );
+
+    // The layer is still the layer: collecting warnings does not change what argv bound.
+    let resolved =
+        resolve(Settings::SETTINGS_REGISTRY, Layers::new().then(&layer)).expect("resolves");
+    assert_eq!(Settings::read(&resolved).expect("reads").jobs, 4);
+
+    // And a caller that does not ask walks no tree and gets no warnings, which is why the
+    // collecting form is a separate entry rather than the only one.
+    Deprecated::parse_from_argv_with_settings(&argv).expect("parses");
+}
+
 /// A setting nothing declares a value for: not an `Option`, and no default.
 #[derive(Config, Debug, PartialEq)]
 struct Required {
