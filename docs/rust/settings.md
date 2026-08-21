@@ -80,6 +80,12 @@ Field attributes mirror the spec's [`prop` vocabulary](/spec/reference/config):
 | `hide`, `deprecated = "…"`, `since = "…"`, `examples(…)` | Documentation and lifecycle metadata                                                         |
 | `flatten`                                                | Splice another `Config` struct's settings in at this position                                |
 
+`ty` renames what the spec calls a setting; it cannot change what the field holds. The merge
+coerces to the _declared_ type, so that is what decides the shape the field is handed — a
+`ty = "uint"` on a `String` field would be given an integer the field cannot read, whatever
+anyone configured, and is refused. A pairing that can read is left alone: `ty = "int"` on a
+`u8` reads whenever the value fits, which is the author's call to make.
+
 A default and a choice are written as the type the field holds. Nothing coerces a declared
 default — the resolver seeds it as written and hands it to the field — so `default = 1` on a
 `String` field is a compile error rather than the text `1`, and `default(80)` is how a list of

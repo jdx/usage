@@ -568,8 +568,31 @@ impl Field {
         prop.optional_field = optional_field;
         prop.read_ty = inner.clone();
         prop.ty = match ty_attr {
-            Some((name, span)) => parse_ty_name(&name)
-                .ok_or_else(|| syn::Error::new(span, format!("`{name}` is not a spec type")))?,
+            Some((name, span)) => {
+                let declared = parse_ty_name(&name)
+                    .ok_or_else(|| syn::Error::new(span, format!("`{name}` is not a spec type")))?;
+                // A spec type the field could never read. The merge coerces to the *declared*
+                // type, so the shape it hands over is decided here and not by what a layer
+                // supplied — `ty = "uint"` on a `String` field therefore failed every single
+                // `read`, whatever anyone configured. Only an always-broken pairing is refused:
+                // `ty = "int"` on a `u8` is a widening the author may mean, and it reads
+                // whenever the value fits.
+                if let Some(shape) = declared.shape() {
+                    if reads_shape(&inner, shape) == Some(false) {
+                        return Err(syn::Error::new(
+                            span,
+                            format!(
+                                "a `{name}` setting reaches this field as {}, which `{}` \
+                                 cannot read: `ty` renames what the spec calls a setting, and \
+                                 cannot change what the field holds",
+                                describe_shape(shape),
+                                rust_type_name(&inner),
+                            ),
+                        ));
+                    }
+                }
+                declared
+            }
             None => infer_ty(&inner).ok_or_else(|| {
                 syn::Error::new(
                     inner.span(),
@@ -738,6 +761,76 @@ fn peel_option(ty: &syn::Type) -> (bool, syn::Type) {
 }
 
 /// The spec type a Rust type names on its own, or `None` for one that needs `ty = "..."`.
+/// The `Value` variant the merge hands a setting of a given spec type.
+///
+/// `Ty::coerce` decides the shape from the *declared* type, not from what a layer supplied, so
+/// this is what the field's `FromValue` will actually be given.
+#[derive(Clone, Copy, PartialEq)]
+enum Shape {
+    Bool,
+    Int,
+    Float,
+    Str,
+    List,
+    Map,
+}
+
+impl Ty {
+    /// `None` for `any`, which is the one type the merge does not coerce: it hands over
+    /// whatever arrived, so no shape can be promised or refused.
+    fn shape(&self) -> Option<Shape> {
+        Some(match self {
+            Self::Any => return None,
+            Self::Bool => Shape::Bool,
+            // A `uint` is an `int` the merge additionally refuses when negative. Same shape.
+            Self::Int | Self::Uint => Shape::Int,
+            Self::Float => Shape::Float,
+            Self::String | Self::Path | Self::Url | Self::Duration => Shape::Str,
+            Self::Object | Self::Map(_) => Shape::Map,
+            Self::List(_) | Self::Set(_) => Shape::List,
+        })
+    }
+}
+
+/// Whether the field's `FromValue` can read a value of `shape`.
+///
+/// `None` where the type is not one this knows — a type alias, or a type whose `FromValue` an
+/// adopter wrote — because a `ty` override exists for exactly the types this cannot measure,
+/// and refusing what it cannot see would make the escape hatch useless.
+fn reads_shape(ty: &syn::Type, shape: Shape) -> Option<bool> {
+    let syn::Type::Path(path) = ty else {
+        return None;
+    };
+    let last = path.path.segments.last()?;
+    Some(match last.ident.to_string().as_str() {
+        // `Value` is the escape hatch for `any`: it reads whatever it is handed.
+        "Value" => true,
+        "bool" => shape == Shape::Bool,
+        "u8" | "u16" | "u32" | "u64" | "usize" | "i8" | "i16" | "i32" | "i64" | "isize" => {
+            shape == Shape::Int
+        }
+        // A whole number is a perfectly good float, which is the rule `FromValue for f64`
+        // states and this has to agree with.
+        "f32" | "f64" => shape == Shape::Float || shape == Shape::Int,
+        "String" | "PathBuf" => shape == Shape::Str,
+        "Vec" => shape == Shape::List,
+        "BTreeMap" => shape == Shape::Map,
+        _ => return None,
+    })
+}
+
+/// A shape as a message names it: what the field will actually be handed.
+fn describe_shape(shape: Shape) -> &'static str {
+    match shape {
+        Shape::Bool => "a boolean",
+        Shape::Int => "an integer",
+        Shape::Float => "a number",
+        Shape::Str => "text",
+        Shape::List => "a list",
+        Shape::Map => "a table",
+    }
+}
+
 /// A field's Rust type as written, for a message that has to name it.
 fn rust_type_name(ty: &syn::Type) -> String {
     quote::ToTokens::to_token_stream(ty)
@@ -1579,6 +1672,67 @@ mod tests {
             }
         "#,
         );
+    }
+
+    #[test]
+    fn a_ty_the_field_could_never_read_is_refused() {
+        // The merge coerces to the *declared* type, so the shape the field is handed is
+        // decided by `ty` and not by what a layer supplied. A pairing whose shapes disagree
+        // therefore fails every `read` for every input — the same "accepted declaration,
+        // broken at every read" trap as a default the field cannot hold.
+        for (field, ty) in [
+            ("name: String", "uint"),
+            ("name: String", "bool"),
+            ("jobs: u64", "string"),
+            ("jobs: u64", "duration"),
+            ("flag: bool", "string"),
+            // A container declared over a scalar field, and the reverse.
+            ("jobs: u64", "list<uint>"),
+            ("ports: Vec<u64>", "uint"),
+            (
+                "table: std::collections::BTreeMap<String, String>",
+                "string",
+            ),
+        ] {
+            let err = rejection(&format!(
+                r#"
+                struct Settings {{
+                    #[usage(ty = "{ty}")]
+                    {field},
+                }}
+            "#
+            ));
+            assert!(
+                err.contains("cannot read"),
+                "`ty = \"{ty}\"` was accepted on `{field}`: {err}"
+            );
+        }
+
+        // The pairings that do read. `duration` on a `String` is the reason the attribute
+        // exists — a span of time is carried as its text, and the crate that owns the duration
+        // type owns its spelling.
+        for (field, ty) in [
+            ("timeout: String", "duration"),
+            ("home: std::path::PathBuf", "path"),
+            ("home: std::path::PathBuf", "url"),
+            // An integer is a perfectly good float, which `FromValue for f64` states.
+            ("ratio: f64", "int"),
+            ("ratio: f32", "float"),
+            // `any` promises no shape, so it refuses none.
+            ("whatever: String", "any"),
+            // A widening the author may mean: it reads whenever the value fits, so it is
+            // theirs to make rather than this check's to refuse.
+            ("small: u8", "int"),
+        ] {
+            accepted(&format!(
+                r#"
+                struct Settings {{
+                    #[usage(ty = "{ty}")]
+                    {field},
+                }}
+            "#
+            ));
+        }
     }
 
     #[test]
