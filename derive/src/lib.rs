@@ -475,7 +475,8 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 /// `prop` node would — `env`, `default`, `merge`, `scope`, `choices`, `source` bindings.
 /// The derive generates `SETTINGS_PROPS`, `SETTINGS_REGISTRY`, `read(&Resolved)`, and
 /// `spec_kdl()`, so the registry, the reader, and the documentation cannot drift from the
-/// struct or from each other. See the [config module](config) docs for the field vocabulary.
+/// struct or from each other. The whole field vocabulary is in the guide:
+/// <https://usage.jdx.dev/rust/settings>.
 ///
 /// ```ignore
 /// #[derive(usage::Config)]
