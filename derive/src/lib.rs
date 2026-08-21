@@ -410,6 +410,7 @@
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
+mod case;
 mod codegen;
 mod crate_name;
 mod model;

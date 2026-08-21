@@ -4,7 +4,7 @@
 //! [`crate::codegen`], which keeps the error messages — the part an author
 //! actually interacts with — in one place.
 
-use heck::{ToKebabCase, ToLowerCamelCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
+use crate::case;
 use proc_macro2::Span;
 use syn::ext::IdentExt as _;
 use syn::parse::Parser as _;
@@ -4515,6 +4515,12 @@ fn shout(form: &str) -> String {
     form.to_uppercase().replace('-', "_")
 }
 
+/// The default naming policy: dashes for underscores, and a dash before every uppercase char.
+///
+/// Deliberately not `case::to_kebab_case`, which follows heck and folds acronyms —
+/// `HTTPServer` is `h-t-t-p-server` here and `http-server` there. Both are pinned by
+/// `tests::a_value_enum_accepts_clap_container_casing`; `rename_all` is the way to ask for
+/// the other one.
 pub(crate) fn to_kebab(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 4);
     for (i, ch) in s.chars().enumerate() {
@@ -5161,13 +5167,13 @@ impl CasingStyle {
 
     fn apply(self, name: &str) -> String {
         match self {
-            Self::Camel => name.to_lower_camel_case(),
-            Self::Kebab => name.to_kebab_case(),
-            Self::Pascal => name.to_upper_camel_case(),
-            Self::ScreamingSnake => name.to_shouty_snake_case(),
-            Self::Snake => name.to_snake_case(),
-            Self::Lower => name.to_snake_case().replace('_', ""),
-            Self::Upper => name.to_shouty_snake_case().replace('_', ""),
+            Self::Camel => case::to_lower_camel_case(name),
+            Self::Kebab => case::to_kebab_case(name),
+            Self::Pascal => case::to_upper_camel_case(name),
+            Self::ScreamingSnake => case::to_shouty_snake_case(name),
+            Self::Snake => case::to_snake_case(name),
+            Self::Lower => case::to_snake_case(name).replace('_', ""),
+            Self::Upper => case::to_shouty_snake_case(name).replace('_', ""),
             Self::Verbatim => name.to_string(),
         }
     }
