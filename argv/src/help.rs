@@ -19,7 +19,7 @@
 
 use core::fmt::Write as _;
 
-use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec};
+use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
 use crate::Command;
 use crate::DoubleDash;
 
@@ -120,6 +120,7 @@ fn help_structure(
     path: &[&str],
     chain: &[&CommandMeta<'_>],
     long: bool,
+    inherit_version_actions: bool,
 ) -> (Vec<String>, Vec<String>, Vec<String>) {
     let meta = *chain.last().expect("a page is always about some command");
     let mut headings = Vec::new();
@@ -143,7 +144,7 @@ fn help_structure(
         );
     }
 
-    let (own, inherited) = own_and_global(chain);
+    let (own, inherited) = own_and_global(chain, inherit_version_actions);
     let visible_arg = |arg: &&ArgMeta<'_>| {
         !arg.hide
             && if long {
@@ -665,8 +666,17 @@ fn exact_arity(min: Option<usize>, max: Option<usize>) -> Option<usize> {
 ///
 /// `path` is the command as invoked, as for [`usage_line`].
 pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
+    short_help_with(spec, path, chain, false)
+}
+
+fn short_help_with(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    inherit_version_actions: bool,
+) -> String {
     let meta = *chain.last().expect("a page is always about some command");
-    let (own, inherited) = own_and_global(chain);
+    let (own, inherited) = own_and_global(chain, inherit_version_actions);
     let own: Vec<_> = own
         .into_iter()
         .filter(|flag| !flag.hide_short_help)
@@ -1341,8 +1351,17 @@ fn terminal_width(meta: &CommandMeta<'_>) -> usize {
 /// under the usage rather than beside it, because there is no column that keeps a line the
 /// author already broke readable.
 pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
+    long_help_with(spec, path, chain, false)
+}
+
+fn long_help_with(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    inherit_version_actions: bool,
+) -> String {
     let meta = *chain.last().expect("a page is always about some command");
-    let (own, inherited) = own_and_global(chain);
+    let (own, inherited) = own_and_global(chain, inherit_version_actions);
     let own: Vec<_> = own
         .into_iter()
         .filter(|flag| !flag.hide_long_help)
@@ -2086,6 +2105,7 @@ fn supplied_entries(cmd: &Command<'_>, taken: &[String]) -> Vec<&'static FlagMet
 /// and cannot discover, which is the worst way for help to be wrong.
 fn own_and_global<'a>(
     chain: &[&'a CommandMeta<'a>],
+    inherit_version_actions: bool,
 ) -> (Vec<&'a FlagMeta<'a>>, Vec<(&'a FlagMeta<'a>, String)>) {
     let Some((here, ancestors)) = chain.split_last() else {
         return (Vec::new(), Vec::new());
@@ -2124,12 +2144,9 @@ fn own_and_global<'a>(
     let every_form: Vec<String> = here
         .flags
         .iter()
-        .chain(
-            ancestors
-                .iter()
-                .flat_map(|m| m.flags.iter())
-                .filter(|f| f.flag.global),
-        )
+        .chain(ancestors.iter().flat_map(|m| m.flags.iter()).filter(|f| {
+            f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
+        }))
         .flat_map(forms)
         .collect();
 
@@ -2137,7 +2154,9 @@ fn own_and_global<'a>(
     let mut taken_negations: Vec<String> = here.flags.iter().filter_map(negation).collect();
     let mut keep: Vec<(*const FlagMeta<'_>, Shown<'_>)> = Vec::new();
     for meta in ancestors.iter().rev() {
-        for f in meta.flags.iter().filter(|f| f.flag.global) {
+        for f in meta.flags.iter().filter(|f| {
+            f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
+        }) {
             let show = Shown::surviving(f, &taken, &taken_negations, &every_form);
             // Reserved whether or not it is shown: a hidden one still binds, and so does one
             // whose every spelling something nearer already took.
@@ -2187,6 +2206,21 @@ fn own_and_global<'a>(
         .cloned()
         .chain(taken_negations.iter().cloned())
         .collect();
+    if inherit_version_actions {
+        if let Some(root) = ancestors.first() {
+            inherited.extend(
+                supplied_entries(root.cmd, &claimed)
+                    .into_iter()
+                    .filter(|flag| {
+                        matches!(
+                            flag.flag.key,
+                            crate::VERSION_LONG_KEY | crate::VERSION_SHORT_KEY
+                        )
+                    })
+                    .map(|flag| (flag, column_usage(flag))),
+            );
+        }
+    }
     own.extend(supplied_entries(here.cmd, &claimed));
     (own, inherited)
 }
@@ -2216,7 +2250,7 @@ pub fn render_styled(
     } else {
         short_help(spec, &path, &chain)
     };
-    let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long);
+    let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long, false);
     Some(styled_help(
         &page,
         style,
@@ -2234,7 +2268,7 @@ pub fn render_all(spec: &Spec<'_>, cmd: &Command<'_>) -> Option<String> {
 /// Recursive long help with an explicit colour policy.
 pub fn render_all_styled(spec: &Spec<'_>, cmd: &Command<'_>, style: Style) -> Option<String> {
     let (path, chain) = find(spec, cmd)?;
-    Some(recursive_help(spec, path, chain, style))
+    Some(recursive_help(spec, path, chain, style, false))
 }
 
 /// The route the words took to a command, for rendering its page unambiguously.
@@ -2294,6 +2328,25 @@ pub fn route_to<'t>(
     core::ptr::eq(*route.last()?, cmd).then_some(route)
 }
 
+/// Recover a command route from the full argv of a declared executable view.
+///
+/// `argv` includes the view executable as argv0. The promoted root is inserted internally,
+/// matching the derive-generated `parse_from_argv` without requiring callers to reconstruct its
+/// private rewrite.
+pub fn route_to_view<'t>(
+    root: &'t Command<'t>,
+    argv: &[&std::ffi::OsStr],
+    cmd: &Command<'_>,
+    view: &ViewMeta<'_>,
+) -> Option<Vec<&'t Command<'t>>> {
+    let words = argv.get(1..).unwrap_or_default();
+    let mut rewritten =
+        Vec::with_capacity(words.len() + view.root.split_ascii_whitespace().count());
+    rewritten.extend(view.root.split_ascii_whitespace().map(std::ffi::OsStr::new));
+    rewritten.extend_from_slice(words);
+    route_to(root, &rewritten, cmd)
+}
+
 /// The same page, for a command reached by a known route.
 ///
 /// [`render`] has only a `&Command` to go on and finds it by address. That is enough until one
@@ -2346,7 +2399,70 @@ pub fn render_at_styled(
     } else {
         short_help(spec, &path, &chain)
     };
-    let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long);
+    let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long, false);
+    Some(styled_help(
+        &page,
+        style,
+        &headings,
+        &flag_usages,
+        &synopsis,
+    ))
+}
+
+/// Render help through a spec-declared executable view.
+///
+/// The parser still walks the canonical static tables. This changes only the cold presentation:
+/// the promoted command becomes the displayed root and only the root globals declared by the
+/// view remain inherited.
+pub fn render_view_at_styled(
+    spec: &Spec<'_>,
+    route: &[&Command<'_>],
+    view: &ViewMeta<'_>,
+    long: bool,
+    style: Style,
+) -> Option<String> {
+    let (canonical_path, canonical_chain) = route_context(spec, route)?;
+    let depth = view.root.split_ascii_whitespace().count();
+    let promoted = *canonical_chain.get(depth)?;
+
+    let (root_flags, root_groups) = view_root_fields(spec, promoted, view);
+    let root_command = Command {
+        // Version actions belong to the executable, not to the promoted command. The parser
+        // retains that host policy before projection, so help must synthesize the same flag.
+        version: spec.root.cmd.version,
+        disable_version_flag: spec.root.cmd.disable_version_flag,
+        ..*promoted.cmd
+    };
+    let root = CommandMeta {
+        cmd: &root_command,
+        flags: &root_flags,
+        groups: &root_groups,
+        ..*promoted
+    };
+    let mut chain = Vec::with_capacity(canonical_chain.len());
+    chain.push(&root);
+    chain.extend_from_slice(canonical_chain.get(depth + 1..).unwrap_or_default());
+
+    let mut path = Vec::with_capacity(canonical_path.len().saturating_sub(depth));
+    path.push(view.bin);
+    path.extend_from_slice(canonical_path.get(depth + 1..).unwrap_or_default());
+    let viewed = Spec {
+        name: view.name,
+        bin: Some(view.bin),
+        about: promoted.about,
+        long_about: promoted.long_about,
+        usage: None,
+        default_subcommand: None,
+        multicall: false,
+        root: &root,
+        ..*spec
+    };
+    let page = if long {
+        long_help_with(&viewed, &path, &chain, true)
+    } else {
+        short_help_with(&viewed, &path, &chain, true)
+    };
+    let (headings, flag_usages, synopsis) = help_structure(&viewed, &path, &chain, long, true);
     Some(styled_help(
         &page,
         style,
@@ -2368,7 +2484,122 @@ pub fn render_all_at_styled(
     style: Style,
 ) -> Option<String> {
     let (path, chain) = route_context(spec, route)?;
-    Some(recursive_help(spec, path, chain, style))
+    Some(recursive_help(spec, path, chain, style, false))
+}
+
+/// Recursive long help through a spec-declared executable view.
+pub fn render_all_view_at_styled(
+    spec: &Spec<'_>,
+    route: &[&Command<'_>],
+    view: &ViewMeta<'_>,
+    style: Style,
+) -> Option<String> {
+    let (canonical_path, canonical_chain) = route_context(spec, route)?;
+    let depth = view.root.split_ascii_whitespace().count();
+    let promoted = *canonical_chain.get(depth)?;
+    let (root_flags, root_groups) = view_root_fields(spec, promoted, view);
+    let root_command = Command {
+        version: spec.root.cmd.version,
+        disable_version_flag: spec.root.cmd.disable_version_flag,
+        ..*promoted.cmd
+    };
+    let root = CommandMeta {
+        cmd: &root_command,
+        flags: &root_flags,
+        groups: &root_groups,
+        ..*promoted
+    };
+    let mut chain = Vec::with_capacity(canonical_chain.len().saturating_sub(depth));
+    chain.push(&root);
+    chain.extend_from_slice(canonical_chain.get(depth + 1..).unwrap_or_default());
+    let mut path = Vec::with_capacity(canonical_path.len().saturating_sub(depth));
+    path.push(view.bin);
+    path.extend_from_slice(canonical_path.get(depth + 1..).unwrap_or_default());
+    let viewed = Spec {
+        name: view.name,
+        bin: Some(view.bin),
+        about: promoted.about,
+        long_about: promoted.long_about,
+        usage: None,
+        default_subcommand: None,
+        multicall: false,
+        root: &root,
+        ..*spec
+    };
+    Some(recursive_help(&viewed, path, chain, style, true))
+}
+
+pub(crate) fn view_root_flags<'a>(
+    spec: &'a Spec<'a>,
+    promoted: &CommandMeta<'a>,
+    view: &ViewMeta<'a>,
+) -> Vec<FlagMeta<'a>> {
+    let selected = |flag: &&FlagMeta<'a>| {
+        let carried = crate::is_version_flag(flag.flag)
+            || (flag.flag.global
+                && (view.all_globals
+                    || view.globals.iter().any(|selector| {
+                        selector
+                            .strip_prefix("--")
+                            .is_some_and(|long| flag.flag.longs.contains(&long))
+                            || selector
+                                .strip_prefix('-')
+                                .filter(|short| short.len() == 1)
+                                .and_then(|short| short.as_bytes().first().copied())
+                                .is_some_and(|short| flag.flag.shorts.contains(&short))
+                    })));
+        carried
+            && !promoted
+                .flags
+                .iter()
+                .any(|local| crate::spec::flag_forms_overlap(flag.flag, local.flag))
+    };
+    let mut flags: Vec<FlagMeta<'a>> = spec.root.flags.iter().filter(selected).copied().collect();
+    flags.extend_from_slice(promoted.flags);
+    flags
+}
+
+pub(crate) fn view_root_fields<'a>(
+    spec: &'a Spec<'a>,
+    promoted: &CommandMeta<'a>,
+    view: &ViewMeta<'a>,
+) -> (Vec<FlagMeta<'a>>, Vec<crate::spec::GroupMeta<'a>>) {
+    let mut flags = view_root_flags(spec, promoted, view);
+    let carried = flags.len().saturating_sub(promoted.flags.len());
+    let matches = |flag: &FlagMeta<'_>, selector: &str| {
+        selector
+            .strip_prefix("--")
+            .is_some_and(|long| flag.flag.longs.contains(&long))
+            || selector
+                .strip_prefix('-')
+                .filter(|short| short.len() == 1)
+                .and_then(|short| short.as_bytes().first().copied())
+                .is_some_and(|short| flag.flag.shorts.contains(&short))
+    };
+    let mut groups = Vec::new();
+    for group in spec.root.groups {
+        let members: Vec<usize> = group
+            .members
+            .iter()
+            .filter_map(|selector| {
+                flags[..carried]
+                    .iter()
+                    .position(|flag| matches(flag, selector))
+            })
+            .collect();
+        match members.as_slice() {
+            [only] if group.required => flags[*only].required = true,
+            [_, _, ..] => {
+                // Help and diagnostics only need the relationship and its requiredness; the
+                // parser continues to enforce the canonical group. Retaining the original
+                // selector slice avoids allocating self-referential metadata on this cold path.
+                groups.push(*group);
+            }
+            _ => {}
+        }
+    }
+    groups.extend_from_slice(promoted.groups);
+    (flags, groups)
 }
 
 fn recursive_help<'a>(
@@ -2376,6 +2607,7 @@ fn recursive_help<'a>(
     path: Vec<&'a str>,
     chain: Vec<&'a CommandMeta<'a>>,
     style: Style,
+    inherit_version_actions: bool,
 ) -> String {
     fn append<'a>(
         out: &mut String,
@@ -2383,12 +2615,14 @@ fn recursive_help<'a>(
         path: &mut Vec<&'a str>,
         chain: &mut Vec<&'a CommandMeta<'a>>,
         style: Style,
+        inherit_version_actions: bool,
     ) {
         if !out.is_empty() {
             out.push('\n');
         }
-        let page = long_help(spec, path, chain);
-        let (headings, flag_usages, synopsis) = help_structure(spec, path, chain, true);
+        let page = long_help_with(spec, path, chain, inherit_version_actions);
+        let (headings, flag_usages, synopsis) =
+            help_structure(spec, path, chain, true, inherit_version_actions);
         out.push_str(&styled_help(
             &page,
             style,
@@ -2403,7 +2637,7 @@ fn recursive_help<'a>(
         for child in children {
             path.push(child.cmd.name);
             chain.push(child);
-            append(out, spec, path, chain, style);
+            append(out, spec, path, chain, style, inherit_version_actions);
             chain.pop();
             path.pop();
         }
@@ -2412,7 +2646,14 @@ fn recursive_help<'a>(
     let mut out = String::new();
     let mut path = path;
     let mut chain = chain;
-    append(&mut out, spec, &mut path, &mut chain, style);
+    append(
+        &mut out,
+        spec,
+        &mut path,
+        &mut chain,
+        style,
+        inherit_version_actions,
+    );
     out
 }
 
@@ -2420,10 +2661,10 @@ fn recursive_help<'a>(
 mod style_tests {
     use super::{
         commands_section, flag_notes, flag_usage, flat_commands_short, inline_environment_notes,
-        long_help, styled_flag_usage, styled_help, Style,
+        long_help, render_view_at_styled, styled_flag_usage, styled_help, Style,
     };
-    use crate::spec::{CommandMeta, FlagMeta, Spec};
-    use crate::{Command, Flag};
+    use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
+    use crate::{ArgAction, Command, Flag};
 
     #[test]
     fn optional_equals_values_put_the_equals_inside_the_brackets() {
@@ -2604,6 +2845,78 @@ mod style_tests {
             page.contains("More help.\n\n\nAuthor: Example Author\n"),
             "{page}"
         );
+    }
+
+    #[test]
+    fn view_help_keeps_declared_and_synthesized_host_version_actions() {
+        let build_info = Flag {
+            name: "build-info",
+            longs: &["build-info"],
+            action: ArgAction::Version,
+            ..Flag::BOOL
+        };
+        let nested_command = Command {
+            name: "status",
+            ..Command::EMPTY
+        };
+        let child_command = Command {
+            name: "serve",
+            subcommands: &[&nested_command],
+            ..Command::EMPTY
+        };
+        let root_command = Command {
+            name: "host",
+            flags: &[&build_info],
+            subcommands: &[&child_command],
+            version: true,
+            ..Command::EMPTY
+        };
+        let build_info_meta = FlagMeta {
+            flag: &build_info,
+            help: Some("Print build information"),
+            ..FlagMeta::EMPTY
+        };
+        let nested_meta = CommandMeta {
+            cmd: &nested_command,
+            ..CommandMeta::EMPTY
+        };
+        let child_meta = CommandMeta {
+            cmd: &child_command,
+            subcommands: &[&nested_meta],
+            ..CommandMeta::EMPTY
+        };
+        let root_meta = CommandMeta {
+            cmd: &root_command,
+            flags: &[build_info_meta],
+            subcommands: &[&child_meta],
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "host",
+            bin: Some("host"),
+            root: &root_meta,
+            ..Spec::EMPTY
+        };
+        let view = ViewMeta {
+            id: "server",
+            name: "server",
+            bin: "server",
+            root: "serve",
+            all_globals: false,
+            globals: &[],
+        };
+
+        let page = render_view_at_styled(
+            &spec,
+            &[&root_command, &child_command, &nested_command],
+            &view,
+            false,
+            Style::PLAIN,
+        )
+        .expect("view route");
+
+        assert!(page.contains("--build-info"), "{page}");
+        assert!(page.contains("-V, --version"), "{page}");
     }
 
     #[test]

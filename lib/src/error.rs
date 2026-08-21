@@ -117,6 +117,9 @@ pub enum UsageErr {
     #[error("Invalid file path: {0}")]
     InvalidPath(String),
 
+    #[error("Invalid spec view: {0}")]
+    InvalidView(String),
+
     #[error("Invalid value for {name}: {value}: {reason}")]
     InvalidValue {
         name: String,

@@ -13,6 +13,7 @@ pub use crate::spec::flag::{SpecDefaultIf, SpecFlag, SpecFlagAction, SpecRequire
 pub use crate::spec::group::SpecGroup;
 pub use crate::spec::mount::SpecMount;
 pub use crate::spec::unknown_flags::UnknownFlags;
+pub use crate::spec::view::SpecView;
 pub use crate::spec::Spec;
 
 #[macro_use]

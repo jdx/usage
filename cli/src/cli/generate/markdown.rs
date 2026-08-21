@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{parse_file_or_stdin, write_or_stdout};
+use super::{parse_file_or_stdin, select_view, write_or_stdout};
 use usage::docs::markdown::MarkdownRenderer;
 use usage_rs::Args;
 
@@ -11,6 +11,10 @@ pub struct Markdown {
     /// A usage spec taken in as a file, use "-" to read from stdin
     #[usage(short, long)]
     file: PathBuf,
+
+    /// Render one spec-declared executable view
+    #[usage(long)]
+    view: Option<String>,
     // /// Pass a usage spec in an argument instead of a file
     // #[usage(short, long, required_unless = "--file", overrides = "--file")]
     // spec: Option<String>,
@@ -66,7 +70,7 @@ impl Markdown {
             xx::file::write(path, render(md))?;
             Ok(())
         };
-        let spec = parse_file_or_stdin(&self.file)?;
+        let spec = select_view(parse_file_or_stdin(&self.file)?, self.view.as_deref())?;
         let mut ctx = MarkdownRenderer::new(spec.clone())
             .with_html_encode(self.html_encode)
             .with_replace_pre_with_code_fences(self.replace_pre_with_code_fences);

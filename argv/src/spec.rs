@@ -26,6 +26,16 @@ use core::fmt::Write as _;
 use crate::UnknownFlags;
 use crate::{Arg, Command, DoubleDash, Flag};
 
+/// Whether two declarations answer to at least one of the same flag spellings.
+pub(crate) fn flag_forms_overlap(a: &Flag<'_>, b: &Flag<'_>) -> bool {
+    a.longs.iter().any(|name| b.longs.contains(name))
+        || a.shorts.iter().any(|name| b.shorts.contains(name))
+        || a.negate.is_some_and(|name| {
+            b.longs.contains(&name) || b.negate.is_some_and(|other| other == name)
+        })
+        || b.negate.is_some_and(|name| a.longs.contains(&name))
+}
+
 /// The first key that appears twice anywhere in a command tree, if any.
 ///
 /// Keys are what a parse dispatches on, and a derive assigns them without being able
@@ -311,6 +321,8 @@ pub struct Spec<'a> {
     /// `.exe` are stripped. The parser itself does not see argv[0]; [`crate::multicall_applet`]
     /// is what a process entry applies before calling it.
     pub multicall: bool,
+    /// Spec-declared executable views promoted from commands below the root.
+    pub views: &'a [ViewMeta<'a>],
     /// The root command, and the home of everything a spec declares at its top level.
     ///
     /// A KDL spec has one place for surrounding text and examples — the top level — and the
@@ -319,6 +331,57 @@ pub struct Spec<'a> {
     /// fields on the spec: two homes for one declaration is two answers to one question, and
     /// `to_kdl` and the renderer picked differently.
     pub root: &'a CommandMeta<'a>,
+}
+
+/// A named executable surface emitted into the portable spec.
+#[derive(Debug, Clone, Copy)]
+pub struct ViewMeta<'a> {
+    pub id: &'a str,
+    pub name: &'a str,
+    pub bin: &'a str,
+    pub root: &'a str,
+    pub all_globals: bool,
+    pub globals: &'a [&'a str],
+}
+
+impl ViewMeta<'_> {
+    /// Whether this view carries a root-global flag into its executable surface.
+    pub fn carries(self, flag: &crate::Flag<'_>) -> bool {
+        flag.global
+            && (self.all_globals
+                || self.globals.iter().any(|selector| {
+                    selector
+                        .strip_prefix("--")
+                        .is_some_and(|long| flag.longs.contains(&long))
+                        || selector
+                            .strip_prefix('-')
+                            .filter(|short| short.len() == 1)
+                            .and_then(|short| short.as_bytes().first().copied())
+                            .is_some_and(|short| flag.shorts.contains(&short))
+                }))
+    }
+}
+
+/// The declared executable view selected by argv0, if any.
+///
+/// Matching uses the same path and `.exe` normalization as multicall applets. Both `bin` and
+/// the stable view identifier are accepted so changing the display name cannot break dispatch.
+pub fn view_for_program<'a>(
+    spec: &'a Spec<'a>,
+    argv0: &std::ffi::OsStr,
+) -> Option<&'a ViewMeta<'a>> {
+    let basename = crate::multicall_basename(argv0.to_str()?);
+    if basename == crate::multicall_basename(spec.name)
+        || spec
+            .bin
+            .is_some_and(|bin| basename == crate::multicall_basename(bin))
+    {
+        return None;
+    }
+    spec.views.iter().find(|view| {
+        basename == crate::multicall_basename(view.bin)
+            || basename == crate::multicall_basename(view.id)
+    })
 }
 
 /// A command selected for a cold-path metadata override.
@@ -499,6 +562,7 @@ impl<'a> SpecView<'a> {
             usage: self.base.usage,
             default_subcommand: self.base.default_subcommand,
             multicall: self.base.multicall,
+            views: self.base.views,
             root: self.base.root,
         }
     }
@@ -528,6 +592,7 @@ impl Spec<'_> {
         usage: None,
         default_subcommand: None,
         multicall: false,
+        views: &[],
         root: &CommandMeta::EMPTY,
     };
 
@@ -1249,6 +1314,28 @@ impl Spec<'_> {
         }
         if self.multicall {
             writeln!(out, "multicall #true")?;
+        }
+        for view in self.views {
+            write!(out, "view {}", quoted(view.id))?;
+            if view.name != view.id {
+                write!(out, " name={}", quoted(view.name))?;
+            }
+            if view.bin != view.name {
+                write!(out, " bin={}", quoted(view.bin))?;
+            }
+            write!(out, " root={}", quoted(view.root))?;
+            if view.all_globals {
+                out.push_str(" globals=#true");
+            }
+            if view.globals.is_empty() {
+                out.push('\n');
+            } else {
+                out.push_str(" {\n  global");
+                for selector in view.globals {
+                    write!(out, " {}", quoted(selector))?;
+                }
+                out.push_str("\n}\n");
+            }
         }
         if self.root.cmd.external_subcommand {
             writeln!(out, "external_subcommand #true")?;
@@ -2797,6 +2884,18 @@ pub trait CommandArgs: Sized {
         let _ = partial;
     }
 
+    /// Fill defaults for fields visible through an executable view.
+    ///
+    /// Derived implementations filter flattened root arguments to selected globals. The
+    /// default preserves hand-written implementations and ordinary parsing behavior.
+    fn apply_defaults_for_view(
+        partial: &mut Self::Partial,
+        view: Option<&'static ViewMeta<'static>>,
+    ) {
+        let _ = view;
+        Self::apply_defaults(partial);
+    }
+
     /// Fill fields in this command from their declared environment variables.
     ///
     /// A parent calls this before relationships that cross a flattened `CommandArgs`
@@ -2804,6 +2903,23 @@ pub trait CommandArgs: Sized {
     /// checks. Empty by default for hand-written implementations.
     fn apply_env(partial: &mut Self::Partial) {
         let _ = partial;
+    }
+
+    /// Fill environment fallbacks for fields visible through an executable view.
+    fn apply_env_for_view(partial: &mut Self::Partial, view: Option<&'static ViewMeta<'static>>) {
+        let _ = view;
+        Self::apply_env(partial);
+    }
+
+    /// Fill environment fallbacks while traversing the injected parents of a view.
+    ///
+    /// `remaining_descendants` is non-zero only for commands that are routing to the
+    /// promoted command rather than contributing their own surface. Derived commands
+    /// recurse through their selected subcommand without applying their own fallbacks.
+    fn apply_env_for_view_path(partial: &mut Self::Partial, remaining_descendants: usize) {
+        if remaining_descendants == 0 {
+            Self::apply_env(partial);
+        }
     }
 
     /// Everything this command decides after the last token: required-ness,
@@ -2832,11 +2948,73 @@ pub trait CommandArgs: Sized {
         Self::check(partial)
     }
 
+    /// Run checks under a parent command's repeat policy and executable projection.
+    fn check_with_args_override_self_for_view<'t, 'v>(
+        partial: &mut Self::Partial,
+        args_override_self: bool,
+        view: Option<&'static ViewMeta<'static>>,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        let _ = view;
+        Self::check_with_args_override_self(partial, args_override_self)
+    }
+
+    /// Check a command while traversing the injected parents of a view.
+    ///
+    /// An injected parent is structural: its own defaults and validation do not belong
+    /// to the promoted executable. Derived commands recurse until the promoted command,
+    /// which is then checked normally.
+    fn check_for_view_path<'t, 'v>(
+        partial: &mut Self::Partial,
+        remaining_descendants: usize,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        if remaining_descendants == 0 {
+            Self::check(partial)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Mark this command's own fields as outside an injected executable-view path.
+    ///
+    /// Derived implementations propagate the marker through flattened argument groups so
+    /// building the enclosing Rust value uses typed defaults instead of parsing empty argv.
+    fn omit_own_for_view(partial: &mut Self::Partial) {
+        let _ = partial;
+    }
+
     /// Build the struct from what was collected.
     ///
     /// Fallible because a command can require a subcommand of its own, and "none was
     /// given" is only knowable here — at the point where the value has to exist.
     fn build<'t, 'v>(partial: Self::Partial) -> Result<Self, crate::Error<'t, 'v>>;
+}
+
+/// Supplies a typed placeholder for fields outside an executable view.
+///
+/// Kept generic so deriving an ordinary command never imposes `Default` on its
+/// values. The process-level view entry point selects [`DefaultViewOmitter`], and
+/// only a CLI that actually declares a view therefore needs omitted field types
+/// to implement `Default`.
+pub trait Omitted<T> {
+    fn omitted() -> T;
+}
+
+/// The omission policy used by generated executable-view entry points.
+pub struct DefaultViewOmitter;
+
+impl<T: Default> Omitted<T> for DefaultViewOmitter {
+    fn omitted() -> T {
+        T::default()
+    }
+}
+
+/// View-aware construction for a derived command or flattened argument group.
+///
+/// `O` is deliberately a type parameter on the trait: generated implementations
+/// can state their field requirements without evaluating them for CLIs that never
+/// build an executable projection.
+pub trait ViewCommandArgs<O>: CommandArgs {
+    fn build_for_view<'t, 'v>(partial: Self::Partial) -> Result<Self, crate::Error<'t, 'v>>;
 }
 
 /// How many flags on `command` accept `selector`.
@@ -2997,6 +3175,17 @@ pub trait Subcommands: Sized {
         let _ = (partial, selected);
     }
 
+    /// Fill environment fallbacks on the promoted command, traversing injected parents.
+    fn apply_env_for_view_path(
+        partial: &mut Self::Partial,
+        selected: Option<usize>,
+        remaining_commands: usize,
+    ) {
+        if remaining_commands <= 1 {
+            Self::apply_env(partial, selected);
+        }
+    }
+
     /// Check the selected command's requirements, and nothing else's.
     ///
     /// A flag that `install` requires says nothing about an invocation that ran
@@ -3012,6 +3201,19 @@ pub trait Subcommands: Sized {
         selected: usize,
     ) -> Result<(), crate::Error<'t, 'v>>;
 
+    /// Check the promoted command, traversing injected parents without validating them.
+    fn check_for_view_path<'t, 'v>(
+        partial: &mut Self::Partial,
+        selected: usize,
+        remaining_commands: usize,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        if remaining_commands <= 1 {
+            Self::check(partial, selected)
+        } else {
+            Ok(())
+        }
+    }
+
     /// Build the variant at `selected`, a variant index.
     ///
     /// The same index [`apply`] and [`check`] take — mapped through [`VARIANT_OF`]
@@ -3022,6 +3224,14 @@ pub trait Subcommands: Sized {
     /// `None` when no variant was selected, which a caller reads as "no subcommand
     /// was given". An `Err` comes from building the variant that *was* selected.
     fn select<'t, 'v>(
+        partial: Self::Partial,
+        selected: usize,
+    ) -> Result<Option<Self>, crate::Error<'t, 'v>>;
+}
+
+/// View-aware construction for a derived subcommand enum.
+pub trait ViewSubcommands<O>: Subcommands {
+    fn select_for_view<'t, 'v>(
         partial: Self::Partial,
         selected: usize,
     ) -> Result<Option<Self>, crate::Error<'t, 'v>>;
@@ -3453,6 +3663,36 @@ mod tests {
         assert!(runtime.contains("name runtime"), "{runtime}");
         assert!(runtime.contains("cmd list effect=write"), "{runtime}");
         assert!(runtime.contains("cmd rm effect=destructive"), "{runtime}");
+    }
+
+    #[test]
+    fn an_invalid_view_cannot_capture_the_host_program() {
+        static ROOT: Command = Command {
+            name: "host",
+            ..Command::EMPTY
+        };
+        static ROOT_META: CommandMeta = CommandMeta {
+            cmd: &ROOT,
+            ..CommandMeta::EMPTY
+        };
+        static VIEW: ViewMeta = ViewMeta {
+            id: "host",
+            name: "host view",
+            bin: "host.exe",
+            root: "run",
+            all_globals: false,
+            globals: &[],
+        };
+        static SPEC: Spec = Spec {
+            name: "host",
+            bin: Some("/usr/bin/host"),
+            views: &[VIEW],
+            root: &ROOT_META,
+            ..Spec::EMPTY
+        };
+
+        assert!(view_for_program(&SPEC, std::ffi::OsStr::new("host")).is_none());
+        assert!(view_for_program(&SPEC, std::ffi::OsStr::new("/tmp/host.exe")).is_none());
     }
 
     #[test]

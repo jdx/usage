@@ -18,7 +18,7 @@ use quote::{format_ident, quote};
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
     rendered_path, to_kebab, Cli, ConditionalDefault, DoubleDash, Field, Kind, Shape, Subcommands,
-    ValueEnum,
+    ValueEnum, ViewDecl,
 };
 
 /// Construct the user's command type after its generated partial has been checked.
@@ -246,7 +246,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .unwrap_or_default();
     let sub_metas = parts.as_ref().map(|p| p.metas.clone()).unwrap_or_default();
     let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
-
+    let sub_default_view_build = parts
+        .as_ref()
+        .map(|p| p.default_view_build.clone())
+        .unwrap_or_default();
     let partial = partial_struct(cli);
     let argument_lookup = argument_lookup_functions(cli);
     let defaults = partial_defaults(cli);
@@ -286,7 +289,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             .fields
             .iter()
             .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
-            .map(field_final)
+            .map(|field| field_final(field, None))
             .collect();
         let built = built_value(cli, &sub_build, &field_finals);
         quote! {
@@ -327,11 +330,59 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .fields
         .iter()
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
-        .map(field_final)
+        .map(|field| field_final(field, None))
         .collect();
     let built = built_value(cli, &sub_build, &field_finals);
+    let built_for_view = if cli.views.is_empty() {
+        built.clone()
+    } else {
+        let default_view_omitter = quote!(usage_argv::spec::DefaultViewOmitter);
+        let view_field_finals: Vec<_> = cli
+            .fields
+            .iter()
+            .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
+            .map(|field| field_final(field, Some(&default_view_omitter)))
+            .collect();
+        // A one-command view promotes the selected child directly. None of that child's
+        // fields are omitted, so constructing it through the view-aware trait would impose
+        // `Default` on every value type in every sibling command for no semantic reason.
+        // Deeper views still need view-aware construction for the injected intermediate
+        // commands whose own fields are absent from argv.
+        let view_sub_build = if cli
+            .views
+            .iter()
+            .all(|view| view.root.split_ascii_whitespace().count() == 1)
+        {
+            &sub_build
+        } else {
+            &sub_default_view_build
+        };
+        built_value(cli, view_sub_build, &view_field_finals)
+    };
 
     let min_usage_version = option_str(cli.min_usage_version.as_deref());
+    let views: Vec<_> = cli
+        .views
+        .iter()
+        .map(|view| {
+            let id = &view.id;
+            let name = &view.name;
+            let bin = &view.bin;
+            let root = &view.root;
+            let all_globals = view.all_globals;
+            let globals = &view.globals;
+            quote! {
+                usage_argv::spec::ViewMeta {
+                    id: #id,
+                    name: #name,
+                    bin: #bin,
+                    root: #root,
+                    all_globals: #all_globals,
+                    globals: &[#(#globals),*],
+                }
+            }
+        })
+        .collect();
     let has_version = cli.version.is_some() || cli.long_version.is_some();
     let runtime_version = cli
         .runtime_version
@@ -566,9 +617,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// In the module rather than beside the parse, so every reference it makes
             /// to the user's own types sits at one consistent scope — the root and a
             /// nested command generate the same code here.
-            pub fn check<'t, 'v>(
+            fn check_with_view<'t, 'v>(
                 partial: &mut Partial,
+                __usage_view: ::std::option::Option<
+                    &'static usage_argv::spec::ViewMeta<'static>,
+                >,
             ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                partial.__usage_view = __usage_view;
                 // Read unconditionally: a command that declares nothing to check would
                 // otherwise leave the parameter unused in the user's crate, where
                 // nobody can silence it.
@@ -576,6 +631,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 let args_override_self = #args_override_self;
                 #post
                 ::std::result::Result::Ok(())
+            }
+
+            pub fn check<'t, 'v>(
+                partial: &mut Partial,
+            ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                check_with_view(partial, ::std::option::Option::None)
             }
 
             /// Every token read, and nothing else decided.
@@ -609,7 +670,19 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 argv: &[&'v ::std::ffi::OsStr],
                 partial: &mut Partial,
             ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
+                read_argv_into_view(command, argv, partial, ::std::option::Option::None)
+            }
+
+            pub fn read_argv_into_view<'v>(
+                command: &'static usage_argv::Command<'static>,
+                argv: &[&'v ::std::ffi::OsStr],
+                partial: &mut Partial,
+                view: ::std::option::Option<&'static usage_argv::spec::ViewMeta<'static>>,
+            ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
                 let mut __usage_parser = usage_argv::Parser::new(command, argv);
+                if let ::std::option::Option::Some(view) = view {
+                    __usage_parser = __usage_parser.with_view(view);
+                }
                 while let ::std::option::Option::Some(__usage_event) =
                     __usage_parser.next_event()
                 {
@@ -707,6 +780,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 usage: #usage,
                 default_subcommand: #default_subcommand,
                 multicall: #multicall,
+                views: &[#(#views),*],
                 root: &ROOT_META,
             };
 
@@ -768,6 +842,32 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     else {
                         return Self::parse_from(&[]);
                     };
+                    if let ::std::option::Option::Some(__usage_view) =
+                        usage_argv::spec::view_for_program(&SPEC, __usage_argv0)
+                    {
+                        let mut __usage_rewritten = ::std::vec::Vec::with_capacity(
+                            __usage_words.len()
+                                + __usage_view.root.split_ascii_whitespace().count(),
+                        );
+                        __usage_rewritten.extend(
+                            __usage_view.root
+                                .split_ascii_whitespace()
+                                .map(::std::ffi::OsStr::new),
+                        );
+                        __usage_rewritten.extend_from_slice(__usage_words);
+                        #defaults
+                        read_argv_into_view(
+                            Self::command(),
+                            &__usage_rewritten,
+                            &mut partial,
+                            ::std::option::Option::Some(__usage_view),
+                        )?;
+                        check_with_view(
+                            &mut partial,
+                            ::std::option::Option::Some(__usage_view),
+                        )?;
+                        return ::std::result::Result::Ok(#built_for_view);
+                    }
                     if SPEC.multicall {
                         if let ::std::option::Option::Some(__usage_word) =
                             __usage_argv0.to_str().and_then(|s| {
@@ -803,37 +903,80 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 pub fn parse() -> Self {
                     #completion_intercept
-                    let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> = if SPEC.multicall {
-                        let mut __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
-                            ::std::env::args_os().collect();
-                        if !__usage_all.is_empty() {
-                            let __usage_argv0 = __usage_all.remove(0);
-                            if let ::std::option::Option::Some(__usage_word) =
-                                __usage_argv0.to_str().and_then(|s| {
-                                    usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
-                                })
+                    let __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
+                        ::std::env::args_os().collect();
+                    let __usage_all_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
+                        __usage_all.iter().map(|a| a.as_os_str()).collect();
+                    let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
+                        if let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
+                            __usage_all_refs.split_first()
+                        {
+                            if let ::std::option::Option::Some(__usage_view) =
+                                usage_argv::spec::view_for_program(&SPEC, __usage_argv0)
                             {
-                                __usage_all.insert(
-                                    0,
-                                    ::std::ffi::OsString::from(__usage_word),
-                                );
+                                if __usage_words.first().is_some_and(|word| {
+                                    usage_argv::is_version_arg(SPEC.root.cmd, word)
+                                })
+                                {
+                                    __usage_words
+                                        .iter()
+                                        .map(|word| (*word).to_os_string())
+                                        .collect()
+                                } else {
+                                    __usage_view
+                                        .root
+                                        .split_ascii_whitespace()
+                                        .map(::std::ffi::OsString::from)
+                                        .chain(
+                                            __usage_words
+                                                .iter()
+                                                .map(|word| (*word).to_os_string()),
+                                        )
+                                        .collect()
+                                }
+                            } else if SPEC.multicall {
+                                let mut __usage_words: ::std::vec::Vec<::std::ffi::OsString> =
+                                    __usage_words
+                                        .iter()
+                                        .map(|word| (*word).to_os_string())
+                                        .collect();
+                                if let ::std::option::Option::Some(__usage_word) =
+                                    __usage_argv0.to_str().and_then(|s| {
+                                        usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
+                                    })
+                                {
+                                    __usage_words.insert(
+                                        0,
+                                        ::std::ffi::OsString::from(__usage_word),
+                                    );
+                                }
+                                __usage_words
+                            } else {
+                                __usage_words
+                                    .iter()
+                                    .map(|word| (*word).to_os_string())
+                                    .collect()
                             }
-                        }
-                        __usage_all
-                    } else {
-                        ::std::env::args_os().skip(1).collect()
-                    };
+                        } else {
+                            ::std::vec::Vec::new()
+                        };
                     let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
                         __usage_raw.iter().map(|a| a.as_os_str()).collect();
+                    let __usage_selected_view = __usage_all
+                        .first()
+                        .and_then(|argv0| usage_argv::spec::view_for_program(&SPEC, argv0));
                     // This is the entry point that *is* the process — it already exits for a help
                     // request — so it answers a failure the way a command-line program does:
                     // the message on stderr, and a non-zero status. `parse_from` hands the error
                     // back instead, for a library embedding this that wants to decide.
-                    match Self::parse_from(&__usage_argv) {
+                    match Self::parse_from_argv(&__usage_all_refs) {
                         ::std::result::Result::Ok(parsed) => parsed,
                         // Not failures: someone asked a question, and the answer goes to stdout.
                         ::std::result::Result::Err(usage_argv::Error::Version { long }) => {
                             #runtime_program_for_version
+                            let __usage_bin = __usage_selected_view
+                                .map(|view| view.bin)
+                                .unwrap_or(__usage_bin);
                             let __usage_version = if long {
                                 #output_long_version
                             } else {
@@ -848,18 +991,36 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             // `Subcommands` type mounted under two parents is one address, and a
                             // page found by searching for it carries the first mount's path and
                             // globals. Falls back where the route cannot be rebuilt.
-                            let __usage_page = match usage_argv::help::route_to(
-                                Self::command(),
-                                &__usage_argv,
-                                cmd,
-                            ) {
+                            let __usage_route = match __usage_selected_view {
+                                ::std::option::Option::Some(view) =>
+                                    usage_argv::help::route_to_view(
+                                        Self::command(), &__usage_all_refs, cmd, view,
+                                    ),
+                                ::std::option::Option::None => usage_argv::help::route_to(
+                                    Self::command(), &__usage_argv, cmd,
+                                ),
+                            };
+                            let __usage_page = match __usage_route {
                                 ::std::option::Option::Some(route) => {
-                                    usage_argv::help::render_at_styled(
-                                        __usage_spec,
-                                        &route,
-                                        long,
-                                        usage_argv::help::Style::auto(),
-                                    )
+                                    match __usage_selected_view {
+                                        ::std::option::Option::Some(view) => {
+                                            usage_argv::help::render_view_at_styled(
+                                                __usage_spec,
+                                                &route,
+                                                view,
+                                                long,
+                                                usage_argv::help::Style::auto(),
+                                            )
+                                        }
+                                        ::std::option::Option::None => {
+                                            usage_argv::help::render_at_styled(
+                                                __usage_spec,
+                                                &route,
+                                                long,
+                                                usage_argv::help::Style::auto(),
+                                            )
+                                        }
+                                    }
                                 }
                                 ::std::option::Option::None => {
                                     usage_argv::help::render_styled(
@@ -881,18 +1042,36 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         }
                         ::std::result::Result::Err(usage_argv::Error::MissingArgsHelp { cmd }) => {
                             #effective_spec
-                            let __usage_page = match usage_argv::help::route_to(
-                                Self::command(),
-                                &__usage_argv,
-                                cmd,
-                            ) {
+                            let __usage_route = match __usage_selected_view {
+                                ::std::option::Option::Some(view) =>
+                                    usage_argv::help::route_to_view(
+                                        Self::command(), &__usage_all_refs, cmd, view,
+                                    ),
+                                ::std::option::Option::None => usage_argv::help::route_to(
+                                    Self::command(), &__usage_argv, cmd,
+                                ),
+                            };
+                            let __usage_page = match __usage_route {
                                 ::std::option::Option::Some(route) => {
-                                    usage_argv::help::render_at_styled(
-                                        __usage_spec,
-                                        &route,
-                                        false,
-                                        usage_argv::help::Style::auto_stderr(),
-                                    )
+                                    match __usage_selected_view {
+                                        ::std::option::Option::Some(view) => {
+                                            usage_argv::help::render_view_at_styled(
+                                                __usage_spec,
+                                                &route,
+                                                view,
+                                                false,
+                                                usage_argv::help::Style::auto_stderr(),
+                                            )
+                                        }
+                                        ::std::option::Option::None => {
+                                            usage_argv::help::render_at_styled(
+                                                __usage_spec,
+                                                &route,
+                                                false,
+                                                usage_argv::help::Style::auto_stderr(),
+                                            )
+                                        }
+                                    }
                                 }
                                 ::std::option::Option::None => {
                                     usage_argv::help::render_styled(
@@ -913,17 +1092,34 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         }
                         ::std::result::Result::Err(usage_argv::Error::HelpAll { cmd }) => {
                             #effective_spec
-                            let __usage_page = match usage_argv::help::route_to(
-                                Self::command(),
-                                &__usage_argv,
-                                cmd,
-                            ) {
+                            let __usage_route = match __usage_selected_view {
+                                ::std::option::Option::Some(view) =>
+                                    usage_argv::help::route_to_view(
+                                        Self::command(), &__usage_all_refs, cmd, view,
+                                    ),
+                                ::std::option::Option::None => usage_argv::help::route_to(
+                                    Self::command(), &__usage_argv, cmd,
+                                ),
+                            };
+                            let __usage_page = match __usage_route {
                                 ::std::option::Option::Some(route) => {
-                                    usage_argv::help::render_all_at_styled(
-                                        __usage_spec,
-                                        &route,
-                                        usage_argv::help::Style::auto(),
-                                    )
+                                    match __usage_selected_view {
+                                        ::std::option::Option::Some(view) => {
+                                            usage_argv::help::render_all_view_at_styled(
+                                                __usage_spec,
+                                                &route,
+                                                view,
+                                                usage_argv::help::Style::auto(),
+                                            )
+                                        }
+                                        ::std::option::Option::None => {
+                                            usage_argv::help::render_all_at_styled(
+                                                __usage_spec,
+                                                &route,
+                                                usage_argv::help::Style::auto(),
+                                            )
+                                        }
+                                    }
                                 }
                                 ::std::option::Option::None => {
                                     usage_argv::help::render_all_styled(
@@ -943,9 +1139,26 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         }
                         ::std::result::Result::Err(e) => {
                             #effective_spec
+                            let __usage_failure = match __usage_selected_view {
+                                ::std::option::Option::Some(view) => {
+                                    usage_argv::render_failure_view(
+                                        __usage_spec,
+                                        &__usage_all_refs,
+                                        &e,
+                                        view,
+                                    )
+                                }
+                                ::std::option::Option::None => {
+                                    usage_argv::render_failure(
+                                        __usage_spec,
+                                        &__usage_argv,
+                                        &e,
+                                    )
+                                }
+                            };
                             ::std::eprint!(
                                 "{}",
-                                usage_argv::render_failure(__usage_spec, &__usage_argv, &e)
+                                __usage_failure
                             );
                             // clap's, so a script that checks for it keeps working.
                             usage_argv::__usage_process_exit(2);
@@ -1071,6 +1284,18 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             usage_argv::script::script(&__usage_program, shell)
         }
 
+        /// A declared executable view's completion script.
+        pub fn completion_script_for(
+            view: &str,
+            shell: usage_argv::complete::Shell,
+        ) -> ::std::option::Option<::std::string::String> {
+            Self::spec()
+                .views
+                .iter()
+                .find(|declared| declared.id == view)
+                .map(|declared| usage_argv::script::script(declared.bin, shell))
+        }
+
         /// The word a shell is completing, answered from this CLI's own tables.
         ///
         /// `None` when argv is an ordinary invocation. The request is recognized before the
@@ -1130,13 +1355,27 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             // No cursor means the end of the line, which is where a shell puts it when it has
             // no way to say — nushell, whose completer only ever sees the words.
             let cursor = cursor.unwrap_or(line.len());
-            let split = usage_argv::complete::split(&line, cursor, shell);
+            let mut split = usage_argv::complete::split(&line, cursor, shell);
+            let __usage_selected_view = split.words.first().and_then(|__usage_program| {
+                usage_argv::spec::view_for_program(
+                    Self::spec(),
+                    ::std::ffi::OsStr::new(__usage_program),
+                )
+            });
             if let ::std::option::Option::Some(name) = candidates_for {
                 // Walked here as well, because a `--candidates` request names a completer and
                 // says nothing about where the cursor is — and the completer still wants the
                 // words its own command was given.
-                let position =
-                    usage_argv::complete::walk(Self::spec().root.cmd, split.argv());
+                let position = match __usage_selected_view {
+                    ::std::option::Option::Some(view) =>
+                        usage_argv::complete::walk_view(
+                            Self::spec().root.cmd,
+                            split.argv(),
+                            view,
+                        ),
+                    ::std::option::Option::None =>
+                        usage_argv::complete::walk(Self::spec().root.cmd, split.argv()),
+                };
                 let __usage_words = split.argv();
                 let __usage_path: ::std::vec::Vec<(
                     &usage_argv::Command<'_>,
@@ -1158,15 +1397,26 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                 // Nothing of that name is an empty answer rather than an error: a spec written
                 // against a newer version of this CLI is a stale script, and a stale script
                 // should complete nothing rather than print a message into the user's prompt.
-                let found =
-                    usage_argv::complete::for_name(Self::spec(), &name, &ctx).unwrap_or_default();
+                let found = match __usage_selected_view {
+                    ::std::option::Option::Some(view) =>
+                        usage_argv::complete::for_name_view(Self::spec(), &name, &ctx, view)
+                            .unwrap_or_default(),
+                    ::std::option::Option::None =>
+                        usage_argv::complete::for_name(Self::spec(), &name, &ctx)
+                            .unwrap_or_default(),
+                };
                 let answer = usage_argv::complete::Completions {
                     candidates: found,
                     files: ::std::option::Option::None,
                 };
                 return ::std::option::Option::Some(usage_argv::complete::render(&answer, shell));
             }
-            let answer = usage_argv::complete::complete(Self::spec(), &split);
+            let answer = match __usage_selected_view {
+                ::std::option::Option::Some(view) =>
+                    usage_argv::complete::complete_view(Self::spec(), &split, view),
+                ::std::option::Option::None =>
+                    usage_argv::complete::complete(Self::spec(), &split),
+            };
             ::std::option::Option::Some(usage_argv::complete::render(&answer, shell))
         }
     };
@@ -2236,6 +2486,71 @@ fn semantic_given(field: &Field) -> TokenStream {
     quote!(partial.#given)
 }
 
+fn view_policy_given(field: &Field) -> TokenStream {
+    let given = policy_given(field);
+    let active = view_field_active(field);
+    quote!((#active) && (#given))
+}
+
+/// Whether a root field belongs to the executable surface currently being parsed.
+///
+/// A view promotes a subcommand and carries only the root globals it names. The selected
+/// subcommand is checked through its own generated module, where `__usage_view` is `None`;
+/// this predicate therefore filters only policy declared on the omitted root surface.
+fn view_field_active(field: &Field) -> TokenStream {
+    let Kind::Flag {
+        longs,
+        hidden_longs,
+        shorts,
+        global: true,
+        ..
+    } = &field.kind
+    else {
+        return quote!(__usage_view.is_none());
+    };
+    let long_selectors = longs
+        .iter()
+        .chain(hidden_longs)
+        .map(|long| format!("--{long}"));
+    let short_selectors = shorts.iter().map(|short| format!("-{short}"));
+    let selectors: Vec<String> = long_selectors.chain(short_selectors).collect();
+    quote! {
+        match __usage_view {
+            ::std::option::Option::None => true,
+            ::std::option::Option::Some(__usage_view) => {
+                __usage_view.all_globals
+                    || __usage_view.globals.iter().any(|__usage_selector| {
+                        matches!(*__usage_selector, #(#selectors)|*)
+                    })
+            }
+        }
+    }
+}
+
+/// Whether a root field is carried into one declared executable view.
+///
+/// This is the compile-time counterpart of [`view_field_active`]. It is used when an error
+/// needs a static slice containing only the group members that the selected view accepts.
+fn field_active_in_view(field: &Field, view: &ViewDecl) -> bool {
+    let Kind::Flag {
+        longs,
+        hidden_longs,
+        shorts,
+        global: true,
+        ..
+    } = &field.kind
+    else {
+        return false;
+    };
+    view.all_globals
+        || longs
+            .iter()
+            .chain(hidden_longs)
+            .map(|long| format!("--{long}"))
+            .chain(shorts.iter().map(|short| format!("-{short}")))
+            .any(|selector| view.globals.contains(&selector))
+}
+
 /// Whether a repeat of this flag is only a duplicate *within one command*.
 ///
 /// A `global` flag is in scope for every descendant, and clap lets it be given again on a
@@ -2846,6 +3161,10 @@ fn partial_struct(cli: &Cli) -> TokenStream {
     // its own starting values.
     quote! {
         pub struct Partial {
+            pub __usage_view: ::std::option::Option<
+                &'static usage_argv::spec::ViewMeta<'static>,
+            >,
+            pub __usage_omit_own: bool,
             #(#fields)*
             #sub
         }
@@ -3186,6 +3505,8 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
     // that `#sub_starts` builds rather than a value.
     quote! {
         let mut partial = Partial {
+            __usage_view: ::std::option::Option::None,
+            __usage_omit_own: false,
             #(#plain)*
             #sub_starts
         };
@@ -3198,7 +3519,7 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
 /// means. This is where meaning arrives: a `String` field takes the text as it is, and
 /// anything else is built with `FromStr` — which is what lets a field be a `PathBuf`, a
 /// number, or a type of the adopter's own.
-fn field_final(field: &Field) -> TokenStream {
+fn field_final(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
     let name = &field.name;
@@ -3209,14 +3530,37 @@ fn field_final(field: &Field) -> TokenStream {
     if let Kind::Flatten { ty } = &field.kind {
         // Built by its own derive, which is also what makes a nested flatten work: this is
         // the same call at every level.
-        //
-        return quote! {
-            #ident: <#ty as usage_argv::spec::CommandArgs>::build(partial.#ident)?
+        return match omitter {
+            Some(omitter) => quote! {
+                #ident: <#ty as usage_argv::spec::ViewCommandArgs<#omitter>>::build_for_view(
+                    partial.#ident,
+                )?
+            },
+            None => quote! {
+                #ident: <#ty as usage_argv::spec::CommandArgs>::build(partial.#ident)?
+            },
         };
     }
+    let active = view_field_active(field);
+    let ty = &field.ty;
+    let finished = |value: TokenStream| {
+        let Some(omitter) = omitter else {
+            return quote!(#ident: #value);
+        };
+        quote! {
+            #ident: {
+                let __usage_view = partial.__usage_view;
+                if partial.__usage_omit_own || !(#active) {
+                    <#omitter as usage_argv::spec::Omitted<#ty>>::omitted()
+                } else {
+                    #value
+                }
+            }
+        }
+    };
     let Some(ty) = field.value_ty.as_ref() else {
         // A switch or a count: nothing was parsed from a word.
-        return quote!(#ident: partial.#ident);
+        return finished(quote!(partial.#ident));
     };
 
     // Every type converts, `String` included: the partial holds the bytes that were typed,
@@ -3285,18 +3629,18 @@ fn field_final(field: &Field) -> TokenStream {
         return match field.shape {
             // Unreachable: a switch and a count have no `value_ty`, so the early return
             // above already handled them.
-            Shape::Bool | Shape::Count => quote!(#ident: partial.#ident),
+            Shape::Bool | Shape::Count => finished(quote!(partial.#ident)),
             Shape::Required => {
                 let value = converted(quote!(partial.#ident));
-                quote!(#ident: #value)
+                finished(value)
             }
             // A `match` rather than `.map`, and a loop rather than `.collect`, for the same
             // reason the text path below uses them: the conversion can fail, and a `return`
             // inside a closure would leave the error in the closure's own return type.
             Shape::Optional if field.optional_value_type => {
                 let value = converted(quote!(__usage_value));
-                quote! {
-                    #ident: match partial.#ident {
+                finished(quote! {
+                    match partial.#ident {
                         ::std::option::Option::Some(__usage_value) => {
                             ::std::option::Option::Some(::std::option::Option::Some(#value))
                         }
@@ -3305,18 +3649,18 @@ fn field_final(field: &Field) -> TokenStream {
                         }
                         ::std::option::Option::None => ::std::option::Option::None,
                     }
-                }
+                })
             }
             Shape::Optional => {
                 let value = converted(quote!(__usage_value));
-                quote! {
-                    #ident: match partial.#ident {
+                finished(quote! {
+                    match partial.#ident {
                         ::std::option::Option::Some(__usage_value) => {
                             ::std::option::Option::Some(#value)
                         }
                         ::std::option::Option::None => ::std::option::Option::None,
                     }
-                }
+                })
             }
             Shape::Many => {
                 let value = converted(quote!(__usage_value));
@@ -3334,15 +3678,15 @@ fn field_final(field: &Field) -> TokenStream {
                     // Same as below: whether anything arrived is what tells "never given"
                     // from "given nothing", which the `Vec` itself cannot. A `default_if`
                     // that fired has already pushed, so a non-empty vec is a value too.
-                    quote! {
-                        #ident: if partial.#given || #defaulted || !partial.#ident.is_empty() {
+                    finished(quote! {
+                        if partial.#given || #defaulted || !partial.#ident.is_empty() {
                             ::std::option::Option::Some(#collected)
                         } else {
                             ::std::option::Option::None
                         }
-                    }
+                    })
                 } else {
-                    quote!(#ident: #collected)
+                    finished(collected)
                 }
             }
         };
@@ -3412,15 +3756,15 @@ fn field_final(field: &Field) -> TokenStream {
     };
 
     match field.shape {
-        Shape::Bool | Shape::Count => quote!(#ident: partial.#ident),
+        Shape::Bool | Shape::Count => finished(quote!(partial.#ident)),
         Shape::Required => {
             let one = converted(quote!(partial.#ident));
-            quote!(#ident: #one)
+            finished(one)
         }
         Shape::Optional if field.optional_value_type => {
             let one = converted(quote!(__usage_value));
-            quote! {
-                #ident: match partial.#ident {
+            finished(quote! {
+                match partial.#ident {
                     ::std::option::Option::Some(__usage_value) => {
                         ::std::option::Option::Some(::std::option::Option::Some(#one))
                     }
@@ -3429,18 +3773,18 @@ fn field_final(field: &Field) -> TokenStream {
                     }
                     ::std::option::Option::None => ::std::option::Option::None,
                 }
-            }
+            })
         }
         Shape::Optional => {
             let one = converted(quote!(__usage_value));
-            quote! {
-                #ident: match partial.#ident {
+            finished(quote! {
+                match partial.#ident {
                     ::std::option::Option::Some(__usage_value) => {
                         ::std::option::Option::Some(#one)
                     }
                     ::std::option::Option::None => ::std::option::Option::None,
                 }
-            }
+            })
         }
         Shape::Many => {
             let one = converted(quote!(__usage_value));
@@ -3468,15 +3812,15 @@ fn field_final(field: &Field) -> TokenStream {
                 let defaulted = !field.default.is_empty();
                 // `Option<Vec<T>>` distinguishes "never given" from "given nothing", which
                 // no `Vec` can — so the answer comes from whether anything arrived.
-                quote! {
-                    #ident: if partial.#given || #defaulted || !partial.#ident.is_empty() {
+                finished(quote! {
+                    if partial.#given || #defaulted || !partial.#ident.is_empty() {
                         ::std::option::Option::Some(#collected)
                     } else {
                         ::std::option::Option::None
                     }
-                }
+                })
             } else {
-                quote!(#ident: #collected)
+                finished(collected)
             }
         }
     }
@@ -3799,6 +4143,10 @@ struct SubcommandParts {
     check: TokenStream,
     /// Building the field.
     build: TokenStream,
+    /// Building the field while an executable view omits injected parents.
+    view_build: TokenStream,
+    /// The process entry point's concrete view build.
+    default_view_build: TokenStream,
 }
 
 fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
@@ -3814,29 +4162,43 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
         quote!(ROOT)
     };
 
-    let selected = quote! {
-        match partial.__usage_selected {
-            ::std::option::Option::Some(__usage_at) => {
+    let selected = |omitter: Option<TokenStream>| {
+        let select = match omitter {
+            Some(omitter) => quote! {
+                <#ty as usage_argv::spec::ViewSubcommands<#omitter>>::select_for_view(
+                    partial.__usage_sub,
+                    __usage_at,
+                )?
+            },
+            None => quote! {
                 <#ty as usage_argv::spec::Subcommands>::select(
                     partial.__usage_sub,
                     __usage_at,
                 )?
+            },
+        };
+        quote! {
+            match partial.__usage_selected {
+                ::std::option::Option::Some(__usage_at) => #select,
+                ::std::option::Option::None => ::std::option::Option::None,
             }
-            ::std::option::Option::None => ::std::option::Option::None,
         }
     };
-    let build = if optional {
-        quote!(#ident: #selected,)
-    } else {
-        quote! {
-            #ident: match #selected {
-                ::std::option::Option::Some(__usage_cmd) => __usage_cmd,
-                ::std::option::Option::None => {
-                    return ::std::result::Result::Err(
-                        usage_argv::Error::MissingSubcommand,
-                    );
-                }
-            },
+    let build = |omitter: Option<TokenStream>| {
+        let selected = selected(omitter);
+        if optional {
+            quote!(#ident: #selected,)
+        } else {
+            quote! {
+                #ident: match #selected {
+                    ::std::option::Option::Some(__usage_cmd) => __usage_cmd,
+                    ::std::option::Option::None => {
+                        return ::std::result::Result::Err(
+                            usage_argv::Error::MissingSubcommand,
+                        );
+                    }
+                },
+            }
         }
     };
 
@@ -3954,13 +4316,26 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
         },
         check: quote! {
             if let ::std::option::Option::Some(__usage_at) = partial.__usage_selected {
-                <#ty as usage_argv::spec::Subcommands>::check(
-                    &mut partial.__usage_sub,
-                    __usage_at,
-                )?;
+                match __usage_view {
+                    ::std::option::Option::Some(__usage_view) => {
+                        <#ty as usage_argv::spec::Subcommands>::check_for_view_path(
+                            &mut partial.__usage_sub,
+                            __usage_at,
+                            __usage_view.root.split_ascii_whitespace().count(),
+                        )?;
+                    }
+                    ::std::option::Option::None => {
+                        <#ty as usage_argv::spec::Subcommands>::check(
+                            &mut partial.__usage_sub,
+                            __usage_at,
+                        )?;
+                    }
+                }
             }
         },
-        build,
+        build: build(None),
+        view_build: build(Some(quote!(__UsageOmitter))),
+        default_view_build: build(Some(quote!(usage_argv::spec::DefaultViewOmitter))),
     })
 }
 
@@ -3976,8 +4351,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .any(|field| field.validate.is_some())
         .then(|| quote!(use #validation as usage_validation;));
     let presence = presence_methods(cli);
-    let apply_defaults = declared_defaults(cli);
-    let apply_env = env_fallbacks(cli);
+    let apply_defaults = declared_defaults(cli, true);
+    let apply_env = env_fallbacks(cli, true);
     // A group carries settings the same way a root does, minus the layer: `SettingGiven` is
     // usage-argv's own vocabulary, so a flattened group can hand its parent what it was given
     // without either of them naming the config crate. Emitted whenever it has anything to say —
@@ -4102,6 +4477,10 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .unwrap_or_default();
     let sub_metas = parts.as_ref().map(|p| p.metas.clone()).unwrap_or_default();
     let sub_build = parts.as_ref().map(|p| p.build.clone()).unwrap_or_default();
+    let sub_view_build = parts
+        .as_ref()
+        .map(|p| p.view_build.clone())
+        .unwrap_or_default();
     // The same conversion the root gets. Two emitters producing one `build` is what let
     // this diverge: a typed field on a subcommand compiled here and not there, which is
     // every command mise has.
@@ -4109,9 +4488,97 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .fields
         .iter()
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
-        .map(field_final)
+        .map(|field| field_final(field, None))
         .collect();
     let built = built_value(cli, &sub_build, &field_finals);
+    let view_omitter = quote!(__UsageOmitter);
+    let view_field_finals: Vec<_> = cli
+        .fields
+        .iter()
+        .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
+        .map(|field| field_final(field, Some(&view_omitter)))
+        .collect();
+    let built_for_view = built_value(cli, &sub_view_build, &view_field_finals);
+    let view_bounds: Vec<_> = cli
+        .fields
+        .iter()
+        .map(|field| match &field.kind {
+            Kind::Flatten { ty } => {
+                quote!(#ty: usage_argv::spec::ViewCommandArgs<__UsageOmitter>)
+            }
+            Kind::Subcommand { ty, .. } => {
+                quote!(#ty: usage_argv::spec::ViewSubcommands<__UsageOmitter>)
+            }
+            _ => {
+                let ty = &field.ty;
+                quote!(__UsageOmitter: usage_argv::spec::Omitted<#ty>)
+            }
+        })
+        .collect();
+    let view_where = (!view_bounds.is_empty()).then(|| quote!(where #(#view_bounds,)*));
+
+    let view_path_methods = cli
+        .fields
+        .iter()
+        .find_map(|field| {
+            let Kind::Subcommand { ty, .. } = &field.kind else {
+                return None;
+            };
+            Some(quote! {
+                fn apply_env_for_view_path(
+                    partial: &mut Self::Partial,
+                    remaining_descendants: usize,
+                ) {
+                    if remaining_descendants == 0 {
+                        <Self as usage_argv::spec::CommandArgs>::apply_env(partial);
+                    } else if let ::std::option::Option::Some(__usage_at) =
+                        partial.__usage_selected
+                    {
+                        <#ty as usage_argv::spec::Subcommands>::apply_env_for_view_path(
+                            &mut partial.__usage_sub,
+                            ::std::option::Option::Some(__usage_at),
+                            remaining_descendants,
+                        );
+                    }
+                }
+
+                fn check_for_view_path<'t, 'v>(
+                    partial: &mut Self::Partial,
+                    remaining_descendants: usize,
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                    if remaining_descendants == 0 {
+                        <Self as usage_argv::spec::CommandArgs>::check(partial)
+                    } else if let ::std::option::Option::Some(__usage_at) =
+                        partial.__usage_selected
+                    {
+                        <Self as usage_argv::spec::CommandArgs>::omit_own_for_view(partial);
+                        <#ty as usage_argv::spec::Subcommands>::check_for_view_path(
+                            &mut partial.__usage_sub,
+                            __usage_at,
+                            remaining_descendants,
+                        )
+                    } else {
+                        ::std::result::Result::Ok(())
+                    }
+                }
+            })
+        })
+        .unwrap_or_default();
+    let omit_flattened = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            <#ty as usage_argv::spec::CommandArgs>::omit_own_for_view(&mut partial.#ident);
+        })
+    });
+    let omit_own = quote! {
+        fn omit_own_for_view(partial: &mut Self::Partial) {
+            partial.__usage_omit_own = true;
+            #(#omit_flattened)*
+        }
+    };
 
     // The root cannot carry one — the spec writer asserts it — so this is the non-root
     // path's alone, which is also the only path a command's own declaration reaches.
@@ -4223,16 +4690,31 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             /// Separate from `build` because only the *selected* command's
             /// requirements apply: a flag that `install` requires says nothing about
             /// an invocation that ran `run`.
-            pub fn check_with_args_override_self<'t, 'v>(
+            fn check_with_args_override_self_for_view<'t, 'v>(
                 partial: &mut Partial,
                 args_override_self: bool,
+                __usage_view: ::std::option::Option<
+                    &'static usage_argv::spec::ViewMeta<'static>,
+                >,
             ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                partial.__usage_view = __usage_view;
                 // Read unconditionally: a command that declares nothing to check would
                 // otherwise leave the parameter unused in the user's crate, where
                 // nobody can silence it.
                 let _ = &partial;
                 #post
                 ::std::result::Result::Ok(())
+            }
+
+            pub fn check_with_args_override_self<'t, 'v>(
+                partial: &mut Partial,
+                args_override_self: bool,
+            ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                check_with_args_override_self_for_view(
+                    partial,
+                    args_override_self,
+                    ::std::option::Option::None,
+                )
             }
 
             pub fn check<'t, 'v>(
@@ -4281,15 +4763,52 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     check_with_args_override_self(partial, args_override_self)
                 }
 
+                fn check_with_args_override_self_for_view<'t, 'v>(
+                    partial: &mut Self::Partial,
+                    args_override_self: bool,
+                    view: ::std::option::Option<
+                        &'static usage_argv::spec::ViewMeta<'static>,
+                    >,
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                    check_with_args_override_self_for_view(partial, args_override_self, view)
+                }
+
                 #presence
 
                 fn apply_defaults(partial: &mut Self::Partial) {
+                    let __usage_view: ::std::option::Option<
+                        &'static usage_argv::spec::ViewMeta<'static>,
+                    > = ::std::option::Option::None;
+                    #apply_defaults
+                }
+
+                fn apply_defaults_for_view(
+                    partial: &mut Self::Partial,
+                    __usage_view: ::std::option::Option<
+                        &'static usage_argv::spec::ViewMeta<'static>,
+                    >,
+                ) {
                     #apply_defaults
                 }
 
                 fn apply_env(partial: &mut Self::Partial) {
+                    let __usage_view: ::std::option::Option<
+                        &'static usage_argv::spec::ViewMeta<'static>,
+                    > = ::std::option::Option::None;
                     #apply_env
                 }
+
+                fn apply_env_for_view(
+                    partial: &mut Self::Partial,
+                    __usage_view: ::std::option::Option<
+                        &'static usage_argv::spec::ViewMeta<'static>,
+                    >,
+                ) {
+                    #apply_env
+                }
+
+                #view_path_methods
+                #omit_own
 
                 #settings_impl
 
@@ -4297,6 +4816,17 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     partial: Self::Partial,
                 ) -> ::std::result::Result<Self, usage_argv::Error<'t, 'v>> {
                     ::std::result::Result::Ok(#built)
+                }
+            }
+
+            impl<__UsageOmitter> usage_argv::spec::ViewCommandArgs<__UsageOmitter>
+                for #ident
+                #view_where
+            {
+                fn build_for_view<'t, 'v>(
+                    partial: Self::Partial,
+                ) -> ::std::result::Result<Self, usage_argv::Error<'t, 'v>> {
+                    ::std::result::Result::Ok(#built_for_view)
                 }
             }
         };
@@ -4698,6 +5228,29 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             }
         }
     });
+    let view_checks = subs.variants.iter().enumerate().map(|(i, v)| {
+        let variant = format_ident!("V{i}");
+        if v.external {
+            quote! { #i => ::std::result::Result::Ok(()), }
+        } else {
+            let ty = &v.ty;
+            quote! {
+                #i => match partial {
+                    Partial::#variant(__usage_p) => {
+                        if remaining_commands <= 1 {
+                            <#ty as usage_argv::spec::CommandArgs>::check(__usage_p)
+                        } else {
+                            <#ty as usage_argv::spec::CommandArgs>::check_for_view_path(
+                                __usage_p,
+                                remaining_commands - 1,
+                            )
+                        }
+                    }
+                    _ => ::std::result::Result::Ok(()),
+                },
+            }
+        }
+    });
     // Every variant's bindings, because a table says what the CLI *can* do and is compared
     // against a spec that documents all of them — but only the selected variant's values, since
     // those are about one invocation. A command nobody ran did not give anything.
@@ -4782,133 +5335,177 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             }
         }
     });
-    let selects = subs.variants.iter().enumerate().map(|(i, v)| {
-        let held = format_ident!("V{i}");
-        let variant = &v.ident;
+    let view_apply_envs = subs.variants.iter().enumerate().map(|(i, v)| {
+        let variant = format_ident!("V{i}");
         if v.external {
-            let name = &v.name;
-            let collected = if v.external_os {
-                quote! {{
-                    let mut __usage_values = ::std::vec::Vec::with_capacity(__usage_p.len());
-                    for __usage_item in __usage_p {
-                        match usage_argv::os_string_from_bytes(__usage_item) {
-                            ::std::result::Result::Ok(__usage_os) => {
-                                __usage_values.push(__usage_os)
-                            }
-                            ::std::result::Result::Err(__usage_bytes) => {
-                                return ::std::result::Result::Err(
-                                    usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                                        usage_argv::InvalidValue {
-                                            name: #name,
-                                            value: ::std::string::String::from_utf8_lossy(
-                                                &__usage_bytes,
-                                            )
-                                            .into_owned(),
-                                            reason: ::std::string::ToString::to_string(
-                                                &"this platform cannot hold these bytes",
-                                            ),
-                                        },
-                                    )),
-                                );
-                            }
-                        }
-                    }
-                    __usage_values
-                }}
-            } else {
-                quote! {{
-                    let mut __usage_values = ::std::vec::Vec::with_capacity(__usage_p.len());
-                    for __usage_item in __usage_p {
-                        match ::std::string::String::from_utf8(__usage_item) {
-                            ::std::result::Result::Ok(__usage_text) => {
-                                __usage_values.push(__usage_text)
-                            }
-                            ::std::result::Result::Err(__usage_bad) => {
-                                return ::std::result::Result::Err(
-                                    usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                                        usage_argv::InvalidValue {
-                                            name: #name,
-                                            value: ::std::string::String::from_utf8_lossy(
-                                                __usage_bad.as_bytes(),
-                                            )
-                                            .into_owned(),
-                                            reason: ::std::string::ToString::to_string(
-                                                &__usage_bad.utf8_error(),
-                                            ),
-                                        },
-                                    )),
-                                );
-                            }
-                        }
-                    }
-                    __usage_values
-                }}
-            };
-            let made = quote!(#ident::#variant(#collected));
-            quote! {
-                #i => match partial {
-                    Partial::#held(__usage_p) => {
-                        ::std::result::Result::Ok(::std::option::Option::Some(#made))
-                    }
-                    _ => ::std::result::Result::Ok(::std::option::Option::None),
-                },
-            }
+            quote! { ::std::option::Option::Some(#i) => {} }
         } else {
             let ty = &v.ty;
-            // The one place the box matters: everything else — tables, partial, `build` —
-            // speaks to the struct itself.
-            let built = quote!(<#ty as usage_argv::spec::CommandArgs>::build(__usage_p)?);
-            let built = if v.boxed {
-                quote!(::std::boxed::Box::new(#built))
-            } else {
-                built
-            };
-            // A bare variant has nowhere to put what was built, and nothing was declared to go in
-            // it — but the build still runs, because that is where the command's own checks live.
-            let made = if v.unit {
-                quote! {{
-                    let _ = #built;
-                    #ident::#variant
-                }}
-            } else if let Some(fields) = &v.inline_fields {
-                let assignments = fields.iter().map(|field| {
-                    let name = field
-                        .ident
-                        .as_ref()
-                        .expect("named variant fields have names");
-                    let cfg_attrs = field
-                        .attrs
-                        .iter()
-                        .filter(|attr| meta_controls_field_presence(&attr.meta));
-                    quote! {
-                        #(#cfg_attrs)*
-                        #name: __usage_built.#name
-                    }
-                });
-                quote! {{
-                    let __usage_built = #built;
-                    // An empty named variant, or one whose fields were all removed by cfg,
-                    // still has to run `build` for the command's checks. Mark the result used
-                    // without changing the field moves below.
-                    let _ = &__usage_built;
-                    #ident::#variant {
-                        #(#assignments),*
-                    }
-                }}
-            } else {
-                quote!(#ident::#variant(#built))
-            };
             quote! {
-                #i => match partial {
-                    Partial::#held(__usage_p) => {
-                        ::std::result::Result::Ok(::std::option::Option::Some(#made))
+                ::std::option::Option::Some(#i) => {
+                    if let Partial::#variant(__usage_p) = partial {
+                        if remaining_commands <= 1 {
+                            <#ty as usage_argv::spec::CommandArgs>::apply_env(__usage_p);
+                        } else {
+                            <#ty as usage_argv::spec::CommandArgs>::apply_env_for_view_path(
+                                __usage_p,
+                                remaining_commands - 1,
+                            );
+                        }
                     }
-                    // Selected but unfilled cannot happen — see `Subcommands::begin`.
-                    _ => ::std::result::Result::Ok(::std::option::Option::None),
-                },
+                }
             }
         }
     });
+    let select_arms = |for_view: bool| {
+        subs.variants.iter().enumerate().map(move |(i, v)| {
+            let held = format_ident!("V{i}");
+            let variant = &v.ident;
+            if v.external {
+                let name = &v.name;
+                let collected = if v.external_os {
+                    quote! {{
+                        let mut __usage_values = ::std::vec::Vec::with_capacity(__usage_p.len());
+                        for __usage_item in __usage_p {
+                            match usage_argv::os_string_from_bytes(__usage_item) {
+                                ::std::result::Result::Ok(__usage_os) => {
+                                    __usage_values.push(__usage_os)
+                                }
+                                ::std::result::Result::Err(__usage_bytes) => {
+                                    return ::std::result::Result::Err(
+                                        usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                                            usage_argv::InvalidValue {
+                                                name: #name,
+                                                value: ::std::string::String::from_utf8_lossy(
+                                                    &__usage_bytes,
+                                                )
+                                                .into_owned(),
+                                                reason: ::std::string::ToString::to_string(
+                                                    &"this platform cannot hold these bytes",
+                                                ),
+                                            },
+                                        )),
+                                    );
+                                }
+                            }
+                        }
+                        __usage_values
+                    }}
+                } else {
+                    quote! {{
+                        let mut __usage_values = ::std::vec::Vec::with_capacity(__usage_p.len());
+                        for __usage_item in __usage_p {
+                            match ::std::string::String::from_utf8(__usage_item) {
+                                ::std::result::Result::Ok(__usage_text) => {
+                                    __usage_values.push(__usage_text)
+                                }
+                                ::std::result::Result::Err(__usage_bad) => {
+                                    return ::std::result::Result::Err(
+                                        usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                                            usage_argv::InvalidValue {
+                                                name: #name,
+                                                value: ::std::string::String::from_utf8_lossy(
+                                                    __usage_bad.as_bytes(),
+                                                )
+                                                .into_owned(),
+                                                reason: ::std::string::ToString::to_string(
+                                                    &__usage_bad.utf8_error(),
+                                                ),
+                                            },
+                                        )),
+                                    );
+                                }
+                            }
+                        }
+                        __usage_values
+                    }}
+                };
+                let made = quote!(#ident::#variant(#collected));
+                quote! {
+                    #i => match partial {
+                        Partial::#held(__usage_p) => {
+                            ::std::result::Result::Ok(::std::option::Option::Some(#made))
+                        }
+                        _ => ::std::result::Result::Ok(::std::option::Option::None),
+                    },
+                }
+            } else {
+                let ty = &v.ty;
+                // The one place the box matters: everything else — tables, partial, `build` —
+                // speaks to the struct itself.
+                let built = if for_view {
+                    quote!(
+                        <#ty as usage_argv::spec::ViewCommandArgs<__UsageOmitter>>::build_for_view(
+                            __usage_p,
+                        )?
+                    )
+                } else {
+                    quote!(<#ty as usage_argv::spec::CommandArgs>::build(__usage_p)?)
+                };
+                let built = if v.boxed {
+                    quote!(::std::boxed::Box::new(#built))
+                } else {
+                    built
+                };
+                // A bare variant has nowhere to put what was built, and nothing was declared to go in
+                // it — but the build still runs, because that is where the command's own checks live.
+                let made = if v.unit {
+                    quote! {{
+                        let _ = #built;
+                        #ident::#variant
+                    }}
+                } else if let Some(fields) = &v.inline_fields {
+                    let assignments = fields.iter().map(|field| {
+                        let name = field
+                            .ident
+                            .as_ref()
+                            .expect("named variant fields have names");
+                        let cfg_attrs = field
+                            .attrs
+                            .iter()
+                            .filter(|attr| meta_controls_field_presence(&attr.meta));
+                        quote! {
+                            #(#cfg_attrs)*
+                            #name: __usage_built.#name
+                        }
+                    });
+                    quote! {{
+                        let __usage_built = #built;
+                        // An empty named variant, or one whose fields were all removed by cfg,
+                        // still has to run `build` for the command's checks. Mark the result used
+                        // without changing the field moves below.
+                        let _ = &__usage_built;
+                        #ident::#variant {
+                            #(#assignments),*
+                        }
+                    }}
+                } else {
+                    quote!(#ident::#variant(#built))
+                };
+                quote! {
+                    #i => match partial {
+                        Partial::#held(__usage_p) => {
+                            ::std::result::Result::Ok(::std::option::Option::Some(#made))
+                        }
+                        // Selected but unfilled cannot happen — see `Subcommands::begin`.
+                        _ => ::std::result::Result::Ok(::std::option::Option::None),
+                    },
+                }
+            }
+        })
+    };
+    let selects = select_arms(false);
+    let view_selects = select_arms(true);
+    let view_bounds: Vec<_> = subs
+        .variants
+        .iter()
+        .filter(|v| !v.external)
+        .map(|v| {
+            let ty = &v.ty;
+            quote!(#ty: usage_argv::spec::ViewCommandArgs<__UsageOmitter>)
+        })
+        .collect();
+    let view_where = (!view_bounds.is_empty()).then(|| quote!(where #(#view_bounds,)*));
 
     quote! {
         // Beside the enum rather than inside the generated module: the variants name these
@@ -5027,6 +5624,17 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     }
                 }
 
+                fn apply_env_for_view_path(
+                    partial: &mut Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                    remaining_commands: usize,
+                ) {
+                    match selected {
+                        #(#view_apply_envs)*
+                        _ => {}
+                    }
+                }
+
                 fn check<'t, 'v>(
                     partial: &mut Self::Partial,
                     selected: usize,
@@ -5035,6 +5643,17 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         #(#checks)*
                         // A position that is not one of these cannot be produced: it comes
                         // from finding a table's own address in COMMANDS.
+                        _ => ::std::result::Result::Ok(()),
+                    }
+                }
+
+                fn check_for_view_path<'t, 'v>(
+                    partial: &mut Self::Partial,
+                    selected: usize,
+                    remaining_commands: usize,
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                    match selected {
+                        #(#view_checks)*
                         _ => ::std::result::Result::Ok(()),
                     }
                 }
@@ -5048,6 +5667,24 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 > {
                     match selected {
                         #(#selects)*
+                        _ => ::std::result::Result::Ok(::std::option::Option::None),
+                    }
+                }
+            }
+
+            impl<__UsageOmitter> usage_argv::spec::ViewSubcommands<__UsageOmitter>
+                for #ident
+                #view_where
+            {
+                fn select_for_view<'t, 'v>(
+                    partial: Self::Partial,
+                    selected: usize,
+                ) -> ::std::result::Result<
+                    ::std::option::Option<Self>,
+                    usage_argv::Error<'t, 'v>,
+                > {
+                    match selected {
+                        #(#view_selects)*
                         _ => ::std::result::Result::Ok(::std::option::Option::None),
                     }
                 }
@@ -5227,7 +5864,7 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
 /// Separate from the rest of `check` because exclusivity suppresses requiredness, not values a
 /// CLI promised to provide by default. A parent can therefore prepare an opaque flattened partial
 /// without also asking it to report a missing sibling.
-fn declared_defaults(cli: &Cli) -> TokenStream {
+fn declared_defaults(cli: &Cli, filter_view: bool) -> TokenStream {
     let own = cli.fields.iter().filter_map(|f| {
         if matches!(f.kind, Kind::Subcommand { .. } | Kind::Skip) {
             return None;
@@ -5256,8 +5893,14 @@ fn declared_defaults(cli: &Cli) -> TokenStream {
                 #assign
             }));
         }
+        let active = if filter_view {
+            let active = view_field_active(f);
+            quote!((#active) &&)
+        } else {
+            quote!()
+        };
         Some(quote! {
-            if !partial.#given #standing {
+            if #active !partial.#given #standing {
                 let mut __usage_filled = false;
                 #(#fills)*
             }
@@ -5268,8 +5911,17 @@ fn declared_defaults(cli: &Cli) -> TokenStream {
             return None;
         };
         let ident = &f.ident;
-        Some(quote! {
-            <#ty as usage_argv::spec::CommandArgs>::apply_defaults(&mut partial.#ident);
+        Some(if filter_view {
+            quote! {
+                <#ty as usage_argv::spec::CommandArgs>::apply_defaults_for_view(
+                    &mut partial.#ident,
+                    __usage_view,
+                );
+            }
+        } else {
+            quote! {
+                <#ty as usage_argv::spec::CommandArgs>::apply_defaults(&mut partial.#ident);
+            }
         })
     });
     quote! {
@@ -5282,7 +5934,7 @@ fn declared_defaults(cli: &Cli) -> TokenStream {
 ///
 /// Kept separate from the rest of post-binding validation because a parent must apply these
 /// before it can enforce a relationship whose other side lives across a flatten boundary.
-fn env_fallbacks(cli: &Cli) -> TokenStream {
+fn env_fallbacks(cli: &Cli, filter_view: bool) -> TokenStream {
     let own = cli.fields.iter().filter_map(|f| {
         let ident = &f.ident;
         let given = format_ident!("__given_{}", ident);
@@ -5341,8 +5993,14 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
         // A flag that lost an override is not merely unset: filling it from the
         // environment would undo the last-one-wins the command line asked for.
         let standing = displaced_guard(cli, f);
+        let active = if filter_view {
+            let active = view_field_active(f);
+            quote!((#active) &&)
+        } else {
+            quote!()
+        };
         Some(quote! {
-            if !partial.#given #standing {
+            if #active !partial.#given #standing {
                 for __usage_env in [#(#vars),*] {
                     if let ::std::result::Result::Ok(value) = ::std::env::var(__usage_env) {
                         let mut continue_unset = false;
@@ -5361,19 +6019,48 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
             return None;
         };
         let ident = &f.ident;
-        Some(quote! {
-            <#ty as usage_argv::spec::CommandArgs>::apply_env(&mut partial.#ident);
+        Some(if filter_view {
+            quote! {
+                <#ty as usage_argv::spec::CommandArgs>::apply_env_for_view(
+                    &mut partial.#ident,
+                    __usage_view,
+                );
+            }
+        } else {
+            quote! {
+                <#ty as usage_argv::spec::CommandArgs>::apply_env(&mut partial.#ident);
+            }
         })
     });
     let selected = cli.fields.iter().find_map(|f| {
         let Kind::Subcommand { ty, .. } = &f.kind else {
             return None;
         };
-        Some(quote! {
-            <#ty as usage_argv::spec::Subcommands>::apply_env(
-                &mut partial.__usage_sub,
-                partial.__usage_selected,
-            );
+        Some(if filter_view {
+            quote! {
+                match __usage_view {
+                    ::std::option::Option::Some(__usage_view) => {
+                        <#ty as usage_argv::spec::Subcommands>::apply_env_for_view_path(
+                            &mut partial.__usage_sub,
+                            partial.__usage_selected,
+                            __usage_view.root.split_ascii_whitespace().count(),
+                        );
+                    }
+                    ::std::option::Option::None => {
+                        <#ty as usage_argv::spec::Subcommands>::apply_env(
+                            &mut partial.__usage_sub,
+                            partial.__usage_selected,
+                        );
+                    }
+                }
+            }
+        } else {
+            quote! {
+                <#ty as usage_argv::spec::Subcommands>::apply_env(
+                    &mut partial.__usage_sub,
+                    partial.__usage_selected,
+                );
+            }
         })
     });
     quote! {
@@ -5390,6 +6077,10 @@ fn env_fallbacks(cli: &Cli) -> TokenStream {
 /// come last, because they judge a value however it arrived, including one that came
 /// from the environment or a default.
 fn post_binding(cli: &Cli) -> TokenStream {
+    // Shadow the general presence helper in this generator only. A projected executable
+    // validates carried root globals; policy on every other root field belongs to the
+    // surface the view omitted. Selected commands run their own checker with no view.
+    let policy_given = view_policy_given;
     let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
     let subcommand_satisfies_requirements = if cli.subcommand_negates_reqs
         && cli
@@ -5453,9 +6144,10 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 || <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident)
                     .is_some()
             {
-                <#ty as usage_argv::spec::CommandArgs>::check_with_args_override_self(
+                <#ty as usage_argv::spec::CommandArgs>::check_with_args_override_self_for_view(
                     &mut partial.#ident,
                     args_override_self,
+                    __usage_view,
                 )?;
             }
         })
@@ -5481,9 +6173,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // which is the CLI's size leaking into the invocation. `check` runs for the selected
     // command only. The helper also prepares flattened defaults before an exclusive flag can
     // suppress those groups' requiredness checks.
-    let declared_defaults = declared_defaults(cli);
+    let declared_defaults = declared_defaults(cli, true);
 
-    let env_fallbacks = env_fallbacks(cli);
+    let env_fallbacks = env_fallbacks(cli, true);
 
     let required_checks = cli.fields.iter().filter_map(|f| {
         // A `String` has nowhere to put "absent", so the type is the declaration; a collection
@@ -5501,12 +6193,13 @@ fn post_binding(cli: &Cli) -> TokenStream {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
+        let active = view_field_active(f);
         let name = &f.name;
         // Same reason as the environment: a displaced flag was answered by the one that
         // displaced it, so it is not missing.
         let standing = displaced_guard(cli, f);
         Some(quote! {
-            if !partial.#given #standing {
+            if #active && !partial.#given #standing {
                 return ::std::result::Result::Err(
                     usage_argv::Error::MissingRequired { name: #name },
                 );
@@ -5547,9 +6240,11 @@ fn post_binding(cli: &Cli) -> TokenStream {
             // Rejected in the model: there is no value to check.
             Shape::Bool | Shape::Count => return None,
         };
+        let active = view_field_active(f);
         Some(quote! {
-            for value in #values {
-                // Compared as text, since a choice is a word.
+            if #active {
+                for value in #values {
+                    // Compared as text, since a choice is a word.
                 //
                 // Bytes that are not UTF-8 are passed over rather than reported here. They
                 // are not any of the choices, but saying so would answer the wrong question:
@@ -5557,17 +6252,18 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 // alone, it reaches `build`, which reports the UTF-8 failure with the value
                 // in it. Comparing the empty string instead — which is what `unwrap_or_default`
                 // did — made every such value collide with the choices check first.
-                let ::std::result::Result::Ok(__usage_text) = ::std::str::from_utf8(value)
-                else {
-                    continue;
-                };
-                if !usage_argv::spec::choice_matches(#accepted_choices, __usage_text, #ignore_case) {
-                    return ::std::result::Result::Err(
-                        usage_argv::Error::InvalidChoice {
-                            name: #name,
-                            choices: #choices,
-                        },
-                    );
+                    let ::std::result::Result::Ok(__usage_text) = ::std::str::from_utf8(value)
+                    else {
+                        continue;
+                    };
+                    if !usage_argv::spec::choice_matches(#accepted_choices, __usage_text, #ignore_case) {
+                        return ::std::result::Result::Err(
+                            usage_argv::Error::InvalidChoice {
+                                name: #name,
+                                choices: #choices,
+                            },
+                        );
+                    }
                 }
             }
         })
@@ -5587,30 +6283,33 @@ fn post_binding(cli: &Cli) -> TokenStream {
             Shape::Many => quote!(partial.#ident.iter()),
             Shape::Bool | Shape::Count => return None,
         };
+        let active = view_field_active(f);
         Some(quote! {
-            for value in #values {
-                let ::std::result::Result::Ok(__usage_text) = ::std::str::from_utf8(value)
-                else {
+            if #active {
+                for value in #values {
+                    let ::std::result::Result::Ok(__usage_text) = ::std::str::from_utf8(value)
+                    else {
                     // The field conversion reports non-UTF-8 with the original bytes. An expr
                     // variable is text, so claiming the validation failed would hide that more
                     // precise error.
-                    continue;
-                };
-                let __usage_reason = match usage_validation::validate(#expression, __usage_text) {
-                    ::std::result::Result::Ok(true) => continue,
-                    ::std::result::Result::Ok(false) => #message.to_string(),
-                    ::std::result::Result::Err(error) =>
-                        ::std::format!("validation expression failed: {error}"),
-                };
-                return ::std::result::Result::Err(
-                    usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                        usage_argv::InvalidValue {
-                            name: #name,
-                            value: __usage_text.to_string(),
-                            reason: __usage_reason,
-                        },
-                    )),
-                );
+                        continue;
+                    };
+                    let __usage_reason = match usage_validation::validate(#expression, __usage_text) {
+                        ::std::result::Result::Ok(true) => continue,
+                        ::std::result::Result::Ok(false) => #message.to_string(),
+                        ::std::result::Result::Err(error) =>
+                            ::std::format!("validation expression failed: {error}"),
+                    };
+                    return ::std::result::Result::Err(
+                        usage_argv::Error::InvalidValue(::std::boxed::Box::new(
+                            usage_argv::InvalidValue {
+                                name: #name,
+                                value: __usage_text.to_string(),
+                                reason: __usage_reason,
+                            },
+                        )),
+                    );
+                }
             }
         })
     });
@@ -5662,12 +6361,13 @@ fn post_binding(cli: &Cli) -> TokenStream {
             None => quote!(),
         };
         let given = format_ident!("__given_{}", ident);
+        let active = view_field_active(f);
         Some(quote! {
             // Only when the field was used. A bound says "if you give values, give
             // this many" — reading an unused optional flag as a violation would make
             // `var_min` a second way to spell required-ness, and there would then be
             // no way to say "at least two, if you use it at all".
-            if partial.#given {
+            if #active && partial.#given {
                 let got = partial.#ident.len();
                 #min
                 #max
@@ -6023,9 +6723,6 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 .filter_map(|selector| cli.field_for_selector(selector))
                 .collect();
             let given: Vec<TokenStream> = fields.iter().map(|f| policy_given(f)).collect();
-            // A member with a default always has a value, so the group can never be
-            // unsatisfied. Decided here rather than at run time, as `requires` is.
-            let always_filled = fields.iter().any(|f| !f.default.is_empty());
             let exclusivity = (!multiple).then(|| {
                 // Reported as the first two that were given, which is the pair the user has
                 // to choose between. `ConflictingFlags` rather than a group-shaped error:
@@ -6054,14 +6751,49 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 });
                 quote!(#(#pairs)*)
             });
-            let requiredness = (required && !always_filled).then(|| {
+            let requiredness = required.then(|| {
                 let selectors = &members;
+                let active: Vec<TokenStream> =
+                    fields.iter().map(|f| view_field_active(f)).collect();
+                let view_members = cli.views.iter().map(|view| {
+                    let id = &view.id;
+                    let carried: Vec<&String> = fields
+                        .iter()
+                        .zip(&members)
+                        .filter_map(|(field, selector)| {
+                            field_active_in_view(field, view).then_some(selector)
+                        })
+                        .collect();
+                    quote!(#id => &[#(#carried),*])
+                });
+                let filled: Vec<TokenStream> = fields
+                    .iter()
+                    .zip(&given)
+                    .zip(&active)
+                    .map(|((field, given), active)| {
+                        if field.default.is_empty() {
+                            quote!((#active) && (#given))
+                        } else {
+                            quote!(#active)
+                        }
+                    })
+                    .collect();
                 quote! {
-                    if !(#(#given)||*) {
+                    if (#(#active)||*) && !(#(#filled)||*) {
+                        let __usage_group_members: &'static [&'static str] =
+                            match __usage_view {
+                                ::std::option::Option::None => &[#(#selectors),*],
+                                ::std::option::Option::Some(__usage_group_view) => {
+                                    match __usage_group_view.id {
+                                        #(#view_members,)*
+                                        _ => &[#(#selectors),*],
+                                    }
+                                }
+                            };
                         return ::std::result::Result::Err(
                             usage_argv::Error::MissingGroup {
                                 group: #name,
-                                members: &[#(#selectors),*],
+                                members: __usage_group_members,
                             },
                         );
                     }
@@ -6099,6 +6831,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
+        let active = view_field_active(f);
         let name = &f.name;
         let selector_given = |selector: &String| {
             Some(match cli.field_for_selector(selector) {
@@ -6190,7 +6923,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 }
             });
         Some(quote! {
-            if !partial.#given {
+            if #active && !partial.#given {
                 #required_if
                 #required_if_eq
                 #required_if_eq_all

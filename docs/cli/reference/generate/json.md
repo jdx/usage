@@ -2,7 +2,7 @@
 
 # `usage generate json`
 
-- **Usage**: `usage generate json [-f --file <FILE>] [--spec <SPEC>]`
+- **Usage**: `usage generate json [FLAGS]`
 - **Effect**: read-only
 - **Source code**: [`cli/src/cli/generate/json.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/json.rs)
 
@@ -17,3 +17,7 @@ A usage spec taken in as a file, use "-" to read from stdin
 ### `--spec <SPEC>`
 
 raw string spec input
+
+### `--view <VIEW>`
+
+Render one spec-declared executable view

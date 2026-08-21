@@ -31,7 +31,7 @@ Outputs a `usage.kdl` spec for this CLI itself
 - [`usage generate completion-init [--usage-bin <USAGE_BIN>] <SHELL>`](/cli/reference/generate/completion-init.md)
 - [`usage generate fig [FLAGS]`](/cli/reference/generate/fig.md)
 - [`usage generate go [FLAGS]`](/cli/reference/generate/go.md)
-- [`usage generate json [-f --file <FILE>] [--spec <SPEC>]`](/cli/reference/generate/json.md)
+- [`usage generate json [FLAGS]`](/cli/reference/generate/json.md)
 - [`usage generate json-schema [FLAGS]`](/cli/reference/generate/json-schema.md)
 - [`usage generate manpage <FLAGS>`](/cli/reference/generate/manpage.md)
 - [`usage generate markdown <FLAGS>`](/cli/reference/generate/markdown.md)
