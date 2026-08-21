@@ -2533,6 +2533,80 @@ pub fn render_all_view_at_styled(
     Some(recursive_help(&viewed, path, chain, style, true))
 }
 
+/// Which page a help request asks for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Page {
+    /// `-h`: the short page for one command.
+    Short,
+    /// `--help`: the long page for one command.
+    Long,
+    /// [`ArgAction::HelpAll`](crate::ArgAction::HelpAll): the long page for the command and
+    /// every visible descendant.
+    All,
+}
+
+/// The page a help request becomes, by the route the words took.
+///
+/// The parser reports the command a request arrived at, but a page is about the route that
+/// reached it: one `Subcommands` type mounted under two parents is one address, and a page
+/// found by searching for that address carries the first mount's path and globals. Falls back
+/// to rendering by address where the route cannot be rebuilt, which only a command from
+/// another CLI's tables can reach.
+///
+/// One function rather than a shape each caller reassembles. `parse()` renders a request this
+/// way, and so does anything that wants to know what a command line would have printed
+/// without running the program — a test harness, most of all, since a page it renders
+/// differently from the process is a page that proves nothing.
+pub fn page(
+    spec: &Spec<'_>,
+    root: &Command<'_>,
+    argv: &[&std::ffi::OsStr],
+    cmd: &Command<'_>,
+    page: Page,
+    style: Style,
+) -> Option<String> {
+    match route_to(root, argv, cmd) {
+        Some(route) => match page {
+            Page::Short => render_at_styled(spec, &route, false, style),
+            Page::Long => render_at_styled(spec, &route, true, style),
+            Page::All => render_all_at_styled(spec, &route, style),
+        },
+        None => match page {
+            Page::Short => render_styled(spec, cmd, false, style),
+            Page::Long => render_styled(spec, cmd, true, style),
+            Page::All => render_all_styled(spec, cmd, style),
+        },
+    }
+}
+
+/// The page a help request becomes when a declared executable view is what the user invoked.
+///
+/// `argv` includes argv0 here, as [`route_to_view`] requires: the view's own name is what
+/// selected it. The fallback is the canonical page, which is better than nothing where the
+/// route cannot be rebuilt.
+pub fn page_view(
+    spec: &Spec<'_>,
+    root: &Command<'_>,
+    argv: &[&std::ffi::OsStr],
+    cmd: &Command<'_>,
+    view: &ViewMeta<'_>,
+    page: Page,
+    style: Style,
+) -> Option<String> {
+    match route_to_view(root, argv, cmd, view) {
+        Some(route) => match page {
+            Page::Short => render_view_at_styled(spec, &route, view, false, style),
+            Page::Long => render_view_at_styled(spec, &route, view, true, style),
+            Page::All => render_all_view_at_styled(spec, &route, view, style),
+        },
+        None => match page {
+            Page::Short => render_styled(spec, cmd, false, style),
+            Page::Long => render_styled(spec, cmd, true, style),
+            Page::All => render_all_styled(spec, cmd, style),
+        },
+    }
+}
+
 pub(crate) fn view_root_flags<'a>(
     spec: &'a Spec<'a>,
     promoted: &CommandMeta<'a>,

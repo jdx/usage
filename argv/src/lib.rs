@@ -979,6 +979,21 @@ pub fn render_failure(spec: &spec::Spec<'_>, argv: &[&OsStr], error: &Error<'_, 
     diagnostic::render(spec, argv, error, diagnostic::Style::auto())
 }
 
+/// A parse failure, never coloured.
+///
+/// [`render_failure`] asks the environment whether to colour, which is right for a process and
+/// wrong for anything that keeps the string: a test that asserts on a message, or a snapshot of
+/// one, would pass or fail by whether stderr happened to be a terminal. The renderer is the
+/// same; only the answer to that question is fixed.
+#[cfg(feature = "diagnostics")]
+pub fn render_failure_plain(
+    spec: &spec::Spec<'_>,
+    argv: &[&OsStr],
+    error: &Error<'_, '_>,
+) -> String {
+    diagnostic::render(spec, argv, error, diagnostic::Style::PLAIN)
+}
+
 /// Render a failure through a spec-declared executable view.
 ///
 /// `argv` is the original full argv, including the view executable as argv0.
@@ -1000,6 +1015,16 @@ pub fn render_failure_view<'a>(
 pub fn render_failure(spec: &spec::Spec<'_>, argv: &[&OsStr], error: &Error<'_, '_>) -> String {
     let _ = (spec, argv);
     ::std::format!("error: {error:?}\n")
+}
+
+/// A parse failure without the renderer, which is plain either way.
+#[cfg(all(feature = "spec", not(feature = "diagnostics")))]
+pub fn render_failure_plain(
+    spec: &spec::Spec<'_>,
+    argv: &[&OsStr],
+    error: &Error<'_, '_>,
+) -> String {
+    render_failure(spec, argv, error)
 }
 
 /// Render a failure through a declared view without the optional diagnostics renderer.

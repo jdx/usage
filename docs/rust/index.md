@@ -59,20 +59,22 @@ name, so depending on `usage-rs` under any name works.
 `usage-rs` is a facade. Applications should depend on it alone. The split underneath stays
 available for low-level adopters that want a thinner surface:
 
-| Crate          | Role                                                                       |
-| -------------- | -------------------------------------------------------------------------- |
-| `usage-rs`     | The one package an application depends on; re-exports the whole runtime    |
-| `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`               |
-| `usage-argv`   | The zero-allocation, zero-dependency runtime the derive emits code against |
+| Crate          | Role                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------- |
+| `usage-rs`     | The one package an application depends on; re-exports the whole runtime                |
+| `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`                           |
+| `usage-argv`   | The zero-allocation, zero-dependency runtime the derive emits code against             |
+| `usage-test`   | Test helpers: what a command line parses to, what a page says, what a shell is offered |
 
 ### Cargo features
 
-| Feature       | Default | What it enables                                              |
-| ------------- | :-----: | ------------------------------------------------------------ |
-| `spec`        |   ✅    | Spec metadata and `to_kdl()`; gates the derives              |
-| `help`        |   ✅    | `-h` / `--help` page rendering                               |
-| `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`             |
-| `completions` |         | Shell completion scripts and the runtime completion protocol |
+| Feature       | Default | What it enables                                                                                                   |
+| ------------- | :-----: | ----------------------------------------------------------------------------------------------------------------- |
+| `spec`        |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                                   |
+| `help`        |   ✅    | `-h` / `--help` page rendering                                                                                    |
+| `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`                                                                  |
+| `completions` |         | Shell completion scripts and the runtime completion protocol                                                      |
+| `test`        |         | `usage::test`: parse and help assertions (a dev-dependency feature; completion assertions want `completions` too) |
 
 `#[usage(completion)]` without the `completions` feature is a deliberate `compile_error!` that
 tells you which feature to add. To drop diagnostics (or help) from a binary that does not want
