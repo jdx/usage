@@ -547,12 +547,17 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [x] **`flatten_help`.** Visible subcommands can be expanded into their parent's
       usage synopsis and help sections across typed Rust, KDL, the clap bridge,
       and Rust and generated Go help.
-- [ ] **`help_template`.** **Design input needed:** define the stable template
-      context. A root-level Tera template can apply to the whole command tree,
-      but interpreted Rust, compiled Rust, and generated Go need to expose the
-      same named sections and values. Shipping only a `{{ help }}` wrapper would
-      technically accept a template without supporting clap's main use case of
-      rearranging help sections.
+- [ ] **`help_template`.** A root-level Tera template applying to the whole
+      command tree. **Decided (2026-08-21): a closed vocabulary of pre-rendered
+      named sections** — `usage`, `about`, `flags`, `args`, `commands`,
+      `after_help` — which an author may reorder, omit or wrap. That covers
+      clap's actual use case of rearranging help sections, which a bare
+      `{{ help }}` wrapper would not, while leaving interpreted Rust, compiled
+      Rust and generated Go to agree only on where each section starts and ends
+      rather than on layout. The alternative — exposing the metadata tree and
+      letting the template lay everything out — was rejected because it makes
+      the help renderer's internals public API and requires every
+      implementation to match Tera's semantics, not just its section names.
 - [x] **`subcommand_help_heading` / `subcommand_value_name`.** Custom subcommand
       section labels and synopsis placeholders survive KDL, typed Rust, generated
       Go, and the clap bridge and are rendered by both help implementations.
@@ -585,12 +590,20 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 **API surface**
 
 - [ ] **`update_from` / `try_update_from`** — merge a parse into an existing struct.
-      **Design input needed:** define whether requirements and value-conditional relationships
-      see the existing typed value when argv omits a field, whether environment/default values
-      replace existing values during an update, whether collections append or replace, and
-      whether selecting a different subcommand replaces the old variant. The generated parser
-      cannot seed its byte-level partial from an arbitrary `FromStr` type, so these choices must
-      be explicit rather than inherited accidentally from the current full-parse path.
+      The generated parser cannot seed its byte-level partial from an arbitrary `FromStr`
+      type, so every rule here is explicit rather than inherited accidentally from the
+      current full-parse path. **Decided (2026-08-21): relationships see the existing
+      value** — `required`, `requires_if`, `conflicts` and the rest treat a field already
+      holding a value as present, so an update validates the union of both inputs rather
+      than this argv alone. **Env and defaults do not overwrite**: they fill only fields
+      still empty, so an update never clobbers a value the caller set deliberately, and an
+      update with no relevant argv cannot change the struct. **Collections replace when
+      argv mentions them** — any values for a `Vec` field in this argv replace the whole
+      collection, while argv that says nothing leaves it alone, which keeps an update
+      idempotent and matches how a repeated flag behaves inside one parse; append was
+      rejected because it leaves no way to clear a field. **A different subcommand
+      replaces the variant** wholesale, discarding the old variant's fields, since
+      selecting a command is a routing decision rather than a value to merge.
 - [x] **The builder** — `Command::new`, `augment_args`, `CommandFactory`,
       `ArgMatches::get_one`, hand-written `FromArgMatches`. Architectural, and
       deliberate: usage-lib interprets a spec at run time and covers the dynamic
@@ -1109,13 +1122,13 @@ a prerequisite for trying a CLI.
       with `usage-rs`, uses the built-in completion protocol, and passes its Rust and
       bats suites against the stacked usage revision. Its refreshed spec is part of the
       fleet gate alongside the five original typed experiments.
-- [~] **Other languages** — Go now parses, validates, renders help and answers
-  completions from generated static tables, verified against the shared corpus.
-  JavaScript and Python implementations remain open. **Design input needed:** decide
-  whether each generator emits a self-contained vendored runtime or targets a maintained
-  npm/PyPI runtime package; set the oldest supported Node and Python versions; and decide
-  whether 6.x requires binding only or the Go implementation's full help/completion parity.
-  Those choices determine the public package boundary and should precede implementation.
+- [x] **Other languages** — Go parses, validates, renders help and answers
+      completions from generated static tables, verified against the shared corpus.
+      That is the proof a second implementation can reach parity from the spec alone,
+      which is what this row existed to establish. JavaScript and Python are off the
+      plan (2026-08-21): no adopter asks for either, and each would owe a runtime
+      packaging and support-window decision — vendored versus published on npm/PyPI,
+      an oldest supported Node and Python — that only a real consumer can settle.
 
 ### What adoption should let mise delete
 
@@ -1375,20 +1388,23 @@ above are where it lands.
       clap's most-requested) — mutually exclusive flags declared as enum
       variants, lowering to the `group`/`conflicts` vocabulary the spec already
       has. Derive ergonomics rather than new spec surface, and clap has sat on
-      it since 2021. **Design input needed:** choose the Rust surface. The leading
-      option is an `Option<Mode>` field whose `ValueEnum`-like variants each declare
-      a flag, with a non-optional `Mode` making the group required. Decide whether
-      variants may carry values, how a default variant differs from a defaulted flag,
-      and whether repeated flags use last-wins or remain a conflict.
-- [ ] **Alias into a nested subcommand** (clap#1603, reopened, 22 comments) —
-      rustup's `install` meaning `toolchain install`, args carried along. A
-      spec-level redirect an interpreter applies before parsing, so help and
-      completions describe the alias too; clap's unstable `App::replace`
-      answer died for lack of interest. **Design input needed:** the proposed portable
-      shape is a root `redirect "install" to="toolchain install"` node and a matching
-      typed attribute. Confirm that only the first command word is rewritten, trailing
-      argv is preserved verbatim, a real command wins on a name collision, and redirect
-      chains are rejected rather than followed.
+      it since 2021. **Decided (2026-08-21): `#[derive(usage::ArgGroup)]` on the
+      enum**, held by an `Option<Mode>` field for an optional group and a bare
+      `Mode` field for a required one. A new derive rather than an overloaded
+      `ValueEnum`, because the same enum would otherwise lower two entirely
+      different ways depending on the field holding it; and an enum rather than a
+      `group = "mode"` attribute over `bool` fields, because the stringly-typed
+      "which one was set" match is exactly what clap#2621 exists to remove.
+      **Bare variants only**, each a valueless flag, which is what the issue asks
+      for — a group whose members take values stays a hand-written `conflicts`
+      set, so group resolution never runs the typed-value path. **No default
+      variant**: required-ness is the `Option<Mode>` versus `Mode` distinction and
+      nothing else, so defaults stay a per-flag concern and there is no second way
+      to spell one, nor a new spec node for help, completions and the docs
+      generators to describe. **Two members on one command line is an error**,
+      matching clap's `ArgGroup` and the `conflicts` vocabulary this lowers to;
+      exclusivity is the point, so a typo is reported rather than silently
+      resolved to whichever came last.
 - [x] **Recursive help** (clap#4813) — `ArgAction::HelpAll` renders long help
       for the selected command and every visible descendant in one depth-first
       output. Typed Rust, portable KDL, usage-lib, and generated Go retain the
@@ -1426,6 +1442,19 @@ above are where it lands.
       are first-class typed root attributes, survive direct KDL emission, and render
       in Markdown, manpages, and generated Go long help. GPL display requirements no
       longer need an application-owned documentation patch.
+
+**Considered and declined:**
+
+- **Alias into a nested subcommand** (clap#1603, reopened, 22 comments) —
+  rustup's `install` meaning `toolchain install`, args carried along. The
+  portable shape was worked out: a root `redirect "install" to="toolchain install"`
+  node with a matching typed attribute, rewriting only the first command word,
+  preserving trailing argv verbatim, letting a real command win a name collision
+  and rejecting redirect chains. **Declined (2026-08-21): not useful enough to
+  build.** None of the fleet asks for it, clap's own unstable `App::replace`
+  answer died for lack of interest, and it buys a second name for a command that
+  aliases at the wrong level already cover in the common case. Reopen if an
+  adopter needs it; the shape above is the design, not a fresh question.
 
 Demand also attaches to boxes already open above: fixed arity with distinct
 value names is clap#1717 + clap#1682 (31 votes combined); `Option` on a
@@ -1609,12 +1638,14 @@ Where they differ is instructive, because it is mostly _drift_:
 - [ ] **Declare props in code**, `#[derive(usage::Config)]`, lowered into the
       spec's `config { prop ... }` block so settings documentation flows through
       the same pipeline as command documentation. Same canonicality rule as the
-      parser: code authors, the spec defines. **Design input needed:** choose whether
-      the derive belongs on the final typed settings struct or on a registry-only
-      declaration whose generated output feeds an existing settings type. The former
-      gives one source of truth but requires attributes for layer bindings and merge
-      policy on application fields; the latter makes incremental fleet adoption easier
-      but preserves two declarations during the migration.
+      parser: code authors, the spec defines. **Decided (2026-08-21): the derive goes
+      on a registry-only declaration**, whose generated output feeds the CLI's existing
+      settings type rather than replacing it. Putting it on the final typed `Settings`
+      would be one source of truth, but it pushes layer bindings and merge policy onto
+      application fields and makes every adopter convert its whole registry in one step.
+      A registry-only declaration lets mise, hk, pitchfork and fnox adopt a layer at a
+      time, which is the migration path this section already judges likeliest to happen.
+      The cost is accepted and bounded: two declarations coexist during a migration.
 - [x] **A prop vocabulary that is the union of the four registries** — `type`
       (bool, int, string, path, duration, list, map, plus a Rust-type escape
       hatch), `default`, `env` and `deprecated_env`, `docs`, `deprecated` with
@@ -1645,28 +1676,34 @@ Where they differ is instructive, because it is mostly _drift_:
       bindings, help fields, explicit `optional`, and warning-free key `aliases` all
       survive the portable spec. The markdown renderer and generated runtime registry
       consume the block; no fleet CLI emits one yet, which is the adoption half below.
-- [ ] **A registry JSON schema**, so the declaration format validates itself the
-      way hk's does. **Design input needed:** 6.x no longer has a separate TOML
-      registry declaration to validate: the usage KDL spec is the declaration,
-      its parser validates that block, and `usage generate json-schema` describes
-      the _user config file_. Decide whether this means a machine schema for KDL,
-      retaining a supported TOML authoring format, or deleting this now-obsolete
-      requirement.
+- [x] **A registry JSON schema** — **dropped as obsolete (2026-08-21).** The
+      requirement came from hk validating its own `settings.toml` through taplo. In 6.x
+      there is no separate TOML registry to validate: the usage KDL spec _is_ the
+      declaration, the spec parser validates the `config` block with real diagnostics,
+      and `usage generate json-schema` already describes the user's config file. A
+      second machine description of the block would only add something for the parser
+      to drift from.
 
 ### Open questions
 
-- [ ] Whether config lives in this repository or beside the parser crates. It is
-      not argv parsing, but it shares the spec, the codegen, and the docs
-      pipeline. **Design input needed:** keeping it in this repository preserves one
-      release train and spec vocabulary; splitting it permits an independent stability
-      and MSRV policy.
+- [x] Whether config lives in this repository or beside the parser crates.
+      **Decided (2026-08-21): this repository.** One release train and one spec
+      vocabulary, and config already shares the spec model, the codegen and the docs
+      pipeline — `config/` and `SpecConfigProp` are here today, so this is also the
+      status quo. A split would buy an independent stability and MSRV policy at the
+      price of cross-repo coordination on every spec vocabulary change.
 - [ ] Whether the four CLIs migrate incrementally (one layer at a time, keeping
       their generated `Settings`) or by regenerating from a converted registry.
-      Incremental looks far more likely to actually happen. **Design input needed:**
-      confirm incremental adoption as the supported 6.x path, which means the first
-      public APIs must wrap existing layers and settings types without owning them.
-- [ ] fnox's model, where config files are not a settings source at all, is the
+      Incremental looks far more likely to actually happen. **Owned by the fleet
+      adoption effort (2026-08-21), not decided here** — it is a question about what
+      each CLI does, and the answer sets whether the first public APIs must wrap
+      existing layers and settings types without owning them. The registry-only
+      derive above deliberately keeps the incremental path open either way.
+- [x] fnox's model, where config files are not a settings source at all, is the
       one real behavior change rather than a consolidation. Worth confirming that
-      is a fix and not a deliberate choice. **Design input needed:** decide whether
-      fnox should gain config-file settings during adoption or preserve its current
-      source set and use only the shared layers that already exist there.
+      is a fix and not a deliberate choice. **Decided (2026-08-21): preserve fnox's
+      source set.** Adoption uses only the shared layers fnox already has, so it stays
+      a consolidation everywhere and ships no behavior change to a released CLI. The
+      hardcoded five-way `age_key_file` chain in `providers/age.rs` is still replaced by
+      one declaration — that is the actual bug — without adding a source that could pick
+      up keys users never meant as settings.
