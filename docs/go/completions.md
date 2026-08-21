@@ -1,8 +1,10 @@
 # Completions
 
-::: warning Draft
-This page is a draft. Some of what it documents is still in open pull requests, and details may
-change before release.
+::: danger Not ready for testing
+The Go framework is far more experimental than the [Rust framework](/rust/) and is **not ready
+for any amount of testing yet** — do not build against it. Much of what this page documents only
+exists in open pull requests and may change before release. These docs are a draft published for
+review, not an invitation to try it.
 :::
 
 The Go runtime answers the question every completion request boils down to — _what could go
