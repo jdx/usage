@@ -106,6 +106,11 @@ struct FigArg {
     suggestions: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     debounce: Option<bool>,
+    /// Whether [`Self::template`] came from a `complete … type=` declaration rather than
+    /// from the name guess `get_template` makes. Not part of a Fig spec — it only decides
+    /// which of several declarations wins while one is being built.
+    #[serde(skip)]
+    typed_template: bool,
 }
 
 #[serde_as]
@@ -241,11 +246,22 @@ impl FigArg {
             generators: FigArg::get_generator(&arg.name),
             suggestions: arg.choices.clone().map(|c| c.choices).unwrap_or_default(),
             debounce: FigArg::get_generator(&arg.name).map(|_| true),
+            typed_template: false,
         }
     }
 
     pub fn update_from_complete(&mut self, spec: SpecComplete) {
         let name = spec.name;
+
+        // Nearest declaration wins, which is the rule the generator already followed:
+        // `or_else` kept whatever a command's own completer had put there when the root
+        // spec's completers were applied over the whole tree afterwards. The template
+        // obeys the same rule, so an argument cannot come out carrying both a template
+        // and a generator for a reader to have to choose between. A name-inferred
+        // template is a guess rather than a declaration, so it does not count as one.
+        if self.typed_template || self.generators.is_some() {
+            return;
+        }
 
         // A typed completer is a policy Fig has its own name for, so it becomes a
         // template rather than a generator. `get_template` above guesses from the
@@ -253,6 +269,10 @@ impl FigArg {
         // all there was before `type=` existed.
         if let Some(template) = spec.type_.as_deref().and_then(template_for_type) {
             self.template = Some(template.to_string());
+            self.typed_template = true;
+            // Fig answers a template itself: nothing runs, so there is nothing to
+            // debounce.
+            self.debounce = None;
             return;
         }
 
@@ -262,12 +282,10 @@ impl FigArg {
         let Some(run) = spec.run else {
             return;
         };
-        self.generators = self.generators.clone().or_else(|| {
-            Some(FigGenerator {
-                type_: GeneratorType::Complete,
-                post_process: run,
-                template_str: format!("${name}$"),
-            })
+        self.generators = Some(FigGenerator {
+            type_: GeneratorType::Complete,
+            post_process: run,
+            template_str: format!("${name}$"),
         })
     }
 }
