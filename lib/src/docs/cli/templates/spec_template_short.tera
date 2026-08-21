@@ -24,18 +24,22 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- endif %}
 
 {%- if cmd.subcommands and not cmd.flatten_help %}
-
-{{ cmd.subcommand_help_heading | default(value="Commands") }}:
 {%- set next_line_help = cmd.next_line_help %}
-{%- for cmd in cmd.help_subcommands %}
+{%- for group in cmd.subcommand_groups %}
+
+{{ group.heading | default(value=cmd.subcommand_help_heading | default(value="Commands")) }}:
+{%- for cmd in group.items %}
   {{ cmd.usage | trim }}
 {%- if cmd.deprecated %} [deprecated: {{ cmd.deprecated }}]{%- endif %}
 {%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
 {%- if cmd.help %}{% if next_line_help %}
     {{ cmd.help | indent(width=4) }}{% else %}  {{ cmd.help }}{% endif %}{%- endif %}
 {%- endfor %}
+{%- if not group.heading %}
 {% if next_line_help %}  help
     Print this message or the help of the given subcommand(s){% else %}  help  Print this message or the help of the given subcommand(s){% endif %}
+{%- endif %}
+{%- endfor %}
 {%- endif %}
 
 {%- for group in cmd.arg_groups %}

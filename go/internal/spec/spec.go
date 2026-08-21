@@ -87,6 +87,7 @@ type Cmd struct {
 	Hide                        bool        `json:"hide"`
 	Help                        string      `json:"help"`
 	HelpLong                    string      `json:"help_long"`
+	HelpHeading                 string      `json:"help_heading"`
 	DisplayOrder                *uint32     `json:"display_order"`
 	Usage                       string      `json:"usage"`
 	BeforeHelp                  string      `json:"before_help"`
@@ -643,8 +644,9 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		examples = append(examples, argv.Example{Header: e.Header, Code: e.Code, Help: e.Help})
 	}
 	commandHelp := argv.Help{
-		Hide:  c.Hide,
-		Short: first(c.Help, c.HelpLong),
+		Hide:    c.Hide,
+		Heading: c.HelpHeading,
+		Short:   first(c.Help, c.HelpLong),
 		// No fallback to the short text, because the emitter does not write one for
 		// a command: the page renderer falls back for itself, so carrying the same
 		// string twice would only put it in the table twice. What matters is that

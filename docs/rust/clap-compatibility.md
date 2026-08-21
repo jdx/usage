@@ -107,10 +107,10 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | clap surface                                       | derive | argv | KDL | lib | output | bridge  | Notes                                                                                          |
 | -------------------------------------------------- | ------ | ---- | --- | --- | ------ | ------- | ---------------------------------------------------------------------------------------------- |
 | short/long help and doc comments                   | yes    | yes  | yes | yes | yes    | yes     | First paragraph is short help; the full block is long help.                                    |
-| `help_heading`                                     | yes    | n/a  | yes | yes | yes    | yes     | Flags and arguments are grouped and retain declaration order.                                  |
+| `help_heading` on flags and arguments              | yes    | n/a  | yes | yes | yes    | yes     | Flags and arguments are grouped and retain declaration order.                                  |
 | whole-entry `hide`                                 | yes    | yes  | yes | yes | yes    | yes     | Hidden commands, flags, arguments, and values still parse.                                     |
 | granular hide settings                             | yes    | yes  | yes | yes | yes    | yes     | Default, environment, possible-value, short-help, and long-help visibility is independent.     |
-| `subcommand_help_heading`, `subcommand_value_name` | yes    | yes  | yes | yes | yes    | yes     | Customize the subcommand section label and the synopsis placeholder.                           |
+| `subcommand_help_heading`, `subcommand_value_name` | yes    | yes  | yes | yes | yes    | yes     | Customize the single heading for all child commands and the synopsis placeholder.              |
 | `verbatim_doc_comment`                             | yes    | n/a  | yes | yes | yes    | n/a     | Commands, fields, and variants preserve line breaks and indentation when requested.            |
 | `rename_all`, `rename_all_env`                     | yes    | n/a  | yes | yes | yes    | n/a     | Full clap casing vocabulary; bare `env` uses the environment casing policy.                    |
 | `next_line_help`                                   | yes    | yes  | yes | yes | yes    | yes     | Put command, argument, and flag descriptions below their usage instead of beside it.           |
@@ -128,9 +128,10 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 ## Usage extensions
 
 These are not clap compatibility gaps. usage additionally supports `mount`,
-`restart_token`, `default_subcommand`, command and flag `effect`, Nushell completions,
-and a language-neutral conformance corpus. clap cannot express those properties, so
-a clap-generated spec cannot carry them without an overlay.
+`restart_token`, `default_subcommand`, command and flag `effect`, per-subcommand
+`help_heading` groups, Nushell completions, and a language-neutral conformance corpus.
+clap's `subcommand_help_heading` sets one heading for all child commands; it cannot
+express separate groups, so a clap-generated spec cannot carry them without an overlay.
 
 This matrix is the compatibility baseline, not a promise to reproduce clap's dynamic
 builder and `ArgMatches` architecture. Setter-only clap state remains explicitly

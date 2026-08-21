@@ -3859,6 +3859,8 @@ fn unit_struct_ident(enum_ident: &syn::Ident, variant: &syn::Ident) -> syn::Iden
 /// One variant: a command name and the struct holding its flags and arguments.
 pub struct Variant {
     pub ident: syn::Ident,
+    /// Help section this command appears under in its parent's command list.
+    pub help_heading: Option<String>,
     /// Explicit placement within the parent's command section.
     pub display_order: Option<usize>,
     /// Whether the command is kept out of help and completions.
@@ -4028,6 +4030,7 @@ impl Variant {
         let mut hidden_aliases: Vec<String> = Vec::new();
         let mut effect = None;
         let mut hide = false;
+        let mut help_heading = None;
         let mut display_order = None;
         let mut external = false;
         let mut help_attr: Option<proc_macro2::TokenStream> = None;
@@ -4046,6 +4049,7 @@ impl Variant {
                     "alias" => aliases.extend(selectors(&meta)?),
                     "alias_hidden" => hidden_aliases.extend(selectors(&meta)?),
                     "hide" => hide = flag_value(&meta)?,
+                    "help_heading" => help_heading = Some(string_value(&meta)?),
                     "display_order" => display_order = Some(int_value(&meta)?),
                     "external_subcommand" => external = flag_value(&meta)?,
                     "effect" => {
@@ -4069,7 +4073,7 @@ impl Variant {
                             path,
                             format!(
                                 "unknown option `{other}` on a variant; a subcommand \
-                                 variant takes `name`, `alias`, `alias_hidden`, `display_order`, \
+                                 variant takes `name`, `alias`, `alias_hidden`, `help_heading`, `display_order`, \
                                  `external_subcommand`, `help`, `long_help`, `before_help`, \
                                  `before_long_help`, `after_help`, `after_long_help`, and `verbatim_doc_comment` here, \
                                  and its description comes from the doc comment"
@@ -4117,6 +4121,13 @@ impl Variant {
                     &variant.ident,
                     "`external_subcommand` is a catch-all rather than a command help lists, \
                      so there is nothing for `hide` to keep out of help",
+                ));
+            }
+            if help_heading.is_some() {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "`external_subcommand` is a catch-all rather than a command help lists, \
+                     so it cannot belong to a `help_heading`",
                 ));
             }
             if help.is_some()
@@ -4167,6 +4178,7 @@ impl Variant {
             return Ok(Variant {
                 ident: variant.ident.clone(),
                 hide: false,
+                help_heading: None,
                 name,
                 effect: None,
                 display_order: None,
@@ -4231,6 +4243,7 @@ impl Variant {
 
         Ok(Variant {
             ident: variant.ident.clone(),
+            help_heading,
             display_order,
             hide,
             name,
@@ -5375,6 +5388,27 @@ mod tests {
         "#,
         );
         assert!(err.contains("hide"), "{err}");
+
+        let err = enum_rejection(
+            r#"
+            enum Commands {
+                #[usage(help_heading = "Other", external_subcommand)]
+                External(Vec<String>),
+            }
+        "#,
+        );
+        assert!(err.contains("help_heading"), "{err}");
+
+        let subs = subcommands(
+            r#"
+            enum Commands {
+                #[command(help_heading = "Other")]
+                Install,
+            }
+        "#,
+        )
+        .expect("regular subcommands should retain help_heading");
+        assert_eq!(subs.variants[0].help_heading.as_deref(), Some("Other"));
 
         let err = enum_rejection(
             r#"

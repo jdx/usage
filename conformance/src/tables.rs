@@ -144,6 +144,7 @@ pub fn build(
         ),
         hide: cmd.hide,
         display_order: cmd.display_order,
+        help_heading: opt(&cmd.help_heading),
         effect: cmd.effect.map(effect),
         // A command carries at most one mount in the tables; a spec may list several, and the
         // first is the one the tables can hold.

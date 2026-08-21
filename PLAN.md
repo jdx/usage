@@ -1306,10 +1306,11 @@ above are where it lands.
 
 **Worth building, demand attached:**
 
-- [ ] **Subcommand help headings** (clap#1553, 38 votes) — `help_heading`
+- [x] **Subcommand help headings** (clap#1553, 38 votes) — `help_heading`
       landed for flags and arguments; this is the same property on `cmd` nodes,
       so a 210-command CLI can group its help into sections. mise is the
-      obvious first user. clap#4589 asks for prose under a heading — Deno wants
+      obvious first user. It is now portable through KDL, the typed derive,
+      usage-lib and generated Go help. clap#4589 asks for prose under a heading — Deno wants
       per-section doc links — which is the same node with one more field.
 - [ ] **Deprecation and stability metadata on flags and commands** (clap#3321) —
       `deprecated`, with warn/remove versions, already exists in the

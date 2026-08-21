@@ -223,6 +223,28 @@ enum OrderedCommand {
     First,
 }
 
+#[derive(Cli)]
+#[command(bin = "grouped")]
+#[allow(dead_code)]
+struct GroupedHelp {
+    #[command(subcommand)]
+    command: Option<GroupedCommand>,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum GroupedCommand {
+    /// Run the application.
+    #[command(help_heading = "Core commands")]
+    Run,
+    /// Remove old state.
+    #[command(help_heading = "Maintenance")]
+    Clean,
+    /// Show the current status.
+    #[command(help_heading = "Commands")]
+    Status,
+}
+
 #[derive(Subcommands, serde::Deserialize)]
 enum InlineCommand {
     /// Run a named benchmark.
@@ -1293,6 +1315,52 @@ fn explicit_display_order_reaches_help_and_the_portable_spec() {
     assert_eq!(portable.cmd.flags[1].display_order, Some(10));
     assert_eq!(portable.cmd.subcommands[0].display_order, Some(20));
     assert_eq!(portable.cmd.subcommands[1].display_order, Some(10));
+}
+
+#[test]
+fn subcommand_help_headings_reach_help_and_the_portable_spec() {
+    let spec = GroupedHelp::spec();
+    for page in [
+        usage::argv::help::short_help(spec, &["grouped"], &[spec.root]),
+        usage::argv::help::long_help(spec, &["grouped"], &[spec.root]),
+    ] {
+        let commands = page.find("\nCommands:\n").expect("default command section");
+        assert_eq!(page.matches("\nCommands:\n").count(), 1, "{page}");
+        let core = page.find("\nCore commands:\n").expect("core section");
+        let maintenance = page.find("\nMaintenance:\n").expect("maintenance section");
+        assert!(commands < core && commands < maintenance, "{page}");
+        let default_end = core.min(maintenance);
+        assert!(page[commands..default_end].contains("status"), "{page}");
+        assert!(page[commands..default_end].contains("help"), "{page}");
+        let core_end = page[core + 1..]
+            .find("\n\n")
+            .map_or(page.len(), |offset| core + 1 + offset);
+        assert!(page[core..core_end].contains("run"), "{page}");
+        let maintenance_end = page[maintenance + 1..]
+            .find("\n\n")
+            .map_or(page.len(), |offset| maintenance + 1 + offset);
+        assert!(
+            page[maintenance..maintenance_end].contains("clean"),
+            "{page}"
+        );
+    }
+
+    let kdl = GroupedHelp::to_kdl();
+    assert!(kdl.contains("help_heading=\"Core commands\""), "{kdl}");
+    assert!(kdl.contains("help_heading=Maintenance"), "{kdl}");
+    let portable: usage_parser::Spec = kdl.parse().unwrap();
+    assert_eq!(
+        portable.cmd.subcommands[0].help_heading.as_deref(),
+        Some("Core commands")
+    );
+    assert_eq!(
+        portable.cmd.subcommands[1].help_heading.as_deref(),
+        Some("Maintenance")
+    );
+    assert_eq!(
+        portable.cmd.subcommands[2].help_heading.as_deref(),
+        Some("Commands")
+    );
 }
 
 #[test]

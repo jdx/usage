@@ -122,6 +122,13 @@ fn help_structure(
                 .unwrap_or("Commands")
                 .to_string(),
         );
+        headings.extend(
+            meta.subcommands
+                .iter()
+                .filter(|sub| !sub.hide)
+                .filter_map(|sub| sub.help_heading)
+                .map(str::to_string),
+        );
     }
 
     let (own, inherited) = own_and_global(chain);
@@ -813,9 +820,6 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
     if visible.is_empty() {
         return;
     }
-    let heading = meta.subcommand_help_heading.unwrap_or("Commands");
-    let _ = writeln!(out, "\n{heading}:");
-
     // Sorted by the rendered usage rather than by name, as usage-lib sorts them — for a
     // command with no flags or arguments the two agree, and where they differ this is the
     // order a reader sees in the reference.
@@ -834,42 +838,59 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
             .then_with(|| a.0.cmp(&b.0))
     });
 
-    for (usage, sub) in &lines {
-        let _ = write!(out, "  {usage}");
-        // Visible aliases only: a hidden alias works and is not advertised, which is the
-        // whole of the distinction.
-        let visible_aliases: Vec<&str> = sub
-            .cmd
-            .aliases
-            .iter()
-            .copied()
-            .filter(|a| !sub.hidden_aliases.contains(a))
-            .collect();
-        if !visible_aliases.is_empty() {
-            let _ = write!(out, " [aliases: {}]", visible_aliases.join(", "));
+    let default_title = meta.subcommand_help_heading.unwrap_or("Commands");
+    let mut headings = vec![None];
+    for (_, sub) in &lines {
+        let heading = command_help_section(sub, default_title);
+        if !headings.contains(&heading) {
+            headings.push(heading);
         }
-        if let Some(about) = sub.about {
-            if meta.next_line_help {
-                out.push('\n');
-                write_indented(out, about.trim_end(), 4);
-                continue;
-            }
-            // The row writes its own newline below. Trim trailing whitespace in both
-            // layouts, as usage-lib does before choosing a layout.
-            let _ = write!(out, "  {}", about.trim_end());
-        }
-        out.push('\n');
     }
-    if meta.next_line_help {
-        let _ = writeln!(
-            out,
-            "  help\n    Print this message or the help of the given subcommand(s)"
-        );
-    } else {
-        let _ = writeln!(
-            out,
-            "  help  Print this message or the help of the given subcommand(s)"
-        );
+    for heading in headings {
+        let title = heading.unwrap_or(default_title);
+        let _ = writeln!(out, "\n{title}:");
+        for (usage, sub) in lines
+            .iter()
+            .filter(|(_, sub)| command_help_section(sub, default_title) == heading)
+        {
+            let _ = write!(out, "  {usage}");
+            // Visible aliases only: a hidden alias works and is not advertised, which is the
+            // whole of the distinction.
+            let visible_aliases: Vec<&str> = sub
+                .cmd
+                .aliases
+                .iter()
+                .copied()
+                .filter(|a| !sub.hidden_aliases.contains(a))
+                .collect();
+            if !visible_aliases.is_empty() {
+                let _ = write!(out, " [aliases: {}]", visible_aliases.join(", "));
+            }
+            if let Some(about) = sub.about {
+                if meta.next_line_help {
+                    out.push('\n');
+                    write_indented(out, about.trim_end(), 4);
+                    continue;
+                }
+                // The row writes its own newline below. Trim trailing whitespace in both
+                // layouts, as usage-lib does before choosing a layout.
+                let _ = write!(out, "  {}", about.trim_end());
+            }
+            out.push('\n');
+        }
+        if heading.is_none() {
+            if meta.next_line_help {
+                let _ = writeln!(
+                    out,
+                    "  help\n    Print this message or the help of the given subcommand(s)"
+                );
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  help  Print this message or the help of the given subcommand(s)"
+                );
+            }
+        }
     }
 }
 
@@ -1023,6 +1044,10 @@ fn order_commands(items: &mut Vec<&&CommandMeta<'_>>) {
             .cmp(&b.display_order.unwrap_or(999))
             .then_with(|| a.cmd.name.cmp(b.cmd.name))
     });
+}
+
+fn command_help_section<'a>(sub: &'a CommandMeta<'a>, default_title: &str) -> Option<&'a str> {
+    sub.help_heading.filter(|heading| *heading != default_title)
 }
 
 /// The bracketed notes after an entry's help: choices, environment, default.
@@ -1478,9 +1503,6 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
     if visible.is_empty() {
         return;
     }
-    let heading = meta.subcommand_help_heading.unwrap_or("Commands");
-    let _ = writeln!(out, "\n{heading}:");
-
     let mut lines: Vec<(String, &&CommandMeta<'_>)> = visible
         .iter()
         .map(|sub| {
@@ -1496,34 +1518,51 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
             .then_with(|| a.0.cmp(&b.0))
     });
 
-    for (usage, sub) in &lines {
-        let _ = write!(out, "  {usage}");
-        let visible_aliases: Vec<&str> = sub
-            .cmd
-            .aliases
-            .iter()
-            .copied()
-            .filter(|a| !sub.hidden_aliases.contains(a))
-            .collect();
-        if !visible_aliases.is_empty() {
-            let _ = write!(out, " [aliases: {}]", visible_aliases.join(", "));
+    let default_title = meta.subcommand_help_heading.unwrap_or("Commands");
+    let mut headings = vec![None];
+    for (_, sub) in &lines {
+        let heading = command_help_section(sub, default_title);
+        if !headings.contains(&heading) {
+            headings.push(heading);
         }
-        out.push('\n');
-        if let Some(about) = sub.long_about.or(sub.about) {
-            // Trailing whitespace trimmed: the blank line after each entry is written below, and
-            // a description that happens to end in a newline — which clap's `long_about` often
-            // does, reaching the spec verbatim — added a second one and left a stray blank in
-            // the middle of the list.
-            write_indented(out, about.trim_end(), 4);
-        }
-        // A blank line between entries, which the wider layout can afford and which keeps a
-        // multi-line description from running into the next command's name.
-        out.push('\n');
     }
-    let _ = writeln!(
-        out,
-        "  help\n    Print this message or the help of the given subcommand(s)"
-    );
+    for heading in headings {
+        let title = heading.unwrap_or(default_title);
+        let _ = writeln!(out, "\n{title}:");
+        for (usage, sub) in lines
+            .iter()
+            .filter(|(_, sub)| command_help_section(sub, default_title) == heading)
+        {
+            let _ = write!(out, "  {usage}");
+            let visible_aliases: Vec<&str> = sub
+                .cmd
+                .aliases
+                .iter()
+                .copied()
+                .filter(|a| !sub.hidden_aliases.contains(a))
+                .collect();
+            if !visible_aliases.is_empty() {
+                let _ = write!(out, " [aliases: {}]", visible_aliases.join(", "));
+            }
+            out.push('\n');
+            if let Some(about) = sub.long_about.or(sub.about) {
+                // Trailing whitespace trimmed: the blank line after each entry is written below, and
+                // a description that happens to end in a newline — which clap's `long_about` often
+                // does, reaching the spec verbatim — added a second one and left a stray blank in
+                // the middle of the list.
+                write_indented(out, about.trim_end(), 4);
+            }
+            // A blank line between entries, which the wider layout can afford and which keeps a
+            // multi-line description from running into the next command's name.
+            out.push('\n');
+        }
+        if heading.is_none() {
+            let _ = writeln!(
+                out,
+                "  help\n    Print this message or the help of the given subcommand(s)"
+            );
+        }
+    }
 }
 
 fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, width: usize) {
