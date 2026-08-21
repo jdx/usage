@@ -1111,7 +1111,11 @@ a prerequisite for trying a CLI.
       fleet gate alongside the five original typed experiments.
 - [~] **Other languages** — Go now parses, validates, renders help and answers
   completions from generated static tables, verified against the shared corpus.
-  JavaScript and Python implementations remain open.
+  JavaScript and Python implementations remain open. **Design input needed:** decide
+  whether each generator emits a self-contained vendored runtime or targets a maintained
+  npm/PyPI runtime package; set the oldest supported Node and Python versions; and decide
+  whether 6.x requires binding only or the Go implementation's full help/completion parity.
+  Those choices determine the public package boundary and should precede implementation.
 
 ### What adoption should let mise delete
 
@@ -1371,12 +1375,20 @@ above are where it lands.
       clap's most-requested) — mutually exclusive flags declared as enum
       variants, lowering to the `group`/`conflicts` vocabulary the spec already
       has. Derive ergonomics rather than new spec surface, and clap has sat on
-      it since 2021.
+      it since 2021. **Design input needed:** choose the Rust surface. The leading
+      option is an `Option<Mode>` field whose `ValueEnum`-like variants each declare
+      a flag, with a non-optional `Mode` making the group required. Decide whether
+      variants may carry values, how a default variant differs from a defaulted flag,
+      and whether repeated flags use last-wins or remain a conflict.
 - [ ] **Alias into a nested subcommand** (clap#1603, reopened, 22 comments) —
       rustup's `install` meaning `toolchain install`, args carried along. A
       spec-level redirect an interpreter applies before parsing, so help and
       completions describe the alias too; clap's unstable `App::replace`
-      answer died for lack of interest.
+      answer died for lack of interest. **Design input needed:** the proposed portable
+      shape is a root `redirect "install" to="toolchain install"` node and a matching
+      typed attribute. Confirm that only the first command word is rewritten, trailing
+      argv is preserved verbatim, a real command wins on a name collision, and redirect
+      chains are rejected rather than followed.
 - [x] **Recursive help** (clap#4813) — `ArgAction::HelpAll` renders long help
       for the selected command and every visible descendant in one depth-first
       output. Typed Rust, portable KDL, usage-lib, and generated Go retain the
@@ -1592,7 +1604,12 @@ Where they differ is instructive, because it is mostly _drift_:
 - [ ] **Declare props in code**, `#[derive(usage::Config)]`, lowered into the
       spec's `config { prop ... }` block so settings documentation flows through
       the same pipeline as command documentation. Same canonicality rule as the
-      parser: code authors, the spec defines.
+      parser: code authors, the spec defines. **Design input needed:** choose whether
+      the derive belongs on the final typed settings struct or on a registry-only
+      declaration whose generated output feeds an existing settings type. The former
+      gives one source of truth but requires attributes for layer bindings and merge
+      policy on application fields; the latter makes incremental fleet adoption easier
+      but preserves two declarations during the migration.
 - [x] **A prop vocabulary that is the union of the four registries** — `type`
       (bool, int, string, path, duration, list, map, plus a Rust-type escape
       hatch), `default`, `env` and `deprecated_env`, `docs`, `deprecated` with
@@ -1635,10 +1652,16 @@ Where they differ is instructive, because it is mostly _drift_:
 
 - [ ] Whether config lives in this repository or beside the parser crates. It is
       not argv parsing, but it shares the spec, the codegen, and the docs
-      pipeline.
+      pipeline. **Design input needed:** keeping it in this repository preserves one
+      release train and spec vocabulary; splitting it permits an independent stability
+      and MSRV policy.
 - [ ] Whether the four CLIs migrate incrementally (one layer at a time, keeping
       their generated `Settings`) or by regenerating from a converted registry.
-      Incremental looks far more likely to actually happen.
+      Incremental looks far more likely to actually happen. **Design input needed:**
+      confirm incremental adoption as the supported 6.x path, which means the first
+      public APIs must wrap existing layers and settings types without owning them.
 - [ ] fnox's model, where config files are not a settings source at all, is the
       one real behavior change rather than a consolidation. Worth confirming that
-      is a fix and not a deliberate choice.
+      is a fix and not a deliberate choice. **Design input needed:** decide whether
+      fnox should gain config-file settings during adoption or preserve its current
+      source set and use only the shared layers that already exist there.
