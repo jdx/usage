@@ -42,20 +42,27 @@ kept every spelling.
 The interesting cases are the ones where the same edit lands in different categories depending
 on context:
 
-| edit                                          | category   | why                                                 |
-| --------------------------------------------- | ---------- | --------------------------------------------------- |
-| dropping a value from a strict `choices`      | breaking   | the value is now rejected                           |
-| dropping a value from `choices strict=#false` | metadata   | the value is still accepted, just no longer offered |
-| appending an optional positional              | compatible | no word that used to bind moves                     |
-| appending a required positional               | breaking   | an invocation without it now fails                  |
-| adding a `default`                            | compatible | nothing was resolved there before                   |
-| changing or removing a `default`              | breaking   | it moves ground the caller was already standing on  |
-| gaining a `conflicts`                         | breaking   | a combination that was valid is now rejected        |
-| gaining an `overrides`                        | compatible | a collision that was an error now resolves          |
-| gaining a group member, `multiple=#true`      | metadata   | membership only decides what satisfies `required`   |
-| gaining a group member, exclusive group       | breaking   | the new member conflicts with the rest              |
-| renaming a command that keeps an alias        | metadata   | the old word still selects it                       |
-| renaming a command with no alias              | breaking   | the old word selects nothing                        |
+| edit                                          | category   | why                                                       |
+| --------------------------------------------- | ---------- | --------------------------------------------------------- |
+| dropping a value from a strict `choices`      | breaking   | the value is now rejected                                 |
+| dropping a value from `choices strict=#false` | metadata   | the value is still accepted, just no longer offered       |
+| listing a value in a `strict=#false` set      | metadata   | it was already accepted; the list decides what is offered |
+| appending an optional positional              | compatible | no word that used to bind moves                           |
+| appending a required positional               | breaking   | an invocation without it now fails                        |
+| adding a `default`                            | compatible | nothing was resolved there before                         |
+| changing or removing a `default`              | breaking   | it moves ground the caller was already standing on        |
+| gaining a `conflicts`                         | breaking   | a combination that was valid is now rejected              |
+| gaining an `overrides`                        | compatible | a collision that was an error now resolves                |
+| gaining a group member, `multiple=#true`      | metadata   | membership only decides what satisfies `required`         |
+| gaining a group member, exclusive group       | breaking   | the new member conflicts with the rest                    |
+| renaming a command that keeps an alias        | metadata   | the old word still selects it                             |
+| renaming a command with no alias              | breaking   | the old word selects nothing                              |
+| a `renamed_to` config key that is not there   | breaking   | the promise about where the value went is not kept        |
+
+A rename is not the only thing that can happen to a command in one release, so a renamed
+command is compared against what it became. Those findings are located under the **old** name —
+what a reader wants to know is what typing the old word does now, and the `cmd-renamed` line
+above says which command it reaches.
 
 ## Two deliberate silences
 

@@ -665,6 +665,7 @@ fn diff_flag(old: &SpecFlag, new: &SpecFlag, path: &str, c: &mut Changes) {
         );
     }
     diff_var_max(old.var_max, new.var_max, path, &subject, c);
+    diff_var_min(old.var_min, new.var_min, path, &subject, c);
 
     if !old.require_equals && new.require_equals {
         c.breaking(
@@ -773,6 +774,24 @@ fn diff_flag(old: &SpecFlag, new: &SpecFlag, path: &str, c: &mut Changes) {
     }
 
     diff_defaults(&old.default, &new.default, path, &subject, c);
+    // A conditional default resolves a value where none was resolved before, so it is
+    // read the same way an unconditional one is: gaining one fills a hole, losing one
+    // takes ground away. A changed condition or value is a removal and an addition,
+    // which is what it is.
+    for entry in only_in(&default_if(&new.default_if), &default_if(&old.default_if)) {
+        c.compatible(
+            "default-if-added",
+            path,
+            format!("{subject} now defaults to {entry}"),
+        );
+    }
+    for entry in only_in(&default_if(&old.default_if), &default_if(&new.default_if)) {
+        c.breaking(
+            "default-if-removed",
+            path,
+            format!("{subject} no longer defaults to {entry}"),
+        );
+    }
     diff_env(
         old.env.as_deref(),
         new.env.as_deref(),
@@ -1003,25 +1022,7 @@ fn diff_arg(old: &SpecArg, new: &SpecArg, path: &str, subject: &str, c: &mut Cha
         );
     }
     diff_var_max(old.var_max, new.var_max, path, subject, c);
-    if old.var_min < new.var_min {
-        c.breaking(
-            "var-min-raised",
-            path,
-            format!(
-                "{subject} now needs at least {} values",
-                new.var_min.unwrap_or(0)
-            ),
-        );
-    } else if old.var_min > new.var_min {
-        c.compatible(
-            "var-min-lowered",
-            path,
-            format!(
-                "{subject} now needs at least {} values",
-                new.var_min.unwrap_or(0)
-            ),
-        );
-    }
+    diff_var_min(old.var_min, new.var_min, path, subject, c);
 
     if old.value_names != new.value_names {
         c.metadata(
@@ -1237,12 +1238,23 @@ fn diff_choices(
             );
         }
     }
+    // The mirror of the removal above, keyed on the *old* strictness: a value only
+    // becomes newly acceptable if the old set was the one refusing it. Where anything
+    // was already accepted, listing a value starts offering it and nothing more.
     for value in only_in(&now, &was) {
-        c.compatible(
-            "choice-added",
-            path,
-            format!("{subject} now accepts '{value}'"),
-        );
+        if old_strict {
+            c.compatible(
+                "choice-added",
+                path,
+                format!("{subject} now accepts '{value}'"),
+            );
+        } else {
+            c.metadata(
+                "choice-listed",
+                path,
+                format!("{subject} now offers '{value}', which it already accepted"),
+            );
+        }
     }
 
     if old.is_some_and(|ch| ch.ignore_case) && !new.is_some_and(|ch| ch.ignore_case) {
@@ -1383,14 +1395,21 @@ fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Ch
                 // A word that now selects some other command still works: rustup's
                 // `install` reaching `toolchain install` is a rename, not a removal.
                 match new.find_subcommand(name) {
-                    Some(covering) => c.metadata(
-                        "cmd-renamed",
-                        path,
-                        format!(
-                            "command '{name}' was renamed to '{}', which still answers to '{name}'",
-                            covering.name
-                        ),
-                    ),
+                    Some(covering) => {
+                        c.metadata(
+                            "cmd-renamed",
+                            path,
+                            format!(
+                                "command '{name}' was renamed to '{}', which still answers to '{name}'",
+                                covering.name
+                            ),
+                        );
+                        // And then compared, because the rename is not the only thing that
+                        // may have happened to it. Located under the *old* name: what a
+                        // reader wants to know is what typing `{name}` does now, and the
+                        // line above says which command that reaches.
+                        diff_command(was, covering, &child, c);
+                    }
                     None => {
                         c.breaking("cmd-removed", path, format!("command '{name}' was removed"))
                     }
@@ -1426,7 +1445,14 @@ fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Ch
 fn diff_config(old: &SpecConfig, new: &SpecConfig, path: &str, c: &mut Changes) {
     for (key, was) in &old.props {
         let Some(now) = new.props.get(key) else {
-            match was.renamed_to.as_deref() {
+            // `renamed_to` is a promise about where the value went; it is only kept if
+            // the key it names is actually there. A typo, or a target removed in the
+            // same edit, is a removal wearing a rename's clothes.
+            match was
+                .renamed_to
+                .as_deref()
+                .filter(|to| new.props.contains_key(*to))
+            {
                 Some(to) => c.compatible(
                     "config-prop-renamed",
                     path,
@@ -1435,7 +1461,13 @@ fn diff_config(old: &SpecConfig, new: &SpecConfig, path: &str, c: &mut Changes) 
                 None => c.breaking(
                     "config-prop-removed",
                     path,
-                    format!("config property '{key}' was removed"),
+                    match was.renamed_to.as_deref() {
+                        Some(to) => format!(
+                            "config property '{key}' was removed, and the '{to}' it renames to \
+                             does not exist"
+                        ),
+                        None => format!("config property '{key}' was removed"),
+                    },
                 ),
             }
             continue;
@@ -1806,6 +1838,31 @@ fn diff_unknown_flags(
     }
 }
 
+/// How many values are required. Flags carry this as well as arguments do, and a flag
+/// that needs two values where it needed one rejects a command line that used to work.
+fn diff_var_min(
+    old: Option<usize>,
+    new: Option<usize>,
+    path: &str,
+    subject: &str,
+    c: &mut Changes,
+) {
+    let floor = |v: Option<usize>| v.unwrap_or(0);
+    if floor(new) > floor(old) {
+        c.breaking(
+            "var-min-raised",
+            path,
+            format!("{subject} now needs at least {} values", floor(new)),
+        );
+    } else if floor(new) < floor(old) {
+        c.compatible(
+            "var-min-lowered",
+            path,
+            format!("{subject} now needs at least {} values", floor(new)),
+        );
+    }
+}
+
 fn diff_var_max(
     old: Option<usize>,
     new: Option<usize>,
@@ -1894,6 +1951,16 @@ fn required_if_eq(entries: &[usage::spec::arg::SpecRequiredIfEq]) -> Vec<String>
     entries
         .iter()
         .map(|e| format!("{}={}", e.selector, e.value))
+        .collect()
+}
+
+fn default_if(entries: &[usage::spec::flag::SpecDefaultIf]) -> Vec<String> {
+    entries
+        .iter()
+        .map(|e| match &e.when {
+            Some(when) => format!("'{}' when {}={when}", e.value, e.selector),
+            None => format!("'{}' when {} is given", e.value, e.selector),
+        })
         .collect()
 }
 
@@ -2404,6 +2471,136 @@ cmd "rm" help="delete a thing" effect="destructive"
         assert!(
             found.iter().all(|c| c.starts_with("metadata:")),
             "{found:?}"
+        );
+    }
+
+    #[test]
+    fn a_renamed_command_is_still_compared_to_what_it_became() {
+        // The rename is not the only thing that can happen in one release, and a break
+        // inside the command would otherwise hide behind the alias that covers its name.
+        let old = r#"
+name "ex"
+bin "ex"
+cmd "install" help="install" {
+    flag "--force" help="force"
+    arg "<pkg>" help="package"
+}
+        "#;
+        let new = r#"
+name "ex"
+bin "ex"
+cmd "add" help="install" {
+    alias "install"
+    arg "<pkg>" help="package"
+}
+        "#;
+        let found = changes(old, new);
+        assert_eq!(
+            find(&found, "cmd-renamed").message,
+            "command 'install' was renamed to 'add', which still answers to 'install'"
+        );
+        let removed = find(&found, "flag-removed");
+        assert_eq!(removed.category, Category::Breaking);
+        assert_eq!(removed.location, "ex install");
+    }
+
+    #[test]
+    fn a_config_rename_pointing_nowhere_is_a_removal() {
+        let old = r#"
+name "ex"
+bin "ex"
+config {
+    prop "jobs" type="uint" help="jobs" renamed_to="parallelism"
+}
+        "#;
+        let new = "name \"ex\"\nbin \"ex\"\n";
+        let found = changes(old, new);
+        let removed = find(&found, "config-prop-removed");
+        assert_eq!(removed.category, Category::Breaking);
+        assert_eq!(
+            removed.message,
+            "config property 'jobs' was removed, and the 'parallelism' it renames to does not exist"
+        );
+    }
+
+    #[test]
+    fn a_conditional_default_reads_like_an_unconditional_one() {
+        let none = r#"
+name "ex"
+bin "ex"
+flag "--json" help="json"
+flag "--bin-names <n>" help="names"
+        "#;
+        let conditional = r#"
+name "ex"
+bin "ex"
+flag "--json" help="json"
+flag "--bin-names <n>" help="names" {
+    default_if "--json" "true"
+}
+        "#;
+        let found = changes(none, conditional);
+        assert_eq!(
+            find(&found, "default-if-added").message,
+            "flag '--bin-names' now defaults to 'true' when --json is given"
+        );
+        assert_eq!(
+            find(&found, "default-if-added").category,
+            Category::Compatible
+        );
+        assert_eq!(
+            find(&changes(conditional, none), "default-if-removed").category,
+            Category::Breaking
+        );
+    }
+
+    #[test]
+    fn a_flag_that_needs_more_values_than_it_did_is_breaking() {
+        let one = r#"
+name "ex"
+bin "ex"
+flag "--tags <t>" help="tags" var=#true var_min=1
+        "#;
+        let two = r#"
+name "ex"
+bin "ex"
+flag "--tags <t>" help="tags" var=#true var_min=2
+        "#;
+        let found = changes(one, two);
+        assert_eq!(
+            find(&found, "var-min-raised").message,
+            "flag '--tags' now needs at least 2 values"
+        );
+        assert_eq!(find(&found, "var-min-raised").category, Category::Breaking);
+        assert_eq!(
+            find(&changes(two, one), "var-min-lowered").category,
+            Category::Compatible
+        );
+    }
+
+    #[test]
+    fn listing_a_value_a_non_strict_set_already_accepted_is_metadata() {
+        // The mirror of `dropping_a_value_from_a_non_strict_set_only_stops_offering_it`:
+        // where anything is accepted, the list decides what is offered and nothing else.
+        let old = r#"
+name "ex"
+bin "ex"
+flag "--backend <b>" help="backend" {
+    choices "npm" strict=#false
+}
+        "#;
+        let new = r#"
+name "ex"
+bin "ex"
+flag "--backend <b>" help="backend" {
+    choices "npm" "cargo" strict=#false
+}
+        "#;
+        let found = changes(old, new);
+        assert_eq!(codes(old, new), ["metadata:choice-listed"]);
+        assert_eq!(
+            find(&found, "choice-listed").message,
+            "flag '--backend' now offers 'cargo', which it already accepted"
         );
     }
 }
