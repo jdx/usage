@@ -5,6 +5,11 @@ use itertools::Itertools;
 
 fn escape_md(value: &str, html_encode: bool) -> String {
     let mut in_fenced_code_block = false;
+    // Help text is allowed to contain terminal styling. clap-era applications commonly build
+    // their examples with `color_print::cstr!`, which embeds SGR sequences even when color is
+    // disabled at runtime. Terminal styling has no meaning in generated Markdown, and leaving
+    // it here publishes literal escape bytes in docs and downstream static sites.
+    let value = xx::regex!(r"\x1b\[[0-?]*[ -/]*[@-~]").replace_all(value, "");
 
     value
         .lines()
@@ -248,5 +253,15 @@ mod tests {
         let input = "before <\n```\ninside <\n```\nafter <";
 
         assert_eq!(escape_md(input, false), input);
+    }
+
+    #[test]
+    fn strips_terminal_styling_from_generated_markdown() {
+        let input =
+            "\u{1b}[1m\u{1b}[4mExamples:\u{1b}[22m\u{1b}[24m\n\n    \u{1b}[1mmise run\u{1b}[22m";
+        let expected = "Examples:\n\n    mise run";
+
+        assert_eq!(escape_md(input, true), expected);
+        assert_eq!(escape_md(input, false), expected);
     }
 }

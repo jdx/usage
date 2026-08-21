@@ -82,6 +82,8 @@ pub struct Cli {
     /// `Subcommands` variant may still add aliases for the particular route mounting it.
     pub aliases: Vec<String>,
     pub hidden_aliases: Vec<String>,
+    /// Whether a command using this argument struct is omitted from help and completions.
+    pub hide: bool,
     /// Default casing for inferred flag and positional names.
     rename_all: Option<CasingStyle>,
     /// Default casing for environment names inferred by bare `env`.
@@ -630,6 +632,7 @@ impl Cli {
             effect: None,
             aliases: Vec::new(),
             hidden_aliases: Vec::new(),
+            hide: false,
             rename_all: None,
             rename_all_env: CasingStyle::ScreamingSnake,
             attr_span: input
@@ -683,6 +686,7 @@ impl Cli {
         };
 
         for attr in attrs(&input.attrs) {
+            let clap_attr = attr.path().is_ident("command");
             for meta in nested(attr)? {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
@@ -739,8 +743,15 @@ impl Cli {
                     "settings" => cli.settings = flag_value(&meta)?,
                     "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
                     "effect" => cli.effect = Some(effect_value(&meta)?),
-                    "alias" => cli.aliases.extend(selectors(&meta)?),
+                    "alias" | "aliases" if clap_attr => {
+                        cli.hidden_aliases.extend(selectors(&meta)?);
+                    }
+                    "alias" | "aliases" => cli.aliases.extend(selectors(&meta)?),
+                    "visible_alias" | "visible_aliases" => {
+                        cli.aliases.extend(selectors(&meta)?);
+                    }
                     "alias_hidden" => cli.hidden_aliases.extend(selectors(&meta)?),
+                    "hide" => cli.hide = flag_value(&meta)?,
                     "min_usage_version" => cli.min_usage_version = Some(string_value(&meta)?),
                     "usage" => cli.usage = Some(string_value(&meta)?),
                     "version" => {
@@ -804,8 +815,18 @@ impl Cli {
                     // in one CLI" against "mise prepares your development environment before
                     // each command runs." There is no comment that says both, so they can be
                     // declared.
-                    "about" => cli.about_attr = Some(metadata_expr(&meta)?),
-                    "long_about" => cli.long_about_attr = Some(metadata_expr(&meta)?),
+                    "about" => {
+                        cli.about_attr = Some(match &meta {
+                            Meta::Path(_) => quote::quote!(env!("CARGO_PKG_DESCRIPTION")),
+                            _ => metadata_expr(&meta)?,
+                        });
+                    }
+                    "long_about" => {
+                        cli.long_about_attr = Some(match &meta {
+                            Meta::Path(_) => quote::quote!(env!("CARGO_PKG_DESCRIPTION")),
+                            _ => metadata_expr(&meta)?,
+                        });
+                    }
                     "deprecated" => cli.deprecated = Some(string_value(&meta)?),
                     "deprecated_warn_at" => cli.deprecated_warn_at = Some(string_value(&meta)?),
                     "deprecated_remove_at" => cli.deprecated_remove_at = Some(string_value(&meta)?),
@@ -875,7 +896,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `usage`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount` and \
@@ -4356,12 +4377,17 @@ impl Variant {
         let mut after_long_help = None;
 
         for attr in attrs(&variant.attrs) {
+            let clap_attr = attr.path().is_ident("command");
             for meta in nested(attr)? {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
                     "name" => name = strip_dashes(&string_value(&meta)?),
                     // One as a value or several as a list, as the relationship options do.
-                    "alias" => aliases.extend(selectors(&meta)?),
+                    "alias" | "aliases" if clap_attr => {
+                        hidden_aliases.extend(selectors(&meta)?);
+                    }
+                    "alias" | "aliases" => aliases.extend(selectors(&meta)?),
+                    "visible_alias" | "visible_aliases" => aliases.extend(selectors(&meta)?),
                     "alias_hidden" => hidden_aliases.extend(selectors(&meta)?),
                     "hide" => hide = flag_value(&meta)?,
                     "help_heading" => help_heading = Some(string_value(&meta)?),
