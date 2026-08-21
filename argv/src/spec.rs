@@ -837,6 +837,8 @@ pub struct FlagMeta<'a> {
     /// Ordered placeholders for one fixed-arity occurrence.
     pub value_names: &'a [&'a str],
     pub env: Option<&'a str>,
+    pub env_fallback: &'a [&'a str],
+    pub deprecated_env: &'a [&'a str],
     pub default: &'a [&'a str],
     /// Canonical choices plus aliases accepted by the value type.
     pub accepted_choices: &'a [&'a str],
@@ -945,6 +947,8 @@ impl FlagMeta<'_> {
         value_name: None,
         value_names: &[],
         env: None,
+        env_fallback: &[],
+        deprecated_env: &[],
         default: &[],
         accepted_choices: &[],
         choices: &[],
@@ -1022,6 +1026,8 @@ pub struct ArgMeta<'a> {
     pub help: Option<&'a str>,
     pub long_help: Option<&'a str>,
     pub env: Option<&'a str>,
+    pub env_fallback: &'a [&'a str],
+    pub deprecated_env: &'a [&'a str],
     pub default: &'a [&'a str],
     /// Canonical choices plus aliases accepted by the value type.
     pub accepted_choices: &'a [&'a str],
@@ -1079,6 +1085,8 @@ impl ArgMeta<'_> {
         help: None,
         long_help: None,
         env: None,
+        env_fallback: &[],
+        deprecated_env: &[],
         default: &[],
         accepted_choices: &[],
         choices: &[],
@@ -1794,6 +1802,8 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if let Some(env) = meta.env {
         write!(out, " env={}", quoted(env))?;
     }
+    write_single_list(out, "env_fallback", meta.env_fallback)?;
+    write_single_list(out, "deprecated_env", meta.deprecated_env)?;
     write_single_default(out, meta.default)?;
     write_single_list(out, "overrides", meta.overrides)?;
     write_single_list(out, "conflicts", meta.conflicts)?;
@@ -1852,7 +1862,9 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         || !meta.required_if_eq_all.is_empty()
         || meta.required_if.len() > 1
         || meta.required_unless.len() > 1
-        || meta.required_unless_all.len() > 1;
+        || meta.required_unless_all.len() > 1
+        || meta.env_fallback.len() > 1
+        || meta.deprecated_env.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -1931,6 +1943,8 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     write_many_list(out, "required_if", meta.required_if, inner)?;
     write_many_list(out, "required_unless", meta.required_unless, inner)?;
     write_many_list(out, "required_unless_all", meta.required_unless_all, inner)?;
+    write_many_list(out, "env_fallback", meta.env_fallback, inner)?;
+    write_many_list(out, "deprecated_env", meta.deprecated_env, inner)?;
     if meta.flag.takes_value {
         indent(out, inner)?;
         let exact = exact_arity(meta.value_var_min, meta.value_var_max);
@@ -2106,6 +2120,8 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if let Some(env) = meta.env {
         write!(out, " env={}", quoted(env))?;
     }
+    write_single_list(out, "env_fallback", meta.env_fallback)?;
+    write_single_list(out, "deprecated_env", meta.deprecated_env)?;
     if let Some(validate) = meta.validate {
         write!(out, " validate={}", quoted(validate))?;
     }
@@ -2131,7 +2147,9 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         || !meta.required_if_eq.is_empty()
         || !meta.required_if_eq_all.is_empty()
         || meta.required_unless.len() > 1
-        || meta.required_unless_all.len() > 1;
+        || meta.required_unless_all.len() > 1
+        || meta.env_fallback.len() > 1
+        || meta.deprecated_env.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -2177,6 +2195,8 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     }
     write_many_list(out, "required_unless", meta.required_unless, inner)?;
     write_many_list(out, "required_unless_all", meta.required_unless_all, inner)?;
+    write_many_list(out, "env_fallback", meta.env_fallback, inner)?;
+    write_many_list(out, "deprecated_env", meta.deprecated_env, inner)?;
     write_many_defaults(out, meta.default, inner)?;
     write_choices(
         out,

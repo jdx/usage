@@ -77,6 +77,10 @@ type Meta struct {
 	Default []string
 	// Env names an environment variable to fall back to. Empty means none.
 	Env string
+	// EnvFallback names additional environment variables in declaration order.
+	EnvFallback []string
+	// DeprecatedEnv names deprecated aliases, consulted after ordinary fallbacks.
+	DeprecatedEnv []string
 	// VarMin is the fewest values a variadic may end up with. Zero means no
 	// bound. It is a check rather than a limit, because nothing about a single
 	// word tells you a variadic will end up short.
@@ -210,11 +214,25 @@ func Fill(m *Meta, given []string, lookupEnv func(string) (string, bool)) ([]str
 	if m == nil {
 		return nil, Unset
 	}
-	if m.Env != "" && lookupEnv != nil {
-		if v, ok := lookupEnv(m.Env); ok {
-			// One token. The grammar never re-splits a value on whitespace —
-			// quoting is the shell's job and there was no shell here at all.
-			return []string{v}, FromEnv
+	if lookupEnv != nil {
+		if m.Env != "" {
+			if v, ok := lookupEnv(m.Env); ok {
+				// One token. The grammar never re-splits a value on whitespace —
+				// quoting is the shell's job and there was no shell here at all.
+				return []string{v}, FromEnv
+			}
+		}
+		for _, name := range m.EnvFallback {
+			if v, ok := lookupEnv(name); ok {
+				return []string{v}, FromEnv
+			}
+		}
+		for _, name := range m.DeprecatedEnv {
+			if v, ok := lookupEnv(name); ok {
+				// One token. The grammar never re-splits a value on whitespace —
+				// quoting is the shell's job and there was no shell here at all.
+				return []string{v}, FromEnv
+			}
 		}
 	}
 	// Conditional defaults need sibling state, which this function cannot see.
