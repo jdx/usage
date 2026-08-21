@@ -180,6 +180,27 @@ struct Defaulted {
     no_color: bool,
 }
 
+/// The roles a command gets from somewhere else: a group it flattens, which the derive now
+/// lowers into a `flagset`. hk's shape, written once and given to several commands.
+#[derive(usage_derive::Args)]
+struct Loudness {
+    /// Enables verbose output
+    #[usage(long, short = 'v', global, count, verbosity = "verbose")]
+    verbose: u8,
+    /// Disable colored output
+    #[usage(long, global, color = "never")]
+    no_color: bool,
+}
+
+#[derive(Cli)]
+#[usage(bin = "borrowed", name = "borrowed")]
+struct Borrowed {
+    #[usage(flatten)]
+    loudness: Loudness,
+    #[usage(long, global)]
+    jobs: Option<String>,
+}
+
 /// A CLI that declares no roles at all, which most of the fleet is.
 #[derive(Cli)]
 #[usage(bin = "tak", name = "tak")]
@@ -244,6 +265,7 @@ typed_parse!(Hk);
 typed_parse!(Fnox);
 typed_parse!(Paired);
 typed_parse!(Defaulted);
+typed_parse!(Borrowed);
 typed_parse!(Tak);
 
 /// Both implementations, held to the same answer.
@@ -416,6 +438,34 @@ fn a_default_is_not_the_same_as_an_answer() {
         ["--no-color"],
         Verbosity::Info,
         ColorChoice::Never
+    );
+}
+
+#[test]
+fn a_flattened_group_answers_for_the_command_that_holds_it() {
+    // The declarations belong to the command, so its answer is theirs — and the group is
+    // emitted as a `flagset` the command `use`s, so this also holds the roles to surviving
+    // that indirection on the way into the spec and back out.
+    let kdl = Borrowed::to_kdl();
+    assert!(kdl.contains("verbosity=verbose"), "{kdl}");
+    assert!(kdl.contains("color=never"), "{kdl}");
+    agree!(Borrowed, kdl, [], Verbosity::Info, ColorChoice::Auto);
+    agree!(Borrowed, kdl, ["-vv"], Verbosity::Trace, ColorChoice::Auto);
+    agree!(
+        Borrowed,
+        kdl,
+        ["--no-color"],
+        Verbosity::Info,
+        ColorChoice::Never
+    );
+    // And a flag of the command's own moves nothing, which is the other half of "the
+    // parent's roles and the group's are the same set".
+    agree!(
+        Borrowed,
+        kdl,
+        ["--jobs", "4", "-v"],
+        Verbosity::Debug,
+        ColorChoice::Auto
     );
 }
 
