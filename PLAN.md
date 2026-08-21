@@ -1414,13 +1414,15 @@ docs.
 
 ## Not covered by the corpus yet
 
-- [ ] **Restart tokens** — `restart_token` (mise's `:::`) makes one command line
-      describe several invocations. `expect` holds a single result, so this needs a
-      multi-invocation vector shape first.
+- [x] **Restart tokens** — the completion corpus covers returning to the first
+      argument, prefix filtering after the restart, and flags remaining available.
+      This is the observable contract restart tokens have while a line is partial;
+      successful binding remains one invocation at a time.
 - [ ] **Mounts** — `mount` resolves a sub-spec by running a command mid-parse,
       which makes a vector depend on an external process. Needs stubbing.
-- [ ] **Completion parsing** — `parse_partial` accepts deliberately incomplete
-      input. Different contract, different expectations, its own corpus.
+- [x] **Completion parsing** — `corpus/complete` is the separate partial-input
+      corpus, with line/cursor positions, candidates, path fallback, and explicit
+      reference-agreement labels. It runs against usage-argv and usage-cli.
 
 ## Known usage-lib divergences
 
