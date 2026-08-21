@@ -365,6 +365,63 @@ None of this changes which token binds where. It only fills what the command lin
 left empty, which is why it is described last: an implementation can do all of it
 after the single pass is over.
 
+## Warnings
+
+A declaration may still work and still be something a CLI wants to stop people using.
+`deprecated` on a flag or a command says so, and `deprecated_env` says it about one of
+the variables a value may arrive through. Help and completions describe those already;
+this is what a parse says to the person who just used one.
+
+A parse **reports rather than prints**. A parser that wrote to stderr could not be used
+by anything with an opinion about output, and mise queues its deprecations until its
+logging is up — the same rule [configuration resolution](/spec/resolution#warnings)
+follows. What prints is the CLI's own process entry point, not the parse.
+
+Each warning has a **kind**, because the wording is for a person and the kind is what a
+program acts on:
+
+| kind                 | what happened                                                  |
+| -------------------- | -------------------------------------------------------------- |
+| `deprecated-flag`    | a flag whose declaration says not to use it any more was given |
+| `deprecated-command` | a selected command's declaration says not to use it any more   |
+| `deprecated-env`     | a value arrived through a `deprecated_env` alias               |
+
+What a parse reports is a _set_, not a sequence. Every deprecation a command line used
+is reported once, and the arrangement is a quality-of-implementation matter: two
+implementations agree on which warnings there are without having to agree on the order
+they come out in. A caller that cares about arrangement sorts by `kind`.
+
+Three rules decide whether there is anything to say.
+
+**The command line and the environment count; a default does not.** A flag supplied by a
+variable used the deprecated declaration as much as a typed word did, and both are things
+the user arranged. A declared default is nobody's request, so a deprecated flag with a
+default does not warn on a command line that never mentioned it.
+
+**Every deprecated command on the selected path reports**, not only the last one: a
+deprecated group whose child is fine was still the way in. The root is not one of them —
+it is the program that is running, not something the command line selected.
+
+**`deprecated_warn_at` is an author saying _not yet_.** A warning is withheld until the
+CLI's own `version` reaches that release. `deprecated_remove_at` never withholds anything
+and is never an error: removing a declaration is the author's job, not the parser's, and
+until then the milestone is something the message mentions.
+
+Versions compare as dotted integers, left to right:
+
+| case                                  | result                                               |
+| ------------------------------------- | ---------------------------------------------------- |
+| no `deprecated_warn_at`               | warn — it is deprecated now                          |
+| the CLI declares no `version`         | warn                                                 |
+| either version is not readable as one | warn                                                 |
+| unequal segment counts                | missing segments are `0`, so `2026.12` = `2026.12.0` |
+| a `-suffix`                           | sorts before the same numbers without one            |
+| a `+suffix`                           | ignored                                              |
+
+Semver and calver both work under that rule. Every uncertain case warns on purpose: noise
+is recoverable and silence is not, so a version string an implementation cannot read
+produces a warning rather than hiding one.
+
 ## Errors
 
 The grammar distinguishes these classes of failure. Wording is not specified —

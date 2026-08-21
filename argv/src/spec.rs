@@ -2850,6 +2850,25 @@ pub trait CommandArgs: Sized {
         None
     }
 
+    /// The deprecated declarations this command line actually used.
+    ///
+    /// Read from the partial rather than from the built struct, because a struct cannot answer
+    /// what the parse saw: a `bool` field is `false` whether the flag was absent or negated. Asked
+    /// after the environment has been applied, since a value that arrived through a variable used
+    /// the deprecated declaration just as much as a typed word did — while a declared default is
+    /// nothing anybody asked for, and does not warn.
+    ///
+    /// The milestone gate is deliberately not applied here. A nested command's tables say nothing
+    /// about the root's version, and a CLI with a computed `runtime_version` only settles it at
+    /// run time, so [`crate::warn::retain_reached`] is applied once by the entry point that knows
+    /// it.
+    ///
+    /// Empty by default, like the rest of the composition points, so a hand-written implementation
+    /// with nothing to report is not forced to say so.
+    fn deprecations(partial: &Self::Partial, out: &mut Vec<crate::warn::Warning<'static>>) {
+        let _ = (partial, out);
+    }
+
     /// Find an argument by any selector it accepts.
     ///
     /// Parents use this to enforce a relationship declared beside a flattened
@@ -3169,6 +3188,20 @@ pub trait Subcommands: Sized {
     fn exclusive_given(partial: &Self::Partial, selected: Option<usize>) -> Option<&'static str> {
         let _ = (partial, selected);
         None
+    }
+
+    /// The deprecated declarations the selected command used, and the command itself if its own
+    /// declaration is deprecated.
+    ///
+    /// Every deprecated command on the selected path reports, not only the last one: a deprecated
+    /// group whose child is fine was still the way in. See [`CommandArgs::deprecations`] for when
+    /// this is asked and why the milestone gate is not applied here.
+    fn deprecations(
+        partial: &Self::Partial,
+        selected: Option<usize>,
+        out: &mut Vec<crate::warn::Warning<'static>>,
+    ) {
+        let _ = (partial, selected, out);
     }
 
     /// Fill fields in the selected command from their declared environment variables.

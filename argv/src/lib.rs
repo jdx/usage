@@ -164,6 +164,8 @@ macro_rules! __usage_needs_complete_feature {
 pub mod help;
 #[cfg(feature = "spec")]
 pub mod spec;
+#[cfg(feature = "spec")]
+pub mod warn;
 
 /// How deep a command tree this parser will descend.
 ///
@@ -1012,6 +1014,24 @@ pub fn render_failure_view(
 ) -> String {
     let _ = (spec, argv, view);
     ::std::format!("error: {error:?}\n")
+}
+
+/// What a caller should print for the deprecations a command line used.
+///
+/// The same arrangement as [`render_failure`], and for the same reason: whether the coloured
+/// rendering is available is a feature of *this* crate in the adopter's dependency graph, so the
+/// `#[cfg]` lives beside the thing it gates rather than in generated code.
+///
+/// Warnings are not failures. A caller prints these to stderr and carries on.
+#[cfg(feature = "diagnostics")]
+pub fn render_warnings(warnings: &[warn::Warning<'_>]) -> String {
+    diagnostic::render_warnings(warnings, diagnostic::Style::auto())
+}
+
+/// The same wording without the renderer that colours it. See the other half.
+#[cfg(all(feature = "spec", not(feature = "diagnostics")))]
+pub fn render_warnings(warnings: &[warn::Warning<'_>]) -> String {
+    warn::render_warnings(warnings)
 }
 
 /// Whether a flag is one of the two the parser supplies rather than the CLI declaring it.

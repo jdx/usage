@@ -47,6 +47,21 @@ cmd "list" {
 }
 ```
 
+## Deprecating a command
+
+`deprecated="use build"` on a `cmd` says the command still works and should not be used
+any more, with `deprecated_warn_at` and `deprecated_remove_at` naming releases as they do
+on a [flag](/spec/reference/flag#deprecated).
+
+```kdl
+cmd "compile" deprecated="use build" deprecated_remove_at="3.0.0" {
+    flag "--incremental"
+}
+```
+
+Selecting it is what reports it, and every deprecated command on the path reports rather
+than only the last one. See [Warnings](/spec/argv#warnings).
+
 ## Mounting dynamic commands
 
 A usage spec can define a command to run which emits extra usage spec which will be merged into the
