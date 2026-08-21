@@ -702,6 +702,18 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       that forwards argv, since `usage bash script.sh --debug` gives `--debug` to
       the script precisely because usage does not know it — a global one it _did_
       know would be eaten. The completion suite caught that as a real regression.
+      **The perf gate went red, and the regression was accepted** as the cost of
+      the dogfood. `usage --help` rose 14.6% and the markdown benchmark 5.4%,
+      both measured against a build of the base on one machine. Attributed by
+      measuring the same binary two ways: the branch reading _main's_ spec is
+      +0.51% on markdown, and the branch with the flags declared but not compiled
+      in is +2.58% on startup — so 90% and 82% of the two numbers is usage's own
+      command line gaining six flags, which is what a dogfood is. The hot path is
+      untouched, which the shadow table reports independently at 8370
+      instructions either way. What is left is the new code in the binary, and
+      `usage --help` is ~57% dynamic-linker relocation, so anything that grows it
+      shows up there. Worth writing down because the gate will keep firing until
+      the next baseline: it caught a declared cost, not an accidental one.
       **Not carried into Go**, following `effect`, the other cold semantic
       property, which never crossed either: Go's `encoding/json` ignores the
       unknown key, so a spec carrying `verbosity=` still works there, and a
