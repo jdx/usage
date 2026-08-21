@@ -11,9 +11,6 @@ pub enum FidelityFeature {
     NonUtf8Default,
     ValueArity,
     DistinctValueNames,
-    DisableHelpFlag,
-    DisableHelpSubcommand,
-    DisableVersionFlag,
     DisableColoredHelp,
     Color,
 }
@@ -72,22 +69,6 @@ fn visit(cmd: &Command, ancestors: &[String], losses: &mut BTreeSet<FidelityLoss
         }
     };
 
-    command_loss(
-        cmd.is_disable_help_flag_set(),
-        FidelityFeature::DisableHelpFlag,
-        "disable_help_flag",
-    );
-    command_loss(
-        cmd.get_subcommands().next().is_some() && cmd.is_disable_help_subcommand_set(),
-        FidelityFeature::DisableHelpSubcommand,
-        "disable_help_subcommand",
-    );
-    command_loss(
-        (cmd.get_version().is_some() || cmd.get_long_version().is_some())
-            && cmd.is_disable_version_flag_set(),
-        FidelityFeature::DisableVersionFlag,
-        "disable_version_flag",
-    );
     command_loss(
         cmd.is_disable_colored_help_set(),
         FidelityFeature::DisableColoredHelp,

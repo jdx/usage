@@ -103,6 +103,9 @@ type Cmd struct {
 	UnknownFlags                *string     `json:"unknown_flags"`
 	ExternalSubcommand          bool        `json:"external_subcommand"`
 	ArgRequiredElseHelp         bool        `json:"arg_required_else_help"`
+	DisableHelpFlag             bool        `json:"disable_help_flag"`
+	DisableHelpSubcommand       bool        `json:"disable_help_subcommand"`
+	DisableVersionFlag          bool        `json:"disable_version_flag"`
 	DontDelimitTrailingValues   bool        `json:"dont_delimit_trailing_values"`
 	ArgsOverrideSelf            bool        `json:"args_override_self"`
 	SubcommandNegatesReqs       bool        `json:"subcommand_negates_reqs"`
@@ -248,6 +251,7 @@ type Flag struct {
 	// not carried across the lowering. The corpus never uses one.
 	DefaultMissing string `json:"default_missing"`
 	Arg            *Arg   `json:"arg"`
+	Action         string `json:"action"`
 }
 
 type RequiredIfEq struct {
@@ -616,6 +620,21 @@ func first(values ...string) string {
 	return ""
 }
 
+func flagAction(action string) argv.ArgAction {
+	switch action {
+	case "help":
+		return argv.ActionHelp
+	case "help_short":
+		return argv.ActionHelpShort
+	case "help_long":
+		return argv.ActionHelpLong
+	case "version":
+		return argv.ActionVersion
+	default:
+		return argv.ActionSet
+	}
+}
+
 func (b *builder) next() uint64 {
 	b.key++
 	return b.key
@@ -632,6 +651,9 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		UnknownFlags:                unknown,
 		ExternalSubcommand:          c.ExternalSubcommand,
 		ArgRequiredElseHelp:         c.ArgRequiredElseHelp,
+		DisableHelpFlag:             c.DisableHelpFlag,
+		DisableHelpSubcommand:       c.DisableHelpSubcommand,
+		DisableVersionFlag:          c.DisableVersionFlag,
 		SubcommandNegatesReqs:       c.SubcommandNegatesReqs,
 		ArgsConflictWithSubcommands: c.ArgsConflictWithSubcommands,
 		SubcommandPrecedenceOverArg: c.SubcommandPrecedenceOverArg,
@@ -883,6 +905,7 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 		ValueOptional:        f.ValueOptional,
 		DefaultMissing:       f.DefaultMissing,
 		Global:               f.Global,
+		Action:               flagAction(f.Action),
 	}
 	if f.Arg != nil && len(f.Arg.Delimiter) == 1 {
 		out.Delimiter = f.Arg.Delimiter[0]

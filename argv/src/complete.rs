@@ -80,7 +80,7 @@ pub struct Position<'t> {
 /// and reports the state it reached, rather than discarding it the way a real parse must.
 pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
     let argv: Vec<&std::ffi::OsStr> = words.iter().map(std::ffi::OsStr::new).collect();
-    let mut parser = Parser::new(root, &argv);
+    let mut parser = Parser::for_completion(root, &argv);
     let mut awaiting_value = None;
     let mut last_arg = None;
     let mut last_arg_values = 0u32;
@@ -108,7 +108,7 @@ pub fn walk<'t>(root: &'t Command<'t>, words: &[String]) -> Position<'t> {
             // so the position has to be taken from the request rather than from the parser.
             //
             // Nothing else can be typed there: a topic takes no flags and fills no argument.
-            Err(Error::Help { cmd, .. }) => {
+            Err(Error::Help { cmd, .. }) if parser.help_span() != (0, 0) => {
                 return Position {
                     cmd,
                     flags_possible: false,
@@ -2311,6 +2311,42 @@ mod tests {
         // A flag that takes none does not, and neither does one already given its value.
         assert!(position_at("mise use --jobs 4 ").awaiting_value.is_none());
         assert!(position_at("mise --verbose ").awaiting_value.is_none());
+    }
+
+    #[test]
+    fn declared_builtin_actions_do_not_turn_completion_into_a_help_topic() {
+        static ASSIST: Flag = Flag {
+            key: 100,
+            name: "assist",
+            longs: &["assist"],
+            action: crate::ArgAction::Help,
+            ..Flag::BOOL
+        };
+        static REVISION: Flag = Flag {
+            key: 101,
+            name: "revision",
+            longs: &["revision"],
+            action: crate::ArgAction::Version,
+            ..Flag::BOOL
+        };
+        static TARGET: Arg = Arg {
+            key: 102,
+            name: "TARGET",
+            ..Arg::REQUIRED
+        };
+        static APP: Command = Command {
+            name: "app",
+            flags: &[&ASSIST, &REVISION],
+            args: &[&TARGET],
+            ..Command::EMPTY
+        };
+
+        for action in ["--assist", "--revision"] {
+            let position = walk(&APP, &[action.to_string(), "filled".to_string()]);
+            assert!(!position.help_topic, "{action} became a help topic");
+            assert_eq!(position.next_arg, None, "{action} stopped the walk early");
+            assert!(position.flags_possible);
+        }
     }
 
     #[test]

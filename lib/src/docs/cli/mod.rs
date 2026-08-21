@@ -14,6 +14,10 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     // program's page; a subcommand's page describes the subcommand, which is the question
     // that was asked. `full_cmd` is the path a user would type, so the root's is empty.
     ctx.insert("root", &docs_cmd.full_cmd.is_empty());
+    // Keep this out of the recursively serialized docs command. It controls this page only;
+    // carrying it on every descendant makes rendering a whole command tree pay for the same
+    // boolean at every level.
+    ctx.insert("show_help_subcommand", &!cmd.disable_help_subcommand);
     // Everything this command inherits: from each ancestor, only what it declared `global` —
     // the rule the parser follows on the way down. `full_cmd` is the typed path, so walking it
     // from the root gives the exact ancestry with none of the ambiguity a search would have.
@@ -141,10 +145,13 @@ fn supplied_flags(
     //
     // usage-argv has no equivalent: `disable_help` is a KDL-only word, so no spec that crate
     // can hold ever carries one, and the two renderers cannot disagree about it.
-    if spec.disable_help != Some(true) {
+    if spec.disable_help != Some(true) && !cmd.disable_help_flag {
         out.extend(build("help", "help", 'h', "Print help"));
     }
-    if is_root && (spec.version.is_some() || spec.long_version.is_some()) {
+    if is_root
+        && (spec.version.is_some() || spec.long_version.is_some())
+        && !cmd.disable_version_flag
+    {
         out.extend(build("version", "version", 'V', "Print version"));
     }
     out

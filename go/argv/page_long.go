@@ -230,7 +230,7 @@ func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help
 			// which keeps a multi-line description from running into the next name.
 			out.WriteString("\n")
 		}
-		if section == "" {
+		if section == "" && !cmd.DisableHelpSubcommand {
 			out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
 		}
 	}

@@ -15,6 +15,41 @@ use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::{string, SpecArg, SpecChoices, SpecRequiredIfEq};
 
+/// A non-binding action performed when a flag is supplied.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpecFlagAction {
+    #[default]
+    Set,
+    Help,
+    HelpShort,
+    HelpLong,
+    Version,
+}
+
+impl SpecFlagAction {
+    fn parse(value: &str) -> Option<Self> {
+        Some(match value {
+            "set" => Self::Set,
+            "help" => Self::Help,
+            "help_short" => Self::HelpShort,
+            "help_long" => Self::HelpLong,
+            "version" => Self::Version,
+            _ => return None,
+        })
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Set => "set",
+            Self::Help => "help",
+            Self::HelpShort => "help_short",
+            Self::HelpLong => "help_long",
+            Self::Version => "version",
+        }
+    }
+}
+
 /// A requirement activated by one of a flag's values.
 ///
 /// `flag "--config <file>" { requires_if "special.toml" "--key" }`
@@ -249,6 +284,13 @@ pub struct SpecFlag {
     /// Explicit placement within its help section.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_order: Option<usize>,
+    /// Whether this flag binds a value or requests help/version output.
+    #[serde(skip_serializing_if = "is_set_action")]
+    pub action: SpecFlagAction,
+}
+
+fn is_set_action(action: &SpecFlagAction) -> bool {
+    *action == SpecFlagAction::Set
 }
 
 impl SpecFlag {
@@ -292,6 +334,13 @@ impl SpecFlag {
                 }
                 "global" => flag.global = v.ensure_bool()?,
                 "count" => flag.count = v.ensure_bool()?,
+                "action" => {
+                    let raw = v.ensure_string()?;
+                    let Some(action) = SpecFlagAction::parse(&raw) else {
+                        bail_parse!(ctx, v.entry.span(), "unsupported flag action {raw}");
+                    };
+                    flag.action = action;
+                }
                 "allow_hyphen_values" => allow_hyphen_values = v.ensure_bool()?,
                 "allow_negative_numbers" => allow_negative_numbers = v.ensure_bool()?,
                 "value_terminator" => value_terminator = Some(v.ensure_string()?),
@@ -411,6 +460,14 @@ impl SpecFlag {
                 }
                 "global" => flag.global = child.arg(0)?.ensure_bool()?,
                 "count" => flag.count = child.arg(0)?.ensure_bool()?,
+                "action" => {
+                    let arg = child.arg(0)?;
+                    let raw = arg.ensure_string()?;
+                    let Some(action) = SpecFlagAction::parse(&raw) else {
+                        bail_parse!(ctx, arg.entry.span(), "unsupported flag action {raw}");
+                    };
+                    flag.action = action;
+                }
                 "allow_hyphen_values" => {
                     allow_hyphen_values = child.arg(0)?.ensure_bool()?;
                 }
@@ -675,6 +732,13 @@ impl SpecFlag {
                 );
             }
         }
+        if flag.action != SpecFlagAction::Set && flag.arg.is_some() {
+            bail_parse!(
+                ctx,
+                node.node.name().span(),
+                "a help or version action does not take a value"
+            );
+        }
         flag.usage = flag.usage();
         flag.help_first_line = flag.help.as_ref().map(|s| string::first_line(s));
         Ok(flag)
@@ -825,6 +889,9 @@ impl From<&SpecFlag> for KdlNode {
         }
         if flag.count {
             node.push(KdlEntry::new_prop("count", true));
+        }
+        if flag.action != SpecFlagAction::Set {
+            node.push(string_entry(Some("action"), flag.action.as_str()));
         }
         if flag.allow_hyphen_values() {
             node.push(KdlEntry::new_prop("allow_hyphen_values", true));
@@ -1159,6 +1226,13 @@ impl From<&clap::Arg> for SpecFlag {
             global: c.is_global_set(),
             arg,
             count: matches!(c.get_action(), clap::ArgAction::Count),
+            action: match c.get_action() {
+                clap::ArgAction::Help => SpecFlagAction::Help,
+                clap::ArgAction::HelpShort => SpecFlagAction::HelpShort,
+                clap::ArgAction::HelpLong => SpecFlagAction::HelpLong,
+                clap::ArgAction::Version => SpecFlagAction::Version,
+                _ => SpecFlagAction::Set,
+            },
             default,
             deprecated: None,
             negate: None,

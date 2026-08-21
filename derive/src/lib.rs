@@ -204,6 +204,9 @@
 //! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
 //! `default_subcommand`, `multicall` — argv[0]'s basename selects a subcommand —
 //! `arg_required_else_help` — a selected command with no argv of its own shows short help —
+//! `disable_help_flag`, `disable_help_subcommand`, and `disable_version_flag` — remove the
+//! corresponding synthesized entry point so a field with `action = usage::ArgAction::Help`,
+//! `HelpShort`, `HelpLong`, or `Version` can relocate it —
 //! `next_line_help` — put descriptions below each entry — `flatten_help` — expand visible
 //! subcommands into the current help page —
 //! `dont_delimit_trailing_values` — preserve delimiters after the trailing boundary —

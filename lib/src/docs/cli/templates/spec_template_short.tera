@@ -35,7 +35,7 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if cmd.help %}{% if next_line_help %}
     {{ cmd.help | indent(width=4) }}{% else %}  {{ cmd.help }}{% endif %}{%- endif %}
 {%- endfor %}
-{%- if not group.heading %}
+{%- if not group.heading and show_help_subcommand %}
 {% if next_line_help %}  help
     Print this message or the help of the given subcommand(s){% else %}  help  Print this message or the help of the given subcommand(s){% endif %}
 {%- endif %}

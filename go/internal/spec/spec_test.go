@@ -94,6 +94,23 @@ func TestSubcommandRequirementPolicyReachesTheCommandTable(t *testing.T) {
 	}
 }
 
+func TestBuiltinControlsAndActionsReachTheTables(t *testing.T) {
+	root, _ := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{
+			Name: "ex", DisableHelpFlag: true, DisableHelpSubcommand: true,
+			DisableVersionFlag: true,
+			Flags:              []Flag{{Name: "assist", Long: []string{"assist"}, Action: "help_short"}},
+		},
+	})
+	if !root.DisableHelpFlag || !root.DisableHelpSubcommand || !root.DisableVersionFlag {
+		t.Fatalf("built-in controls were lost: %+v", root)
+	}
+	if got := root.Flags[0].Action; got != argv.ActionHelpShort {
+		t.Fatalf("custom action was lost: got %v", got)
+	}
+}
+
 func TestVariadicFlagMinimumComesFromItsValue(t *testing.T) {
 	root, meta := build(&Spec{
 		Name: "ex", Bin: "ex",

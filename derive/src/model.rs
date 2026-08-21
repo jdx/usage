@@ -126,6 +126,9 @@ pub struct Cli {
     pub args_conflicts_with_subcommands: bool,
     pub subcommand_precedence_over_arg: bool,
     pub allow_missing_positional: bool,
+    pub disable_help_flag: bool,
+    pub disable_help_subcommand: bool,
+    pub disable_version_flag: bool,
     pub subcommand_help_heading: Option<String>,
     pub subcommand_value_name: Option<String>,
     pub next_line_help: bool,
@@ -331,7 +334,41 @@ pub struct Field {
     /// several values. Conflating the two makes a merely repeatable flag greedy
     /// enough to eat a positional — the same mistake the conformance harness made.
     pub repeatable: bool,
+    pub action: ArgAction,
     pub span: Span,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ArgAction {
+    Set,
+    Help,
+    HelpShort,
+    HelpLong,
+    Version,
+}
+
+fn arg_action(meta: &Meta) -> syn::Result<ArgAction> {
+    let value = &meta.require_name_value()?.value;
+    let Expr::Path(path) = value else {
+        return Err(syn::Error::new_spanned(
+            value,
+            "`action` takes an ArgAction variant, as in `action = usage::ArgAction::HelpLong`",
+        ));
+    };
+    let Some(variant) = path.path.segments.last() else {
+        return Err(syn::Error::new_spanned(value, "`action` needs a variant"));
+    };
+    match variant.ident.to_string().as_str() {
+        "Set" | "SetTrue" | "SetFalse" | "Append" | "Count" => Ok(ArgAction::Set),
+        "Help" => Ok(ArgAction::Help),
+        "HelpShort" => Ok(ArgAction::HelpShort),
+        "HelpLong" => Ok(ArgAction::HelpLong),
+        "Version" => Ok(ArgAction::Version),
+        other => Err(syn::Error::new_spanned(
+            value,
+            format!("`ArgAction::{other}` is not supported by usage"),
+        )),
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -602,6 +639,9 @@ impl Cli {
             args_conflicts_with_subcommands: false,
             subcommand_precedence_over_arg: false,
             allow_missing_positional: false,
+            disable_help_flag: false,
+            disable_help_subcommand: false,
+            disable_version_flag: false,
             subcommand_help_heading: None,
             subcommand_value_name: None,
             next_line_help: false,
@@ -788,6 +828,9 @@ impl Cli {
                         cli.subcommand_precedence_over_arg = flag_value(&meta)?
                     }
                     "allow_missing_positional" => cli.allow_missing_positional = flag_value(&meta)?,
+                    "disable_help_flag" => cli.disable_help_flag = flag_value(&meta)?,
+                    "disable_help_subcommand" => cli.disable_help_subcommand = flag_value(&meta)?,
+                    "disable_version_flag" => cli.disable_version_flag = flag_value(&meta)?,
                     "subcommand_help_heading" => {
                         cli.subcommand_help_heading = Some(string_value(&meta)?)
                     }
@@ -809,7 +852,7 @@ impl Cli {
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `usage`, `verbatim_doc_comment`, `unknown_flags`, \
-                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
+                                 `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount` and \
                                  `group` here, and the description comes from the doc \
@@ -1573,6 +1616,7 @@ impl Field {
             hide_short_help: false,
             hide_long_help: false,
             repeatable: false,
+            action: ArgAction::Set,
             span,
         }))
     }
@@ -1700,6 +1744,7 @@ impl Field {
             hide_short_help: false,
             hide_long_help: false,
             repeatable: false,
+            action: ArgAction::Set,
             span,
         }))
     }
@@ -1821,6 +1866,7 @@ impl Field {
             hide_short_help: false,
             hide_long_help: false,
             repeatable: false,
+            action: ArgAction::Set,
             span,
         }))
     }
@@ -1918,6 +1964,7 @@ impl Field {
         let mut required_if_eq_all: Vec<ConditionalValue> = Vec::new();
         let mut required_unless: Vec<String> = Vec::new();
         let mut required_unless_all: Vec<String> = Vec::new();
+        let mut action = ArgAction::Set;
 
         for attr in attrs(&field.attrs) {
             for meta in nested(attr)? {
@@ -1976,6 +2023,7 @@ impl Field {
                     "var" => repeatable = flag_value(&meta)?,
                     "variadic" => variadic = flag_value(&meta)?,
                     "count" => count = flag_value(&meta)?,
+                    "action" => action = arg_action(&meta)?,
                     // Help only: the parser refuses a bare `--bump` either way. What this
                     // changes is the brackets, which is the whole of what a spec's
                     // `arg "[BUMP]" required=#false` says.
@@ -2160,7 +2208,7 @@ impl Field {
                             format!(
                                 "unknown option `{other}`; a field takes `name`, `id`, `long`, \
                                  `short`, `negate`, `global`, `var`, `variadic`, \
-                                 `count`, `hide`, `hide_default_value`, `hide_env`, `hide_env_values`, \
+                                 `count`, `action`, `hide`, `hide_default_value`, `hide_env`, `hide_env_values`, \
                                  `hide_possible_values`, `hide_short_help`, `hide_long_help`, \
                                  `arg`, `env`, `default`, `default_value_t`, `choices`, `validate`, \
                                  `validate_error`, \
@@ -2282,6 +2330,18 @@ impl Field {
             optional_value_type,
         } = ValueKind::from_type(&field.ty, count, span)?;
         let is_flag = !longs.is_empty() || !shorts.is_empty();
+        if action != ArgAction::Set && !is_flag {
+            return Err(syn::Error::new(
+                span,
+                "`action` belongs on a flag, so it needs `long` or `short`",
+            ));
+        }
+        if action != ArgAction::Set && !matches!(shape, Shape::Bool) {
+            return Err(syn::Error::new(
+                span,
+                "help and version actions do not bind a value, so their field must be `bool`",
+            ));
+        }
         let (mut value_var_min, mut value_var_max) = (None, None);
         if let Some((min, max)) = num_args {
             if is_flag {
@@ -3039,6 +3099,7 @@ impl Field {
             hide_short_help,
             hide_long_help,
             repeatable,
+            action,
             span,
         })
     }
