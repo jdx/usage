@@ -267,11 +267,124 @@ fn get_flag_key(word: &str) -> &str {
     }
 }
 
+/// Where a value came from, when it did not come from the command line.
+///
+/// About the *value*, not the flag. `--color` typed bare with `default_missing` has a
+/// token for the flag and none for the value, and that distinction is the whole question
+/// a spec author is asking when they ask why `--color` came out `always`. Values that were
+/// typed are attributed to the token that carried them instead — see [`TokenRole::Value`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ValueOrigin {
+    /// A flag that takes a value was given without one, so the declaration supplied it:
+    /// `default_missing`, or the empty tri-state a bare `value_optional` flag records.
+    /// One variant for both, because from argv's side the same thing happened — the flag
+    /// was typed and the value was not.
+    DefaultMissing,
+    /// An environment variable, named.
+    ///
+    /// Named because a flag may list several — `env`, `env_fallback` and `deprecated_env`,
+    /// folded together by [`SpecFlag::env_names`] — and "it came from the environment" does
+    /// not say which declaration fired or which one to delete.
+    Env(String),
+    /// A declared `default`, on the flag or on the flag's argument.
+    ///
+    /// Not two variants: the precedence between them is a spec-authoring oddity rather than
+    /// a fact about the value, and `usage lint` is the place to complain about declaring
+    /// both.
+    Default,
+    /// A `default_if` whose condition matched, with the condition that decided it. The
+    /// selector alone is ambiguous — several conditions may name it with different `when`
+    /// values.
+    DefaultIf {
+        selector: String,
+        when: Option<String>,
+    },
+}
+
+/// What one word of the command line became.
+///
+/// Several because a single token can do more than one thing: `-abc` sets three flags,
+/// `-j8` is a flag and its value.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum TokenRole {
+    /// argv[0]. Also a `Command` when a multicall symlink makes the basename a word.
+    Program,
+    /// Selected a subcommand.
+    Command { name: String },
+    /// Named a flag, in this spelling. `negated` for the `negate` form.
+    Flag {
+        flag: Arc<SpecFlag>,
+        spelling: String,
+        negated: bool,
+    },
+    /// Supplied a flag's value. Several values when a `delimiter` split the word.
+    Value {
+        flag: Arc<SpecFlag>,
+        values: Vec<String>,
+        /// Whether the value rode along on the flag's own token (`--env=prod`, `-j8`)
+        /// rather than following it as its own word.
+        attached: bool,
+    },
+    /// Filled a positional argument. Several values when a `delimiter` split the word.
+    Arg {
+        arg: Arc<SpecArg>,
+        values: Vec<String>,
+    },
+    /// An explicit `--`, consumed as a separator.
+    Separator,
+    /// A flag-like word no declaration matched. `bound_as` is the positional that took it
+    /// under `unknown_flags="value"`, and `None` when the word was refused.
+    UnknownFlag { bound_as: Option<Arc<SpecArg>> },
+    /// Forwarded to an external subcommand.
+    External,
+    /// The parser stopped before this word — a help request, a refused value.
+    Unread,
+}
+
+/// One word of the command line, and what it became.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct TokenBinding {
+    /// Position in the argv slice the parse was given, argv[0] included.
+    pub index: usize,
+    pub word: String,
+    /// Roles a word the parser made up contributed, folded onto the token it was derived
+    /// from: the tail of a short bundle onto the bundle, a multicall applet name onto
+    /// argv[0]. `word` is what the caller wrote, not what the parser read.
+    pub synthesized: bool,
+    pub roles: Vec<TokenRole>,
+}
+
+#[non_exhaustive]
 pub struct ParseOutput {
     pub cmd: SpecCommand,
     pub cmds: Vec<SpecCommand>,
     pub args: IndexMap<Arc<SpecArg>, ParseValue>,
     pub flags: IndexMap<Arc<SpecFlag>, ParseValue>,
+    /// What each word of the command line became, in argv order, one entry per word.
+    ///
+    /// The token half of provenance; [`ParseOutput::flag_origins`] and
+    /// [`ParseOutput::arg_origins`] are the other half. A table keyed by token cannot show
+    /// a value that came from nowhere in argv, and a table keyed by declaration cannot show
+    /// a token that bound to nothing, so both exist.
+    pub tokens: Vec<TokenBinding>,
+    /// Where a flag's value came from when it did not come from argv, in the order the
+    /// fallbacks fired. Keyed as [`ParseOutput::flags`] is.
+    ///
+    /// A list rather than one origin: repeated bare occurrences of a `var` flag each take a
+    /// `default_missing` value, so one flag can have several.
+    pub flag_origins: IndexMap<Arc<SpecFlag>, Vec<ValueOrigin>>,
+    /// Where an argument's value came from when it did not come from argv. Keyed as
+    /// [`ParseOutput::args`] is.
+    pub arg_origins: IndexMap<Arc<SpecArg>, Vec<ValueOrigin>>,
+    /// Flags a later occurrence removed, and the flag that removed them.
+    ///
+    /// The overriding name is the half a caller needs: the fallback phase silently declines
+    /// to fill an overridden flag, so "why is `--quiet` unset when its default says
+    /// otherwise" has no answer without it.
+    pub overridden_flags: BTreeMap<String, String>,
     /// Every flag the parser recognizes at this point, keyed by each of its aliases
     /// (`--long`, `-s`, negations).
     ///
@@ -497,6 +610,35 @@ impl<'a> Parser<'a> {
     ///
     /// Returns the parsed arguments and flags, with defaults and env vars applied.
     pub fn parse(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
+        let out = self.parse_collecting(input)?;
+        if let Some(err) = out
+            .errors
+            .iter()
+            .find(|e| matches!(e, UsageErr::Help(_) | UsageErr::Version(_)))
+        {
+            bail!("{err}");
+        }
+        if !out.errors.is_empty() {
+            bail!("{}", out.errors.iter().map(|e| e.to_string()).join("\n"));
+        }
+        Ok(out)
+    }
+
+    /// Everything the parse learned, whether or not it succeeded.
+    ///
+    /// [`Parser::parse`] wants the first error and nothing else, which is right for a
+    /// caller about to act on a command line. A caller that wants to *explain* one wants
+    /// the opposite: the bindings that worked and every complaint about the rest, since a
+    /// report saying only "missing required <src>" is the report you already had.
+    ///
+    /// Failures that stop the parse dead — a mount that will not run, a word no
+    /// declaration can take — still come back as `Err`. There is no output to describe in
+    /// those cases; see [`Parser::explain`] for what to do about it.
+    pub fn explain(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
+        self.parse_collecting(input)
+    }
+
+    fn parse_collecting(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
         let custom_env = self.env.as_ref();
         let (mut out, overridden_flags) = parse_partial_with_env(
             self.spec,
@@ -512,7 +654,12 @@ impl<'a> Parser<'a> {
         // half-typed `--jobs ` is exactly what a completion is asked about — but a
         // full parse has nothing left to wait for, and dropping the flag silently
         // made a forgotten value look like a working command.
-        while try_bind_default_missing(&mut out.flags, &mut out.flag_awaiting_value, custom_env)? {}
+        while try_bind_default_missing(
+            &mut out.flags,
+            &mut out.flag_awaiting_value,
+            custom_env,
+            &mut out.flag_origins,
+        )? {}
         if let Some(flag) = out.flag_awaiting_value.first() {
             let token = flag
                 .long
@@ -574,6 +721,10 @@ impl<'a> Parser<'a> {
                     ParseValue::String(values.into_iter().next().unwrap_or_default())
                 };
                 out.args.insert(Arc::new(arg.clone()), parsed);
+                out.arg_origins
+                    .entry(Arc::new(arg.clone()))
+                    .or_default()
+                    .push(ValueOrigin::Env(env_name.to_string()));
                 continue;
             }
             if !arg.default.is_empty() {
@@ -590,6 +741,10 @@ impl<'a> Parser<'a> {
                     // For var=true, always return a vec (MultiString)
                     out.args
                         .insert(Arc::new(arg.clone()), ParseValue::MultiString(values));
+                    out.arg_origins
+                        .entry(Arc::new(arg.clone()))
+                        .or_default()
+                        .push(ValueOrigin::Default);
                 } else {
                     validate_choice_value(
                         ChoiceTarget::arg(arg),
@@ -602,6 +757,10 @@ impl<'a> Parser<'a> {
                         Arc::new(arg.clone()),
                         ParseValue::String(arg.default[0].clone()),
                     );
+                    out.arg_origins
+                        .entry(Arc::new(arg.clone()))
+                        .or_default()
+                        .push(ValueOrigin::Default);
                 }
             }
         }
@@ -657,6 +816,10 @@ impl<'a> Parser<'a> {
                     out.flags
                         .insert(Arc::clone(flag), ParseValue::Bool(is_true));
                 }
+                out.flag_origins
+                    .entry(Arc::clone(flag))
+                    .or_default()
+                    .push(ValueOrigin::Env(env_name.to_string()));
             }
         }
         // Decide every `default_if` against argv+env only. Binding as we go would put
@@ -664,7 +827,7 @@ impl<'a> Parser<'a> {
         // explicit — Go's `Given()` and the derive's `__given_*` both ignore defaults
         // here, so an unconditional `default` on `--json` must not fire
         // `default_if "--json"`.
-        let mut from_default_if: Vec<(Arc<SpecFlag>, String)> = Vec::new();
+        let mut from_default_if: Vec<(Arc<SpecFlag>, crate::SpecDefaultIf)> = Vec::new();
         for flag in &flags {
             if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
                 continue;
@@ -672,23 +835,47 @@ impl<'a> Parser<'a> {
             if let Some(condition) = flag.default_if.iter().find(|condition| {
                 default_if_condition_matches(condition, &out, &overridden_flags, custom_env)
             }) {
-                from_default_if.push((Arc::clone(flag), condition.value.clone()));
+                from_default_if.push((Arc::clone(flag), condition.clone()));
             }
         }
-        for (flag, value) in &from_default_if {
-            bind_flag_fallback(flag, std::slice::from_ref(value), &mut out, custom_env)?;
+        for (flag, condition) in &from_default_if {
+            // The whole condition, not just the value: several conditions may name the same
+            // selector with different `when` values, so the selector alone does not say
+            // which one fired.
+            bind_flag_fallback(
+                flag,
+                std::slice::from_ref(&condition.value),
+                &mut out,
+                custom_env,
+                ValueOrigin::DefaultIf {
+                    selector: condition.selector.clone(),
+                    when: condition.when.clone(),
+                },
+            )?;
         }
         for flag in &flags {
             if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
                 continue;
             }
             if !flag.default.is_empty() {
-                bind_flag_fallback(flag, &flag.default, &mut out, custom_env)?;
+                bind_flag_fallback(
+                    flag,
+                    &flag.default,
+                    &mut out,
+                    custom_env,
+                    ValueOrigin::Default,
+                )?;
                 continue;
             }
             if let Some(arg) = flag.arg.as_ref() {
                 if !arg.default.is_empty() {
-                    bind_flag_fallback(flag, &arg.default, &mut out, custom_env)?;
+                    bind_flag_fallback(
+                        flag,
+                        &arg.default,
+                        &mut out,
+                        custom_env,
+                        ValueOrigin::Default,
+                    )?;
                 }
             }
         }
@@ -715,16 +902,6 @@ impl<'a> Parser<'a> {
                     &mut out.errors,
                 );
             }
-        }
-        if let Some(err) = out
-            .errors
-            .iter()
-            .find(|e| matches!(e, UsageErr::Help(_) | UsageErr::Version(_)))
-        {
-            bail!("{err}");
-        }
-        if !out.errors.is_empty() {
-            bail!("{}", out.errors.iter().map(|e| e.to_string()).join("\n"));
         }
         // Applied once, here, because this is where the CLI's own version is known: a
         // `deprecated_warn_at` the spec has not reached yet is an author saying *not yet*.
@@ -798,9 +975,18 @@ enum MountTiming {
 /// This holds what a side queue used to: the flag Phase 1 read a word as, previously a
 /// `VecDeque` popped in step with the words. Two queues staying aligned is an invariant
 /// nothing checks, and it was delicate enough to need explaining at three call sites; on
-/// the word itself there is nothing to keep aligned.
+/// the word itself there is nothing to keep aligned. The argv position is here for the
+/// same reason: the queue is popped, re-queued, split on `=`, and has subcommand words
+/// removed from the middle, so position in the queue stops meaning position in argv on the
+/// first descent.
 struct Token {
     word: String,
+    /// Where in the caller's argv this word came from.
+    ///
+    /// A word the parser made up points at the token it was derived from — the tail of a
+    /// short bundle at the bundle, a multicall applet name at argv[0] — because that is the
+    /// token a reader would point at, and there is nothing else to point at.
+    argv: usize,
     /// The flag Phase 1 read this word as, and the command level it read it at.
     ///
     /// `Some((flag, command_level))` for a flag word, `None` for its value, for anything
@@ -816,10 +1002,57 @@ struct Token {
 }
 
 impl Token {
-    fn new(word: String) -> Self {
+    fn new(word: String, argv: usize) -> Self {
         Self {
             word,
+            argv,
             binding: None,
+        }
+    }
+}
+
+/// The token trace, while it is being built.
+///
+/// One row per word of the caller's argv, so a role can be recorded against a position
+/// without the recorder having to know how many words came before it. Words the parser
+/// made up have no row of their own and fold onto the row they were derived from.
+struct Trace {
+    tokens: Vec<TokenBinding>,
+}
+
+impl Trace {
+    fn new(input: &[String]) -> Self {
+        Self {
+            tokens: input
+                .iter()
+                .enumerate()
+                .map(|(index, word)| TokenBinding {
+                    index,
+                    word: word.clone(),
+                    synthesized: false,
+                    roles: vec![],
+                })
+                .collect(),
+        }
+    }
+
+    fn record(&mut self, argv: usize, role: TokenRole) {
+        if let Some(token) = self.tokens.get_mut(argv) {
+            token.roles.push(role);
+        }
+    }
+
+    /// Note that what was read at this position is not what the caller wrote there.
+    fn note_synthesized(&mut self, argv: usize) {
+        if let Some(token) = self.tokens.get_mut(argv) {
+            token.synthesized = true;
+        }
+    }
+
+    /// Every word the parse never reached, once it has stopped.
+    fn close(&mut self, unread: &VecDeque<Token>) {
+        for token in unread {
+            self.record(token.argv, TokenRole::Unread);
         }
     }
 }
@@ -836,16 +1069,24 @@ fn parse_partial_with_env(
         return parse_partial_with_env(&viewed, input, custom_env, mount_outputs, mount_timing);
     }
     trace!("parse_partial: {input:?}");
+    let mut trace = Trace::new(input);
     let mut input = input
         .iter()
-        .cloned()
-        .map(Token::new)
+        .enumerate()
+        .map(|(argv, word)| Token::new(word.clone(), argv))
         .collect::<VecDeque<_>>();
     let argv0 = input.pop_front();
+    if let Some(argv0) = argv0.as_ref() {
+        trace.record(argv0.argv, TokenRole::Program);
+    }
     if spec.multicall {
         if let Some(raw) = argv0 {
             if let Some(applet) = multicall_applet(&raw.word, &spec.name, Some(spec.bin.as_str())) {
-                input.push_front(Token::new(applet.to_string()));
+                // A symlink invocation reads a word the caller never typed — the basename of
+                // the program itself — so argv[0] is both the program and, below, whatever
+                // that word selects.
+                trace.note_synthesized(raw.argv);
+                input.push_front(Token::new(applet.to_string(), raw.argv));
             }
         }
     }
@@ -859,6 +1100,10 @@ fn parse_partial_with_env(
         cmds: vec![spec.cmd.clone()],
         args: IndexMap::new(),
         flags: IndexMap::new(),
+        tokens: vec![],
+        flag_origins: IndexMap::new(),
+        arg_origins: IndexMap::new(),
+        overridden_flags: BTreeMap::new(),
         available_flags: gather_flags(&spec.cmd),
         flag_awaiting_value: vec![],
         errors: vec![],
@@ -979,7 +1224,15 @@ fn parse_partial_with_env(
                 crossing_mount,
             );
             // Remove subcommand from input
-            input.remove(idx);
+            let selected = input.remove(idx);
+            if let Some(selected) = selected {
+                trace.record(
+                    selected.argv,
+                    TokenRole::Command {
+                        name: subcommand.name.clone(),
+                    },
+                );
+            }
             command_has_argv = idx < input.len();
             out.cmds.push(subcommand.clone());
             out.cmd = subcommand.clone();
@@ -1104,8 +1357,11 @@ fn parse_partial_with_env(
             // subcommands already won above, and a default_subcommand already caught.
             // clap's `allow_external_subcommands` is this, not `unknown_flags=value`.
             if out.cmd.external_subcommand {
-                let rest: Vec<String> = input.drain(idx..).map(|t| t.word).collect();
-                out.external = Some(rest);
+                let rest: Vec<Token> = input.drain(idx..).collect();
+                for token in &rest {
+                    trace.record(token.argv, TokenRole::External);
+                }
+                out.external = Some(rest.into_iter().map(|t| t.word).collect());
                 break;
             }
             // This could be a positional argument, so stop subcommand search
@@ -1142,6 +1398,7 @@ fn parse_partial_with_env(
         let token = input.pop_front().unwrap();
         // The flag this word was read as in Phase 1, if it skipped it (see `Token::binding`).
         let binding = token.binding;
+        let argv = token.argv;
         let mut w = token.word;
         // A short's attached value is re-queued with `grouped_flag` set, and that
         // continuation is not a following word. `require_equals` refuses only the
@@ -1158,6 +1415,11 @@ fn parse_partial_with_env(
                 // is not cleared here either, so clearing it would let one arg report the same
                 // violation once per invocation.
                 out.args.clear();
+                // With the values gone, so is where they came from — otherwise the second
+                // invocation of `run lint ::: test` reports the first one's provenance. The
+                // token trace is *not* cleared: those words were read, and a report that
+                // dropped them would show a command line with a hole in it.
+                out.arg_origins.clear();
                 next_arg_idx = 0;
                 out.flag_awaiting_value.clear(); // Clear any pending flag values
                 enable_flags = true; // Reset -- separator effect
@@ -1197,9 +1459,13 @@ fn parse_partial_with_env(
                 &mut w,
                 &mut input,
                 custom_env,
+                &mut trace,
+                argv,
+                // The token a hyphen-valued flag takes is the following word, never attached.
+                false,
             )?;
             if should_return {
-                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             continue;
@@ -1225,7 +1491,12 @@ fn parse_partial_with_env(
                                 && is_negative_number(&w))))
             })
         {
-            try_bind_default_missing(&mut out.flags, &mut out.flag_awaiting_value, custom_env)?;
+            try_bind_default_missing(
+                &mut out.flags,
+                &mut out.flag_awaiting_value,
+                custom_env,
+                &mut out.flag_origins,
+            )?;
         }
 
         // The first explicit `--` is still a separator after an `automatic` argument has
@@ -1250,6 +1521,7 @@ fn parse_partial_with_env(
                 // neither counts as one nor unlocks a `double_dash="required"` arg.
             } else {
                 seen_double_dash = true;
+                trace.record(argv, TokenRole::Separator);
 
                 // Everything after an explicit `--` belongs to the arg that requires one, so
                 // jump the cursor there — past any earlier arg, including a greedy variadic
@@ -1293,9 +1565,19 @@ fn parse_partial_with_env(
                     .entry(Arc::as_ptr(f) as usize)
                     .or_default()
                     .insert(word.to_string());
+                // Recorded before the action check below: a token that named a flag named it
+                // whether or not the parse can carry on afterwards.
+                trace.record(
+                    argv,
+                    TokenRole::Flag {
+                        flag: Arc::clone(f),
+                        spelling: word.to_string(),
+                        negated: f.negate.as_deref() == Some(word),
+                    },
+                );
                 if f.action != crate::SpecFlagAction::Set {
                     out.errors.push(render_action_err(spec, &out.cmd, f, word));
-                    record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                    record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                     return Ok((out, overridden_flags));
                 }
                 apply_flag_overrides(
@@ -1304,6 +1586,7 @@ fn parse_partial_with_env(
                     &mut out.flags,
                     &mut out.flag_awaiting_value,
                     &mut overridden_flags,
+                    &mut out.overridden_flags,
                 );
                 // An attached value only means something to a flag that takes one:
                 // `--jobs=` is an empty string, while `--force=yes` has nothing to
@@ -1339,9 +1622,14 @@ fn parse_partial_with_env(
                             &mut val,
                             &mut input,
                             custom_env,
+                            &mut trace,
+                            argv,
+                            // The `=` settled that this text is the value, so it rode in on
+                            // the flag's own token.
+                            true,
                         )?;
                         if should_return {
-                            record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                            record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                             return Ok((out, overridden_flags));
                         }
                     }
@@ -1392,12 +1680,12 @@ fn parse_partial_with_env(
             if is_help_arg(spec, &out.cmd, &w) {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
-                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             if is_version_arg(spec, &out.cmds, &w) {
                 out.errors.push(render_version_err(spec, w.len() > 2));
-                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             reject_unknown_flag_if_asked(spec, &out.cmds, &w)?;
@@ -1445,23 +1733,35 @@ fn parse_partial_with_env(
                 if f.action != crate::SpecFlagAction::Set {
                     out.errors
                         .push(render_action_err(spec, &out.cmd, f, &format!("-{short}")));
-                    record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                    record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                     return Ok((out, overridden_flags));
                 }
                 parsed_flag_spellings
                     .entry(Arc::as_ptr(f) as usize)
                     .or_default()
                     .insert(format!("-{short}"));
+                trace.record(
+                    argv,
+                    TokenRole::Flag {
+                        flag: Arc::clone(f),
+                        spelling: format!("-{short}"),
+                        // A short spelling is never the negated form: `negate` is a long.
+                        negated: false,
+                    },
+                );
                 apply_flag_overrides(
                     f,
                     &out.available_flags,
                     &mut out.flags,
                     &mut out.flag_awaiting_value,
                     &mut overridden_flags,
+                    &mut out.overridden_flags,
                 );
                 let rest = &w[1 + short.len_utf8()..];
                 if !rest.is_empty() {
-                    input.push_front(Token::new(format!("-{rest}")));
+                    // `-abc` is one token that names three flags, so the tail is read at the
+                    // bundle's own position rather than at one of its own.
+                    input.push_front(Token::new(format!("-{rest}"), argv));
                 }
                 // A fully consumed short is no longer a grouped continuation.
                 // Leaving this set after `-ai` made `-i` skip `require_equals`
@@ -1505,18 +1805,18 @@ fn parse_partial_with_env(
             // neither reaches the whole-token spellings below.
             if let Some(err) = supplied_short(spec, &out.cmds, short) {
                 out.errors.push(err);
-                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             if is_help_arg(spec, &out.cmd, &w) {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
-                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             if is_version_arg(spec, &out.cmds, &w) {
                 out.errors.push(render_version_err(spec, w.len() > 2));
-                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             reject_unknown_flag_if_asked(spec, &out.cmds, &w)?;
@@ -1563,7 +1863,7 @@ fn parse_partial_with_env(
                 span: (0, 0).into(),
                 input: format!("{token} {w}"),
             });
-            record_cursor(&mut out, next_arg_idx, seen_double_dash);
+            record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
             return Ok((out, overridden_flags));
         }
         if enable_flags && !out.flag_awaiting_value.is_empty() {
@@ -1578,9 +1878,12 @@ fn parse_partial_with_env(
                 &mut w,
                 &mut input,
                 custom_env,
+                &mut trace,
+                argv,
+                attached_continuation,
             )?;
             if should_return {
-                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             continue;
@@ -1660,7 +1963,7 @@ fn parse_partial_with_env(
                 }
             }
             if refused {
-                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             // `double_dash="automatic"` means the first value this arg takes is the last
@@ -1670,6 +1973,27 @@ fn parse_partial_with_env(
             if arg.double_dash == SpecDoubleDashChoices::Automatic {
                 enable_flags = false;
             }
+            // A flag-like word reaching a positional while flags are still being read was
+            // offered to every declaration and matched none: under the default
+            // `unknown_flags="value"` it becomes data, and saying so is the difference
+            // between "you have a typo" and "this argument took your typo".
+            let unknown_flag = enable_flags
+                && !positional_negative_number
+                && is_flag_like(&w)
+                && binding.is_none();
+            trace.record(
+                argv,
+                if unknown_flag {
+                    TokenRole::UnknownFlag {
+                        bound_as: Some(Arc::new(arg.clone())),
+                    }
+                } else {
+                    TokenRole::Arg {
+                        arg: Arc::new(arg.clone()),
+                        values: parts.clone(),
+                    }
+                },
+            );
             if arg.var {
                 let arr = out
                     .args
@@ -1694,18 +2018,18 @@ fn parse_partial_with_env(
         if is_help_arg(spec, &out.cmd, &w) {
             out.errors
                 .push(render_help_err(spec, &out.cmd, w.len() > 2));
-            record_cursor(&mut out, next_arg_idx, seen_double_dash);
+            record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
             return Ok((out, overridden_flags));
         }
         if is_version_arg(spec, &out.cmds, &w) {
             out.errors.push(render_version_err(spec, w.len() > 2));
-            record_cursor(&mut out, next_arg_idx, seen_double_dash);
+            record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
             return Ok((out, overridden_flags));
         }
         bail!("unexpected word: {w}");
     }
 
-    record_cursor(&mut out, next_arg_idx, seen_double_dash);
+    record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
 
     // `out.flags` is keyed by `SpecFlag`, whose equality is intentionally name-only. Two
     // declarations with the same canonical name therefore share one public value entry even
@@ -2440,6 +2764,7 @@ fn bind_flag_fallback(
     values: &[String],
     out: &mut ParseOutput,
     custom_env: Option<&HashMap<String, String>>,
+    origin: ValueOrigin,
 ) -> Result<(), miette::Error> {
     if values.is_empty() {
         return Ok(());
@@ -2483,6 +2808,10 @@ fn bind_flag_fallback(
             ParseValue::Bool(fallback_is_true(&values[0])),
         );
     }
+    out.flag_origins
+        .entry(Arc::clone(flag))
+        .or_default()
+        .push(origin);
     Ok(())
 }
 
@@ -2688,6 +3017,10 @@ fn apply_flag_overrides(
     parsed_flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
     pending_flags: &mut Vec<Arc<SpecFlag>>,
     overridden_flags: &mut HashSet<String>,
+    // The reportable half of the same fact: which flag did the overriding. The set above
+    // only stops a default or an environment value restoring what was overridden, and
+    // "`--quiet` is unset despite its default" has no answer without the name.
+    attributed: &mut BTreeMap<String, String>,
 ) {
     let overridden_names: HashSet<String> = available_flags
         .values()
@@ -2698,9 +3031,13 @@ fn apply_flag_overrides(
 
     parsed_flags.retain(|parsed, _| !overridden_names.contains(&parsed.name));
     pending_flags.retain(|pending| !overridden_names.contains(&pending.name));
+    for name in &overridden_names {
+        attributed.insert(name.clone(), flag.name.clone());
+    }
     overridden_flags.extend(overridden_names);
     // An explicit occurrence always restores this flag, including self-overrides.
     overridden_flags.remove(&flag.name);
+    attributed.remove(&flag.name);
 }
 
 #[cfg(feature = "docs")]
@@ -2998,6 +3335,12 @@ fn bind_pending_flag_value(
     word: &mut String,
     input: &mut VecDeque<Token>,
     custom_env: Option<&HashMap<String, String>>,
+    trace: &mut Trace,
+    // Which token supplied `word`, and whether it rode along on the flag's own token
+    // (`--jobs=8`, `-j8`) rather than following it. A variadic run's later words carry
+    // their own positions and are recorded where they are read.
+    argv: usize,
+    attached: bool,
 ) -> miette::Result<bool> {
     // Held before the drain pops it, along with what the flag is already carrying: a
     // `var_max` bounds the values this occurrence takes, not the list they are appended
@@ -3010,7 +3353,8 @@ fn bind_pending_flag_value(
             let carried = flags.get(&flag).map(value_count).unwrap_or(0);
             (flag, carried)
         });
-    if drain_pending_flag_values(
+    let mut bound = vec![];
+    let refused = drain_pending_flag_values(
         spec,
         cmd,
         errors,
@@ -3018,7 +3362,19 @@ fn bind_pending_flag_value(
         flag_awaiting_value,
         word,
         custom_env,
-    )? {
+        &mut bound,
+    )?;
+    for (flag, values) in bound {
+        trace.record(
+            argv,
+            TokenRole::Value {
+                flag,
+                values,
+                attached,
+            },
+        );
+    }
+    if refused {
         return Ok(true);
     }
     let Some((flag, carried)) = collecting else {
@@ -3034,6 +3390,7 @@ fn bind_pending_flag_value(
         carried,
         input,
         custom_env,
+        trace,
     )
 }
 
@@ -3060,6 +3417,7 @@ fn collect_variadic_flag_values(
     carried: usize,
     input: &mut VecDeque<Token>,
     custom_env: Option<&HashMap<String, String>>,
+    trace: &mut Trace,
 ) -> miette::Result<bool> {
     let max = flag
         .arg
@@ -3097,9 +3455,12 @@ fn collect_variadic_flag_values(
         {
             break;
         }
-        let mut word = input.pop_front().unwrap().word;
+        let taken = input.pop_front().unwrap();
+        let argv = taken.argv;
+        let mut word = taken.word;
         flag_awaiting_value.push(Arc::clone(flag));
-        if drain_pending_flag_values(
+        let mut bound = vec![];
+        let refused = drain_pending_flag_values(
             spec,
             cmd,
             errors,
@@ -3107,7 +3468,21 @@ fn collect_variadic_flag_values(
             flag_awaiting_value,
             &mut word,
             custom_env,
-        )? {
+            &mut bound,
+        )?;
+        for (flag, values) in bound {
+            // A later word of the same occurrence is its own token, and never attached:
+            // only the first value can ride along on the flag.
+            trace.record(
+                argv,
+                TokenRole::Value {
+                    flag,
+                    values,
+                    attached: false,
+                },
+            );
+        }
+        if refused {
             return Ok(true);
         }
     }
@@ -3166,6 +3541,7 @@ fn try_bind_default_missing(
     flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
     flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
     custom_env: Option<&HashMap<String, String>>,
+    origins: &mut IndexMap<Arc<SpecFlag>, Vec<ValueOrigin>>,
 ) -> miette::Result<bool> {
     let Some(flag) = flag_awaiting_value.last() else {
         return Ok(false);
@@ -3178,6 +3554,10 @@ fn try_bind_default_missing(
             // empty collection distinguishes it from an explicitly empty
             // `--flag=` string without inventing a sentinel value.
             let variadic_value = flag.arg.as_ref().is_some_and(|arg| arg.var);
+            origins
+                .entry(Arc::clone(&flag))
+                .or_default()
+                .push(ValueOrigin::DefaultMissing);
             if flag.var {
                 // A repeated bare occurrence is still an occurrence. The string collection
                 // uses an empty value for it, just as the concrete `default_missing` path
@@ -3214,6 +3594,10 @@ fn try_bind_default_missing(
         )?;
     }
     let flag = flag_awaiting_value.pop().unwrap();
+    origins
+        .entry(Arc::clone(&flag))
+        .or_default()
+        .push(ValueOrigin::DefaultMissing);
     let collecting = flag.var || flag.arg.as_ref().is_some_and(|arg| arg.var);
     if collecting {
         let arr = flags
@@ -3228,6 +3612,11 @@ fn try_bind_default_missing(
     Ok(true)
 }
 
+/// `bound` collects what each drained flag took, in the order it took it. The values are
+/// the word after any `delimiter` split, which is the only place that split is known: by the
+/// time they are in `flags` a scalar and a one-element list are indistinguishable, and a
+/// second occurrence has appended to the same list.
+#[allow(clippy::too_many_arguments)]
 fn drain_pending_flag_values(
     spec: &Spec,
     cmd: &SpecCommand,
@@ -3236,6 +3625,7 @@ fn drain_pending_flag_values(
     flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
     word: &mut String,
     custom_env: Option<&HashMap<String, String>>,
+    bound: &mut Vec<(Arc<SpecFlag>, Vec<String>)>,
 ) -> miette::Result<bool> {
     while let Some(flag) = flag_awaiting_value.pop() {
         let arg = flag.arg.as_ref().unwrap();
@@ -3260,6 +3650,7 @@ fn drain_pending_flag_values(
             }
         }
         word.clear();
+        bound.push((Arc::clone(&flag), parts.clone()));
         // Two ways to hold several values, and both record a list: a `var` flag
         // collects one per occurrence, a variadic argument collects several from one.
         if flag.var || arg.var {
@@ -3358,12 +3749,23 @@ fn validate_choice_values(
     Ok(())
 }
 
-/// Publish where Phase 2 left its positional cursor, so callers that do not re-run the parse —
-/// completions, above all — agree with it. Called on every exit from the loop, including the
-/// early ones that render help, where the cursor is still the useful answer.
-fn record_cursor(out: &mut ParseOutput, next_arg_idx: usize, seen_double_dash: bool) {
+/// Everything a parse records about where it stopped: the positional cursor, so callers that
+/// do not re-run the parse — completions, above all — agree with it, and the token trace.
+///
+/// Every exit from the binding phase comes through here, which is what makes it the right
+/// place to close the trace: whatever is still queued was never read, and saying so is more
+/// useful than leaving those words out of the report entirely.
+fn record_stop(
+    out: &mut ParseOutput,
+    next_arg_idx: usize,
+    seen_double_dash: bool,
+    mut trace: Trace,
+    unread: &VecDeque<Token>,
+) {
     out.next_arg = out.cmd.args.get(next_arg_idx).cloned().map(Arc::new);
     out.double_dash_seen = seen_double_dash;
+    trace.close(unread);
+    out.tokens = trace.tokens;
 }
 
 /// Record that `arg` was handed a word before the `--` it requires.
@@ -3441,6 +3843,44 @@ impl Display for ParseValue {
     }
 }
 
+/// One `tokens` line for [`Debug`]: the position, the word, and what it became.
+fn render_token(token: &TokenBinding) -> String {
+    let roles = token.roles.iter().map(render_role).join(", ");
+    let synthesized = if token.synthesized { " (read as)" } else { "" };
+    format!("[{}] {}{synthesized}: {roles}", token.index, token.word)
+}
+
+fn render_role(role: &TokenRole) -> String {
+    match role {
+        TokenRole::Program => "program".to_string(),
+        TokenRole::Command { name } => format!("subcommand {name}"),
+        TokenRole::Flag {
+            flag,
+            spelling,
+            negated,
+        } => {
+            let negated = if *negated { ", negated" } else { "" };
+            format!("flag {} as {spelling}{negated}", flag.name)
+        }
+        TokenRole::Value {
+            flag,
+            values,
+            attached,
+        } => {
+            let attached = if *attached { ", attached" } else { "" };
+            format!("value of {} = {values:?}{attached}", flag.name)
+        }
+        TokenRole::Arg { arg, values } => format!("arg {} = {values:?}", arg.name),
+        TokenRole::Separator => "separator".to_string(),
+        TokenRole::UnknownFlag { bound_as } => match bound_as {
+            Some(arg) => format!("unknown flag, bound as {}", arg.name),
+            None => "unknown flag".to_string(),
+        },
+        TokenRole::External => "external".to_string(),
+        TokenRole::Unread => "unread".to_string(),
+    }
+}
+
 impl Debug for ParseOutput {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ParseOutput")
@@ -3472,6 +3912,27 @@ impl Debug for ParseOutput {
             .field("flag_awaiting_value", &self.flag_awaiting_value)
             .field("errors", &self.errors)
             .field("external", &self.external)
+            // Provenance, one line per token and one per fallback. This is the parser's
+            // debug channel under `USAGE_LOG=trace`, so it is where a spec author looks
+            // first — `usage explain` renders the same facts for a reader.
+            .field(
+                "tokens",
+                &self.tokens.iter().map(render_token).collect_vec(),
+            )
+            .field(
+                "origins",
+                &self
+                    .flag_origins
+                    .iter()
+                    .map(|(f, o)| format!("{}: {o:?}", f.name))
+                    .chain(
+                        self.arg_origins
+                            .iter()
+                            .map(|(a, o)| format!("{}: {o:?}", a.name)),
+                    )
+                    .collect_vec(),
+            )
+            .field("overridden_flags", &self.overridden_flags)
             .finish()
     }
 }
@@ -8793,5 +9254,386 @@ cmd "rm" {
                 assert_eq!(names(&spec, &path), from_parse, "path {path:?}");
             }
         }
+    }
+
+    // Provenance: which token bound what, and where a value came from when no token did.
+
+    /// Every role a token was given, rendered the way `Debug` renders it, so a test can
+    /// assert on the whole picture rather than on one field at a time.
+    fn roles(parsed: &ParseOutput, index: usize) -> Vec<String> {
+        parsed
+            .tokens
+            .iter()
+            .find(|token| token.index == index)
+            .unwrap_or_else(|| panic!("no token at {index}"))
+            .roles
+            .iter()
+            .map(render_role)
+            .collect()
+    }
+
+    fn origins(parsed: &ParseOutput, flag: &str) -> Vec<ValueOrigin> {
+        parsed
+            .flag_origins
+            .iter()
+            .find(|(f, _)| f.name == flag)
+            .map(|(_, origins)| origins.clone())
+            .unwrap_or_default()
+    }
+
+    fn explain_with_env(spec: &Spec, words: &[&str], env: &[(&str, &str)]) -> ParseOutput {
+        let env = env
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+            .collect();
+        Parser::new(spec)
+            .with_env(env)
+            .explain(&input(words))
+            .unwrap()
+    }
+
+    fn explain(spec: &Spec, words: &[&str]) -> ParseOutput {
+        explain_with_env(spec, words, &[])
+    }
+
+    #[test]
+    fn an_attached_long_value_is_recorded_on_the_flag_token() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--env <env>\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = explain(&spec, &["ex", "--env=prod"]);
+
+        assert_eq!(roles(&parsed, 0), ["program"]);
+        assert_eq!(
+            roles(&parsed, 1),
+            ["flag env as --env", "value of env = [\"prod\"], attached"]
+        );
+        // This is jdx/mise discussion #8883: a hand-written scanner dropped the attached
+        // form while the detached one worked, and nothing could show the difference.
+        assert!(origins(&parsed, "env").is_empty(), "typed, so no fallback");
+    }
+
+    #[test]
+    fn a_detached_long_value_is_recorded_on_its_own_token() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--env <env>\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = explain(&spec, &["ex", "--env", "prod"]);
+
+        assert_eq!(roles(&parsed, 1), ["flag env as --env"]);
+        assert_eq!(roles(&parsed, 2), ["value of env = [\"prod\"]"]);
+    }
+
+    #[test]
+    fn a_short_bundle_is_attributed_to_the_bundle_token() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-a\"\nflag \"-b\"\nflag \"-j <n>\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = explain(&spec, &["ex", "-abj8"]);
+
+        // One word the caller wrote, four things it did — and the re-queued tails are
+        // folded back onto it rather than appearing as tokens nobody typed.
+        assert_eq!(
+            roles(&parsed, 1),
+            [
+                "flag a as -a",
+                "flag b as -b",
+                "flag j as -j",
+                "value of j = [\"8\"], attached",
+            ]
+        );
+        assert_eq!(parsed.tokens.len(), 2);
+    }
+
+    #[test]
+    fn a_delimiter_splits_one_token_into_several_values() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--tags <tags>...\" delimiter=\",\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = explain(&spec, &["ex", "--tags", "a,b,c"]);
+
+        assert_eq!(
+            roles(&parsed, 2),
+            ["value of tags = [\"a\", \"b\", \"c\"]"],
+            "the values meant, not the word typed"
+        );
+    }
+
+    #[test]
+    fn a_separator_and_the_words_after_it_are_distinguished() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\narg \"<src>\"\narg \"[raw]...\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = explain(&spec, &["ex", "a", "--", "-x"]);
+
+        assert_eq!(roles(&parsed, 1), ["arg src = [\"a\"]"]);
+        assert_eq!(roles(&parsed, 2), ["separator"]);
+        // Past the separator `-x` is data, not an unknown flag.
+        assert_eq!(roles(&parsed, 3), ["arg raw = [\"-x\"]"]);
+    }
+
+    #[test]
+    fn a_second_separator_is_data() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\narg \"[raw]...\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = explain(&spec, &["ex", "--", "a", "--", "b"]);
+
+        assert_eq!(roles(&parsed, 1), ["separator"]);
+        assert_eq!(roles(&parsed, 3), ["arg raw = [\"--\"]"]);
+    }
+
+    #[test]
+    fn an_unknown_flag_says_what_took_it() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\narg \"[rest]...\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = explain(&spec, &["ex", "--wat"]);
+
+        // The default is lax, so the word became data. Which is the useful thing to be
+        // told: the alternative reading is "you have a typo".
+        assert_eq!(roles(&parsed, 1), ["unknown flag, bound as rest"]);
+    }
+
+    #[test]
+    fn a_subcommand_word_is_not_a_positional() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\ncmd \"build\" {\n    arg \"<target>\"\n}\n"
+            .parse()
+            .unwrap();
+
+        let parsed = explain(&spec, &["ex", "build", "a"]);
+
+        assert_eq!(roles(&parsed, 1), ["subcommand build"]);
+        assert_eq!(roles(&parsed, 2), ["arg target = [\"a\"]"]);
+    }
+
+    #[test]
+    fn a_multicall_applet_is_read_at_argv0() {
+        let spec: Spec =
+            "name \"box\"\nbin \"box\"\nmulticall #true\ncmd \"ls\" {\n    flag \"-l\"\n}\n"
+                .parse()
+                .unwrap();
+
+        let parsed = explain(&spec, &["/usr/bin/ls", "-l"]);
+
+        // argv[0] is both the program and the word that selected the applet, and the word
+        // read there is not the word the caller wrote.
+        assert_eq!(roles(&parsed, 0), ["program", "subcommand ls"]);
+        assert!(parsed.tokens[0].synthesized);
+        assert_eq!(parsed.tokens[0].word, "/usr/bin/ls");
+    }
+
+    #[test]
+    fn words_the_parse_never_reached_say_so() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\narg \"[rest]...\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = Parser::new(&spec)
+            .explain(&input(&["ex", "--help", "a"]))
+            .unwrap();
+
+        assert_eq!(roles(&parsed, 2), ["unread"]);
+    }
+
+    #[test]
+    fn an_env_origin_names_the_variable_that_fired() {
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nflag \"--token <t>\" env=\"EX_TOKEN\" env_fallback=\"EX_TOKEN_OLD\"\n"
+                .parse()
+                .unwrap();
+
+        let primary = explain_with_env(&spec, &["ex"], &[("EX_TOKEN", "a")]);
+        assert_eq!(
+            origins(&primary, "token"),
+            [ValueOrigin::Env("EX_TOKEN".to_string())]
+        );
+
+        // The fallback firing is a different fact from the primary firing, and which one it
+        // was is what says which declaration to delete.
+        let fallback = explain_with_env(&spec, &["ex"], &[("EX_TOKEN_OLD", "b")]);
+        assert_eq!(
+            origins(&fallback, "token"),
+            [ValueOrigin::Env("EX_TOKEN_OLD".to_string())]
+        );
+    }
+
+    #[test]
+    fn a_default_origin_is_recorded_for_flags_and_args() {
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nflag \"--color <when>\" default=\"auto\"\narg \"[src]\" default=\".\"\n"
+                .parse()
+                .unwrap();
+
+        let parsed = explain(&spec, &["ex"]);
+
+        assert_eq!(origins(&parsed, "color"), [ValueOrigin::Default]);
+        let (arg, origins) = parsed.arg_origins.iter().next().unwrap();
+        assert_eq!(arg.name, "src");
+        assert_eq!(origins, &[ValueOrigin::Default]);
+    }
+
+    #[test]
+    fn a_default_if_origin_carries_the_condition_that_fired() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+flag "--profile <p>"
+flag "--strict" {
+    default_if "--profile" "prod" "true"
+}
+        "#
+        .parse()
+        .unwrap();
+
+        let parsed = explain(&spec, &["ex", "--profile", "prod"]);
+
+        // The selector alone is ambiguous: several conditions may name it with different
+        // `when` values, so the report has to say which one matched.
+        assert_eq!(
+            origins(&parsed, "strict"),
+            [ValueOrigin::DefaultIf {
+                selector: "--profile".to_string(),
+                when: Some("prod".to_string()),
+            }]
+        );
+    }
+
+    #[test]
+    fn a_bare_optional_value_flag_records_default_missing() {
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nflag \"--color <when>\" default_missing=\"always\"\nflag \"-v\"\n"
+                .parse()
+                .unwrap();
+
+        let parsed = explain(&spec, &["ex", "--color", "-v"]);
+
+        // The flag was typed and the value was not, which is the distinction a spec author
+        // is asking about when they ask why `--color` came out `always`.
+        assert_eq!(roles(&parsed, 1), ["flag color as --color"]);
+        assert_eq!(origins(&parsed, "color"), [ValueOrigin::DefaultMissing]);
+        assert_eq!(roles(&parsed, 2), ["flag v as -v"]);
+    }
+
+    #[test]
+    fn a_var_flag_can_take_one_value_from_argv_and_one_from_default_missing() {
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nflag \"--color <when>\" var=#true default_missing=\"always\"\n"
+                .parse()
+                .unwrap();
+
+        let parsed = explain(&spec, &["ex", "--color=red", "--color"]);
+
+        // Why origins are a list: one declaration, two occurrences, two different answers.
+        assert_eq!(
+            roles(&parsed, 1),
+            [
+                "flag color as --color",
+                "value of color = [\"red\"], attached"
+            ]
+        );
+        assert_eq!(origins(&parsed, "color"), [ValueOrigin::DefaultMissing]);
+    }
+
+    #[test]
+    fn an_override_names_the_flag_that_did_it() {
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nflag \"--quiet\" default=\"true\"\nflag \"--loud\" overrides=\"--quiet\"\n"
+                .parse()
+                .unwrap();
+
+        let parsed = explain(&spec, &["ex", "--loud"]);
+
+        // Without the overriding name, "`--quiet` is unset despite its default" has no
+        // answer: the fallback phase silently declines to fill an overridden flag.
+        assert_eq!(parsed.overridden_flags.get("quiet").unwrap(), "loud");
+        assert!(origins(&parsed, "quiet").is_empty());
+    }
+
+    #[test]
+    fn a_restart_token_leaves_the_tokens_and_clears_the_arg_origins() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+cmd "run" restart_token=":::" {
+    arg "<task>" default="build"
+}
+        "#
+        .parse()
+        .unwrap();
+
+        let parsed = explain(&spec, &["ex", "run", "lint", ":::", "test"]);
+
+        // The values belong to the last invocation, so provenance must too — but the words
+        // of the first were still read, and a report that dropped them would show a command
+        // line with a hole in it.
+        assert_eq!(roles(&parsed, 2), ["arg task = [\"lint\"]"]);
+        assert_eq!(roles(&parsed, 4), ["arg task = [\"test\"]"]);
+        assert!(parsed.arg_origins.is_empty());
+    }
+
+    #[test]
+    fn explain_keeps_the_bindings_of_a_command_line_that_fails() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"--env <env>\"\narg \"<src>\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = Parser::new(&spec)
+            .explain(&input(&["ex", "--env=prod"]))
+            .unwrap();
+
+        // `parse` reports "missing required <src>" and nothing else, which is the report the
+        // caller already had. This is the case the whole thing exists for.
+        assert!(Parser::new(&spec)
+            .parse(&input(&["ex", "--env=prod"]))
+            .is_err());
+        assert_eq!(
+            roles(&parsed, 1),
+            ["flag env as --env", "value of env = [\"prod\"], attached"]
+        );
+        assert!(
+            parsed.errors.iter().any(|e| e.to_string().contains("src")),
+            "{:?}",
+            parsed.errors
+        );
+    }
+
+    #[test]
+    fn an_external_subcommand_forwards_whole_tokens() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nexternal_subcommand #true\ncmd \"build\"\n"
+            .parse()
+            .unwrap();
+
+        let parsed = explain(&spec, &["ex", "deploy", "--now"]);
+
+        assert_eq!(roles(&parsed, 1), ["external"]);
+        assert_eq!(roles(&parsed, 2), ["external"]);
+    }
+
+    #[test]
+    fn a_view_keeps_the_callers_argv_positions() {
+        let spec: Spec = r#"
+bin "ex"
+view "runner" root="run"
+cmd "run" {
+    flag "--token <token>"
+}
+        "#
+        .parse()
+        .unwrap();
+
+        let parsed = explain(&spec, &["runner", "--token", "secret"]);
+
+        // A view re-enters the parse with the same argv, so the positions still mean what
+        // the caller wrote.
+        assert_eq!(roles(&parsed, 0), ["program"]);
+        assert_eq!(roles(&parsed, 2), ["value of token = [\"secret\"]"]);
     }
 }
