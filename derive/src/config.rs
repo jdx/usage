@@ -577,19 +577,15 @@ impl Field {
                 // `read`, whatever anyone configured. Only an always-broken pairing is refused:
                 // `ty = "int"` on a `u8` is a widening the author may mean, and it reads
                 // whenever the value fits.
-                if let Some(shape) = declared.shape() {
-                    if reads_shape(&inner, shape) == Some(false) {
-                        return Err(syn::Error::new(
-                            span,
-                            format!(
-                                "a `{name}` setting reaches this field as {}, which `{}` \
-                                 cannot read: `ty` renames what the spec calls a setting, and \
-                                 cannot change what the field holds",
-                                describe_shape(shape),
-                                rust_type_name(&inner),
-                            ),
-                        ));
-                    }
+                if reads(&inner, &declared) == Some(false) {
+                    return Err(syn::Error::new(
+                        span,
+                        format!(
+                            "a `{name}` setting cannot be read into `{}`: `ty` renames what \
+                             the spec calls a setting, and cannot change what the field holds",
+                            rust_type_name(&inner),
+                        ),
+                    ));
                 }
                 declared
             }
@@ -792,42 +788,49 @@ impl Ty {
     }
 }
 
-/// Whether the field's `FromValue` can read a value of `shape`.
+/// Whether the field's `FromValue` can read what a setting of type `declared` is handed.
 ///
-/// `None` where the type is not one this knows — a type alias, or a type whose `FromValue` an
-/// adopter wrote — because a `ty` override exists for exactly the types this cannot measure,
-/// and refusing what it cannot see would make the escape hatch useless.
-fn reads_shape(ty: &syn::Type, shape: Shape) -> Option<bool> {
-    let syn::Type::Path(path) = ty else {
+/// Structural, not a top-level shape comparison: the merge coerces a list's *items* to the
+/// declared item type, so `ty = "list<uint>"` on a `Vec<String>` is handed a list of integers
+/// and fails on the first one. Comparing only the outer kind called that a match.
+///
+/// `None` where the answer is not knowable — a type alias, a type whose `FromValue` an adopter
+/// wrote, or a declared type that promises no shape — because a `ty` override exists for
+/// exactly the types this cannot measure, and refusing what it cannot see would make the
+/// escape hatch useless.
+fn reads(field: &syn::Type, declared: &Ty) -> Option<bool> {
+    // `any` is the one type the merge does not coerce: it hands over whatever arrived, so
+    // there is no shape to promise or refuse.
+    let shape = declared.shape()?;
+    let syn::Type::Path(path) = field else {
         return None;
     };
     let last = path.path.segments.last()?;
-    Some(match last.ident.to_string().as_str() {
+    match last.ident.to_string().as_str() {
         // `Value` is the escape hatch for `any`: it reads whatever it is handed.
-        "Value" => true,
-        "bool" => shape == Shape::Bool,
+        "Value" => Some(true),
+        "bool" => Some(shape == Shape::Bool),
         "u8" | "u16" | "u32" | "u64" | "usize" | "i8" | "i16" | "i32" | "i64" | "isize" => {
-            shape == Shape::Int
+            Some(shape == Shape::Int)
         }
         // A whole number is a perfectly good float, which is the rule `FromValue for f64`
         // states and this has to agree with.
-        "f32" | "f64" => shape == Shape::Float || shape == Shape::Int,
-        "String" | "PathBuf" => shape == Shape::Str,
-        "Vec" => shape == Shape::List,
-        "BTreeMap" => shape == Shape::Map,
-        _ => return None,
-    })
-}
-
-/// A shape as a message names it: what the field will actually be handed.
-fn describe_shape(shape: Shape) -> &'static str {
-    match shape {
-        Shape::Bool => "a boolean",
-        Shape::Int => "an integer",
-        Shape::Float => "a number",
-        Shape::Str => "text",
-        Shape::List => "a list",
-        Shape::Map => "a table",
+        "f32" | "f64" => Some(shape == Shape::Float || shape == Shape::Int),
+        "String" | "PathBuf" => Some(shape == Shape::Str),
+        "Vec" => match declared {
+            Ty::List(item) | Ty::Set(item) => {
+                generic_arg(last, 0).and_then(|inner| reads(&inner, item))
+            }
+            _ => Some(false),
+        },
+        "BTreeMap" => match declared {
+            Ty::Map(value) => generic_arg(last, 1).and_then(|inner| reads(&inner, value)),
+            // `object` is a table whose value types the spec deliberately does not describe,
+            // so there is nothing to hold the field's own to.
+            Ty::Object => None,
+            _ => Some(false),
+        },
+        _ => None,
     }
 }
 
@@ -1693,6 +1696,22 @@ mod tests {
                 "table: std::collections::BTreeMap<String, String>",
                 "string",
             ),
+            // And the *item* types, not only the outer kind: the merge coerces a list's items
+            // to the declared item type, so a list of the wrong thing fails on the first one.
+            ("names: Vec<String>", "list<uint>"),
+            ("ports: Vec<u64>", "list<string>"),
+            ("ports: Vec<u64>", "set<string>"),
+            ("nested: Vec<Vec<u64>>", "list<list<string>>"),
+            (
+                "table: std::collections::BTreeMap<String, String>",
+                "map<string, bool>",
+            ),
+            // A list declared where a map is held, and the reverse.
+            (
+                "table: std::collections::BTreeMap<String, String>",
+                "list<string>",
+            ),
+            ("names: Vec<String>", "map<string, string>"),
         ] {
             let err = rejection(&format!(
                 r#"
@@ -1703,7 +1722,7 @@ mod tests {
             "#
             ));
             assert!(
-                err.contains("cannot read"),
+                err.contains("cannot be read into"),
                 "`ty = \"{ty}\"` was accepted on `{field}`: {err}"
             );
         }
@@ -1723,6 +1742,24 @@ mod tests {
             // A widening the author may mean: it reads whenever the value fits, so it is
             // theirs to make rather than this check's to refuse.
             ("small: u8", "int"),
+            // Item types that agree, at depth, and through a set — which the merge hands over
+            // as a list like any other.
+            ("names: Vec<String>", "list<string>"),
+            ("paths: Vec<std::path::PathBuf>", "set<path>"),
+            ("spans: Vec<String>", "list<duration>"),
+            ("nested: Vec<Vec<u64>>", "list<list<uint>>"),
+            (
+                "table: std::collections::BTreeMap<String, String>",
+                "map<string, string>",
+            ),
+            // `object` is a table whose value types the spec deliberately does not describe,
+            // so there is nothing to hold the field's own to.
+            (
+                "table: std::collections::BTreeMap<String, String>",
+                "object",
+            ),
+            // An item type this cannot measure keeps the escape hatch open at depth too.
+            ("items: Vec<Custom>", "list<string>"),
         ] {
             accepted(&format!(
                 r#"
