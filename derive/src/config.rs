@@ -584,11 +584,31 @@ impl Field {
                     ),
                 ));
             }
-            if !prop.choices.is_empty() && !prop.choices.iter().any(|choice| choice == default) {
-                return Err(syn::Error::new(
-                    ident.span(),
-                    "the default is not one of the declared choices",
-                ));
+            // Which values have to be one of the choices depends on what the choices name.
+            // On a list setting they name what one *item* may be — that is how the registry
+            // compares a resolved value against them — so it is the items that are checked.
+            // Comparing the whole list refused `default("a")` beside `choices("a", "b")`, a
+            // declaration whose every value is one of them.
+            if !prop.choices.is_empty() {
+                let declared: Vec<&Const> = match (&prop.ty, default) {
+                    (Ty::List(_) | Ty::Set(_), Const::List(items)) => items.iter().collect(),
+                    _ => vec![default],
+                };
+                if !declared
+                    .iter()
+                    .all(|value| prop.choices.iter().any(|choice| choice == *value))
+                {
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        match declared.len() > 1 {
+                            true => {
+                                "the default has a value that is not one of the declared \
+                                     choices"
+                            }
+                            false => "the default is not one of the declared choices",
+                        },
+                    ));
+                }
             }
         }
         if !prop.choices.is_empty() && prop.ty == Ty::Bool {
@@ -1232,6 +1252,58 @@ mod tests {
             "#
             ));
         }
+    }
+
+    #[test]
+    fn a_list_default_is_held_against_the_choices_item_by_item() {
+        // The choices on a list setting name what one item may be, so a default made of them
+        // is a default made of declared values. Comparing the whole list against each choice
+        // refused this outright — the opposite failure to the two above, and the one that
+        // would have hit hk first: its list settings are exactly this shape.
+        accepted(
+            r#"
+            struct Settings {
+                #[usage(default("a"), choices("a", "b"))]
+                tags: Vec<String>,
+            }
+        "#,
+        );
+        accepted(
+            r#"
+            struct Settings {
+                #[usage(default("a", "b"), choices("a", "b"))]
+                tags: Vec<String>,
+            }
+        "#,
+        );
+
+        // An item nothing declared is still refused, which is the point of checking at all.
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(default("a", "z"), choices("a", "b"))]
+                tags: Vec<String>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("not one of the declared choices"),
+            "unhelpful: {err}"
+        );
+
+        // And a scalar setting still compares whole, which is all it can do.
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(default = "z", choices("a", "b"))]
+                mode: String,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("the default is not one of the declared choices"),
+            "unhelpful: {err}"
+        );
     }
 
     #[test]
