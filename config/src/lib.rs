@@ -8,9 +8,9 @@
 //! declaration of a setting and the code that resolves it are two separate things that have
 //! to be kept in step by hand.
 //!
-//! Here they are one thing. `usage-config-build` reads the spec's `config` block at build
-//! time and emits a [`Registry`] of consts; this crate resolves values against it. Nothing
-//! here parses KDL, so a CLI carries a resolver rather than a spec parser.
+//! Here they are one thing. `#[derive(usage::Config)]` reads the settings struct and emits a
+//! [`Registry`] of consts beside it; this crate resolves values against it. Nothing here
+//! parses KDL, so a CLI carries a resolver rather than a spec parser.
 //!
 //! # What it guarantees
 //!
@@ -33,7 +33,7 @@
 //! ```
 //! use usage_config::{resolve, Const, EnvLayer, Layers, PropMeta, Registry, Ty, Value};
 //!
-//! // Normally generated from the spec by usage-config-build.
+//! // Normally generated from the settings struct by `#[derive(usage::Config)]`.
 //! static PROPS: &[PropMeta] = &[PropMeta {
 //!     envs: &["MYCLI_JOBS"],
 //!     default: Some(Const::Int(4)),
@@ -61,10 +61,12 @@ pub mod explain;
 #[cfg(any(feature = "toml", feature = "json", feature = "yaml"))]
 pub mod files;
 pub mod layer;
+pub mod props;
 pub mod read;
 pub mod registry;
 pub mod resolve;
 pub mod source;
+pub mod spec;
 pub mod ty;
 pub mod value;
 
@@ -74,9 +76,11 @@ pub use explain::explain;
 #[cfg(any(feature = "toml", feature = "json", feature = "yaml"))]
 pub use files::{FileLayer, Format};
 pub use layer::{Entry, Layer, LayerCtx, LayerError, LayerOutput, Warning, WarningKind};
+pub use props::{concat_props, Props};
 pub use read::{Fold, FromValue, ReadError, ReadErrorKind, ReadErrors};
 pub use registry::{Lookup, Merge, PropId, PropMeta, Registry, Scope};
 pub use resolve::{resolve, Layers, Resolved};
 pub use source::{FileScope, Origin, SourceKind, Trust};
+pub use spec::spec_kdl;
 pub use ty::{Parser, Ty, TypeError};
 pub use value::{Const, Value};

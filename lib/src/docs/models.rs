@@ -777,10 +777,15 @@ const SHORT_COL: usize = 4;
 /// The twin of `column_usage` in `usage-argv`'s `help` module; the two must agree, and the gate
 /// over mise's spec is what says they do.
 fn column_usage(flag: &crate::SpecFlag) -> String {
-    let rest = flag.negate.as_ref().map_or_else(
-        || flag.usage.trim().to_string(),
-        |negate| format!("{} / {}", flag.usage.trim(), negate.trim()),
-    );
+    let usage = flag.usage.trim();
+    let rest = match flag.negate.as_deref().map(str::trim) {
+        // `SpecFlag::usage` already writes the negation for a flag that has no other
+        // spelling — clap's `SetFalse`, tak's `--no-credit` — and appending it again rendered
+        // `--color / --color`.
+        Some(negate) if negate == usage => usage.to_string(),
+        Some(negate) => format!("{usage} / {negate}"),
+        None => usage.to_string(),
+    };
     let Some(long) = flag.long.first() else {
         return rest;
     };
@@ -823,6 +828,13 @@ fn reference_usage(flag: &crate::SpecFlag) -> String {
                 .map(|long| format!("--{long}")),
         )
         .collect();
+    // A flag whose only spelling is its negation — clap's `SetFalse`, tak's `--no-credit` —
+    // has no long or short form to list, so without this the reference heading was empty.
+    if forms.is_empty() {
+        if let Some(negate) = &flag.negate {
+            forms.push(negate.clone());
+        }
+    }
     if flag.usage.trim().starts_with(&format!("{}:", flag.name)) {
         forms.insert(0, format!("{}:", flag.name));
     }
@@ -1057,5 +1069,31 @@ impl SpecExample {
         if let Some(h) = self.help.clone() {
             self.help = Some(renderer.replace_code_fences(h));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// A flag whose only spelling is its negation — clap's `SetFalse`, tak's `--no-credit` —
+    /// carries that spelling as its usage string already, and the flags column appended the
+    /// negation a second time: `--color / --color`.
+    #[test]
+    fn a_flag_spelled_only_as_its_negation_is_listed_once() {
+        let spec: crate::Spec = "flag \"color:\" negate=\"--color\"\n"
+            .parse()
+            .expect("a spec");
+        assert_eq!(super::column_usage(&spec.cmd.flags[0]), "--color");
+    }
+
+    /// And a flag that has both keeps both, which is what the ` / ` is for.
+    #[test]
+    fn a_flag_with_a_positive_spelling_lists_its_negation_beside_it() {
+        let spec: crate::Spec = "flag \"--color\" negate=\"--no-color\"\n"
+            .parse()
+            .expect("a spec");
+        assert_eq!(
+            super::column_usage(&spec.cmd.flags[0]),
+            "    --color / --no-color"
+        );
     }
 }

@@ -1,6 +1,6 @@
 //! The settings a CLI has, as a generated table.
 //!
-//! `usage-config-build` reads the spec's `config` block and emits a `static` of these, so at
+//! `#[derive(usage::Config)]` reads the settings struct and emits a `static` of these, so at
 //! runtime a registry is a slice — no parsing, no map to build, and a [`PropId`] that indexes
 //! it directly. A merge over a hundred settings therefore never hashes a key, which is what
 //! makes resolving the whole struct at once cheap enough to do eagerly.
@@ -103,6 +103,17 @@ pub struct PropMeta {
     /// An explicit optionality contract, when the declaration does not use inference.
     pub optional: Option<bool>,
     pub help: Option<&'static str>,
+    pub long_help: Option<&'static str>,
+    /// Prose beside the default, for a default the registry cannot hold — one computed at
+    /// runtime, or one whose literal alone would mislead ("0 = one per core").
+    pub default_note: Option<&'static str>,
+    /// The release that introduced this setting, when the declaration says.
+    pub since: Option<&'static str>,
+    /// The release that starts warning about a deprecated setting, and the one that removes it.
+    pub deprecated_warn_at: Option<&'static str>,
+    pub deprecated_remove_at: Option<&'static str>,
+    /// Values worth showing a reader, verbatim.
+    pub examples: &'static [&'static str],
 }
 
 impl PropMeta {
@@ -126,6 +137,12 @@ impl PropMeta {
             aliases: &[],
             optional: None,
             help: None,
+            long_help: None,
+            default_note: None,
+            since: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
+            examples: &[],
         }
     }
 }
@@ -306,7 +323,7 @@ impl Registry {
     /// Bounded by the number of settings there are, so a registry whose renames form a cycle stops
     /// rather than following them forever — the same guard [`Registry::lookup`] uses, and for the
     /// same reason: this is an authoring mistake, and hanging is a worse way to report one than
-    /// nothing at all. `usage-config-build` refuses such a registry outright.
+    /// nothing at all. The derive refuses such a declaration outright.
     pub fn deprecation(&self, key: &str) -> Option<&'static str> {
         let mut current = self
             .props

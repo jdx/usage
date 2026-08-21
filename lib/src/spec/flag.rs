@@ -839,7 +839,18 @@ impl SpecFlag {
     pub fn usage(&self) -> String {
         let mut parts = vec![];
         let name = get_name_from_short_and_long(&self.short, &self.long).unwrap_or_default();
-        if name != self.name {
+        // A flag whose only spelling is its negation — clap's `SetFalse`, tak's
+        // `--no-credit` — is named after that spelling, so the `name:` prefix would repeat
+        // it and the spelling a reader has to type would appear nowhere.
+        let negation_only = self.short.is_empty()
+            && self.long.is_empty()
+            && self
+                .negate
+                .as_deref()
+                .is_some_and(|negate| negate.trim_start_matches('-') == self.name);
+        if negation_only {
+            parts.push(self.negate.clone().unwrap_or_default());
+        } else if name != self.name {
             parts.push(format!("{}:", self.name));
         }
         if let Some(short) = self.short.first() {
@@ -1791,8 +1802,12 @@ mod tests {
         assert!(color.long.is_empty());
         assert!(color.short.is_empty());
         assert_eq!(color.negate.as_deref(), Some("--color"));
-        assert_eq!(color.usage(), "color:");
-        assert_eq!(color.usage, "color:");
+        // Displayed as the spelling a reader has to type. `color:` names the flag's
+        // identity, which the *spec* keeps below, but as a usage string it showed a reader
+        // nothing they could enter — a docs heading read `### color:` for a flag whose only
+        // form is `--color`.
+        assert_eq!(color.usage(), "--color");
+        assert_eq!(color.usage, "--color");
 
         let rendered = spec.to_string();
         assert!(

@@ -52,6 +52,10 @@ extern crate self as usage_rs;
 
 pub use usage_argv as argv;
 pub use usage_argv::*;
+#[cfg(feature = "config")]
+pub use usage_config as config;
+#[cfg(feature = "config")]
+pub use usage_derive::Config;
 #[cfg(feature = "spec")]
 pub use usage_derive::{Args, Cli, Subcommands, ValueEnum};
 #[cfg(feature = "test")]
@@ -95,6 +99,27 @@ mod tests {
     #[test]
     fn derives_resolve_the_facade_from_inside_the_facade() {
         assert_eq!(Internal::spec().bin, Some("internal"));
+    }
+
+    #[cfg(feature = "config")]
+    #[derive(crate::Config)]
+    struct InternalSettings {
+        /// How many jobs to run at once
+        #[usage(env = "INTERNAL_JOBS", default = 4)]
+        jobs: u64,
+    }
+
+    #[cfg(feature = "config")]
+    #[test]
+    fn the_config_derive_resolves_the_facade_from_inside_the_facade() {
+        let resolved = crate::config::resolve(
+            InternalSettings::SETTINGS_REGISTRY,
+            crate::config::Layers::new(),
+        )
+        .expect("resolves");
+        let settings = InternalSettings::read(&resolved).expect("reads");
+        assert_eq!(settings.jobs, 4);
+        assert!(InternalSettings::spec_kdl().contains(r#"prop "jobs""#));
     }
 
     #[cfg(feature = "validation")]

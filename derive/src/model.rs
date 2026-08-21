@@ -87,6 +87,12 @@ pub struct Cli {
     /// nothing itself. A struct that declares arguments of its own is refused, because
     /// forwarding would drop them; see [`check`](Self::check).
     pub dispatch: Dispatch,
+    /// The type deriving `usage::Config` whose settings this CLI's emitted spec carries.
+    ///
+    /// Named rather than discovered — a macro sees one item — so `to_kdl` can append the
+    /// type's `config` block and the spec documents the settings the way it documents the
+    /// commands. Root-only, like `settings`: one spec, one `config` block.
+    pub config: Option<syn::Type>,
     /// The oldest `usage` that can read the emitted spec, when the CLI says.
     ///
     /// Declared rather than computed. Working it out would mean a table from every property to
@@ -686,6 +692,7 @@ impl Cli {
             spec_extra: None,
             settings: false,
             dispatch: Dispatch::default(),
+            config: None,
             min_usage_version: None,
             usage: None,
             effect: None,
@@ -817,6 +824,17 @@ impl Cli {
                     "run_with" => cli.dispatch.run_with = flag_value(&meta)?,
                     "run_async" => cli.dispatch.run_async = flag_value(&meta)?,
                     "run_async_with" => cli.dispatch.run_async_with = flag_value(&meta)?,
+                    "config" => {
+                        let value = &meta.require_name_value()?.value;
+                        if !matches!(value, Expr::Path(_)) {
+                            return Err(syn::Error::new_spanned(
+                                value,
+                                "`config` names a type deriving `usage::Config`, as in \
+                                 `config = Settings`",
+                            ));
+                        }
+                        cli.config = Some(syn::parse2(quote::ToTokens::to_token_stream(value))?);
+                    }
                     "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
                     "effect" => cli.effect = Some(effect_value(&meta)?),
                     "alias" | "aliases" if clap_attr => {
@@ -1181,6 +1199,15 @@ impl Cli {
                     "`settings` belongs on the root, where `#[derive(Cli)]` is: it says that \
                      this CLI resolves settings whose flags are declared elsewhere, and a group \
                      is asked for its own by whoever flattens it",
+                ));
+            }
+            // One spec, one `config` block: the settings belong to the program, and only the
+            // root emits a spec for them to land in.
+            if self.config.is_some() {
+                return Err(self.misplaced(
+                    ident,
+                    "`config` belongs on the root, where `#[derive(Cli)]` is: the emitted \
+                     spec carries one `config` block for the whole program",
                 ));
             }
             // One spec, one claim about which `usage` can read it — and only the root writes a
@@ -3692,7 +3719,7 @@ pub fn type_name(ty: &Type) -> String {
 /// Native `#[usage(...)]` plus clap-compatible `#[command(...)]` and
 /// `#[arg(...)]` attributes. The latter appears on fields (and inline variants),
 /// while the iterator is shared by all three model readers.
-fn attrs(attrs: &[Attribute]) -> impl Iterator<Item = &Attribute> {
+pub(crate) fn attrs(attrs: &[Attribute]) -> impl Iterator<Item = &Attribute> {
     attrs.iter().filter(|a| {
         a.path().is_ident("usage")
             || a.path().is_ident("command")
@@ -3710,21 +3737,21 @@ fn value_attrs(attrs: &[Attribute]) -> impl Iterator<Item = &Attribute> {
         .filter(|a| a.path().is_ident("usage") || a.path().is_ident("value"))
 }
 
-fn nested(attr: &Attribute) -> syn::Result<Vec<Meta>> {
+pub(crate) fn nested(attr: &Attribute) -> syn::Result<Vec<Meta>> {
     let list = attr.meta.require_list()?;
     let parsed = list
         .parse_args_with(syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated)?;
     Ok(parsed.into_iter().collect())
 }
 
-fn ident_of(path: &syn::Path) -> String {
+pub(crate) fn ident_of(path: &syn::Path) -> String {
     path.segments
         .last()
         .map(|s| s.ident.to_string())
         .unwrap_or_default()
 }
 
-fn string_value(meta: &Meta) -> syn::Result<String> {
+pub(crate) fn string_value(meta: &Meta) -> syn::Result<String> {
     let value = &meta.require_name_value()?.value;
     match value {
         Expr::Lit(ExprLit {
@@ -4433,7 +4460,7 @@ fn char_value(meta: &Meta) -> syn::Result<char> {
 }
 
 /// A boolean option, where the bare word means true: `global` or `global = true`.
-fn flag_value(meta: &Meta) -> syn::Result<bool> {
+pub(crate) fn flag_value(meta: &Meta) -> syn::Result<bool> {
     match meta {
         Meta::Path(_) => Ok(true),
         _ => {
@@ -4456,7 +4483,7 @@ fn flag_value(meta: &Meta) -> syn::Result<bool> {
 /// The first paragraph is the short form; the whole comment is the long form and is only
 /// reported when it says more than the short one. Prose is flowed by default, while
 /// `verbatim` keeps line breaks and whitespace for tables, examples, and ASCII art.
-fn doc_comment(
+pub(crate) fn doc_comment(
     attrs: &[Attribute],
     verbatim: bool,
 ) -> syn::Result<(Option<String>, Option<String>)> {
@@ -7005,6 +7032,56 @@ mod tests {
         assert!(
             err.contains("`settings` belongs on the root"),
             "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn config_names_a_type_deriving_usage_config() {
+        // A path, because the attribute names a *type* whose `spec_kdl()` the emitted spec
+        // calls. A string looks close enough to the other metadata attributes to write by
+        // mistake, and it compiled to a `config` block that was silently never emitted.
+        let parsed = cli(r#"
+            #[usage(config = Settings)]
+            struct Ex {
+                #[usage(long)]
+                plain: bool,
+            }
+        "#)
+        .expect("parses");
+        assert!(parsed.config.is_some(), "`config = Settings` was dropped");
+
+        let err = rejection(
+            r#"
+            #[usage(config = "Settings")]
+            struct Ex {
+                #[usage(long)]
+                plain: bool,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("names a type deriving `usage::Config`"),
+            "unhelpful: {err}"
+        );
+    }
+
+    #[test]
+    fn the_config_attribute_belongs_on_the_root() {
+        // One program, one `config` block. On a group it would have been parsed and never
+        // read, which is the silence the position check exists to replace.
+        let err = position_error(
+            r#"
+            #[usage(config = Settings)]
+            struct Ex {
+                #[usage(long)]
+                plain: bool,
+            }
+            "#,
+            false,
+        );
+        assert!(
+            err.contains("`config` belongs on the root"),
+            "unhelpful: {err}"
         );
     }
 

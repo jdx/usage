@@ -2285,14 +2285,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "usage-config-build"
-version = "5.1.0"
-dependencies = [
- "usage-config",
- "usage-lib",
-]
-
-[[package]]
 name = "usage-conformance"
 version = "0.0.0"
 dependencies = [
@@ -2354,6 +2346,7 @@ version = "5.1.0"
 dependencies = [
  "serde",
  "usage-argv",
+ "usage-config",
  "usage-derive",
  "usage-lib",
  "usage-test",

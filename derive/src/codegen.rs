@@ -262,6 +262,94 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // see another struct's fields. A root that does neither gets the compile-time guard instead of
     // the layer, so a group's binding cannot go quietly uncollected.
     let resolves = cli.fields.iter().any(|f| f.setting.is_some()) || cli.settings;
+    let config = crate::config::config_path();
+    // A root that names its settings type gets a spec carrying the `config` block, appended
+    // after the command tree: KDL nodes are read by name, so position is presentation. Written
+    // as an append rather than as the whole body so that it composes with `spec_extra`, which
+    // appends to the same string — a root can have both.
+    let config_extra = match &cli.config {
+        Some(ty) => quote! {
+            __usage_kdl.push_str(&#config::spec_kdl(<#ty>::SETTINGS_PROPS));
+        },
+        None => TokenStream::new(),
+    };
+    // The argv collection every process entry shares: the full refs for parsing, the
+    // view- or multicall-rewritten words for help routing, and the selected view.
+    // Before the preamble, which interpolates the intercept.
+    let (spec_endpoint, spec_endpoint_intercept) = spec_endpoint_fns(cli);
+    let parse_preamble = quote! {
+                    let __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
+                        ::std::env::args_os().collect();
+                    let __usage_all_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
+                        __usage_all.iter().map(|a| a.as_os_str()).collect();
+                    // In the shared preamble rather than in `parse` alone: the point of the
+                    // endpoint is that *any* usage binary answers `__usage_spec__`, so a CLI
+                    // that resolves settings has to answer it too.
+                    #spec_endpoint_intercept
+                    let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
+                        if let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
+                            __usage_all_refs.split_first()
+                        {
+                            if let ::std::option::Option::Some(__usage_view) =
+                                usage_argv::spec::view_for_program(&SPEC, __usage_argv0)
+                            {
+                                if __usage_words.first().is_some_and(|word| {
+                                    usage_argv::is_version_arg(SPEC.root.cmd, word)
+                                })
+                                {
+                                    __usage_words
+                                        .iter()
+                                        .map(|word| (*word).to_os_string())
+                                        .collect()
+                                } else {
+                                    __usage_view
+                                        .root
+                                        .split_ascii_whitespace()
+                                        .map(::std::ffi::OsString::from)
+                                        .chain(
+                                            __usage_words
+                                                .iter()
+                                                .map(|word| (*word).to_os_string()),
+                                        )
+                                        .collect()
+                                }
+                            } else if SPEC.multicall {
+                                let mut __usage_words: ::std::vec::Vec<::std::ffi::OsString> =
+                                    __usage_words
+                                        .iter()
+                                        .map(|word| (*word).to_os_string())
+                                        .collect();
+                                if let ::std::option::Option::Some(__usage_word) =
+                                    __usage_argv0.to_str().and_then(|s| {
+                                        usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
+                                    })
+                                {
+                                    __usage_words.insert(
+                                        0,
+                                        ::std::ffi::OsString::from(__usage_word),
+                                    );
+                                }
+                                __usage_words
+                            } else {
+                                __usage_words
+                                    .iter()
+                                    .map(|word| (*word).to_os_string())
+                                    .collect()
+                            }
+                        } else {
+                            ::std::vec::Vec::new()
+                        };
+                    let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
+                        __usage_raw.iter().map(|a| a.as_os_str()).collect();
+                    let __usage_selected_view = __usage_all
+                        .first()
+                        .and_then(|argv0| usage_argv::spec::view_for_program(&SPEC, argv0));
+                    // This is the entry point that *is* the process — it already exits for a help
+                    // request — so it answers a failure the way a command-line program does:
+                    // the message on stderr, and a non-zero status. `parse_from` hands the error
+                    // back instead, for a library embedding this that wants to decide.
+    };
+
     let parts = settings(cli);
     // Only the layer calls it, so a root that has children and no settings of its own emits
     // neither: the guard below is what speaks for that case.
@@ -270,7 +358,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .as_ref()
         .filter(|_| resolves)
         .map(|s| s.bindings.clone());
-    let settings_layer = resolves.then(settings_layer);
+    let settings_layer = resolves.then(|| settings_layer(&config));
     let settings_guard = (!resolves).then(|| settings_guard(cli)).flatten();
     // The name an adopter uses, forwarding to the one inside the const block, which is where
     // the table that reads it lives.
@@ -305,7 +393,37 @@ pub fn emit(cli: &Cli) -> TokenStream {
             pub fn parse_from_with_settings<'v>(
                 argv: &[&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<
-                (Self, ::usage_config::CliLayer),
+                (Self, #config::CliLayer),
+                usage_argv::Error<'static, 'v>,
+            > {
+                Self::__usage_parse_from_with_settings(argv, ::std::option::Option::None)
+            }
+
+            /// [`Self::parse_from_with_settings`], collecting the deprecations it used.
+            ///
+            /// A settings adopter renders these through its own logging rather than to raw
+            /// stderr, which is the whole reason the collecting form exists.
+            pub fn parse_from_with_settings_and_warnings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+                warnings: &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+            ) -> ::std::result::Result<
+                (Self, #config::CliLayer),
+                usage_argv::Error<'static, 'v>,
+            > {
+                Self::__usage_parse_from_with_settings(
+                    argv,
+                    ::std::option::Option::Some(warnings),
+                )
+            }
+
+            #[doc(hidden)]
+            fn __usage_parse_from_with_settings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+                __usage_warnings: ::std::option::Option<
+                    &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+                >,
+            ) -> ::std::result::Result<
+                (Self, #config::CliLayer),
                 usage_argv::Error<'static, 'v>,
             > {
                 // The layer from what argv left, and only then the rest: `check` fills a field
@@ -317,6 +435,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 read_argv_into(Self::command(), argv, &mut partial)?;
                 let __usage_settings = settings_layer(&partial);
                 check(&mut partial)?;
+                if let ::std::option::Option::Some(__usage_out) = __usage_warnings {
+                    Self::__usage_deprecations(&partial, __usage_out);
+                }
                 let __usage_built = #built;
                 ::std::result::Result::Ok((__usage_built, __usage_settings))
             }
@@ -326,7 +447,6 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let post = post_binding(cli);
     let (completion, completion_intercept) = completion_fns(cli);
     let spec_extra = spec_extra_append(cli);
-    let (spec_endpoint, spec_endpoint_intercept) = spec_endpoint_fns(cli);
     // `field: local` rather than the shorthand, because the locals are prefixed:
     // a field called `text` or `parser` would otherwise collide with something the
     // generated code needs.
@@ -365,6 +485,144 @@ pub fn emit(cli: &Cli) -> TokenStream {
         };
         built_value(cli, view_sub_build, &view_field_finals)
     };
+
+    // The process entry with a settings layer beside it, for a CLI that binds settings and
+    // resolves them at startup — the fleet's `main` shape. Same help, version, and error
+    // behaviour as `parse`, through the same shared renderer.
+    let settings_parse_entry = settings_bindings.as_ref().map(|_| {
+        quote! {
+            /// Parse a full argv, including the program name, and the settings it
+            /// gave values for.
+            ///
+            /// The `parse_from_argv` counterpart of [`Self::parse_from_with_settings`]:
+            /// argv0 is stripped, views and multicall applets are honoured, and the
+            /// layer is built from what the parser saw.
+            pub fn parse_from_argv_with_settings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<
+                (Self, #config::CliLayer),
+                usage_argv::Error<'static, 'v>,
+            > {
+                Self::__usage_parse_from_argv_with_settings(
+                    argv,
+                    ::std::option::Option::None,
+                )
+            }
+
+            /// [`Self::parse_from_argv_with_settings`], collecting the deprecations it used.
+            pub fn parse_from_argv_with_settings_and_warnings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+                warnings: &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+            ) -> ::std::result::Result<
+                (Self, #config::CliLayer),
+                usage_argv::Error<'static, 'v>,
+            > {
+                Self::__usage_parse_from_argv_with_settings(
+                    argv,
+                    ::std::option::Option::Some(warnings),
+                )
+            }
+
+            #[doc(hidden)]
+            fn __usage_parse_from_argv_with_settings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+                __usage_warnings: ::std::option::Option<
+                    &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+                >,
+            ) -> ::std::result::Result<
+                (Self, #config::CliLayer),
+                usage_argv::Error<'static, 'v>,
+            > {
+                let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
+                    argv.split_first()
+                else {
+                    return Self::__usage_parse_from_with_settings(&[], __usage_warnings);
+                };
+                if let ::std::option::Option::Some(__usage_view) =
+                    usage_argv::spec::view_for_program(&SPEC, __usage_argv0)
+                {
+                    let mut __usage_rewritten = ::std::vec::Vec::with_capacity(
+                        __usage_words.len()
+                            + __usage_view.root.split_ascii_whitespace().count(),
+                    );
+                    __usage_rewritten.extend(
+                        __usage_view.root
+                            .split_ascii_whitespace()
+                            .map(::std::ffi::OsStr::new),
+                    );
+                    __usage_rewritten.extend_from_slice(__usage_words);
+                    #defaults
+                    read_argv_into_view(
+                        Self::command(),
+                        &__usage_rewritten,
+                        &mut partial,
+                        ::std::option::Option::Some(__usage_view),
+                    )?;
+                    // Before `check`, for the same reason `parse_from_with_settings` is:
+                    // the layer holds what argv gave, not what the environment filled.
+                    let __usage_settings = settings_layer(&partial);
+                    check_with_view(
+                        &mut partial,
+                        ::std::option::Option::Some(__usage_view),
+                    )?;
+                    if let ::std::option::Option::Some(__usage_out) = __usage_warnings {
+                        Self::__usage_deprecations(&partial, __usage_out);
+                    }
+                    return ::std::result::Result::Ok((#built_for_view, __usage_settings));
+                }
+                if SPEC.multicall {
+                    if let ::std::option::Option::Some(__usage_word) =
+                        __usage_argv0.to_str().and_then(|s| {
+                            usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
+                        })
+                    {
+                        let mut __usage_rewritten =
+                            ::std::vec::Vec::with_capacity(argv.len());
+                        __usage_rewritten.push(::std::ffi::OsStr::new(__usage_word));
+                        __usage_rewritten.extend_from_slice(__usage_words);
+                        return Self::__usage_parse_from_with_settings(
+                            &__usage_rewritten,
+                            __usage_warnings,
+                        );
+                    }
+                }
+                Self::__usage_parse_from_with_settings(__usage_words, __usage_warnings)
+            }
+
+            /// Parse the process's own arguments, and the settings they gave values for.
+            ///
+            /// [`Self::parse`] with the layer beside the struct: it prints a help page or
+            /// a version and leaves, and renders a failure to stderr with exit 2.
+            pub fn parse_with_settings() -> (Self, #config::CliLayer) {
+                #completion_intercept
+                #parse_preamble
+                // The same as `parse`: this is an entry point that *is* the process, so it is
+                // one of the two that may write to stderr, and a failure prints nothing about
+                // deprecations because what the user typed did not run.
+                let mut __usage_warnings = ::std::vec::Vec::new();
+                match Self::__usage_parse_from_argv_with_settings(
+                    &__usage_all_refs,
+                    ::std::option::Option::Some(&mut __usage_warnings),
+                ) {
+                    ::std::result::Result::Ok(__usage_parsed) => {
+                        if !__usage_warnings.is_empty() {
+                            ::std::eprint!(
+                                "{}",
+                                usage_argv::render_warnings(&__usage_warnings),
+                            );
+                        }
+                        __usage_parsed
+                    }
+                    ::std::result::Result::Err(e) => Self::__usage_exit_on_error(
+                        e,
+                        &__usage_all_refs,
+                        &__usage_argv,
+                        __usage_selected_view,
+                    ),
+                }
+            }
+        }
+    });
 
     let min_usage_version = option_str(cli.min_usage_version.as_deref());
     let views: Vec<_> = cli
@@ -852,6 +1110,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 pub fn to_kdl() -> ::std::string::String {
                     #[allow(unused_mut)]
                     let mut __usage_kdl = SPEC.to_kdl();
+                    #config_extra
                     #spec_extra
                     __usage_kdl
                 }
@@ -1045,73 +1304,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 pub fn parse() -> Self {
                     #completion_intercept
-                    let __usage_all: ::std::vec::Vec<::std::ffi::OsString> =
-                        ::std::env::args_os().collect();
-                    let __usage_all_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        __usage_all.iter().map(|a| a.as_os_str()).collect();
-                    #spec_endpoint_intercept
-                    let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
-                        if let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
-                            __usage_all_refs.split_first()
-                        {
-                            if let ::std::option::Option::Some(__usage_view) =
-                                usage_argv::spec::view_for_program(&SPEC, __usage_argv0)
-                            {
-                                if __usage_words.first().is_some_and(|word| {
-                                    usage_argv::is_version_arg(SPEC.root.cmd, word)
-                                })
-                                {
-                                    __usage_words
-                                        .iter()
-                                        .map(|word| (*word).to_os_string())
-                                        .collect()
-                                } else {
-                                    __usage_view
-                                        .root
-                                        .split_ascii_whitespace()
-                                        .map(::std::ffi::OsString::from)
-                                        .chain(
-                                            __usage_words
-                                                .iter()
-                                                .map(|word| (*word).to_os_string()),
-                                        )
-                                        .collect()
-                                }
-                            } else if SPEC.multicall {
-                                let mut __usage_words: ::std::vec::Vec<::std::ffi::OsString> =
-                                    __usage_words
-                                        .iter()
-                                        .map(|word| (*word).to_os_string())
-                                        .collect();
-                                if let ::std::option::Option::Some(__usage_word) =
-                                    __usage_argv0.to_str().and_then(|s| {
-                                        usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
-                                    })
-                                {
-                                    __usage_words.insert(
-                                        0,
-                                        ::std::ffi::OsString::from(__usage_word),
-                                    );
-                                }
-                                __usage_words
-                            } else {
-                                __usage_words
-                                    .iter()
-                                    .map(|word| (*word).to_os_string())
-                                    .collect()
-                            }
-                        } else {
-                            ::std::vec::Vec::new()
-                        };
-                    let __usage_argv: ::std::vec::Vec<&::std::ffi::OsStr> =
-                        __usage_raw.iter().map(|a| a.as_os_str()).collect();
-                    let __usage_selected_view = __usage_all
-                        .first()
-                        .and_then(|argv0| usage_argv::spec::view_for_program(&SPEC, argv0));
-                    // This is the entry point that *is* the process — it already exits for a help
-                    // request — so it answers a failure the way a command-line program does:
-                    // the message on stderr, and a non-zero status. `parse_from` hands the error
-                    // back instead, for a library embedding this that wants to decide.
+                    #parse_preamble
                     // Collected here rather than printed where they are found: `parse` is the
                     // entry point that *is* the process, so it is the one that may write to
                     // stderr. A failure prints nothing about deprecations — the error is what
@@ -1130,8 +1323,36 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             }
                             parsed
                         }
+                        ::std::result::Result::Err(e) => Self::__usage_exit_on_error(
+                            e,
+                            &__usage_all_refs,
+                            &__usage_argv,
+                            __usage_selected_view,
+                        ),
+                    }
+                }
+
+                #settings_parse_entry
+
+                /// Render a parse failure the way the process entry does, and leave.
+                ///
+                /// This is reached only from an entry point that *is* the process — it
+                /// already exits for a help request — so it answers a failure the way a
+                /// command-line program does: the message on stderr, and a non-zero status.
+                /// `parse_from` hands the error back instead, for a library embedding this
+                /// that wants to decide. One copy, shared by `parse` and by
+                /// `parse_with_settings` when settings are bound.
+                fn __usage_exit_on_error<'v>(
+                    __usage_error: usage_argv::Error<'static, 'v>,
+                    __usage_all_refs: &[&'v ::std::ffi::OsStr],
+                    __usage_argv: &[&'v ::std::ffi::OsStr],
+                    __usage_selected_view: ::std::option::Option<
+                        &usage_argv::spec::ViewMeta<'static>,
+                    >,
+                ) -> ! {
+                    match __usage_error {
                         // Not failures: someone asked a question, and the answer goes to stdout.
-                        ::std::result::Result::Err(usage_argv::Error::Version { long }) => {
+                        usage_argv::Error::Version { long } => {
                             #runtime_program_for_version
                             let __usage_bin = __usage_selected_view
                                 .map(|view| view.bin)
@@ -1144,7 +1365,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             ::std::println!("{__usage_bin} {__usage_version}");
                             usage_argv::__usage_process_exit(0);
                         }
-                        ::std::result::Result::Err(usage_argv::Error::Help { cmd, long }) => {
+                        usage_argv::Error::Help { cmd, long } => {
                             #effective_spec
                             let __usage_want = if long {
                                 usage_argv::help::Page::Long
@@ -1161,7 +1382,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 ::std::option::Option::None => usage_argv::__usage_process_exit(0),
                             }
                         }
-                        ::std::result::Result::Err(usage_argv::Error::MissingArgsHelp { cmd }) => {
+                        usage_argv::Error::MissingArgsHelp { cmd } => {
                             #effective_spec
                             let __usage_want = usage_argv::help::Page::Short;
                             #render_page_stderr
@@ -1173,7 +1394,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 ::std::option::Option::None => usage_argv::__usage_process_exit(2),
                             }
                         }
-                        ::std::result::Result::Err(usage_argv::Error::HelpAll { cmd }) => {
+                        usage_argv::Error::HelpAll { cmd } => {
                             #effective_spec
                             let __usage_want = usage_argv::help::Page::All;
                             #render_page
@@ -1185,7 +1406,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 ::std::option::Option::None => usage_argv::__usage_process_exit(0),
                             }
                         }
-                        ::std::result::Result::Err(e) => {
+                        e => {
                             #effective_spec
                             let __usage_failure = match __usage_selected_view {
                                 ::std::option::Option::Some(view) => {
@@ -2781,6 +3002,7 @@ fn view_field_active(field: &Field) -> TokenStream {
         longs,
         hidden_longs,
         shorts,
+        negate,
         global: true,
         ..
     } = &field.kind
@@ -2790,17 +3012,27 @@ fn view_field_active(field: &Field) -> TokenStream {
     let long_selectors = longs
         .iter()
         .chain(hidden_longs)
+        // The negation is a spelling of the same flag, and for a negative-only flag it is
+        // the *only* one: leaving it out made the selector list empty, and an empty
+        // `matches!` does not parse.
+        .chain(negate.iter())
         .map(|long| format!("--{long}"));
     let short_selectors = shorts.iter().map(|short| format!("-{short}"));
     let selectors: Vec<String> = long_selectors.chain(short_selectors).collect();
+    let named = if selectors.is_empty() {
+        quote!(false)
+    } else {
+        quote! {
+            __usage_view.globals.iter().any(|__usage_selector| {
+                matches!(*__usage_selector, #(#selectors)|*)
+            })
+        }
+    };
     quote! {
         match __usage_view {
             ::std::option::Option::None => true,
             ::std::option::Option::Some(__usage_view) => {
-                __usage_view.all_globals
-                    || __usage_view.globals.iter().any(|__usage_selector| {
-                        matches!(*__usage_selector, #(#selectors)|*)
-                    })
+                __usage_view.all_globals || #named
             }
         }
     }
@@ -2815,6 +3047,7 @@ fn field_active_in_view(field: &Field, view: &ViewDecl) -> bool {
         longs,
         hidden_longs,
         shorts,
+        negate,
         global: true,
         ..
     } = &field.kind
@@ -2825,6 +3058,7 @@ fn field_active_in_view(field: &Field, view: &ViewDecl) -> bool {
         || longs
             .iter()
             .chain(hidden_longs)
+            .chain(negate.iter())
             .map(|long| format!("--{long}"))
             .chain(shorts.iter().map(|short| format!("-{short}")))
             .any(|selector| view.globals.contains(&selector))
@@ -3743,31 +3977,31 @@ fn settings(cli: &Cli) -> Option<Settings> {
 ///
 /// One loop over what every command contributed, so a flattened group's value and the root's own
 /// become entries the same way. A second conversion is the thing this whole stack keeps deleting.
-fn settings_layer() -> TokenStream {
+fn settings_layer(config: &TokenStream) -> TokenStream {
     quote! {
         /// This command line as a layer, for `usage_config::resolve`.
-        pub fn settings_layer(partial: &Partial) -> ::usage_config::CliLayer {
-            let mut __usage_layer = ::usage_config::CliLayer::new(
+        pub fn settings_layer(partial: &Partial) -> #config::CliLayer {
+            let mut __usage_layer = #config::CliLayer::new(
                 ::std::iter::empty::<(::std::string::String, ::std::string::String)>(),
             );
             for (__usage_key, __usage_given) in settings_given(partial) {
                 __usage_layer = match __usage_given {
                     usage_argv::spec::SettingGiven::Bool(__usage_value) => {
-                        __usage_layer.with_value(__usage_key, ::usage_config::Value::Bool(__usage_value))
+                        __usage_layer.with_value(__usage_key, #config::Value::Bool(__usage_value))
                     }
                     usage_argv::spec::SettingGiven::Int(__usage_value) => {
-                        __usage_layer.with_value(__usage_key, ::usage_config::Value::Int(__usage_value))
+                        __usage_layer.with_value(__usage_key, #config::Value::Int(__usage_value))
                     }
                     usage_argv::spec::SettingGiven::Text(__usage_value) => {
                         __usage_layer
-                            .with_value(__usage_key, ::usage_config::Value::String(__usage_value))
+                            .with_value(__usage_key, #config::Value::String(__usage_value))
                     }
                     usage_argv::spec::SettingGiven::List(__usage_items) => __usage_layer.with_value(
                         __usage_key,
-                        ::usage_config::Value::List(
+                        #config::Value::List(
                             __usage_items
                                 .into_iter()
-                                .map(::usage_config::Value::String)
+                                .map(#config::Value::String)
                                 .collect(),
                         ),
                     ),

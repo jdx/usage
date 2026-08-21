@@ -13,7 +13,7 @@ already written, which is the failure mode a status file has to avoid.
    into the spec.
 
 The first is underway. The second is **underway too**, which this file said it was
-not: `usage-config` and `usage-config-build` are 8,220 lines, the spec's `config`
+not: `usage-config` and the `usage::Config` derive are the settings model, the spec's `config`
 block has a model behind it, and the derive lowers `#[usage(setting = …)]` into
 `SETTINGS_BINDINGS` with a `Registry::drift` check over it. What has _not_
 happened is adoption — none of mise, hk, pitchfork or fnox depends on the crate —
@@ -1791,7 +1791,9 @@ including telling you to delete the label afterwards.
 
 ## Config
 
-Not started. Design first, implementation after the parser gate.
+Implemented — the crates, the spec block, the derive, and the CLI binding all exist below.
+What has not happened is adoption, which is tracked per-CLI by the fleet effort rather than
+here.
 
 ### What the four CLIs already do
 
@@ -1828,17 +1830,24 @@ Where they differ is instructive, because it is mostly _drift_:
 
 ### The shape
 
-- [ ] **Declare props in code**, `#[derive(usage::Config)]`, lowered into the
+- [x] **Declare props in code**, `#[derive(usage::Config)]`, lowered into the
       spec's `config { prop ... }` block so settings documentation flows through
       the same pipeline as command documentation. Same canonicality rule as the
-      parser: code authors, the spec defines. **Decided (2026-08-21): the derive goes
-      on a registry-only declaration**, whose generated output feeds the CLI's existing
-      settings type rather than replacing it. Putting it on the final typed `Settings`
-      would be one source of truth, but it pushes layer bindings and merge policy onto
-      application fields and makes every adopter convert its whole registry in one step.
-      A registry-only declaration lets mise, hk, pitchfork and fnox adopt a layer at a
-      time, which is the migration path this section already judges likeliest to happen.
-      The cost is accepted and bounded: two declarations coexist during a migration.
+      parser: code authors, the spec defines. **Decided (2026-08-21, superseding the
+      registry-only decision of the same day): the derive goes on the real typed
+      `Settings` struct** — the same shape as `#[derive(usage::Cli)]`, which is the
+      argument that won. The author writes the struct the CLI already holds its settings
+      in; the derive generates `SETTINGS_PROPS`/`SETTINGS_REGISTRY`, `read(&Resolved)`,
+      and `spec_kdl()`, and a root's `#[usage(config = Settings)]` puts the block in its
+      emitted spec. One source of truth, no generated structs. The registry-only shape
+      was chosen for layer-at-a-time migration; the fleet's first adopters (pitchfork,
+      fnox, tak) are converting wholesale, so the incremental path's cost — two
+      coexisting declarations — was being paid for a benefit nobody scheduled. Nested
+      groups compose through `usage_config::Props` with compile-time `concat_props`
+      (duplicate keys refuse the build); `derive/src/config.rs`,
+      `conformance/tests/derive_config.rs`. The struct is the only declaration: the
+      build-time KDL-to-registry generator (`usage-config-build`) is gone, because a
+      second backend was a third description of every setting.
 - [x] **A prop vocabulary that is the union of the four registries** — `type`
       (bool, int, string, path, duration, list, map, plus a Rust-type escape
       hatch), `default`, `env` and `deprecated_env`, `docs`, `deprecated` with
@@ -1885,13 +1894,16 @@ Where they differ is instructive, because it is mostly _drift_:
       pipeline — `config/` and `SpecConfigProp` are here today, so this is also the
       status quo. A split would buy an independent stability and MSRV policy at the
       price of cross-repo coordination on every spec vocabulary change.
-- [ ] Whether the four CLIs migrate incrementally (one layer at a time, keeping
+- [x] Whether the four CLIs migrate incrementally (one layer at a time, keeping
       their generated `Settings`) or by regenerating from a converted registry.
-      Incremental looks far more likely to actually happen. **Owned by the fleet
-      adoption effort (2026-08-21), not decided here** — it is a question about what
-      each CLI does, and the answer sets whether the first public APIs must wrap
-      existing layers and settings types without owning them. The registry-only
-      derive above deliberately keeps the incremental path open either way.
+      **Answered by the fleet adoption effort (2026-08-21): wholesale, on the real
+      struct.** The first adopters — pitchfork, fnox, tak — convert their registries
+      into `#[derive(usage::Config)]` structs in one PR each, stacked on their clap-swap
+      PRs; hk and aube are deferred (git/pkl layers, `env_only` bootstrap, per-item
+      provenance; aube's managed-policy ratchet and two-axis sources). There is no
+      second path held open for a later incremental adopter: `usage-config-build` was
+      removed with this decision, since keeping a KDL-first backend alive meant keeping
+      two generators emitting one registry shape.
 - [x] fnox's model, where config files are not a settings source at all, is the
       one real behavior change rather than a consolidation. Worth confirming that
       is a fix and not a deliberate choice. **Decided (2026-08-21): preserve fnox's

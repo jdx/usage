@@ -19,8 +19,8 @@ about a spec. A resolution is not: it is a question about a **registry** — key
 types, defaults, merge policies — which a CLI's build step produces from its spec
 long before anything is resolved.
 
-So a vector describes the registry directly in KDL. How a spec becomes a registry
-is `usage-config-build`'s question, and its own tests answer it.
+So a vector describes the registry directly in KDL. How a _declaration_ becomes a
+registry is the `usage::Config` derive's question, and its own tests answer it.
 
 ## Format
 

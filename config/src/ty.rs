@@ -1,8 +1,8 @@
 //! The type a setting was declared with, and reading a raw string as it.
 //!
 //! A trimmed-down runtime form of the spec's type grammar: enough to coerce and validate,
-//! with none of the parsing. `usage-config-build` turns `list<string>` into
-//! `Ty::List(&Ty::String)` at build time, so the shape a value must take costs a match
+//! with none of the parsing. The derive turns a `Vec<String>` field into
+//! `Ty::List(&Ty::String)` at compile time, so the shape a value must take costs a match
 //! rather than a parse.
 //!
 //! Every layer that reads text — the environment, an `.npmrc`, a git config — hands over a
