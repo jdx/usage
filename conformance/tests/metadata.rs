@@ -585,7 +585,6 @@ fn the_roots_surrounding_text_reaches_every_page() {
     header = "Basic deployment",
     help = "Deploy to production"
 ))]
-#[allow(dead_code)]
 struct Deploy {
     /// Where to deploy
     #[usage(short, long)]
@@ -666,4 +665,18 @@ fn examples_survive_the_round_trip_from_a_typed_declaration() {
     let page = usage_argv::help::render(spec, argv_deploy.cmd, true).unwrap();
     assert!(page.contains("  Basic deployment:"), "{page}");
     assert_eq!(page, usage::docs::cli::render_help(&portable, deploy, true));
+
+    // And the example is a command line this CLI accepts, which is the whole claim an
+    // example makes. `usage lint` asks the same question of a spec; here it is asked of
+    // the declaration the spec came from.
+    let argv = [
+        std::ffi::OsStr::new("deploy"),
+        std::ffi::OsStr::new("-e"),
+        std::ffi::OsStr::new("prod"),
+    ];
+    let parsed = Worked::parse_from(&argv).expect("the example it documents");
+    let Some(WorkedCommands::Deploy(deploy)) = parsed.command else {
+        panic!("expected deploy")
+    };
+    assert_eq!(deploy.environment.as_deref(), Some("prod"));
 }
