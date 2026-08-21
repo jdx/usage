@@ -54,8 +54,14 @@ convenience entry point for CLIs that want immediate print-and-exit behavior.
 ### Customizing the page
 
 - `usage = "…"` on the root replaces the generated synopsis line(s) verbatim.
-- `before_help`, `after_help`, `before_long_help`, `after_long_help` add text around the page —
-  `after_long_help` is the conventional home for an Examples section.
+- `before_help`, `after_help`, `before_long_help`, `after_long_help` add text around the page.
+- `example = "mycli deploy -e prod"` on a command declares a worked invocation, repeatable, and
+  rendered as an Examples section. It takes a header and prose where the line needs them:
+  `example("mycli deploy -e prod", header = "Basic deployment", help = "Deploy to production")`.
+  Declared on a subcommand variant, it speaks for that command; declared on the `Args` type, it
+  stands wherever the variant declares none. Unlike an Examples section written by hand into
+  `after_long_help`, a declared example reaches the emitted spec, so docs, manpages and
+  `usage lint` can all read it — the last of those checks that it still parses.
 - `help_heading` on a field or subcommand variant groups it under a heading.
 - `display_order = n` on a field or subcommand controls its position within a help section
   without changing positional parsing order.
@@ -71,9 +77,9 @@ held to identical output over mise's 211 command pages in CI.
 ## Version
 
 Declaring `version` (or bare `version`, which reads `CARGO_PKG_VERSION`) gives the root command
-`--version` and `-V`. Neither is listed in help. If your CLI declares its own `--version` or
-`-V`, your spelling wins and the other still answers — where clap panics at startup for the
-same collision.
+`--version` and `-V`, and lists them on its page. If your CLI declares its own `--version` or
+`-V`, your spelling wins, the other still answers, and the page shows whichever is left — where
+clap panics at startup for the same collision.
 
 `parse()` prints `{bin} {version}` and exits `0`.
 

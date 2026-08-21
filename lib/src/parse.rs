@@ -1251,6 +1251,11 @@ fn parse_partial_with_env(
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok((out, overridden_flags));
             }
+            if is_version_arg(spec, &out.cmds, &w) {
+                out.errors.push(render_version_err(spec, w.len() > 2));
+                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                return Ok((out, overridden_flags));
+            }
             reject_unknown_flag_if_asked(spec, &out.cmds, &w)?;
         }
 
@@ -1355,6 +1360,11 @@ fn parse_partial_with_env(
             if is_help_arg(spec, &out.cmd, &w) {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                return Ok((out, overridden_flags));
+            }
+            if is_version_arg(spec, &out.cmds, &w) {
+                out.errors.push(render_version_err(spec, w.len() > 2));
                 record_cursor(&mut out, next_arg_idx, seen_double_dash);
                 return Ok((out, overridden_flags));
             }
@@ -1534,6 +1544,11 @@ fn parse_partial_with_env(
         if is_help_arg(spec, &out.cmd, &w) {
             out.errors
                 .push(render_help_err(spec, &out.cmd, w.len() > 2));
+            record_cursor(&mut out, next_arg_idx, seen_double_dash);
+            return Ok((out, overridden_flags));
+        }
+        if is_version_arg(spec, &out.cmds, &w) {
+            out.errors.push(render_version_err(spec, w.len() > 2));
             record_cursor(&mut out, next_arg_idx, seen_double_dash);
             return Ok((out, overridden_flags));
         }
@@ -2576,6 +2591,17 @@ fn render_help_all_err(_spec: &Spec, _cmd: &SpecCommand) -> UsageErr {
     UsageErr::Help("help".to_string())
 }
 
+/// The version to answer with. `--version` prefers the long text and `-V` the concise
+/// one, each falling back to the other when only one is declared.
+fn render_version_err(spec: &Spec, long: bool) -> UsageErr {
+    let value = if long {
+        spec.long_version.as_ref().or(spec.version.as_ref())
+    } else {
+        spec.version.as_ref().or(spec.long_version.as_ref())
+    };
+    UsageErr::Version(value.cloned().unwrap_or_default())
+}
+
 fn render_action_err(spec: &Spec, cmd: &SpecCommand, flag: &SpecFlag, spelling: &str) -> UsageErr {
     use crate::SpecFlagAction;
     match flag.action {
@@ -2583,14 +2609,7 @@ fn render_action_err(spec: &Spec, cmd: &SpecCommand, flag: &SpecFlag, spelling: 
         SpecFlagAction::HelpShort => render_help_err(spec, cmd, false),
         SpecFlagAction::HelpLong => render_help_err(spec, cmd, true),
         SpecFlagAction::HelpAll => render_help_all_err(spec, cmd),
-        SpecFlagAction::Version => {
-            let value = if spelling.starts_with("--") {
-                spec.long_version.as_ref().or(spec.version.as_ref())
-            } else {
-                spec.version.as_ref().or(spec.long_version.as_ref())
-            };
-            UsageErr::Version(value.cloned().unwrap_or_default())
-        }
+        SpecFlagAction::Version => render_version_err(spec, spelling.starts_with("--")),
         SpecFlagAction::Set => unreachable!("binding actions are handled before this helper"),
     }
 }
@@ -3189,6 +3208,27 @@ fn report_double_dash_violation(
     }
 }
 
+/// `--version` and `-V`, which the parser supplies where the spec declares a version.
+///
+/// The twin of [`is_help_arg`], and of the `version` bit in usage-argv's and usage-go's
+/// command tables — both of which accepted these spellings while this parser called them
+/// unknown words. The help page has always listed `-V, --version` under the same
+/// condition, and said in as many words that it did so "only where a version is
+/// declared, which is where a parser accepts one", so a spec with a `version` rendered a
+/// page advertising a flag the parse refused.
+///
+/// The root only, because that is where the page lists it: `version` is a property of
+/// the program, and a subcommand answering with the program's version is a claim no spec
+/// made. A declared flag wins by arriving first — every scan consults this only after
+/// nothing declared matched — so a CLI that spends `-V` on something else keeps it, and
+/// keeps `--version` supplied beside it.
+fn is_version_arg(spec: &Spec, cmds: &[SpecCommand], w: &str) -> bool {
+    (spec.version.is_some() || spec.long_version.is_some())
+        && cmds.len() == 1
+        && !spec.cmd.disable_version_flag
+        && (w == "--version" || w == "-V")
+}
+
 fn is_help_arg(spec: &Spec, cmd: &SpecCommand, w: &str) -> bool {
     spec.disable_help != Some(true)
         && (((w == "--help" || w == "-h" || w == "-?") && !cmd.disable_help_flag)
@@ -3269,6 +3309,95 @@ mod tests {
 
     fn input(words: &[&str]) -> Vec<String> {
         words.iter().map(|word| (*word).to_string()).collect()
+    }
+
+    #[test]
+    fn a_declared_version_supplies_the_flag_the_help_page_lists() {
+        // The page has always listed `-V, --version` wherever a `version` is declared,
+        // and usage-argv and usage-go have always accepted both. This parser called them
+        // unknown words, so the one implementation the corpus measures the others against
+        // was the one that disagreed.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\ncmd \"run\"\n"
+            .parse()
+            .unwrap();
+
+        for spelling in ["--version", "-V"] {
+            let err = parse(&spec, &input(&["ex", spelling]))
+                .expect_err("answering with a version ends the parse");
+            assert_eq!(err.to_string(), "1.2.3", "{spelling}");
+        }
+    }
+
+    #[test]
+    fn the_supplied_version_flag_is_the_roots_alone() {
+        // `version` describes the program, and the page lists the entry on the program's
+        // own page only. A subcommand answering with it would be a claim no spec made.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\ncmd \"run\"\n"
+            .parse()
+            .unwrap();
+
+        let err = parse(&spec, &input(&["ex", "run", "--version"])).unwrap_err();
+        assert_eq!(err.to_string(), "unexpected word: --version");
+    }
+
+    #[test]
+    fn no_declared_version_supplies_nothing() {
+        // A `--version` answering with nothing is worse than one that is not there, which
+        // is why the entry is conditional on the page and the spelling on the parse.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\n".parse().unwrap();
+
+        for spelling in ["--version", "-V"] {
+            let err = parse(&spec, &input(&["ex", spelling])).unwrap_err();
+            assert_eq!(err.to_string(), format!("unexpected word: {spelling}"));
+        }
+    }
+
+    #[test]
+    fn disable_version_flag_removes_the_supplied_spellings() {
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\ndisable_version_flag #true\n"
+            .parse()
+            .unwrap();
+
+        for spelling in ["--version", "-V"] {
+            let err = parse(&spec, &input(&["ex", spelling])).unwrap_err();
+            assert_eq!(err.to_string(), format!("unexpected word: {spelling}"));
+        }
+    }
+
+    #[test]
+    fn a_spelling_the_spec_spends_elsewhere_keeps_its_meaning() {
+        // The page drops each supplied spelling the CLI claimed and keeps the other; the
+        // parse agrees without being told, because a declared flag is matched first.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\nflag \"-V --verbose\"\n"
+            .parse()
+            .unwrap();
+
+        let out = parse(&spec, &input(&["ex", "-V"])).expect("-V is the CLI's own flag");
+        assert_eq!(out.flags.len(), 1);
+
+        let err = parse(&spec, &input(&["ex", "--version"])).unwrap_err();
+        assert_eq!(err.to_string(), "1.2.3");
+    }
+
+    #[test]
+    fn the_supplied_spellings_split_the_two_version_texts() {
+        // The same split `render_action_err` gives a declared version flag: the long
+        // spelling prefers `long_version`, the short prefers the concise one.
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\nlong_version \"1.2.3 (abcdef)\"\n"
+                .parse()
+                .unwrap();
+
+        assert_eq!(
+            parse(&spec, &input(&["ex", "--version"]))
+                .unwrap_err()
+                .to_string(),
+            "1.2.3 (abcdef)"
+        );
+        assert_eq!(
+            parse(&spec, &input(&["ex", "-V"])).unwrap_err().to_string(),
+            "1.2.3"
+        );
     }
 
     fn spec_with_arg(arg: SpecArg) -> Spec {

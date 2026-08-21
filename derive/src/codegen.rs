@@ -17,8 +17,8 @@ use quote::{format_ident, quote};
 
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
-    rendered_path, to_kebab, Cli, ConditionalDefault, DoubleDash, Field, Kind, Shape, Subcommands,
-    ValueEnum, ViewDecl,
+    rendered_path, to_kebab, Cli, ConditionalDefault, DoubleDash, ExampleDecl, Field, Kind, Shape,
+    Subcommands, ValueEnum, ViewDecl,
 };
 
 /// Construct the user's command type after its generated partial has been checked.
@@ -183,6 +183,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let before_long_help = option_expr(cli.before_long_help.as_ref());
     let after_help = option_expr(cli.after_help.as_ref());
     let after_long_help = option_expr(cli.after_long_help.as_ref());
+    let examples = examples_table(&cli.examples);
     let root_key = key_ident("COMMAND", None);
     let keys = key_consts(&cli.fingerprint, flags.len(), args.len());
     let flag_tables = flags.iter().enumerate().map(|(i, f)| flag_table(i, f));
@@ -587,6 +588,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 before_long_help: #before_long_help,
                 after_help: #after_help,
                 after_long_help: #after_long_help,
+                examples: #examples,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 groups: #group_meta_table_ref,
@@ -2838,6 +2840,26 @@ fn option_str(value: Option<&str>) -> TokenStream {
     }
 }
 
+/// The `examples` slice for a command's metadata.
+///
+/// A constant expression, so it promotes into the `static CommandMeta` beside the rest
+/// of the cold tables; nothing here is reached by a parse that succeeds.
+fn examples_table(examples: &[ExampleDecl]) -> TokenStream {
+    let entries = examples.iter().map(|example| {
+        let code = &example.code;
+        let header = option_expr(example.header.as_ref());
+        let help = option_expr(example.help.as_ref());
+        quote! {
+            usage_argv::spec::Example {
+                code: #code,
+                header: #header,
+                help: #help,
+            }
+        }
+    });
+    quote!(&[#(#entries),*])
+}
+
 fn option_expr(value: Option<&TokenStream>) -> TokenStream {
     match value {
         Some(v) => quote!(::std::option::Option::Some(#v)),
@@ -4539,6 +4561,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let before_long_help = option_expr(cli.before_long_help.as_ref());
     let after_help = option_expr(cli.after_help.as_ref());
     let after_long_help = option_expr(cli.after_long_help.as_ref());
+    let examples = examples_table(&cli.examples);
 
     let flags: Vec<&Field> = cli
         .fields
@@ -4786,6 +4809,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 before_long_help: #before_long_help,
                 after_help: #after_help,
                 after_long_help: #after_long_help,
+                examples: #examples,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 groups: #group_meta_table_ref,
@@ -5290,6 +5314,13 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .unwrap_or_else(
                     || quote!(<#ty as usage_argv::spec::CommandArgs>::META.after_long_help),
                 );
+            // A variant that declares examples speaks for the command; one that does not
+            // leaves the held type's own standing, as `after_help` does.
+            let examples = if v.examples.is_empty() {
+                quote!(<#ty as usage_argv::spec::CommandArgs>::META.examples)
+            } else {
+                examples_table(&v.examples)
+            };
             // Which of the table's aliases are hidden. The visible ones are not listed
             // anywhere: `cmd.aliases` minus these is what help and completions show.
             let hidden = &v.hidden_aliases;
@@ -5317,6 +5348,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         before_long_help: #before_long_help,
                         after_help: #after_help,
                         after_long_help: #after_long_help,
+                        examples: #examples,
                         hide: #hide || <#ty as usage_argv::spec::CommandArgs>::META.hide,
                         help_heading: #help_heading,
                         display_order: #display_order,

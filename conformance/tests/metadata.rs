@@ -577,3 +577,106 @@ fn the_roots_surrounding_text_reaches_every_page() {
     let lib_go = lib.cmd.subcommands.get("go").expect("go");
     assert_eq!(page, usage::docs::cli::render_help(&lib, lib_go, false));
 }
+
+/// A command whose examples are declared on the type that holds them.
+#[derive(Args)]
+#[usage(example(
+    "worked deploy -e prod",
+    header = "Basic deployment",
+    help = "Deploy to production"
+))]
+struct Deploy {
+    /// Where to deploy
+    #[usage(short, long)]
+    environment: Option<String>,
+}
+
+/// A command whose examples belong to the variant rather than to the type.
+#[derive(Args)]
+#[usage(example = "worked shared --from-the-type")]
+#[allow(dead_code)]
+struct Shared {}
+
+#[derive(Subcommands)]
+enum WorkedCommands {
+    /// Deploy the application
+    Deploy(Deploy),
+    /// Do the shared thing
+    #[usage(example = "worked shared --from-the-variant")]
+    Shared(Shared),
+}
+
+/// A tool with worked invocations
+#[derive(Cli)]
+#[usage(bin = "worked", example = "worked deploy -e prod")]
+#[allow(dead_code)]
+struct Worked {
+    #[usage(subcommand)]
+    command: Option<WorkedCommands>,
+}
+
+/// Examples were the last thing a KDL spec could say and a typed CLI could not.
+///
+/// The tables and both help renderers have carried `example` the whole time — only the
+/// derive had no vocabulary for one, so a typed CLI's worked invocations had to live as
+/// prose inside `after_long_help`, where docs, manpages and `usage lint` cannot read
+/// them.
+#[test]
+fn examples_survive_the_round_trip_from_a_typed_declaration() {
+    let spec = Worked::spec();
+    let portable: LibSpec = Worked::to_kdl().parse().expect("valid spec");
+
+    assert_eq!(portable.examples.len(), 1);
+    assert_eq!(portable.examples[0].code, "worked deploy -e prod");
+
+    let deploy = portable.cmd.subcommands.get("deploy").expect("deploy");
+    assert_eq!(deploy.examples.len(), 1);
+    assert_eq!(deploy.examples[0].code, "worked deploy -e prod");
+    assert_eq!(
+        deploy.examples[0].header.as_deref(),
+        Some("Basic deployment")
+    );
+    assert_eq!(
+        deploy.examples[0].help.as_deref(),
+        Some("Deploy to production")
+    );
+
+    // A variant that declares examples speaks for the command; the held type's stand
+    // only where it declares none, which is how `after_help` already behaves.
+    let shared = portable.cmd.subcommands.get("shared").expect("shared");
+    assert_eq!(shared.examples.len(), 1);
+    assert_eq!(shared.examples[0].code, "worked shared --from-the-variant");
+
+    // And both renderers show the same page, reading the same declaration.
+    let page = usage_argv::help::render(spec, spec.root.cmd, true).unwrap();
+    assert!(page.contains("Examples:"), "{page}");
+    assert!(page.contains("$ worked deploy -e prod"), "{page}");
+    assert_eq!(
+        page,
+        usage::docs::cli::render_help(&portable, &portable.cmd, true)
+    );
+
+    let argv_deploy = spec
+        .root
+        .subcommands
+        .iter()
+        .find(|meta| meta.cmd.name == "deploy")
+        .expect("deploy");
+    let page = usage_argv::help::render(spec, argv_deploy.cmd, true).unwrap();
+    assert!(page.contains("  Basic deployment:"), "{page}");
+    assert_eq!(page, usage::docs::cli::render_help(&portable, deploy, true));
+
+    // And the example is a command line this CLI accepts, which is the whole claim an
+    // example makes. `usage lint` asks the same question of a spec; here it is asked of
+    // the declaration the spec came from.
+    let argv = [
+        std::ffi::OsStr::new("deploy"),
+        std::ffi::OsStr::new("-e"),
+        std::ffi::OsStr::new("prod"),
+    ];
+    let parsed = Worked::parse_from(&argv).expect("the example it documents");
+    let Some(WorkedCommands::Deploy(deploy)) = parsed.command else {
+        panic!("expected deploy")
+    };
+    assert_eq!(deploy.environment.as_deref(), Some("prod"));
+}

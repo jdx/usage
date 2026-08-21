@@ -1,6 +1,9 @@
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::path::PathBuf;
-use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
+use usage::error::UsageErr;
+use usage::spec::cmd::SpecExample;
+use usage::{Parser, Spec, SpecArg, SpecCommand, SpecFlag, SpecFlagAction};
 
 use crate::cli::generate::parse_file_or_stdin;
 
@@ -246,8 +249,19 @@ pub fn lint_spec(spec: &Spec, opts: LintOptions) -> Vec<LintIssue> {
         }
     }
 
+    // Examples declared at the top level belong to the root command; the KDL parser
+    // keeps them in a separate field, so `lint_command` never sees them.
+    lint_examples(spec, &spec.examples, &spec.cmd.name, &mut issues);
+
     // Lint the root command
-    lint_command(&spec.cmd, &[], spec.about.is_some(), opts, &mut issues);
+    lint_command(
+        spec,
+        &spec.cmd,
+        &[],
+        spec.about.is_some(),
+        opts,
+        &mut issues,
+    );
 
     issues
 }
@@ -263,6 +277,7 @@ fn program_basename(program: &str) -> &str {
 }
 
 fn lint_command(
+    spec: &Spec,
     cmd: &SpecCommand,
     path: &[&str],
     has_root_about: bool,
@@ -419,6 +434,8 @@ fn lint_command(
         }
     }
 
+    lint_examples(spec, &cmd.examples, &cmd_path, issues);
+
     if opts.sorted {
         lint_sorted(cmd, &cmd_path, issues);
     }
@@ -430,7 +447,7 @@ fn lint_command(
         .chain(std::iter::once(cmd.name.as_str()))
         .collect();
     for subcmd in cmd.subcommands.values() {
-        lint_command(subcmd, &new_path, false, opts, issues);
+        lint_command(spec, subcmd, &new_path, false, opts, issues);
     }
 }
 
@@ -613,9 +630,762 @@ fn lint_arg(arg: &SpecArg, cmd_path: &str, issues: &mut Vec<LintIssue>) {
     }
 }
 
+/// Checks that every `example` still parses against the spec that declares it.
+///
+/// An example is a command line a reader is invited to type, and until now nothing
+/// checked that the spec it sits in still accepts it — so an example outlives the flag
+/// it demonstrates, and the docs, help output and manpages keep publishing it. Parsing
+/// each one makes `example` load-bearing rather than prose.
+///
+/// The check is deliberately conservative, because a linter that reports a working
+/// example as broken gets switched off. A line is examined only when it is
+/// unmistakably an invocation of *this* CLI; output lines, other programs, and shell
+/// constructs are left alone rather than guessed at. What that skips is listed on
+/// [`invocation_words`].
+///
+/// It also never runs another program. Examples are parsed with injected — and empty —
+/// mount outputs, so a spec whose commands are discovered by running something gets
+/// that example skipped rather than a `mise tasks --usage` spawned by a linter. The
+/// environment is empty for the same reason a linter should not read the machine it
+/// runs on: an example that only parses because of a variable the author happens to
+/// have exported is one the reader cannot type.
+fn lint_examples(
+    spec: &Spec,
+    examples: &[SpecExample],
+    cmd_path: &str,
+    issues: &mut Vec<LintIssue>,
+) {
+    for example in examples {
+        if !is_shell_example(&example.lang) {
+            continue;
+        }
+        for line in logical_lines(&example.code) {
+            let Some(words) = invocation_words(spec, &line) else {
+                continue;
+            };
+            match parse_example(spec, &words) {
+                Ok(_) => {}
+                // Everything the mounted program would have contributed is missing, and
+                // this line needed some of it. Said out loud rather than skipped
+                // quietly: a lint that stays silent about the lines it could not read
+                // reports "checked and fine" over exactly the ones it never checked.
+                Err(Unparsed::NeedsAMount) => issues.push(LintIssue {
+                    severity: Severity::Info,
+                    code: "example-not-checked".to_string(),
+                    message: format!(
+                        "Example `{line}` was not checked: it reaches past a mount, \
+                         which names its commands only when run"
+                    ),
+                    location: Some(format!("cmd {} example", cmd_path)),
+                }),
+                Err(Unparsed::Refused(err)) => issues.push(LintIssue {
+                    severity: Severity::Warning,
+                    code: "example-does-not-parse".to_string(),
+                    message: format!("Example `{}` does not parse: {}", line, one_line(&err)),
+                    location: Some(format!("cmd {} example", cmd_path)),
+                }),
+            }
+        }
+    }
+}
+
+/// Why an example did not parse, once a mount has been accounted for.
+enum Unparsed {
+    /// The spec refused the line, and can answer for it.
+    Refused(miette::Error),
+    /// The line needs something only the mounted program could have said.
+    NeedsAMount,
+}
+
+/// Parse one example, without running anything and without reading the environment.
+///
+/// Mounts are the whole difficulty. usage-lib resolves a command's mounts on the way
+/// *into* it, so a spec that mounts anything cannot be parsed at all without either
+/// spawning the mounted program or being handed its answer. Injecting an empty set of
+/// answers avoids the process but refuses every line under a mounting command, checked
+/// or not — which is most of an adopter's spec, since mise, aube and pitchfork all mount.
+///
+/// So the empty set is only the first attempt. When it comes back short, the mount is
+/// answered with a spec that declares nothing and the line is parsed again: a line using
+/// only the command's own declared vocabulary now parses on its own merits, and one that
+/// still fails is a line the mounted program might have accepted, which nothing here can
+/// know. That second group — and only that group — goes unchecked.
+fn parse_example(spec: &Spec, words: &[String]) -> Result<(), Unparsed> {
+    let parse = |mounts: HashMap<String, String>| {
+        Parser::new(spec)
+            .with_env(HashMap::new())
+            .with_mount_outputs(mounts)
+            .parse(words)
+    };
+    let needs_a_mount = |err: &miette::Error| {
+        matches!(
+            err.downcast_ref::<UsageErr>(),
+            Some(UsageErr::MissingMountOutput(_))
+        )
+    };
+
+    // `--help` and `--version` end the parse by printing, which usage-lib reports as an
+    // error carrying the text — and reports in preference to any other error on the
+    // line. The invocation works; showing an author their own help output as a lint
+    // message would not. True of either parse: what a mount would have added cannot
+    // stop a line from asking for help.
+    let printed = |err: &miette::Error| !needs_a_mount(err) && prints_and_exits(spec, words);
+
+    match parse(HashMap::new()) {
+        Ok(_) => Ok(()),
+        Err(err) if printed(&err) => Ok(()),
+        Err(err) if !needs_a_mount(&err) => Err(Unparsed::Refused(err)),
+        Err(_) => match parse(empty_mount_answers(&spec.cmd)) {
+            Ok(_) => Ok(()),
+            Err(err) if printed(&err) => Ok(()),
+            // The mounted program contributes commands and flags, so it can only ever
+            // make a line parse. One that fails against a mount contributing nothing may
+            // still have been fine against the real one, and nothing here can know which.
+            Err(_) => Err(Unparsed::NeedsAMount),
+        },
+    }
+}
+
+/// A spec that declares nothing, as the answer to every mount in the tree.
+///
+/// Keyed by the exact `run` string, which is how injected answers are looked up. It is a
+/// whole spec rather than an empty string because that is what a mount's stdout is.
+fn empty_mount_answers(cmd: &SpecCommand) -> HashMap<String, String> {
+    let mut answers = HashMap::new();
+    collect_mount_answers(cmd, &mut answers);
+    answers
+}
+
+fn collect_mount_answers(cmd: &SpecCommand, answers: &mut HashMap<String, String>) {
+    for mount in &cmd.mounts {
+        answers.insert(
+            mount.run.clone(),
+            "name \"mounted\"\nbin \"mounted\"\n".to_string(),
+        );
+    }
+    for sub in cmd.subcommands.values() {
+        collect_mount_answers(sub, answers);
+    }
+}
+
+/// Whether an invocation asks for help or a version rather than doing anything.
+///
+/// The spellings are the ones the parser answers to: those of any declared flag whose
+/// action prints instead of binding, plus the ones the parser supplies rather than a spec
+/// declaring them — `--help`, `-h`, `-?` and the `help` subcommand word under
+/// `disable_help`, and `--version` and `-V` where the spec declares a version. Collected
+/// over the whole tree rather than the routed chain, because a line that asks for help is
+/// one whether or not the rest of it routes.
+///
+/// The supplied version is the exception, because the parser supplies it to the root
+/// alone: `mycli run --version` is refused, so suppressing it here would hide a real
+/// finding behind a spelling that does not work where the example puts it. It counts only
+/// up to the first word that selects a subcommand. Help has no such limit — the parser
+/// supplies it on every command.
+fn prints_and_exits(spec: &Spec, words: &[String]) -> bool {
+    // Skipping argv[0]: a program named `help` is not a request for it.
+    let words = &words[1..];
+
+    // A declared flag has its attached value split off before the parser looks the flag
+    // up, so `--info=anything` still performs the action `--info` names.
+    let mut declared: Vec<String> = Vec::new();
+    collect_printing_flags(&spec.cmd, &mut declared);
+    if words.iter().any(|word| {
+        let name = word.split_once('=').map_or(word.as_str(), |(name, _)| name);
+        declared.iter().any(|spelling| spelling == name)
+    }) {
+        return true;
+    }
+
+    // The supplied spellings are compared whole, because that is how the parser compares
+    // them: nothing declares them, so nothing splits a value off first, and
+    // `--help=bad` is an unknown word rather than a request for help.
+    let asks_for_help = spec.disable_help != Some(true)
+        && words
+            .iter()
+            .any(|word| matches!(word.as_str(), "--help" | "-h" | "-?" | "help"));
+    let asks_for_a_version = (spec.version.is_some() || spec.long_version.is_some())
+        && !spec.cmd.disable_version_flag
+        && words
+            .iter()
+            .take_while(|word| spec.cmd.find_subcommand(word).is_none())
+            .any(|word| matches!(word.as_str(), "--version" | "-V"));
+    asks_for_help || asks_for_a_version
+}
+
+fn collect_printing_flags(cmd: &SpecCommand, spellings: &mut Vec<String>) {
+    for flag in &cmd.flags {
+        if matches!(flag.action, SpecFlagAction::Set) {
+            continue;
+        }
+        spellings.extend(flag.long.iter().map(|long| format!("--{long}")));
+        spellings.extend(flag.short.iter().map(|short| format!("-{short}")));
+    }
+    for sub in cmd.subcommands.values() {
+        collect_printing_flags(sub, spellings);
+    }
+}
+
+/// The error as one line, since a lint issue is one line.
+fn one_line(err: &miette::Error) -> String {
+    err.to_string()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Whether an example's `lang` describes a shell session at all.
+///
+/// `lang` is there for syntax highlighting, so an example carrying `lang="toml"` is a
+/// config file being shown rather than a command line, and reading it as argv would be
+/// nonsense. An unset `lang` is the common case and means a shell.
+fn is_shell_example(lang: &str) -> bool {
+    matches!(
+        lang.to_ascii_lowercase().as_str(),
+        "" | "sh" | "bash" | "zsh" | "fish" | "shell" | "shell-session" | "console" | "terminal"
+    )
+}
+
+/// The example's lines, with backslash continuations folded into one.
+///
+/// A multi-line example is usually a session: some lines are commands and some are the
+/// output they printed. Each line is judged on its own, and [`invocation_words`] keeps
+/// only the ones that are invocations — but a command split across lines with a
+/// trailing `\` has to be rejoined first, or the check sees half a command line and
+/// reports the half.
+fn logical_lines(code: &str) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut pending = String::new();
+    for line in code.lines() {
+        let line = line.trim();
+        match line.strip_suffix('\\') {
+            Some(head) => {
+                pending.push_str(head.trim_end());
+                pending.push(' ');
+            }
+            None => {
+                pending.push_str(line);
+                lines.push(std::mem::take(&mut pending));
+            }
+        }
+    }
+    if !pending.is_empty() {
+        lines.push(pending);
+    }
+    lines
+}
+
+/// One line of an example as an argv, or `None` if it is not this CLI being invoked.
+///
+/// Skipped, in each case because the line is not something the spec can answer for:
+///
+/// - output lines, comments, and blank lines;
+/// - other programs, including the shell functions and `curl | sh` an install section
+///   shows;
+/// - anything whose quoting does not close, which is prose rather than a command line.
+///
+/// Kept, after being tidied down to the part this spec owns: a `$` or `%` prompt,
+/// leading `VAR=value` assignments, and everything from the first shell operator
+/// onwards — so `$ mycli ls --json | jq .` is checked as `mycli ls --json`. An operator
+/// only counts when it is a whole word, so a quoted `"a|b"` stays a value.
+fn invocation_words(spec: &Spec, line: &str) -> Option<Vec<String>> {
+    let line = line.trim();
+    let line = line
+        .strip_prefix("$ ")
+        .or_else(|| line.strip_prefix("% "))
+        .unwrap_or(line);
+    if line.is_empty() || line.starts_with('#') {
+        return None;
+    }
+
+    let mut words = shell_words::split(line).ok()?;
+    if let Some(end) = words
+        .iter()
+        .position(|word| is_shell_operator(word) || starts_a_redirection(word))
+    {
+        words.truncate(end);
+    }
+    let assignments = words
+        .iter()
+        .position(|word| !is_env_assignment(word))
+        .unwrap_or(words.len());
+    words.drain(..assignments);
+
+    if !is_this_program(spec, words.first()?) {
+        return None;
+    }
+    Some(words)
+}
+
+fn is_shell_operator(word: &str) -> bool {
+    matches!(
+        word,
+        "|" | "||" | "&&" | "&" | ";" | "|&" | ">" | ">>" | "<" | "<<" | "2>" | "2>&1"
+    )
+}
+
+/// A redirection written without the space that would make it its own word, as in
+/// `>out.txt` or `2>/dev/null`, which `shell_words` hands back whole.
+///
+/// Only the output side. `<` is deliberately absent: `mycli deploy <env>` is how
+/// documentation writes a placeholder, and truncating there would report the argument
+/// the placeholder stands in for as missing. `#` is absent for the opposite reason —
+/// `shell_words` drops an unquoted comment itself, so a `#` that survives to be a word
+/// came out of quotes and is a value, as in `mycli issue view "#123"`.
+fn starts_a_redirection(word: &str) -> bool {
+    word.strip_prefix(|c: char| c.is_ascii_digit() || c == '&')
+        .unwrap_or(word)
+        .starts_with('>')
+}
+
+/// A leading `MISE_DEBUG=1`, which sets the environment rather than being part of argv.
+fn is_env_assignment(word: &str) -> bool {
+    let Some((name, _)) = word.split_once('=') else {
+        return false;
+    };
+    !name.is_empty()
+        && name.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// Whether the first word of a line invokes the CLI this spec describes.
+///
+/// Compared by executable basename, so `./mycli` and `/usr/local/bin/mycli` are the
+/// same program as `mycli`. A view is matched by the program name it is selected with,
+/// and a multicall CLI additionally answers to each of its applets — both are ways for
+/// one spec to describe more than one command name, and an example is entitled to show
+/// any of them.
+fn is_this_program(spec: &Spec, word: &str) -> bool {
+    let base = program_basename(word);
+    [spec.name.as_str(), spec.bin.as_str()]
+        .iter()
+        .any(|declared| !declared.is_empty() && program_basename(declared) == base)
+        || spec.view_for_program(word).is_some()
+        || (spec.multicall && spec.cmd.find_subcommand(base).is_some())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn example_issues(spec: &str) -> Vec<LintIssue> {
+        let spec: Spec = spec.parse().unwrap();
+        lint_spec(&spec, LintOptions::default())
+            .into_iter()
+            .filter(|i| i.code.starts_with("example-"))
+            .collect()
+    }
+
+    #[test]
+    fn test_lint_example_that_parses() {
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "deploy" help="deploy" {
+    flag "-e --environment <env>" help="env"
+    example "demo deploy -e prod"
+}
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_naming_a_flag_the_spec_dropped() {
+        // The failure this rule exists for: the flag was renamed and the example that
+        // demonstrates it kept being published by help, docs and manpages.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "deploy" help="deploy" {
+    flag "--env <env>" help="env"
+    example "demo deploy --environment prod"
+}
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert!(
+            issues[0].message.contains("--environment"),
+            "{}",
+            issues[0].message
+        );
+    }
+
+    #[test]
+    fn test_lint_example_declared_at_the_top_level() {
+        // Root examples live on the spec rather than on its command, so the walk over
+        // commands never sees them.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+example "demo --nope"
+cmd "deploy" help="deploy"
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_asking_for_help_or_version() {
+        // Both end the parse by printing, which usage-lib reports as an error carrying
+        // the text. The invocation works.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+flag "-V --version" action="version" help="version"
+example "demo --help"
+example "demo -h"
+example "demo --version"
+example "demo deploy --help"
+cmd "deploy" help="deploy"
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+
+        // The same, with the version flag supplied by the parser rather than declared.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+example "demo --version"
+example "demo -V"
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+
+        // And where nothing declares a version, nothing supplies one either.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+example "demo --version"
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+
+        // The supplied version belongs to the root, so a subcommand carrying it is a
+        // real finding rather than a request to print — the parser refuses that line.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+cmd "run" help="run"
+example "demo run --version"
+example "demo run --help"
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert!(
+            issues[0].message.contains("--version"),
+            "{}",
+            issues[0].message
+        );
+    }
+
+    #[test]
+    fn test_lint_example_lines_that_are_not_this_program() {
+        // A session: a prompt, the output it printed, another program, and a comment.
+        // Only the first line is a question this spec can answer.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "ls" help="ls" {
+    example "$ demo ls\nnode 20.0.0\n# then install it\ncurl -fsSL https://example.com | sh"
+}
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+
+        // The same session with one of its own commands broken, so the lines above are
+        // shown to be skipped rather than the whole example being.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "ls" help="ls" {
+    example "$ demo ls\nnode 20.0.0\n$ demo ls --nope"
+}
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_checks_only_up_to_a_shell_operator() {
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "ls" help="ls" {
+    flag "--json" help="json"
+    example "demo ls --json | jq ."
+    example "demo ls --nope | jq ."
+}
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert!(
+            issues[0].message.contains("--nope"),
+            "{}",
+            issues[0].message
+        );
+    }
+
+    #[test]
+    fn test_lint_example_keeps_a_quoted_operator_as_a_value() {
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "run" help="run" {
+    arg "<task>" help="task"
+    example "demo run \"a|b\""
+}
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_with_a_leading_assignment_and_a_continuation() {
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "deploy" help="deploy" {
+    flag "-e --environment <env>" help="env"
+    flag "-f --force" help="force"
+    example "DEMO_DEBUG=1 demo deploy \\\n    -e prod --force"
+}
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_in_a_language_that_is_not_a_shell() {
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "config" help="config" {
+    example "demo = { environment = \"prod\" }" lang="toml"
+}
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_reaching_a_mount_never_runs_it() {
+        // The mount's `run` is not a command: if the linter resolved mounts by running
+        // them, the shell would fail. It must not spawn the program it is linting, so a
+        // line that only the mounted program could explain goes unchecked — and says so,
+        // rather than passing quietly as though it had been read.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+mount run="this command must never run"
+cmd "ls" help="ls" {
+    example "demo ls"
+}
+example "demo discovered --whatever"
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert_eq!(issues[0].code, "example-not-checked");
+        assert_eq!(issues[0].severity, Severity::Info);
+    }
+
+    #[test]
+    fn test_lint_example_under_a_mount_is_still_checked_where_it_can_be() {
+        // A mounting command's own flags are declared, so a line using them is an
+        // ordinary question with an ordinary answer. Refusing to check anything below a
+        // mount would give up on most of an adopter's spec — mise, aube and pitchfork
+        // all mount.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "tasks" help="tasks" {
+    mount run="this command must never run"
+    flag "--all" help="all"
+    example "demo tasks --all"
+}
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+
+        // And the same command's unknown word is the undecidable case: the mounted
+        // program might have declared it.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "tasks" help="tasks" {
+    mount run="this command must never run"
+    flag "--all" help="all"
+    example "demo tasks --nope"
+}
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert_eq!(issues[0].code, "example-not-checked");
+
+        // A value attached to a supplied spelling is not one of these. The parser
+        // compares the whole token, because nothing declares `--help` and so nothing
+        // splits a value off it first — `--help=bad` is an unknown word.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+example "demo --help=bad"
+example "demo --version=bad"
+example "demo -V=bad"
+"#,
+        );
+        assert_eq!(issues.len(), 3, "{issues:?}");
+
+        // A declared flag is the other way round: its attached value is split off before
+        // the lookup, so the action still fires.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+flag "--info" action="help" help="info"
+flag "--ver" action="version" help="ver"
+example "demo --info=bad"
+example "demo --ver=bad"
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+
+        // Asking for help is answered by the command itself, so what the mount would
+        // have added cannot change it. Reporting these as unchecked would put a notice
+        // on every `--help` example a mounting CLI publishes.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+cmd "tasks" help="tasks" {
+    mount run="this command must never run"
+    example "demo tasks --help"
+}
+example "demo --version"
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_with_an_attached_redirection() {
+        // `shell_words` hands back `>out.txt` and `2>/dev/null` whole, so the whole-word
+        // operator rule does not see them.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "ls" help="ls" {
+    example "demo ls >out.txt"
+    example "demo ls 2>/dev/null"
+}
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_keeps_a_placeholder_and_a_quoted_hash() {
+        // The two shapes an eager redirection rule would break. `<env>` is how
+        // documentation writes a placeholder, and a `#` that survives `shell_words` came
+        // out of quotes, so it is a value rather than a comment.
+        let issues = example_issues(
+            r##"
+name "demo"
+bin "demo"
+cmd "deploy" help="deploy" {
+    arg "<env>" help="env"
+    example "demo deploy <env>"
+}
+cmd "issue" help="issue" {
+    arg "<id>" help="id"
+    example "demo issue \"#123\""
+}
+"##,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_lang_is_matched_without_case() {
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "ls" help="ls" {
+    example "demo ls --nope" lang="Bash"
+}
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_invoking_a_view_or_an_applet() {
+        // One spec, more than one command name. An example is entitled to show any of
+        // them, so neither shape may be mistaken for another program and skipped.
+        // Written so that recognition is what the assertion turns on: an unrecognized
+        // program is a skipped line, which is indistinguishable from a clean one.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+view "runner" root="run" globals=#true
+cmd "run" help="run" {
+    flag "--all" help="all"
+}
+example "./runner --all"
+example "./runner --nope"
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert!(
+            issues[0].message.contains("--nope"),
+            "{}",
+            issues[0].message
+        );
+
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+multicall #true
+cmd "applet" help="applet" {
+    flag "--all" help="all"
+    example "applet --all"
+    example "applet --nope"
+}
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert!(
+            issues[0].message.contains("--nope"),
+            "{}",
+            issues[0].message
+        );
+    }
 
     #[test]
     fn test_lint_missing_help() {
