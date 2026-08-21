@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::OsStr;
 
 use miette::Result;
@@ -5,6 +6,7 @@ use usage_rs::{Cli as DeriveCli, Subcommands};
 
 pub mod complete_word;
 mod exec;
+mod explain;
 pub(crate) mod generate;
 mod lint;
 mod mcp;
@@ -106,6 +108,7 @@ enum Command {
     Bash(shell::Bash),
     CompleteWord(complete_word::CompleteWord),
     Exec(exec::Exec),
+    Explain(explain::Explain),
     Fish(shell::Fish),
     Generate(generate::Generate),
     Lint(lint::Lint),
@@ -158,5 +161,59 @@ impl Cli {
         // above — so a command added there cannot be left unrouted, and no arm can route to
         // the wrong handler.
         usage_rs::Run::run(cli.command)
+    }
+}
+
+/// A spec that declares nothing, as the answer to every mount in the tree.
+///
+/// Keyed by the exact `run` string, which is how injected answers are looked up. It is a
+/// whole spec rather than an empty string because that is what a mount's stdout is.
+///
+/// Shared by `lint` and `explain`, which want it for the same reason: usage-lib resolves a
+/// command's mounts on the way *into* it, so a spec that mounts anything cannot be parsed
+/// without either spawning the mounted program or being handed its answer — and a command
+/// that reads a file and prints a report should not spawn whatever that file names.
+pub(crate) fn empty_mount_answers(cmd: &usage::SpecCommand) -> HashMap<String, String> {
+    let mut answers = HashMap::new();
+    collect_mount_answers(cmd, &mut answers);
+    answers
+}
+
+fn collect_mount_answers(cmd: &usage::SpecCommand, answers: &mut HashMap<String, String>) {
+    for mount in &cmd.mounts {
+        answers.insert(
+            mount.run.clone(),
+            "name \"mounted\"\nbin \"mounted\"\n".to_string(),
+        );
+    }
+    for sub in cmd.subcommands.values() {
+        collect_mount_answers(sub, answers);
+    }
+}
+
+/// How a command that can print either prose or JSON was asked to print.
+///
+/// Shared rather than declared twice: `lint` and `explain` both offer it, and a third
+/// copy of the same four-line `FromStr` is how the two spellings drift apart.
+#[derive(Debug, Clone, Copy, Default, usage_rs::ValueEnum)]
+pub(crate) enum OutputFormat {
+    #[default]
+    Text,
+    Json,
+}
+
+impl std::str::FromStr for OutputFormat {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        // Delegated rather than matched again: the derive already lists the words, and a
+        // second list beside it is one more thing that can fall out of step with the type.
+        use usage_rs::spec::ValueEnum;
+        Self::from_choice(value).ok_or_else(|| {
+            format!(
+                "`{value}` is not one of: {}",
+                Self::ACCEPTED_CHOICES.join(", ")
+            )
+        })
     }
 }

@@ -1,0 +1,28 @@
+---
+source: cli/tests/explain.rs
+expression: "explain(&[\"mycli\", \"-j8\", \"--env=prod\", \"build\", \"a\", \"--\", \"--raw\"])"
+---
+mycli -j8 --env=prod build a -- --raw
+command  mycli build
+
+tokens
+  [0]  mycli       program
+  [1]  -j8         flag -j, value of jobs = "8", attached
+  [2]  --env=prod  flag --env, value of env = "prod", attached
+  [3]  build       subcommand build
+  [4]  a           arg target = "a"
+  [5]  --          separator
+  [6]  --raw       arg extra = "--raw"
+
+values
+  flag  --jobs       8      argv [1]
+  flag  --env        prod   argv [2]
+  flag  --color      never  env MYCLI_COLOR
+  flag  --profile    prod   env MYCLI_PROFILE
+  flag  --strict     true   default_if --profile when="prod"
+  arg   <target>     a      argv [4]
+  arg   [-- extra]…  --raw  argv [6]
+
+shadowed
+  flag  --jobs   default 1     lost to argv [1]
+  flag  --color  default auto  lost to env MYCLI_COLOR

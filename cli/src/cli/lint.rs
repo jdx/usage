@@ -6,6 +6,7 @@ use usage::spec::cmd::SpecExample;
 use usage::{Parser, Spec, SpecArg, SpecCommand, SpecFlag, SpecFlagAction};
 
 use crate::cli::generate::parse_file_or_stdin;
+use crate::cli::{empty_mount_answers, OutputFormat};
 
 /// Lint a usage spec file for common issues
 #[derive(usage_rs::Args)]
@@ -36,25 +37,6 @@ pub struct Lint {
 pub struct LintOptions {
     /// Check that subcommands and flags are declared in sorted order.
     pub sorted: bool,
-}
-
-#[derive(Clone, Copy, Default, usage_rs::ValueEnum)]
-enum OutputFormat {
-    #[default]
-    Text,
-    Json,
-}
-
-impl std::str::FromStr for OutputFormat {
-    type Err = String;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "text" => Ok(Self::Text),
-            "json" => Ok(Self::Json),
-            _ => Err(format!("`{value}` is not one of: text, json")),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
@@ -747,28 +729,6 @@ fn parse_example(spec: &Spec, words: &[String]) -> Result<(), Unparsed> {
             // still have been fine against the real one, and nothing here can know which.
             Err(_) => Err(Unparsed::NeedsAMount),
         },
-    }
-}
-
-/// A spec that declares nothing, as the answer to every mount in the tree.
-///
-/// Keyed by the exact `run` string, which is how injected answers are looked up. It is a
-/// whole spec rather than an empty string because that is what a mount's stdout is.
-fn empty_mount_answers(cmd: &SpecCommand) -> HashMap<String, String> {
-    let mut answers = HashMap::new();
-    collect_mount_answers(cmd, &mut answers);
-    answers
-}
-
-fn collect_mount_answers(cmd: &SpecCommand, answers: &mut HashMap<String, String>) {
-    for mount in &cmd.mounts {
-        answers.insert(
-            mount.run.clone(),
-            "name \"mounted\"\nbin \"mounted\"\n".to_string(),
-        );
-    }
-    for sub in cmd.subcommands.values() {
-        collect_mount_answers(sub, answers);
     }
 }
 

@@ -18,6 +18,57 @@ measurement, checked on every run rather than asserted here — see
 
 :::
 
+## Seeing it for yourself
+
+`usage explain` answers this page for one command line: which token bound to
+which flag or argument, and where every value that no token supplied came from.
+The example below is [`examples/explain.usage.kdl`](https://github.com/jdx/usage/blob/main/examples/explain.usage.kdl),
+and its output is checked against the real thing by a snapshot test.
+
+```sh
+usage explain -f examples/explain.usage.kdl \
+    -e MYCLI_COLOR=never -e MYCLI_PROFILE=prod \
+    -- mycli -j8 --env=prod build a -- --raw
+```
+
+```text
+mycli -j8 --env=prod build a -- --raw
+command  mycli build
+
+tokens
+  [0]  mycli       program
+  [1]  -j8         flag -j, value of jobs = "8", attached
+  [2]  --env=prod  flag --env, value of env = "prod", attached
+  [3]  build       subcommand build
+  [4]  a           arg target = "a"
+  [5]  --          separator
+  [6]  --raw       arg extra = "--raw"
+
+values
+  flag  --jobs       8      argv [1]
+  flag  --env        prod   argv [2]
+  flag  --color      never  env MYCLI_COLOR
+  flag  --profile    prod   env MYCLI_PROFILE
+  flag  --strict     true   default_if --profile when="prod"
+  arg   <target>     a      argv [4]
+  arg   [-- extra]…  --raw  argv [6]
+
+shadowed
+  flag  --jobs   default 1     lost to argv [1]
+  flag  --color  default auto  lost to env MYCLI_COLOR
+```
+
+Three tables because no one of them is enough. `tokens` cannot show a value that
+came from nowhere in argv; `values` cannot show a token that bound to nothing;
+and `shadowed` answers the question neither does — which declaration would have
+supplied a value, and what beat it.
+
+The reference implementation is the one answering, so the report is what the
+grammar below says rather than what any particular reading of it assumes. It
+exits 0 even when the explained command line does not parse — that being the
+case a report is most wanted for. Pass `--format json` for the same facts as
+data.
+
 ## Terms
 
 A **token** is one element of `argv`, after the shell has finished with it. The

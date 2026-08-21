@@ -116,6 +116,10 @@ The `parse()` function parses command-line arguments against a spec, returning:
 - Matched command path
 - Parsed args and flags with values
 - Env var and default fallbacks applied
+- Provenance: `tokens` says what each word of argv became, and
+  `flag_origins`/`arg_origins` say where a value came from when no token supplied
+  it. `Parser::explain` returns all of it with the errors kept rather than bailing
+  on the first, which is what `usage explain` renders.
 
 ### Documentation Generation (`lib/src/docs/`)
 
