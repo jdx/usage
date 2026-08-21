@@ -2089,10 +2089,8 @@ fn validate_expression(
         ParseValue::MultiString(values) => values,
         ParseValue::Bool(_) | ParseValue::MultiBool(_) => return,
     };
+    #[cfg(feature = "validation")]
     for value in values {
-        #[cfg(not(feature = "validation"))]
-        let _ = message;
-        #[cfg(feature = "validation")]
         let reason = match usage_validation::validate(expression, value) {
             Ok(true) => continue,
             Ok(false) => message
@@ -2100,14 +2098,21 @@ fn validate_expression(
                 .to_string(),
             Err(error) => format!("validation expression failed: {error}"),
         };
-        #[cfg(not(feature = "validation"))]
-        let reason = "expression validation requires the `validation` feature".to_string();
         errors.push(UsageErr::InvalidValue {
             name: name.to_string(),
             value: value.clone(),
             reason,
         });
         break;
+    }
+    #[cfg(not(feature = "validation"))]
+    if let Some(value) = values.first() {
+        let _ = message;
+        errors.push(UsageErr::InvalidValue {
+            name: name.to_string(),
+            value: value.clone(),
+            reason: "expression validation requires the `validation` feature".to_string(),
+        });
     }
 }
 
