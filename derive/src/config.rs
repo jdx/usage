@@ -337,17 +337,24 @@ impl Config {
                         true => "an alias",
                         false => "the key",
                     };
+                    // Three different mistakes, and the message has to name the right one:
+                    // one field colliding with itself is not two settings fighting over a
+                    // name, and which of its own names came first says which mistake it is.
+                    let same_field = std::ptr::eq(*first, &prop.ident);
                     return Err(syn::Error::new(
                         prop.ident.span(),
-                        match std::ptr::eq(*first, &prop.ident) {
+                        match (same_field, *first_alias) {
                             // Its own key, which is not a collision between two settings but
                             // an alias that can never be reached: the key is found first.
-                            true => format!(
+                            (true, false) => format!(
                                 "`{}` lists `{name}` as an alias of its own key, which \
                                  nothing would ever reach",
                                 prop.ident
                             ),
-                            false => format!(
+                            (true, true) => {
+                                format!("`{}` lists the alias `{name}` twice", prop.ident)
+                            }
+                            (false, _) => format!(
                                 "`{name}` is {} of `{}` and {} of `{first}`, and a lookup \
                                  takes the first of them: one of the two could never be \
                                  reached by that name",
@@ -1644,8 +1651,10 @@ mod tests {
             );
         }
 
-        // Its own key as an alias is not two settings colliding, but it is still a name
-        // nothing reaches, so it gets a message that says which mistake it is.
+        // One field colliding with itself is not two settings fighting over a name, and
+        // which of its own names came first says which mistake it is — so each gets its own
+        // message rather than the two-settings one, which would name `jobs` twice and read
+        // like nonsense.
         let err = rejection(
             r#"
             struct Settings {
@@ -1655,6 +1664,19 @@ mod tests {
         "#,
         );
         assert!(err.contains("alias of its own key"), "unhelpful: {err}");
+
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(alias("concurrency", "concurrency"))]
+                jobs: u64,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("lists the alias `concurrency` twice"),
+            "unhelpful: {err}"
+        );
 
         // Distinct names are fine, including an alias that looks like a prefix of another key.
         accepted(

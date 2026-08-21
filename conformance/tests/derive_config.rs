@@ -22,7 +22,7 @@ fn default_cache_dir() -> PathBuf {
 #[usage(prefix = "task")]
 struct TaskSettings {
     /// How task output is interleaved
-    #[usage(default = "prefix", choices("prefix", "interleave"))]
+    #[usage(default = "prefix", choices("prefix", "interleave"), alias("task.out"))]
     output: String,
 
     /// Jobs for tasks alone
@@ -240,6 +240,22 @@ fn the_emitted_config_block_is_the_spec_grammar() {
         Some("under the user cache directory")
     );
     assert_eq!(cache_dir.optional, Some(true));
+}
+
+#[test]
+fn a_groups_prefix_reaches_its_keys_and_not_its_aliases() {
+    // `prefix` is applied to `key` alone, so an alias inside a flattened group is written
+    // out in full. Pinned rather than asserted to be right: an author who reads `prefix` as
+    // "everything this group names lives under `task.`" would expect `alias("out")` to mean
+    // `task.out`, and today it means a bare top-level `out`. Whichever way that should go, a
+    // change to it should be a deliberate one rather than a surprise, and the collision
+    // checks in `Config::from_input` and `concat_props` are what keep the current reading
+    // from quietly stealing a name off another group.
+    let output = Settings::SETTINGS_PROPS
+        .iter()
+        .find(|meta| meta.key == "task.output")
+        .expect("declared under its group's prefix");
+    assert_eq!(output.aliases, &["task.out"]);
 }
 
 /// Every metadata attribute that only reaches the registry, declared at once.
