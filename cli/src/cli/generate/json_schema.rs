@@ -35,8 +35,10 @@ pub struct JsonSchema {
     url: Option<String>,
 }
 
-impl JsonSchema {
-    pub fn run(&self) -> Result<()> {
+impl usage_rs::Run for JsonSchema {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
         let options = SchemaOptions {
             title: self

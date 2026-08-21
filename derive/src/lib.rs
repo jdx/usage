@@ -119,6 +119,42 @@
 //! unclaimed, and `Spec::to_kdl` asserts the tree holds no duplicate keys, so a
 //! collision fails a test rather than quietly doing the wrong thing.
 //!
+//! # Dispatch
+//!
+//! `#[usage(run)]` on the enum writes the `match` that hands the selected command to the code
+//! that carries it out — one arm per variant, each calling
+//! [`Run::run`](usage_argv::Run::run) on the struct the variant holds:
+//!
+//! ```ignore
+//! #[derive(Subcommands)]
+//! #[usage(run)]
+//! enum Commands {
+//!     Install(Install),
+//!     Sponsors(Sponsors),
+//! }
+//!
+//! impl usage::Run for Install {
+//!     type Output = miette::Result<()>;
+//!     fn run(self) -> Self::Output { install(&self.tools, self.force) }
+//! }
+//! ```
+//!
+//! `#[usage(run_with)]` is the same for [`RunWith`](usage_argv::RunWith), whose implementations
+//! are handed a context — a config, an output handle, a client — and whose generated dispatch is
+//! generic over what that is. An enum may say both.
+//!
+//! The output type is the first variant's, and each of the others is required to agree, so a
+//! command returning something else is reported on the command. A `#[usage(run)]` *struct* gets
+//! a forward to its own subcommands, which is all it can get: it holds one field, its
+//! subcommands and not in an `Option`, since anything else would mean dropping what the struct
+//! declared or deciding what no command means. A variant holding nothing, holding its fields
+//! inline, or holding an `external_subcommand`'s argv cannot be dispatched — there is no type to
+//! implement the trait for — and says so where it is declared.
+//!
+//! Nothing about any of this reaches the spec, the parse tables, or help: which Rust function
+//! carries out a command is not part of what the CLI *is*. `#[usage(skip)]` follows the same
+//! rule.
+//!
 //! # What is decided after the parse
 //!
 //! The parser binds tokens. Whether what it bound is *acceptable* needs to know the
@@ -222,7 +258,9 @@
 //! spec, declared rather than worked out — `effect` — what running this command does to the world, on an `Args`
 //! rather than on the root, which does nothing itself — `completion`, which adds the hidden command a generated shell
 //! script calls, and needs usage-argv's `complete` feature enabled where it is depended on —
-//! and `settings`, for a CLI whose bound flags all live in a flattened group (see [Settings]).
+//! `settings`, for a CLI whose bound flags all live in a flattened group (see [Settings]) —
+//! and `run` / `run_with`, which write the forward from a container command to its subcommands
+//! (see [Dispatch](#dispatch)).
 //!
 //! [Settings]: #settings-and-the-flags-that-set-them
 //!
@@ -411,6 +449,9 @@ pub fn derive_args(input: TokenStream) -> TokenStream {
 ///
 /// Each variant may wrap a struct deriving [`Args`] or declare its fields inline,
 /// clap-style. A field holding this enum is marked `#[usage(subcommand)]`.
+///
+/// `#[usage(run)]` or `#[usage(run_with)]` on the enum also writes the `match` that hands the
+/// selected command to its implementation; see the [crate docs](crate#dispatch).
 #[proc_macro_derive(Subcommands, attributes(usage, command, arg))]
 pub fn derive_subcommands(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

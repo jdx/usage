@@ -10,6 +10,11 @@
 //! usage = { package = "usage-rs", version = "5.1" }
 //! ```
 //!
+//! What happens after a parse can come from the same declaration: a command implements
+//! [`Run`] — or [`RunWith`], when the CLI hands its commands shared state — the subcommand enum
+//! says `#[usage(run)]`, and the `match` that routes argv to the code carrying it out is
+//! generated rather than written. Nothing about it reaches the spec.
+//!
 //! Enable portable expression validation only when a CLI declares `validate` rules:
 //!
 //! ```toml

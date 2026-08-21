@@ -128,46 +128,6 @@ pub fn answer(
 }
 
 impl CompleteWord {
-    pub fn run(&self) -> miette::Result<()> {
-        let spec = generate::file_or_spec(&self.file, &self.spec)?;
-        let choices = self.complete_word(&spec)?;
-        let shell = self.shell.as_ref();
-        let any_descriptions = choices.iter().any(|(_, d)| !d.is_empty());
-        for (c, description) in choices {
-            match shell {
-                "bash" => println!("{c}"),
-                "fish" | "nu" | "powershell" => {
-                    if any_descriptions {
-                        println!("{c}\t{description}")
-                    } else {
-                        println!("{c}")
-                    }
-                }
-                "zsh" => {
-                    // Three tab-separated columns per line:
-                    //   1. The raw value (used as the menu display label).
-                    //   2. The description (may be empty).
-                    //   3. The shell-quoted form that `compadd -Q` should
-                    //      insert verbatim — wrapped in single quotes when
-                    //      the value contains shell metacharacters, raw
-                    //      otherwise.
-                    // The generated zsh script builds the formatted display
-                    // (`value -- description`) from columns 1 and 2 and uses
-                    // column 3 as the inserted match. Keeping these as three
-                    // distinct fields avoids the `\:`-escaping acrobatics
-                    // that `_describe`'s `value:description` format required.
-                    let insert = zsh_shell_quote(&c);
-                    println!("{c}\t{description}\t{insert}")
-                }
-                _ => {
-                    miette::bail!("unsupported shell: {}", shell);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn complete_word(&self, spec: &Spec) -> miette::Result<Vec<(String, String)>> {
         Ok(self.complete_word_answer(spec)?.candidates)
     }
@@ -780,6 +740,50 @@ impl CompleteWord {
             .into_iter()
             .map(|value| (value, String::new()))
             .collect()
+    }
+}
+
+impl usage_rs::Run for CompleteWord {
+    type Output = miette::Result<()>;
+
+    fn run(self) -> Self::Output {
+        let spec = generate::file_or_spec(&self.file, &self.spec)?;
+        let choices = self.complete_word(&spec)?;
+        let shell = self.shell.as_ref();
+        let any_descriptions = choices.iter().any(|(_, d)| !d.is_empty());
+        for (c, description) in choices {
+            match shell {
+                "bash" => println!("{c}"),
+                "fish" | "nu" | "powershell" => {
+                    if any_descriptions {
+                        println!("{c}\t{description}")
+                    } else {
+                        println!("{c}")
+                    }
+                }
+                "zsh" => {
+                    // Three tab-separated columns per line:
+                    //   1. The raw value (used as the menu display label).
+                    //   2. The description (may be empty).
+                    //   3. The shell-quoted form that `compadd -Q` should
+                    //      insert verbatim — wrapped in single quotes when
+                    //      the value contains shell metacharacters, raw
+                    //      otherwise.
+                    // The generated zsh script builds the formatted display
+                    // (`value -- description`) from columns 1 and 2 and uses
+                    // column 3 as the inserted match. Keeping these as three
+                    // distinct fields avoids the `\:`-escaping acrobatics
+                    // that `_describe`'s `value:description` format required.
+                    let insert = zsh_shell_quote(&c);
+                    println!("{c}\t{description}\t{insert}")
+                }
+                _ => {
+                    miette::bail!("unsupported shell: {}", shell);
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

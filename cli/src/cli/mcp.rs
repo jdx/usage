@@ -56,8 +56,10 @@ pub struct Mcp {
     spec: Option<String>,
 }
 
-impl Mcp {
-    pub fn run(&self) -> Result<()> {
+impl usage_rs::Run for Mcp {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
         // `-f -` reads stdin to EOF, which is the transport this then wants to
         // serve on. Saying so beats a server that starts and instantly ends.
         if self.file.as_deref().is_some_and(|f| f.as_os_str() == "-") {

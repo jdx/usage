@@ -62,6 +62,15 @@ pub struct Cli {
     /// CLI with a subcommand depend on `usage-config`. A root that binds a setting of its own has
     /// already said it, and does not need this.
     pub settings: bool,
+    /// Whether the derive writes this command's dispatch, for a container struct.
+    ///
+    /// `#[usage(run)]` on a struct whose only field holds its subcommands generates the
+    /// `Run` implementation that forwards to the selected one — the `config`-style group that
+    /// does nothing itself. A struct that declares arguments of its own is refused, because
+    /// forwarding would drop them; see [`check`](Self::check).
+    pub run: bool,
+    /// The same, for [`RunWith`](usage_argv::RunWith): a dispatch that carries a context.
+    pub run_with: bool,
     /// The oldest `usage` that can read the emitted spec, when the CLI says.
     ///
     /// Declared rather than computed. Working it out would mean a table from every property to
@@ -658,6 +667,8 @@ impl Cli {
             runtime_bin: None,
             completion: false,
             settings: false,
+            run: false,
+            run_with: false,
             min_usage_version: None,
             usage: None,
             effect: None,
@@ -783,6 +794,8 @@ impl Cli {
                     // decorative after it.
                     "completion" => cli.completion = flag_value(&meta)?,
                     "settings" => cli.settings = flag_value(&meta)?,
+                    "run" => cli.run = flag_value(&meta)?,
+                    "run_with" => cli.run_with = flag_value(&meta)?,
                     "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
                     "effect" => cli.effect = Some(effect_value(&meta)?),
                     "alias" | "aliases" if clap_attr => {
@@ -972,7 +985,7 @@ impl Cli {
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `term_width`, `max_term_width`, \
-                                 `subcommand_value_name`, `restart_token`, `mount`, `example` and \
+                                 `subcommand_value_name`, `restart_token`, `mount`, `example`, `run`, `run_with` and \
                                  `group` and `view` here, and the description comes from the doc \
                                  comment"
                             ),
@@ -1479,6 +1492,46 @@ impl Cli {
                     }
                     subcommand_field = Some(field.span);
                 }
+            }
+        }
+
+        // What `run` on a *struct* can generate is a forwarder to its subcommands, and only
+        // that: a struct that declares arguments of its own has to decide what to do with
+        // them, and a generated `run` that quietly dropped them would be a wrong program
+        // rather than a missing one. So the attribute belongs on a container — the
+        // `config`-style group that is nothing but its subcommand field — and every other
+        // shape says so where it is written, next to the alternative, which is to implement
+        // the trait by hand.
+        if self.run || self.run_with {
+            let attr = self.attr_span.unwrap_or_else(Span::call_site);
+            match self.fields.iter().find(|field| {
+                !matches!(
+                    field.kind,
+                    Kind::Subcommand {
+                        optional: false,
+                        ..
+                    }
+                )
+            }) {
+                Some(field) => {
+                    return Err(syn::Error::new(
+                        field.span,
+                        "`run` on a struct forwards to its subcommands and can do nothing \
+                         else, so the struct holds one field: its subcommands, not in an \
+                         `Option`. A command that has arguments of its own — or that decides \
+                         what no subcommand means — implements `usage::Run` itself, and \
+                         `self.<field>.run()` is the forward this would have written",
+                    ));
+                }
+                None if self.fields.is_empty() => {
+                    return Err(syn::Error::new(
+                        attr,
+                        "`run` on a struct forwards to its subcommands, and this struct has \
+                         none. A command that does the work itself implements `usage::Run` \
+                         for it: that is the point the generated dispatch calls",
+                    ));
+                }
+                None => {}
             }
         }
 
@@ -4480,6 +4533,16 @@ fn strip_dashes(s: &str) -> String {
 pub struct Subcommands {
     pub ident: syn::Ident,
     pub variants: Vec<Variant>,
+    /// Whether the derive writes the `match` that hands the selected command to its code.
+    ///
+    /// Opt in rather than always: the generated implementation is the only one this enum can
+    /// have, so a CLI that wants to do something of its own before dispatching — or that
+    /// dispatches to a trait of its own — has to be able to keep writing the match. Asking
+    /// for it is also what makes a variant that cannot be dispatched an error where it is
+    /// declared rather than a missing implementation somewhere else.
+    pub run: bool,
+    /// The same, for [`RunWith`](usage_argv::RunWith): a dispatch that carries a context.
+    pub run_with: bool,
 }
 
 /// The name of the struct a bare variant implies.
@@ -4591,17 +4654,22 @@ impl Subcommands {
         }
 
         let mut rename_all = None;
+        let mut run = false;
+        let mut run_with = false;
         for attr in attrs(&input.attrs) {
             for meta in nested(attr)? {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
                     "rename_all" => rename_all = Some(CasingStyle::parse(&meta)?),
+                    "run" => run = flag_value(&meta)?,
+                    "run_with" => run_with = flag_value(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!(
                                 "unknown option `{other}` on a subcommand enum; \
-                                 usage::Subcommands takes `rename_all` here"
+                                 usage::Subcommands takes `rename_all`, `run` and \
+                                 `run_with` here"
                             ),
                         ));
                     }
@@ -4659,9 +4727,51 @@ impl Subcommands {
             }
         }
 
+        if run || run_with {
+            // A dispatch is a `match` over the variants, so every variant has to name
+            // something that can run. An `external_subcommand` variant names argv — the words
+            // nothing here claimed — and there is no type to implement the trait for, so the
+            // enum keeps its hand-written match rather than getting a generated one that
+            // cannot be exhaustive.
+            if let Some(external) = variants.iter().find(|v| v.external) {
+                return Err(syn::Error::new_spanned(
+                    &external.ident,
+                    "`run` generates a match over every variant, and this one holds the argv \
+                     of a command that is not declared here — there is nothing to implement \
+                     `usage::Run` for. Write the match by hand, or move the catch-all out of \
+                     the dispatched enum",
+                ));
+            }
+            if variants.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    &input.ident,
+                    "`run` generates a match over the variants, and this enum has none",
+                ));
+            }
+            // A dispatched arm hands the command's own value to the trait, so the variant has
+            // to hold a type the CLI can write an implementation for. A bare variant and a
+            // variant declaring its fields inline are both served by a struct this derive
+            // writes for them, under a name nothing else can name — so the command that has
+            // work to do says where that work lives by holding its `Args` struct.
+            if let Some(variant) = variants
+                .iter()
+                .find(|v| v.unit || v.inline_fields.is_some())
+            {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "a dispatched command holds the struct its work is implemented on, and \
+                     this variant holds nothing this crate can name: write \
+                     `#[derive(usage::Args)] struct Sponsors;` and hold it — \
+                     `Sponsors(Sponsors)` — or leave `run` off and write the match by hand",
+                ));
+            }
+        }
+
         Ok(Subcommands {
             ident: input.ident.clone(),
             variants,
+            run,
+            run_with,
         })
     }
 }
@@ -7673,6 +7783,139 @@ mod tests {
         assert!(
             err.contains("names its own field"),
             "unhelpful message: {err}"
+        );
+    }
+
+    #[test]
+    fn a_container_struct_may_have_its_dispatch_written() {
+        let cli = cli(r#"
+            #[usage(run, run_with)]
+            struct Config {
+                #[usage(subcommand)]
+                command: ConfigCommand,
+            }
+        "#)
+        .expect("a struct holding only its subcommands can be dispatched");
+
+        assert!(cli.run);
+        assert!(cli.run_with);
+    }
+
+    /// Forwarding is all a generated `run` on a struct can do, so a struct with arguments of
+    /// its own is refused rather than having them dropped on the way past.
+    #[test]
+    fn a_dispatched_struct_holds_nothing_but_its_subcommands() {
+        let err = rejection(
+            r#"
+            #[usage(run)]
+            struct Ex {
+                #[usage(long)]
+                verbose: bool,
+                #[usage(subcommand)]
+                command: Command,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("forwards to its subcommands"),
+            "unhelpful: {err}"
+        );
+        assert!(
+            err.contains("implements `usage::Run` itself"),
+            "unhelpful: {err}"
+        );
+    }
+
+    /// An `Option` has a state — no command at all — that nothing generated can decide what to
+    /// do with. Whoever knows what an empty command line means writes the implementation.
+    #[test]
+    fn a_dispatched_struct_refuses_an_optional_subcommand() {
+        let err = rejection(
+            r#"
+            #[usage(run)]
+            struct Ex {
+                #[usage(subcommand)]
+                command: Option<Command>,
+            }
+        "#,
+        );
+        assert!(err.contains("not in an `Option`"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn a_dispatched_struct_with_no_subcommands_says_where_the_work_goes() {
+        let err = rejection(
+            r#"
+            #[usage(run)]
+            struct Ex;
+        "#,
+        );
+        assert!(err.contains("this struct has none"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn a_dispatched_enum_keeps_its_rename_policy() {
+        let subs = subcommands(
+            r#"
+            #[usage(rename_all = "snake_case", run)]
+            enum Command {
+                Install(Install),
+            }
+        "#,
+        )
+        .expect("`run` sits beside the other enum options");
+
+        assert!(subs.run);
+        assert!(!subs.run_with);
+        assert_eq!(subs.variants[0].name, "install");
+    }
+
+    /// The catch-all holds the argv of a command that is not declared here, so there is no type
+    /// to implement the trait for and no exhaustive match to generate.
+    #[test]
+    fn a_dispatched_enum_refuses_an_external_subcommand() {
+        let err = enum_rejection(
+            r#"
+            #[usage(run)]
+            enum Command {
+                Install(Install),
+                #[usage(external_subcommand)]
+                Other(Vec<String>),
+            }
+        "#,
+        );
+        assert!(err.contains("nothing to implement"), "unhelpful: {err}");
+    }
+
+    /// A bare variant's struct is written by the derive, under a name nothing else can name —
+    /// so the command that has work to do holds its own `Args` struct instead.
+    #[test]
+    fn a_dispatched_enum_refuses_a_variant_that_holds_nothing() {
+        let err = enum_rejection(
+            r#"
+            #[usage(run)]
+            enum Command {
+                Install(Install),
+                Sponsors,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("holds nothing this crate can name"),
+            "unhelpful: {err}"
+        );
+
+        let inline = enum_rejection(
+            r#"
+            #[usage(run_with)]
+            enum Command {
+                Add { path: String },
+            }
+        "#,
+        );
+        assert!(
+            inline.contains("holds nothing this crate can name"),
+            "unhelpful: {inline}"
         );
     }
 }

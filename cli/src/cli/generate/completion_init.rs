@@ -24,8 +24,10 @@ pub struct CompletionInit {
     usage_bin: String,
 }
 
-impl CompletionInit {
-    pub fn run(&self) -> miette::Result<()> {
+impl usage_rs::Run for CompletionInit {
+    type Output = miette::Result<()>;
+
+    fn run(self) -> Self::Output {
         println!("{}", complete_init(&self.shell, &self.usage_bin)?.trim());
         Ok(())
     }

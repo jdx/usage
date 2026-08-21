@@ -92,9 +92,11 @@ pub(crate) fn version() -> String {
 
 /// What `usage` can be asked to do.
 ///
-/// Each command's description is its struct's doc comment, in the file that owns it, except
-/// where a variant holds nothing and there is no struct to carry one.
+/// Each command's description is its struct's doc comment, in the file that owns it — and so
+/// is the code that carries it out: `run` generates the match that hands the selected command
+/// to its `usage_rs::Run` implementation, so this list is the only place a command is named.
 #[derive(Subcommands)]
+#[usage(run)]
 enum Command {
     Bash(shell::Bash),
     CompleteWord(complete_word::CompleteWord),
@@ -105,9 +107,7 @@ enum Command {
     Mcp(mcp::Mcp),
     #[usage(name = "powershell")]
     PowerShell(shell::PowerShell),
-    /// Show the companies sponsoring usage and the jdx.dev open source tools
-    #[usage(effect = "read")]
-    Sponsors,
+    Sponsors(sponsors::Sponsors),
     Zsh(shell::Zsh),
 }
 
@@ -149,17 +149,9 @@ impl Cli {
         if cli.usage_spec {
             return crate::usage_spec::generate();
         }
-        match cli.command {
-            Command::Bash(mut cmd) => cmd.run(),
-            Command::Fish(mut cmd) => cmd.run(),
-            Command::PowerShell(mut cmd) => cmd.run(),
-            Command::Zsh(mut cmd) => cmd.run(),
-            Command::Generate(cmd) => cmd.run(),
-            Command::Exec(mut cmd) => cmd.run(),
-            Command::CompleteWord(cmd) => cmd.run(),
-            Command::Lint(cmd) => cmd.run(),
-            Command::Mcp(cmd) => cmd.run(),
-            Command::Sponsors => sponsors::run(),
-        }
+        // The match that used to be here, one arm per command, is generated from the enum
+        // above — so a command added there cannot be left unrouted, and no arm can route to
+        // the wrong handler.
+        usage_rs::Run::run(cli.command)
     }
 }

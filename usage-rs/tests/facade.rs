@@ -2598,3 +2598,55 @@ fn what_a_user_reads_says_what_to_do_about_it() {
         "warning: --output is deprecated, removed at 3.0.0: use --out\n",
     );
 }
+
+/// The facade is the one package an application depends on, so the dispatch traits reach it
+/// through the same `usage::` path as the derives — a CLI that hands its commands to their
+/// implementations does not learn the crate split to do it.
+#[derive(Args)]
+struct DispatchLeaf {
+    #[usage(long)]
+    force: bool,
+}
+
+#[derive(Subcommands)]
+#[usage(run, run_with)]
+enum DispatchCommand {
+    /// Do the one thing
+    Go(DispatchLeaf),
+}
+
+#[derive(Cli)]
+#[usage(bin = "dispatch-ex")]
+struct DispatchEx {
+    #[usage(subcommand)]
+    command: DispatchCommand,
+}
+
+impl usage::Run for DispatchLeaf {
+    type Output = bool;
+    fn run(self) -> Self::Output {
+        self.force
+    }
+}
+
+impl usage::RunWith<&mut usize> for DispatchLeaf {
+    type Output = bool;
+    fn run_with(self, calls: &mut usize) -> Self::Output {
+        *calls += 1;
+        self.force
+    }
+}
+
+#[test]
+fn the_facade_exposes_the_dispatch_traits() {
+    use usage::{Run, RunWith};
+
+    let ex = DispatchEx::parse_from(&[OsStr::new("go"), OsStr::new("--force")])
+        .expect("valid command line");
+    assert!(ex.command.run());
+
+    let mut calls = 0;
+    let ex = DispatchEx::parse_from(&[OsStr::new("go")]).expect("valid command line");
+    assert!(!ex.command.run_with(&mut calls));
+    assert_eq!(calls, 1);
+}

@@ -36,8 +36,10 @@ pub struct Manpage {
     section: u8,
 }
 
-impl Manpage {
-    pub fn run(&self) -> miette::Result<()> {
+impl usage_rs::Run for Manpage {
+    type Output = miette::Result<()>;
+
+    fn run(self) -> Self::Output {
         let spec = select_view(parse_file_or_stdin(&self.file)?, self.view.as_deref())?;
         let renderer = ManpageRenderer::new(spec).with_section(self.section);
         let manpage = renderer.render()?;

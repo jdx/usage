@@ -61,8 +61,10 @@ macro_rules! shell_command {
             pub shell: Shell,
         }
 
-        impl $ty {
-            pub fn run(&mut self) -> miette::Result<()> {
+        impl usage_rs::Run for $ty {
+            type Output = miette::Result<()>;
+
+            fn run(mut self) -> Self::Output {
                 self.shell.run($program)
             }
         }

@@ -53,8 +53,10 @@ pub struct Markdown {
     url_prefix: Option<String>,
 }
 
-impl Markdown {
-    pub fn run(&self) -> miette::Result<()> {
+impl usage_rs::Run for Markdown {
+    type Output = miette::Result<()>;
+
+    fn run(self) -> Self::Output {
         // The banner belongs to every generated document, so build it in one place rather
         // than once per output path.
         let render = |md: &str| {

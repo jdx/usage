@@ -120,6 +120,7 @@ fn validation_path() -> TokenStream {
 pub fn emit(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let runtime = runtime_path();
+    let dispatch = emit_command_dispatch(cli, &runtime);
     let validation = validation_path();
     let validation_import = cli
         .fields
@@ -1206,6 +1207,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 }
             }
         };
+
+        #dispatch
     }
 }
 
@@ -4563,6 +4566,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
     let runtime = runtime_path();
+    let dispatch = emit_command_dispatch(cli, &runtime);
     let validation = validation_path();
     let validation_import = cli
         .fields
@@ -5082,6 +5086,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 }
             }
         };
+
+        #dispatch
     }
 }
 
@@ -5165,10 +5171,184 @@ fn meta_controls_field_presence(meta: &syn::Meta) -> bool {
         .is_ok_and(|nested| nested.iter().skip(1).any(meta_controls_field_presence))
 }
 
+/// The dispatch a `#[usage(run)]` enum gets: the `match` every CLI writes by hand.
+///
+/// One arm per variant, handing the command's own struct to the trait that carries it out.
+/// Nothing here reaches the spec, the parse tables, or help: which Rust function runs a
+/// command is not part of what the CLI *is*, and a spec recording it could be read by nothing
+/// but this program. `#[usage(skip)]` follows the same rule.
+///
+/// The output type is the first variant's, and every other variant is required to agree —
+/// stated as a bound naming that variant's type, so a command returning something else is
+/// reported on the command rather than inside a generated arm. Both bounds are written as
+/// `where` clauses rather than checked here, which is also what lets the enum be declared
+/// before the implementations it dispatches to exist.
+fn emit_subcommands_dispatch(subs: &Subcommands, runtime: &TokenStream) -> TokenStream {
+    if !subs.run && !subs.run_with {
+        return TokenStream::new();
+    }
+    let ident = &subs.ident;
+    // Checked in `Subcommands::from_input`: a dispatched enum has variants, and each holds a
+    // named struct rather than nothing or its fields inline.
+    let first = &subs.variants[0].ty;
+
+    // `*inner` is the one place a `Box` shows: the box is how the variant holds the struct,
+    // and the struct is what implements the trait.
+    let arm = |v: &crate::model::Variant| {
+        let variant = &v.ident;
+        let inner = if v.boxed {
+            quote!(*__usage_inner)
+        } else {
+            quote!(__usage_inner)
+        };
+        (quote!(#ident::#variant(__usage_inner)), inner)
+    };
+
+    let run = subs.run.then(|| {
+        let bounds = subs.variants.iter().enumerate().map(|(i, v)| {
+            let ty = &v.ty;
+            if i == 0 {
+                quote!(#ty: usage_argv::Run)
+            } else {
+                quote!(#ty: usage_argv::Run<Output = <#first as usage_argv::Run>::Output>)
+            }
+        });
+        let arms = subs.variants.iter().map(|v| {
+            let (pattern, inner) = arm(v);
+            quote!(#pattern => usage_argv::Run::run(#inner),)
+        });
+        quote! {
+            impl usage_argv::Run for #ident
+            where
+                #(#bounds,)*
+            {
+                type Output = <#first as usage_argv::Run>::Output;
+
+                fn run(self) -> Self::Output {
+                    match self {
+                        #(#arms)*
+                    }
+                }
+            }
+        }
+    });
+
+    // Generic over the context, so one generated implementation serves `&Config`, `&mut App`
+    // and an owned handle alike — the CLI decides what its commands are handed, and this
+    // crate never has to know.
+    let run_with = subs.run_with.then(|| {
+        let bounds = subs.variants.iter().enumerate().map(|(i, v)| {
+            let ty = &v.ty;
+            if i == 0 {
+                quote!(#ty: usage_argv::RunWith<__UsageCtx>)
+            } else {
+                quote! {
+                    #ty: usage_argv::RunWith<
+                        __UsageCtx,
+                        Output = <#first as usage_argv::RunWith<__UsageCtx>>::Output,
+                    >
+                }
+            }
+        });
+        let arms = subs.variants.iter().map(|v| {
+            let (pattern, inner) = arm(v);
+            quote!(#pattern => usage_argv::RunWith::run_with(#inner, __usage_ctx),)
+        });
+        quote! {
+            impl<__UsageCtx> usage_argv::RunWith<__UsageCtx> for #ident
+            where
+                #(#bounds,)*
+            {
+                type Output = <#first as usage_argv::RunWith<__UsageCtx>>::Output;
+
+                fn run_with(self, __usage_ctx: __UsageCtx) -> Self::Output {
+                    match self {
+                        #(#arms)*
+                    }
+                }
+            }
+        }
+    });
+
+    quote! {
+        #[doc(hidden)]
+        const _: () = {
+            use #runtime as usage_argv;
+
+            #run
+            #run_with
+        };
+    }
+}
+
+/// The dispatch a `#[usage(run)]` struct gets: a forward to its subcommands.
+///
+/// The `config`-style group that has no work of its own — declared as a struct holding
+/// nothing but its subcommand field, which is what
+/// [`Cli::check`](crate::model::Cli::check) holds it to, since forwarding is all this can do
+/// and a struct with arguments of its own has to decide what becomes of them.
+fn emit_command_dispatch(cli: &Cli, runtime: &TokenStream) -> TokenStream {
+    if !cli.run && !cli.run_with {
+        return TokenStream::new();
+    }
+    let ident = &cli.ident;
+    // Checked in `Cli::check`: a struct asking for a dispatch holds exactly one field, and it
+    // is a non-optional subcommand.
+    let Some((field, ty)) = cli.fields.iter().find_map(|field| match &field.kind {
+        Kind::Subcommand {
+            ty,
+            optional: false,
+        } => Some((&field.ident, ty)),
+        _ => None,
+    }) else {
+        return TokenStream::new();
+    };
+
+    let run = cli.run.then(|| {
+        quote! {
+            impl usage_argv::Run for #ident
+            where
+                #ty: usage_argv::Run,
+            {
+                type Output = <#ty as usage_argv::Run>::Output;
+
+                fn run(self) -> Self::Output {
+                    usage_argv::Run::run(self.#field)
+                }
+            }
+        }
+    });
+    let run_with = cli.run_with.then(|| {
+        quote! {
+            impl<__UsageCtx> usage_argv::RunWith<__UsageCtx> for #ident
+            where
+                #ty: usage_argv::RunWith<__UsageCtx>,
+            {
+                type Output = <#ty as usage_argv::RunWith<__UsageCtx>>::Output;
+
+                fn run_with(self, __usage_ctx: __UsageCtx) -> Self::Output {
+                    usage_argv::RunWith::run_with(self.#field, __usage_ctx)
+                }
+            }
+        }
+    });
+
+    quote! {
+        #[doc(hidden)]
+        const _: () = {
+            use #runtime as usage_argv;
+
+            #run
+            #run_with
+        };
+    }
+}
+
 pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     let ident = &subs.ident;
     let runtime = runtime_path();
     let derive = derive_path();
+    let dispatch = emit_subcommands_dispatch(subs, &runtime);
 
     // The structs bare and inline variants imply, written here so everything downstream keeps
     // speaking to one Args struct. Clap-shaped `arg` attributes are rewritten to the native
@@ -6036,6 +6216,8 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 }
             }
         };
+
+        #dispatch
     }
 }
 

@@ -37,8 +37,10 @@ pub struct Completion {
     usage_cmd: Option<String>,
 }
 
-impl Completion {
-    pub fn run(&self) -> miette::Result<()> {
+impl usage_rs::Run for Completion {
+    type Output = miette::Result<()>;
+
+    fn run(self) -> Self::Output {
         // TODO: refactor this
         let spec = match &self.file {
             Some(file) => parse_file_or_stdin(file)?,

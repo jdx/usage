@@ -38,8 +38,10 @@ pub struct Go {
     spec: Option<String>,
 }
 
-impl Go {
-    pub fn run(&self) -> Result<()> {
+impl usage_rs::Run for Go {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
         // Checked here rather than sanitized, because this one came from a person:
         // quietly turning `--package my-pkg` into `mypkg` is a surprise waiting in
         // somebody's build script, and the file would not compile if it were not

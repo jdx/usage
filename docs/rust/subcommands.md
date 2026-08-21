@@ -49,6 +49,8 @@ struct Install {
   `effect` go directly on the variant.
 - Nesting is unbounded in practice: an `Args` struct can carry its own
   `#[usage(subcommand)]` field, up to a maximum depth of 16.
+- `#[usage(run)]` on the enum generates the `match` that hands the selected command to the code
+  that carries it out; see [Dispatch](/rust/dispatch).
 
 Variant attributes: `name`, `alias`, `alias_hidden`, `hide`, `effect`, `help`, `long_help`,
 `verbatim_doc_comment`, `external_subcommand`, `arg_required_else_help`. Aliases declared on the variant and on the `Args`
