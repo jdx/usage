@@ -234,6 +234,7 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         author: opt(&spec.author),
         license: opt(&spec.license),
         repository: opt(&spec.repository),
+        source_code_link_template: opt(&spec.source_code_link_template),
         min_usage_version: opt(&spec.min_usage_version),
         about: opt(&spec.about),
         long_about: opt(&spec.about_long),

@@ -199,7 +199,9 @@
 //! spelling the CLI declares for itself. clap refuses that collision by panicking at startup;
 //! here the declaration simply wins and the other spelling still answers.
 //!
-//! On the struct itself: `bin`, `version`, `long_version`, `author`, `license`, `repository`, `about`,
+//! On the struct itself: `bin`, `version`, `long_version`, `author`, `license`, `repository`,
+//! `source_code_link_template` — a tera template rendered with the command path as `path`,
+//! which generated markdown turns into a "view source" link — `about`,
 //! `long_about`, `before_help`, `after_help`,
 //! clap-compatible `visible_alias(es)`, hidden `alias(es)`, and `hide` may stay on an
 //! `Args` struct and are inherited by every subcommand variant that mounts it —

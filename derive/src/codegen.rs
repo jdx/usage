@@ -216,6 +216,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let author = option_expr(cli.author.as_ref());
     let license = option_expr(cli.license.as_ref());
     let repository = option_expr(cli.repository.as_ref());
+    let source_code_link_template = option_expr(cli.source_code_link_template.as_ref());
     let about = cli
         .about_attr
         .as_ref()
@@ -806,6 +807,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 author: #author,
                 license: #license,
                 repository: #repository,
+                source_code_link_template: #source_code_link_template,
                 min_usage_version: #min_usage_version,
                 about: #about,
                 long_about: #long_about,

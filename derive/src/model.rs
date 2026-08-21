@@ -108,6 +108,11 @@ pub struct Cli {
     pub author: Option<proc_macro2::TokenStream>,
     pub license: Option<proc_macro2::TokenStream>,
     pub repository: Option<proc_macro2::TokenStream>,
+    /// A tera template turning a command path into a link to the code implementing it.
+    ///
+    /// Kept as tokens for the same reason as the three above: these run to several lines of
+    /// tera, and an adopter should be able to name a `const` rather than inline one.
+    pub source_code_link_template: Option<proc_macro2::TokenStream>,
     /// Whether a flag-like token that names no flag is a value or an error. Unset
     /// means the spec's default, which is `value`.
     pub unknown_flags: Option<String>,
@@ -678,6 +683,7 @@ impl Cli {
             author: None,
             license: None,
             repository: None,
+            source_code_link_template: None,
             unknown_flags: None,
             default_subcommand: None,
             multicall: false,
@@ -869,6 +875,9 @@ impl Cli {
                     "author" => cli.author = Some(metadata_expr(&meta)?),
                     "license" => cli.license = Some(metadata_expr(&meta)?),
                     "repository" => cli.repository = Some(metadata_expr(&meta)?),
+                    "source_code_link_template" => {
+                        cli.source_code_link_template = Some(metadata_expr(&meta)?)
+                    }
                     "before_help" => cli.before_help = Some(metadata_expr(&meta)?),
                     "next_help_heading" => cli.next_help_heading = Some(string_value(&meta)?),
                     "before_long_help" => cli.before_long_help = Some(metadata_expr(&meta)?),
@@ -960,7 +969,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount`, `example` and \
@@ -1149,13 +1158,18 @@ impl Cli {
                      one claim about the whole emitted spec, and only the root emits one",
                 ));
             }
-            // Package metadata describes the emitted spec, not one command. Like
-            // `min_usage_version`, these values have no nested KDL location and would
-            // otherwise be accepted and silently dropped by `emit_args`.
+            // Package metadata, and the link template that names where the code lives,
+            // describe the emitted spec rather than one command. Like `min_usage_version`,
+            // these values have no nested KDL location and would otherwise be accepted and
+            // silently dropped by `emit_args`.
             if let Some(name) = [
                 ("author", self.author.is_some()),
                 ("license", self.license.is_some()),
                 ("repository", self.repository.is_some()),
+                (
+                    "source_code_link_template",
+                    self.source_code_link_template.is_some(),
+                ),
             ]
             .into_iter()
             .find_map(|(name, present)| present.then_some(name))
@@ -1163,8 +1177,8 @@ impl Cli {
                 return Err(self.misplaced(
                     ident,
                     format!(
-                        "`{name}` belongs on the root, where `#[derive(Cli)]` is: package \
-                         metadata describes the whole emitted spec, not one command"
+                        "`{name}` belongs on the root, where `#[derive(Cli)]` is: it \
+                         describes the whole emitted spec, not one command"
                     ),
                 ));
             }
@@ -6642,8 +6656,13 @@ mod tests {
     }
 
     #[test]
-    fn package_metadata_belongs_on_the_root() {
-        for attribute in ["author", "license", "repository"] {
+    fn spec_level_metadata_belongs_on_the_root() {
+        for attribute in [
+            "author",
+            "license",
+            "repository",
+            "source_code_link_template",
+        ] {
             let body = format!(
                 r#"
                 #[usage({attribute} = "value")]

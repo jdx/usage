@@ -300,6 +300,14 @@ pub struct Spec<'a> {
     pub license: Option<&'a str>,
     /// Source repository URL for generated references and integrations.
     pub repository: Option<&'a str>,
+    /// A tera template turning a command path into a link to the code implementing it.
+    ///
+    /// Rendered with `path` bound to the command's words joined by `/`, so a docs
+    /// generator can put a "view source" link on every command page. Distinct from
+    /// [`Self::repository`], which is the plain project URL: a deep link with a
+    /// `{{path}}` placeholder cannot be turned back into one without knowing a
+    /// particular forge's URL layout.
+    pub source_code_link_template: Option<&'a str>,
     /// The oldest `usage` that can read this spec, when the CLI says.
     ///
     /// Written first, before anything a `usage` too old to understand would choke on — which is
@@ -556,6 +564,7 @@ impl<'a> SpecView<'a> {
             author: self.base.author,
             license: self.base.license,
             repository: self.base.repository,
+            source_code_link_template: self.base.source_code_link_template,
             min_usage_version: self.base.min_usage_version,
             about: self.base.about,
             long_about: self.base.long_about,
@@ -586,6 +595,7 @@ impl Spec<'_> {
         author: None,
         license: None,
         repository: None,
+        source_code_link_template: None,
         min_usage_version: None,
         about: None,
         long_about: None,
@@ -1282,6 +1292,9 @@ impl Spec<'_> {
         }
         if let Some(repository) = self.repository {
             prop(out, "repository", repository)?;
+        }
+        if let Some(template) = self.source_code_link_template {
+            prop(out, "source_code_link_template", template)?;
         }
         // A description may be given on the spec or on its root command — a derive
         // naturally has one doc comment and no reason to care which field it lands

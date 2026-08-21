@@ -136,7 +136,8 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 ## Usage extensions
 
 These are not clap compatibility gaps. usage additionally supports `mount`,
-`restart_token`, `default_subcommand`, command and flag `effect`, Nushell completions,
+`restart_token`, `default_subcommand`, command and flag `effect`,
+`source_code_link_template`, Nushell completions,
 and a language-neutral conformance corpus. clap cannot express those properties, so
 a clap-generated spec cannot carry them without an overlay.
 

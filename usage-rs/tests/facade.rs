@@ -649,7 +649,8 @@ fn incompatible_child_bindings_do_not_fill_ancestor_globals() {
     bin = "metadata",
     author = env!("CARGO_PKG_AUTHORS"),
     license = env!("CARGO_PKG_LICENSE"),
-    repository = env!("CARGO_PKG_REPOSITORY")
+    repository = env!("CARGO_PKG_REPOSITORY"),
+    source_code_link_template = "https://github.com/jdx/usage/blob/main/src/{{path}}.rs"
 )]
 struct PackageMetadata;
 
@@ -662,6 +663,14 @@ fn package_metadata_survives_spec_emission() {
         kdl.contains("repository \"https://github.com/jdx/usage\""),
         "{kdl}"
     );
+    // Not package metadata, but the same shape of claim: one string about the whole spec,
+    // which used to have to be appended to the emitted KDL by hand.
+    assert!(
+        kdl.contains(
+            "source_code_link_template \"https://github.com/jdx/usage/blob/main/src/{{path}}.rs\""
+        ),
+        "{kdl}"
+    );
 
     let spec: usage_parser::Spec = kdl.parse().expect("usage-lib should read derive output");
     assert_eq!(spec.author.as_deref(), Some("Jeff Dickey @jdx"));
@@ -669,6 +678,10 @@ fn package_metadata_survives_spec_emission() {
     assert_eq!(
         spec.repository.as_deref(),
         Some("https://github.com/jdx/usage")
+    );
+    assert_eq!(
+        spec.source_code_link_template.as_deref(),
+        Some("https://github.com/jdx/usage/blob/main/src/{{path}}.rs")
     );
 }
 
