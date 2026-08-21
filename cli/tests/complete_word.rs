@@ -783,13 +783,15 @@ fn complete_word_config_keys_come_from_the_spec() {
     // No subprocess and no `run=`: the `config` block already says what the keys are, which
     // is the whole point of declaring them there.
     assert_cmd("config.usage.kdl", &["config", "get", ""]).stdout(
-        "bool_or_path\tEither a switch or somewhere to put it\n\
+        "ancient_log_level\tdeprecated — How much to say\n\
+         bool_or_path\tEither a switch or somewhere to put it\n\
          cache_dir\tWhere to keep the cache\n\
          color\tColorize output\n\
          either\tA union with bool second\n\
          jobs\tNumber of parallel jobs\n\
          log_level\tHow much to say\n\
          old_jobs\tdeprecated — How many jobs\n\
+         old_log_level\tdeprecated — How much to say\n\
          python.compile\tCompile python from source\n\
          task.output\tHow to print task output\n",
     );
@@ -904,6 +906,53 @@ fn complete_word_the_key_is_the_argument_the_spec_says_holds_one() {
     )
     .stdout(contains("every decision"))
     .stdout(contains("false").not());
+}
+
+#[test]
+fn complete_word_config_values_follow_the_names_a_setting_answers_to() {
+    // The key a user types is not always the key the spec declares. An `alias` is accepted by
+    // the config layer without so much as a warning, so it reaches completion the same way any
+    // other key does — and answering it with the working directory, as this did, tells the user
+    // an accepted setting is not one.
+    assert_cmd("config.usage.kdl", &["config", "set", "loglevel", ""]).stdout(
+        "error\tonly failures\n\
+         warn\tfailures and warnings\n\
+         info\tthe usual\n\
+         debug\tevery decision\n",
+    );
+    // A prefix still filters, and still does not reach for files.
+    assert_cmd("config.usage.kdl", &["config", "set", "loglevel", "d"])
+        .stdout("debug\tevery decision\n");
+    // `renamed_to` is followed for the same reason, and the old name is by definition the one
+    // people still have written down. One hop, and two: a setting renamed twice is reachable
+    // from the oldest name it ever had.
+    assert_cmd("config.usage.kdl", &["config", "set", "old_log_level", ""])
+        .stdout(contains("debug\tevery decision"));
+    assert_cmd(
+        "config.usage.kdl",
+        &["config", "set", "ancient_log_level", ""],
+    )
+    .stdout(contains("debug\tevery decision"));
+    // The keys offered stay canonical: an alias is a spelling of a setting already in the
+    // list, and a second row for it would be a second setting as far as the menu shows.
+    assert_cmd("config.usage.kdl", &["config", "get", "loglev"]).stdout("");
+}
+
+#[test]
+fn complete_word_a_rename_that_leads_nowhere_still_answers() {
+    // A cycle is walked at most as far as there are settings, so this returns rather than
+    // following the rename forever. The test is that it terminates at all; both ends of the
+    // cycle are boolean so that giving up early could not pass by accident.
+    assert_cmd(
+        "config-rename-edges.usage.kdl",
+        &["config", "set", "cycle_a", ""],
+    );
+    // A rename pointing at nothing leaves a setting that is still real, with its own type.
+    assert_cmd(
+        "config-rename-edges.usage.kdl",
+        &["config", "set", "dangling", ""],
+    )
+    .stdout("false\ntrue\n");
 }
 
 #[test]

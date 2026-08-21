@@ -563,7 +563,7 @@ impl CompleteWord {
             // offered another key's values for a line whose own key is a typo, where an unknown
             // key on its own correctly offers nothing.
             .next_back()
-            .and_then(|word| cx.spec.config.props.get(word))
+            .and_then(|word| resolve_config_key(&cx.spec.config, word))
     }
 
     /// The reserved `type=` of the completer for an argument, if it has one.
@@ -923,6 +923,46 @@ fn one_line(text: Option<&str>) -> String {
         .unwrap_or_default()
         .trim()
         .to_string()
+}
+
+/// The setting a key on the command line names, following the names it is also known by.
+///
+/// A plain lookup was not enough, because the key a user types is not always the key a spec
+/// declares. `alias` names are accepted by the config layer without so much as a warning
+/// (`Registry::deprecation` resolves them the same way), so a config file in the wild carries
+/// them and a user reading that file types them — and completion answering an accepted key
+/// with the contents of the working directory is worse than answering nothing.
+///
+/// `renamed_to` is followed for the same reason and one more: the old name is by definition
+/// the one people still have written down, and the values it takes are whatever its
+/// replacement takes. The chain is walked rather than the one hop taken, since a setting
+/// renamed twice is still reachable from the oldest name.
+///
+/// Bounded by the number of props, so a registry whose renames form a cycle stops instead of
+/// following them forever — the same guard, and the same reasoning, as `Registry::deprecation`
+/// in `usage-config`: that is an authoring mistake, and a completion that hangs reports it
+/// worse than one that goes quiet.
+fn resolve_config_key<'a>(
+    config: &'a usage::spec::config::SpecConfig,
+    key: &str,
+) -> Option<&'a SpecConfigProp> {
+    let (_, mut prop) = config
+        .props
+        .iter()
+        .find(|(name, prop)| name.as_str() == key || prop.aliases.iter().any(|a| a == key))?;
+    for _ in 0..config.props.len() {
+        let Some(target) = &prop.renamed_to else {
+            return Some(prop);
+        };
+        // A rename pointing at nothing is as far as the chain goes. The old declaration is
+        // still a real setting with its own type and choices, so it answers for itself rather
+        // than the key being treated as unknown.
+        let Some(next) = config.props.get(target) else {
+            return Some(prop);
+        };
+        prop = next;
+    }
+    Some(prop)
 }
 
 /// Whether this type accepts values no list could enumerate.

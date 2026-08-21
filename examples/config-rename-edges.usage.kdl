@@ -1,0 +1,29 @@
+// Renames that do not lead anywhere, kept out of `config.usage.kdl` so that file stays a
+// spec worth copying.
+//
+// Both are authoring mistakes rather than shapes to imitate, and the point of the fixture is
+// that a completion meets them without hanging and without claiming to know the answer.
+name "mycli"
+bin "mycli"
+
+complete "key" type="config_keys"
+complete "value" type="config_values"
+
+config {
+    // A cycle. Following it forever is the failure this guards against, so the values here
+    // are deliberately enumerable: a chain walker that terminated by giving up early would
+    // still answer `false`/`true` and look correct.
+    prop "cycle_a" type="bool" renamed_to="cycle_b" help="Renamed to cycle_b"
+    prop "cycle_b" type="bool" renamed_to="cycle_a" help="Renamed to cycle_a"
+
+    // A rename pointing at a setting that does not exist. The old declaration is still a
+    // real setting with its own type, so it answers for itself.
+    prop "dangling" type="bool" renamed_to="never_declared" help="Renamed to nothing"
+}
+
+cmd "config" help="Manage settings" {
+    cmd "set" help="Change one setting" {
+        arg "<key>" help="The setting to change"
+        arg "<value>" help="Its new value"
+    }
+}
