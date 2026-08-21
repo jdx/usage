@@ -616,7 +616,7 @@ impl Field {
             // And what the *field* can hold, which the spec type does not say: `uint` covers
             // every unsigned width, so 256 passed the check above and then failed every
             // `read` on a `u8`.
-            if !field_holds(&prop.read_ty, default) {
+            if !field_holds(&prop.read_ty, default, Position::Default) {
                 return Err(syn::Error::new(
                     ident.span(),
                     format!(
@@ -659,7 +659,7 @@ impl Field {
             ));
         }
         for choice in &prop.choices {
-            if !field_holds(&prop.read_ty, choice) {
+            if !field_holds(&prop.read_ty, choice, Position::Choice) {
                 return Err(syn::Error::new(
                     ident.span(),
                     format!(
@@ -759,9 +759,13 @@ fn generic_arg(segment: &syn::PathSegment, index: usize) -> Option<syn::Type> {
 /// resolver seeds a default uncoerced and `FromValue` is strict about width, so a default the
 /// field cannot hold fails every `read` — the same trap as a negative `uint`, one level down.
 ///
+/// Takes the `position` for the same reason [`Ty::admits`] does: on a list or set a *choice*
+/// names one item rather than the whole value, so it is the item type that has to hold it.
+/// Measuring a scalar choice against the container measured nothing at all.
+///
 /// `true` for anything this does not recognize: the spec-level check has already had its say,
 /// and a type it allows that this cannot measure is not this function's to refuse.
-fn field_holds(ty: &syn::Type, value: &Const) -> bool {
+fn field_holds(ty: &syn::Type, value: &Const, position: Position) -> bool {
     let syn::Type::Path(path) = ty else {
         return true;
     };
@@ -791,9 +795,15 @@ fn field_holds(ty: &syn::Type, value: &Const) -> bool {
             Const::Float(f) => !(*f as f32).is_infinite() || f.is_infinite(),
             _ => true,
         },
-        "Vec" | "BTreeSet" | "HashSet" => match (generic_arg(last, 0), value) {
-            (Some(inner), Const::List(items)) => items.iter().all(|item| field_holds(&inner, item)),
-            _ => true,
+        "Vec" | "BTreeSet" | "HashSet" => match generic_arg(last, 0) {
+            None => true,
+            Some(inner) => match value {
+                Const::List(items) => items.iter().all(|item| field_holds(&inner, item, position)),
+                // One value where the container is: a choice naming an item, which the item
+                // type is the thing that has to hold it. A default is not that — `admits` has
+                // already refused a bare scalar there — so it does not reach this arm.
+                _ => position == Position::Choice && field_holds(&inner, value, position),
+            },
         },
         _ => true,
     }
@@ -1505,6 +1515,28 @@ mod tests {
         "#,
         );
         assert!(err.contains("does not fit"), "unhelpful: {err}");
+
+        // A choice on a *list* setting names one item, so it is the item type that has to
+        // hold it. Measured against `Vec<u16>` instead, a bare `70000` reached the container
+        // arm and was called fitting — and `Ty::admits` allows a scalar as an item, so this
+        // declared a choice no `u16` could ever be.
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(choices(1, 70000))]
+                ports: Vec<u16>,
+            }
+        "#,
+        );
+        assert!(err.contains("does not fit"), "unhelpful: {err}");
+        accepted(
+            r#"
+            struct Settings {
+                #[usage(choices(1, 65535))]
+                ports: Vec<u16>,
+            }
+        "#,
+        );
         let err = rejection(
             r#"
             struct Settings {
