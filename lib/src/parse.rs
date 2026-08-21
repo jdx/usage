@@ -334,6 +334,11 @@ pub enum TokenRole {
     },
     /// An explicit `--`, consumed as a separator.
     Separator,
+    /// A word the parser answers itself rather than binding: `--help`, `-h`, `--version`,
+    /// `-V`. The parse stops here and the answer travels as an error carrying the text, so
+    /// without a role the word reads as having done nothing while a whole help page arrives
+    /// in the error list.
+    Builtin { spelling: String },
     /// A declared `value_terminator`, consumed to end a run of values. `ends` names the
     /// declaration whose run it closed — the word is not one of that run's values, which is
     /// the whole reason it was declared.
@@ -647,6 +652,37 @@ impl<'a> Parser<'a> {
     /// those cases; see [`Parser::explain`] for what to do about it.
     pub fn explain(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
         self.parse_collecting(input)
+    }
+
+    /// The binding phase's own answer for a line [`Parser::explain`] refused.
+    ///
+    /// `Ok` when the binding phase finished and the failure came after it — a flag left
+    /// waiting for a value, say. Everything argv supplied is there and only the
+    /// environment-and-defaults phase is missing.
+    ///
+    /// `Err` when the binding phase is where it died, leaving the tokens it had attributed
+    /// by then. Those words are most of what a report is for: "no declaration takes `bogus`"
+    /// is more useful next to the three tokens that did bind than on its own. The word that
+    /// caused the failure carries a role saying so, and everything still queued behind it is
+    /// [`TokenRole::Unread`], for the two failures a command line reaches on its own — a
+    /// word nothing declares, and a flag a strict spec refuses. A failure in the spec rather
+    /// than in the line, such as a mount that will not run, stops the trace where it stopped
+    /// and the words past it carry no role.
+    pub fn explain_refused(self, input: &[String]) -> Result<ParseOutput, Vec<TokenBinding>> {
+        let mut trace = Trace::new(input);
+        match parse_partial_traced(
+            self.spec,
+            input,
+            self.env.as_ref(),
+            self.mount_outputs.as_ref(),
+            MountTiming::WhenAWordIsUnknown,
+            &mut trace,
+        ) {
+            // A parse that got as far as stopping normally already moved its tokens onto the
+            // output, which is where a caller should read them from.
+            Ok((out, _)) => Ok(out),
+            Err(_) => Err(trace.tokens),
+        }
     }
 
     fn parse_collecting(self, input: &[String]) -> Result<ParseOutput, miette::Error> {
@@ -1075,12 +1111,43 @@ fn parse_partial_with_env(
     mount_outputs: Option<&HashMap<String, String>>,
     mount_timing: MountTiming,
 ) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
+    let mut trace = Trace::new(input);
+    parse_partial_traced(
+        spec,
+        input,
+        custom_env,
+        mount_outputs,
+        mount_timing,
+        &mut trace,
+    )
+}
+
+/// The binding phase, with the trace left somewhere the caller can still read it.
+///
+/// A failure this phase cannot continue past — a word no declaration can take, a flag a
+/// strict spec refuses — leaves through `?`, and a trace owned by the loop goes with it. The
+/// words read before the failure are most of what a report wants, so the caller owns the
+/// trace instead and keeps them. See [`Parser::explain_refused`].
+fn parse_partial_traced(
+    spec: &Spec,
+    input: &[String],
+    custom_env: Option<&HashMap<String, String>>,
+    mount_outputs: Option<&HashMap<String, String>>,
+    mount_timing: MountTiming,
+    trace: &mut Trace,
+) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
     if let Some(view) = input.first().and_then(|argv0| spec.view_for_program(argv0)) {
         let viewed = spec.for_view(view)?;
-        return parse_partial_with_env(&viewed, input, custom_env, mount_outputs, mount_timing);
+        return parse_partial_traced(
+            &viewed,
+            input,
+            custom_env,
+            mount_outputs,
+            mount_timing,
+            trace,
+        );
     }
     trace!("parse_partial: {input:?}");
-    let mut trace = Trace::new(input);
     let mut input = input
         .iter()
         .enumerate()
@@ -1471,7 +1538,7 @@ fn parse_partial_with_env(
                 &mut w,
                 &mut input,
                 custom_env,
-                &mut trace,
+                trace,
                 argv,
                 // The token a hyphen-valued flag takes is the following word, never attached.
                 false,
@@ -1634,7 +1701,7 @@ fn parse_partial_with_env(
                             &mut val,
                             &mut input,
                             custom_env,
-                            &mut trace,
+                            trace,
                             argv,
                             // The `=` settled that this text is the value, so it rode in on
                             // the flag's own token.
@@ -1692,15 +1759,31 @@ fn parse_partial_with_env(
             if is_help_arg(spec, &out.cmd, &w) {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                trace.record(
+                    argv,
+                    TokenRole::Builtin {
+                        spelling: w.clone(),
+                    },
+                );
                 record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             if is_version_arg(spec, &out.cmds, &w) {
                 out.errors.push(render_version_err(spec, w.len() > 2));
+                trace.record(
+                    argv,
+                    TokenRole::Builtin {
+                        spelling: w.clone(),
+                    },
+                );
                 record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
-            reject_unknown_flag_if_asked(spec, &out.cmds, &w)?;
+            if let Err(refused) = reject_unknown_flag_if_asked(spec, &out.cmds, &w) {
+                trace.record(argv, TokenRole::UnknownFlag { bound_as: None });
+                trace.close(&input);
+                return Err(refused.into());
+            }
         }
 
         // short flags
@@ -1730,7 +1813,11 @@ fn parse_partial_with_env(
         {
             // Refused if this command asked for that; otherwise it carries on below
             // as one word, with none of its letters applied.
-            reject_unknown_flag_if_asked(spec, &out.cmds, &w)?;
+            if let Err(refused) = reject_unknown_flag_if_asked(spec, &out.cmds, &w) {
+                trace.record(argv, TokenRole::UnknownFlag { bound_as: None });
+                trace.close(&input);
+                return Err(refused.into());
+            }
         } else if enable_flags && !positional_negative_number && w.starts_with('-') && w.len() > 1 {
             let short = w.chars().nth(1).unwrap();
             if let Some(f) = binding
@@ -1817,21 +1904,43 @@ fn parse_partial_with_env(
             // neither reaches the whole-token spellings below.
             if let Some(err) = supplied_short(spec, &out.cmds, short) {
                 out.errors.push(err);
+                trace.record(
+                    argv,
+                    TokenRole::Builtin {
+                        spelling: format!("-{short}"),
+                    },
+                );
                 record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             if is_help_arg(spec, &out.cmd, &w) {
                 out.errors
                     .push(render_help_err(spec, &out.cmd, w.len() > 2));
+                trace.record(
+                    argv,
+                    TokenRole::Builtin {
+                        spelling: w.clone(),
+                    },
+                );
                 record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
             if is_version_arg(spec, &out.cmds, &w) {
                 out.errors.push(render_version_err(spec, w.len() > 2));
+                trace.record(
+                    argv,
+                    TokenRole::Builtin {
+                        spelling: w.clone(),
+                    },
+                );
                 record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
                 return Ok((out, overridden_flags));
             }
-            reject_unknown_flag_if_asked(spec, &out.cmds, &w)?;
+            if let Err(refused) = reject_unknown_flag_if_asked(spec, &out.cmds, &w) {
+                trace.record(argv, TokenRole::UnknownFlag { bound_as: None });
+                trace.close(&input);
+                return Err(refused.into());
+            }
             if grouped_flag {
                 grouped_flag = false;
                 w.remove(0);
@@ -1890,7 +1999,7 @@ fn parse_partial_with_env(
                 &mut w,
                 &mut input,
                 custom_env,
-                &mut trace,
+                trace,
                 argv,
                 attached_continuation,
             )?;
@@ -2042,14 +2151,33 @@ fn parse_partial_with_env(
         if is_help_arg(spec, &out.cmd, &w) {
             out.errors
                 .push(render_help_err(spec, &out.cmd, w.len() > 2));
+            trace.record(
+                argv,
+                TokenRole::Builtin {
+                    spelling: w.clone(),
+                },
+            );
             record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
             return Ok((out, overridden_flags));
         }
         if is_version_arg(spec, &out.cmds, &w) {
             out.errors.push(render_version_err(spec, w.len() > 2));
+            trace.record(
+                argv,
+                TokenRole::Builtin {
+                    spelling: w.clone(),
+                },
+            );
             record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
             return Ok((out, overridden_flags));
         }
+        trace.record(
+            argv,
+            TokenRole::Refused {
+                reason: "no declaration takes this word".to_string(),
+            },
+        );
+        trace.close(&input);
         bail!("unexpected word: {w}");
     }
 
@@ -3789,13 +3917,13 @@ fn record_stop(
     out: &mut ParseOutput,
     next_arg_idx: usize,
     seen_double_dash: bool,
-    mut trace: Trace,
+    trace: &mut Trace,
     unread: &VecDeque<Token>,
 ) {
     out.next_arg = out.cmd.args.get(next_arg_idx).cloned().map(Arc::new);
     out.double_dash_seen = seen_double_dash;
     trace.close(unread);
-    out.tokens = trace.tokens;
+    out.tokens = std::mem::take(&mut trace.tokens);
 }
 
 /// Record that `arg` was handed a word before the `--` it requires.
@@ -3902,6 +4030,7 @@ fn render_role(role: &TokenRole) -> String {
         }
         TokenRole::Arg { arg, values } => format!("arg {} = {values:?}", arg.name),
         TokenRole::Separator => "separator".to_string(),
+        TokenRole::Builtin { spelling } => format!("built-in {spelling}"),
         TokenRole::ValueTerminator { ends } => format!("value terminator, ends {ends}"),
         TokenRole::Restart => "restart".to_string(),
         TokenRole::UnknownFlag { bound_as } => match bound_as {
