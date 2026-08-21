@@ -106,7 +106,11 @@ impl Verbosity {
     /// asking for more than there is has still asked for the most there is.
     pub fn step(self, by: i32) -> Verbosity {
         let here = Self::SCALE.iter().position(|l| *l == self).unwrap_or(0) as i32;
-        let there = (here + by).clamp(0, Self::SCALE.len() as i32 - 1);
+        // Saturating, so a step count large enough to wrap lands at the end of the scale
+        // rather than at the other end of it: `-v` repeated past `i32` is still "louder".
+        let there = here
+            .saturating_add(by)
+            .clamp(0, Self::SCALE.len() as i32 - 1);
         Self::SCALE[there as usize]
     }
 }
@@ -311,7 +315,7 @@ pub fn resolve_verbosity<'a>(
 ) -> Verbosity {
     let mut from_value: Option<Verbosity> = None;
     let mut pinned: Option<Verbosity> = None;
-    let mut steps = 0i32;
+    let mut steps = 0i64;
     for (role, count, value) in supplied {
         if count == 0 {
             continue;
@@ -326,11 +330,14 @@ pub fn resolve_verbosity<'a>(
             pinned = Some(pinned.map_or(level, |held| held.min(level)));
         }
         if let Some(step) = role.step() {
-            steps += step * count as i32;
+            // In `i64` and saturating; see the note on the compiled side. A count is a
+            // `usize`, and `as i32` on a large one changes its sign.
+            let by = i64::try_from(count).unwrap_or(i64::MAX);
+            steps = steps.saturating_add(by.saturating_mul(i64::from(step)));
         }
     }
     let base = from_value.or(pinned).unwrap_or(Verbosity::BASELINE);
-    base.step(steps)
+    base.step(steps.clamp(i32::MIN as i64, i32::MAX as i64) as i32)
 }
 
 /// Resolve a color choice from the roles a command line supplied.

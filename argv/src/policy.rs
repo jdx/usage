@@ -116,7 +116,11 @@ impl Verbosity {
     /// Move `by` steps along the scale, saturating at both ends.
     pub fn step(self, by: i32) -> Verbosity {
         let here = Self::SCALE.iter().position(|l| *l == self).unwrap_or(0) as i32;
-        let there = (here + by).clamp(0, Self::SCALE.len() as i32 - 1);
+        // Saturating, so a step count large enough to wrap lands at the end of the scale
+        // rather than at the other end of it: `-v` repeated past `i32` is still "louder".
+        let there = here
+            .saturating_add(by)
+            .clamp(0, Self::SCALE.len() as i32 - 1);
         Self::SCALE[there as usize]
     }
 }
@@ -312,7 +316,7 @@ pub fn resolve_verbosity_from<'a>(
 ) -> Verbosity {
     let mut from_value: Option<Verbosity> = None;
     let mut pinned: Option<Verbosity> = None;
-    let mut steps = 0i32;
+    let mut steps = 0i64;
     for input in supplied {
         if input.count == 0 {
             continue;
@@ -333,11 +337,15 @@ pub fn resolve_verbosity_from<'a>(
             });
         }
         if let Some(step) = input.role.step() {
-            steps += step * input.count as i32;
+            // In `i64` and saturating: a count arrives as a `usize` from a field whose type
+            // the CLI chose, and `as i32` on a large one changes its sign — which would have
+            // `-v` given absurdly many times resolve toward silence.
+            let by = i64::try_from(input.count).unwrap_or(i64::MAX);
+            steps = steps.saturating_add(by.saturating_mul(i64::from(step)));
         }
     }
     let base = from_value.or(pinned).unwrap_or(base);
-    base.step(steps)
+    base.step(steps.clamp(i32::MIN as i64, i32::MAX as i64) as i32)
 }
 
 /// Resolve a color choice from what a command line supplied.
@@ -574,6 +582,23 @@ mod tests {
         assert_eq!(Verbosity::Info.step(1), Verbosity::Debug);
         assert_eq!(Verbosity::Trace.step(4), Verbosity::Trace);
         assert_eq!(Verbosity::Silent.step(-4), Verbosity::Silent);
+        // Including a step so large that adding it would wrap: louder is still louder.
+        assert_eq!(Verbosity::Info.step(i32::MAX), Verbosity::Trace);
+        assert_eq!(Verbosity::Info.step(i32::MIN), Verbosity::Silent);
+    }
+
+    #[test]
+    fn an_absurd_count_is_still_louder_rather_than_quieter() {
+        // The count comes from a field whose integer type the CLI chose, so it arrives as a
+        // `usize`; narrowing a large one to `i32` would change its sign and resolve `-v`
+        // repeated past counting toward silence.
+        assert_eq!(resolve_verbosity([verbose(usize::MAX)]), Verbosity::Trace);
+        let down = [VerbosityInput {
+            role: VerbosityRole::Quiet,
+            count: usize::MAX,
+            value: None,
+        }];
+        assert_eq!(resolve_verbosity(down), Verbosity::Silent);
     }
 
     fn verbose(count: usize) -> VerbosityInput<'static> {

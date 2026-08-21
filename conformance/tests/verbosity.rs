@@ -515,7 +515,11 @@ fn the_roles_survive_the_round_trip_through_kdl() {
         let spec: LibSpec = kdl.parse().expect("usage-lib should read the emitted spec");
         let rendered = spec.to_string();
         let reparsed: LibSpec = rendered.parse().expect("and read what it wrote");
+        // Counts and names first: `zip` stops at the shorter list, so a serialization that
+        // dropped the last flag would otherwise agree with itself about the ones left.
+        assert_eq!(spec.cmd.flags.len(), reparsed.cmd.flags.len(), "{rendered}");
         for (before, after) in spec.cmd.flags.iter().zip(reparsed.cmd.flags.iter()) {
+            assert_eq!(before.name, after.name, "{rendered}");
             assert_eq!(before.verbosity, after.verbosity, "{}", before.name);
             assert_eq!(before.color, after.color, "{}", before.name);
         }

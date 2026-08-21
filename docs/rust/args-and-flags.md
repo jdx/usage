@@ -229,10 +229,12 @@ struct Cli {
     /// Suppress non-error messages
     #[usage(long, short = 'q', global, verbosity = "error", overrides("--verbose"))]
     quiet: bool,
-    /// When to color output
-    #[usage(long, global, value_name = "WHEN", choices("auto", "always", "never"),
-            default = "auto", color = "choice")]
-    color: String,
+    /// Force colored output
+    #[usage(long, global, color = "always", conflicts = "--no-color")]
+    color: bool,
+    /// Disable colored output
+    #[usage(long, global, color = "never")]
+    no_color: bool,
 }
 
 fn main() {
