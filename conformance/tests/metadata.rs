@@ -680,3 +680,68 @@ fn examples_survive_the_round_trip_from_a_typed_declaration() {
     };
     assert_eq!(deploy.environment.as_deref(), Some("prod"));
 }
+
+#[derive(Args)]
+struct Go {
+    /// Something to do it to.
+    value: Option<String>,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum LinkedCommands {
+    /// Go somewhere.
+    Go(Go),
+}
+
+#[derive(Cli)]
+#[usage(
+    bin = "linked",
+    repository = "https://github.com/jdx/usage",
+    source_code_link_template = r#"{%- set path = path | replace(from='-', to='_') -%}
+{%- if cmd.subcommands | length > 0 -%}
+{%- set path = path ~ "/mod.rs" -%}
+{%- else -%}
+{%- set path = path ~ ".rs" -%}
+{%- endif -%}
+https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}"#
+)]
+#[allow(dead_code)]
+struct Linked {
+    #[usage(subcommand)]
+    command: LinkedCommands,
+}
+
+#[test]
+fn the_source_code_link_template_survives_the_typed_spec() {
+    // A fourth. `usage` itself declared this in a KDL fragment appended to its own emitted
+    // spec, because the derive had no word for it — the one thing left keeping a hand-written
+    // second model beside the declaration. It reaches markdown, where it becomes the "view
+    // source" link on every command page, so a derive that drops it silently loses a link on
+    // every page of every CLI that wanted one.
+    let kdl = Linked::to_kdl();
+    let spec: LibSpec = kdl.parse().expect("valid spec");
+
+    // Newlines make it through: the writer escapes them into one quoted string rather than
+    // emitting a `#"""` block, and the template means nothing if its lines run together.
+    let template = spec
+        .source_code_link_template
+        .as_deref()
+        .expect("the template reached the typed spec");
+    assert_eq!(template.lines().count(), 7, "{template:?}");
+    assert!(template.starts_with("{%- set path"), "{template:?}");
+    assert!(template.ends_with("/cli/src/cli/{{path}}"), "{template:?}");
+    assert_eq!(
+        spec.repository.as_deref(),
+        Some("https://github.com/jdx/usage")
+    );
+
+    // And it renders, which is the only reason to carry it.
+    let go = spec.cmd.subcommands.get("go").expect("go");
+    let renderer = usage::docs::markdown::MarkdownRenderer::new(spec.clone());
+    let page = renderer.render_cmd(go).expect("a page for go");
+    assert!(
+        page.contains("https://github.com/jdx/usage/blob/main/cli/src/cli/go.rs"),
+        "{page}"
+    );
+}

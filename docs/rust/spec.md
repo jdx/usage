@@ -79,6 +79,23 @@ usage lint       -f mycli.usage.kdl                  # lint the spec
 `min_usage_version = "…"` on the root is written first in the document, as the CLI's claim about
 which usage consumers can read it.
 
+Everything the spec says about the program rather than about one command is a root attribute
+too. `author`, `license` and `repository` take an expression, so the `env!("CARGO_PKG_…")`
+values stay the source of truth; `source_code_link_template` takes the [tera
+template](/spec/reference/#source-code-link-template) that turns a command path into the
+"view source" link on its markdown page:
+
+```rust
+#[derive(usage::Cli)]
+#[usage(
+    repository = env!("CARGO_PKG_REPOSITORY"),
+    source_code_link_template = r#"https://github.com/me/mycli/blob/main/src/cli/{{path}}.rs"#,
+)]
+struct Cli;
+```
+
+A multi-line template is written unindented: a Rust raw string keeps every leading space.
+
 ## Runtime identity and portable identity
 
 An embedded CLI may be invoked under a name chosen by its caller. Pair each computed identity

@@ -25,6 +25,23 @@ mod sponsors;
     bin = "usage",
     version,
     min_usage_version = "4.0",
+    repository = "https://github.com/jdx/usage",
+    // The command path is not the file path: command names are hyphenated where the files
+    // that implement them are snake_case, a command with subcommands lives in its directory's
+    // `mod.rs`, and the four shell commands are all served by a single `shell.rs`.
+    //
+    // Unindented, because a raw string keeps every leading space it is given and only the
+    // `{%-`/`-%}` markers take any back — so indenting to match the attribute would be
+    // trusting each line to be surrounded by them.
+    source_code_link_template = r#"{%- set path = path | replace(from='-', to='_') -%}
+{%- if cmd.subcommands | length > 0 -%}
+{%- set path = path ~ "/mod.rs" -%}
+{%- elif path in ["bash", "fish", "powershell", "zsh"] -%}
+{%- set path = "shell.rs" -%}
+{%- else -%}
+{%- set path = path ~ ".rs" -%}
+{%- endif -%}
+https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}"#,
     usage = "Usage: usage <COMMAND>\n       usage --completions <COMPLETIONS>\n       usage --usage-spec",
     // Every flag `usage` accepts is one it declares, so an unrecognised one is a mistake and
     // saying so beats offering it to a positional — `usage lint --nope f.kdl` would otherwise

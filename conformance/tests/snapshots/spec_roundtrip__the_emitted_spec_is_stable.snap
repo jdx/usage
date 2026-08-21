@@ -6,6 +6,7 @@ name ex
 bin ex
 version "1.2.3"
 long_version "1.2.3\ncommit abc123"
+source_code_link_template "{%- if cmd.subcommands | length > 0 -%}\n{%- set path = path ~ \"/mod.rs\" -%}\n{%- endif -%}\nhttps://example.com/blob/main/src/{{path}}"
 about "does things"
 long_about "Does things, at length."
 usage "Usage: ex <COMMAND>\n       ex --version \"quoted\""

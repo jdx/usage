@@ -326,6 +326,14 @@ static SPEC: Spec = Spec {
     author: None,
     license: None,
     repository: None,
+    // Multi-line and full of quotes, because that is what a real one looks like and the
+    // writer has to escape it into a single KDL string rather than a `#"""` block.
+    source_code_link_template: Some(concat!(
+        "{%- if cmd.subcommands | length > 0 -%}\n",
+        "{%- set path = path ~ \"/mod.rs\" -%}\n",
+        "{%- endif -%}\n",
+        "https://example.com/blob/main/src/{{path}}",
+    )),
     min_usage_version: None,
     about: Some("does things"),
     long_about: Some("Does things, at length."),
@@ -355,6 +363,15 @@ fn the_program_itself_survives() {
     assert_eq!(
         spec.usage,
         "Usage: ex <COMMAND>\n       ex --version \"quoted\""
+    );
+    let template = spec
+        .source_code_link_template
+        .as_deref()
+        .expect("the link template survived");
+    assert_eq!(template.lines().count(), 4, "{template:?}");
+    assert!(
+        template.contains("{%- set path = path ~ \"/mod.rs\" -%}"),
+        "{template:?}"
     );
 }
 
@@ -768,6 +785,7 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
         author: None,
         license: None,
         repository: None,
+        source_code_link_template: None,
         min_usage_version: None,
         about: None,
         long_about: None,
@@ -906,6 +924,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         author: None,
         license: None,
         repository: None,
+        source_code_link_template: None,
         min_usage_version: None,
         about: None,
         long_about: None,
@@ -964,6 +983,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         author: None,
         license: None,
         repository: None,
+        source_code_link_template: None,
         min_usage_version: None,
         about: None,
         long_about: None,
