@@ -117,8 +117,14 @@ pub struct SpecFlag {
     pub name: String,
     pub effect: Option<crate::spec::effect::SpecCommandEffect>,
     /// What this flag means for how much the CLI says, when it says.
+    ///
+    /// Skipped when absent, which is almost always: a template asks `{% if flag.verbosity %}`
+    /// either way, and a key per flag per page is a cost every CLI pays for a property
+    /// almost none of their flags carry.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub verbosity: Option<crate::spec::policy::SpecVerbosityRole>,
     /// What this flag means for color, when it says.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<crate::spec::policy::SpecColorRole>,
     pub usage: String,
     pub display_usage: String,
