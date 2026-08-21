@@ -12,6 +12,68 @@
 use usage::Spec as LibSpec;
 use usage_derive::{Args, Cli, Subcommands};
 
+#[derive(Args)]
+#[usage(deprecated = "use inspect", deprecated_remove_at = "7.0")]
+struct Old {}
+
+#[derive(Subcommands)]
+enum DeprecatedCommands {
+    #[usage(deprecated = "use show", deprecated_warn_at = "6.1")]
+    Old(Old),
+}
+
+#[derive(Cli)]
+#[usage(bin = "deprecated", deprecated = "use the replacement")]
+#[allow(dead_code)]
+struct DeprecatedCli {
+    #[usage(
+        long,
+        deprecated = "use --new",
+        deprecated_warn_at = "6.2",
+        deprecated_remove_at = "7.0"
+    )]
+    old: bool,
+    #[usage(subcommand)]
+    command: Option<DeprecatedCommands>,
+}
+
+#[test]
+fn deprecation_metadata_survives_the_typed_spec() {
+    let spec: LibSpec = DeprecatedCli::to_kdl().parse().expect("valid spec");
+    assert_eq!(spec.cmd.deprecated.as_deref(), Some("use the replacement"));
+    let flag = spec
+        .cmd
+        .flags
+        .iter()
+        .find(|flag| flag.name == "old")
+        .unwrap();
+    assert_eq!(flag.deprecated.as_deref(), Some("use --new"));
+    assert_eq!(flag.deprecated_warn_at.as_deref(), Some("6.2"));
+    assert_eq!(flag.deprecated_remove_at.as_deref(), Some("7.0"));
+    let command = spec.cmd.subcommands.get("old").expect("old command");
+    assert_eq!(command.deprecated.as_deref(), Some("use show"));
+    assert_eq!(command.deprecated_warn_at.as_deref(), Some("6.1"));
+    assert_eq!(command.deprecated_remove_at.as_deref(), Some("7.0"));
+}
+
+#[test]
+fn deprecation_renders_inline_and_in_flattened_command_sections() {
+    let spec = DeprecatedCli::spec();
+    let page = usage_argv::help::render(spec, spec.root.cmd, false).unwrap();
+    assert!(
+        page.contains("--old [deprecated: use --new; warns at 6.2; removed at 7.0]"),
+        "{page}"
+    );
+
+    let mut portable: LibSpec = DeprecatedCli::to_kdl().parse().unwrap();
+    portable.cmd.flatten_help = true;
+    let page = usage::docs::cli::render_help(&portable, &portable.cmd, false);
+    assert!(
+        page.contains("old:\n[deprecated: use show; warns at 6.1; removed at 7.0]"),
+        "{page}"
+    );
+}
+
 /// A flag reachable only by its short form, whose value still needs a name.
 #[derive(Cli)]
 #[usage(bin = "shortonly")]

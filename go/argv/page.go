@@ -98,6 +98,9 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	if about := trimEnd(about); about != "" {
 		out.WriteString(about + "\n\n")
 	}
+	if label := deprecationLabel(meta); label != "" {
+		out.WriteString(label + "\n\n")
+	}
 
 	for i, line := range usageLines(path, cmd, help) {
 		if i == 0 {
@@ -182,7 +185,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		}
 		if nextLineHelp {
 			w.WriteString("  " + f.usage + "\n")
-			if text := helpText(h); text != "" {
+			if text := metaField(h, func(x *Help) string { return x.Short }); text != "" {
 				writeIndented(w, text, 4)
 			}
 			longAnnotations(w, h, true)
@@ -295,15 +298,20 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 				if len(h.VisibleAliases) > 0 {
 					out.WriteString(" [aliases: " + strings.Join(h.VisibleAliases, ", ") + "]")
 				}
-				if h.Short != "" {
-					if nextLineHelp {
-						out.WriteString("\n")
+				if nextLineHelp {
+					out.WriteString("\n")
+					if strings.TrimSpace(h.Short) != "" {
 						writeIndented(out, trimEnd(h.Short), 4)
-						continue
 					}
+					if label := deprecationLabel(h); label != "" {
+						writeIndented(out, label, 4)
+					}
+					continue
+				}
+				if text := helpText(h); text != "" {
 					// The row owns its terminating newline. Trim the description in both
 					// layouts, as usage-lib does before selecting a layout.
-					out.WriteString("  " + trimEnd(h.Short))
+					out.WriteString("  " + trimEnd(text))
 				}
 			}
 			out.WriteString("\n")
@@ -328,8 +336,11 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 		}
 		subPath := append(append([]string{}, path...), sub.Name)
 		out.WriteString("\n" + strings.Join(subPath, " ") + ":\n")
-		if h != nil && strings.TrimSpace(h.Short) != "" {
-			out.WriteString(trimEnd(h.Short) + "\n")
+		if text := metaField(h, func(x *Help) string { return x.Short }); strings.TrimSpace(text) != "" {
+			out.WriteString(trimEnd(text) + "\n")
+		}
+		if label := deprecationLabel(h); label != "" {
+			out.WriteString(label + "\n")
 		}
 
 		args := visibleArgs(sub, help, false)
@@ -351,32 +362,38 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 		for _, a := range args {
 			ah := help.Lookup(a.Key)
 			usage := argUsage(a, ah)
-			if text := helpText(ah); text != "" {
-				if nextLine {
-					out.WriteString("  " + usage + "\n")
+			if nextLine {
+				out.WriteString("  " + usage + "\n")
+				if text := metaField(ah, func(x *Help) string { return x.Short }); text != "" {
 					writeIndented(out, text, 4)
-				} else {
-					out.WriteString("  " + pad(usage, argCol) + "  " + text)
 				}
+				longAnnotations(out, ah, true)
 			} else {
-				out.WriteString("  " + usage)
+				if text := helpText(ah); text != "" {
+					out.WriteString("  " + pad(usage, argCol) + "  " + text)
+				} else {
+					out.WriteString("  " + usage)
+				}
+				annotations(out, ah, true)
 			}
-			annotations(out, ah, true)
 		}
 		for _, f := range flags {
 			fh := help.Lookup(f.Key)
 			usage := columnUsage(f, allShown(f), help)
-			if text := helpText(fh); text != "" {
-				if nextLine {
-					out.WriteString("  " + usage + "\n")
+			if nextLine {
+				out.WriteString("  " + usage + "\n")
+				if text := metaField(fh, func(x *Help) string { return x.Short }); text != "" {
 					writeIndented(out, text, 4)
-				} else {
-					out.WriteString("  " + pad(usage, flagCol) + "  " + text)
 				}
+				longAnnotations(out, fh, true)
 			} else {
-				out.WriteString("  " + usage)
+				if text := helpText(fh); text != "" {
+					out.WriteString("  " + pad(usage, flagCol) + "  " + text)
+				} else {
+					out.WriteString("  " + usage)
+				}
+				annotations(out, fh, true)
 			}
-			annotations(out, fh, true)
 		}
 		if h != nil && h.FlattenHelp {
 			flatCommandsShort(out, subPath, sub, help, h.NextLineHelp)
@@ -473,10 +490,34 @@ func annotations(out *strings.Builder, h *Help, withDefault bool) {
 }
 
 func helpText(h *Help) string {
-	if h == nil || strings.TrimSpace(h.Short) == "" {
+	if h == nil {
 		return ""
 	}
-	return h.Short
+	label := deprecationLabel(h)
+	if strings.TrimSpace(h.Short) == "" {
+		return label
+	}
+	if label == "" {
+		return h.Short
+	}
+	return h.Short + " " + label
+}
+
+func deprecationLabel(h *Help) string {
+	if h == nil || (h.Deprecated == "" && h.DeprecatedWarnAt == "" && h.DeprecatedRemoveAt == "") {
+		return ""
+	}
+	parts := []string{}
+	if h.Deprecated != "" {
+		parts = append(parts, h.Deprecated)
+	}
+	if h.DeprecatedWarnAt != "" {
+		parts = append(parts, "warns at "+h.DeprecatedWarnAt)
+	}
+	if h.DeprecatedRemoveAt != "" {
+		parts = append(parts, "removed at "+h.DeprecatedRemoveAt)
+	}
+	return "[deprecated: " + strings.Join(parts, "; ") + "]"
 }
 
 func headingOf(help HelpTable, key uint64) string {

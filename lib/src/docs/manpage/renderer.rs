@@ -276,6 +276,14 @@ impl ManpageRenderer {
                 roff.control("PP", [] as [&str; 0]);
             }
         }
+        if let Some(notice) = deprecation_notice(
+            self.spec.cmd.deprecated.as_deref(),
+            self.spec.cmd.deprecated_warn_at.as_deref(),
+            self.spec.cmd.deprecated_remove_at.as_deref(),
+        ) {
+            roff.text([italic(notice)]);
+            roff.control("PP", [] as [&str; 0]);
+        }
     }
 
     fn render_command(&self, roff: &mut Roff, cmd: &SpecCommand, is_root: bool) {
@@ -360,6 +368,13 @@ impl ManpageRenderer {
         // Flag help text
         if let Some(help) = &flag.help_long.as_ref().or(flag.help.as_ref()) {
             roff.text([roman(help.as_str())]);
+        }
+        if let Some(notice) = deprecation_notice(
+            flag.deprecated.as_deref(),
+            flag.deprecated_warn_at.as_deref(),
+            flag.deprecated_remove_at.as_deref(),
+        ) {
+            roff.text([italic(notice)]);
         }
 
         // Default value
@@ -446,6 +461,14 @@ impl ManpageRenderer {
                     roff.text([roman(help.as_str())]);
                     roff.control("PP", [] as [&str; 0]);
                 }
+                if let Some(notice) = deprecation_notice(
+                    subcmd.deprecated.as_deref(),
+                    subcmd.deprecated_warn_at.as_deref(),
+                    subcmd.deprecated_remove_at.as_deref(),
+                ) {
+                    roff.text([italic(notice)]);
+                    roff.control("PP", [] as [&str; 0]);
+                }
 
                 // Synopsis
                 let synopsis = self.build_synopsis(subcmd, &full_name);
@@ -514,6 +537,13 @@ impl ManpageRenderer {
             let first_line = help.lines().next().unwrap_or("");
             roff.text([roman(first_line)]);
         }
+        if let Some(notice) = deprecation_notice(
+            cmd.deprecated.as_deref(),
+            cmd.deprecated_warn_at.as_deref(),
+            cmd.deprecated_remove_at.as_deref(),
+        ) {
+            roff.text([italic(notice)]);
+        }
 
         // Show aliases if any
         if !cmd.aliases.is_empty() {
@@ -523,6 +553,27 @@ impl ManpageRenderer {
             roff.control("RE", [] as [&str; 0]);
         }
     }
+}
+
+fn deprecation_notice(
+    message: Option<&str>,
+    warn_at: Option<&str>,
+    remove_at: Option<&str>,
+) -> Option<String> {
+    if message.is_none() && warn_at.is_none() && remove_at.is_none() {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if let Some(message) = message {
+        parts.push(message.to_string());
+    }
+    if let Some(at) = warn_at {
+        parts.push(format!("warns at {at}"));
+    }
+    if let Some(at) = remove_at {
+        parts.push(format!("removed at {at}"));
+    }
+    Some(format!("Deprecated: {}", parts.join("; ")))
 }
 
 #[cfg(test)]

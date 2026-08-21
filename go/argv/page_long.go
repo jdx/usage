@@ -63,6 +63,9 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	if about := trimEnd(about); about != "" {
 		out.WriteString(about + "\n\n")
 	}
+	if label := deprecationLabel(meta); label != "" {
+		out.WriteString(label + "\n\n")
+	}
 
 	for i, line := range usageLines(path, cmd, help) {
 		if i == 0 {
@@ -225,6 +228,9 @@ func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help
 				if about := trimEnd(firstOf(h.Long, h.Short)); about != "" {
 					writeIndented(out, about, 4)
 				}
+				if label := deprecationLabel(h); label != "" {
+					writeIndented(out, label, 4)
+				}
 			}
 			// A blank line between entries, which the wider layout can afford and
 			// which keeps a multi-line description from running into the next name.
@@ -249,6 +255,9 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 		if about := firstOf(metaField(h, func(x *Help) string { return x.Long }),
 			metaField(h, func(x *Help) string { return x.Short })); strings.TrimSpace(about) != "" {
 			out.WriteString(trimEnd(about) + "\n")
+		}
+		if label := deprecationLabel(h); label != "" {
+			out.WriteString(label + "\n")
 		}
 
 		args := visibleArgs(sub, help, true)
@@ -331,6 +340,9 @@ func longAnnotations(out *strings.Builder, h *Help, withDefault bool) {
 	}
 	if withDefault && !h.HideDefaultValue && len(h.Default) > 0 {
 		out.WriteString("    (default: " + strings.Join(h.Default, ", ") + ")\n")
+	}
+	if label := deprecationLabel(h); label != "" {
+		out.WriteString("    " + label + "\n")
 	}
 }
 

@@ -58,6 +58,12 @@ pub struct SpecCommand {
     /// Deprecation message if this command is deprecated
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
+    /// Version at which consumers should begin warning about this command.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deprecated_warn_at: Option<String>,
+    /// Version at which consumers expect this command to be removed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deprecated_remove_at: Option<String>,
     /// What running this command does to the world: read, write or destructive.
     /// Not inherited by subcommands.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -214,6 +220,8 @@ impl Default for SpecCommand {
             mounts: vec![],
             groups: vec![],
             deprecated: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
             effect: None,
             unknown_flags: None,
             hide: false,
@@ -401,6 +409,8 @@ impl SpecCommand {
                         None => Some(v.ensure_string()?),
                     }
                 }
+                "deprecated_warn_at" => cmd.deprecated_warn_at = Some(v.ensure_string()?),
+                "deprecated_remove_at" => cmd.deprecated_remove_at = Some(v.ensure_string()?),
                 k => bail_parse!(ctx, v.entry.span(), "unsupported cmd prop {k}"),
             }
         }
@@ -576,6 +586,12 @@ impl SpecCommand {
                         None => Some(child.arg(0)?.ensure_string()?),
                     }
                 }
+                "deprecated_warn_at" => {
+                    cmd.deprecated_warn_at = Some(child.arg(0)?.ensure_string()?)
+                }
+                "deprecated_remove_at" => {
+                    cmd.deprecated_remove_at = Some(child.arg(0)?.ensure_string()?)
+                }
                 "complete" => {
                     let complete = SpecComplete::parse(ctx, &child)?;
                     cmd.complete.insert(complete.name.clone(), complete);
@@ -697,6 +713,8 @@ impl SpecCommand {
             subcommands,
             complete,
             deprecated,
+            deprecated_warn_at,
+            deprecated_remove_at,
             effect,
             unknown_flags,
             // Recomputed from the merged command, never carried over.
@@ -804,6 +822,12 @@ impl SpecCommand {
         }
         if deprecated.is_some() {
             self.deprecated = deprecated;
+        }
+        if deprecated_warn_at.is_some() {
+            self.deprecated_warn_at = deprecated_warn_at;
+        }
+        if deprecated_remove_at.is_some() {
+            self.deprecated_remove_at = deprecated_remove_at;
         }
         if restart_token.is_some() {
             self.restart_token = restart_token;
@@ -931,6 +955,8 @@ impl From<&SpecCommand> for KdlNode {
             after_help_long,
             after_help_md,
             deprecated,
+            deprecated_warn_at,
+            deprecated_remove_at,
             effect,
             flags,
             args,
@@ -1093,6 +1119,12 @@ impl From<&SpecCommand> for KdlNode {
         if let Some(deprecated) = &deprecated {
             node.entries_mut()
                 .push(string_entry(Some("deprecated"), deprecated));
+        }
+        if let Some(at) = deprecated_warn_at {
+            node.push(string_entry(Some("deprecated_warn_at"), at));
+        }
+        if let Some(at) = deprecated_remove_at {
+            node.push(string_entry(Some("deprecated_remove_at"), at));
         }
         if let Some(effect) = effect {
             node.entries_mut()
