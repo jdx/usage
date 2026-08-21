@@ -685,15 +685,10 @@ impl Field {
             ));
         }
         for choice in &prop.choices {
-            if !field_holds(&prop.read_ty, choice, Position::Choice) {
-                return Err(syn::Error::new(
-                    ident.span(),
-                    format!(
-                        "a choice does not fit `{}`, so nothing could ever supply it",
-                        rust_type_name(&prop.read_ty)
-                    ),
-                ));
-            }
+            // The spec type first, then the field's own — the same order the default checks
+            // run in. A plain `u64` should hear that `uint` cannot hold a negative, which is
+            // the contract the registry will enforce; the field-level complaint is for when
+            // the spec type is fine and a `ty` override moved the problem.
             if !prop.ty.admits(choice, Position::Choice) {
                 return Err(syn::Error::new(
                     ident.span(),
@@ -701,6 +696,15 @@ impl Field {
                         "a choice is not a value `{}` can hold. Write it as the type the \
                          setting is — a `string` setting's choices are strings, quoted",
                         type_name(&prop.ty)
+                    ),
+                ));
+            }
+            if !field_holds(&prop.read_ty, choice, Position::Choice) {
+                return Err(syn::Error::new(
+                    ident.span(),
+                    format!(
+                        "a choice does not fit `{}`, so nothing could ever supply it",
+                        rust_type_name(&prop.read_ty)
                     ),
                 ));
             }
@@ -884,13 +888,20 @@ fn field_holds(ty: &syn::Type, value: &Const, position: Position) -> bool {
         };
     }
     match last.ident.to_string().as_str() {
+        // Every integer the reader has a `FromValue` for, including the two whose check is a
+        // formality: `i64` holds anything a `Const::Int` can be, and `u64` refuses only a
+        // negative. `u64` was left out on the reasoning that `Ty::Uint` already refuses those
+        // — which a `ty = "int"` or `ty = "any"` override replaces, so the reasoning did not
+        // hold and the list is exhaustive rather than curated now.
         "u8" => fits!(u8),
         "u16" => fits!(u16),
         "u32" => fits!(u32),
+        "u64" => fits!(u64),
         "usize" => fits!(usize),
         "i8" => fits!(i8),
         "i16" => fits!(i16),
         "i32" => fits!(i32),
+        "i64" => fits!(i64),
         "isize" => fits!(isize),
         // The rule `FromValue for f32` follows: rounding a value that fits is ordinary
         // precision loss, and turning a finite one into an infinity is not.
@@ -1614,6 +1625,35 @@ mod tests {
             struct Settings {
                 #[usage(choices(1, 256))]
                 small: u8,
+            }
+        "#,
+        );
+        assert!(err.contains("does not fit"), "unhelpful: {err}");
+
+        // A `ty` override can replace the spec type that was doing the refusing, so the
+        // field's own type has to be the thing checked. `Ty::Uint` refuses a negative, but
+        // `ty = "int"` and `ty = "any"` do not — and a `u64` still cannot hold one, so every
+        // read failed on a default the derive had accepted.
+        for ty in ["int", "any"] {
+            let err = rejection(&format!(
+                r#"
+                struct Settings {{
+                    #[usage(ty = "{ty}", default = -1)]
+                    jobs: u64,
+                }}
+            "#
+            ));
+            assert!(
+                err.contains("does not fit `u64`"),
+                "`ty = \"{ty}\"` let a negative default past: {err}"
+            );
+        }
+        // Through a list too, where the item is what cannot hold it.
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(ty = "list<int>", choices(1, -1))]
+                ports: Vec<u64>,
             }
         "#,
         );
