@@ -405,6 +405,14 @@ resolves a point on the scale, and the Rust API gives it back either as the spec
 `env_logger` read as a filter, which is the same for five of the six and `off` rather than
 `silent` for the last.
 
+### Reading a spec that declares one
+
+Both are properties an older `usage` does not know, and an unknown flag property is an
+error rather than something to skip: the parser stops at `unsupported flag key verbosity`.
+A spec read by tooling you do not control should say which release it needs with
+[`min_usage_version`](/spec/reference/), naming the one that added them. Nothing adds it
+for you.
+
 ### Roles and `config` props
 
 A [`config`](/spec/reference/config) prop and a role are different statements. The prop

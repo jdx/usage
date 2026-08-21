@@ -250,6 +250,13 @@ ambiguous to a reader even where the grammar resolves it, and a CLI that wants o
 "colour, please" already has a better spelling — a switch, `color = "always"` with a
 `negate`, which says the same thing and cannot be misread.
 
+`verbosity=` and `color=` are spec properties, so a spec carrying them needs a `usage` new
+enough to know them — an older one stops at `unsupported flag key verbosity` rather than
+ignoring it. The derive does not add a floor for you, the same as for
+[`flagset`](/spec/reference/flagset): say it yourself with
+`#[usage(min_usage_version = "…")]` if your spec is read by tooling you do not control,
+naming the release that added the properties.
+
 `log_filter()` rather than `as_str()`: the two agree for five of the six levels, and differ
 where it matters. The fleet spells the bottom of the scale `silent` — mise's and hk's
 `--silent`, aube's `--loglevel silent` — and every logging crate spells it `off`. `as_str()`
