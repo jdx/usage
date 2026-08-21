@@ -281,9 +281,7 @@ mod tests {
         assert!(resolved.warnings.is_empty(), "{:?}", resolved.warnings);
         // The name the user set is what an explanation names.
         assert_eq!(
-            resolved
-                .origin(REGISTRY.lookup("jobs").expect("declared").id)
-                .map(|o| o.describe()),
+            resolved.origin_key("jobs").map(|o| o.describe()),
             Some("HK_JOBS")
         );
     }
@@ -296,12 +294,11 @@ mod tests {
         let layer = env(&[("HK_JOB", "2"), ("HK_JOBS", "8")]);
         let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("resolves");
         assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(8)));
-        let id = REGISTRY.lookup("jobs").expect("declared").id;
         assert_eq!(
-            resolved.contributors(id).len(),
+            resolved.contributors_key("jobs").len(),
             2,
             "the default and one variable, not both variables: {:?}",
-            resolved.contributors(id)
+            resolved.contributors_key("jobs")
         );
 
         // And with only the older one set, it is read.
@@ -309,7 +306,7 @@ mod tests {
         let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("resolves");
         assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(2)));
         assert_eq!(
-            resolved.origin(id).map(|o| o.describe()),
+            resolved.origin_key("jobs").map(|o| o.describe()),
             Some("HK_JOB"),
             "named as the user set it"
         );
@@ -317,10 +314,9 @@ mod tests {
 
     #[test]
     fn a_deprecated_environment_alias_is_read_last_and_warned_about() {
-        let id = REGISTRY.lookup("jobs").expect("declared").id;
         let resolved =
             resolve(REGISTRY, Layers::new().then(&env(&[("HK_JOBS_OLD", "3")]))).expect("resolves");
-        assert_eq!(resolved.get(id), Some(&Value::Int(3)));
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(3)));
         let warnings = crate::explain::warnings(&resolved);
         assert_eq!(warnings.len(), 1, "{warnings:?}");
         assert!(
@@ -334,7 +330,7 @@ mod tests {
             Layers::new().then(&env(&[("HK_JOBS", "8"), ("HK_JOBS_OLD", "3")])),
         )
         .expect("resolves");
-        assert_eq!(resolved.get(id), Some(&Value::Int(8)));
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(8)));
         assert!(resolved.warnings.is_empty(), "{:?}", resolved.warnings);
     }
 
@@ -362,15 +358,14 @@ mod tests {
 
     #[test]
     fn a_current_renamed_variable_beats_a_deprecated_target_alias() {
-        let id = REGISTRY.lookup("jobs").expect("declared").id;
         let resolved = resolve(
             REGISTRY,
             Layers::new().then(&env(&[("HK_JOBS_OLD", "3"), ("HK_CONCURRENCY", "6")])),
         )
         .expect("resolves");
-        assert_eq!(resolved.get(id), Some(&Value::Int(6)));
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(6)));
         assert_eq!(
-            resolved.origin(id).map(|origin| origin.describe()),
+            resolved.origin_key("jobs").map(|origin| origin.describe()),
             Some("HK_CONCURRENCY")
         );
         let warnings = crate::explain::warnings(&resolved);
@@ -461,9 +456,8 @@ mod tests {
         let layer = env(&[("HK_CONCURRENCY", "6"), ("HK_JOBS", "8")]);
         let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("resolves");
         assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(8)));
-        let id = REGISTRY.lookup("jobs").expect("declared").id;
         assert_eq!(
-            resolved.origin(id).map(|o| o.describe()),
+            resolved.origin_key("jobs").map(|o| o.describe()),
             Some("HK_JOBS"),
             "the name that is not deprecated"
         );
@@ -614,9 +608,7 @@ mod tests {
         // And reported as the user spelled it, not as the spec declares it: this is the only
         // platform where those can differ, so it is the only place the difference can be asserted.
         assert_eq!(
-            resolved
-                .origin(REGISTRY.lookup("jobs").expect("declared").id)
-                .map(|o| o.describe()),
+            resolved.origin_key("jobs").map(|o| o.describe()),
             Some("Hk_Jobs")
         );
     }

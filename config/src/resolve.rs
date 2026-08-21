@@ -47,6 +47,18 @@ impl Resolved {
         self.provenance.get(id.index()).and_then(Option::as_ref)
     }
 
+    /// Where the winning value for a dotted key came from, following renames.
+    ///
+    /// The counterpart to [`Resolved::get_key`], and the reason this exists: a settings
+    /// listing walks keys, and without it the only way to ask about provenance was
+    /// `origin(registry.lookup(key)?.id)`. pitchfork's first port of `settings list` reached
+    /// that wall and fell back to comparing the rendered value against the rendered default,
+    /// which reports an explicit override that happens to equal the default as unset — the
+    /// exact confusion an origin-tracked merge exists to end.
+    pub fn origin_key(&self, key: &str) -> Option<&Origin> {
+        self.origin(self.registry.lookup(key)?.id)
+    }
+
     /// Every place that contributed to this setting, in merge order.
     ///
     /// One entry for a `replace` setting, several for a `union` or `deep` one — which is
@@ -56,6 +68,18 @@ impl Resolved {
             .get(&id)
             .map(Vec::as_slice)
             .unwrap_or_default()
+    }
+
+    /// Every place that contributed to a dotted key, in merge order, following renames.
+    ///
+    /// Empty for a key the registry does not have, which is the same answer as a key nothing
+    /// contributed to. A caller that needs to tell the two apart is asking whether the
+    /// setting exists, and [`Registry::lookup`] is that question.
+    pub fn contributors_key(&self, key: &str) -> &[Origin] {
+        match self.registry.lookup(key) {
+            Some(found) => self.contributors(found.id),
+            None => &[],
+        }
     }
 
     pub fn registry(&self) -> Registry {
@@ -1212,5 +1236,102 @@ mod tests {
             err.to_string(),
             "could not read hk.toml: expected a value at line 3"
         );
+    }
+
+    #[test]
+    fn provenance_answers_to_a_key_the_way_a_value_does() {
+        // The accessor a settings listing needs. Without it the shortest way to ask "did anyone
+        // set this, or is it just the default" was to render the value and the default and
+        // compare the strings — which calls an explicit override that happens to equal the
+        // default unset, and is exactly what an origin-tracked merge exists to avoid.
+        let file = layer(
+            SourceKind::FILE,
+            vec![(
+                "jobs",
+                // The declared default, set again on purpose.
+                Value::Int(4),
+                Origin::file("hk.toml", FileScope::Project),
+            )],
+        );
+        let resolved = resolve(REGISTRY, Layers::new().then(&file)).expect("resolves");
+
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(4)));
+        let origin = resolved.origin_key("jobs").expect("set by the file");
+        assert_eq!(origin.kind, SourceKind::FILE);
+        assert!(origin.describe().contains("hk.toml"));
+        // The value alone cannot tell these apart; the origin can.
+        assert_ne!(origin.kind, SourceKind::DEFAULTS);
+
+        // And a setting nothing touched still has an origin, which is the default itself.
+        let untouched = resolve(REGISTRY, Layers::new()).expect("resolves");
+        assert_eq!(
+            untouched.origin_key("jobs").map(|o| o.kind),
+            Some(SourceKind::DEFAULTS)
+        );
+        // Except where there is no default either: unset is unset, and says nothing.
+        assert!(untouched.origin_key("undeclared_default").is_none());
+    }
+
+    #[test]
+    fn provenance_by_key_follows_a_rename_like_a_value_does() {
+        // `get_key` folds a rename, so provenance that did not would answer about a different
+        // setting than the value did — the split the one-merge design is written to prevent.
+        let env = layer(
+            SourceKind::ENV,
+            vec![(
+                "jobs",
+                Value::Int(8),
+                Origin::new(SourceKind::ENV, "HK_JOBS"),
+            )],
+        );
+        let resolved = resolve(REGISTRY, Layers::new().then(&env)).expect("resolves");
+
+        assert_eq!(resolved.get_key("renamed_jobs"), Some(&Value::Int(8)));
+        assert_eq!(
+            resolved.origin_key("renamed_jobs").map(|o| o.describe()),
+            Some("HK_JOBS")
+        );
+        assert_eq!(
+            resolved.contributors_key("renamed_jobs"),
+            resolved.contributors_key("jobs")
+        );
+
+        // A key the registry does not have is not a setting with no contributors, but a caller
+        // rendering a list has already looked it up; both answer emptily and neither panics.
+        assert!(resolved.origin_key("nonesuch").is_none());
+        assert!(resolved.contributors_key("nonesuch").is_empty());
+    }
+
+    #[test]
+    fn contributors_by_key_lists_a_merged_setting_in_merge_order() {
+        let user = layer(
+            SourceKind::FILE,
+            vec![(
+                "excluded",
+                Value::List(vec![Value::from("vendor")]),
+                Origin::file("~/.config/hk.toml", FileScope::Global),
+            )],
+        );
+        let project = layer(
+            SourceKind::FILE,
+            vec![(
+                "excluded",
+                Value::List(vec![Value::from("dist")]),
+                Origin::file("hk.toml", FileScope::Project),
+            )],
+        );
+        let resolved =
+            resolve(REGISTRY, Layers::new().then(&project).then(&user)).expect("resolves");
+
+        let described: Vec<&str> = resolved
+            .contributors_key("excluded")
+            .iter()
+            .map(|o| o.describe())
+            .collect();
+        // Lowest precedence first: the declared default, then the user's file, then the project's.
+        assert_eq!(described.len(), 3, "{described:?}");
+        assert_eq!(described[0], "the default", "{described:?}");
+        assert!(described[1].contains(".config"), "{described:?}");
+        assert!(described[2].contains("hk.toml"), "{described:?}");
     }
 }

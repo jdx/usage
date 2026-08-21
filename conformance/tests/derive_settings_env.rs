@@ -46,9 +46,7 @@ fn a_value_the_environment_filled_in_is_not_a_command_line_value() {
     let resolved = resolve(REGISTRY, Layers::new().then(&layer).then(&env)).expect("resolves");
     assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(6)));
     assert_eq!(
-        resolved
-            .origin(REGISTRY.lookup("jobs").expect("declared").id)
-            .map(|o| o.describe()),
+        resolved.origin_key("jobs").map(|o| o.describe()),
         Some("EX_SETTINGS_JOBS"),
         "and it is named as one"
     );
@@ -60,9 +58,7 @@ fn a_value_the_environment_filled_in_is_not_a_command_line_value() {
     let resolved = resolve(REGISTRY, Layers::new().then(&layer).then(&env)).expect("resolves");
     assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(8)));
     assert_eq!(
-        resolved
-            .origin(REGISTRY.lookup("jobs").expect("declared").id)
-            .map(|o| o.describe()),
+        resolved.origin_key("jobs").map(|o| o.describe()),
         Some("--jobs")
     );
 }

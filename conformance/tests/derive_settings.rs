@@ -99,9 +99,7 @@ fn a_flag_that_was_given_sets_its_setting() {
     );
     // Named as the flag, which is what makes an explanation actionable.
     assert_eq!(
-        resolved
-            .origin(REGISTRY.lookup("jobs").expect("declared").id)
-            .map(|o| o.describe()),
+        resolved.origin_key("jobs").map(|o| o.describe()),
         Some("--jobs")
     );
 }
@@ -117,9 +115,7 @@ fn a_flag_that_was_not_given_leaves_the_lower_layers_alone() {
     assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(4)));
     assert_eq!(resolved.get_key("colour"), Some(&Value::Bool(true)));
     assert_eq!(
-        resolved
-            .origin(REGISTRY.lookup("colour").expect("declared").id)
-            .map(|o| o.describe()),
+        resolved.origin_key("colour").map(|o| o.describe()),
         Some("the default")
     );
 }
@@ -135,9 +131,7 @@ fn a_negated_flag_is_a_value_and_not_an_absence() {
     let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("resolves");
     assert_eq!(resolved.get_key("colour"), Some(&Value::Bool(false)));
     assert_eq!(
-        resolved
-            .origin(REGISTRY.lookup("colour").expect("declared").id)
-            .map(|o| o.describe()),
+        resolved.origin_key("colour").map(|o| o.describe()),
         Some("--colour"),
         "reported as the flag the setting declares first"
     );
