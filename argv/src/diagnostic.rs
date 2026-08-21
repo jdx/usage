@@ -74,6 +74,11 @@ impl Style {
         self.wrap("1m\u{1b}[31", text)
     }
 
+    /// `warning:` — something that worked, and should not have been asked for.
+    fn warning(self, text: &str) -> String {
+        self.wrap("1m\u{1b}[33", text)
+    }
+
     /// What the user typed that did not work.
     fn invalid(self, text: &str) -> String {
         self.wrap("33", text)
@@ -434,6 +439,41 @@ pub fn render(
     style: Style,
 ) -> String {
     render_inner(spec, argv, error, style, None)
+}
+
+/// Render the deprecations a command line used, the way a user should read them.
+///
+/// One line each, in the order they were collected, with the same colour vocabulary as a failure:
+/// what the user typed in yellow, what to use instead in green. The wording itself comes from
+/// [`crate::warn`], so the plain and coloured halves cannot drift apart.
+pub fn render_warnings(warnings: &[crate::warn::Warning<'_>], style: Style) -> String {
+    let mut out = String::new();
+    for warning in warnings {
+        out.push_str(&style.warning("warning:"));
+        out.push(' ');
+        out.push_str(&style.invalid(&crate::warn::subject(warning)));
+        out.push_str(" is deprecated");
+        if let Some(at) = warning.remove_at {
+            out.push_str(", removed at ");
+            out.push_str(&style.literal(at));
+        }
+        // A replacement is something to type, so it is coloured like anything else that would
+        // have worked; an author's own message is prose, and colouring a sentence green would
+        // claim more about it than is known.
+        match crate::warn::tail(warning) {
+            Some(crate::warn::Tail::Message(message)) => {
+                out.push_str(": ");
+                out.push_str(message);
+            }
+            Some(crate::warn::Tail::Replacement(replacement)) => {
+                out.push_str(": use ");
+                out.push_str(&style.valid(replacement));
+            }
+            None => {}
+        }
+        out.push('\n');
+    }
+    out
 }
 
 /// Render a parse failure through a spec-declared executable view.

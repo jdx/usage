@@ -115,6 +115,26 @@ flag "--file <file>" {
 }
 ```
 
+## `deprecated`
+
+`deprecated="use --out"` says a flag still works and should not be used any more. It shows
+in help and in completion descriptions, and a parse reports it when the flag is actually
+given — see [Warnings](/spec/argv#warnings) for what counts as a use and what a CLI does
+with the report.
+
+`deprecated_warn_at` and `deprecated_remove_at` name releases. The first withholds the
+warning until the CLI's own `version` reaches it, which is how a deprecation is declared
+before it starts nagging; the second is only ever mentioned in the message.
+
+```kdl
+flag "--output <output>" deprecated="use --out" deprecated_remove_at="3.0.0"
+flag "--legacy" deprecated="use --modern" deprecated_warn_at="2027.1.0"
+```
+
+A `deprecated_env` alias is the same idea for one of the names a value may arrive through:
+the value is still read, and the variable that supplied it is reported along with the
+current name to use instead.
+
 ## `conflicts` and `overrides`
 
 Both describe a pair of flags that should not be in effect at once, and they differ in

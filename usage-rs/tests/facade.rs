@@ -2462,3 +2462,139 @@ fn runtime_program_identity_is_separate_from_the_portable_spec() {
     assert!(script.contains("runtime-ex"), "{script}");
     assert!(!script.contains("'portable-ex'"), "{script}");
 }
+
+/// A CLI whose declarations have all four shapes of deprecation on them.
+///
+/// Version `2.0.0`, so the milestones below are on both sides of where this CLI actually is.
+#[derive(Cli)]
+#[usage(bin = "deprecated-ex", version = "2.0.0")]
+struct DeprecatedEx {
+    /// Where to write the result
+    #[usage(long, deprecated = "use --out", deprecated_remove_at = "3.0.0")]
+    output: Option<String>,
+    #[usage(long)]
+    out: Option<String>,
+    /// Deprecated in a release this CLI has not reached
+    #[usage(long, deprecated = "use --out", deprecated_warn_at = "9.0.0")]
+    outfile: Option<String>,
+    /// A milestone that has passed, with no message beside it
+    #[usage(long, deprecated_warn_at = "1.0.0")]
+    legacy: bool,
+    // Declared here so the alias is part of the shape these cases parse, but exercised in
+    // `usage-conformance`'s `deprecation.rs` rather than here: a variable is process-wide, and
+    // setting one in this binary would race every other case in it that parses this CLI.
+    #[usage(
+        long,
+        env = "DEPRECATED_EX_TOKEN",
+        deprecated_env = "DEPRECATED_EX_OLD_TOKEN"
+    )]
+    token: Option<String>,
+    #[usage(long, default = "quiet")]
+    mode: Option<String>,
+    #[usage(subcommand)]
+    command: Option<DeprecatedExCommand>,
+}
+
+#[derive(Subcommands)]
+// Selected, not read: what these cases check is what a selection reports.
+#[allow(dead_code)]
+enum DeprecatedExCommand {
+    #[usage(deprecated = "use build")]
+    Compile(DeprecatedExCompile),
+    Build(DeprecatedExBuild),
+}
+
+#[derive(Args)]
+struct DeprecatedExCompile {
+    #[usage(long, deprecated = "no longer read")]
+    incremental: bool,
+}
+
+#[derive(Args)]
+struct DeprecatedExBuild {
+    #[usage(long)]
+    release: bool,
+}
+
+/// The kinds and names of what a command line reported, in order.
+fn deprecations_of(words: &[&str]) -> Vec<(usage::warn::WarningKind, String)> {
+    let owned: Vec<&OsStr> = words.iter().map(OsStr::new).collect();
+    let mut warnings = Vec::new();
+    DeprecatedEx::parse_from_with_warnings(&owned, &mut warnings).expect("a valid command line");
+    warnings
+        .iter()
+        .map(|warning| (warning.kind, warning.name.to_string()))
+        .collect()
+}
+
+#[test]
+fn a_deprecated_flag_that_was_typed_is_reported() {
+    assert_eq!(
+        deprecations_of(&["--output", "a.txt"]),
+        [(usage::warn::WarningKind::DeprecatedFlag, "--output".into())],
+    );
+}
+
+#[test]
+fn a_flag_nobody_typed_reports_nothing() {
+    assert!(deprecations_of(&["--out", "a.txt"]).is_empty());
+    // A default fills the field without anybody having asked for it, so it is not a use.
+    assert!(deprecations_of(&[]).is_empty());
+}
+
+#[test]
+fn a_milestone_the_cli_has_not_reached_stays_quiet() {
+    assert!(deprecations_of(&["--outfile", "a.txt"]).is_empty());
+    assert_eq!(
+        deprecations_of(&["--legacy"]),
+        [(usage::warn::WarningKind::DeprecatedFlag, "--legacy".into())],
+    );
+}
+
+#[test]
+fn a_deprecated_command_reports_itself_and_its_own_flags() {
+    assert_eq!(
+        deprecations_of(&["compile", "--incremental"]),
+        [
+            (
+                usage::warn::WarningKind::DeprecatedCommand,
+                "compile".into()
+            ),
+            (
+                usage::warn::WarningKind::DeprecatedFlag,
+                "--incremental".into()
+            ),
+        ],
+    );
+    assert!(deprecations_of(&["build", "--release"]).is_empty());
+}
+
+#[test]
+fn the_entry_points_that_were_not_asked_still_parse() {
+    let words = [OsStr::new("--output"), OsStr::new("a.txt")];
+    assert!(DeprecatedEx::parse_from(&words).is_ok());
+    let with_argv0 = [
+        OsStr::new("deprecated-ex"),
+        OsStr::new("--output"),
+        OsStr::new("a.txt"),
+    ];
+    assert!(DeprecatedEx::try_parse_from(&with_argv0).is_ok());
+    let mut warnings = Vec::new();
+    DeprecatedEx::try_parse_from_with_warnings(&with_argv0, &mut warnings)
+        .expect("a valid command line");
+    assert_eq!(warnings.len(), 1, "{warnings:?}");
+}
+
+#[test]
+fn what_a_user_reads_says_what_to_do_about_it() {
+    let mut warnings = Vec::new();
+    DeprecatedEx::parse_from_with_warnings(
+        &[OsStr::new("--output"), OsStr::new("a.txt")],
+        &mut warnings,
+    )
+    .expect("a valid command line");
+    assert_eq!(
+        usage::warn::render_warnings(&warnings),
+        "warning: --output is deprecated, removed at 3.0.0: use --out\n",
+    );
+}

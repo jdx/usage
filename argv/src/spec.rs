@@ -2863,6 +2863,41 @@ pub trait CommandArgs: Sized {
         None
     }
 
+    /// The deprecated declarations this command line actually used.
+    ///
+    /// Read from the partial rather than from the built struct, because a struct cannot answer
+    /// what the parse saw: a `bool` field is `false` whether the flag was absent or negated. Asked
+    /// after the environment has been applied, since a value that arrived through a variable used
+    /// the deprecated declaration just as much as a typed word did — while a declared default is
+    /// nothing anybody asked for, and does not warn.
+    ///
+    /// The milestone gate is deliberately not applied here. A nested command's tables say nothing
+    /// about the root's version, and a CLI with a computed `runtime_version` only settles it at
+    /// run time, so [`crate::warn::retain_reached`] is applied once by the entry point that knows
+    /// it.
+    ///
+    /// Empty by default, like the rest of the composition points, so a hand-written implementation
+    /// with nothing to report is not forced to say so.
+    fn deprecations(partial: &Self::Partial, out: &mut Vec<crate::warn::Warning<'static>>) {
+        let _ = (partial, out);
+    }
+
+    /// Report deprecations while traversing the injected parents of a view.
+    ///
+    /// `remaining_descendants` is non-zero only for commands that are routing to the promoted
+    /// command rather than contributing their own surface, exactly as
+    /// [`CommandArgs::check_for_view_path`] means it. Those commands are structural under the
+    /// view — the program's own identity — so nothing about them is reported.
+    fn deprecations_for_view_path(
+        partial: &Self::Partial,
+        remaining_descendants: usize,
+        out: &mut Vec<crate::warn::Warning<'static>>,
+    ) {
+        if remaining_descendants == 0 {
+            Self::deprecations(partial, out);
+        }
+    }
+
     /// Find an argument by any selector it accepts.
     ///
     /// Parents use this to enforce a relationship declared beside a flattened
@@ -3182,6 +3217,40 @@ pub trait Subcommands: Sized {
     fn exclusive_given(partial: &Self::Partial, selected: Option<usize>) -> Option<&'static str> {
         let _ = (partial, selected);
         None
+    }
+
+    /// The deprecated declarations the selected command used, and the command itself if its own
+    /// declaration is deprecated.
+    ///
+    /// Every deprecated command on the selected path reports, not only the last one: a deprecated
+    /// group whose child is fine was still the way in. See [`CommandArgs::deprecations`] for when
+    /// this is asked and why the milestone gate is not applied here.
+    fn deprecations(
+        partial: &Self::Partial,
+        selected: Option<usize>,
+        out: &mut Vec<crate::warn::Warning<'static>>,
+    ) {
+        let _ = (partial, selected, out);
+    }
+
+    /// Report the selected command's deprecations, traversing a view's injected parents.
+    ///
+    /// Under an executable view the words the view injected are the program's own identity —
+    /// `aubr` *is* `aube run` — so neither the promoted command nor anything routing to it is
+    /// reported, for the same reason the root never is. Whatever the user selected below it is.
+    ///
+    /// The default treats the promoted command as an ordinary selection, which is the most a
+    /// hand-written implementation can do without knowing its own variants; a derived one knows
+    /// which commands the view injected and leaves them out.
+    fn deprecations_for_view_path(
+        partial: &Self::Partial,
+        selected: Option<usize>,
+        remaining_commands: usize,
+        out: &mut Vec<crate::warn::Warning<'static>>,
+    ) {
+        if remaining_commands <= 1 {
+            Self::deprecations(partial, selected, out);
+        }
     }
 
     /// Fill fields in the selected command from their declared environment variables.

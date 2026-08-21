@@ -1419,6 +1419,18 @@ above are where it lands.
 - [x] **Deprecation and stability metadata on flags and commands** (clap#3321) —
       `deprecated`, with warn/remove versions, is portable through KDL, typed
       Rust, generated Go, help, docs and completions from one declaration.
+      **And a parse now says so**, which is the half that actually moves anybody
+      off an old spelling: a deprecated flag that was given, a deprecated command
+      that was selected, and a value that arrived through a `deprecated_env`
+      alias each come back as a structured warning from usage-argv and usage-lib
+      alike — reported rather than printed, per the rule config resolution
+      already follows, with `parse()` rendering them to stderr because it is the
+      entry point that is the process. `deprecated_warn_at` gates it: the
+      comparison rule for versions is written down in `docs/spec/argv.md` and a
+      conformance test holds both implementations to it. Generated Go and corpus
+      vectors are the follow-up; a positional still cannot be deprecated at all,
+      since the spec has `deprecated` on a flag and a command and not on an
+      `arg`.
 - [x] **Ordered environment fallbacks and deprecated aliases** — explicit
       full-name deprecated env aliases (clap#5447) stay greppable, while
       clap#5925's fallback across several env names preserves declaration

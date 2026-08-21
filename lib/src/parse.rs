@@ -13,6 +13,7 @@ use crate::docs;
 use crate::error::UsageErr;
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::unknown_flags::UnknownFlags;
+use crate::warn::Warning;
 use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag};
 
 /// Merge a subcommand's flags into the currently available flags when descending
@@ -280,6 +281,10 @@ pub struct ParseOutput {
     pub available_flags: BTreeMap<String, Arc<SpecFlag>>,
     pub flag_awaiting_value: Vec<Arc<SpecFlag>>,
     pub errors: Vec<UsageErr>,
+    /// Deprecated declarations this command line used, for the caller to render when its
+    /// logging is up. Empty from [`parse_partial`]: a half-typed line being completed has
+    /// not used anything yet.
+    pub warnings: Vec<Warning>,
     /// The positional argument the next word would have filled, i.e. where the parser's
     /// cursor stopped. `None` once every argument is satisfied.
     ///
@@ -337,6 +342,99 @@ pub enum ParseValue {
     String(String),
     MultiBool(Vec<bool>),
     MultiString(Vec<String>),
+}
+
+/// The deprecated declarations argv itself named: the commands it descended through, and the
+/// flags it bound.
+///
+/// Called before the environment and defaults have filled anything, because afterwards nothing
+/// distinguishes a flag the user typed from one a variable supplied — and the two are reported
+/// differently, at the point where each is applied.
+///
+/// The root is skipped. A `deprecated` root would otherwise warn on every invocation of the CLI,
+/// including `--help`, and the compiled parser reports selected commands rather than the one the
+/// process already is.
+fn collect_deprecations(out: &mut ParseOutput) {
+    for cmd in out.cmds.iter().skip(1) {
+        if cmd.deprecated.is_none()
+            && cmd.deprecated_warn_at.is_none()
+            && cmd.deprecated_remove_at.is_none()
+        {
+            continue;
+        }
+        out.warnings.push(Warning::command(
+            cmd.name.clone(),
+            cmd.deprecated.clone(),
+            cmd.deprecated_warn_at.clone(),
+            cmd.deprecated_remove_at.clone(),
+        ));
+    }
+    for flag in out.flags.keys() {
+        if let Some(warning) = flag_deprecation(flag) {
+            out.warnings.push(warning);
+        }
+    }
+}
+
+/// A warning for a flag that was used, if its declaration is deprecated at all.
+fn flag_deprecation(flag: &SpecFlag) -> Option<Warning> {
+    if flag.deprecated.is_none()
+        && flag.deprecated_warn_at.is_none()
+        && flag.deprecated_remove_at.is_none()
+    {
+        return None;
+    }
+    Some(Warning::flag(
+        flag_spelling(flag),
+        flag.deprecated.clone(),
+        flag.deprecated_warn_at.clone(),
+        flag.deprecated_remove_at.clone(),
+    ))
+}
+
+/// A flag named the way the user names it. The spec's name for it has no dashes, and a warning
+/// about `old-flag` would be about a word nobody typed.
+fn flag_spelling(flag: &SpecFlag) -> String {
+    flag.long
+        .first()
+        .map(|long| format!("--{long}"))
+        .or_else(|| flag.short.first().map(|short| format!("-{short}")))
+        .unwrap_or_else(|| flag.name.clone())
+}
+
+/// The name this flag reads first, which is what to use instead of a deprecated alias.
+fn flag_current_env(flag: &SpecFlag) -> Option<String> {
+    flag.env
+        .clone()
+        .or_else(|| flag.env_fallback.first().cloned())
+}
+
+fn flag_env_is_deprecated(flag: &SpecFlag, name: &str) -> bool {
+    flag.deprecated_env.iter().any(|declared| declared == name)
+}
+
+/// The same two questions for a positional, which has aliases but no `deprecated` of its own.
+fn arg_current_env(arg: &SpecArg) -> Option<String> {
+    arg.env
+        .clone()
+        .or_else(|| arg.env_fallback.first().cloned())
+}
+
+fn arg_env_is_deprecated(arg: &SpecArg, name: &str) -> bool {
+    arg.deprecated_env.iter().any(|declared| declared == name)
+}
+
+/// The first of `names` that is set, and which one it was.
+///
+/// `env_names()` yields the current name, then the declared fallbacks, then the deprecated
+/// aliases, so the winner's identity is what says whether a value arrived through an alias.
+/// Deciding that a second time, from the outside, would be a copy of this precedence rule free to
+/// disagree with it.
+fn first_set_env<'a>(
+    mut names: impl Iterator<Item = &'a str>,
+    get_env: &impl Fn(&str) -> Option<String>,
+) -> Option<(&'a str, String)> {
+    names.find_map(|name| get_env(name).map(|value| (name, value)))
 }
 
 /// Builder for parsing command-line arguments with custom options.
@@ -436,6 +534,11 @@ impl<'a> Parser<'a> {
             .into());
         }
 
+        // Before the environment and defaults have their turn, because both mark a field as
+        // filled and only argv can be reported as something the user typed. Env is reported
+        // where it is applied, below; a default is nobody's request and reports nothing.
+        collect_deprecations(&mut out);
+
         let get_env = |key: &str| -> Option<String> {
             if let Some(env_map) = custom_env {
                 env_map.get(key).cloned()
@@ -452,7 +555,11 @@ impl<'a> Parser<'a> {
             if out.args.contains_key(arg) {
                 continue;
             }
-            if let Some(env_value) = arg.env_names().find_map(&get_env) {
+            if let Some((env_name, env_value)) = first_set_env(arg.env_names(), &get_env) {
+                if arg_env_is_deprecated(arg, env_name) {
+                    out.warnings
+                        .push(Warning::env(env_name, arg_current_env(arg)));
+                }
                 let values = split_fallback_values(std::slice::from_ref(&env_value), arg.delimiter);
                 validate_choice_values(
                     ChoiceTarget::arg(arg),
@@ -508,7 +615,17 @@ impl<'a> Parser<'a> {
             if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
                 continue;
             }
-            if let Some(env_value) = flag.env_names().find_map(&get_env) {
+            if let Some((env_name, env_value)) = first_set_env(flag.env_names(), &get_env) {
+                // The flag's own deprecation before the alias's, which is the order the
+                // compiled parser reports them in: it walks a command's flags and then its
+                // aliases. Using a deprecated flag through a variable is still using it.
+                if let Some(warning) = flag_deprecation(flag) {
+                    out.warnings.push(warning);
+                }
+                if flag_env_is_deprecated(flag, env_name) {
+                    out.warnings
+                        .push(Warning::env(env_name, flag_current_env(flag)));
+                }
                 if let Some(arg) = flag.arg.as_ref() {
                     let values =
                         split_fallback_values(std::slice::from_ref(&env_value), arg.delimiter);
@@ -609,6 +726,9 @@ impl<'a> Parser<'a> {
         if !out.errors.is_empty() {
             bail!("{}", out.errors.iter().map(|e| e.to_string()).join("\n"));
         }
+        // Applied once, here, because this is where the CLI's own version is known: a
+        // `deprecated_warn_at` the spec has not reached yet is an author saying *not yet*.
+        crate::warn::retain_reached(&mut out.warnings, self.spec.version.as_deref());
         Ok(out)
     }
 }
@@ -707,6 +827,7 @@ fn parse_partial_with_env(
         available_flags: gather_flags(&spec.cmd),
         flag_awaiting_value: vec![],
         errors: vec![],
+        warnings: vec![],
         next_arg: None,
         double_dash_seen: false,
         external: None,
@@ -7526,6 +7647,83 @@ cmd "run" {
         let parsed =
             parse_with_env(&spec, &["test"], &[("DEPRECATED_NAME", "deprecated")]).unwrap();
         assert_eq!(first_string_value(&parsed), "deprecated");
+    }
+
+    #[test]
+    fn a_value_from_a_deprecated_alias_says_which_name_to_use() {
+        let spec = spec_with_flag(
+            SpecFlag::builder()
+                .long("name")
+                .env("NAME")
+                .deprecated_env("DEPRECATED_NAME")
+                .arg(SpecArg::builder().name("name").build())
+                .build(),
+        );
+
+        // The current name is not a deprecated one, and says nothing.
+        let parsed = parse_with_env(&spec, &["test"], &[("NAME", "canonical")]).unwrap();
+        assert!(parsed.warnings.is_empty(), "{:?}", parsed.warnings);
+
+        let parsed =
+            parse_with_env(&spec, &["test"], &[("DEPRECATED_NAME", "deprecated")]).unwrap();
+        assert_eq!(parsed.warnings.len(), 1, "{:?}", parsed.warnings);
+        assert_eq!(
+            parsed.warnings[0].kind,
+            crate::warn::WarningKind::DeprecatedEnv
+        );
+        assert_eq!(parsed.warnings[0].name, "DEPRECATED_NAME");
+        assert_eq!(parsed.warnings[0].replacement.as_deref(), Some("NAME"));
+        // Reported, not printed, and the value still arrives.
+        assert_eq!(first_string_value(&parsed), "deprecated");
+    }
+
+    #[test]
+    fn a_deprecated_flag_reports_only_when_it_was_used() {
+        let spec = spec_with_flag(
+            SpecFlag::builder()
+                .long("output")
+                .deprecated("use --out")
+                .deprecated_remove_at("3.0.0")
+                .arg(SpecArg::builder().name("output").build())
+                .build(),
+        );
+
+        let parsed = parse_with_env(&spec, &["test"], &[]).unwrap();
+        assert!(parsed.warnings.is_empty(), "{:?}", parsed.warnings);
+
+        let parsed = parse_with_env(&spec, &["test", "--output", "a.txt"], &[]).unwrap();
+        assert_eq!(parsed.warnings.len(), 1, "{:?}", parsed.warnings);
+        assert_eq!(
+            parsed.warnings[0].kind,
+            crate::warn::WarningKind::DeprecatedFlag
+        );
+        // Named the way it was typed, dashes and all.
+        assert_eq!(parsed.warnings[0].name, "--output");
+        assert_eq!(parsed.warnings[0].remove_at.as_deref(), Some("3.0.0"));
+        assert_eq!(
+            parsed.warnings[0].render(),
+            "warning: --output is deprecated, removed at 3.0.0: use --out\n",
+        );
+    }
+
+    #[test]
+    fn a_milestone_the_spec_has_not_reached_stays_quiet() {
+        let flag = SpecFlag::builder()
+            .long("output")
+            .deprecated("use --out")
+            .deprecated_warn_at("9.0.0")
+            .arg(SpecArg::builder().name("output").build())
+            .build();
+        let mut spec = spec_with_flag(flag);
+        spec.version = Some("2.0.0".to_string());
+
+        let parsed = parse_with_env(&spec, &["test", "--output", "a.txt"], &[]).unwrap();
+        assert!(parsed.warnings.is_empty(), "{:?}", parsed.warnings);
+
+        // And once the CLI is the release that was named, it speaks up.
+        spec.version = Some("9.0.0".to_string());
+        let parsed = parse_with_env(&spec, &["test", "--output", "a.txt"], &[]).unwrap();
+        assert_eq!(parsed.warnings.len(), 1, "{:?}", parsed.warnings);
     }
 
     #[test]

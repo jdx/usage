@@ -15,6 +15,7 @@ pub use crate::spec::mount::SpecMount;
 pub use crate::spec::unknown_flags::UnknownFlags;
 pub use crate::spec::view::SpecView;
 pub use crate::spec::Spec;
+pub use crate::warn::{Warning, WarningKind};
 
 #[macro_use]
 #[allow(unused_assignments)] // Fields in struct variants are read by derive macros
@@ -34,3 +35,4 @@ pub mod sh;
 pub(crate) mod string;
 #[cfg(test)]
 mod test;
+pub mod warn;

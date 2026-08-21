@@ -71,7 +71,10 @@ jobs: Option<u32>,
 | `global`                                                | Usable on any subcommand below this one                                                 |
 | `env = "X"`                                             | Read the value from `X` when argv does not supply it                                    |
 | `env_fallback("A", "B")`                                | Try additional environment variables in declaration order                               |
-| `deprecated_env("OLD_X")`                               | Try deprecated aliases last and label them in generated help/docs                       |
+| `deprecated_env("OLD_X")`                               | Try deprecated aliases last, and report the one that supplied a value                   |
+| `deprecated = "…"`                                      | Still works, should not be used; reported when given                                    |
+| `deprecated_warn_at = "…"`                              | Withhold that warning until this build's version reaches the release                    |
+| `deprecated_remove_at = "…"`                            | The release it goes away in, which the warning mentions                                 |
 | `var` / `variadic`                                      | Repeatable / greedy multi-value (see above)                                             |
 | `var_min = n` / `var_max = n`                           | Bounds on how many values a `Vec` may hold                                              |
 | `num_args = n` / `num_args = a..=b`                     | clap-compatible spelling for exact or ranged `Vec` cardinality                          |
