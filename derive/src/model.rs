@@ -154,6 +154,13 @@ pub struct Cli {
     pub before_long_help: Option<proc_macro2::TokenStream>,
     pub after_help: Option<proc_macro2::TokenStream>,
     pub after_long_help: Option<proc_macro2::TokenStream>,
+    /// Worked invocations, shown on the help page and emitted into the spec.
+    ///
+    /// A KDL spec has said `example` since before this derive existed, and the metadata
+    /// tables and help renderer have carried them the whole time; a typed CLI simply had
+    /// no way to declare one, so every example in the fleet lives as prose inside
+    /// `after_long_help` where nothing can read it — or check it.
+    pub examples: Vec<ExampleDecl>,
     /// The word that starts another invocation of the same command: mise's `:::`.
     pub restart_token: Option<String>,
     /// A command to run for subcommands discovered at completion time.
@@ -698,6 +705,7 @@ impl Cli {
             before_long_help: None,
             after_help: None,
             after_long_help: None,
+            examples: Vec::new(),
             restart_token: None,
             mount: None,
             groups: Vec::new(),
@@ -917,6 +925,7 @@ impl Cli {
                     "restart_token" => cli.restart_token = Some(string_value(&meta)?),
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
+                    "example" => cli.examples.push(example_decl(&meta)?),
                     "view" => {
                         let view = view_decl(&meta)?;
                         if cli.views.iter().any(|declared| declared.id == view.id) {
@@ -954,7 +963,7 @@ impl Cli {
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `term_width`, `max_term_width`, \
-                                 `subcommand_value_name`, `restart_token`, `mount` and \
+                                 `subcommand_value_name`, `restart_token`, `mount`, `example` and \
                                  `group` and `view` here, and the description comes from the doc \
                                  comment"
                             ),
@@ -3734,6 +3743,67 @@ fn program_basename(program: &str) -> &str {
 
 /// `view("aubr", root = "run", globals)` promotes `run` to the executable surface
 /// named `aubr`. `global = "--flag"` may be repeated instead of carrying all globals.
+/// One worked invocation, as `example = "mycli deploy -e prod"` or, when it needs more
+/// than the line itself, `example("mycli deploy -e prod", header = "Basic deployment",
+/// help = "Deploy to production")`.
+///
+/// The three fields are the spec's, minus `lang`: a typed declaration is Rust, so the
+/// example is a command line and there is nothing for a highlighting hint to choose
+/// between. Each part keeps its tokens rather than its text, so a constant or `concat!`
+/// can be the source of truth here as it already can for `after_help`.
+pub struct ExampleDecl {
+    pub code: proc_macro2::TokenStream,
+    pub header: Option<proc_macro2::TokenStream>,
+    pub help: Option<proc_macro2::TokenStream>,
+}
+
+fn example_decl(meta: &Meta) -> syn::Result<ExampleDecl> {
+    match meta {
+        Meta::NameValue(_) => Ok(ExampleDecl {
+            code: metadata_expr(meta)?,
+            header: None,
+            help: None,
+        }),
+        Meta::List(list) => list.parse_args_with(|input: syn::parse::ParseStream| {
+            let code: Expr = input.parse()?;
+            let mut example = ExampleDecl {
+                code: quote::ToTokens::to_token_stream(&code),
+                header: None,
+                help: None,
+            };
+            while !input.is_empty() {
+                input.parse::<syn::Token![,]>()?;
+                if input.is_empty() {
+                    break;
+                }
+                let property: syn::Ident = input.parse()?;
+                input.parse::<syn::Token![=]>()?;
+                let value: Expr = input.parse()?;
+                let value = quote::ToTokens::to_token_stream(&value);
+                match property.to_string().as_str() {
+                    "header" => example.header = Some(value),
+                    "help" => example.help = Some(value),
+                    other => {
+                        return Err(syn::Error::new_spanned(
+                            property,
+                            format!(
+                                "unknown example property `{other}`; an example takes \
+                                 `header` and `help` after the command line"
+                            ),
+                        ));
+                    }
+                }
+            }
+            Ok(example)
+        }),
+        Meta::Path(_) => Err(syn::Error::new_spanned(
+            meta,
+            "an example is declared as `example = \"mycli deploy\"`, with \
+             `example(\"mycli deploy\", header = \"…\", help = \"…\")` when it needs more",
+        )),
+    }
+}
+
 fn view_decl(meta: &Meta) -> syn::Result<ViewDecl> {
     let Meta::List(list) = meta else {
         return Err(syn::Error::new_spanned(
@@ -4485,6 +4555,9 @@ pub struct Variant {
     pub before_long_help: Option<proc_macro2::TokenStream>,
     pub after_help: Option<proc_macro2::TokenStream>,
     pub after_long_help: Option<proc_macro2::TokenStream>,
+    /// Declared on the variant, which is where the command is. Left empty, the held
+    /// `Args` type's own examples stand — the same inheritance `after_help` has.
+    pub examples: Vec<ExampleDecl>,
 }
 
 impl Subcommands {
@@ -4608,6 +4681,7 @@ impl Variant {
         let mut before_long_help = None;
         let mut after_help = None;
         let mut after_long_help = None;
+        let mut examples: Vec<ExampleDecl> = Vec::new();
 
         for attr in attrs(&variant.attrs) {
             let clap_attr = attr.path().is_ident("command");
@@ -4644,6 +4718,7 @@ impl Variant {
                     "before_long_help" => before_long_help = Some(metadata_expr(&meta)?),
                     "after_help" => after_help = Some(metadata_expr(&meta)?),
                     "after_long_help" => after_long_help = Some(metadata_expr(&meta)?),
+                    "example" => examples.push(example_decl(&meta)?),
                     "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
@@ -4652,7 +4727,7 @@ impl Variant {
                                 "unknown option `{other}` on a variant; a subcommand \
                                  variant takes `name`, `alias`, `alias_hidden`, `help_heading`, `display_order`, \
                                  `external_subcommand`, `help`, `long_help`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `before_help`, \
-                                 `before_long_help`, `after_help`, `after_long_help`, and `verbatim_doc_comment` here, \
+                                 `before_long_help`, `after_help`, `after_long_help`, `example`, and `verbatim_doc_comment` here, \
                                  and its description comes from the doc comment"
                             ),
                         ));
@@ -4713,6 +4788,7 @@ impl Variant {
                 || before_long_help.is_some()
                 || after_help.is_some()
                 || after_long_help.is_some()
+                || !examples.is_empty()
             {
                 return Err(syn::Error::new_spanned(
                     &variant.ident,
@@ -4776,6 +4852,7 @@ impl Variant {
                 before_long_help: None,
                 after_help: None,
                 after_long_help: None,
+                examples: Vec::new(),
             });
         }
 
@@ -4845,6 +4922,7 @@ impl Variant {
             before_long_help,
             after_help,
             after_long_help,
+            examples,
         })
     }
 }

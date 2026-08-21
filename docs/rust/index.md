@@ -147,8 +147,6 @@ See [Spec output](/rust/spec) for the round-trip guarantees and what the emitted
 The framework intentionally targets standard GNU-style CLIs, and a few clap features have no
 equivalent yet:
 
-- `example` nodes exist in the spec format but cannot be declared from the derive — put an
-  Examples section in `after_long_help` instead (mise does this).
 - A declared `value_optional` needs either `default_missing` or an
   `Option<Option<T>>` field to define what a bare flag binds.
 - Rust `value_parser` functions are not portable metadata. Values use `FromStr`; use

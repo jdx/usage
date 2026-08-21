@@ -118,9 +118,9 @@ help pages through both.
 
 ## What can't be expressed from the derive
 
-A few spec nodes have no derive attribute yet:
+Nothing, as of `example`: every node the spec format defines now has a derive attribute. That is
+the rule this project holds itself to — a typed declaration must lower into the spec losslessly,
+and where it cannot, the derive gains the vocabulary rather than the spec losing it.
 
-- `example` nodes — declare examples in `after_long_help` instead
-
-If you need these today, maintain a KDL spec alongside the derive or generate docs from a
-post-processed spec.
+The one property that does not carry over is an example's `lang`, which picks syntax
+highlighting for a KDL-authored example and has nothing to choose between in Rust.
