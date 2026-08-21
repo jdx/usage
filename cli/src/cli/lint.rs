@@ -783,30 +783,34 @@ fn collect_mount_answers(cmd: &SpecCommand, answers: &mut HashMap<String, String
 /// up to the first word that selects a subcommand. Help has no such limit — the parser
 /// supplies it on every command.
 fn prints_and_exits(spec: &Spec, words: &[String]) -> bool {
-    let mut spellings: Vec<String> = Vec::new();
-    if spec.disable_help != Some(true) {
-        spellings.extend(["--help".into(), "-h".into(), "-?".into(), "help".into()]);
-    }
-    collect_printing_flags(&spec.cmd, &mut spellings);
-
     // Skipping argv[0]: a program named `help` is not a request for it.
     let words = &words[1..];
-    fn named(word: &str) -> &str {
-        word.split_once('=').map_or(word, |(name, _)| name)
-    }
-    if words
-        .iter()
-        .any(|word| spellings.iter().any(|spelling| spelling == named(word)))
-    {
+
+    // A declared flag has its attached value split off before the parser looks the flag
+    // up, so `--info=anything` still performs the action `--info` names.
+    let mut declared: Vec<String> = Vec::new();
+    collect_printing_flags(&spec.cmd, &mut declared);
+    if words.iter().any(|word| {
+        let name = word.split_once('=').map_or(word.as_str(), |(name, _)| name);
+        declared.iter().any(|spelling| spelling == name)
+    }) {
         return true;
     }
 
-    (spec.version.is_some() || spec.long_version.is_some())
+    // The supplied spellings are compared whole, because that is how the parser compares
+    // them: nothing declares them, so nothing splits a value off first, and
+    // `--help=bad` is an unknown word rather than a request for help.
+    let asks_for_help = spec.disable_help != Some(true)
+        && words
+            .iter()
+            .any(|word| matches!(word.as_str(), "--help" | "-h" | "-?" | "help"));
+    let asks_for_a_version = (spec.version.is_some() || spec.long_version.is_some())
         && !spec.cmd.disable_version_flag
         && words
             .iter()
             .take_while(|word| spec.cmd.find_subcommand(word).is_none())
-            .any(|word| matches!(named(word), "--version" | "-V"))
+            .any(|word| matches!(word.as_str(), "--version" | "-V"));
+    asks_for_help || asks_for_a_version
 }
 
 fn collect_printing_flags(cmd: &SpecCommand, spellings: &mut Vec<String>) {
@@ -1236,6 +1240,36 @@ cmd "tasks" help="tasks" {
         );
         assert_eq!(issues.len(), 1, "{issues:?}");
         assert_eq!(issues[0].code, "example-not-checked");
+
+        // A value attached to a supplied spelling is not one of these. The parser
+        // compares the whole token, because nothing declares `--help` and so nothing
+        // splits a value off it first — `--help=bad` is an unknown word.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+example "demo --help=bad"
+example "demo --version=bad"
+example "demo -V=bad"
+"#,
+        );
+        assert_eq!(issues.len(), 3, "{issues:?}");
+
+        // A declared flag is the other way round: its attached value is split off before
+        // the lookup, so the action still fires.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+flag "--info" action="help" help="info"
+flag "--ver" action="version" help="ver"
+example "demo --info=bad"
+example "demo --ver=bad"
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
 
         // Asking for help is answered by the command itself, so what the mount would
         // have added cannot change it. Reporting these as unchecked would put a notice
