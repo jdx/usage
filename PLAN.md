@@ -1381,10 +1381,12 @@ above are where it lands.
       accepting unknown values. Strict validation remains the default. mise's
       tool names are this exact shape: a registry to offer, arbitrary backends
       still legal.
-- [ ] **Completion through shell aliases** (clap#1764, stalled since 2020).
-      The runtime already ignores argv0, but registration differs by shell; define whether usage
-      should discover aliases, install a default completion handler, or expose an explicit alias
-      registration API before changing every generated script.
+- [x] **Completion through shell aliases** (clap#1764, stalled since 2020).
+      This is an explicit registration API rather than shell-specific alias discovery:
+      `completion_script_for_alias("m", shell)` registers `m` while invoking the real binary
+      for answers. The lower-level `script_for` and embedded `App` API expose the same split.
+      Generated scripts therefore do not depend on interactive alias expansion or add work to
+      ordinary parsing.
 - [x] **Multi-segment path completion** (clap#5279). The shared runtime resolves the
       typed parent path and preserves every segment in the candidate, so
       `target/de/inc` completes to `target/debug/incremental/`; an end-to-end regression
