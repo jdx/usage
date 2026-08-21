@@ -56,6 +56,9 @@ That is the whole install: derives, the argv runtime, help, and clap-shaped erro
 defaults. The alias is supported directly — the derive resolves its runtime through the package
 name, so depending on `usage-rs` under any name works.
 
+Nothing third-party links into your binary — the only non-usage crates in the graph are the
+derive's compiler, which runs at build time ([comparison with clap](/rust/migrating-from-clap#dependencies)).
+
 `usage-rs` is a facade. Applications should depend on it alone. The split underneath stays
 available for low-level adopters that want a thinner surface:
 
@@ -65,6 +68,7 @@ available for low-level adopters that want a thinner surface:
 | `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`                           |
 | `usage-argv`   | The zero-allocation, zero-dependency runtime the derive emits code against             |
 | `usage-test`   | Test helpers: what a command line parses to, what a page says, what a shell is offered |
+| `usage-config` | Layered settings resolution with provenance ([Settings](/rust/settings))               |
 
 ### Cargo features
 
@@ -75,6 +79,7 @@ available for low-level adopters that want a thinner surface:
 | `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`                                                                  |
 | `completions` |         | Shell completion scripts and the runtime completion protocol                                                      |
 | `test`        |         | `usage::test`: parse and help assertions (a dev-dependency feature; completion assertions want `completions` too) |
+| `config`      |         | The `usage::Config` derive and the resolver as `usage::config` ([Settings](/rust/settings))                       |
 
 `#[usage(completion)]` without the `completions` feature is a deliberate `compile_error!` that
 tells you which feature to add. To drop diagnostics (or help) from a binary that does not want
@@ -159,15 +164,19 @@ how to opt out of the endpoint.
 
 ## Where to go next
 
+- [Quickstart](/rust/quickstart) — a small CLI from declaration to generated docs, end to end
 - [Args and flags](/rust/args-and-flags) — field types, attributes, env vars, defaults
 - [Subcommands](/rust/subcommands) — command enums, nesting, `flatten`, value enums
 - [Dispatch](/rust/dispatch) — `Run`, `RunWith`, the async pair, and the generated `match`
 - [Validation](/rust/validation) — choices, groups, `exclusive`, `delimiter`, conflicts
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
 - [Completions](/rust/completions) — static scripts and runtime completion
+- [Settings](/rust/settings) — settings declared in code: `usage::Config` and layered resolution
+- [Testing](/rust/testing) — assert parses, help pages, and completions with no process spawned
 - [Spec output](/rust/spec) — the emitted KDL and usage-cli integration
 - [Migrating from clap](/rust/migrating-from-clap) — mechanical rewrites and intentional API breaks
 - [clap compatibility](/rust/clap-compatibility) — supported behavior, bridge losses, and non-goals
+- [Performance](/rust/performance) — what a parse costs, measured at mise's scale
 
 ## Current limitations
 
@@ -180,6 +189,10 @@ equivalent yet:
   `validate` for a portable expression rule and `validate_error` for its diagnostic.
 - Long flags and subcommands require exact spellings. Diagnostics can suggest a close match, but
   usage does not accept prefixes whose meaning could change when another declaration is added.
+- Completion scripts cover bash, fish, Nushell, PowerShell, and zsh. Elvish is not supported; a
+  clap application publishing an Elvish script must keep `clap_complete` for that one artifact.
+- `help_template` has no equivalent yet; see the
+  [compatibility matrix](/rust/clap-compatibility) for the full audited list.
 - On Unix, `PathBuf` and `OsString` fields accept non-UTF-8 argv without changing a byte. String
   fields still report invalid UTF-8 precisely rather than replacing it; on Windows, values that
   cannot be converted safely are reported instead of using an unchecked reconstruction.

@@ -25,6 +25,17 @@ During a prerelease migration, pin every producer and consumer to one revision. 
 the `usage-rs` dependency that emits KDL and any installed `usage-cli` that renders that KDL must
 use the same 6.x revision. A 5.x CLI reading a 6.x spec is unsupported.
 
+The migration also shrinks the dependency graph (`cargo tree` on a minimal binary, clap 4.6.6
+with `derive` against the defaults plus `completions`):
+
+|                                              | clap | usage |
+| -------------------------------------------- | ---: | ----: |
+| third-party crates compiled into your binary |    8 |     0 |
+
+The whole graph is 17 crates against 7: usage's four non-usage crates — proc-macro2, quote, syn,
+unicode-ident — are build-time only and already compiled by any project using serde's derive or
+clap_derive itself. The opt-in `validation` feature is the exception; it adds `expr-lang`.
+
 ## Derive mapping
 
 | clap                    | usage                                                   |

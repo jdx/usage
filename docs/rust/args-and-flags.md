@@ -58,57 +58,93 @@ required-ness is declared rather than inferred: `#[usage(arg, required)]`.
 jobs: Option<u32>,
 ```
 
-| Attribute                                               | Effect                                                                                  |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `long` / `long = "name"`                                | `--name` flag (defaults to the kebab-cased field name)                                  |
-| `short` / `short = 'x'`                                 | `-x` flag (defaults to the field name's first letter)                                   |
-| `name = "…"`                                            | Override the arg/flag name used in help and the spec                                    |
-| `arg`                                                   | Force the field to be a positional argument                                             |
-| `env = "VAR"`                                           | Fall back to this environment variable when the flag/arg wasn't given                   |
-| `default = "…"`                                         | Fall back to this value (repeatable for `Vec` fields)                                   |
-| `negate = "--no-x"`                                     | A negation flag that sets a `bool` back to false                                        |
-| `count`                                                 | Count occurrences into an integer field                                                 |
-| `global`                                                | Usable on any subcommand below this one                                                 |
-| `env = "X"`                                             | Read the value from `X` when argv does not supply it                                    |
-| `env_fallback("A", "B")`                                | Try additional environment variables in declaration order                               |
-| `deprecated_env("OLD_X")`                               | Try deprecated aliases last, and report the one that supplied a value                   |
-| `deprecated = "…"`                                      | Still works, should not be used; reported when given                                    |
-| `deprecated_warn_at = "…"`                              | Withhold that warning until this build's version reaches the release                    |
-| `deprecated_remove_at = "…"`                            | The release it goes away in, which the warning mentions                                 |
-| `var` / `variadic`                                      | Repeatable / greedy multi-value (see above)                                             |
-| `var_min = n` / `var_max = n`                           | Bounds on how many values a `Vec` may hold                                              |
-| `num_args = n` / `num_args = a..=b`                     | clap-compatible spelling for exact or ranged `Vec` cardinality                          |
-| `choices("a", "b")`                                     | Restrict values to a fixed set                                                          |
-| `choices_strict = false`                                | Keep choices as suggestions while accepting other values                                |
-| `value_enum`                                            | Take choices from a `#[derive(ValueEnum)]` type                                         |
-| `delimiter = ','`                                       | Split one word into several values ([Validation](/rust/validation#delimiters))          |
-| `allow_hyphen_values`                                   | Detached flag value may look like a flag, including `--`                                |
-| `allow_negative_numbers`                                | Accept negative numeric tokens without accepting every dash-prefixed word               |
-| `value_terminator = ";"`                                | End a variadic field at this token without storing the token                            |
-| `require_equals`                                        | Accept `--flag=value` and refuse `--flag value`                                         |
-| `bool_value`                                            | Let a boolean long flag accept attached `=true` or `=false`                             |
-| `default_missing = "…"`                                 | Value when the flag is given with none (`--color` vs `--color=never`)                   |
-| `default_if("--json", "true")`                          | Default when another flag is given (two args = present, three = equals)                 |
-| `group = "name"`                                        | Join a flag group ([Validation](/rust/validation#groups))                               |
-| `exclusive`                                             | Must be given alone ([Validation](/rust/validation#exclusive-flags))                    |
-| `conflicts(…)` / `requires(…)`                          | Relations to other flags ([Validation](/rust/validation))                               |
-| `overrides(…)`                                          | Later occurrence silently overrides the named flag                                      |
-| `required_if(…)`, `required_if_eq…`, `required_unless…` | Conditional required-ness with single, any, and all forms                               |
-| `complete = my_fn`                                      | Custom completion function ([Completions](/rust/completions))                           |
-| `value_hint = ValueHint::FilePath`                      | Ask the shell for path completion (see below)                                           |
-| `value_name = "…"`                                      | The placeholder shown in help (`--file <PATH>`)                                         |
-| `value_names = ["A", "B"]`                              | Distinct placeholders for a fixed multi-value field                                     |
-| `help = "…"` / `long_help = "…"`                        | Help text (doc comments are usually nicer)                                              |
-| `help_heading = "…"`                                    | Group the entry under a heading in help output                                          |
-| `display_order = n`                                     | Explicit help order; positional parsing still follows declaration order                 |
-| `hide`                                                  | Omit from help, docs, and completions                                                   |
-| `required`                                              | Explicit required-ness (for `Vec` fields)                                               |
-| `value_optional`                                        | Mark the value optional in help (help-only; the parser still wants one)                 |
-| `double_dash = "…"`                                     | `"optional"`, `"required"`, `"preserve"`, or `"automatic"` `--` handling                |
-| `effect = "…"`                                          | `"read"`, `"write"`, or `"destructive"` — see [command effects](/spec/#command-effects) |
-| `setting = "key"`                                       | Bind to a config setting (generates `parse_from_with_settings`)                         |
-| `verbatim_doc_comment`                                  | Keep the doc comment's line breaks in help                                              |
-| `skip`                                                  | Not an argument; filled from `Default` when the struct is built                         |
+**Naming and shape** — what the field is called and what kind of argument it is:
+
+| Attribute                | Effect                                                          |
+| ------------------------ | --------------------------------------------------------------- |
+| `long` / `long = "name"` | `--name` flag (defaults to the kebab-cased field name)          |
+| `short` / `short = 'x'`  | `-x` flag (defaults to the field name's first letter)           |
+| `name = "…"`             | Override the arg/flag name used in help and the spec            |
+| `arg`                    | Force the field to be a positional argument                     |
+| `negate = "--no-x"`      | A negation flag that sets a `bool` back to false                |
+| `count`                  | Count occurrences into an integer field                         |
+| `global`                 | Usable on any subcommand below this one                         |
+| `required`               | Explicit required-ness (for `Vec` fields)                       |
+| `skip`                   | Not an argument; filled from `Default` when the struct is built |
+
+**Values and cardinality** — what a field accepts and how many:
+
+| Attribute                           | Effect                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------ |
+| `var` / `variadic`                  | Repeatable / greedy multi-value (see above)                                    |
+| `var_min = n` / `var_max = n`       | Bounds on how many values a `Vec` may hold                                     |
+| `num_args = n` / `num_args = a..=b` | clap-compatible spelling for exact or ranged `Vec` cardinality                 |
+| `choices("a", "b")`                 | Restrict values to a fixed set                                                 |
+| `choices_strict = false`            | Keep choices as suggestions while accepting other values                       |
+| `value_enum`                        | Take choices from a `#[derive(ValueEnum)]` type                                |
+| `delimiter = ','`                   | Split one word into several values ([Validation](/rust/validation#delimiters)) |
+| `value_terminator = ";"`            | End a variadic field at this token without storing the token                   |
+| `bool_value`                        | Let a boolean long flag accept attached `=true` or `=false`                    |
+| `value_optional`                    | Mark the value optional in help (help-only; the parser still wants one)        |
+
+**Env vars and defaults** — where a value comes from when argv has none:
+
+| Attribute                      | Effect                                                                           |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| `env = "X"` / `env`            | Read the value from `X` when argv does not supply it; bare `env` infers the name |
+| `env_fallback("A", "B")`       | Try additional environment variables in declaration order                        |
+| `deprecated_env("OLD_X")`      | Try deprecated aliases last, and report the one that supplied a value            |
+| `default = "…"`                | Fall back to this value (repeatable for `Vec` fields)                            |
+| `default_missing = "…"`        | Value when the flag is given with none (`--color` vs `--color=never`)            |
+| `default_if("--json", "true")` | Default when another flag is given (two args = present, three = equals)          |
+
+**Parsing behavior** — how tokens on the line are read:
+
+| Attribute                | Effect                                                                    |
+| ------------------------ | ------------------------------------------------------------------------- |
+| `allow_hyphen_values`    | Detached flag value may look like a flag, including `--`                  |
+| `allow_negative_numbers` | Accept negative numeric tokens without accepting every dash-prefixed word |
+| `require_equals`         | Accept `--flag=value` and refuse `--flag value`                           |
+| `double_dash = "…"`      | `"optional"`, `"required"`, `"preserve"`, or `"automatic"` `--` handling  |
+| `overrides(…)`           | Later occurrence silently overrides the named flag                        |
+
+**Relationships** — constraints between arguments, checked after parsing:
+
+| Attribute                                               | Effect                                                               |
+| ------------------------------------------------------- | -------------------------------------------------------------------- |
+| `conflicts(…)` / `requires(…)`                          | Relations to other flags ([Validation](/rust/validation))            |
+| `required_if(…)`, `required_if_eq…`, `required_unless…` | Conditional required-ness with single, any, and all forms            |
+| `group = "name"`                                        | Join a flag group ([Validation](/rust/validation#groups))            |
+| `exclusive`                                             | Must be given alone ([Validation](/rust/validation#exclusive-flags)) |
+
+**Deprecation** — a flag on its way out:
+
+| Attribute                    | Effect                                                               |
+| ---------------------------- | -------------------------------------------------------------------- |
+| `deprecated = "…"`           | Still works, should not be used; reported when given                 |
+| `deprecated_warn_at = "…"`   | Withhold that warning until this build's version reaches the release |
+| `deprecated_remove_at = "…"` | The release it goes away in, which the warning mentions              |
+
+**Help and presentation** — what the user reads:
+
+| Attribute                        | Effect                                                                  |
+| -------------------------------- | ----------------------------------------------------------------------- |
+| `help = "…"` / `long_help = "…"` | Help text (doc comments are usually nicer)                              |
+| `value_name = "…"`               | The placeholder shown in help (`--file <PATH>`)                         |
+| `value_names = ["A", "B"]`       | Distinct placeholders for a fixed multi-value field                     |
+| `help_heading = "…"`             | Group the entry under a heading in help output                          |
+| `display_order = n`              | Explicit help order; positional parsing still follows declaration order |
+| `hide`                           | Omit from help, docs, and completions                                   |
+| `verbatim_doc_comment`           | Keep the doc comment's line breaks in help                              |
+
+**Completion, effects, and settings**:
+
+| Attribute                          | Effect                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| `complete = my_fn`                 | Custom completion function ([Completions](/rust/completions))                           |
+| `value_hint = ValueHint::FilePath` | Ask the shell for path completion (see below)                                           |
+| `effect = "…"`                     | `"read"`, `"write"`, or `"destructive"` — see [command effects](/spec/#command-effects) |
+| `setting = "key"`                  | Bind to a config setting ([Settings](/rust/settings))                                   |
 
 ### Suggested values without strict validation
 
