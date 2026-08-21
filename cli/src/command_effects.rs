@@ -136,6 +136,28 @@ mod tests {
     }
 
     #[test]
+    fn installing_a_completion_script_is_a_write() {
+        // The same risk `every_generator_that_can_redirect_its_output_says_so` exists for, wearing
+        // a different name: `--install` takes the document off stdout and puts it on a path — one
+        // the command chooses rather than one the user named, which is if anything the sharper
+        // case. That test looks for a flag called `out-file`, so it cannot see this one.
+        let completion = find("generate completion").unwrap();
+        // The command itself still only reads, which is the composition rule doing its job.
+        assert_eq!(completion.effect, Some(Effect::Read));
+        let flag = |name: &str| {
+            completion
+                .flags
+                .iter()
+                .find(|f| f.flag.name == name)
+                .unwrap_or_else(|| panic!("generate completion has no --{name}"))
+        };
+        assert_eq!(flag("install").effect, Some(Effect::Write));
+        // `--force` only widens which file an install may replace, so it writes for the same
+        // reason rather than for one of its own.
+        assert_eq!(flag("force").effect, Some(Effect::Write));
+    }
+
+    #[test]
     fn a_required_output_flag_makes_the_command_write() {
         // `generate sdk` cannot print to stdout, so there is no read-only way
         // to invoke it and the effect belongs on the command.
