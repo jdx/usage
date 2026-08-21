@@ -978,3 +978,203 @@ mod actions {
         assert!(!help.contains("color: /"), "{help}");
     }
 }
+
+mod aliases_and_case {
+    use super::*;
+
+    #[derive(Clone, Debug, PartialEq, Eq, clap::ValueEnum)]
+    enum ClapMode {
+        #[value(alias = "quick")]
+        Fast,
+        Slow,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, usage_derive::ValueEnum)]
+    #[usage(ignore_case)]
+    enum UsageMode {
+        #[value(alias = "quick")]
+        Fast,
+        Slow,
+    }
+
+    #[derive(Debug, clap::Subcommand)]
+    enum ClapCommand {
+        #[command(visible_alias = "go", alias = "secret-run")]
+        Run,
+    }
+
+    #[derive(Debug, usage_derive::Subcommands)]
+    enum UsageCommand {
+        #[command(visible_alias = "go", alias = "secret-run")]
+        Run,
+    }
+
+    #[derive(Debug, clap::Parser)]
+    #[command(name = "micro")]
+    struct ClapCli {
+        #[arg(long, visible_alias = "out", alias = "secret-output")]
+        output: bool,
+        #[arg(long, value_enum, ignore_case = true)]
+        mode: Option<ClapMode>,
+        #[command(subcommand)]
+        command: Option<ClapCommand>,
+    }
+
+    #[derive(Debug, Cli)]
+    #[usage(bin = "micro", unknown_flags = "error")]
+    struct UsageCli {
+        #[arg(long, visible_alias = "out", alias = "secret-output")]
+        output: bool,
+        #[usage(long, value_enum)]
+        mode: Option<UsageMode>,
+        #[usage(subcommand)]
+        command: Option<UsageCommand>,
+    }
+
+    #[test]
+    fn visible_and_hidden_aliases_bind_the_same_values() {
+        for alias in ["--output", "--out", "--secret-output"] {
+            let clap = ClapCli::try_parse_from(["micro", alias]).unwrap();
+            let usage = UsageCli::parse_from(&[OsStr::new(alias)]).unwrap();
+            assert_eq!(usage.output, clap.output, "{alias}");
+        }
+
+        for alias in ["run", "go", "secret-run"] {
+            let clap = ClapCli::try_parse_from(["micro", alias]).unwrap();
+            let usage = UsageCli::parse_from(&[OsStr::new(alias)]).unwrap();
+            assert!(matches!(clap.command, Some(ClapCommand::Run)), "{alias}");
+            assert!(matches!(usage.command, Some(UsageCommand::Run)), "{alias}");
+        }
+
+        for value in ["FAST", "quick"] {
+            let clap = ClapCli::try_parse_from(["micro", "--mode", value]).unwrap();
+            let usage = UsageCli::parse_from(&[OsStr::new("--mode"), OsStr::new(value)]).unwrap();
+            assert!(matches!(clap.mode, Some(ClapMode::Fast)), "{value}");
+            assert!(matches!(usage.mode, Some(UsageMode::Fast)), "{value}");
+        }
+    }
+
+    #[test]
+    fn completion_advertises_only_visible_aliases() {
+        let line = "micro --";
+        let split =
+            usage_argv::complete::split(line, line.len(), usage_argv::complete::Shell::Bash);
+        let flags: std::collections::BTreeSet<_> =
+            usage_argv::complete::candidates(UsageCli::spec(), &split)
+                .into_iter()
+                .map(|candidate| candidate.value)
+                .collect();
+        assert!(flags.contains("--output"), "{flags:?}");
+        assert!(flags.contains("--out"), "{flags:?}");
+        assert!(!flags.contains("--secret-output"), "{flags:?}");
+
+        let line = "micro ";
+        let split =
+            usage_argv::complete::split(line, line.len(), usage_argv::complete::Shell::Bash);
+        let commands: std::collections::BTreeSet<_> =
+            usage_argv::complete::candidates(UsageCli::spec(), &split)
+                .into_iter()
+                .map(|candidate| candidate.value)
+                .collect();
+        assert!(commands.contains("run"), "{commands:?}");
+        assert!(commands.contains("go"), "{commands:?}");
+        assert!(!commands.contains("secret-run"), "{commands:?}");
+
+        let line = "micro --mode ";
+        let split =
+            usage_argv::complete::split(line, line.len(), usage_argv::complete::Shell::Bash);
+        let values: std::collections::BTreeSet<_> =
+            usage_argv::complete::candidates(UsageCli::spec(), &split)
+                .into_iter()
+                .map(|candidate| candidate.value)
+                .collect();
+        assert!(values.contains("fast"), "{values:?}");
+        assert!(!values.contains("quick"), "{values:?}");
+    }
+}
+
+mod help_metadata {
+    use super::*;
+
+    #[derive(Debug, clap::Subcommand)]
+    enum ClapCommand {
+        /// Run the task.
+        Run,
+        #[command(hide = true)]
+        Secret,
+    }
+
+    #[derive(Debug, usage_derive::Subcommands)]
+    enum UsageCommand {
+        /// Run the task.
+        Run,
+        #[command(hide = true)]
+        Secret,
+    }
+
+    #[derive(Debug, clap::Parser)]
+    #[command(
+        name = "micro",
+        next_line_help = true,
+        subcommand_help_heading = "Tasks",
+        subcommand_value_name = "ACTION"
+    )]
+    struct ClapCli {
+        /// Write JSON output.
+        #[arg(long, help_heading = "Output")]
+        json: bool,
+        #[arg(long, hide = true)]
+        secret: bool,
+        #[command(subcommand)]
+        command: Option<ClapCommand>,
+    }
+
+    #[derive(Debug, Cli)]
+    #[allow(dead_code)]
+    #[usage(
+        bin = "micro",
+        unknown_flags = "error",
+        next_line_help = true,
+        subcommand_help_heading = "Tasks",
+        subcommand_value_name = "ACTION"
+    )]
+    struct UsageCli {
+        /// Write JSON output.
+        #[arg(long, help_heading = "Output")]
+        json: bool,
+        #[arg(long, hide = true)]
+        secret: bool,
+        #[usage(subcommand)]
+        command: Option<UsageCommand>,
+    }
+
+    #[test]
+    fn help_preserves_sections_placeholders_and_visibility() {
+        let clap = ClapCli::command().render_long_help().to_string();
+        let usage =
+            usage_argv::help::render(UsageCli::spec(), UsageCli::spec().root.cmd, true).unwrap();
+
+        for help in [clap, usage] {
+            assert!(help.contains("ACTION"), "{help}");
+            assert!(help.contains("Tasks:"), "{help}");
+            assert!(help.contains("Output:"), "{help}");
+            assert!(help.contains("--json"), "{help}");
+            assert!(help.contains("Write JSON output"), "{help}");
+            assert!(help.contains("run"), "{help}");
+            assert!(!help.contains("--secret"), "{help}");
+            assert!(!help.contains("secret"), "{help}");
+
+            let lines = help.lines().collect::<Vec<_>>();
+            let flag = lines
+                .iter()
+                .position(|line| line.trim() == "--json")
+                .expect("the visible flag has its own line");
+            assert!(
+                lines
+                    .get(flag + 1)
+                    .is_some_and(|line| line.trim().starts_with("Write JSON output")),
+                "next_line_help must put the description immediately below the flag:\n{help}"
+            );
+        }
+    }
+}
