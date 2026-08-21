@@ -22,33 +22,33 @@ https://asdf\-vm.com/
 \fB\-C, \-\-cd\fR \fI<DIR>\fR
 Change directory before running command
 .TP
-\fB\-c, \-\-continue\-on\-error\fR
-Continue running tasks even if one fails
-.TP
-\fB\-n, \-\-dry\-run\fR
-Dry run, don't actually do anything
-.TP
 \fB\-E, \-\-env\fR \fI<ENV>\fR
 Set the environment for loading `mise.<ENV>.toml`
-.TP
-\fB\-f, \-\-force\fR
-Force the operation
-.TP
-\fB\-i, \-\-interleave\fR
-Set the log output verbosity
 .TP
 \fB\-j, \-\-jobs\fR \fI<JOBS>\fR
 How many jobs to run in parallel [default: 8]
 .TP
-\fB\-p, \-\-prefix\fR
-.TP
 \fB\-\-output\fR \fI<OUTPUT>\fR
 .TP
-\fB\-P, \-\-profile\fR \fI<PROFILE>\fR
-Set the profile (environment)
+\fB\-\-raw\fR
+Read/write directly to stdin/stdout/stderr instead of by line
 .TP
-\fB\-s, \-\-shell\fR \fI<SHELL>\fR
+\fB\-\-no\-config\fR
+Do not load any config files
+
+Can also use `MISE_NO_CONFIG=1`
 .TP
-\fB\-t, \-\-tool\fR \fI<TOOL@VERSION>\fR
-Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
+\fB\-y, \-\-yes\fR
+Answer yes to all confirmation prompts
 .TP
+\fB\-q, \-\-quiet\fR
+Suppress non\-error messages
+.TP
+\fB\-\-silent\fR
+Suppress all task output and mise non\-error messages
+.TP
+\fB\-v, \-\-verbose\fR
+Show extra output (use \-vv for even more)
+.SH ARGUMENTS
+.TP
+\fB<TASK>\fR

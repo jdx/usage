@@ -22,72 +22,30 @@ https://asdf\-vm.com/
 \fB\-C, \-\-cd\fR \fI<DIR>\fR
 Change directory before running command
 .TP
-\fB\-c, \-\-continue\-on\-error\fR
-Continue running tasks even if one fails
-.TP
-\fB\-n, \-\-dry\-run\fR
-Dry run, don't actually do anything
-.TP
 \fB\-E, \-\-env\fR \fI<ENV>\fR
 Set the environment for loading `mise.<ENV>.toml`
-.TP
-\fB\-f, \-\-force\fR
-Force the operation
-.TP
-\fB\-i, \-\-interleave\fR
-Set the log output verbosity
 .TP
 \fB\-j, \-\-jobs\fR \fI<JOBS>\fR
 How many jobs to run in parallel [default: 8]
 .TP
-\fB\-p, \-\-prefix\fR
-.TP
 \fB\-\-output\fR \fI<OUTPUT>\fR
-.TP
-\fB\-P, \-\-profile\fR \fI<PROFILE>\fR
-Set the profile (environment)
-.TP
-\fB\-s, \-\-shell\fR \fI<SHELL>\fR
-.TP
-\fB\-t, \-\-tool\fR \fI<TOOL@VERSION>\fR
-Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10
 .TP
 \fB\-\-raw\fR
 Read/write directly to stdin/stdout/stderr instead of by line
-.TP
-\fB\-\-timings\fR
-Shows elapsed time after each task completes
-
-Default to always show with `MISE_TASK_TIMINGS=1`
 .TP
 \fB\-\-no\-config\fR
 Do not load any config files
 
 Can also use `MISE_NO_CONFIG=1`
 .TP
-\fB\-\-no\-timings\fR
-Hides elapsed time after each task completes
-
-Default to always hide with `MISE_TASK_TIMINGS=0`
-.TP
-\fB\-V, \-\-version\fR
-.TP
 \fB\-y, \-\-yes\fR
 Answer yes to all confirmation prompts
-.TP
-\fB\-\-debug\fR
-Sets log level to debug
-.TP
-\fB\-\-log\-level\fR \fI<LEVEL>\fR
 .TP
 \fB\-q, \-\-quiet\fR
 Suppress non\-error messages
 .TP
 \fB\-\-silent\fR
 Suppress all task output and mise non\-error messages
-.TP
-\fB\-\-trace\fR
-Sets log level to trace
 .TP
 \fB\-v, \-\-verbose\fR
 Show extra output (use \-vv for even more)
@@ -487,12 +445,6 @@ Customize status output with `status` settings.
 \fBOptions:\fR
 .PP
 .TP
-\fB\-s, \-\-shell\fR \fI<SHELL>\fR
-Shell type to generate the script for
-.TP
-\fB\-\-status\fR
-Show "mise: <PLUGIN>@<VERSION>" message when changing directories
-.TP
 \fB\-\-shims\fR
 Use shims instead of modifying PATH
 Effectively the same as:
@@ -613,11 +565,6 @@ Deletes all cache files in mise
 .PP
 \fBUsage:\fR mise cache clear [OPTIONS] [<PLUGIN>] ...
 .PP
-\fBOptions:\fR
-.PP
-.TP
-\fB\-\-outdate\fR
-Mark all cache files as old
 \fBArguments:\fR
 .PP
 .TP
@@ -651,17 +598,6 @@ Generate shell completions
 .PP
 \fBOptions:\fR
 .PP
-.TP
-\fB\-s, \-\-shell\fR \fI<SHELL_TYPE>\fR
-Shell type to generate completions for
-.TP
-\fB\-\-usage\fR
-Always use usage for completions.
-Currently, usage is the default for fish and bash but not zsh since it has a few quirks
-to work out first.
-
-This requires the `usage` CLI to be installed.
-https://usage.jdx.dev
 .TP
 \fB\-\-include\-bash\-completion\-lib\fR
 Include the bash completion library in the bash completion script
@@ -1108,8 +1044,6 @@ It's a useful command to get the current state of your tools.
 \fBOptions:\fR
 .PP
 .TP
-\fB\-p, \-\-plugin\fR \fI<TOOL_FLAG>\fR
-.TP
 \fB\-c, \-\-current\fR
 Only show tool versions currently specified in a mise.toml
 .TP
@@ -1200,11 +1134,6 @@ Manage plugins
 \fBOptions:\fR
 .PP
 .TP
-\fB\-a, \-\-all\fR
-list all available remote plugins
-
-same as `mise plugins ls\-remote`
-.TP
 \fB\-c, \-\-core\fR
 The built\-in plugins only
 Normally these are not shown
@@ -1218,10 +1147,6 @@ to show core and user plugins
 \fB\-u, \-\-urls\fR
 Show the git url for each plugin
 e.g.: https://github.com/asdf\-vm/asdf\-nodejs.git
-.TP
-\fB\-\-refs\fR
-Show the git refs for each plugin
-e.g.: main 1234abc
 .SH "MISE PLUGINS INSTALL"
 Install a plugin
 
@@ -1287,24 +1212,9 @@ Can also show remotely available plugins to install.
 \fBOptions:\fR
 .PP
 .TP
-\fB\-a, \-\-all\fR
-List all available remote plugins
-Same as `mise plugins ls\-remote`
-.TP
-\fB\-c, \-\-core\fR
-The built\-in plugins only
-Normally these are not shown
-.TP
-\fB\-\-user\fR
-List installed plugins
-.TP
 \fB\-u, \-\-urls\fR
 Show the git url for each plugin
 e.g.: https://github.com/asdf\-vm/asdf\-nodejs.git
-.TP
-\fB\-\-refs\fR
-Show the git refs for each plugin
-e.g.: main 1234abc
 .SH "MISE PLUGINS LS-REMOTE"
 
 List all available remote plugins
@@ -1402,9 +1312,6 @@ For example, `poetry` is shorthand for `asdf:mise\-plugins/mise\-poetry`.
 \fB\-b, \-\-backend\fR \fI<BACKEND>\fR
 Show only tools for this backend
 .TP
-\fB\-\-complete\fR
-Print all tools with descriptions for shell completions
-.TP
 \fB\-\-hide\-aliased\fR
 Hide aliased tools
 \fBArguments:\fR
@@ -1483,16 +1390,6 @@ Don't actually run the tasks(s), just print them in order of execution
 \fB\-f, \-\-force\fR
 Force the tasks to run even if outputs are up to date
 .TP
-\fB\-p, \-\-prefix\fR
-Print stdout/stderr by line, prefixed with the task's label
-Defaults to true if \-\-jobs > 1
-Configure with `task_output` config or `MISE_TASK_OUTPUT` env var
-.TP
-\fB\-i, \-\-interleave\fR
-Print directly to stdout/stderr instead of by line
-Defaults to true if \-\-jobs == 1
-Configure with `task_output` config or `MISE_TASK_OUTPUT` env var
-.TP
 \fB\-s, \-\-shell\fR \fI<SHELL>\fR
 Shell to use to run toml tasks
 
@@ -1511,11 +1408,6 @@ Configure with `jobs` config or `MISE_JOBS` env var
 \fB\-r, \-\-raw\fR
 Read/write directly to stdin/stdout/stderr instead of by line
 Configure with `raw` config or `MISE_RAW` env var
-.TP
-\fB\-\-timings\fR
-Shows elapsed time after each task completes
-
-Default to always show with `MISE_TASK_TIMINGS=1`
 .TP
 \fB\-\-no\-timings\fR
 Hides elapsed time after each task completes
@@ -1580,16 +1472,8 @@ The TOML file to update
 
 Defaults to MISE_DEFAULT_CONFIG_FILENAME environment variable, or `mise.toml`.
 .TP
-\fB\-\-complete\fR
-Render completions
-.TP
 \fB\-g, \-\-global\fR
 Set the environment variable in the global config file
-.TP
-\fB\-\-remove, \-\-rm, \-\-unset\fR \fI<ENV_KEY>\fR
-Remove the environment variable from config file
-
-Can be used multiple times.
 \fBArguments:\fR
 .PP
 .TP
@@ -1611,9 +1495,6 @@ but managed separately with `mise aliases`
 .TP
 \fB\-a, \-\-all\fR
 List all settings
-.TP
-\fB\-\-complete\fR
-Print all settings with descriptions for shell completions
 .TP
 \fB\-l, \-\-local\fR
 Use the local config file instead of the global one
@@ -1690,9 +1571,6 @@ but managed separately with `mise aliases`
 .TP
 \fB\-a, \-\-all\fR
 List all settings
-.TP
-\fB\-\-complete\fR
-Print all settings with descriptions for shell completions
 .TP
 \fB\-l, \-\-local\fR
 Use the local config file instead of the global one
@@ -1832,9 +1710,6 @@ Manage tasks
 \fB\-\-no\-header\fR
 Do not print table header
 .TP
-\fB\-\-complete\fR
-Display tasks for usage completion
-.TP
 \fB\-x, \-\-extended\fR
 Show all columns
 .TP
@@ -1849,8 +1724,6 @@ Sort order. Default is asc.
 .TP
 \fB\-J, \-\-json\fR
 Output in JSON format
-.TP
-\fB\-\-usage\fR
 \fBArguments:\fR
 .PP
 .TP
@@ -1982,9 +1855,6 @@ tasks will override the global ones if they have the same name.
 \fB\-\-no\-header\fR
 Do not print table header
 .TP
-\fB\-\-complete\fR
-Display tasks for usage completion
-.TP
 \fB\-x, \-\-extended\fR
 Show all columns
 .TP
@@ -1999,8 +1869,6 @@ Sort order. Default is asc.
 .TP
 \fB\-J, \-\-json\fR
 Output in JSON format
-.TP
-\fB\-\-usage\fR
 .SH "MISE TASKS RUN"
 Run task(s)
 
@@ -2045,16 +1913,6 @@ Don't actually run the tasks(s), just print them in order of execution
 \fB\-f, \-\-force\fR
 Force the tasks to run even if outputs are up to date
 .TP
-\fB\-p, \-\-prefix\fR
-Print stdout/stderr by line, prefixed with the task's label
-Defaults to true if \-\-jobs > 1
-Configure with `task_output` config or `MISE_TASK_OUTPUT` env var
-.TP
-\fB\-i, \-\-interleave\fR
-Print directly to stdout/stderr instead of by line
-Defaults to true if \-\-jobs == 1
-Configure with `task_output` config or `MISE_TASK_OUTPUT` env var
-.TP
 \fB\-s, \-\-shell\fR \fI<SHELL>\fR
 Shell to use to run toml tasks
 
@@ -2073,11 +1931,6 @@ Configure with `jobs` config or `MISE_JOBS` env var
 \fB\-r, \-\-raw\fR
 Read/write directly to stdin/stdout/stderr instead of by line
 Configure with `raw` config or `MISE_RAW` env var
-.TP
-\fB\-\-timings\fR
-Shows elapsed time after each task completes
-
-Default to always show with `MISE_TASK_TIMINGS=1`
 .TP
 \fB\-\-no\-timings\fR
 Hides elapsed time after each task completes
@@ -2366,13 +2219,6 @@ It must be installed for this command to work, but you can install it with `mise
 .PP
 \fBOptions:\fR
 .PP
-.TP
-\fB\-t, \-\-task\-flag\fR \fI<TASK_FLAG>\fR
-Tasks to run
-.TP
-\fB\-g, \-\-glob\fR \fI<GLOB>\fR
-Files to watch
-Defaults to sources from the tasks(s)
 .TP
 \fB\-w, \-\-watch\fR \fI<PATH>\fR
 Watch a specific file or directory
@@ -2904,8 +2750,6 @@ Use this to figure out what version of a tool is currently active.
 .PP
 \fBOptions:\fR
 .PP
-.TP
-\fB\-\-complete\fR
 .TP
 \fB\-\-plugin\fR
 Show the plugin name instead of the path

@@ -293,10 +293,13 @@ impl ManpageRenderer {
     }
 
     fn render_command(&self, roff: &mut Roff, cmd: &SpecCommand, is_root: bool) {
-        // OPTIONS section
-        if !cmd.flags.is_empty() {
+        // OPTIONS section. A hidden flag is one the CLI does not offer, so a manual that
+        // lists it publishes a control its own `--help` withholds — the markdown reference
+        // and the Fig spec have always filtered these, and this page did not.
+        let visible: Vec<_> = cmd.flags.iter().filter(|flag| !flag.hide).collect();
+        if !visible.is_empty() {
             roff.control("SH", ["OPTIONS"]);
-            for flag in &cmd.flags {
+            for flag in visible {
                 self.render_flag(roff, flag);
             }
         }
@@ -513,11 +516,12 @@ impl ManpageRenderer {
                 ]);
                 roff.control("PP", [] as [&str; 0]);
 
-                // Render flags if any
-                if !subcmd.flags.is_empty() {
+                // Render flags if any, hidden ones excluded as above
+                let visible: Vec<_> = subcmd.flags.iter().filter(|flag| !flag.hide).collect();
+                if !visible.is_empty() {
                     roff.text([bold("Options:")]);
                     roff.control("PP", [] as [&str; 0]);
-                    for flag in &subcmd.flags {
+                    for flag in visible {
                         self.render_flag(roff, flag);
                     }
                 }
