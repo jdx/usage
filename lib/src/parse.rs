@@ -44,7 +44,7 @@ fn merge_subcommand_flags(
     if crossing_mount {
         // A mounted command owns its flags outright, including names an inherited global also
         // uses: a word after the mounted command belongs to the mounted program. Words before
-        // it keep resolving to the global they were read as, via `prefix_bindings`. Aliases the
+        // it keep resolving to the global they were read as, via `Token::binding`. Aliases the
         // mounted command does not declare (e.g. a global's short) stay inherited.
         for (key, flag) in new_flags {
             available.insert(key, flag);
@@ -793,6 +793,37 @@ enum MountTiming {
     WhenAWordIsUnknown,
 }
 
+/// One word on its way through the parser, with what the parser has learned about it.
+///
+/// This holds what a side queue used to: the flag Phase 1 read a word as, previously a
+/// `VecDeque` popped in step with the words. Two queues staying aligned is an invariant
+/// nothing checks, and it was delicate enough to need explaining at three call sites; on
+/// the word itself there is nothing to keep aligned.
+struct Token {
+    word: String,
+    /// The flag Phase 1 read this word as, and the command level it read it at.
+    ///
+    /// `Some((flag, command_level))` for a flag word, `None` for its value, for anything
+    /// unresolved, and for every word Phase 1 never reached. The words stay in the queue
+    /// for Phase 2 to re-parse — that is how they reach `out.flags` and `as_env()` — but by
+    /// then the recognized flags have changed, because each descent drops the parent's
+    /// non-global flags and a mounted command may declare the same name as a global seen
+    /// here. Recording the owner keeps a word bound to the flag it was read as.
+    ///
+    /// The level matters to strict parsing: clap permits an inherited global once on each
+    /// side of a subcommand boundary.
+    binding: Option<(Arc<SpecFlag>, usize)>,
+}
+
+impl Token {
+    fn new(word: String) -> Self {
+        Self {
+            word,
+            binding: None,
+        }
+    }
+}
+
 fn parse_partial_with_env(
     spec: &Spec,
     input: &[String],
@@ -805,12 +836,16 @@ fn parse_partial_with_env(
         return parse_partial_with_env(&viewed, input, custom_env, mount_outputs, mount_timing);
     }
     trace!("parse_partial: {input:?}");
-    let mut input = input.iter().cloned().collect::<VecDeque<_>>();
+    let mut input = input
+        .iter()
+        .cloned()
+        .map(Token::new)
+        .collect::<VecDeque<_>>();
     let argv0 = input.pop_front();
     if spec.multicall {
         if let Some(raw) = argv0 {
-            if let Some(applet) = multicall_applet(&raw, &spec.name, Some(spec.bin.as_str())) {
-                input.push_front(applet.to_string());
+            if let Some(applet) = multicall_applet(&raw.word, &spec.name, Some(spec.bin.as_str())) {
+                input.push_front(Token::new(applet.to_string()));
             }
         }
     }
@@ -854,16 +889,8 @@ fn parse_partial_with_env(
     // - Non-global flags are specific to the current command, not subcommands
     // - Global flags affect all commands and should be passed to mount points
     let mut prefix_flags: Vec<(Arc<SpecFlag>, Vec<String>)> = vec![];
-    // Which flag each word skipped here belongs to, aligned with the leading words left in
-    // `input`: `Some((flag, command_level))` for a flag word, `None` for its value (or
-    // anything unresolved). The level matters to strict parsing: clap permits an inherited
-    // global once on each side of a subcommand boundary.
-    //
-    // The words stay in `input` for Phase 2 to re-parse — that is how they reach `out.flags`
-    // and `as_env()` — but by then the recognized flags have changed, because each descent
-    // drops the parent's non-global flags and a mounted command may declare the same name as
-    // a global seen here. Recording the owner keeps a word bound to the flag it was read as.
-    let mut prefix_bindings: VecDeque<Option<(Arc<SpecFlag>, usize)>> = VecDeque::new();
+    // Which flag each word skipped here belongs to is recorded on the word — see
+    // `Token::binding`.
     let mut command_arg_found = false;
     let mut variadic_flag_active = false;
     let mut idx = 0;
@@ -908,15 +935,15 @@ fn parse_partial_with_env(
         // outrank it. Without this, a task runner would spawn its discovery process
         // once per task invocation.
         let default_catches_it = spec.default_subcommand.as_deref().is_some_and(|name| {
-            default_accepts_word(&out.cmd, name, &input[idx])
+            default_accepts_word(&out.cmd, name, &input[idx].word)
                 && !out.cmd.mounts.iter().any(|m| m.overrides_default)
         });
         if !mounts_resolved
             && !out.cmd.mounts.is_empty()
             && !default_catches_it
-            && is_command_word(&input[idx])
-            && !is_negative_number(&input[idx])
-            && out.cmd.find_subcommand(&input[idx]).is_none()
+            && is_command_word(&input[idx].word)
+            && !is_negative_number(&input[idx].word)
+            && out.cmd.find_subcommand(&input[idx].word).is_none()
         {
             mounts_resolved = true;
             let mut mounted = out.cmd.clone();
@@ -928,16 +955,16 @@ fn parse_partial_with_env(
             out.cmd = mounted;
         }
         if variadic_flag_active
-            && out.cmd.find_subcommand(&input[idx]).is_some()
+            && out.cmd.find_subcommand(&input[idx].word).is_some()
             && !out.cmd.subcommand_precedence_over_arg
         {
             break;
         }
-        if let Some(subcommand) = out.cmd.find_subcommand(&input[idx]) {
+        if let Some(subcommand) = out.cmd.find_subcommand(&input[idx].word) {
             if out.cmd.args_conflicts_with_subcommands && command_arg_found {
                 bail!(
                     "subcommand '{}' cannot be used with arguments on its parent command",
-                    input[idx]
+                    input[idx].word
                 );
             }
             let mut subcommand = subcommand.clone();
@@ -963,11 +990,11 @@ fn parse_partial_with_env(
             variadic_flag_active = false;
             // Continue from current position (don't reset to 0)
             // After remove(), idx now points to the next element
-        } else if !is_command_word(&input[idx])
-            || declared_numeric_short(&out.available_flags, &input[idx])
+        } else if !is_command_word(&input[idx].word)
+            || declared_numeric_short(&out.available_flags, &input[idx].word)
         {
             // Check if this is a known flag
-            let word = input[idx].clone();
+            let word = input[idx].word.clone();
             let flag_key = get_flag_key(&word);
 
             // A short token keys on its first letter, so `-az` would be recorded as
@@ -992,7 +1019,7 @@ fn parse_partial_with_env(
                 //
                 // Only globals are forwarded to mounts: a non-global flag belongs to the
                 // command that declared it, not to what is mounted below it.
-                prefix_bindings.push_back(Some((Arc::clone(&f), out.cmds.len() - 1)));
+                input[idx].binding = Some((Arc::clone(&f), out.cmds.len() - 1));
                 let mut forwarded = f.global.then(|| vec![word.clone()]);
                 idx += 1;
 
@@ -1001,14 +1028,13 @@ fn parse_partial_with_env(
                 if f.arg.is_some()
                     && !word.contains('=')
                     && idx < input.len()
-                    && (!is_flag_like(&input[idx])
+                    && (!is_flag_like(&input[idx].word)
                         || (f.arg.as_ref().is_some_and(|arg| arg.allow_negative_numbers)
-                            && is_negative_number(&input[idx])))
+                            && is_negative_number(&input[idx].word)))
                 {
                     if let Some(words) = forwarded.as_mut() {
-                        words.push(input[idx].clone());
+                        words.push(input[idx].word.clone());
                     }
-                    prefix_bindings.push_back(None);
                     idx += 1;
                 }
                 if let Some(words) = forwarded {
@@ -1022,7 +1048,6 @@ fn parse_partial_with_env(
             }
         } else {
             if variadic_flag_active && out.cmd.subcommand_precedence_over_arg {
-                prefix_bindings.push_back(None);
                 idx += 1;
                 continue;
             }
@@ -1039,7 +1064,7 @@ fn parse_partial_with_env(
                     if let Some(subcommand) = out
                         .cmd
                         .find_subcommand(default_name)
-                        .filter(|_| default_accepts_word(&out.cmd, default_name, &input[idx]))
+                        .filter(|_| default_accepts_word(&out.cmd, default_name, &input[idx].word))
                     {
                         if out.cmd.args_conflicts_with_subcommands && command_arg_found {
                             bail!(
@@ -1079,7 +1104,7 @@ fn parse_partial_with_env(
             // subcommands already won above, and a default_subcommand already caught.
             // clap's `allow_external_subcommands` is this, not `unknown_flags=value`.
             if out.cmd.external_subcommand {
-                let rest: Vec<String> = input.drain(idx..).collect();
+                let rest: Vec<String> = input.drain(idx..).map(|t| t.word).collect();
                 out.external = Some(rest);
                 break;
             }
@@ -1114,10 +1139,10 @@ fn parse_partial_with_env(
     let mut scalar_occurrences: HashMap<(usize, usize), u8> = HashMap::new();
 
     while !input.is_empty() {
-        let mut w = input.pop_front().unwrap();
-        // The flag this word was read as in Phase 1, if it skipped it (see `prefix_bindings`).
-        // Words pushed back below get a `None` so the two queues stay aligned.
-        let binding = prefix_bindings.pop_front().flatten();
+        let token = input.pop_front().unwrap();
+        // The flag this word was read as in Phase 1, if it skipped it (see `Token::binding`).
+        let binding = token.binding;
+        let mut w = token.word;
         // A short's attached value is re-queued with `grouped_flag` set, and that
         // continuation is not a following word. `require_equals` refuses only the
         // following word; `-i9229` and `-i=9229` still bind. `default_missing` binds
@@ -1171,7 +1196,6 @@ fn parse_partial_with_env(
                 &mut out.flag_awaiting_value,
                 &mut w,
                 &mut input,
-                &mut prefix_bindings,
                 custom_env,
             )?;
             if should_return {
@@ -1314,7 +1338,6 @@ fn parse_partial_with_env(
                             &mut out.flag_awaiting_value,
                             &mut val,
                             &mut input,
-                            &mut prefix_bindings,
                             custom_env,
                         )?;
                         if should_return {
@@ -1438,8 +1461,7 @@ fn parse_partial_with_env(
                 );
                 let rest = &w[1 + short.len_utf8()..];
                 if !rest.is_empty() {
-                    input.push_front(format!("-{rest}"));
-                    prefix_bindings.push_front(None);
+                    input.push_front(Token::new(format!("-{rest}")));
                 }
                 // A fully consumed short is no longer a grouped continuation.
                 // Leaving this set after `-ai` made `-i` skip `require_equals`
@@ -1555,7 +1577,6 @@ fn parse_partial_with_env(
                 &mut out.flag_awaiting_value,
                 &mut w,
                 &mut input,
-                &mut prefix_bindings,
                 custom_env,
             )?;
             if should_return {
@@ -1579,7 +1600,7 @@ fn parse_partial_with_env(
                 }
                 let remaining_values = 1 + input
                     .iter()
-                    .filter(|word| !enable_flags || !is_flag_like(word))
+                    .filter(|token| !enable_flags || !is_flag_like(&token.word))
                     .count();
                 if remaining_values > required_after {
                     break;
@@ -2975,8 +2996,7 @@ fn bind_pending_flag_value(
     flags: &mut IndexMap<Arc<SpecFlag>, ParseValue>,
     flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
     word: &mut String,
-    input: &mut VecDeque<String>,
-    prefix_bindings: &mut VecDeque<Option<(Arc<SpecFlag>, usize)>>,
+    input: &mut VecDeque<Token>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
     // Held before the drain pops it, along with what the flag is already carrying: a
@@ -3013,7 +3033,6 @@ fn bind_pending_flag_value(
         &flag,
         carried,
         input,
-        prefix_bindings,
         custom_env,
     )
 }
@@ -3039,8 +3058,7 @@ fn collect_variadic_flag_values(
     flag_awaiting_value: &mut Vec<Arc<SpecFlag>>,
     flag: &Arc<SpecFlag>,
     carried: usize,
-    input: &mut VecDeque<String>,
-    prefix_bindings: &mut VecDeque<Option<(Arc<SpecFlag>, usize)>>,
+    input: &mut VecDeque<Token>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> miette::Result<bool> {
     let max = flag
@@ -3055,15 +3073,16 @@ fn collect_variadic_flag_values(
         .saturating_sub(carried)
         < max
     {
-        let Some(next) = input.front() else { break };
+        let Some(next) = input.front().map(|token| token.word.as_str()) else {
+            break;
+        };
         if flag
             .arg
             .as_ref()
             .and_then(|arg| arg.value_terminator.as_deref())
-            == Some(next.as_str())
+            == Some(next)
         {
             input.pop_front();
-            prefix_bindings.pop_front();
             break;
         }
         // The separator is left where it is: stopping here hands it to the arm that
@@ -3078,9 +3097,7 @@ fn collect_variadic_flag_values(
         {
             break;
         }
-        let mut word = input.pop_front().unwrap();
-        // The two queues are read in step, so a word taken here takes its binding with it.
-        prefix_bindings.pop_front();
+        let mut word = input.pop_front().unwrap().word;
         flag_awaiting_value.push(Arc::clone(flag));
         if drain_pending_flag_values(
             spec,
