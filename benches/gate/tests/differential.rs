@@ -347,6 +347,30 @@ fn explained(o: Outcome) -> Option<&'static str> {
             clap: Accept,
         } => Some("the word needs the mount usage-argv does not run, which clap's shadow lacks"),
 
+        // A declared `conflicts` between two globals, given on *different* commands:
+        // `mise --env config set --profile=v`. Both usage parsers refuse it; clap accepts.
+        //
+        // Not a dropped declaration — the shadow's `--profile` carries `conflicts: ["env"]`, and
+        // clap enforces it perfectly well when both flags land on the same command, whether that
+        // is the root or `config set`. What it does not do is check a pair a *global* spread
+        // across a boundary, which is clap#1546 and one of the requests `PLAN.md` records usage as
+        // already answering: globals go through the same post-binding checks as everything else.
+        //
+        // So this is the one arm here where the disagreement is a difference an adopter feels
+        // going the *strict* way — a line clap accepted stops being accepted. Recorded rather
+        // than softened, because the spec says the two flags conflict, and a check that holds
+        // only while both spellings happen to land on the same command is not a check.
+        //
+        // Keyed on usage-argv's reason: `Verdict::Conflict` covers a declared conflict and a
+        // repeat both, and this fixture has no strict command in it — mise's spec never says
+        // `args_override_self=false` — so a repeat cannot reach this arm. If one ever does, it
+        // arrives as a permissive default turning strict, which is worth failing over.
+        Outcome {
+            argv: Conflict,
+            lib: false,
+            clap: Accept,
+        } => Some("clap does not check a conflict between globals given on different commands"),
+
         // And one that is usage-argv's alone: a bare `-`. usage-lib and clap both bind it to the
         // root's `[TASK]`; usage-argv lets it *select* the default subcommand, descends into
         // `run`, and finds no positional there — so it too refuses with a word it cannot place.
@@ -584,6 +608,47 @@ fn a_global_repeat_is_permissive_unless_the_command_opts_into_strictness() {
         assert_eq!(o.argv, Verdict::Accept, "{words:?} {o:?}");
         assert!(o.lib, "{words:?} {o:?}");
         assert_eq!(o.clap, Verdict::Conflict, "{words:?} {o:?}");
+    }
+}
+
+#[test]
+fn a_conflict_between_globals_is_checked_wherever_the_two_flags_land() {
+    // Found by the generator, as `mise --env config set --profile=v`. mise declares
+    // `-P --profile` as `global` and `conflicts=--env`, so the pair is illegal — and where the
+    // two spellings sit on the line has nothing to do with it.
+    let spec = spec();
+    let go = |words: &[&str]| {
+        run(
+            &spec,
+            &words.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        )
+    };
+
+    // Both on one command: all three refuse, which is what says the declaration survived into
+    // every fixture and that clap is not simply missing it.
+    for words in [
+        &["--env", "x", "--profile=v"][..],
+        &["--profile=v", "--env", "x"][..],
+        &["config", "set", "--env", "x", "--profile=v"][..],
+    ] {
+        let o = go(words);
+        assert_eq!(o.argv, Verdict::Conflict, "{words:?} {o:?}");
+        assert!(!o.lib, "{words:?} {o:?}");
+        assert_eq!(o.clap, Verdict::Conflict, "{words:?} {o:?}");
+    }
+
+    // One on the root and one on the subcommand: the same illegal pair, and clap stops checking.
+    // Both usage parsers refuse for the declared reason at any distance.
+    for words in [
+        &["--env", "config", "set", "--profile=v"][..],
+        &["--env", "x", "config", "ls", "--profile=v"][..],
+        &["--profile=v", "config", "ls", "--env=x"][..],
+    ] {
+        let o = go(words);
+        assert_eq!(o.argv, Verdict::Conflict, "{words:?} {o:?}");
+        assert!(!o.lib, "{words:?} {o:?}");
+        assert_eq!(o.clap, Verdict::Accept, "{words:?} {o:?}");
+        assert!(explained(o).is_some(), "{words:?} {o:?}");
     }
 }
 
