@@ -7,12 +7,22 @@
 
 use assert_cmd::Command;
 
+/// Half of the cases below assert that something is *absent* from the output, and an
+/// empty stdout satisfies every one of them — so the exit status is checked here rather
+/// than leaving each case to pass for the wrong reason.
 fn fig_of(spec: &str) -> String {
     let output = Command::new(assert_cmd::cargo::cargo_bin!("usage"))
         .args(["generate", "fig", "--spec", spec, "--out-file", "-"])
         .output()
         .unwrap();
-    String::from_utf8(output.stdout).unwrap()
+    assert!(
+        output.status.success(),
+        "usage generate fig failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let fig = String::from_utf8(output.stdout).unwrap();
+    assert!(fig.contains("completionSpec"), "not a Fig spec: {fig}");
+    fig
 }
 
 #[test]
