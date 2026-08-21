@@ -24,6 +24,7 @@ pub enum SpecFlagAction {
     Help,
     HelpShort,
     HelpLong,
+    HelpAll,
     Version,
 }
 
@@ -34,6 +35,7 @@ impl SpecFlagAction {
             "help" => Self::Help,
             "help_short" => Self::HelpShort,
             "help_long" => Self::HelpLong,
+            "help_all" => Self::HelpAll,
             "version" => Self::Version,
             _ => return None,
         })
@@ -45,6 +47,7 @@ impl SpecFlagAction {
             Self::Help => "help",
             Self::HelpShort => "help_short",
             Self::HelpLong => "help_long",
+            Self::HelpAll => "help_all",
             Self::Version => "version",
         }
     }

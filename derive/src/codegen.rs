@@ -610,6 +610,11 @@ pub fn emit(cli: &Cli) -> TokenStream {
                     // is what knows how deep the words reached.
                     if let usage_argv::Event::Flag { flag, .. } = &__usage_event {
                         if usage_argv::is_help_flag(flag) {
+                            if flag.action == usage_argv::ArgAction::HelpAll {
+                                return ::std::result::Result::Err(usage_argv::Error::HelpAll {
+                                    cmd: __usage_parser.command(),
+                                });
+                            }
                             let long = match flag.action {
                                 usage_argv::ArgAction::HelpShort => false,
                                 usage_argv::ArgAction::HelpLong => true,
@@ -863,6 +868,36 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                     ::std::process::exit(0);
                                 }
                                 // Only reachable if the command came from another CLI's tables.
+                                ::std::option::Option::None => ::std::process::exit(0),
+                            }
+                        }
+                        ::std::result::Result::Err(usage_argv::Error::HelpAll { cmd }) => {
+                            #effective_spec
+                            let __usage_page = match usage_argv::help::route_to(
+                                Self::command(),
+                                &__usage_argv,
+                                cmd,
+                            ) {
+                                ::std::option::Option::Some(route) => {
+                                    usage_argv::help::render_all_at_styled(
+                                        __usage_spec,
+                                        &route,
+                                        usage_argv::help::Style::auto(),
+                                    )
+                                }
+                                ::std::option::Option::None => {
+                                    usage_argv::help::render_all_styled(
+                                        __usage_spec,
+                                        cmd,
+                                        usage_argv::help::Style::auto(),
+                                    )
+                                }
+                            };
+                            match __usage_page {
+                                ::std::option::Option::Some(page) => {
+                                    ::std::print!("{page}");
+                                    ::std::process::exit(0);
+                                }
                                 ::std::option::Option::None => ::std::process::exit(0),
                             }
                         }
@@ -1165,6 +1200,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         crate::model::ArgAction::Help => quote!(usage_argv::ArgAction::Help),
         crate::model::ArgAction::HelpShort => quote!(usage_argv::ArgAction::HelpShort),
         crate::model::ArgAction::HelpLong => quote!(usage_argv::ArgAction::HelpLong),
+        crate::model::ArgAction::HelpAll => quote!(usage_argv::ArgAction::HelpAll),
         crate::model::ArgAction::Version => quote!(usage_argv::ArgAction::Version),
     };
     quote! {

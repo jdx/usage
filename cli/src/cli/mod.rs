@@ -109,6 +109,12 @@ impl Cli {
                 }
                 return Ok(());
             }
+            Err(usage_rs::Error::HelpAll { cmd }) => {
+                if let Some(page) = usage_rs::help::render_all(Self::spec(), cmd) {
+                    print!("{page}");
+                }
+                return Ok(());
+            }
             Err(usage_rs::Error::Version { .. }) => {
                 println!("{}", version());
                 return Ok(());

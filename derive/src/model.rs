@@ -358,6 +358,7 @@ pub enum ArgAction {
     Help,
     HelpShort,
     HelpLong,
+    HelpAll,
     Version,
 }
 
@@ -377,6 +378,7 @@ fn arg_action(meta: &Meta) -> syn::Result<ArgAction> {
         "Help" => Ok(ArgAction::Help),
         "HelpShort" => Ok(ArgAction::HelpShort),
         "HelpLong" => Ok(ArgAction::HelpLong),
+        "HelpAll" => Ok(ArgAction::HelpAll),
         "Version" => Ok(ArgAction::Version),
         other => Err(syn::Error::new_spanned(
             value,

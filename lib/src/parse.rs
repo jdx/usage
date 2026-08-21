@@ -2529,8 +2529,36 @@ fn render_help_err(spec: &Spec, cmd: &SpecCommand, long: bool) -> UsageErr {
     UsageErr::Help(docs::cli::render_help(spec, cmd, long))
 }
 
+#[cfg(feature = "docs")]
+fn render_help_all_err(spec: &Spec, cmd: &SpecCommand) -> UsageErr {
+    fn append(out: &mut String, spec: &Spec, cmd: &SpecCommand) {
+        if !out.is_empty() {
+            out.push('\n');
+        }
+        out.push_str(&docs::cli::render_help(spec, cmd, true));
+        let mut children: Vec<_> = cmd
+            .subcommands
+            .values()
+            .filter(|child| !child.hide)
+            .collect();
+        children.sort_by_key(|child| (child.display_order.unwrap_or(999), child.name.as_str()));
+        for child in children {
+            append(out, spec, child);
+        }
+    }
+
+    let mut out = String::new();
+    append(&mut out, spec, cmd);
+    UsageErr::Help(out)
+}
+
 #[cfg(not(feature = "docs"))]
 fn render_help_err(_spec: &Spec, _cmd: &SpecCommand, _long: bool) -> UsageErr {
+    UsageErr::Help("help".to_string())
+}
+
+#[cfg(not(feature = "docs"))]
+fn render_help_all_err(_spec: &Spec, _cmd: &SpecCommand) -> UsageErr {
     UsageErr::Help("help".to_string())
 }
 
@@ -2540,6 +2568,7 @@ fn render_action_err(spec: &Spec, cmd: &SpecCommand, flag: &SpecFlag, spelling: 
         SpecFlagAction::Help => render_help_err(spec, cmd, spelling.starts_with("--")),
         SpecFlagAction::HelpShort => render_help_err(spec, cmd, false),
         SpecFlagAction::HelpLong => render_help_err(spec, cmd, true),
+        SpecFlagAction::HelpAll => render_help_all_err(spec, cmd),
         SpecFlagAction::Version => {
             let value = if spelling.starts_with("--") {
                 spec.long_version.as_ref().or(spec.version.as_ref())

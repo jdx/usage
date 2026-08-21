@@ -703,7 +703,9 @@ pub fn render(
         // message would hide that rather than help.
         // Neither is a failure, and a caller that has not handled them before reaching here
         // has a bug this cannot paper over.
-        Error::Help { .. } | Error::Version { .. } => return String::new(),
+        Error::Help { .. } | Error::HelpAll { .. } | Error::Version { .. } => {
+            return String::new();
+        }
     }
 
     if with_usage {
