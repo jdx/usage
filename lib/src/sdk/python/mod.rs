@@ -4,12 +4,14 @@ use heck::AsPascalCase;
 
 use crate::sdk::{
     collect_choice_types, collect_type_imports, command_type_name, escape_py_docstring,
-    escape_py_string, generated_header, ChoiceTypeMap, CodeWriter, SdkFile, SdkOptions, SdkOutput,
+    escape_py_string, flag_names, generated_header, ChoiceTypeMap, CodeWriter, SdkFile, SdkOptions,
+    SdkOutput,
 };
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
 use crate::spec::config::{SpecConfigProp, SpecConfigValue};
 use crate::spec::data_types::SpecDataTypes;
+use crate::Framing;
 use crate::{Spec, SpecArg, SpecFlag};
 
 fn sanitize_py_comment(text: &str) -> String {
@@ -48,7 +50,11 @@ pub fn generate(spec: &Spec, opts: &SdkOptions) -> SdkOutput {
 
 fn render_init(package_name: &str) -> String {
     let class_name = AsPascalCase(package_name).to_string();
-    format!("from .client import {class_name}\nfrom .runtime import CliResult, CliRunner\nfrom .types import *\n")
+    format!(
+        "from .client import {class_name}\n\
+         from .runtime import CliError, CliJsonResult, CliResult, CliRunner, CliStream\n\
+         from .types import *\n"
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -61,7 +67,13 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
     w.line(&generated_header("#", source_file));
     w.line("from __future__ import annotations");
     w.line("from dataclasses import dataclass");
-    w.line("from typing import Literal, Optional");
+    // `Any` only where an output alias needs it, so a client with no declared outputs is
+    // generated exactly as before.
+    if any_outputs(&spec.cmd, spec, package_name) {
+        w.line("from typing import Any, Literal, Optional");
+    } else {
+        w.line("from typing import Literal, Optional");
+    }
     w.line("");
 
     // spec metadata
@@ -115,6 +127,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
         &choice_types,
         has_global_flags,
         &root_global_flags,
+        spec,
         &mut w,
     );
 
@@ -168,6 +181,7 @@ fn render_types(spec: &Spec, package_name: &str, source_file: &Option<String>) -
     w.finish()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_command_types(
     cmd: &SpecCommand,
     package_name: &str,
@@ -175,6 +189,7 @@ fn render_command_types(
     choice_types: &ChoiceTypeMap,
     has_global_flags: bool,
     global_flags: &[&SpecFlag],
+    spec: &Spec,
     w: &mut CodeWriter,
 ) {
     if cmd.hide {
@@ -223,6 +238,50 @@ fn render_command_types(
         );
     }
 
+    // One alias per declared output, plus the schema and exit-code table beside it. The
+    // alias is `Any` today and a `TypedDict` later: every generated signature names it
+    // rather than `Any` directly, so filling it in is a substitution no caller sees.
+    let outputs = crate::sdk::output_methods(cmd, spec, package_name);
+    if !outputs.is_empty() {
+        w.line("");
+        for output in &outputs {
+            if let Some(help) = &output.help {
+                w.line(&format!("# {}", sanitize_py_comment(help)));
+            }
+            w.line(&format!("{} = Any", output.type_alias));
+        }
+    }
+    for output in &outputs {
+        // A string rather than a literal, so a schema that is not valid JSON cannot emit
+        // a module that fails to import. `json.loads` it to hand to a validator.
+        if let (Some(const_name), Some(schema)) = (&output.schema_const, &output.schema) {
+            w.line("");
+            w.line(&format!(
+                "{const_name}: str = \"{}\"",
+                escape_py_string(schema)
+            ));
+        }
+    }
+    let exit_codes = crate::sdk::exit_codes_for(cmd, spec);
+    if !exit_codes.is_empty() {
+        let entries = exit_codes
+            .iter()
+            .map(|e| format!("{}: \"{}\"", e.code, escape_py_string(&e.help)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let union = exit_codes
+            .iter()
+            .map(|e| e.code.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        w.line("");
+        w.line(&format!(
+            "{}_EXIT_CODES: dict[int, str] = {{{entries}}}",
+            crate::sdk::shouty(&name)
+        ));
+        w.line(&format!("{name}ExitCode = Literal[{union}]"));
+    }
+
     for subcmd in cmd.subcommands.values() {
         render_command_types(
             subcmd,
@@ -231,6 +290,7 @@ fn render_command_types(
             choice_types,
             has_global_flags,
             global_flags,
+            spec,
             w,
         );
     }
@@ -500,7 +560,7 @@ fn render_client(spec: &Spec, package_name: &str, source_file: &Option<String>) 
 
     // collect imports from types
     let choice_types = collect_choice_types(&spec.cmd);
-    let type_imports = collect_type_imports(&spec.cmd, package_name, &choice_types);
+    let type_imports = collect_type_imports(&spec.cmd, package_name, &choice_types, spec);
     let has_global_flags = spec.cmd.flags.iter().any(|f| f.global && !f.hide);
     let mut all_imports = type_imports;
     if has_global_flags {
@@ -528,18 +588,23 @@ fn render_client(spec: &Spec, package_name: &str, source_file: &Option<String>) 
         true,
         &global_flags,
         &spec.bin,
+        spec,
+        package_name,
         &mut w,
     );
 
     w.finish()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_class(
     cmd: &SpecCommand,
     class_name: &str,
     is_root: bool,
     global_flags: &[&SpecFlag],
     bin_name: &str,
+    spec: &Spec,
+    package_name: &str,
     w: &mut CodeWriter,
 ) {
     let visible_subcmds: Vec<_> = cmd.subcommands.iter().filter(|(_, c)| !c.hide).collect();
@@ -605,14 +670,28 @@ fn render_class(
     } else {
         String::new()
     };
-    let sig = if has_args && !flags_type.is_empty() {
-        format!("def exec(self, args: {class_name}Args, flags: Optional[{flags_type}] = None) -> CliResult:")
-    } else if has_args {
-        format!("def exec(self, args: {class_name}Args) -> CliResult:")
-    } else if !flags_type.is_empty() {
-        format!("def exec(self, flags: Optional[{flags_type}] = None) -> CliResult:")
+    let outputs = crate::sdk::output_methods(cmd, spec, package_name);
+    // A command with declared outputs builds its argv in a helper, so `exec` and each
+    // per-output method share one copy of the assembly. A command without one keeps the
+    // body inline under `exec`, which is why no existing client regenerates.
+    let (method, ret) = if outputs.is_empty() {
+        ("exec", "CliResult")
     } else {
-        "def exec(self) -> CliResult:".to_string()
+        ("_cmd_args", "list[str]")
+    };
+    let omit_param = if outputs.is_empty() {
+        ""
+    } else {
+        ", _omit: str = \"\""
+    };
+    let sig = if has_args && !flags_type.is_empty() {
+        format!("def {method}(self, args: {class_name}Args, flags: Optional[{flags_type}] = None{omit_param}) -> {ret}:")
+    } else if has_args {
+        format!("def {method}(self, args: {class_name}Args{omit_param}) -> {ret}:")
+    } else if !flags_type.is_empty() {
+        format!("def {method}(self, flags: Optional[{flags_type}] = None{omit_param}) -> {ret}:")
+    } else {
+        format!("def {method}(self{omit_param}) -> {ret}:")
     };
 
     // docstring on exec
@@ -623,6 +702,22 @@ fn render_class(
     for example in &cmd.examples {
         let label = example.header.as_deref().unwrap_or("Example");
         exec_doc.push(format!("{label}: {code}", code = example.code));
+    }
+    let exit_codes = crate::sdk::exit_codes_for(cmd, spec);
+    if !exit_codes.is_empty() {
+        exec_doc.push(format!(
+            "Exit codes: {}.",
+            exit_codes
+                .iter()
+                .map(|e| format!("{} — {}", e.code, e.help))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ));
+    }
+    // The argv helper is internal, so the docstring moves to the methods a caller sees.
+    let caller_doc = exec_doc.clone();
+    if !outputs.is_empty() {
+        exec_doc.clear();
     }
 
     w.line("");
@@ -702,32 +797,157 @@ fn render_class(
         }
     }
 
-    if has_flags {
-        w.line("flag_args = self._build_flag_args(flags)");
-        w.line("return self._runner.run(cmd_args + flag_args)");
+    let omit_arg = if outputs.is_empty() { "" } else { ", _omit" };
+    if outputs.is_empty() {
+        if has_flags {
+            w.line("flag_args = self._build_flag_args(flags)");
+            w.line("return self._runner.run(cmd_args + flag_args)");
+        } else {
+            w.line("return self._runner.run(cmd_args)");
+        }
+    } else if has_flags {
+        w.line(&format!(
+            "flag_args = self._build_flag_args(flags{omit_arg})"
+        ));
+        w.line("return cmd_args + flag_args");
     } else {
-        w.line("return self._runner.run(cmd_args)");
+        w.line("return cmd_args");
     }
-
     w.dedent();
+
+    // `exec` and one method per declared output, all thin delegates over `_cmd_args`.
+    if !outputs.is_empty() {
+        let call = match (has_args, flags_type.is_empty()) {
+            (true, false) => "args, flags",
+            (true, true) => "args",
+            (false, false) => "flags",
+            (false, true) => "",
+        };
+        let params = match (has_args, flags_type.is_empty()) {
+            (true, false) => {
+                format!("self, args: {class_name}Args, flags: Optional[{flags_type}] = None")
+            }
+            (true, true) => format!("self, args: {class_name}Args"),
+            (false, false) => format!("self, flags: Optional[{flags_type}] = None"),
+            (false, true) => "self".to_string(),
+        };
+        let comma = if call.is_empty() { "" } else { ", " };
+
+        let write_doc = |w: &mut CodeWriter, doc: &[String]| {
+            if doc.is_empty() {
+                return;
+            }
+            if doc.len() == 1 {
+                w.line(&format!("\"\"\"{}\"\"\"", escape_py_docstring(&doc[0])));
+            } else {
+                w.line(&format!("\"\"\"{}", escape_py_docstring(&doc[0])));
+                for part in doc.iter().skip(1) {
+                    w.line(&escape_py_docstring(part));
+                }
+                w.line("\"\"\"");
+            }
+        };
+
+        w.line("");
+        w.line(&format!("def exec({params}) -> CliResult:"));
+        w.indent();
+        write_doc(w, &caller_doc);
+        w.line(&format!("return self._runner.run(self._cmd_args({call}))"));
+        w.dedent();
+
+        for output in &outputs {
+            let (ret, runner) = match output.framing {
+                Framing::Jsonl => ("CliStream", "run_jsonl"),
+                _ => ("CliJsonResult", "run_json"),
+            };
+            let mut doc = Vec::new();
+            if let Some(help) = &output.help {
+                doc.push(help.clone());
+            }
+            doc.push(format!(
+                "Selected with `{}`; any value of it in `flags` is ignored.",
+                output.select.join(" ")
+            ));
+            if output.framing == Framing::Jsonl {
+                doc.push(
+                    "One object per line, as they arrive: iterate it rather than \
+                     collecting, and close it if you stop early."
+                        .to_string(),
+                );
+            }
+            doc.extend(caller_doc.iter().cloned());
+
+            // The property name a caller would have set, not the flag's spelling: the two
+            // differ wherever `sanitize_py_ident` had to move out of the way of a keyword.
+            let omit = output
+                .omit
+                .as_deref()
+                .and_then(|name| {
+                    global_flags
+                        .iter()
+                        .copied()
+                        .chain(visible_flags.iter().copied())
+                        .find(|f| flag_names(f, name))
+                        .map(flag_property_name_py)
+                })
+                .unwrap_or_default();
+            let selector = output
+                .select
+                .iter()
+                .map(|w| format!("\"{}\"", escape_py_string(w)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            w.line("");
+            w.line(&format!("def exec_{}({params}) -> {ret}:", output.suffix));
+            w.indent();
+            write_doc(w, &doc);
+            w.line(&format!(
+                "cmd_args = self._cmd_args({call}{comma}\"{omit}\")"
+            ));
+            w.line(&format!("cmd_args.extend([{selector}])"));
+            w.line(&format!("return self._runner.{runner}(cmd_args)"));
+            w.dedent();
+        }
+    }
 
     // _build_flag_args
     if has_flags {
         w.line("");
+        let omit_param = if outputs.is_empty() {
+            String::new()
+        } else {
+            ", _omit: str = \"\"".to_string()
+        };
         w.line(&format!(
-            "def _build_flag_args(self, flags: Optional[{flags_type}]) -> list[str]:"
+            "def _build_flag_args(self, flags: Optional[{flags_type}]{omit_param}) -> list[str]:"
         ));
         w.indent();
         w.line("result: list[str] = []");
         w.line("if flags is None: return result");
 
+        let omit = outputs.iter().find_map(|o| o.omit.clone());
+        let render = |flag: &SpecFlag, w: &mut CodeWriter| {
+            // The selecting flag is left out when a method already picked the output, so a
+            // caller-supplied `format` cannot end up on the line twice contradicting it.
+            // Compared by property name, which is what a caller actually set.
+            let guarded = omit.as_deref().is_some_and(|name| flag_names(flag, name));
+            if guarded {
+                let prop = flag_property_name_py(flag);
+                w.line(&format!("if _omit != \"{prop}\":"));
+                w.indent();
+                render_flag_build_py(flag, w);
+                w.dedent();
+            } else {
+                render_flag_build_py(flag, w);
+            }
+        };
         for flag in global_flags {
-            render_flag_build_py(flag, w);
+            render(flag, w);
         }
         for flag in &visible_flags {
             // skip global flags already rendered above
             if !global_flags.iter().any(|gf| gf.name == flag.name) {
-                render_flag_build_py(flag, w);
+                render(flag, w);
             }
         }
 
@@ -760,7 +980,16 @@ fn render_class(
     for (name, subcmd) in &visible_subcmds {
         w.line("");
         let sub_class = AsPascalCase(name).to_string();
-        render_class(subcmd, &sub_class, false, global_flags, bin_name, w);
+        render_class(
+            subcmd,
+            &sub_class,
+            false,
+            global_flags,
+            bin_name,
+            spec,
+            package_name,
+            w,
+        );
     }
 }
 
@@ -1578,4 +1807,14 @@ mod tests {
         assert!(client.contains("double_dash=automatic"));
         insta::assert_snapshot!(client);
     }
+}
+
+/// Whether anything in the tree declares an output, so the generated imports carry only
+/// what is used.
+fn any_outputs(cmd: &SpecCommand, spec: &Spec, package_name: &str) -> bool {
+    !crate::sdk::output_methods(cmd, spec, package_name).is_empty()
+        || cmd
+            .subcommands
+            .values()
+            .any(|sub| any_outputs(sub, spec, package_name))
 }
