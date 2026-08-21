@@ -2918,6 +2918,7 @@ fn view_field_active(field: &Field) -> TokenStream {
         longs,
         hidden_longs,
         shorts,
+        negate,
         global: true,
         ..
     } = &field.kind
@@ -2927,17 +2928,27 @@ fn view_field_active(field: &Field) -> TokenStream {
     let long_selectors = longs
         .iter()
         .chain(hidden_longs)
+        // The negation is a spelling of the same flag, and for a negative-only flag it is
+        // the *only* one: leaving it out made the selector list empty, and an empty
+        // `matches!` does not parse.
+        .chain(negate.iter())
         .map(|long| format!("--{long}"));
     let short_selectors = shorts.iter().map(|short| format!("-{short}"));
     let selectors: Vec<String> = long_selectors.chain(short_selectors).collect();
+    let named = if selectors.is_empty() {
+        quote!(false)
+    } else {
+        quote! {
+            __usage_view.globals.iter().any(|__usage_selector| {
+                matches!(*__usage_selector, #(#selectors)|*)
+            })
+        }
+    };
     quote! {
         match __usage_view {
             ::std::option::Option::None => true,
             ::std::option::Option::Some(__usage_view) => {
-                __usage_view.all_globals
-                    || __usage_view.globals.iter().any(|__usage_selector| {
-                        matches!(*__usage_selector, #(#selectors)|*)
-                    })
+                __usage_view.all_globals || #named
             }
         }
     }
@@ -2952,6 +2963,7 @@ fn field_active_in_view(field: &Field, view: &ViewDecl) -> bool {
         longs,
         hidden_longs,
         shorts,
+        negate,
         global: true,
         ..
     } = &field.kind
@@ -2962,6 +2974,7 @@ fn field_active_in_view(field: &Field, view: &ViewDecl) -> bool {
         || longs
             .iter()
             .chain(hidden_longs)
+            .chain(negate.iter())
             .map(|long| format!("--{long}"))
             .chain(shorts.iter().map(|short| format!("-{short}")))
             .any(|selector| view.globals.contains(&selector))

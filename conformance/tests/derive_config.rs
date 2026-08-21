@@ -304,3 +304,54 @@ fn the_argv_entry_strips_argv0_and_returns_the_layer() {
         resolve(Settings::SETTINGS_REGISTRY, Layers::new().then(&layer)).expect("resolves");
     assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(7)));
 }
+
+/// A tool whose only spelling for a bound flag is the negation.
+///
+/// tak's `--no-credit`: the setting defaults to true and the command line can only turn it
+/// off. The regression here was in view-aware codegen — a global flag's selector list was
+/// built from longs and shorts alone, so a negate-only flag produced an empty `matches!`
+/// that did not parse.
+#[derive(Cli, Debug)]
+#[usage(bin = "negonly")]
+struct NegOnly {
+    /// Leave the credit line off
+    // clap's SetFalse spelling: the single long becomes the negative spelling, so this
+    // flag's *only* selector is the negation.
+    #[arg(long = "no-credit", action = clap::ArgAction::SetFalse, global = true)]
+    #[usage(default = "true", setting = "credit")]
+    credit: bool,
+
+    #[usage(subcommand)]
+    command: Option<NegOnlyCommands>,
+}
+
+#[derive(usage_derive::Subcommands, Debug)]
+enum NegOnlyCommands {
+    /// Run it
+    Run,
+}
+
+#[test]
+fn a_negate_only_global_flag_still_binds_its_setting() {
+    static PROPS: &[usage_config::PropMeta] = &[usage_config::PropMeta {
+        default: Some(Const::Bool(true)),
+        cli: &["--no-credit"],
+        ..usage_config::PropMeta::new("credit", Ty::Bool)
+    }];
+    const REGISTRY: usage_config::Registry = usage_config::Registry::new(PROPS);
+    assert_eq!(
+        REGISTRY.drift(NegOnly::SETTINGS_BINDINGS),
+        Vec::<String>::new()
+    );
+
+    let argv = [OsStr::new("--no-credit")];
+    let (cli, layer) = NegOnly::parse_from_with_settings(&argv).expect("parses");
+    assert!(!cli.credit);
+    let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("resolves");
+    assert_eq!(resolved.get_key("credit"), Some(&Value::Bool(false)));
+
+    // And left off, the default stands: absence is not a value.
+    let (cli, layer) = NegOnly::parse_from_with_settings(&[]).expect("parses");
+    assert!(cli.credit);
+    assert!(layer.is_empty());
+}
