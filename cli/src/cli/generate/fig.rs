@@ -106,11 +106,11 @@ struct FigArg {
     suggestions: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     debounce: Option<bool>,
-    /// Whether [`Self::template`] came from a `complete … type=` declaration rather than
-    /// from the name guess `get_template` makes. Not part of a Fig spec — it only decides
-    /// which of several declarations wins while one is being built.
+    /// Whether a `complete` declaration has been applied to this argument, as opposed to
+    /// the template and generator inferred from its name. Not part of a Fig spec — it
+    /// only decides which declaration wins while one is being built.
     #[serde(skip)]
-    typed_template: bool,
+    declared: bool,
 }
 
 #[serde_as]
@@ -246,47 +246,62 @@ impl FigArg {
             generators: FigArg::get_generator(&arg.name),
             suggestions: arg.choices.clone().map(|c| c.choices).unwrap_or_default(),
             debounce: FigArg::get_generator(&arg.name).map(|_| true),
-            typed_template: false,
+            declared: false,
         }
     }
 
     pub fn update_from_complete(&mut self, spec: SpecComplete) {
         let name = spec.name;
 
-        // Nearest declaration wins, which is the rule the generator already followed:
-        // `or_else` kept whatever a command's own completer had put there when the root
-        // spec's completers were applied over the whole tree afterwards. The template
-        // obeys the same rule, so an argument cannot come out carrying both a template
-        // and a generator for a reader to have to choose between. A name-inferred
-        // template is a guess rather than a declaration, so it does not count as one.
-        if self.typed_template || self.generators.is_some() {
+        // A `complete` node with neither a command to run nor a type says nothing about
+        // what this value is, so it displaces nothing.
+        if spec.run.is_none() && spec.type_.is_none() {
             return;
         }
 
-        // A typed completer is a policy Fig has its own name for, so it becomes a
-        // template rather than a generator. `get_template` above guesses from the
-        // argument's name — `out_file` gets paths because it contains "file" — which was
-        // all there was before `type=` existed.
-        if let Some(template) = spec.type_.as_deref().and_then(template_for_type) {
-            self.template = Some(template.to_string());
-            self.typed_template = true;
-            // Fig answers a template itself: nothing runs, so there is nothing to
-            // debounce.
-            self.debounce = None;
+        // Two rules, and keeping them apart is the whole of this function.
+        //
+        // A declaration beats a guess. The template and generator an argument starts
+        // with come from `get_template` and `get_generator` reading its *name* —
+        // `out_file` gets paths because it contains "file" — which was all there was
+        // before `type=` existed. A spec that says what its value is should not lose to a
+        // substring match, so the first declaration to arrive clears every guess,
+        // including when what it declares is that there is nothing to offer.
+        //
+        // The nearest declaration wins. Each command's completers are applied at its own
+        // level and the root spec's over the whole tree afterwards, so a later one must
+        // not overwrite a nearer one — which is what `or_else` used to arrange for the
+        // generator alone.
+        if self.declared {
+            return;
+        }
+        self.declared = true;
+        self.template = None;
+        self.generators = None;
+        self.debounce = None;
+
+        // A command to run outranks a type: `run=` is what this argument's author wrote
+        // for this argument, where a type names a category. It is also the only one of
+        // the two that reached Fig before, so a spec declaring both keeps the behaviour
+        // it already had.
+        if let Some(run) = spec.run {
+            self.generators = Some(FigGenerator {
+                type_: GeneratorType::Complete,
+                post_process: run,
+                template_str: format!("${name}$"),
+            });
             return;
         }
 
-        // Only a completer with something to run becomes a generator. The rest — `none`,
-        // and the kinds a shell answers for itself — have no command to post-process, and
-        // building one anyway emitted a generator whose script was the empty string.
-        let Some(run) = spec.run else {
-            return;
-        };
-        self.generators = Some(FigGenerator {
-            type_: GeneratorType::Complete,
-            post_process: run,
-            template_str: format!("${name}$"),
-        })
+        // And a type becomes the template Fig has its own name for, where Fig has one:
+        // `none` says to offer nothing, and the kinds a shell answers for itself have no
+        // Fig equivalent worth approximating. Both leave the argument bare, which is the
+        // declaration being honoured rather than ignored.
+        self.template = spec
+            .type_
+            .as_deref()
+            .and_then(template_for_type)
+            .map(str::to_string);
     }
 }
 

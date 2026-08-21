@@ -112,6 +112,63 @@ cmd "d" help="d" {
 }
 
 #[test]
+fn a_declaration_that_offers_nothing_is_honoured_not_ignored() {
+    // `none` means offer nothing. The argument's name says "file", which the guess reads
+    // as paths — and a declaration, including one declaring there is nothing to offer,
+    // replaces a guess.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+complete "secret_file" type="path"
+cmd "d" help="d" {
+    arg "<secret_file>" help="secret"
+    complete "secret_file" type="none"
+}
+        "#,
+    );
+    assert!(!fig.contains("template"), "{fig}");
+    assert!(!fig.contains("generators"), "{fig}");
+}
+
+#[test]
+fn a_declaration_replaces_a_guessed_generator_too() {
+    // `get_generator` reads the name as well: anything containing "env_var" gets the
+    // environment-variable generator. Treating that guess as a prior declaration let it
+    // outrank a real one.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+cmd "d" help="d" {
+    arg "<env_var>" help="var"
+    complete "env_var" type="path"
+}
+        "#,
+    );
+    assert!(fig.contains(r#""template": "filepaths""#), "{fig}");
+    assert!(!fig.contains("generators"), "{fig}");
+}
+
+#[test]
+fn a_command_to_run_leaves_no_guessed_template_beside_it() {
+    // The reverse of the case above: a `run=` declaration on an argument whose name
+    // infers a template used to emit both.
+    let fig = fig_of(
+        r#"
+name "ex"
+bin "ex"
+cmd "d" help="d" {
+    arg "<config_file>" help="config"
+    complete "config_file" run="echo a"
+}
+        "#,
+    );
+    assert!(fig.contains("generators"), "{fig}");
+    assert!(!fig.contains("template"), "{fig}");
+}
+
+#[test]
 fn diff_offers_paths_for_both_of_its_specs() {
     // The command this file was written for: two arguments that are always spec files.
     let fig = fig_of(
