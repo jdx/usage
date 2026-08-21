@@ -105,9 +105,6 @@ impl Completion {
         let env = install::Env::from_process();
         let plan = install::plan(&self.bin, shell, &env).map_err(as_diagnostic)?;
 
-        // Everything here goes to stderr, and stdout stays empty. A note about a write is not the
-        // thing written — the same reason `write_or_stdout` moved its progress line.
-        eprintln!("installing to {}", plan.path.display());
         let done = install::write(
             &plan,
             script,
@@ -119,6 +116,11 @@ impl Completion {
         )
         .map_err(as_diagnostic)?;
 
+        // Everything here goes to stderr, and stdout stays empty. A note about a write is not the
+        // thing written — the same reason `write_or_stdout` moved its progress line. And after the
+        // write rather than before it: a refusal that had already announced an installation would
+        // be describing something that did not happen.
+        eprintln!("installing to {}", done.plan.path.display());
         if done.wrote == Wrote::Unchanged {
             eprintln!("already up to date");
         }

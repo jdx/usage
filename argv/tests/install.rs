@@ -253,9 +253,22 @@ fn an_installed_zsh_script_loads_from_where_it_was_installed() {
         .instruction()
         .expect("zsh needs a line")
         .to_string();
-
+    // Used as a prefix rather than copied, so a change to the reported line still flows through
+    // here. What is appended is two flags the *instruction* should not carry: `compaudit` calls a
+    // world-writable ancestor insecure, which is what `std::env::temp_dir()` is on a CI runner, and
+    // plain `compinit` answers that by prompting — "not interactive and can't open terminal", then
+    // aborting. `-u` takes the answer a human would give; `-d` keeps the dump out of `$HOME`. A
+    // real user's own data directory is neither world-writable nor shared, which is why the line
+    // they are given stays plain.
+    assert!(
+        instruction.ends_with("compinit"),
+        "the flags below are appended to a `compinit` at the end: {instruction}"
+    );
     let stubs = "typeset -A compstate\ncompadd() { local e; for e in \"${display[@]}\"; do print -r -- \"display:$e\"; done }\n_files() { }\n";
-    let code = format!("{stubs}{instruction}\nBUFFER='ex i'\nCURSOR=4\n_ex\n");
+    let code = format!(
+        "{stubs}{instruction} -u -d {}/zcompdump\nBUFFER='ex i'\nCURSOR=4\n_ex\n",
+        fixture.dir.display()
+    );
     let out = Command::new("zsh")
         .arg("-c")
         .arg(&code)

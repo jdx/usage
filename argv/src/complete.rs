@@ -494,6 +494,17 @@ impl<'a> App<'a> {
         crate::install::plan(spec.bin.unwrap_or(spec.name), shell, env)
     }
 
+    /// Where an alias's script would go. The preview half of [`App::install_completion_for_alias`].
+    pub fn completion_install_plan_for_alias(
+        self,
+        alias: &str,
+        shell: Shell,
+        env: &crate::install::Env,
+    ) -> Result<crate::install::Plan, crate::install::Error> {
+        let spec = self.view.spec();
+        crate::install::plan_for(spec.bin.unwrap_or(spec.name), alias, shell, env)
+    }
+
     /// Write this view's completion script where the described environment says it goes.
     pub fn install_completion(
         self,
