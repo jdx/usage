@@ -57,6 +57,9 @@ on context:
 | gaining a group member, exclusive group       | breaking   | the new member conflicts with the rest                    |
 | renaming a command that keeps an alias        | metadata   | the old word still selects it                             |
 | renaming a command with no alias              | breaking   | the old word selects nothing                              |
+| adding a command nothing else answered to     | compatible | the word meant nothing before                             |
+| adding a command over `external_subcommand`   | breaking   | the word used to reach an external command                |
+| adding a command where a positional bound     | breaking   | the word used to be that argument's value                 |
 | a `renamed_to` config key that is not there   | breaking   | the promise about where the value went is not kept        |
 
 A rename is not the only thing that can happen to a command in one release, so a renamed

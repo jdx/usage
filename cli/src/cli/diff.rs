@@ -1510,6 +1510,30 @@ fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Ch
             );
             continue;
         }
+        // A word only becomes newly meaningful if the old interface had nothing to do with
+        // it. Where it did, the invocation that used to work now reaches somewhere else,
+        // which is the definition of breaking rather than an exception to it.
+        if old.external_subcommand {
+            c.breaking(
+                "cmd-shadows-external",
+                path,
+                format!(
+                    "command '{name}' now takes a word that used to be forwarded to an external command"
+                ),
+            );
+            continue;
+        }
+        if let Some(arg) = old.args.first() {
+            c.breaking(
+                "cmd-shadows-arg",
+                path,
+                format!(
+                    "command '{name}' now takes a word that used to bind to '{}'",
+                    arg.usage()
+                ),
+            );
+            continue;
+        }
         c.compatible(
             "cmd-added",
             path,
@@ -2428,6 +2452,62 @@ cmd "rm" help="something else"
             found.contains(&"breaking:cmd-shadows-alias".to_string()),
             "{found:?}"
         );
+    }
+
+    #[test]
+    fn a_command_capturing_a_word_the_old_spec_forwarded_is_breaking() {
+        let old = r#"
+name "ex"
+bin "ex"
+external_subcommand #true
+cmd "build" help="build"
+        "#;
+        let new = r#"
+name "ex"
+bin "ex"
+external_subcommand #true
+cmd "build" help="build"
+cmd "deploy" help="deploy"
+        "#;
+
+        // `ex deploy` used to run `ex-deploy`. It now runs the built-in, which is a command
+        // line that worked and now does something else — the definition of breaking.
+        let found = codes(old, new);
+        assert!(
+            found.contains(&"breaking:cmd-shadows-external".to_string()),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn a_command_capturing_a_word_an_argument_took_is_breaking() {
+        let old = r#"
+name "ex"
+bin "ex"
+arg "<task>" help="task"
+        "#;
+        let new = r#"
+name "ex"
+bin "ex"
+arg "<task>" help="task"
+cmd "list" help="list"
+        "#;
+
+        // `ex list` used to pass "list" to <task>. The word now selects a subcommand.
+        let found = codes(old, new);
+        assert!(
+            found.contains(&"breaking:cmd-shadows-arg".to_string()),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn a_command_added_where_nothing_took_the_word_is_compatible() {
+        let old = "name \"ex\"\nbin \"ex\"\ncmd \"build\" help=\"build\"\n";
+        let new =
+            "name \"ex\"\nbin \"ex\"\ncmd \"build\" help=\"build\"\ncmd \"test\" help=\"test\"\n";
+
+        assert_eq!(codes(old, new), ["compatible:cmd-added"]);
     }
 
     #[test]
