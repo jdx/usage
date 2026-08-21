@@ -392,8 +392,10 @@ usage renders on the CLI's behalf — which nothing could reach before, so a CLI
 program.
 
 The level is the CLI's to act on. usage does not log and never installs a subscriber; it
-resolves a word — `silent`, `error`, `warn`, `info`, `debug`, `trace` — which is exactly
-the filter grammar `log`, `tracing` and `env_logger` already read.
+resolves a point on the scale, and the Rust API gives it back either as the spec's word —
+`silent`, `error`, `warn`, `info`, `debug`, `trace` — or as the one `log`, `tracing` and
+`env_logger` read as a filter, which is the same for five of the six and `off` rather than
+`silent` for the last.
 
 ### Roles and `config` props
 

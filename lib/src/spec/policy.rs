@@ -54,6 +54,9 @@ impl Verbosity {
         Verbosity::Trace,
     ];
 
+    /// The word for this level, as a spec spells it.
+    ///
+    /// Not what a logger reads: see [`Verbosity::log_filter`].
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Silent => "silent",
@@ -62,6 +65,18 @@ impl Verbosity {
             Self::Info => "info",
             Self::Debug => "debug",
             Self::Trace => "trace",
+        }
+    }
+
+    /// The word `log`, `tracing` and `env_logger` all read as a filter.
+    ///
+    /// The same as [`Verbosity::as_str`] for five of the six levels. The fleet spells
+    /// silence `silent` and every logging crate spells it `off`; handing one of them
+    /// `silent` gets it read as a module name rather than as a level.
+    pub fn log_filter(&self) -> &'static str {
+        match self {
+            Self::Silent => "off",
+            other => other.as_str(),
         }
     }
 
@@ -370,6 +385,15 @@ mod tests {
         assert_eq!(Verbosity::parse("fatal"), None);
         assert_eq!(Verbosity::parse("verbose"), None);
         assert_eq!(Verbosity::parse(""), None);
+    }
+
+    #[test]
+    fn the_bottom_of_the_scale_has_two_spellings() {
+        assert_eq!(Verbosity::Silent.as_str(), "silent");
+        assert_eq!(Verbosity::Silent.log_filter(), "off");
+        for level in Verbosity::SCALE.iter().skip(1) {
+            assert_eq!(level.as_str(), level.log_filter());
+        }
     }
 
     #[test]

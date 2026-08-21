@@ -239,10 +239,17 @@ fn main() {
     let cli = Cli::parse();
     // The level this command line asked for, as a word `log`, `tracing` and
     // `env_logger` all read as a filter. usage never installs a subscriber.
-    let level = usage::VerbosityPolicy::verbosity(&cli).as_str();
+    let level = usage::VerbosityPolicy::verbosity(&cli).log_filter();
     env_logger::builder().filter_level(level.parse().unwrap()).init();
 }
 ```
+
+`log_filter()` rather than `as_str()`: the two agree for five of the six levels, and differ
+where it matters. The fleet spells the bottom of the scale `silent` — mise's and hk's
+`--silent`, aube's `--loglevel silent` — and every logging crate spells it `off`. `as_str()`
+is the spec's word, for help and emitted KDL; `log_filter()` is the logger's. Handing a logger
+the first would have `env_logger` read `silent` as the name of a module to filter on, so
+`--silent` would answer by logging more.
 
 Both are traits — `usage::VerbosityPolicy` and `usage::ColorPolicy` — rather than inherent
 methods, so a CLI that already has its own `fn verbosity` keeps it and reaches this one as

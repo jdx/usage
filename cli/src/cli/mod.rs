@@ -163,12 +163,15 @@ pub struct Cli {
 /// The default filter is the resolved level rather than a hard-coded `info`, and
 /// `USAGE_LOG` still wins: it is an `env_logger` filter string, which can name a module,
 /// and a level cannot say that. `try_init` because a test process may run this twice.
+///
+/// `log_filter` rather than `as_str`: `env_logger` spells silence `off`, and would read
+/// the spec's spelling of it as the name of a module to filter on.
 fn init_logging(cli: &Cli) {
     use usage_rs::VerbosityPolicy as _;
     let level = cli.verbosity();
     let _ = env_logger::builder()
         .format_timestamp(None)
-        .parse_env(env_logger::Env::default().filter_or("USAGE_LOG", level.as_str()))
+        .parse_env(env_logger::Env::default().filter_or("USAGE_LOG", level.log_filter()))
         .try_init();
 }
 

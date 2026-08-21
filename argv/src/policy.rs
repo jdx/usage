@@ -54,12 +54,11 @@ impl Verbosity {
         Verbosity::Trace,
     ];
 
-    /// The word for this level.
+    /// The word for this level, as a spec spells it.
     ///
-    /// This is the whole integration with `log`, `tracing` and `env_logger`:
-    /// all three read exactly these six words as a filter, so a CLI writes
-    /// `.filter_level(level.as_str().parse()?)` and usage needs no dependency
-    /// on any of them.
+    /// This is the spelling the fleet uses and the one `verbosity=` takes, so it is what
+    /// help, documentation and an emitted spec say. It is *not* what a logger reads —
+    /// see [`Verbosity::log_filter`], which differs for exactly one level.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Silent => "silent",
@@ -68,6 +67,25 @@ impl Verbosity {
             Self::Info => "info",
             Self::Debug => "debug",
             Self::Trace => "trace",
+        }
+    }
+
+    /// The word `log`, `tracing` and `env_logger` all read as a filter.
+    ///
+    /// This is the whole integration with them: a CLI writes
+    /// `.filter_level(level.log_filter().parse()?)` and usage needs no dependency on any
+    /// of them.
+    ///
+    /// Identical to [`Verbosity::as_str`] for five of the six. The bottom of the scale is
+    /// the exception, and the reason this is a second method rather than one: the fleet
+    /// spells silence `silent` — mise's and hk's `--silent`, aube's `--loglevel silent` —
+    /// while every logging crate spells it `off`, and `silent` is not a level to any of
+    /// them. `env_logger` would read it as the name of a module to filter on, so a CLI
+    /// handing it `as_str()` would answer `--silent` by logging *more*, not less.
+    pub const fn log_filter(self) -> &'static str {
+        match self {
+            Self::Silent => "off",
+            other => other.as_str(),
         }
     }
 
@@ -482,6 +500,19 @@ mod tests {
         assert_eq!(Verbosity::parse("off"), Some(Verbosity::Silent));
         assert_eq!(Verbosity::parse("DEBUG"), Some(Verbosity::Debug));
         assert_eq!(Verbosity::parse("fatal"), None);
+    }
+
+    #[test]
+    fn the_bottom_of_the_scale_has_two_spellings() {
+        // The fleet says `silent`; every logging crate says `off`. Both are this level,
+        // and which word comes out depends on who is being told.
+        assert_eq!(Verbosity::Silent.as_str(), "silent");
+        assert_eq!(Verbosity::Silent.log_filter(), "off");
+        assert_eq!(Verbosity::parse("off"), Some(Verbosity::Silent));
+        // Everything else is the same word to both.
+        for level in Verbosity::SCALE.iter().skip(1) {
+            assert_eq!(level.as_str(), level.log_filter());
+        }
     }
 
     #[test]

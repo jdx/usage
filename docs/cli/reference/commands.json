@@ -1859,6 +1859,6 @@
   "source_code_link_template": "{%- set path = path | replace(from='-', to='_') -%}\n{%- if cmd.subcommands | length > 0 -%}\n{%- set path = path ~ \"/mod.rs\" -%}\n{%- elif path in [\"bash\", \"fish\", \"powershell\", \"zsh\"] -%}\n{%- set path = \"shell.rs\" -%}\n{%- else -%}\n{%- set path = path ~ \".rs\" -%}\n{%- endif -%}\nhttps://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}",
   "repository": "https://github.com/jdx/usage",
   "about": "CLI for working with usage-based CLIs",
-  "min_usage_version": "5.2",
+  "min_usage_version": "6.0",
   "unknown_flags": "error"
 }
