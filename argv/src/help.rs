@@ -47,11 +47,21 @@ impl Style {
     /// Colour when stdout is a terminal and the environment permits it.
     pub fn auto() -> Style {
         use std::io::IsTerminal as _;
+        Self::auto_for(std::io::stdout().is_terminal())
+    }
+
+    /// Colour when stderr is a terminal and the environment permits it.
+    pub fn auto_stderr() -> Style {
+        use std::io::IsTerminal as _;
+        Self::auto_for(std::io::stderr().is_terminal())
+    }
+
+    fn auto_for(is_terminal: bool) -> Style {
         let forced = std::env::var_os("CLICOLOR_FORCE").is_some_and(|v| v != "0");
         let refused = std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty());
         if refused {
             Style::PLAIN
-        } else if forced || std::io::stdout().is_terminal() {
+        } else if forced || is_terminal {
             Style::COLOURED
         } else {
             Style::PLAIN
@@ -92,7 +102,9 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
         let end = rest[start..]
             .char_indices()
             .skip(1)
-            .find_map(|(i, c)| (c.is_whitespace() || matches!(c, ',' | ']' | '>')).then_some(i))
+            .find_map(|(i, c)| {
+                (c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '>')).then_some(i)
+            })
             .unwrap_or(rest.len() - start)
             + start;
         out.push_str(&rest[..start]);
@@ -503,11 +515,6 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     if flag.takes_value {
         // Angled where the value must be given, squared where it need not — the same brackets
         // an argument uses, and for the same reason. pitchfork's `--bump` is the fleet's case.
-        let (open, close) = if meta.value_optional {
-            ('[', ']')
-        } else {
-            ('<', '>')
-        };
         let exact = exact_arity(meta.value_var_min, meta.value_var_max);
         if meta.value_names.len() <= 1 && exact.is_some_and(|n| n > 1) {
             let name = meta
@@ -516,8 +523,14 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
                 .copied()
                 .or(meta.value_name)
                 .unwrap_or(flag.name);
-            for _ in 0..exact.unwrap() {
-                let _ = write!(out, " {open}{name}{close}");
+            for index in 0..exact.unwrap() {
+                append_flag_value(
+                    &mut out,
+                    name,
+                    meta.value_optional,
+                    flag.require_equals,
+                    index == 0,
+                );
             }
         } else if meta.value_names.len() <= 1 {
             let name = meta
@@ -526,10 +539,22 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
                 .copied()
                 .or(meta.value_name)
                 .unwrap_or(flag.name);
-            let _ = write!(out, " {open}{name}{close}");
+            append_flag_value(
+                &mut out,
+                name,
+                meta.value_optional,
+                flag.require_equals,
+                true,
+            );
         } else {
-            for name in meta.value_names {
-                let _ = write!(out, " {open}{name}{close}");
+            for (index, name) in meta.value_names.iter().enumerate() {
+                append_flag_value(
+                    &mut out,
+                    name,
+                    meta.value_optional,
+                    flag.require_equals,
+                    index == 0,
+                );
             }
         }
         if flag.variadic && meta.value_names.len() <= 1 && exact.is_none() {
@@ -537,6 +562,22 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
         }
     }
     out
+}
+
+fn append_flag_value(
+    out: &mut String,
+    name: &str,
+    optional: bool,
+    require_equals: bool,
+    first: bool,
+) {
+    if first && optional && require_equals {
+        let _ = write!(out, "[={name}]");
+    } else {
+        let separator = if first && require_equals { "=" } else { " " };
+        let (open, close) = if optional { ('[', ']') } else { ('<', '>') };
+        let _ = write!(out, "{separator}{open}{name}{close}");
+    }
 }
 
 /// How one positional argument appears: `<TOOL>`, `[FILES]…`, `-- <ARGS>`.
@@ -2366,11 +2407,29 @@ fn recursive_help<'a>(
 #[cfg(test)]
 mod style_tests {
     use super::{
-        commands_section, flag_notes, flat_commands_short, inline_environment_notes, styled_help,
-        Style,
+        commands_section, flag_notes, flag_usage, flat_commands_short, inline_environment_notes,
+        styled_flag_usage, styled_help, Style,
     };
     use crate::spec::{CommandMeta, FlagMeta};
     use crate::{Command, Flag};
+
+    #[test]
+    fn optional_equals_values_put_the_equals_inside_the_brackets() {
+        let flag = Flag {
+            name: "color",
+            longs: &["color"],
+            require_equals: true,
+            ..Flag::VALUE
+        };
+        let meta = FlagMeta {
+            flag: &flag,
+            value_name: Some("WHEN"),
+            value_optional: true,
+            ..FlagMeta::EMPTY
+        };
+
+        assert_eq!(flag_usage(&meta), "--color[=WHEN]");
+    }
 
     #[test]
     fn flattened_next_line_deprecation_follows_help_without_a_blank_row() {
@@ -2534,6 +2593,18 @@ mod style_tests {
         assert!(coloured.contains("[possible values: --auto]"));
         assert!(coloured.contains("(default: -1)"));
         assert_eq!(strip_ansi(&coloured), page);
+    }
+
+    #[test]
+    fn equals_separates_a_coloured_flag_from_its_value() {
+        assert_eq!(
+            styled_flag_usage("--output=<FILE>", Style::COLOURED),
+            "\u{1b}[36m--output\u{1b}[0m=<FILE>"
+        );
+        assert_eq!(
+            styled_flag_usage("--color[=WHEN]", Style::COLOURED),
+            "\u{1b}[36m--color\u{1b}[0m[=WHEN]"
+        );
     }
 
     fn strip_ansi(text: &str) -> String {

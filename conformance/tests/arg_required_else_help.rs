@@ -53,11 +53,10 @@ struct DefaultRun {
 
 #[test]
 fn a_bare_root_asks_for_short_help_even_when_a_default_fills_a_field() {
-    let Err(Error::Help { cmd, long }) = RootPolicy::parse_from(&[]) else {
+    let Err(Error::MissingArgsHelp { cmd }) = RootPolicy::parse_from(&[]) else {
         panic!("a bare invocation should ask for help");
     };
     assert_eq!(cmd.name, "ex");
-    assert!(!long);
 
     let parsed = RootPolicy::parse_from(&argv(["--value", "given"])).expect("argv was supplied");
     assert_eq!(parsed.value, "given");
@@ -65,11 +64,10 @@ fn a_bare_root_asks_for_short_help_even_when_a_default_fills_a_field() {
 
 #[test]
 fn a_nested_command_counts_only_tokens_after_its_own_name() {
-    let Err(Error::Help { cmd, long }) = NestedPolicy::parse_from(&argv(["run"])) else {
+    let Err(Error::MissingArgsHelp { cmd }) = NestedPolicy::parse_from(&argv(["run"])) else {
         panic!("the command name selects run but is not one of run's arguments");
     };
     assert_eq!(cmd.name, "run");
-    assert!(!long);
 
     let parsed = NestedPolicy::parse_from(&argv(["run", "--all"])).expect("run has an argument");
     let Commands::Run(run) = parsed.command;

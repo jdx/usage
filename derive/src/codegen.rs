@@ -645,9 +645,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 if __usage_parser.command().arg_required_else_help
                     && __usage_parser.command_start() == argv.len()
                 {
-                    return ::std::result::Result::Err(usage_argv::Error::Help {
+                    return ::std::result::Result::Err(usage_argv::Error::MissingArgsHelp {
                         cmd: __usage_parser.command(),
-                        long: false,
                     });
                 }
 
@@ -869,6 +868,38 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 }
                                 // Only reachable if the command came from another CLI's tables.
                                 ::std::option::Option::None => ::std::process::exit(0),
+                            }
+                        }
+                        ::std::result::Result::Err(usage_argv::Error::MissingArgsHelp { cmd }) => {
+                            #effective_spec
+                            let __usage_page = match usage_argv::help::route_to(
+                                Self::command(),
+                                &__usage_argv,
+                                cmd,
+                            ) {
+                                ::std::option::Option::Some(route) => {
+                                    usage_argv::help::render_at_styled(
+                                        __usage_spec,
+                                        &route,
+                                        false,
+                                        usage_argv::help::Style::auto_stderr(),
+                                    )
+                                }
+                                ::std::option::Option::None => {
+                                    usage_argv::help::render_styled(
+                                        __usage_spec,
+                                        cmd,
+                                        false,
+                                        usage_argv::help::Style::auto_stderr(),
+                                    )
+                                }
+                            };
+                            match __usage_page {
+                                ::std::option::Option::Some(page) => {
+                                    ::std::eprint!("{page}");
+                                    ::std::process::exit(2);
+                                }
+                                ::std::option::Option::None => ::std::process::exit(2),
                             }
                         }
                         ::std::result::Result::Err(usage_argv::Error::HelpAll { cmd }) => {
