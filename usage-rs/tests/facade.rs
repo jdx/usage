@@ -2852,3 +2852,358 @@ fn the_endpoint_wins_over_default_subcommand_routing() {
     // that wants the word back declares it, or sets `spec_endpoint = false`.
     assert!(DefaultSubcommandEx::spec_request(&[OsStr::new(usage::SPEC_REQUEST)]).is_some());
 }
+
+// A struct flattened into more than one command: the shape mise has 200-odd times over, and
+// the reason the emitted spec used to repeat itself.
+#[derive(Args)]
+#[allow(dead_code)]
+struct SharedFlags {
+    /// Print more.
+    #[arg(long, short)]
+    verbose: bool,
+    /// How many at once.
+    #[arg(long)]
+    jobs: Option<usize>,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct BuildCmd {
+    #[arg(long)]
+    release: bool,
+    #[usage(flatten)]
+    shared: SharedFlags,
+    #[arg(long)]
+    target: Option<String>,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct TestCmd {
+    #[usage(flatten)]
+    shared: SharedFlags,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum FlagsetCommand {
+    Build(BuildCmd),
+    Test(TestCmd),
+}
+
+#[derive(Cli)]
+#[usage(bin = "flagset-ex")]
+#[allow(dead_code)]
+struct FlagsetEx {
+    #[usage(subcommand)]
+    command: FlagsetCommand,
+}
+
+#[test]
+fn a_struct_flattened_twice_is_written_once_as_a_flagset() {
+    let kdl = FlagsetEx::to_kdl();
+    assert!(kdl.contains("flagset shared-flags {"), "{kdl}");
+    // Two commands, one set, and the flags written once rather than under each.
+    assert_eq!(kdl.matches("use shared-flags").count(), 2, "{kdl}");
+    assert_eq!(kdl.matches("flag \"-v --verbose\"").count(), 1, "{kdl}");
+
+    // The set stands where the struct did, so help order is still declaration order.
+    let spec: usage_parser::Spec = kdl.parse().expect("the emitted set should parse back");
+    let build = spec.cmd.subcommands.get("build").expect("build");
+    let flags: Vec<&str> = build.flags.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(flags, ["release", "verbose", "jobs", "target"], "{kdl}");
+    let test = spec.cmd.subcommands.get("test").expect("test");
+    let flags: Vec<&str> = test.flags.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(flags, ["verbose", "jobs"], "{kdl}");
+
+    // Help text and values survive the trip, not just the names: a set that lost them
+    // would still pass the assertions above.
+    let verbose = build
+        .flags
+        .iter()
+        .find(|f| f.name == "verbose")
+        .expect("verbose");
+    assert_eq!(verbose.help.as_deref(), Some("Print more."));
+    assert_eq!(verbose.short, vec!['v']);
+    let jobs = build.flags.iter().find(|f| f.name == "jobs").expect("jobs");
+    assert!(jobs.arg.is_some(), "{kdl}");
+}
+
+#[test]
+fn what_the_flagset_expands_to_is_what_the_typed_parse_binds() {
+    // The emitted spec is what docs, completions and other implementations read, so the
+    // question is not only whether it parses but whether it means the same thing.
+    let spec: usage_parser::Spec = FlagsetEx::to_kdl().parse().expect("parses");
+    let words = ["flagset-ex", "build", "--verbose", "--jobs", "4"].map(String::from);
+    let parsed = usage_parser::parse(&spec, &words).expect("the reference parser binds it");
+    assert_eq!(
+        parsed.as_env().get("usage_jobs").map(String::as_str),
+        Some("4")
+    );
+
+    let typed = FlagsetEx::parse_from(&[
+        OsStr::new("build"),
+        OsStr::new("--verbose"),
+        OsStr::new("--jobs"),
+        OsStr::new("4"),
+    ])
+    .expect("the typed parse binds it too");
+    let FlagsetCommand::Build(build) = typed.command else {
+        panic!("build should have been selected");
+    };
+    assert!(build.shared.verbose);
+    assert_eq!(build.shared.jobs, Some(4));
+}
+
+// A set assembled from a smaller one, which is the composition the spec node allows.
+#[derive(Args)]
+#[allow(dead_code)]
+struct InnerFlags {
+    #[arg(long)]
+    inner: bool,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct OuterFlags {
+    #[usage(flatten)]
+    inner: InnerFlags,
+    #[arg(long)]
+    outer: bool,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct NestedOne {
+    #[usage(flatten)]
+    outer: OuterFlags,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct NestedTwo {
+    #[usage(flatten)]
+    outer: OuterFlags,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum NestedFlagsetCommand {
+    One(NestedOne),
+    Two(NestedTwo),
+}
+
+#[derive(Cli)]
+#[usage(bin = "nested-flagset-ex")]
+#[allow(dead_code)]
+struct NestedFlagsetEx {
+    #[usage(subcommand)]
+    command: NestedFlagsetCommand,
+}
+
+#[test]
+fn a_struct_that_flattens_another_is_a_set_that_uses_a_set() {
+    let kdl = NestedFlagsetEx::to_kdl();
+    assert!(kdl.contains("flagset inner-flags {"), "{kdl}");
+    assert!(kdl.contains("flagset outer-flags {"), "{kdl}");
+    // `--inner` is declared once, inside its own set, and the outer set uses it rather
+    // than holding a copy.
+    assert_eq!(kdl.matches("flag --inner").count(), 1, "{kdl}");
+    assert_eq!(kdl.matches("use inner-flags").count(), 1, "{kdl}");
+    assert_eq!(kdl.matches("use outer-flags").count(), 2, "{kdl}");
+
+    let spec: usage_parser::Spec = kdl.parse().expect("composed sets should parse back");
+    for name in ["one", "two"] {
+        let cmd = spec.cmd.subcommands.get(name).expect(name);
+        let flags: Vec<&str> = cmd.flags.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(flags, ["inner", "outer"], "{name}: {kdl}");
+    }
+}
+
+// A flattened struct holding only positionals. There is no set of flags to name, and the
+// arguments stay on each command that flattens it.
+#[derive(Args)]
+#[allow(dead_code)]
+struct PositionalsOnly {
+    script: String,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct RunsAScript {
+    #[usage(flatten)]
+    script: PositionalsOnly,
+}
+
+#[derive(Cli)]
+#[usage(bin = "args-only-ex")]
+#[allow(dead_code)]
+struct ArgsOnlyEx {
+    #[usage(flatten)]
+    script: PositionalsOnly,
+}
+
+#[test]
+fn a_flattened_struct_with_no_flags_declares_no_set() {
+    let kdl = ArgsOnlyEx::to_kdl();
+    assert!(!kdl.contains("flagset"), "{kdl}");
+    assert!(!kdl.contains("use "), "{kdl}");
+    assert!(kdl.contains("arg <SCRIPT>"), "{kdl}");
+}
+
+mod first {
+    #[derive(usage_rs::Args)]
+    #[allow(dead_code)]
+    pub struct Collides {
+        #[arg(long)]
+        pub left: bool,
+    }
+
+    /// Holds a colliding struct, and collides itself.
+    #[derive(usage_rs::Args)]
+    #[allow(dead_code)]
+    pub struct Nested {
+        #[usage(flatten)]
+        pub inner: Collides,
+        #[arg(long)]
+        pub one: bool,
+    }
+}
+
+mod second {
+    #[derive(usage_rs::Args)]
+    #[allow(dead_code)]
+    pub struct Collides {
+        #[arg(long)]
+        pub right: bool,
+    }
+
+    #[derive(usage_rs::Args)]
+    #[allow(dead_code)]
+    pub struct Nested {
+        #[usage(flatten)]
+        pub inner: Collides,
+        #[arg(long)]
+        pub two: bool,
+    }
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct UsesFirst {
+    #[usage(flatten)]
+    inner: first::Collides,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct UsesSecond {
+    #[usage(flatten)]
+    inner: second::Collides,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum CollidingCommand {
+    One(UsesFirst),
+    Two(UsesSecond),
+}
+
+#[derive(Cli)]
+#[usage(bin = "colliding-ex")]
+#[allow(dead_code)]
+struct CollidingEx {
+    #[usage(subcommand)]
+    command: CollidingCommand,
+}
+
+#[test]
+fn two_structs_whose_names_end_the_same_way_get_no_set_at_all() {
+    // A set named for one of them would put its flags on the command that asked for the
+    // other's, so neither gets the name and both are written inline — which is what every
+    // flatten did before sets existed, and is never wrong, only longer.
+    let kdl = CollidingEx::to_kdl();
+    assert!(!kdl.contains("flagset collides"), "{kdl}");
+    assert!(!kdl.contains("use collides"), "{kdl}");
+
+    let spec: usage_parser::Spec = kdl.parse().expect("parses");
+    let one = spec.cmd.subcommands.get("one").expect("one");
+    assert_eq!(
+        one.flags
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>(),
+        ["left"],
+        "{kdl}"
+    );
+    let two = spec.cmd.subcommands.get("two").expect("two");
+    assert_eq!(
+        two.flags
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>(),
+        ["right"],
+        "{kdl}"
+    );
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct NestsFirst {
+    #[usage(flatten)]
+    nested: first::Nested,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct NestsSecond {
+    #[usage(flatten)]
+    nested: second::Nested,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum NestedCollidingCommand {
+    One(NestsFirst),
+    Two(NestsSecond),
+}
+
+#[derive(Cli)]
+#[usage(bin = "nested-colliding-ex")]
+#[allow(dead_code)]
+struct NestedCollidingEx {
+    #[usage(subcommand)]
+    command: NestedCollidingCommand,
+}
+
+#[test]
+fn a_collision_does_not_hide_the_one_inside_it() {
+    // Both `Nested` types collide, and so do the `Collides` types they hold. Stopping at the
+    // outer collision left the inner pair uncompared, so whichever parent was walked first
+    // gave its `Collides` the name — and which command got a `use` came down to traversal
+    // order rather than to anything either command said.
+    let kdl = NestedCollidingEx::to_kdl();
+    assert!(!kdl.contains("flagset nested"), "{kdl}");
+    assert!(!kdl.contains("flagset collides"), "{kdl}");
+    assert!(!kdl.contains("use collides"), "{kdl}");
+
+    let spec: usage_parser::Spec = kdl.parse().expect("parses");
+    let one = spec.cmd.subcommands.get("one").expect("one");
+    assert_eq!(
+        one.flags
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>(),
+        ["left", "one"],
+        "{kdl}"
+    );
+    let two = spec.cmd.subcommands.get("two").expect("two");
+    assert_eq!(
+        two.flags
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>(),
+        ["right", "two"],
+        "{kdl}"
+    );
+}

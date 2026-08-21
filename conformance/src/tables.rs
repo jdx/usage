@@ -172,6 +172,9 @@ pub fn build(
         groups: groups(&cmd.groups),
         flags: Box::leak(flag_metas.into_boxed_slice()),
         args: Box::leak(arg_metas.into_boxed_slice()),
+        // A spec read from KDL has already had its `use` nodes resolved, so there is no seam
+        // left to record: these tables come from flags, not from the struct that declared them.
+        flatten_groups: &[],
         subcommands: Box::leak(
             subs.iter()
                 .map(|s| s.meta)

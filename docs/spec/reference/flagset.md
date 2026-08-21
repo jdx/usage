@@ -194,6 +194,18 @@ declaration means the same thing under any command. A positional is identified b
 position, so the same set spliced into two commands with different arguments would mean
 two different things. Declaring `arg` inside a `flagset` is an error rather than a guess.
 
+## What the derive emits
+
+The typed Rust side has its own way to share declarations —
+[`#[usage(flatten)]`](/rust/subcommands#sharing-declarations-with-flatten) — and it lowers into
+this node: a flattened struct becomes one `flagset` named after it, and every command that
+flattens the struct gets a `use`. So a CLI written in Rust and a CLI written as a spec say the
+same thing the same way, which is the point of the node existing on both sides.
+
+Two flattened structs whose names end in the same word cannot both have the name, so neither gets
+it and both are written inline. That is never wrong, only longer — but it is worth knowing if a
+set you expected did not appear.
+
 ## One-way
 
 Expansion is part of reading the file. A spec that is parsed and re-emitted — by

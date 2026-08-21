@@ -2,9 +2,13 @@
 //!
 //! mise writes `ConfigLs` once and gives it to both `config` and `config ls`, so that
 //! `mise config --no-header` and `mise config ls --no-header` accept the same flags. Ten
-//! commands do this. It is a Rust-side device with no counterpart in the spec: the emitted
-//! KDL lists the flags inline, exactly as a hand-written command would, because a spec
-//! describes what a CLI accepts and not how the declarations were organised.
+//! commands do this. The spec has a counterpart for it — a `flagset`, and a `use` on each
+//! command that has the flags — so the emitted KDL says it once too, rather than repeating
+//! the declarations under every command.
+//!
+//! What a command *accepts* is the same either way, which is the property these tests hold:
+//! the reference parser resolves a `use` while it reads the file, so a spec with sets and
+//! the same spec written out flat describe one CLI.
 //!
 //! The tables are joined at compile time, so the parser walks one flat slice and flatten
 //! costs nothing at run time.
@@ -131,9 +135,9 @@ fn a_flattened_declaration_is_still_checked() {
 }
 
 #[test]
-fn the_spec_shows_the_flags_inline() {
-    // A spec has no idea of flattening, and does not need one: what reaches the KDL is the
-    // command with every flag it accepts, indistinguishable from one written out by hand.
+fn the_spec_says_the_flags_are_shared() {
+    // The shared declarations reach the KDL as a set the two commands use, and every flag
+    // is still on every command that accepts it once the reference parser has read it.
     let kdl = Ex::to_kdl();
     let spec: LibSpec = kdl.parse().expect("valid spec");
     let config = spec.cmd.subcommands.get("config").expect("config");
@@ -166,9 +170,13 @@ fn the_spec_shows_the_flags_inline() {
         Some("Do not print a header")
     );
 
-    // Nothing about the Rust-side arrangement leaks in.
+    // Said once, and used by both commands rather than copied into each.
+    assert!(kdl.contains("flagset listing {"), "{kdl}");
+    assert_eq!(kdl.matches("use listing").count(), 2, "{kdl}");
+    assert_eq!(kdl.matches("flag --no-header").count(), 1, "{kdl}");
+    // The set is a spec node. How the Rust side arranged it — the attribute, the field name
+    // holding the struct — still does not appear.
     assert!(!kdl.contains("flatten"), "{kdl}");
-    assert!(!kdl.contains("listing"), "{kdl}");
 }
 
 /// A parent with a required flag of its own, to pit against a flattened rule.

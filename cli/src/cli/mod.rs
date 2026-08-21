@@ -20,6 +20,11 @@ mod sponsors;
 // 3.6 added `effect=` and 4.0 added it on flags and args; older `usage` CLIs reject the spec
 // outright with "unsupported cmd prop effect", so this moves in lockstep with the fields the
 // spec actually carries.
+//
+// Owed a bump: the four shell commands flatten `Shell`, which now emits a `flagset`, and no
+// 4.0 can read that node. The floor is whichever release carries flagsets, so the number waits
+// for that release rather than being guessed at here — and this crate warning about its own
+// spec until then is worse than the stale claim.
 #[derive(DeriveCli)]
 #[usage(
     bin = "usage",

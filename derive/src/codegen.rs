@@ -17,8 +17,8 @@ use quote::{format_ident, quote};
 
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
-    rendered_path, to_kebab, Cli, ConditionalDefault, Dispatch, DoubleDash, ExampleDecl, Field,
-    Kind, Shape, Subcommands, ValueEnum, ViewDecl,
+    rendered_path, to_kebab, type_name, Cli, ConditionalDefault, Dispatch, DoubleDash, ExampleDecl,
+    Field, Kind, Shape, Subcommands, ValueEnum, ViewDecl,
 };
 
 /// Construct the user's command type after its generated partial has been checked.
@@ -207,6 +207,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let arg_table_ref = &tables.args;
     let flag_meta_table_ref = &tables.flag_metas;
     let arg_meta_table_ref = &tables.arg_metas;
+    let flatten_group_table_ref = &tables.flatten_groups;
 
     let name = &cli.name;
     let bin = option_str(cli.bin.as_deref());
@@ -885,6 +886,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 groups: #group_meta_table_ref,
+                flatten_groups: #flatten_group_table_ref,
                 #sub_metas
                 ..usage_argv::spec::CommandMeta::EMPTY
             };
@@ -2623,6 +2625,9 @@ struct Tables {
     args: TokenStream,
     flag_metas: TokenStream,
     arg_metas: TokenStream,
+    /// Where each flattened struct's flags landed, for the emitted spec to write one
+    /// `flagset` instead of the same flags under every command that flattens it.
+    flatten_groups: TokenStream,
 }
 
 /// Build the four expressions, splicing any flattened groups into place.
@@ -2641,6 +2646,13 @@ fn tables(cli: &Cli) -> Tables {
     let mut own_args: Vec<usize> = Vec::new();
     let (mut flag_at, mut arg_at) = (0usize, 0usize);
     let mut flattened = false;
+    // One entry per flattened field, naming the struct and where its flags begin. The
+    // offset is written as a sum rather than a number because the lengths that make it up
+    // belong to other structs' tables: `.len()` on a const slice is a const expression, so
+    // the arithmetic happens where the rest of the table does.
+    let mut flatten_groups: Vec<TokenStream> = Vec::new();
+    let mut flag_offset: Vec<TokenStream> = Vec::new();
+    let mut own_since_flatten = 0usize;
 
     // Flush the runs collected so far, so that what follows lands after them.
     fn flush_flags(
@@ -2683,6 +2695,7 @@ fn tables(cli: &Cli) -> Tables {
             Kind::Flag { .. } => {
                 own_flags.push(flag_at);
                 flag_at += 1;
+                own_since_flatten += 1;
             }
             Kind::Arg { .. } => {
                 own_args.push(arg_at);
@@ -2690,6 +2703,21 @@ fn tables(cli: &Cli) -> Tables {
             }
             Kind::Flatten { ty } => {
                 flattened = true;
+                if own_since_flatten > 0 {
+                    flag_offset.push(quote!(#own_since_flatten));
+                    own_since_flatten = 0;
+                }
+                let name = flagset_name(ty);
+                let terms = flag_offset.iter();
+                flatten_groups.push(quote! {
+                    usage_argv::spec::FlattenGroup {
+                        name: #name,
+                        start: 0 #(+ #terms)*,
+                        meta: <#ty as usage_argv::spec::CommandArgs>::META,
+                    }
+                });
+                flag_offset
+                    .push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.flags.len()));
                 flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
                 flush_args(&mut own_args, &mut arg_groups, &mut arg_meta_groups);
                 flag_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.flags));
@@ -2722,6 +2750,7 @@ fn tables(cli: &Cli) -> Tables {
             args: quote!(&[#(#arg_refs),*]),
             flag_metas: quote!(&[#(#flag_meta_refs),*]),
             arg_metas: quote!(&[#(#arg_meta_refs),*]),
+            flatten_groups: quote!(&[]),
         };
     }
 
@@ -2746,12 +2775,32 @@ fn tables(cli: &Cli) -> Tables {
             static ARG_METAS: [usage_argv::spec::ArgMeta<'static>;
                 usage_argv::table_len(ARG_META_GROUPS)] =
                 usage_argv::spec::concat_arg_metas(ARG_META_GROUPS);
+            const FLATTEN_GROUPS: &[usage_argv::spec::FlattenGroup<'static>] =
+                &[#(#flatten_groups),*];
         },
         flags: quote!(&FLAGS),
         args: quote!(&ARGS),
         flag_metas: quote!(&FLAG_METAS),
         arg_metas: quote!(&ARG_METAS),
+        flatten_groups: quote!(FLATTEN_GROUPS),
     }
+}
+
+/// The name a flattened struct's flagset is given: its own, in kebab-case.
+///
+/// The last path segment only, so `cli::CommonArgs` and `super::CommonArgs` name the same
+/// set — which they must, since they are the same struct. Two different structs whose names
+/// end in the same word collide, and [`usage_argv::spec::Spec::to_kdl`] resolves that by
+/// writing neither as a set rather than by guessing which one meant it.
+fn flagset_name(ty: &syn::Type) -> String {
+    let rendered = type_name(ty);
+    let last = rendered
+        .rsplit("::")
+        .next()
+        .unwrap_or(&rendered)
+        .trim()
+        .to_string();
+    to_kebab(&last)
 }
 
 fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
@@ -5045,6 +5094,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let arg_table_ref = &tables.args;
     let flag_meta_table_ref = &tables.flag_metas;
     let arg_meta_table_ref = &tables.arg_metas;
+    let flatten_group_table_ref = &tables.flatten_groups;
 
     let name = &cli.name;
     let aliases = cli.aliases.iter().chain(&cli.hidden_aliases);
@@ -5287,6 +5337,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 groups: #group_meta_table_ref,
+                flatten_groups: #flatten_group_table_ref,
                 #sub_metas
                 ..usage_argv::spec::CommandMeta::EMPTY
             };

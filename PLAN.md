@@ -321,10 +321,21 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       different arguments would mean two different things. Sets travel through `include`, and
       each file resolves its own `use` nodes — a file cannot use a set declared only by a file
       that includes _it_, which would make a spec's meaning depend on who read it.
-      What this does **not** do yet is give the derive's `flatten` a lossless lowering: it still
-      emits the expanded copy, so the flags mise's spec repeats stay repeated in the generated
-      file. Emitting one flagset per flattened struct is the follow-up, and it is what would
-      turn this from an authoring convenience into a smaller generated spec.
+      The derive lowers `flatten` into it rather than emitting the expanded copy: one flagset
+      per flattened struct, named after it, and a `use` on every command that flattens it. A
+      struct that flattens another becomes a set that uses a set. One set per struct rather
+      than only for the ones with several users — a threshold would make how one command is
+      written depend on what another does, so adding a `flatten` elsewhere would restructure a
+      command nobody touched. Two flattened structs whose names end in the same word get no set:
+      one name cannot stand for both, so both are written inline, which is what every flatten
+      did before. usage-cli's own checked-in spec is the first case of it, and its generated
+      markdown, JSON and manpage are byte-identical across the change — the reference parser
+      resolves the set while it reads the file, so what a command accepts never moved.
+      Still owed: a way to name a set other than after the Rust type, which is what a collision
+      needs to be fixable rather than merely safe. And usage-cli declares
+      `min_usage_version "4.0"` while now emitting a node no 4.0 can read — the floor moves to
+      whatever release carries this, which is release-plz's to stamp rather than a number to
+      guess here.
 
 ### Then: what a CLI framework has to have
 
