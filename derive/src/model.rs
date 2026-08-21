@@ -362,7 +362,7 @@ pub enum ArgAction {
     Version,
 }
 
-fn arg_action(meta: &Meta) -> syn::Result<ArgAction> {
+fn arg_action(meta: &Meta) -> syn::Result<(ArgAction, bool, bool)> {
     let value = &meta.require_name_value()?.value;
     let Expr::Path(path) = value else {
         return Err(syn::Error::new_spanned(
@@ -374,12 +374,14 @@ fn arg_action(meta: &Meta) -> syn::Result<ArgAction> {
         return Err(syn::Error::new_spanned(value, "`action` needs a variant"));
     };
     match variant.ident.to_string().as_str() {
-        "Set" | "SetTrue" | "SetFalse" | "Append" | "Count" => Ok(ArgAction::Set),
-        "Help" => Ok(ArgAction::Help),
-        "HelpShort" => Ok(ArgAction::HelpShort),
-        "HelpLong" => Ok(ArgAction::HelpLong),
-        "HelpAll" => Ok(ArgAction::HelpAll),
-        "Version" => Ok(ArgAction::Version),
+        "Set" | "SetTrue" | "SetFalse" => Ok((ArgAction::Set, false, false)),
+        "Append" => Ok((ArgAction::Set, false, true)),
+        "Count" => Ok((ArgAction::Set, true, false)),
+        "Help" => Ok((ArgAction::Help, false, false)),
+        "HelpShort" => Ok((ArgAction::HelpShort, false, false)),
+        "HelpLong" => Ok((ArgAction::HelpLong, false, false)),
+        "HelpAll" => Ok((ArgAction::HelpAll, false, false)),
+        "Version" => Ok((ArgAction::Version, false, false)),
         other => Err(syn::Error::new_spanned(
             value,
             format!("`ArgAction::{other}` is not supported by usage"),
@@ -1185,9 +1187,7 @@ impl Cli {
                         })
                         .is_some_and(|short| shorts.contains(&short)),
                 },
-                Kind::Arg { .. } => {
-                    selector == field.name || selector == to_kebab(&field.ident.to_string())
-                }
+                Kind::Arg { .. } => selector == field.name,
                 _ => false,
             }
         };
@@ -1203,8 +1203,20 @@ impl Cli {
             .find(|field| matches!(field.kind, Kind::Arg { .. }) && matches(field))
             .or_else(|| {
                 self.fields.iter().find(|field| {
+                    matches!(field.kind, Kind::Arg { .. })
+                        && (field.ident.unraw() == selector
+                            || selector == to_kebab(&field.ident.to_string()))
+                })
+            })
+            .or_else(|| {
+                self.fields
+                    .iter()
+                    .find(|field| matches!(field.kind, Kind::Flag { .. }) && selector == field.name)
+            })
+            .or_else(|| {
+                self.fields.iter().find(|field| {
                     matches!(field.kind, Kind::Flag { .. })
-                        && (selector == field.name
+                        && (field.ident.unraw() == selector
                             || selector == to_kebab(&field.ident.to_string()))
                 })
             })
@@ -1958,6 +1970,7 @@ impl Field {
         let mut count = false;
         let mut value_optional = false;
         let mut double_dash = DoubleDash::Optional;
+        let mut trailing_var_arg = false;
         let mut env = None;
         let mut env_fallback = Vec::new();
         let mut deprecated_env = Vec::new();
@@ -2073,7 +2086,12 @@ impl Field {
                     "var" => repeatable = flag_value(&meta)?,
                     "variadic" => variadic = flag_value(&meta)?,
                     "count" => count = flag_value(&meta)?,
-                    "action" => action = arg_action(&meta)?,
+                    "action" => {
+                        let (parsed, is_count, is_append) = arg_action(&meta)?;
+                        action = parsed;
+                        count |= is_count;
+                        repeatable |= is_append;
+                    }
                     // Help only: the parser refuses a bare `--bump` either way. What this
                     // changes is the brackets, which is the whole of what a spec's
                     // `arg "[BUMP]" required=#false` says.
@@ -2145,7 +2163,9 @@ impl Field {
                     // Both spellings the spec has: one target as a value, several as a
                     // list. A flag selector never contains a comma, so unlike `choices`
                     // there is nothing to lose by accepting the shorter form.
-                    "overrides" => overrides.extend(selectors(&meta)?),
+                    "overrides" | "overrides_with" | "overrides_with_all" => {
+                        overrides.extend(selectors(&meta)?);
+                    }
                     "conflicts" | "conflicts_with" | "conflicts_with_all" => {
                         conflicts.extend(selectors(&meta)?);
                     }
@@ -2153,6 +2173,7 @@ impl Field {
                     "requires_if" => requires_if.push(requirement_if(&meta)?),
                     "requires_ifs" => requires_if.extend(requirements_if(&meta)?),
                     "default_if" => default_if.push(default_if_attr(&meta)?),
+                    "default_value_if" => default_if.push(clap_default_if_attr(&meta)?),
                     "default_ifs" => default_if.extend(default_ifs_attr(&meta)?),
                     "group" => group = Some(string_value(&meta)?),
                     "exclusive" => exclusive = flag_value(&meta)?,
@@ -2161,8 +2182,10 @@ impl Field {
                     "value_terminator" => value_terminator = Some(string_value(&meta)?),
                     "require_equals" => require_equals = flag_value(&meta)?,
                     "bool_value" => bool_value = flag_value(&meta)?,
-                    "default_missing" => default_missing = Some(string_value(&meta)?),
-                    "delimiter" => {
+                    "default_missing" | "default_missing_value" => {
+                        default_missing = Some(string_value(&meta)?);
+                    }
+                    "delimiter" | "value_delimiter" => {
                         let c = char_value(&meta)?;
                         if !c.is_ascii() {
                             return Err(syn::Error::new_spanned(
@@ -2193,7 +2216,7 @@ impl Field {
                     "value_enum" => value_enum = flag_value(&meta)?,
                     "var_min" => var_min = Some(int_value(&meta)?),
                     "var_max" => var_max = Some(int_value(&meta)?),
-                    "default" => default.push(string_value(&meta)?),
+                    "default" | "default_value" => default.push(string_value(&meta)?),
                     "default_value_t" => {
                         default_value_t = Some(match &meta {
                             Meta::Path(_) => {
@@ -2222,14 +2245,54 @@ impl Field {
                             variadic = true;
                         }
                     }
-                    "value_parser" => {
-                        return Err(syn::Error::new_spanned(
-                            &meta,
-                            "clap's `value_parser` is Rust-only metadata; usage converts \
-                             through the field type's `FromStr`, with `value_enum`, \
-                             `choices`, or portable `validate` for additional constraints",
-                        ));
-                    }
+                    "value_parser" => match &meta {
+                        Meta::NameValue(value) => match &value.value {
+                            Expr::Array(array) => {
+                                choices = string_array(array)?;
+                                if choices.is_empty() {
+                                    return Err(syn::Error::new_spanned(
+                                        &meta,
+                                        "a literal `value_parser` array with nothing in it would accept nothing",
+                                    ));
+                                }
+                            }
+                            Expr::Reference(reference) => match reference.expr.as_ref() {
+                                Expr::Array(array) => {
+                                    choices = string_array(array)?;
+                                    if choices.is_empty() {
+                                        return Err(syn::Error::new_spanned(
+                                            &meta,
+                                            "a literal `value_parser` array with nothing in it would accept nothing",
+                                        ));
+                                    }
+                                }
+                                _ => {
+                                    return Err(syn::Error::new_spanned(
+                                        &meta,
+                                        "clap's typed `value_parser` is Rust-only metadata; usage \
+                                         converts through the field type's `FromStr`. A literal \
+                                         array is accepted as portable choices",
+                                    ));
+                                }
+                            },
+                            _ => {
+                                return Err(syn::Error::new_spanned(
+                                    &meta,
+                                    "clap's typed `value_parser` is Rust-only metadata; usage \
+                                     converts through the field type's `FromStr`. A literal \
+                                     array is accepted as portable choices",
+                                ));
+                            }
+                        },
+                        _ => {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                "clap's typed `value_parser` is Rust-only metadata; usage \
+                                 converts through the field type's `FromStr`. A literal \
+                                 array is accepted as portable choices",
+                            ));
+                        }
+                    },
                     // Help text a doc comment cannot carry. A comment's first paragraph is
                     // read the way Rust reads one — line breaks inside it are spaces — so
                     // help whose breaks are meant literally has to be given directly.
@@ -2259,6 +2322,14 @@ impl Field {
                             }
                         }
                     }
+                    "last" => {
+                        double_dash = if flag_value(&meta)? {
+                            DoubleDash::Required
+                        } else {
+                            DoubleDash::Optional
+                        };
+                    }
+                    "trailing_var_arg" => trailing_var_arg = flag_value(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
@@ -2387,6 +2458,24 @@ impl Field {
             optional_value_type,
         } = ValueKind::from_type(&field.ty, count, span)?;
         let is_flag = !longs.is_empty() || !shorts.is_empty();
+        if !is_flag && (trailing_var_arg || matches!(double_dash, DoubleDash::Required)) {
+            if trailing_var_arg {
+                double_dash = DoubleDash::Automatic;
+            }
+            // clap commonly pairs these. `automatic` is the portable declaration
+            // that makes a trailing positional consume flag-like words; `required`
+            // does the same after clap's `last` separator.
+            allow_hyphen_values = false;
+        }
+        // clap uses `value_name` for both a flag value placeholder and a
+        // positional's displayed name. usage calls the latter `name`; normalize
+        // the clap spelling before validating the two distinct concepts.
+        if !is_flag {
+            if let Some(positional_name) = value_name.take() {
+                name = strip_dashes(&positional_name);
+                name_given = true;
+            }
+        }
         if action != ArgAction::Set && !is_flag {
             return Err(syn::Error::new(
                 span,
@@ -2780,10 +2869,9 @@ impl Field {
             ));
         }
 
-        // A `Vec` flag collects, so it is repeatable whether or not it says so —
-        // unless it is `variadic`, which is the other way of collecting. Emitting
-        // both would claim a flag is repeatable *and* that its argument is variadic,
-        // which the grammar treats as two different things.
+        // A `Vec` flag collects, so it is repeatable unless a variadic value is the only
+        // collection declaration. The two may also be combined: clap's `Append` plus
+        // multi-value `num_args` means repeated occurrences, each taking several values.
         //
         // A `count` flag is repeatable by definition: `-vvv` is three occurrences, and
         // counting them is the whole point. Left uninferred, the emitted spec said `count`
@@ -2804,14 +2892,6 @@ impl Field {
             repeatable || (is_flag && !variadic && (shape == Shape::Many || shape == Shape::Count));
 
         let kind = if is_flag {
-            if variadic && repeatable {
-                return Err(syn::Error::new(
-                    span,
-                    "`var` and `variadic` are two different ways to collect values — \
-                     repeated occurrences, or one occurrence taking several — so a \
-                     flag declares one or the other",
-                ));
-            }
             if variadic && shape != Shape::Many {
                 return Err(syn::Error::new(
                     span,
@@ -3512,6 +3592,10 @@ fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
         }
         Meta::NameValue(value) => match &value.value {
             syn::Expr::Array(array) => string_array(array)?,
+            syn::Expr::Reference(reference) => match reference.expr.as_ref() {
+                syn::Expr::Array(array) => string_array(array)?,
+                _ => vec![string_value(meta)?],
+            },
             _ => vec![string_value(meta)?],
         },
         Meta::Path(_) => vec![string_value(meta)?],
@@ -3706,6 +3790,71 @@ fn default_if_attr(meta: &Meta) -> syn::Result<ConditionalDefault> {
              (`--output`, `json`, `pretty`)",
         )),
     }
+}
+
+fn clap_default_if_attr(meta: &Meta) -> syn::Result<ConditionalDefault> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`default_value_if` takes an argument id, predicate, and default value",
+        ));
+    };
+    let args: Vec<_> = list
+        .parse_args_with(
+            syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated,
+        )?
+        .into_iter()
+        .collect();
+    if args.len() != 3 {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "`default_value_if` takes an argument id, predicate, and default value",
+        ));
+    }
+    let selector = string_expr(args[0].clone())?;
+    let when = match &args[1] {
+        Expr::Path(path)
+            if path
+                .path
+                .segments
+                .last()
+                .is_some_and(|s| s.ident == "IsPresent") =>
+        {
+            None
+        }
+        Expr::Call(call)
+            if matches!(
+                call.func.as_ref(),
+                Expr::Path(path)
+                    if path.path.segments.last().is_some_and(|s| s.ident == "Equals")
+            ) && call.args.len() == 1 =>
+        {
+            Some(string_expr(call.args[0].clone())?)
+        }
+        predicate => {
+            return Err(syn::Error::new_spanned(
+                predicate,
+                "only `ArgPredicate::IsPresent` and `ArgPredicate::Equals(\"value\")` are portable",
+            ));
+        }
+    };
+    let value = match &args[2] {
+        Expr::Call(call)
+            if matches!(
+                call.func.as_ref(),
+                Expr::Path(path)
+                    if path.path.segments.last().is_some_and(|s| s.ident == "Some")
+            ) && call.args.len() == 1 =>
+        {
+            string_expr(call.args[0].clone())?
+        }
+        value => string_expr(value.clone())?,
+    };
+    Ok(ConditionalDefault {
+        selector,
+        when,
+        value,
+    })
 }
 
 fn default_ifs_attr(meta: &Meta) -> syn::Result<Vec<ConditionalDefault>> {
@@ -4790,7 +4939,7 @@ impl ValueEnum {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cli, Kind, Subcommands, ValueEnum};
+    use super::{Cli, DoubleDash, Kind, Shape, Subcommands, ValueEnum};
 
     fn cli(body: &str) -> syn::Result<Cli> {
         Cli::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
@@ -5021,6 +5170,99 @@ mod tests {
         "#,
         );
         assert!(parser.contains("FromStr"), "{parser}");
+
+        for value_parser in ["[]", "&[]"] {
+            let empty = rejection(&format!(
+                r#"
+                struct Ex {{
+                    #[arg(long, value_parser = {value_parser})]
+                    mode: String,
+                }}
+            "#
+            ));
+            assert!(empty.contains("accept nothing"), "{empty}");
+        }
+
+        let aliases = cli(r#"
+            struct Ex {
+                #[arg(long, default_value = "fast", value_parser = &["fast", "slow"])]
+                mode: String,
+                #[arg(long, value_delimiter = ',', overrides_with_all = &["mode"])]
+                tags: Vec<String>,
+                #[arg(long, default_missing_value = "auto")]
+                color: Option<String>,
+                #[arg(long, default_value_if("color", clap::builder::ArgPredicate::IsPresent, Some("true")))]
+                color_set: bool,
+                #[arg(value_name = "COMMAND", last)]
+                command: Vec<String>,
+            }
+        "#)
+        .expect("portable clap spellings normalize to usage metadata");
+        assert_eq!(aliases.fields[0].default, ["fast"]);
+        assert_eq!(aliases.fields[0].choices, ["fast", "slow"]);
+        assert_eq!(aliases.fields[1].delimiter, Some(','));
+        assert_eq!(aliases.fields[1].overrides, ["mode"]);
+        assert_eq!(aliases.fields[2].default_missing.as_deref(), Some("auto"));
+        assert_eq!(aliases.fields[3].default_if[0].selector, "color");
+        assert_eq!(aliases.fields[3].default_if[0].when, None);
+        assert_eq!(aliases.fields[3].default_if[0].value, "true");
+        assert_eq!(aliases.fields[4].name, "COMMAND");
+        assert!(matches!(
+            aliases.fields[4].kind,
+            Kind::Arg {
+                double_dash: DoubleDash::Required
+            }
+        ));
+
+        let actions = cli(r#"
+            struct Ex {
+                #[arg(short, long, action = clap::ArgAction::Count)]
+                verbose: u8,
+                #[arg(long, action = clap::ArgAction::Append)]
+                include: Vec<String>,
+            }
+        "#)
+        .expect("clap value actions preserve their binding shape");
+        assert!(actions.fields[0].shape == Shape::Count);
+        assert!(actions.fields[1].repeatable);
+
+        let appended_values = cli(r#"
+            struct Ex {
+                #[arg(long, action = clap::ArgAction::Append, num_args = 2)]
+                pair: Vec<String>,
+            }
+        "#)
+        .expect("Append may repeat a multi-value occurrence");
+        assert!(appended_values.fields[0].repeatable);
+        assert_eq!(appended_values.fields[0].value_var_min, Some(2));
+        assert_eq!(appended_values.fields[0].value_var_max, Some(2));
+
+        let trailing = cli(r#"
+            struct Ex {
+                #[arg(trailing_var_arg, allow_hyphen_values)]
+                forwarded: Vec<String>,
+            }
+        "#)
+        .expect("clap trailing argv normalizes to the portable boundary");
+        assert!(matches!(
+            trailing.fields[0].kind,
+            Kind::Arg {
+                double_dash: DoubleDash::Automatic
+            }
+        ));
+        let last = cli(r#"
+            struct Ex {
+                #[arg(last, allow_hyphen_values)]
+                forwarded: Vec<String>,
+            }
+        "#)
+        .expect("clap last argv normalizes to the required separator");
+        assert!(matches!(
+            last.fields[0].kind,
+            Kind::Arg {
+                double_dash: DoubleDash::Required
+            }
+        ));
     }
 
     #[test]
@@ -5114,13 +5356,21 @@ mod tests {
     }
 
     #[test]
-    fn value_name_is_refused_where_there_is_no_value_to_name() {
-        // It names the placeholder a flag's *value* gets in help. `arg_meta` never emits it, and
-        // a valueless flag has no placeholder to put it in — so on a positional or a
-        // `bool`/`count` flag the declaration compiled and was dropped, reading as though it had
-        // done something.
+    fn value_name_names_clap_positionals_but_is_refused_on_valueless_flags() {
+        // clap uses `value_name` to name a positional. Normalize that spelling to usage's
+        // `name` without changing the casing the author explicitly chose.
+        let positional = cli(r#"
+            struct Ex {
+                #[arg(value_name = "file")]
+                out: String,
+            }
+        "#)
+        .expect("clap's positional spelling should compile");
+        assert_eq!(positional.fields[0].name, "file");
+
+        // A valueless flag still has no placeholder to put it in. Accepting it would compile
+        // and silently drop the declaration.
         for decl in [
-            "#[usage(arg, value_name = \"FILE\")]\n                out: String,",
             "#[usage(long, value_name = \"FILE\")]\n                out: bool,",
             "#[usage(long, count, value_name = \"FILE\")]\n                out: u8,",
         ] {
@@ -5216,7 +5466,7 @@ mod tests {
 
     #[test]
     fn a_bare_selector_prefers_a_positional_to_a_clap_flag_id() {
-        let cli = cli(r#"
+        let parsed = cli(r#"
             struct Ex {
                 #[usage(long)]
                 file: bool,
@@ -5227,13 +5477,50 @@ mod tests {
         .expect("the names occupy distinct selector namespaces");
 
         assert!(matches!(
-            cli.field_for_selector("file").map(|field| &field.kind),
+            parsed.field_for_selector("file").map(|field| &field.kind),
             Some(Kind::Arg { .. })
         ));
         assert!(matches!(
-            cli.field_for_selector("--file").map(|field| &field.kind),
+            parsed.field_for_selector("--file").map(|field| &field.kind),
             Some(Kind::Flag { .. })
         ));
+        let underscored = cli(r#"
+            struct Ex {
+                installed_tool: Option<String>,
+                #[arg(long, requires = "installed_tool")]
+                prefix: Option<String>,
+            }
+        "#)
+        .expect("clap argument ids preserve Rust underscores");
+        assert!(matches!(
+            underscored
+                .field_for_selector("installed_tool")
+                .map(|field| &field.kind),
+            Some(Kind::Arg { .. })
+        ));
+    }
+
+    #[test]
+    fn an_exact_portable_name_precedes_a_rust_identifier_fallback() {
+        let parsed = cli(r#"
+            struct Ex {
+                #[usage(name = "first")]
+                target: Option<String>,
+                #[usage(name = "target")]
+                actual: Option<String>,
+                #[arg(long, requires = "target")]
+                output: bool,
+            }
+        "#)
+        .expect("the explicit portable name owns the selector");
+
+        assert_eq!(
+            parsed
+                .field_for_selector("target")
+                .map(|field| field.ident.to_string())
+                .as_deref(),
+            Some("actual")
+        );
     }
 
     #[test]
