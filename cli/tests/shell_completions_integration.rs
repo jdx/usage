@@ -100,28 +100,57 @@ fn skip_if_shell_missing(shell: &str) -> bool {
     true
 }
 
-/// The system bash-completion script, or `None` if it isn't installed.
+/// The system bash-completion library, or `None` if it isn't installed.
 ///
 /// usage no longer embeds a copy of bash-completion, so the generated bash completion needs
 /// the real one loaded before it — `_comp_initialize` and `_comp_compgen` come from there.
-/// The search list is the one bash-completion's own README tells packagers to use.
-fn system_bash_completion() -> Option<PathBuf> {
-    if let Some(dir) = env::var_os("BASH_COMPLETION_USER_DIR") {
-        let candidate = PathBuf::from(dir).join("bash_completion");
-        if candidate.is_file() {
-            return Some(candidate);
-        }
+///
+/// Candidates are the library itself, never the `profile.d/bash_completion.sh` snippet that
+/// Homebrew and others also install: that one is guarded on `$PS1` and so does nothing at all
+/// in a non-interactive shell, which is the only kind these tests run. Sourcing it would look
+/// like success and then fail the completion assertions. `BASH_COMPLETION_USER_DIR` is not
+/// consulted either — it holds per-command completions, not the library.
+///
+/// `USAGE_TEST_BASH_COMPLETION` names a library directly, for testing against a copy that is
+/// not installed system-wide.
+fn bash_completion_candidates() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(path) = env::var_os("USAGE_TEST_BASH_COMPLETION") {
+        candidates.push(PathBuf::from(path));
     }
-    [
-        "/usr/share/bash-completion/bash_completion",
-        "/usr/local/share/bash-completion/bash_completion",
-        "/opt/homebrew/etc/profile.d/bash_completion.sh",
-        "/usr/local/etc/profile.d/bash_completion.sh",
-        "/etc/bash_completion",
-    ]
-    .into_iter()
-    .map(PathBuf::from)
-    .find(|path| path.is_file())
+    // Whichever Homebrew is installed: `/opt/homebrew` on Apple Silicon, `/usr/local` on Intel,
+    // and anywhere else if the user relocated it.
+    if let Some(prefix) = env::var_os("HOMEBREW_PREFIX") {
+        candidates.push(PathBuf::from(prefix).join("share/bash-completion/bash_completion"));
+    }
+    candidates.extend(
+        [
+            "/usr/share/bash-completion/bash_completion",
+            "/usr/local/share/bash-completion/bash_completion",
+            "/opt/homebrew/share/bash-completion/bash_completion",
+        ]
+        .into_iter()
+        .map(PathBuf::from),
+    );
+    candidates
+}
+
+/// Returns the first candidate that a non-interactive bash can actually load `_comp_initialize`
+/// from.
+///
+/// Existing on disk is not the property the test needs — being sourceable into the shell the
+/// test spawns is. Probing for it means a wrapper, a version too old to define the function, or
+/// a path guess that turns out wrong is rejected here rather than surfacing as a puzzling
+/// completion assertion failure further down.
+fn system_bash_completion() -> Option<PathBuf> {
+    bash_completion_candidates().into_iter().find(|candidate| {
+        candidate.is_file()
+            && Command::new(shell_program("bash"))
+                .args(["-c", "source \"$1\" && declare -F _comp_initialize", "--"])
+                .arg(sh_path(candidate))
+                .output()
+                .is_ok_and(|out| out.status.success())
+    })
 }
 
 /// Returns `Some(path)` to the system bash-completion, or `None` if the test should be skipped.
@@ -134,9 +163,12 @@ fn bash_completion_or_skip() -> Option<PathBuf> {
         return Some(path);
     }
     if env::var("CI").is_ok_and(|v| !v.is_empty()) {
-        panic!("bash-completion is not installed but CI is set — refusing to skip");
+        panic!(
+            "no usable bash-completion but CI is set — refusing to skip. Tried: {:?}",
+            bash_completion_candidates()
+        );
     }
-    eprintln!("Skipping bash completion test - bash-completion is not installed");
+    eprintln!("Skipping bash completion test - no usable bash-completion library found");
     None
 }
 
