@@ -31,6 +31,19 @@
 //! implement both, and an enum may dispatch both, when some invocations have a context and
 //! others do not.
 //!
+//! # Async commands
+//!
+//! [`Output`](Run::Output) is whatever the command produces, and a future is a value like any
+//! other: an async command names a boxed future — `Pin<Box<dyn Future<Output = T> + Send>>` —
+//! and `main` awaits what the dispatch returns. The box is because an `async` block's type
+//! cannot be named and an associated type has to be.
+//!
+//! Neither trait is `async` itself, deliberately. An `async fn` in a public trait cannot say
+//! `+ Send` about the future it returns, so a caller that needs to spawn it cannot require one,
+//! and desugaring to `-> impl Future + Send` instead would commit every command in every CLI to
+//! a `Send` future — ruling out the single-threaded runtimes some of them use. A native
+//! `async fn run` belongs in a third trait beside these two rather than in a change to them.
+//!
 //! # An example
 //!
 //! ```

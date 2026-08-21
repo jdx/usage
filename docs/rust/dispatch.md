@@ -105,6 +105,41 @@ part-way through adopting a context needs.
 Two traits rather than one with a defaulted context, because otherwise the noise lands on the
 wrong side: a hundred commands that need nothing shared would each carry `fn run(self, _: ())`.
 
+## Async commands
+
+`Output` is whatever the command produces, and a future is a value like any other — so an async
+command's dispatch is the same generated match, returning a future for `main` to await:
+
+```rust
+type Task<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+
+impl Run for Install {
+    type Output = Task<miette::Result<()>>;
+    fn run(self) -> Self::Output {
+        Box::pin(async move { install(&self.tools, self.force).await })
+    }
+}
+
+#[tokio::main]
+async fn main() -> miette::Result<()> {
+    Cli::parse().command.run().await
+}
+```
+
+The box is because an `async` block's type cannot be named and an associated type has to be. One
+allocation, on a path that is about to do I/O. A borrowed context works the same way, with the
+future's lifetime tied to it: `impl<'a> RunWith<&'a App> for Install { type Output = Task<'a, …> }`.
+
+The traits are deliberately not `async` themselves. An `async fn` in a public trait cannot say
+`+ Send` about the future it returns, so callers that need to spawn it have no way to require
+one — and desugaring to `-> impl Future + Send` instead would commit every command in every CLI
+to a `Send` future, which rules out the single-threaded runtimes some of them use. A CLI that
+wants `async fn run(self)` without the box can say so; the shape is a third trait beside these
+two, not a change to them.
+
+A CLI whose commands are mostly synchronous can also keep `Output = Result<()>` and hold a
+runtime handle in its context, which is what `RunWith` is for.
+
 ## Groups in the middle
 
 A command that exists only to hold other commands — `usage generate`, `mise config` — gets its
