@@ -612,7 +612,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 "{}",
                                 usage_argv::render_warnings_for(
                                     Self::spec(),
-                                    __usage_all_refs.get(1..).unwrap_or(&[]),
+                                    &__usage_argv,
                                     &__usage_warnings,
                                 ),
                             );
@@ -1337,7 +1337,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                     "{}",
                                     usage_argv::render_warnings_for(
                                         Self::spec(),
-                                        __usage_all_refs.get(1..).unwrap_or(&[]),
+                                        &__usage_argv,
                                         &__usage_warnings,
                                     ),
                                 );

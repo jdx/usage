@@ -3453,6 +3453,45 @@ struct Enved {
     no_color: bool,
 }
 
+/// A colour flag declared on a subcommand rather than at the root.
+///
+/// Where the difference between the words a caller typed and the words the parser walked
+/// is visible: under a view, argv0 names the view and the root command word is one the
+/// parser inserts.
+#[derive(Debug, Cli)]
+#[usage(bin = "scoped-color", view("scoped-run", root = "run"))]
+#[allow(dead_code)]
+struct ScopedColor {
+    #[command(subcommand)]
+    command: ScopedCommand,
+}
+
+#[derive(Debug, Subcommands)]
+#[allow(dead_code)]
+enum ScopedCommand {
+    /// Run one task.
+    Run {
+        /// Disable colored output
+        #[usage(long, color = "never")]
+        no_color: bool,
+    },
+}
+
+#[test]
+fn a_scoped_colour_flag_needs_the_words_that_reach_its_command() {
+    let scoped = |argv: &[&str]| {
+        let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+        usage::policy::color_from_argv(ScopedColor::spec(), &words).unwrap_or_default()
+    };
+
+    assert_eq!(scoped(&["run", "--no-color"]), usage::ColorChoice::Never);
+    // The same request, resolved against the words before the view's rewrite put `run`
+    // back: root scope, where no colour flag is declared, so the page is painted against
+    // what the command line plainly asked for. Which is why anything rendering a report
+    // has to be handed the rewritten words rather than the process's own.
+    assert_eq!(scoped(&["--no-color"]), usage::ColorChoice::Auto);
+}
+
 #[test]
 fn an_environment_answer_reaches_the_help_page_too() {
     // Serial by construction: one variable, one test, restored before it returns. The

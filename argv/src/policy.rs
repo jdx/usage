@@ -473,7 +473,7 @@ pub fn color_from_argv(spec: &Spec<'_>, argv: &[&OsStr]) -> Option<ColorChoice> 
         let Some(word) = word else {
             continue;
         };
-        if let Some(asked) = asked_for(role, meta.flag, word) {
+        if let Some(asked) = asked_for(role, meta.flag, word, from_env.is_some()) {
             said.push((meta.flag, asked));
         }
     }
@@ -484,18 +484,32 @@ pub fn color_from_argv(spec: &Spec<'_>, argv: &[&OsStr]) -> Option<ColorChoice> 
 
 /// What a color flag says when the word came from somewhere other than the command line.
 ///
-/// The same reading the bound struct gives, because the two have to agree: a `bool` filled
-/// from the environment or a `default` is `true` for anything but the falsy words, and a
-/// `false` is the negated spelling's answer where there is a negation and nothing at all
+/// The same reading the bound struct gives, because the two have to agree — which means
+/// reading a `bool` the way the binder reads it, and the binder does not read the two
+/// sources alike. An environment word is true for anything but the falsy words; a declared
+/// `default` is true only for the words that spell it. So `default="yes"` leaves the field
+/// `false`, and answering "colour was asked for" here would put help and the program back
+/// in the disagreement this exists to close. Mirrored rather than tidied: whether those two
+/// rules should be one rule is a question about the binder, not about colour.
+///
+/// A `false` is the negated spelling's answer where there is a negation, and nothing at all
 /// where there is not — a plain switch has no way to say "no".
-fn asked_for(role: ColorRole, flag: &Flag<'_>, word: &str) -> Option<ColorChoice> {
+fn asked_for(role: ColorRole, flag: &Flag<'_>, word: &str, from_env: bool) -> Option<ColorChoice> {
     match role {
         ColorRole::Choice => ColorChoice::parse(word),
-        role => match matches!(word, "" | "0" | "false" | "no" | "off") {
-            false => role.asks_for(false),
-            true if flag.negate.is_some() => role.asks_for(true),
-            true => None,
+        role => match bool_word(word, from_env) {
+            true => role.asks_for(false),
+            false if flag.negate.is_some() => role.asks_for(true),
+            false => None,
         },
+    }
+}
+
+/// Whether a word fills a `bool` field, as the binder fills it. See [`asked_for`].
+fn bool_word(word: &str, from_env: bool) -> bool {
+    match from_env {
+        true => !matches!(word, "" | "0" | "false" | "no" | "off"),
+        false => matches!(word, "1" | "true" | "True" | "TRUE"),
     }
 }
 
@@ -547,6 +561,27 @@ fn same_command(a: &Command<'_>, b: &Command<'_>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_bool_word_is_read_the_way_its_source_is_read() {
+        // Two rules, because the binder has two. A word from the environment is true unless
+        // it is one of the falsy spellings; a declared `default` is true only if it spells
+        // true — which is why the derive refuses `default = "yes"` on a `bool` outright.
+        // Reading a default by the environment's rule reported colour for a field left
+        // `false`, which is the disagreement this module exists to prevent.
+        assert!(bool_word("yes", true));
+        assert!(!bool_word("yes", false));
+        // The words both rules agree on, which is all the derive can produce.
+        for (word, want) in [("true", true), ("false", false)] {
+            assert_eq!(bool_word(word, true), want, "{word} from env");
+            assert_eq!(bool_word(word, false), want, "{word} from default");
+        }
+        // And the falsy spellings, where the environment's rule is the wider one.
+        for word in ["", "0", "false", "no", "off"] {
+            assert!(!bool_word(word, true), "{word} from env");
+            assert!(!bool_word(word, false), "{word} from default");
+        }
+    }
 
     #[test]
     fn the_scale_runs_least_to_most() {
