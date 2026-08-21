@@ -39,6 +39,54 @@ fn explains_the_worked_example() {
     ]));
 }
 
+/// The example on the grammar page, so the page cannot drift from the tool.
+///
+/// `docs/spec/argv.md` claims this output; a documented example nothing checks is doc rot
+/// with a delay on it.
+#[test]
+fn explains_the_documented_example() {
+    insta::assert_snapshot!(explain(&[
+        "mycli",
+        "-j8",
+        "--env=prod",
+        "build",
+        "a",
+        "--",
+        "--raw"
+    ]));
+}
+
+#[test]
+fn a_default_on_a_flags_argument_is_shadowed_like_any_other() {
+    let mut cmd = usage_cmd();
+    cmd.args([
+        "explain",
+        "-s",
+        "name \"ex\"\nbin \"ex\"\nflag \"--jobs <n>\" {\n    arg \"<n>\" default=\"1\"\n}\n",
+        "--",
+        "ex",
+        "--jobs",
+        "8",
+    ]);
+
+    // A flag can declare its default on itself or on its argument, and the parser prefers
+    // them in that order. Reading only the first called a shadowed default no default at all.
+    cmd.assert()
+        .success()
+        .stdout(contains("--jobs  default 1  lost to argv [2]"));
+}
+
+#[test]
+fn env_wants_a_key() {
+    let mut cmd = usage_cmd();
+    cmd.args(["explain", "-f", &example_path("explain.usage.kdl")]);
+    cmd.args(["-e", "=never", "--", "mycli"]);
+
+    // No variable can be named "", so accepting it would describe an environment nothing
+    // could produce.
+    cmd.assert().failure().stderr(contains("KEY=VALUE"));
+}
+
 #[test]
 fn binds_an_attached_long_flag() {
     // jdx/mise discussion #8883: a hand-written scanner ignored `--env=production` while

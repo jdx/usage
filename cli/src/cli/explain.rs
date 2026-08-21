@@ -105,8 +105,11 @@ impl Explain {
         }
         let mut env = HashMap::new();
         for entry in &self.env {
+            // An empty key is refused with the rest: no such variable can exist, so a
+            // report naming one would be describing an environment nothing could produce.
             let (key, value) = entry
                 .split_once('=')
+                .filter(|(key, _)| !key.is_empty())
                 .ok_or_else(|| miette::miette!("--env wants KEY=VALUE, got `{entry}`"))?;
             env.insert(key.to_string(), value.to_string());
         }
@@ -275,15 +278,16 @@ impl Explanation {
             // A declared default that did not supply the value lost to whatever did. This is
             // the most common thing a spec author is confused about, and the parser records
             // exactly enough to answer it without guessing.
-            if !flag.default.is_empty() && !origins.iter().any(|o| matches!(o, OriginRow::Default))
-            {
-                shadowed.push(ShadowRow {
-                    kind: "flag".to_string(),
-                    name: flag.name.clone(),
-                    display: flag_display(flag),
-                    value: flag.default.join(" "),
-                    lost_to: origins,
-                });
+            if let Some(declared) = declared_default(flag) {
+                if !origins.iter().any(|o| matches!(o, OriginRow::Default)) {
+                    shadowed.push(ShadowRow {
+                        kind: "flag".to_string(),
+                        name: flag.name.clone(),
+                        display: flag_display(flag),
+                        value: declared,
+                        lost_to: origins,
+                    });
+                }
             }
         }
         for (arg, value) in &out.args {
@@ -627,6 +631,21 @@ fn origin_row(origin: &ValueOrigin) -> OriginRow {
         // unnamed default here rather than stopping this from compiling.
         _ => OriginRow::Default,
     }
+}
+
+/// The default a flag would supply, from wherever it is declared.
+///
+/// Two places, and the parser prefers them in this order (`Parser::parse` binds `flag.default`
+/// and only then `flag.arg.default`), so a report that read one of them called a shadowed
+/// default no default at all — which is the question this table exists to answer.
+fn declared_default(flag: &SpecFlag) -> Option<String> {
+    if !flag.default.is_empty() {
+        return Some(flag.default.join(" "));
+    }
+    flag.arg
+        .as_ref()
+        .filter(|arg| !arg.default.is_empty())
+        .map(|arg| arg.default.join(" "))
 }
 
 /// How a flag is spelled in a report: the long form if it has one, else the short.
