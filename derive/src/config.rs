@@ -194,37 +194,55 @@ impl Ty {
         )
     }
 
-    /// Whether `value` could be a value of this type, read the way the merge reads one.
+    /// Whether `value` could be a value of this type, where the declaration puts it.
     ///
-    /// Permissive exactly where coercion is: a string default under an `int` type would be
-    /// coerced at runtime, but a declaration is the place to write the value as what it is.
-    fn admits(&self, value: &Const) -> bool {
+    /// Permissive exactly where something coerces, which is why the position matters: the
+    /// merge coerces what a *layer* supplies, and `Registry`'s choice comparison coerces
+    /// before it compares — but nothing coerces a declared default.
+    fn admits(&self, value: &Const, position: Position) -> bool {
+        let coerced = position == Position::Choice;
         match (self, value) {
             (Self::Any, _) => true,
             (Self::Bool, Const::Bool(_)) => true,
             (Self::Int | Self::Float, Const::Int(_)) => true,
-            // A `uint` names a non-negative number, and the resolver seeds a declared default
-            // with no coercion, so `default = -1` on a `u64` field would compile and then fail
-            // every `read` with a type error the author cannot fix at run time. The span is
-            // here, so refuse it here.
+            // A `uint` names a non-negative number, so `default = -1` on a `u64` field
+            // compiled and then failed every `read` with a type error the author could do
+            // nothing about. The span is here, so refuse it here.
             (Self::Uint, Const::Int(i)) => *i >= 0,
             (Self::Float, Const::Float(_)) => true,
             (Self::String | Self::Path | Self::Url | Self::Duration, Const::Str(_)) => true,
-            // The coercion rule the registry itself follows: a string type reads a bare
-            // number or boolean as its text.
+            // A string type reads a bare number or boolean as its text — where something
+            // reads it. A default is handed to the field as `Value::Int(1)`, and `String`
+            // refuses that, so `default = 1` on a `String` field is a mistake and not a
+            // shorthand.
             (
                 Self::String | Self::Path | Self::Url | Self::Duration,
                 Const::Bool(_) | Const::Int(_) | Const::Float(_),
-            ) => true,
+            ) => coerced,
             (Self::List(item) | Self::Set(item), Const::List(items)) => {
-                items.iter().all(|value| item.admits(value))
+                items.iter().all(|value| item.admits(value, position))
             }
-            // One bare value where a list belongs is a list of one, the same rule
-            // `Ty::coerce` applies.
-            (Self::List(item) | Self::Set(item), scalar) => item.admits(scalar),
+            // A choice on a list setting names what one *item* may be, which is how the
+            // registry compares it. A default is the whole value, and `default(80)` is how
+            // the attribute already spells a list of one — so a bare `default = 80` on a
+            // `Vec<u64>` is refused rather than quietly meaning something else.
+            (Self::List(item) | Self::Set(item), scalar) => {
+                coerced && item.admits(scalar, position)
+            }
             _ => false,
         }
     }
+}
+
+/// Where in a declaration a constant stands, which decides how strictly it is read.
+#[derive(Clone, Copy, PartialEq)]
+enum Position {
+    /// A declared default. The resolver seeds it with `Const::to_value` and hands it to the
+    /// field as it stands, so it has to already be a value of the field's type.
+    Default,
+    /// One of the values a setting allows, compared against a resolved value *after* the
+    /// merge has coerced both.
+    Choice,
 }
 
 /// A literal a registry can hold as a `const`.
@@ -555,11 +573,13 @@ impl Field {
             ));
         }
         if let Some(default) = &prop.default {
-            if !prop.ty.admits(default) {
+            if !prop.ty.admits(default, Position::Default) {
                 return Err(syn::Error::new(
                     ident.span(),
                     format!(
-                        "the default is not a value `{}` can hold",
+                        "the default is not a value `{}` can hold. Nothing coerces a \
+                         default — the resolver seeds it as written — so write it as the \
+                         type the field holds",
                         type_name(&prop.ty)
                     ),
                 ));
@@ -578,7 +598,7 @@ impl Field {
             ));
         }
         for choice in &prop.choices {
-            if !prop.ty.admits(choice) {
+            if !prop.ty.admits(choice, Position::Choice) {
                 return Err(syn::Error::new(
                     ident.span(),
                     format!("a choice is not a value `{}` can hold", type_name(&prop.ty)),
@@ -1157,6 +1177,82 @@ mod tests {
             struct Settings {
                 #[usage(default = -1)]
                 offset: i64,
+            }
+        "#,
+        );
+    }
+
+    #[test]
+    fn a_default_is_refused_unless_it_is_already_the_field_s_type() {
+        // Nothing coerces a declared default: the resolver seeds it with `Const::to_value`
+        // and the reader is handed it as it stands. So the permissiveness the merge has —
+        // a string type reading a bare number as its text, a scalar standing in for a list
+        // of one — is not permissiveness a default gets. Each of these compiled and then
+        // failed *every* `Settings::read` with a type error nothing at run time could fix.
+        for (field, default) in [
+            ("name: String", "default = 1"),
+            ("name: String", "default = true"),
+            ("home: std::path::PathBuf", "default = 1"),
+            ("ports: Vec<u64>", "default = 80"),
+        ] {
+            let err = rejection(&format!(
+                r#"
+                struct Settings {{
+                    #[usage({default})]
+                    {field},
+                }}
+            "#
+            ));
+            assert!(
+                err.contains("the default is not a value"),
+                "`{default}` was accepted on `{field}`: {err}"
+            );
+            // And the message says why, because "not a value `string` can hold" reads like a
+            // lie next to a spec's `default=1`, which the merge does coerce.
+            assert!(
+                err.contains("Nothing coerces a default"),
+                "unhelpful for `{default}` on `{field}`: {err}"
+            );
+        }
+
+        // Written as the type the field holds, each is fine — including a list of one, which
+        // the attribute already spells apart from a bare scalar.
+        for (field, default) in [
+            ("name: String", r#"default = "1""#),
+            ("home: std::path::PathBuf", r#"default = "/tmp""#),
+            ("ports: Vec<u64>", "default(80)"),
+            ("ports: Vec<u64>", "default(80, 443)"),
+        ] {
+            accepted(&format!(
+                r#"
+                struct Settings {{
+                    #[usage({default})]
+                    {field},
+                }}
+            "#
+            ));
+        }
+    }
+
+    #[test]
+    fn a_choice_still_reads_the_way_the_merge_reads_one() {
+        // The other side of the same rule. A choice is compared against a resolved value
+        // *after* coercion, so a `list<string>` setting's choices name what one item may be,
+        // and a string setting may name a bare number. Tightening the default check must not
+        // tighten this one: the registry's own comparison coerces before it compares.
+        accepted(
+            r#"
+            struct Settings {
+                #[usage(choices("a", "b"))]
+                tags: Vec<String>,
+            }
+        "#,
+        );
+        accepted(
+            r#"
+            struct Settings {
+                #[usage(choices(1, 2))]
+                level: String,
             }
         "#,
         );
