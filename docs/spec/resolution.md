@@ -194,4 +194,6 @@ no spec parser, so a CLI ships a resolver rather than a KDL reader.
 [`usage-config-build`](https://github.com/jdx/usage/tree/main/config-build) reads the
 spec at build time and emits the registry as consts, along with the typed `Settings`
 struct a CLI reads — so a setting that is declared is a setting that resolves, with
-no second declaration to keep in step.
+no second declaration to keep in step. It takes nothing from `usage-lib` beyond the
+spec parser: the build script that reads your settings does not compile a markdown
+renderer, an expression evaluator, or a second argument parser to do it.

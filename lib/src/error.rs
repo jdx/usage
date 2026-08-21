@@ -82,9 +82,19 @@ pub enum UsageErr {
     #[diagnostic(transparent)]
     KdlError(#[from] kdl::KdlError),
 
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    XXError(#[from] xx::error::XXError),
+    /// A file the spec model was asked to read could not be read.
+    ///
+    /// Carries the path as well as the io error: "No such file or directory" on its own
+    /// names nothing, and this is reported for spec files given on a command line.
+    #[error("{0}\nFile: {1}")]
+    #[diagnostic(code(usage::file))]
+    FileError(std::io::Error, std::path::PathBuf),
+
+    /// A `run=` script could not be run, exited non-zero, or produced output usage
+    /// could not read. The message names the shell and the script.
+    #[error("{0}")]
+    #[diagnostic(code(usage::shell))]
+    ShellError(String),
 
     #[error("Variadic argument <{name}> requires at least {min} value(s), got {got}")]
     VarArgTooFew {

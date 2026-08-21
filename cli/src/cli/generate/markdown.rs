@@ -67,7 +67,7 @@ impl Markdown {
         // `-` meaning stdout cannot turn up here.
         let write = |path: &PathBuf, md: &str| -> miette::Result<()> {
             eprintln!("writing to {}", path.display());
-            xx::file::write(path, render(md))?;
+            super::write_file(path, render(md))?;
             Ok(())
         };
         let spec = select_view(parse_file_or_stdin(&self.file)?, self.view.as_deref())?;

@@ -968,6 +968,29 @@ fn is_this_program(spec: &Spec, word: &str) -> bool {
 mod tests {
     use super::*;
 
+    /// The CLI reads specs written by other people, so a `validate=` expression that does not
+    /// compile has to be refused when the spec is read rather than when a value reaches it.
+    ///
+    /// Here rather than in usage-lib because what it pins is this crate's manifest: usage-lib
+    /// only performs the check under its `validation` feature, and `usage lint` silently loses
+    /// the rule if `cli/Cargo.toml` stops asking for it.
+    #[test]
+    fn a_malformed_validate_expression_is_refused_when_a_spec_is_read() {
+        let err = r#"
+name "demo"
+bin "demo"
+arg "<port>" validate="int(value) >"
+"#
+        .parse::<Spec>()
+        .expect_err("a validate= expression that does not compile should be refused");
+        // The reason is the label, not the `Display` — which is the generic "Invalid usage
+        // config" for every parse error.
+        let UsageErr::InvalidInput(reason, ..) = &err else {
+            panic!("expected a parse error naming the expression, got {err:?}");
+        };
+        assert!(reason.contains("invalid validation expression"), "{reason}");
+    }
+
     fn example_issues(spec: &str) -> Vec<LintIssue> {
         let spec: Spec = spec.parse().unwrap();
         lint_spec(&spec, LintOptions::default())

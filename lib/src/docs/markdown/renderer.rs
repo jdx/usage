@@ -2,6 +2,13 @@ use crate::docs::markdown::tera::TERA;
 use crate::docs::models::Spec;
 use crate::error::UsageErr;
 use itertools::Itertools;
+use regex::Regex;
+use std::sync::LazyLock;
+
+/// An ANSI escape sequence: what `color_print::cstr!` leaves in help text.
+static SGR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\x1b\[[0-?]*[ -/]*[@-~]").unwrap());
+/// A backtick span, or a bare `<` outside one.
+static CODE_SPAN_OR_LT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(`[^`]*`)|(<)").unwrap());
 
 fn escape_md(value: &str, html_encode: bool) -> String {
     let mut in_fenced_code_block = false;
@@ -9,7 +16,7 @@ fn escape_md(value: &str, html_encode: bool) -> String {
     // their examples with `color_print::cstr!`, which embeds SGR sequences even when color is
     // disabled at runtime. Terminal styling has no meaning in generated Markdown, and leaving
     // it here publishes literal escape bytes in docs and downstream static sites.
-    let value = xx::regex!(r"\x1b\[[0-?]*[ -/]*[@-~]").replace_all(value, "");
+    let value = SGR.replace_all(value, "");
 
     value
         .lines()
@@ -38,7 +45,7 @@ fn escape_md(value: &str, html_encode: bool) -> String {
                 return line.to_string();
             }
             // replace '<' with '&lt;' but not inside code blocks
-            xx::regex!(r"(`[^`]*`)|(<)")
+            CODE_SPAN_OR_LT
                 .replace_all(line, |caps: &regex::Captures| {
                     if caps.get(1).is_some() {
                         caps.get(1).unwrap().as_str().to_string()

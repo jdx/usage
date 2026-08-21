@@ -282,6 +282,9 @@ impl SpecChoices {
         values
     }
 
+    /// The choices as a help page lists them: visible values only, and no details.
+    // Only `docs` renders help, and without it this is dead code that `-D warnings` fails on.
+    #[cfg(feature = "docs")]
     pub(crate) fn for_help(&self) -> Self {
         let mut choices = self.clone();
         choices.choices = self.visible_declared();
@@ -381,6 +384,7 @@ arg "<color>" {
             spec.cmd.args[0].choices.as_ref().unwrap().details
         );
         assert!(choices.ignore_case);
+        #[cfg(feature = "docs")]
         assert_eq!(choices.for_help().choices, vec!["always", "yes"]);
     }
 

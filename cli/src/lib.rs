@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate log;
 extern crate miette;
-extern crate xx;
 
 use miette::Result;
 

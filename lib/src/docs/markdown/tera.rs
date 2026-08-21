@@ -1,7 +1,13 @@
 use itertools::Itertools;
+use regex::Regex;
 use std::sync::LazyLock;
 use tera::Tera;
-use xx::regex;
+
+/// The `blob/<ref>/` part of a GitHub or GitLab source URL, which
+/// `source_code_link` rewrites per command.
+static BLOB_PATH: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"https://(github.com/[^/]+/[^/]+|gitlab.com/[^/]+/[^/]+/-)/blob/[^/]+/").unwrap()
+});
 
 pub(crate) static TERA: LazyLock<Tera> = LazyLock::new(|| {
     let mut tera = Tera::default();
@@ -110,7 +116,6 @@ pub(crate) static TERA: LazyLock<Tera> = LazyLock::new(|| {
             Ok(value.clone())
         },
     );
-    let path_re = regex!(r"https://(github.com/[^/]+/[^/]+|gitlab.com/[^/]+/[^/]+/-)/blob/[^/]+/");
     tera.register_function(
         "source_code_link",
         move |args: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
@@ -134,8 +139,8 @@ pub(crate) static TERA: LazyLock<Tera> = LazyLock::new(|| {
                 let href = TERA
                     .clone()
                     .render_str(source_code_link_template, &ctx, false)?;
-                let friendly = path_re.replace_all(&href, "").to_string();
-                let link = if path_re.is_match(&href) {
+                let friendly = BLOB_PATH.replace_all(&href, "").to_string();
+                let link = if BLOB_PATH.is_match(&href) {
                     format!("[`{friendly}`]({href})")
                 } else {
                     format!("[{friendly}]({href})")
