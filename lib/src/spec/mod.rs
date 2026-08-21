@@ -651,7 +651,7 @@ impl Spec {
             schema.bin.clone()
         };
         // Before ancestors, because a command's usage string is built from its flags.
-        flagset::expand(ctx, &mut schema.cmd, &schema.flagsets)?;
+        flagset::expand(ctx, &mut schema.cmd, &mut schema.flagsets)?;
         set_subcommand_ancestors(&mut schema.cmd, &[]);
         Ok(schema)
     }

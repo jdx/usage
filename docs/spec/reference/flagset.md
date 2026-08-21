@@ -162,6 +162,9 @@ includes. A file cannot use a set declared only by a file that includes _it_ —
 make the meaning of a spec depend on who read it — so an unresolved name is an error in
 the file that wrote it.
 
+Every set is resolved while its file is read, whether or not anything uses it, so a `use`
+naming a set that does not exist is reported even inside a set nothing has reached for yet.
+
 ## What a flagset is not
 
 **Not `global`.** A [global flag](/spec/reference/flag#global) is declared once and

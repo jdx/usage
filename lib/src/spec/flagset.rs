@@ -45,15 +45,22 @@ use crate::{SpecCommand, SpecFlag};
 ///
 /// Declared at the root of a spec, never inside a command: a set that one command
 /// can see and its sibling cannot is a scoping rule to explain for no benefit.
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[non_exhaustive]
 pub struct SpecFlagSet {
     pub name: String,
     /// Flags declared directly in the set.
     pub flags: Vec<SpecFlag>,
     /// Sets this one composes, so a big set can be assembled from small ones.
+    ///
+    /// Emptied while the file is read, like a command's: what it named becomes part of
+    /// [`Self::flags`], so a file that includes this one inherits a set with nothing left to
+    /// resolve.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub uses: Vec<SpecUse>,
+    /// The node, for an error raised while flattening the set rather than at one `use`.
+    #[serde(skip)]
+    pub(crate) span: SourceSpan,
 }
 
 /// One `use` node: the flagsets whose declarations belong where it stands.
@@ -73,6 +80,19 @@ pub struct SpecUse {
     pub(crate) span: SourceSpan,
 }
 
+impl Default for SpecFlagSet {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            flags: vec![],
+            uses: vec![],
+            // Nowhere to point: a set that was not read from a file has no node, and the
+            // errors this span serves can only come from one that was.
+            span: (0, 0).into(),
+        }
+    }
+}
+
 impl SpecFlagSet {
     pub(crate) fn parse(ctx: &ParsingContext, node: &NodeHelper) -> Result<Self, UsageErr> {
         node.ensure_arg_len(1..=1)?;
@@ -80,6 +100,7 @@ impl SpecFlagSet {
             name: node.arg(0)?.ensure_string()?,
             flags: vec![],
             uses: vec![],
+            span: node.span(),
         };
         if let Some((k, v)) = node.props().first() {
             bail_parse!(ctx, v.entry.span(), "unsupported flagset prop {k}");
@@ -136,22 +157,46 @@ impl SpecUse {
     }
 }
 
-/// Replace every `use` in the tree with the flags it names.
+/// Replace every `use` in the file with the flags it names.
 ///
-/// Runs once, after the whole file is read, so a `use` may name a set declared
-/// below it or brought in by an `include`. What it cannot see is a set declared
-/// in a file that includes *this* one: each file resolves its own `use` nodes,
-/// and an unresolved one is an error there rather than a value carried up to be
-/// resolved by whoever reads the file next.
+/// Runs once, after the whole file is read, so a `use` may name a set declared below it or
+/// brought in by an `include`. What it cannot see is a set declared in a file that includes
+/// *this* one: each file resolves its own `use` nodes, and an unresolved one is an error
+/// there rather than a value carried up to be resolved by whoever reads the file next.
+///
+/// Which is why the sets are flattened first, before any command is looked at, even though
+/// nothing may use them. Resolving a set only when a command asked for one left an included
+/// file's `use` to be answered by the file that included it — with the wrong flagsets in
+/// scope, and an error pointing into the wrong source.
 pub(crate) fn expand(
     ctx: &ParsingContext,
     cmd: &mut SpecCommand,
-    flagsets: &IndexMap<String, SpecFlagSet>,
+    flagsets: &mut IndexMap<String, SpecFlagSet>,
 ) -> Result<(), UsageErr> {
+    let mut cache = {
+        let mut resolver = Resolver {
+            ctx,
+            flagsets,
+            cache: HashMap::new(),
+            stack: vec![],
+        };
+        for (name, set) in resolver.flagsets {
+            resolver.resolve(name, set.span)?;
+        }
+        resolver.cache
+    };
+    // A set that used another is now the flags of both. Written back so that what travels
+    // through an `include` is a set and not a question.
+    for (name, set) in flagsets.iter_mut() {
+        if let Some(flags) = cache.get(name) {
+            set.flags = flags.clone();
+        }
+        set.uses.clear();
+    }
     let mut resolver = Resolver {
         ctx,
         flagsets,
-        cache: HashMap::new(),
+        cache: core::mem::take(&mut cache),
         stack: vec![],
     };
     expand_cmd(cmd, &mut resolver)
@@ -462,6 +507,74 @@ cmd "remote" {
         bin ex
         cmd build {
             flag "-v --verbose"
+        }
+        "#);
+    }
+
+    #[test]
+    fn a_set_is_resolved_by_the_file_that_wrote_it() {
+        // The composition an included file writes is answered by the included file. Letting
+        // the includer answer it would make what a file means depend on who read it, and
+        // would report the mistake against the wrong source.
+        let dir = tempfile::tempdir().unwrap();
+        let common = dir.path().join("common.usage.kdl");
+        let root = dir.path().join("ex.usage.kdl");
+        std::fs::write(&common, "flagset \"child\" {\n    use \"parent-only\"\n}\n").unwrap();
+        std::fs::write(
+            &root,
+            "bin \"ex\"\ninclude file=\"./common.usage.kdl\"\nflagset \"parent-only\" {\n                 flag \"--from-parent\"\n}\ncmd \"build\" {\n    use \"child\"\n}\n",
+        )
+        .unwrap();
+
+        let err = Spec::parse_file(&root).unwrap_err();
+        let crate::error::UsageErr::InvalidInput(msg, _, source) = err else {
+            panic!("unexpected error: {err:?}");
+        };
+        assert!(
+            msg.contains("unknown flagset \"parent-only\" (declared: child)"),
+            "{msg}"
+        );
+        // Named against the file that wrote the `use`, which is the half a lazy resolve got
+        // wrong even where it happened to refuse.
+        assert!(
+            source.name().ends_with("common.usage.kdl"),
+            "{:?}",
+            source.name()
+        );
+    }
+
+    #[test]
+    fn a_set_nothing_uses_is_still_resolved() {
+        // Every set is flattened whether or not a command asks for one, so a mistake inside
+        // an unused set is reported rather than waiting for the day something uses it.
+        let msg = err("flagset \"a\" {\n    use \"missing\"\n}\n");
+        assert!(msg.contains("unknown flagset \"missing\""), "{msg}");
+    }
+
+    #[test]
+    fn an_included_set_may_compose_one_from_its_own_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let common = dir.path().join("common.usage.kdl");
+        let root = dir.path().join("ex.usage.kdl");
+        std::fs::write(
+            &common,
+            "flagset \"logging\" {\n    flag \"-v --verbose\"\n}\nflagset \"common\" {\n                 use \"logging\"\n    flag \"--config\"\n}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &root,
+            "bin \"ex\"\ninclude file=\"./common.usage.kdl\"\ncmd \"build\" {\n    use \"common\"\n}\n",
+        )
+        .unwrap();
+
+        let spec = Spec::parse_file(&root).unwrap();
+
+        assert_snapshot!(spec, @r#"
+        name ex
+        bin ex
+        cmd build {
+            flag "-v --verbose"
+            flag --config
         }
         "#);
     }
