@@ -591,12 +591,24 @@ impl CompleteWord {
         }
 
         if let Some(choices) = &arg.choices {
-            let values = choices.values();
             return Ok((
-                values
+                choices
+                    .values()
                     .into_iter()
-                    .map(|c| (c, String::new()))
-                    .filter(|(c, _)| c.starts_with(ctoken))
+                    .filter(|c| c.starts_with(ctoken))
+                    .map(|value| {
+                        // The description a shell shows beside a candidate. `details`
+                        // has carried per-choice help since choices grew a long form,
+                        // and nothing here read it — so `--format <TAB>` offered bare
+                        // words while the spec had "One report object" written down.
+                        let help = choices
+                            .details
+                            .iter()
+                            .find(|detail| detail.value == value)
+                            .and_then(|detail| detail.help.clone())
+                            .unwrap_or_default();
+                        (value, help)
+                    })
                     .collect(),
                 true,
             ));
