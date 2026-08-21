@@ -1,9 +1,8 @@
 //! A settings struct as its own declaration.
 //!
 //! The claim under test: `#[derive(usage::Config)]` on the struct a CLI already holds its
-//! settings in generates the same registry `usage-config-build` would have generated from a
-//! spec, a reader that fills the struct from a resolution, and a `config` block the spec
-//! parser reads back — so the registry, the reader, and the documentation cannot drift from
+//! settings in generates the registry the resolver reads, a reader that fills the struct from
+//! a resolution, and a `config` block the spec parser reads back — so the registry, the reader, and the documentation cannot drift from
 //! the struct or from each other. That drift is the fleet's `settings.toml` + `build.rs`
 //! pattern's whole failure mode: three descriptions of every setting, kept in step by hand.
 
@@ -241,6 +240,50 @@ fn the_emitted_config_block_is_the_spec_grammar() {
         Some("under the user cache directory")
     );
     assert_eq!(cache_dir.optional, Some(true));
+}
+
+/// A setting nothing declares a value for: not an `Option`, and no default.
+#[derive(Config, Debug, PartialEq)]
+struct Required {
+    /// The token every request needs
+    #[usage(env = "EX_TOKEN")]
+    token: String,
+}
+
+#[test]
+fn a_setting_nothing_defaults_says_it_is_required() {
+    // Leaving `optional` unset invited the reader's own inference — "no default means
+    // optional" — while `read` reports the key as missing. Docs, the JSON schema and the
+    // `config_keys` completer all read the registry, so the registry has to state what
+    // `read` will do rather than let each consumer guess.
+    assert_eq!(Required::SETTINGS_PROPS[0].optional, Some(false));
+    assert_eq!(
+        Settings::SETTINGS_PROPS[0].optional,
+        None,
+        "a setting with a declared default always has one, and inference agrees"
+    );
+
+    // Through the spec too, because that is the copy a docs page reads.
+    let kdl = format!("name \"ex\"\nbin \"ex\"\n{}", Required::spec_kdl());
+    let spec: usage::Spec = kdl.parse().expect("usage-lib reads the emitted block");
+    assert_eq!(
+        spec.config.props.get("token").expect("declared").optional,
+        Some(false)
+    );
+
+    // And the reader says the same thing: nothing supplied it, so it is missing.
+    let resolved = resolve(Required::SETTINGS_REGISTRY, Layers::new()).expect("resolves");
+    Required::read(&resolved).expect_err("a required setting nothing supplied");
+
+    let env = EnvLayer::new([("EX_TOKEN".to_string(), "abc".to_string())]);
+    let resolved =
+        resolve(Required::SETTINGS_REGISTRY, Layers::new().then(&env)).expect("resolves");
+    assert_eq!(
+        Required::read(&resolved).expect("supplied"),
+        Required {
+            token: "abc".to_string()
+        }
+    );
 }
 
 /// A tool with settings, declaring which type holds them.

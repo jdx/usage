@@ -202,7 +202,12 @@ impl Ty {
         match (self, value) {
             (Self::Any, _) => true,
             (Self::Bool, Const::Bool(_)) => true,
-            (Self::Int | Self::Uint | Self::Float, Const::Int(_)) => true,
+            (Self::Int | Self::Float, Const::Int(_)) => true,
+            // A `uint` names a non-negative number, and the resolver seeds a declared default
+            // with no coercion, so `default = -1` on a `u64` field would compile and then fail
+            // every `read` with a type error the author cannot fix at run time. The span is
+            // here, so refuse it here.
+            (Self::Uint, Const::Int(i)) => *i >= 0,
             (Self::Float, Const::Float(_)) => true,
             (Self::String | Self::Path | Self::Url | Self::Duration, Const::Str(_)) => true,
             // The coercion rule the registry itself follows: a string type reads a bare
@@ -467,6 +472,15 @@ impl Field {
                 (prop.hide, "hide"),
                 (key_attr.is_some(), "key"),
                 (ty_attr.is_some(), "ty"),
+                (!prop.deprecated_envs.is_empty(), "deprecated_env"),
+                (!prop.aliases.is_empty(), "alias"),
+                (!prop.examples.is_empty(), "example"),
+                (prop.default_note.is_some(), "default_note"),
+                (explicit_optional.is_some(), "optional"),
+                (prop.deprecated.is_some(), "deprecated"),
+                (prop.deprecated_warn_at.is_some(), "deprecated_warn_at"),
+                (prop.deprecated_remove_at.is_some(), "deprecated_remove_at"),
+                (prop.since.is_some(), "since"),
             ];
             if let Some((_, what)) = described.iter().find(|(given, _)| *given) {
                 return Err(syn::Error::new(
@@ -925,8 +939,8 @@ pub fn emit(config: &Config) -> TokenStream {
 
             impl #ident {
                 /// Every setting this struct declares, one entry per field, flattened groups
-                /// included. What `usage-config-build` would have generated, generated from
-                /// the struct instead — there is no second declaration to keep in step.
+                /// included. The registry a `build.rs` used to generate, generated from the
+                /// struct instead — there is no second declaration to keep in step.
                 pub const SETTINGS_PROPS: &'static [#cfg::PropMeta] =
                     <Self as #cfg::Props>::PROPS;
 
@@ -1040,8 +1054,21 @@ fn prop_meta(prop: &Prop, cfg: &TokenStream) -> TokenStream {
         let aliases = &prop.aliases;
         fields.push(quote!(aliases: &[#(#aliases),*]));
     }
-    if prop.optional_field || prop.default_fn.is_some() {
-        fields.push(quote!(optional: ::std::option::Option::Some(true)));
+    // The optionality contract, stated rather than inferred. A registry that leaves this
+    // unset invites the reader's inference — "no default means optional" — and a plain
+    // non-`Option` field with no default is the one case where that inference disagrees with
+    // `read`, which reports the key as missing. Docs, the JSON schema and the completers all
+    // read the registry, so they have to be told what `read` will do.
+    let optional = if prop.optional_field || prop.default_fn.is_some() {
+        Some(true)
+    } else if prop.default.is_none() {
+        Some(false)
+    } else {
+        // A declared default always resolves, and inference already agrees with that.
+        None
+    };
+    if let Some(optional) = optional {
+        fields.push(quote!(optional: ::std::option::Option::Some(#optional)));
     }
     if let Some(help) = &prop.help {
         fields.push(quote!(help: ::std::option::Option::Some(#help)));
@@ -1070,5 +1097,113 @@ fn prop_meta(prop: &Prop, cfg: &TokenStream) -> TokenStream {
             #(#fields,)*
             ..#cfg::PropMeta::new(#key, #ty)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    /// The message a bad declaration produces, which is the part worth asserting on: it is
+    /// what the author sees, and the point of checking here is that they see it *here* rather
+    /// than at the first `read` in production.
+    fn rejection(body: &str) -> String {
+        match Config::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust")) {
+            Ok(_) => panic!("should not have compiled"),
+            Err(e) => e.to_string(),
+        }
+    }
+
+    fn accepted(body: &str) {
+        Config::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
+            .unwrap_or_else(|e| panic!("should have compiled: {e}"));
+    }
+
+    #[test]
+    fn a_uint_refuses_a_negative_default_or_choice() {
+        // The resolver seeds a declared default with no coercion, and `u64::from_value`
+        // refuses a negative value — so this compiled and then failed every `read` with a type
+        // error the author could do nothing about at run time. A choice is the same shape of
+        // mistake: a value nothing can ever supply.
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(default = -1)]
+                jobs: u64,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("the default is not a value `uint` can hold"),
+            "unhelpful: {err}"
+        );
+
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(choices(1, -1))]
+                jobs: u64,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("a choice is not a value `uint` can hold"),
+            "unhelpful: {err}"
+        );
+
+        // A signed field still takes one, which is the whole difference.
+        accepted(
+            r#"
+            struct Settings {
+                #[usage(default = -1)]
+                offset: i64,
+            }
+        "#,
+        );
+    }
+
+    #[test]
+    fn every_setting_attribute_on_a_flattened_field_is_refused() {
+        // `flatten` says the field is a group of settings, so anything describing *one*
+        // setting was parsed into a prop that the flatten branch then dropped. The checked
+        // list had grown stale: `#[usage(flatten, alias = "task")]` compiled, and the alias
+        // simply did not exist.
+        for attribute in [
+            r#"env = "EX_X""#,
+            r#"deprecated_env = "EX_OLD""#,
+            r#"alias = "other""#,
+            r#"example = "1""#,
+            r#"default_note = "note""#,
+            "optional = true",
+            r#"deprecated = "gone""#,
+            r#"deprecated_warn_at = "6.0.0""#,
+            r#"deprecated_remove_at = "7.0.0""#,
+            r#"since = "5.2.0""#,
+        ] {
+            let err = rejection(&format!(
+                r#"
+                struct Settings {{
+                    #[usage(flatten, {attribute})]
+                    task: TaskSettings,
+                }}
+            "#
+            ));
+            assert!(
+                err.contains("describes a setting, and `flatten` says this field is a group"),
+                "`{attribute}` was accepted on a flattened field: {err}"
+            );
+        }
+
+        // A doc comment is not one of them: it describes the group, and `help` is how the
+        // derive carries a doc comment.
+        accepted(
+            r#"
+            struct Settings {
+                /// The task settings
+                #[usage(flatten)]
+                task: TaskSettings,
+            }
+        "#,
+        );
     }
 }

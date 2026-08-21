@@ -7036,6 +7036,56 @@ mod tests {
     }
 
     #[test]
+    fn config_names_a_type_deriving_usage_config() {
+        // A path, because the attribute names a *type* whose `spec_kdl()` the emitted spec
+        // calls. A string looks close enough to the other metadata attributes to write by
+        // mistake, and it compiled to a `config` block that was silently never emitted.
+        let parsed = cli(r#"
+            #[usage(config = Settings)]
+            struct Ex {
+                #[usage(long)]
+                plain: bool,
+            }
+        "#)
+        .expect("parses");
+        assert!(parsed.config.is_some(), "`config = Settings` was dropped");
+
+        let err = rejection(
+            r#"
+            #[usage(config = "Settings")]
+            struct Ex {
+                #[usage(long)]
+                plain: bool,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("names a type deriving `usage::Config`"),
+            "unhelpful: {err}"
+        );
+    }
+
+    #[test]
+    fn the_config_attribute_belongs_on_the_root() {
+        // One program, one `config` block. On a group it would have been parsed and never
+        // read, which is the silence the position check exists to replace.
+        let err = position_error(
+            r#"
+            #[usage(config = Settings)]
+            struct Ex {
+                #[usage(long)]
+                plain: bool,
+            }
+            "#,
+            false,
+        );
+        assert!(
+            err.contains("`config` belongs on the root"),
+            "unhelpful: {err}"
+        );
+    }
+
+    #[test]
     fn a_setting_is_allowed_wherever_a_flag_is() {
         // It used to be refused outside the root, because only the root generated a layer and one
         // written on a flattened group compiled into nothing. A group hands its bindings to its
