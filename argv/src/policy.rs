@@ -440,6 +440,34 @@ pub fn color_from_argv(spec: &Spec<'_>, argv: &[&OsStr]) -> Option<ColorChoice> 
             _ => {}
         }
     }
+    // A flag nobody typed still speaks if it was declared with a default: the struct would
+    // have held that value, so the two answers have to agree about it. Weaker than a typed
+    // token by construction — only flags missing from `said` are considered.
+    for meta in scope.iter().flat_map(|cmd| cmd.flags.iter()) {
+        let Some(role) = meta.color else {
+            continue;
+        };
+        if said.iter().any(|(seen, _)| same_flag(seen, meta.flag)) {
+            continue;
+        }
+        let Some(default) = meta.default.first() else {
+            continue;
+        };
+        let asked = match role {
+            ColorRole::Choice => ColorChoice::parse(default),
+            // The same reading the bound struct gives a `bool`: the negated spelling's
+            // answer for `false`, and for a switch that has no negation, nothing at all —
+            // `false` there is absence rather than a refusal.
+            role => match *default {
+                "true" => role.asks_for(false),
+                "false" if meta.flag.negate.is_some() => role.asks_for(true),
+                _ => None,
+            },
+        };
+        if let Some(asked) = asked {
+            said.push((meta.flag, asked));
+        }
+    }
     said.into_iter()
         .map(|(_, asked)| asked)
         .reduce(ColorChoice::combine)

@@ -256,6 +256,12 @@ macro_rules! typed_parse {
                 <$ty>::parse_from(argv).expect("valid command line")
             }
         }
+
+        impl TypedSpec for $ty {
+            fn typed_spec() -> &'static usage_argv::spec::Spec<'static> {
+                <$ty>::spec()
+            }
+        }
     };
 }
 
@@ -269,12 +275,33 @@ typed_parse!(Borrowed);
 typed_parse!(Tak);
 
 /// Both implementations, held to the same answer.
+/// The color a command line asks for, read from argv rather than from a bound struct.
+///
+/// The third implementation, and the one with the least to go on: help and diagnostics are
+/// rendered where no struct was built, so this walks argv instead. Every case below holds it
+/// to the same answer as the other two — it has drifted twice already, once on which flag
+/// wins when two disagree and once on whether a declared default counts.
+fn from_argv<T: TypedSpec>(argv: &[&str]) -> ColorChoice {
+    let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+    match usage_argv::policy::color_from_argv(T::typed_spec(), &words).unwrap_or_default() {
+        usage_argv::policy::ColorChoice::Auto => ColorChoice::Auto,
+        usage_argv::policy::ColorChoice::Always => ColorChoice::Always,
+        usage_argv::policy::ColorChoice::Never => ColorChoice::Never,
+    }
+}
+
+/// The static spec a derived CLI carries, without naming each of them at every call site.
+trait TypedSpec {
+    fn typed_spec() -> &'static usage_argv::spec::Spec<'static>;
+}
+
 macro_rules! agree {
     ($ty:ty, $kdl:expr, $argv:expr, $level:expr, $color:expr) => {{
         let argv: &[&str] = &$argv;
         let want = ($level, $color);
         assert_eq!(compiled::<$ty>(argv), want, "compiled: {argv:?}");
         assert_eq!(interpreted(&$kdl, argv), want, "interpreted: {argv:?}");
+        assert_eq!(from_argv::<$ty>(argv), want.1, "from argv: {argv:?}");
     }};
 }
 
