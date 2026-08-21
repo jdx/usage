@@ -31,10 +31,19 @@ fn built_value(cli: &Cli, sub_build: &TokenStream, fields: &[TokenStream]) -> To
         debug_assert!(cli.fields.is_empty());
         quote!(Self)
     } else {
+        let field_reads = cli.fields.iter().map(|field| &field.ident);
         quote! {
-            Self {
-                #sub_build
-                #(#fields),*
+            {
+                let __usage_built = Self {
+                    #sub_build
+                    #(#fields),*
+                };
+                // A parsed compatibility flag may intentionally be accepted and ignored.
+                // Reading every field here keeps `#[deny(dead_code)]` from blaming the
+                // adopter for a field the derive itself owns. These shared references
+                // generate no runtime work after optimization.
+                #(let _ = &__usage_built.#field_reads;)*
+                __usage_built
             }
         }
     }

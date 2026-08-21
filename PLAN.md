@@ -707,6 +707,9 @@ feature list is not an exhaustive audit.
       arity with distinct `value_names`); optional-value shapes that need
       per-occurrence presence semantics and arbitrary `value_parser` callbacks
       produce targeted migration diagnostics instead of a generic unknown-option error.
+      The generated build also takes a zero-cost shared reference to every field, so a
+      parse-only compatibility flag does not trip an adopter's `deny(dead_code)` merely
+      because application code intentionally accepts and ignores it.
 - [x] **Command-with-arguments completion hints.** `ExecutablePath`,
       `CommandName`, `CommandString`, and `CommandWithArguments` lower to
       shell-native completion types. A forwarded argv vector offers commands for
