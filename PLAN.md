@@ -1450,7 +1450,9 @@ share of clap's top-voted open requests is usage's existing feature set:
   discussion clap#6491 asking for schemas AI agents can read) — the spec _is_
   the export, `effect` is the safety vocabulary an agent wants, and usage-cli
   renders JSON already. clap#6026 was closed with advice to "implement your
-  own argument parser" — which is this project.
+  own argument parser" — which is this project. **And the binary now hands it
+  over itself** — see the endpoint item below, which is what makes this an
+  answer for a tool in front of somebody else's CLI rather than for its author.
 
 When the migration guide is written, a "top clap feature requests that just
 work here" section is cheap and persuasive; the launch-gate documentation items
@@ -1458,6 +1460,36 @@ above are where it lands.
 
 **Worth building, demand attached:**
 
+- [x] **A binary that describes itself** (clap#918, clap#6491) — `__usage_spec__`,
+      answered from the same static tables the parser reads, in every binary that
+      does not opt out. The gap was never `to_kdl`: it was that getting a spec
+      _out_ of a CLI was a convention each adopter reimplemented, which the docs
+      taught as `#[usage(long, hide)] usage_spec: bool` — so no tool in front of
+      somebody else's CLI could rely on it, which is the only position that
+      matters for `usage g …`, `usage lint`, `usage mcp` and an agent reading
+      `effect`. Four decisions, settled 2026-08-21. **A hidden word, not a
+      flag**, for the reason `__complete_word__` is one: a request is not
+      something the CLI _does_, so it is answered before the parse, stays out of
+      the tables, cannot collide with an adopter's flags, and does not perturb
+      the document it prints. **On by default**, which is the whole point — an
+      opt-in nobody remembers to write is an endpoint nothing can rely on — with
+      a declaration of that spelling winning (checked against the tables, since a
+      `Cli` derive cannot see a separate `Subcommands` enum's variants) and
+      `spec_endpoint = false` for a binary counting bytes, worth 65KB on a small
+      CLI. **KDL only**, since `usage g json -f -` converts and a hand-rolled
+      serializer in a dependency-free crate would be a second emitter to keep in
+      step with the serde-derived shape.
+      **`spec_extra`** appends a file's KDL to `to_kdl()` for a node no attribute
+      carries. It was built for usage-cli's `repository` and
+      `source_code_link_template`, and #1184 gave both of those real attributes
+      while this was in review — which is the canonicality rule working as
+      intended, and leaves the hook with no in-tree user. Kept as the escape
+      hatch rather than removed, and documented as one; reconsider if nothing
+      needs it. usage-cli answers both spellings, reaching the endpoint through
+      `is_spec_request` because it renders its own output rather
+      than calling `parse()`. Not projected through a `view`: the document already
+      declares every view, so projecting would hand a tool a lossier spec
+      depending on which name launched the process.
 - [x] **Subcommand help headings** (clap#1553, 38 votes) — `help_heading`
       landed for flags and arguments; this is the same property on `cmd` nodes,
       so a 210-command CLI can group its help into sections. mise is the

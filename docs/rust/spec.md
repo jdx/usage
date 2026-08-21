@@ -56,25 +56,66 @@ Beyond parsing, `to_kdl` asserts (in debug builds) that the tree is coherent: no
 no duplicate flag spellings across a `flatten` boundary, no duplicate group names, no unfillable
 argument after an unbounded variadic. Those fire in your test, not on users.
 
-## Feeding usage-cli
+## The endpoint
 
-The pattern usage-cli itself ships is a hidden flag that prints the spec, so the binary is the
-source of truth:
-
-```rust
-#[usage(long, hide)]
-usage_spec: bool,
-```
+Every binary answers `__usage_spec__` with its own spec. You do not declare it, and there is
+nothing to wire up:
 
 ```bash
-mycli --usage-spec > mycli.usage.kdl
+mycli __usage_spec__ > mycli.usage.kdl
 
 usage g markdown -f mycli.usage.kdl --out-dir docs   # markdown docs
 usage g manpage  -f mycli.usage.kdl > mycli.1        # man page
 usage g completion bash mycli --file mycli.usage.kdl # completion script
 usage g json     -f mycli.usage.kdl                  # JSON form
-usage lint       -f mycli.usage.kdl                  # lint the spec
+usage lint          mycli.usage.kdl                  # lint the spec
+usage mcp        -f mycli.usage.kdl                  # serve it to an agent
 ```
+
+It is a word rather than a flag, and it is answered before the parse — so it is not in your
+tables, cannot collide with a flag of yours, and does not appear in the document it prints. A
+command line whose first word is `__usage_spec__` is the request; anywhere else the word is an
+ordinary value. If your CLI declares a command of that spelling, yours wins.
+
+KDL is the only format the binary emits. Pipe it through `usage g json -f -` for JSON: a second
+serializer in every adopter's binary is a cost the conversion does not need.
+
+A CLI in another language has no derive to generate this, so the convention there stays a flag
+its author intercepts — `--usage-spec`, as in the [cobra guide](/spec/integrations/cobra).
+usage-cli answers both, being both a Rust CLI and the tool that documented the flag first.
+
+Three ways in, for the three shapes a program takes:
+
+| you write                  | you get                                                               |
+| -------------------------- | --------------------------------------------------------------------- |
+| `Cli::parse()`             | the endpoint, answered and exited, before anything else               |
+| `Cli::spec_request(&argv)` | `Some(kdl)` for a request, so an embedder renders it itself           |
+| `Cli::to_kdl()`            | the document, in-process, for a build script or a checked-in artifact |
+
+`#[usage(spec_endpoint = false)]` removes it, for a CLI counting bytes. What it costs is the KDL
+writer and the cold metadata being reachable from `main`, which is **65 KB** on a small CLI
+(773,424 against 708,768 bytes, stripped release, four flags and two subcommands). A CLI that
+calls `to_kdl()` for a checked-in artifact links the same code and pays nothing extra for the
+endpoint. `to_kdl()` itself stays either way — opting out removes the entry point, not the ability
+to emit a spec.
+
+### Appending raw KDL
+
+Every node the derive can say, it says — see [what can't be
+expressed](#what-can-t-be-expressed-from-the-derive), which is nearly nothing. `spec_extra` is
+there for when that is not enough, and appends a file's KDL to the emitted document:
+
+```rust
+#[derive(usage::Cli)]
+#[usage(bin = "mycli", spec_extra = "assets/mycli-extra.usage.kdl")]
+struct Cli { /* … */ }
+```
+
+The path is relative to the crate that declares it, and the file is read at compile time. It joins
+`to_kdl()` itself, so the endpoint, a checked-in artifact and your docs build all see one
+document. Nothing parses the appended text while compiling — the [round-trip
+test](#round-trip-guarantee) above is what catches a file with a mistake in it, so write that test
+if you use this.
 
 `min_usage_version = "…"` on the root is written first in the document, as the CLI's claim about
 which usage consumers can read it.
@@ -135,9 +176,12 @@ help pages through both.
 
 ## What can't be expressed from the derive
 
-Nothing, as of `example`: every node the spec format defines now has a derive attribute. That is
+Nearly nothing, as of `example`: every node a command declares now has a derive attribute. That is
 the rule this project holds itself to — a typed declaration must lower into the spec losslessly,
 and where it cannot, the derive gains the vocabulary rather than the spec losing it.
 
-The one property that does not carry over is an example's `lang`, which picks syntax
-highlighting for a KDL-authored example and has nothing to choose between in Rust.
+The one property that does not carry over is an example's `lang`, which picks syntax highlighting
+for a KDL-authored example and has nothing to choose between in Rust.
+
+[`spec_extra`](#appending-raw-kdl) is the escape hatch if that ever stops being true for something
+you need. Nothing in this repository uses it.

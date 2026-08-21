@@ -325,6 +325,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let apply = apply_fn(cli);
     let post = post_binding(cli);
     let (completion, completion_intercept) = completion_fns(cli);
+    let spec_extra = spec_extra_append(cli);
+    let (spec_endpoint, spec_endpoint_intercept) = spec_endpoint_fns(cli);
     // `field: local` rather than the shorthand, because the locals are prefixed:
     // a field called `text` or `parser` would otherwise collide with something the
     // generated code needs.
@@ -848,8 +850,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 /// This CLI's spec as KDL, which is what `usage g markdown|manpage`
                 /// and the completion generators read.
                 pub fn to_kdl() -> ::std::string::String {
-                    SPEC.to_kdl()
+                    #[allow(unused_mut)]
+                    let mut __usage_kdl = SPEC.to_kdl();
+                    #spec_extra
+                    __usage_kdl
                 }
+
+                #spec_endpoint
 
                 #settings_binding_forward
                 #settings_parse
@@ -1042,6 +1049,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         ::std::env::args_os().collect();
                     let __usage_all_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
                         __usage_all.iter().map(|a| a.as_os_str()).collect();
+                    #spec_endpoint_intercept
                     let __usage_raw: ::std::vec::Vec<::std::ffi::OsString> =
                         if let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
                             __usage_all_refs.split_first()
@@ -1282,6 +1290,81 @@ fn unknown_flags_tokens(cli: &Cli) -> TokenStream {
         )),
         None => quote!(::core::option::Option::None),
     }
+}
+
+/// The `spec_extra` tail, appended to the emitted document.
+///
+/// Appended rather than merged: this crate does not parse KDL, so extra nodes join the document
+/// and not the model. Both `to_kdl` and the endpoint read the same function, so a checked-in
+/// artifact and what the binary hands a tool cannot differ.
+fn spec_extra_append(cli: &Cli) -> TokenStream {
+    let Some(path) = cli.spec_extra.as_deref() else {
+        return TokenStream::new();
+    };
+    quote! {
+        {
+            // Resolved in the declaring crate, which is where the path was written.
+            const __USAGE_SPEC_EXTRA: &str = ::core::include_str!(::core::concat!(
+                ::core::env!("CARGO_MANIFEST_DIR"),
+                "/",
+                #path,
+            ));
+            let __usage_extra = __USAGE_SPEC_EXTRA.trim();
+            if !__usage_extra.is_empty() {
+                __usage_kdl = ::std::format!(
+                    "{}\n{}\n",
+                    __usage_kdl.trim_end(),
+                    __usage_extra,
+                );
+            }
+        }
+    }
+}
+
+/// The spec endpoint, which every CLI has unless it says otherwise.
+///
+/// Two pieces, the same shape as the completion pair below: a function that answers, and the line
+/// in `parse` that notices. On by default because the point of it is that a tool can ask *any*
+/// usage binary for its spec — an endpoint each adopter has to remember to enable is one no
+/// external tool can rely on. `spec_endpoint = false` is the way out for a binary that does not
+/// want to carry the KDL writer.
+fn spec_endpoint_fns(cli: &Cli) -> (TokenStream, TokenStream) {
+    if !cli.spec_endpoint {
+        return (TokenStream::new(), TokenStream::new());
+    }
+    let functions = quote! {
+        /// This CLI's own spec, when argv asks for it.
+        ///
+        /// `Some` for a command line whose first word is `usage_argv::SPEC_REQUEST`, and `None`
+        /// for an ordinary invocation — including one that names a command of that spelling,
+        /// which keeps a declaration ahead of the built-in. Takes the command line *without*
+        /// the program name, like [`Self::parse_from`].
+        ///
+        /// [`Self::parse`] answers it and exits. An embedder that renders its own output, or
+        /// wants to refuse the request, calls this instead.
+        pub fn spec_request(
+            argv: &[&::std::ffi::OsStr],
+        ) -> ::std::option::Option<::std::string::String> {
+            if usage_argv::is_spec_request(Self::command(), argv) {
+                ::std::option::Option::Some(Self::to_kdl())
+            } else {
+                ::std::option::Option::None
+            }
+        }
+    };
+    let intercept = quote! {
+        // Before the view and multicall rewrites below, for the reason a completion request is
+        // answered before the parse: asking what this CLI *is* is not one of the things it does,
+        // so its grammar has no say. Reads the argv already collected, so the endpoint costs one
+        // comparison and no allocation.
+        if let ::std::option::Option::Some(__usage_answer) =
+            Self::spec_request(__usage_all_refs.get(1..).unwrap_or(&[]))
+        {
+            ::std::print!("{__usage_answer}");
+            usage_argv::__usage_process_exit(0);
+        }
+    };
+    (functions, intercept)
 }
 
 /// The completion entry points, for a CLI that asked for them.
