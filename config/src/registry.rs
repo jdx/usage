@@ -103,6 +103,17 @@ pub struct PropMeta {
     /// An explicit optionality contract, when the declaration does not use inference.
     pub optional: Option<bool>,
     pub help: Option<&'static str>,
+    pub long_help: Option<&'static str>,
+    /// Prose beside the default, for a default the registry cannot hold — one computed at
+    /// runtime, or one whose literal alone would mislead ("0 = one per core").
+    pub default_note: Option<&'static str>,
+    /// The release that introduced this setting, when the declaration says.
+    pub since: Option<&'static str>,
+    /// The release that starts warning about a deprecated setting, and the one that removes it.
+    pub deprecated_warn_at: Option<&'static str>,
+    pub deprecated_remove_at: Option<&'static str>,
+    /// Values worth showing a reader, verbatim.
+    pub examples: &'static [&'static str],
 }
 
 impl PropMeta {
@@ -126,6 +137,12 @@ impl PropMeta {
             aliases: &[],
             optional: None,
             help: None,
+            long_help: None,
+            default_note: None,
+            since: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
+            examples: &[],
         }
     }
 }

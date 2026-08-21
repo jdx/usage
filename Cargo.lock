@@ -2354,6 +2354,7 @@ version = "5.1.0"
 dependencies = [
  "serde",
  "usage-argv",
+ "usage-config",
  "usage-derive",
  "usage-lib",
  "usage-test",

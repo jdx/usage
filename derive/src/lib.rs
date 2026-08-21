@@ -412,6 +412,7 @@ use syn::{parse_macro_input, DeriveInput};
 
 mod case;
 mod codegen;
+mod config;
 mod crate_name;
 mod model;
 
@@ -463,6 +464,38 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match model::Subcommands::from_input(&input) {
         Ok(subs) => codegen::emit_subcommands(&subs).into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+/// Compile a settings struct into its own registry, reader, and spec `config` block.
+///
+/// The struct the CLI already holds its settings in becomes the declaration: field types are
+/// the settings' types, doc comments are their help, and `#[usage(...)]` carries what a spec's
+/// `prop` node would — `env`, `default`, `merge`, `scope`, `choices`, `source` bindings.
+/// The derive generates `SETTINGS_PROPS`, `SETTINGS_REGISTRY`, `read(&Resolved)`, and
+/// `spec_kdl()`, so the registry, the reader, and the documentation cannot drift from the
+/// struct or from each other. See the [config module](config) docs for the field vocabulary.
+///
+/// ```ignore
+/// #[derive(usage::Config)]
+/// struct Settings {
+///     /// How many jobs to run at once
+///     #[usage(env = "EX_JOBS", default = 4, cli("--jobs", "-j"))]
+///     jobs: u64,
+///     #[usage(flatten)]
+///     task: TaskSettings,
+/// }
+/// ```
+///
+/// A group flattens into another with `#[usage(flatten)]`, declaring its dotted keys under
+/// its own `#[usage(prefix = "task")]`. The joined registry refuses duplicate keys at
+/// compile time.
+#[proc_macro_derive(Config, attributes(usage))]
+pub fn derive_config(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match config::Config::from_input(&input) {
+        Ok(config) => config::emit(&config).into(),
         Err(e) => e.to_compile_error().into(),
     }
 }

@@ -250,6 +250,41 @@ impl FromValue for f64 {
     }
 }
 
+impl FromValue for f32 {
+    fn from_value(value: &Value) -> Result<Self, TypeError> {
+        f64::from_value(value).map(|f| f as Self)
+    }
+}
+
+/// The narrower integers a struct actually holds — a fleet CLI keeps `jobs` in a `usize` and a
+/// verbosity in a `u8` — read through the same rule as [`u64`]: a value that does not fit is
+/// reported rather than wrapped, because wrapping is the shape of this bug everywhere it exists.
+macro_rules! narrower_int {
+    ($($ty:ty => $expected:literal,)*) => {$(
+        impl FromValue for $ty {
+            fn from_value(value: &Value) -> Result<Self, TypeError> {
+                match value {
+                    Value::Int(i) => {
+                        Self::try_from(*i).map_err(|_| mismatch($expected, value))
+                    }
+                    other => Err(mismatch($expected, other)),
+                }
+            }
+        }
+    )*};
+}
+
+narrower_int! {
+    u8 => "a non-negative integer that fits 8 bits",
+    u16 => "a non-negative integer that fits 16 bits",
+    u32 => "a non-negative integer that fits 32 bits",
+    usize => "a non-negative integer",
+    i8 => "an integer that fits 8 bits",
+    i16 => "an integer that fits 16 bits",
+    i32 => "an integer that fits 32 bits",
+    isize => "an integer",
+}
+
 impl FromValue for String {
     fn from_value(value: &Value) -> Result<Self, TypeError> {
         match value {

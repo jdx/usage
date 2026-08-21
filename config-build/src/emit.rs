@@ -176,6 +176,33 @@ fn prop_meta(key: &str, prop: &SpecConfigProp, problems: &mut Vec<String>) -> St
     if let Some(help) = prop.help.as_deref() {
         let _ = writeln!(fields, "        help: Some({}),", rust_str(help));
     }
+    if let Some(long_help) = prop.long_help.as_deref() {
+        let _ = writeln!(fields, "        long_help: Some({}),", rust_str(long_help));
+    }
+    if let Some(note) = prop.default_note.as_deref() {
+        let _ = writeln!(fields, "        default_note: Some({}),", rust_str(note));
+    }
+    if let Some(since) = prop.since.as_deref() {
+        let _ = writeln!(fields, "        since: Some({}),", rust_str(since));
+    }
+    if let Some(at) = prop.deprecated_warn_at.as_deref() {
+        let _ = writeln!(
+            fields,
+            "        deprecated_warn_at: Some({}),",
+            rust_str(at)
+        );
+    }
+    if let Some(at) = prop.deprecated_remove_at.as_deref() {
+        let _ = writeln!(
+            fields,
+            "        deprecated_remove_at: Some({}),",
+            rust_str(at)
+        );
+    }
+    if !prop.examples.is_empty() {
+        let examples: Vec<String> = prop.examples.iter().map(|e| rust_str(e)).collect();
+        let _ = writeln!(fields, "        examples: &[{}],", examples.join(", "));
+    }
     let new = format!(
         "::usage_config::PropMeta::new({}, {})",
         rust_str(key),

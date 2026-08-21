@@ -704,6 +704,12 @@ fn registry_of(settings: &[Setting]) -> Result<Registry, String> {
             aliases: &[],
             optional: None,
             help: None,
+            long_help: None,
+            default_note: None,
+            since: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
+            examples: &[],
         });
     }
     Ok(Registry::new(Box::leak(props.into_boxed_slice())))

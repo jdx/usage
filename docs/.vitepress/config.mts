@@ -69,6 +69,7 @@ export default defineConfig({
           { text: "Migrating from clap", link: "/rust/migrating-from-clap" },
           { text: "clap Compatibility", link: "/rust/clap-compatibility" },
           { text: "Validation", link: "/rust/validation" },
+          { text: "Settings", link: "/rust/settings" },
           { text: "Help and Errors", link: "/rust/help" },
           { text: "Performance", link: "/rust/performance" },
           { text: "Completions", link: "/rust/completions" },

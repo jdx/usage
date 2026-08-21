@@ -262,6 +262,17 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // see another struct's fields. A root that does neither gets the compile-time guard instead of
     // the layer, so a group's binding cannot go quietly uncollected.
     let resolves = cli.fields.iter().any(|f| f.setting.is_some()) || cli.settings;
+    let config = crate::config::config_path();
+    // A root that names its settings type gets a spec carrying the `config` block, appended
+    // after the command tree: KDL nodes are read by name, so position is presentation. Written
+    // as an append rather than as the whole body so that it composes with `spec_extra`, which
+    // appends to the same string — a root can have both.
+    let config_extra = match &cli.config {
+        Some(ty) => quote! {
+            __usage_kdl.push_str(&#config::spec_kdl(<#ty>::SETTINGS_PROPS));
+        },
+        None => TokenStream::new(),
+    };
     let parts = settings(cli);
     // Only the layer calls it, so a root that has children and no settings of its own emits
     // neither: the guard below is what speaks for that case.
@@ -270,7 +281,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .as_ref()
         .filter(|_| resolves)
         .map(|s| s.bindings.clone());
-    let settings_layer = resolves.then(settings_layer);
+    let settings_layer = resolves.then(|| settings_layer(&config));
     let settings_guard = (!resolves).then(|| settings_guard(cli)).flatten();
     // The name an adopter uses, forwarding to the one inside the const block, which is where
     // the table that reads it lives.
@@ -305,7 +316,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             pub fn parse_from_with_settings<'v>(
                 argv: &[&'v ::std::ffi::OsStr],
             ) -> ::std::result::Result<
-                (Self, ::usage_config::CliLayer),
+                (Self, #config::CliLayer),
                 usage_argv::Error<'static, 'v>,
             > {
                 // The layer from what argv left, and only then the rest: `check` fills a field
@@ -852,6 +863,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 pub fn to_kdl() -> ::std::string::String {
                     #[allow(unused_mut)]
                     let mut __usage_kdl = SPEC.to_kdl();
+                    #config_extra
                     #spec_extra
                     __usage_kdl
                 }
@@ -3743,31 +3755,31 @@ fn settings(cli: &Cli) -> Option<Settings> {
 ///
 /// One loop over what every command contributed, so a flattened group's value and the root's own
 /// become entries the same way. A second conversion is the thing this whole stack keeps deleting.
-fn settings_layer() -> TokenStream {
+fn settings_layer(config: &TokenStream) -> TokenStream {
     quote! {
         /// This command line as a layer, for `usage_config::resolve`.
-        pub fn settings_layer(partial: &Partial) -> ::usage_config::CliLayer {
-            let mut __usage_layer = ::usage_config::CliLayer::new(
+        pub fn settings_layer(partial: &Partial) -> #config::CliLayer {
+            let mut __usage_layer = #config::CliLayer::new(
                 ::std::iter::empty::<(::std::string::String, ::std::string::String)>(),
             );
             for (__usage_key, __usage_given) in settings_given(partial) {
                 __usage_layer = match __usage_given {
                     usage_argv::spec::SettingGiven::Bool(__usage_value) => {
-                        __usage_layer.with_value(__usage_key, ::usage_config::Value::Bool(__usage_value))
+                        __usage_layer.with_value(__usage_key, #config::Value::Bool(__usage_value))
                     }
                     usage_argv::spec::SettingGiven::Int(__usage_value) => {
-                        __usage_layer.with_value(__usage_key, ::usage_config::Value::Int(__usage_value))
+                        __usage_layer.with_value(__usage_key, #config::Value::Int(__usage_value))
                     }
                     usage_argv::spec::SettingGiven::Text(__usage_value) => {
                         __usage_layer
-                            .with_value(__usage_key, ::usage_config::Value::String(__usage_value))
+                            .with_value(__usage_key, #config::Value::String(__usage_value))
                     }
                     usage_argv::spec::SettingGiven::List(__usage_items) => __usage_layer.with_value(
                         __usage_key,
-                        ::usage_config::Value::List(
+                        #config::Value::List(
                             __usage_items
                                 .into_iter()
-                                .map(::usage_config::Value::String)
+                                .map(#config::Value::String)
                                 .collect(),
                         ),
                     ),

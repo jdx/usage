@@ -15,6 +15,7 @@ usage-argv = { workspace = true }
 usage-derive = { workspace = true, optional = true }
 usage-test = { workspace = true, optional = true }
 usage-validation = { workspace = true, optional = true }
+usage-config = { workspace = true, optional = true }
 
 [features]
 # Applications get a usable CLI out of the box: parse tables, help, and
@@ -32,6 +33,8 @@ validation = ["dep:usage-validation"]
 # Assertions about what a command line parses to, what a page says, and what a shell is
 # offered. A dev-dependency feature: nothing in an application's own code calls it.
 test = ["spec", "help", "dep:usage-test"]
+# Settings: the `usage::Config` derive, and the resolver as `usage::config`.
+config = ["spec", "dep:usage-config"]
 
 [package.metadata.release]
 shared-version = true

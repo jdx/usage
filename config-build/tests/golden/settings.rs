@@ -13,6 +13,7 @@ pub static SETTINGS_PROPS: &[::usage_config::PropMeta] = &[
     ::usage_config::PropMeta {
         deprecated: Some("Use jobs instead."),
         renamed_to: Some("jobs"),
+        deprecated_warn_at: Some("2026.12.0"),
         ..::usage_config::PropMeta::new("concurrency", ::usage_config::Ty::Uint)
     },
     ::usage_config::PropMeta {
@@ -34,6 +35,7 @@ pub static SETTINGS_PROPS: &[::usage_config::PropMeta] = &[
         cli: &["--jobs", "-j"],
         bindings: &[("git", "hk.jobs")],
         help: Some("How many jobs to run at once"),
+        default_note: Some("0 = one per core"),
         ..::usage_config::PropMeta::new("jobs", ::usage_config::Ty::Uint)
     },
     ::usage_config::PropMeta {
