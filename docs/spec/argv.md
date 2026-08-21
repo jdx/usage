@@ -400,7 +400,11 @@ default does not warn on a command line that never mentioned it.
 
 **Every deprecated command on the selected path reports**, not only the last one: a
 deprecated group whose child is fine was still the way in. The root is not one of them —
-it is the program that is running, not something the command line selected.
+it is the program that is running, not something the command line selected. Neither is a
+command a [`view`](/rust/subcommands#executable-views) promoted, nor any command the view routes through:
+under `aubr` those words _are_ the program's identity, so an implementation that reaches
+them by rewriting `argv` reports no more than one that reads a spec whose root is already
+the promoted command.
 
 **`deprecated_warn_at` is an author saying _not yet_.** A warning is withheld until the
 CLI's own `version` reaches that release. `deprecated_remove_at` never withholds anything

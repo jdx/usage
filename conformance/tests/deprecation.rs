@@ -16,7 +16,12 @@ use usage_derive::{Args, Cli, Subcommands};
 
 /// The same CLI the spec below describes.
 #[derive(Cli)]
-#[usage(bin = "ex", version = "2.0.0")]
+#[usage(
+    bin = "ex",
+    version = "2.0.0",
+    view("ex-compile", root = "compile"),
+    view("ex-inner", root = "compile inner")
+)]
 struct Ex {
     /// Where to write the result
     #[usage(long, deprecated = "use --out", deprecated_remove_at = "3.0.0")]
@@ -54,6 +59,22 @@ enum ExCommand {
 struct ExCompile {
     #[usage(long, deprecated = "no longer read")]
     incremental: bool,
+    #[usage(subcommand)]
+    command: Option<ExCompileCommand>,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum ExCompileCommand {
+    /// Deprecated, and promoted by a view two words deep
+    #[usage(deprecated = "use build")]
+    Inner(ExInner),
+}
+
+#[derive(Args)]
+struct ExInner {
+    #[usage(long, deprecated = "no longer read")]
+    fast: bool,
 }
 
 #[derive(Args)]
@@ -75,10 +96,15 @@ flag "--token <token>" env="EX_DEP_TOKEN" deprecated="use --out" {
 flag "--mode <mode>" default="quiet" deprecated="use --out"
 cmd "compile" deprecated="use build" {
     flag "--incremental" deprecated="no longer read"
+    cmd "inner" deprecated="use build" {
+        flag "--fast" deprecated="no longer read"
+    }
 }
 cmd "build" {
     flag "--release"
 }
+view "ex-compile" root="compile"
+view "ex-inner" root="compile inner"
 "#;
 
 /// What the compiled parser reports, as kinds and names.
@@ -196,6 +222,76 @@ fn what_a_command_line_used_is_reported_by_both_implementations() {
     assert_eq!(
         usage_argv::warn::render_warnings(&warnings),
         "warning: --output is deprecated, removed at 3.0.0: use --out\n",
+    );
+
+    // Invoked through an executable view, the promoted command is not a selection anybody made
+    // — `ex-compile` *is* `ex compile` — so it is not reported, while a deprecated flag the user
+    // typed on it still is. Both implementations agree, from opposite directions: the compiled
+    // parser injects the view's words into argv and skips them, and the reference implementation
+    // parses a spec whose root already *is* the promoted command.
+    let mut warnings = Vec::new();
+    let argv = [OsStr::new("ex-compile"), OsStr::new("--incremental")];
+    Ex::parse_from_argv_with_warnings(&argv, &mut warnings).expect("the view should dispatch");
+    assert_eq!(
+        warnings
+            .iter()
+            .map(|w| (w.kind, w.name))
+            .collect::<Vec<_>>(),
+        [(WarningKind::DeprecatedFlag, "--incremental")],
+        "{warnings:?}",
+    );
+
+    let promoted = spec
+        .for_view("ex-compile")
+        .expect("the view should materialize");
+    let out = usage::parse(
+        &promoted,
+        &["ex-compile".to_string(), "--incremental".to_string()],
+    )
+    .expect("the view should parse");
+    assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+    assert_eq!(out.warnings[0].kind, LibWarningKind::DeprecatedFlag);
+    assert_eq!(out.warnings[0].name, "--incremental");
+
+    // A view two commands deep: neither the command it routes through nor the promoted one is
+    // reported, which is the branch that decrements rather than the one that stops.
+    let mut warnings = Vec::new();
+    let argv = [OsStr::new("ex-inner"), OsStr::new("--fast")];
+    Ex::parse_from_argv_with_warnings(&argv, &mut warnings).expect("the view should dispatch");
+    assert_eq!(
+        warnings
+            .iter()
+            .map(|w| (w.kind, w.name))
+            .collect::<Vec<_>>(),
+        [(WarningKind::DeprecatedFlag, "--fast")],
+        "{warnings:?}",
+    );
+
+    let promoted = spec
+        .for_view("ex-inner")
+        .expect("the nested view should materialize");
+    let out = usage::parse(&promoted, &["ex-inner".to_string(), "--fast".to_string()])
+        .expect("the view should parse");
+    assert_eq!(out.warnings.len(), 1, "{:?}", out.warnings);
+    assert_eq!(out.warnings[0].name, "--fast");
+
+    // Reached as ordinary subcommands, the same commands *are* selections, and say so.
+    both_report(
+        &["compile", "inner", "--fast"],
+        &[
+            (WarningKind::DeprecatedCommand, "compile"),
+            (WarningKind::DeprecatedCommand, "inner"),
+            (WarningKind::DeprecatedFlag, "--fast"),
+        ],
+    );
+
+    // Reached as an ordinary subcommand, the same command *is* a selection, and says so.
+    both_report(
+        &["compile", "--incremental"],
+        &[
+            (WarningKind::DeprecatedCommand, "compile"),
+            (WarningKind::DeprecatedFlag, "--incremental"),
+        ],
     );
 
     // A value that arrived through a deprecated alias, with the name to use instead. Last,

@@ -4819,6 +4819,28 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     }
                 }
 
+                fn deprecations_for_view_path(
+                    partial: &Self::Partial,
+                    remaining_descendants: usize,
+                    out: &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+                ) {
+                    if remaining_descendants == 0 {
+                        <Self as usage_argv::spec::CommandArgs>::deprecations(partial, out);
+                    } else if let ::std::option::Option::Some(__usage_at) =
+                        partial.__usage_selected
+                    {
+                        // Structural under this view, like `check_for_view_path`: an injected
+                        // parent's own declarations are not the promoted executable's surface,
+                        // so nothing about them is reported.
+                        <#ty as usage_argv::spec::Subcommands>::deprecations_for_view_path(
+                            &partial.__usage_sub,
+                            ::std::option::Option::Some(__usage_at),
+                            remaining_descendants,
+                            out,
+                        );
+                    }
+                }
+
                 fn check_for_view_path<'t, 'v>(
                     partial: &mut Self::Partial,
                     remaining_descendants: usize,
@@ -5637,6 +5659,34 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             }
         }
     });
+    let view_deprecations = subs.variants.iter().enumerate().map(|(i, v)| {
+        let variant = format_ident!("V{i}");
+        if v.external {
+            quote! {
+                ::std::option::Option::Some(#i) => {}
+            }
+        } else {
+            let ty = &v.ty;
+            quote! {
+                ::std::option::Option::Some(#i) => {
+                    if let Partial::#variant(__usage_p) = partial {
+                        if remaining_commands <= 1 {
+                            // The promoted command itself is not reported — under this view it
+                            // is the program — but its own flags were still typed by somebody,
+                            // and so was anything selected below it.
+                            <#ty as usage_argv::spec::CommandArgs>::deprecations(__usage_p, out);
+                        } else {
+                            <#ty as usage_argv::spec::CommandArgs>::deprecations_for_view_path(
+                                __usage_p,
+                                remaining_commands - 1,
+                                out,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    });
     let apply_envs = subs.variants.iter().enumerate().map(|(i, v)| {
         let variant = format_ident!("V{i}");
         if v.external {
@@ -5941,6 +5991,18 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                     match selected {
                         #(#deprecations)*
                         // No subcommand was reached, so none of them was used.
+                        _ => {}
+                    }
+                }
+
+                fn deprecations_for_view_path(
+                    partial: &Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                    remaining_commands: usize,
+                    out: &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+                ) {
+                    match selected {
+                        #(#view_deprecations)*
                         _ => {}
                     }
                 }
@@ -6506,11 +6568,30 @@ fn deprecations_fn(cli: &Cli) -> TokenStream {
             return None;
         };
         Some(quote! {
-            <#ty as usage_argv::spec::Subcommands>::deprecations(
-                &partial.__usage_sub,
-                partial.__usage_selected,
-                out,
-            );
+            if let ::std::option::Option::Some(__usage_at) = partial.__usage_selected {
+                // `check_with_view` recorded the view on the partial, so this reads the same
+                // answer the rest of the post-binding work did.
+                match partial.__usage_view {
+                    // Under an executable view the words the view injected are not a selection
+                    // the user made — they are what the program is — so they are not reported,
+                    // for the same reason the root never is.
+                    ::std::option::Option::Some(__usage_view) => {
+                        <#ty as usage_argv::spec::Subcommands>::deprecations_for_view_path(
+                            &partial.__usage_sub,
+                            ::std::option::Option::Some(__usage_at),
+                            __usage_view.root.split_ascii_whitespace().count(),
+                            out,
+                        );
+                    }
+                    ::std::option::Option::None => {
+                        <#ty as usage_argv::spec::Subcommands>::deprecations(
+                            &partial.__usage_sub,
+                            ::std::option::Option::Some(__usage_at),
+                            out,
+                        );
+                    }
+                }
+            }
         })
     });
     quote! {

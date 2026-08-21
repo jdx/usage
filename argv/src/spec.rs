@@ -2869,6 +2869,22 @@ pub trait CommandArgs: Sized {
         let _ = (partial, out);
     }
 
+    /// Report deprecations while traversing the injected parents of a view.
+    ///
+    /// `remaining_descendants` is non-zero only for commands that are routing to the promoted
+    /// command rather than contributing their own surface, exactly as
+    /// [`CommandArgs::check_for_view_path`] means it. Those commands are structural under the
+    /// view — the program's own identity — so nothing about them is reported.
+    fn deprecations_for_view_path(
+        partial: &Self::Partial,
+        remaining_descendants: usize,
+        out: &mut Vec<crate::warn::Warning<'static>>,
+    ) {
+        if remaining_descendants == 0 {
+            Self::deprecations(partial, out);
+        }
+    }
+
     /// Find an argument by any selector it accepts.
     ///
     /// Parents use this to enforce a relationship declared beside a flattened
@@ -3202,6 +3218,26 @@ pub trait Subcommands: Sized {
         out: &mut Vec<crate::warn::Warning<'static>>,
     ) {
         let _ = (partial, selected, out);
+    }
+
+    /// Report the selected command's deprecations, traversing a view's injected parents.
+    ///
+    /// Under an executable view the words the view injected are the program's own identity —
+    /// `aubr` *is* `aube run` — so neither the promoted command nor anything routing to it is
+    /// reported, for the same reason the root never is. Whatever the user selected below it is.
+    ///
+    /// The default treats the promoted command as an ordinary selection, which is the most a
+    /// hand-written implementation can do without knowing its own variants; a derived one knows
+    /// which commands the view injected and leaves them out.
+    fn deprecations_for_view_path(
+        partial: &Self::Partial,
+        selected: Option<usize>,
+        remaining_commands: usize,
+        out: &mut Vec<crate::warn::Warning<'static>>,
+    ) {
+        if remaining_commands <= 1 {
+            Self::deprecations(partial, selected, out);
+        }
     }
 
     /// Fill fields in the selected command from their declared environment variables.
