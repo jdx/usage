@@ -427,6 +427,30 @@ fn the_clis_spec_carries_its_settings() {
 }
 
 #[test]
+fn the_spec_endpoint_answers_with_the_settings_too() {
+    // `to_kdl` is where the config block is appended and also what the `__usage_spec__`
+    // endpoint answers with, so the point of the endpoint — that a tool can ask *any* usage
+    // binary what it is — has to include what it can be configured with. Worth its own test
+    // because `to_kdl` now has two independent appenders, this one and `spec_extra`, and they
+    // write to the same string.
+    let request = [OsStr::new(usage_argv::SPEC_REQUEST)];
+    let answered = Ex::spec_request(&request).expect("the endpoint answers");
+    let spec: usage::Spec = answered.parse().expect("usage-lib reads what it answered");
+    assert!(
+        spec.config.props.contains_key("task.output"),
+        "the endpoint's answer carries the settings: {answered}"
+    );
+    assert_eq!(
+        answered,
+        Ex::to_kdl(),
+        "the endpoint answers the whole spec"
+    );
+
+    // And an ordinary command line is not a request, so the endpoint does not shadow a parse.
+    assert!(Ex::spec_request(&[OsStr::new("--jobs"), OsStr::new("4")]).is_none());
+}
+
+#[test]
 fn the_command_line_outranks_every_other_layer() {
     let argv = [OsStr::new("-j"), OsStr::new("12")];
     let (_, cli) = Ex::parse_from_with_settings(&argv).expect("parses");
