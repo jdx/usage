@@ -11,8 +11,12 @@
 //! doing and is not this change. Running this test against them today reports five
 //! failures, one of which — `flag "flag1"` in `cmd.md`, missing its dashes — is a real
 //! documentation bug of exactly the kind this test exists to catch.
+//!
+//! A block that reads another file is parsed from disk rather than skipped, because the
+//! `include` examples are the ones a reader is least able to check for themselves: the
+//! whole point of one is that the meaning is spread over two blocks.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// A fenced block, and what has to be true of it.
 enum Example {
@@ -22,19 +26,49 @@ enum Example {
     ConfigBody(String),
     /// Top-level nodes shown without the `name`/`bin` a real spec carries.
     Fragment(String),
-    /// Reads another file, so it cannot be parsed from a string. Named so the reason is
-    /// recorded rather than the block quietly skipped.
-    NeedsAFileOnDisk,
+    /// A spec that only means something as a file: it reads another one, or a block that
+    /// does names it. Written under `name` in a scratch directory and parsed from there,
+    /// so a relative `include` resolves the way the page says it does.
+    File { name: String, body: String },
 }
 
-fn classify(block: &str) -> Example {
+/// The file a `// name.usage.kdl` header claims, if the block opens with one.
+fn declared_name(block: &str) -> Option<String> {
+    let first = block.lines().map(str::trim).find(|l| !l.is_empty())?;
+    let name = first.strip_prefix("//")?.trim();
+    let is_file = name.ends_with(".kdl") && !name.contains(char::is_whitespace);
+    is_file.then(|| name.to_string())
+}
+
+/// Every file an `include` in this block reads, as written.
+fn included_files(block: &str) -> Vec<String> {
+    block
+        .lines()
+        .filter_map(|l| l.split_once("include file="))
+        .filter_map(|(_, rest)| rest.trim_start().strip_prefix('"'))
+        .filter_map(|rest| rest.split_once('"'))
+        .map(|(file, _)| file.to_string())
+        .collect()
+}
+
+fn classify(block: &str, index: usize) -> Example {
     let first = block
         .lines()
         .map(str::trim)
         .find(|l| !l.is_empty() && !l.starts_with("//"))
         .unwrap_or_default();
-    if block.contains("include file=") {
-        Example::NeedsAFileOnDisk
+    if let Some(name) = declared_name(block) {
+        Example::File {
+            name,
+            body: block.to_string(),
+        }
+    } else if !included_files(block).is_empty() {
+        // Nothing named it, so the name is ours to pick; it only has to be somewhere an
+        // `include` written relative to it can resolve.
+        Example::File {
+            name: format!("block-{index}.usage.kdl"),
+            body: block.to_string(),
+        }
     } else if first.starts_with("prop ")
         || first.starts_with("source ")
         || first.starts_with("file ")
@@ -70,12 +104,42 @@ fn kdl_blocks(markdown: &str) -> Vec<String> {
     blocks
 }
 
+/// Lay a page's file-shaped blocks out in `dir`, and return where each one landed.
+///
+/// Written before anything is parsed rather than as each block is reached: a page is free
+/// to show the including file first, and a test that depended on the order would be a
+/// documentation rule nobody agreed to.
+fn write_files(dir: &Path, blocks: &[String]) -> Vec<(usize, PathBuf)> {
+    let mut written = Vec::new();
+    for (i, block) in blocks.iter().enumerate() {
+        if let Example::File { name, body } = classify(block, i) {
+            let path = dir.join(&name);
+            std::fs::write(&path, &body).expect("writable");
+            written.push((i, path));
+        }
+    }
+    // A page may show the file that includes without showing what it includes — `config.md`
+    // points at a `settings.usage.kdl` whose contents are the rest of that page. An empty
+    // stand-in keeps the including block honestly parsed; what the target says is checked
+    // wherever the page shows it.
+    for block in blocks {
+        for file in included_files(block) {
+            let path = dir.join(&file);
+            if !path.exists() {
+                std::fs::write(&path, "").expect("writable");
+            }
+        }
+    }
+    written
+}
+
 #[test]
 fn every_kdl_example_on_the_checked_pages_parses() {
     let pages = [
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/config.md"),
-        // Every block on the flagset page is a whole spec or a top-level fragment, so the
-        // page can be held to parsing from the day it was written.
+        // Every block on the flagset page is a whole spec, a top-level fragment or a file
+        // another block reads, so the page can be held to parsing from the day it was
+        // written.
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/flagset.md"),
     ];
     let mut checked = 0;
@@ -87,19 +151,26 @@ fn every_kdl_example_on_the_checked_pages_parses() {
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
-        for (i, block) in kdl_blocks(&std::fs::read_to_string(&page).expect("readable"))
-            .iter()
-            .enumerate()
-        {
-            let source = match classify(block) {
-                Example::NeedsAFileOnDisk => continue,
+        let blocks = kdl_blocks(&std::fs::read_to_string(&page).expect("readable"));
+        let dir = tempfile::tempdir().expect("temp dir");
+        let files = write_files(dir.path(), &blocks);
+
+        for (i, block) in blocks.iter().enumerate() {
+            checked += 1;
+            if let Some((_, path)) = files.iter().find(|(at, _)| *at == i) {
+                if let Err(err) = usage::Spec::parse_file(path) {
+                    failures.push(format!("{name} block {i}: {err}\n{block}"));
+                }
+                continue;
+            }
+            let source = match classify(block, i) {
+                Example::File { .. } => unreachable!("written above"),
                 Example::Spec(spec) => spec,
                 Example::ConfigBody(body) => {
                     format!("name \"ex\"\nbin \"ex\"\nconfig {{\n{body}}}\n")
                 }
                 Example::Fragment(body) => format!("name \"ex\"\nbin \"ex\"\n{body}"),
             };
-            checked += 1;
             if let Err(err) = source.parse::<usage::Spec>() {
                 failures.push(format!("{name} block {i}: {err}\n{source}"));
             }
