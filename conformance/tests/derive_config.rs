@@ -244,13 +244,14 @@ fn the_emitted_config_block_is_the_spec_grammar() {
 
 #[test]
 fn a_groups_prefix_reaches_its_keys_and_not_its_aliases() {
-    // `prefix` is applied to `key` alone, so an alias inside a flattened group is written
-    // out in full. Pinned rather than asserted to be right: an author who reads `prefix` as
-    // "everything this group names lives under `task.`" would expect `alias("out")` to mean
-    // `task.out`, and today it means a bare top-level `out`. Whichever way that should go, a
-    // change to it should be a deliberate one rather than a surprise, and the collision
-    // checks in `Config::from_input` and `concat_props` are what keep the current reading
-    // from quietly stealing a name off another group.
+    // `prefix` is applied to `key` alone: an alias is written out in full, prefix and all.
+    //
+    // Deliberate, because an alias is usually a *legacy* name and a setting that moved into a
+    // group often wants the spelling it had before the move — `task.jobs` keeping plain
+    // `jobs`. Prefixing aliases would make that unsayable, while writing them in full costs
+    // one repeated word and can say either. The collision checks in `Config::from_input` and
+    // `concat_props` are what keep a full-form alias from quietly taking a name off another
+    // group, which is the risk this reading carries.
     let output = Settings::SETTINGS_PROPS
         .iter()
         .find(|meta| meta.key == "task.output")

@@ -62,29 +62,34 @@ exactly as they do for flags.
 
 Field attributes mirror the spec's [`prop` vocabulary](/spec/reference/config):
 
-| Attribute                                                | Effect                                                                                       |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `env = "X"` / `env("A", "B")`                            | Environment variables, highest precedence first                                              |
-| `deprecated_env("OLD")`                                  | Deprecated aliases, consulted afterwards and warned about                                    |
-| `default = 4` / `default(80, 443)`                       | The value when no layer supplies one                                                         |
-| `default_fn = path`                                      | A computed default (`fn() -> T`), applied after the resolution                               |
-| `default_note = "…"`                                     | Prose beside the default, for docs                                                           |
-| `cli("--jobs", "-j")`                                    | The flags that set it — what `Registry::drift` holds bindings against                        |
-| `source("git", "hk.jobs")`                               | Its keys in sources usage does not know about                                                |
-| `choices("a", "b")`                                      | The only values it accepts                                                                   |
-| `merge = "union"` / `"deep"`                             | How a collection combines across layers                                                      |
-| `scope = "global"` / `"env"`                             | Where a value is accepted from                                                               |
-| `parse = "list_by_comma"`                                | How one string becomes several values                                                        |
-| `alias("other")`                                         | Equivalent keys accepted without a warning — written in full, not under the group's `prefix` |
-| `key = "match"`                                          | The dotted key, when the field name is not it                                                |
-| `hide`, `deprecated = "…"`, `since = "…"`, `examples(…)` | Documentation and lifecycle metadata                                                         |
-| `flatten`                                                | Splice another `Config` struct's settings in at this position                                |
+| Attribute                                                | Effect                                                                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `env = "X"` / `env("A", "B")`                            | Environment variables, highest precedence first                                                                     |
+| `deprecated_env("OLD")`                                  | Deprecated aliases, consulted afterwards and warned about                                                           |
+| `default = 4` / `default(80, 443)`                       | The value when no layer supplies one                                                                                |
+| `default_fn = path`                                      | A computed default (`fn() -> T`), applied after the resolution                                                      |
+| `default_note = "…"`                                     | Prose beside the default, for docs                                                                                  |
+| `cli("--jobs", "-j")`                                    | The flags that set it — what `Registry::drift` holds bindings against                                               |
+| `source("git", "hk.jobs")`                               | Its keys in sources usage does not know about                                                                       |
+| `choices("a", "b")`                                      | The only values it accepts                                                                                          |
+| `merge = "union"` / `"deep"`                             | How a collection combines across layers                                                                             |
+| `scope = "global"` / `"env"`                             | Where a value is accepted from                                                                                      |
+| `parse = "list_by_comma"`                                | How one string becomes several values                                                                               |
+| `alias("other")`                                         | Equivalent keys accepted without a warning — written in full, so a group's `prefix` is repeated rather than implied |
+| `key = "match"`                                          | The dotted key, when the field name is not it                                                                       |
+| `hide`, `deprecated = "…"`, `since = "…"`, `examples(…)` | Documentation and lifecycle metadata                                                                                |
+| `flatten`                                                | Splice another `Config` struct's settings in at this position                                                       |
 
 `ty` renames what the spec calls a setting; it cannot change what the field holds. The merge
 coerces to the _declared_ type, so that is what decides the shape the field is handed — a
 `ty = "uint"` on a `String` field would be given an integer the field cannot read, whatever
 anyone configured, and is refused. A pairing that can read is left alone: `ty = "int"` on a
 `u8` reads whenever the value fits, which is the author's call to make.
+
+An `alias` is written in full, including a group's `prefix` — `alias("task.out")` inside a
+`#[usage(prefix = "task")]` group, not `alias("out")`. An alias is usually a name a setting
+used to have, and one that moved into a group often wants its old unprefixed spelling, so the
+full form is the one that can say either.
 
 A default and a choice are written as the type the field holds. Nothing coerces a declared
 default — the resolver seeds it as written and hands it to the field — so `default = 1` on a
