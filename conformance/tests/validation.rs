@@ -22,3 +22,17 @@ fn rust_matches_the_portable_validation_vectors() {
         );
     }
 }
+
+/// `matches` is in the vectors above, so this only records the other half of the choice:
+/// which builtins the Rust runtime does *not* carry, and that it says so.
+///
+/// The failure is at evaluation, not at `check`, which has only ever parsed — `nosuchfn(value)`
+/// behaves identically and always has.
+#[test]
+fn a_builtin_this_build_leaves_out_names_the_feature_to_add() {
+    let expression = "date(value) > now()";
+    usage_validation::check(expression).expect("it parses; the language has these builtins");
+    let err = usage_validation::validate(expression, "2020-01-01")
+        .expect_err("this build does not carry them");
+    assert!(err.contains("`temporal` feature"), "{err}");
+}

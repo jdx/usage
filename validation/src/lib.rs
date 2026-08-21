@@ -3,6 +3,28 @@
 //! Expressions use the language implemented by both `jdx/expr.rs` and the original
 //! `expr-lang/expr` Go package. The spec supplies a raw CLI value as `value`, so explicit
 //! conversions such as `int(value)` have the same meaning in every runtime.
+//!
+//! # What this build of the language carries
+//!
+//! A `validate=` expression reads one string and returns a boolean, so this depends on
+//! `expr-lang` with its default features off — the dates, JSON codec and base64 it ships by
+//! default are twelve crates a CLI would compile to evaluate `int(value) > 0`. The operators,
+//! the string and array builtins, the numeric conversions and `matches` are all here.
+//!
+//! `matches` is kept deliberately: the Go runtime has it, and a spec is supposed to mean the
+//! same thing in both.
+//!
+//! A spec that does want the rest — `date(value) > now()`, `fromJSON(value)` — gets it by
+//! naming the feature in the *application's* manifest, which cargo unifies with this crate's
+//! copy:
+//!
+//! ```toml
+//! expr-lang = { version = "2.1", features = ["temporal"] }
+//! ```
+//!
+//! Without that, such an expression fails the same way `nosuchfn(value)` always has: not at
+//! [`check`] time, which only parses, but when a value reaches it — with a message naming the
+//! feature to add.
 
 #![forbid(unsafe_code)]
 

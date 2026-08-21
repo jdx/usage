@@ -18,5 +18,15 @@
     "expression": "value startsWith 'release-'",
     "value": "nightly",
     "valid": false
+  },
+  {
+    "expression": "value matches '^v[0-9]+$'",
+    "value": "v51",
+    "valid": true
+  },
+  {
+    "expression": "value matches '^v[0-9]+$'",
+    "value": "51",
+    "valid": false
   }
 ]

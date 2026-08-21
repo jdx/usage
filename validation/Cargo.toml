@@ -11,7 +11,12 @@ authors = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
-expr-lang = "2.0.0"
+# Defaults off, `regex` back on. A spec's `validate=` sees one string and returns a boolean, so
+# the dates, the JSON codec and base64 that expr-lang ships by default are 12 crates a CLI
+# compiles to evaluate `int(value) > 0`. `matches` stays because dropping it would make the
+# same expression pass in Go and fail here, and the spec reference promises that generated
+# Rust and Go parsers enforce the same rule — `conformance/validation.json` has the vectors.
+expr-lang = { version = "2.1.0", default-features = false, features = ["regex"] }
 
 [package.metadata.release]
 shared-version = true
