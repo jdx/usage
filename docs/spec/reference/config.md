@@ -70,7 +70,7 @@ config {
     file "~/.config/mycli/config.toml" scope="global"
     file "mycli.toml" findup=#true
     file "mycli.local.toml" findup=#true
-    file ".myclirc" format="ini"
+    file ".myclirc" format="yaml"
 }
 ```
 
@@ -78,7 +78,7 @@ config {
 | -------- | ------------------------------------------------------------ |
 | `findup` | look for this name in the current directory and every parent |
 | `scope`  | `project` (default), `global`, or `system`                   |
-| `format` | when the extension does not say: `toml`, `json`, `ini`       |
+| `format` | when the extension does not say: `toml`, `json`, `yaml`      |
 
 `scope` is not decoration: a `prop` marked `scope="global"` refuses values from `project`
 files, so a setting a repository must not be able to change can say so.

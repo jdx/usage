@@ -236,7 +236,7 @@ pub struct SpecConfigFile {
     /// Which class of file this is. `Project` files are the ones a repository can carry,
     /// and so the ones a `scope="global"` setting refuses to be read from.
     pub scope: SpecConfigFileScope,
-    /// The format, when the extension does not say: "toml", "json", "ini".
+    /// The format, when the extension does not say: "toml", "json", "yaml".
     pub format: Option<String>,
 }
 
