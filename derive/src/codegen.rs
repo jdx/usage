@@ -1144,6 +1144,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         None => quote!(::core::option::Option::None),
     };
     let require_equals = field.require_equals;
+    let bool_value = field.bool_value;
     // `value_optional` can be a presentation-only declaration for clap/spec
     // compatibility. Only a nested Option can represent a genuinely bare value
     // in the typed result; `default_missing` turns the bare form into a value
@@ -1176,6 +1177,7 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             value_terminator: #value_terminator,
             require_equals: #require_equals,
             value_optional: #value_optional,
+            bool_value: #bool_value,
             default_missing: #default_missing,
             global: #global,
             action: #action,
@@ -1907,6 +1909,15 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
     });
     let body = match field.shape {
         // `negated` is what distinguishes `--color` from `--no-color`.
+        Shape::Bool if field.bool_value => quote! {
+            partial.#ident = match value {
+                Some(b"true") => !negated,
+                Some(b"false") => negated,
+                // The binding parser validates explicit boolean values.
+                Some(_) => unreachable!("bool_value was validated while binding"),
+                None => !negated,
+            };
+        },
         Shape::Bool => quote!(partial.#ident = !negated;),
         // Saturating, because a `u8` field given 256 occurrences would otherwise
         // panic in debug and wrap to zero in release.

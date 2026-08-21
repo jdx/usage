@@ -273,7 +273,15 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         "\t\t\t}}\n\t\tcase argv.KindFlag:\n\t\t\tseen[ev.Flag.Key]++\n\
          {duplicate_event}\
          {conditional_event}\
-         \t\t\tif ev.HasValue {{\n\
+         \t\t\tif ev.Flag.BoolValue {{\n\
+         \t\t\t\t// Boolean binding is last-one-wins. Replace an earlier attached value even\n\
+         \t\t\t\t// when the last occurrence is bare, so relationship polarity follows the field.\n\
+         \t\t\t\tif ev.HasValue {{\n\
+         \t\t\t\t\tgiven[ev.Flag.Key] = []string{{ev.Value}}\n\
+         \t\t\t\t}} else {{\n\
+         \t\t\t\t\tgiven[ev.Flag.Key] = []string{{}}\n\
+         \t\t\t\t}}\n\
+         \t\t\t}} else if ev.HasValue {{\n\
          \t\t\t\tgiven[ev.Flag.Key] = append(given[ev.Flag.Key], argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)\n\
          \t\t\t}} else if given[ev.Flag.Key] == nil {{\n\
          \t\t\t\t// Given without a value is still given, and nil would read as\n\
@@ -462,6 +470,9 @@ fn flag_assign(flag: &SpecFlag, owner: &str, field: &str) -> String {
         // A count is the number of occurrences, which is what the parser reports
         // one event at a time.
         "int" => format!("\t\t\t\t{owner}.{field}++"),
+        "bool" if flag.bool_value => format!(
+            "\t\t\t\tif ev.HasValue {{\n\t\t\t\t\t{owner}.{field} = (ev.Value == \"true\") != ev.Negated\n\t\t\t\t}} else {{\n\t\t\t\t\t{owner}.{field} = !ev.Negated\n\t\t\t\t}}"
+        ),
         "bool" => format!("\t\t\t\t{owner}.{field} = !ev.Negated"),
         "[]string" => format!(
             "\t\t\t\tif ev.HasValue {{\n\t\t\t\t\t{owner}.{field} = append({owner}.{field}, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)\n\t\t\t\t}}"

@@ -379,6 +379,12 @@ pub struct Flag<'a> {
     /// `Option<Option<T>>` can therefore distinguish an absent flag from a bare
     /// flag and from a flag with an explicit value.
     pub value_optional: bool,
+    /// Whether a boolean long flag accepts an attached `true` or `false` value.
+    ///
+    /// This does not make the flag value-taking in the ordinary sense: a detached
+    /// word is never consumed, and help keeps rendering a switch. Only
+    /// `--flag=true` and `--flag=false` opt into an explicit boolean value.
+    pub bool_value: bool,
     /// Value used when the flag is present but no value is given.
     ///
     /// clap's `default_missing_value` and the spec's `default_missing`. `--color`
@@ -409,6 +415,7 @@ impl Flag<'_> {
         value_terminator: ::core::option::Option::None,
         require_equals: false,
         value_optional: false,
+        bool_value: false,
         default_missing: ::core::option::Option::None,
         global: false,
         action: ArgAction::Set,
@@ -1491,6 +1498,8 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                     Some(v) => Some(v),
                     None => self.take_detached_value(flag)?,
                 }
+            } else if flag.bool_value {
+                validate_bool_value(flag, attached)?
             } else {
                 None
             };
@@ -1512,7 +1521,11 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if let Some(flag) = self.find_negation(name) {
             return Ok(Event::Flag {
                 flag,
-                value: None,
+                value: if flag.bool_value {
+                    validate_bool_value(flag, attached)?
+                } else {
+                    None
+                },
                 negated: true,
             });
         }
@@ -2036,6 +2049,19 @@ fn is_number(rest: &[u8]) -> bool {
     }
 }
 
+fn validate_bool_value<'t, 'v>(
+    flag: &'t Flag<'t>,
+    value: Option<&'v [u8]>,
+) -> Result<Option<&'v [u8]>, Error<'t, 'v>> {
+    match value {
+        None | Some(b"true" | b"false") => Ok(value),
+        Some(_) => Err(Error::InvalidChoice {
+            name: flag.name,
+            choices: &["true", "false"],
+        }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2045,6 +2071,19 @@ mod tests {
         longs: &["force"],
         shorts: b"f",
         ..Flag::BOOL
+    };
+    static EXPLICIT_BOOL: Flag = Flag {
+        key: 20,
+        name: "color",
+        longs: &["color"],
+        negate: Some("no-color"),
+        bool_value: true,
+        ..Flag::BOOL
+    };
+    static EXPLICIT_BOOL_ROOT: Command = Command {
+        name: "ex",
+        flags: &[&EXPLICIT_BOOL],
+        ..Command::EMPTY
     };
     static JOBS: Flag = Flag {
         key: 2,
@@ -2186,6 +2225,41 @@ mod tests {
                 flag: &FORCE,
                 value: None,
                 negated: false
+            }]
+        );
+    }
+
+    #[test]
+    fn long_boolean_accepts_only_opted_in_attached_values() {
+        for (token, negated, value) in [
+            ("--color=false", false, b"false".as_slice()),
+            ("--color=true", false, b"true".as_slice()),
+            ("--no-color=false", true, b"false".as_slice()),
+        ] {
+            let a = argv([token]);
+            assert_eq!(
+                parse(&EXPLICIT_BOOL_ROOT, &a).unwrap(),
+                vec![Event::Flag {
+                    flag: &EXPLICIT_BOOL,
+                    value: Some(value),
+                    negated,
+                }]
+            );
+        }
+
+        let a = argv(["--color=maybe"]);
+        assert!(matches!(
+            parse(&EXPLICIT_BOOL_ROOT, &a),
+            Err(Error::InvalidChoice { name: "color", .. })
+        ));
+
+        let a = argv(["--force=false"]);
+        assert_eq!(
+            parse(&ROOT, &a).unwrap(),
+            vec![Event::Flag {
+                flag: &FORCE,
+                value: None,
+                negated: false,
             }]
         );
     }

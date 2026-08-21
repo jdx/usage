@@ -507,7 +507,7 @@ impl Emitter<'_> {
         if flag.required {
             fields.push("Required: true".to_string());
         }
-        if !flag.requires_if.is_empty() && flag.arg.is_none() {
+        if flag.arg.is_none() {
             fields.push("RequiresIfBoolean: true".to_string());
         }
         // How a user types it, worked out where the forms are visible: the rules
@@ -1340,6 +1340,9 @@ fn flag_literal(flag: &SpecFlag, named: &Named) -> String {
     if flag.value_optional {
         fields.push("ValueOptional: true".to_string());
     }
+    if flag.bool_value {
+        fields.push("BoolValue: true".to_string());
+    }
     // Only a variadic *argument* is greedy. The spec's flag-level `var` means the
     // flag may be repeated and takes one value each time, which needs nothing from
     // the parser: it reports every occurrence separately either way. Conflating the
@@ -2014,6 +2017,23 @@ cmd "run" arg_required_else_help=#true {
     }
 
     #[test]
+    fn explicit_boolean_values_reach_generated_go() {
+        let out = go(
+            "name \"ex\"\nbin \"ex\"\nflag \"--color\" negate=\"--no-color\" bool_value=#true\n",
+        );
+        assert!(out.contains("BoolValue: true"), "{out}");
+        assert!(out.contains("if ev.Flag.BoolValue"), "{out}");
+        assert!(
+            out.contains("given[ev.Flag.Key] = []string{ev.Value}"),
+            "{out}"
+        );
+        assert!(
+            out.contains("(ev.Value == \"true\") != ev.Negated"),
+            "{out}"
+        );
+    }
+
+    #[test]
     fn granular_help_hides_reach_generated_go() {
         let out = go(
             "name \"ex\"\nbin \"ex\"\nflag \"--mode <mode>\" hide_default_value=#true hide_env=#true hide_env_values=#true hide_possible_values=#true hide_short_help=#true hide_long_help=#true\n",
@@ -2269,6 +2289,22 @@ flag "--mode <mode>"
         );
         assert!(out.contains("resolved := map[uint64][]string{}"), "{out}");
         assert!(out.contains("argv.CheckRelationshipsWithValues"), "{out}");
+    }
+
+    #[test]
+    fn boolean_sources_are_normalized_for_value_relationships() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+flag "--token <token>" {
+    required_if_eq "--mode" "true"
+}
+flag "--mode" negate="--no-mode" bool_value=#true
+"#);
+        assert!(
+            entry_of(&out, "mode").contains("RequiresIfBoolean: true"),
+            "{out}"
+        );
     }
 
     #[test]

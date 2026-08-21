@@ -277,6 +277,8 @@ func TestRelationshipValuesNormalizesBooleans(t *testing.T) {
 	}{
 		{"typed flag", nil, FromArgv, false, "true"},
 		{"typed negation", nil, FromArgv, true, "false"},
+		{"explicit false", []string{"false"}, FromArgv, false, "false"},
+		{"explicit false negation", []string{"false"}, FromArgv, true, "true"},
 		{"truthy environment", []string{"TRUE"}, FromEnv, false, "true"},
 		{"false environment", []string{"0"}, FromEnv, false, "false"},
 	}

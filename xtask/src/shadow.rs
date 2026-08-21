@@ -789,6 +789,9 @@ fn emit_flag(
     ids: &BTreeMap<String, String>,
     skipped: &mut Skipped,
 ) {
+    if flag.bool_value && dialect != Dialect::Usage {
+        skipped.note("an attached value on a boolean switch");
+    }
     doc_comment(
         out,
         flag.help.as_deref(),
@@ -819,6 +822,9 @@ fn usage_flag_opts(
     // `--shims`, so the shadow dropped the real long help and its regenerated spec said the
     // flag's own name where the source said a paragraph.
     let mut opts: Vec<String> = declared_help(flag.help.as_deref(), flag.help_long.as_deref());
+    if flag.bool_value {
+        opts.push("bool_value".into());
+    }
     // Written out rather than bare, because the field name may have been sanitized —
     // `--type` becomes `type_`, and a bare `long` would rename the flag.
     if let Some(long) = long {
@@ -2292,6 +2298,27 @@ mod tests {
         // The usage dialect still says it, since that is where it means something.
         let (out, _) = rendered_as(spec, Dialect::Usage);
         assert!(out.contains("value_optional"), "{out}");
+    }
+
+    #[test]
+    fn only_the_usage_shadow_carries_explicit_boolean_values() {
+        let spec = "name \"ex\"\nbin \"ex\"\nflag --color bool_value=#true\n";
+        let (usage, usage_skipped) = rendered_as(spec, Dialect::Usage);
+        assert!(usage.contains("bool_value"), "{usage}");
+        assert!(
+            usage_skipped.counts.is_empty(),
+            "{:?}",
+            usage_skipped.counts
+        );
+
+        let (clap, clap_skipped) = rendered_as(spec, Dialect::Clap);
+        assert!(!clap.contains("bool_value"), "{clap}");
+        assert_eq!(
+            clap_skipped
+                .counts
+                .get("an attached value on a boolean switch"),
+            Some(&1)
+        );
     }
 
     #[test]

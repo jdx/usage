@@ -96,18 +96,18 @@ var cmdConfigLs = &argv.Command{
 // commands take keys too, and have no cold half.
 var Meta = argv.Metadata{
 	{},
-	{Key: FlagVerbose, Name: "verbose", Flag: true, Spelling: "--verbose"},
-	{Key: FlagColor, Name: "color", Flag: true, Spelling: "--color"},
+	{Key: FlagVerbose, Name: "verbose", Flag: true, RequiresIfBoolean: true, Spelling: "--verbose"},
+	{Key: FlagColor, Name: "color", Flag: true, RequiresIfBoolean: true, Spelling: "--color"},
 	{Key: FlagJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "n"},
 	{Key: FlagInclude, Name: "include", Flag: true, Spelling: "--include", ValueName: "pattern", VarMax: 3},
 	{Key: ArgFile, Name: "file", Required: true},
 	{Key: ArgRest, Name: "rest"},
 	{},
-	{Key: FlagInstallForce, Name: "force", Flag: true, Spelling: "--force"},
+	{Key: FlagInstallForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
 	{Key: ArgInstallPkg, Name: "pkg", Required: true},
 	{},
 	{},
-	{Key: FlagConfigLsNoHeader, Name: "no-header", Flag: true, Spelling: "--no-header"},
+	{Key: FlagConfigLsNoHeader, Name: "no-header", Flag: true, RequiresIfBoolean: true, Spelling: "--no-header"},
 }
 
 // HelpText is the third table, read only when a page is rendered. Neither the
@@ -203,7 +203,15 @@ func Parse(args []string) (*Cli, error) {
 			}
 		case argv.KindFlag:
 			seen[ev.Flag.Key]++
-			if ev.HasValue {
+			if ev.Flag.BoolValue {
+				// Boolean binding is last-one-wins. Replace an earlier attached value even
+				// when the last occurrence is bare, so relationship polarity follows the field.
+				if ev.HasValue {
+					given[ev.Flag.Key] = []string{ev.Value}
+				} else {
+					given[ev.Flag.Key] = []string{}
+				}
+			} else if ev.HasValue {
 				given[ev.Flag.Key] = append(given[ev.Flag.Key], argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 			} else if given[ev.Flag.Key] == nil {
 				// Given without a value is still given, and nil would read as

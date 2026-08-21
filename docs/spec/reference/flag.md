@@ -64,6 +64,7 @@ flag "--item <ITEM>" var=#true value_terminator=";" // ; ends this occurrence
 flag "--inspect <PORT>" require_equals=#true   // --inspect=9229 yes, --inspect 9229 no
 flag "--color <WHEN>" default_missing="always" // --color is always; --color=never is never
 flag "--bump [LEVEL]" value_optional=#true      // absent, bare, and valued are distinct
+flag "--color" bool_value=#true                 // --color=false is explicit false
 flag "--bin-names" {
   default_if "--json" "true" // --json implies --bin-names
 }
@@ -254,6 +255,19 @@ the detached form stays refused.
 
 A flag that takes no value cannot declare it.
 
+## `bool_value`
+
+A boolean switch can opt into explicit attached values. With
+`flag "--color" bool_value=#true`, `--color`, `--color=true`, and
+`--color=false` bind true, true, and false respectively. Only the long `=` form
+is added: `--color false` leaves `false` for a positional, so no following word
+changes role and existing switches remain unchanged unless they opt in.
+
+If the flag also has `negate="--no-color"`, the explicit value applies to the
+spelling: `--no-color=false` negates false and therefore binds true. Values other
+than the exact words `true` and `false` are rejected. Value-taking and count
+flags cannot declare `bool_value`.
+
 ## `value_optional`
 
 A value-taking flag may be present without a value. This is executable parser
@@ -263,6 +277,11 @@ remain presentational on their own, so a spec can render `[LEVEL]` without
 silently changing what argv accepts.
 
 A flag that takes no value cannot declare it.
+
+Detached optional values are easy to misread because the next word may remain a
+positional. Prefer a concrete `default_missing` together with `require_equals`
+when a bare flag should mean a default and explicit values can use
+`--flag=value`.
 
 ## `default_missing`
 

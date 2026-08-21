@@ -161,7 +161,15 @@ func Parse(args []string) (*Cli, error) {
 			}
 		case argv.KindFlag:
 			seen[ev.Flag.Key]++
-			if ev.HasValue {
+			if ev.Flag.BoolValue {
+				// Boolean binding is last-one-wins. Replace an earlier attached value even
+				// when the last occurrence is bare, so relationship polarity follows the field.
+				if ev.HasValue {
+					given[ev.Flag.Key] = []string{ev.Value}
+				} else {
+					given[ev.Flag.Key] = []string{}
+				}
+			} else if ev.HasValue {
 				given[ev.Flag.Key] = append(given[ev.Flag.Key], argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
 			} else if given[ev.Flag.Key] == nil {
 				// Given without a value is still given, and nil would read as

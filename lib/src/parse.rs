@@ -1191,7 +1191,24 @@ fn parse_partial_with_env(
                     arr.push(true);
                 } else {
                     let negate = f.negate.clone().unwrap_or_default();
-                    let value = word != negate;
+                    let negated_form = word == negate;
+                    let value = if f.bool_value {
+                        match split.map(|(_, value)| value) {
+                            Some("true") => !negated_form,
+                            Some("false") => negated_form,
+                            Some(value) => {
+                                out.errors.push(UsageErr::InvalidValue {
+                                    name: f.name.clone(),
+                                    value: value.to_string(),
+                                    reason: "expected `true` or `false`".to_string(),
+                                });
+                                continue;
+                            }
+                            None => !negated_form,
+                        }
+                    } else {
+                        !negated_form
+                    };
                     // Which form was typed is a question about the name, so it is
                     // asked of `word` rather than the whole token: the attached value
                     // is dropped just above, and comparing `--no-color=yes` against
@@ -1200,7 +1217,7 @@ fn parse_partial_with_env(
                         &out.cmds,
                         f,
                         command_level,
-                        Some(value),
+                        Some(!negated_form),
                         &mut scalar_occurrences,
                         &mut out.errors,
                     );
@@ -7673,6 +7690,62 @@ flag "--inspect <PORT>" require_equals=#true
             msg.contains("requires an argument") || msg.contains("inspect"),
             "detached value must be refused: {msg}"
         );
+    }
+
+    #[test]
+    fn boolean_flags_can_accept_attached_values_when_enabled() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+flag "--color" negate="--no-color" bool_value=#true
+arg "[rest]"
+"#
+        .parse()
+        .unwrap();
+
+        for (token, expected) in [
+            ("--color", true),
+            ("--color=true", true),
+            ("--color=false", false),
+            ("--no-color", false),
+            ("--no-color=false", true),
+        ] {
+            let parsed = parse(&spec, &input(&["ex", token])).unwrap();
+            assert!(
+                matches!(
+                    parsed.flags.get(&spec.cmd.flags[0]),
+                    Some(ParseValue::Bool(value)) if *value == expected
+                ),
+                "{token}"
+            );
+        }
+
+        let parsed = parse(&spec, &input(&["ex", "--color=false", "word"])).unwrap();
+        assert!(matches!(
+            parsed.args.get(&spec.cmd.args[0]),
+            Some(ParseValue::String(value)) if value == "word"
+        ));
+        let err = parse(&spec, &input(&["ex", "--color=maybe"])).unwrap_err();
+        assert!(err.to_string().contains("expected `true` or `false`"));
+
+        let strict: Spec = r#"
+name "ex"
+bin "ex"
+args_override_self #false
+flag "--color" negate="--no-color" bool_value=#true
+"#
+        .parse()
+        .unwrap();
+        assert!(parse(&strict, &input(&["ex", "--color=false", "--color=true"])).is_err());
+        let parsed = parse(
+            &strict,
+            &input(&["ex", "--color=false", "--no-color=false"]),
+        )
+        .unwrap();
+        assert!(matches!(
+            parsed.flags.get(&strict.cmd.flags[0]),
+            Some(ParseValue::Bool(true))
+        ));
     }
 
     #[test]

@@ -350,6 +350,11 @@ func (p *Parser) longFlag(token string) bool {
 				value = v
 				hasValue = present
 			}
+		} else if flag.BoolValue && hasAttached {
+			if attached != "true" && attached != "false" {
+				return p.fail(Error{Code: CodeInvalidChoice, Name: flag.Name, Choices: []string{"true", "false"}})
+			}
+			value, hasValue = attached, true
 		}
 		if flag.Variadic && hasValue {
 			p.startCollecting(flag, value)
@@ -361,6 +366,12 @@ func (p *Parser) longFlag(token string) bool {
 	}
 
 	if flag := p.findNegation(name); flag != nil {
+		if flag.BoolValue && hasAttached {
+			if attached != "true" && attached != "false" {
+				return p.fail(Error{Code: CodeInvalidChoice, Name: flag.Name, Choices: []string{"true", "false"}})
+			}
+			return p.emit(Event{Kind: KindFlag, Flag: flag, Value: attached, HasValue: true, Negated: true})
+		}
 		return p.emit(Event{Kind: KindFlag, Flag: flag, Negated: true})
 	}
 
