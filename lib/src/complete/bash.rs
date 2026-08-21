@@ -18,6 +18,10 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
     };
     out.push(generated_comment);
     if opts.include_bash_completion_lib {
+        // scop/bash-completion, embedded verbatim and therefore redistributed with
+        // every binary built from this crate. It is GPL-2.0-or-later, not MIT: its
+        // license is in `lib/bash-completion/COPYING` and the terms of use are
+        // recorded in the repository's `NOTICE.md`.
         out.push(include_str!("../../bash-completion/bash_completion").to_string());
         out.push("\n".to_string());
     };
