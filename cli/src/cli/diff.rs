@@ -313,7 +313,7 @@ pub fn diff_specs(old: &Spec, new: &Spec) -> Vec<SpecChange> {
     // value at every command that inherits it: 54 identical findings for one edited node
     // is not a report anybody reads.
     diff_unknown_flags(old.unknown_flags, new.unknown_flags, &root, &mut c);
-    diff_command(&old.cmd, &new.cmd, &root, &mut c);
+    diff_command(&old.cmd, &new.cmd, &root, None, &mut c);
     diff_config(&old.config, &new.config, &root, &mut c);
 
     // Stable: `sort_by_key` keeps the walk order inside each category, so a reader
@@ -322,8 +322,18 @@ pub fn diff_specs(old: &Spec, new: &Spec) -> Vec<SpecChange> {
     c.changes
 }
 
-fn diff_command(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes) {
-    diff_names(old, new, path, c);
+/// `renamed_from` names the word this pair is being compared under when the new command
+/// answers to it only as an alias. That alias is what made the rename a rename rather
+/// than a removal, and it is already reported as `cmd-renamed`, so it must not also read
+/// as an addition at the old command's location.
+fn diff_command(
+    old: &SpecCommand,
+    new: &SpecCommand,
+    path: &str,
+    renamed_from: Option<&str>,
+    c: &mut Changes,
+) {
+    diff_names(old, new, path, renamed_from, c);
     diff_command_props(old, new, path, c);
     diff_flags(old, new, path, c);
     diff_args(&old.args, &new.args, path, c);
@@ -332,7 +342,13 @@ fn diff_command(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Change
     diff_subcommands(old, new, path, c);
 }
 
-fn diff_names(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes) {
+fn diff_names(
+    old: &SpecCommand,
+    new: &SpecCommand,
+    path: &str,
+    renamed_from: Option<&str>,
+    c: &mut Changes,
+) {
     let was: Vec<String> = old
         .aliases
         .iter()
@@ -353,6 +369,9 @@ fn diff_names(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes)
         );
     }
     for alias in only_in(&now, &was) {
+        if renamed_from == Some(alias.as_str()) {
+            continue;
+        }
         c.compatible("alias-added", path, format!("alias '{alias}' was added"));
     }
     // A visible alias that became hidden still parses; only help and completion
@@ -790,6 +809,19 @@ fn diff_flag(old: &SpecFlag, new: &SpecFlag, path: &str, c: &mut Changes) {
             "default-if-removed",
             path,
             format!("{subject} no longer defaults to {entry}"),
+        );
+    }
+    // First match wins, so where two conditions can both hold, which one is written
+    // first decides the value. Reported the way an environment reordering is, and for
+    // the same reason.
+    if order_changed(&default_if(&old.default_if), &default_if(&new.default_if)) {
+        c.breaking(
+            "default-if-order-changed",
+            path,
+            format!(
+                "{subject} applies its conditional defaults in a different order, and the \
+                 first one that matches wins"
+            ),
         );
     }
     diff_env(
@@ -1390,7 +1422,7 @@ fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Ch
     for (name, was) in &old.subcommands {
         let child = format!("{path} {name}");
         match new.subcommands.get(name) {
-            Some(now) => diff_command(was, now, &child, c),
+            Some(now) => diff_command(was, now, &child, None, c),
             None => {
                 // A word that now selects some other command still works: rustup's
                 // `install` reaching `toolchain install` is a rename, not a removal.
@@ -1408,7 +1440,7 @@ fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Ch
                         // may have happened to it. Located under the *old* name: what a
                         // reader wants to know is what typing `{name}` does now, and the
                         // line above says which command that reaches.
-                        diff_command(was, covering, &child, c);
+                        diff_command(was, covering, &child, Some(name), c);
                     }
                     None => {
                         c.breaking("cmd-removed", path, format!("command '{name}' was removed"))
@@ -1748,13 +1780,26 @@ fn diff_env(
     }
     // Order decides which of several names wins, so a reordering changes what a
     // shell with both of them set resolves to.
-    if was.len() == now.len() && was != now {
+    if order_changed(&was, &now) {
         c.breaking(
             "env-order-changed",
             path,
             format!("{subject} consults its environment names in a different order"),
         );
     }
+}
+
+/// Whether the entries both lists hold appear in a different relative order.
+///
+/// Order is precedence in both places this is used: the first environment name that is
+/// set wins, and the first matching `default_if` condition wins. So two lists holding
+/// the same entries in a different order can resolve one command line to two different
+/// values. Only the shared entries are compared, because what was added or removed is
+/// reported on its own and would otherwise show up twice.
+fn order_changed(old: &[String], new: &[String]) -> bool {
+    let was: Vec<&String> = old.iter().filter(|entry| new.contains(entry)).collect();
+    let now: Vec<&String> = new.iter().filter(|entry| old.contains(entry)).collect();
+    was != now
 }
 
 /// A list whose entries each impose a rule: gaining one rejects command lines that
@@ -2602,5 +2647,80 @@ flag "--backend <b>" help="backend" {
             find(&found, "choice-listed").message,
             "flag '--backend' now offers 'cargo', which it already accepted"
         );
+    }
+
+    #[test]
+    fn reordering_conditional_defaults_changes_what_they_resolve_to() {
+        // First match wins, so where two conditions can both hold, the order is the
+        // answer. Set membership alone would call this pair identical.
+        let one = r#"
+name "ex"
+bin "ex"
+flag "--json" help="json"
+flag "--pretty" help="pretty"
+flag "--style <s>" help="style" {
+    default_if "--json" "compact"
+    default_if "--pretty" "wide"
+}
+        "#;
+        let other = r#"
+name "ex"
+bin "ex"
+flag "--json" help="json"
+flag "--pretty" help="pretty"
+flag "--style <s>" help="style" {
+    default_if "--pretty" "wide"
+    default_if "--json" "compact"
+}
+        "#;
+        assert_eq!(codes(one, other), ["breaking:default-if-order-changed"]);
+    }
+
+    #[test]
+    fn reordering_environment_names_changes_which_one_wins() {
+        // The same rule the conditional defaults follow, and the reason both go through
+        // one comparison.
+        let one = r#"
+name "ex"
+bin "ex"
+flag "--jobs <n>" help="jobs" env="EX_JOBS" {
+    env_fallback "EX_PARALLEL"
+}
+        "#;
+        let other = r#"
+name "ex"
+bin "ex"
+flag "--jobs <n>" help="jobs" env="EX_PARALLEL" {
+    env_fallback "EX_JOBS"
+}
+        "#;
+        assert_eq!(codes(one, other), ["breaking:env-order-changed"]);
+    }
+
+    #[test]
+    fn the_alias_that_covers_a_rename_is_not_also_an_addition() {
+        // `cmd-renamed` already says the old word still works. Saying it again as
+        // `alias-added`, at the old command's own location, reads as two changes.
+        let old = r#"
+name "ex"
+bin "ex"
+cmd "install" help="install" {
+    alias "i"
+}
+        "#;
+        let new = r#"
+name "ex"
+bin "ex"
+cmd "add" help="install" {
+    alias "install"
+}
+        "#;
+        let found = changes(old, new);
+        assert!(!found.iter().any(|c| c.code == "alias-added"), "{found:?}");
+        // The alias the old command really did lose is still reported.
+        let removed = find(&found, "alias-removed");
+        assert_eq!(removed.message, "alias 'i' was removed");
+        assert_eq!(removed.location, "ex install");
+        assert_eq!(removed.category, Category::Breaking);
     }
 }
