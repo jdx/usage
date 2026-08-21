@@ -319,19 +319,46 @@ impl Config {
 
         // A duplicate within one struct is visible here, so it is refused here, with spans.
         // Duplicates across flattened structs are refused by `concat_props` at compile time.
-        let mut keys: Vec<(&String, &syn::Ident)> = Vec::new();
+        //
+        // Aliases are names too: `Registry::lookup` checks keys and aliases together and takes
+        // the first match, so an alias that collides with another setting's key — or with its
+        // alias — makes one of the two unreachable by that name, silently. Every name a
+        // setting answers to therefore has to be unique among all of them, not just the keys.
+        let mut names: Vec<(&str, &syn::Ident, bool)> = Vec::new();
         for field in &fields {
-            if let Field::Prop(prop) = field {
-                if let Some((_, first)) = keys.iter().find(|(key, _)| **key == prop.key) {
+            let Field::Prop(prop) = field else { continue };
+            for (name, is_alias) in std::iter::once((prop.key.as_str(), false))
+                .chain(prop.aliases.iter().map(|alias| (alias.as_str(), true)))
+            {
+                if let Some((_, first, first_alias)) =
+                    names.iter().find(|(taken, _, _)| *taken == name)
+                {
+                    let what = |alias: bool| match alias {
+                        true => "an alias",
+                        false => "the key",
+                    };
                     return Err(syn::Error::new(
                         prop.ident.span(),
-                        format!(
-                            "`{}` and `{first}` declare the same setting key `{}`",
-                            prop.ident, prop.key
-                        ),
+                        match std::ptr::eq(*first, &prop.ident) {
+                            // Its own key, which is not a collision between two settings but
+                            // an alias that can never be reached: the key is found first.
+                            true => format!(
+                                "`{}` lists `{name}` as an alias of its own key, which \
+                                 nothing would ever reach",
+                                prop.ident
+                            ),
+                            false => format!(
+                                "`{name}` is {} of `{}` and {} of `{first}`, and a lookup \
+                                 takes the first of them: one of the two could never be \
+                                 reached by that name",
+                                what(is_alias),
+                                prop.ident,
+                                what(*first_alias),
+                            ),
+                        },
                     ));
                 }
-                keys.push((&prop.key, &prop.ident));
+                names.push((name, &prop.ident, is_alias));
             }
         }
 
@@ -586,6 +613,18 @@ impl Field {
                     ),
                 ));
             }
+            // And what the *field* can hold, which the spec type does not say: `uint` covers
+            // every unsigned width, so 256 passed the check above and then failed every
+            // `read` on a `u8`.
+            if !field_holds(&prop.read_ty, default) {
+                return Err(syn::Error::new(
+                    ident.span(),
+                    format!(
+                        "the default does not fit `{}`, which is what this field holds",
+                        rust_type_name(&prop.read_ty)
+                    ),
+                ));
+            }
             // Which values have to be one of the choices depends on what the choices name.
             // On a list setting they name what one *item* may be — that is how the registry
             // compares a resolved value against them — so it is the items that are checked.
@@ -620,6 +659,15 @@ impl Field {
             ));
         }
         for choice in &prop.choices {
+            if !field_holds(&prop.read_ty, choice) {
+                return Err(syn::Error::new(
+                    ident.span(),
+                    format!(
+                        "a choice does not fit `{}`, so nothing could ever supply it",
+                        rust_type_name(&prop.read_ty)
+                    ),
+                ));
+            }
             if !prop.ty.admits(choice, Position::Choice) {
                 return Err(syn::Error::new(
                     ident.span(),
@@ -683,25 +731,81 @@ fn peel_option(ty: &syn::Type) -> (bool, syn::Type) {
 }
 
 /// The spec type a Rust type names on its own, or `None` for one that needs `ty = "..."`.
+/// A field's Rust type as written, for a message that has to name it.
+fn rust_type_name(ty: &syn::Type) -> String {
+    quote::ToTokens::to_token_stream(ty)
+        .to_string()
+        .replace(" ", "")
+}
+
+/// The `index`th type argument of a path segment, as in the `u64` of `Vec<u64>`.
+fn generic_arg(segment: &syn::PathSegment, index: usize) -> Option<syn::Type> {
+    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return None;
+    };
+    args.args
+        .iter()
+        .filter_map(|arg| match arg {
+            syn::GenericArgument::Type(inner) => Some(inner.clone()),
+            _ => None,
+        })
+        .nth(index)
+}
+
+/// Whether the field's own Rust type can hold `value`.
+///
+/// A narrower check than [`Ty::admits`], and it has to be separate: `infer_ty` collapses every
+/// unsigned width to `uint`, so the spec-level type cannot see that a `u8` refuses 256. The
+/// resolver seeds a default uncoerced and `FromValue` is strict about width, so a default the
+/// field cannot hold fails every `read` — the same trap as a negative `uint`, one level down.
+///
+/// `true` for anything this does not recognize: the spec-level check has already had its say,
+/// and a type it allows that this cannot measure is not this function's to refuse.
+fn field_holds(ty: &syn::Type, value: &Const) -> bool {
+    let syn::Type::Path(path) = ty else {
+        return true;
+    };
+    let Some(last) = path.path.segments.last() else {
+        return true;
+    };
+    macro_rules! fits {
+        ($int:ty) => {
+            match value {
+                Const::Int(i) => <$int>::try_from(*i).is_ok(),
+                _ => true,
+            }
+        };
+    }
+    match last.ident.to_string().as_str() {
+        "u8" => fits!(u8),
+        "u16" => fits!(u16),
+        "u32" => fits!(u32),
+        "usize" => fits!(usize),
+        "i8" => fits!(i8),
+        "i16" => fits!(i16),
+        "i32" => fits!(i32),
+        "isize" => fits!(isize),
+        // The rule `FromValue for f32` follows: rounding a value that fits is ordinary
+        // precision loss, and turning a finite one into an infinity is not.
+        "f32" => match value {
+            Const::Float(f) => !(*f as f32).is_infinite() || f.is_infinite(),
+            _ => true,
+        },
+        "Vec" | "BTreeSet" | "HashSet" => match (generic_arg(last, 0), value) {
+            (Some(inner), Const::List(items)) => items.iter().all(|item| field_holds(&inner, item)),
+            _ => true,
+        },
+        _ => true,
+    }
+}
+
 fn infer_ty(ty: &syn::Type) -> Option<Ty> {
     let syn::Type::Path(path) = ty else {
         return None;
     };
     let last = path.path.segments.last()?;
     let name = last.ident.to_string();
-    let generic = |index: usize| -> Option<syn::Type> {
-        if let syn::PathArguments::AngleBracketed(args) = &last.arguments {
-            args.args
-                .iter()
-                .filter_map(|arg| match arg {
-                    syn::GenericArgument::Type(inner) => Some(inner.clone()),
-                    _ => None,
-                })
-                .nth(index)
-        } else {
-            None
-        }
-    };
+    let generic = |index: usize| -> Option<syn::Type> { generic_arg(last, index) };
     Some(match name.as_str() {
         "bool" => Ty::Bool,
         "u8" | "u16" | "u32" | "u64" | "usize" => Ty::Uint,
@@ -1357,6 +1461,149 @@ mod tests {
             struct Settings {
                 #[usage(default = "1", choices("1", "2"))]
                 level: String,
+            }
+        "#,
+        );
+    }
+
+    #[test]
+    fn a_default_that_does_not_fit_the_field_is_refused() {
+        // `infer_ty` collapses every unsigned width to `uint`, so the spec-level check cannot
+        // see that a `u8` refuses 256. Uncaught, this is the negative-`uint` trap one level
+        // down: seeded uncoerced, refused by `FromValue`, and so a type error on every
+        // `Settings::read` that nothing at run time could fix.
+        for (field, value) in [
+            ("small: u8", "256"),
+            ("small: u8", "-1"),
+            ("signed: i8", "128"),
+            ("medium: u16", "70000"),
+            ("wide: u32", "5000000000"),
+            ("ratio: f32", "1e300"),
+        ] {
+            let err = rejection(&format!(
+                r#"
+                struct Settings {{
+                    #[usage(default = {value})]
+                    {field},
+                }}
+            "#
+            ));
+            assert!(
+                err.contains("does not fit") || err.contains("can hold"),
+                "`default = {value}` was accepted on `{field}`: {err}"
+            );
+        }
+
+        // A choice nothing could supply is the same mistake, and the items of a list are
+        // measured against the item type rather than the list.
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(choices(1, 256))]
+                small: u8,
+            }
+        "#,
+        );
+        assert!(err.contains("does not fit"), "unhelpful: {err}");
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(default(80, 70000))]
+                ports: Vec<u16>,
+            }
+        "#,
+        );
+        assert!(err.contains("does not fit"), "unhelpful: {err}");
+
+        // What does fit still compiles, at every width and through a list.
+        for (field, value) in [
+            ("small: u8", "255"),
+            ("signed: i8", "-128"),
+            ("medium: u16", "65535"),
+            ("ratio: f32", "1.5"),
+            ("jobs: u64", "4"),
+        ] {
+            accepted(&format!(
+                r#"
+                struct Settings {{
+                    #[usage(default = {value})]
+                    {field},
+                }}
+            "#
+            ));
+        }
+        accepted(
+            r#"
+            struct Settings {
+                #[usage(default(80, 443))]
+                ports: Vec<u16>,
+            }
+        "#,
+        );
+    }
+
+    #[test]
+    fn two_settings_cannot_answer_to_one_name() {
+        // `Registry::lookup` checks keys and aliases together and takes the first match, so a
+        // collision does not fail — it makes one of the two settings unreachable by that name,
+        // which is the quietest possible way to lose a setting. Every name has to be unique
+        // among all of them, not just the keys among the keys.
+        let cases = [
+            // An alias over another setting's key.
+            r#"
+            struct Settings {
+                #[usage(alias("other"))]
+                jobs: u64,
+                other: u64,
+            }
+            "#,
+            // The same alias twice.
+            r#"
+            struct Settings {
+                #[usage(alias("shared"))]
+                jobs: u64,
+                #[usage(alias("shared"))]
+                threads: u64,
+            }
+            "#,
+            // A key over an earlier setting's alias, which is the same collision found in the
+            // other order.
+            r#"
+            struct Settings {
+                #[usage(alias("threads"))]
+                jobs: u64,
+                threads: u64,
+            }
+            "#,
+        ];
+        for body in cases {
+            let err = rejection(body);
+            assert!(
+                err.contains("could never be reached"),
+                "a colliding name was accepted: {err}"
+            );
+        }
+
+        // Its own key as an alias is not two settings colliding, but it is still a name
+        // nothing reaches, so it gets a message that says which mistake it is.
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(alias("jobs"))]
+                jobs: u64,
+            }
+        "#,
+        );
+        assert!(err.contains("alias of its own key"), "unhelpful: {err}");
+
+        // Distinct names are fine, including an alias that looks like a prefix of another key.
+        accepted(
+            r#"
+            struct Settings {
+                #[usage(alias("concurrency", "parallelism"))]
+                jobs: u64,
+                #[usage(alias("task-jobs"))]
+                threads: u64,
             }
         "#,
         );
