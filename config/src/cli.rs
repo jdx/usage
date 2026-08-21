@@ -28,7 +28,7 @@
 //! assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(8)));
 //! // Named as the flag rather than as "the command line", so an explanation is actionable.
 //! assert_eq!(
-//!     resolved.origin(REGISTRY.lookup("jobs").unwrap().id).unwrap().describe(),
+//!     resolved.origin_key("jobs").unwrap().describe(),
 //!     "--jobs",
 //! );
 //! # Ok::<(), usage_config::LayerError>(())
@@ -216,9 +216,7 @@ mod tests {
         // Named as the flag, not as "the command line": a user who does not like the answer needs to
         // know what to stop passing.
         assert_eq!(
-            resolved
-                .origin(REGISTRY.lookup("jobs").expect("declared").id)
-                .map(|o| o.describe()),
+            resolved.origin_key("jobs").map(|o| o.describe()),
             Some("--jobs")
         );
     }
@@ -286,9 +284,7 @@ mod tests {
         let resolved = resolve(REGISTRY, Layers::new().then(&cli)).expect("resolves");
         assert_eq!(resolved.get_key("stash"), Some(&Value::from("none")));
         assert_eq!(
-            resolved
-                .origin(REGISTRY.lookup("stash").expect("declared").id)
-                .map(|o| o.describe()),
+            resolved.origin_key("stash").map(|o| o.describe()),
             Some("stash")
         );
     }
@@ -307,9 +303,7 @@ mod tests {
             "still folds"
         );
         assert_eq!(
-            resolved
-                .origin(REGISTRY.lookup("jobs").expect("declared").id)
-                .map(|o| o.describe()),
+            resolved.origin_key("jobs").map(|o| o.describe()),
             Some("--concurrency")
         );
     }

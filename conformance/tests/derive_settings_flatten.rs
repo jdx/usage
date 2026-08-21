@@ -113,9 +113,7 @@ fn a_group_contributes_what_it_was_given() {
     assert_eq!(resolved.get_key("colour"), Some(&Value::Bool(false)));
     // Named by the flag the group declares, not by the root.
     assert_eq!(
-        resolved
-            .origin(REGISTRY.lookup("jobs").expect("declared").id)
-            .map(|o| o.describe()),
+        resolved.origin_key("jobs").map(|o| o.describe()),
         Some("--jobs")
     );
 }

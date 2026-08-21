@@ -877,9 +877,7 @@ mod tests {
         );
         // The origin names the file *and* the key inside it, which is what makes `explain`
         // worth reading.
-        let origin = resolved
-            .origin(REGISTRY.lookup("jobs").unwrap().id)
-            .unwrap();
+        let origin = resolved.origin_key("jobs").unwrap();
         assert!(origin.describe().ends_with("hk.toml#jobs"), "{origin:?}");
     }
 
@@ -1271,9 +1269,8 @@ mod tests {
         );
 
         // Every file that contributed is recorded, farthest first — the order they were read.
-        let jobs = REGISTRY.lookup("jobs").unwrap().id;
         let contributors: Vec<String> = resolved
-            .contributors(jobs)
+            .contributors_key("jobs")
             .iter()
             .map(|o| o.describe().to_string())
             .collect();
@@ -1545,9 +1542,7 @@ mod tests {
             resolved.get_key("exclude"),
             Some(&Value::List(vec![Value::from("a,b"), Value::from("c")]))
         );
-        let origin = resolved
-            .origin(REGISTRY.lookup("jobs").unwrap().id)
-            .unwrap();
+        let origin = resolved.origin_key("jobs").unwrap();
         assert!(origin.describe().ends_with("hk.yaml#jobs"), "{origin:?}");
 
         // `.yml` is the same format, and a settings table within the file works the same way.

@@ -49,7 +49,7 @@
 //! assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(8)));
 //! // And where it came from is the variable the user set, not "the environment".
 //! assert_eq!(
-//!     resolved.origin(REGISTRY.lookup("jobs").unwrap().id).unwrap().describe(),
+//!     resolved.origin_key("jobs").unwrap().describe(),
 //!     "MYCLI_JOBS",
 //! );
 //! # Ok::<(), usage_config::LayerError>(())
