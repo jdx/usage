@@ -56,10 +56,8 @@ That is the whole install: derives, the argv runtime, help, and clap-shaped erro
 defaults. The alias is supported directly — the derive resolves its runtime through the package
 name, so depending on `usage-rs` under any name works.
 
-The graph underneath is as small as the install: the only non-usage crates in it are the derive's
-compiler (proc-macro2, quote, syn, unicode-ident), which never link into your binary. Nothing
-third-party runs at runtime — compare that with clap's graph in
-[Migrating from clap](/rust/migrating-from-clap#dependency-footprint).
+Nothing third-party links into your binary — the only non-usage crates in the graph are the
+derive's compiler, which runs at build time ([comparison with clap](/rust/migrating-from-clap#dependencies)).
 
 `usage-rs` is a facade. Applications should depend on it alone. The split underneath stays
 available for low-level adopters that want a thinner surface:
