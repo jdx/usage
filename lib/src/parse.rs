@@ -362,12 +362,17 @@ pub enum ParseValue {
 pub struct Parser<'a> {
     spec: &'a Spec,
     env: Option<HashMap<String, String>>,
+    mount_outputs: Option<HashMap<String, String>>,
 }
 
 impl<'a> Parser<'a> {
     /// Create a new parser for the given spec.
     pub fn new(spec: &'a Spec) -> Self {
-        Self { spec, env: None }
+        Self {
+            spec,
+            env: None,
+            mount_outputs: None,
+        }
     }
 
     /// Use a custom environment variable map instead of the process environment.
@@ -376,6 +381,17 @@ impl<'a> Parser<'a> {
     /// come from a child config file rather than the current process environment.
     pub fn with_env(mut self, env: HashMap<String, String>) -> Self {
         self.env = Some(env);
+        self
+    }
+
+    /// Inject deterministic outputs for mount commands instead of executing them.
+    ///
+    /// Keys are the exact `run` strings declared by mount nodes and values are the
+    /// usage specs those commands would print. When this is set, every encountered
+    /// mount must have an entry. Production parsing remains process-backed unless a
+    /// caller explicitly opts into injection.
+    pub fn with_mount_outputs(mut self, outputs: HashMap<String, String>) -> Self {
+        self.mount_outputs = Some(outputs);
         self
     }
 
@@ -388,6 +404,7 @@ impl<'a> Parser<'a> {
             self.spec,
             input,
             custom_env,
+            self.mount_outputs.as_ref(),
             MountTiming::WhenAWordIsUnknown,
         )?;
         trace!("{out:?}");
@@ -612,7 +629,7 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
 /// Use this for help text generation or when you need the raw parsed values.
 #[must_use = "parsing result should be used"]
 pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
-    parse_partial_with_env(spec, input, None, MountTiming::Eager).map(|(out, _)| out)
+    parse_partial_with_env(spec, input, None, None, MountTiming::Eager).map(|(out, _)| out)
 }
 
 /// Basename of argv[0] for a multicall CLI: last path component, with a trailing
@@ -660,6 +677,7 @@ fn parse_partial_with_env(
     spec: &Spec,
     input: &[String],
     custom_env: Option<&HashMap<String, String>>,
+    mount_outputs: Option<&HashMap<String, String>>,
     mount_timing: MountTiming,
 ) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
     trace!("parse_partial: {input:?}");
@@ -746,7 +764,7 @@ fn parse_partial_with_env(
     {
         mounts_resolved = true;
         let mut mounted = out.cmd.clone();
-        mounted.mount(&[])?;
+        mounted.mount(&[], mount_outputs)?;
         merge_subcommand_flags(&mut out.available_flags, gather_flags(&mounted), false);
         if let Some(last) = out.cmds.last_mut() {
             *last = mounted.clone();
@@ -777,7 +795,7 @@ fn parse_partial_with_env(
         {
             mounts_resolved = true;
             let mut mounted = out.cmd.clone();
-            mounted.mount(&mount_prefix_words(&prefix_flags))?;
+            mounted.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
             merge_subcommand_flags(&mut out.available_flags, gather_flags(&mounted), false);
             if let Some(last) = out.cmds.last_mut() {
                 *last = mounted.clone();
@@ -799,7 +817,7 @@ fn parse_partial_with_env(
             }
             let mut subcommand = subcommand.clone();
             // Pass prefix words (global flags before this subcommand) to mount
-            subcommand.mount(&mount_prefix_words(&prefix_flags))?;
+            subcommand.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
             // Only the *boundary* is a mount crossing: below it, the mounted program's own
             // commands are ordinary commands relative to each other.
             let crossing_mount = subcommand.mounted && !out.cmd.mounted;
@@ -904,7 +922,7 @@ fn parse_partial_with_env(
                         }
                         let mut subcommand = subcommand.clone();
                         // Pass prefix words (global flags before this) to mount
-                        subcommand.mount(&mount_prefix_words(&prefix_flags))?;
+                        subcommand.mount(&mount_prefix_words(&prefix_flags), mount_outputs)?;
                         let crossing_mount = subcommand.mounted && !out.cmd.mounted;
                         merge_subcommand_flags(
                             &mut out.available_flags,
@@ -3378,6 +3396,34 @@ mount run="echo 'cmd \"discovered\"'"
 
         let out = parse(&spec, &["ex".to_string(), "discovered".to_string()]).unwrap();
         assert_eq!(out.cmd.name, "discovered");
+    }
+
+    #[test]
+    fn injected_mount_outputs_are_complete_and_never_fall_back_to_processes() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+mount run="this command must never run"
+cmd "declared"
+"#
+        .parse()
+        .unwrap();
+
+        Parser::new(&spec)
+            .with_mount_outputs(HashMap::new())
+            .parse(&input(&["ex", "declared"]))
+            .expect("a declared command does not resolve the mount");
+
+        let error = Parser::new(&spec)
+            .with_mount_outputs(HashMap::new())
+            .parse(&input(&["ex", "discovered"]))
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("No injected output was provided for mount command"),
+            "{error}"
+        );
     }
 
     #[cfg(unix)]

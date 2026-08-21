@@ -103,6 +103,7 @@ type Cmd struct {
 	Subcommands                 Subcommands `json:"subcommands"`
 	Args                        []Arg       `json:"args"`
 	Flags                       []Flag      `json:"flags"`
+	Mounts                      []Mount     `json:"mounts"`
 	UnknownFlags                *string     `json:"unknown_flags"`
 	ExternalSubcommand          bool        `json:"external_subcommand"`
 	ArgRequiredElseHelp         bool        `json:"arg_required_else_help"`
@@ -120,6 +121,12 @@ type Cmd struct {
 	SubcommandRequired          bool        `json:"subcommand_required"`
 	NextLineHelp                bool        `json:"next_line_help"`
 	FlattenHelp                 bool        `json:"flatten_help"`
+}
+
+// Mount is a command whose stdout contributes another spec at this command.
+type Mount struct {
+	Run              string `json:"run"`
+	OverridesDefault bool   `json:"overrides_default"`
 }
 
 // Subcommands is a command's children, in the order the spec declared them.

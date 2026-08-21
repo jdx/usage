@@ -63,6 +63,10 @@ pub struct Vector {
     /// can depend on the machine running it.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub env: BTreeMap<String, String>,
+    /// Deterministic stdout for mount commands, keyed by the exact `run` string.
+    /// Absent means the spec declares no mounts.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub mounts: BTreeMap<String, String>,
     pub expect: Expect,
     /// Whether usage-lib, the reference implementation, agrees with `expect`.
     ///

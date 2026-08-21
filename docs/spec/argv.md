@@ -464,9 +464,6 @@ rather than discovered by whoever writes the next implementation.
   holds a single result. Supporting it needs a multi-invocation shape, and until
   then usage-lib's behavior — rewind, and let the last invocation's bindings
   stand — is untested here.
-- **Mounts.** `mount` resolves a sub-spec by running a command during the parse.
-  That makes a vector depend on an external process, so it needs a stubbing
-  mechanism first.
 - **Completion parsing.** `parse_partial` deliberately accepts incomplete input
   to drive completions. It is a different contract with different expectations,
   and deserves its own corpus.
