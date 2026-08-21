@@ -170,6 +170,16 @@ struct Paired {
     color: bool,
 }
 
+/// A plain switch carrying an explicit `default`, which is where "absent" and "said no"
+/// are easiest to confuse: the parse output holds the default for a flag nobody typed.
+#[derive(Cli)]
+#[usage(bin = "defaulted", name = "defaulted")]
+struct Defaulted {
+    /// Disable colored output
+    #[usage(long, global, color = "never", default = "false")]
+    no_color: bool,
+}
+
 /// A CLI that declares no roles at all, which most of the fleet is.
 #[derive(Cli)]
 #[usage(bin = "tak", name = "tak")]
@@ -233,6 +243,7 @@ typed_parse!(Aube);
 typed_parse!(Hk);
 typed_parse!(Fnox);
 typed_parse!(Paired);
+typed_parse!(Defaulted);
 typed_parse!(Tak);
 
 /// Both implementations, held to the same answer.
@@ -385,6 +396,22 @@ fn a_negatable_switch_says_both_answers() {
     );
     agree!(
         Paired,
+        kdl,
+        ["--no-color"],
+        Verbosity::Info,
+        ColorChoice::Never
+    );
+}
+
+#[test]
+fn a_default_is_not_the_same_as_an_answer() {
+    let kdl = Defaulted::to_kdl();
+    // The flag was not given. A plain switch has no way to say "no" — that is what a
+    // negation is for — so its `false`, default or otherwise, says nothing at all.
+    agree!(Defaulted, kdl, [], Verbosity::Info, ColorChoice::Auto);
+    // And when it is given, it says the one thing it can.
+    agree!(
+        Defaulted,
         kdl,
         ["--no-color"],
         Verbosity::Info,

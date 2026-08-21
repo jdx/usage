@@ -506,9 +506,14 @@ impl ParseOutput {
                 ParseValue::MultiString(values) => values.last().map(String::as_str),
                 _ => None,
             };
-            // A switch that landed on `false` was negated, or was filled by a
-            // default that says no: either way it is the other answer, and it is
-            // only here at all because it was supplied.
+            // A switch that landed on `false`. For a flag with a negation that is the
+            // negated spelling, or the default standing in for it, and it is the other
+            // answer. For a plain switch there is no other answer to be: `false` is
+            // absence — including the absence left by a `default` this map carries for
+            // a flag nobody typed — so it says nothing rather than the opposite.
+            if matches!(value, ParseValue::Bool(false)) && flag.negate.is_none() {
+                return None;
+            }
             let negated = matches!(value, ParseValue::Bool(false));
             Some((role, negated, word))
         }))

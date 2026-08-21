@@ -3404,19 +3404,70 @@ fn a_command_line_can_be_asked_about_color_before_anything_is_bound() {
 fn a_declared_color_flag_turns_off_the_color_in_usage_own_output() {
     // The bug this pays for: before the declaration existed, a CLI's `--no-color`
     // could not reach the help page usage renders on its behalf.
-    let colored = usage::help::Style::for_choice(usage::ColorChoice::Always, false);
-    let plain = usage::help::Style::for_choice(usage::ColorChoice::Never, true);
-    let page = |style| {
+    //
+    // Through `Style::resolve`, which is what generated `parse()` calls and therefore the
+    // path that can regress. A hand-built `Style` would prove the renderer paints what it
+    // is told and nothing about where the instruction comes from.
+    let page = |argv: &[&str]| {
+        let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+        let style = usage::help::Style::resolve(Loud::spec(), &words);
         usage::help::render_styled(Loud::spec(), Loud::command(), false, style)
             .expect("a help page")
     };
-    assert!(page(colored).contains('\u{1b}'));
-    assert!(!page(plain).contains('\u{1b}'));
+    assert!(page(&["--color", "always", "--help"]).contains('\u{1b}'));
+    assert!(!page(&["--no-color", "--help"]).contains('\u{1b}'));
+    assert!(!page(&["--color", "never", "--help"]).contains('\u{1b}'));
 
     let words = [OsStr::new("--no-color"), OsStr::new("--nonsense")];
     let err = Loud::parse_from(&words).unwrap_err();
     let rendered = usage::render_failure(Loud::spec(), &words, &err);
     assert!(!rendered.contains('\u{1b}'), "{rendered}");
+}
+
+#[test]
+fn what_the_flag_asked_for_beats_what_the_environment_standing_asked_for() {
+    // `NO_COLOR` and `CLICOLOR_FORCE` are set once, for every program; a flag is typed
+    // now, for this invocation. Both directions, so neither is winning by accident.
+    //
+    // Not `Style::resolve`, which reads the process environment and would make this test
+    // depend on the machine it runs on: the same two steps, with the environment's answer
+    // supplied rather than looked up.
+    let asked = |argv: &[&str]| {
+        let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+        usage::policy::color_from_argv(Loud::spec(), &words).unwrap_or_default()
+    };
+    // A terminal that refuses colour is overruled by a request…
+    assert!(asked(&["--color", "always"]).enabled_for(false));
+    // …and a terminal that would colour is overruled by a refusal.
+    assert!(!asked(&["--no-color"]).enabled_for(true));
+    // With nothing typed, the destination decides, which is what `Auto` means.
+    assert!(asked(&[]).enabled_for(true));
+}
+
+#[test]
+fn the_argv_answer_about_color_is_the_bound_answer() {
+    // Two implementations of one question — one reading argv for help and diagnostics,
+    // one reading the built struct for the program itself — and a user who typed one
+    // command line is owed one answer. `--color` and `--no-color` are separate flags on
+    // `Loud`, which is the shape where a positional rule and a combining rule can differ.
+    for argv in [
+        vec![],
+        vec!["--color", "always"],
+        vec!["--color", "never"],
+        vec!["--no-color"],
+        vec!["--color", "always", "--no-color"],
+        vec!["--no-color", "--color", "always"],
+        // One flag repeated is a correction, so the last value of *that* flag stands…
+        vec!["--color", "always", "--color", "never"],
+        vec!["--color", "never", "--color", "always"],
+        // …while two flags that disagree are not, and the refusal wins either way round.
+        vec!["--no-color", "--color", "never"],
+    ] {
+        let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+        let bound = usage::ColorPolicy::color(&Loud::parse_from(&words).expect("parses"));
+        let from_argv = usage::policy::color_from_argv(Loud::spec(), &words).unwrap_or_default();
+        assert_eq!(bound, from_argv, "{argv:?}");
+    }
 }
 
 #[test]

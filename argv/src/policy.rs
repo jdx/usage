@@ -402,7 +402,12 @@ pub fn color_from_argv(spec: &Spec<'_>, argv: &[&OsStr]) -> Option<ColorChoice> 
     // The commands argv descended through, outermost first. A flag in scope was
     // declared by one of them.
     let mut scope: ::std::vec::Vec<&crate::spec::CommandMeta<'_>> = ::std::vec![root];
-    let mut choice: Option<ColorChoice> = None;
+    // What each flag ended up saying, in the order the flags were first seen. Kept per
+    // flag rather than as one running answer, because that is the shape the bound struct
+    // has and the two must not disagree: a second occurrence of *one* flag replaces its
+    // value, which is `args_override_self`, while two *different* flags both hold theirs
+    // and are combined below, where a refusal beats a request.
+    let mut said: ::std::vec::Vec<(&Flag<'_>, ColorChoice)> = ::std::vec::Vec::new();
     let mut parser = Parser::new(root.cmd, argv);
     while let Some(Ok(event)) = parser.next_event() {
         match event {
@@ -426,15 +431,18 @@ pub fn color_from_argv(spec: &Spec<'_>, argv: &[&OsStr]) -> Option<ColorChoice> 
                     role => role.asks_for(negated),
                 };
                 if let Some(asked) = asked {
-                    // Last one wins, which is what `args_override_self` says a
-                    // repeated scalar flag means.
-                    choice = Some(asked);
+                    match said.iter_mut().find(|(seen, _)| same_flag(seen, flag)) {
+                        Some((_, held)) => *held = asked,
+                        None => said.push((flag, asked)),
+                    }
                 }
             }
             _ => {}
         }
     }
-    choice
+    said.into_iter()
+        .map(|(_, asked)| asked)
+        .reduce(ColorChoice::combine)
 }
 
 /// The color role declared for `flag`, looked for only among the commands on the

@@ -652,6 +652,19 @@ fn verbosity_value(meta: &Meta) -> syn::Result<VerbosityRoleDecl> {
     })
 }
 
+/// Whether a word names a point on the verbosity scale.
+///
+/// A copy of `usage_argv::policy::Verbosity::parse`, alias families included, because this
+/// crate deliberately does not depend on the runtime it emits code for — see the note in
+/// `Cargo.toml`. Kept honest by the spec, which makes the same check on the emitted KDL:
+/// a list they disagreed about would fail to parse rather than pass silently.
+fn names_a_level(word: &str) -> bool {
+    matches!(
+        word.to_ascii_lowercase().as_str(),
+        "silent" | "off" | "none" | "error" | "warn" | "warning" | "info" | "debug" | "trace"
+    )
+}
+
 /// What a flag means for color.
 fn color_value(meta: &Meta) -> syn::Result<ColorRoleDecl> {
     let value = string_value(meta)?;
@@ -3490,6 +3503,23 @@ impl Field {
                     "a counted flag says how far to move, not where to land: use \
                      `verbosity = \"verbose\"` or `verbosity = \"quiet\"`",
                 ));
+            }
+            // A declared list the scale cannot read would resolve to the baseline however
+            // the flag was invoked. The spec refuses it too; catching it here is what makes
+            // that a message pointing at the field rather than one about emitted KDL. Only
+            // a literal list can be checked — a `value_enum`'s words belong to a type this
+            // expansion cannot see — and only a strict one, since `strict=#false` expects
+            // words the list does not have.
+            if role.takes_value() && !allow_unknown_choices {
+                if let Some(unknown) = choices.iter().find(|choice| !names_a_level(choice)) {
+                    return Err(syn::Error::new(
+                        span,
+                        format!(
+                            "`verbosity = \"level\"` accepts {unknown:?}, which names no \
+                             level: expected one of silent, error, warn, info, debug, trace"
+                        ),
+                    ));
+                }
             }
             if let Kind::Flag {
                 negate: Some(_), ..
@@ -7195,6 +7225,18 @@ mod tests {
         "#,
         );
         assert!(err.contains("not both"), "unhelpful: {err}");
+
+        // A level flag's declared values have to be levels.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, verbosity = "level", choices("info", "chatty"))]
+                log_level: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("names no level"), "unhelpful: {err}");
+        assert!(err.contains("chatty"), "unhelpful: {err}");
 
         // A negatable color switch has to say what an absent flag means.
         let err = rejection(

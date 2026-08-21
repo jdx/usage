@@ -840,6 +840,18 @@ impl SpecFlag {
                     "a level cannot be negated, so verbosity= and negate= do not go together"
                 );
             }
+            // A count says how far to move, not where to land: a pinning switch reads
+            // none of the occurrences a counted flag collects, so the two together
+            // declare something the resolver cannot mean. The derive refuses the same
+            // shape, and a hand-written spec has to agree with a derived one.
+            if flag.count && role.pinned().is_some() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "a counted flag says how far to move, not where to land: use \
+                     verbosity=verbose or verbosity=quiet"
+                );
+            }
             // A level flag whose declared values the scale cannot read would
             // resolve to the baseline however it was invoked, which is a spec
             // that says something it does not mean. Only strict choices are
@@ -2215,6 +2227,8 @@ mod tests {
             "flag \"--verbose\" verbosity=verbose color=always\n",
             // A negatable switch has to say what an absent flag means.
             "flag \"--color\" negate=\"--no-color\" color=always\n",
+            // And a count moves the level rather than naming one.
+            "flag \"-v --verbose\" count=#true verbosity=debug\n",
             // A word the vocabulary does not have.
             "flag \"--verbose\" verbosity=loud\n",
             "flag \"--color <WHEN>\" color=auto\n",
