@@ -70,11 +70,18 @@ verify() {
 #
 # Not a gate — the workflow runs this with `|| true`, and a shared runner is no place to fail a
 # build on an instruction count. It is an annotation, because the alternative turned out to be
-# nobody noticing: the number went from 117x to 97x across a run of feature work, unremarked,
+# nobody noticing: the number slid from 117x to 81x across a run of feature work, unremarked,
 # because the only place it appeared was one line of a report nobody diffs. clap is flat, so the
 # movement was ours.
 #
-# 80 rather than 117: the point is to catch a slide, not to pin the current figure. A parse that
+# Worth knowing what that slide actually was, since it was read as the price of vocabulary and
+# was not: `Partial` is the whole CLI's accumulator and was returned by value, so a parse copied
+# 11KB four times, and `Subcommands::Partial` was a struct with a field per variant, so building
+# it materialised 211 commands' worth to use one. Fixing both took the ratio to 855x. Features
+# were never the cost — a struct sized by the whole CLI, copied per parse, was multiplying them.
+# So a future slide here is worth looking at structurally before it is blamed on vocabulary.
+#
+# 80 rather than 855: the point is to catch a slide, not to pin the current figure. A parse that
 # is only 80x cheaper than clap's has stopped being the thing this project claims, and that is
 # worth a sentence in the log before it is worth an argument about the target.
 CLAP_RATIO_FLOOR=80

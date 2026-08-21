@@ -931,19 +931,37 @@ checked-in `mise.usage.kdl` for both parsers.
       between parsers rather than between two transcriptions. Both shadows drop the
       same properties. Three release binaries — one per parser, one that does
       everything except parse — measured by `tak`, which gates the counts in CI.
-- [x] **Perf report** — at mise's full scale, a cold parse costs **50.9k instructions
-      against clap's 5.96M: 117× fewer**, and **2.1µs against 490µs of wall clock**.
-      _Re-measured later, and it moved:_ **60.4k against 5.90M — 97×**. clap is flat;
-      our parse grew about 19% as the derive gained vocabulary, so the headroom under
-      the <100k target went from 2× to 1.65×. Still passing, and nothing watches it:
-      the shadow comparison is reported and never gated, on the grounds that the
-      fixture grows on purpose. That reasoning holds for the absolute number and not
-      for the _ratio_, which is a property of the two parsers. Worth a gate before the
-      margin erodes further.
+- [x] **Perf report** — at mise's full scale, a cold parse costs **7,377 instructions
+      against clap's 6.31M: 855× fewer**, and **0.69µs against 544µs of wall clock**.
       Measured by differencing two runs of the _same_ binary over how many parses it
-      does, so nothing but the parse varies. clap's 490µs is 305µs building its command
-      tree, ~160µs validating it, and ~24µs actually parsing — so even against clap's
-      parse alone, with the tree already built and paid for, this is 12× faster.
+      does, so nothing but the parse varies. clap's 544µs is ~343µs building its command
+      tree, ~178µs validating it, and ~23µs actually parsing — so even against clap's
+      parse alone, with the tree already built and paid for, this is 34× faster.
+      **The count went 50.9k → 63.8k → 7,377, and the middle number is the instructive
+      one.** The rise read as the price of vocabulary and was nothing of the kind. Two
+      costs scaled with the size of the whole CLI rather than with what was typed.
+      `Partial` is the entire CLI's accumulator — every command's fields inlined,
+      recursively, 11KB at mise's scale — and `read_argv`, `read` and `parse_from` each
+      returned one _by value_, so a parse copied it four times and spent ~87% of itself
+      copying; `read_into`/`read_argv_into` take `&mut` (#980), 63.8k → 18.5k. Then
+      `Subcommands::Partial` was a struct with a field per variant, so constructing it
+      materialised all 211 commands' accumulators when 210 were unreachable by
+      construction; it is an enum now (#981), 18.5k → 4.2k, the type 11,000 → 824 bytes
+      and data refs 116,742 → 1,889. Because the accumulator was copied four times per
+      parse, every property the derive learned widened a struct already being copied, so
+      ordinary growth arrived multiplied. Removing the copies removed the multiplier:
+      **metadata a parse does not read now costs a parse nothing**, which is the property
+      the design claimed all along and only now actually has.
+      The rest of the movement is the fixture, not the parser, and one parser against
+      both fixtures separates them: **4,907 against the pre-refresh spec, 7,377 against
+      the current one**, which #1142 refreshed from mise's real typed tree with more
+      positionals and per-command metadata. clap moves ~7% across the same swap. usage
+      moves more in proportion only because its own cost is now small enough that the
+      fixture's shape dominates it — which is the permanent condition from here, and the
+      reason the absolute number is worth less than the ratio.
+      The ratio _is_ watched now: `CLAP_RATIO_FLOOR=80` in `tasks/perf-shadow.sh` warns
+      when it slides (af2495da), so the earlier "nothing watches it" is answered. At
+      855× the margin over that floor is about 10×.
 - [x] **Differential fuzzing** — proptest over argv on the mise spec, against
       usage-lib **and clap**. The three-way comparison distinguishes intentional usage
       defaults from regressions: unknown flags and scalar repeats are permissive unless a
@@ -956,9 +974,9 @@ checked-in `mise.usage.kdl` for both parsers.
       usage-lib resolves `mount run="mise tasks --usage"` by _running_ it, so the first
       draft spawned real `mise` processes that loaded config, fetched vfox metadata and
       shelled out to `apt-cache`. See `benches/gate/tests/differential.rs`.
-- [x] **Published performance report.** The Rust guide now records the original
-      launch measurements, the later 19% instruction increase and reduced ratio,
-      the absolute gates, the measurement method, and what the comparison does
+- [x] **Published performance report.** The Rust guide records the current
+      measurements, the whole path the instruction count took and why it moved both
+      ways, the absolute gates, the measurement method, and what the comparison does
       not include. It links the checked-in benchmark sources rather than
       presenting the numbers without a reproducible path.
 
@@ -966,8 +984,8 @@ Runtime targets, which gate:
 
 | measurement                        | clap, measured | target | result            |
 | ---------------------------------- | -------------- | ------ | ----------------- |
-| instructions, route + parse        | 5.96M          | < 100k | 50.9k, 117×       |
-| wall time, argv to parsed struct   | 490µs          | < 50µs | 2.1µs, 238×       |
+| instructions, route + parse        | 6.31M          | < 100k | 7,377, 855×       |
+| wall time, argv to parsed struct   | 544µs          | < 50µs | 0.69µs, 788×      |
 | heap allocations, successful parse | 6,560          | 0      | 0 bare, 3–4 bound |
 
 All three gating targets are met, and not narrowly. Allocations were the last one owed:
@@ -977,9 +995,10 @@ costs three or four allocations, one per value. clap's tree costs **6,560** ever
 so this is about 2,000× fewer.
 
 Getting there needed one fix and one correction. Defaults were being applied in `start`,
-which builds the partial for _every_ command in the CLI rather than the selected one, so a
-bare `mise` was allocating 60 times for defaults it would never read; they now run in
-`check`, guarded on whether the flag was given. And the counter itself was wrong — armed
+which at the time built the partial for _every_ command in the CLI rather than the selected
+one, so a bare `mise` was allocating 60 times for defaults it would never read; they now run
+in `check`, guarded on whether the flag was given. (`start` no longer works that way either
+— #981 made `Subcommands::Partial` an enum, for the instruction cost described above.) And the counter itself was wrong — armed
 per thread but counting into a global — so parallel tests were counting each other and a
 4-allocation parse read as 24, intermittently. usage-argv's own counter had the same
 latent flaw and now counts per thread too.
