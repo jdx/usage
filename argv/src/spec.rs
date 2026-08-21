@@ -2707,6 +2707,20 @@ pub trait CommandArgs: Sized {
     /// for whoever owns it rather than mistaken for a local field.
     fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_, '_>) -> bool;
 
+    /// Mirror a redeclared child flag's value into this command's matching global field.
+    ///
+    /// This deliberately skips occurrence and relationship bookkeeping: the token was parsed
+    /// against the child's declaration, so policies such as `exclusive` and `overrides` belong
+    /// to that declaration even though clap-compatible typed access exposes the value at both
+    /// levels. The default keeps hand-written implementations source compatible.
+    fn apply_mirrored_global(
+        partial: &mut Self::Partial,
+        event: &crate::Event<'_, '_, '_>,
+    ) -> bool {
+        let _ = (partial, event);
+        false
+    }
+
     /// Every flag this command reads into a setting, and the setting it sets.
     ///
     /// Empty by default, so a command that binds nothing implements nothing and a parent can ask

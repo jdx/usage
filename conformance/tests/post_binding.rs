@@ -7,6 +7,7 @@
 //! harness's spec-built tables.
 
 use std::ffi::OsStr;
+use std::path::PathBuf as ImportedPathBuf;
 
 use usage_argv::Error;
 use usage_derive::{Args, Cli, Subcommands};
@@ -1121,8 +1122,245 @@ fn an_orphan_ancestor_alias_keeps_its_exclusivity_past_a_child_redeclaration() {
     );
 
     let a = argv(["run", "--clean", "--verbose"]);
-    OrphanAliasExclusive::parse_from(&a)
+    let parsed = OrphanAliasExclusive::parse_from(&a)
         .expect("the child's spelling drops the exclusivity the child did not restate");
+    assert!(
+        parsed.clean,
+        "the mirrored ancestor value remains observable"
+    );
+    let Some(RedeclaredCleanCommands::Run(run)) = parsed.command else {
+        panic!("expected run");
+    };
+    assert!(run.clean && run.verbose);
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum RedeclaredPolicyCommands {
+    Run(RedeclaredClean),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "redeclared-conflict")]
+struct RedeclaredConflict {
+    #[usage(long, global, conflicts = "--parent-only")]
+    clean: bool,
+    #[usage(long)]
+    parent_only: bool,
+    #[usage(subcommand)]
+    command: Option<RedeclaredPolicyCommands>,
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "redeclared-requires")]
+struct RedeclaredRequires {
+    #[usage(long, global, requires = "--parent-only")]
+    clean: bool,
+    #[usage(long)]
+    parent_only: bool,
+    #[usage(subcommand)]
+    command: Option<RedeclaredPolicyCommands>,
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "redeclared-requirement-target")]
+struct RedeclaredRequirementTarget {
+    #[usage(long, global)]
+    clean: bool,
+    #[usage(long, requires = "--clean")]
+    sign: bool,
+    #[usage(long, requires_if("strict", "--clean"))]
+    mode: Option<String>,
+    #[usage(subcommand)]
+    command: Option<RedeclaredPolicyCommands>,
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "redeclared-group", group("source"))]
+struct RedeclaredGroup {
+    #[usage(long, global, group = "source")]
+    clean: bool,
+    #[usage(long, group = "source")]
+    parent_only: bool,
+    #[usage(subcommand)]
+    command: Option<RedeclaredPolicyCommands>,
+}
+
+#[test]
+fn a_child_redeclaration_does_not_invoke_ancestor_relationship_policy() {
+    let a = argv(["--parent-only", "run", "--clean"]);
+    RedeclaredConflict::parse_from(&a)
+        .expect("the child spelling does not invoke the ancestor conflict");
+
+    let a = argv(["run", "--clean"]);
+    RedeclaredRequires::parse_from(&a)
+        .expect("the child spelling does not invoke the ancestor requirement");
+
+    let a = argv(["--parent-only", "run", "--clean"]);
+    RedeclaredGroup::parse_from(&a)
+        .expect("the child spelling is not an occurrence in the ancestor group");
+}
+
+#[test]
+fn a_mirrored_global_can_satisfy_an_ancestor_requirement() {
+    let a = argv(["--sign", "run", "--clean"]);
+    let parsed = RedeclaredRequirementTarget::parse_from(&a)
+        .expect("the mirrored clean value satisfies sign's requirement");
+    assert!(parsed.clean && parsed.sign);
+
+    let a = argv(["--mode", "strict", "run", "--clean"]);
+    let parsed = RedeclaredRequirementTarget::parse_from(&a)
+        .expect("the mirrored clean value satisfies mode's conditional requirement");
+    assert!(parsed.clean);
+    assert_eq!(parsed.mode.as_deref(), Some("strict"));
+
+    let a = argv(["--sign", "run"]);
+    assert!(matches!(
+        RedeclaredRequirementTarget::parse_from(&a),
+        Err(Error::MissingRequired { name: "clean" })
+    ));
+}
+
+#[allow(dead_code)]
+#[derive(Args)]
+struct LooserRedeclaredValues {
+    #[usage(long = "item", variadic, var_min = 1, var_max = 3)]
+    item: Vec<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum LooserRedeclaredValueCommands {
+    Run(LooserRedeclaredValues),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "redeclared-cardinality")]
+struct RedeclaredCardinality {
+    #[usage(long, global, variadic, var_min = 2, var_max = 3)]
+    item: Vec<String>,
+    #[usage(subcommand)]
+    command: Option<LooserRedeclaredValueCommands>,
+}
+
+#[test]
+fn an_incompatible_child_cardinality_is_not_mirrored_into_the_ancestor() {
+    let a = argv(["run", "--item", "one"]);
+    let parsed = RedeclaredCardinality::parse_from(&a)
+        .expect("the child accepts one value without invoking the ancestor bound");
+    assert!(parsed.item.is_empty());
+    let Some(LooserRedeclaredValueCommands::Run(run)) = parsed.command else {
+        panic!("expected run");
+    };
+    assert_eq!(run.item, ["one"]);
+
+    let a = argv(["--item", "one"]);
+    assert!(matches!(
+        RedeclaredCardinality::parse_from(&a),
+        Err(Error::VarTooFew { name: "item", .. })
+    ));
+}
+
+#[allow(dead_code)]
+#[derive(Args)]
+struct RedeclaredBooleanValue {
+    #[usage(long = "mode")]
+    mode: String,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum RedeclaredBooleanValueCommands {
+    Run(RedeclaredBooleanValue),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "redeclared-bool-value")]
+struct RedeclaredBooleanValueRoot {
+    #[usage(long, global, bool_value)]
+    mode: bool,
+    #[usage(subcommand)]
+    command: RedeclaredBooleanValueCommands,
+}
+
+#[test]
+fn an_incompatible_child_value_is_not_mirrored_into_a_boolean_global() {
+    let a = argv(["run", "--mode", "fast"]);
+    let parsed = RedeclaredBooleanValueRoot::parse_from(&a)
+        .expect("the child value should not panic while mirroring globals");
+    assert!(!parsed.mode);
+    let RedeclaredBooleanValueCommands::Run(run) = parsed.command;
+    assert_eq!(run.mode, "fast");
+}
+
+#[allow(dead_code)]
+#[derive(Args)]
+struct AliasedRedeclaredPath {
+    #[usage(long)]
+    output: Option<ImportedPathBuf>,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum AliasedRedeclaredPathCommands {
+    Run(AliasedRedeclaredPath),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "redeclared-path")]
+struct AliasedRedeclaredPathRoot {
+    #[usage(long, global)]
+    output: Option<std::path::PathBuf>,
+    #[usage(subcommand)]
+    command: AliasedRedeclaredPathCommands,
+}
+
+#[test]
+fn equivalent_type_spellings_share_redeclared_global_values() {
+    let a = argv(["run", "--output", "artifact"]);
+    let parsed = AliasedRedeclaredPathRoot::parse_from(&a).unwrap();
+    assert_eq!(parsed.output, Some(std::path::PathBuf::from("artifact")));
+    let AliasedRedeclaredPathCommands::Run(run) = parsed.command;
+    assert_eq!(run.output, Some(ImportedPathBuf::from("artifact")));
+}
+
+#[allow(dead_code)]
+#[derive(Args)]
+struct DifferentlyValidatedMode {
+    #[usage(long, validate = "value == 'bad'")]
+    mode: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Subcommands)]
+enum DifferentlyValidatedModeCommands {
+    Run(DifferentlyValidatedMode),
+}
+
+#[allow(dead_code)]
+#[derive(Cli)]
+#[usage(bin = "validated-redeclaration")]
+struct DifferentlyValidatedModeRoot {
+    #[usage(long, global, default = "good", validate = "value != 'bad'")]
+    mode: Option<String>,
+    #[usage(subcommand)]
+    command: DifferentlyValidatedModeCommands,
+}
+
+#[test]
+fn differently_validated_redeclarations_do_not_overwrite_ancestor_fallbacks() {
+    let a = argv(["run", "--mode", "bad"]);
+    let parsed = DifferentlyValidatedModeRoot::parse_from(&a).unwrap();
+    assert_eq!(parsed.mode.as_deref(), Some("good"));
+    let DifferentlyValidatedModeCommands::Run(run) = parsed.command;
+    assert_eq!(run.mode.as_deref(), Some("bad"));
 }
 
 #[allow(dead_code)]

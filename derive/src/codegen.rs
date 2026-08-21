@@ -1187,8 +1187,21 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
 
 fn flag_table(i: usize, field: &Field) -> TokenStream {
     let name = format_ident!("FLAG_{i}");
+    let binding_type_name = format_ident!("FLAG_{i}_BINDING_TYPE");
     let key = key_ident("FLAG", Some(i));
     let field_name = &field.name;
+    let binding_key = binding_hash(field);
+    let (binding_type_fn, binding_type) = match field.value_ty.as_ref() {
+        Some(ty) => (
+            quote! {
+                fn #binding_type_name() -> &'static str {
+                    ::core::any::type_name::<#ty>()
+                }
+            },
+            quote!(::core::option::Option::Some(usage_argv::BindingType(#binding_type_name))),
+        ),
+        None => (quote!(), quote!(::core::option::Option::None)),
+    };
     let Kind::Flag {
         longs,
         hidden_longs: _,
@@ -1244,8 +1257,11 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         crate::model::ArgAction::Version => quote!(usage_argv::ArgAction::Version),
     };
     quote! {
+        #binding_type_fn
         pub static #name: usage_argv::Flag = usage_argv::Flag {
             key: #key,
+            binding_key: #binding_key,
+            binding_type: #binding_type,
             name: #field_name,
             longs: &[#(#longs),*],
             shorts: &[#(#shorts),*],
@@ -1264,6 +1280,107 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
             global: #global,
             action: #action,
         };
+    }
+}
+
+/// Stable identity of the typed contract that receives a flag event.
+///
+/// A child redeclaration may share an argument name while changing its shape, Rust type,
+/// choices, or validator. Such an event belongs only to the child; mirroring it into the
+/// ancestor would either overwrite a valid fallback or fail while building the ancestor.
+fn binding_hash(field: &Field) -> u64 {
+    let shape = match field.shape {
+        Shape::Bool => "bool",
+        Shape::Count => "count",
+        Shape::Optional => "optional",
+        Shape::Required => "required",
+        Shape::Many => "many",
+    };
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    hash_binding_part(&mut hash, b"shape", Some(shape.as_bytes()));
+    hash_binding_part(
+        &mut hash,
+        b"bool-value",
+        Some(&[u8::from(field.bool_value)]),
+    );
+    hash_binding_part(
+        &mut hash,
+        b"optional-value",
+        Some(&[u8::from(field.optional_value_type)]),
+    );
+    let variadic = matches!(field.kind, Kind::Flag { variadic: true, .. });
+    hash_binding_part(&mut hash, b"variadic", Some(&[u8::from(variadic)]));
+    hash_binding_part(
+        &mut hash,
+        b"repeatable",
+        Some(&[u8::from(field.repeatable)]),
+    );
+    hash_binding_usize(&mut hash, b"var-min", field.var_min);
+    hash_binding_usize(&mut hash, b"var-max", field.var_max);
+    hash_binding_usize(&mut hash, b"value-var-min", field.value_var_min);
+    hash_binding_usize(&mut hash, b"value-var-max", field.value_var_max);
+    hash_binding_part(
+        &mut hash,
+        b"value-enum",
+        Some(&[u8::from(field.value_enum)]),
+    );
+    hash_binding_part(
+        &mut hash,
+        b"open-choices",
+        Some(&[u8::from(field.allow_unknown_choices)]),
+    );
+    for choice in &field.choices {
+        hash_binding_part(&mut hash, b"choice", Some(choice.as_bytes()));
+    }
+    hash_binding_part(&mut hash, b"choices-end", None);
+    hash_binding_part(
+        &mut hash,
+        b"validate",
+        field.validate.as_deref().map(str::as_bytes),
+    );
+    hash_binding_part(
+        &mut hash,
+        b"validate-error",
+        field.validate_error.as_deref().map(str::as_bytes),
+    );
+    let delimiter = field.delimiter.map(|value| value.to_string());
+    hash_binding_part(
+        &mut hash,
+        b"delimiter",
+        delimiter.as_deref().map(str::as_bytes),
+    );
+    hash
+}
+
+fn hash_binding_usize(hash: &mut u64, label: &[u8], value: Option<usize>) {
+    let value = value.map(|value| (value as u64).to_le_bytes());
+    hash_binding_part(hash, label, value.as_ref().map(|value| value.as_slice()));
+}
+
+/// Add one labelled, length-delimited part to a binding contract hash.
+///
+/// Labels keep adjacent properties distinct, while lengths keep values such as `("a", "bc")`
+/// from becoming indistinguishable from `("ab", "c")`.
+fn hash_binding_part(hash: &mut u64, label: &[u8], value: Option<&[u8]>) {
+    for byte in (label.len() as u64)
+        .to_le_bytes()
+        .into_iter()
+        .chain(label.iter().copied())
+    {
+        *hash ^= u64::from(byte);
+        *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    let (present, value) = match value {
+        Some(value) => (1u8, value),
+        None => (0u8, &[][..]),
+    };
+    for byte in [present]
+        .into_iter()
+        .chain((value.len() as u64).to_le_bytes())
+        .chain(value.iter().copied())
+    {
+        *hash ^= u64::from(byte);
+        *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
 }
 
@@ -1976,6 +2093,7 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
     let key = key_ident("FLAG", Some(i));
     let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
+    let direct = mirrored_global_ident(field).map(|mirrored| quote!(partial.#mirrored = false;));
     let displaced = displacements(cli, field);
     let undisplaced = is_displaceable(cli, field).then(|| {
         let overridden = format_ident!("__overridden_{}", ident);
@@ -2020,14 +2138,49 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
             }
         }
     });
-    let body = match field.shape {
+    let body = flag_binding_body(field);
+    let table = format_ident!("FLAG_{i}");
+    quote! {
+        // The key gets us to the right arm in one jump; the identity check makes a
+        // collision harmless rather than wrong. Two identical declarations in
+        // different modules hash alike — a macro cannot see a module path — and
+        // without this, one command's flag would fill another's field. `static` items
+        // have distinct addresses, so this is exact.
+        #key if ::core::ptr::eq(*flag, &#table) => {
+            #duplicate
+            #body
+            partial.#given = true;
+            #direct
+            // Given again after having lost: it is standing once more, which matters
+            // when the flags alternate — `--include a --all --include b`.
+            #undisplaced
+            // Whatever this flag displaces, undone here rather than after the parse:
+            // `overrides` is about which of two flags came last, and the token that
+            // just arrived is the last one so far.
+            #(#displaced)*
+            true
+        }
+    }
+}
+
+/// Assign one flag's value without changing the ledgers used by validation.
+///
+/// Ordinary occurrences wrap this with given/duplicate/relationship bookkeeping. A child
+/// redeclaration mirrored into an ancestor needs only this part: clap exposes the value through
+/// both typed fields, but the spelling still belongs to the child's declaration and must not
+/// acquire the ancestor's `exclusive`, `overrides`, or duplicate policy.
+fn flag_binding_body(field: &Field) -> TokenStream {
+    let ident = &field.ident;
+    match field.shape {
         // `negated` is what distinguishes `--color` from `--no-color`.
         Shape::Bool if field.bool_value => quote! {
             partial.#ident = match value {
                 Some(b"true") => !negated,
                 Some(b"false") => negated,
-                // The binding parser validates explicit boolean values.
-                Some(_) => unreachable!("bool_value was validated while binding"),
+                // The binding parser validates explicit boolean values for this declaration.
+                // A child may redeclare the same global identity with a non-boolean value;
+                // mirroring that event must leave this incompatible ancestor alone.
+                Some(_) => return false,
                 None => !negated,
             };
         },
@@ -2055,28 +2208,32 @@ fn flag_arm(cli: &Cli, i: usize, field: &Field) -> TokenStream {
             }
             None => quote!(partial.#ident.push(__usage_value_text(value));),
         },
-    };
-    let table = format_ident!("FLAG_{i}");
-    quote! {
-        // The key gets us to the right arm in one jump; the identity check makes a
-        // collision harmless rather than wrong. Two identical declarations in
-        // different modules hash alike — a macro cannot see a module path — and
-        // without this, one command's flag would fill another's field. `static` items
-        // have distinct addresses, so this is exact.
-        #key if ::core::ptr::eq(*flag, &#table) => {
-            #duplicate
-            #body
-            partial.#given = true;
-            // Given again after having lost: it is standing once more, which matters
-            // when the flags alternate — `--include a --all --include b`.
-            #undisplaced
-            // Whatever this flag displaces, undone here rather than after the parse:
-            // `overrides` is about which of two flags came last, and the token that
-            // just arrived is the last one so far.
-            #(#displaced)*
-            true
-        }
     }
+}
+
+/// The marker needed when a global can receive a child's redeclared value.
+fn mirrored_global_ident(field: &Field) -> Option<proc_macro2::Ident> {
+    matches!(field.kind, Kind::Flag { global: true, .. })
+        .then(|| format_ident!("__mirrored_{}", field.ident))
+}
+
+/// Whether this field directly invoked policy declared on this command.
+fn policy_given(field: &Field) -> TokenStream {
+    let given = format_ident!("__given_{}", field.ident);
+    match mirrored_global_ident(field) {
+        Some(mirrored) => quote!(partial.#given && !partial.#mirrored),
+        None => quote!(partial.#given),
+    }
+}
+
+/// Whether this field has a value supplied by argv or an environment fallback.
+///
+/// Unlike [`policy_given`], this includes a child redeclaration mirrored into a global.
+/// Such a value does not invoke policy declared on the ancestor, but it can satisfy a
+/// requirement imposed by a different, directly given field.
+fn semantic_given(field: &Field) -> TokenStream {
+    let given = format_ident!("__given_{}", field.ident);
+    quote!(partial.#given)
 }
 
 /// Whether a repeat of this flag is only a duplicate *within one command*.
@@ -2166,9 +2323,11 @@ fn displace_statement(cli: &Cli, field: &Field) -> TokenStream {
         let duplicated = format_ident!("__duplicated_{}", field.ident);
         quote!(partial.#duplicated = false;)
     });
+    let mirrored = mirrored_global_ident(field).map(|mirrored| quote!(partial.#mirrored = false;));
     quote! {
         #reset
         partial.#given = false;
+        #mirrored
         #duplicated
         // Remembered, not just cleared: without this the environment fallback
         // would refill the flag that lost and mark it given again, and a
@@ -2270,10 +2429,10 @@ fn presence_methods(cli: &Cli) -> TokenStream {
         ) {
             return None;
         }
-        let given = format_ident!("__given_{}", field.ident);
+        let given = policy_given(field);
         let name = &field.name;
         Some(quote! {
-            if partial.#given {
+            if #given {
                 return ::std::option::Option::Some(#name);
             }
         })
@@ -2306,10 +2465,10 @@ fn presence_methods(cli: &Cli) -> TokenStream {
         if !field.exclusive {
             return None;
         }
-        let given = format_ident!("__given_{}", field.ident);
+        let given = policy_given(field);
         let name = &field.name;
         Some(quote! {
-            if partial.#given {
+            if #given {
                 return ::std::option::Option::Some(#name);
             }
         })
@@ -2425,8 +2584,8 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             return None;
         }
         let selectors = field_selectors(field);
-        let ident = &field.ident;
-        let given = format_ident!("__given_{}", ident);
+        let given = policy_given(field);
+        let satisfied = semantic_given(field);
         let name = &field.name;
         // Look through conditional defaults as well as unconditional ones. This lookup
         // runs after `apply_defaults` during relationship validation, so a predicate
@@ -2439,8 +2598,8 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             #(#selectors)|* => return ::std::option::Option::Some(
                 usage_argv::spec::ArgumentState {
                     name: #name,
-                    given: partial.#given,
-                    satisfied: partial.#given || #defaulted || (#conditionally_defaulted),
+                    given: #given,
+                    satisfied: #satisfied || #defaulted || (#conditionally_defaulted),
                 },
             ),
         })
@@ -2470,7 +2629,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         }
         let selectors = field_selectors(field);
         let ident = &field.ident;
-        let given = format_ident!("__given_{}", ident);
+        let given = policy_given(field);
         let matches = match field.shape {
             Shape::Optional => quote!(partial.#ident.as_deref().is_some_and(|v| v == value)),
             Shape::Required => quote!(partial.#ident.as_slice() == value),
@@ -2483,7 +2642,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
                     || (value == b"false" && partial.#ident == 0)
             ),
         };
-        Some(quote!(#(#selectors)|* => return ::std::option::Option::Some(partial.#given && #matches),))
+        Some(quote!(#(#selectors)|* => return ::std::option::Option::Some(#given && #matches),))
     });
     let match_flattened = cli.fields.iter().filter_map(|field| {
         let Kind::Flatten { ty } = &field.kind else {
@@ -2676,7 +2835,10 @@ fn partial_struct(cli: &Cli) -> TokenStream {
             let negated = format_ident!("__negated_{}", ident);
             quote!(pub #negated: bool,)
         });
-        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated #here #negated))
+        let mirrored = mirrored_global_ident(f).map(|mirrored| {
+            quote!(pub #mirrored: bool,)
+        });
+        Some(quote!(pub #ident: #ty, pub #given: bool, #overridden #duplicated #here #negated #mirrored))
     });
 
     // No derived `Default`: `start` is what produces a fresh partial, because a
@@ -3008,6 +3170,7 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             let negated = format_ident!("__negated_{}", ident);
             quote!(#negated: false,)
         });
+        let mirrored = mirrored_global_ident(f).map(|mirrored| quote!(#mirrored: false,));
         Some(quote! {
             #ident: ::std::default::Default::default(),
             #given: false,
@@ -3015,6 +3178,7 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
             #duplicated
             #here
             #negated
+            #mirrored
         })
     });
     // Only the fields that declare one: `Partial`'s own initializer has already put
@@ -3410,10 +3574,10 @@ fn default_if_predicate(cli: &Cli, condition: &ConditionalDefault) -> TokenStrea
             ),
         };
     };
-    let other_given = format_ident!("__given_{}", other.ident);
+    let other_given = policy_given(other);
     let ident = &other.ident;
     match &condition.when {
-        None => quote!(partial.#other_given),
+        None => quote!(#other_given),
         Some(when) => {
             let matches = match other.shape {
                 Shape::Optional => quote!(
@@ -3434,7 +3598,7 @@ fn default_if_predicate(cli: &Cli, condition: &ConditionalDefault) -> TokenStrea
                     _ => quote!(false),
                 },
             };
-            quote!(partial.#other_given && #matches)
+            quote!(#other_given && #matches)
         }
     }
 }
@@ -3458,31 +3622,49 @@ fn apply_fn(cli: &Cli) -> TokenStream {
     // A flattened struct's flags are in this command's table, but its *keys* were minted in
     // its own expansion — so they cannot be matched here. Its `apply` recognises them, and
     // says whether it took the event.
-    let flattened = cli.fields.iter().filter_map(|f| {
+    let flattened: Vec<TokenStream> = cli
+        .fields
+        .iter()
+        .filter_map(|f| {
+            let Kind::Flatten { ty } = &f.kind else {
+                return None;
+            };
+            let ident = &f.ident;
+            let reverse_displacements = cli.fields.iter().flat_map(|field| {
+                field
+                    .overrides
+                    .iter()
+                    .filter(|selector| cli.field_for_selector(selector).is_none())
+                    .map(move |selector| {
+                        let statement = displace_statement(cli, field);
+                        quote! {
+                            if <#ty as usage_argv::spec::CommandArgs>::event_matches(
+                                event,
+                                #selector,
+                            ) {
+                                #statement
+                            }
+                        }
+                    })
+            });
+            Some(quote! {
+                if <#ty as usage_argv::spec::CommandArgs>::apply(&mut partial.#ident, event) {
+                    #(#reverse_displacements)*
+                    return true;
+                }
+            })
+        })
+        .collect();
+    let mirrored_flattened = cli.fields.iter().filter_map(|f| {
         let Kind::Flatten { ty } = &f.kind else {
             return None;
         };
         let ident = &f.ident;
-        let reverse_displacements = cli.fields.iter().flat_map(|field| {
-            field
-                .overrides
-                .iter()
-                .filter(|selector| cli.field_for_selector(selector).is_none())
-                .map(move |selector| {
-                    let statement = displace_statement(cli, field);
-                    quote! {
-                        if <#ty as usage_argv::spec::CommandArgs>::event_matches(
-                            event,
-                            #selector,
-                        ) {
-                            #statement
-                        }
-                    }
-                })
-        });
         Some(quote! {
-            if <#ty as usage_argv::spec::CommandArgs>::apply(&mut partial.#ident, event) {
-                #(#reverse_displacements)*
+            if <#ty as usage_argv::spec::CommandArgs>::apply_mirrored_global(
+                &mut partial.#ident,
+                event,
+            ) {
                 return true;
             }
         })
@@ -3498,6 +3680,30 @@ fn apply_fn(cli: &Cli) -> TokenStream {
         .filter(|f| matches!(f.kind, Kind::Arg { .. }))
         .collect();
     let flag_arms = flags.iter().enumerate().map(|(i, f)| flag_arm(cli, i, f));
+    let mirrored_flag_arms = flags.iter().enumerate().filter_map(|(i, field)| {
+        if !matches!(field.kind, Kind::Flag { global: true, .. }) {
+            return None;
+        }
+        let key = key_ident("FLAG", Some(i));
+        let table = format_ident!("FLAG_{i}");
+        let body = flag_binding_body(field);
+        let given = format_ident!("__given_{}", field.ident);
+        let mirrored = mirrored_global_ident(field).map(|mirrored| {
+            quote! {
+                if !partial.#given {
+                    partial.#mirrored = true;
+                }
+            }
+        });
+        Some(quote! {
+            #key if ::core::ptr::eq(*flag, &#table) => {
+                #body
+                #mirrored
+                partial.#given = true;
+                true
+            }
+        })
+    });
     let arg_arms = args.iter().enumerate().map(|(i, f)| arg_arm(i, f));
 
     quote! {
@@ -3548,6 +3754,24 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                 Event::External { .. } => false,
             }
         }
+
+        pub fn apply_mirrored_global(
+            partial: &mut Partial,
+            event: &usage_argv::Event<'_, '_, '_>,
+        ) -> bool {
+            #(#mirrored_flattened)*
+            match event {
+                usage_argv::Event::Flag { flag, value, negated } => {
+                    let (value, negated) = (*value, *negated);
+                    let _ = (value, negated);
+                    match flag.key {
+                        #(#mirrored_flag_arms)*
+                        _ => false,
+                    }
+                }
+                _ => false,
+            }
+        }
     }
 }
 
@@ -3584,6 +3808,11 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
     })?;
     let ident = &field.ident;
     let optional = matches!(&field.kind, Kind::Subcommand { optional: true, .. });
+    let command_table = if cli.composable {
+        quote!(COMMAND)
+    } else {
+        quote!(ROOT)
+    };
 
     let selected = quote! {
         match partial.__usage_selected {
@@ -3684,11 +3913,42 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
             // Only the selected one is asked — see `Subcommands::apply`. The selection is
             // set just above, so a command word reaches the command it named on the same
             // event that selected it.
-            if <#ty as usage_argv::spec::Subcommands>::apply(
+            let __usage_routed = <#ty as usage_argv::spec::Subcommands>::apply(
                 &mut partial.__usage_sub,
                 partial.__usage_selected,
                 event,
-            ) {
+            );
+            if __usage_routed {
+                // clap propagates a global value into the ancestor even when the
+                // selected subcommand redeclares the same spelling. The parser
+                // correctly chooses the nearer flag; mirror that event onto the
+                // ancestor's global table so both typed fields observe it.
+                if let usage_argv::Event::Flag { flag, value, negated } = event {
+                    if let ::std::option::Option::Some(__usage_global) = #command_table
+                        .flags
+                        .iter()
+                        .copied()
+                        .find(|candidate| {
+                            candidate.global
+                                && candidate.key != flag.key
+                                && candidate.binding_key != 0
+                                && candidate.binding_key == flag.binding_key
+                                && candidate.binding_type == flag.binding_type
+                                // A shared alias is not a redeclaration. clap mirrors a
+                                // global when the child declares the same argument identity;
+                                // `name` is the portable canonical identity while the table
+                                // key identifies the two Rust fields separately.
+                                && candidate.name == flag.name
+                        })
+                    {
+                        let __usage_global_event = usage_argv::Event::Flag {
+                            flag: __usage_global,
+                            value: *value,
+                            negated: *negated,
+                        };
+                        apply_mirrored_global(partial, &__usage_global_event);
+                    }
+                }
                 return true;
             }
         },
@@ -3999,6 +4259,13 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     event: &usage_argv::Event<'_, '_, '_>,
                 ) -> bool {
                     apply(partial, event)
+                }
+
+                fn apply_mirrored_global(
+                    partial: &mut Self::Partial,
+                    event: &usage_argv::Event<'_, '_, '_>,
+                ) -> bool {
+                    apply_mirrored_global(partial, event)
                 }
 
                 fn check<'t, 'v>(
@@ -5138,8 +5405,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         if !field.exclusive {
             return None;
         }
-        let given = format_ident!("__given_{}", field.ident);
-        Some(quote!(partial.#given))
+        Some(policy_given(field))
     });
     let flattened_exclusive_present = cli.fields.iter().filter_map(|field| {
         let Kind::Flatten { ty } = &field.kind else {
@@ -5430,14 +5696,14 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 .filter(|field| !matches!(field.kind, Kind::Flag { .. })),
         );
     let conflict_checks = conflict_fields.flat_map(move |f| {
-        let given = format_ident!("__given_{}", f.ident);
+        let given = policy_given(f);
         let name = &f.name;
         f.conflicts.iter().map(move |selector| {
             if let Some(other) = cli.field_for_selector(selector) {
-                let other_given = format_ident!("__given_{}", other.ident);
+                let other_given = policy_given(other);
                 let other_name = &other.name;
                 quote! {
-                    if partial.#given && partial.#other_given {
+                    if #given && #other_given {
                         return ::std::result::Result::Err(
                             usage_argv::Error::ConflictingFlags {
                                 name: #name,
@@ -5448,7 +5714,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 }
             } else {
                 quote! {
-                    if partial.#given {
+                    if #given {
                         if let ::std::option::Option::Some(other) = argument_state(partial, #selector) {
                             if other.given {
                                 return ::std::result::Result::Err(
@@ -5476,11 +5742,11 @@ fn post_binding(cli: &Cli) -> TokenStream {
     //
     // A target with a default is skipped outright, since it can never be missing.
     let requirement_checks = cli.fields.iter().flat_map(move |f| {
-        let given = format_ident!("__given_{}", f.ident);
+        let given = policy_given(f);
         f.requires.iter().map(move |selector| {
             let Some(other) = cli.field_for_selector(selector) else {
                 return quote! {
-                    if partial.#given {
+                    if #given {
                         match argument_state(partial, #selector) {
                             ::std::option::Option::Some(other) if other.satisfied => {}
                             ::std::option::Option::Some(other) => {
@@ -5500,7 +5766,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             if !other.default.is_empty() {
                 return quote!();
             }
-            let other_given = format_ident!("__given_{}", other.ident);
+            let other_given = semantic_given(other);
             let other_name = &other.name;
             let missing = quote! {
                 return ::std::result::Result::Err(
@@ -5509,12 +5775,12 @@ fn post_binding(cli: &Cli) -> TokenStream {
             };
             match default_if_would_apply(cli, other) {
                 Some(pred) => quote! {
-                    if partial.#given && !partial.#other_given && !(#pred) {
+                    if #given && !(#other_given) && !(#pred) {
                         #missing
                     }
                 },
                 None => quote! {
-                    if partial.#given && !partial.#other_given {
+                    if #given && !(#other_given) {
                         #missing
                     }
                 },
@@ -5526,7 +5792,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // without setting `__given_*`; argv and environment fallback set it. The partial
     // still holds bytes, so matching does not parse or otherwise reinterpret a value.
     let conditional_requirement_checks = cli.fields.iter().flat_map(move |f| {
-        let given = format_ident!("__given_{}", f.ident);
+        let given = policy_given(f);
         let ident = &f.ident;
         f.requires_if.iter().map(move |condition| {
             let external = cli.field_for_selector(&condition.requires).is_none();
@@ -5554,7 +5820,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     },
                 };
                 return quote! {
-                    if partial.#given && #matches {
+                    if #given && #matches {
                         match argument_state(partial, #selector) {
                             ::std::option::Option::Some(other) if other.satisfied => {}
                             ::std::option::Option::Some(other) => {
@@ -5571,7 +5837,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             if !other.default.is_empty() {
                 return quote!();
             }
-            let other_given = format_ident!("__given_{}", other.ident);
+            let other_given = semantic_given(other);
             let other_name = &other.name;
             let value = &condition.value;
             let matches = match f.shape {
@@ -5598,7 +5864,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 None => quote!(),
             };
             quote! {
-                if partial.#given && #matches && !partial.#other_given #unless_default_if {
+                if #given && #matches && !(#other_given) #unless_default_if {
                     return ::std::result::Result::Err(
                         usage_argv::Error::MissingRequired { name: #other_name },
                     );
@@ -5619,7 +5885,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         .iter()
         .filter(|f| f.exclusive)
         .flat_map(move |f| {
-            let given = format_ident!("__given_{}", f.ident);
+            let given = policy_given(f);
             let name = &f.name;
             cli.fields
                 .iter()
@@ -5631,10 +5897,10 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     )
                 })
                 .map(move |other| {
-                    let other_given = format_ident!("__given_{}", other.ident);
+                    let other_given = policy_given(other);
                     let other_name = &other.name;
                     quote! {
-                        if partial.#given && partial.#other_given {
+                        if #given && #other_given {
                             return ::std::result::Result::Err(
                                 usage_argv::Error::ConflictingFlags {
                                     name: #other_name,
@@ -5663,9 +5929,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
         })
         .rev()
         .fold(quote!(::std::option::Option::None), |rest, field| {
-            let given = format_ident!("__given_{}", field.ident);
+            let given = policy_given(field);
             let name = &field.name;
-            quote!(if partial.#given { ::std::option::Option::Some(#name) } else { #rest })
+            quote!(if #given { ::std::option::Option::Some(#name) } else { #rest })
         });
     let direct_exclusive = cli
         .fields
@@ -5673,9 +5939,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
         .filter(|field| field.exclusive)
         .rev()
         .fold(quote!(::std::option::Option::None), |rest, field| {
-            let given = format_ident!("__given_{}", field.ident);
+            let given = policy_given(field);
             let name = &field.name;
-            quote!(if partial.#given { ::std::option::Option::Some(#name) } else { #rest })
+            quote!(if #given { ::std::option::Option::Some(#name) } else { #rest })
         });
     let has_flatten = cli
         .fields
@@ -5756,13 +6022,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 .iter()
                 .filter_map(|selector| cli.field_for_selector(selector))
                 .collect();
-            let given: Vec<TokenStream> = fields
-                .iter()
-                .map(|f| {
-                    let given = format_ident!("__given_{}", f.ident);
-                    quote!(partial.#given)
-                })
-                .collect();
+            let given: Vec<TokenStream> = fields.iter().map(|f| policy_given(f)).collect();
             // A member with a default always has a value, so the group can never be
             // unsatisfied. Decided here rather than at run time, as `requires` is.
             let always_filled = fields.iter().any(|f| !f.default.is_empty());
@@ -5842,10 +6102,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         let name = &f.name;
         let selector_given = |selector: &String| {
             Some(match cli.field_for_selector(selector) {
-                Some(other) => {
-                    let other_given = format_ident!("__given_{}", other.ident);
-                    quote!(partial.#other_given)
-                }
+                Some(other) => policy_given(other),
                 None => quote!(
                     argument_state(partial, #selector).is_some_and(|state| state.given)
                 ),
@@ -6060,5 +6317,26 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
                 }
             }
         };
+    }
+}
+
+#[cfg(test)]
+mod binding_hash_tests {
+    use super::hash_binding_part;
+
+    fn contract(validate: &str, validate_error: &str) -> u64 {
+        let mut hash = 0xcbf2_9ce4_8422_2325u64;
+        hash_binding_part(&mut hash, b"validate", Some(validate.as_bytes()));
+        hash_binding_part(
+            &mut hash,
+            b"validate-error",
+            Some(validate_error.as_bytes()),
+        );
+        hash
+    }
+
+    #[test]
+    fn adjacent_binding_properties_cannot_alias_by_concatenation() {
+        assert_ne!(contract("a", "bc"), contract("ab", "c"));
     }
 }

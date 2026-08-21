@@ -314,6 +314,30 @@ pub fn multicall_applet<'a>(argv0: &'a str, name: &str, bin: Option<&str>) -> Op
     Some(base)
 }
 
+/// Resolved identity of a derive-generated binding type.
+#[derive(Clone, Copy)]
+pub struct BindingType(pub fn() -> &'static str);
+
+impl BindingType {
+    pub fn name(self) -> &'static str {
+        (self.0)()
+    }
+}
+
+impl ::core::fmt::Debug for BindingType {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_tuple("BindingType").field(&self.name()).finish()
+    }
+}
+
+impl PartialEq for BindingType {
+    fn eq(&self, other: &Self) -> bool {
+        self.name() == other.name()
+    }
+}
+
+impl Eq for BindingType {}
+
 /// A flag, addressed by any of its long or short forms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Flag<'a> {
@@ -321,6 +345,16 @@ pub struct Flag<'a> {
     /// generated code knows which field to assign without any string comparison.
     /// See [`Command::key`] on why it is this wide.
     pub key: u64,
+    /// Compatibility key for mirroring a redeclared child global into an ancestor field.
+    ///
+    /// Zero means no typed binding contract is declared. Derive-generated tables hash the
+    /// binding shape and portable metadata so only equivalent bindings receive the same event.
+    pub binding_key: u64,
+    /// Resolved Rust value type for a derive-generated binding.
+    ///
+    /// This is separate from [`Self::binding_key`] because token spellings are not type
+    /// identities: an imported alias and a fully qualified path can name the same type.
+    pub binding_type: Option<BindingType>,
     /// Unused by binding, kept so a table entry can carry its own name for
     /// diagnostics.
     pub name: &'a str,
@@ -413,6 +447,8 @@ impl Flag<'_> {
     /// A value-less flag, for use with struct update syntax.
     pub const BOOL: Flag<'static> = Flag {
         key: 0,
+        binding_key: 0,
+        binding_type: None,
         name: "",
         longs: &[],
         shorts: &[],
