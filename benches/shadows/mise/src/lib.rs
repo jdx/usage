@@ -3,9 +3,9 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
-use usage_derive::{Args, Cli, Subcommands};
+use usage_derive::{Args, Cli, Subcommands, ValueEnum};
 
 /// Initializes mise in the current shell session
 ///
@@ -1280,28 +1280,10 @@ pub struct BootstrapRemoteArgs {
         conflicts = "--skip",
         delimiter = ',',
         value_name = "ONLY",
-        choices(
-            "plugins",
-            "packages",
-            "accounts",
-            "files",
-            "services",
-            "firewall",
-            "compose",
-            "repos",
-            "dotfiles",
-            "mise-shell-activate",
-            "macos-defaults",
-            "macos-launchd-agents",
-            "linux-systemd-units",
-            "user",
-            "tools",
-            "task",
-            "final-hook"
-        ),
+        value_enum,
         var
     )]
-    pub only: ::std::vec::Vec<::std::string::String>,
+    pub only: ::std::vec::Vec<BootstrapRemoteOnlyValue>,
     /// SSH port override
     #[usage(long = "port", value_name = "PORT")]
     pub port: ::std::option::Option<::std::string::String>,
@@ -1319,32 +1301,8 @@ pub struct BootstrapRemoteArgs {
     )]
     pub remote_mise: ::std::option::Option<::std::string::String>,
     /// Skip one or more remote bootstrap parts
-    #[usage(
-        long = "skip",
-        delimiter = ',',
-        value_name = "SKIP",
-        choices(
-            "plugins",
-            "packages",
-            "accounts",
-            "files",
-            "services",
-            "firewall",
-            "compose",
-            "repos",
-            "dotfiles",
-            "mise-shell-activate",
-            "macos-defaults",
-            "macos-launchd-agents",
-            "linux-systemd-units",
-            "user",
-            "tools",
-            "task",
-            "final-hook"
-        ),
-        var
-    )]
-    pub skip: ::std::vec::Vec<::std::string::String>,
+    #[usage(long = "skip", delimiter = ',', value_name = "SKIP", value_enum, var)]
+    pub skip: ::std::vec::Vec<BootstrapRemoteSkipValue>,
     /// Local directory archived and sent to each target
     #[usage(long = "source", value_name = "SOURCE")]
     pub source: ::std::option::Option<::std::string::String>,
@@ -1363,6 +1321,82 @@ pub struct BootstrapRemoteArgs {
     /// Inventory host names from `[bootstrap.remote.hosts]`
     #[usage(arg, name = "TARGET")]
     pub target: ::std::vec::Vec<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum BootstrapRemoteOnlyValue {
+    #[value(name = "plugins")]
+    Plugins,
+    #[value(name = "packages")]
+    Packages,
+    #[value(name = "accounts")]
+    Accounts,
+    #[value(name = "files")]
+    Files,
+    #[value(name = "services")]
+    Services,
+    #[value(name = "firewall")]
+    Firewall,
+    #[value(name = "compose")]
+    Compose,
+    #[value(name = "repos")]
+    Repos,
+    #[value(name = "dotfiles")]
+    Dotfiles,
+    #[value(name = "mise-shell-activate", alias = "shell")]
+    MiseShellActivate,
+    #[value(name = "macos-defaults", alias = "defaults")]
+    MacosDefaults,
+    #[value(name = "macos-launchd-agents", alias = "launchd")]
+    MacosLaunchdAgents,
+    #[value(name = "linux-systemd-units", alias = "systemd")]
+    LinuxSystemdUnits,
+    #[value(name = "user")]
+    User,
+    #[value(name = "tools")]
+    Tools,
+    #[value(name = "task")]
+    Task,
+    #[value(name = "final-hook")]
+    FinalHook,
+}
+
+#[derive(ValueEnum)]
+pub enum BootstrapRemoteSkipValue {
+    #[value(name = "plugins")]
+    Plugins,
+    #[value(name = "packages")]
+    Packages,
+    #[value(name = "accounts")]
+    Accounts,
+    #[value(name = "files")]
+    Files,
+    #[value(name = "services")]
+    Services,
+    #[value(name = "firewall")]
+    Firewall,
+    #[value(name = "compose")]
+    Compose,
+    #[value(name = "repos")]
+    Repos,
+    #[value(name = "dotfiles")]
+    Dotfiles,
+    #[value(name = "mise-shell-activate", alias = "shell")]
+    MiseShellActivate,
+    #[value(name = "macos-defaults", alias = "defaults")]
+    MacosDefaults,
+    #[value(name = "macos-launchd-agents", alias = "launchd")]
+    MacosLaunchdAgents,
+    #[value(name = "linux-systemd-units", alias = "systemd")]
+    LinuxSystemdUnits,
+    #[value(name = "user")]
+    User,
+    #[value(name = "tools")]
+    Tools,
+    #[value(name = "task")]
+    Task,
+    #[value(name = "final-hook")]
+    FinalHook,
 }
 
 #[derive(Args)]
@@ -1670,65 +1704,99 @@ pub struct BootstrapArgs {
         conflicts = "--skip",
         delimiter = ',',
         value_name = "ONLY",
-        choices(
-            "plugins",
-            "packages",
-            "accounts",
-            "files",
-            "services",
-            "firewall",
-            "compose",
-            "repos",
-            "dotfiles",
-            "mise-shell-activate",
-            "macos-defaults",
-            "macos-launchd-agents",
-            "linux-systemd-units",
-            "user",
-            "tools",
-            "task",
-            "final-hook"
-        ),
+        value_enum,
         var
     )]
-    pub only: ::std::vec::Vec<::std::string::String>,
+    pub only: ::std::vec::Vec<BootstrapOnlyValue>,
     /// Prompt securely for missing bootstrap secret inputs
     #[usage(long = "prompt-secrets")]
     pub prompt_secrets: bool,
     /// Skip one or more bootstrap parts
     ///
     /// Can be passed multiple times or as a comma-separated list.
-    #[usage(
-        long = "skip",
-        delimiter = ',',
-        value_name = "SKIP",
-        choices(
-            "plugins",
-            "packages",
-            "accounts",
-            "files",
-            "services",
-            "firewall",
-            "compose",
-            "repos",
-            "dotfiles",
-            "mise-shell-activate",
-            "macos-defaults",
-            "macos-launchd-agents",
-            "linux-systemd-units",
-            "user",
-            "tools",
-            "task",
-            "final-hook"
-        ),
-        var
-    )]
-    pub skip: ::std::vec::Vec<::std::string::String>,
+    #[usage(long = "skip", delimiter = ',', value_name = "SKIP", value_enum, var)]
+    pub skip: ::std::vec::Vec<BootstrapSkipValue>,
     /// Refresh package manager metadata and update configured repos
     #[usage(long = "update")]
     pub update: bool,
     #[usage(subcommand)]
     pub command: ::std::option::Option<BootstrapCommands>,
+}
+
+#[derive(ValueEnum)]
+pub enum BootstrapOnlyValue {
+    #[value(name = "plugins")]
+    Plugins,
+    #[value(name = "packages")]
+    Packages,
+    #[value(name = "accounts")]
+    Accounts,
+    #[value(name = "files")]
+    Files,
+    #[value(name = "services")]
+    Services,
+    #[value(name = "firewall")]
+    Firewall,
+    #[value(name = "compose")]
+    Compose,
+    #[value(name = "repos")]
+    Repos,
+    #[value(name = "dotfiles")]
+    Dotfiles,
+    #[value(name = "mise-shell-activate", alias = "shell")]
+    MiseShellActivate,
+    #[value(name = "macos-defaults", alias = "defaults")]
+    MacosDefaults,
+    #[value(name = "macos-launchd-agents", alias = "launchd")]
+    MacosLaunchdAgents,
+    #[value(name = "linux-systemd-units", alias = "systemd")]
+    LinuxSystemdUnits,
+    #[value(name = "user")]
+    User,
+    #[value(name = "tools")]
+    Tools,
+    #[value(name = "task")]
+    Task,
+    #[value(name = "final-hook")]
+    FinalHook,
+}
+
+#[derive(ValueEnum)]
+pub enum BootstrapSkipValue {
+    #[value(name = "plugins")]
+    Plugins,
+    #[value(name = "packages")]
+    Packages,
+    #[value(name = "accounts")]
+    Accounts,
+    #[value(name = "files")]
+    Files,
+    #[value(name = "services")]
+    Services,
+    #[value(name = "firewall")]
+    Firewall,
+    #[value(name = "compose")]
+    Compose,
+    #[value(name = "repos")]
+    Repos,
+    #[value(name = "dotfiles")]
+    Dotfiles,
+    #[value(name = "mise-shell-activate", alias = "shell")]
+    MiseShellActivate,
+    #[value(name = "macos-defaults", alias = "defaults")]
+    MacosDefaults,
+    #[value(name = "macos-launchd-agents", alias = "launchd")]
+    MacosLaunchdAgents,
+    #[value(name = "linux-systemd-units", alias = "systemd")]
+    LinuxSystemdUnits,
+    #[value(name = "user")]
+    User,
+    #[value(name = "tools")]
+    Tools,
+    #[value(name = "task")]
+    Task,
+    #[value(name = "final-hook")]
+    FinalHook,
 }
 
 #[derive(Subcommands)]
@@ -1974,16 +2042,34 @@ pub struct ConfigSetArgs {
         long = "type",
         short = 't',
         value_name = "TYPE",
-        choices("infer", "string", "integer", "float", "bool", "list", "set"),
+        value_enum,
         default = "infer"
     )]
-    pub type_: ::std::option::Option<::std::string::String>,
+    pub type_: ::std::option::Option<ConfigSetTypeValue>,
     /// The path of the config to display
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
     /// The value to set the key to (optional if provided as KEY=VALUE)
     #[usage(arg, name = "VALUE")]
     pub value: ::std::option::Option<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum ConfigSetTypeValue {
+    #[value(name = "infer")]
+    Infer,
+    #[value(name = "string")]
+    String,
+    #[value(name = "integer")]
+    Integer,
+    #[value(name = "float")]
+    Float,
+    #[value(name = "bool")]
+    Bool,
+    #[value(name = "list")]
+    List,
+    #[value(name = "set")]
+    Set,
 }
 
 /// Manage config files
@@ -2502,9 +2588,9 @@ pub struct GenerateBootstrapArgs {
     #[usage(
         long = "write",
         short = 'w',
+        value_optional,
         default_missing = "./bin/mise",
-        value_name = "WRITE",
-        value_optional
+        value_name = "WRITE"
     )]
     pub write: ::std::option::Option<::std::string::String>,
     /// Directory to put localized data into
@@ -2657,10 +2743,18 @@ pub struct GenerateTaskDocsArgs {
         long = "style",
         short = 's',
         value_name = "STYLE",
-        choices("simple", "detailed"),
+        value_enum,
         default = "simple"
     )]
-    pub style: ::std::option::Option<::std::string::String>,
+    pub style: ::std::option::Option<GenerateTaskDocsStyleValue>,
+}
+
+#[derive(ValueEnum)]
+pub enum GenerateTaskDocsStyleValue {
+    #[value(name = "simple")]
+    Simple,
+    #[value(name = "detailed")]
+    Detailed,
 }
 
 /// Generates shims to run mise tasks
@@ -2736,10 +2830,10 @@ pub struct GenerateToolStubArgs {
         long = "checksum-algorithm",
         conflicts("--lock", "--skip-download"),
         value_name = "CHECKSUM_ALGORITHM",
-        choices("blake3", "sha256"),
+        value_enum,
         default = "blake3"
     )]
-    pub checksum_algorithm: ::std::option::Option<::std::string::String>,
+    pub checksum_algorithm: ::std::option::Option<GenerateToolStubChecksumAlgorithmValue>,
     /// Fetch checksums and sizes for an existing tool stub file
     ///
     /// This reads an existing stub file and fills in any missing checksum/size fields
@@ -2806,6 +2900,14 @@ pub struct GenerateToolStubArgs {
     /// Output file path for the tool stub
     #[usage(arg, name = "OUTPUT")]
     pub output: ::std::string::String,
+}
+
+#[derive(ValueEnum)]
+pub enum GenerateToolStubChecksumAlgorithmValue {
+    #[value(name = "blake3")]
+    Blake3,
+    #[value(name = "sha256")]
+    Sha256,
 }
 
 /// Generate files for various tools/services
@@ -2946,16 +3048,19 @@ pub struct HookEnvArgs {
     #[usage(long = "shell", short = 's', value_name = "SHELL")]
     pub shell: ::std::option::Option<::std::string::String>,
     /// Reason for calling hook-env (e.g., "precmd", "chpwd")
-    #[usage(
-        long = "reason",
-        hide,
-        value_name = "REASON",
-        choices("precmd", "chpwd")
-    )]
-    pub reason: ::std::option::Option<::std::string::String>,
+    #[usage(long = "reason", hide, value_name = "REASON", value_enum)]
+    pub reason: ::std::option::Option<HookEnvReasonValue>,
     /// Show "mise: <TOOL>@<VERSION>" message when changing directories
     #[usage(long = "status", hide)]
     pub status: bool,
+}
+
+#[derive(ValueEnum)]
+pub enum HookEnvReasonValue {
+    #[value(name = "precmd")]
+    Precmd,
+    #[value(name = "chpwd")]
+    Chpwd,
 }
 
 /// [internal] called by shell when a command is not found
@@ -3614,13 +3719,8 @@ pub struct OciPushArgs {
 )]
 pub struct OciRunArgs {
     /// Container engine to use (`auto`, `podman`, or `docker`)
-    #[usage(
-        long = "engine",
-        value_name = "ENGINE",
-        choices("auto", "podman", "docker"),
-        default = "auto"
-    )]
-    pub engine: ::std::option::Option<::std::string::String>,
+    #[usage(long = "engine", value_name = "ENGINE", value_enum, default = "auto")]
+    pub engine: ::std::option::Option<OciRunEngineValue>,
     /// Base image reference for the build (ignored with --image-dir)
     #[usage(long = "from", value_name = "FROM")]
     pub from: ::std::option::Option<::std::string::String>,
@@ -3679,6 +3779,16 @@ pub struct OciRunArgs {
     /// Command and arguments to run inside the container (after `--`)
     #[usage(arg, name = "CMD", double_dash = "required")]
     pub cmd: ::std::vec::Vec<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum OciRunEngineValue {
+    #[value(name = "auto")]
+    Auto,
+    #[value(name = "podman")]
+    Podman,
+    #[value(name = "docker")]
+    Docker,
 }
 
 /// [experimental] Build OCI container images from a mise.toml
@@ -4452,10 +4562,10 @@ pub struct RunArgs {
         long = "task-cache",
         env = "MISE_TASK_CACHE",
         value_name = "TASK_CACHE",
-        choices("read-write", "read-only", "write-only", "off", "local-only"),
+        value_enum,
         default = "read-write"
     )]
-    pub task_cache: ::std::option::Option<::std::string::String>,
+    pub task_cache: ::std::option::Option<RunTaskCacheValue>,
     /// Explain the inputs that produced each task's output cache key
     #[usage(long = "task-cache-explain")]
     pub task_cache_explain: bool,
@@ -4482,6 +4592,25 @@ pub struct RunArgs {
     pub timings: bool,
 }
 
+#[derive(ValueEnum)]
+pub enum RunTaskCacheValue {
+    /// Read cached results and write new results.
+    #[value(name = "read-write")]
+    ReadWrite,
+    /// Read cached results without writing new results.
+    #[value(name = "read-only")]
+    ReadOnly,
+    /// Write new results without reading cached results.
+    #[value(name = "write-only")]
+    WriteOnly,
+    /// Disable task output caching for this run.
+    #[value(name = "off")]
+    Off,
+    /// Read and write only the local cache.
+    #[value(name = "local-only")]
+    LocalOnly,
+}
+
 /// Search for tools in the registry
 ///
 /// This command searches a tool in the registry.
@@ -4506,16 +4635,26 @@ pub struct SearchArgs {
         long = "match-type",
         short = 'm',
         value_name = "MATCH_TYPE",
-        choices("equal", "contains", "fuzzy"),
+        value_enum,
         default = "fuzzy"
     )]
-    pub match_type: ::std::option::Option<::std::string::String>,
+    pub match_type: ::std::option::Option<SearchMatchTypeValue>,
     /// Don't display headers
     #[usage(long = "no-header", alias = "no-headers")]
     pub no_header: bool,
     /// The tool to search for
     #[usage(arg, name = "NAME")]
     pub name: ::std::option::Option<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum SearchMatchTypeValue {
+    #[value(name = "equal")]
+    Equal,
+    #[value(name = "contains")]
+    Contains,
+    #[value(name = "fuzzy")]
+    Fuzzy,
 }
 
 /// Updates mise itself.
@@ -5182,17 +5321,33 @@ pub struct TasksLsArgs {
     #[usage(long = "no-header", alias = "no-headers")]
     pub no_header: bool,
     /// Sort by column. Default is name.
-    #[usage(
-        long = "sort",
-        value_name = "COLUMN",
-        choices("name", "alias", "description", "source")
-    )]
-    pub sort: ::std::option::Option<::std::string::String>,
+    #[usage(long = "sort", value_name = "COLUMN", value_enum)]
+    pub sort: ::std::option::Option<TasksLsSortValue>,
     /// Sort order. Default is asc.
-    #[usage(long = "sort-order", value_name = "SORT_ORDER", choices("asc", "desc"))]
-    pub sort_order: ::std::option::Option<::std::string::String>,
+    #[usage(long = "sort-order", value_name = "SORT_ORDER", value_enum)]
+    pub sort_order: ::std::option::Option<TasksLsSortOrderValue>,
     #[usage(long = "usage", hide)]
     pub usage: bool,
+}
+
+#[derive(ValueEnum)]
+pub enum TasksLsSortValue {
+    #[value(name = "name")]
+    Name,
+    #[value(name = "alias")]
+    Alias,
+    #[value(name = "description")]
+    Description,
+    #[value(name = "source")]
+    Source,
+}
+
+#[derive(ValueEnum)]
+pub enum TasksLsSortOrderValue {
+    #[value(name = "asc")]
+    Asc,
+    #[value(name = "desc")]
+    Desc,
 }
 
 /// Run task(s)
@@ -5391,10 +5546,10 @@ pub struct TasksRunArgs {
         long = "task-cache",
         env = "MISE_TASK_CACHE",
         value_name = "TASK_CACHE",
-        choices("read-write", "read-only", "write-only", "off", "local-only"),
+        value_enum,
         default = "read-write"
     )]
-    pub task_cache: ::std::option::Option<::std::string::String>,
+    pub task_cache: ::std::option::Option<TasksRunTaskCacheValue>,
     /// Explain the inputs that produced each task's output cache key
     #[usage(long = "task-cache-explain")]
     pub task_cache_explain: bool,
@@ -5432,6 +5587,25 @@ pub struct TasksRunArgs {
     /// Arguments to pass to the tasks. Use ":::" to separate tasks.
     #[usage(arg, name = "ARGS_LAST", hide, double_dash = "required")]
     pub args_last: ::std::vec::Vec<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum TasksRunTaskCacheValue {
+    /// Read cached results and write new results.
+    #[value(name = "read-write")]
+    ReadWrite,
+    /// Read cached results without writing new results.
+    #[value(name = "read-only")]
+    ReadOnly,
+    /// Write new results without reading cached results.
+    #[value(name = "write-only")]
+    WriteOnly,
+    /// Disable task output caching for this run.
+    #[value(name = "off")]
+    Off,
+    /// Read and write only the local cache.
+    #[value(name = "local-only")]
+    LocalOnly,
 }
 
 /// Validate tasks for common errors and issues
@@ -5489,15 +5663,11 @@ pub struct TasksArgs {
     #[usage(long = "no-header", alias = "no-headers")]
     pub no_header: bool,
     /// Sort by column. Default is name.
-    #[usage(
-        long = "sort",
-        value_name = "COLUMN",
-        choices("name", "alias", "description", "source")
-    )]
-    pub sort: ::std::option::Option<::std::string::String>,
+    #[usage(long = "sort", value_name = "COLUMN", value_enum)]
+    pub sort: ::std::option::Option<TasksSortValue>,
     /// Sort order. Default is asc.
-    #[usage(long = "sort-order", value_name = "SORT_ORDER", choices("asc", "desc"))]
-    pub sort_order: ::std::option::Option<::std::string::String>,
+    #[usage(long = "sort-order", value_name = "SORT_ORDER", value_enum)]
+    pub sort_order: ::std::option::Option<TasksSortOrderValue>,
     #[usage(long = "usage", hide)]
     pub usage: bool,
     /// Task name to get info of
@@ -5505,6 +5675,26 @@ pub struct TasksArgs {
     pub task: ::std::option::Option<::std::string::String>,
     #[usage(subcommand)]
     pub command: ::std::option::Option<TasksCommands>,
+}
+
+#[derive(ValueEnum)]
+pub enum TasksSortValue {
+    #[value(name = "name")]
+    Name,
+    #[value(name = "alias")]
+    Alias,
+    #[value(name = "description")]
+    Description,
+    #[value(name = "source")]
+    Source,
+}
+
+#[derive(ValueEnum)]
+pub enum TasksSortOrderValue {
+    #[value(name = "asc")]
+    Asc,
+    #[value(name = "desc")]
+    Desc,
 }
 
 #[derive(Subcommands)]
@@ -6242,12 +6432,12 @@ pub struct WatchArgs {
         long = "clear",
         short = 'c',
         help_heading = "Output",
+        value_optional,
         default_missing = "clear",
         value_name = "MODE",
-        value_optional,
-        choices("clear", "reset")
+        value_enum
     )]
-    pub clear: ::std::option::Option<::std::string::String>,
+    pub clear: ::std::option::Option<WatchClearValue>,
     /// What to do when receiving events while the command is running
     ///
     /// Default is to 'do-nothing', which ignores events while the command is running, so that
@@ -6263,10 +6453,10 @@ pub struct WatchArgs {
         short = 'o',
         hide_default_value,
         value_name = "MODE",
-        choices("queue", "do-nothing", "restart", "signal"),
+        value_enum,
         default = "do-nothing"
     )]
-    pub on_busy_update: ::std::option::Option<::std::string::String>,
+    pub on_busy_update: ::std::option::Option<WatchOnBusyUpdateValue>,
     /// Restart the process if it's still running
     ///
     /// This is a shorthand for '--on-busy-update=restart'.
@@ -6478,9 +6668,9 @@ pub struct WatchArgs {
     #[usage(
         long = "poll",
         alias = "force-poll",
+        value_optional,
         default_missing = "30s",
-        value_name = "INTERVAL",
-        value_optional
+        value_name = "INTERVAL"
     )]
     pub poll: ::std::option::Option<::std::string::String>,
     /// Use a different shell
@@ -6637,10 +6827,10 @@ pub struct WatchArgs {
         hide_default_value,
         help_heading = "Command",
         value_name = "MODE",
-        choices("environment", "stdio", "file", "json-stdio", "json-file", "none"),
+        value_enum,
         default = "none"
     )]
-    pub emit_events_to: ::std::option::Option<::std::string::String>,
+    pub emit_events_to: ::std::option::Option<WatchEmitEventsToValue>,
     /// Only emit events to stdout, run no commands.
     ///
     /// This is a convenience option for using Watchexec as a file watcher, without running any
@@ -6683,9 +6873,9 @@ pub struct WatchArgs {
         long = "wrap-process",
         help_heading = "Command",
         value_name = "MODE",
-        choices("group", "session", "none")
+        value_enum
     )]
-    pub wrap_process: ::std::option::Option<::std::string::String>,
+    pub wrap_process: ::std::option::Option<WatchWrapProcessValue>,
     /// Alert when commands start and end
     ///
     /// With this, Watchexec will emit a desktop notification when a command starts and ends, on
@@ -6700,10 +6890,10 @@ pub struct WatchArgs {
         alias = "colour",
         help_heading = "Output",
         value_name = "MODE",
-        choices("auto", "always", "never"),
+        value_enum,
         default = "auto"
     )]
-    pub color: ::std::option::Option<::std::string::String>,
+    pub color: ::std::option::Option<WatchColorValue>,
     /// Print how long the command took to run
     ///
     /// This may not be exactly accurate, as it includes some overhead from Watchexec itself. Use
@@ -6892,11 +7082,11 @@ pub struct WatchArgs {
         help_heading = "Filtering",
         delimiter = ',',
         value_name = "EVENTS",
-        choices("access", "create", "remove", "rename", "modify", "metadata"),
+        value_enum,
         default = "create,remove,rename,modify,metadata",
         var
     )]
-    pub fs_events: ::std::vec::Vec<::std::string::String>,
+    pub fs_events: ::std::vec::Vec<WatchFsEventsValue>,
     /// Don't emit fs events for metadata changes
     ///
     /// This is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the
@@ -6932,6 +7122,78 @@ pub struct WatchArgs {
     /// Task and arguments to run
     #[usage(arg, name = "ARGS", double_dash = "automatic")]
     pub args: ::std::vec::Vec<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum WatchClearValue {
+    #[value(name = "clear")]
+    Clear,
+    #[value(name = "reset")]
+    Reset,
+}
+
+#[derive(ValueEnum)]
+pub enum WatchOnBusyUpdateValue {
+    #[value(name = "queue")]
+    Queue,
+    #[value(name = "do-nothing")]
+    DoNothing,
+    #[value(name = "restart")]
+    Restart,
+    #[value(name = "signal")]
+    Signal,
+}
+
+#[derive(ValueEnum)]
+pub enum WatchEmitEventsToValue {
+    #[value(name = "environment")]
+    Environment,
+    #[value(name = "stdio")]
+    Stdio,
+    #[value(name = "file")]
+    File,
+    #[value(name = "json-stdio")]
+    JsonStdio,
+    #[value(name = "json-file")]
+    JsonFile,
+    #[value(name = "none")]
+    None,
+}
+
+#[derive(ValueEnum)]
+pub enum WatchWrapProcessValue {
+    #[value(name = "group")]
+    Group,
+    #[value(name = "session")]
+    Session,
+    #[value(name = "none")]
+    None,
+}
+
+#[derive(ValueEnum)]
+pub enum WatchColorValue {
+    #[value(name = "auto")]
+    Auto,
+    #[value(name = "always")]
+    Always,
+    #[value(name = "never")]
+    Never,
+}
+
+#[derive(ValueEnum)]
+pub enum WatchFsEventsValue {
+    #[value(name = "access")]
+    Access,
+    #[value(name = "create")]
+    Create,
+    #[value(name = "remove")]
+    Remove,
+    #[value(name = "rename")]
+    Rename,
+    #[value(name = "modify")]
+    Modify,
+    #[value(name = "metadata")]
+    Metadata,
 }
 
 /// Display the installation path for a tool
@@ -6994,6 +7256,7 @@ pub struct WhichArgs {
     author = "Jeff Dickey <@jdx>",
     about = "Dev tools, env vars, and tasks in one CLI",
     long_about = "mise prepares your development environment before each command runs. https://github.com/jdx/mise",
+    arg_required_else_help = true,
     after_long_help = "\u{1b}[1m\u{1b}[4mExamples:\u{1b}[22m\u{1b}[24m\n\n    $ \u{1b}[1mmise install node@20.0.0\u{1b}[22m       Install a specific node version\n    $ \u{1b}[1mmise install node@20\u{1b}[22m           Install a version matching a prefix\n    $ \u{1b}[1mmise install node\u{1b}[22m              Install the node version defined in config\n    $ \u{1b}[1mmise install\u{1b}[22m                   Install all plugins/tools defined in config\n\n    $ \u{1b}[1mmise install cargo:ripgrep\u{1b}[22m     Install something via cargo\n    $ \u{1b}[1mmise install npm:prettier\u{1b}[22m      Install something via npm\n\n    $ \u{1b}[1mmise use node@20\u{1b}[22m               Use node-20.x in current project\n    $ \u{1b}[1mmise use -g node@20\u{1b}[22m            Use node-20.x as default\n    $ \u{1b}[1mmise use node@latest\u{1b}[22m           Use latest node in current directory\n\n    $ \u{1b}[1mmise up --interactive\u{1b}[22m          Show a menu to upgrade tools\n\n    $ \u{1b}[1mmise x -- npm install\u{1b}[22m          `npm install` w/ config loaded into PATH\n    $ \u{1b}[1mmise x node@20 -- node app.js\u{1b}[22m  `node app.js` w/ config + node-20.x on PATH\n\n    $ \u{1b}[1mmise set NODE_ENV=production\u{1b}[22m   Set NODE_ENV=production in config\n\n    $ \u{1b}[1mmise run build\u{1b}[22m                 Run `build` tasks\n    $ \u{1b}[1mmise watch build\u{1b}[22m               Run `build` tasks repeatedly when files change\n\n    $ \u{1b}[1mmise settings\u{1b}[22m                  Show settings in use\n    $ \u{1b}[1mmise settings color=0\u{1b}[22m          Disable color by modifying global config file\n",
     default_subcommand = "run"
 )]
@@ -7082,9 +7345,9 @@ pub struct Cli {
         hide,
         overrides("--quiet", "--trace", "--verbose", "--silent", "--debug"),
         value_name = "LEVEL",
-        choices("trace", "debug", "info", "warning", "error")
+        value_enum
     )]
-    pub log_level: ::std::option::Option<::std::string::String>,
+    pub log_level: ::std::option::Option<LogLevelValue>,
     /// Do not load any config files
     ///
     /// Can also use `MISE_NO_CONFIG=1`
@@ -7152,6 +7415,20 @@ pub struct Cli {
     pub task_args_last: ::std::vec::Vec<::std::string::String>,
     #[usage(subcommand)]
     pub command: ::std::option::Option<Commands>,
+}
+
+#[derive(ValueEnum)]
+pub enum LogLevelValue {
+    #[value(name = "trace")]
+    Trace,
+    #[value(name = "debug")]
+    Debug,
+    #[value(name = "info")]
+    Info,
+    #[value(name = "warning")]
+    Warning,
+    #[value(name = "error")]
+    Error,
 }
 
 #[derive(Subcommands)]

@@ -1,0 +1,61 @@
+name tokei
+bin tokei
+version "14.0.0 compiled with serialization support: json, cbor, yaml"
+about #"""
+Count your code, quickly.
+Support this project on GitHub Sponsors: https://github.com/sponsors/XAMPPRocky
+"""#
+unknown_flags error
+args_override_self #false
+usage "Usage: tokei [OPTIONS] [input]..."
+flag "-c --columns" help="Sets a strict column width of the output, only available for terminal output." conflicts=--output {
+    arg <columns>
+}
+flag "-e --exclude" help="Ignore all files & directories matching the pattern." var=#true {
+    arg <exclude>… var=#true
+}
+flag "-f --files" help="Will print out statistics on individual files." default="false"
+flag "-i --input" help="Gives statistics from a previous tokei run. Can be given a file path, or \"stdin\" to read from stdin." {
+    arg <input>
+}
+flag --hidden help="Count hidden files." default="false"
+flag "-l --languages" help="Prints out supported languages and their extensions." conflicts=input default="false"
+flag --no-ignore help="Don't respect ignore files (.gitignore, .ignore, etc.). This implies --no-ignore-parent, --no-ignore-dot, and --no-ignore-vcs." default="false"
+flag --no-ignore-parent help="Don't respect ignore files (.gitignore, .ignore, etc.) in parent directories." default="false"
+flag --no-ignore-dot help="Don't respect .ignore and .tokeignore files, including those in parent directories." default="false"
+flag --no-ignore-vcs help="Don't respect VCS ignore files (.gitignore, .hgignore, etc.) including those in parent directories." default="false"
+flag "-o --output" help="Outputs Tokei in a specific format. Compile with additional features for more format support." {
+    arg <output>
+}
+flag --streaming help="prints the (language, path, lines, blanks, code, comments) records as simple lines or as Json for batch processing" {
+    arg <streaming> {
+        choices simple json ignore_case=#true
+    }
+}
+flag "-s --sort" help="Sort languages based on column" conflicts=--rsort {
+    arg <sort> {
+        choices files lines blanks code comments ignore_case=#true
+    }
+}
+flag "-r --rsort" help="Reverse sort languages based on column" conflicts=--sort {
+    arg <rsort> {
+        choices files lines blanks code comments ignore_case=#true
+    }
+}
+flag "-t --types" help="Filters output by language type, separated by a comma. i.e. -t=Rust,Markdown" var=#true {
+    arg <types>… var=#true
+}
+flag "-C --compact" help="Do not print statistics about embedded languages." default="false"
+flag "-n --num-format" help="Format of printed numbers, i.e., plain (1234, default), commas (1,234), dots (1.234), or underscores (1_234). Cannot be used with --output." conflicts=--output {
+    arg <num-format> {
+        choices commas dots plain underscores
+    }
+}
+flag "-v --verbose" help=#"""
+Set log output level:
+                        1: to show unknown file extensions,
+                        2: reserved for future debugging,
+                        3: enable file level trace. Not recommended on multiple files
+"""# var=#true count=#true default="0"
+arg "[input]…" help="The path(s) to the file or directory to be counted. (default current directory)" required=#false var=#true var_min=1 conflicts=--languages
+

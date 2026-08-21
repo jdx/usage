@@ -3,9 +3,9 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
-use usage_derive::{Args, Cli, Subcommands};
+use usage_derive::{Args, Cli, Subcommands, ValueEnum};
 
 /// Activate pitchfork in your shell session
 ///
@@ -28,8 +28,18 @@ use usage_derive::{Args, Cli, Subcommands};
 #[usage(effect = "read")]
 pub struct ActivateArgs {
     /// Shell to activate (bash, zsh, fish)
-    #[usage(arg, name = "SHELL", choices("bash", "zsh", "fish"))]
-    pub shell: ::std::string::String,
+    #[usage(arg, name = "SHELL", value_enum)]
+    pub shell: ActivateShellValue,
+}
+
+#[derive(ValueEnum)]
+pub enum ActivateShellValue {
+    #[value(name = "bash")]
+    Bash,
+    #[value(name = "zsh")]
+    Zsh,
+    #[value(name = "fish")]
+    Fish,
 }
 
 /// Generate JSON documentation for the web API endpoints
@@ -232,8 +242,8 @@ pub struct DaemonsAddArgs {
     )]
     pub expected_port: ::std::vec::Vec<::std::string::String>,
     /// Automatically find an available port if the expected port is in use
-    #[usage(long = "bump", value_name = "BUMP", value_optional)]
-    pub bump: ::std::option::Option<::std::string::String>,
+    #[usage(long = "bump", value_optional, value_name = "BUMP")]
+    pub bump: ::std::option::Option<::std::option::Option<::std::string::String>>,
     /// Daemon dependencies that must start first (can be specified multiple times)
     #[usage(long = "depends", value_name = "DEPENDS", var)]
     pub depends: ::std::vec::Vec<::std::string::String>,
@@ -346,8 +356,18 @@ pub enum DaemonsCommands {
 #[usage(effect = "read")]
 pub struct CompletionArgs {
     /// Shell to generate completions for (bash, zsh, fish)
-    #[usage(arg, name = "SHELL", choices("bash", "zsh", "fish"))]
-    pub shell: ::std::string::String,
+    #[usage(arg, name = "SHELL", value_enum)]
+    pub shell: CompletionShellValue,
+}
+
+#[derive(ValueEnum)]
+pub enum CompletionShellValue {
+    #[value(name = "bash")]
+    Bash,
+    #[value(name = "zsh")]
+    Zsh,
+    #[value(name = "fish")]
+    Fish,
 }
 
 /// Prevent a daemon from restarting
@@ -426,22 +446,8 @@ pub struct ListArgs {
     /// Filter daemons by status (repeatable for OR logic)
     ///
     /// Values: running, stopped, waiting, stopping, failed, errored, available, disabled
-    #[usage(
-        long = "status",
-        value_name = "STATUS",
-        choices(
-            "running",
-            "stopped",
-            "waiting",
-            "stopping",
-            "failed",
-            "errored",
-            "available",
-            "disabled"
-        ),
-        var
-    )]
-    pub status: ::std::vec::Vec<::std::string::String>,
+    #[usage(long = "status", value_name = "STATUS", value_enum, var)]
+    pub status: ::std::vec::Vec<ListStatusValue>,
     /// Only show daemons in this namespace (repeatable for OR logic)
     #[usage(long = "namespace", value_name = "NAMESPACE", var)]
     pub namespace: ::std::vec::Vec<::std::string::String>,
@@ -452,6 +458,26 @@ pub struct ListArgs {
     /// back to 'global' when no config file is found.
     #[usage(long = "project")]
     pub project: bool,
+}
+
+#[derive(ValueEnum)]
+pub enum ListStatusValue {
+    #[value(name = "running")]
+    Running,
+    #[value(name = "stopped")]
+    Stopped,
+    #[value(name = "waiting")]
+    Waiting,
+    #[value(name = "stopping")]
+    Stopping,
+    #[value(name = "failed")]
+    Failed,
+    #[value(name = "errored")]
+    Errored,
+    #[value(name = "available")]
+    Available,
+    #[value(name = "disabled")]
+    Disabled,
 }
 
 /// Reads a daemon's output on stdin and writes it to the log store
@@ -988,8 +1014,8 @@ pub struct RunArgs {
     )]
     pub expected_port: ::std::vec::Vec<::std::string::String>,
     /// Automatically find an available port if the expected port is in use
-    #[usage(long = "bump", value_name = "BUMP", value_optional)]
-    pub bump: ::std::option::Option<::std::string::String>,
+    #[usage(long = "bump", value_optional, value_name = "BUMP")]
+    pub bump: ::std::option::Option<::std::option::Option<::std::string::String>>,
     /// Shell command to poll for readiness (exit code 0 = ready)
     #[usage(long = "cmd", value_name = "CMD")]
     pub cmd: ::std::option::Option<::std::string::String>,
@@ -1184,8 +1210,8 @@ pub struct StartArgs {
     )]
     pub expected_port: ::std::vec::Vec<::std::string::String>,
     /// Automatically find an available port if the expected port is in use
-    #[usage(long = "bump", value_name = "BUMP", value_optional)]
-    pub bump: ::std::option::Option<::std::string::String>,
+    #[usage(long = "bump", value_optional, value_name = "BUMP")]
+    pub bump: ::std::option::Option<::std::option::Option<::std::string::String>>,
     /// Suppress startup log output
     #[usage(long = "quiet", short = 'q')]
     pub quiet: bool,
@@ -1398,7 +1424,13 @@ pub struct WaitArgs {
 
 /// Daemons with DX
 #[derive(Cli)]
-#[usage(bin = "pitchfork", name = "pitchfork", version = "2.22.0")]
+#[usage(
+    bin = "pitchfork",
+    name = "pitchfork",
+    version = "2.22.0",
+    unknown_flags = "error",
+    arg_required_else_help = true
+)]
 pub struct Cli {
     #[usage(subcommand)]
     pub command: Commands,

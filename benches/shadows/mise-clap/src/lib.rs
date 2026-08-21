@@ -3,7 +3,7 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
 use clap::{Args, Parser, Subcommand};
 
@@ -6197,6 +6197,7 @@ pub struct WhichArgs {
 #[derive(Parser)]
 #[command(
     name = "mise",
+    arg_required_else_help = true,
     about = "Dev tools, env vars, and tasks in one CLI",
     long_about = "mise prepares your development environment before each command runs. https://github.com/jdx/mise"
 )]

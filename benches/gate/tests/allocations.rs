@@ -91,12 +91,23 @@ fn parsing(words: &[&str]) -> usize {
     (0..3).map(|_| count(|| once(&argv))).min().unwrap_or(0)
 }
 
+/// Allocations made while attempting a parse, including an intentional terminal response.
+fn attempting(words: &[&str]) -> usize {
+    let argv: Vec<&OsStr> = words.iter().map(OsStr::new).collect();
+    let once = |argv: &Vec<&OsStr>| drop(Cli::parse_from(argv));
+    for _ in 0..3 {
+        count(|| once(&argv));
+    }
+    (0..3).map(|_| count(|| once(&argv))).min().unwrap_or(0)
+}
+
 #[test]
 fn nothing_bound_allocates_nothing() {
     // The strongest form of the property: 211 commands, 711 flags, and a command line with
-    // no words in it costs the allocator nothing at all. The tables are `&'static`, so
-    // there is no tree to build and no per-command state to fill in.
-    let bare = parsing(&[]);
+    // no words in it costs the allocator nothing at all. mise intentionally answers that line
+    // with `MissingArgsHelp`; the error only borrows the static command table, so there is still
+    // no tree to build and no per-command state to fill in.
+    let bare = attempting(&[]);
     println!("allocations, bare `mise`: {bare}");
     assert_eq!(
         bare, 0,

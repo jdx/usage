@@ -3,9 +3,9 @@
 //!
 //! Do not edit: regenerate it. It exists to be compiled and parsed against, so
 //! that the parser can be measured at a real CLI's scale rather than a toy one.
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
-use usage_derive::{Args, Cli, Subcommands};
+use usage_derive::{Args, Cli, Subcommands, ValueEnum};
 
 /// Bootstrap aube's cached node-gyp and print the executable path.
 #[derive(Args)]
@@ -520,12 +520,8 @@ pub struct AuditArgs {
     ///
     /// One of: `info`, `low`, `moderate`, `high`, `critical`.
     /// Defaults to `audit.level` (or legacy `auditLevel`), then `low`.
-    #[usage(
-        long = "audit-level",
-        value_name = "AUDIT_LEVEL",
-        choices("info", "low", "moderate", "high", "critical")
-    )]
-    pub audit_level: ::std::option::Option<::std::string::String>,
+    #[usage(long = "audit-level", value_name = "AUDIT_LEVEL", value_enum)]
+    pub audit_level: ::std::option::Option<AuditAuditLevelValue>,
     /// Only audit `devDependencies`.
     #[usage(long = "dev", short = 'D', conflicts = "--prod")]
     pub dev: bool,
@@ -535,12 +531,12 @@ pub struct AuditArgs {
     /// `--fix=update` refreshes the lockfile without writing overrides.
     #[usage(
         long = "fix",
+        value_optional,
         default_missing = "override",
         value_name = "FIX",
-        value_optional,
-        choices("update", "override")
+        value_enum
     )]
-    pub fix: ::std::option::Option<::std::string::String>,
+    pub fix: ::std::option::Option<AuditFixValue>,
     /// Drop advisories whose ID matches one of these values.
     ///
     /// Matches against the numeric npm advisory `id`,
@@ -626,6 +622,30 @@ pub struct AuditArgs {
     /// audit requests, dist-tags, and registry writes.
     #[usage(long = "registry", help_heading = "Network", value_name = "URL")]
     pub registry: ::std::option::Option<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum AuditAuditLevelValue {
+    #[value(name = "info")]
+    Info,
+    #[value(name = "low")]
+    Low,
+    #[value(name = "moderate")]
+    Moderate,
+    #[value(name = "high")]
+    High,
+    #[value(name = "critical")]
+    Critical,
+}
+
+#[derive(ValueEnum)]
+pub enum AuditFixValue {
+    /// Refresh the lockfile to patched versions allowed by existing ranges.
+    #[value(name = "update")]
+    Update,
+    /// Write package.json overrides that force patched versions.
+    #[value(name = "override")]
+    Override,
 }
 
 /// Print the path to `node_modules/.bin`
@@ -996,16 +1016,29 @@ pub struct ConfigDeleteArgs {
     #[usage(
         long = "location",
         value_name = "LOCATION",
-        choices("user", "project", "global"),
+        value_enum,
         default = "user"
     )]
-    pub location: ::std::option::Option<::std::string::String>,
+    pub location: ::std::option::Option<ConfigDeleteLocationValue>,
     /// The setting key.
     ///
     /// Accepts either a pnpm canonical name (e.g. `autoInstallPeers`)
     /// or an `.npmrc` alias (e.g. `auto-install-peers`).
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
+}
+
+#[derive(ValueEnum)]
+pub enum ConfigDeleteLocationValue {
+    /// User config (`~/.config/aube/config.toml` for known aube settings, `~/.npmrc` for registry/auth and unknown keys)
+    #[value(name = "user")]
+    User,
+    /// `<cwd>/.npmrc`
+    #[value(name = "project")]
+    Project,
+    /// Alias for `user` — aube has no separate global config file.
+    #[value(name = "global")]
+    Global,
 }
 
 /// Explain a known setting, including defaults and supported config sources
@@ -1047,16 +1080,32 @@ pub struct ConfigGetArgs {
     #[usage(
         long = "location",
         value_name = "LOCATION",
-        choices("merged", "user", "project", "global"),
+        value_enum,
         default = "merged"
     )]
-    pub location: ::std::option::Option<::std::string::String>,
+    pub location: ::std::option::Option<ConfigGetLocationValue>,
     /// The setting key.
     ///
     /// Accepts either a pnpm canonical name (e.g. `autoInstallPeers`)
     /// or an `.npmrc` alias (e.g. `auto-install-peers`).
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
+}
+
+#[derive(ValueEnum)]
+pub enum ConfigGetLocationValue {
+    /// Merge `~/.npmrc`, user aube config, and project `.npmrc`, last-write-wins (same precedence install uses).
+    #[value(name = "merged")]
+    Merged,
+    /// Only user config (`~/.config/aube/config.toml` + `~/.npmrc`)
+    #[value(name = "user")]
+    User,
+    /// Only `<cwd>/.npmrc`
+    #[value(name = "project")]
+    Project,
+    /// Alias for `user`.
+    #[value(name = "global")]
+    Global,
 }
 
 /// Print every key/value from aube config and selected `.npmrc` file(s)
@@ -1090,12 +1139,24 @@ pub struct ConfigListArgs {
     /// `merged` (default) walks `~/.npmrc`, user aube config, then
     /// the project's `.npmrc` with last-write-wins precedence,
     /// matching how install reads config.
-    #[usage(
-        long = "location",
-        value_name = "LOCATION",
-        choices("merged", "user", "project", "global")
-    )]
-    pub location: ::std::option::Option<::std::string::String>,
+    #[usage(long = "location", value_name = "LOCATION", value_enum)]
+    pub location: ::std::option::Option<ConfigListLocationValue>,
+}
+
+#[derive(ValueEnum)]
+pub enum ConfigListLocationValue {
+    /// Merge `~/.npmrc`, user aube config, and project `.npmrc`, last-write-wins (same precedence install uses).
+    #[value(name = "merged")]
+    Merged,
+    /// Only user config (`~/.config/aube/config.toml` + `~/.npmrc`)
+    #[value(name = "user")]
+    User,
+    /// Only `<cwd>/.npmrc`
+    #[value(name = "project")]
+    Project,
+    /// Alias for `user`.
+    #[value(name = "global")]
+    Global,
 }
 
 /// Write a key=value pair to aube config or the selected `.npmrc` file
@@ -1127,16 +1188,29 @@ pub struct ConfigSetArgs {
     #[usage(
         long = "location",
         value_name = "LOCATION",
-        choices("user", "project", "global"),
+        value_enum,
         default = "user"
     )]
-    pub location: ::std::option::Option<::std::string::String>,
+    pub location: ::std::option::Option<ConfigSetLocationValue>,
     /// Setting key (canonical name or `.npmrc` alias).
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
     /// Value to write. Stored verbatim after `key=`.
     #[usage(arg, name = "VALUE")]
     pub value: ::std::string::String,
+}
+
+#[derive(ValueEnum)]
+pub enum ConfigSetLocationValue {
+    /// User config (`~/.config/aube/config.toml` for known aube settings, `~/.npmrc` for registry/auth and unknown keys)
+    #[value(name = "user")]
+    User,
+    /// `<cwd>/.npmrc`
+    #[value(name = "project")]
+    Project,
+    /// Alias for `user` — aube has no separate global config file.
+    #[value(name = "global")]
+    Global,
 }
 
 /// Browse known settings in an interactive terminal UI
@@ -1175,14 +1249,26 @@ pub struct ConfigArgs {
     /// `merged` (default) walks `~/.npmrc`, user aube config, then
     /// the project's `.npmrc` with last-write-wins precedence,
     /// matching how install reads config.
-    #[usage(
-        long = "location",
-        value_name = "LOCATION",
-        choices("merged", "user", "project", "global")
-    )]
-    pub location: ::std::option::Option<::std::string::String>,
+    #[usage(long = "location", value_name = "LOCATION", value_enum)]
+    pub location: ::std::option::Option<ConfigLocationValue>,
     #[usage(subcommand)]
     pub command: ::std::option::Option<ConfigCommands>,
+}
+
+#[derive(ValueEnum)]
+pub enum ConfigLocationValue {
+    /// Merge `~/.npmrc`, user aube config, and project `.npmrc`, last-write-wins (same precedence install uses).
+    #[value(name = "merged")]
+    Merged,
+    /// Only user config (`~/.config/aube/config.toml` + `~/.npmrc`)
+    #[value(name = "user")]
+    User,
+    /// Only `<cwd>/.npmrc`
+    #[value(name = "project")]
+    Project,
+    /// Alias for `user`.
+    #[value(name = "global")]
+    Global,
 }
 
 #[derive(Subcommands)]
@@ -2328,16 +2414,32 @@ pub struct GetArgs {
     #[usage(
         long = "location",
         value_name = "LOCATION",
-        choices("merged", "user", "project", "global"),
+        value_enum,
         default = "merged"
     )]
-    pub location: ::std::option::Option<::std::string::String>,
+    pub location: ::std::option::Option<GetLocationValue>,
     /// The setting key.
     ///
     /// Accepts either a pnpm canonical name (e.g. `autoInstallPeers`)
     /// or an `.npmrc` alias (e.g. `auto-install-peers`).
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
+}
+
+#[derive(ValueEnum)]
+pub enum GetLocationValue {
+    /// Merge `~/.npmrc`, user aube config, and project `.npmrc`, last-write-wins (same precedence install uses).
+    #[value(name = "merged")]
+    Merged,
+    /// Only user config (`~/.config/aube/config.toml` + `~/.npmrc`)
+    #[value(name = "user")]
+    User,
+    /// Only `<cwd>/.npmrc`
+    #[value(name = "project")]
+    Project,
+    /// Alias for `user`.
+    #[value(name = "global")]
+    Global,
 }
 
 /// Print packages whose install scripts were skipped by `pnpm.allowBuilds`
@@ -2863,10 +2965,10 @@ pub struct LaArgs {
     #[usage(
         long = "format",
         value_name = "FORMAT",
-        choices("default", "json", "parseable"),
+        value_enum,
         default = "default"
     )]
-    pub format: ::std::option::Option<::std::string::String>,
+    pub format: ::std::option::Option<LaFormatValue>,
     /// Shortcut for `--format json`.
     ///
     /// Emit a JSON array of package entries.
@@ -2889,6 +2991,16 @@ pub struct LaArgs {
     /// Optional package name (or glob-like prefix match) to filter the output
     #[usage(arg, name = "PATTERN")]
     pub pattern: ::std::option::Option<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum LaFormatValue {
+    #[value(name = "default")]
+    Default,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "parseable")]
+    Parseable,
 }
 
 /// Report the licenses of installed dependencies
@@ -3018,10 +3130,10 @@ pub struct ListArgs {
     #[usage(
         long = "format",
         value_name = "FORMAT",
-        choices("default", "json", "parseable"),
+        value_enum,
         default = "default"
     )]
-    pub format: ::std::option::Option<::std::string::String>,
+    pub format: ::std::option::Option<ListFormatValue>,
     /// Shortcut for `--format json`.
     ///
     /// Emit a JSON array of package entries.
@@ -3044,6 +3156,16 @@ pub struct ListArgs {
     /// Optional package name (or glob-like prefix match) to filter the output
     #[usage(arg, name = "PATTERN")]
     pub pattern: ::std::option::Option<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum ListFormatValue {
+    #[value(name = "default")]
+    Default,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "parseable")]
+    Parseable,
 }
 
 /// Alias for `list --long` (hidden; prefer `list --long`)
@@ -3072,10 +3194,10 @@ pub struct LlArgs {
     #[usage(
         long = "format",
         value_name = "FORMAT",
-        choices("default", "json", "parseable"),
+        value_enum,
         default = "default"
     )]
-    pub format: ::std::option::Option<::std::string::String>,
+    pub format: ::std::option::Option<LlFormatValue>,
     /// Shortcut for `--format json`.
     ///
     /// Emit a JSON array of package entries.
@@ -3098,6 +3220,16 @@ pub struct LlArgs {
     /// Optional package name (or glob-like prefix match) to filter the output
     #[usage(arg, name = "PATTERN")]
     pub pattern: ::std::option::Option<::std::string::String>,
+}
+
+#[derive(ValueEnum)]
+pub enum LlFormatValue {
+    #[value(name = "default")]
+    Default,
+    #[value(name = "json")]
+    Json,
+    #[value(name = "parseable")]
+    Parseable,
 }
 
 /// Store a registry auth token in the user's ~/.npmrc
@@ -4074,18 +4206,18 @@ pub struct RunArgs {
     #[usage(
         long = "inspect",
         require_equals,
+        value_optional,
         default_missing = "",
-        value_name = "[[HOST:]PORT]",
-        value_optional
+        value_name = "[[HOST:]PORT]"
     )]
     pub inspect: ::std::option::Option<::std::string::String>,
     /// Forward `--inspect-brk` to a Node-backed script or local binary.
     #[usage(
         long = "inspect-brk",
         require_equals,
+        value_optional,
         default_missing = "",
-        value_name = "[[HOST:]PORT]",
-        value_optional
+        value_name = "[[HOST:]PORT]"
     )]
     pub inspect_brk: ::std::option::Option<::std::string::String>,
     /// Continue recursive execution after a script fails.
@@ -4332,16 +4464,24 @@ pub struct SbomArgs {
     #[usage(
         long = "format",
         value_name = "FORMAT",
-        choices("cyclonedx", "spdx"),
+        value_enum,
         default = "cyclonedx"
     )]
-    pub format: ::std::option::Option<::std::string::String>,
+    pub format: ::std::option::Option<SbomFormatValue>,
     /// Describe the complete platform-independent lockfile graph
     #[usage(long = "lockfile-only")]
     pub lockfile_only: bool,
     /// Show only production dependencies (skip devDependencies)
     #[usage(long = "prod", long = "production", short = 'P', conflicts = "--dev")]
     pub prod: bool,
+}
+
+#[derive(ValueEnum)]
+pub enum SbomFormatValue {
+    #[value(name = "cyclonedx")]
+    Cyclonedx,
+    #[value(name = "spdx")]
+    Spdx,
 }
 
 /// Search the registry for packages (not implemented — use `npm search`)
@@ -4440,16 +4580,29 @@ pub struct SetArgs {
     #[usage(
         long = "location",
         value_name = "LOCATION",
-        choices("user", "project", "global"),
+        value_enum,
         default = "user"
     )]
-    pub location: ::std::option::Option<::std::string::String>,
+    pub location: ::std::option::Option<SetLocationValue>,
     /// Setting key (canonical name or `.npmrc` alias).
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
     /// Value to write. Stored verbatim after `key=`.
     #[usage(arg, name = "VALUE")]
     pub value: ::std::string::String,
+}
+
+#[derive(ValueEnum)]
+pub enum SetLocationValue {
+    /// User config (`~/.config/aube/config.toml` for known aube settings, `~/.npmrc` for registry/auth and unknown keys)
+    #[value(name = "user")]
+    User,
+    /// `<cwd>/.npmrc`
+    #[value(name = "project")]
+    Project,
+    /// Alias for `user` — aube has no separate global config file.
+    #[value(name = "global")]
+    Global,
 }
 
 /// Set a `package.json` script (not implemented — use `npm set-script`)
@@ -5774,9 +5927,9 @@ pub struct Cli {
         long_help = "Enable cold-install deep diagnostics. Modes:\n  summary  — sum_ms / mean / max / %wall table at end\n  trace    — summary + critical path + starvation + what-if + lifecycle\n  live     — like trace, plus print every span >= 100ms to stderr live\n  full     — like trace, plus write JSONL trace to a file (defaults to ./aube-diag.jsonl)\n\nQuick form: `--diag` with no value defaults to `trace`.\nOutput file path can be set via `--diag-file`. Threshold for live\nmode via `--diag-threshold-ms`.",
         long = "diag",
         global,
+        value_optional,
         default_missing = "trace",
-        value_name = "MODE",
-        value_optional
+        value_name = "MODE"
     )]
     pub diag: ::std::option::Option<::std::string::String>,
     /// Path for `--diag full` JSONL trace (default: ./aube-diag.jsonl)
@@ -5811,13 +5964,8 @@ pub struct Cli {
     #[usage(long = "include-workspace-root", global, hide)]
     pub include_workspace_root: bool,
     /// Set the log level. Logs at or above this level are shown.
-    #[usage(
-        long = "loglevel",
-        global,
-        value_name = "LEVEL",
-        choices("trace", "debug", "info", "warn", "error", "silent")
-    )]
-    pub loglevel: ::std::option::Option<::std::string::String>,
+    #[usage(long = "loglevel", global, value_name = "LEVEL", value_enum)]
+    pub loglevel: ::std::option::Option<LoglevelValue>,
     /// Disable colored output.
     ///
     /// Overrides `FORCE_COLOR` / `CLICOLOR_FORCE` and sets `NO_COLOR=1`
@@ -5833,13 +5981,8 @@ pub struct Cli {
     /// the JSON formatter (one JSON object per log event on stderr)
     /// and is what tooling wrappers should consume; `silent`
     /// suppresses all non-error output (alias for `--loglevel silent`).
-    #[usage(
-        long = "reporter",
-        global,
-        value_name = "NAME",
-        choices("default", "append-only", "ndjson", "silent")
-    )]
-    pub reporter: ::std::option::Option<::std::string::String>,
+    #[usage(long = "reporter", global, value_name = "NAME", value_enum)]
+    pub reporter: ::std::option::Option<ReporterValue>,
     /// Suppress all non-error output (alias for `--loglevel silent`)
     #[usage(long = "silent", global)]
     pub silent: bool,
@@ -5871,6 +6014,34 @@ pub struct Cli {
     pub yes: bool,
     #[usage(subcommand)]
     pub command: ::std::option::Option<Commands>,
+}
+
+#[derive(ValueEnum)]
+pub enum LoglevelValue {
+    #[value(name = "trace")]
+    Trace,
+    #[value(name = "debug")]
+    Debug,
+    #[value(name = "info")]
+    Info,
+    #[value(name = "warn")]
+    Warn,
+    #[value(name = "error")]
+    Error,
+    #[value(name = "silent")]
+    Silent,
+}
+
+#[derive(ValueEnum)]
+pub enum ReporterValue {
+    #[value(name = "default")]
+    Default,
+    #[value(name = "append-only")]
+    AppendOnly,
+    #[value(name = "ndjson")]
+    Ndjson,
+    #[value(name = "silent")]
+    Silent,
 }
 
 #[derive(Subcommands)]

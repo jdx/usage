@@ -2535,18 +2535,6 @@ impl Field {
                 ),
             ));
         }
-        // Some ASCII characters cannot reach a flag at all, because the grammar
-        // spends them on something else first.
-        if let Some(short) = shorts.iter().find(|c| c.is_ascii_digit()) {
-            return Err(syn::Error::new(
-                span,
-                format!(
-                    "`short = '{short}'` can never be given: `-{short}` reads as a \
-                     negative number, which the grammar treats as a value so that \
-                     `--offset -1` works"
-                ),
-            ));
-        }
         // Whitespace and control characters cannot survive the round trip either:
         // the spec writes a flag's forms as a space-delimited string, so `-\t`
         // becomes an unreadable declaration rather than a flag.

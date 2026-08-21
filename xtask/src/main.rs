@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt::Write as _;
 use std::path::Path;
 
-use usage::{Spec, SpecArg, SpecCommand, SpecFlag, SpecGroup};
+use usage::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag, SpecGroup};
 
 mod cobra;
 mod help_pages;
