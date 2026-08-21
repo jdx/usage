@@ -334,6 +334,14 @@ pub enum TokenRole {
     },
     /// An explicit `--`, consumed as a separator.
     Separator,
+    /// A declared `value_terminator`, consumed to end a run of values. `ends` names the
+    /// declaration whose run it closed — the word is not one of that run's values, which is
+    /// the whole reason it was declared.
+    ValueTerminator { ends: String },
+    /// A declared `restart_token`: the positional cursor and the values it had filled start
+    /// over here. Recorded because the words before it are still in the report, and without
+    /// this row they look like they filled arguments that then came back empty.
+    Restart,
     /// A flag-like word no declaration matched. `bound_as` is the positional that took it
     /// under `unknown_flags="value"`, and `None` when the word was refused.
     UnknownFlag { bound_as: Option<Arc<SpecArg>> },
@@ -1423,6 +1431,7 @@ fn parse_partial_with_env(
                 // token trace is *not* cleared: those words were read, and a report that
                 // dropped them would show a command line with a hole in it.
                 out.arg_origins.clear();
+                trace.record(argv, TokenRole::Restart);
                 next_arg_idx = 0;
                 out.flag_awaiting_value.clear(); // Clear any pending flag values
                 enable_flags = true; // Reset -- separator effect
@@ -1920,6 +1929,12 @@ fn parse_partial_with_env(
                 && out.args.contains_key(arg)
                 && arg.value_terminator.as_deref() == Some(w.as_str())
             {
+                trace.record(
+                    argv,
+                    TokenRole::ValueTerminator {
+                        ends: arg.name.clone(),
+                    },
+                );
                 next_arg_idx += 1;
                 continue;
             }
@@ -3449,7 +3464,13 @@ fn collect_variadic_flag_values(
             .and_then(|arg| arg.value_terminator.as_deref())
             == Some(next)
         {
-            input.pop_front();
+            let terminator = input.pop_front().unwrap();
+            trace.record(
+                terminator.argv,
+                TokenRole::ValueTerminator {
+                    ends: flag.name.clone(),
+                },
+            );
             break;
         }
         // The separator is left where it is: stopping here hands it to the arm that
@@ -3881,6 +3902,8 @@ fn render_role(role: &TokenRole) -> String {
         }
         TokenRole::Arg { arg, values } => format!("arg {} = {values:?}", arg.name),
         TokenRole::Separator => "separator".to_string(),
+        TokenRole::ValueTerminator { ends } => format!("value terminator, ends {ends}"),
+        TokenRole::Restart => "restart".to_string(),
         TokenRole::UnknownFlag { bound_as } => match bound_as {
             Some(arg) => format!("unknown flag, bound as {}", arg.name),
             None => "unknown flag".to_string(),
@@ -9585,8 +9608,49 @@ cmd "run" restart_token=":::" {
         // of the first were still read, and a report that dropped them would show a command
         // line with a hole in it.
         assert_eq!(roles(&parsed, 2), ["arg task = [\"lint\"]"]);
+        // And the token that did the resetting says so: without a role of its own it reads
+        // as a word that did nothing, next to a `lint` that filled an arg now empty.
+        assert_eq!(roles(&parsed, 3), ["restart"]);
         assert_eq!(roles(&parsed, 4), ["arg task = [\"test\"]"]);
         assert!(parsed.arg_origins.is_empty());
+    }
+
+    #[test]
+    fn a_value_terminator_says_which_run_it_ended() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+flag "--exec <cmd>..." value_terminator=";"
+arg "<src>"
+        "#
+        .parse()
+        .unwrap();
+
+        let parsed = explain(&spec, &["ex", "--exec", "rm", "tmp", ";", "a"]);
+
+        assert_eq!(roles(&parsed, 3), ["value of exec = [\"tmp\"]"]);
+        // The terminator is consumed and is not one of the values, which is the whole reason
+        // it was declared — so it needs a row saying that rather than an empty one.
+        assert_eq!(roles(&parsed, 4), ["value terminator, ends exec"]);
+        assert_eq!(roles(&parsed, 5), ["arg src = [\"a\"]"]);
+    }
+
+    #[test]
+    fn an_args_value_terminator_says_which_run_it_ended() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+arg "<files>..." value_terminator=";"
+arg "[dest]"
+        "#
+        .parse()
+        .unwrap();
+
+        let parsed = explain(&spec, &["ex", "a", "b", ";", "out"]);
+
+        assert_eq!(roles(&parsed, 2), ["arg files = [\"b\"]"]);
+        assert_eq!(roles(&parsed, 3), ["value terminator, ends files"]);
+        assert_eq!(roles(&parsed, 4), ["arg dest = [\"out\"]"]);
     }
 
     #[test]

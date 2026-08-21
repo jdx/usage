@@ -198,6 +198,10 @@ pub enum RoleRow {
         values: Vec<String>,
     },
     Separator,
+    ValueTerminator {
+        ends: String,
+    },
+    Restart,
     UnknownFlag {
         bound_as: Option<String>,
     },
@@ -481,6 +485,8 @@ impl RoleRow {
                 values: values.clone(),
             },
             TokenRole::Separator => Self::Separator,
+            TokenRole::ValueTerminator { ends } => Self::ValueTerminator { ends: ends.clone() },
+            TokenRole::Restart => Self::Restart,
             TokenRole::UnknownFlag { bound_as } => Self::UnknownFlag {
                 bound_as: bound_as.as_ref().map(|arg| arg.name.clone()),
             },
@@ -519,6 +525,8 @@ fn render_role(role: &RoleRow) -> String {
         }
         RoleRow::Arg { name, values } => format!("arg {name} = {}", render_values(values)),
         RoleRow::Separator => "separator".to_string(),
+        RoleRow::ValueTerminator { ends } => format!("value terminator, ends {ends}"),
+        RoleRow::Restart => "restart, positional arguments start over".to_string(),
         RoleRow::UnknownFlag { bound_as } => match bound_as {
             // Under the default `unknown_flags="value"` an unmatched flag-like word is data.
             // Saying which argument took it is the difference between "you have a typo" and
