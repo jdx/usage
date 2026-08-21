@@ -33,7 +33,17 @@ pub struct Exec {
 }
 
 impl Exec {
-    pub fn run(&mut self) -> miette::Result<()> {
+    pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> miette::Result<()> {
+        let parsed = usage::parse::parse_partial(spec, args)?;
+        println!("{}", usage::docs::cli::render_help(spec, &parsed.cmd, long));
+        Ok(())
+    }
+}
+
+impl usage_rs::Run for Exec {
+    type Output = miette::Result<()>;
+
+    fn run(self) -> Self::Output {
         let parent = self
             .bin
             .parent()
@@ -83,12 +93,6 @@ impl Exec {
             std::process::exit(result.code().unwrap_or(1));
         }
 
-        Ok(())
-    }
-
-    pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> miette::Result<()> {
-        let parsed = usage::parse::parse_partial(spec, args)?;
-        println!("{}", usage::docs::cli::render_help(spec, &parsed.cmd, long));
         Ok(())
     }
 }

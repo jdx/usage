@@ -34,8 +34,10 @@ pub struct Sdk {
     spec: Option<String>,
 }
 
-impl Sdk {
-    pub fn run(&self) -> miette::Result<()> {
+impl usage_rs::Run for Sdk {
+    type Output = miette::Result<()>;
+
+    fn run(self) -> Self::Output {
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
 
         let language = match self.language.as_str() {

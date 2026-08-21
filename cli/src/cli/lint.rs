@@ -99,30 +99,6 @@ impl std::fmt::Display for LintIssue {
 }
 
 impl Lint {
-    pub fn run(&self) -> miette::Result<()> {
-        let spec = parse_file_or_stdin(&self.file)?;
-        let issues = lint_spec(
-            &spec,
-            LintOptions {
-                sorted: self.sorted,
-            },
-        );
-
-        match self.format {
-            OutputFormat::Text => self.print_text(&issues),
-            OutputFormat::Json => self.print_json(&issues)?,
-        }
-
-        let has_errors = issues.iter().any(|i| i.severity == Severity::Error);
-        let has_warnings = issues.iter().any(|i| i.severity == Severity::Warning);
-
-        if has_errors || (self.warnings_as_errors && has_warnings) {
-            std::process::exit(1);
-        }
-
-        Ok(())
-    }
-
     fn print_text(&self, issues: &[LintIssue]) {
         if issues.is_empty() {
             println!("No issues found.");
@@ -157,6 +133,34 @@ impl Lint {
         let json = serde_json::to_string_pretty(issues)
             .map_err(|e| miette::miette!("Failed to serialize issues: {}", e))?;
         println!("{}", json);
+        Ok(())
+    }
+}
+
+impl usage_rs::Run for Lint {
+    type Output = miette::Result<()>;
+
+    fn run(self) -> Self::Output {
+        let spec = parse_file_or_stdin(&self.file)?;
+        let issues = lint_spec(
+            &spec,
+            LintOptions {
+                sorted: self.sorted,
+            },
+        );
+
+        match self.format {
+            OutputFormat::Text => self.print_text(&issues),
+            OutputFormat::Json => self.print_json(&issues)?,
+        }
+
+        let has_errors = issues.iter().any(|i| i.severity == Severity::Error);
+        let has_warnings = issues.iter().any(|i| i.severity == Severity::Warning);
+
+        if has_errors || (self.warnings_as_errors && has_warnings) {
+            std::process::exit(1);
+        }
+
         Ok(())
     }
 }

@@ -162,10 +162,15 @@ macro_rules! __usage_needs_complete_feature {
 }
 #[cfg(feature = "spec")]
 pub mod help;
+// Behind no feature: two traits and no code, so there is nothing here for a binary that
+// does not dispatch to pay for, and a hand-written CLI on the bare runtime can use them.
+pub mod run;
 #[cfg(feature = "spec")]
 pub mod spec;
 #[cfg(feature = "spec")]
 pub mod warn;
+
+pub use run::{Run, RunAsync, RunAsyncWith, RunWith};
 
 /// How deep a command tree this parser will descend.
 ///

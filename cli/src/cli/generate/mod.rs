@@ -17,7 +17,7 @@ mod sdk;
 /// Generate completions, documentation, and other artifacts from usage specs
 // Cannot run alone, and every child starts at `read`, so the parent is `read` too.
 #[derive(usage_rs::Args)]
-#[usage(alias = "g", effect = "read")]
+#[usage(alias = "g", effect = "read", run)]
 pub struct Generate {
     #[usage(subcommand)]
     pub command: Command,
@@ -28,6 +28,7 @@ pub struct Generate {
 /// Each command's help is its struct's doc comment rather than a second one here, which the
 /// derive would let win: one description, in the file that owns the command.
 #[derive(usage_rs::Subcommands)]
+#[usage(run)]
 pub enum Command {
     Completion(completion::Completion),
     CompletionInit(completion_init::CompletionInit),
@@ -38,22 +39,6 @@ pub enum Command {
     Manpage(manpage::Manpage),
     Markdown(markdown::Markdown),
     Sdk(sdk::Sdk),
-}
-
-impl Generate {
-    pub fn run(&self) -> miette::Result<()> {
-        match &self.command {
-            Command::Completion(cmd) => cmd.run(),
-            Command::CompletionInit(cmd) => cmd.run(),
-            Command::Fig(cmd) => cmd.run(),
-            Command::Go(cmd) => cmd.run(),
-            Command::Json(cmd) => cmd.run(),
-            Command::JsonSchema(cmd) => cmd.run(),
-            Command::Manpage(cmd) => cmd.run(),
-            Command::Markdown(cmd) => cmd.run(),
-            Command::Sdk(cmd) => cmd.run(),
-        }
-    }
 }
 
 pub fn file_or_spec(file: &Option<PathBuf>, spec: &Option<String>) -> Result<Spec, UsageErr> {

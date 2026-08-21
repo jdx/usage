@@ -65,6 +65,7 @@ export default defineConfig({
         items: [
           { text: "Args and Flags", link: "/rust/args-and-flags" },
           { text: "Subcommands", link: "/rust/subcommands" },
+          { text: "Dispatch", link: "/rust/dispatch" },
           { text: "Migrating from clap", link: "/rust/migrating-from-clap" },
           { text: "clap Compatibility", link: "/rust/clap-compatibility" },
           { text: "Validation", link: "/rust/validation" },

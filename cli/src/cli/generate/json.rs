@@ -20,8 +20,10 @@ pub struct Json {
     view: Option<String>,
 }
 
-impl Json {
-    pub fn run(&self) -> Result<()> {
+impl usage_rs::Run for Json {
+    type Output = Result<()>;
+
+    fn run(self) -> Self::Output {
         let spec = generate::select_view(
             generate::file_or_spec(&self.file, &self.spec)?,
             self.view.as_deref(),
