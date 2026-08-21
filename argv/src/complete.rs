@@ -480,6 +480,43 @@ impl<'a> App<'a> {
         crate::script::script_for(spec.bin.unwrap_or(spec.name), alias, shell)
     }
 
+    /// Where this view's completion script goes, and what else the user has to do.
+    ///
+    /// Touches no filesystem, so this is the answer a preview prints. The binary is resolved the
+    /// same way [`App::completion_script`] resolves it, which is what keeps a view or a multicall
+    /// projection from needing a second idea of its own name.
+    pub fn completion_install_plan(
+        self,
+        shell: Shell,
+        env: &crate::install::Env,
+    ) -> Result<crate::install::Plan, crate::install::Error> {
+        let spec = self.view.spec();
+        crate::install::plan(spec.bin.unwrap_or(spec.name), shell, env)
+    }
+
+    /// Write this view's completion script where the described environment says it goes.
+    pub fn install_completion(
+        self,
+        shell: Shell,
+        env: &crate::install::Env,
+        on_foreign: crate::install::OnForeign,
+    ) -> Result<crate::install::Installed, crate::install::Error> {
+        let spec = self.view.spec();
+        crate::install::install(spec.bin.unwrap_or(spec.name), shell, env, on_foreign)
+    }
+
+    /// Install under a shell alias while still asking this view's real binary for answers.
+    pub fn install_completion_for_alias(
+        self,
+        alias: &str,
+        shell: Shell,
+        env: &crate::install::Env,
+        on_foreign: crate::install::OnForeign,
+    ) -> Result<crate::install::Installed, crate::install::Error> {
+        let spec = self.view.spec();
+        crate::install::install_for(spec.bin.unwrap_or(spec.name), alias, shell, env, on_foreign)
+    }
+
     /// Answer a hidden completion invocation, or return `None` for ordinary argv.
     pub async fn completion_request(self, argv: &[OsString]) -> Option<String> {
         let request = Request::parse(argv)?;

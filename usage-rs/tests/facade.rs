@@ -292,6 +292,47 @@ fn completion_scripts_can_register_a_shell_alias() {
     );
 }
 
+#[cfg(feature = "completions")]
+#[test]
+fn an_install_plan_names_this_clis_own_binary() {
+    use usage::install::{Env, Platform};
+
+    // A described environment, so this asks where the script goes without a filesystem being
+    // involved and without the test having an opinion about the machine it runs on.
+    let env = Env::new(Platform::Linux, [("HOME".to_string(), "/home/u".into())]);
+
+    let plan = ViewHost::completion_install_plan(usage::complete::Shell::Zsh, &env).unwrap();
+    assert_eq!(plan.path.file_name().unwrap(), "_view-host");
+
+    // An alias installs as its own file, the way it registers as its own name.
+    let alias =
+        ViewHost::completion_install_plan_for_alias("vh", usage::complete::Shell::Zsh, &env)
+            .unwrap();
+    assert_eq!(alias.path.file_name().unwrap(), "_vh");
+    assert_eq!(alias.path.parent(), plan.path.parent());
+
+    // And the same answer through the embedded view API, which is what a multicall binary uses.
+    let embedded = ViewHost::spec()
+        .view()
+        .completion_app()
+        .completion_install_plan(usage::complete::Shell::Fish, &env)
+        .unwrap();
+    assert_eq!(embedded.path.file_name().unwrap(), "view-host.fish");
+}
+
+#[cfg(feature = "completions")]
+#[test]
+fn an_install_plan_follows_the_runtime_identity_and_not_the_portable_one() {
+    use usage::install::{Env, Platform};
+
+    // The same split `runtime_program_identity_is_separate_from_the_portable_spec` pins for the
+    // script: what gets installed is named for the binary that will run, not for the spec.
+    let env = Env::new(Platform::Linux, [("HOME".to_string(), "/home/u".into())]);
+    let plan =
+        RuntimeIdentityEx::completion_install_plan(usage::complete::Shell::Zsh, &env).unwrap();
+    assert_eq!(plan.path.file_name().unwrap(), "_runtime-ex");
+}
+
 #[derive(Cli)]
 #[usage(
     bin = "nested-view-host",

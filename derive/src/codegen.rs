@@ -1335,6 +1335,66 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             usage_argv::script::script_for(&__usage_program, alias, shell)
         }
 
+        /// Where this CLI's completion script for `shell` goes, and what else the user must do.
+        ///
+        /// Nothing is written: this is the answer a preview prints. `env` is normally
+        /// `usage_argv::install::Env::from_process()`; a test describes one instead.
+        pub fn completion_install_plan(
+            shell: usage_argv::complete::Shell,
+            env: &usage_argv::install::Env,
+        ) -> ::std::result::Result<
+            usage_argv::install::Plan,
+            usage_argv::install::Error,
+        > {
+            let __usage_program = { #completion_program };
+            usage_argv::install::plan(&__usage_program, shell, env)
+        }
+
+        /// Where an alias's completion script would go. The preview half of
+        /// `install_completion_for_alias`.
+        pub fn completion_install_plan_for_alias(
+            alias: &str,
+            shell: usage_argv::complete::Shell,
+            env: &usage_argv::install::Env,
+        ) -> ::std::result::Result<
+            usage_argv::install::Plan,
+            usage_argv::install::Error,
+        > {
+            let __usage_program = { #completion_program };
+            usage_argv::install::plan_for(&__usage_program, alias, shell, env)
+        }
+
+        /// Write this CLI's completion script where `env` says this shell looks for it.
+        ///
+        /// Creates the directories above it and nothing else: no shell rc file and no PowerShell
+        /// profile is edited, so a shell that needs a line of its own reports it through
+        /// `Installed::plan` rather than having it applied.
+        pub fn install_completion(
+            shell: usage_argv::complete::Shell,
+            env: &usage_argv::install::Env,
+            on_foreign: usage_argv::install::OnForeign,
+        ) -> ::std::result::Result<
+            usage_argv::install::Installed,
+            usage_argv::install::Error,
+        > {
+            let __usage_program = { #completion_program };
+            usage_argv::install::install(&__usage_program, shell, env, on_foreign)
+        }
+
+        /// Install under a shell alias while still asking this CLI's real binary for answers.
+        pub fn install_completion_for_alias(
+            alias: &str,
+            shell: usage_argv::complete::Shell,
+            env: &usage_argv::install::Env,
+            on_foreign: usage_argv::install::OnForeign,
+        ) -> ::std::result::Result<
+            usage_argv::install::Installed,
+            usage_argv::install::Error,
+        > {
+            let __usage_program = { #completion_program };
+            usage_argv::install::install_for(&__usage_program, alias, shell, env, on_foreign)
+        }
+
         /// A declared executable view's completion script.
         pub fn completion_script_for(
             view: &str,
