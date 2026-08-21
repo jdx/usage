@@ -313,6 +313,35 @@ fn the_script_calls_the_command_this_cli_answers() {
     assert_eq!(Ex::completion_request(&argv).as_deref(), Some("install\n"));
 }
 
+#[test]
+fn where_a_script_is_installed_is_the_name_that_script_registers() {
+    use usage_argv::complete::Shell;
+    use usage_argv::install::{Env, Platform};
+
+    // Two tables that have to agree and are written in different files: the path table decides the
+    // file name, the script decides what a shell will look for. zsh is the sharp case — `compinit`
+    // autoloads `_ex` and then calls the function named after the file it found — but every shell
+    // has a version of it, so every shell is checked.
+    let env = Env::new(Platform::Linux, [("HOME".to_string(), "/home/u".into())]);
+    for (shell, expected) in [
+        (Shell::Bash, "ex"),
+        (Shell::Zsh, "_ex"),
+        (Shell::Fish, "ex.fish"),
+        (Shell::Nu, "ex.nu"),
+        (Shell::PowerShell, "ex.ps1"),
+    ] {
+        let plan = Ex::completion_install_plan(shell, &env).expect("a plan");
+        assert_eq!(plan.path.file_name().unwrap(), expected, "{shell:?}");
+        assert_eq!(plan.shell, shell);
+        assert_eq!(plan.name, "ex");
+    }
+
+    let zsh = Ex::completion_install_plan(Shell::Zsh, &env).unwrap();
+    let script = Ex::completion_script(Shell::Zsh);
+    assert!(script.starts_with("#compdef ex\n"), "{script}");
+    assert_eq!(zsh.path.file_name().unwrap(), "_ex");
+}
+
 /// A CLI whose task list depends on a file named earlier on the same line.
 ///
 /// This is the case a `run=` cannot answer: `mise tasks ls --complete` is a fixed command, so it

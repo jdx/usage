@@ -232,6 +232,18 @@ const completionSpec: Fig.Spec = {
             "Generate shell completion scripts for bash, fish, nu, powershell, or zsh",
           options: [
             {
+              name: "--install",
+              description:
+                "Install the script where this shell looks for it, instead of printing it",
+              isRepeatable: false,
+            },
+            {
+              name: "--force",
+              description:
+                "Replace a file at the target path that usage did not write",
+              isRepeatable: false,
+            },
+            {
               name: ["-f", "--file"],
               description:
                 'A .usage.kdl spec file to use for generating completions, use "-" to read from stdin',

@@ -46,7 +46,12 @@ tokio = { version = "1", features = ["rt", "macros", "io-std"] }
 # The CLI is the facade's first adopter: `usage` parses its own command line with
 # the parser it ships. Facade defaults already include diagnostics (and therefore
 # `spec`) for `--usage-spec` and clap-shaped parse errors.
-usage-rs = { workspace = true }
+#
+# `completions` is on for `usage_argv::install`, which `usage g completion --install`
+# shares with a compiled binary installing its own script — so where a completion goes
+# is decided once rather than twice. Not for completions of this CLI's own command line:
+# it declares no `#[usage(completion)]`, and its own scripts are the checked-in assets.
+usage-rs = { workspace = true, features = ["completions"] }
 # `validation` rather than `clap`: the CLI has no clap dependency to convert *from*, and it
 # parses arbitrary specs — without `validation`, a spec carrying `validate=` gets an error
 # saying the feature is off, and `usage lint` stops rejecting malformed expressions.

@@ -109,7 +109,7 @@ pub fn write_file(path: &Path, contents: impl AsRef<[u8]>) -> Result<(), UsageEr
 /// A reader that closed early is not a failure to report, though. Rust ignores `SIGPIPE`, so
 /// what would end the process silently in C arrives here as an ordinary write error; treating
 /// it as success is what makes `| head` behave the way it does everywhere else.
-fn write_stdout(contents: &str) -> Result<(), UsageErr> {
+pub(crate) fn write_stdout(contents: &str) -> Result<(), UsageErr> {
     let mut stdout = std::io::stdout().lock();
     let wrote = stdout.write_all(contents.as_bytes()).and_then(|_| {
         // Explicitly, because the flush at process exit discards whatever it hits.

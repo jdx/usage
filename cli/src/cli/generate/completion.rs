@@ -16,6 +16,18 @@ pub struct Completion {
     /// The CLI which we're generating completions for
     bin: String,
 
+    /// Install the script where this shell looks for it, instead of printing it
+    ///
+    /// Writes the script file and nothing else: no shell rc file and no PowerShell profile is
+    /// edited. Where a shell needs a one-time line of its own — zsh's `fpath+=`, PowerShell's
+    /// dot-source — it is printed for you to add.
+    #[usage(long, effect = "write")]
+    install: bool,
+
+    /// Replace a file at the target path that usage did not write
+    #[usage(long, requires = "--install", effect = "write")]
+    force: bool,
+
     /// A .usage.kdl spec file to use for generating completions, use "-" to read from stdin
     #[usage(short, long)]
     file: Option<PathBuf>,
@@ -66,7 +78,82 @@ impl usage_rs::Run for Completion {
             }),
         };
 
-        println!("{}", usage::complete::complete(&opts)?.trim());
+        // Trailing newline included: a script is a file, and one without a final newline is a file
+        // half the tools that read it complain about.
+        let script = format!("{}\n", usage::complete::complete(&opts)?.trim());
+        if !self.install {
+            // `write_stdout` rather than `println!`, which panics on a broken pipe — and
+            // `usage g completion bash mycli | head -1` is an ordinary thing to type.
+            return Ok(super::write_stdout(&script)?);
+        }
+        self.install(&script)
+    }
+}
+
+impl Completion {
+    /// Put the script where this shell looks for it, and say what is left to do.
+    ///
+    /// The resolver is the one a compiled binary uses to install its own script, so the location is
+    /// decided in one place regardless of which side is asking.
+    fn install(&self, script: &str) -> miette::Result<()> {
+        use usage_rs::install::{self, OnForeign, Wrote};
+
+        let shell = usage_rs::complete::Shell::from_name(&self.shell)
+            .ok_or_else(|| miette::miette!("{} has no completion script", self.shell))?;
+        // Described from this process rather than reached for inside the resolver, which is what
+        // lets a test point the same code path at a directory of its own.
+        let env = install::Env::from_process();
+        let plan = install::plan(&self.bin, shell, &env).map_err(as_diagnostic)?;
+
+        let done = install::write(
+            &plan,
+            script,
+            if self.force {
+                OnForeign::Overwrite
+            } else {
+                OnForeign::Refuse
+            },
+        )
+        .map_err(as_diagnostic)?;
+
+        // Everything here goes to stderr, and stdout stays empty. A note about a write is not the
+        // thing written — the same reason `write_or_stdout` moved its progress line. And after the
+        // write rather than before it: a refusal that had already announced an installation would
+        // be describing something that did not happen.
+        eprintln!("installing to {}", done.plan.path.display());
+        if done.wrote == Wrote::Unchanged {
+            eprintln!("already up to date");
+        }
+        if let Some(line) = done.plan.loading.instruction() {
+            let file = match &done.plan.loading {
+                install::Loading::Manual { file, .. } => file.as_str(),
+                _ => "your shell's startup file",
+            };
+            eprintln!("\nadd this to {file}, once:\n\n{line}\n");
+        }
+        if let Some(note) = done.plan.note {
+            eprintln!("note: {note}");
+        }
         Ok(())
+    }
+}
+
+/// An install failure as something the CLI can print, with the way out where there is one.
+///
+/// The chain is walked rather than formatted away: `Display` on an install error names the step and
+/// the path, and keeps the operating system's own words — "permission denied", "not a directory" —
+/// on `source()`. A report built from `Display` alone drops exactly the half a user acts on.
+fn as_diagnostic(err: usage_rs::install::Error) -> miette::Report {
+    let mut message = err.to_string();
+    let mut cause = std::error::Error::source(&err);
+    while let Some(next) = cause {
+        message.push_str(&format!(": {next}"));
+        cause = next.source();
+    }
+    match &err {
+        usage_rs::install::Error::Foreign { .. } => miette::miette!(
+            "{message}\n\nPass --force to replace it, or redirect the script yourself."
+        ),
+        _ => miette::miette!("{message}"),
     }
 }

@@ -76,6 +76,11 @@
 //!   effects) and a writer that emits it as a usage spec. Off by default: a
 //!   successful parse never reads any of it, so a CLI that only wants a parser
 //!   should not compile it.
+//! - `complete` — answering a partial command line ([`complete`]), the shell
+//!   scripts that ask ([`script`]), and putting one of those scripts where its
+//!   shell will look for it ([`install`]). Installing ships with the scripts
+//!   rather than behind a gate of its own: a script a CLI still has to tell its
+//!   users to redirect by hand is the unfinished half of shipping one.
 //!
 //! [the argv grammar]: https://usage.jdx.dev/spec/argv
 
@@ -133,6 +138,8 @@ pub enum ValueHint {
 pub mod complete;
 #[cfg(feature = "diagnostics")]
 pub mod diagnostic;
+#[cfg(feature = "complete")]
+pub mod install;
 #[cfg(feature = "complete")]
 pub mod script;
 
