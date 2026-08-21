@@ -1241,6 +1241,10 @@ pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
 fn display_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     let usage = flag_usage_masked(meta, show);
     match meta.flag.negate.filter(|_| show.negate) {
+        // A flag whose only spelling is its negation has nothing before it: the name prefix
+        // would repeat the spelling, so `flag_usage_masked` writes nothing and the negation
+        // is the whole entry. Joining with a space put one at the front of the column.
+        Some(negate) if usage.is_empty() => format!("--{negate}"),
         Some(negate) if show.long.is_none() && show.short.is_none() => {
             format!("{usage} --{negate}")
         }
@@ -2786,6 +2790,30 @@ mod style_tests {
         };
 
         assert_eq!(display_usage_masked(&meta, &shown), "color: --no-color");
+    }
+
+    #[test]
+    fn a_flag_spelled_only_as_its_negation_writes_that_spelling_and_nothing_before_it() {
+        // clap's `SetFalse`, tak's `--no-credit`: the flag is *named* after its negation, so
+        // the `name:` prefix would repeat the spelling and there is no positive form to join
+        // it to. Both halves wrote nothing, and the join put a space at the front of the
+        // column: `" --no-credit"`.
+        let flag = Flag {
+            name: "no-credit",
+            negate: Some("no-credit"),
+            ..Flag::BOOL
+        };
+        let meta = FlagMeta {
+            flag: &flag,
+            ..FlagMeta::EMPTY
+        };
+        let shown = Shown {
+            long: None,
+            short: None,
+            negate: true,
+        };
+
+        assert_eq!(display_usage_masked(&meta, &shown), "--no-credit");
     }
 
     #[test]
