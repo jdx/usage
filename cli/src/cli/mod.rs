@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::OsStr;
 
 use miette::Result;
@@ -155,6 +156,33 @@ impl Cli {
         // above — so a command added there cannot be left unrouted, and no arm can route to
         // the wrong handler.
         usage_rs::Run::run(cli.command)
+    }
+}
+
+/// A spec that declares nothing, as the answer to every mount in the tree.
+///
+/// Keyed by the exact `run` string, which is how injected answers are looked up. It is a
+/// whole spec rather than an empty string because that is what a mount's stdout is.
+///
+/// Shared by `lint` and `explain`, which want it for the same reason: usage-lib resolves a
+/// command's mounts on the way *into* it, so a spec that mounts anything cannot be parsed
+/// without either spawning the mounted program or being handed its answer — and a command
+/// that reads a file and prints a report should not spawn whatever that file names.
+pub(crate) fn empty_mount_answers(cmd: &usage::SpecCommand) -> HashMap<String, String> {
+    let mut answers = HashMap::new();
+    collect_mount_answers(cmd, &mut answers);
+    answers
+}
+
+fn collect_mount_answers(cmd: &usage::SpecCommand, answers: &mut HashMap<String, String>) {
+    for mount in &cmd.mounts {
+        answers.insert(
+            mount.run.clone(),
+            "name \"mounted\"\nbin \"mounted\"\n".to_string(),
+        );
+    }
+    for sub in cmd.subcommands.values() {
+        collect_mount_answers(sub, answers);
     }
 }
 

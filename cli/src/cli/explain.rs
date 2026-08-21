@@ -17,11 +17,12 @@ use std::path::PathBuf;
 
 use itertools::Itertools;
 use miette::Result;
+use usage::error::UsageErr;
 use usage::parse::{ParseOutput, Parser, TokenRole, ValueOrigin};
 use usage::{Spec, SpecArg, SpecFlag};
 
 use crate::cli::generate::{file_or_spec, select_view};
-use crate::cli::OutputFormat;
+use crate::cli::{empty_mount_answers, OutputFormat};
 
 /// Explain what a command line binds to
 ///
@@ -122,25 +123,55 @@ impl Explain {
 /// A seam for the same reason `lint_spec` is one: the layout is worth testing against a value
 /// instead of against stdout.
 pub fn explain(spec: &Spec, argv: &[String], env: Option<HashMap<String, String>>) -> Explanation {
-    let mut parser = Parser::new(spec);
-    if let Some(env) = env {
-        parser = parser.with_env(env);
+    // Never runs another program. A `mount` names its commands only when the command it
+    // names is run, and a report on two inputs has no business spawning whatever a spec file
+    // happens to say — least of all a spec file a bug report arrived with. Injected answers
+    // are what turns that from a policy into a fact: usage-lib resolves a command's mounts on
+    // the way into it, and given a map it looks the answer up instead of running anything.
+    //
+    // Empty answers first, so a line inside the command's own vocabulary is explained
+    // exactly. A spec declaring nothing, as the answer to every mount, second: it lets a line
+    // under a mounting command be explained on the declarations that *are* readable, rather
+    // than refusing the whole report over a subcommand nobody asked about.
+    let parser = |mounts: HashMap<String, String>| {
+        let parser = Parser::new(spec).with_mount_outputs(mounts);
+        match env.clone() {
+            Some(env) => parser.with_env(env),
+            None => parser,
+        }
+    };
+    let needs_a_mount = |err: &miette::Error| {
+        matches!(
+            err.downcast_ref::<UsageErr>(),
+            Some(UsageErr::MissingMountOutput(_))
+        )
+    };
+
+    let mut refused = match parser(HashMap::new()).explain(argv) {
+        Ok(out) => return Explanation::from_parse(argv, &out, true, None),
+        Err(err) => err,
+    };
+    if needs_a_mount(&refused) {
+        match parser(empty_mount_answers(&spec.cmd)).explain(argv) {
+            Ok(out) => return Explanation::from_parse(argv, &out, true, None),
+            Err(err) => refused = err,
+        }
     }
-    match parser.explain(argv) {
-        Ok(out) => Explanation::from_parse(argv, &out, true, None),
-        // The parse could not carry on: a mount that will not run, a word no declaration can
-        // take, a value refused by `choices`. The binding phase still knows which tokens got
-        // that far, so ask it on its own rather than reporting the error with nothing around
-        // it. Mounts resolve eagerly on this path and the environment is not consulted, which
-        // is why the report says the fallbacks did not run.
-        Err(refused) => match usage::parse::parse_partial(spec, argv) {
-            Ok(out) => Explanation::from_parse(argv, &out, false, Some(refused.to_string())),
-            Err(_) => Explanation {
-                argv: argv.to_vec(),
-                refused: Some(refused.to_string()),
-                fallbacks_applied: false,
-                ..Explanation::default()
-            },
+
+    // The parse could not carry on: a word no declaration can take, a value refused by
+    // `choices`, a flag left waiting. Ask the binding phase what it managed on its own — it
+    // either finished and the failure came after it, in which case everything argv supplied
+    // is still there, or it is where the parse died and the tokens it read by then are what
+    // there is. Either way the fallbacks did not run, and the report says so.
+    let refused = Some(refused.to_string());
+    match parser(empty_mount_answers(&spec.cmd)).explain_refused(argv) {
+        Ok(out) => Explanation::from_parse(argv, &out, false, refused),
+        Err(tokens) => Explanation {
+            argv: argv.to_vec(),
+            tokens: tokens.iter().map(TokenRow::from_binding).collect(),
+            refused,
+            fallbacks_applied: false,
+            ..Explanation::default()
         },
     }
 }
@@ -198,6 +229,9 @@ pub enum RoleRow {
         values: Vec<String>,
     },
     Separator,
+    Builtin {
+        spelling: String,
+    },
     ValueTerminator {
         ends: String,
     },
@@ -210,6 +244,8 @@ pub enum RoleRow {
     },
     External,
     Unread,
+    /// A role this report is too old to name. See the conversion in [`RoleRow::from_role`].
+    Unnamed,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -256,7 +292,10 @@ pub struct ShadowRow {
 #[derive(Debug, serde::Serialize)]
 pub struct OverrideRow {
     pub name: String,
+    /// How the flag is spelled in help, as every other row spells one.
+    pub display: String,
     pub by: String,
+    pub by_display: String,
 }
 
 impl Explanation {
@@ -325,10 +364,21 @@ impl Explanation {
                 .iter()
                 .map(|(name, by)| OverrideRow {
                     name: name.clone(),
+                    display: spelling_of(out, name),
                     by: by.clone(),
+                    by_display: spelling_of(out, by),
                 })
                 .collect(),
-            errors: out.errors.iter().map(|e| e.to_string()).collect(),
+            // Help and version are not failures: the invocation worked and the answer is a
+            // page of text. Listing that page under `errors` because usage-lib carries it in
+            // one is how a working command line reads as a broken one — the token says
+            // `built-in --help`, which is the fact worth reporting.
+            errors: out
+                .errors
+                .iter()
+                .filter(|e| !matches!(e, UsageErr::Help(_) | UsageErr::Version(_)))
+                .map(|e| e.to_string())
+                .collect(),
             refused,
             fallbacks_applied,
         }
@@ -376,7 +426,7 @@ impl Explanation {
             ]
         }));
         out.push_str(&render_table("overridden", &self.overridden, |row| {
-            vec![row.name.clone(), format!("by --{}", row.by)]
+            vec![row.display.clone(), format!("by {}", row.by_display)]
         }));
 
         if !self.errors.is_empty() {
@@ -495,9 +545,14 @@ impl RoleRow {
             },
             TokenRole::External => Self::External,
             TokenRole::Unread => Self::Unread,
-            // The lib's role list is `#[non_exhaustive]`, so a role added there shows up as
-            // an unexplained token rather than failing to compile a report of it.
-            _ => Self::Unread,
+            TokenRole::Builtin { spelling } => Self::Builtin {
+                spelling: spelling.clone(),
+            },
+            // The lib's role list is `#[non_exhaustive]`, so a role added there has to land
+            // somewhere rather than fail to compile. Not `Unread`, which is what it used to
+            // be: that is a claim about the word — the parser never got to it — and saying it
+            // about a word the parser acted on is worse than admitting the report is behind.
+            _ => Self::Unnamed,
         }
     }
 }
@@ -525,6 +580,7 @@ fn render_role(role: &RoleRow) -> String {
         }
         RoleRow::Arg { name, values } => format!("arg {name} = {}", render_values(values)),
         RoleRow::Separator => "separator".to_string(),
+        RoleRow::Builtin { spelling } => format!("built-in {spelling}"),
         RoleRow::ValueTerminator { ends } => format!("value terminator, ends {ends}"),
         RoleRow::Restart => "restart, positional arguments start over".to_string(),
         RoleRow::UnknownFlag { bound_as } => match bound_as {
@@ -537,6 +593,7 @@ fn render_role(role: &RoleRow) -> String {
         RoleRow::Refused { reason } => format!("refused, {reason}"),
         RoleRow::External => "forwarded to an external command".to_string(),
         RoleRow::Unread => "not read".to_string(),
+        RoleRow::Unnamed => "bound, but this report cannot name how".to_string(),
     }
 }
 
@@ -656,6 +713,19 @@ fn declared_default(flag: &SpecFlag) -> Option<String> {
         .map(|arg| arg.default.join(" "))
 }
 
+/// How the flag of this name is spelled, for a table that has only the name to go on.
+///
+/// `overridden_flags` is keyed by name because that is what the parser knows at the point it
+/// records one. Falling back to `--{name}` instead would print `--v` for a short-only flag,
+/// which is not a spelling anything answers to.
+fn spelling_of(out: &ParseOutput, name: &str) -> String {
+    out.available_flags
+        .values()
+        .find(|flag| flag.name == name)
+        .map(|flag| flag_display(flag))
+        .unwrap_or_else(|| name.to_string())
+}
+
 /// How a flag is spelled in a report: the long form if it has one, else the short.
 ///
 /// Not [`SpecFlag::usage`], which renders the whole declaration (`-j --jobs <n>`) and is
@@ -768,16 +838,98 @@ mod tests {
     }
 
     #[test]
-    fn a_parse_that_cannot_start_reports_the_refusal_alone() {
-        let spec: Spec = "name \"mycli\"\nbin \"mycli\"\n".parse().unwrap();
+    fn a_parse_the_binding_phase_gave_up_on_still_reports_its_tokens() {
+        let spec: Spec = "name \"mycli\"\nbin \"mycli\"\nflag \"--env <env>\"\n"
+            .parse()
+            .unwrap();
 
-        // Nothing declared can take `boom`, and the binding phase refuses it too — so there
-        // is no partial parse to describe and the report is the refusal by itself.
-        let explanation = explain(&spec, &argv(&["mycli", "boom"]), env(&[]));
+        // Nothing declared can take `boom`. The words read before it still bound, and a
+        // report that showed only "unexpected word" would be the message the caller already
+        // had — so the tokens survive the failure, the refused word says why, and what was
+        // still queued behind it says it was never read.
+        let explanation = explain(
+            &spec,
+            &argv(&["mycli", "--env=prod", "boom", "later"]),
+            env(&[]),
+        );
 
-        assert!(explanation.tokens.is_empty(), "{:?}", explanation.tokens);
+        assert_eq!(
+            roles(&explanation, 1),
+            ["flag --env", "value of env = \"prod\", attached"]
+        );
+        assert_eq!(
+            roles(&explanation, 2),
+            ["refused, no declaration takes this word"]
+        );
+        assert_eq!(roles(&explanation, 3), ["not read"]);
         assert!(!explanation.fallbacks_applied);
         assert!(explanation.refused.is_some());
+    }
+
+    #[test]
+    fn a_help_request_is_a_role_rather_than_an_error() {
+        let spec: Spec = "name \"mycli\"\nbin \"mycli\"\nflag \"--jobs <n>\"\n"
+            .parse()
+            .unwrap();
+
+        let explanation = explain(&spec, &argv(&["mycli", "--help"]), env(&[]));
+
+        // usage-lib carries the help page in an error because that is how it stops the
+        // parse. It is not a failure of the command line, and printing a whole help page
+        // under `errors` says it was.
+        assert_eq!(roles(&explanation, 1), ["built-in --help"]);
+        assert!(explanation.errors.is_empty(), "{:?}", explanation.errors);
+    }
+
+    #[test]
+    fn an_override_row_spells_the_flag_the_way_every_other_row_does() {
+        let spec: Spec = r#"
+name "mycli"
+bin "mycli"
+flag "-q" help="quiet" default="true"
+flag "-l" help="loud" overrides="-q"
+        "#
+        .parse()
+        .unwrap();
+
+        let explanation = explain(&spec, &argv(&["mycli", "-l"]), env(&[]));
+
+        // `--q` is not a spelling anything answers to. The row names the flag the way the
+        // caller would type it, as the values and shadowed tables already do.
+        let row = &explanation.overridden[0];
+        assert_eq!(row.display, "-q");
+        assert_eq!(row.by_display, "-l");
+    }
+
+    #[test]
+    fn a_mount_is_never_run_to_answer_a_report() {
+        let spec: Spec = r#"
+name "mycli"
+bin "mycli"
+flag "--jobs <n>" default="1"
+mount run="false --usage"
+        "#
+        .parse()
+        .unwrap();
+
+        // `false --usage` exits non-zero, so running it would end the report with the
+        // mount's failure rather than an explanation — and running whatever a spec file
+        // names is the thing this must not do at all. The line is explained on the
+        // declarations that are readable without it.
+        let explanation = explain(&spec, &argv(&["mycli", "--jobs", "8"]), env(&[]));
+        assert_eq!(value(&explanation, "jobs"), "8 argv [2]");
+
+        // A word nothing declares is what sends the parser looking for a mount, so this is
+        // the invocation that would have spawned. It comes back as a refusal about the word.
+        let discovery = explain(&spec, &argv(&["mycli", "tasks"]), env(&[]));
+        assert!(
+            discovery
+                .refused
+                .as_deref()
+                .is_some_and(|r| r.contains("tasks")),
+            "{:?}",
+            discovery.refused
+        );
     }
 
     #[test]
