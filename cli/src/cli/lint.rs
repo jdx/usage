@@ -768,26 +768,42 @@ fn collect_mount_answers(cmd: &SpecCommand, answers: &mut HashMap<String, String
 /// Whether an invocation asks for help or a version rather than doing anything.
 ///
 /// The spellings are the ones the parser answers to: those of any declared flag whose
-/// action prints instead of binding, plus the ones the parser supplies rather than a
-/// spec declaring them — `--help`, `-h`, `-?` and the `help` subcommand word under
+/// action prints instead of binding, plus the ones the parser supplies rather than a spec
+/// declaring them — `--help`, `-h`, `-?` and the `help` subcommand word under
 /// `disable_help`, and `--version` and `-V` where the spec declares a version. Collected
 /// over the whole tree rather than the routed chain, because a line that asks for help is
 /// one whether or not the rest of it routes.
+///
+/// The supplied version is the exception, because the parser supplies it to the root
+/// alone: `mycli run --version` is refused, so suppressing it here would hide a real
+/// finding behind a spelling that does not work where the example puts it. It counts only
+/// up to the first word that selects a subcommand. Help has no such limit — the parser
+/// supplies it on every command.
 fn prints_and_exits(spec: &Spec, words: &[String]) -> bool {
     let mut spellings: Vec<String> = Vec::new();
     if spec.disable_help != Some(true) {
         spellings.extend(["--help".into(), "-h".into(), "-?".into(), "help".into()]);
     }
-    if (spec.version.is_some() || spec.long_version.is_some()) && !spec.cmd.disable_version_flag {
-        spellings.extend(["--version".into(), "-V".into()]);
-    }
     collect_printing_flags(&spec.cmd, &mut spellings);
 
     // Skipping argv[0]: a program named `help` is not a request for it.
-    words[1..].iter().any(|word| {
-        let word = word.split_once('=').map_or(word.as_str(), |(name, _)| name);
-        spellings.iter().any(|spelling| spelling == word)
-    })
+    let words = &words[1..];
+    fn named(word: &str) -> &str {
+        word.split_once('=').map_or(word, |(name, _)| name)
+    }
+    if words
+        .iter()
+        .any(|word| spellings.iter().any(|spelling| spelling == named(word)))
+    {
+        return true;
+    }
+
+    (spec.version.is_some() || spec.long_version.is_some())
+        && !spec.cmd.disable_version_flag
+        && words
+            .iter()
+            .take_while(|word| spec.cmd.find_subcommand(word).is_none())
+            .any(|word| matches!(named(word), "--version" | "-V"))
 }
 
 fn collect_printing_flags(cmd: &SpecCommand, spellings: &mut Vec<String>) {
@@ -1045,6 +1061,25 @@ example "demo --version"
 "#,
         );
         assert_eq!(issues.len(), 1, "{issues:?}");
+
+        // The supplied version belongs to the root, so a subcommand carrying it is a
+        // real finding rather than a request to print — the parser refuses that line.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+cmd "run" help="run"
+example "demo run --version"
+example "demo run --help"
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert!(
+            issues[0].message.contains("--version"),
+            "{}",
+            issues[0].message
+        );
     }
 
     #[test]
