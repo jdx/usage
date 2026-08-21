@@ -851,6 +851,13 @@ pub struct CommandMeta<'a> {
     /// Cold like everything else here: a group is checked once the last token has been
     /// read, by code the derive generates, and a successful parse never reads this.
     pub groups: &'a [GroupMeta<'a>],
+    /// Which runs of [`Self::flags`] came from a flattened `Args` type.
+    ///
+    /// Only [`Spec::to_kdl`] reads this, and only to write a `flagset` once instead of the
+    /// same flags under every command that flattens the struct. It changes nothing about
+    /// parsing: the flags are in `flags` either way, which is why this is a description of
+    /// where they came from rather than a table anything binds against.
+    pub flatten_groups: &'a [FlattenGroup<'a>],
 }
 
 impl CommandMeta<'_> {
@@ -886,7 +893,27 @@ impl CommandMeta<'_> {
         flags: &[],
         args: &[],
         subcommands: &[],
+        flatten_groups: &[],
     };
+}
+
+/// A run of one command's flags that arrived from a flattened `Args` type.
+///
+/// `#[usage(flatten)]` splices a struct's declarations into the command that holds it, so a
+/// set of flags shared by thirty commands is thirty identical copies in the emitted spec.
+/// This records the seam the expansion leaves behind, so [`Spec::to_kdl`] can write the set
+/// once as a `flagset` and a `use` in each command that has it.
+#[derive(Debug, Clone, Copy)]
+pub struct FlattenGroup<'a> {
+    /// The name the emitted `flagset` is given: the flattened type's, in kebab-case.
+    pub name: &'a str,
+    /// Where this group's flags begin in the flattening command's flag list.
+    pub start: usize,
+    /// The flattened type's own metadata.
+    ///
+    /// The flagset's body comes from here rather than from the parent's slice, so a struct
+    /// that flattens another can be written as a set that `use`s a set.
+    pub meta: &'a CommandMeta<'a>,
 }
 
 /// What a flag knows about itself beyond how it parses.
@@ -1454,18 +1481,173 @@ impl Spec<'_> {
         for example in self.root.examples {
             write_example(out, example, 0)?;
         }
+        // Before the flags, since that is where the first `use` of one appears. Which sets
+        // there are is a property of the whole tree, so it is settled before anything is
+        // written rather than discovered command by command.
+        let w = Writing {
+            bin: self.bin.unwrap_or(self.name),
+            overlays,
+            sets: Flagsets::collect(self.root),
+        };
+        for entry in w.sets.written() {
+            writeln!(out, "flagset {} {{", quoted(entry.name))?;
+            write_flag_layout(out, entry.meta, 1, &w.sets)?;
+            out.push_str("}\n");
+        }
         // Nothing above the root, so what it does not state is the default.
         let mut path = Vec::new();
-        write_body(
-            out,
-            self.root,
-            0,
-            UnknownFlags::Value,
-            self.bin.unwrap_or(self.name),
-            overlays,
-            &mut path,
-        )
+        write_body(out, self.root, 0, UnknownFlags::Value, &w, &mut path)
     }
+}
+
+/// Whether two flattened groups are the same declarations.
+///
+/// Keys are hashed from the type a declaration came from, so a matching key sequence means
+/// a matching struct. Pointer equality is tried first because it is the usual case: the same
+/// associated const, reached from every command that flattens the type.
+fn same_group(a: &CommandMeta<'_>, b: &CommandMeta<'_>) -> bool {
+    core::ptr::eq(a, b)
+        || (a.flags.len() == b.flags.len()
+            && a.flags
+                .iter()
+                .zip(b.flags)
+                .all(|(x, y)| x.flag.key == y.flag.key))
+}
+
+/// The flagsets a spec is going to write, worked out before anything is written.
+///
+/// One per flattened struct, whether it is flattened once or thirty times. A threshold —
+/// only sets with several users, or only ones that save lines — would make how a command is
+/// written depend on what some other command does, so adding a second `#[usage(flatten)]`
+/// elsewhere would restructure a command nobody touched. A `flatten` is a shared declaration
+/// wherever it appears, and this writes it as one.
+struct Flagsets<'a> {
+    entries: Vec<FlagsetEntry<'a>>,
+}
+
+struct FlagsetEntry<'a> {
+    name: &'a str,
+    meta: &'a CommandMeta<'a>,
+    /// Another type claimed this name, so it cannot stand for either of them.
+    ambiguous: bool,
+}
+
+impl<'a> Flagsets<'a> {
+    fn collect(root: &'a CommandMeta<'a>) -> Self {
+        let mut sets = Self {
+            entries: Vec::new(),
+        };
+        sets.walk(root);
+        sets
+    }
+
+    fn walk(&mut self, meta: &'a CommandMeta<'a>) {
+        for group in meta.flatten_groups {
+            self.record(group);
+        }
+        for sub in meta.subcommands {
+            self.walk(sub);
+        }
+    }
+
+    fn record(&mut self, group: &'a FlattenGroup<'a>) {
+        if let Some(entry) = self.entries.iter_mut().find(|e| e.name == group.name) {
+            if !same_group(entry.meta, group.meta) {
+                // Two flattened types whose names end in the same word. Neither can have
+                // the name, because a `use` of it would put one struct's flags on the
+                // command that asked for the other's. Both are written inline instead, which
+                // is what every flatten did before sets existed.
+                entry.ambiguous = true;
+            }
+            return;
+        }
+        self.entries.push(FlagsetEntry {
+            name: group.name,
+            meta: group.meta,
+            ambiguous: false,
+        });
+        // The sets this one composes. Recorded once, when the set is first met, because
+        // they are written inside its body rather than by everything that uses it.
+        for nested in group.meta.flatten_groups {
+            self.record(nested);
+        }
+    }
+
+    /// The sets that get written, in the order they were met.
+    fn written(&self) -> impl Iterator<Item = &FlagsetEntry<'a>> {
+        self.entries.iter().filter(|e| Self::worth_writing(e))
+    }
+
+    /// Whether a `use` may stand for this group, or its flags have to be written out.
+    fn covers(&self, group: &FlattenGroup<'_>) -> bool {
+        self.entries.iter().any(|e| {
+            e.name == group.name && Self::worth_writing(e) && same_group(e.meta, group.meta)
+        })
+    }
+
+    /// A set with no flags in it has nothing to declare and nothing to stand for: a
+    /// flattened struct may hold only positionals, which stay where they are.
+    fn worth_writing(entry: &FlagsetEntry<'_>) -> bool {
+        !entry.ambiguous && !entry.meta.flags.is_empty()
+    }
+}
+
+/// What every command in one document is written against.
+///
+/// Bundled because it is the same for all of them: the binary a completer would name, the
+/// per-command overlays a view applies, and which flagsets exist. Passing them one by one had
+/// `write_command` and `write_body` at eight parameters each, most of them pass-through.
+struct Writing<'a, 'o> {
+    bin: &'a str,
+    overlays: &'o [CommandOverlay<'o>],
+    sets: Flagsets<'a>,
+}
+
+/// Write one command's flags, as `use` for every set that stands for a run of them.
+///
+/// Shared with the body of a `flagset`, which is the same question asked of a flattened
+/// struct's own metadata — so a struct that flattens another is written as a set that uses a
+/// set, and a group written inline still uses the sets it composes.
+fn write_flag_layout(
+    out: &mut String,
+    meta: &CommandMeta<'_>,
+    depth: usize,
+    sets: &Flagsets<'_>,
+) -> core::fmt::Result {
+    let mut i = 0;
+    while i < meta.flags.len() {
+        // A group that contributed no flags has no run to stand for, and matching it would
+        // advance nothing.
+        let group = meta
+            .flatten_groups
+            .iter()
+            .find(|g| g.start == i && !g.meta.flags.is_empty());
+        match group {
+            Some(group) if sets.covers(group) => {
+                indent(out, depth)?;
+                writeln!(out, "use {}", quoted(group.name))?;
+                i += group.meta.flags.len();
+            }
+            Some(group) => {
+                write_flag_layout(out, group.meta, depth, sets)?;
+                i += group.meta.flags.len();
+            }
+            None => {
+                // The two tables are written in the same order by construction, so a
+                // mismatch means a table was edited without its metadata.
+                debug_assert!(
+                    meta.cmd
+                        .flags
+                        .get(i)
+                        .is_some_and(|f| core::ptr::eq(*f, meta.flags[i].flag)),
+                    "flag metadata is out of step with the parse table"
+                );
+                write_flag(out, &meta.flags[i], depth)?;
+                i += 1;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Write a command's contents: its flags, arguments, and subcommands.
@@ -1477,8 +1659,7 @@ fn write_body<'a>(
     meta: &CommandMeta<'a>,
     depth: usize,
     inherited_unknown_flags: UnknownFlags,
-    bin: &str,
-    overlays: &[CommandOverlay<'_>],
+    w: &Writing<'_, '_>,
     path: &mut Vec<&'a str>,
 ) -> core::fmt::Result {
     // The effective setting for everything inside, which is this command's if it stated one
@@ -1501,18 +1682,7 @@ fn write_body<'a>(
         meta.subcommands.len(),
         "every subcommand in the parse table needs metadata"
     );
-    for (i, flag) in meta.flags.iter().enumerate() {
-        // The two tables are written in the same order by construction, so a
-        // mismatch means a table was edited without its metadata.
-        debug_assert!(
-            meta.cmd
-                .flags
-                .get(i)
-                .is_some_and(|f| core::ptr::eq(*f, flag.flag)),
-            "flag metadata is out of step with the parse table"
-        );
-        write_flag(out, flag, depth)?;
-    }
+    write_flag_layout(out, meta, depth, &w.sets)?;
     for (i, arg) in meta.args.iter().enumerate() {
         debug_assert!(
             meta.cmd
@@ -1530,17 +1700,9 @@ fn write_body<'a>(
         write_group(out, group, depth)?;
     }
     #[cfg(feature = "complete")]
-    write_completers(out, meta, bin, depth)?;
+    write_completers(out, meta, w.bin, depth)?;
     for sub in meta.subcommands {
-        write_command(
-            out,
-            sub,
-            depth,
-            enclosing_unknown_flags,
-            bin,
-            overlays,
-            path,
-        )?;
+        write_command(out, sub, depth, enclosing_unknown_flags, w, path)?;
     }
     Ok(())
 }
@@ -1599,8 +1761,7 @@ fn write_command<'a>(
     meta: &CommandMeta<'a>,
     depth: usize,
     inherited_unknown_flags: UnknownFlags,
-    bin: &str,
-    overlays: &[CommandOverlay<'_>],
+    w: &Writing<'_, '_>,
     path: &mut Vec<&'a str>,
 ) -> core::fmt::Result {
     path.push(meta.cmd.name);
@@ -1624,7 +1785,8 @@ fn write_command<'a>(
     if let Some(heading) = meta.help_heading {
         write!(out, " help_heading={}", quoted(heading))?;
     }
-    let effect = overlays
+    let effect = w
+        .overlays
         .iter()
         .rev()
         .find(|overlay| overlay.command.matches(meta, path))
@@ -1745,15 +1907,7 @@ fn write_command<'a>(
     for example in meta.examples {
         write_example(out, example, inner)?;
     }
-    write_body(
-        out,
-        meta,
-        inner,
-        effective_unknown_flags,
-        bin,
-        overlays,
-        path,
-    )?;
+    write_body(out, meta, inner, effective_unknown_flags, w, path)?;
 
     indent(out, depth)?;
     out.push_str("}\n");
@@ -3603,13 +3757,17 @@ mod tests {
         };
 
         let mut out = String::new();
+        let w = Writing {
+            bin: "ex",
+            overlays: &[],
+            sets: Flagsets::collect(&ROOT_META),
+        };
         write_body(
             &mut out,
             &ROOT_META,
             0,
             UnknownFlags::Value,
-            "ex",
-            &[],
+            &w,
             &mut Vec::new(),
         )
         .unwrap();

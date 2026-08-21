@@ -9,14 +9,17 @@ about "CLI for working with usage-based CLIs"
 usage "Usage: usage <COMMAND>\n       usage --completions <COMPLETIONS>\n       usage --usage-spec"
 unknown_flags error
 subcommand_required #true
+flagset shell {
+    flag -h help="Show help"
+    flag --help help="Show help"
+}
 flag --completions help="Outputs completions for the specified shell for completing the `usage` CLI itself" {
     arg <COMPLETIONS>
 }
 flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
 cmd bash help="Execute a shell script using bash" unknown_flags=value {
     long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
-    flag -h help="Show help"
-    flag --help help="Show help"
+    use shell
     arg <SCRIPT>
     arg "[ARGS]..." help="Arguments to pass to script" {
         long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."
@@ -51,8 +54,7 @@ cmd exec help="Execute a script, parsing args and exposing them as environment v
 }
 cmd fish help="Execute a shell script using fish" unknown_flags=value {
     long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
-    flag -h help="Show help"
-    flag --help help="Show help"
+    use shell
     arg <SCRIPT>
     arg "[ARGS]..." help="Arguments to pass to script" {
         long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."
@@ -244,8 +246,7 @@ cmd mcp help="Serve a usage spec over the Model Context Protocol" effect=read {
 }
 cmd powershell help="Execute a shell script using PowerShell" unknown_flags=value {
     long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
-    flag -h help="Show help"
-    flag --help help="Show help"
+    use shell
     arg <SCRIPT>
     arg "[ARGS]..." help="Arguments to pass to script" {
         long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."
@@ -255,8 +256,7 @@ cmd sponsors help="Show the companies sponsoring usage and the jdx.dev open sour
 }
 cmd zsh help="Execute a shell script using zsh" unknown_flags=value {
     long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
-    flag -h help="Show help"
-    flag --help help="Show help"
+    use shell
     arg <SCRIPT>
     arg "[ARGS]..." help="Arguments to pass to script" {
         long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."

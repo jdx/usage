@@ -163,9 +163,37 @@ struct Config {
 }
 ```
 
-The tables are joined at compile time and the emitted KDL lists the flags inline — a consumer of
-the spec can't tell a flattened flag from a declared one. Groups and `exclusive` flags declared
-on the flattened struct are enforced (and emitted) on the command that flattens them.
+The tables are joined at compile time, so the parser walks one flat slice and `flatten` costs
+nothing at run time. Groups and `exclusive` flags declared on the flattened struct are enforced
+(and emitted) on the command that flattens them.
+
+The emitted KDL says the declarations are shared, rather than repeating them under each command:
+the struct becomes a [`flagset`](/spec/reference/flagset) named after it, and every command that
+flattens it gets a `use`.
+
+```kdl
+flagset listing {
+    flag --no-header help="Do not print a header"
+    flag --format help="Output format" {
+        arg <FORMAT> {
+            choices json table
+        }
+    }
+}
+cmd config {
+    flag "-f --file" {
+        arg <FILE>
+    }
+    use listing
+}
+```
+
+A `use` is resolved while the spec is read, so what a command accepts is exactly what it was
+when the flags were written out: anything reading the spec — docs, manpages, completions, another
+implementation — sees `config` with all three flags. A struct that flattens another becomes a set
+that uses a set. Positionals stay on each command, since a set holds flags only, and two flattened
+structs whose names end in the same word get no set at all — one name cannot stand for both, so
+both are written inline.
 
 A flattened struct may not declare subcommands; that's a compile-time error with an explanation.
 
