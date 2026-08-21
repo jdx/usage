@@ -21,6 +21,9 @@ config {
     prop "color" type="bool" default=#true help="Colorize output"
     prop "jobs" type="uint" default=4 help="Number of parallel jobs"
     prop "log_level" type="string" default="info" help="How much to say" {
+        // An accepted spelling of the same setting, which the config layer reads without a
+        // warning — so a config file in the wild carries it and a user types it.
+        alias "loglevel"
         choices {
             choice "error" help="only failures"
             choice "warn" help="failures and warnings"
@@ -41,6 +44,12 @@ config {
     prop "internal_thing" type="bool" hide=#true help="Not for public use"
     prop "old_jobs" type="uint" deprecated="Use jobs instead." renamed_to="jobs" \
         help="How many jobs"
+    // Renamed once, and renamed twice: the values the old name takes are whatever its
+    // replacement takes, however many renames back the name a user has written down is.
+    prop "old_log_level" type="string" deprecated="Use log_level instead." \
+        renamed_to="log_level" help="How much to say"
+    prop "ancient_log_level" type="string" deprecated="Use log_level instead." \
+        renamed_to="old_log_level" help="How much to say"
 }
 
 cmd "config" help="Manage settings" {

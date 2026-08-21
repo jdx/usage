@@ -55,6 +55,11 @@ it does not matter where the key sits relative to the cursor. It offers that set
 `choices` with their own help, or `true` and `false` for a boolean. For anything else it stays
 quiet and the file fallback applies, which is what a path-valued setting wants anyway.
 
+A key is matched by every name the setting answers to, not only the one it is declared
+under: an `alias` resolves to the setting that declares it, and a `renamed_to` chain is
+followed to the setting that now holds the values. Those are the names a config file in the
+wild still carries, so they are the ones a user types.
+
 Both are _closed_: where the spec enumerates the candidates, a prefix matching none of them
 completes to nothing rather than falling back to filenames. A setting whose values the spec
 does not enumerate keeps the fallback — including a union like `bool|path`, where `true` and
