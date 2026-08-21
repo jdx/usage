@@ -625,6 +625,13 @@ impl From<&crate::SpecCommand> for SpecCommand {
             // Presentational output does not describe relationships between flags, the
             // way it already does not describe `conflicts`.
             groups: _,
+            // Rendered, but not from here: both fold with the spec's CLI-wide
+            // declarations, and a command alone cannot see them. `with_spec` below fills
+            // them in, so that the markdown page and the man page read one answer instead
+            // of each computing their own.
+            outputs: _,
+            select: _,
+            exit_codes: _,
         } = cmd;
 
         let rendered_subcommands: IndexMap<String, SpecCommand> = subcommands

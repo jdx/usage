@@ -8,11 +8,13 @@ pub mod config_type;
 mod context;
 pub mod data_types;
 pub mod effect;
+pub mod exit_code;
 pub mod flag;
 pub mod flagset;
 pub mod group;
 pub mod helpers;
 pub mod mount;
+pub mod output;
 pub mod unknown_flags;
 pub mod view;
 
@@ -32,8 +34,10 @@ use crate::error::UsageErr;
 use crate::spec::cmd::{SpecCommand, SpecExample};
 use crate::spec::config::SpecConfig;
 use crate::spec::context::ParsingContext;
+use crate::spec::exit_code::SpecExitCode;
 use crate::spec::flagset::{SpecFlagSet, SpecUse};
 use crate::spec::helpers::{string_entry, NodeHelper};
+use crate::spec::output::SpecOutput;
 use crate::{SpecArg, SpecComplete, SpecFlag};
 use view::SpecView;
 
@@ -117,6 +121,15 @@ pub struct Spec {
     pub min_usage_version: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub examples: Vec<SpecExample>,
+    /// CLI-wide outputs, inherited by every command that does not say otherwise.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub outputs: Vec<SpecOutput>,
+    /// The CLI-wide flag whose value picks among [`Self::outputs`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub select: Option<String>,
+    /// CLI-wide exit codes, refined per command rather than replaced.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub exit_codes: Vec<SpecExitCode>,
     /// Default subcommand to use when first non-flag argument is not a known subcommand.
     /// This enables "naked" command syntax like `mise foo` instead of `mise run foo`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -641,6 +654,11 @@ impl Spec {
                     }
                     schema.examples.push(example);
                 }
+                "output" => schema.outputs.push(SpecOutput::parse(ctx, &node)?),
+                "exit_code" => schema.exit_codes.push(SpecExitCode::parse(ctx, &node)?),
+                "select" => {
+                    schema.select = Some(node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
+                }
                 "include" => {
                     let file = node
                         .props()
@@ -707,8 +725,10 @@ impl Spec {
         } else {
             schema.bin.clone()
         };
-        // Before ancestors, because a command's usage string is built from its flags.
+        // Before ancestors are stamped, because expanding a flagset or narrowing a selector can
+        // add a flag to a command and the usage strings are computed from the flag list.
         flagset::expand(ctx, &mut schema.cmd, &mut schema.flagsets)?;
+        output::resolve_selectors(&mut schema)?;
         set_subcommand_ancestors(&mut schema.cmd, &[]);
         Ok(schema)
     }
@@ -771,6 +791,9 @@ impl Spec {
         // file arriving by two routes, which overwrites an entry with itself.
         merge_extend!(flagsets);
         merge_extend!(examples);
+        merge_extend!(outputs);
+        merge_extend!(exit_codes);
+        merge_opt!(select);
         // An included spec brings the files *it* read, which is how a nested include is watched.
         merge_extend!(sources);
 
@@ -1136,6 +1159,17 @@ impl Display for Spec {
         }
         for example in self.examples.iter() {
             nodes.push(example.into());
+        }
+        for output in self.outputs.iter() {
+            nodes.push(output.into());
+        }
+        if let Some(select) = &self.select {
+            let mut node = KdlNode::new("select");
+            node.push(string_entry(None, select));
+            nodes.push(node);
+        }
+        for exit_code in self.exit_codes.iter() {
+            nodes.push(exit_code.into());
         }
         for complete in self.complete.values() {
             nodes.push(complete.into());
