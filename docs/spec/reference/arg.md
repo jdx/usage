@@ -53,6 +53,16 @@ value after defaults and environment fallbacks are applied. The only variable is
 `validate_error`, or a generic validation error when it is omitted. Because the
 expression is stored in the spec, generated Rust and Go parsers enforce the same rule.
 
+The Rust runtime compiles the operators, the string, array and numeric builtins, and
+`matches`. The date, JSON and base64 builtins are left out — twelve crates for something a
+`validate=` rule rarely reaches, since the only variable is a string. An expression that
+uses one fails when a value reaches it, naming the feature to add; a CLI that wants them
+adds it to its own manifest:
+
+```toml
+expr-lang = { version = "2.1", features = ["temporal"] }
+```
+
 ## Using Variadic Args in Bash
 
 When using variadic arguments (`var=#true`), the values are passed as a shell-escaped
