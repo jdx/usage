@@ -1817,25 +1817,26 @@
       },
       {
         "name": "color",
-        "usage": "--color <WHEN>",
-        "help": "When to color output",
-        "help_first_line": "When to color output",
+        "usage": "--color",
+        "help": "Force colored output",
+        "help_first_line": "Force colored output",
         "short": [],
         "long": ["color"],
         "hide": false,
         "global": false,
-        "arg": {
-          "name": "WHEN",
-          "usage": "<WHEN>",
-          "required": true,
-          "double_dash": "Optional",
-          "hide": false,
-          "choices": {
-            "choices": ["auto", "always", "never"]
-          }
-        },
-        "default": ["auto"],
-        "color": "choice"
+        "conflicts": ["--no-color"],
+        "color": "always"
+      },
+      {
+        "name": "no-color",
+        "usage": "--no-color",
+        "help": "Disable colored output",
+        "help_first_line": "Disable colored output",
+        "short": [],
+        "long": ["no-color"],
+        "hide": false,
+        "global": false,
+        "color": "never"
       }
     ],
     "mounts": [],

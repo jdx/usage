@@ -869,12 +869,13 @@ const completionSpec: Fig.Spec = {
     },
     {
       name: "--color",
-      description: "When to color output",
+      description: "Force colored output",
       isRepeatable: false,
-      args: {
-        name: "when",
-        suggestions: ["auto", "always", "never"],
-      },
+    },
+    {
+      name: "--no-color",
+      description: "Disable colored output",
+      isRepeatable: false,
     },
   ],
 };

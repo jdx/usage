@@ -244,11 +244,16 @@ fn main() {
 }
 ```
 
-A `color = "choice"` flag takes its value. Do not reach for `value_optional` or
-`default_missing` to make a bare `--color` mean something: a detached optional value is
-ambiguous to a reader even where the grammar resolves it, and a CLI that wants one word for
-"colour, please" already has a better spelling — a switch, `color = "always"` with a
-`negate`, which says the same thing and cannot be misread.
+Two switches is the shape to reach for, as above. It is the only one where "said nothing"
+is a state of its own: a value-taking `--color` has to be given a default, and a `bool`
+holding a color has to mean `always` or `never`, so neither can express the `auto` that a
+bare command line asks for the way two flags neither of which was given can. It also has no
+value to leave off — do not reach for `value_optional` or `default_missing` to make a bare
+`--color` mean something, because a detached optional value is ambiguous to a reader even
+where the grammar resolves it.
+
+`color = "choice"` is there for the CLI that already spells it `--color <WHEN>` — mise's
+`watch` does, and a spec has to be able to describe it — rather than as the recommendation.
 
 `verbosity=` and `color=` are spec properties, so a spec carrying them needs a `usage` new
 enough to know them — an older one stops at `unsupported flag key verbosity` rather than

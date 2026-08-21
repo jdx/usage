@@ -32,19 +32,17 @@ Show more of what `usage` is doing
 
 Say nothing that is not a failure
 
-### `--color <WHEN>`
+### `--color`
 
-**Color**: chooses whether output is colored
+**Color**: forces colored output
 
-When to color output
+Force colored output
 
-**Choices:**
+### `--no-color`
 
-- `auto`
-- `always`
-- `never`
+**Color**: disables colored output
 
-**Default:** `auto`
+Disable colored output
 
 ## Subcommands
 

@@ -147,21 +147,19 @@ pub struct Cli {
     )]
     log_level: Option<String>,
 
-    /// When to color output
+    /// Force colored output
     //
-    // A `String` with a default rather than an `Option`: there is no such thing as an
-    // unanswered colour question — a command line that says nothing has still asked for
-    // `auto` — so the type says so. And the value is required, not optional: `--color`
-    // on its own would be a word whose meaning a reader has to look up, when `--color
-    // never` says it.
-    #[usage(
-        long,
-        value_name = "WHEN",
-        choices("auto", "always", "never"),
-        default = "auto",
-        color = "choice"
-    )]
-    color: String,
+    // Two switches rather than one `--color <WHEN>`: three words for three answers, and
+    // no value to read, mis-type or leave off. It is also the only shape where "said
+    // nothing" is a state of its own — a `bool` holding a color has to mean either
+    // `always` or `never`, so a single negatable flag cannot express the `auto` a bare
+    // command line asks for, while two flags neither of which was given can.
+    #[usage(long, color = "always", conflicts = "--no-color")]
+    color: bool,
+
+    /// Disable colored output
+    #[usage(long, color = "never")]
+    no_color: bool,
 }
 
 /// Start logging at the level this command line asked for.
