@@ -25,6 +25,36 @@ During a prerelease migration, pin every producer and consumer to one revision. 
 the `usage-rs` dependency that emits KDL and any installed `usage-cli` that renders that KDL must
 use the same 6.x revision. A 5.x CLI reading a 6.x spec is unsupported.
 
+### Dependency footprint
+
+The migration shrinks the dependency graph. These counts come from `cargo tree` on a minimal
+binary — normal and build edges, deduplicated — for clap 4.6.6 with the `derive` feature against
+`usage-rs` with the defaults plus `completions`:
+
+|                                        | clap | usage |
+| -------------------------------------- | ---: | ----: |
+| crates in the graph                    |   17 |     7 |
+| non-clap / non-usage crates            |   13 |     4 |
+| of those, linked into your binary      |    8 |     0 |
+| of those, build-time only (the derive) |    5 |     4 |
+
+No crate outside usage is linked into the shipped binary. `usage-argv`, the runtime every
+invocation executes, has no dependencies at all; styled help, clap-shaped diagnostics, and
+did-you-mean suggestions are implemented in-tree. clap links eight runtime crates for the same
+jobs: anstream, anstyle, anstyle-parse, anstyle-query, colorchoice, is_terminal_polyfill,
+utf8parse, and strsim.
+
+The four non-usage crates usage does pull — proc-macro2, quote, syn, and unicode-ident — are the
+derive's own compiler. They run at build time and never link into the binary, and they are the
+standard proc-macro stack that nearly every derive macro pulls: a project using serde's derive,
+thiserror, or clap_derive itself (the same four, plus heck) is already compiling them, so in
+practice they add nothing to the build.
+
+Generated artifacts add nothing: the `completions` feature and the spec that feeds markdown and
+manpage generation bring zero further crates, where clap needs `clap_complete` and `clap_mangen`.
+The one exception is the opt-in `validation` feature, whose portable expressions are evaluated by
+`expr-lang` and its parser stack; leave the feature off and it costs nothing.
+
 ## Derive mapping
 
 | clap                    | usage                                                   |
