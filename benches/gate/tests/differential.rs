@@ -130,6 +130,10 @@ enum Verdict {
     UnknownFlag,
     /// A flag that needs a value did not get one.
     MissingValue,
+    /// clap's `InvalidValue` with an empty value: a value-taking flag was the final token.
+    /// Kept separate because usage may already have bound that token as a positional value,
+    /// which is a routing disagreement rather than the ordinary missing-value class.
+    MissingValueAtEnd,
     /// A word arrived with no argument left to hold it.
     UnexpectedWord,
     /// A subcommand was wanted, and the line named none.
@@ -219,7 +223,16 @@ fn clap_verdict(line: &[String]) -> Verdict {
                 Verdict::MissingSubcommand
             }
             K::MissingRequiredArgument => Verdict::MissingRequired,
-            K::InvalidValue => Verdict::InvalidChoice,
+            // clap also reports a value-taking flag at end-of-line as `InvalidValue`, with an
+            // empty invalid value and no valid choices. That is a missing value, not a choice
+            // rejection: `mise asdf 3 -j` is the fleet case that distinguishes the two.
+            K::InvalidValue => match e
+                .get(clap::error::ContextKind::InvalidValue)
+                .map(|v| v.to_string())
+            {
+                Some(value) if value.is_empty() => Verdict::MissingValueAtEnd,
+                _ => Verdict::InvalidChoice,
+            },
             K::NoEquals | K::TooFewValues | K::WrongNumberOfValues => Verdict::MissingValue,
             // Also what clap raises for a flag given twice — "cannot be used multiple times" —
             // which is why the class covers both.
@@ -254,6 +267,7 @@ fn named_refusal(v: Verdict) -> bool {
         v,
         UnknownFlag
             | MissingValue
+            | MissingValueAtEnd
             | UnexpectedWord
             | MissingSubcommand
             | MissingRequired
@@ -373,14 +387,15 @@ fn explained(o: Outcome) -> Option<&'static str> {
         // to words *after* a positional is bound, not the words themselves.
         // Any of these verdicts, because the cause is the routing and not what the routed command
         // happened to want: `mise - bootstrap packages use` reaches a command missing a required
-        // argument, `mise - bootstrap dotfiles` reaches one missing a subcommand, and
-        // `mise - unuse x -g --global` reaches duplicate spellings of the same flag. Keying on
-        // the first of those alone left later generated examples unexplained, which is the
-        // narrowness this arm was written to avoid in the first place.
+        // argument, `mise - bootstrap dotfiles` reaches one missing a subcommand,
+        // `mise - unuse x -g --global` reaches duplicate spellings of the same flag, and
+        // `mise asdf 3 -j` reaches a global flag missing its value. Keying on the first of those
+        // alone left later generated examples unexplained, which is the narrowness this arm was
+        // written to avoid in the first place.
         Outcome {
             argv: Accept,
             lib: true,
-            clap: MissingRequired | MissingSubcommand | Conflict,
+            clap: MissingValueAtEnd | MissingRequired | MissingSubcommand | Conflict | InvalidChoice,
         } => Some("after a positional binds, usage keeps the words; clap still routes them"),
 
         _ => None,
@@ -461,6 +476,15 @@ proptest! {
             o.clap,
         );
     }
+}
+
+#[test]
+fn positional_routing_can_still_reach_a_genuine_invalid_choice() {
+    let outcome = run(&SPEC, &["asdf".into(), "3".into(), "--log-level=v".into()]);
+    assert_eq!(outcome.argv, Verdict::Accept);
+    assert!(outcome.lib);
+    assert_eq!(outcome.clap, Verdict::InvalidChoice);
+    assert!(explained(outcome).is_some());
 }
 
 #[test]

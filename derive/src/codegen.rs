@@ -840,7 +840,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 #runtime_version
                             };
                             ::std::println!("{__usage_bin} {__usage_version}");
-                            ::std::process::exit(0);
+                            usage_argv::__usage_process_exit(0);
                         }
                         ::std::result::Result::Err(usage_argv::Error::Help { cmd, long }) => {
                             #effective_spec
@@ -873,10 +873,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             match __usage_page {
                                 ::std::option::Option::Some(page) => {
                                     ::std::print!("{page}");
-                                    ::std::process::exit(0);
+                                    usage_argv::__usage_process_exit(0);
                                 }
                                 // Only reachable if the command came from another CLI's tables.
-                                ::std::option::Option::None => ::std::process::exit(0),
+                                ::std::option::Option::None => usage_argv::__usage_process_exit(0),
                             }
                         }
                         ::std::result::Result::Err(usage_argv::Error::MissingArgsHelp { cmd }) => {
@@ -906,9 +906,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             match __usage_page {
                                 ::std::option::Option::Some(page) => {
                                     ::std::eprint!("{page}");
-                                    ::std::process::exit(2);
+                                    usage_argv::__usage_process_exit(2);
                                 }
-                                ::std::option::Option::None => ::std::process::exit(2),
+                                ::std::option::Option::None => usage_argv::__usage_process_exit(2),
                             }
                         }
                         ::std::result::Result::Err(usage_argv::Error::HelpAll { cmd }) => {
@@ -936,9 +936,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                             match __usage_page {
                                 ::std::option::Option::Some(page) => {
                                     ::std::print!("{page}");
-                                    ::std::process::exit(0);
+                                    usage_argv::__usage_process_exit(0);
                                 }
-                                ::std::option::Option::None => ::std::process::exit(0),
+                                ::std::option::Option::None => usage_argv::__usage_process_exit(0),
                             }
                         }
                         ::std::result::Result::Err(e) => {
@@ -948,7 +948,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                                 usage_argv::render_failure(__usage_spec, &__usage_argv, &e)
                             );
                             // clap's, so a script that checks for it keeps working.
-                            ::std::process::exit(2);
+                            usage_argv::__usage_process_exit(2);
                         }
                     }
                 }
@@ -1178,7 +1178,7 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                 ::std::env::args_os().skip(1).collect();
             if let ::std::option::Option::Some(answer) = Self::completion_request(&__usage_args) {
                 ::std::print!("{answer}");
-                ::std::process::exit(0);
+                usage_argv::__usage_process_exit(0);
             }
         }
     };
