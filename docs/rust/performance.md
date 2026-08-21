@@ -63,14 +63,60 @@ validation phase. Even compared only with clap's already-built parse phase, with
 the tree constructed and paid for, usage is about 34x faster in this
 measurement.
 
+## argh and bpaf
+
+clap is not the only comparison the gate builds. The same mise spec is shadowed in argh's and
+bpaf's vocabulary, and the same differencing measures all four parsing `mise use -g node@20`
+(one run of `tasks/perf-shadow.sh`; counts vary slightly run to run):
+
+| Framework | Instructions, cold parse | vs usage | Wall time (min) |
+| --------- | -----------------------: | -------: | --------------: |
+| usage     |                    7,409 |        — |          350 ns |
+| argh      |                    6,292 |     0.8x |          275 ns |
+| clap      |                6,307,681 |     851x |          513 µs |
+| bpaf      |               21,909,001 |   2,957x |         1.61 ms |
+
+The table splits into two classes. clap and bpaf construct and validate a parser at runtime
+before reading a single word, so their floor is hundreds of microseconds. argh and usage read
+static tables, so their floor is hundreds of nanoseconds.
+
+Within the static class, argh is slightly cheaper — and expresses far less. Each shadow
+intentionally drops what its framework cannot say, and argh's drops the most: environment
+fallback, declared defaults, hidden and global flags, `choices`, flag relationships, aliases,
+and non-UTF-8 argv (argh parses `&[&str]`). usage's number carries the full grammar, the spec,
+and clap-shaped help and errors. The claim is not that usage is the cheapest parser possible;
+it is that carrying everything costs the same class as carrying almost nothing.
+
+## Binary size
+
+The gate's parse-only binaries — each linking its framework's mise-scale shadow, built by the
+same workspace release build, stripped:
+
+| Framework | Stripped binary |
+| --------- | --------------: |
+| argh      |          1.0 MB |
+| usage     |          1.5 MB |
+| bpaf      |          2.5 MB |
+| clap      |          3.1 MB |
+
+The ordering matches the dependency story: usage links no third-party crates, clap links eight.
+The same expressiveness caveat applies to argh's number as to its instruction count. For what
+the spec endpoint itself weighs, see [Spec output](/rust/spec#the-endpoint) — 65 KB on a small
+CLI, and `#[usage(spec_endpoint = false)]` removes it.
+
 ## Method and limits
 
 - Instruction counts come from Cachegrind, whose run-to-run variation on the
   benchmark host is much lower than wall-clock timing.
 - `tak` runs the release binaries repeatedly and reports the difference between
   the no-parse and parse paths.
-- Both shadows are generated from the same spec and intentionally drop the same
-  unsupported properties.
+- Every shadow is generated from the same spec, and each intentionally drops what
+  its framework cannot express — so a framework is measured on its own vocabulary,
+  and the drops are themselves part of the comparison.
+- Binary sizes are the gate's `parse-n*` binaries from a full workspace release
+  build, stripped. The workspace build matters: cargo unifies features, so clap
+  gets the features (color, suggestions, help, derive, env) a real CLI of this
+  size enables.
 - This measures routing and parsing, not process startup, configuration loading,
   command execution, help rendering, or completion generation.
 - The mise fixture changes over time, both by growing and by being refreshed

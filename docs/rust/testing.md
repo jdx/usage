@@ -10,6 +10,11 @@ when it does not, and what a shell offers while one is being typed. `usage::test
 three from the static tables the derive already emitted — no process to spawn, no terminal to
 fake, no snapshot of a binary's stdout.
 
+The third has no clap equivalent at all: testing a `clap_complete` script means golden-filing
+the script's text or driving a real shell, neither of which asserts what a user is actually
+offered. Here a completion is a function of the spec and a half-typed line, so it is a plain
+assertion.
+
 ```toml
 [dev-dependencies]
 usage = { package = "usage-rs", version = "6", features = ["test"] }

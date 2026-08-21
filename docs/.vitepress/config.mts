@@ -63,6 +63,7 @@ export default defineConfig({
         text: "Rust Framework",
         link: "/rust/",
         items: [
+          { text: "Quickstart", link: "/rust/quickstart" },
           { text: "Args and Flags", link: "/rust/args-and-flags" },
           { text: "Subcommands", link: "/rust/subcommands" },
           { text: "Dispatch", link: "/rust/dispatch" },
@@ -70,7 +71,7 @@ export default defineConfig({
           { text: "clap Compatibility", link: "/rust/clap-compatibility" },
           { text: "Validation", link: "/rust/validation" },
           { text: "Settings", link: "/rust/settings" },
-          { text: "Help and Errors", link: "/rust/help" },
+          { text: "Help, Version, and Errors", link: "/rust/help" },
           { text: "Performance", link: "/rust/performance" },
           { text: "Completions", link: "/rust/completions" },
           { text: "Testing", link: "/rust/testing" },

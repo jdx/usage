@@ -25,6 +25,13 @@ through adopting a context — or a runtime — needs. The sync, context-free ca
 ```rust
 use usage::{Args, Cli, Run, Subcommands};
 
+#[derive(Cli)]
+#[usage(bin = "ex")]
+struct Cli {
+    #[usage(subcommand)]
+    command: Commands,
+}
+
 #[derive(Subcommands)]
 #[usage(run)]
 enum Commands {
