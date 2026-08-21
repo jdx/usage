@@ -100,6 +100,46 @@ fn skip_if_shell_missing(shell: &str) -> bool {
     true
 }
 
+/// The system bash-completion script, or `None` if it isn't installed.
+///
+/// usage no longer embeds a copy of bash-completion, so the generated bash completion needs
+/// the real one loaded before it — `_comp_initialize` and `_comp_compgen` come from there.
+/// The search list is the one bash-completion's own README tells packagers to use.
+fn system_bash_completion() -> Option<PathBuf> {
+    if let Some(dir) = env::var_os("BASH_COMPLETION_USER_DIR") {
+        let candidate = PathBuf::from(dir).join("bash_completion");
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    [
+        "/usr/share/bash-completion/bash_completion",
+        "/usr/local/share/bash-completion/bash_completion",
+        "/opt/homebrew/etc/profile.d/bash_completion.sh",
+        "/usr/local/etc/profile.d/bash_completion.sh",
+        "/etc/bash_completion",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .find(|path| path.is_file())
+}
+
+/// Returns `Some(path)` to the system bash-completion, or `None` if the test should be skipped.
+///
+/// Panics under `CI` for the same reason [`skip_if_shell_missing`] does: bash-completion is
+/// installed by the workflow, so a run that quietly skipped this test would be reporting a
+/// green bash suite that never exercised a completion.
+fn bash_completion_or_skip() -> Option<PathBuf> {
+    if let Some(path) = system_bash_completion() {
+        return Some(path);
+    }
+    if env::var("CI").is_ok_and(|v| !v.is_empty()) {
+        panic!("bash-completion is not installed but CI is set — refusing to skip");
+    }
+    eprintln!("Skipping bash completion test - bash-completion is not installed");
+    None
+}
+
 fn shell_can_run_a_script(shell: &str) -> bool {
     static NEXT: AtomicUsize = AtomicUsize::new(0);
     let dir = env::temp_dir().join(format!(
@@ -369,6 +409,9 @@ fn test_bash_completion_integration() {
     if skip_if_shell_missing("bash") {
         return;
     }
+    let Some(bash_completion) = bash_completion_or_skip() else {
+        return;
+    };
 
     // Build the usage binary
     let usage_bin = build_usage_binary();
@@ -389,12 +432,10 @@ cmd "sub" help="Subcommand" {
     let spec_kdl_file = temp_dir.join("testcli.kdl");
     fs::write(&spec_kdl_file, spec).unwrap();
 
-    // Generate the completion with bash-completion library included
     let output = Command::new(&usage_bin)
         .args(["generate", "completion", "bash", "testcli"])
         .arg("-f")
         .arg(spec_kdl_file.to_str().unwrap())
-        .arg("--include-bash-completion-lib")
         .output()
         .expect("Failed to generate bash completion");
 
@@ -424,7 +465,8 @@ set +e
 # Add usage binary to PATH
 export PATH="{}:$PATH"
 
-# Source our completion (which includes bash-completion library)
+# bash-completion first: the generated completion calls its functions.
+source {}
 source {}
 
 echo "LOAD_SUCCESS"
@@ -519,6 +561,7 @@ fi
 echo "COMPLETION_TEST_DONE"
 "#,
         path_var_entry("bash", usage_bin.parent().unwrap()),
+        sh_path(&bash_completion),
         sh_path(&comp_file),
         sh_path(&temp_dir)
     );
@@ -1571,6 +1614,64 @@ echo "GUARD_EXIT=$?"
     assert!(
         stderr.contains("usage_guard_probe CLI not found"),
         "guard should explain the CLI is missing.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_bash_guard_reports_missing_bash_completion() {
+    if skip_if_shell_missing("bash") {
+        return;
+    }
+
+    // usage no longer ships a copy of bash-completion, so "it isn't installed" is a
+    // reachable state for anyone sourcing a generated completion. It has to say so
+    // rather than fail as `_comp_initialize: command not found`.
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!("usage_bash_nobc_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let output = Command::new(&usage_bin)
+        .args(["generate", "completion", "bash", "testcli"])
+        .args(["--usage-cmd", "command usage --usage-spec"])
+        .output()
+        .expect("Failed to generate bash completion");
+    let comp_file = temp_dir.join("testcli.bash");
+    fs::write(&comp_file, &output.stdout).unwrap();
+
+    // A non-interactive bash loads no bash-completion of its own, so sourcing only the
+    // generated script is exactly the state being tested.
+    let test_script = format!(
+        r#"#!/usr/bin/env bash
+export PATH="{path}:$PATH"
+source "{comp}"
+_testcli testcli "" testcli 1
+echo "GUARD_EXIT=$?"
+"#,
+        path = path_var_entry("bash", usage_bin.parent().unwrap()),
+        comp = sh_path(&comp_file),
+    );
+    let script_file = temp_dir.join("test.sh");
+    fs::write(&script_file, &test_script).unwrap();
+
+    let result = script_command("bash", &script_file)
+        .output()
+        .expect("Failed to run bash test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+
+    assert!(
+        stdout.contains("GUARD_EXIT=1"),
+        "guard should return 1 when bash-completion is not loaded.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("bash-completion 2.12+ is required"),
+        "guard should name bash-completion.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
+    assert!(
+        !stderr.contains("_comp_initialize: command not found"),
+        "the guard should fire before bash reports a missing function.\nstderr:\n{stderr}"
     );
 
     let _ = fs::remove_dir_all(&temp_dir);

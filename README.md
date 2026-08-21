@@ -28,7 +28,4 @@ license is reproduced in [NOTICE.md](NOTICE.md).
 
 ## License
 
-[MIT](LICENSE). Third-party notices — including the GPL-2.0-or-later
-[bash-completion](https://github.com/scop/bash-completion) script that
-`usage generate completion bash --include-bash-completion-lib` emits — are in
-[NOTICE.md](NOTICE.md).
+[MIT](LICENSE). Third-party notices are in [NOTICE.md](NOTICE.md).
