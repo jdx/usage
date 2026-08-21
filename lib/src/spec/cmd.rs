@@ -611,6 +611,9 @@ impl SpecCommand {
         self.usage_with_subcommands(true)
     }
 
+    // `docs` only, like `SpecChoices::for_help`: the usage line without the subcommand
+    // placeholder is a help-page shape, and nothing else asks for it.
+    #[cfg(feature = "docs")]
     pub(crate) fn usage_without_subcommands(&self) -> String {
         self.usage_with_subcommands(false)
     }

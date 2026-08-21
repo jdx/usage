@@ -6,9 +6,9 @@ use std::sync::Arc;
 
 use itertools::Itertools;
 use miette::IntoDiagnostic;
+use regex::Regex;
 use std::sync::LazyLock;
 use usage_rs::Args;
-use xx::regex;
 
 use usage::parse::{ParseOutput, ParseValue};
 use usage::sh::sh;
@@ -646,7 +646,9 @@ impl CompleteWord {
             trace!("run: {run}");
             let stdout = sh(&run)?;
             // trace!("stdout: {stdout}");
-            let re = regex!(r"[^\\]:");
+            static DESCRIPTION_SEPARATOR: LazyLock<Regex> =
+                LazyLock::new(|| Regex::new(r"[^\\]:").unwrap());
+            let re = &*DESCRIPTION_SEPARATOR;
             return Ok((
                 stdout
                     .lines()

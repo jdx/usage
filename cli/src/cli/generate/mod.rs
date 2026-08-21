@@ -95,11 +95,24 @@ pub fn write_or_stdout(out_file: Option<&Path>, contents: &str) -> Result<(), Us
     match out_file {
         Some(path) if path.as_os_str() != "-" => {
             eprintln!("writing to {}", path.display());
-            xx::file::write(path, contents)?;
+            write_file(path, contents)?;
         }
         _ => write_stdout(contents)?,
     }
     Ok(())
+}
+
+/// Write a generated file, creating the directories leading to it.
+///
+/// Every caller's path is a join onto an `--out-dir` the user named, so the parents are
+/// created rather than demanded. The path travels with the error: "No such file or
+/// directory" alone does not say which one.
+pub fn write_file(path: &Path, contents: impl AsRef<[u8]>) -> Result<(), UsageErr> {
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)
+            .map_err(|err| UsageErr::FileError(err, parent.to_path_buf()))?;
+    }
+    std::fs::write(path, contents).map_err(|err| UsageErr::FileError(err, path.to_path_buf()))
 }
 
 /// Write a generated document to stdout, reporting a failed write rather than panicking.

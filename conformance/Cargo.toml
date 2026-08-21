@@ -20,7 +20,9 @@ serde_json = "1"
 usage-argv = { workspace = true, features = ["spec", "complete", "diagnostics"] }
 usage-config = { workspace = true }
 usage-cli = { workspace = true }
-usage-lib = { workspace = true }
+# Both named explicitly: the corpus carries `validate=` vectors, checked against usage-lib's
+# reference parser, and the suites compare rendered help against `usage::docs`.
+usage-lib = { workspace = true, features = ["docs", "validation"] }
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive", "env"] }

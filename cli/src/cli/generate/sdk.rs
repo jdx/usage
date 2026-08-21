@@ -62,7 +62,7 @@ impl Sdk {
         for file in &output.files {
             let path = self.output.join(&file.path);
             eprintln!("writing to {}", path.display());
-            xx::file::write(&path, &file.content)?;
+            super::write_file(&path, &file.content)?;
         }
 
         Ok(())

@@ -18,13 +18,14 @@ pub mod view;
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use log::{info, warn};
+use regex::Regex;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::iter::once;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use xx::file;
+use std::sync::LazyLock;
 
 use crate::error::UsageErr;
 use crate::spec::cmd::{SpecCommand, SpecExample};
@@ -196,7 +197,7 @@ impl Spec {
     /// If `bin` is not specified in the spec, it defaults to the filename.
     #[must_use = "parsing result should be used"]
     pub fn parse_script(file: &Path) -> Result<Spec, UsageErr> {
-        let mut spec = Self::parse_script_with_path(&file::read_to_string(file)?, file)?;
+        let mut spec = Self::parse_script_with_path(&read_to_string(file)?, file)?;
         if spec.bin.is_empty() {
             spec.bin = file
                 .file_name()
@@ -749,32 +750,46 @@ fn check_usage_version(version: &str) {
     }
 }
 
+/// Read a file, keeping its path in the error.
+///
+/// `std::fs::read_to_string` reports "No such file or directory" and nothing about which
+/// file, and these paths come from a command line.
+fn read_to_string(file: &Path) -> Result<String, UsageErr> {
+    std::fs::read_to_string(file).map_err(|err| UsageErr::FileError(err, file.to_path_buf()))
+}
+
+/// A comment line that opens or continues an embedded spec: `#USAGE`, `//USAGE`, `::USAGE`,
+/// or their `[USAGE]` spellings.
+static USAGE_COMMENT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])(.*)$").unwrap());
+/// The same, without capturing the rest of the line: used only to answer whether a script
+/// carries an embedded spec at all.
+static HAS_USAGE_COMMENT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])").unwrap());
+/// A comment line with nothing on it, which continues a spec rather than ending it.
+static BLANK_COMMENT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:#|//|::)\s*$").unwrap());
+
 fn split_script(file: &Path) -> Result<String, UsageErr> {
-    let full = file::read_to_string(file)?;
+    let full = read_to_string(file)?;
     // If file has a shebang and USAGE comments, extract the spec from comments
-    if full.starts_with("#!") {
-        let usage_regex = xx::regex!(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])");
-        if full.lines().any(|l| usage_regex.is_match(l)) {
-            return Ok(extract_usage_from_comments(&full));
-        }
+    if full.starts_with("#!") && full.lines().any(|l| HAS_USAGE_COMMENT.is_match(l)) {
+        return Ok(extract_usage_from_comments(&full));
     }
     // Otherwise treat the whole file as a KDL spec (e.g., .usage.kdl files)
     Ok(full)
 }
 
 fn extract_usage_from_comments(full: &str) -> String {
-    let usage_regex = xx::regex!(r"^(?:#|//|::)(?:USAGE| ?\[USAGE\])(.*)$");
-    let blank_comment_regex = xx::regex!(r"^(?:#|//|::)\s*$");
     let mut usage = vec![];
     let mut found = false;
     for line in full.lines() {
-        if let Some(captures) = usage_regex.captures(line) {
+        if let Some(captures) = USAGE_COMMENT.captures(line) {
             found = true;
             let content = captures.get(1).map_or("", |m| m.as_str());
             usage.push(content.trim());
         } else if found {
             // Allow blank comment lines to continue parsing
-            if blank_comment_regex.is_match(line) {
+            if BLANK_COMMENT.is_match(line) {
                 continue;
             }
             // if there is a non-blank non-USAGE line, stop reading

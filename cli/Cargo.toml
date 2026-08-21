@@ -47,8 +47,10 @@ tokio = { version = "1", features = ["rt", "macros", "io-std"] }
 # the parser it ships. Facade defaults already include diagnostics (and therefore
 # `spec`) for `--usage-spec` and clap-shaped parse errors.
 usage-rs = { workspace = true }
-usage-lib = { workspace = true, features = ["clap", "docs", "unstable_choices_env"] }
-xx = "2"
+# `validation` rather than `clap`: the CLI has no clap dependency to convert *from*, and it
+# parses arbitrary specs — without `validation`, a spec carrying `validate=` gets an error
+# saying the feature is off, and `usage lint` stops rejecting malformed expressions.
+usage-lib = { workspace = true, features = ["docs", "unstable_choices_env", "validation"] }
 
 [target.'cfg(unix)'.dependencies]
 exec = "0.3"

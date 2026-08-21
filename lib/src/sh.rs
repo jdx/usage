@@ -1,12 +1,10 @@
 //! Running the shell scripts a spec embeds in `run=`.
 
 use std::io;
-use std::process::Command;
+use std::process::{Command, ExitStatus};
 use std::string::FromUtf8Error;
-use xx::process::check_status;
-use xx::XXError;
 
-use crate::error::Result;
+use crate::error::{Result, UsageErr};
 
 /// The interpreter a `run=` script is handed to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,19 +93,37 @@ pub fn sh(script: &str) -> Result<String> {
         match fallback_for(kind, err.kind()) {
             Some(next) => kind = next,
             None if err.kind() == io::ErrorKind::NotFound && cfg!(windows) => {
-                return Err(XXError::Error(no_shell_message(script)).into());
+                return Err(UsageErr::ShellError(no_shell_message(script)));
             }
             None => {
-                return Err(XXError::ProcessError(err, format!("{shell} {flag} {script}")).into());
+                return Err(UsageErr::ShellError(format!(
+                    "{err}\n{shell} {flag} {script}"
+                )));
             }
         }
     };
 
     let (shell, flag) = shell_argv(kind);
-    check_status(output.status)
-        .map_err(|err| XXError::ProcessError(err, format!("{shell} {flag} {script}")))?;
+    if let Some(failure) = status_failure(output.status) {
+        return Err(UsageErr::ShellError(format!(
+            "{failure}\n{shell} {flag} {script}"
+        )));
+    }
     String::from_utf8(output.stdout)
-        .map_err(|err| XXError::Error(non_utf8_message(shell, flag, script, &err)).into())
+        .map_err(|err| UsageErr::ShellError(non_utf8_message(shell, flag, script, &err)))
+}
+
+/// How a non-successful exit reads, or `None` when the script succeeded.
+///
+/// A signal has no code, so it gets its own wording rather than a missing number.
+fn status_failure(status: ExitStatus) -> Option<String> {
+    if status.success() {
+        return None;
+    }
+    Some(match status.code() {
+        Some(code) => format!("exited with code {code}"),
+        None => "terminated by signal".to_string(),
+    })
 }
 
 fn run(shell: &str, flag: &str, script: &str) -> io::Result<std::process::Output> {

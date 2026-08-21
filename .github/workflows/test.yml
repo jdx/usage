@@ -103,6 +103,16 @@ jobs:
         run: |
           rustup target add x86_64-pc-windows-msvc
           cargo check -p usage-argv --all-features --target x86_64-pc-windows-msvc
+      # Everything else in this pipeline builds with `--all-features`, and resolver-v2 unification
+      # means a workspace build turns a feature on for every member as soon as one member wants it.
+      # So the shapes an adopter actually gets — usage-lib without `docs`, usage-rs without its
+      # defaults — are compiled nowhere else, and rotted unnoticed until they were measured.
+      - name: check the trimmed feature shapes still compile
+        run: |
+          cargo clippy -p usage-lib --no-default-features -- -D warnings
+          cargo clippy -p usage-rs --no-default-features -- -D warnings
+          cargo clippy -p usage-config-build -- -D warnings
+          cargo clippy -p usage-config --no-default-features -- -D warnings
       - run: mise r render
       # Same reasoning as `render`: the shadow is checked in, so a change to the derive's
       # vocabulary that would alter it has to be committed rather than discovered later.

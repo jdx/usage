@@ -13,6 +13,8 @@ license = { workspace = true }
 # Runs in a build script, so its dependencies cost an adopter's *build* and never ship: the KDL
 # parser lives here and `usage-config` carries none of it.
 [dependencies]
+# No features: all this needs is `Spec::parse_file` and the `config` sub-model. `docs` would add
+# tera and roff to every adopter's build script to render markdown nobody asked for.
 usage-lib = { workspace = true }
 # For the *rules*, not for the generated code: a default has to be held to the same choices, and read
 # by the same coercion, that the runtime will apply — and a second implementation of those rules here
