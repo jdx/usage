@@ -58,7 +58,7 @@
 pub mod cli;
 pub mod env;
 pub mod explain;
-#[cfg(any(feature = "toml", feature = "json"))]
+#[cfg(any(feature = "toml", feature = "json", feature = "yaml"))]
 pub mod files;
 pub mod layer;
 pub mod read;
@@ -71,7 +71,7 @@ pub mod value;
 pub use cli::CliLayer;
 pub use env::EnvLayer;
 pub use explain::explain;
-#[cfg(any(feature = "toml", feature = "json"))]
+#[cfg(any(feature = "toml", feature = "json", feature = "yaml"))]
 pub use files::{FileLayer, Format};
 pub use layer::{Entry, Layer, LayerCtx, LayerError, LayerOutput, Warning, WarningKind};
 pub use read::{Fold, FromValue, ReadError, ReadErrorKind, ReadErrors};

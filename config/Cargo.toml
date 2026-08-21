@@ -16,6 +16,10 @@ license = { workspace = true }
 [dependencies]
 toml = { version = "1.0", optional = true }
 serde_json = { version = "1", optional = true }
+# The YAML organization's continuation of `serde_yaml`, which is deprecated and unmaintained:
+# same `Value` and `Mapping`, still being released. The other maintained forks
+# (`serde_yaml_ng`, `serde_norway`) have not shipped since 2024.
+yaml_serde = { version = "0.10", optional = true }
 
 # Reading config files is opt-in, one format at a time, so the default is still no
 # dependencies at all: a CLI whose files are pkl or `.npmrc` writes its own layer against
@@ -24,6 +28,7 @@ serde_json = { version = "1", optional = true }
 default = []
 toml = ["dep:toml"]
 json = ["dep:serde_json"]
+yaml = ["dep:yaml_serde"]
 
 [package.metadata.release]
 shared-version = true
