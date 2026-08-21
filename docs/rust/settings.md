@@ -80,6 +80,14 @@ Field attributes mirror the spec's [`prop` vocabulary](/spec/reference/config):
 | `hide`, `deprecated = "…"`, `since = "…"`, `examples(…)` | Documentation and lifecycle metadata                                  |
 | `flatten`                                                | Splice another `Config` struct's settings in at this position         |
 
+A default and a choice are written as the type the field holds. Nothing coerces a declared
+default — the resolver seeds it as written and hands it to the field — so `default = 1` on a
+`String` field is a compile error rather than the text `1`, and `default(80)` is how a list of
+one is spelled apart from a bare `default = 80`. Choices follow the same spelling so the two
+can be compared, with one exception that is not a coercion: on a list setting the choices name
+what a single _item_ may be, so `choices("a", "b")` beside `default("a", "b")` is a `Vec<String>`
+whose every value is one of them.
+
 A flattened group declares its own dotted keys under its own `#[usage(prefix = "…")]`, and
 the parent joins the slices at compile time — two groups declaring the same key are a compile
 error, not a shadowed setting.
