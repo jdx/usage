@@ -176,6 +176,12 @@ letters are applied: `-az` does not set `-a` on the way to discovering that `z`
 names nothing. What happens to the token instead is described under
 [unrecognized flags](#unrecognized-flags).
 
+`-h` is recognized, and so is `-V` on the root of a CLI that declares a version.
+A parser supplies both rather than a spec declaring them, and they are letters
+like any other: `-vh` is a bundle, and it asks for help. A spec that declares the
+letter itself keeps it — `-h` is supplied only where nothing else claims it, so a
+CLI whose `-h` means `--host` reads `-vhlocal` as its own.
+
 `-` alone is not a flag. It is a value, conventionally meaning stdin.
 
 ## Unrecognized flags
