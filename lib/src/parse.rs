@@ -854,8 +854,8 @@ fn parse_partial_with_env(
             // first read: a token containing an unrecognized letter is not a bundle,
             // and recording it as one is what let `-a` be applied from a token that
             // never named it.
-            let is_bundle =
-                word.starts_with("--") || short_bundle_is_known(&out.available_flags, &word);
+            let is_bundle = word.starts_with("--")
+                || short_bundle_is_known(spec, &out.cmds, &out.available_flags, &word);
             if let Some(f) = out
                 .available_flags
                 .get(flag_key)
@@ -1282,7 +1282,7 @@ fn parse_partial_with_env(
             && w.len() > 1
             && is_flag_like(&w)
             && !positional_negative_number
-            && !short_bundle_is_known(&out.available_flags, &w)
+            && !short_bundle_is_known(spec, &out.cmds, &out.available_flags, &w)
         {
             // Refused if this command asked for that; otherwise it carries on below
             // as one word, with none of its letters applied.
@@ -1356,6 +1356,14 @@ fn parse_partial_with_env(
                     out.flags.insert(Arc::clone(f), ParseValue::Bool(value));
                 }
                 continue;
+            }
+            // The letter nothing declared may still be one the parser supplies, and it may
+            // sit anywhere in the token: `-hv` asks for help as surely as `-vh` does, and
+            // neither reaches the whole-token spellings below.
+            if let Some(err) = supplied_short(spec, &out.cmds, short) {
+                out.errors.push(err);
+                record_cursor(&mut out, next_arg_idx, seen_double_dash);
+                return Ok((out, overridden_flags));
             }
             if is_help_arg(spec, &out.cmd, &w) {
                 out.errors
@@ -2640,15 +2648,43 @@ impl<'a> ChoiceTarget<'a> {
 ///
 /// Scanning stops at the first letter whose flag takes a value, because everything
 /// after it is that value rather than more letters.
-fn short_bundle_is_known(available: &BTreeMap<String, Arc<SpecFlag>>, token: &str) -> bool {
+fn short_bundle_is_known(
+    spec: &Spec,
+    cmds: &[SpecCommand],
+    available: &BTreeMap<String, Arc<SpecFlag>>,
+    token: &str,
+) -> bool {
     for c in token.chars().skip(1) {
         match available.get(&format!("-{c}")) {
+            // `-h` and `-V` are recognized letters even though no spec declares them, so a
+            // bundle containing one is a bundle. Without this `-vh` was not read as one at
+            // all and fell through to `unexpected word`, while usage-argv, usage-go and
+            // clap all answer it with help.
+            None if supplied_short(spec, cmds, c).is_some() => {}
             None => return false,
             Some(f) if f.arg.is_some() => return true,
             Some(_) => {}
         }
     }
     true
+}
+
+/// The response `-h` or `-V` produces where nothing declares that letter.
+///
+/// The letter form of the flags the parser supplies rather than a spec declaring them,
+/// under exactly the conditions [`is_help_arg`] and [`is_version_arg`] state — asked
+/// about here one letter at a time, because a bundle is read one letter at a time.
+///
+/// Always the short response: `-h` is short help however many letters share its token,
+/// and `-V` the concise version. The long forms belong to the long spellings. `-?` is not
+/// here — it is a whole-token spelling of `-h` rather than a letter anyone bundles.
+fn supplied_short(spec: &Spec, cmds: &[SpecCommand], letter: char) -> Option<UsageErr> {
+    let cmd = cmds.last()?;
+    match letter {
+        'h' if is_help_arg(spec, cmd, "-h") => Some(render_help_err(spec, cmd, false)),
+        'V' if is_version_arg(spec, cmds, "-V") => Some(render_version_err(spec, false)),
+        _ => None,
+    }
 }
 
 /// Refuse a flag-like token that named nothing, if this command asked for that.
@@ -3398,6 +3434,99 @@ mod tests {
             parse(&spec, &input(&["ex", "-V"])).unwrap_err().to_string(),
             "1.2.3"
         );
+    }
+
+    #[test]
+    fn a_supplied_short_is_a_letter_a_bundle_may_contain() {
+        // `-h` and `-V` are recognized letters that no spec declares, so a token holding
+        // one beside a declared letter is a bundle. usage-lib alone read `-vh` as a word
+        // naming nothing: usage-argv and usage-go both resolve the letter through the
+        // same lookup that finds a declared short, and clap prints help for it too.
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\nflag \"-v --verbose\"\ncmd \"run\"\n"
+                .parse()
+                .unwrap();
+
+        for token in ["-vh", "-hv"] {
+            let err = parse(&spec, &input(&["ex", token])).expect_err("help ends the parse");
+            assert!(err.to_string().starts_with("ex 1.2.3"), "{token}: {err}");
+        }
+        for token in ["-vV", "-Vv"] {
+            let err = parse(&spec, &input(&["ex", token])).expect_err("a version ends it too");
+            assert_eq!(err.to_string(), "1.2.3", "{token}");
+        }
+    }
+
+    #[test]
+    fn a_bundled_help_letter_asks_for_the_short_page() {
+        // Whatever else shares the token: `-h` is the short spelling, and the letters
+        // beside it say nothing about which page was asked for.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-v --verbose\" help=\"Be loud\" {\n    long_help \"Be loud, and say so at length.\"\n}\n"
+            .parse()
+            .unwrap();
+
+        let short = parse(&spec, &input(&["ex", "-vh"]))
+            .unwrap_err()
+            .to_string();
+        let long = parse(&spec, &input(&["ex", "--help"]))
+            .unwrap_err()
+            .to_string();
+        assert!(short.contains("Be loud"), "{short}");
+        assert!(!short.contains("at length"), "{short}");
+        assert!(long.contains("at length"), "{long}");
+    }
+
+    #[test]
+    fn the_bundled_version_letter_is_the_roots_alone() {
+        // The same rule the whole-token spelling follows, asked one letter at a time.
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\nflag \"-v --verbose\" global=#true\ncmd \"run\"\n"
+                .parse()
+                .unwrap();
+
+        let err = parse(&spec, &input(&["ex", "run", "-vV"])).unwrap_err();
+        assert_eq!(err.to_string(), "unexpected word: -vV");
+    }
+
+    #[test]
+    fn a_declared_letter_keeps_its_meaning_inside_a_bundle() {
+        // Nothing is supplied where the CLI spent the letter itself, so `-vh local` is
+        // this spec's own `-h`, taking its value from the rest of the token.
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\nflag \"-v --verbose\"\nflag \"-h --host <host>\"\n"
+                .parse()
+                .unwrap();
+
+        let out = parse(&spec, &input(&["ex", "-vhlocal"])).expect("a bundle and its value");
+        assert_eq!(out.flags.len(), 2);
+        assert!(out
+            .flags
+            .iter()
+            .any(|(flag, value)| flag.name == "host" && value.to_string() == "local"));
+    }
+
+    #[test]
+    fn disabling_help_takes_the_letter_back_out_of_the_bundle() {
+        let spec: Spec =
+            "name \"ex\"\nbin \"ex\"\ndisable_help_flag #true\nflag \"-v --verbose\"\n"
+                .parse()
+                .unwrap();
+
+        let err = parse(&spec, &input(&["ex", "-vh"])).unwrap_err();
+        assert_eq!(err.to_string(), "unexpected word: -vh");
+    }
+
+    #[test]
+    fn a_letter_nothing_supplies_still_refuses_the_whole_bundle() {
+        // The rule this must not weaken: `-az` is not a bundle at all, so `-a` is not set
+        // on the way to discovering that `z` names nothing.
+        let spec: Spec = "name \"ex\"\nbin \"ex\"\nflag \"-a --all\"\narg \"[file]\"\n"
+            .parse()
+            .unwrap();
+
+        let out = parse(&spec, &input(&["ex", "-az"])).expect("it falls through to the argument");
+        assert!(out.flags.is_empty(), "{:?}", out.flags);
+        assert_eq!(out.args.len(), 1);
     }
 
     fn spec_with_arg(arg: SpecArg) -> Spec {
