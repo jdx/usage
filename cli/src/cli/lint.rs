@@ -678,11 +678,6 @@ fn lint_examples(
                     ),
                     location: Some(format!("cmd {} example", cmd_path)),
                 }),
-                // `--help` and `--version` end the parse by printing, which usage-lib
-                // reports as an error carrying the text — and reports in preference to
-                // any other error on the line. The invocation works; showing an author
-                // their own help output as a lint message would not.
-                Err(Unparsed::Refused(_)) if prints_and_exits(spec, &words) => {}
                 Err(Unparsed::Refused(err)) => issues.push(LintIssue {
                     severity: Severity::Warning,
                     code: "example-does-not-parse".to_string(),
@@ -729,15 +724,23 @@ fn parse_example(spec: &Spec, words: &[String]) -> Result<(), Unparsed> {
         )
     };
 
+    // `--help` and `--version` end the parse by printing, which usage-lib reports as an
+    // error carrying the text — and reports in preference to any other error on the
+    // line. The invocation works; showing an author their own help output as a lint
+    // message would not. True of either parse: what a mount would have added cannot
+    // stop a line from asking for help.
+    let printed = |err: &miette::Error| !needs_a_mount(err) && prints_and_exits(spec, words);
+
     match parse(HashMap::new()) {
         Ok(_) => Ok(()),
+        Err(err) if printed(&err) => Ok(()),
         Err(err) if !needs_a_mount(&err) => Err(Unparsed::Refused(err)),
         Err(_) => match parse(empty_mount_answers(&spec.cmd)) {
             Ok(_) => Ok(()),
-            Err(err) if needs_a_mount(&err) => Err(Unparsed::NeedsAMount),
+            Err(err) if printed(&err) => Ok(()),
             // The mounted program contributes commands and flags, so it can only ever
             // make a line parse. One that fails against a mount contributing nothing may
-            // still have been fine against the real one.
+            // still have been fine against the real one, and nothing here can know which.
             Err(_) => Err(Unparsed::NeedsAMount),
         },
     }
@@ -1233,6 +1236,23 @@ cmd "tasks" help="tasks" {
         );
         assert_eq!(issues.len(), 1, "{issues:?}");
         assert_eq!(issues[0].code, "example-not-checked");
+
+        // Asking for help is answered by the command itself, so what the mount would
+        // have added cannot change it. Reporting these as unchecked would put a notice
+        // on every `--help` example a mounting CLI publishes.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+cmd "tasks" help="tasks" {
+    mount run="this command must never run"
+    example "demo tasks --help"
+}
+example "demo --version"
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
     }
 
     #[test]
