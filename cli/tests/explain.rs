@@ -9,6 +9,16 @@ fn example_path(name: &str) -> String {
     format!("{}/../examples/{}", env!("CARGO_MANIFEST_DIR"), name)
 }
 
+/// Stdout, once the run is known to have succeeded.
+///
+/// Asserted here rather than at each call site: a failed run has empty stdout, and a test
+/// comparing it reports a confusing string difference instead of the real failure.
+fn stdout_of(cmd: &mut Command) -> String {
+    let output = cmd.output().unwrap();
+    assert!(output.status.success(), "{output:?}");
+    String::from_utf8(output.stdout).unwrap()
+}
+
 /// The fixture, the whole environment, and whatever argv the test is about.
 ///
 /// The environment goes through `--env` rather than through the child process: `Parser`
@@ -20,9 +30,7 @@ fn explain(argv: &[&str]) -> String {
     cmd.args(["-e", "MYCLI_COLOR=never", "-e", "MYCLI_PROFILE=prod"]);
     cmd.arg("--");
     cmd.args(argv);
-    let output = cmd.output().unwrap();
-    assert!(output.status.success(), "{output:?}");
-    String::from_utf8(output.stdout).unwrap()
+    stdout_of(&mut cmd)
 }
 
 #[test]
@@ -88,6 +96,17 @@ fn env_wants_a_key() {
 }
 
 #[test]
+fn env_wants_a_separator() {
+    let mut cmd = usage_cmd();
+    cmd.args(["explain", "-f", &example_path("explain.usage.kdl")]);
+    cmd.args(["-e", "MYCLI_COLOR", "--", "mycli"]);
+
+    // The other half of the same contract as `env_wants_a_key`: a word with no `=` names no
+    // value, and guessing one would put a variable in the report the caller never set.
+    cmd.assert().failure().stderr(contains("KEY=VALUE"));
+}
+
+#[test]
 fn binds_an_attached_long_flag() {
     // jdx/mise discussion #8883: a hand-written scanner ignored `--env=production` while
     // `--env production` worked. Both forms bind here, and the report says which token did.
@@ -116,7 +135,7 @@ fn the_separator_is_optional_before_the_explained_line() {
     // No `--`: `double_dash="automatic"` ends this command's own flag parsing at the
     // program name, so a foreign `--env=prod` is data rather than a flag `usage` rejects.
     cmd.args(["mycli", "-j8", "--env=prod", "build", "a"]);
-    let without = String::from_utf8(cmd.output().unwrap().stdout).unwrap();
+    let without = stdout_of(&mut cmd);
 
     assert_eq!(
         without,
@@ -129,7 +148,7 @@ fn a_line_of_its_own_needs_the_separator_to_keep_a_double_dash() {
     let mut cmd = usage_cmd();
     cmd.args(["explain", "-f", &example_path("explain.usage.kdl")]);
     cmd.args(["mycli", "build", "a", "--", "--raw"]);
-    let without = String::from_utf8(cmd.output().unwrap().stdout).unwrap();
+    let without = stdout_of(&mut cmd);
 
     // `usage`'s own parse takes the first `--` as its separator — `automatic` ends flag
     // parsing but does not stop a later separator being honoured, which is what
@@ -197,7 +216,7 @@ fn json_carries_the_same_facts() {
         "build",
         "a",
     ]);
-    let stdout = String::from_utf8(cmd.output().unwrap().stdout).unwrap();
+    let stdout = stdout_of(&mut cmd);
 
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["command"], serde_json::json!(["mycli", "build"]));

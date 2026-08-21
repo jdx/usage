@@ -173,10 +173,14 @@ impl std::str::FromStr for OutputFormat {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "text" => Ok(Self::Text),
-            "json" => Ok(Self::Json),
-            _ => Err(format!("`{value}` is not one of: text, json")),
-        }
+        // Delegated rather than matched again: the derive already lists the words, and a
+        // second list beside it is one more thing that can fall out of step with the type.
+        use usage_rs::spec::ValueEnum;
+        Self::from_choice(value).ok_or_else(|| {
+            format!(
+                "`{value}` is not one of: {}",
+                Self::ACCEPTED_CHOICES.join(", ")
+            )
+        })
     }
 }

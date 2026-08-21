@@ -753,6 +753,34 @@ mod tests {
     }
 
     #[test]
+    fn a_multicall_applet_name_is_marked_read_rather_than_written() {
+        let spec: Spec = "name \"mycli\"\nbin \"mycli\"\nmulticall #true\ncmd \"build\"\n"
+            .parse()
+            .unwrap();
+
+        // Invoked through a symlink named `build`, argv[0] is both the program and the word
+        // that selected the subcommand — and the caller wrote neither of those roles as a
+        // word of its own.
+        let explanation = explain(&spec, &argv(&["build"]), env(&[]));
+
+        assert_eq!(roles(&explanation, 0), ["program", "subcommand build"]);
+        assert!(explanation.tokens[0].synthesized);
+    }
+
+    #[test]
+    fn a_parse_that_cannot_start_reports_the_refusal_alone() {
+        let spec: Spec = "name \"mycli\"\nbin \"mycli\"\n".parse().unwrap();
+
+        // Nothing declared can take `boom`, and the binding phase refuses it too — so there
+        // is no partial parse to describe and the report is the refusal by itself.
+        let explanation = explain(&spec, &argv(&["mycli", "boom"]), env(&[]));
+
+        assert!(explanation.tokens.is_empty(), "{:?}", explanation.tokens);
+        assert!(!explanation.fallbacks_applied);
+        assert!(explanation.refused.is_some());
+    }
+
+    #[test]
     fn a_separator_is_not_a_value_and_what_follows_it_is() {
         let spec = fixture();
         let explanation = explain(
