@@ -64,6 +64,10 @@ cmd generate help="Generate completions, documentation, and other artifacts from
         alias c
         alias complete hide=#true
         alias completions hide=#true
+        flag --install help="Install the script where this shell looks for it, instead of printing it" effect=write {
+            long_help "Install the script where this shell looks for it, instead of printing it\n\nWrites the script file and nothing else: no shell rc file and no PowerShell profile is\nedited. Where a shell needs a one-time line of its own — zsh's `fpath+=`, PowerShell's\ndot-source — it is printed for you to add."
+        }
+        flag --force help="Replace a file at the target path that usage did not write" effect=write requires=--install
         flag "-f --file" help="A .usage.kdl spec file to use for generating completions, use \"-\" to read from stdin" {
             arg <FILE>
         }

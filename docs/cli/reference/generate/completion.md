@@ -29,6 +29,22 @@ The CLI which we're generating completions for
 
 ## Flags
 
+### `--install`
+
+**Effect**: modifies state
+
+Install the script where this shell looks for it, instead of printing it
+
+Writes the script file and nothing else: no shell rc file and no PowerShell profile is
+edited. Where a shell needs a one-time line of its own — zsh's `fpath+=`, PowerShell's
+dot-source — it is printed for you to add.
+
+### `--force`
+
+**Effect**: modifies state
+
+Replace a file at the target path that usage did not write
+
 ### `-f --file <FILE>`
 
 A .usage.kdl spec file to use for generating completions, use "-" to read from stdin
