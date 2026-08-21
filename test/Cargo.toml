@@ -1,0 +1,25 @@
+[package]
+name = "usage-test"
+description = "Test helpers for CLIs built with usage"
+version = "5.1.0"
+edition = "2021"
+rust-version = "1.91"
+homepage = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# A test harness may have dependencies where the runtime may not, and still has none:
+# everything here is the cold half of usage-argv, asked a question instead of printed.
+[dependencies]
+usage-argv = { workspace = true, features = ["spec"] }
+
+[features]
+# Asking what a CLI would offer for a half-typed line. Off by default, so a CLI that only
+# wants parse and help assertions does not pull the completion runtime into its build.
+completions = ["usage-argv/complete"]
+
+[package.metadata.release]
+shared-version = true
+release = true

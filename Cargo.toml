@@ -5,6 +5,7 @@ members = [
     "config",
     "config-build",
     "derive",
+    "test",
     "usage-rs",
     "validation",
     "clap_usage",
@@ -47,6 +48,7 @@ usage-config = { path = "./config", version = "5.1.0" }
 usage-derive = { path = "./derive", version = "5.1.0" }
 usage-lib = { path = "./lib", version = "5.1.0", features = ["clap", "validation"] }
 usage-rs = { path = "./usage-rs", version = "5.1.0" }
+usage-test = { path = "./test", version = "5.1.0" }
 usage-validation = { path = "./validation", version = "5.1.0" }
 
 [workspace.metadata.release]

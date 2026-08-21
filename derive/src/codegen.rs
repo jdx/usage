@@ -477,6 +477,36 @@ pub fn emit(cli: &Cli) -> TokenStream {
             let __usage_spec = Self::spec();
         }
     };
+
+    // One renderer for every help request. Which page a request becomes — and whether it is the
+    // route the words took or a fallback by address — is decided once, in usage-argv, rather
+    // than three times here in code nobody reads until it is wrong. It is also what lets a test
+    // harness render the page this program would have printed rather than one of its own.
+    let page_of = |style: TokenStream| {
+        quote! {
+            let __usage_page = match __usage_selected_view {
+                ::std::option::Option::Some(view) => usage_argv::help::page_view(
+                    __usage_spec,
+                    Self::command(),
+                    &__usage_all_refs,
+                    cmd,
+                    view,
+                    __usage_want,
+                    #style,
+                ),
+                ::std::option::Option::None => usage_argv::help::page(
+                    __usage_spec,
+                    Self::command(),
+                    &__usage_argv,
+                    cmd,
+                    __usage_want,
+                    #style,
+                ),
+            };
+        }
+    };
+    let render_page = page_of(quote!(usage_argv::help::Style::auto()));
+    let render_page_stderr = page_of(quote!(usage_argv::help::Style::auto_stderr()));
     let runtime_program = cli
         .runtime_bin
         .as_ref()
@@ -987,50 +1017,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         }
                         ::std::result::Result::Err(usage_argv::Error::Help { cmd, long }) => {
                             #effective_spec
-                            // By the route the words took, not by the command's address: one
-                            // `Subcommands` type mounted under two parents is one address, and a
-                            // page found by searching for it carries the first mount's path and
-                            // globals. Falls back where the route cannot be rebuilt.
-                            let __usage_route = match __usage_selected_view {
-                                ::std::option::Option::Some(view) =>
-                                    usage_argv::help::route_to_view(
-                                        Self::command(), &__usage_all_refs, cmd, view,
-                                    ),
-                                ::std::option::Option::None => usage_argv::help::route_to(
-                                    Self::command(), &__usage_argv, cmd,
-                                ),
+                            let __usage_want = if long {
+                                usage_argv::help::Page::Long
+                            } else {
+                                usage_argv::help::Page::Short
                             };
-                            let __usage_page = match __usage_route {
-                                ::std::option::Option::Some(route) => {
-                                    match __usage_selected_view {
-                                        ::std::option::Option::Some(view) => {
-                                            usage_argv::help::render_view_at_styled(
-                                                __usage_spec,
-                                                &route,
-                                                view,
-                                                long,
-                                                usage_argv::help::Style::auto(),
-                                            )
-                                        }
-                                        ::std::option::Option::None => {
-                                            usage_argv::help::render_at_styled(
-                                                __usage_spec,
-                                                &route,
-                                                long,
-                                                usage_argv::help::Style::auto(),
-                                            )
-                                        }
-                                    }
-                                }
-                                ::std::option::Option::None => {
-                                    usage_argv::help::render_styled(
-                                        __usage_spec,
-                                        cmd,
-                                        long,
-                                        usage_argv::help::Style::auto(),
-                                    )
-                                }
-                            };
+                            #render_page
                             match __usage_page {
                                 ::std::option::Option::Some(page) => {
                                     ::std::print!("{page}");
@@ -1042,46 +1034,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         }
                         ::std::result::Result::Err(usage_argv::Error::MissingArgsHelp { cmd }) => {
                             #effective_spec
-                            let __usage_route = match __usage_selected_view {
-                                ::std::option::Option::Some(view) =>
-                                    usage_argv::help::route_to_view(
-                                        Self::command(), &__usage_all_refs, cmd, view,
-                                    ),
-                                ::std::option::Option::None => usage_argv::help::route_to(
-                                    Self::command(), &__usage_argv, cmd,
-                                ),
-                            };
-                            let __usage_page = match __usage_route {
-                                ::std::option::Option::Some(route) => {
-                                    match __usage_selected_view {
-                                        ::std::option::Option::Some(view) => {
-                                            usage_argv::help::render_view_at_styled(
-                                                __usage_spec,
-                                                &route,
-                                                view,
-                                                false,
-                                                usage_argv::help::Style::auto_stderr(),
-                                            )
-                                        }
-                                        ::std::option::Option::None => {
-                                            usage_argv::help::render_at_styled(
-                                                __usage_spec,
-                                                &route,
-                                                false,
-                                                usage_argv::help::Style::auto_stderr(),
-                                            )
-                                        }
-                                    }
-                                }
-                                ::std::option::Option::None => {
-                                    usage_argv::help::render_styled(
-                                        __usage_spec,
-                                        cmd,
-                                        false,
-                                        usage_argv::help::Style::auto_stderr(),
-                                    )
-                                }
-                            };
+                            let __usage_want = usage_argv::help::Page::Short;
+                            #render_page_stderr
                             match __usage_page {
                                 ::std::option::Option::Some(page) => {
                                     ::std::eprint!("{page}");
@@ -1092,43 +1046,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         }
                         ::std::result::Result::Err(usage_argv::Error::HelpAll { cmd }) => {
                             #effective_spec
-                            let __usage_route = match __usage_selected_view {
-                                ::std::option::Option::Some(view) =>
-                                    usage_argv::help::route_to_view(
-                                        Self::command(), &__usage_all_refs, cmd, view,
-                                    ),
-                                ::std::option::Option::None => usage_argv::help::route_to(
-                                    Self::command(), &__usage_argv, cmd,
-                                ),
-                            };
-                            let __usage_page = match __usage_route {
-                                ::std::option::Option::Some(route) => {
-                                    match __usage_selected_view {
-                                        ::std::option::Option::Some(view) => {
-                                            usage_argv::help::render_all_view_at_styled(
-                                                __usage_spec,
-                                                &route,
-                                                view,
-                                                usage_argv::help::Style::auto(),
-                                            )
-                                        }
-                                        ::std::option::Option::None => {
-                                            usage_argv::help::render_all_at_styled(
-                                                __usage_spec,
-                                                &route,
-                                                usage_argv::help::Style::auto(),
-                                            )
-                                        }
-                                    }
-                                }
-                                ::std::option::Option::None => {
-                                    usage_argv::help::render_all_styled(
-                                        __usage_spec,
-                                        cmd,
-                                        usage_argv::help::Style::auto(),
-                                    )
-                                }
-                            };
+                            let __usage_want = usage_argv::help::Page::All;
+                            #render_page
                             match __usage_page {
                                 ::std::option::Option::Some(page) => {
                                     ::std::print!("{page}");

@@ -48,6 +48,8 @@ pub use usage_argv as argv;
 pub use usage_argv::*;
 #[cfg(feature = "spec")]
 pub use usage_derive::{Args, Cli, Subcommands, ValueEnum};
+#[cfg(feature = "test")]
+pub use usage_test as test;
 #[cfg(feature = "validation")]
 pub use usage_validation as validation;
 

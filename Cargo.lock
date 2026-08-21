@@ -2541,7 +2541,15 @@ dependencies = [
  "usage-argv",
  "usage-derive",
  "usage-lib",
+ "usage-test",
  "usage-validation",
+]
+
+[[package]]
+name = "usage-test"
+version = "5.1.0"
+dependencies = [
+ "usage-argv",
 ]
 
 [[package]]

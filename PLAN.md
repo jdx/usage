@@ -333,6 +333,27 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       already failed, and says what clap would have said, colour included, down to
       suggesting what was probably meant. `parse()` renders and exits the way a
       program does; `parse_from` hands the error back.
+- [x] **A test harness for an adopter's own suite** — `usage-test`, reached as
+      `usage::test` behind a dev-dependency feature. A CLI's observable surface is
+      three things, and all three were reachable but unpleasant: `parse_from`
+      wants a `&[&OsStr]` a test cannot write as a literal and hands back a
+      compact code rather than the message a user reads; a help page needed a
+      route rebuilt by hand; and a completion answer needed `split` and
+      `candidates` assembled per test. Now `outcome` returns what `parse()` would
+      have _done_ — a struct, a page, a version, or a failure, each with the
+      stream and status it would have used — `help`/`help_tree` render one page or
+      the whole tree by the path a user types, and `candidates`/`completion`
+      answer a half-typed line. **Nothing in it formats a page**, which is the
+      rule that makes it worth having: every page comes from
+      `usage_argv::help::page` and every failure from `render_failure`, the same
+      functions the process calls, so a passing test is a statement about what
+      users see rather than about a second renderer that happens to agree today.
+      That function is the other half of the change: which page a help request
+      becomes — short, long, recursive, by route or by address, view or not — was
+      ~150 lines emitted into every derive three times over, and is now decided
+      once in usage-argv and called from both places. A facade test asserts the two
+      halves agree: the page `help(spec, &["build"], Page::Long)` renders is
+      byte-for-byte the one `ex build --help` produces.
 
 ### What clap can say that we cannot
 

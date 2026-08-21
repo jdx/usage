@@ -71,6 +71,7 @@ export default defineConfig({
           { text: "Help and Errors", link: "/rust/help" },
           { text: "Performance", link: "/rust/performance" },
           { text: "Completions", link: "/rust/completions" },
+          { text: "Testing", link: "/rust/testing" },
           { text: "Spec Output", link: "/rust/spec" }
         ]
       },

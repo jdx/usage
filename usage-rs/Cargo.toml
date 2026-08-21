@@ -13,6 +13,7 @@ license = { workspace = true }
 [dependencies]
 usage-argv = { workspace = true }
 usage-derive = { workspace = true, optional = true }
+usage-test = { workspace = true, optional = true }
 usage-validation = { workspace = true, optional = true }
 
 [features]
@@ -23,11 +24,14 @@ usage-validation = { workspace = true, optional = true }
 default = ["spec", "help", "diagnostics"]
 spec = ["usage-argv/spec", "dep:usage-derive"]
 help = ["spec"]
-completions = ["spec", "usage-argv/complete"]
+completions = ["spec", "usage-argv/complete", "usage-test?/completions"]
 # Kept as a spelling close to the runtime feature for low-level adopters.
 complete = ["completions"]
 diagnostics = ["spec", "usage-argv/diagnostics"]
 validation = ["dep:usage-validation"]
+# Assertions about what a command line parses to, what a page says, and what a shell is
+# offered. A dev-dependency feature: nothing in an application's own code calls it.
+test = ["spec", "help", "dep:usage-test"]
 
 [package.metadata.release]
 shared-version = true
