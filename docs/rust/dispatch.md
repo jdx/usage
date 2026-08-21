@@ -11,7 +11,16 @@ that command exists for. At mise's size that is 210 arms of pure routing, and no
 that an arm calls the right thing, because every arm has the same shape.
 
 `#[usage(run)]` generates it. A command implements `Run`, the enum says it dispatches, and the
-match comes from the same declaration the parser and the spec come from:
+match comes from the same declaration the parser and the spec come from. Four traits, differing
+only in whether a command is handed a context and whether it is awaited:
+
+|           | no context                         | a context                                        |
+| --------- | ---------------------------------- | ------------------------------------------------ |
+| **sync**  | `Run` — `#[usage(run)]`            | `RunWith<Ctx>` — `#[usage(run_with)]`            |
+| **async** | `RunAsync` — `#[usage(run_async)]` | `RunAsyncWith<Ctx>` — `#[usage(run_async_with)]` |
+
+One type may implement several, and one enum may dispatch several, which is what a CLI part-way
+through adopting a context — or a runtime — needs. The sync, context-free case:
 
 ```rust
 use usage::{Args, Cli, Run, Subcommands};
@@ -87,15 +96,23 @@ impl RunWith<&mut App> for Install {
         app.install(&self.tools, self.force)
     }
 }
-```
 
-```rust
+impl RunWith<&mut App> for Sponsors {
+    type Output = miette::Result<()>;
+    fn run_with(self, app: &mut App) -> Self::Output {
+        app.print_sponsors()
+    }
+}
+
 fn main() -> miette::Result<()> {
     let cli = Cli::parse();
     let mut app = App::new(cli.verbose)?;
     cli.command.run_with(&mut app)
 }
 ```
+
+Every variant, since the dispatch is a `match`: a command left unimplemented is a compile error
+naming it.
 
 The generated implementation is generic over the context, so `RunWith<&Config>`,
 `RunWith<&mut App>` and `RunWith<Arc<Ctx>>` are all ordinary implementations rather than shapes
@@ -107,35 +124,86 @@ wrong side: a hundred commands that need nothing shared would each carry `fn run
 
 ## Async commands
 
-`Output` is whatever the command produces, and a future is a value like any other — so an async
-command's dispatch is the same generated match, returning a future for `main` to await:
+`RunAsync` and `RunAsyncWith<Ctx>` are the async pair, under `#[usage(run_async)]` and
+`#[usage(run_async_with)]`. An implementation writes `async fn`, and the generated dispatch is an
+`async fn` that awaits the selected command:
 
 ```rust
-type Task<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+use usage::{RunAsync, Subcommands};
 
-impl Run for Install {
-    type Output = Task<miette::Result<()>>;
-    fn run(self) -> Self::Output {
-        Box::pin(async move { install(&self.tools, self.force).await })
+#[derive(Subcommands)]
+#[usage(run_async)]
+enum Commands {
+    Install(Install),
+    Sponsors(Sponsors),
+}
+
+impl RunAsync for Install {
+    type Output = miette::Result<()>;
+    async fn run_async(self) -> Self::Output {
+        install(&self.tools, self.force).await
+    }
+}
+
+impl RunAsync for Sponsors {
+    type Output = miette::Result<()>;
+    async fn run_async(self) -> Self::Output {
+        fetch_sponsors().await
     }
 }
 
 #[tokio::main]
 async fn main() -> miette::Result<()> {
-    Cli::parse().command.run().await
+    Cli::parse().command.run_async().await
 }
 ```
 
-The box is because an `async` block's type cannot be named and an associated type has to be. One
-allocation, on a path that is about to do I/O. A borrowed context works the same way, with the
-future's lifetime tied to it: `impl<'a> RunWith<&'a App> for Install { type Output = Task<'a, …> }`.
+A context works the same way, and the future borrows it for as long as it runs:
 
-The traits are deliberately not `async` themselves. An `async fn` in a public trait cannot say
-`+ Send` about the future it returns, so callers that need to spawn it have no way to require
-one — and desugaring to `-> impl Future + Send` instead would commit every command in every CLI
-to a `Send` future, which rules out the single-threaded runtimes some of them use. A CLI that
-wants `async fn run(self)` without the box can say so; the shape is a third trait beside these
-two, not a change to them.
+```rust
+impl RunAsyncWith<&App> for Install {
+    type Output = miette::Result<()>;
+    async fn run_async_with(self, app: &App) -> Self::Output {
+        app.install(&self.tools, self.force).await
+    }
+}
+```
+
+### `Send`
+
+Neither async trait imposes it. They declare `-> impl Future<Output = Self::Output>` rather than
+`async fn`, which is the same signature to implement against and leaves `Send` to the commands
+themselves:
+
+- A CLI that spawns gets `Send` **by inference** — it leaks out of the concrete commands the
+  dispatch reaches, so `tokio::spawn(cli.command.run_async())` compiles when every command's
+  future is `Send`.
+- A CLI on a single-threaded runtime keeps futures that are not, such as one holding an `Rc`
+  across an await.
+
+What no design can add is the third thing: _demanding_ `Send` in generic code, which
+`-> impl Future + Send` in the trait would buy at the cost of the second bullet. The traits take
+the side that refuses nothing.
+
+### The other way
+
+The sync traits can carry a future too, since `Output` is whatever the command produces:
+
+```rust
+type Task<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+
+impl Run for Install {
+    type Output = Task<'static, miette::Result<()>>;
+    fn run(self) -> Self::Output {
+        Box::pin(async move { install(&self.tools, self.force).await })
+    }
+}
+```
+
+That costs an allocation and names a type — the box is needed because an `async` block's type
+cannot be named and an associated type has to be — and it is where the `+ Send` goes if the CLI
+wants one. Worth it only when the future has to be a value: stored, selected over, or returned
+across an API boundary. Otherwise use `RunAsync`.
 
 A CLI whose commands are mostly synchronous can also keep `Output = Result<()>` and hold a
 runtime handle in its context, which is what `RunWith` is for.
@@ -181,7 +249,8 @@ type you can implement the trait for:
 Both are compile errors on the variant rather than a missing implementation somewhere else,
 which is the reason dispatch is opt-in rather than always generated. The other reason is that
 the generated implementation is the only one the enum can have: a CLI that wants to do
-something of its own between the parse and the dispatch leaves `run` off.
+something of its own between the parse and the dispatch leaves the attribute off and writes the
+match.
 
 ## What it says in the spec
 

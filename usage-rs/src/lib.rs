@@ -10,10 +10,11 @@
 //! usage = { package = "usage-rs", version = "5.1" }
 //! ```
 //!
-//! What happens after a parse can come from the same declaration: a command implements
-//! [`Run`] — or [`RunWith`], when the CLI hands its commands shared state — the subcommand enum
-//! says `#[usage(run)]`, and the `match` that routes argv to the code carrying it out is
-//! generated rather than written. Nothing about it reaches the spec.
+//! What happens after a parse can come from the same declaration: a command implements [`Run`],
+//! the subcommand enum says `#[usage(run)]`, and the `match` that routes argv to the code
+//! carrying it out is generated rather than written. [`RunWith`] under `#[usage(run_with)]` hands
+//! each command shared state, and [`RunAsync`] / [`RunAsyncWith`] under `#[usage(run_async)]` /
+//! `#[usage(run_async_with)]` are the async pair. Nothing about any of it reaches the spec.
 //!
 //! Enable portable expression validation only when a CLI declares `validate` rules:
 //!

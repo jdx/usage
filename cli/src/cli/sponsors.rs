@@ -2,7 +2,7 @@
 //!
 //! A command that takes nothing, so it is a unit struct: nothing to declare, and a struct is
 //! what the dispatched command enum hands its work to. `effect` and the description live here
-//! with it, where every other command's do.
+//! with it, the way every other command declares its own.
 
 /// Show the companies sponsoring usage and the jdx.dev open source tools
 #[derive(usage_rs::Args)]

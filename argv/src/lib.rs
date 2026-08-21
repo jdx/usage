@@ -170,7 +170,7 @@ pub mod spec;
 #[cfg(feature = "spec")]
 pub mod warn;
 
-pub use run::{Run, RunWith};
+pub use run::{Run, RunAsync, RunAsyncWith, RunWith};
 
 /// How deep a command tree this parser will descend.
 ///

@@ -139,9 +139,13 @@
 //! }
 //! ```
 //!
-//! `#[usage(run_with)]` is the same for [`RunWith`](usage_argv::RunWith), whose implementations
-//! are handed a context — a config, an output handle, a client — and whose generated dispatch is
-//! generic over what that is. An enum may say both.
+//! Four attributes, one per trait, differing only in whether a command is handed a context and
+//! whether it is awaited: `run` for [`Run`](usage_argv::Run), `run_with` for
+//! [`RunWith`](usage_argv::RunWith), `run_async` for [`RunAsync`](usage_argv::RunAsync), and
+//! `run_async_with` for [`RunAsyncWith`](usage_argv::RunAsyncWith). A context is whatever the CLI
+//! has to give, and the generated dispatch is generic over it. The async pair's implementations
+//! are written `async fn` and the generated dispatch awaits the selected command, with no `Send`
+//! bound imposed either way. An enum may say several.
 //!
 //! The output type is the first variant's, and each of the others is required to agree, so a
 //! command returning something else is reported on the command. A `#[usage(run)]` *struct* gets
@@ -259,8 +263,8 @@
 //! rather than on the root, which does nothing itself — `completion`, which adds the hidden command a generated shell
 //! script calls, and needs usage-argv's `complete` feature enabled where it is depended on —
 //! `settings`, for a CLI whose bound flags all live in a flattened group (see [Settings]) —
-//! and `run` / `run_with`, which write the forward from a container command to its subcommands
-//! (see [Dispatch](#dispatch)).
+//! and `run`, `run_with`, `run_async` and `run_async_with`, which write the forward from a
+//! container command to its subcommands (see [Dispatch](#dispatch)).
 //!
 //! [Settings]: #settings-and-the-flags-that-set-them
 //!
@@ -450,8 +454,9 @@ pub fn derive_args(input: TokenStream) -> TokenStream {
 /// Each variant may wrap a struct deriving [`Args`] or declare its fields inline,
 /// clap-style. A field holding this enum is marked `#[usage(subcommand)]`.
 ///
-/// `#[usage(run)]` or `#[usage(run_with)]` on the enum also writes the `match` that hands the
-/// selected command to its implementation; see the [crate docs](crate#dispatch).
+/// `#[usage(run)]`, `#[usage(run_with)]`, `#[usage(run_async)]` or `#[usage(run_async_with)]` on
+/// the enum also writes the `match` that hands the selected command to its implementation; see
+/// the [crate docs](crate#dispatch).
 #[proc_macro_derive(Subcommands, attributes(usage, command, arg))]
 pub fn derive_subcommands(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

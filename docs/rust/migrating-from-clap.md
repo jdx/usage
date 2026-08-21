@@ -202,10 +202,11 @@ must intercept those built-ins.
 
 The `match cli.command { … }` a clap CLI writes after parsing can go too: implement
 `usage::Run` on each command struct, say `#[usage(run)]` on the enum, and the routing is
-generated. Commands that need shared state implement `usage::RunWith<Ctx>` instead. A variant
-holding nothing — clap's unit or inline-struct variants, and `external_subcommand` — has no type
-to implement the trait for, so those keep their hand-written arms; see
-[Dispatch](/rust/dispatch).
+generated. Commands that need shared state implement `usage::RunWith<Ctx>` and the enum says
+`#[usage(run_with)]`; async commands implement `usage::RunAsync` or `usage::RunAsyncWith<Ctx>`
+under `#[usage(run_async)]` / `#[usage(run_async_with)]`. A variant holding nothing — clap's unit
+or inline-struct variants, and `external_subcommand` — has no type to implement the trait for, so
+those keep their hand-written arms; see [Dispatch](/rust/dispatch).
 
 ## Help, specs, and completions
 

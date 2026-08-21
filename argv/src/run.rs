@@ -13,36 +13,61 @@
 //! spec that recorded it could not be read by anything that is not this program. It is the
 //! same rule `#[usage(skip)]` follows.
 //!
-//! Both traits take `self` by value. A command is finished when it has run, and the values
-//! it parsed are its own — taking them by reference would mean every handler borrowing what
-//! nothing else can want.
+//! Every one of these traits takes `self` by value. A command is finished when it has run, and
+//! the values it parsed are its own — taking them by reference would mean every handler
+//! borrowing what nothing else can want.
 //!
 //! # Which one
 //!
-//! [`Run`] is for a CLI whose commands need nothing but what they parsed. [`RunWith`] is for
-//! one that hands them something — a resolved config, an output handle, a database
-//! connection — and is generic over what that something is, so `RunWith<&mut App>` and
-//! `RunWith<Arc<Ctx>>` are both ordinary implementations rather than a shape this crate has
-//! to anticipate.
+//! |                | no context | a context            |
+//! | -------------- | ---------- | -------------------- |
+//! | **sync**       | [`Run`]    | [`RunWith`]          |
+//! | **async**      | [`RunAsync`] | [`RunAsyncWith`]   |
 //!
-//! They are two traits rather than one with a defaulted context because the noise falls on
-//! the wrong side of a CLI otherwise: a hundred commands that need no context would each
-//! carry `fn run(self, _: ())`, which says nothing and cannot be left out. A type may
-//! implement both, and an enum may dispatch both, when some invocations have a context and
-//! others do not.
+//! The context is whatever the CLI has to give — a resolved config, an output handle, a
+//! database connection — and the `With` traits are generic over it, so `RunWith<&mut App>` and
+//! `RunAsyncWith<Arc<Ctx>>` are ordinary implementations rather than shapes this crate has to
+//! anticipate.
+//!
+//! A context is a separate trait rather than one defaulted to `()` because the noise otherwise
+//! falls on the wrong side of a CLI: a hundred commands that need no context would each carry
+//! `fn run(self, _: ())`, which says nothing and cannot be left out. One type may implement
+//! several of these, and one enum may dispatch several, which is what a CLI part-way through
+//! adopting a context — or an async runtime — needs.
 //!
 //! # Async commands
 //!
-//! [`Output`](Run::Output) is whatever the command produces, and a future is a value like any
-//! other: an async command names a boxed future — `Pin<Box<dyn Future<Output = T> + Send>>` —
-//! and `main` awaits what the dispatch returns. The box is because an `async` block's type
-//! cannot be named and an associated type has to be.
+//! [`RunAsync`] and [`RunAsyncWith`] are the async pair: an implementation writes `async fn`,
+//! and the generated dispatch is an `async fn` that awaits the selected command.
 //!
-//! Neither trait is `async` itself, deliberately. An `async fn` in a public trait cannot say
-//! `+ Send` about the future it returns, so a caller that needs to spawn it cannot require one,
-//! and desugaring to `-> impl Future + Send` instead would commit every command in every CLI to
-//! a `Send` future — ruling out the single-threaded runtimes some of them use. A native
-//! `async fn run` belongs in a third trait beside these two rather than in a change to them.
+//! ```
+//! use usage_argv::RunAsync;
+//!
+//! struct Install {
+//!     force: bool,
+//! }
+//!
+//! impl RunAsync for Install {
+//!     type Output = Result<(), String>;
+//!     async fn run_async(self) -> Self::Output {
+//!         // .await here
+//!         Ok(())
+//!     }
+//! }
+//! ```
+//!
+//! The trait declares `-> impl Future<Output = Self::Output>` rather than `async fn`, which is
+//! the same thing on the implementing side and **deliberately imposes no `Send` bound**: a CLI
+//! on a single-threaded runtime keeps futures that hold an `Rc` across an await, and one that
+//! spawns gets `Send` by inference, since it leaks out of the concrete commands the dispatch
+//! reaches. What this cannot do is *demand* `Send` in generic code, which is the trade the
+//! alternative — `-> impl Future + Send` in the trait — makes in the other direction, and
+//! there is no way to have both without duplicating the trait.
+//!
+//! The sync pair can carry a future too, since [`Output`](Run::Output) is whatever the command
+//! produces: a boxed `Pin<Box<dyn Future<Output = T>>>` (plus `+ Send` if the CLI wants it) is
+//! a value like any other. That costs an allocation and names a type; the async traits exist so
+//! that neither is necessary.
 //!
 //! # An example
 //!
@@ -123,4 +148,30 @@ pub trait RunWith<Ctx> {
 
     /// Carry out the command, with `ctx`.
     fn run_with(self, ctx: Ctx) -> Self::Output;
+}
+
+/// An async command: [`Run`], awaited.
+///
+/// The signature is `-> impl Future` rather than `async fn` so that no `Send` bound is implied
+/// either way — an implementation still writes `async fn run_async(self)`, and whether its
+/// future is `Send` is decided by what the command does rather than by this trait. See the
+/// [module docs](self#async-commands).
+pub trait RunAsync {
+    /// What running the command produces, once awaited.
+    type Output;
+
+    /// Carry out the command.
+    fn run_async(self) -> impl core::future::Future<Output = Self::Output>;
+}
+
+/// An async command that is handed something shared when it runs: [`RunWith`], awaited.
+///
+/// A borrowed context is the ordinary case, and the future borrows it for as long as it runs:
+/// `impl<'a> RunAsyncWith<&'a App> for Install`.
+pub trait RunAsyncWith<Ctx> {
+    /// What running the command produces, once awaited.
+    type Output;
+
+    /// Carry out the command, with `ctx`.
+    fn run_async_with(self, ctx: Ctx) -> impl core::future::Future<Output = Self::Output>;
 }

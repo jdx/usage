@@ -105,17 +105,39 @@ failure to stderr and exits `2` — clap's exit status, so scripts that check fo
 `parse_from` gives you the same machinery without the process control; see
 [Help, version, and errors](/rust/help) for handling its `Err` variants.
 
-What runs afterwards can be generated too. A command implements `Run` (or `RunWith<Ctx>`, when
-the CLI hands its commands shared state), the subcommand enum says `#[usage(run)]`, and the
-`match` that routes argv to the code carrying it out is written from the same declaration:
+What runs afterwards can be generated too. A command implements `Run`, its subcommand enum
+says `#[usage(run)]`, and the `match` that routes argv to the code carrying it out is written
+from the same declaration:
 
 ```rust
+#[derive(Cli)]
+#[usage(bin = "ex")]
+struct Ex {
+    #[usage(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommands)]
+#[usage(run)]
+enum Commands {
+    Install(Install),
+}
+
+impl Run for Install {
+    type Output = miette::Result<()>;
+    fn run(self) -> Self::Output {
+        install(&self.tools, self.force)
+    }
+}
+
 fn main() -> miette::Result<()> {
-    Cli::parse().command.run()
+    Ex::parse().command.run()
 }
 ```
 
-See [Dispatch](/rust/dispatch).
+`RunWith<Ctx>` and `#[usage(run_with)]` are the same for a CLI that hands its commands shared
+state, and `RunAsync` / `RunAsyncWith<Ctx>` with `#[usage(run_async)]` / `#[usage(run_async_with)]`
+are the async pair. See [Dispatch](/rust/dispatch).
 
 ## One declaration, every artifact
 
@@ -149,7 +171,7 @@ See [Spec output](/rust/spec) for the round-trip guarantees and what the emitted
 
 - [Args and flags](/rust/args-and-flags) — field types, attributes, env vars, defaults
 - [Subcommands](/rust/subcommands) — command enums, nesting, `flatten`, value enums
-- [Dispatch](/rust/dispatch) — `Run`, `RunWith`, and the generated `match`
+- [Dispatch](/rust/dispatch) — `Run`, `RunWith`, the async pair, and the generated `match`
 - [Validation](/rust/validation) — choices, groups, `exclusive`, `delimiter`, conflicts
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
 - [Completions](/rust/completions) — static scripts and runtime completion

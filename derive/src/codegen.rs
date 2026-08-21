@@ -17,8 +17,8 @@ use quote::{format_ident, quote};
 
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
-    rendered_path, to_kebab, Cli, ConditionalDefault, DoubleDash, ExampleDecl, Field, Kind, Shape,
-    Subcommands, ValueEnum, ViewDecl,
+    rendered_path, to_kebab, Cli, ConditionalDefault, Dispatch, DoubleDash, ExampleDecl, Field,
+    Kind, Shape, Subcommands, ValueEnum, ViewDecl,
 };
 
 /// Construct the user's command type after its generated partial has been checked.
@@ -5171,6 +5171,132 @@ fn meta_controls_field_presence(meta: &syn::Meta) -> bool {
         .is_ok_and(|nested| nested.iter().skip(1).any(meta_controls_field_presence))
 }
 
+/// One of the four dispatch traits, as the generated code needs to speak about it.
+///
+/// They differ in two bits — whether the command is handed a context, and whether it is
+/// awaited — and in nothing else, so they are described here rather than written out four
+/// times over.
+struct DispatchTrait {
+    /// Whether the enum or struct asked for this one.
+    wanted: bool,
+    /// `Run`, `RunWith`, `RunAsync`, `RunAsyncWith`.
+    name: &'static str,
+    /// `run`, `run_with`, `run_async`, `run_async_with`.
+    method: &'static str,
+    /// Whether the trait takes a context, which is what makes the generated implementation
+    /// generic — and, being generic, inert until something calls it.
+    ctx: bool,
+    /// Whether the implementation is an `async fn` whose arms are awaited.
+    is_async: bool,
+}
+
+impl DispatchTrait {
+    /// The four, in the order a CLI meets them.
+    fn all(dispatch: Dispatch) -> [Self; 4] {
+        [
+            DispatchTrait {
+                wanted: dispatch.run,
+                name: "Run",
+                method: "run",
+                ctx: false,
+                is_async: false,
+            },
+            DispatchTrait {
+                wanted: dispatch.run_with,
+                name: "RunWith",
+                method: "run_with",
+                ctx: true,
+                is_async: false,
+            },
+            DispatchTrait {
+                wanted: dispatch.run_async,
+                name: "RunAsync",
+                method: "run_async",
+                ctx: false,
+                is_async: true,
+            },
+            DispatchTrait {
+                wanted: dispatch.run_async_with,
+                name: "RunAsyncWith",
+                method: "run_async_with",
+                ctx: true,
+                is_async: true,
+            },
+        ]
+    }
+
+    /// `usage_argv::Run`, or `usage_argv::RunWith<__UsageCtx>` for one that takes a context.
+    fn path(&self) -> TokenStream {
+        let name = format_ident!("{}", self.name);
+        if self.ctx {
+            quote!(usage_argv::#name<__UsageCtx>)
+        } else {
+            quote!(usage_argv::#name)
+        }
+    }
+
+    /// The same, of another type: `<Install as usage_argv::Run>`.
+    fn as_of(&self, ty: &TokenStream) -> TokenStream {
+        let path = self.path();
+        quote!(<#ty as #path>)
+    }
+
+    /// The trait with the output it has to produce, which is one variant's whole bound.
+    ///
+    /// The binding goes inside the same angle brackets as the context, since
+    /// `RunWith<__UsageCtx><Output = …>` is two generic lists rather than one bound.
+    fn path_with_output(&self, output: &TokenStream) -> TokenStream {
+        let name = format_ident!("{}", self.name);
+        if self.ctx {
+            quote!(usage_argv::#name<__UsageCtx, Output = #output>)
+        } else {
+            quote!(usage_argv::#name<Output = #output>)
+        }
+    }
+
+    /// `impl`, or `impl<__UsageCtx>` for one that takes a context.
+    fn impl_generics(&self) -> TokenStream {
+        if self.ctx {
+            quote!(impl<__UsageCtx>)
+        } else {
+            quote!(impl)
+        }
+    }
+
+    /// The method's declaration, up to its body.
+    ///
+    /// The async traits declare `-> impl Future<Output = Self::Output>` and an implementation
+    /// answers with an `async fn`, which is the same signature and imposes no `Send` bound.
+    fn signature(&self) -> TokenStream {
+        let method = format_ident!("{}", self.method);
+        let asyncness = self.is_async.then(|| quote!(async));
+        if self.ctx {
+            quote!(#asyncness fn #method(self, __usage_ctx: __UsageCtx) -> Self::Output)
+        } else {
+            quote!(#asyncness fn #method(self) -> Self::Output)
+        }
+    }
+
+    /// A call into this trait for one command's value.
+    ///
+    /// The context's type is turbofished rather than written as `RunWith<__UsageCtx>::run_with`,
+    /// which is a chain of comparisons in expression position rather than a path.
+    fn call(&self, value: TokenStream) -> TokenStream {
+        let name = format_ident!("{}", self.name);
+        let method = format_ident!("{}", self.method);
+        let call = if self.ctx {
+            quote!(usage_argv::#name::<__UsageCtx>::#method(#value, __usage_ctx))
+        } else {
+            quote!(usage_argv::#name::#method(#value))
+        };
+        if self.is_async {
+            quote!(#call.await)
+        } else {
+            call
+        }
+    }
+}
+
 /// The dispatch a `#[usage(run)]` enum gets: the `match` every CLI writes by hand.
 ///
 /// One arm per variant, handing the command's own struct to the trait that carries it out.
@@ -5184,99 +5310,67 @@ fn meta_controls_field_presence(meta: &syn::Meta) -> bool {
 /// `where` clauses rather than checked here, which is also what lets the enum be declared
 /// before the implementations it dispatches to exist.
 fn emit_subcommands_dispatch(subs: &Subcommands, runtime: &TokenStream) -> TokenStream {
-    if !subs.run && !subs.run_with {
+    if !subs.dispatch.any() {
         return TokenStream::new();
     }
     let ident = &subs.ident;
     // Checked in `Subcommands::from_input`: a dispatched enum has variants, and each holds a
     // named struct rather than nothing or its fields inline.
-    let first = &subs.variants[0].ty;
+    let first_ty = &subs.variants[0].ty;
+    let first = quote!(#first_ty);
 
-    // `*inner` is the one place a `Box` shows: the box is how the variant holds the struct,
-    // and the struct is what implements the trait.
-    let arm = |v: &crate::model::Variant| {
-        let variant = &v.ident;
-        let inner = if v.boxed {
-            quote!(*__usage_inner)
-        } else {
-            quote!(__usage_inner)
-        };
-        (quote!(#ident::#variant(__usage_inner)), inner)
-    };
+    let impls = DispatchTrait::all(subs.dispatch)
+        .into_iter()
+        .filter(|kind| kind.wanted)
+        .map(|kind| {
+            let generics = kind.impl_generics();
+            let path = kind.path();
+            let signature = kind.signature();
+            let output = kind.as_of(&first);
+            let bounds = subs.variants.iter().enumerate().map(|(i, v)| {
+                let ty = &v.ty;
+                if i == 0 {
+                    let path = kind.path();
+                    quote!(#ty: #path)
+                } else {
+                    let bound = kind.path_with_output(&quote!(#output::Output));
+                    quote!(#ty: #bound)
+                }
+            });
+            // `*inner` is the one place a `Box` shows: the box is how the variant holds the
+            // struct, and the struct is what implements the trait.
+            let arms = subs.variants.iter().map(|v| {
+                let variant = &v.ident;
+                let inner = if v.boxed {
+                    quote!(*__usage_inner)
+                } else {
+                    quote!(__usage_inner)
+                };
+                let call = kind.call(inner);
+                quote!(#ident::#variant(__usage_inner) => #call,)
+            });
+            quote! {
+                #generics #path for #ident
+                where
+                    #(#bounds,)*
+                {
+                    type Output = #output::Output;
 
-    let run = subs.run.then(|| {
-        let bounds = subs.variants.iter().enumerate().map(|(i, v)| {
-            let ty = &v.ty;
-            if i == 0 {
-                quote!(#ty: usage_argv::Run)
-            } else {
-                quote!(#ty: usage_argv::Run<Output = <#first as usage_argv::Run>::Output>)
-            }
-        });
-        let arms = subs.variants.iter().map(|v| {
-            let (pattern, inner) = arm(v);
-            quote!(#pattern => usage_argv::Run::run(#inner),)
-        });
-        quote! {
-            impl usage_argv::Run for #ident
-            where
-                #(#bounds,)*
-            {
-                type Output = <#first as usage_argv::Run>::Output;
-
-                fn run(self) -> Self::Output {
-                    match self {
-                        #(#arms)*
+                    #signature {
+                        match self {
+                            #(#arms)*
+                        }
                     }
                 }
             }
-        }
-    });
-
-    // Generic over the context, so one generated implementation serves `&Config`, `&mut App`
-    // and an owned handle alike — the CLI decides what its commands are handed, and this
-    // crate never has to know.
-    let run_with = subs.run_with.then(|| {
-        let bounds = subs.variants.iter().enumerate().map(|(i, v)| {
-            let ty = &v.ty;
-            if i == 0 {
-                quote!(#ty: usage_argv::RunWith<__UsageCtx>)
-            } else {
-                quote! {
-                    #ty: usage_argv::RunWith<
-                        __UsageCtx,
-                        Output = <#first as usage_argv::RunWith<__UsageCtx>>::Output,
-                    >
-                }
-            }
         });
-        let arms = subs.variants.iter().map(|v| {
-            let (pattern, inner) = arm(v);
-            quote!(#pattern => usage_argv::RunWith::run_with(#inner, __usage_ctx),)
-        });
-        quote! {
-            impl<__UsageCtx> usage_argv::RunWith<__UsageCtx> for #ident
-            where
-                #(#bounds,)*
-            {
-                type Output = <#first as usage_argv::RunWith<__UsageCtx>>::Output;
-
-                fn run_with(self, __usage_ctx: __UsageCtx) -> Self::Output {
-                    match self {
-                        #(#arms)*
-                    }
-                }
-            }
-        }
-    });
 
     quote! {
         #[doc(hidden)]
         const _: () = {
             use #runtime as usage_argv;
 
-            #run
-            #run_with
+            #(#impls)*
         };
     }
 }
@@ -5284,17 +5378,17 @@ fn emit_subcommands_dispatch(subs: &Subcommands, runtime: &TokenStream) -> Token
 /// The dispatch a `#[usage(run)]` struct gets: a forward to its subcommands.
 ///
 /// The `config`-style group that has no work of its own — declared as a struct holding
-/// nothing but its subcommand field, which is what
-/// [`Cli::check`](crate::model::Cli::check) holds it to, since forwarding is all this can do
-/// and a struct with arguments of its own has to decide what becomes of them.
+/// nothing but its subcommand field, which is what [`Cli::check`](crate::model::Cli::check)
+/// holds it to, since forwarding is all this can do and a struct with arguments of its own has
+/// to decide what becomes of them.
 fn emit_command_dispatch(cli: &Cli, runtime: &TokenStream) -> TokenStream {
-    if !cli.run && !cli.run_with {
+    if !cli.dispatch.any() {
         return TokenStream::new();
     }
     let ident = &cli.ident;
     // Checked in `Cli::check`: a struct asking for a dispatch holds exactly one field, and it
     // is a non-optional subcommand.
-    let Some((field, ty)) = cli.fields.iter().find_map(|field| match &field.kind {
+    let Some((field, held_ty)) = cli.fields.iter().find_map(|field| match &field.kind {
         Kind::Subcommand {
             ty,
             optional: false,
@@ -5303,43 +5397,37 @@ fn emit_command_dispatch(cli: &Cli, runtime: &TokenStream) -> TokenStream {
     }) else {
         return TokenStream::new();
     };
+    let held_ty = quote!(#held_ty);
 
-    let run = cli.run.then(|| {
-        quote! {
-            impl usage_argv::Run for #ident
-            where
-                #ty: usage_argv::Run,
-            {
-                type Output = <#ty as usage_argv::Run>::Output;
+    let impls = DispatchTrait::all(cli.dispatch)
+        .into_iter()
+        .filter(|kind| kind.wanted)
+        .map(|kind| {
+            let generics = kind.impl_generics();
+            let path = kind.path();
+            let signature = kind.signature();
+            let held = kind.as_of(&held_ty);
+            let call = kind.call(quote!(self.#field));
+            quote! {
+                #generics #path for #ident
+                where
+                    #held_ty: #path,
+                {
+                    type Output = #held::Output;
 
-                fn run(self) -> Self::Output {
-                    usage_argv::Run::run(self.#field)
+                    #signature {
+                        #call
+                    }
                 }
             }
-        }
-    });
-    let run_with = cli.run_with.then(|| {
-        quote! {
-            impl<__UsageCtx> usage_argv::RunWith<__UsageCtx> for #ident
-            where
-                #ty: usage_argv::RunWith<__UsageCtx>,
-            {
-                type Output = <#ty as usage_argv::RunWith<__UsageCtx>>::Output;
-
-                fn run_with(self, __usage_ctx: __UsageCtx) -> Self::Output {
-                    usage_argv::RunWith::run_with(self.#field, __usage_ctx)
-                }
-            }
-        }
-    });
+        });
 
     quote! {
         #[doc(hidden)]
         const _: () = {
             use #runtime as usage_argv;
 
-            #run
-            #run_with
+            #(#impls)*
         };
     }
 }

@@ -357,8 +357,9 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
 - [x] **Dispatch** — the `match` from the parsed enum to the code that carries the
       command out, which every adopter writes and nobody varies: 210 arms of pure
       routing at mise's size, none of them checkable, since every arm has the same
-      shape. `usage_argv::Run` / `RunWith<Ctx>` are the two traits a command
-      implements and `#[usage(run)]` / `#[usage(run_with)]` on the enum generate the
+      shape. `usage_argv::Run`, `RunWith<Ctx>`, `RunAsync` and `RunAsyncWith<Ctx>` are
+      the traits a command implements, and `#[usage(run)]`, `#[usage(run_with)]`,
+      `#[usage(run_async)]` and `#[usage(run_async_with)]` on the enum generate the
       match. **Nothing reaches the spec** — which Rust function runs a command is not
       part of what the CLI _is_, and a spec recording it could be read by nothing but
       the program that wrote it, so this is `#[usage(skip)]`'s rule rather than a new
@@ -366,10 +367,23 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       `usage --usage-spec` is byte-identical, so no manpage, reference or completion
       changed. Decisions, each because the alternative is a wrong program rather than
       a missing one:
-      **two traits, not one with a defaulted context** — a hundred commands needing
-      nothing shared would each carry `fn run(self, _: ())`, and `RunWith`'s generated
-      impl is generic over `Ctx` so `&Config`, `&mut App` and an owned handle all work
-      from one emission; an enum may declare both.
+      **a trait per shape, not one with defaults** — four of them, differing only in
+      whether a command is handed a context and whether it is awaited: `Run`,
+      `RunWith<Ctx>`, `RunAsync`, `RunAsyncWith<Ctx>`, asked for by the matching
+      attribute. A defaulted context would make a hundred commands needing nothing
+      shared each carry `fn run(self, _: ())`; the `With` pair is generic over `Ctx`,
+      so `&Config`, `&mut App` and an owned handle all work from one emission. An enum
+      may declare several, which is what a CLI part-way through adopting a context or a
+      runtime needs.
+      **The async pair declares `-> impl Future` rather than `async fn`**, which is the
+      same signature to implement against and imposes no `Send` bound: a CLI that spawns
+      gets `Send` by inference out of the concrete commands, and one on a single-threaded
+      runtime keeps a future holding an `Rc` across an await. `-> impl Future + Send`
+      would buy the ability to _demand_ `Send` in generic code at the cost of the second,
+      and there is no way to have both without a fifth trait. The sync pair can still
+      carry a boxed future as its `Output`, which is what to reach for when the future
+      has to be a value; the async traits exist so that neither the box nor the name is
+      necessary.
       **The output is the first variant's**, with the others bound to agree, so a
       command returning something else is reported on the command rather than inside
       a generated arm.
