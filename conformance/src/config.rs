@@ -663,9 +663,13 @@ fn registry_of(settings: &[Setting]) -> Result<Registry, String> {
     let mut props = Vec::with_capacity(settings.len());
     for setting in settings {
         let ty = ty_of(&setting.r#type)?;
+        // Only what a vector states; everything else is `PropMeta::new`'s default, so a field
+        // added to the registry's metadata does not have to be restated here to say "unset".
+        //
+        // No flags in particular: a vector describes what reaches a *resolution*, and which flag
+        // declares a setting does not change one. That is documentation, and the drift test that
+        // holds it against a CLI's own bindings is that CLI's test rather than this corpus's.
         props.push(PropMeta {
-            key: leak(&setting.key),
-            ty,
             default: setting.default.as_ref().map(const_of).transpose()?,
             merge: match setting.merge {
                 MergePolicy::Replace => Merge::Replace,
@@ -684,13 +688,6 @@ fn registry_of(settings: &[Setting]) -> Result<Registry, String> {
                 ),
                 None => None,
             },
-            envs: &[],
-            deprecated_envs: &[],
-            // No flags: a corpus vector describes what reaches a *resolution*, and which flag a
-            // setting declares does not change one. It is documentation, and the drift test that
-            // holds it against a CLI's own binding is that CLI's test rather than this corpus's.
-            cli: &[],
-            bindings: &[],
             choices: Box::leak(
                 setting
                     .choices
@@ -699,18 +696,9 @@ fn registry_of(settings: &[Setting]) -> Result<Registry, String> {
                     .collect::<Result<Vec<_>, _>>()?
                     .into_boxed_slice(),
             ),
-            hide: false,
             deprecated: setting.deprecated.as_deref().map(leak),
             renamed_to: setting.renamed_to.as_deref().map(leak),
-            aliases: &[],
-            optional: None,
-            help: None,
-            long_help: None,
-            default_note: None,
-            since: None,
-            deprecated_warn_at: None,
-            deprecated_remove_at: None,
-            examples: &[],
+            ..PropMeta::new(leak(&setting.key), ty)
         });
     }
     Ok(Registry::new(Box::leak(props.into_boxed_slice())))
