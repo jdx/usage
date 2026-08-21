@@ -252,818 +252,830 @@ const (
 	FlagBootstrapRemoteAll                       uint64 = 236
 	FlagBootstrapRemoteBootstrapCommand          uint64 = 237
 	FlagBootstrapRemoteConnectTimeout            uint64 = 238
-	FlagBootstrapRemoteExclude                   uint64 = 239
-	FlagBootstrapRemoteFailFast                  uint64 = 240
-	FlagBootstrapRemoteForceDotfiles             uint64 = 241
-	FlagBootstrapRemoteHost                      uint64 = 242
-	FlagBootstrapRemoteIdentityFile              uint64 = 243
-	FlagBootstrapRemoteDryRun                    uint64 = 244
-	FlagBootstrapRemoteKeepStaging               uint64 = 245
-	FlagBootstrapRemoteMiseBin                   uint64 = 246
-	FlagBootstrapRemoteOnly                      uint64 = 247
-	FlagBootstrapRemotePort                      uint64 = 248
-	FlagBootstrapRemotePromptSecrets             uint64 = 249
-	FlagBootstrapRemoteRemoteMise                uint64 = 250
-	FlagBootstrapRemoteSkip                      uint64 = 251
-	FlagBootstrapRemoteSource                    uint64 = 252
-	FlagBootstrapRemoteSshOption                 uint64 = 253
-	FlagBootstrapRemoteTag                       uint64 = 254
-	FlagBootstrapRemoteUpdate                    uint64 = 255
-	FlagBootstrapRemoteYes                       uint64 = 256
-	ArgBootstrapRemoteTarget                     uint64 = 257
-	CmdBootstrapRepos                            uint64 = 258
-	CmdBootstrapReposApply                       uint64 = 259
-	FlagBootstrapReposApplyDryRun                uint64 = 260
-	FlagBootstrapReposApplyYes                   uint64 = 261
-	CmdBootstrapReposExec                        uint64 = 262
-	FlagBootstrapReposExecContinueOnError        uint64 = 263
-	FlagBootstrapReposExecDryRun                 uint64 = 264
-	ArgBootstrapReposExecPath                    uint64 = 265
-	ArgBootstrapReposExecCommand                 uint64 = 266
-	CmdBootstrapReposStatus                      uint64 = 267
-	FlagBootstrapReposStatusJson                 uint64 = 268
-	FlagBootstrapReposStatusMissing              uint64 = 269
-	CmdBootstrapReposUpdate                      uint64 = 270
-	FlagBootstrapReposUpdateDryRun               uint64 = 271
-	FlagBootstrapReposUpdateYes                  uint64 = 272
-	ArgBootstrapReposUpdatePath                  uint64 = 273
-	CmdBootstrapSecrets                          uint64 = 274
-	CmdBootstrapSecretsStatus                    uint64 = 275
-	FlagBootstrapSecretsStatusJson               uint64 = 276
-	FlagBootstrapSecretsStatusMissing            uint64 = 277
-	CmdBootstrapServices                         uint64 = 278
-	CmdBootstrapServicesApply                    uint64 = 279
-	FlagBootstrapServicesApplyDryRun             uint64 = 280
-	FlagBootstrapServicesApplyYes                uint64 = 281
-	CmdBootstrapServicesStatus                   uint64 = 282
-	FlagBootstrapServicesStatusJson              uint64 = 283
-	FlagBootstrapServicesStatusMissing           uint64 = 284
-	CmdBootstrapStatus                           uint64 = 285
-	FlagBootstrapStatusJson                      uint64 = 286
-	FlagBootstrapStatusMissing                   uint64 = 287
-	FlagBootstrapStatusPromptSecrets             uint64 = 288
-	CmdBootstrapSystemd                          uint64 = 289
-	CmdBootstrapSystemdApply                     uint64 = 290
-	FlagBootstrapSystemdApplyDryRun              uint64 = 291
-	FlagBootstrapSystemdApplyYes                 uint64 = 292
-	CmdBootstrapSystemdStatus                    uint64 = 293
-	FlagBootstrapSystemdStatusJson               uint64 = 294
-	FlagBootstrapSystemdStatusMissing            uint64 = 295
-	CmdBootstrapUser                             uint64 = 296
-	CmdBootstrapUserApply                        uint64 = 297
-	FlagBootstrapUserApplyDryRun                 uint64 = 298
-	FlagBootstrapUserApplyYes                    uint64 = 299
-	CmdBootstrapUserStatus                       uint64 = 300
-	FlagBootstrapUserStatusJson                  uint64 = 301
-	FlagBootstrapUserStatusMissing               uint64 = 302
-	CmdCache                                     uint64 = 303
-	CmdCacheClear                                uint64 = 304
-	FlagCacheClearOutdate                        uint64 = 305
-	FlagCacheClearTask                           uint64 = 306
-	ArgCacheClearTool                            uint64 = 307
-	CmdCachePath                                 uint64 = 308
-	CmdCachePrune                                uint64 = 309
-	FlagCachePruneVerbose                        uint64 = 310
-	FlagCachePruneDryRun                         uint64 = 311
-	ArgCachePruneTool                            uint64 = 312
-	CmdCacheTask                                 uint64 = 313
-	FlagCacheTaskJson                            uint64 = 314
-	ArgCacheTaskTask                             uint64 = 315
-	CmdCompletion                                uint64 = 316
-	FlagCompletionShell                          uint64 = 317
-	FlagCompletionIncludeBashCompletionLib       uint64 = 318
-	FlagCompletionUsage                          uint64 = 319
-	ArgCompletionShell                           uint64 = 320
-	CmdConfig                                    uint64 = 321
-	FlagConfigJson                               uint64 = 322
-	FlagConfigNoHeader                           uint64 = 323
-	FlagConfigTrackedConfigs                     uint64 = 324
-	CmdConfigGet                                 uint64 = 325
-	FlagConfigGetFile                            uint64 = 326
-	ArgConfigGetKey                              uint64 = 327
-	CmdConfigLs                                  uint64 = 328
-	FlagConfigLsJson                             uint64 = 329
-	FlagConfigLsNoHeader                         uint64 = 330
-	FlagConfigLsTrackedConfigs                   uint64 = 331
-	CmdConfigSet                                 uint64 = 332
-	FlagConfigSetFile                            uint64 = 333
-	FlagConfigSetType                            uint64 = 334
-	ArgConfigSetKey                              uint64 = 335
-	ArgConfigSetValue                            uint64 = 336
-	CmdCurrent                                   uint64 = 337
-	ArgCurrentPlugin                             uint64 = 338
-	CmdDeactivate                                uint64 = 339
-	CmdDirenv                                    uint64 = 340
-	CmdDirenvActivate                            uint64 = 341
-	CmdDirenvEnvrc                               uint64 = 342
-	CmdDirenvExec                                uint64 = 343
-	CmdDotfiles                                  uint64 = 344
-	CmdDotfilesAdd                               uint64 = 345
-	FlagDotfilesAddForce                         uint64 = 346
-	FlagDotfilesAddGlobal                        uint64 = 347
-	FlagDotfilesAddLocal                         uint64 = 348
-	FlagDotfilesAddMode                          uint64 = 349
-	FlagDotfilesAddDryRun                        uint64 = 350
-	FlagDotfilesAddNoApply                       uint64 = 351
-	FlagDotfilesAddPath                          uint64 = 352
-	FlagDotfilesAddSource                        uint64 = 353
-	FlagDotfilesAddYes                           uint64 = 354
-	ArgDotfilesAddTarget                         uint64 = 355
-	CmdDotfilesApply                             uint64 = 356
-	FlagDotfilesApplyForce                       uint64 = 357
-	FlagDotfilesApplyDryRun                      uint64 = 358
-	FlagDotfilesApplyYes                         uint64 = 359
-	ArgDotfilesApplyTarget                       uint64 = 360
-	CmdDotfilesEdit                              uint64 = 361
-	FlagDotfilesEditApply                        uint64 = 362
-	FlagDotfilesEditMode                         uint64 = 363
-	FlagDotfilesEditSource                       uint64 = 364
-	FlagDotfilesEditYes                          uint64 = 365
-	ArgDotfilesEditTarget                        uint64 = 366
-	CmdDotfilesStatus                            uint64 = 367
-	FlagDotfilesStatusJson                       uint64 = 368
-	FlagDotfilesStatusMissing                    uint64 = 369
-	ArgDotfilesStatusTarget                      uint64 = 370
-	CmdDotfilesUnapply                           uint64 = 371
-	FlagDotfilesUnapplyForce                     uint64 = 372
-	FlagDotfilesUnapplyDryRun                    uint64 = 373
-	FlagDotfilesUnapplyYes                       uint64 = 374
-	ArgDotfilesUnapplyTarget                     uint64 = 375
-	CmdDoctor                                    uint64 = 376
-	FlagDoctorJson                               uint64 = 377
-	CmdDoctorPath                                uint64 = 378
-	FlagDoctorPathFull                           uint64 = 379
-	CmdEn                                        uint64 = 380
-	FlagEnShell                                  uint64 = 381
-	ArgEnDir                                     uint64 = 382
-	CmdEnv                                       uint64 = 383
-	FlagEnvDotenv                                uint64 = 384
-	FlagEnvJson                                  uint64 = 385
-	FlagEnvShell                                 uint64 = 386
-	FlagEnvJsonExtended                          uint64 = 387
-	FlagEnvRedacted                              uint64 = 388
-	FlagEnvValues                                uint64 = 389
-	ArgEnvToolVersion                            uint64 = 390
-	CmdExec                                      uint64 = 391
-	FlagExecCommand                              uint64 = 392
-	FlagExecJobs                                 uint64 = 393
-	FlagExecAllowEnv                             uint64 = 394
-	FlagExecAllowNet                             uint64 = 395
-	FlagExecAllowRead                            uint64 = 396
-	FlagExecAllowWrite                           uint64 = 397
-	FlagExecDenyAll                              uint64 = 398
-	FlagExecDenyEnv                              uint64 = 399
-	FlagExecDenyNet                              uint64 = 400
-	FlagExecDenyRead                             uint64 = 401
-	FlagExecDenyWrite                            uint64 = 402
-	FlagExecFreshEnv                             uint64 = 403
-	FlagExecNoDeps                               uint64 = 404
-	FlagExecRaw                                  uint64 = 405
-	ArgExecToolVersion                           uint64 = 406
-	ArgExecCommand                               uint64 = 407
-	CmdFmt                                       uint64 = 408
-	FlagFmtAll                                   uint64 = 409
-	FlagFmtCheck                                 uint64 = 410
-	FlagFmtStdin                                 uint64 = 411
-	CmdGenerate                                  uint64 = 412
-	CmdGenerateBootstrap                         uint64 = 413
-	FlagGenerateBootstrapLocalize                uint64 = 414
-	FlagGenerateBootstrapVersion                 uint64 = 415
-	FlagGenerateBootstrapWrite                   uint64 = 416
-	FlagGenerateBootstrapLocalizedDir            uint64 = 417
-	CmdGenerateConfig                            uint64 = 418
-	FlagGenerateConfigGlobal                     uint64 = 419
-	FlagGenerateConfigDryRun                     uint64 = 420
-	FlagGenerateConfigToolVersions               uint64 = 421
-	ArgGenerateConfigPath                        uint64 = 422
-	CmdGenerateDevcontainer                      uint64 = 423
-	FlagGenerateDevcontainerImage                uint64 = 424
-	FlagGenerateDevcontainerMountMiseData        uint64 = 425
-	FlagGenerateDevcontainerName                 uint64 = 426
-	FlagGenerateDevcontainerWrite                uint64 = 427
-	CmdGenerateGitPreCommit                      uint64 = 428
-	FlagGenerateGitPreCommitTask                 uint64 = 429
-	FlagGenerateGitPreCommitWrite                uint64 = 430
-	FlagGenerateGitPreCommitHook                 uint64 = 431
-	CmdGenerateGithubAction                      uint64 = 432
-	FlagGenerateGithubActionTask                 uint64 = 433
-	FlagGenerateGithubActionWrite                uint64 = 434
-	FlagGenerateGithubActionName                 uint64 = 435
-	CmdGenerateTaskDocs                          uint64 = 436
-	FlagGenerateTaskDocsInject                   uint64 = 437
-	FlagGenerateTaskDocsIndex                    uint64 = 438
-	FlagGenerateTaskDocsMulti                    uint64 = 439
-	FlagGenerateTaskDocsOutput                   uint64 = 440
-	FlagGenerateTaskDocsRoot                     uint64 = 441
-	FlagGenerateTaskDocsStyle                    uint64 = 442
-	CmdGenerateTaskStubs                         uint64 = 443
-	FlagGenerateTaskStubsDir                     uint64 = 444
-	FlagGenerateTaskStubsMiseBin                 uint64 = 445
-	CmdGenerateToolStub                          uint64 = 446
-	FlagGenerateToolStubBin                      uint64 = 447
-	FlagGenerateToolStubBootstrap                uint64 = 448
-	FlagGenerateToolStubBootstrapVersion         uint64 = 449
-	FlagGenerateToolStubFetch                    uint64 = 450
-	FlagGenerateToolStubHttp                     uint64 = 451
-	FlagGenerateToolStubLock                     uint64 = 452
-	FlagGenerateToolStubPlatformBin              uint64 = 453
-	FlagGenerateToolStubPlatformUrl              uint64 = 454
-	FlagGenerateToolStubSkipDownload             uint64 = 455
-	FlagGenerateToolStubUrl                      uint64 = 456
-	FlagGenerateToolStubVersion                  uint64 = 457
-	ArgGenerateToolStubOutput                    uint64 = 458
-	CmdGithub                                    uint64 = 459
-	CmdGithubToken                               uint64 = 460
-	FlagGithubTokenOauth                         uint64 = 461
-	FlagGithubTokenRaw                           uint64 = 462
-	FlagGithubTokenRefresh                       uint64 = 463
-	FlagGithubTokenUnmask                        uint64 = 464
-	ArgGithubTokenHost                           uint64 = 465
-	CmdGlobal                                    uint64 = 466
-	FlagGlobalFuzzy                              uint64 = 467
-	FlagGlobalPath                               uint64 = 468
-	FlagGlobalPin                                uint64 = 469
-	FlagGlobalRemove                             uint64 = 470
-	ArgGlobalToolVersion                         uint64 = 471
-	CmdHookEnv                                   uint64 = 472
-	FlagHookEnvForce                             uint64 = 473
-	FlagHookEnvQuiet                             uint64 = 474
-	FlagHookEnvShell                             uint64 = 475
-	FlagHookEnvReason                            uint64 = 476
-	FlagHookEnvStatus                            uint64 = 477
-	CmdHookNotFound                              uint64 = 478
-	FlagHookNotFoundShell                        uint64 = 479
-	ArgHookNotFoundBin                           uint64 = 480
-	CmdImplode                                   uint64 = 481
-	FlagImplodeDryRun                            uint64 = 482
-	FlagImplodeConfig                            uint64 = 483
-	CmdEdit                                      uint64 = 484
-	FlagEditGlobal                               uint64 = 485
-	FlagEditDryRun                               uint64 = 486
-	FlagEditToolVersions                         uint64 = 487
-	ArgEditPath                                  uint64 = 488
-	CmdInstall                                   uint64 = 489
-	FlagInstallForce                             uint64 = 490
-	FlagInstallJobs                              uint64 = 491
-	FlagInstallDryRun                            uint64 = 492
-	FlagInstallVerbose                           uint64 = 493
-	FlagInstallDryRunCode                        uint64 = 494
-	FlagInstallMinimumReleaseAge                 uint64 = 495
-	FlagInstallMonorepo                          uint64 = 496
-	FlagInstallRaw                               uint64 = 497
-	FlagInstallShared                            uint64 = 498
-	FlagInstallSystem                            uint64 = 499
-	ArgInstallToolVersion                        uint64 = 500
-	CmdInstallInto                               uint64 = 501
-	ArgInstallIntoToolVersion                    uint64 = 502
-	ArgInstallIntoPath                           uint64 = 503
-	CmdLatest                                    uint64 = 504
-	FlagLatestInstalled                          uint64 = 505
-	FlagLatestMinimumReleaseAge                  uint64 = 506
-	ArgLatestToolVersion                         uint64 = 507
-	ArgLatestAsdfVersion                         uint64 = 508
-	CmdLink                                      uint64 = 509
-	FlagLinkForce                                uint64 = 510
-	ArgLinkToolVersion                           uint64 = 511
-	ArgLinkPath                                  uint64 = 512
-	CmdLocal                                     uint64 = 513
-	FlagLocalParent                              uint64 = 514
-	FlagLocalFuzzy                               uint64 = 515
-	FlagLocalPath                                uint64 = 516
-	FlagLocalPin                                 uint64 = 517
-	FlagLocalRemove                              uint64 = 518
-	ArgLocalToolVersion                          uint64 = 519
-	CmdLock                                      uint64 = 520
-	FlagLockGlobal                               uint64 = 521
-	FlagLockJobs                                 uint64 = 522
-	FlagLockDryRun                               uint64 = 523
-	FlagLockPlatform                             uint64 = 524
-	FlagLockBump                                 uint64 = 525
-	FlagLockJson                                 uint64 = 526
-	FlagLockLocal                                uint64 = 527
-	FlagLockMinimumReleaseAge                    uint64 = 528
-	ArgLockTool                                  uint64 = 529
-	CmdLs                                        uint64 = 530
-	FlagLsCurrent                                uint64 = 531
-	FlagLsGlobal                                 uint64 = 532
-	FlagLsInstalled                              uint64 = 533
-	FlagLsJson                                   uint64 = 534
-	FlagLsLocal                                  uint64 = 535
-	FlagLsMissing                                uint64 = 536
-	FlagLsOffline                                uint64 = 537
-	FlagLsPlugin                                 uint64 = 538
-	FlagLsAllSources                             uint64 = 539
-	FlagLsMonorepo                               uint64 = 540
-	FlagLsNoHeader                               uint64 = 541
-	FlagLsOutdated                               uint64 = 542
-	FlagLsPrefix                                 uint64 = 543
-	FlagLsPrunable                               uint64 = 544
-	ArgLsInstalledTool                           uint64 = 545
-	CmdLsRemote                                  uint64 = 546
-	FlagLsRemoteAll                              uint64 = 547
-	FlagLsRemoteMinimumReleaseAge                uint64 = 548
-	FlagLsRemoteJson                             uint64 = 549
-	FlagLsRemoteNoVersionsHost                   uint64 = 550
-	FlagLsRemotePrerelease                       uint64 = 551
-	FlagLsRemoteStrictMetadata                   uint64 = 552
-	ArgLsRemoteToolVersion                       uint64 = 553
-	ArgLsRemotePrefix                            uint64 = 554
-	CmdMcp                                       uint64 = 555
-	CmdOci                                       uint64 = 556
-	CmdOciBuild                                  uint64 = 557
-	FlagOciBuildCopy                             uint64 = 558
-	FlagOciBuildOutput                           uint64 = 559
-	FlagOciBuildFrom                             uint64 = 560
-	FlagOciBuildIncludeGlobal                    uint64 = 561
-	FlagOciBuildTag                              uint64 = 562
-	FlagOciBuildMountPoint                       uint64 = 563
-	FlagOciBuildNoMise                           uint64 = 564
-	FlagOciBuildOwner                            uint64 = 565
-	CmdOciPush                                   uint64 = 566
-	FlagOciPushCacheFrom                         uint64 = 567
-	FlagOciPushFrom                              uint64 = 568
-	FlagOciPushImageDir                          uint64 = 569
-	FlagOciPushIncludeGlobal                     uint64 = 570
-	FlagOciPushMountPoint                        uint64 = 571
-	FlagOciPushNoCache                           uint64 = 572
-	FlagOciPushNoMise                            uint64 = 573
-	FlagOciPushOwner                             uint64 = 574
-	FlagOciPushUpdateIndex                       uint64 = 575
-	ArgOciPushRef                                uint64 = 576
-	CmdOciRun                                    uint64 = 577
-	FlagOciRunEngine                             uint64 = 578
-	FlagOciRunFrom                               uint64 = 579
-	FlagOciRunImageDir                           uint64 = 580
-	FlagOciRunIncludeGlobal                      uint64 = 581
-	FlagOciRunKeep                               uint64 = 582
-	FlagOciRunMountPoint                         uint64 = 583
-	FlagOciRunNoMise                             uint64 = 584
-	FlagOciRunOwner                              uint64 = 585
-	FlagOciRunVolume                             uint64 = 586
-	FlagOciRunEnv                                uint64 = 587
-	FlagOciRunInteractive                        uint64 = 588
-	FlagOciRunTty                                uint64 = 589
-	FlagOciRunWorkdir                            uint64 = 590
-	ArgOciRunCmd                                 uint64 = 591
-	CmdOutdated                                  uint64 = 592
-	FlagOutdatedJson                             uint64 = 593
-	FlagOutdatedBump                             uint64 = 594
-	FlagOutdatedInactive                         uint64 = 595
-	FlagOutdatedLocal                            uint64 = 596
-	FlagOutdatedMonorepo                         uint64 = 597
-	FlagOutdatedNoHeader                         uint64 = 598
-	ArgOutdatedToolVersion                       uint64 = 599
-	CmdPatrons                                   uint64 = 600
-	FlagPatronsJson                              uint64 = 601
-	FlagPatronsRefresh                           uint64 = 602
-	CmdPlugins                                   uint64 = 603
-	FlagPluginsAll                               uint64 = 604
-	FlagPluginsCore                              uint64 = 605
-	FlagPluginsUrls                              uint64 = 606
-	FlagPluginsRefs                              uint64 = 607
-	FlagPluginsUser                              uint64 = 608
-	CmdPluginsInstall                            uint64 = 609
-	FlagPluginsInstallAll                        uint64 = 610
-	FlagPluginsInstallForce                      uint64 = 611
-	FlagPluginsInstallJobs                       uint64 = 612
-	FlagPluginsInstallVerbose                    uint64 = 613
-	ArgPluginsInstallNewPlugin                   uint64 = 614
-	ArgPluginsInstallGitUrl                      uint64 = 615
-	ArgPluginsInstallRest                        uint64 = 616
-	CmdPluginsLink                               uint64 = 617
-	FlagPluginsLinkForce                         uint64 = 618
-	ArgPluginsLinkName                           uint64 = 619
-	ArgPluginsLinkDir                            uint64 = 620
-	CmdPluginsLs                                 uint64 = 621
-	FlagPluginsLsAll                             uint64 = 622
-	FlagPluginsLsCore                            uint64 = 623
-	FlagPluginsLsOutdated                        uint64 = 624
-	FlagPluginsLsUrls                            uint64 = 625
-	FlagPluginsLsRefs                            uint64 = 626
-	FlagPluginsLsUser                            uint64 = 627
-	CmdPluginsLsRemote                           uint64 = 628
-	FlagPluginsLsRemoteUrls                      uint64 = 629
-	FlagPluginsLsRemoteOnlyNames                 uint64 = 630
-	CmdPluginsUninstall                          uint64 = 631
-	FlagPluginsUninstallAll                      uint64 = 632
-	FlagPluginsUninstallPurge                    uint64 = 633
-	ArgPluginsUninstallPlugin                    uint64 = 634
-	CmdPluginsUpdate                             uint64 = 635
-	FlagPluginsUpdateJobs                        uint64 = 636
-	ArgPluginsUpdatePlugin                       uint64 = 637
-	CmdDeps                                      uint64 = 638
-	FlagDepsExplain                              uint64 = 639
-	FlagDepsForce                                uint64 = 640
-	FlagDepsDryRun                               uint64 = 641
-	FlagDepsList                                 uint64 = 642
-	FlagDepsMonorepo                             uint64 = 643
-	FlagDepsOnly                                 uint64 = 644
-	FlagDepsSkip                                 uint64 = 645
-	ArgDepsProvider                              uint64 = 646
-	CmdDepsAdd                                   uint64 = 647
-	FlagDepsAddDev                               uint64 = 648
-	ArgDepsAddPackages                           uint64 = 649
-	CmdDepsInstall                               uint64 = 650
-	FlagDepsInstallExplain                       uint64 = 651
-	FlagDepsInstallForce                         uint64 = 652
-	FlagDepsInstallDryRun                        uint64 = 653
-	FlagDepsInstallList                          uint64 = 654
-	FlagDepsInstallMonorepo                      uint64 = 655
-	FlagDepsInstallOnly                          uint64 = 656
-	FlagDepsInstallSkip                          uint64 = 657
-	ArgDepsInstallProvider                       uint64 = 658
-	CmdDepsRemove                                uint64 = 659
-	ArgDepsRemovePackages                        uint64 = 660
-	CmdPrune                                     uint64 = 661
-	FlagPruneDryRun                              uint64 = 662
-	FlagPruneConfigs                             uint64 = 663
-	FlagPruneDryRunCode                          uint64 = 664
-	FlagPruneMonorepo                            uint64 = 665
-	FlagPruneTools                               uint64 = 666
-	ArgPruneInstalledTool                        uint64 = 667
-	CmdRegistry                                  uint64 = 668
-	FlagRegistryBackend                          uint64 = 669
-	FlagRegistryComplete                         uint64 = 670
-	FlagRegistryHideAliased                      uint64 = 671
-	FlagRegistryJson                             uint64 = 672
-	FlagRegistrySecurity                         uint64 = 673
-	ArgRegistryName                              uint64 = 674
-	CmdRenderHelp                                uint64 = 675
-	CmdReshim                                    uint64 = 676
-	FlagReshimForce                              uint64 = 677
-	ArgReshimTool                                uint64 = 678
-	ArgReshimVersion                             uint64 = 679
-	CmdRun                                       uint64 = 680
-	FlagRunAffected                              uint64 = 681
-	FlagRunAffectedBase                          uint64 = 682
-	FlagRunAffectedExplain                       uint64 = 683
-	FlagRunAffectedHead                          uint64 = 684
-	FlagRunAffectedJson                          uint64 = 685
-	FlagRunContinueOnError                       uint64 = 686
-	FlagRunCd                                    uint64 = 687
-	FlagRunForce                                 uint64 = 688
-	FlagRunJobs                                  uint64 = 689
-	FlagRunDryRun                                uint64 = 690
-	FlagRunOutput                                uint64 = 691
-	FlagRunQuiet                                 uint64 = 692
-	FlagRunRaw                                   uint64 = 693
-	FlagRunShell                                 uint64 = 694
-	FlagRunSilent                                uint64 = 695
-	FlagRunTool                                  uint64 = 696
-	FlagRunAllowEnv                              uint64 = 697
-	FlagRunAllowNet                              uint64 = 698
-	FlagRunAllowRead                             uint64 = 699
-	FlagRunAllowWrite                            uint64 = 700
-	FlagRunDenyAll                               uint64 = 701
-	FlagRunDenyEnv                               uint64 = 702
-	FlagRunDenyNet                               uint64 = 703
-	FlagRunDenyRead                              uint64 = 704
-	FlagRunDenyWrite                             uint64 = 705
-	FlagRunFreshEnv                              uint64 = 706
-	FlagRunNoCache                               uint64 = 707
-	FlagRunNoDeps                                uint64 = 708
-	FlagRunNoTimings                             uint64 = 709
-	FlagRunSkipDeps                              uint64 = 710
-	FlagRunSkipTools                             uint64 = 711
-	FlagRunTaskCache                             uint64 = 712
-	FlagRunTaskCacheExplain                      uint64 = 713
-	FlagRunTaskCacheExplainJson                  uint64 = 714
-	FlagRunTaskCacheStats                        uint64 = 715
-	FlagRunTimeout                               uint64 = 716
-	FlagRunTimings                               uint64 = 717
-	CmdSearch                                    uint64 = 718
-	FlagSearchInteractive                        uint64 = 719
-	FlagSearchMatchType                          uint64 = 720
-	FlagSearchNoHeader                           uint64 = 721
-	ArgSearchName                                uint64 = 722
-	CmdSelfUpdate                                uint64 = 723
-	FlagSelfUpdateForce                          uint64 = 724
-	FlagSelfUpdateYes                            uint64 = 725
-	FlagSelfUpdateNoPlugins                      uint64 = 726
-	ArgSelfUpdateVersion                         uint64 = 727
-	CmdSet                                       uint64 = 728
-	FlagSetEnv                                   uint64 = 729
-	FlagSetGlobal                                uint64 = 730
-	FlagSetAgeEncrypt                            uint64 = 731
-	FlagSetAgeKeyFile                            uint64 = 732
-	FlagSetAgeRecipient                          uint64 = 733
-	FlagSetAgeSshRecipient                       uint64 = 734
-	FlagSetComplete                              uint64 = 735
-	FlagSetFile                                  uint64 = 736
-	FlagSetNoRedact                              uint64 = 737
-	FlagSetPrompt                                uint64 = 738
-	FlagSetRemove                                uint64 = 739
-	FlagSetStdin                                 uint64 = 740
-	ArgSetEnvVar                                 uint64 = 741
-	CmdSettings                                  uint64 = 742
-	FlagSettingsAll                              uint64 = 743
-	FlagSettingsJson                             uint64 = 744
-	FlagSettingsLocal                            uint64 = 745
-	FlagSettingsToml                             uint64 = 746
-	FlagSettingsComplete                         uint64 = 747
-	FlagSettingsJsonExtended                     uint64 = 748
-	ArgSettingsSetting                           uint64 = 749
-	ArgSettingsValue                             uint64 = 750
-	CmdSettingsAdd                               uint64 = 751
-	FlagSettingsAddLocal                         uint64 = 752
-	ArgSettingsAddSetting                        uint64 = 753
-	ArgSettingsAddValue                          uint64 = 754
-	CmdSettingsGet                               uint64 = 755
-	FlagSettingsGetLocal                         uint64 = 756
-	ArgSettingsGetSetting                        uint64 = 757
-	CmdSettingsLs                                uint64 = 758
-	FlagSettingsLsAll                            uint64 = 759
-	FlagSettingsLsJson                           uint64 = 760
-	FlagSettingsLsLocal                          uint64 = 761
-	FlagSettingsLsToml                           uint64 = 762
-	FlagSettingsLsComplete                       uint64 = 763
-	FlagSettingsLsJsonExtended                   uint64 = 764
-	ArgSettingsLsSetting                         uint64 = 765
-	CmdSettingsSet                               uint64 = 766
-	FlagSettingsSetLocal                         uint64 = 767
-	ArgSettingsSetSetting                        uint64 = 768
-	ArgSettingsSetValue                          uint64 = 769
-	CmdSettingsUnset                             uint64 = 770
-	FlagSettingsUnsetLocal                       uint64 = 771
-	ArgSettingsUnsetKey                          uint64 = 772
-	CmdShell                                     uint64 = 773
-	FlagShellJobs                                uint64 = 774
-	FlagShellUnset                               uint64 = 775
-	FlagShellRaw                                 uint64 = 776
-	ArgShellToolVersion                          uint64 = 777
-	CmdShellAlias                                uint64 = 778
-	FlagShellAliasNoHeader                       uint64 = 779
-	CmdShellAliasGet                             uint64 = 780
-	ArgShellAliasGetShellAlias                   uint64 = 781
-	CmdShellAliasLs                              uint64 = 782
-	FlagShellAliasLsNoHeader                     uint64 = 783
-	CmdShellAliasSet                             uint64 = 784
-	ArgShellAliasSetShellAlias                   uint64 = 785
-	ArgShellAliasSetCommand                      uint64 = 786
-	CmdShellAliasUnset                           uint64 = 787
-	ArgShellAliasUnsetShellAlias                 uint64 = 788
-	CmdSponsors                                  uint64 = 789
-	CmdSync                                      uint64 = 790
-	CmdSyncNode                                  uint64 = 791
-	FlagSyncNodeBrew                             uint64 = 792
-	FlagSyncNodeNodenv                           uint64 = 793
-	FlagSyncNodeNvm                              uint64 = 794
-	CmdSyncPython                                uint64 = 795
-	FlagSyncPythonPyenv                          uint64 = 796
-	FlagSyncPythonUv                             uint64 = 797
-	CmdSyncRuby                                  uint64 = 798
-	FlagSyncRubyBrew                             uint64 = 799
-	CmdTasks                                     uint64 = 800
-	FlagTasksGlobal                              uint64 = 801
-	FlagTasksJson                                uint64 = 802
-	FlagTasksLocal                               uint64 = 803
-	FlagTasksExtended                            uint64 = 804
-	FlagTasksAll                                 uint64 = 805
-	FlagTasksComplete                            uint64 = 806
-	FlagTasksHidden                              uint64 = 807
-	FlagTasksNameOnly                            uint64 = 808
-	FlagTasksNoHeader                            uint64 = 809
-	FlagTasksSort                                uint64 = 810
-	FlagTasksSortOrder                           uint64 = 811
-	FlagTasksUsage                               uint64 = 812
-	ArgTasksTask                                 uint64 = 813
-	CmdTasksAdd                                  uint64 = 814
-	FlagTasksAddAlias                            uint64 = 815
-	FlagTasksAddDepends                          uint64 = 816
-	FlagTasksAddDir                              uint64 = 817
-	FlagTasksAddFile                             uint64 = 818
-	FlagTasksAddHide                             uint64 = 819
-	FlagTasksAddQuiet                            uint64 = 820
-	FlagTasksAddRaw                              uint64 = 821
-	FlagTasksAddSources                          uint64 = 822
-	FlagTasksAddWaitFor                          uint64 = 823
-	FlagTasksAddDependsPost                      uint64 = 824
-	FlagTasksAddDescription                      uint64 = 825
-	FlagTasksAddOutputs                          uint64 = 826
-	FlagTasksAddRunWindows                       uint64 = 827
-	FlagTasksAddShell                            uint64 = 828
-	FlagTasksAddSilent                           uint64 = 829
-	ArgTasksAddTask                              uint64 = 830
-	ArgTasksAddRun                               uint64 = 831
-	CmdTasksDeps                                 uint64 = 832
-	FlagTasksDepsCompact                         uint64 = 833
-	FlagTasksDepsDot                             uint64 = 834
-	FlagTasksDepsHidden                          uint64 = 835
-	ArgTasksDepsTasks                            uint64 = 836
-	CmdTasksEdit                                 uint64 = 837
-	FlagTasksEditPath                            uint64 = 838
-	ArgTasksEditTask                             uint64 = 839
-	CmdTasksGraph                                uint64 = 840
-	FlagTasksGraphJson                           uint64 = 841
-	FlagTasksGraphExplain                        uint64 = 842
-	FlagTasksGraphNoHeader                       uint64 = 843
-	CmdTasksInfo                                 uint64 = 844
-	FlagTasksInfoJson                            uint64 = 845
-	ArgTasksInfoTask                             uint64 = 846
-	CmdTasksLs                                   uint64 = 847
-	FlagTasksLsGlobal                            uint64 = 848
-	FlagTasksLsJson                              uint64 = 849
-	FlagTasksLsLocal                             uint64 = 850
-	FlagTasksLsExtended                          uint64 = 851
-	FlagTasksLsAll                               uint64 = 852
-	FlagTasksLsComplete                          uint64 = 853
-	FlagTasksLsHidden                            uint64 = 854
-	FlagTasksLsNameOnly                          uint64 = 855
-	FlagTasksLsNoHeader                          uint64 = 856
-	FlagTasksLsSort                              uint64 = 857
-	FlagTasksLsSortOrder                         uint64 = 858
-	FlagTasksLsUsage                             uint64 = 859
-	CmdTasksRun                                  uint64 = 860
-	FlagTasksRunAffected                         uint64 = 861
-	FlagTasksRunAffectedBase                     uint64 = 862
-	FlagTasksRunAffectedExplain                  uint64 = 863
-	FlagTasksRunAffectedHead                     uint64 = 864
-	FlagTasksRunAffectedJson                     uint64 = 865
-	FlagTasksRunContinueOnError                  uint64 = 866
-	FlagTasksRunCd                               uint64 = 867
-	FlagTasksRunForce                            uint64 = 868
-	FlagTasksRunJobs                             uint64 = 869
-	FlagTasksRunDryRun                           uint64 = 870
-	FlagTasksRunOutput                           uint64 = 871
-	FlagTasksRunQuiet                            uint64 = 872
-	FlagTasksRunRaw                              uint64 = 873
-	FlagTasksRunShell                            uint64 = 874
-	FlagTasksRunSilent                           uint64 = 875
-	FlagTasksRunTool                             uint64 = 876
-	FlagTasksRunAllowEnv                         uint64 = 877
-	FlagTasksRunAllowNet                         uint64 = 878
-	FlagTasksRunAllowRead                        uint64 = 879
-	FlagTasksRunAllowWrite                       uint64 = 880
-	FlagTasksRunDenyAll                          uint64 = 881
-	FlagTasksRunDenyEnv                          uint64 = 882
-	FlagTasksRunDenyNet                          uint64 = 883
-	FlagTasksRunDenyRead                         uint64 = 884
-	FlagTasksRunDenyWrite                        uint64 = 885
-	FlagTasksRunFreshEnv                         uint64 = 886
-	FlagTasksRunNoCache                          uint64 = 887
-	FlagTasksRunNoDeps                           uint64 = 888
-	FlagTasksRunNoTimings                        uint64 = 889
-	FlagTasksRunSkipDeps                         uint64 = 890
-	FlagTasksRunSkipTools                        uint64 = 891
-	FlagTasksRunTaskCache                        uint64 = 892
-	FlagTasksRunTaskCacheExplain                 uint64 = 893
-	FlagTasksRunTaskCacheExplainJson             uint64 = 894
-	FlagTasksRunTaskCacheStats                   uint64 = 895
-	FlagTasksRunTimeout                          uint64 = 896
-	FlagTasksRunTimings                          uint64 = 897
-	ArgTasksRunTask                              uint64 = 898
-	ArgTasksRunArgs                              uint64 = 899
-	ArgTasksRunArgsLast                          uint64 = 900
-	CmdTasksValidate                             uint64 = 901
-	FlagTasksValidateErrorsOnly                  uint64 = 902
-	FlagTasksValidateJson                        uint64 = 903
-	ArgTasksValidateTasks                        uint64 = 904
-	CmdTestTool                                  uint64 = 905
-	FlagTestToolAll                              uint64 = 906
-	FlagTestToolJobs                             uint64 = 907
-	FlagTestToolAllConfig                        uint64 = 908
-	FlagTestToolIncludeNonDefined                uint64 = 909
-	FlagTestToolRaw                              uint64 = 910
-	ArgTestToolTools                             uint64 = 911
-	CmdToken                                     uint64 = 912
-	CmdTokenForgejo                              uint64 = 913
-	FlagTokenForgejoUnmask                       uint64 = 914
-	ArgTokenForgejoHost                          uint64 = 915
-	CmdTokenGithub                               uint64 = 916
-	FlagTokenGithubOauth                         uint64 = 917
-	FlagTokenGithubRaw                           uint64 = 918
-	FlagTokenGithubRefresh                       uint64 = 919
-	FlagTokenGithubUnmask                        uint64 = 920
-	ArgTokenGithubHost                           uint64 = 921
-	CmdTokenGitlab                               uint64 = 922
-	FlagTokenGitlabUnmask                        uint64 = 923
-	ArgTokenGitlabHost                           uint64 = 924
-	CmdTool                                      uint64 = 925
-	FlagToolJson                                 uint64 = 926
-	FlagToolActive                               uint64 = 927
-	FlagToolBackend                              uint64 = 928
-	FlagToolConfigSource                         uint64 = 929
-	FlagToolDescription                          uint64 = 930
-	FlagToolInstalled                            uint64 = 931
-	FlagToolRequested                            uint64 = 932
-	FlagToolToolOptions                          uint64 = 933
-	ArgToolTool                                  uint64 = 934
-	CmdToolStub                                  uint64 = 935
-	ArgToolStubFile                              uint64 = 936
-	ArgToolStubArgs                              uint64 = 937
-	CmdTrust                                     uint64 = 938
-	FlagTrustAll                                 uint64 = 939
-	FlagTrustIgnore                              uint64 = 940
-	FlagTrustShow                                uint64 = 941
-	FlagTrustUntrust                             uint64 = 942
-	ArgTrustConfigFile                           uint64 = 943
-	CmdUninstall                                 uint64 = 944
-	FlagUninstallAll                             uint64 = 945
-	FlagUninstallDryRun                          uint64 = 946
-	FlagUninstallDryRunCode                      uint64 = 947
-	ArgUninstallInstalledToolVersion             uint64 = 948
-	CmdUnset                                     uint64 = 949
-	FlagUnsetFile                                uint64 = 950
-	FlagUnsetGlobal                              uint64 = 951
-	ArgUnsetEnvKey                               uint64 = 952
-	CmdUntrust                                   uint64 = 953
-	ArgUntrustConfigFile                         uint64 = 954
-	CmdUnuse                                     uint64 = 955
-	FlagUnuseEnv                                 uint64 = 956
-	FlagUnuseGlobal                              uint64 = 957
-	FlagUnusePath                                uint64 = 958
-	FlagUnuseNoPrune                             uint64 = 959
-	ArgUnuseInstalledToolVersion                 uint64 = 960
-	CmdUpgrade                                   uint64 = 961
-	FlagUpgradeInteractive                       uint64 = 962
-	FlagUpgradeJobs                              uint64 = 963
-	FlagUpgradeBump                              uint64 = 964
-	FlagUpgradeDryRun                            uint64 = 965
-	FlagUpgradeExclude                           uint64 = 966
-	FlagUpgradeDryRunCode                        uint64 = 967
-	FlagUpgradeInactive                          uint64 = 968
-	FlagUpgradeLocal                             uint64 = 969
-	FlagUpgradeMinimumReleaseAge                 uint64 = 970
-	FlagUpgradeMonorepo                          uint64 = 971
-	FlagUpgradeNoPrune                           uint64 = 972
-	FlagUpgradeRaw                               uint64 = 973
-	ArgUpgradeInstalledToolVersion               uint64 = 974
-	CmdUsage                                     uint64 = 975
-	CmdUse                                       uint64 = 976
-	FlagUseEnv                                   uint64 = 977
-	FlagUseForce                                 uint64 = 978
-	FlagUseGlobal                                uint64 = 979
-	FlagUseJobs                                  uint64 = 980
-	FlagUseDryRun                                uint64 = 981
-	FlagUsePath                                  uint64 = 982
-	FlagUseDryRunCode                            uint64 = 983
-	FlagUseFuzzy                                 uint64 = 984
-	FlagUseMinimumReleaseAge                     uint64 = 985
-	FlagUsePin                                   uint64 = 986
-	FlagUseRaw                                   uint64 = 987
-	FlagUseRemove                                uint64 = 988
-	ArgUseToolVersion                            uint64 = 989
-	CmdVersion                                   uint64 = 990
-	FlagVersionJson                              uint64 = 991
-	CmdWatch                                     uint64 = 992
-	FlagWatchTaskFlag                            uint64 = 993
-	FlagWatchGlob                                uint64 = 994
-	FlagWatchSkipDeps                            uint64 = 995
-	FlagWatchWatch                               uint64 = 996
-	FlagWatchWatchNonRecursive                   uint64 = 997
-	FlagWatchWatchFile                           uint64 = 998
-	FlagWatchClear                               uint64 = 999
-	FlagWatchOnBusyUpdate                        uint64 = 1000
-	FlagWatchRestart                             uint64 = 1001
-	FlagWatchSignal                              uint64 = 1002
-	FlagWatchStopSignal                          uint64 = 1003
-	FlagWatchStopTimeout                         uint64 = 1004
-	FlagWatchMapSignal                           uint64 = 1005
-	FlagWatchDebounce                            uint64 = 1006
-	FlagWatchStdinQuit                           uint64 = 1007
-	FlagWatchNoVcsIgnore                         uint64 = 1008
-	FlagWatchNoProjectIgnore                     uint64 = 1009
-	FlagWatchNoGlobalIgnore                      uint64 = 1010
-	FlagWatchNoDefaultIgnore                     uint64 = 1011
-	FlagWatchNoDiscoverIgnore                    uint64 = 1012
-	FlagWatchIgnoreNothing                       uint64 = 1013
-	FlagWatchPostpone                            uint64 = 1014
-	FlagWatchDelayRun                            uint64 = 1015
-	FlagWatchPoll                                uint64 = 1016
-	FlagWatchShell                               uint64 = 1017
-	FlagWatchN                                   uint64 = 1018
-	FlagWatchEmitEventsTo                        uint64 = 1019
-	FlagWatchOnlyEmitEvents                      uint64 = 1020
-	FlagWatchEnv                                 uint64 = 1021
-	FlagWatchWrapProcess                         uint64 = 1022
-	FlagWatchNotify                              uint64 = 1023
-	FlagWatchColor                               uint64 = 1024
-	FlagWatchTimings                             uint64 = 1025
-	FlagWatchQuiet                               uint64 = 1026
-	FlagWatchBell                                uint64 = 1027
-	FlagWatchProjectOrigin                       uint64 = 1028
-	FlagWatchWorkdir                             uint64 = 1029
-	FlagWatchExts                                uint64 = 1030
-	FlagWatchFilter                              uint64 = 1031
-	FlagWatchFilterFile                          uint64 = 1032
-	FlagWatchFilterProg                          uint64 = 1033
-	FlagWatchIgnore                              uint64 = 1034
-	FlagWatchIgnoreFile                          uint64 = 1035
-	FlagWatchFsEvents                            uint64 = 1036
-	FlagWatchNoMeta                              uint64 = 1037
-	FlagWatchPrintEvents                         uint64 = 1038
-	FlagWatchManual                              uint64 = 1039
-	ArgWatchTask                                 uint64 = 1040
-	ArgWatchArgs                                 uint64 = 1041
-	CmdWhere                                     uint64 = 1042
-	ArgWhereToolVersion                          uint64 = 1043
-	ArgWhereAsdfVersion                          uint64 = 1044
-	CmdWhich                                     uint64 = 1045
-	FlagWhichTool                                uint64 = 1046
-	FlagWhichComplete                            uint64 = 1047
-	FlagWhichPlugin                              uint64 = 1048
-	FlagWhichVersion                             uint64 = 1049
-	ArgWhichBinName                              uint64 = 1050
+	FlagBootstrapRemoteCopyLink                  uint64 = 239
+	FlagBootstrapRemoteCopyLinks                 uint64 = 240
+	FlagBootstrapRemoteExclude                   uint64 = 241
+	FlagBootstrapRemoteFailFast                  uint64 = 242
+	FlagBootstrapRemoteForceDotfiles             uint64 = 243
+	FlagBootstrapRemoteHost                      uint64 = 244
+	FlagBootstrapRemoteIdentityFile              uint64 = 245
+	FlagBootstrapRemoteDryRun                    uint64 = 246
+	FlagBootstrapRemoteKeepStaging               uint64 = 247
+	FlagBootstrapRemoteMiseBin                   uint64 = 248
+	FlagBootstrapRemoteOnly                      uint64 = 249
+	FlagBootstrapRemotePort                      uint64 = 250
+	FlagBootstrapRemotePromptSecrets             uint64 = 251
+	FlagBootstrapRemoteRemoteEnv                 uint64 = 252
+	FlagBootstrapRemoteRemoteMise                uint64 = 253
+	FlagBootstrapRemoteSkip                      uint64 = 254
+	FlagBootstrapRemoteSource                    uint64 = 255
+	FlagBootstrapRemoteSshOption                 uint64 = 256
+	FlagBootstrapRemoteTag                       uint64 = 257
+	FlagBootstrapRemoteUpdate                    uint64 = 258
+	FlagBootstrapRemoteYes                       uint64 = 259
+	ArgBootstrapRemoteTarget                     uint64 = 260
+	CmdBootstrapRepos                            uint64 = 261
+	CmdBootstrapReposApply                       uint64 = 262
+	FlagBootstrapReposApplyDryRun                uint64 = 263
+	FlagBootstrapReposApplyYes                   uint64 = 264
+	CmdBootstrapReposExec                        uint64 = 265
+	FlagBootstrapReposExecContinueOnError        uint64 = 266
+	FlagBootstrapReposExecDryRun                 uint64 = 267
+	ArgBootstrapReposExecPath                    uint64 = 268
+	ArgBootstrapReposExecCommand                 uint64 = 269
+	CmdBootstrapReposStatus                      uint64 = 270
+	FlagBootstrapReposStatusJson                 uint64 = 271
+	FlagBootstrapReposStatusMissing              uint64 = 272
+	CmdBootstrapReposUpdate                      uint64 = 273
+	FlagBootstrapReposUpdateDryRun               uint64 = 274
+	FlagBootstrapReposUpdateYes                  uint64 = 275
+	ArgBootstrapReposUpdatePath                  uint64 = 276
+	CmdBootstrapSecrets                          uint64 = 277
+	CmdBootstrapSecretsStatus                    uint64 = 278
+	FlagBootstrapSecretsStatusJson               uint64 = 279
+	FlagBootstrapSecretsStatusMissing            uint64 = 280
+	CmdBootstrapServices                         uint64 = 281
+	CmdBootstrapServicesApply                    uint64 = 282
+	FlagBootstrapServicesApplyDryRun             uint64 = 283
+	FlagBootstrapServicesApplyYes                uint64 = 284
+	CmdBootstrapServicesStatus                   uint64 = 285
+	FlagBootstrapServicesStatusJson              uint64 = 286
+	FlagBootstrapServicesStatusMissing           uint64 = 287
+	CmdBootstrapStatus                           uint64 = 288
+	FlagBootstrapStatusJson                      uint64 = 289
+	FlagBootstrapStatusMissing                   uint64 = 290
+	FlagBootstrapStatusPromptSecrets             uint64 = 291
+	CmdBootstrapSystemd                          uint64 = 292
+	CmdBootstrapSystemdApply                     uint64 = 293
+	FlagBootstrapSystemdApplyDryRun              uint64 = 294
+	FlagBootstrapSystemdApplyYes                 uint64 = 295
+	CmdBootstrapSystemdStatus                    uint64 = 296
+	FlagBootstrapSystemdStatusJson               uint64 = 297
+	FlagBootstrapSystemdStatusMissing            uint64 = 298
+	CmdBootstrapUser                             uint64 = 299
+	CmdBootstrapUserApply                        uint64 = 300
+	FlagBootstrapUserApplyDryRun                 uint64 = 301
+	FlagBootstrapUserApplyYes                    uint64 = 302
+	CmdBootstrapUserStatus                       uint64 = 303
+	FlagBootstrapUserStatusJson                  uint64 = 304
+	FlagBootstrapUserStatusMissing               uint64 = 305
+	CmdCache                                     uint64 = 306
+	CmdCacheClear                                uint64 = 307
+	FlagCacheClearOutdate                        uint64 = 308
+	FlagCacheClearTask                           uint64 = 309
+	ArgCacheClearTool                            uint64 = 310
+	CmdCachePath                                 uint64 = 311
+	CmdCachePrune                                uint64 = 312
+	FlagCachePruneVerbose                        uint64 = 313
+	FlagCachePruneDryRun                         uint64 = 314
+	ArgCachePruneTool                            uint64 = 315
+	CmdCacheTask                                 uint64 = 316
+	FlagCacheTaskJson                            uint64 = 317
+	ArgCacheTaskTask                             uint64 = 318
+	CmdCompletion                                uint64 = 319
+	FlagCompletionShell                          uint64 = 320
+	FlagCompletionIncludeBashCompletionLib       uint64 = 321
+	FlagCompletionUsage                          uint64 = 322
+	ArgCompletionShell                           uint64 = 323
+	CmdConfig                                    uint64 = 324
+	FlagConfigJson                               uint64 = 325
+	FlagConfigNoHeader                           uint64 = 326
+	FlagConfigTrackedConfigs                     uint64 = 327
+	CmdConfigGet                                 uint64 = 328
+	FlagConfigGetFile                            uint64 = 329
+	ArgConfigGetKey                              uint64 = 330
+	CmdConfigLs                                  uint64 = 331
+	FlagConfigLsJson                             uint64 = 332
+	FlagConfigLsNoHeader                         uint64 = 333
+	FlagConfigLsTrackedConfigs                   uint64 = 334
+	CmdConfigSet                                 uint64 = 335
+	FlagConfigSetFile                            uint64 = 336
+	FlagConfigSetType                            uint64 = 337
+	ArgConfigSetKey                              uint64 = 338
+	ArgConfigSetValue                            uint64 = 339
+	CmdCurrent                                   uint64 = 340
+	ArgCurrentPlugin                             uint64 = 341
+	CmdDeactivate                                uint64 = 342
+	CmdDirenv                                    uint64 = 343
+	CmdDirenvActivate                            uint64 = 344
+	CmdDirenvEnvrc                               uint64 = 345
+	CmdDirenvExec                                uint64 = 346
+	CmdDotfiles                                  uint64 = 347
+	CmdDotfilesAdd                               uint64 = 348
+	FlagDotfilesAddForce                         uint64 = 349
+	FlagDotfilesAddGlobal                        uint64 = 350
+	FlagDotfilesAddLocal                         uint64 = 351
+	FlagDotfilesAddMode                          uint64 = 352
+	FlagDotfilesAddDryRun                        uint64 = 353
+	FlagDotfilesAddNoApply                       uint64 = 354
+	FlagDotfilesAddPath                          uint64 = 355
+	FlagDotfilesAddSource                        uint64 = 356
+	FlagDotfilesAddYes                           uint64 = 357
+	ArgDotfilesAddTarget                         uint64 = 358
+	CmdDotfilesApply                             uint64 = 359
+	FlagDotfilesApplyForce                       uint64 = 360
+	FlagDotfilesApplyDryRun                      uint64 = 361
+	FlagDotfilesApplyYes                         uint64 = 362
+	ArgDotfilesApplyTarget                       uint64 = 363
+	CmdDotfilesEdit                              uint64 = 364
+	FlagDotfilesEditApply                        uint64 = 365
+	FlagDotfilesEditMode                         uint64 = 366
+	FlagDotfilesEditSource                       uint64 = 367
+	FlagDotfilesEditYes                          uint64 = 368
+	ArgDotfilesEditTarget                        uint64 = 369
+	CmdDotfilesStatus                            uint64 = 370
+	FlagDotfilesStatusJson                       uint64 = 371
+	FlagDotfilesStatusMissing                    uint64 = 372
+	ArgDotfilesStatusTarget                      uint64 = 373
+	CmdDotfilesUnapply                           uint64 = 374
+	FlagDotfilesUnapplyForce                     uint64 = 375
+	FlagDotfilesUnapplyDryRun                    uint64 = 376
+	FlagDotfilesUnapplyYes                       uint64 = 377
+	ArgDotfilesUnapplyTarget                     uint64 = 378
+	CmdDoctor                                    uint64 = 379
+	FlagDoctorJson                               uint64 = 380
+	CmdDoctorPath                                uint64 = 381
+	FlagDoctorPathFull                           uint64 = 382
+	CmdEn                                        uint64 = 383
+	FlagEnShell                                  uint64 = 384
+	ArgEnDir                                     uint64 = 385
+	CmdEnv                                       uint64 = 386
+	FlagEnvDotenv                                uint64 = 387
+	FlagEnvJson                                  uint64 = 388
+	FlagEnvShell                                 uint64 = 389
+	FlagEnvJsonExtended                          uint64 = 390
+	FlagEnvRedacted                              uint64 = 391
+	FlagEnvValues                                uint64 = 392
+	ArgEnvToolVersion                            uint64 = 393
+	CmdExec                                      uint64 = 394
+	FlagExecCommand                              uint64 = 395
+	FlagExecJobs                                 uint64 = 396
+	FlagExecAllowEnv                             uint64 = 397
+	FlagExecAllowNet                             uint64 = 398
+	FlagExecAllowRead                            uint64 = 399
+	FlagExecAllowWrite                           uint64 = 400
+	FlagExecDenyAll                              uint64 = 401
+	FlagExecDenyEnv                              uint64 = 402
+	FlagExecDenyNet                              uint64 = 403
+	FlagExecDenyRead                             uint64 = 404
+	FlagExecDenyWrite                            uint64 = 405
+	FlagExecFreshEnv                             uint64 = 406
+	FlagExecNoDeps                               uint64 = 407
+	FlagExecRaw                                  uint64 = 408
+	ArgExecToolVersion                           uint64 = 409
+	ArgExecCommand                               uint64 = 410
+	CmdFmt                                       uint64 = 411
+	FlagFmtAll                                   uint64 = 412
+	FlagFmtCheck                                 uint64 = 413
+	FlagFmtStdin                                 uint64 = 414
+	CmdGenerate                                  uint64 = 415
+	CmdGenerateBootstrap                         uint64 = 416
+	FlagGenerateBootstrapLocalize                uint64 = 417
+	FlagGenerateBootstrapVersion                 uint64 = 418
+	FlagGenerateBootstrapWrite                   uint64 = 419
+	FlagGenerateBootstrapLocalizedDir            uint64 = 420
+	FlagGenerateBootstrapWindows                 uint64 = 421
+	CmdGenerateConfig                            uint64 = 422
+	FlagGenerateConfigGlobal                     uint64 = 423
+	FlagGenerateConfigDryRun                     uint64 = 424
+	FlagGenerateConfigToolVersions               uint64 = 425
+	ArgGenerateConfigPath                        uint64 = 426
+	CmdGenerateDevcontainer                      uint64 = 427
+	FlagGenerateDevcontainerImage                uint64 = 428
+	FlagGenerateDevcontainerMountMiseData        uint64 = 429
+	FlagGenerateDevcontainerName                 uint64 = 430
+	FlagGenerateDevcontainerWrite                uint64 = 431
+	CmdGenerateGitPreCommit                      uint64 = 432
+	FlagGenerateGitPreCommitTask                 uint64 = 433
+	FlagGenerateGitPreCommitWrite                uint64 = 434
+	FlagGenerateGitPreCommitHook                 uint64 = 435
+	ArgGenerateGitPreCommitMiseArg               uint64 = 436
+	CmdGenerateGithubAction                      uint64 = 437
+	FlagGenerateGithubActionTask                 uint64 = 438
+	FlagGenerateGithubActionWrite                uint64 = 439
+	FlagGenerateGithubActionName                 uint64 = 440
+	CmdGenerateTaskDocs                          uint64 = 441
+	FlagGenerateTaskDocsInject                   uint64 = 442
+	FlagGenerateTaskDocsIndex                    uint64 = 443
+	FlagGenerateTaskDocsMulti                    uint64 = 444
+	FlagGenerateTaskDocsOutput                   uint64 = 445
+	FlagGenerateTaskDocsRoot                     uint64 = 446
+	FlagGenerateTaskDocsStyle                    uint64 = 447
+	CmdGenerateTaskStubs                         uint64 = 448
+	FlagGenerateTaskStubsDir                     uint64 = 449
+	FlagGenerateTaskStubsMiseBin                 uint64 = 450
+	CmdGenerateToolStub                          uint64 = 451
+	FlagGenerateToolStubBin                      uint64 = 452
+	FlagGenerateToolStubBootstrap                uint64 = 453
+	FlagGenerateToolStubBootstrapVersion         uint64 = 454
+	FlagGenerateToolStubChecksumAlgorithm        uint64 = 455
+	FlagGenerateToolStubFetch                    uint64 = 456
+	FlagGenerateToolStubHttp                     uint64 = 457
+	FlagGenerateToolStubLock                     uint64 = 458
+	FlagGenerateToolStubPlatformBin              uint64 = 459
+	FlagGenerateToolStubPlatformUrl              uint64 = 460
+	FlagGenerateToolStubSkipDownload             uint64 = 461
+	FlagGenerateToolStubUrl                      uint64 = 462
+	FlagGenerateToolStubVersion                  uint64 = 463
+	ArgGenerateToolStubOutput                    uint64 = 464
+	CmdGithub                                    uint64 = 465
+	CmdGithubToken                               uint64 = 466
+	FlagGithubTokenOauth                         uint64 = 467
+	FlagGithubTokenRaw                           uint64 = 468
+	FlagGithubTokenRefresh                       uint64 = 469
+	FlagGithubTokenUnmask                        uint64 = 470
+	ArgGithubTokenHost                           uint64 = 471
+	CmdGlobal                                    uint64 = 472
+	FlagGlobalFuzzy                              uint64 = 473
+	FlagGlobalPath                               uint64 = 474
+	FlagGlobalPin                                uint64 = 475
+	FlagGlobalRemove                             uint64 = 476
+	ArgGlobalToolVersion                         uint64 = 477
+	CmdHookEnv                                   uint64 = 478
+	FlagHookEnvForce                             uint64 = 479
+	FlagHookEnvQuiet                             uint64 = 480
+	FlagHookEnvShell                             uint64 = 481
+	FlagHookEnvReason                            uint64 = 482
+	FlagHookEnvStatus                            uint64 = 483
+	CmdHookNotFound                              uint64 = 484
+	FlagHookNotFoundShell                        uint64 = 485
+	ArgHookNotFoundBin                           uint64 = 486
+	CmdImplode                                   uint64 = 487
+	FlagImplodeDryRun                            uint64 = 488
+	FlagImplodeConfig                            uint64 = 489
+	CmdEdit                                      uint64 = 490
+	FlagEditGlobal                               uint64 = 491
+	FlagEditDryRun                               uint64 = 492
+	FlagEditToolVersions                         uint64 = 493
+	ArgEditPath                                  uint64 = 494
+	CmdInstall                                   uint64 = 495
+	FlagInstallForce                             uint64 = 496
+	FlagInstallJobs                              uint64 = 497
+	FlagInstallDryRun                            uint64 = 498
+	FlagInstallVerbose                           uint64 = 499
+	FlagInstallDryRunCode                        uint64 = 500
+	FlagInstallIncludeTaskTools                  uint64 = 501
+	FlagInstallMinimumReleaseAge                 uint64 = 502
+	FlagInstallMonorepo                          uint64 = 503
+	FlagInstallRaw                               uint64 = 504
+	FlagInstallShared                            uint64 = 505
+	FlagInstallSystem                            uint64 = 506
+	ArgInstallToolVersion                        uint64 = 507
+	CmdInstallInto                               uint64 = 508
+	ArgInstallIntoToolVersion                    uint64 = 509
+	ArgInstallIntoPath                           uint64 = 510
+	CmdLatest                                    uint64 = 511
+	FlagLatestInstalled                          uint64 = 512
+	FlagLatestMinimumReleaseAge                  uint64 = 513
+	ArgLatestToolVersion                         uint64 = 514
+	ArgLatestAsdfVersion                         uint64 = 515
+	CmdLink                                      uint64 = 516
+	FlagLinkForce                                uint64 = 517
+	ArgLinkToolVersion                           uint64 = 518
+	ArgLinkPath                                  uint64 = 519
+	CmdLocal                                     uint64 = 520
+	FlagLocalParent                              uint64 = 521
+	FlagLocalFuzzy                               uint64 = 522
+	FlagLocalPath                                uint64 = 523
+	FlagLocalPin                                 uint64 = 524
+	FlagLocalRemove                              uint64 = 525
+	ArgLocalToolVersion                          uint64 = 526
+	CmdLock                                      uint64 = 527
+	FlagLockGlobal                               uint64 = 528
+	FlagLockJobs                                 uint64 = 529
+	FlagLockDryRun                               uint64 = 530
+	FlagLockPlatform                             uint64 = 531
+	FlagLockBump                                 uint64 = 532
+	FlagLockJson                                 uint64 = 533
+	FlagLockLocal                                uint64 = 534
+	FlagLockMinimumReleaseAge                    uint64 = 535
+	ArgLockTool                                  uint64 = 536
+	CmdLs                                        uint64 = 537
+	FlagLsCurrent                                uint64 = 538
+	FlagLsGlobal                                 uint64 = 539
+	FlagLsInstalled                              uint64 = 540
+	FlagLsJson                                   uint64 = 541
+	FlagLsLocal                                  uint64 = 542
+	FlagLsMissing                                uint64 = 543
+	FlagLsOffline                                uint64 = 544
+	FlagLsPlugin                                 uint64 = 545
+	FlagLsAllSources                             uint64 = 546
+	FlagLsMonorepo                               uint64 = 547
+	FlagLsNoHeader                               uint64 = 548
+	FlagLsOutdated                               uint64 = 549
+	FlagLsPrefix                                 uint64 = 550
+	FlagLsPrunable                               uint64 = 551
+	ArgLsInstalledTool                           uint64 = 552
+	CmdLsRemote                                  uint64 = 553
+	FlagLsRemoteAll                              uint64 = 554
+	FlagLsRemoteMinimumReleaseAge                uint64 = 555
+	FlagLsRemoteJson                             uint64 = 556
+	FlagLsRemoteNoVersionsHost                   uint64 = 557
+	FlagLsRemotePrerelease                       uint64 = 558
+	FlagLsRemoteStrictMetadata                   uint64 = 559
+	ArgLsRemoteToolVersion                       uint64 = 560
+	ArgLsRemotePrefix                            uint64 = 561
+	CmdMcp                                       uint64 = 562
+	CmdOci                                       uint64 = 563
+	CmdOciBuild                                  uint64 = 564
+	FlagOciBuildCopy                             uint64 = 565
+	FlagOciBuildOutput                           uint64 = 566
+	FlagOciBuildFrom                             uint64 = 567
+	FlagOciBuildIncludeGlobal                    uint64 = 568
+	FlagOciBuildTag                              uint64 = 569
+	FlagOciBuildMountPoint                       uint64 = 570
+	FlagOciBuildNoMise                           uint64 = 571
+	FlagOciBuildOwner                            uint64 = 572
+	CmdOciPush                                   uint64 = 573
+	FlagOciPushCacheFrom                         uint64 = 574
+	FlagOciPushFrom                              uint64 = 575
+	FlagOciPushImageDir                          uint64 = 576
+	FlagOciPushIncludeGlobal                     uint64 = 577
+	FlagOciPushMountPoint                        uint64 = 578
+	FlagOciPushNoCache                           uint64 = 579
+	FlagOciPushNoMise                            uint64 = 580
+	FlagOciPushOwner                             uint64 = 581
+	FlagOciPushUpdateIndex                       uint64 = 582
+	ArgOciPushRef                                uint64 = 583
+	CmdOciRun                                    uint64 = 584
+	FlagOciRunEngine                             uint64 = 585
+	FlagOciRunFrom                               uint64 = 586
+	FlagOciRunImageDir                           uint64 = 587
+	FlagOciRunIncludeGlobal                      uint64 = 588
+	FlagOciRunKeep                               uint64 = 589
+	FlagOciRunMountPoint                         uint64 = 590
+	FlagOciRunNoMise                             uint64 = 591
+	FlagOciRunOwner                              uint64 = 592
+	FlagOciRunVolume                             uint64 = 593
+	FlagOciRunEnv                                uint64 = 594
+	FlagOciRunInteractive                        uint64 = 595
+	FlagOciRunTty                                uint64 = 596
+	FlagOciRunWorkdir                            uint64 = 597
+	ArgOciRunCmd                                 uint64 = 598
+	CmdOutdated                                  uint64 = 599
+	FlagOutdatedBump                             uint64 = 600
+	FlagOutdatedJson                             uint64 = 601
+	FlagOutdatedL                                uint64 = 602
+	FlagOutdatedInactive                         uint64 = 603
+	FlagOutdatedLocal                            uint64 = 604
+	FlagOutdatedMonorepo                         uint64 = 605
+	FlagOutdatedNoHeader                         uint64 = 606
+	ArgOutdatedToolVersion                       uint64 = 607
+	CmdPatrons                                   uint64 = 608
+	FlagPatronsJson                              uint64 = 609
+	FlagPatronsRefresh                           uint64 = 610
+	CmdPlugins                                   uint64 = 611
+	FlagPluginsAll                               uint64 = 612
+	FlagPluginsCore                              uint64 = 613
+	FlagPluginsUrls                              uint64 = 614
+	FlagPluginsRefs                              uint64 = 615
+	FlagPluginsUser                              uint64 = 616
+	CmdPluginsInstall                            uint64 = 617
+	FlagPluginsInstallAll                        uint64 = 618
+	FlagPluginsInstallForce                      uint64 = 619
+	FlagPluginsInstallJobs                       uint64 = 620
+	FlagPluginsInstallVerbose                    uint64 = 621
+	ArgPluginsInstallNewPlugin                   uint64 = 622
+	ArgPluginsInstallGitUrl                      uint64 = 623
+	ArgPluginsInstallRest                        uint64 = 624
+	CmdPluginsLink                               uint64 = 625
+	FlagPluginsLinkForce                         uint64 = 626
+	ArgPluginsLinkName                           uint64 = 627
+	ArgPluginsLinkDir                            uint64 = 628
+	CmdPluginsLs                                 uint64 = 629
+	FlagPluginsLsAll                             uint64 = 630
+	FlagPluginsLsCore                            uint64 = 631
+	FlagPluginsLsOutdated                        uint64 = 632
+	FlagPluginsLsUrls                            uint64 = 633
+	FlagPluginsLsRefs                            uint64 = 634
+	FlagPluginsLsUser                            uint64 = 635
+	CmdPluginsLsRemote                           uint64 = 636
+	FlagPluginsLsRemoteUrls                      uint64 = 637
+	FlagPluginsLsRemoteOnlyNames                 uint64 = 638
+	CmdPluginsUninstall                          uint64 = 639
+	FlagPluginsUninstallAll                      uint64 = 640
+	FlagPluginsUninstallPurge                    uint64 = 641
+	ArgPluginsUninstallPlugin                    uint64 = 642
+	CmdPluginsUpdate                             uint64 = 643
+	FlagPluginsUpdateJobs                        uint64 = 644
+	ArgPluginsUpdatePlugin                       uint64 = 645
+	CmdDeps                                      uint64 = 646
+	FlagDepsExplain                              uint64 = 647
+	FlagDepsForce                                uint64 = 648
+	FlagDepsDryRun                               uint64 = 649
+	FlagDepsList                                 uint64 = 650
+	FlagDepsMonorepo                             uint64 = 651
+	FlagDepsOnly                                 uint64 = 652
+	FlagDepsSkip                                 uint64 = 653
+	ArgDepsProvider                              uint64 = 654
+	CmdDepsAdd                                   uint64 = 655
+	FlagDepsAddDev                               uint64 = 656
+	ArgDepsAddPackages                           uint64 = 657
+	CmdDepsInstall                               uint64 = 658
+	FlagDepsInstallExplain                       uint64 = 659
+	FlagDepsInstallForce                         uint64 = 660
+	FlagDepsInstallDryRun                        uint64 = 661
+	FlagDepsInstallList                          uint64 = 662
+	FlagDepsInstallMonorepo                      uint64 = 663
+	FlagDepsInstallOnly                          uint64 = 664
+	FlagDepsInstallSkip                          uint64 = 665
+	ArgDepsInstallProvider                       uint64 = 666
+	CmdDepsRemove                                uint64 = 667
+	ArgDepsRemovePackages                        uint64 = 668
+	CmdPrune                                     uint64 = 669
+	FlagPruneDryRun                              uint64 = 670
+	FlagPruneConfigs                             uint64 = 671
+	FlagPruneDryRunCode                          uint64 = 672
+	FlagPruneMonorepo                            uint64 = 673
+	FlagPruneTools                               uint64 = 674
+	ArgPruneInstalledTool                        uint64 = 675
+	CmdRegistry                                  uint64 = 676
+	FlagRegistryBackend                          uint64 = 677
+	FlagRegistryComplete                         uint64 = 678
+	FlagRegistryHideAliased                      uint64 = 679
+	FlagRegistryJson                             uint64 = 680
+	FlagRegistrySecurity                         uint64 = 681
+	ArgRegistryName                              uint64 = 682
+	CmdRenderHelp                                uint64 = 683
+	CmdReshim                                    uint64 = 684
+	FlagReshimForce                              uint64 = 685
+	ArgReshimTool                                uint64 = 686
+	ArgReshimVersion                             uint64 = 687
+	CmdRun                                       uint64 = 688
+	FlagRunAffected                              uint64 = 689
+	FlagRunAffectedBase                          uint64 = 690
+	FlagRunAffectedExplain                       uint64 = 691
+	FlagRunAffectedHead                          uint64 = 692
+	FlagRunAffectedJson                          uint64 = 693
+	FlagRunAll                                   uint64 = 694
+	FlagRunContinueOnError                       uint64 = 695
+	FlagRunCd                                    uint64 = 696
+	FlagRunForce                                 uint64 = 697
+	FlagRunJobs                                  uint64 = 698
+	FlagRunDryRun                                uint64 = 699
+	FlagRunOutput                                uint64 = 700
+	FlagRunQuiet                                 uint64 = 701
+	FlagRunRaw                                   uint64 = 702
+	FlagRunShell                                 uint64 = 703
+	FlagRunSilent                                uint64 = 704
+	FlagRunTool                                  uint64 = 705
+	FlagRunAllowEnv                              uint64 = 706
+	FlagRunAllowNet                              uint64 = 707
+	FlagRunAllowRead                             uint64 = 708
+	FlagRunAllowWrite                            uint64 = 709
+	FlagRunDenyAll                               uint64 = 710
+	FlagRunDenyEnv                               uint64 = 711
+	FlagRunDenyNet                               uint64 = 712
+	FlagRunDenyRead                              uint64 = 713
+	FlagRunDenyWrite                             uint64 = 714
+	FlagRunFreshEnv                              uint64 = 715
+	FlagRunNoCache                               uint64 = 716
+	FlagRunNoDeps                                uint64 = 717
+	FlagRunNoTimings                             uint64 = 718
+	FlagRunSkipDeps                              uint64 = 719
+	FlagRunSkipTools                             uint64 = 720
+	FlagRunTaskCache                             uint64 = 721
+	FlagRunTaskCacheExplain                      uint64 = 722
+	FlagRunTaskCacheExplainJson                  uint64 = 723
+	FlagRunTaskCacheStats                        uint64 = 724
+	FlagRunTimeout                               uint64 = 725
+	FlagRunTimings                               uint64 = 726
+	CmdSearch                                    uint64 = 727
+	FlagSearchInteractive                        uint64 = 728
+	FlagSearchMatchType                          uint64 = 729
+	FlagSearchNoHeader                           uint64 = 730
+	ArgSearchName                                uint64 = 731
+	CmdSelfUpdate                                uint64 = 732
+	FlagSelfUpdateForce                          uint64 = 733
+	FlagSelfUpdateYes                            uint64 = 734
+	FlagSelfUpdateNoPlugins                      uint64 = 735
+	ArgSelfUpdateVersion                         uint64 = 736
+	CmdSet                                       uint64 = 737
+	FlagSetEnv                                   uint64 = 738
+	FlagSetGlobal                                uint64 = 739
+	FlagSetAgeEncrypt                            uint64 = 740
+	FlagSetAgeKeyFile                            uint64 = 741
+	FlagSetAgeRecipient                          uint64 = 742
+	FlagSetAgeSshRecipient                       uint64 = 743
+	FlagSetComplete                              uint64 = 744
+	FlagSetFile                                  uint64 = 745
+	FlagSetNoRedact                              uint64 = 746
+	FlagSetPrompt                                uint64 = 747
+	FlagSetRemove                                uint64 = 748
+	FlagSetStdin                                 uint64 = 749
+	ArgSetEnvVar                                 uint64 = 750
+	CmdSettings                                  uint64 = 751
+	FlagSettingsAll                              uint64 = 752
+	FlagSettingsJson                             uint64 = 753
+	FlagSettingsLocal                            uint64 = 754
+	FlagSettingsToml                             uint64 = 755
+	FlagSettingsComplete                         uint64 = 756
+	FlagSettingsJsonExtended                     uint64 = 757
+	ArgSettingsSetting                           uint64 = 758
+	ArgSettingsValue                             uint64 = 759
+	CmdSettingsAdd                               uint64 = 760
+	FlagSettingsAddLocal                         uint64 = 761
+	ArgSettingsAddSetting                        uint64 = 762
+	ArgSettingsAddValue                          uint64 = 763
+	CmdSettingsGet                               uint64 = 764
+	FlagSettingsGetLocal                         uint64 = 765
+	ArgSettingsGetSetting                        uint64 = 766
+	CmdSettingsLs                                uint64 = 767
+	FlagSettingsLsAll                            uint64 = 768
+	FlagSettingsLsJson                           uint64 = 769
+	FlagSettingsLsLocal                          uint64 = 770
+	FlagSettingsLsToml                           uint64 = 771
+	FlagSettingsLsComplete                       uint64 = 772
+	FlagSettingsLsJsonExtended                   uint64 = 773
+	ArgSettingsLsSetting                         uint64 = 774
+	CmdSettingsSet                               uint64 = 775
+	FlagSettingsSetLocal                         uint64 = 776
+	ArgSettingsSetSetting                        uint64 = 777
+	ArgSettingsSetValue                          uint64 = 778
+	CmdSettingsUnset                             uint64 = 779
+	FlagSettingsUnsetLocal                       uint64 = 780
+	ArgSettingsUnsetKey                          uint64 = 781
+	CmdShell                                     uint64 = 782
+	FlagShellJobs                                uint64 = 783
+	FlagShellUnset                               uint64 = 784
+	FlagShellRaw                                 uint64 = 785
+	ArgShellToolVersion                          uint64 = 786
+	CmdShellAlias                                uint64 = 787
+	FlagShellAliasNoHeader                       uint64 = 788
+	CmdShellAliasGet                             uint64 = 789
+	ArgShellAliasGetShellAlias                   uint64 = 790
+	CmdShellAliasLs                              uint64 = 791
+	FlagShellAliasLsNoHeader                     uint64 = 792
+	CmdShellAliasSet                             uint64 = 793
+	ArgShellAliasSetShellAlias                   uint64 = 794
+	ArgShellAliasSetCommand                      uint64 = 795
+	CmdShellAliasUnset                           uint64 = 796
+	ArgShellAliasUnsetShellAlias                 uint64 = 797
+	CmdSponsors                                  uint64 = 798
+	CmdSync                                      uint64 = 799
+	CmdSyncNode                                  uint64 = 800
+	FlagSyncNodeBrew                             uint64 = 801
+	FlagSyncNodeNodenv                           uint64 = 802
+	FlagSyncNodeNvm                              uint64 = 803
+	CmdSyncPython                                uint64 = 804
+	FlagSyncPythonPyenv                          uint64 = 805
+	FlagSyncPythonUv                             uint64 = 806
+	CmdSyncRuby                                  uint64 = 807
+	FlagSyncRubyBrew                             uint64 = 808
+	CmdTasks                                     uint64 = 809
+	FlagTasksGlobal                              uint64 = 810
+	FlagTasksJson                                uint64 = 811
+	FlagTasksLocal                               uint64 = 812
+	FlagTasksExtended                            uint64 = 813
+	FlagTasksAll                                 uint64 = 814
+	FlagTasksComplete                            uint64 = 815
+	FlagTasksHidden                              uint64 = 816
+	FlagTasksNameOnly                            uint64 = 817
+	FlagTasksNoHeader                            uint64 = 818
+	FlagTasksSort                                uint64 = 819
+	FlagTasksSortOrder                           uint64 = 820
+	FlagTasksUsage                               uint64 = 821
+	ArgTasksTask                                 uint64 = 822
+	CmdTasksAdd                                  uint64 = 823
+	FlagTasksAddAlias                            uint64 = 824
+	FlagTasksAddDepends                          uint64 = 825
+	FlagTasksAddDir                              uint64 = 826
+	FlagTasksAddFile                             uint64 = 827
+	FlagTasksAddHide                             uint64 = 828
+	FlagTasksAddQuiet                            uint64 = 829
+	FlagTasksAddRaw                              uint64 = 830
+	FlagTasksAddSources                          uint64 = 831
+	FlagTasksAddWaitFor                          uint64 = 832
+	FlagTasksAddDependsPost                      uint64 = 833
+	FlagTasksAddDescription                      uint64 = 834
+	FlagTasksAddOutputs                          uint64 = 835
+	FlagTasksAddRunWindows                       uint64 = 836
+	FlagTasksAddShell                            uint64 = 837
+	FlagTasksAddSilent                           uint64 = 838
+	ArgTasksAddTask                              uint64 = 839
+	ArgTasksAddRun                               uint64 = 840
+	CmdTasksDeps                                 uint64 = 841
+	FlagTasksDepsCompact                         uint64 = 842
+	FlagTasksDepsDot                             uint64 = 843
+	FlagTasksDepsHidden                          uint64 = 844
+	ArgTasksDepsTasks                            uint64 = 845
+	CmdTasksEdit                                 uint64 = 846
+	FlagTasksEditPath                            uint64 = 847
+	ArgTasksEditTask                             uint64 = 848
+	CmdTasksGraph                                uint64 = 849
+	FlagTasksGraphJson                           uint64 = 850
+	FlagTasksGraphExplain                        uint64 = 851
+	FlagTasksGraphNoHeader                       uint64 = 852
+	CmdTasksInfo                                 uint64 = 853
+	FlagTasksInfoJson                            uint64 = 854
+	ArgTasksInfoTask                             uint64 = 855
+	CmdTasksLs                                   uint64 = 856
+	FlagTasksLsGlobal                            uint64 = 857
+	FlagTasksLsJson                              uint64 = 858
+	FlagTasksLsLocal                             uint64 = 859
+	FlagTasksLsExtended                          uint64 = 860
+	FlagTasksLsAll                               uint64 = 861
+	FlagTasksLsComplete                          uint64 = 862
+	FlagTasksLsHidden                            uint64 = 863
+	FlagTasksLsNameOnly                          uint64 = 864
+	FlagTasksLsNoHeader                          uint64 = 865
+	FlagTasksLsSort                              uint64 = 866
+	FlagTasksLsSortOrder                         uint64 = 867
+	FlagTasksLsUsage                             uint64 = 868
+	CmdTasksRun                                  uint64 = 869
+	FlagTasksRunAffected                         uint64 = 870
+	FlagTasksRunAffectedBase                     uint64 = 871
+	FlagTasksRunAffectedExplain                  uint64 = 872
+	FlagTasksRunAffectedHead                     uint64 = 873
+	FlagTasksRunAffectedJson                     uint64 = 874
+	FlagTasksRunAll                              uint64 = 875
+	FlagTasksRunContinueOnError                  uint64 = 876
+	FlagTasksRunCd                               uint64 = 877
+	FlagTasksRunForce                            uint64 = 878
+	FlagTasksRunJobs                             uint64 = 879
+	FlagTasksRunDryRun                           uint64 = 880
+	FlagTasksRunOutput                           uint64 = 881
+	FlagTasksRunQuiet                            uint64 = 882
+	FlagTasksRunRaw                              uint64 = 883
+	FlagTasksRunShell                            uint64 = 884
+	FlagTasksRunSilent                           uint64 = 885
+	FlagTasksRunTool                             uint64 = 886
+	FlagTasksRunAllowEnv                         uint64 = 887
+	FlagTasksRunAllowNet                         uint64 = 888
+	FlagTasksRunAllowRead                        uint64 = 889
+	FlagTasksRunAllowWrite                       uint64 = 890
+	FlagTasksRunDenyAll                          uint64 = 891
+	FlagTasksRunDenyEnv                          uint64 = 892
+	FlagTasksRunDenyNet                          uint64 = 893
+	FlagTasksRunDenyRead                         uint64 = 894
+	FlagTasksRunDenyWrite                        uint64 = 895
+	FlagTasksRunFreshEnv                         uint64 = 896
+	FlagTasksRunNoCache                          uint64 = 897
+	FlagTasksRunNoDeps                           uint64 = 898
+	FlagTasksRunNoTimings                        uint64 = 899
+	FlagTasksRunSkipDeps                         uint64 = 900
+	FlagTasksRunSkipTools                        uint64 = 901
+	FlagTasksRunTaskCache                        uint64 = 902
+	FlagTasksRunTaskCacheExplain                 uint64 = 903
+	FlagTasksRunTaskCacheExplainJson             uint64 = 904
+	FlagTasksRunTaskCacheStats                   uint64 = 905
+	FlagTasksRunTimeout                          uint64 = 906
+	FlagTasksRunTimings                          uint64 = 907
+	ArgTasksRunTask                              uint64 = 908
+	ArgTasksRunArgs                              uint64 = 909
+	ArgTasksRunArgsLast                          uint64 = 910
+	CmdTasksValidate                             uint64 = 911
+	FlagTasksValidateErrorsOnly                  uint64 = 912
+	FlagTasksValidateJson                        uint64 = 913
+	ArgTasksValidateTasks                        uint64 = 914
+	CmdTestTool                                  uint64 = 915
+	FlagTestToolAll                              uint64 = 916
+	FlagTestToolJobs                             uint64 = 917
+	FlagTestToolAllConfig                        uint64 = 918
+	FlagTestToolIncludeNonDefined                uint64 = 919
+	FlagTestToolRaw                              uint64 = 920
+	ArgTestToolTools                             uint64 = 921
+	CmdToken                                     uint64 = 922
+	CmdTokenForgejo                              uint64 = 923
+	FlagTokenForgejoUnmask                       uint64 = 924
+	ArgTokenForgejoHost                          uint64 = 925
+	CmdTokenGithub                               uint64 = 926
+	FlagTokenGithubOauth                         uint64 = 927
+	FlagTokenGithubRaw                           uint64 = 928
+	FlagTokenGithubRefresh                       uint64 = 929
+	FlagTokenGithubUnmask                        uint64 = 930
+	ArgTokenGithubHost                           uint64 = 931
+	CmdTokenGitlab                               uint64 = 932
+	FlagTokenGitlabUnmask                        uint64 = 933
+	ArgTokenGitlabHost                           uint64 = 934
+	CmdTool                                      uint64 = 935
+	FlagToolJson                                 uint64 = 936
+	FlagToolActive                               uint64 = 937
+	FlagToolBackend                              uint64 = 938
+	FlagToolConfigSource                         uint64 = 939
+	FlagToolDescription                          uint64 = 940
+	FlagToolInstalled                            uint64 = 941
+	FlagToolRequested                            uint64 = 942
+	FlagToolToolOptions                          uint64 = 943
+	ArgToolTool                                  uint64 = 944
+	CmdToolStub                                  uint64 = 945
+	ArgToolStubFile                              uint64 = 946
+	ArgToolStubArgs                              uint64 = 947
+	CmdTrust                                     uint64 = 948
+	FlagTrustAll                                 uint64 = 949
+	FlagTrustIgnore                              uint64 = 950
+	FlagTrustShow                                uint64 = 951
+	FlagTrustUntrust                             uint64 = 952
+	ArgTrustConfigFile                           uint64 = 953
+	CmdUninstall                                 uint64 = 954
+	FlagUninstallAll                             uint64 = 955
+	FlagUninstallDryRun                          uint64 = 956
+	FlagUninstallDryRunCode                      uint64 = 957
+	ArgUninstallInstalledToolVersion             uint64 = 958
+	CmdUnset                                     uint64 = 959
+	FlagUnsetFile                                uint64 = 960
+	FlagUnsetGlobal                              uint64 = 961
+	ArgUnsetEnvKey                               uint64 = 962
+	CmdUntrust                                   uint64 = 963
+	ArgUntrustConfigFile                         uint64 = 964
+	CmdUnuse                                     uint64 = 965
+	FlagUnuseEnv                                 uint64 = 966
+	FlagUnuseGlobal                              uint64 = 967
+	FlagUnusePath                                uint64 = 968
+	FlagUnuseNoPrune                             uint64 = 969
+	ArgUnuseInstalledToolVersion                 uint64 = 970
+	CmdUpgrade                                   uint64 = 971
+	FlagUpgradeBump                              uint64 = 972
+	FlagUpgradeInteractive                       uint64 = 973
+	FlagUpgradeJobs                              uint64 = 974
+	FlagUpgradeL                                 uint64 = 975
+	FlagUpgradeDryRun                            uint64 = 976
+	FlagUpgradeExclude                           uint64 = 977
+	FlagUpgradeDryRunCode                        uint64 = 978
+	FlagUpgradeInactive                          uint64 = 979
+	FlagUpgradeLocal                             uint64 = 980
+	FlagUpgradeMinimumReleaseAge                 uint64 = 981
+	FlagUpgradeMonorepo                          uint64 = 982
+	FlagUpgradeNoPrune                           uint64 = 983
+	FlagUpgradePrune                             uint64 = 984
+	FlagUpgradeRaw                               uint64 = 985
+	ArgUpgradeInstalledToolVersion               uint64 = 986
+	CmdUsage                                     uint64 = 987
+	CmdUse                                       uint64 = 988
+	FlagUseEnv                                   uint64 = 989
+	FlagUseForce                                 uint64 = 990
+	FlagUseGlobal                                uint64 = 991
+	FlagUseJobs                                  uint64 = 992
+	FlagUseDryRun                                uint64 = 993
+	FlagUsePath                                  uint64 = 994
+	FlagUseDryRunCode                            uint64 = 995
+	FlagUseFuzzy                                 uint64 = 996
+	FlagUseMinimumReleaseAge                     uint64 = 997
+	FlagUsePin                                   uint64 = 998
+	FlagUseRaw                                   uint64 = 999
+	FlagUseRemove                                uint64 = 1000
+	ArgUseToolVersion                            uint64 = 1001
+	CmdVersion                                   uint64 = 1002
+	FlagVersionJson                              uint64 = 1003
+	CmdWatch                                     uint64 = 1004
+	FlagWatchTaskFlag                            uint64 = 1005
+	FlagWatchGlob                                uint64 = 1006
+	FlagWatchSkipDeps                            uint64 = 1007
+	FlagWatchWatch                               uint64 = 1008
+	FlagWatchWatchNonRecursive                   uint64 = 1009
+	FlagWatchWatchFile                           uint64 = 1010
+	FlagWatchClear                               uint64 = 1011
+	FlagWatchOnBusyUpdate                        uint64 = 1012
+	FlagWatchRestart                             uint64 = 1013
+	FlagWatchSignal                              uint64 = 1014
+	FlagWatchStopSignal                          uint64 = 1015
+	FlagWatchStopTimeout                         uint64 = 1016
+	FlagWatchMapSignal                           uint64 = 1017
+	FlagWatchDebounce                            uint64 = 1018
+	FlagWatchStdinQuit                           uint64 = 1019
+	FlagWatchNoVcsIgnore                         uint64 = 1020
+	FlagWatchNoProjectIgnore                     uint64 = 1021
+	FlagWatchNoGlobalIgnore                      uint64 = 1022
+	FlagWatchNoDefaultIgnore                     uint64 = 1023
+	FlagWatchNoDiscoverIgnore                    uint64 = 1024
+	FlagWatchIgnoreNothing                       uint64 = 1025
+	FlagWatchPostpone                            uint64 = 1026
+	FlagWatchDelayRun                            uint64 = 1027
+	FlagWatchPoll                                uint64 = 1028
+	FlagWatchShell                               uint64 = 1029
+	FlagWatchN                                   uint64 = 1030
+	FlagWatchEmitEventsTo                        uint64 = 1031
+	FlagWatchOnlyEmitEvents                      uint64 = 1032
+	FlagWatchEnv                                 uint64 = 1033
+	FlagWatchWrapProcess                         uint64 = 1034
+	FlagWatchNotify                              uint64 = 1035
+	FlagWatchColor                               uint64 = 1036
+	FlagWatchTimings                             uint64 = 1037
+	FlagWatchQuiet                               uint64 = 1038
+	FlagWatchBell                                uint64 = 1039
+	FlagWatchProjectOrigin                       uint64 = 1040
+	FlagWatchWorkdir                             uint64 = 1041
+	FlagWatchExts                                uint64 = 1042
+	FlagWatchFilter                              uint64 = 1043
+	FlagWatchFilterFile                          uint64 = 1044
+	FlagWatchFilterProg                          uint64 = 1045
+	FlagWatchIgnore                              uint64 = 1046
+	FlagWatchIgnoreFile                          uint64 = 1047
+	FlagWatchFsEvents                            uint64 = 1048
+	FlagWatchNoMeta                              uint64 = 1049
+	FlagWatchPrintEvents                         uint64 = 1050
+	FlagWatchManual                              uint64 = 1051
+	ArgWatchTask                                 uint64 = 1052
+	ArgWatchArgs                                 uint64 = 1053
+	CmdWhere                                     uint64 = 1054
+	ArgWhereToolVersion                          uint64 = 1055
+	ArgWhereAsdfVersion                          uint64 = 1056
+	CmdWhich                                     uint64 = 1057
+	FlagWhichTool                                uint64 = 1058
+	FlagWhichComplete                            uint64 = 1059
+	FlagWhichPlugin                              uint64 = 1060
+	FlagWhichVersion                             uint64 = 1061
+	ArgWhichBinName                              uint64 = 1062
 )
 
 // Root is the command tree for `mise`. Pass it to argv.New.
@@ -1089,21 +1101,22 @@ var Root = &argv.Command{
 		{Key: FlagNoConfig, Name: "no-config", Longs: []string{"no-config"}},
 		{Key: FlagNoEnv, Name: "no-env", Longs: []string{"no-env"}},
 		{Key: FlagNoHooks, Name: "no-hooks", Longs: []string{"no-hooks"}},
-		{Key: FlagNoTimings, Name: "no-timings", Longs: []string{"no-timings"}},
+		{Key: FlagNoTimings, Name: "no-timings", Longs: []string{"no-timings", "no-timing"}, HiddenLongs: []string{"no-timing"}},
 		{Key: FlagOutput, Name: "output", Longs: []string{"output"}, TakesValue: true},
 		{Key: FlagRaw, Name: "raw", Longs: []string{"raw"}, Global: true},
 		{Key: FlagLocked, Name: "locked", Longs: []string{"locked"}, Global: true},
 		{Key: FlagSilent, Name: "silent", Longs: []string{"silent"}, Global: true},
-		{Key: FlagTimings, Name: "timings", Longs: []string{"timings"}},
+		{Key: FlagTimings, Name: "timings", Longs: []string{"timings", "timing"}, HiddenLongs: []string{"timing"}},
 		{Key: FlagTrace, Name: "trace", Longs: []string{"trace"}, Global: true},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgTask, Name: "TASK"},
+		{Key: ArgTask, Name: "TASK", DoubleDash: argv.DoubleDashAutomatic},
 		{Key: ArgTaskArgs, Name: "TASK_ARGS", Var: true},
 		{Key: ArgTaskArgsLast, Name: "TASK_ARGS_LAST", Var: true, DoubleDash: argv.DoubleDashRequired},
 	},
-	Subcommands:       []*argv.Command{cmdActivate, cmdToolAlias, cmdAsdf, cmdBackends, cmdBinPaths, cmdBootstrap, cmdCache, cmdCompletion, cmdConfig, cmdCurrent, cmdDeactivate, cmdDirenv, cmdDotfiles, cmdDoctor, cmdEn, cmdEnv, cmdExec, cmdFmt, cmdGenerate, cmdGithub, cmdGlobal, cmdHookEnv, cmdHookNotFound, cmdImplode, cmdEdit, cmdInstall, cmdInstallInto, cmdLatest, cmdLink, cmdLocal, cmdLock, cmdLs, cmdLsRemote, cmdMcp, cmdOci, cmdOutdated, cmdPatrons, cmdPlugins, cmdDeps, cmdPrune, cmdRegistry, cmdRenderHelp, cmdReshim, cmdRun, cmdSearch, cmdSelfUpdate, cmdSet, cmdSettings, cmdShell, cmdShellAlias, cmdSponsors, cmdSync, cmdTasks, cmdTestTool, cmdToken, cmdTool, cmdToolStub, cmdTrust, cmdUninstall, cmdUnset, cmdUntrust, cmdUnuse, cmdUpgrade, cmdUsage, cmdUse, cmdVersion, cmdWatch, cmdWhere, cmdWhich},
-	DefaultSubcommand: cmdRun,
+	Subcommands:         []*argv.Command{cmdActivate, cmdToolAlias, cmdAsdf, cmdBackends, cmdBinPaths, cmdBootstrap, cmdCache, cmdCompletion, cmdConfig, cmdCurrent, cmdDeactivate, cmdDirenv, cmdDotfiles, cmdDoctor, cmdEn, cmdEnv, cmdExec, cmdFmt, cmdGenerate, cmdGithub, cmdGlobal, cmdHookEnv, cmdHookNotFound, cmdImplode, cmdEdit, cmdInstall, cmdInstallInto, cmdLatest, cmdLink, cmdLocal, cmdLock, cmdLs, cmdLsRemote, cmdMcp, cmdOci, cmdOutdated, cmdPatrons, cmdPlugins, cmdDeps, cmdPrune, cmdRegistry, cmdRenderHelp, cmdReshim, cmdRun, cmdSearch, cmdSelfUpdate, cmdSet, cmdSettings, cmdShell, cmdShellAlias, cmdSponsors, cmdSync, cmdTasks, cmdTestTool, cmdToken, cmdTool, cmdToolStub, cmdTrust, cmdUninstall, cmdUnset, cmdUntrust, cmdUnuse, cmdUpgrade, cmdUsage, cmdUse, cmdVersion, cmdWatch, cmdWhere, cmdWhich},
+	ArgRequiredElseHelp: true,
+	DefaultSubcommand:   cmdRun,
 }
 
 // activate
@@ -1128,7 +1141,7 @@ var cmdToolAlias = &argv.Command{
 	Key:     CmdToolAlias,
 	Aliases: []string{"alias", "aliases"},
 	Flags: []*argv.Flag{
-		{Key: FlagToolAliasTool, Name: "tool", Longs: []string{"tool"}, Shorts: []byte{'p'}, TakesValue: true},
+		{Key: FlagToolAliasTool, Name: "tool", Longs: []string{"tool", "plugin"}, HiddenLongs: []string{"plugin"}, Shorts: []byte{'p'}, TakesValue: true},
 		{Key: FlagToolAliasNoHeader, Name: "no-header", Longs: []string{"no-header"}},
 	},
 	Subcommands: []*argv.Command{cmdToolAliasGet, cmdToolAliasLs, cmdToolAliasSet, cmdToolAliasUnset},
@@ -1226,9 +1239,9 @@ var cmdBootstrap = &argv.Command{
 		{Key: FlagBootstrapDryRun, Name: "dry-run", Longs: []string{"dry-run"}, Shorts: []byte{'n'}},
 		{Key: FlagBootstrapYes, Name: "yes", Longs: []string{"yes"}, Shorts: []byte{'y'}},
 		{Key: FlagBootstrapForceDotfiles, Name: "force-dotfiles", Longs: []string{"force-dotfiles"}},
-		{Key: FlagBootstrapOnly, Name: "only", Longs: []string{"only"}, TakesValue: true},
+		{Key: FlagBootstrapOnly, Name: "only", Longs: []string{"only"}, TakesValue: true, Delimiter: ','},
 		{Key: FlagBootstrapPromptSecrets, Name: "prompt-secrets", Longs: []string{"prompt-secrets"}},
-		{Key: FlagBootstrapSkip, Name: "skip", Longs: []string{"skip"}, TakesValue: true},
+		{Key: FlagBootstrapSkip, Name: "skip", Longs: []string{"skip"}, TakesValue: true, Delimiter: ','},
 		{Key: FlagBootstrapUpdate, Name: "update", Longs: []string{"update"}},
 	},
 	Subcommands: []*argv.Command{cmdBootstrapApplyAccountPlan, cmdBootstrapApplyServicePlan, cmdBootstrapApplyFirewallPlan, cmdBootstrapApplySystemPlan, cmdBootstrapInspectSystemFiles, cmdBootstrapInspectFirewallPlan, cmdBootstrapAccounts, cmdBootstrapCompose, cmdBootstrapDotfiles, cmdBootstrapFiles, cmdBootstrapFirewall, cmdBootstrapLaunchd, cmdBootstrapLinux, cmdBootstrapMacos, cmdBootstrapMacosDefaults2, cmdBootstrapMiseShellActivate, cmdBootstrapPackages, cmdBootstrapPlan, cmdBootstrapPlugins, cmdBootstrapRemote, cmdBootstrapRepos, cmdBootstrapSecrets, cmdBootstrapServices, cmdBootstrapStatus, cmdBootstrapSystemd, cmdBootstrapUser},
@@ -1342,7 +1355,7 @@ var cmdBootstrapDotfilesAdd = &argv.Command{
 		{Key: FlagBootstrapDotfilesAddMode, Name: "mode", Longs: []string{"mode"}, Shorts: []byte{'m'}, TakesValue: true},
 		{Key: FlagBootstrapDotfilesAddDryRun, Name: "dry-run", Longs: []string{"dry-run"}, Shorts: []byte{'n'}},
 		{Key: FlagBootstrapDotfilesAddNoApply, Name: "no-apply", Longs: []string{"no-apply"}},
-		{Key: FlagBootstrapDotfilesAddPath, Name: "path", Longs: []string{"path", "file"}, Shorts: []byte{'p'}, TakesValue: true},
+		{Key: FlagBootstrapDotfilesAddPath, Name: "path", Longs: []string{"path"}, Shorts: []byte{'p'}, TakesValue: true},
 		{Key: FlagBootstrapDotfilesAddSource, Name: "source", Longs: []string{"source"}, Shorts: []byte{'s'}, TakesValue: true},
 		{Key: FlagBootstrapDotfilesAddYes, Name: "yes", Longs: []string{"yes"}, Shorts: []byte{'y'}},
 	},
@@ -1382,9 +1395,8 @@ var cmdBootstrapDotfilesEdit = &argv.Command{
 
 // bootstrap dotfiles status
 var cmdBootstrapDotfilesStatus = &argv.Command{
-	Name:    "status",
-	Key:     CmdBootstrapDotfilesStatus,
-	Aliases: []string{"ls"},
+	Name: "status",
+	Key:  CmdBootstrapDotfilesStatus,
 	Flags: []*argv.Flag{
 		{Key: FlagBootstrapDotfilesStatusJson, Name: "json", Longs: []string{"json"}, Shorts: []byte{'J'}},
 		{Key: FlagBootstrapDotfilesStatusMissing, Name: "missing", Longs: []string{"missing"}},
@@ -1815,6 +1827,8 @@ var cmdBootstrapRemote = &argv.Command{
 		{Key: FlagBootstrapRemoteAll, Name: "all", Longs: []string{"all"}},
 		{Key: FlagBootstrapRemoteBootstrapCommand, Name: "bootstrap-command", Longs: []string{"bootstrap-command"}, TakesValue: true},
 		{Key: FlagBootstrapRemoteConnectTimeout, Name: "connect-timeout", Longs: []string{"connect-timeout"}, TakesValue: true},
+		{Key: FlagBootstrapRemoteCopyLink, Name: "copy-link", Longs: []string{"copy-link"}, TakesValue: true},
+		{Key: FlagBootstrapRemoteCopyLinks, Name: "copy-links", Longs: []string{"copy-links"}},
 		{Key: FlagBootstrapRemoteExclude, Name: "exclude", Longs: []string{"exclude"}, TakesValue: true},
 		{Key: FlagBootstrapRemoteFailFast, Name: "fail-fast", Longs: []string{"fail-fast"}},
 		{Key: FlagBootstrapRemoteForceDotfiles, Name: "force-dotfiles", Longs: []string{"force-dotfiles"}},
@@ -1823,11 +1837,12 @@ var cmdBootstrapRemote = &argv.Command{
 		{Key: FlagBootstrapRemoteDryRun, Name: "dry-run", Longs: []string{"dry-run"}, Shorts: []byte{'n'}},
 		{Key: FlagBootstrapRemoteKeepStaging, Name: "keep-staging", Longs: []string{"keep-staging"}},
 		{Key: FlagBootstrapRemoteMiseBin, Name: "mise-bin", Longs: []string{"mise-bin"}, TakesValue: true},
-		{Key: FlagBootstrapRemoteOnly, Name: "only", Longs: []string{"only"}, TakesValue: true},
+		{Key: FlagBootstrapRemoteOnly, Name: "only", Longs: []string{"only"}, TakesValue: true, Delimiter: ','},
 		{Key: FlagBootstrapRemotePort, Name: "port", Longs: []string{"port"}, TakesValue: true},
 		{Key: FlagBootstrapRemotePromptSecrets, Name: "prompt-secrets", Longs: []string{"prompt-secrets"}},
+		{Key: FlagBootstrapRemoteRemoteEnv, Name: "remote-env", Longs: []string{"remote-env"}, TakesValue: true, Delimiter: ','},
 		{Key: FlagBootstrapRemoteRemoteMise, Name: "remote-mise", Longs: []string{"remote-mise"}, TakesValue: true},
-		{Key: FlagBootstrapRemoteSkip, Name: "skip", Longs: []string{"skip"}, TakesValue: true},
+		{Key: FlagBootstrapRemoteSkip, Name: "skip", Longs: []string{"skip"}, TakesValue: true, Delimiter: ','},
 		{Key: FlagBootstrapRemoteSource, Name: "source", Longs: []string{"source"}, TakesValue: true},
 		{Key: FlagBootstrapRemoteSshOption, Name: "ssh-option", Longs: []string{"ssh-option"}, TakesValue: true},
 		{Key: FlagBootstrapRemoteTag, Name: "tag", Longs: []string{"tag"}, TakesValue: true},
@@ -2079,7 +2094,7 @@ var cmdConfig = &argv.Command{
 	Aliases: []string{"cfg", "toml"},
 	Flags: []*argv.Flag{
 		{Key: FlagConfigJson, Name: "json", Longs: []string{"json"}, Shorts: []byte{'J'}},
-		{Key: FlagConfigNoHeader, Name: "no-header", Longs: []string{"no-header"}},
+		{Key: FlagConfigNoHeader, Name: "no-header", Longs: []string{"no-header", "no-headers"}, HiddenLongs: []string{"no-headers"}},
 		{Key: FlagConfigTrackedConfigs, Name: "tracked-configs", Longs: []string{"tracked-configs"}},
 	},
 	Subcommands: []*argv.Command{cmdConfigGet, cmdConfigLs, cmdConfigSet},
@@ -2104,7 +2119,7 @@ var cmdConfigLs = &argv.Command{
 	Aliases: []string{"list"},
 	Flags: []*argv.Flag{
 		{Key: FlagConfigLsJson, Name: "json", Longs: []string{"json"}, Shorts: []byte{'J'}},
-		{Key: FlagConfigLsNoHeader, Name: "no-header", Longs: []string{"no-header"}},
+		{Key: FlagConfigLsNoHeader, Name: "no-header", Longs: []string{"no-header", "no-headers"}, HiddenLongs: []string{"no-headers"}},
 		{Key: FlagConfigLsTrackedConfigs, Name: "tracked-configs", Longs: []string{"tracked-configs"}},
 	},
 }
@@ -2181,7 +2196,7 @@ var cmdDotfilesAdd = &argv.Command{
 		{Key: FlagDotfilesAddMode, Name: "mode", Longs: []string{"mode"}, Shorts: []byte{'m'}, TakesValue: true},
 		{Key: FlagDotfilesAddDryRun, Name: "dry-run", Longs: []string{"dry-run"}, Shorts: []byte{'n'}},
 		{Key: FlagDotfilesAddNoApply, Name: "no-apply", Longs: []string{"no-apply"}},
-		{Key: FlagDotfilesAddPath, Name: "path", Longs: []string{"path", "file"}, Shorts: []byte{'p'}, TakesValue: true},
+		{Key: FlagDotfilesAddPath, Name: "path", Longs: []string{"path"}, Shorts: []byte{'p'}, TakesValue: true},
 		{Key: FlagDotfilesAddSource, Name: "source", Longs: []string{"source"}, Shorts: []byte{'s'}, TakesValue: true},
 		{Key: FlagDotfilesAddYes, Name: "yes", Longs: []string{"yes"}, Shorts: []byte{'y'}},
 	},
@@ -2351,8 +2366,9 @@ var cmdGenerateBootstrap = &argv.Command{
 	Flags: []*argv.Flag{
 		{Key: FlagGenerateBootstrapLocalize, Name: "localize", Longs: []string{"localize"}, Shorts: []byte{'l'}},
 		{Key: FlagGenerateBootstrapVersion, Name: "version", Longs: []string{"version"}, Shorts: []byte{'V'}, TakesValue: true},
-		{Key: FlagGenerateBootstrapWrite, Name: "write", Longs: []string{"write"}, Shorts: []byte{'w'}, TakesValue: true},
+		{Key: FlagGenerateBootstrapWrite, Name: "write", Longs: []string{"write"}, Shorts: []byte{'w'}, TakesValue: true, ValueOptional: true, DefaultMissing: "./bin/mise"},
 		{Key: FlagGenerateBootstrapLocalizedDir, Name: "localized-dir", Longs: []string{"localized-dir"}, TakesValue: true},
+		{Key: FlagGenerateBootstrapWindows, Name: "windows", Longs: []string{"windows"}},
 	},
 }
 
@@ -2391,6 +2407,9 @@ var cmdGenerateGitPreCommit = &argv.Command{
 		{Key: FlagGenerateGitPreCommitTask, Name: "task", Longs: []string{"task"}, Shorts: []byte{'t'}, TakesValue: true},
 		{Key: FlagGenerateGitPreCommitWrite, Name: "write", Longs: []string{"write"}, Shorts: []byte{'w'}},
 		{Key: FlagGenerateGitPreCommitHook, Name: "hook", Longs: []string{"hook"}, TakesValue: true},
+	},
+	Args: []*argv.Arg{
+		{Key: ArgGenerateGitPreCommitMiseArg, Name: "MISE_ARG", Var: true, DoubleDash: argv.DoubleDashRequired},
 	},
 }
 
@@ -2437,6 +2456,7 @@ var cmdGenerateToolStub = &argv.Command{
 		{Key: FlagGenerateToolStubBin, Name: "bin", Longs: []string{"bin"}, Shorts: []byte{'b'}, TakesValue: true},
 		{Key: FlagGenerateToolStubBootstrap, Name: "bootstrap", Longs: []string{"bootstrap"}},
 		{Key: FlagGenerateToolStubBootstrapVersion, Name: "bootstrap-version", Longs: []string{"bootstrap-version"}, TakesValue: true},
+		{Key: FlagGenerateToolStubChecksumAlgorithm, Name: "checksum-algorithm", Longs: []string{"checksum-algorithm"}, TakesValue: true},
 		{Key: FlagGenerateToolStubFetch, Name: "fetch", Longs: []string{"fetch"}},
 		{Key: FlagGenerateToolStubHttp, Name: "http", Longs: []string{"http"}, TakesValue: true},
 		{Key: FlagGenerateToolStubLock, Name: "lock", Longs: []string{"lock"}},
@@ -2481,7 +2501,7 @@ var cmdGlobal = &argv.Command{
 		{Key: FlagGlobalFuzzy, Name: "fuzzy", Longs: []string{"fuzzy"}},
 		{Key: FlagGlobalPath, Name: "path", Longs: []string{"path"}},
 		{Key: FlagGlobalPin, Name: "pin", Longs: []string{"pin"}},
-		{Key: FlagGlobalRemove, Name: "remove", Longs: []string{"remove"}, TakesValue: true},
+		{Key: FlagGlobalRemove, Name: "remove", Longs: []string{"remove", "rm", "unset"}, HiddenLongs: []string{"rm", "unset"}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
 		{Key: ArgGlobalToolVersion, Name: "TOOL@VERSION", Var: true},
@@ -2548,7 +2568,8 @@ var cmdInstall = &argv.Command{
 		{Key: FlagInstallDryRun, Name: "dry-run", Longs: []string{"dry-run"}, Shorts: []byte{'n'}},
 		{Key: FlagInstallVerbose, Name: "verbose", Longs: []string{"verbose"}, Shorts: []byte{'v'}},
 		{Key: FlagInstallDryRunCode, Name: "dry-run-code", Longs: []string{"dry-run-code"}},
-		{Key: FlagInstallMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age"}, TakesValue: true},
+		{Key: FlagInstallIncludeTaskTools, Name: "include-task-tools", Longs: []string{"include-task-tools"}},
+		{Key: FlagInstallMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age", "before"}, HiddenLongs: []string{"before"}, TakesValue: true},
 		{Key: FlagInstallMonorepo, Name: "monorepo", Longs: []string{"monorepo"}},
 		{Key: FlagInstallRaw, Name: "raw", Longs: []string{"raw"}},
 		{Key: FlagInstallShared, Name: "shared", Longs: []string{"shared"}, TakesValue: true},
@@ -2575,7 +2596,7 @@ var cmdLatest = &argv.Command{
 	Key:  CmdLatest,
 	Flags: []*argv.Flag{
 		{Key: FlagLatestInstalled, Name: "installed", Longs: []string{"installed"}, Shorts: []byte{'i'}},
-		{Key: FlagLatestMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age"}, TakesValue: true},
+		{Key: FlagLatestMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age", "before"}, HiddenLongs: []string{"before"}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
 		{Key: ArgLatestToolVersion, Name: "TOOL@VERSION", Required: true},
@@ -2607,7 +2628,7 @@ var cmdLocal = &argv.Command{
 		{Key: FlagLocalFuzzy, Name: "fuzzy", Longs: []string{"fuzzy"}},
 		{Key: FlagLocalPath, Name: "path", Longs: []string{"path"}},
 		{Key: FlagLocalPin, Name: "pin", Longs: []string{"pin"}},
-		{Key: FlagLocalRemove, Name: "remove", Longs: []string{"remove"}, TakesValue: true},
+		{Key: FlagLocalRemove, Name: "remove", Longs: []string{"remove", "rm", "unset"}, HiddenLongs: []string{"rm", "unset"}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
 		{Key: ArgLocalToolVersion, Name: "TOOL@VERSION", Var: true},
@@ -2622,11 +2643,11 @@ var cmdLock = &argv.Command{
 		{Key: FlagLockGlobal, Name: "global", Longs: []string{"global"}, Shorts: []byte{'g'}},
 		{Key: FlagLockJobs, Name: "jobs", Longs: []string{"jobs"}, Shorts: []byte{'j'}, TakesValue: true},
 		{Key: FlagLockDryRun, Name: "dry-run", Longs: []string{"dry-run"}, Shorts: []byte{'n'}},
-		{Key: FlagLockPlatform, Name: "platform", Longs: []string{"platform"}, Shorts: []byte{'p'}, TakesValue: true},
+		{Key: FlagLockPlatform, Name: "platform", Longs: []string{"platform"}, Shorts: []byte{'p'}, TakesValue: true, Delimiter: ','},
 		{Key: FlagLockBump, Name: "bump", Longs: []string{"bump"}},
 		{Key: FlagLockJson, Name: "json", Longs: []string{"json"}},
 		{Key: FlagLockLocal, Name: "local", Longs: []string{"local"}},
-		{Key: FlagLockMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age"}, TakesValue: true},
+		{Key: FlagLockMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age", "before"}, HiddenLongs: []string{"before"}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
 		{Key: ArgLockTool, Name: "TOOL", Var: true},
@@ -2649,7 +2670,7 @@ var cmdLs = &argv.Command{
 		{Key: FlagLsPlugin, Name: "plugin", Longs: []string{"plugin"}, Shorts: []byte{'p'}, TakesValue: true},
 		{Key: FlagLsAllSources, Name: "all-sources", Longs: []string{"all-sources"}},
 		{Key: FlagLsMonorepo, Name: "monorepo", Longs: []string{"monorepo"}},
-		{Key: FlagLsNoHeader, Name: "no-header", Longs: []string{"no-header"}},
+		{Key: FlagLsNoHeader, Name: "no-header", Longs: []string{"no-header", "no-headers"}, HiddenLongs: []string{"no-headers"}},
 		{Key: FlagLsOutdated, Name: "outdated", Longs: []string{"outdated"}},
 		{Key: FlagLsPrefix, Name: "prefix", Longs: []string{"prefix"}, TakesValue: true},
 		{Key: FlagLsPrunable, Name: "prunable", Longs: []string{"prunable"}},
@@ -2666,7 +2687,7 @@ var cmdLsRemote = &argv.Command{
 	Aliases: []string{"list-all", "list-remote"},
 	Flags: []*argv.Flag{
 		{Key: FlagLsRemoteAll, Name: "all", Longs: []string{"all"}},
-		{Key: FlagLsRemoteMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age"}, TakesValue: true},
+		{Key: FlagLsRemoteMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age", "before"}, HiddenLongs: []string{"before"}, TakesValue: true},
 		{Key: FlagLsRemoteJson, Name: "json", Longs: []string{"json"}, Shorts: []byte{'J'}},
 		{Key: FlagLsRemoteNoVersionsHost, Name: "no-versions-host", Longs: []string{"no-versions-host"}},
 		{Key: FlagLsRemotePrerelease, Name: "prerelease", Longs: []string{"prerelease"}},
@@ -2740,7 +2761,7 @@ var cmdOciRun = &argv.Command{
 		{Key: FlagOciRunMountPoint, Name: "mount-point", Longs: []string{"mount-point"}, TakesValue: true},
 		{Key: FlagOciRunNoMise, Name: "no-mise", Longs: []string{"no-mise"}},
 		{Key: FlagOciRunOwner, Name: "owner", Longs: []string{"owner"}, TakesValue: true},
-		{Key: FlagOciRunVolume, Name: "volume", Longs: []string{"volume"}, TakesValue: true},
+		{Key: FlagOciRunVolume, Name: "volume", Longs: []string{"volume", "mount"}, HiddenLongs: []string{"mount"}, TakesValue: true},
 		{Key: FlagOciRunEnv, Name: "env", Longs: []string{"env"}, Shorts: []byte{'e'}, TakesValue: true},
 		{Key: FlagOciRunInteractive, Name: "interactive", Longs: []string{"interactive"}, Shorts: []byte{'i'}},
 		{Key: FlagOciRunTty, Name: "tty", Longs: []string{"tty"}, Shorts: []byte{'t'}},
@@ -2756,8 +2777,9 @@ var cmdOutdated = &argv.Command{
 	Name: "outdated",
 	Key:  CmdOutdated,
 	Flags: []*argv.Flag{
+		{Key: FlagOutdatedBump, Name: "bump", Longs: []string{"bump"}, Shorts: []byte{'b'}},
 		{Key: FlagOutdatedJson, Name: "json", Longs: []string{"json"}, Shorts: []byte{'J'}},
-		{Key: FlagOutdatedBump, Name: "bump", Longs: []string{"bump"}, Shorts: []byte{'l'}},
+		{Key: FlagOutdatedL, Name: "l", Shorts: []byte{'l'}},
 		{Key: FlagOutdatedInactive, Name: "inactive", Longs: []string{"inactive"}},
 		{Key: FlagOutdatedLocal, Name: "local", Longs: []string{"local"}},
 		{Key: FlagOutdatedMonorepo, Name: "monorepo", Longs: []string{"monorepo"}},
@@ -2786,7 +2808,7 @@ var cmdPlugins = &argv.Command{
 	Flags: []*argv.Flag{
 		{Key: FlagPluginsAll, Name: "all", Longs: []string{"all"}, Shorts: []byte{'a'}},
 		{Key: FlagPluginsCore, Name: "core", Longs: []string{"core"}, Shorts: []byte{'c'}},
-		{Key: FlagPluginsUrls, Name: "urls", Longs: []string{"urls"}, Shorts: []byte{'u'}},
+		{Key: FlagPluginsUrls, Name: "urls", Longs: []string{"urls", "url"}, HiddenLongs: []string{"url"}, Shorts: []byte{'u'}},
 		{Key: FlagPluginsRefs, Name: "refs", Longs: []string{"refs"}},
 		{Key: FlagPluginsUser, Name: "user", Longs: []string{"user"}},
 	},
@@ -2834,7 +2856,7 @@ var cmdPluginsLs = &argv.Command{
 		{Key: FlagPluginsLsAll, Name: "all", Longs: []string{"all"}, Shorts: []byte{'a'}},
 		{Key: FlagPluginsLsCore, Name: "core", Longs: []string{"core"}, Shorts: []byte{'c'}},
 		{Key: FlagPluginsLsOutdated, Name: "outdated", Longs: []string{"outdated"}, Shorts: []byte{'o'}},
-		{Key: FlagPluginsLsUrls, Name: "urls", Longs: []string{"urls"}, Shorts: []byte{'u'}},
+		{Key: FlagPluginsLsUrls, Name: "urls", Longs: []string{"urls", "url"}, HiddenLongs: []string{"url"}, Shorts: []byte{'u'}},
 		{Key: FlagPluginsLsRefs, Name: "refs", Longs: []string{"refs"}},
 		{Key: FlagPluginsLsUser, Name: "user", Longs: []string{"user"}},
 	},
@@ -2999,6 +3021,7 @@ var cmdRun = &argv.Command{
 		{Key: FlagRunAffectedExplain, Name: "affected-explain", Longs: []string{"affected-explain"}},
 		{Key: FlagRunAffectedHead, Name: "affected-head", Longs: []string{"affected-head"}, TakesValue: true},
 		{Key: FlagRunAffectedJson, Name: "affected-json", Longs: []string{"affected-json"}},
+		{Key: FlagRunAll, Name: "all", Longs: []string{"all"}},
 		{Key: FlagRunContinueOnError, Name: "continue-on-error", Longs: []string{"continue-on-error"}, Shorts: []byte{'c'}},
 		{Key: FlagRunCd, Name: "cd", Longs: []string{"cd"}, Shorts: []byte{'C'}, TakesValue: true},
 		{Key: FlagRunForce, Name: "force", Longs: []string{"force"}, Shorts: []byte{'f'}},
@@ -3022,7 +3045,7 @@ var cmdRun = &argv.Command{
 		{Key: FlagRunFreshEnv, Name: "fresh-env", Longs: []string{"fresh-env"}},
 		{Key: FlagRunNoCache, Name: "no-cache", Longs: []string{"no-cache"}},
 		{Key: FlagRunNoDeps, Name: "no-deps", Longs: []string{"no-deps"}},
-		{Key: FlagRunNoTimings, Name: "no-timings", Longs: []string{"no-timings"}},
+		{Key: FlagRunNoTimings, Name: "no-timings", Longs: []string{"no-timings", "no-timing"}, HiddenLongs: []string{"no-timing"}},
 		{Key: FlagRunSkipDeps, Name: "skip-deps", Longs: []string{"skip-deps"}},
 		{Key: FlagRunSkipTools, Name: "skip-tools", Longs: []string{"skip-tools"}},
 		{Key: FlagRunTaskCache, Name: "task-cache", Longs: []string{"task-cache"}, TakesValue: true},
@@ -3030,8 +3053,9 @@ var cmdRun = &argv.Command{
 		{Key: FlagRunTaskCacheExplainJson, Name: "task-cache-explain-json", Longs: []string{"task-cache-explain-json"}},
 		{Key: FlagRunTaskCacheStats, Name: "task-cache-stats", Longs: []string{"task-cache-stats"}},
 		{Key: FlagRunTimeout, Name: "timeout", Longs: []string{"timeout"}, TakesValue: true},
-		{Key: FlagRunTimings, Name: "timings", Longs: []string{"timings"}},
+		{Key: FlagRunTimings, Name: "timings", Longs: []string{"timings", "timing"}, HiddenLongs: []string{"timing"}},
 	},
+	DisableHelpFlag: true,
 }
 
 // search
@@ -3041,7 +3065,7 @@ var cmdSearch = &argv.Command{
 	Flags: []*argv.Flag{
 		{Key: FlagSearchInteractive, Name: "interactive", Longs: []string{"interactive"}, Shorts: []byte{'i'}},
 		{Key: FlagSearchMatchType, Name: "match-type", Longs: []string{"match-type"}, Shorts: []byte{'m'}, TakesValue: true},
-		{Key: FlagSearchNoHeader, Name: "no-header", Longs: []string{"no-header"}},
+		{Key: FlagSearchNoHeader, Name: "no-header", Longs: []string{"no-header", "no-headers"}, HiddenLongs: []string{"no-headers"}},
 	},
 	Args: []*argv.Arg{
 		{Key: ArgSearchName, Name: "NAME"},
@@ -3297,7 +3321,7 @@ var cmdTasks = &argv.Command{
 		{Key: FlagTasksComplete, Name: "complete", Longs: []string{"complete"}},
 		{Key: FlagTasksHidden, Name: "hidden", Longs: []string{"hidden"}},
 		{Key: FlagTasksNameOnly, Name: "name-only", Longs: []string{"name-only"}},
-		{Key: FlagTasksNoHeader, Name: "no-header", Longs: []string{"no-header"}},
+		{Key: FlagTasksNoHeader, Name: "no-header", Longs: []string{"no-header", "no-headers"}, HiddenLongs: []string{"no-headers"}},
 		{Key: FlagTasksSort, Name: "sort", Longs: []string{"sort"}, TakesValue: true},
 		{Key: FlagTasksSortOrder, Name: "sort-order", Longs: []string{"sort-order"}, TakesValue: true},
 		{Key: FlagTasksUsage, Name: "usage", Longs: []string{"usage"}},
@@ -3368,7 +3392,7 @@ var cmdTasksGraph = &argv.Command{
 	Flags: []*argv.Flag{
 		{Key: FlagTasksGraphJson, Name: "json", Longs: []string{"json"}, Shorts: []byte{'J'}},
 		{Key: FlagTasksGraphExplain, Name: "explain", Longs: []string{"explain"}},
-		{Key: FlagTasksGraphNoHeader, Name: "no-header", Longs: []string{"no-header"}},
+		{Key: FlagTasksGraphNoHeader, Name: "no-header", Longs: []string{"no-header", "no-headers"}, HiddenLongs: []string{"no-headers"}},
 	},
 }
 
@@ -3397,7 +3421,7 @@ var cmdTasksLs = &argv.Command{
 		{Key: FlagTasksLsComplete, Name: "complete", Longs: []string{"complete"}},
 		{Key: FlagTasksLsHidden, Name: "hidden", Longs: []string{"hidden"}},
 		{Key: FlagTasksLsNameOnly, Name: "name-only", Longs: []string{"name-only"}},
-		{Key: FlagTasksLsNoHeader, Name: "no-header", Longs: []string{"no-header"}},
+		{Key: FlagTasksLsNoHeader, Name: "no-header", Longs: []string{"no-header", "no-headers"}, HiddenLongs: []string{"no-headers"}},
 		{Key: FlagTasksLsSort, Name: "sort", Longs: []string{"sort"}, TakesValue: true},
 		{Key: FlagTasksLsSortOrder, Name: "sort-order", Longs: []string{"sort-order"}, TakesValue: true},
 		{Key: FlagTasksLsUsage, Name: "usage", Longs: []string{"usage"}},
@@ -3415,6 +3439,7 @@ var cmdTasksRun = &argv.Command{
 		{Key: FlagTasksRunAffectedExplain, Name: "affected-explain", Longs: []string{"affected-explain"}},
 		{Key: FlagTasksRunAffectedHead, Name: "affected-head", Longs: []string{"affected-head"}, TakesValue: true},
 		{Key: FlagTasksRunAffectedJson, Name: "affected-json", Longs: []string{"affected-json"}},
+		{Key: FlagTasksRunAll, Name: "all", Longs: []string{"all"}},
 		{Key: FlagTasksRunContinueOnError, Name: "continue-on-error", Longs: []string{"continue-on-error"}, Shorts: []byte{'c'}},
 		{Key: FlagTasksRunCd, Name: "cd", Longs: []string{"cd"}, Shorts: []byte{'C'}, TakesValue: true},
 		{Key: FlagTasksRunForce, Name: "force", Longs: []string{"force"}, Shorts: []byte{'f'}},
@@ -3438,7 +3463,7 @@ var cmdTasksRun = &argv.Command{
 		{Key: FlagTasksRunFreshEnv, Name: "fresh-env", Longs: []string{"fresh-env"}},
 		{Key: FlagTasksRunNoCache, Name: "no-cache", Longs: []string{"no-cache"}},
 		{Key: FlagTasksRunNoDeps, Name: "no-deps", Longs: []string{"no-deps"}},
-		{Key: FlagTasksRunNoTimings, Name: "no-timings", Longs: []string{"no-timings"}},
+		{Key: FlagTasksRunNoTimings, Name: "no-timings", Longs: []string{"no-timings", "no-timing"}, HiddenLongs: []string{"no-timing"}},
 		{Key: FlagTasksRunSkipDeps, Name: "skip-deps", Longs: []string{"skip-deps"}},
 		{Key: FlagTasksRunSkipTools, Name: "skip-tools", Longs: []string{"skip-tools"}},
 		{Key: FlagTasksRunTaskCache, Name: "task-cache", Longs: []string{"task-cache"}, TakesValue: true},
@@ -3446,13 +3471,14 @@ var cmdTasksRun = &argv.Command{
 		{Key: FlagTasksRunTaskCacheExplainJson, Name: "task-cache-explain-json", Longs: []string{"task-cache-explain-json"}},
 		{Key: FlagTasksRunTaskCacheStats, Name: "task-cache-stats", Longs: []string{"task-cache-stats"}},
 		{Key: FlagTasksRunTimeout, Name: "timeout", Longs: []string{"timeout"}, TakesValue: true},
-		{Key: FlagTasksRunTimings, Name: "timings", Longs: []string{"timings"}},
+		{Key: FlagTasksRunTimings, Name: "timings", Longs: []string{"timings", "timing"}, HiddenLongs: []string{"timing"}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgTasksRunTask, Name: "TASK"},
+		{Key: ArgTasksRunTask, Name: "TASK", DoubleDash: argv.DoubleDashAutomatic},
 		{Key: ArgTasksRunArgs, Name: "ARGS", Var: true},
 		{Key: ArgTasksRunArgsLast, Name: "ARGS_LAST", Var: true, DoubleDash: argv.DoubleDashRequired},
 	},
+	DisableHelpFlag: true,
 }
 
 // tasks validate
@@ -3557,6 +3583,8 @@ var cmdToolStub = &argv.Command{
 		{Key: ArgToolStubFile, Name: "FILE", Required: true},
 		{Key: ArgToolStubArgs, Name: "ARGS", Var: true, DoubleDash: argv.DoubleDashAutomatic},
 	},
+	DisableHelpFlag:    true,
+	DisableVersionFlag: true,
 }
 
 // trust
@@ -3632,17 +3660,19 @@ var cmdUpgrade = &argv.Command{
 	Key:     CmdUpgrade,
 	Aliases: []string{"up"},
 	Flags: []*argv.Flag{
+		{Key: FlagUpgradeBump, Name: "bump", Longs: []string{"bump"}, Shorts: []byte{'b'}},
 		{Key: FlagUpgradeInteractive, Name: "interactive", Longs: []string{"interactive"}, Shorts: []byte{'i'}},
 		{Key: FlagUpgradeJobs, Name: "jobs", Longs: []string{"jobs"}, Shorts: []byte{'j'}, TakesValue: true},
-		{Key: FlagUpgradeBump, Name: "bump", Longs: []string{"bump"}, Shorts: []byte{'l'}},
+		{Key: FlagUpgradeL, Name: "l", Shorts: []byte{'l'}},
 		{Key: FlagUpgradeDryRun, Name: "dry-run", Longs: []string{"dry-run"}, Shorts: []byte{'n'}},
 		{Key: FlagUpgradeExclude, Name: "exclude", Longs: []string{"exclude"}, Shorts: []byte{'x'}, TakesValue: true},
 		{Key: FlagUpgradeDryRunCode, Name: "dry-run-code", Longs: []string{"dry-run-code"}},
 		{Key: FlagUpgradeInactive, Name: "inactive", Longs: []string{"inactive"}},
 		{Key: FlagUpgradeLocal, Name: "local", Longs: []string{"local"}},
-		{Key: FlagUpgradeMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age"}, TakesValue: true},
+		{Key: FlagUpgradeMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age", "before"}, HiddenLongs: []string{"before"}, TakesValue: true},
 		{Key: FlagUpgradeMonorepo, Name: "monorepo", Longs: []string{"monorepo"}},
 		{Key: FlagUpgradeNoPrune, Name: "no-prune", Longs: []string{"no-prune"}},
+		{Key: FlagUpgradePrune, Name: "prune", Longs: []string{"prune"}},
 		{Key: FlagUpgradeRaw, Name: "raw", Longs: []string{"raw"}},
 	},
 	Args: []*argv.Arg{
@@ -3667,13 +3697,13 @@ var cmdUse = &argv.Command{
 		{Key: FlagUseGlobal, Name: "global", Longs: []string{"global"}, Shorts: []byte{'g'}},
 		{Key: FlagUseJobs, Name: "jobs", Longs: []string{"jobs"}, Shorts: []byte{'j'}, TakesValue: true},
 		{Key: FlagUseDryRun, Name: "dry-run", Longs: []string{"dry-run"}, Shorts: []byte{'n'}},
-		{Key: FlagUsePath, Name: "path", Longs: []string{"path", "file"}, Shorts: []byte{'p'}, TakesValue: true},
+		{Key: FlagUsePath, Name: "path", Longs: []string{"path"}, Shorts: []byte{'p'}, TakesValue: true},
 		{Key: FlagUseDryRunCode, Name: "dry-run-code", Longs: []string{"dry-run-code"}},
 		{Key: FlagUseFuzzy, Name: "fuzzy", Longs: []string{"fuzzy"}},
-		{Key: FlagUseMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age"}, TakesValue: true},
+		{Key: FlagUseMinimumReleaseAge, Name: "minimum-release-age", Longs: []string{"minimum-release-age", "before"}, HiddenLongs: []string{"before"}, TakesValue: true},
 		{Key: FlagUsePin, Name: "pin", Longs: []string{"pin"}},
 		{Key: FlagUseRaw, Name: "raw", Longs: []string{"raw"}},
-		{Key: FlagUseRemove, Name: "remove", Longs: []string{"remove"}, TakesValue: true},
+		{Key: FlagUseRemove, Name: "remove", Longs: []string{"remove", "rm", "unset"}, HiddenLongs: []string{"rm", "unset"}, TakesValue: true},
 	},
 	Args: []*argv.Arg{
 		{Key: ArgUseToolVersion, Name: "TOOL@VERSION", Var: true},
@@ -3702,7 +3732,7 @@ var cmdWatch = &argv.Command{
 		{Key: FlagWatchWatch, Name: "watch", Longs: []string{"watch"}, Shorts: []byte{'w'}, TakesValue: true},
 		{Key: FlagWatchWatchNonRecursive, Name: "watch-non-recursive", Longs: []string{"watch-non-recursive"}, Shorts: []byte{'W'}, TakesValue: true},
 		{Key: FlagWatchWatchFile, Name: "watch-file", Longs: []string{"watch-file"}, Shorts: []byte{'F'}, TakesValue: true},
-		{Key: FlagWatchClear, Name: "clear", Longs: []string{"clear"}, Shorts: []byte{'c'}, TakesValue: true},
+		{Key: FlagWatchClear, Name: "clear", Longs: []string{"clear"}, Shorts: []byte{'c'}, TakesValue: true, ValueOptional: true, DefaultMissing: "clear"},
 		{Key: FlagWatchOnBusyUpdate, Name: "on-busy-update", Longs: []string{"on-busy-update"}, Shorts: []byte{'o'}, TakesValue: true},
 		{Key: FlagWatchRestart, Name: "restart", Longs: []string{"restart"}, Shorts: []byte{'r'}},
 		{Key: FlagWatchSignal, Name: "signal", Longs: []string{"signal"}, Shorts: []byte{'s'}, TakesValue: true},
@@ -3719,7 +3749,7 @@ var cmdWatch = &argv.Command{
 		{Key: FlagWatchIgnoreNothing, Name: "ignore-nothing", Longs: []string{"ignore-nothing"}},
 		{Key: FlagWatchPostpone, Name: "postpone", Longs: []string{"postpone"}, Shorts: []byte{'p'}},
 		{Key: FlagWatchDelayRun, Name: "delay-run", Longs: []string{"delay-run"}, TakesValue: true},
-		{Key: FlagWatchPoll, Name: "poll", Longs: []string{"poll"}, TakesValue: true},
+		{Key: FlagWatchPoll, Name: "poll", Longs: []string{"poll", "force-poll"}, HiddenLongs: []string{"force-poll"}, TakesValue: true, ValueOptional: true, DefaultMissing: "30s"},
 		{Key: FlagWatchShell, Name: "shell", Longs: []string{"shell"}, TakesValue: true},
 		{Key: FlagWatchN, Name: "n", Shorts: []byte{'n'}},
 		{Key: FlagWatchEmitEventsTo, Name: "emit-events-to", Longs: []string{"emit-events-to"}, TakesValue: true},
@@ -3727,25 +3757,25 @@ var cmdWatch = &argv.Command{
 		{Key: FlagWatchEnv, Name: "env", Longs: []string{"env"}, Shorts: []byte{'E'}, TakesValue: true},
 		{Key: FlagWatchWrapProcess, Name: "wrap-process", Longs: []string{"wrap-process"}, TakesValue: true},
 		{Key: FlagWatchNotify, Name: "notify", Longs: []string{"notify"}, Shorts: []byte{'N'}},
-		{Key: FlagWatchColor, Name: "color", Longs: []string{"color"}, TakesValue: true},
+		{Key: FlagWatchColor, Name: "color", Longs: []string{"color", "colour"}, HiddenLongs: []string{"colour"}, TakesValue: true},
 		{Key: FlagWatchTimings, Name: "timings", Longs: []string{"timings"}},
 		{Key: FlagWatchQuiet, Name: "quiet", Longs: []string{"quiet"}, Shorts: []byte{'q'}},
 		{Key: FlagWatchBell, Name: "bell", Longs: []string{"bell"}},
 		{Key: FlagWatchProjectOrigin, Name: "project-origin", Longs: []string{"project-origin"}, TakesValue: true},
 		{Key: FlagWatchWorkdir, Name: "workdir", Longs: []string{"workdir"}, TakesValue: true},
-		{Key: FlagWatchExts, Name: "exts", Longs: []string{"exts"}, Shorts: []byte{'e'}, TakesValue: true},
+		{Key: FlagWatchExts, Name: "exts", Longs: []string{"exts"}, Shorts: []byte{'e'}, TakesValue: true, Delimiter: ','},
 		{Key: FlagWatchFilter, Name: "filter", Longs: []string{"filter"}, Shorts: []byte{'f'}, TakesValue: true},
-		{Key: FlagWatchFilterFile, Name: "filter-file", Longs: []string{"filter-file"}, TakesValue: true},
+		{Key: FlagWatchFilterFile, Name: "filter-file", Longs: []string{"filter-file"}, TakesValue: true, Delimiter: ':'},
 		{Key: FlagWatchFilterProg, Name: "filter-prog", Longs: []string{"filter-prog"}, Shorts: []byte{'J'}, TakesValue: true},
 		{Key: FlagWatchIgnore, Name: "ignore", Longs: []string{"ignore"}, Shorts: []byte{'i'}, TakesValue: true},
-		{Key: FlagWatchIgnoreFile, Name: "ignore-file", Longs: []string{"ignore-file"}, TakesValue: true},
-		{Key: FlagWatchFsEvents, Name: "fs-events", Longs: []string{"fs-events"}, TakesValue: true},
+		{Key: FlagWatchIgnoreFile, Name: "ignore-file", Longs: []string{"ignore-file"}, TakesValue: true, Delimiter: ':'},
+		{Key: FlagWatchFsEvents, Name: "fs-events", Longs: []string{"fs-events"}, TakesValue: true, Delimiter: ','},
 		{Key: FlagWatchNoMeta, Name: "no-meta", Longs: []string{"no-meta"}},
 		{Key: FlagWatchPrintEvents, Name: "print-events", Longs: []string{"print-events"}},
 		{Key: FlagWatchManual, Name: "manual", Longs: []string{"manual"}},
 	},
 	Args: []*argv.Arg{
-		{Key: ArgWatchTask, Name: "TASK"},
+		{Key: ArgWatchTask, Name: "TASK", DoubleDash: argv.DoubleDashAutomatic},
 		{Key: ArgWatchArgs, Name: "ARGS", Var: true, DoubleDash: argv.DoubleDashAutomatic},
 	},
 }
@@ -3785,20 +3815,20 @@ var cmdWhich = &argv.Command{
 var Meta = argv.Metadata{
 	{},
 	{Key: FlagContinueOnError, Name: "continue-on-error", Flag: true, RequiresIfBoolean: true, Spelling: "--continue-on-error"},
-	{Key: FlagCd, Name: "cd", Flag: true, Spelling: "--cd", ValueName: "DIR"},
+	{Key: FlagCd, Name: "cd", Flag: true, Spelling: "--cd", ValueName: "DIR", CompleteType: "dir"},
 	{Key: FlagEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV"},
 	{Key: FlagForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
-	{Key: FlagJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
+	{Key: FlagJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS", Env: "MISE_JOBS"},
 	{Key: FlagDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
-	{Key: FlagProfile, Name: "profile", Flag: true, Spelling: "--profile", ValueName: "PROFILE"},
-	{Key: FlagQuiet, Name: "quiet", Flag: true, RequiresIfBoolean: true, Spelling: "--quiet"},
+	{Key: FlagProfile, Name: "profile", Flag: true, Spelling: "--profile", ValueName: "PROFILE", Conflicts: []uint64{FlagEnv}},
+	{Key: FlagQuiet, Name: "quiet", Flag: true, RequiresIfBoolean: true, Spelling: "--quiet", Overrides: []uint64{FlagSilent, FlagTrace, FlagVerbose, FlagDebug, FlagLogLevel}},
 	{Key: FlagShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL"},
-	{Key: FlagTool, Name: "tool", Flag: true, Spelling: "--tool", ValueName: "TOOL@VERSION"},
-	{Key: FlagVerbose, Name: "verbose", Flag: true, RequiresIfBoolean: true, Spelling: "--verbose"},
+	{Key: FlagTool, Name: "tool", Flag: true, Spelling: "--tool", ValueName: "TOOL@VERSION", Env: "MISE_QUIET"},
+	{Key: FlagVerbose, Name: "verbose", Flag: true, RequiresIfBoolean: true, Spelling: "--verbose", Overrides: []uint64{FlagQuiet, FlagSilent, FlagTrace, FlagDebug}},
 	{Key: FlagVersion, Name: "version", Flag: true, RequiresIfBoolean: true, Spelling: "--version"},
 	{Key: FlagYes, Name: "yes", Flag: true, RequiresIfBoolean: true, Spelling: "--yes"},
-	{Key: FlagDebug, Name: "debug", Flag: true, RequiresIfBoolean: true, Spelling: "--debug"},
-	{Key: FlagLogLevel, Name: "log-level", Flag: true, Spelling: "--log-level", ValueName: "LEVEL", Choices: []string{"trace", "debug", "info", "warning", "error"}, AcceptedChoices: []string{"trace", "debug", "info", "warning", "error"}},
+	{Key: FlagDebug, Name: "debug", Flag: true, RequiresIfBoolean: true, Spelling: "--debug", Overrides: []uint64{FlagQuiet, FlagTrace, FlagVerbose, FlagSilent, FlagLogLevel}},
+	{Key: FlagLogLevel, Name: "log-level", Flag: true, Spelling: "--log-level", ValueName: "LEVEL", Choices: []string{"trace", "debug", "info", "warning", "error"}, AcceptedChoices: []string{"trace", "debug", "info", "warning", "error"}, Overrides: []uint64{FlagQuiet, FlagTrace, FlagVerbose, FlagSilent, FlagDebug}},
 	{Key: FlagNoConfig, Name: "no-config", Flag: true, RequiresIfBoolean: true, Spelling: "--no-config"},
 	{Key: FlagNoEnv, Name: "no-env", Flag: true, RequiresIfBoolean: true, Spelling: "--no-env"},
 	{Key: FlagNoHooks, Name: "no-hooks", Flag: true, RequiresIfBoolean: true, Spelling: "--no-hooks"},
@@ -3806,9 +3836,9 @@ var Meta = argv.Metadata{
 	{Key: FlagOutput, Name: "output", Flag: true, Spelling: "--output", ValueName: "OUTPUT"},
 	{Key: FlagRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
 	{Key: FlagLocked, Name: "locked", Flag: true, RequiresIfBoolean: true, Spelling: "--locked"},
-	{Key: FlagSilent, Name: "silent", Flag: true, RequiresIfBoolean: true, Spelling: "--silent"},
+	{Key: FlagSilent, Name: "silent", Flag: true, RequiresIfBoolean: true, Spelling: "--silent", Overrides: []uint64{FlagQuiet, FlagTrace, FlagVerbose, FlagDebug, FlagLogLevel}},
 	{Key: FlagTimings, Name: "timings", Flag: true, RequiresIfBoolean: true, Spelling: "--timings"},
-	{Key: FlagTrace, Name: "trace", Flag: true, RequiresIfBoolean: true, Spelling: "--trace"},
+	{Key: FlagTrace, Name: "trace", Flag: true, RequiresIfBoolean: true, Spelling: "--trace", Overrides: []uint64{FlagQuiet, FlagSilent, FlagVerbose, FlagDebug, FlagLogLevel}},
 	{Key: ArgTask, Name: "TASK"},
 	{Key: ArgTaskArgs, Name: "TASK_ARGS"},
 	{Key: ArgTaskArgsLast, Name: "TASK_ARGS_LAST"},
@@ -3840,16 +3870,16 @@ var Meta = argv.Metadata{
 	{},
 	{},
 	{},
-	{Key: FlagBinPathsBinNames, Name: "bin-names", Flag: true, RequiresIfBoolean: true, Spelling: "--bin-names"},
+	{Key: FlagBinPathsBinNames, Name: "bin-names", Flag: true, RequiresIfBoolean: true, Spelling: "--bin-names", DefaultIf: []argv.DefaultIf{{Key: FlagBinPathsJson, Value: "true"}}},
 	{Key: FlagBinPathsJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
 	{Key: ArgBinPathsToolVersion, Name: "TOOL@VERSION"},
 	{},
 	{Key: FlagBootstrapDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagBootstrapYes, Name: "yes", Flag: true, RequiresIfBoolean: true, Spelling: "--yes"},
 	{Key: FlagBootstrapForceDotfiles, Name: "force-dotfiles", Flag: true, RequiresIfBoolean: true, Spelling: "--force-dotfiles"},
-	{Key: FlagBootstrapOnly, Name: "only", Flag: true, Spelling: "--only", ValueName: "ONLY", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}, AcceptedChoices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}},
+	{Key: FlagBootstrapOnly, Name: "only", Flag: true, Spelling: "--only", ValueName: "ONLY", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"}, AcceptedChoices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook", "shell", "defaults", "launchd", "systemd"}, Conflicts: []uint64{FlagBootstrapSkip}},
 	{Key: FlagBootstrapPromptSecrets, Name: "prompt-secrets", Flag: true, RequiresIfBoolean: true, Spelling: "--prompt-secrets"},
-	{Key: FlagBootstrapSkip, Name: "skip", Flag: true, Spelling: "--skip", ValueName: "SKIP", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}, AcceptedChoices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}},
+	{Key: FlagBootstrapSkip, Name: "skip", Flag: true, Spelling: "--skip", ValueName: "SKIP", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"}, AcceptedChoices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook", "shell", "defaults", "launchd", "systemd"}},
 	{Key: FlagBootstrapUpdate, Name: "update", Flag: true, RequiresIfBoolean: true, Spelling: "--update"},
 	{},
 	{},
@@ -3874,12 +3904,12 @@ var Meta = argv.Metadata{
 	{},
 	{},
 	{Key: FlagBootstrapDotfilesAddForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
-	{Key: FlagBootstrapDotfilesAddGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
-	{Key: FlagBootstrapDotfilesAddLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
+	{Key: FlagBootstrapDotfilesAddGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Conflicts: []uint64{FlagBootstrapDotfilesAddLocal, FlagBootstrapDotfilesAddPath}},
+	{Key: FlagBootstrapDotfilesAddLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local", Conflicts: []uint64{FlagBootstrapDotfilesAddGlobal, FlagBootstrapDotfilesAddPath}},
 	{Key: FlagBootstrapDotfilesAddMode, Name: "mode", Flag: true, Spelling: "--mode", ValueName: "MODE"},
 	{Key: FlagBootstrapDotfilesAddDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagBootstrapDotfilesAddNoApply, Name: "no-apply", Flag: true, RequiresIfBoolean: true, Spelling: "--no-apply"},
-	{Key: FlagBootstrapDotfilesAddPath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH"},
+	{Key: FlagBootstrapDotfilesAddPath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH", Conflicts: []uint64{FlagBootstrapDotfilesAddGlobal, FlagBootstrapDotfilesAddLocal}},
 	{Key: FlagBootstrapDotfilesAddSource, Name: "source", Flag: true, Spelling: "--source", ValueName: "PATH"},
 	{Key: FlagBootstrapDotfilesAddYes, Name: "yes", Flag: true, RequiresIfBoolean: true, Spelling: "--yes"},
 	{Key: ArgBootstrapDotfilesAddTarget, Name: "TARGET", Required: true},
@@ -3974,23 +4004,23 @@ var Meta = argv.Metadata{
 	{},
 	{Key: FlagBootstrapPackagesBrewTapLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
 	{Key: FlagBootstrapPackagesBrewTapDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
-	{Key: FlagBootstrapPackagesBrewTapPath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH"},
+	{Key: FlagBootstrapPackagesBrewTapPath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH", Conflicts: []uint64{FlagBootstrapPackagesBrewTapLocal}},
 	{Key: ArgBootstrapPackagesBrewTapTap, Name: "TAP", Required: true},
 	{Key: ArgBootstrapPackagesBrewTapUrl, Name: "URL"},
 	{},
 	{Key: FlagBootstrapPackagesBrewUntapLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
 	{Key: FlagBootstrapPackagesBrewUntapDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
-	{Key: FlagBootstrapPackagesBrewUntapPath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH"},
+	{Key: FlagBootstrapPackagesBrewUntapPath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH", Conflicts: []uint64{FlagBootstrapPackagesBrewUntapLocal}},
 	{Key: ArgBootstrapPackagesBrewUntapTaps, Name: "TAPS", Required: true},
 	{},
-	{Key: FlagBootstrapPackagesImportEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV"},
-	{Key: FlagBootstrapPackagesImportGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
+	{Key: FlagBootstrapPackagesImportEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV", Conflicts: []uint64{FlagBootstrapPackagesImportGlobal, FlagBootstrapPackagesImportPath}},
+	{Key: FlagBootstrapPackagesImportGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Conflicts: []uint64{FlagBootstrapPackagesImportEnv, FlagBootstrapPackagesImportPath}},
 	{Key: FlagBootstrapPackagesImportManager, Name: "manager", Flag: true, Spelling: "--manager", ValueName: "MANAGER", Choices: []string{"brew"}, AcceptedChoices: []string{"brew"}, Default: []string{"brew"}},
 	{Key: FlagBootstrapPackagesImportAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
 	{Key: FlagBootstrapPackagesImportDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
-	{Key: FlagBootstrapPackagesImportPath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH"},
+	{Key: FlagBootstrapPackagesImportPath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH", Conflicts: []uint64{FlagBootstrapPackagesImportGlobal}},
 	{},
-	{Key: FlagBootstrapPackagesPruneManager, Name: "manager", Flag: true, Spelling: "--manager", ValueName: "MANAGER", Choices: []string{"brew"}, AcceptedChoices: []string{"brew"}, Default: []string{"brew"}},
+	{Key: FlagBootstrapPackagesPruneManager, Name: "manager", Flag: true, Spelling: "--manager", ValueName: "MANAGER", Choices: []string{"brew", "brew-cask"}, AcceptedChoices: []string{"brew", "brew-cask"}, Default: []string{"brew"}},
 	{Key: FlagBootstrapPackagesPruneDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagBootstrapPackagesPruneYes, Name: "yes", Flag: true, RequiresIfBoolean: true, Spelling: "--yes"},
 	{},
@@ -4002,10 +4032,10 @@ var Meta = argv.Metadata{
 	{Key: FlagBootstrapPackagesUpgradeYes, Name: "yes", Flag: true, RequiresIfBoolean: true, Spelling: "--yes"},
 	{Key: ArgBootstrapPackagesUpgradePackage, Name: "PACKAGE"},
 	{},
-	{Key: FlagBootstrapPackagesUseEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV"},
+	{Key: FlagBootstrapPackagesUseEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV", Conflicts: []uint64{FlagBootstrapPackagesUseGlobal, FlagBootstrapPackagesUsePath}},
 	{Key: FlagBootstrapPackagesUseGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
 	{Key: FlagBootstrapPackagesUseDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
-	{Key: FlagBootstrapPackagesUsePath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH"},
+	{Key: FlagBootstrapPackagesUsePath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH", Conflicts: []uint64{FlagBootstrapPackagesUseGlobal}},
 	{Key: FlagBootstrapPackagesUseYes, Name: "yes", Flag: true, RequiresIfBoolean: true, Spelling: "--yes"},
 	{Key: ArgBootstrapPackagesUsePackage, Name: "PACKAGE", Required: true},
 	{},
@@ -4019,8 +4049,10 @@ var Meta = argv.Metadata{
 	{Key: FlagBootstrapPluginsStatusMissing, Name: "missing", Flag: true, RequiresIfBoolean: true, Spelling: "--missing"},
 	{},
 	{Key: FlagBootstrapRemoteAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
-	{Key: FlagBootstrapRemoteBootstrapCommand, Name: "bootstrap-command", Flag: true, Spelling: "--bootstrap-command", ValueName: "COMMAND"},
+	{Key: FlagBootstrapRemoteBootstrapCommand, Name: "bootstrap-command", Flag: true, Spelling: "--bootstrap-command", ValueName: "COMMAND", Conflicts: []uint64{FlagBootstrapRemoteMiseBin, FlagBootstrapRemoteRemoteMise}},
 	{Key: FlagBootstrapRemoteConnectTimeout, Name: "connect-timeout", Flag: true, Spelling: "--connect-timeout", ValueName: "CONNECT_TIMEOUT", Default: []string{"10"}},
+	{Key: FlagBootstrapRemoteCopyLink, Name: "copy-link", Flag: true, Spelling: "--copy-link", ValueName: "PATH"},
+	{Key: FlagBootstrapRemoteCopyLinks, Name: "copy-links", Flag: true, RequiresIfBoolean: true, Spelling: "--copy-links"},
 	{Key: FlagBootstrapRemoteExclude, Name: "exclude", Flag: true, Spelling: "--exclude", ValueName: "PATTERN"},
 	{Key: FlagBootstrapRemoteFailFast, Name: "fail-fast", Flag: true, RequiresIfBoolean: true, Spelling: "--fail-fast"},
 	{Key: FlagBootstrapRemoteForceDotfiles, Name: "force-dotfiles", Flag: true, RequiresIfBoolean: true, Spelling: "--force-dotfiles"},
@@ -4028,12 +4060,13 @@ var Meta = argv.Metadata{
 	{Key: FlagBootstrapRemoteIdentityFile, Name: "identity-file", Flag: true, Spelling: "--identity-file", ValueName: "IDENTITY_FILE"},
 	{Key: FlagBootstrapRemoteDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagBootstrapRemoteKeepStaging, Name: "keep-staging", Flag: true, RequiresIfBoolean: true, Spelling: "--keep-staging"},
-	{Key: FlagBootstrapRemoteMiseBin, Name: "mise-bin", Flag: true, Spelling: "--mise-bin", ValueName: "MISE_BIN"},
-	{Key: FlagBootstrapRemoteOnly, Name: "only", Flag: true, Spelling: "--only", ValueName: "ONLY", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}, AcceptedChoices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}},
+	{Key: FlagBootstrapRemoteMiseBin, Name: "mise-bin", Flag: true, Spelling: "--mise-bin", ValueName: "MISE_BIN", Conflicts: []uint64{FlagBootstrapRemoteRemoteMise, FlagBootstrapRemoteBootstrapCommand}},
+	{Key: FlagBootstrapRemoteOnly, Name: "only", Flag: true, Spelling: "--only", ValueName: "ONLY", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"}, AcceptedChoices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook", "shell", "defaults", "launchd", "systemd"}, Conflicts: []uint64{FlagBootstrapRemoteSkip}},
 	{Key: FlagBootstrapRemotePort, Name: "port", Flag: true, Spelling: "--port", ValueName: "PORT"},
 	{Key: FlagBootstrapRemotePromptSecrets, Name: "prompt-secrets", Flag: true, RequiresIfBoolean: true, Spelling: "--prompt-secrets"},
-	{Key: FlagBootstrapRemoteRemoteMise, Name: "remote-mise", Flag: true, Spelling: "--remote-mise", ValueName: "COMMAND"},
-	{Key: FlagBootstrapRemoteSkip, Name: "skip", Flag: true, Spelling: "--skip", ValueName: "SKIP", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}, AcceptedChoices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}},
+	{Key: FlagBootstrapRemoteRemoteEnv, Name: "remote-env", Flag: true, Spelling: "--remote-env", ValueName: "ENV"},
+	{Key: FlagBootstrapRemoteRemoteMise, Name: "remote-mise", Flag: true, Spelling: "--remote-mise", ValueName: "COMMAND", Conflicts: []uint64{FlagBootstrapRemoteMiseBin, FlagBootstrapRemoteBootstrapCommand}},
+	{Key: FlagBootstrapRemoteSkip, Name: "skip", Flag: true, Spelling: "--skip", ValueName: "SKIP", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"}, AcceptedChoices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook", "shell", "defaults", "launchd", "systemd"}},
 	{Key: FlagBootstrapRemoteSource, Name: "source", Flag: true, Spelling: "--source", ValueName: "SOURCE"},
 	{Key: FlagBootstrapRemoteSshOption, Name: "ssh-option", Flag: true, Spelling: "--ssh-option", ValueName: "OPTION"},
 	{Key: FlagBootstrapRemoteTag, Name: "tag", Flag: true, Spelling: "--tag", ValueName: "TAG"},
@@ -4088,7 +4121,7 @@ var Meta = argv.Metadata{
 	{},
 	{},
 	{Key: FlagCacheClearOutdate, Name: "outdate", Flag: true, RequiresIfBoolean: true, Spelling: "--outdate"},
-	{Key: FlagCacheClearTask, Name: "task", Flag: true, Spelling: "--task", ValueName: "TASK"},
+	{Key: FlagCacheClearTask, Name: "task", Flag: true, Spelling: "--task", ValueName: "TASK", Conflicts: []uint64{ArgCacheClearTool, FlagCacheClearOutdate}},
 	{Key: ArgCacheClearTool, Name: "TOOL"},
 	{},
 	{},
@@ -4099,10 +4132,10 @@ var Meta = argv.Metadata{
 	{Key: FlagCacheTaskJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
 	{Key: ArgCacheTaskTask, Name: "TASK", Required: true},
 	{},
-	{Key: FlagCompletionShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL_TYPE", Choices: []string{"bash", "fish", "powershell", "zsh"}, AcceptedChoices: []string{"bash", "fish", "powershell", "zsh"}},
+	{Key: FlagCompletionShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL"},
 	{Key: FlagCompletionIncludeBashCompletionLib, Name: "include-bash-completion-lib", Flag: true, RequiresIfBoolean: true, Spelling: "--include-bash-completion-lib"},
 	{Key: FlagCompletionUsage, Name: "usage", Flag: true, RequiresIfBoolean: true, Spelling: "--usage"},
-	{Key: ArgCompletionShell, Name: "SHELL", Choices: []string{"bash", "fish", "powershell", "zsh"}, AcceptedChoices: []string{"bash", "fish", "powershell", "zsh"}},
+	{Key: ArgCompletionShell, Name: "SHELL", RequiredUnless: []uint64{FlagCompletionShell}},
 	{},
 	{Key: FlagConfigJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
 	{Key: FlagConfigNoHeader, Name: "no-header", Flag: true, RequiresIfBoolean: true, Spelling: "--no-header"},
@@ -4129,12 +4162,12 @@ var Meta = argv.Metadata{
 	{},
 	{},
 	{Key: FlagDotfilesAddForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
-	{Key: FlagDotfilesAddGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
-	{Key: FlagDotfilesAddLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
+	{Key: FlagDotfilesAddGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Conflicts: []uint64{FlagDotfilesAddLocal, FlagDotfilesAddPath}},
+	{Key: FlagDotfilesAddLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local", Conflicts: []uint64{FlagDotfilesAddGlobal, FlagDotfilesAddPath}},
 	{Key: FlagDotfilesAddMode, Name: "mode", Flag: true, Spelling: "--mode", ValueName: "MODE"},
 	{Key: FlagDotfilesAddDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagDotfilesAddNoApply, Name: "no-apply", Flag: true, RequiresIfBoolean: true, Spelling: "--no-apply"},
-	{Key: FlagDotfilesAddPath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH"},
+	{Key: FlagDotfilesAddPath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH", Conflicts: []uint64{FlagDotfilesAddGlobal, FlagDotfilesAddLocal}},
 	{Key: FlagDotfilesAddSource, Name: "source", Flag: true, Spelling: "--source", ValueName: "PATH"},
 	{Key: FlagDotfilesAddYes, Name: "yes", Flag: true, RequiresIfBoolean: true, Spelling: "--yes"},
 	{Key: ArgDotfilesAddTarget, Name: "TARGET", Required: true},
@@ -4164,18 +4197,18 @@ var Meta = argv.Metadata{
 	{Key: FlagDoctorPathFull, Name: "full", Flag: true, RequiresIfBoolean: true, Spelling: "--full"},
 	{},
 	{Key: FlagEnShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL"},
-	{Key: ArgEnDir, Name: "DIR", Default: []string{"."}},
+	{Key: ArgEnDir, Name: "DIR", CompleteType: "dir", Default: []string{"."}},
 	{},
-	{Key: FlagEnvDotenv, Name: "dotenv", Flag: true, RequiresIfBoolean: true, Spelling: "--dotenv"},
-	{Key: FlagEnvJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
-	{Key: FlagEnvShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL", Choices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}, AcceptedChoices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}},
-	{Key: FlagEnvJsonExtended, Name: "json-extended", Flag: true, RequiresIfBoolean: true, Spelling: "--json-extended"},
+	{Key: FlagEnvDotenv, Name: "dotenv", Flag: true, RequiresIfBoolean: true, Spelling: "--dotenv", Overrides: []uint64{FlagEnvShell}},
+	{Key: FlagEnvJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json", Overrides: []uint64{FlagEnvShell}},
+	{Key: FlagEnvShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL", Overrides: []uint64{FlagEnvJson}},
+	{Key: FlagEnvJsonExtended, Name: "json-extended", Flag: true, RequiresIfBoolean: true, Spelling: "--json-extended", Overrides: []uint64{FlagEnvShell}},
 	{Key: FlagEnvRedacted, Name: "redacted", Flag: true, RequiresIfBoolean: true, Spelling: "--redacted"},
 	{Key: FlagEnvValues, Name: "values", Flag: true, RequiresIfBoolean: true, Spelling: "--values"},
 	{Key: ArgEnvToolVersion, Name: "TOOL@VERSION"},
 	{},
-	{Key: FlagExecCommand, Name: "command", Flag: true, Spelling: "--command", ValueName: "C"},
-	{Key: FlagExecJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
+	{Key: FlagExecCommand, Name: "command", Flag: true, Spelling: "--command", ValueName: "COMMAND", Conflicts: []uint64{ArgExecCommand}},
+	{Key: FlagExecJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS", Env: "MISE_JOBS"},
 	{Key: FlagExecAllowEnv, Name: "allow-env", Flag: true, Spelling: "--allow-env", ValueName: "VAR"},
 	{Key: FlagExecAllowNet, Name: "allow-net", Flag: true, Spelling: "--allow-net", ValueName: "HOST"},
 	{Key: FlagExecAllowRead, Name: "allow-read", Flag: true, Spelling: "--allow-read", ValueName: "PATH"},
@@ -4187,9 +4220,9 @@ var Meta = argv.Metadata{
 	{Key: FlagExecDenyWrite, Name: "deny-write", Flag: true, RequiresIfBoolean: true, Spelling: "--deny-write"},
 	{Key: FlagExecFreshEnv, Name: "fresh-env", Flag: true, RequiresIfBoolean: true, Spelling: "--fresh-env"},
 	{Key: FlagExecNoDeps, Name: "no-deps", Flag: true, RequiresIfBoolean: true, Spelling: "--no-deps"},
-	{Key: FlagExecRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
+	{Key: FlagExecRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw", Overrides: []uint64{FlagExecJobs}},
 	{Key: ArgExecToolVersion, Name: "TOOL@VERSION"},
-	{Key: ArgExecCommand, Name: "COMMAND"},
+	{Key: ArgExecCommand, Name: "COMMAND", Conflicts: []uint64{FlagExecCommand}, RequiredUnless: []uint64{FlagExecCommand}},
 	{},
 	{Key: FlagFmtAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
 	{Key: FlagFmtCheck, Name: "check", Flag: true, RequiresIfBoolean: true, Spelling: "--check"},
@@ -4200,8 +4233,9 @@ var Meta = argv.Metadata{
 	{Key: FlagGenerateBootstrapVersion, Name: "version", Flag: true, Spelling: "--version", ValueName: "VERSION"},
 	{Key: FlagGenerateBootstrapWrite, Name: "write", Flag: true, Spelling: "--write", ValueName: "WRITE"},
 	{Key: FlagGenerateBootstrapLocalizedDir, Name: "localized-dir", Flag: true, Spelling: "--localized-dir", ValueName: "LOCALIZED_DIR", Default: []string{".mise"}},
+	{Key: FlagGenerateBootstrapWindows, Name: "windows", Flag: true, RequiresIfBoolean: true, Spelling: "--windows", Requires: []uint64{FlagGenerateBootstrapWrite}},
 	{},
-	{Key: FlagGenerateConfigGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
+	{Key: FlagGenerateConfigGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Conflicts: []uint64{ArgGenerateConfigPath}},
 	{Key: FlagGenerateConfigDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagGenerateConfigToolVersions, Name: "tool-versions", Flag: true, Spelling: "--tool-versions", ValueName: "TOOL_VERSIONS"},
 	{Key: ArgGenerateConfigPath, Name: "PATH"},
@@ -4214,6 +4248,7 @@ var Meta = argv.Metadata{
 	{Key: FlagGenerateGitPreCommitTask, Name: "task", Flag: true, Spelling: "--task", ValueName: "TASK", Default: []string{"pre-commit"}},
 	{Key: FlagGenerateGitPreCommitWrite, Name: "write", Flag: true, RequiresIfBoolean: true, Spelling: "--write"},
 	{Key: FlagGenerateGitPreCommitHook, Name: "hook", Flag: true, Spelling: "--hook", ValueName: "HOOK", Default: []string{"pre-commit"}},
+	{Key: ArgGenerateGitPreCommitMiseArg, Name: "MISE_ARG"},
 	{},
 	{Key: FlagGenerateGithubActionTask, Name: "task", Flag: true, Spelling: "--task", ValueName: "TASK", Default: []string{"ci"}},
 	{Key: FlagGenerateGithubActionWrite, Name: "write", Flag: true, RequiresIfBoolean: true, Spelling: "--write"},
@@ -4226,15 +4261,16 @@ var Meta = argv.Metadata{
 	{Key: FlagGenerateTaskDocsRoot, Name: "root", Flag: true, Spelling: "--root", ValueName: "ROOT"},
 	{Key: FlagGenerateTaskDocsStyle, Name: "style", Flag: true, Spelling: "--style", ValueName: "STYLE", Choices: []string{"simple", "detailed"}, AcceptedChoices: []string{"simple", "detailed"}, Default: []string{"simple"}},
 	{},
-	{Key: FlagGenerateTaskStubsDir, Name: "dir", Flag: true, Spelling: "--dir", ValueName: "DIR", Default: []string{"bin"}},
+	{Key: FlagGenerateTaskStubsDir, Name: "dir", Flag: true, Spelling: "--dir", ValueName: "DIR", CompleteType: "dir", Default: []string{"bin"}},
 	{Key: FlagGenerateTaskStubsMiseBin, Name: "mise-bin", Flag: true, Spelling: "--mise-bin", ValueName: "MISE_BIN", Default: []string{"mise"}},
 	{},
 	{Key: FlagGenerateToolStubBin, Name: "bin", Flag: true, Spelling: "--bin", ValueName: "BIN"},
 	{Key: FlagGenerateToolStubBootstrap, Name: "bootstrap", Flag: true, RequiresIfBoolean: true, Spelling: "--bootstrap"},
-	{Key: FlagGenerateToolStubBootstrapVersion, Name: "bootstrap-version", Flag: true, Spelling: "--bootstrap-version", ValueName: "BOOTSTRAP_VERSION"},
-	{Key: FlagGenerateToolStubFetch, Name: "fetch", Flag: true, RequiresIfBoolean: true, Spelling: "--fetch"},
+	{Key: FlagGenerateToolStubBootstrapVersion, Name: "bootstrap-version", Flag: true, Spelling: "--bootstrap-version", ValueName: "BOOTSTRAP_VERSION", Requires: []uint64{FlagGenerateToolStubBootstrap}},
+	{Key: FlagGenerateToolStubChecksumAlgorithm, Name: "checksum-algorithm", Flag: true, Spelling: "--checksum-algorithm", ValueName: "CHECKSUM_ALGORITHM", Choices: []string{"blake3", "sha256"}, AcceptedChoices: []string{"blake3", "sha256"}, Default: []string{"blake3"}, Conflicts: []uint64{FlagGenerateToolStubLock, FlagGenerateToolStubSkipDownload}},
+	{Key: FlagGenerateToolStubFetch, Name: "fetch", Flag: true, RequiresIfBoolean: true, Spelling: "--fetch", Conflicts: []uint64{FlagGenerateToolStubUrl, FlagGenerateToolStubPlatformUrl, FlagGenerateToolStubVersion, FlagGenerateToolStubBin, FlagGenerateToolStubPlatformBin, FlagGenerateToolStubSkipDownload, FlagGenerateToolStubLock}},
 	{Key: FlagGenerateToolStubHttp, Name: "http", Flag: true, Spelling: "--http", ValueName: "HTTP", Default: []string{"http"}},
-	{Key: FlagGenerateToolStubLock, Name: "lock", Flag: true, RequiresIfBoolean: true, Spelling: "--lock"},
+	{Key: FlagGenerateToolStubLock, Name: "lock", Flag: true, RequiresIfBoolean: true, Spelling: "--lock", Conflicts: []uint64{FlagGenerateToolStubUrl, FlagGenerateToolStubPlatformUrl, FlagGenerateToolStubBin, FlagGenerateToolStubPlatformBin, FlagGenerateToolStubFetch, FlagGenerateToolStubSkipDownload}},
 	{Key: FlagGenerateToolStubPlatformBin, Name: "platform-bin", Flag: true, Spelling: "--platform-bin", ValueName: "PLATFORM_BIN"},
 	{Key: FlagGenerateToolStubPlatformUrl, Name: "platform-url", Flag: true, Spelling: "--platform-url", ValueName: "PLATFORM_URL"},
 	{Key: FlagGenerateToolStubSkipDownload, Name: "skip-download", Flag: true, RequiresIfBoolean: true, Spelling: "--skip-download"},
@@ -4245,50 +4281,51 @@ var Meta = argv.Metadata{
 	{},
 	{Key: FlagGithubTokenOauth, Name: "oauth", Flag: true, RequiresIfBoolean: true, Spelling: "--oauth"},
 	{Key: FlagGithubTokenRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
-	{Key: FlagGithubTokenRefresh, Name: "refresh", Flag: true, RequiresIfBoolean: true, Spelling: "--refresh"},
+	{Key: FlagGithubTokenRefresh, Name: "refresh", Flag: true, RequiresIfBoolean: true, Spelling: "--refresh", Requires: []uint64{FlagGithubTokenOauth}},
 	{Key: FlagGithubTokenUnmask, Name: "unmask", Flag: true, RequiresIfBoolean: true, Spelling: "--unmask"},
 	{Key: ArgGithubTokenHost, Name: "HOST", Default: []string{"github.com"}},
 	{},
-	{Key: FlagGlobalFuzzy, Name: "fuzzy", Flag: true, RequiresIfBoolean: true, Spelling: "--fuzzy"},
+	{Key: FlagGlobalFuzzy, Name: "fuzzy", Flag: true, RequiresIfBoolean: true, Spelling: "--fuzzy", Overrides: []uint64{FlagGlobalPin}},
 	{Key: FlagGlobalPath, Name: "path", Flag: true, RequiresIfBoolean: true, Spelling: "--path"},
-	{Key: FlagGlobalPin, Name: "pin", Flag: true, RequiresIfBoolean: true, Spelling: "--pin"},
+	{Key: FlagGlobalPin, Name: "pin", Flag: true, RequiresIfBoolean: true, Spelling: "--pin", Overrides: []uint64{FlagGlobalFuzzy}},
 	{Key: FlagGlobalRemove, Name: "remove", Flag: true, Spelling: "--remove", ValueName: "TOOL"},
 	{Key: ArgGlobalToolVersion, Name: "TOOL@VERSION"},
 	{},
 	{Key: FlagHookEnvForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
 	{Key: FlagHookEnvQuiet, Name: "quiet", Flag: true, RequiresIfBoolean: true, Spelling: "--quiet"},
-	{Key: FlagHookEnvShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL", Choices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}, AcceptedChoices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}},
+	{Key: FlagHookEnvShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL"},
 	{Key: FlagHookEnvReason, Name: "reason", Flag: true, Spelling: "--reason", ValueName: "REASON", Choices: []string{"precmd", "chpwd"}, AcceptedChoices: []string{"precmd", "chpwd"}},
 	{Key: FlagHookEnvStatus, Name: "status", Flag: true, RequiresIfBoolean: true, Spelling: "--status"},
 	{},
-	{Key: FlagHookNotFoundShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL", Choices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}, AcceptedChoices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}},
+	{Key: FlagHookNotFoundShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL"},
 	{Key: ArgHookNotFoundBin, Name: "BIN", Required: true},
 	{},
 	{Key: FlagImplodeDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagImplodeConfig, Name: "config", Flag: true, RequiresIfBoolean: true, Spelling: "--config"},
 	{},
-	{Key: FlagEditGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
+	{Key: FlagEditGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Conflicts: []uint64{ArgEditPath}},
 	{Key: FlagEditDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagEditToolVersions, Name: "tool-versions", Flag: true, Spelling: "--tool-versions", ValueName: "TOOL_VERSIONS"},
 	{Key: ArgEditPath, Name: "PATH"},
 	{},
 	{Key: FlagInstallForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
-	{Key: FlagInstallJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
+	{Key: FlagInstallJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS", Env: "MISE_JOBS"},
 	{Key: FlagInstallDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagInstallVerbose, Name: "verbose", Flag: true, RequiresIfBoolean: true, Spelling: "--verbose"},
 	{Key: FlagInstallDryRunCode, Name: "dry-run-code", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run-code"},
+	{Key: FlagInstallIncludeTaskTools, Name: "include-task-tools", Flag: true, RequiresIfBoolean: true, Spelling: "--include-task-tools"},
 	{Key: FlagInstallMinimumReleaseAge, Name: "minimum-release-age", Flag: true, Spelling: "--minimum-release-age", ValueName: "MINIMUM_RELEASE_AGE"},
-	{Key: FlagInstallMonorepo, Name: "monorepo", Flag: true, RequiresIfBoolean: true, Spelling: "--monorepo"},
-	{Key: FlagInstallRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
-	{Key: FlagInstallShared, Name: "shared", Flag: true, Spelling: "--shared", ValueName: "SHARED"},
-	{Key: FlagInstallSystem, Name: "system", Flag: true, RequiresIfBoolean: true, Spelling: "--system"},
+	{Key: FlagInstallMonorepo, Name: "monorepo", Flag: true, RequiresIfBoolean: true, Spelling: "--monorepo", Env: "MISE_MONOREPO"},
+	{Key: FlagInstallRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw", Overrides: []uint64{FlagInstallJobs}},
+	{Key: FlagInstallShared, Name: "shared", Flag: true, Spelling: "--shared", ValueName: "SHARED", Conflicts: []uint64{FlagInstallSystem}},
+	{Key: FlagInstallSystem, Name: "system", Flag: true, RequiresIfBoolean: true, Spelling: "--system", Conflicts: []uint64{FlagInstallShared}},
 	{Key: ArgInstallToolVersion, Name: "TOOL@VERSION"},
 	{},
 	{Key: ArgInstallIntoToolVersion, Name: "TOOL@VERSION", Required: true},
 	{Key: ArgInstallIntoPath, Name: "PATH", Required: true},
 	{},
 	{Key: FlagLatestInstalled, Name: "installed", Flag: true, RequiresIfBoolean: true, Spelling: "--installed"},
-	{Key: FlagLatestMinimumReleaseAge, Name: "minimum-release-age", Flag: true, Spelling: "--minimum-release-age", ValueName: "MINIMUM_RELEASE_AGE"},
+	{Key: FlagLatestMinimumReleaseAge, Name: "minimum-release-age", Flag: true, Spelling: "--minimum-release-age", ValueName: "MINIMUM_RELEASE_AGE", Conflicts: []uint64{FlagLatestInstalled}},
 	{Key: ArgLatestToolVersion, Name: "TOOL@VERSION", Required: true},
 	{Key: ArgLatestAsdfVersion, Name: "ASDF_VERSION"},
 	{},
@@ -4297,14 +4334,14 @@ var Meta = argv.Metadata{
 	{Key: ArgLinkPath, Name: "PATH", Required: true},
 	{},
 	{Key: FlagLocalParent, Name: "parent", Flag: true, RequiresIfBoolean: true, Spelling: "--parent"},
-	{Key: FlagLocalFuzzy, Name: "fuzzy", Flag: true, RequiresIfBoolean: true, Spelling: "--fuzzy"},
+	{Key: FlagLocalFuzzy, Name: "fuzzy", Flag: true, RequiresIfBoolean: true, Spelling: "--fuzzy", Overrides: []uint64{FlagLocalPin}},
 	{Key: FlagLocalPath, Name: "path", Flag: true, RequiresIfBoolean: true, Spelling: "--path"},
-	{Key: FlagLocalPin, Name: "pin", Flag: true, RequiresIfBoolean: true, Spelling: "--pin"},
+	{Key: FlagLocalPin, Name: "pin", Flag: true, RequiresIfBoolean: true, Spelling: "--pin", Overrides: []uint64{FlagLocalFuzzy}},
 	{Key: FlagLocalRemove, Name: "remove", Flag: true, Spelling: "--remove", ValueName: "TOOL"},
 	{Key: ArgLocalToolVersion, Name: "TOOL@VERSION"},
 	{},
 	{Key: FlagLockGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
-	{Key: FlagLockJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
+	{Key: FlagLockJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS", Env: "MISE_JOBS"},
 	{Key: FlagLockDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagLockPlatform, Name: "platform", Flag: true, Spelling: "--platform", ValueName: "PLATFORM"},
 	{Key: FlagLockBump, Name: "bump", Flag: true, RequiresIfBoolean: true, Spelling: "--bump"},
@@ -4314,28 +4351,28 @@ var Meta = argv.Metadata{
 	{Key: ArgLockTool, Name: "TOOL"},
 	{},
 	{Key: FlagLsCurrent, Name: "current", Flag: true, RequiresIfBoolean: true, Spelling: "--current"},
-	{Key: FlagLsGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
+	{Key: FlagLsGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Conflicts: []uint64{FlagLsLocal}},
 	{Key: FlagLsInstalled, Name: "installed", Flag: true, RequiresIfBoolean: true, Spelling: "--installed"},
 	{Key: FlagLsJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
-	{Key: FlagLsLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
-	{Key: FlagLsMissing, Name: "missing", Flag: true, RequiresIfBoolean: true, Spelling: "--missing"},
+	{Key: FlagLsLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local", Conflicts: []uint64{FlagLsGlobal}},
+	{Key: FlagLsMissing, Name: "missing", Flag: true, RequiresIfBoolean: true, Spelling: "--missing", Conflicts: []uint64{FlagLsInstalled}},
 	{Key: FlagLsOffline, Name: "offline", Flag: true, RequiresIfBoolean: true, Spelling: "--offline"},
-	{Key: FlagLsPlugin, Name: "plugin", Flag: true, Spelling: "--plugin", ValueName: "TOOL_FLAG"},
-	{Key: FlagLsAllSources, Name: "all-sources", Flag: true, RequiresIfBoolean: true, Spelling: "--all-sources"},
-	{Key: FlagLsMonorepo, Name: "monorepo", Flag: true, RequiresIfBoolean: true, Spelling: "--monorepo"},
-	{Key: FlagLsNoHeader, Name: "no-header", Flag: true, RequiresIfBoolean: true, Spelling: "--no-header"},
+	{Key: FlagLsPlugin, Name: "plugin", Flag: true, Spelling: "--plugin", ValueName: "PLUGIN"},
+	{Key: FlagLsAllSources, Name: "all-sources", Flag: true, RequiresIfBoolean: true, Spelling: "--all-sources", Conflicts: []uint64{FlagLsCurrent, FlagLsGlobal, FlagLsLocal, FlagLsPrunable}},
+	{Key: FlagLsMonorepo, Name: "monorepo", Flag: true, RequiresIfBoolean: true, Spelling: "--monorepo", Env: "MISE_MONOREPO", Conflicts: []uint64{FlagLsAllSources, FlagLsPrunable}},
+	{Key: FlagLsNoHeader, Name: "no-header", Flag: true, RequiresIfBoolean: true, Spelling: "--no-header", Conflicts: []uint64{FlagLsJson}},
 	{Key: FlagLsOutdated, Name: "outdated", Flag: true, RequiresIfBoolean: true, Spelling: "--outdated"},
-	{Key: FlagLsPrefix, Name: "prefix", Flag: true, Spelling: "--prefix", ValueName: "PREFIX"},
+	{Key: FlagLsPrefix, Name: "prefix", Flag: true, Spelling: "--prefix", ValueName: "PREFIX", Requires: []uint64{ArgLsInstalledTool}},
 	{Key: FlagLsPrunable, Name: "prunable", Flag: true, RequiresIfBoolean: true, Spelling: "--prunable"},
-	{Key: ArgLsInstalledTool, Name: "INSTALLED_TOOL"},
+	{Key: ArgLsInstalledTool, Name: "INSTALLED_TOOL", Conflicts: []uint64{FlagLsPlugin}},
 	{},
-	{Key: FlagLsRemoteAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
+	{Key: FlagLsRemoteAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all", Conflicts: []uint64{ArgLsRemoteToolVersion, ArgLsRemotePrefix}},
 	{Key: FlagLsRemoteMinimumReleaseAge, Name: "minimum-release-age", Flag: true, Spelling: "--minimum-release-age", ValueName: "MINIMUM_RELEASE_AGE"},
 	{Key: FlagLsRemoteJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
 	{Key: FlagLsRemoteNoVersionsHost, Name: "no-versions-host", Flag: true, RequiresIfBoolean: true, Spelling: "--no-versions-host"},
 	{Key: FlagLsRemotePrerelease, Name: "prerelease", Flag: true, RequiresIfBoolean: true, Spelling: "--prerelease"},
-	{Key: FlagLsRemoteStrictMetadata, Name: "strict-metadata", Flag: true, RequiresIfBoolean: true, Spelling: "--strict-metadata"},
-	{Key: ArgLsRemoteToolVersion, Name: "TOOL@VERSION"},
+	{Key: FlagLsRemoteStrictMetadata, Name: "strict-metadata", Flag: true, RequiresIfBoolean: true, Spelling: "--strict-metadata", Requires: []uint64{FlagLsRemoteJson, FlagLsRemoteNoVersionsHost}},
+	{Key: ArgLsRemoteToolVersion, Name: "TOOL@VERSION", RequiredUnless: []uint64{FlagLsRemoteAll}},
 	{Key: ArgLsRemotePrefix, Name: "PREFIX"},
 	{},
 	{},
@@ -4349,9 +4386,9 @@ var Meta = argv.Metadata{
 	{Key: FlagOciBuildNoMise, Name: "no-mise", Flag: true, RequiresIfBoolean: true, Spelling: "--no-mise"},
 	{Key: FlagOciBuildOwner, Name: "owner", Flag: true, Spelling: "--owner", ValueName: "UID[:GID]"},
 	{},
-	{Key: FlagOciPushCacheFrom, Name: "cache-from", Flag: true, Spelling: "--cache-from", ValueName: "REF"},
+	{Key: FlagOciPushCacheFrom, Name: "cache-from", Flag: true, Spelling: "--cache-from", ValueName: "REF", Conflicts: []uint64{FlagOciPushNoCache, FlagOciPushImageDir}},
 	{Key: FlagOciPushFrom, Name: "from", Flag: true, Spelling: "--from", ValueName: "FROM"},
-	{Key: FlagOciPushImageDir, Name: "image-dir", Flag: true, Spelling: "--image-dir", ValueName: "IMAGE_DIR"},
+	{Key: FlagOciPushImageDir, Name: "image-dir", Flag: true, Spelling: "--image-dir", ValueName: "IMAGE_DIR", Conflicts: []uint64{FlagOciPushFrom, FlagOciPushMountPoint, FlagOciPushNoMise, FlagOciPushOwner, FlagOciPushIncludeGlobal}},
 	{Key: FlagOciPushIncludeGlobal, Name: "include-global", Flag: true, RequiresIfBoolean: true, Spelling: "--include-global"},
 	{Key: FlagOciPushMountPoint, Name: "mount-point", Flag: true, Spelling: "--mount-point", ValueName: "MOUNT_POINT"},
 	{Key: FlagOciPushNoCache, Name: "no-cache", Flag: true, RequiresIfBoolean: true, Spelling: "--no-cache"},
@@ -4362,7 +4399,7 @@ var Meta = argv.Metadata{
 	{},
 	{Key: FlagOciRunEngine, Name: "engine", Flag: true, Spelling: "--engine", ValueName: "ENGINE", Choices: []string{"auto", "podman", "docker"}, AcceptedChoices: []string{"auto", "podman", "docker"}, Default: []string{"auto"}},
 	{Key: FlagOciRunFrom, Name: "from", Flag: true, Spelling: "--from", ValueName: "FROM"},
-	{Key: FlagOciRunImageDir, Name: "image-dir", Flag: true, Spelling: "--image-dir", ValueName: "IMAGE_DIR"},
+	{Key: FlagOciRunImageDir, Name: "image-dir", Flag: true, Spelling: "--image-dir", ValueName: "IMAGE_DIR", Conflicts: []uint64{FlagOciRunFrom, FlagOciRunMountPoint, FlagOciRunNoMise, FlagOciRunOwner, FlagOciRunIncludeGlobal}},
 	{Key: FlagOciRunIncludeGlobal, Name: "include-global", Flag: true, RequiresIfBoolean: true, Spelling: "--include-global"},
 	{Key: FlagOciRunKeep, Name: "keep", Flag: true, RequiresIfBoolean: true, Spelling: "--keep"},
 	{Key: FlagOciRunMountPoint, Name: "mount-point", Flag: true, Spelling: "--mount-point", ValueName: "MOUNT_POINT"},
@@ -4375,9 +4412,10 @@ var Meta = argv.Metadata{
 	{Key: FlagOciRunWorkdir, Name: "workdir", Flag: true, Spelling: "--workdir", ValueName: "WORKDIR"},
 	{Key: ArgOciRunCmd, Name: "CMD"},
 	{},
-	{Key: FlagOutdatedJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
 	{Key: FlagOutdatedBump, Name: "bump", Flag: true, RequiresIfBoolean: true, Spelling: "--bump"},
-	{Key: FlagOutdatedInactive, Name: "inactive", Flag: true, RequiresIfBoolean: true, Spelling: "--inactive"},
+	{Key: FlagOutdatedJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
+	{Key: FlagOutdatedL, Name: "l", Flag: true, RequiresIfBoolean: true, Spelling: "-l"},
+	{Key: FlagOutdatedInactive, Name: "inactive", Flag: true, RequiresIfBoolean: true, Spelling: "--inactive", Conflicts: []uint64{FlagOutdatedLocal}},
 	{Key: FlagOutdatedLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
 	{Key: FlagOutdatedMonorepo, Name: "monorepo", Flag: true, RequiresIfBoolean: true, Spelling: "--monorepo"},
 	{Key: FlagOutdatedNoHeader, Name: "no-header", Flag: true, RequiresIfBoolean: true, Spelling: "--no-header"},
@@ -4387,34 +4425,34 @@ var Meta = argv.Metadata{
 	{Key: FlagPatronsRefresh, Name: "refresh", Flag: true, RequiresIfBoolean: true, Spelling: "--refresh"},
 	{},
 	{Key: FlagPluginsAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
-	{Key: FlagPluginsCore, Name: "core", Flag: true, RequiresIfBoolean: true, Spelling: "--core"},
+	{Key: FlagPluginsCore, Name: "core", Flag: true, RequiresIfBoolean: true, Spelling: "--core", Conflicts: []uint64{FlagPluginsAll}},
 	{Key: FlagPluginsUrls, Name: "urls", Flag: true, RequiresIfBoolean: true, Spelling: "--urls"},
 	{Key: FlagPluginsRefs, Name: "refs", Flag: true, RequiresIfBoolean: true, Spelling: "--refs"},
-	{Key: FlagPluginsUser, Name: "user", Flag: true, RequiresIfBoolean: true, Spelling: "--user"},
+	{Key: FlagPluginsUser, Name: "user", Flag: true, RequiresIfBoolean: true, Spelling: "--user", Conflicts: []uint64{FlagPluginsAll}},
 	{},
-	{Key: FlagPluginsInstallAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
+	{Key: FlagPluginsInstallAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all", Conflicts: []uint64{ArgPluginsInstallNewPlugin, FlagPluginsInstallForce}},
 	{Key: FlagPluginsInstallForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
 	{Key: FlagPluginsInstallJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
 	{Key: FlagPluginsInstallVerbose, Name: "verbose", Flag: true, RequiresIfBoolean: true, Spelling: "--verbose"},
-	{Key: ArgPluginsInstallNewPlugin, Name: "NEW_PLUGIN"},
+	{Key: ArgPluginsInstallNewPlugin, Name: "NEW_PLUGIN", RequiredUnless: []uint64{FlagPluginsInstallAll}},
 	{Key: ArgPluginsInstallGitUrl, Name: "GIT_URL"},
 	{Key: ArgPluginsInstallRest, Name: "REST"},
 	{},
 	{Key: FlagPluginsLinkForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
 	{Key: ArgPluginsLinkName, Name: "NAME", Required: true},
-	{Key: ArgPluginsLinkDir, Name: "DIR"},
+	{Key: ArgPluginsLinkDir, Name: "DIR", CompleteType: "dir"},
 	{},
 	{Key: FlagPluginsLsAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
-	{Key: FlagPluginsLsCore, Name: "core", Flag: true, RequiresIfBoolean: true, Spelling: "--core"},
+	{Key: FlagPluginsLsCore, Name: "core", Flag: true, RequiresIfBoolean: true, Spelling: "--core", Conflicts: []uint64{FlagPluginsLsAll}},
 	{Key: FlagPluginsLsOutdated, Name: "outdated", Flag: true, RequiresIfBoolean: true, Spelling: "--outdated"},
 	{Key: FlagPluginsLsUrls, Name: "urls", Flag: true, RequiresIfBoolean: true, Spelling: "--urls"},
 	{Key: FlagPluginsLsRefs, Name: "refs", Flag: true, RequiresIfBoolean: true, Spelling: "--refs"},
-	{Key: FlagPluginsLsUser, Name: "user", Flag: true, RequiresIfBoolean: true, Spelling: "--user"},
+	{Key: FlagPluginsLsUser, Name: "user", Flag: true, RequiresIfBoolean: true, Spelling: "--user", Conflicts: []uint64{FlagPluginsLsAll}},
 	{},
 	{Key: FlagPluginsLsRemoteUrls, Name: "urls", Flag: true, RequiresIfBoolean: true, Spelling: "--urls"},
 	{Key: FlagPluginsLsRemoteOnlyNames, Name: "only-names", Flag: true, RequiresIfBoolean: true, Spelling: "--only-names"},
 	{},
-	{Key: FlagPluginsUninstallAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
+	{Key: FlagPluginsUninstallAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all", Conflicts: []uint64{ArgPluginsUninstallPlugin}},
 	{Key: FlagPluginsUninstallPurge, Name: "purge", Flag: true, RequiresIfBoolean: true, Spelling: "--purge"},
 	{Key: ArgPluginsUninstallPlugin, Name: "PLUGIN"},
 	{},
@@ -4425,7 +4463,7 @@ var Meta = argv.Metadata{
 	{Key: FlagDepsForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
 	{Key: FlagDepsDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagDepsList, Name: "list", Flag: true, RequiresIfBoolean: true, Spelling: "--list"},
-	{Key: FlagDepsMonorepo, Name: "monorepo", Flag: true, RequiresIfBoolean: true, Spelling: "--monorepo"},
+	{Key: FlagDepsMonorepo, Name: "monorepo", Flag: true, RequiresIfBoolean: true, Spelling: "--monorepo", Env: "MISE_MONOREPO"},
 	{Key: FlagDepsOnly, Name: "only", Flag: true, Spelling: "--only", ValueName: "ONLY"},
 	{Key: FlagDepsSkip, Name: "skip", Flag: true, Spelling: "--skip", ValueName: "SKIP"},
 	{Key: ArgDepsProvider, Name: "PROVIDER"},
@@ -4437,7 +4475,7 @@ var Meta = argv.Metadata{
 	{Key: FlagDepsInstallForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
 	{Key: FlagDepsInstallDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagDepsInstallList, Name: "list", Flag: true, RequiresIfBoolean: true, Spelling: "--list"},
-	{Key: FlagDepsInstallMonorepo, Name: "monorepo", Flag: true, RequiresIfBoolean: true, Spelling: "--monorepo"},
+	{Key: FlagDepsInstallMonorepo, Name: "monorepo", Flag: true, RequiresIfBoolean: true, Spelling: "--monorepo", Env: "MISE_MONOREPO"},
 	{Key: FlagDepsInstallOnly, Name: "only", Flag: true, Spelling: "--only", ValueName: "ONLY"},
 	{Key: FlagDepsInstallSkip, Name: "skip", Flag: true, Spelling: "--skip", ValueName: "SKIP"},
 	{Key: ArgDepsInstallProvider, Name: "PROVIDER"},
@@ -4455,7 +4493,7 @@ var Meta = argv.Metadata{
 	{Key: FlagRegistryComplete, Name: "complete", Flag: true, RequiresIfBoolean: true, Spelling: "--complete"},
 	{Key: FlagRegistryHideAliased, Name: "hide-aliased", Flag: true, RequiresIfBoolean: true, Spelling: "--hide-aliased"},
 	{Key: FlagRegistryJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
-	{Key: FlagRegistrySecurity, Name: "security", Flag: true, RequiresIfBoolean: true, Spelling: "--security"},
+	{Key: FlagRegistrySecurity, Name: "security", Flag: true, RequiresIfBoolean: true, Spelling: "--security", Requires: []uint64{FlagRegistryJson}},
 	{Key: ArgRegistryName, Name: "NAME"},
 	{},
 	{},
@@ -4464,20 +4502,21 @@ var Meta = argv.Metadata{
 	{Key: ArgReshimVersion, Name: "VERSION"},
 	{},
 	{Key: FlagRunAffected, Name: "affected", Flag: true, RequiresIfBoolean: true, Spelling: "--affected"},
-	{Key: FlagRunAffectedBase, Name: "affected-base", Flag: true, Spelling: "--affected-base", ValueName: "REV"},
-	{Key: FlagRunAffectedExplain, Name: "affected-explain", Flag: true, RequiresIfBoolean: true, Spelling: "--affected-explain"},
-	{Key: FlagRunAffectedHead, Name: "affected-head", Flag: true, Spelling: "--affected-head", ValueName: "REV"},
-	{Key: FlagRunAffectedJson, Name: "affected-json", Flag: true, RequiresIfBoolean: true, Spelling: "--affected-json"},
+	{Key: FlagRunAffectedBase, Name: "affected-base", Flag: true, Spelling: "--affected-base", ValueName: "REV", Requires: []uint64{FlagRunAffected}},
+	{Key: FlagRunAffectedExplain, Name: "affected-explain", Flag: true, RequiresIfBoolean: true, Spelling: "--affected-explain", Conflicts: []uint64{FlagRunAffectedJson}, Requires: []uint64{FlagRunAffected}},
+	{Key: FlagRunAffectedHead, Name: "affected-head", Flag: true, Spelling: "--affected-head", ValueName: "REV", Requires: []uint64{FlagRunAffected}},
+	{Key: FlagRunAffectedJson, Name: "affected-json", Flag: true, RequiresIfBoolean: true, Spelling: "--affected-json", Conflicts: []uint64{FlagRunAffectedExplain}, Requires: []uint64{FlagRunAffected}},
+	{Key: FlagRunAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all", Conflicts: []uint64{FlagRunAffected}},
 	{Key: FlagRunContinueOnError, Name: "continue-on-error", Flag: true, RequiresIfBoolean: true, Spelling: "--continue-on-error"},
 	{Key: FlagRunCd, Name: "cd", Flag: true, Spelling: "--cd", ValueName: "CD"},
 	{Key: FlagRunForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
-	{Key: FlagRunJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
+	{Key: FlagRunJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS", Env: "MISE_JOBS"},
 	{Key: FlagRunDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
-	{Key: FlagRunOutput, Name: "output", Flag: true, Spelling: "--output", ValueName: "OUTPUT"},
-	{Key: FlagRunQuiet, Name: "quiet", Flag: true, RequiresIfBoolean: true, Spelling: "--quiet"},
+	{Key: FlagRunOutput, Name: "output", Flag: true, Spelling: "--output", ValueName: "OUTPUT", Env: "MISE_TASK_OUTPUT"},
+	{Key: FlagRunQuiet, Name: "quiet", Flag: true, RequiresIfBoolean: true, Spelling: "--quiet", Env: "MISE_QUIET"},
 	{Key: FlagRunRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
 	{Key: FlagRunShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL"},
-	{Key: FlagRunSilent, Name: "silent", Flag: true, RequiresIfBoolean: true, Spelling: "--silent"},
+	{Key: FlagRunSilent, Name: "silent", Flag: true, RequiresIfBoolean: true, Spelling: "--silent", Env: "MISE_SILENT"},
 	{Key: FlagRunTool, Name: "tool", Flag: true, Spelling: "--tool", ValueName: "TOOL@VERSION"},
 	{Key: FlagRunAllowEnv, Name: "allow-env", Flag: true, Spelling: "--allow-env", ValueName: "VAR"},
 	{Key: FlagRunAllowNet, Name: "allow-net", Flag: true, Spelling: "--allow-net", ValueName: "HOST"},
@@ -4489,19 +4528,19 @@ var Meta = argv.Metadata{
 	{Key: FlagRunDenyRead, Name: "deny-read", Flag: true, RequiresIfBoolean: true, Spelling: "--deny-read"},
 	{Key: FlagRunDenyWrite, Name: "deny-write", Flag: true, RequiresIfBoolean: true, Spelling: "--deny-write"},
 	{Key: FlagRunFreshEnv, Name: "fresh-env", Flag: true, RequiresIfBoolean: true, Spelling: "--fresh-env"},
-	{Key: FlagRunNoCache, Name: "no-cache", Flag: true, RequiresIfBoolean: true, Spelling: "--no-cache"},
+	{Key: FlagRunNoCache, Name: "no-cache", Flag: true, RequiresIfBoolean: true, Spelling: "--no-cache", Env: "MISE_TASK_REMOTE_NO_CACHE"},
 	{Key: FlagRunNoDeps, Name: "no-deps", Flag: true, RequiresIfBoolean: true, Spelling: "--no-deps"},
 	{Key: FlagRunNoTimings, Name: "no-timings", Flag: true, RequiresIfBoolean: true, Spelling: "--no-timings"},
-	{Key: FlagRunSkipDeps, Name: "skip-deps", Flag: true, RequiresIfBoolean: true, Spelling: "--skip-deps"},
+	{Key: FlagRunSkipDeps, Name: "skip-deps", Flag: true, RequiresIfBoolean: true, Spelling: "--skip-deps", Env: "MISE_TASK_SKIP_DEPENDS"},
 	{Key: FlagRunSkipTools, Name: "skip-tools", Flag: true, RequiresIfBoolean: true, Spelling: "--skip-tools"},
-	{Key: FlagRunTaskCache, Name: "task-cache", Flag: true, Spelling: "--task-cache", ValueName: "TASK_CACHE", Choices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, AcceptedChoices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, Default: []string{"read-write"}},
+	{Key: FlagRunTaskCache, Name: "task-cache", Flag: true, Spelling: "--task-cache", ValueName: "TASK_CACHE", Choices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, AcceptedChoices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, Default: []string{"read-write"}, Env: "MISE_TASK_CACHE"},
 	{Key: FlagRunTaskCacheExplain, Name: "task-cache-explain", Flag: true, RequiresIfBoolean: true, Spelling: "--task-cache-explain"},
-	{Key: FlagRunTaskCacheExplainJson, Name: "task-cache-explain-json", Flag: true, RequiresIfBoolean: true, Spelling: "--task-cache-explain-json"},
-	{Key: FlagRunTaskCacheStats, Name: "task-cache-stats", Flag: true, RequiresIfBoolean: true, Spelling: "--task-cache-stats"},
+	{Key: FlagRunTaskCacheExplainJson, Name: "task-cache-explain-json", Flag: true, RequiresIfBoolean: true, Spelling: "--task-cache-explain-json", Conflicts: []uint64{FlagRunTaskCacheExplain}, Requires: []uint64{FlagRunDryRun}},
+	{Key: FlagRunTaskCacheStats, Name: "task-cache-stats", Flag: true, RequiresIfBoolean: true, Spelling: "--task-cache-stats", Conflicts: []uint64{FlagRunDryRun}},
 	{Key: FlagRunTimeout, Name: "timeout", Flag: true, Spelling: "--timeout", ValueName: "TIMEOUT"},
 	{Key: FlagRunTimings, Name: "timings", Flag: true, RequiresIfBoolean: true, Spelling: "--timings"},
 	{},
-	{Key: FlagSearchInteractive, Name: "interactive", Flag: true, RequiresIfBoolean: true, Spelling: "--interactive"},
+	{Key: FlagSearchInteractive, Name: "interactive", Flag: true, RequiresIfBoolean: true, Spelling: "--interactive", Conflicts: []uint64{FlagSearchMatchType, FlagSearchNoHeader}},
 	{Key: FlagSearchMatchType, Name: "match-type", Flag: true, Spelling: "--match-type", ValueName: "MATCH_TYPE", Choices: []string{"equal", "contains", "fuzzy"}, AcceptedChoices: []string{"equal", "contains", "fuzzy"}, Default: []string{"fuzzy"}},
 	{Key: FlagSearchNoHeader, Name: "no-header", Flag: true, RequiresIfBoolean: true, Spelling: "--no-header"},
 	{Key: ArgSearchName, Name: "NAME"},
@@ -4511,18 +4550,18 @@ var Meta = argv.Metadata{
 	{Key: FlagSelfUpdateNoPlugins, Name: "no-plugins", Flag: true, RequiresIfBoolean: true, Spelling: "--no-plugins"},
 	{Key: ArgSelfUpdateVersion, Name: "VERSION"},
 	{},
-	{Key: FlagSetEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV"},
-	{Key: FlagSetGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
-	{Key: FlagSetAgeEncrypt, Name: "age-encrypt", Flag: true, RequiresIfBoolean: true, Spelling: "--age-encrypt"},
-	{Key: FlagSetAgeKeyFile, Name: "age-key-file", Flag: true, Spelling: "--age-key-file", ValueName: "PATH"},
-	{Key: FlagSetAgeRecipient, Name: "age-recipient", Flag: true, Spelling: "--age-recipient", ValueName: "RECIPIENT"},
-	{Key: FlagSetAgeSshRecipient, Name: "age-ssh-recipient", Flag: true, Spelling: "--age-ssh-recipient", ValueName: "PATH_OR_PUBKEY"},
+	{Key: FlagSetEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV", Overrides: []uint64{FlagSetGlobal, FlagSetFile}},
+	{Key: FlagSetGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Overrides: []uint64{FlagSetFile, FlagSetEnv}},
+	{Key: FlagSetAgeEncrypt, Name: "age-encrypt", Flag: true, RequiresIfBoolean: true, Spelling: "--age-encrypt", Requires: []uint64{ArgSetEnvVar}},
+	{Key: FlagSetAgeKeyFile, Name: "age-key-file", Flag: true, Spelling: "--age-key-file", ValueName: "PATH", Requires: []uint64{FlagSetAgeEncrypt}},
+	{Key: FlagSetAgeRecipient, Name: "age-recipient", Flag: true, Spelling: "--age-recipient", ValueName: "RECIPIENT", Requires: []uint64{FlagSetAgeEncrypt}},
+	{Key: FlagSetAgeSshRecipient, Name: "age-ssh-recipient", Flag: true, Spelling: "--age-ssh-recipient", ValueName: "PATH_OR_PUBKEY", Requires: []uint64{FlagSetAgeEncrypt}},
 	{Key: FlagSetComplete, Name: "complete", Flag: true, RequiresIfBoolean: true, Spelling: "--complete"},
 	{Key: FlagSetFile, Name: "file", Flag: true, Spelling: "--file", ValueName: "FILE"},
 	{Key: FlagSetNoRedact, Name: "no-redact", Flag: true, RequiresIfBoolean: true, Spelling: "--no-redact"},
 	{Key: FlagSetPrompt, Name: "prompt", Flag: true, RequiresIfBoolean: true, Spelling: "--prompt"},
 	{Key: FlagSetRemove, Name: "remove", Flag: true, Spelling: "--remove", ValueName: "ENV_KEY"},
-	{Key: FlagSetStdin, Name: "stdin", Flag: true, RequiresIfBoolean: true, Spelling: "--stdin"},
+	{Key: FlagSetStdin, Name: "stdin", Flag: true, RequiresIfBoolean: true, Spelling: "--stdin", Conflicts: []uint64{FlagSetPrompt}, Requires: []uint64{ArgSetEnvVar}},
 	{Key: ArgSetEnvVar, Name: "ENV_VAR"},
 	{},
 	{Key: FlagSettingsAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
@@ -4532,7 +4571,7 @@ var Meta = argv.Metadata{
 	{Key: FlagSettingsComplete, Name: "complete", Flag: true, RequiresIfBoolean: true, Spelling: "--complete"},
 	{Key: FlagSettingsJsonExtended, Name: "json-extended", Flag: true, RequiresIfBoolean: true, Spelling: "--json-extended"},
 	{Key: ArgSettingsSetting, Name: "SETTING"},
-	{Key: ArgSettingsValue, Name: "VALUE"},
+	{Key: ArgSettingsValue, Name: "VALUE", Conflicts: []uint64{FlagSettingsAll}},
 	{},
 	{Key: FlagSettingsAddLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
 	{Key: ArgSettingsAddSetting, Name: "SETTING", Required: true},
@@ -4556,9 +4595,9 @@ var Meta = argv.Metadata{
 	{Key: FlagSettingsUnsetLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
 	{Key: ArgSettingsUnsetKey, Name: "KEY", Required: true},
 	{},
-	{Key: FlagShellJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
+	{Key: FlagShellJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS", Env: "MISE_JOBS"},
 	{Key: FlagShellUnset, Name: "unset", Flag: true, RequiresIfBoolean: true, Spelling: "--unset"},
-	{Key: FlagShellRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
+	{Key: FlagShellRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw", Overrides: []uint64{FlagShellJobs}},
 	{Key: ArgShellToolVersion, Name: "TOOL@VERSION", Required: true},
 	{},
 	{Key: FlagShellAliasNoHeader, Name: "no-header", Flag: true, RequiresIfBoolean: true, Spelling: "--no-header"},
@@ -4581,16 +4620,16 @@ var Meta = argv.Metadata{
 	{Key: FlagSyncPythonPyenv, Name: "pyenv", Flag: true, RequiresIfBoolean: true, Spelling: "--pyenv"},
 	{Key: FlagSyncPythonUv, Name: "uv", Flag: true, RequiresIfBoolean: true, Spelling: "--uv"},
 	{},
-	{Key: FlagSyncRubyBrew, Name: "brew", Flag: true, RequiresIfBoolean: true, Spelling: "--brew"},
+	{Key: FlagSyncRubyBrew, Name: "brew", Flag: true, Required: true, RequiresIfBoolean: true, Spelling: "--brew"},
 	{},
-	{Key: FlagTasksGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
+	{Key: FlagTasksGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Overrides: []uint64{FlagTasksLocal}},
 	{Key: FlagTasksJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
-	{Key: FlagTasksLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
+	{Key: FlagTasksLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local", Overrides: []uint64{FlagTasksGlobal}},
 	{Key: FlagTasksExtended, Name: "extended", Flag: true, RequiresIfBoolean: true, Spelling: "--extended"},
 	{Key: FlagTasksAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
 	{Key: FlagTasksComplete, Name: "complete", Flag: true, RequiresIfBoolean: true, Spelling: "--complete"},
 	{Key: FlagTasksHidden, Name: "hidden", Flag: true, RequiresIfBoolean: true, Spelling: "--hidden"},
-	{Key: FlagTasksNameOnly, Name: "name-only", Flag: true, RequiresIfBoolean: true, Spelling: "--name-only"},
+	{Key: FlagTasksNameOnly, Name: "name-only", Flag: true, RequiresIfBoolean: true, Spelling: "--name-only", Conflicts: []uint64{FlagTasksJson, FlagTasksExtended, FlagTasksUsage}},
 	{Key: FlagTasksNoHeader, Name: "no-header", Flag: true, RequiresIfBoolean: true, Spelling: "--no-header"},
 	{Key: FlagTasksSort, Name: "sort", Flag: true, Spelling: "--sort", ValueName: "COLUMN", Choices: []string{"name", "alias", "description", "source"}, AcceptedChoices: []string{"name", "alias", "description", "source"}},
 	{Key: FlagTasksSortOrder, Name: "sort-order", Flag: true, Spelling: "--sort-order", ValueName: "SORT_ORDER", Choices: []string{"asc", "desc"}, AcceptedChoices: []string{"asc", "desc"}},
@@ -4599,7 +4638,7 @@ var Meta = argv.Metadata{
 	{},
 	{Key: FlagTasksAddAlias, Name: "alias", Flag: true, Spelling: "--alias", ValueName: "ALIAS"},
 	{Key: FlagTasksAddDepends, Name: "depends", Flag: true, Spelling: "--depends", ValueName: "DEPENDS"},
-	{Key: FlagTasksAddDir, Name: "dir", Flag: true, Spelling: "--dir", ValueName: "DIR"},
+	{Key: FlagTasksAddDir, Name: "dir", Flag: true, Spelling: "--dir", ValueName: "DIR", CompleteType: "dir"},
 	{Key: FlagTasksAddFile, Name: "file", Flag: true, RequiresIfBoolean: true, Spelling: "--file"},
 	{Key: FlagTasksAddHide, Name: "hide", Flag: true, RequiresIfBoolean: true, Spelling: "--hide"},
 	{Key: FlagTasksAddQuiet, Name: "quiet", Flag: true, RequiresIfBoolean: true, Spelling: "--quiet"},
@@ -4615,7 +4654,7 @@ var Meta = argv.Metadata{
 	{Key: ArgTasksAddTask, Name: "TASK", Required: true},
 	{Key: ArgTasksAddRun, Name: "RUN"},
 	{},
-	{Key: FlagTasksDepsCompact, Name: "compact", Flag: true, RequiresIfBoolean: true, Spelling: "--compact"},
+	{Key: FlagTasksDepsCompact, Name: "compact", Flag: true, RequiresIfBoolean: true, Spelling: "--compact", Conflicts: []uint64{FlagTasksDepsDot}},
 	{Key: FlagTasksDepsDot, Name: "dot", Flag: true, RequiresIfBoolean: true, Spelling: "--dot"},
 	{Key: FlagTasksDepsHidden, Name: "hidden", Flag: true, RequiresIfBoolean: true, Spelling: "--hidden"},
 	{Key: ArgTasksDepsTasks, Name: "TASKS"},
@@ -4624,40 +4663,41 @@ var Meta = argv.Metadata{
 	{Key: ArgTasksEditTask, Name: "TASK", Required: true},
 	{},
 	{Key: FlagTasksGraphJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
-	{Key: FlagTasksGraphExplain, Name: "explain", Flag: true, RequiresIfBoolean: true, Spelling: "--explain"},
+	{Key: FlagTasksGraphExplain, Name: "explain", Flag: true, RequiresIfBoolean: true, Spelling: "--explain", Conflicts: []uint64{FlagTasksGraphJson}},
 	{Key: FlagTasksGraphNoHeader, Name: "no-header", Flag: true, RequiresIfBoolean: true, Spelling: "--no-header"},
 	{},
 	{Key: FlagTasksInfoJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
 	{Key: ArgTasksInfoTask, Name: "TASK", Required: true},
 	{},
-	{Key: FlagTasksLsGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
+	{Key: FlagTasksLsGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Overrides: []uint64{FlagTasksLsLocal}},
 	{Key: FlagTasksLsJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
-	{Key: FlagTasksLsLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
+	{Key: FlagTasksLsLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local", Overrides: []uint64{FlagTasksLsGlobal}},
 	{Key: FlagTasksLsExtended, Name: "extended", Flag: true, RequiresIfBoolean: true, Spelling: "--extended"},
 	{Key: FlagTasksLsAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
 	{Key: FlagTasksLsComplete, Name: "complete", Flag: true, RequiresIfBoolean: true, Spelling: "--complete"},
 	{Key: FlagTasksLsHidden, Name: "hidden", Flag: true, RequiresIfBoolean: true, Spelling: "--hidden"},
-	{Key: FlagTasksLsNameOnly, Name: "name-only", Flag: true, RequiresIfBoolean: true, Spelling: "--name-only"},
+	{Key: FlagTasksLsNameOnly, Name: "name-only", Flag: true, RequiresIfBoolean: true, Spelling: "--name-only", Conflicts: []uint64{FlagTasksLsJson, FlagTasksLsExtended, FlagTasksLsUsage}},
 	{Key: FlagTasksLsNoHeader, Name: "no-header", Flag: true, RequiresIfBoolean: true, Spelling: "--no-header"},
 	{Key: FlagTasksLsSort, Name: "sort", Flag: true, Spelling: "--sort", ValueName: "COLUMN", Choices: []string{"name", "alias", "description", "source"}, AcceptedChoices: []string{"name", "alias", "description", "source"}},
 	{Key: FlagTasksLsSortOrder, Name: "sort-order", Flag: true, Spelling: "--sort-order", ValueName: "SORT_ORDER", Choices: []string{"asc", "desc"}, AcceptedChoices: []string{"asc", "desc"}},
 	{Key: FlagTasksLsUsage, Name: "usage", Flag: true, RequiresIfBoolean: true, Spelling: "--usage"},
 	{},
 	{Key: FlagTasksRunAffected, Name: "affected", Flag: true, RequiresIfBoolean: true, Spelling: "--affected"},
-	{Key: FlagTasksRunAffectedBase, Name: "affected-base", Flag: true, Spelling: "--affected-base", ValueName: "REV"},
-	{Key: FlagTasksRunAffectedExplain, Name: "affected-explain", Flag: true, RequiresIfBoolean: true, Spelling: "--affected-explain"},
-	{Key: FlagTasksRunAffectedHead, Name: "affected-head", Flag: true, Spelling: "--affected-head", ValueName: "REV"},
-	{Key: FlagTasksRunAffectedJson, Name: "affected-json", Flag: true, RequiresIfBoolean: true, Spelling: "--affected-json"},
+	{Key: FlagTasksRunAffectedBase, Name: "affected-base", Flag: true, Spelling: "--affected-base", ValueName: "REV", Requires: []uint64{FlagTasksRunAffected}},
+	{Key: FlagTasksRunAffectedExplain, Name: "affected-explain", Flag: true, RequiresIfBoolean: true, Spelling: "--affected-explain", Conflicts: []uint64{FlagTasksRunAffectedJson}, Requires: []uint64{FlagTasksRunAffected}},
+	{Key: FlagTasksRunAffectedHead, Name: "affected-head", Flag: true, Spelling: "--affected-head", ValueName: "REV", Requires: []uint64{FlagTasksRunAffected}},
+	{Key: FlagTasksRunAffectedJson, Name: "affected-json", Flag: true, RequiresIfBoolean: true, Spelling: "--affected-json", Conflicts: []uint64{FlagTasksRunAffectedExplain}, Requires: []uint64{FlagTasksRunAffected}},
+	{Key: FlagTasksRunAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all", Conflicts: []uint64{ArgTasksRunTask, FlagTasksRunAffected}},
 	{Key: FlagTasksRunContinueOnError, Name: "continue-on-error", Flag: true, RequiresIfBoolean: true, Spelling: "--continue-on-error"},
 	{Key: FlagTasksRunCd, Name: "cd", Flag: true, Spelling: "--cd", ValueName: "CD"},
 	{Key: FlagTasksRunForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
-	{Key: FlagTasksRunJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
+	{Key: FlagTasksRunJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS", Env: "MISE_JOBS"},
 	{Key: FlagTasksRunDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
-	{Key: FlagTasksRunOutput, Name: "output", Flag: true, Spelling: "--output", ValueName: "OUTPUT"},
-	{Key: FlagTasksRunQuiet, Name: "quiet", Flag: true, RequiresIfBoolean: true, Spelling: "--quiet"},
+	{Key: FlagTasksRunOutput, Name: "output", Flag: true, Spelling: "--output", ValueName: "OUTPUT", Env: "MISE_TASK_OUTPUT"},
+	{Key: FlagTasksRunQuiet, Name: "quiet", Flag: true, RequiresIfBoolean: true, Spelling: "--quiet", Env: "MISE_QUIET"},
 	{Key: FlagTasksRunRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
 	{Key: FlagTasksRunShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL"},
-	{Key: FlagTasksRunSilent, Name: "silent", Flag: true, RequiresIfBoolean: true, Spelling: "--silent"},
+	{Key: FlagTasksRunSilent, Name: "silent", Flag: true, RequiresIfBoolean: true, Spelling: "--silent", Env: "MISE_SILENT"},
 	{Key: FlagTasksRunTool, Name: "tool", Flag: true, Spelling: "--tool", ValueName: "TOOL@VERSION"},
 	{Key: FlagTasksRunAllowEnv, Name: "allow-env", Flag: true, Spelling: "--allow-env", ValueName: "VAR"},
 	{Key: FlagTasksRunAllowNet, Name: "allow-net", Flag: true, Spelling: "--allow-net", ValueName: "HOST"},
@@ -4669,18 +4709,18 @@ var Meta = argv.Metadata{
 	{Key: FlagTasksRunDenyRead, Name: "deny-read", Flag: true, RequiresIfBoolean: true, Spelling: "--deny-read"},
 	{Key: FlagTasksRunDenyWrite, Name: "deny-write", Flag: true, RequiresIfBoolean: true, Spelling: "--deny-write"},
 	{Key: FlagTasksRunFreshEnv, Name: "fresh-env", Flag: true, RequiresIfBoolean: true, Spelling: "--fresh-env"},
-	{Key: FlagTasksRunNoCache, Name: "no-cache", Flag: true, RequiresIfBoolean: true, Spelling: "--no-cache"},
+	{Key: FlagTasksRunNoCache, Name: "no-cache", Flag: true, RequiresIfBoolean: true, Spelling: "--no-cache", Env: "MISE_TASK_REMOTE_NO_CACHE"},
 	{Key: FlagTasksRunNoDeps, Name: "no-deps", Flag: true, RequiresIfBoolean: true, Spelling: "--no-deps"},
 	{Key: FlagTasksRunNoTimings, Name: "no-timings", Flag: true, RequiresIfBoolean: true, Spelling: "--no-timings"},
-	{Key: FlagTasksRunSkipDeps, Name: "skip-deps", Flag: true, RequiresIfBoolean: true, Spelling: "--skip-deps"},
+	{Key: FlagTasksRunSkipDeps, Name: "skip-deps", Flag: true, RequiresIfBoolean: true, Spelling: "--skip-deps", Env: "MISE_TASK_SKIP_DEPENDS"},
 	{Key: FlagTasksRunSkipTools, Name: "skip-tools", Flag: true, RequiresIfBoolean: true, Spelling: "--skip-tools"},
-	{Key: FlagTasksRunTaskCache, Name: "task-cache", Flag: true, Spelling: "--task-cache", ValueName: "TASK_CACHE", Choices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, AcceptedChoices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, Default: []string{"read-write"}},
+	{Key: FlagTasksRunTaskCache, Name: "task-cache", Flag: true, Spelling: "--task-cache", ValueName: "TASK_CACHE", Choices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, AcceptedChoices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, Default: []string{"read-write"}, Env: "MISE_TASK_CACHE"},
 	{Key: FlagTasksRunTaskCacheExplain, Name: "task-cache-explain", Flag: true, RequiresIfBoolean: true, Spelling: "--task-cache-explain"},
-	{Key: FlagTasksRunTaskCacheExplainJson, Name: "task-cache-explain-json", Flag: true, RequiresIfBoolean: true, Spelling: "--task-cache-explain-json"},
-	{Key: FlagTasksRunTaskCacheStats, Name: "task-cache-stats", Flag: true, RequiresIfBoolean: true, Spelling: "--task-cache-stats"},
+	{Key: FlagTasksRunTaskCacheExplainJson, Name: "task-cache-explain-json", Flag: true, RequiresIfBoolean: true, Spelling: "--task-cache-explain-json", Conflicts: []uint64{FlagTasksRunTaskCacheExplain}, Requires: []uint64{FlagTasksRunDryRun}},
+	{Key: FlagTasksRunTaskCacheStats, Name: "task-cache-stats", Flag: true, RequiresIfBoolean: true, Spelling: "--task-cache-stats", Conflicts: []uint64{FlagTasksRunDryRun}},
 	{Key: FlagTasksRunTimeout, Name: "timeout", Flag: true, Spelling: "--timeout", ValueName: "TIMEOUT"},
 	{Key: FlagTasksRunTimings, Name: "timings", Flag: true, RequiresIfBoolean: true, Spelling: "--timings"},
-	{Key: ArgTasksRunTask, Name: "TASK", Default: []string{"default"}},
+	{Key: ArgTasksRunTask, Name: "TASK"},
 	{Key: ArgTasksRunArgs, Name: "ARGS"},
 	{Key: ArgTasksRunArgsLast, Name: "ARGS_LAST"},
 	{},
@@ -4688,12 +4728,12 @@ var Meta = argv.Metadata{
 	{Key: FlagTasksValidateJson, Name: "json", Flag: true, RequiresIfBoolean: true, Spelling: "--json"},
 	{Key: ArgTasksValidateTasks, Name: "TASKS"},
 	{},
-	{Key: FlagTestToolAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
-	{Key: FlagTestToolJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
-	{Key: FlagTestToolAllConfig, Name: "all-config", Flag: true, RequiresIfBoolean: true, Spelling: "--all-config"},
+	{Key: FlagTestToolAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all", Conflicts: []uint64{ArgTestToolTools, FlagTestToolAllConfig}},
+	{Key: FlagTestToolJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS", Env: "MISE_TEST_TOOL_JOBS"},
+	{Key: FlagTestToolAllConfig, Name: "all-config", Flag: true, RequiresIfBoolean: true, Spelling: "--all-config", Conflicts: []uint64{ArgTestToolTools, FlagTestToolAll}},
 	{Key: FlagTestToolIncludeNonDefined, Name: "include-non-defined", Flag: true, RequiresIfBoolean: true, Spelling: "--include-non-defined"},
-	{Key: FlagTestToolRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
-	{Key: ArgTestToolTools, Name: "TOOLS"},
+	{Key: FlagTestToolRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw", Overrides: []uint64{FlagTestToolJobs}},
+	{Key: ArgTestToolTools, Name: "TOOLS", RequiredUnless: []uint64{FlagTestToolAll, FlagTestToolAllConfig}},
 	{},
 	{},
 	{Key: FlagTokenForgejoUnmask, Name: "unmask", Flag: true, RequiresIfBoolean: true, Spelling: "--unmask"},
@@ -4701,7 +4741,7 @@ var Meta = argv.Metadata{
 	{},
 	{Key: FlagTokenGithubOauth, Name: "oauth", Flag: true, RequiresIfBoolean: true, Spelling: "--oauth"},
 	{Key: FlagTokenGithubRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
-	{Key: FlagTokenGithubRefresh, Name: "refresh", Flag: true, RequiresIfBoolean: true, Spelling: "--refresh"},
+	{Key: FlagTokenGithubRefresh, Name: "refresh", Flag: true, RequiresIfBoolean: true, Spelling: "--refresh", Requires: []uint64{FlagTokenGithubOauth}},
 	{Key: FlagTokenGithubUnmask, Name: "unmask", Flag: true, RequiresIfBoolean: true, Spelling: "--unmask"},
 	{Key: ArgTokenGithubHost, Name: "HOST", Default: []string{"github.com"}},
 	{},
@@ -4721,8 +4761,8 @@ var Meta = argv.Metadata{
 	{Key: ArgToolStubFile, Name: "FILE", Required: true},
 	{Key: ArgToolStubArgs, Name: "ARGS"},
 	{},
-	{Key: FlagTrustAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
-	{Key: FlagTrustIgnore, Name: "ignore", Flag: true, RequiresIfBoolean: true, Spelling: "--ignore"},
+	{Key: FlagTrustAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all", Conflicts: []uint64{FlagTrustIgnore, FlagTrustUntrust}},
+	{Key: FlagTrustIgnore, Name: "ignore", Flag: true, RequiresIfBoolean: true, Spelling: "--ignore", Conflicts: []uint64{FlagTrustUntrust}},
 	{Key: FlagTrustShow, Name: "show", Flag: true, RequiresIfBoolean: true, Spelling: "--show"},
 	{Key: FlagTrustUntrust, Name: "untrust", Flag: true, RequiresIfBoolean: true, Spelling: "--untrust"},
 	{Key: ArgTrustConfigFile, Name: "CONFIG_FILE", CompleteType: "file"},
@@ -4730,46 +4770,48 @@ var Meta = argv.Metadata{
 	{Key: FlagUninstallAll, Name: "all", Flag: true, RequiresIfBoolean: true, Spelling: "--all"},
 	{Key: FlagUninstallDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagUninstallDryRunCode, Name: "dry-run-code", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run-code"},
-	{Key: ArgUninstallInstalledToolVersion, Name: "INSTALLED_TOOL@VERSION"},
+	{Key: ArgUninstallInstalledToolVersion, Name: "INSTALLED_TOOL@VERSION", RequiredUnless: []uint64{FlagUninstallAll}},
 	{},
 	{Key: FlagUnsetFile, Name: "file", Flag: true, Spelling: "--file", ValueName: "FILE"},
-	{Key: FlagUnsetGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
+	{Key: FlagUnsetGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Overrides: []uint64{FlagUnsetFile}},
 	{Key: ArgUnsetEnvKey, Name: "ENV_KEY"},
 	{},
 	{Key: ArgUntrustConfigFile, Name: "CONFIG_FILE", CompleteType: "file"},
 	{},
-	{Key: FlagUnuseEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV"},
-	{Key: FlagUnuseGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
-	{Key: FlagUnusePath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH"},
+	{Key: FlagUnuseEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV", Overrides: []uint64{FlagUnuseGlobal, FlagUnusePath}},
+	{Key: FlagUnuseGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Overrides: []uint64{FlagUnusePath, FlagUnuseEnv}},
+	{Key: FlagUnusePath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH", Overrides: []uint64{FlagUnuseGlobal, FlagUnuseEnv}},
 	{Key: FlagUnuseNoPrune, Name: "no-prune", Flag: true, RequiresIfBoolean: true, Spelling: "--no-prune"},
 	{Key: ArgUnuseInstalledToolVersion, Name: "INSTALLED_TOOL@VERSION", Required: true},
 	{},
-	{Key: FlagUpgradeInteractive, Name: "interactive", Flag: true, RequiresIfBoolean: true, Spelling: "--interactive"},
-	{Key: FlagUpgradeJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
 	{Key: FlagUpgradeBump, Name: "bump", Flag: true, RequiresIfBoolean: true, Spelling: "--bump"},
+	{Key: FlagUpgradeInteractive, Name: "interactive", Flag: true, RequiresIfBoolean: true, Spelling: "--interactive", Conflicts: []uint64{ArgUpgradeInstalledToolVersion}},
+	{Key: FlagUpgradeJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS", Env: "MISE_JOBS"},
+	{Key: FlagUpgradeL, Name: "l", Flag: true, RequiresIfBoolean: true, Spelling: "-l"},
 	{Key: FlagUpgradeDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
 	{Key: FlagUpgradeExclude, Name: "exclude", Flag: true, Spelling: "--exclude", ValueName: "INSTALLED_TOOL"},
 	{Key: FlagUpgradeDryRunCode, Name: "dry-run-code", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run-code"},
-	{Key: FlagUpgradeInactive, Name: "inactive", Flag: true, RequiresIfBoolean: true, Spelling: "--inactive"},
+	{Key: FlagUpgradeInactive, Name: "inactive", Flag: true, RequiresIfBoolean: true, Spelling: "--inactive", Conflicts: []uint64{FlagUpgradeLocal}},
 	{Key: FlagUpgradeLocal, Name: "local", Flag: true, RequiresIfBoolean: true, Spelling: "--local"},
 	{Key: FlagUpgradeMinimumReleaseAge, Name: "minimum-release-age", Flag: true, Spelling: "--minimum-release-age", ValueName: "MINIMUM_RELEASE_AGE"},
 	{Key: FlagUpgradeMonorepo, Name: "monorepo", Flag: true, RequiresIfBoolean: true, Spelling: "--monorepo"},
-	{Key: FlagUpgradeNoPrune, Name: "no-prune", Flag: true, RequiresIfBoolean: true, Spelling: "--no-prune"},
-	{Key: FlagUpgradeRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
+	{Key: FlagUpgradeNoPrune, Name: "no-prune", Flag: true, RequiresIfBoolean: true, Spelling: "--no-prune", Overrides: []uint64{FlagUpgradePrune}},
+	{Key: FlagUpgradePrune, Name: "prune", Flag: true, RequiresIfBoolean: true, Spelling: "--prune", Overrides: []uint64{FlagUpgradeNoPrune}},
+	{Key: FlagUpgradeRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw", Overrides: []uint64{FlagUpgradeJobs}},
 	{Key: ArgUpgradeInstalledToolVersion, Name: "INSTALLED_TOOL@VERSION"},
 	{},
 	{},
-	{Key: FlagUseEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV"},
-	{Key: FlagUseForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force"},
-	{Key: FlagUseGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global"},
-	{Key: FlagUseJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS"},
+	{Key: FlagUseEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "ENV", Overrides: []uint64{FlagUseGlobal, FlagUsePath}},
+	{Key: FlagUseForce, Name: "force", Flag: true, RequiresIfBoolean: true, Spelling: "--force", Requires: []uint64{ArgUseToolVersion}},
+	{Key: FlagUseGlobal, Name: "global", Flag: true, RequiresIfBoolean: true, Spelling: "--global", Overrides: []uint64{FlagUsePath, FlagUseEnv}},
+	{Key: FlagUseJobs, Name: "jobs", Flag: true, Spelling: "--jobs", ValueName: "JOBS", Env: "MISE_JOBS"},
 	{Key: FlagUseDryRun, Name: "dry-run", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run"},
-	{Key: FlagUsePath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH"},
+	{Key: FlagUsePath, Name: "path", Flag: true, Spelling: "--path", ValueName: "PATH", Overrides: []uint64{FlagUseGlobal, FlagUseEnv}},
 	{Key: FlagUseDryRunCode, Name: "dry-run-code", Flag: true, RequiresIfBoolean: true, Spelling: "--dry-run-code"},
-	{Key: FlagUseFuzzy, Name: "fuzzy", Flag: true, RequiresIfBoolean: true, Spelling: "--fuzzy"},
+	{Key: FlagUseFuzzy, Name: "fuzzy", Flag: true, RequiresIfBoolean: true, Spelling: "--fuzzy", Overrides: []uint64{FlagUsePin}},
 	{Key: FlagUseMinimumReleaseAge, Name: "minimum-release-age", Flag: true, Spelling: "--minimum-release-age", ValueName: "MINIMUM_RELEASE_AGE"},
-	{Key: FlagUsePin, Name: "pin", Flag: true, RequiresIfBoolean: true, Spelling: "--pin"},
-	{Key: FlagUseRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw"},
+	{Key: FlagUsePin, Name: "pin", Flag: true, RequiresIfBoolean: true, Spelling: "--pin", Overrides: []uint64{FlagUseFuzzy}},
+	{Key: FlagUseRaw, Name: "raw", Flag: true, RequiresIfBoolean: true, Spelling: "--raw", Overrides: []uint64{FlagUseJobs}},
 	{Key: FlagUseRemove, Name: "remove", Flag: true, Spelling: "--remove", ValueName: "TOOL"},
 	{Key: ArgUseToolVersion, Name: "TOOL@VERSION"},
 	{},
@@ -4783,8 +4825,8 @@ var Meta = argv.Metadata{
 	{Key: FlagWatchWatchFile, Name: "watch-file", Flag: true, Spelling: "--watch-file", ValueName: "PATH"},
 	{Key: FlagWatchClear, Name: "clear", Flag: true, Spelling: "--clear", ValueName: "MODE", Choices: []string{"clear", "reset"}, AcceptedChoices: []string{"clear", "reset"}},
 	{Key: FlagWatchOnBusyUpdate, Name: "on-busy-update", Flag: true, Spelling: "--on-busy-update", ValueName: "MODE", Choices: []string{"queue", "do-nothing", "restart", "signal"}, AcceptedChoices: []string{"queue", "do-nothing", "restart", "signal"}, Default: []string{"do-nothing"}},
-	{Key: FlagWatchRestart, Name: "restart", Flag: true, RequiresIfBoolean: true, Spelling: "--restart"},
-	{Key: FlagWatchSignal, Name: "signal", Flag: true, Spelling: "--signal", ValueName: "SIGNAL"},
+	{Key: FlagWatchRestart, Name: "restart", Flag: true, RequiresIfBoolean: true, Spelling: "--restart", Conflicts: []uint64{FlagWatchOnBusyUpdate}},
+	{Key: FlagWatchSignal, Name: "signal", Flag: true, Spelling: "--signal", ValueName: "SIGNAL", Conflicts: []uint64{FlagWatchRestart}},
 	{Key: FlagWatchStopSignal, Name: "stop-signal", Flag: true, Spelling: "--stop-signal", ValueName: "SIGNAL"},
 	{Key: FlagWatchStopTimeout, Name: "stop-timeout", Flag: true, Spelling: "--stop-timeout", ValueName: "TIMEOUT", Default: []string{"10s"}},
 	{Key: FlagWatchMapSignal, Name: "map-signal", Flag: true, Spelling: "--map-signal", ValueName: "SIGNAL:SIGNAL"},
@@ -4801,8 +4843,8 @@ var Meta = argv.Metadata{
 	{Key: FlagWatchPoll, Name: "poll", Flag: true, Spelling: "--poll", ValueName: "INTERVAL"},
 	{Key: FlagWatchShell, Name: "shell", Flag: true, Spelling: "--shell", ValueName: "SHELL"},
 	{Key: FlagWatchN, Name: "n", Flag: true, RequiresIfBoolean: true, Spelling: "-n"},
-	{Key: FlagWatchEmitEventsTo, Name: "emit-events-to", Flag: true, Spelling: "--emit-events-to", ValueName: "MODE", Choices: []string{"environment", "stdio", "file", "json-stdio", "json-file", "none"}, AcceptedChoices: []string{"environment", "stdio", "file", "json-stdio", "json-file", "none"}, Default: []string{"none"}},
-	{Key: FlagWatchOnlyEmitEvents, Name: "only-emit-events", Flag: true, RequiresIfBoolean: true, Spelling: "--only-emit-events"},
+	{Key: FlagWatchEmitEventsTo, Name: "emit-events-to", Flag: true, Spelling: "--emit-events-to", ValueName: "MODE", Choices: []string{"environment", "stdio", "file", "json-stdio", "json-file", "none"}, AcceptedChoices: []string{"environment", "stdio", "file", "json-stdio", "json-file", "none"}, Default: []string{"none"}, RequiredIfEq: []argv.ValueCondition{{Key: FlagWatchOnlyEmitEvents, Value: "true"}}},
+	{Key: FlagWatchOnlyEmitEvents, Name: "only-emit-events", Flag: true, RequiresIfBoolean: true, Spelling: "--only-emit-events", Conflicts: []uint64{FlagWatchManual}},
 	{Key: FlagWatchEnv, Name: "env", Flag: true, Spelling: "--env", ValueName: "KEY=VALUE"},
 	{Key: FlagWatchWrapProcess, Name: "wrap-process", Flag: true, Spelling: "--wrap-process", ValueName: "MODE", Choices: []string{"group", "session", "none"}, AcceptedChoices: []string{"group", "session", "none"}},
 	{Key: FlagWatchNotify, Name: "notify", Flag: true, RequiresIfBoolean: true, Spelling: "--notify"},
@@ -4814,12 +4856,12 @@ var Meta = argv.Metadata{
 	{Key: FlagWatchWorkdir, Name: "workdir", Flag: true, Spelling: "--workdir", ValueName: "DIRECTORY"},
 	{Key: FlagWatchExts, Name: "exts", Flag: true, Spelling: "--exts", ValueName: "EXTENSIONS"},
 	{Key: FlagWatchFilter, Name: "filter", Flag: true, Spelling: "--filter", ValueName: "PATTERN"},
-	{Key: FlagWatchFilterFile, Name: "filter-file", Flag: true, Spelling: "--filter-file", ValueName: "PATH"},
+	{Key: FlagWatchFilterFile, Name: "filter-file", Flag: true, Spelling: "--filter-file", ValueName: "PATH", Env: "WATCHEXEC_FILTER_FILES"},
 	{Key: FlagWatchFilterProg, Name: "filter-prog", Flag: true, Spelling: "--filter-prog", ValueName: "EXPRESSION"},
 	{Key: FlagWatchIgnore, Name: "ignore", Flag: true, Spelling: "--ignore", ValueName: "PATTERN"},
-	{Key: FlagWatchIgnoreFile, Name: "ignore-file", Flag: true, Spelling: "--ignore-file", ValueName: "PATH"},
-	{Key: FlagWatchFsEvents, Name: "fs-events", Flag: true, Spelling: "--fs-events", ValueName: "EVENTS", Choices: []string{"access", "create", "remove", "rename", "modify", "metadata"}, AcceptedChoices: []string{"access", "create", "remove", "rename", "modify", "metadata"}, Default: []string{"create", "remove", "rename", "modify", "metadata"}},
-	{Key: FlagWatchNoMeta, Name: "no-meta", Flag: true, RequiresIfBoolean: true, Spelling: "--no-meta"},
+	{Key: FlagWatchIgnoreFile, Name: "ignore-file", Flag: true, Spelling: "--ignore-file", ValueName: "PATH", Env: "WATCHEXEC_IGNORE_FILES"},
+	{Key: FlagWatchFsEvents, Name: "fs-events", Flag: true, Spelling: "--fs-events", ValueName: "EVENTS", Choices: []string{"access", "create", "remove", "rename", "modify", "metadata"}, AcceptedChoices: []string{"access", "create", "remove", "rename", "modify", "metadata"}, Default: []string{"create,remove,rename,modify,metadata"}},
+	{Key: FlagWatchNoMeta, Name: "no-meta", Flag: true, RequiresIfBoolean: true, Spelling: "--no-meta", Conflicts: []uint64{FlagWatchFsEvents}},
 	{Key: FlagWatchPrintEvents, Name: "print-events", Flag: true, RequiresIfBoolean: true, Spelling: "--print-events"},
 	{Key: FlagWatchManual, Name: "manual", Flag: true, RequiresIfBoolean: true, Spelling: "--manual"},
 	{Key: ArgWatchTask, Name: "TASK"},
@@ -4830,9 +4872,9 @@ var Meta = argv.Metadata{
 	{},
 	{Key: FlagWhichTool, Name: "tool", Flag: true, Spelling: "--tool", ValueName: "TOOL@VERSION"},
 	{Key: FlagWhichComplete, Name: "complete", Flag: true, RequiresIfBoolean: true, Spelling: "--complete"},
-	{Key: FlagWhichPlugin, Name: "plugin", Flag: true, RequiresIfBoolean: true, Spelling: "--plugin"},
-	{Key: FlagWhichVersion, Name: "version", Flag: true, RequiresIfBoolean: true, Spelling: "--version"},
-	{Key: ArgWhichBinName, Name: "BIN_NAME"},
+	{Key: FlagWhichPlugin, Name: "plugin", Flag: true, RequiresIfBoolean: true, Spelling: "--plugin", Conflicts: []uint64{FlagWhichVersion}},
+	{Key: FlagWhichVersion, Name: "version", Flag: true, RequiresIfBoolean: true, Spelling: "--version", Conflicts: []uint64{FlagWhichPlugin}},
+	{Key: ArgWhichBinName, Name: "BIN_NAME", RequiredUnless: []uint64{FlagWhichComplete}},
 }
 
 // HelpText is the third table, read only when a page is rendered. Neither the
@@ -4846,12 +4888,12 @@ var HelpText = argv.HelpTable{
 	{Key: FlagCd, ValueName: "DIR", ValueDemanded: true, Short: "Change directory before running command", Long: "Change directory before running command"},
 	{Key: FlagEnv, Repeatable: true, ValueName: "ENV", ValueDemanded: true, Short: "Set the environment for loading `mise.<ENV>.toml`", Long: "Set the environment for loading `mise.<ENV>.toml`"},
 	{Key: FlagForce, Hide: true, Short: "Force the operation", Long: "Force the operation"},
-	{Key: FlagJobs, ValueName: "JOBS", ValueDemanded: true, Short: "How many jobs to run in parallel [default: 8]", Long: "How many jobs to run in parallel [default: 8]"},
+	{Key: FlagJobs, ValueName: "JOBS", ValueDemanded: true, Short: "How many jobs to run in parallel; values below 1 are treated as 1 [default: 8]", Long: "How many jobs to run in parallel; values below 1 are treated as 1 [default: 8]", Env: "MISE_JOBS"},
 	{Key: FlagDryRun, Hide: true, Short: "Dry run, don't actually do anything", Long: "Dry run, don't actually do anything"},
 	{Key: FlagProfile, Hide: true, Repeatable: true, ValueName: "PROFILE", ValueDemanded: true, Short: "Set the profile (environment)", Long: "Set the profile (environment)"},
 	{Key: FlagQuiet, Short: "Suppress non-error messages", Long: "Suppress non-error messages"},
 	{Key: FlagShell, Hide: true, ValueName: "SHELL", ValueDemanded: true},
-	{Key: FlagTool, Hide: true, Repeatable: true, ValueName: "TOOL@VERSION", ValueDemanded: true, Short: "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10", Long: "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10"},
+	{Key: FlagTool, Hide: true, Repeatable: true, ValueName: "TOOL@VERSION", ValueDemanded: true, Short: "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10", Long: "Tool(s) to run in addition to what is in mise.toml files\ne.g.: node@20 python@3.10", Env: "MISE_QUIET"},
 	{Key: FlagVerbose, Repeatable: true, Short: "Show extra output (use -vv for even more)", Long: "Show extra output (use -vv for even more)"},
 	{Key: FlagVersion, Hide: true},
 	{Key: FlagYes, Short: "Answer yes to all confirmation prompts", Long: "Answer yes to all confirmation prompts"},
@@ -4870,44 +4912,44 @@ var HelpText = argv.HelpTable{
 	{Key: ArgTask, Short: "Task to run", Long: "Task to run.\n\nShorthand for `mise tasks run <TASK>`."},
 	{Key: ArgTaskArgs, Hide: true, Short: "Task arguments", Long: "Task arguments"},
 	{Key: ArgTaskArgsLast, Hide: true},
-	{Key: CmdActivate, Short: "Initializes mise in the current shell session", Long: "Initializes mise in the current shell session\n\nThis should go into your shell's rc file or login shell.\nOtherwise, it will only take effect in the current session.\n(e.g. ~/.zshrc, ~/.zprofile, ~/.zshenv, ~/.bashrc, ~/.bash_profile, ~/.profile, ~/.config/fish/config.fish, or $PROFILE for powershell)\n\nTypically, this can be added with something like the following:\n\n    echo 'eval \"$(mise activate zsh)\"' >> ~/.zshrc\n\nHowever, this requires that \"mise\" is in your PATH. If it is not, you need to\nspecify the full path like this:\n\n    echo 'eval \"$(/path/to/mise activate zsh)\"' >> ~/.zshrc\n\nCustomize status output with `status` settings.", AfterLongHelp: "Examples:\n\n    $ eval \"$(mise activate bash)\"\n    $ eval \"$(mise activate zsh)\"\n    $ mise activate fish | source\n    $ execx($(mise activate xonsh))\n    $ (&mise activate pwsh) | Out-String | Invoke-Expression\n"},
+	{Key: CmdActivate, Short: "Initializes mise in the current shell session", Long: "Initializes mise in the current shell session\n\nThis should go into your shell's rc file or login shell.\nOtherwise, it will only take effect in the current session.\n(e.g. ~/.zshrc, ~/.zprofile, ~/.zshenv, ~/.bashrc, ~/.bash_profile, ~/.profile, ~/.config/fish/config.fish, or $PROFILE for powershell)\n\nTypically, this can be added with something like the following:\n\n    echo 'eval \"$(mise activate zsh)\"' >> ~/.zshrc\n\nHowever, this requires that \"mise\" is in your PATH. If it is not, you need to\nspecify the full path like this:\n\n    echo 'eval \"$(/path/to/mise activate zsh)\"' >> ~/.zshrc\n\nCustomize status output with `status` settings.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1meval \"$(mise activate bash)\"\x1b[22m\n    $ \x1b[1meval \"$(mise activate zsh)\"\x1b[22m\n    $ \x1b[1mmise activate fish | source\x1b[22m\n    $ \x1b[1mexecx($(mise activate xonsh))\x1b[22m\n    $ \x1b[1m(&mise activate pwsh) | Out-String | Invoke-Expression\x1b[22m\n"},
 	{Key: FlagActivateQuiet, Short: "Suppress non-error messages", Long: "Suppress non-error messages"},
 	{Key: FlagActivateShell, Hide: true, ValueName: "SHELL", ValueDemanded: true, Short: "Shell type to generate the script for", Long: "Shell type to generate the script for", Choices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}},
-	{Key: FlagActivateNoHookEnv, Short: "Do not automatically call hook-env", Long: "Do not automatically call hook-env\n\nThis can be helpful for debugging mise. If you run `eval \"$(mise activate --no-hook-env)\"`, then you can call `mise hook-env` manually which will output the env vars to stdout without actually modifying the environment. That way you can do things like `mise hook-env --trace` to get more information or just see the values that hook-env is outputting."},
+	{Key: FlagActivateNoHookEnv, Short: "Do not automatically call hook-env", Long: "Do not automatically call hook-env\n\nThis can be helpful for debugging mise. If you run `eval \"$(mise activate --no-hook-env)\"`, then\nyou can call `mise hook-env` manually which will output the env vars to stdout without actually\nmodifying the environment. That way you can do things like `mise hook-env --trace` to get more\ninformation or just see the values that hook-env is outputting."},
 	{Key: FlagActivateShims, Short: "Use shims instead of modifying PATH\nEffectively the same as:", Long: "Use shims instead of modifying PATH\nEffectively the same as:\n\n    PATH=\"$HOME/.local/share/mise/shims:$PATH\"\n\n`mise activate --shims` does not support all the features of `mise activate`.\nSee https://mise.jdx.dev/dev-tools/shims.html#shims-vs-path for more information"},
 	{Key: FlagActivateStatus, Hide: true, Short: "Show \"mise: <TOOL>@<VERSION>\" message when changing directories", Long: "Show \"mise: <TOOL>@<VERSION>\" message when changing directories"},
 	{Key: ArgActivateShellType, Short: "Shell type to generate the script for", Long: "Shell type to generate the script for", Choices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}},
 	{Key: CmdToolAlias, Short: "Manage tool version aliases."},
 	{Key: FlagToolAliasTool, ValueName: "TOOL", ValueDemanded: true, Short: "Filter aliases by tool", Long: "Filter aliases by tool"},
 	{Key: FlagToolAliasNoHeader, Short: "Don't show table header", Long: "Don't show table header"},
-	{Key: CmdToolAliasGet, Short: "Show an alias for a tool", Long: "Show an alias for a tool\n\nThis is the contents of a tool_alias.<TOOL> entry in ~/.config/mise/config.toml", AfterLongHelp: "Examples:\n\n    $ mise tool-alias get node lts-hydrogen\n    20.0.0\n"},
+	{Key: CmdToolAliasGet, Short: "Show an alias for a tool", Long: "Show an alias for a tool\n\nThis is the contents of a tool_alias.<TOOL> entry in ~/.config/mise/config.toml", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise tool-alias get node lts-hydrogen\x1b[22m\n    20.0.0\n"},
 	{Key: ArgToolAliasGetTool, Demanded: true, Short: "The tool to show the alias for", Long: "The tool to show the alias for"},
 	{Key: ArgToolAliasGetAlias, Demanded: true, Short: "The alias to show", Long: "The alias to show"},
-	{Key: CmdToolAliasLs, Short: "List tool version aliases\nShows the aliases that can be specified.\nThese can come from user config or from plugins in `bin/list-aliases`.", Long: "List tool version aliases\nShows the aliases that can be specified.\nThese can come from user config or from plugins in `bin/list-aliases`.\n\nFor user config, aliases are defined like the following in `~/.config/mise/config.toml`:\n\n    [tool_alias.node.versions]\n    lts = \"22.0.0\"", VisibleAliases: []string{"list"}, AfterLongHelp: "Examples:\n\n    $ mise tool-alias ls\n    node  lts-jod      22\n"},
+	{Key: CmdToolAliasLs, Short: "List tool version aliases\nShows the aliases that can be specified.\nThese can come from user config or from plugins in `bin/list-aliases`.", Long: "List tool version aliases\nShows the aliases that can be specified.\nThese can come from user config or from plugins in `bin/list-aliases`.\n\nFor user config, aliases are defined like the following in `~/.config/mise/config.toml`:\n\n    [tool_alias.node.versions]\n    lts = \"22.0.0\"", VisibleAliases: []string{"list"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise tool-alias ls\x1b[22m\n    node  lts-jod      22\n"},
 	{Key: FlagToolAliasLsNoHeader, Short: "Don't show table header", Long: "Don't show table header"},
 	{Key: ArgToolAliasLsTool, Short: "Show aliases for <TOOL>", Long: "Show aliases for <TOOL>"},
-	{Key: CmdToolAliasSet, Short: "Add/update an alias for a tool/backend", Long: "Add/update an alias for a tool/backend\n\nThis modifies the contents of ~/.config/mise/config.toml", VisibleAliases: []string{"add", "create"}, AfterLongHelp: "Examples:\n\n    $ mise tool-alias set maven asdf:mise-plugins/mise-maven\n    $ mise tool-alias set node lts-jod 22.0.0\n"},
+	{Key: CmdToolAliasSet, Short: "Add/update an alias for a tool/backend", Long: "Add/update an alias for a tool/backend\n\nThis modifies the contents of ~/.config/mise/config.toml", VisibleAliases: []string{"add", "create"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise tool-alias set maven asdf:mise-plugins/mise-maven\x1b[22m\n    $ \x1b[1mmise tool-alias set node lts-jod 22.0.0\x1b[22m\n"},
 	{Key: ArgToolAliasSetTool, Demanded: true, Short: "The tool/backend to set the alias for", Long: "The tool/backend to set the alias for"},
 	{Key: ArgToolAliasSetAlias, Demanded: true, Short: "The alias to set", Long: "The alias to set"},
 	{Key: ArgToolAliasSetValue, Short: "The value to set the alias to", Long: "The value to set the alias to"},
-	{Key: CmdToolAliasUnset, Short: "Clears an alias for a tool/backend", Long: "Clears an alias for a tool/backend\n\nThis modifies the contents of ~/.config/mise/config.toml", VisibleAliases: []string{"rm", "remove", "delete", "del"}, AfterLongHelp: "Examples:\n\n    $ mise tool-alias unset maven\n    $ mise tool-alias unset node lts-jod\n"},
+	{Key: CmdToolAliasUnset, Short: "Clears an alias for a tool/backend", Long: "Clears an alias for a tool/backend\n\nThis modifies the contents of ~/.config/mise/config.toml", VisibleAliases: []string{"rm", "remove", "delete", "del"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise tool-alias unset maven\x1b[22m\n    $ \x1b[1mmise tool-alias unset node lts-jod\x1b[22m\n"},
 	{Key: ArgToolAliasUnsetTool, Demanded: true, Short: "The tool/backend to remove the alias from", Long: "The tool/backend to remove the alias from"},
 	{Key: ArgToolAliasUnsetAlias, Short: "The alias to remove", Long: "The alias to remove"},
 	{Key: CmdAsdf, Hide: true, Short: "[internal] simulates asdf for plugins that call \"asdf\" internally"},
 	{Key: ArgAsdfArgs, Short: "all arguments", Long: "all arguments"},
-	{Key: CmdBackends, Short: "Manage backends", AfterLongHelp: "Deprecation:\n\nThe `mise b` alias is deprecated and will be removed in mise 2027.4.0.\nUse `mise backends` instead.\n"},
-	{Key: CmdBackendsLs, Short: "List built-in backends", VisibleAliases: []string{"list"}, AfterLongHelp: "Examples:\n\n    $ mise backends ls\n    aqua\n    asdf\n    cargo\n    core\n    dotnet\n    gem\n    go\n    npm\n    pipx\n    spm\n    ubi\n    vfox\n"},
+	{Key: CmdBackends, Short: "Manage backends", AfterLongHelp: "\x1b[1m\x1b[4mDeprecation:\x1b[22m\x1b[24m\n\nThe `mise b` alias is deprecated and will be removed in mise 2027.4.0.\nUse `mise backends` instead.\n"},
+	{Key: CmdBackendsLs, Short: "List built-in backends", VisibleAliases: []string{"list"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise backends ls\x1b[22m\n    aqua\n    asdf\n    cargo\n    core\n    dotnet\n    gem\n    go\n    npm\n    pipx\n    spm\n    ubi\n    vfox\n"},
 	{Key: CmdBinPaths, Short: "List all the active runtime bin paths"},
 	{Key: FlagBinPathsBinNames, Short: "Output executable names instead of bin directories", Long: "Output executable names instead of bin directories"},
 	{Key: FlagBinPathsJson, Short: "Output executable entries in JSON format (implies --bin-names)", Long: "Output executable entries in JSON format (implies --bin-names)"},
 	{Key: ArgBinPathsToolVersion, Short: "Tool(s) to look up\ne.g.: ruby@3", Long: "Tool(s) to look up\ne.g.: ruby@3"},
-	{Key: CmdBootstrap, Short: "Set up a machine for the current config in one command", Long: "Set up a machine for the current config in one command\n\nRuns the bootstrap steps for the current config in order:\n\n0. `mise bootstrap accounts apply` — converge `[bootstrap.users]` and\n   `[bootstrap.groups]` (Linux)\n1. `mise bootstrap plugins apply` — install `[bootstrap.plugins]`\n   1.7. `[bootstrap.hooks.pre-packages]` — optional setup hook\n2. Install built-in-manager entries from `[bootstrap.packages]`\n3. `mise bootstrap files apply` — converge `[bootstrap.files]` and\n   `[bootstrap.directories]`\n4. `mise bootstrap services apply` — converge `[bootstrap.services]`\n   systemd system services (Linux)\n5. `mise bootstrap firewall apply` — converge `[bootstrap.linux.firewall]`\n   host firewall policy and rules (Linux)\n6. `mise bootstrap compose apply` — converge `[bootstrap.compose]`\n   Docker Compose projects\n7. `mise bootstrap repos apply` — clone/converge `[bootstrap.repos]`\n   surrounded by `pre-repos`/`post-repos` hooks\n8. `mise bootstrap dotfiles apply` — apply dotfiles from `[dotfiles]`\n   surrounded by `pre-dotfiles`/`post-dotfiles` hooks\n9. `mise bootstrap mise-shell-activate apply` — configure shell activation\n   from `[bootstrap.mise_shell_activate]`\n10. `mise bootstrap macos defaults apply` — write\n    `[bootstrap.macos.defaults]` entries (macOS)\n    surrounded by `pre-defaults`/`post-defaults` hooks\n11. `mise bootstrap macos launchd-agents apply` — install/load\n    `[bootstrap.macos.launchd.agents]`\n12. `mise bootstrap linux systemd-units apply` — install/start\n    `[bootstrap.linux.systemd.units]`\n13. `mise bootstrap user apply` — set `[bootstrap.user].login_shell`\n    (Unix)\n    surrounded by `pre-user`/`post-user` hooks\n14. `mise install` — install missing tools from `[tools]`\n    surrounded by `pre-tools`/`post-tools` hooks; package-plugin entries\n    from `[bootstrap.packages]` install afterward, followed by\n    `[bootstrap.hooks.post-packages]`\n15. `mise run bootstrap` — if a task named `bootstrap` is defined\n16. `[bootstrap.hooks.final]` — optional final hook\n\nThe declarative steps converge — anything already in its desired state\nis skipped, so re-running is safe. The `bootstrap` task runs on every\ninvocation; keep it idempotent. Use it for any project-specific setup\nthat doesn't fit the declarative sections (seeding databases, auth flows,\netc.) — it runs with the installed tools on PATH.\n\nUse `--skip <part>` to skip named parts, or `--only <part>` to run just\nnamed parts. Both flags can be repeated or comma-separated, but they\ncannot be used together.", VisibleAliases: []string{"bs"}, AfterLongHelp: "Examples:\n\n    $ mise bootstrap                    # packages + repos + dotfiles + tools + bootstrap task\n    $ mise bootstrap --force-dotfiles   # replace conflicting dotfile targets\n    $ mise bootstrap --skip tools,task  # skip tool installation and the bootstrap task\n    $ mise bootstrap --only tools       # run just tool installation\n    $ mise bootstrap status --missing\n    $ mise bootstrap packages apply --yes\n    $ mise bootstrap repos status\n    $ mise bootstrap repos apply --dry-run\n    $ mise bootstrap dotfiles status\n    $ mise bootstrap mise-shell-activate apply --dry-run\n    $ mise bootstrap macos defaults status\n    $ mise bootstrap macos launchd-agents apply --dry-run\n    $ mise bootstrap linux systemd-units apply --dry-run\n    $ mise bootstrap user apply --dry-run\n"},
+	{Key: CmdBootstrap, Short: "Set up a machine for the current config in one command", Long: "Set up a machine for the current config in one command\n\nRuns the bootstrap steps for the current config in order:\n\n0. `mise bootstrap accounts apply` — converge `[bootstrap.users]` and\n   `[bootstrap.groups]` (Linux)\n1. `mise bootstrap plugins apply` — install `[bootstrap.plugins]`\n   1.7. `[bootstrap.hooks.pre-packages]` — optional setup hook\n2. Install built-in-manager entries from `[bootstrap.packages]`\n3. `mise bootstrap files apply` — converge `[bootstrap.files]` and\n   `[bootstrap.directories]`\n4. `mise bootstrap services apply` — converge `[bootstrap.services]`\n   systemd system services (Linux)\n5. `mise bootstrap firewall apply` — converge `[bootstrap.linux.firewall]`\n   host firewall policy and rules (Linux)\n6. `mise bootstrap compose apply` — converge `[bootstrap.compose]`\n   Docker Compose projects\n7. `mise bootstrap repos apply` — clone/converge `[bootstrap.repos]`\n   surrounded by `pre-repos`/`post-repos` hooks\n8. `mise bootstrap dotfiles apply` — apply dotfiles from `[dotfiles]`\n   surrounded by `pre-dotfiles`/`post-dotfiles` hooks\n9. `mise bootstrap mise-shell-activate apply` — configure shell activation\n   from `[bootstrap.mise_shell_activate]`\n10. `mise bootstrap macos defaults apply` — write\n    `[bootstrap.macos.defaults]` entries (macOS)\n    surrounded by `pre-defaults`/`post-defaults` hooks\n11. `mise bootstrap macos launchd-agents apply` — install/load\n    `[bootstrap.macos.launchd.agents]`\n12. `mise bootstrap linux systemd-units apply` — install/start\n    `[bootstrap.linux.systemd.units]`\n13. `mise bootstrap user apply` — set `[bootstrap.user].login_shell`\n    (Unix)\n    surrounded by `pre-user`/`post-user` hooks\n14. `mise install` — install missing tools from `[tools]`\n    surrounded by `pre-tools`/`post-tools` hooks; package-plugin entries\n    from `[bootstrap.packages]` install afterward, followed by\n    `[bootstrap.hooks.post-packages]`\n15. `mise run bootstrap` — if a task named `bootstrap` is defined\n16. `[bootstrap.hooks.final]` — optional final hook\n\nThe declarative steps converge — anything already in its desired state\nis skipped, so re-running is safe. The `bootstrap` task runs on every\ninvocation; keep it idempotent. Use it for any project-specific setup\nthat doesn't fit the declarative sections (seeding databases, auth flows,\netc.) — it runs with the installed tools on PATH.\n\nUse `--skip <part>` to skip named parts, or `--only <part>` to run just\nnamed parts. Both flags can be repeated or comma-separated, but they\ncannot be used together.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap\x1b[22m                    # packages + repos + dotfiles + tools + bootstrap task\n    $ \x1b[1mmise bootstrap --force-dotfiles\x1b[22m   # replace conflicting dotfile targets\n    $ \x1b[1mmise bootstrap --skip tools,task\x1b[22m  # skip tool installation and the bootstrap task\n    $ \x1b[1mmise bootstrap --only tools\x1b[22m       # run just tool installation\n    $ \x1b[1mmise bootstrap status --missing\x1b[22m\n    $ \x1b[1mmise bootstrap packages apply --yes\x1b[22m\n    $ \x1b[1mmise bootstrap repos status\x1b[22m\n    $ \x1b[1mmise bootstrap repos apply --dry-run\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles status\x1b[22m\n    $ \x1b[1mmise bootstrap mise-shell-activate apply --dry-run\x1b[22m\n    $ \x1b[1mmise bootstrap macos defaults status\x1b[22m\n    $ \x1b[1mmise bootstrap macos launchd-agents apply --dry-run\x1b[22m\n    $ \x1b[1mmise bootstrap linux systemd-units apply --dry-run\x1b[22m\n    $ \x1b[1mmise bootstrap user apply --dry-run\x1b[22m\n"},
 	{Key: FlagBootstrapDryRun, Short: "Print what would happen without installing anything", Long: "Print what would happen without installing anything"},
 	{Key: FlagBootstrapYes, Short: "Skip confirmation prompts", Long: "Skip confirmation prompts"},
 	{Key: FlagBootstrapForceDotfiles, Short: "Overwrite existing files that conflict with whole-file dotfile entries", Long: "Overwrite existing files that conflict with whole-file dotfile entries"},
-	{Key: FlagBootstrapOnly, Repeatable: true, ValueName: "ONLY", ValueDemanded: true, Short: "Run only one or more bootstrap parts", Long: "Run only one or more bootstrap parts\n\nCan be passed multiple times or as a comma-separated list. Cannot be used with `--skip`.", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}},
+	{Key: FlagBootstrapOnly, Repeatable: true, ValueName: "ONLY", ValueDemanded: true, Short: "Run only one or more bootstrap parts", Long: "Run only one or more bootstrap parts\n\nCan be passed multiple times or as a comma-separated list.\nCannot be used with `--skip`.", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"}},
 	{Key: FlagBootstrapPromptSecrets, Short: "Prompt securely for missing bootstrap secret inputs", Long: "Prompt securely for missing bootstrap secret inputs"},
-	{Key: FlagBootstrapSkip, Repeatable: true, ValueName: "SKIP", ValueDemanded: true, Short: "Skip one or more bootstrap parts", Long: "Skip one or more bootstrap parts\n\nCan be passed multiple times or as a comma-separated list.", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}},
+	{Key: FlagBootstrapSkip, Repeatable: true, ValueName: "SKIP", ValueDemanded: true, Short: "Skip one or more bootstrap parts", Long: "Skip one or more bootstrap parts\n\nCan be passed multiple times or as a comma-separated list.", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"}},
 	{Key: FlagBootstrapUpdate, Short: "Refresh package manager metadata and update configured repos", Long: "Refresh package manager metadata and update configured repos"},
 	{Key: CmdBootstrapApplyAccountPlan, Hide: true},
 	{Key: CmdBootstrapApplyServicePlan, Hide: true},
@@ -4930,7 +4972,7 @@ var HelpText = argv.HelpTable{
 	{Key: FlagBootstrapComposeStatusJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagBootstrapComposeStatusMissing, Short: "Exit with code 1 when any Compose project is not converged", Long: "Exit with code 1 when any Compose project is not converged"},
 	{Key: CmdBootstrapDotfiles, Short: "Manage dotfiles from `[dotfiles]`", SubcommandRequired: true},
-	{Key: CmdBootstrapDotfilesAdd, Short: "Add or update dotfiles in `[dotfiles]`", Long: "Add or update dotfiles in `[dotfiles]`\n\nIf the target is already managed, this updates its source from the live\ntarget. Otherwise it creates a `[dotfiles]` entry and seeds the source\nunder `dotfiles.root` unless `--source` is provided.", AfterLongHelp: "Examples:\n\n    $ mise bootstrap dotfiles add ~/.zshrc\n    $ mise bootstrap dotfiles add --mode copy ~/.config/starship.toml\n    $ mise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig\n"},
+	{Key: CmdBootstrapDotfilesAdd, Short: "Add or update dotfiles in `[dotfiles]`", Long: "Add or update dotfiles in `[dotfiles]`\n\nIf the target is already managed, this updates its source from the live\ntarget. Otherwise it creates a `[dotfiles]` entry and seeds the source\nunder `dotfiles.root` unless `--source` is provided.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap dotfiles add ~/.zshrc\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles add --mode copy ~/.config/starship.toml\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig\x1b[22m\n"},
 	{Key: FlagBootstrapDotfilesAddForce, Short: "Overwrite existing sources without prompting", Long: "Overwrite existing sources without prompting"},
 	{Key: FlagBootstrapDotfilesAddGlobal, Short: "Write to the global config", Long: "Write to the global config"},
 	{Key: FlagBootstrapDotfilesAddLocal, Short: "Write to the local config instead of the global config", Long: "Write to the local config instead of the global config"},
@@ -4941,22 +4983,22 @@ var HelpText = argv.HelpTable{
 	{Key: FlagBootstrapDotfilesAddSource, ValueName: "PATH", ValueDemanded: true, Short: "Source path to use for a single target", Long: "Source path to use for a single target"},
 	{Key: FlagBootstrapDotfilesAddYes, Short: "Skip the confirmation prompt", Long: "Skip the confirmation prompt"},
 	{Key: ArgBootstrapDotfilesAddTarget, Demanded: true, Short: "Targets to add or update", Long: "Targets to add or update"},
-	{Key: CmdBootstrapDotfilesApply, Short: "Apply dotfiles from `[dotfiles]`", Long: "Apply dotfiles from `[dotfiles]`\n\nApplies configured whole-file entries and edits that aren't in their\ndesired state. Whole-file entries may symlink, copy, or render templates.\nEdit entries manage a marker-delimited block or a single line in a file\nmise doesn't otherwise own.", AfterLongHelp: "Examples:\n\n    $ mise bootstrap dotfiles apply\n    $ mise bootstrap dotfiles apply --dry-run\n    $ mise bootstrap dotfiles apply --force --yes\n"},
+	{Key: CmdBootstrapDotfilesApply, Short: "Apply dotfiles from `[dotfiles]`", Long: "Apply dotfiles from `[dotfiles]`\n\nApplies configured whole-file entries and edits that aren't in their\ndesired state. Whole-file entries may symlink, copy, or render templates.\nEdit entries manage a marker-delimited block or a single line in a file\nmise doesn't otherwise own.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap dotfiles apply\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles apply --dry-run\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles apply --force --yes\x1b[22m\n"},
 	{Key: FlagBootstrapDotfilesApplyForce, Short: "Overwrite existing files that conflict with whole-file dotfile entries", Long: "Overwrite existing files that conflict with whole-file dotfile entries"},
 	{Key: FlagBootstrapDotfilesApplyDryRun, Short: "Print the actions that would run without writing anything", Long: "Print the actions that would run without writing anything"},
 	{Key: FlagBootstrapDotfilesApplyYes, Short: "Skip the confirmation prompt", Long: "Skip the confirmation prompt"},
 	{Key: ArgBootstrapDotfilesApplyTarget, Short: "Only apply these targets", Long: "Only apply these targets"},
-	{Key: CmdBootstrapDotfilesEdit, Short: "Edit a managed dotfile source", AfterLongHelp: "Examples:\n\n    $ mise bootstrap dotfiles edit ~/.zshrc\n    $ mise bootstrap dotfiles edit --apply ~/.config/starship.toml\n"},
+	{Key: CmdBootstrapDotfilesEdit, Short: "Edit a managed dotfile source", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap dotfiles edit ~/.zshrc\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles edit --apply ~/.config/starship.toml\x1b[22m\n"},
 	{Key: FlagBootstrapDotfilesEditApply, Short: "Apply this target after the editor exits", Long: "Apply this target after the editor exits"},
 	{Key: FlagBootstrapDotfilesEditMode, ValueName: "MODE", ValueDemanded: true, Short: "Dotfile mode to use if the target is not yet managed", Long: "Dotfile mode to use if the target is not yet managed"},
 	{Key: FlagBootstrapDotfilesEditSource, ValueName: "PATH", ValueDemanded: true, Short: "Source path to use if the target is not yet managed", Long: "Source path to use if the target is not yet managed"},
 	{Key: FlagBootstrapDotfilesEditYes, Short: "Skip the confirmation prompt when adding an unmanaged target", Long: "Skip the confirmation prompt when adding an unmanaged target"},
 	{Key: ArgBootstrapDotfilesEditTarget, Demanded: true, Short: "Target to edit", Long: "Target to edit"},
-	{Key: CmdBootstrapDotfilesStatus, Short: "Show the status of dotfiles from `[dotfiles]`", VisibleAliases: []string{"ls"}, AfterLongHelp: "Examples:\n\n    $ mise bootstrap dotfiles status\n    $ mise bootstrap dotfiles status ~/.zshrc\n    $ mise bootstrap dotfiles status --json\n    $ mise bootstrap dotfiles status --missing # exit 1 if anything is out of sync\n"},
+	{Key: CmdBootstrapDotfilesStatus, Short: "Show the status of dotfiles from `[dotfiles]`", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap dotfiles status\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles status ~/.zshrc\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles status --json\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles status --missing\x1b[22m # exit 1 if anything is out of sync\n"},
 	{Key: FlagBootstrapDotfilesStatusJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagBootstrapDotfilesStatusMissing, Short: "Exit with code 1 if any configured dotfiles are not in their desired\nstate (missing, source missing, differs)", Long: "Exit with code 1 if any configured dotfiles are not in their desired\nstate (missing, source missing, differs)"},
 	{Key: ArgBootstrapDotfilesStatusTarget, Short: "Only show these targets", Long: "Only show these targets"},
-	{Key: CmdBootstrapDotfilesUnapply, Short: "Remove dotfiles applied from `[dotfiles]`", Long: "Remove dotfiles applied from `[dotfiles]`\n\nRemoves configured whole-file entries and edits while preserving files\nmise cannot identify as managed. Modified copies, templates, and plain-line\nedits require `--force`.", AfterLongHelp: "Examples:\n\n    $ mise bootstrap dotfiles unapply\n    $ mise bootstrap dotfiles unapply ~/.zshrc\n    $ mise bootstrap dotfiles unapply --dry-run\n    $ mise bootstrap dotfiles unapply --force --yes\n"},
+	{Key: CmdBootstrapDotfilesUnapply, Short: "Remove dotfiles applied from `[dotfiles]`", Long: "Remove dotfiles applied from `[dotfiles]`\n\nRemoves configured whole-file entries and edits while preserving files\nmise cannot identify as managed. Modified copies, templates, and plain-line\nedits require `--force`.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap dotfiles unapply\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles unapply ~/.zshrc\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles unapply --dry-run\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles unapply --force --yes\x1b[22m\n"},
 	{Key: FlagBootstrapDotfilesUnapplyForce, Short: "Remove modified or otherwise ambiguous managed files and lines", Long: "Remove modified or otherwise ambiguous managed files and lines"},
 	{Key: FlagBootstrapDotfilesUnapplyDryRun, Short: "Print the actions that would run without writing anything", Long: "Print the actions that would run without writing anything"},
 	{Key: FlagBootstrapDotfilesUnapplyYes, Short: "Skip the confirmation prompt", Long: "Skip the confirmation prompt"},
@@ -5022,46 +5064,46 @@ var HelpText = argv.HelpTable{
 	{Key: FlagBootstrapMiseShellActivateStatusJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagBootstrapMiseShellActivateStatusMissing, Short: "Exit with code 1 if any configured shell activation is not in its desired state", Long: "Exit with code 1 if any configured shell activation is not in its desired state"},
 	{Key: CmdBootstrapPackages, Short: "Manage bootstrap system packages from `[bootstrap.packages]`", SubcommandRequired: true},
-	{Key: CmdBootstrapPackagesApply, Short: "Apply system packages from `[bootstrap.packages]`", Long: "Apply system packages from `[bootstrap.packages]`\n\nChecks which configured packages are missing and installs them with the\nsystem package manager. Built-in system managers may elevate with sudo when\nnot running as root (see `system_packages.sudo`); package plugins never do.\n\nPackages can also be given explicitly in `manager:package` form (e.g.\n`apk:zlib-dev`, `apt:curl`, `brew:jq`); they are installed whether or not they appear in\nthe config. Explicit packages and `--manager` scope the run to packages\nonly. `install` is accepted as an alias for this command.", VisibleAliases: []string{"i"}, AfterLongHelp: "Examples:\n\n    $ mise bootstrap packages apply\n    $ mise bootstrap packages apply apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox mas:497799835\n    $ mise bootstrap packages apply --dry-run\n    $ mise bootstrap packages apply --manager apt --yes\n"},
+	{Key: CmdBootstrapPackagesApply, Short: "Apply system packages from `[bootstrap.packages]`", Long: "Apply system packages from `[bootstrap.packages]`\n\nChecks which configured packages are missing and installs them with the\nsystem package manager. Built-in system managers may elevate with sudo when\nnot running as root (see `system_packages.sudo`); package plugins never do.\n\nPackages can also be given explicitly in `manager:package` form (e.g.\n`apk:zlib-dev`, `apt:curl`, `brew:jq`); they are installed whether or not they appear in\nthe config. Explicit packages and `--manager` scope the run to packages\nonly. `install` is accepted as an alias for this command.", VisibleAliases: []string{"i"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap packages apply\x1b[22m\n    $ \x1b[1mmise bootstrap packages apply apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox flatpak-user:org.gnome.Builder mas:497799835\x1b[22m\n    $ \x1b[1mmise bootstrap packages apply --dry-run\x1b[22m\n    $ \x1b[1mmise bootstrap packages apply --manager apt --yes\x1b[22m\n"},
 	{Key: FlagBootstrapPackagesApplyManager, ValueName: "MANAGER", ValueDemanded: true, Short: "Only install packages for this built-in or plugin manager", Long: "Only install packages for this built-in or plugin manager"},
 	{Key: FlagBootstrapPackagesApplyDryRun, Short: "Print the commands that would run without running them", Long: "Print the commands that would run without running them"},
 	{Key: FlagBootstrapPackagesApplyYes, Short: "Skip the confirmation prompt", Long: "Skip the confirmation prompt"},
 	{Key: FlagBootstrapPackagesApplyUpdate, Short: "Refresh package manager metadata first (apk: `--update-cache`, apt: `apt-get update`)", Long: "Refresh package manager metadata first (apk: `--update-cache`, apt: `apt-get update`)"},
-	{Key: ArgBootstrapPackagesApplyPackage, Short: "Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]", Long: "Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]"},
+	{Key: ArgBootstrapPackagesApplyPackage, Short: "Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]", Long: "Packages in `manager:package` form; defaults to everything configured\nin [bootstrap.packages]"},
 	{Key: CmdBootstrapPackagesBrew, Short: "Manage Homebrew taps used by bootstrap packages", Long: "Manage Homebrew taps used by bootstrap packages\n\nThese commands edit `[bootstrap.brew.taps]` so tapped formulae and casks\ncan be fetched directly by mise without a Homebrew installation.", SubcommandRequired: true},
-	{Key: CmdBootstrapPackagesBrewTap, Short: "Add a Homebrew tap URL to [bootstrap.brew.taps]", AfterLongHelp: "Examples:\n\n    $ mise bootstrap packages brew tap railwaycat/emacsmacport\n    $ mise bootstrap packages brew tap acme/tools https://github.com/acme/homebrew-tools.git\n"},
+	{Key: CmdBootstrapPackagesBrewTap, Short: "Add a Homebrew tap URL to [bootstrap.brew.taps]", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap packages brew tap railwaycat/emacsmacport\x1b[22m\n    $ \x1b[1mmise bootstrap packages brew tap acme/tools https://github.com/acme/homebrew-tools.git\x1b[22m\n"},
 	{Key: FlagBootstrapPackagesBrewTapLocal, Short: "Write to the local config instead of the global config", Long: "Write to the local config instead of the global config"},
 	{Key: FlagBootstrapPackagesBrewTapDryRun, Short: "Print the config change without writing it", Long: "Print the config change without writing it"},
 	{Key: FlagBootstrapPackagesBrewTapPath, ValueName: "PATH", ValueDemanded: true, Short: "Write to this config file or directory", Long: "Write to this config file or directory"},
 	{Key: ArgBootstrapPackagesBrewTapTap, Demanded: true, Short: "Tap name, e.g. `owner/repo`", Long: "Tap name, e.g. `owner/repo`"},
 	{Key: ArgBootstrapPackagesBrewTapUrl, Short: "GitHub URL for the tap. Defaults to https://github.com/<owner>/homebrew-<repo>.git", Long: "GitHub URL for the tap. Defaults to https://github.com/<owner>/homebrew-<repo>.git"},
-	{Key: CmdBootstrapPackagesBrewUntap, Short: "Remove Homebrew tap URLs from [bootstrap.brew.taps]", VisibleAliases: []string{"remove", "rm"}, AfterLongHelp: "Examples:\n\n    $ mise bootstrap packages brew untap railwaycat/emacsmacport\n"},
+	{Key: CmdBootstrapPackagesBrewUntap, Short: "Remove Homebrew tap URLs from [bootstrap.brew.taps]", VisibleAliases: []string{"remove", "rm"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap packages brew untap railwaycat/emacsmacport\x1b[22m\n"},
 	{Key: FlagBootstrapPackagesBrewUntapLocal, Short: "Write to the local config instead of the global config", Long: "Write to the local config instead of the global config"},
 	{Key: FlagBootstrapPackagesBrewUntapDryRun, Short: "Print the config change without writing it", Long: "Print the config change without writing it"},
 	{Key: FlagBootstrapPackagesBrewUntapPath, ValueName: "PATH", ValueDemanded: true, Short: "Write to this config file or directory", Long: "Write to this config file or directory"},
 	{Key: ArgBootstrapPackagesBrewUntapTaps, Demanded: true, Short: "Tap name(s), e.g. `owner/repo`", Long: "Tap name(s), e.g. `owner/repo`"},
-	{Key: CmdBootstrapPackagesImport, Short: "Import installed system packages into `[bootstrap.packages]`", Long: "Import installed system packages into `[bootstrap.packages]`\n\nCurrently supports Homebrew formulae only. By default, imports linked\nformulae whose active keg receipt says they were installed on request.\nPass `--all` to import every linked formula, including dependencies.", AfterLongHelp: "Examples:\n\n    $ mise bootstrap packages import --manager brew\n    $ mise bootstrap packages import --manager brew --all\n    $ mise bootstrap packages import --manager brew --global\n    $ mise bootstrap packages import --manager brew --dry-run\n"},
+	{Key: CmdBootstrapPackagesImport, Short: "Import installed system packages into `[bootstrap.packages]`", Long: "Import installed system packages into `[bootstrap.packages]`\n\nCurrently supports Homebrew formulae only. By default, imports linked\nformulae whose active keg receipt says they were installed on request.\nPass `--all` to import every linked formula, including dependencies.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap packages import --manager brew\x1b[22m\n    $ \x1b[1mmise bootstrap packages import --manager brew --all\x1b[22m\n    $ \x1b[1mmise bootstrap packages import --manager brew --global\x1b[22m\n    $ \x1b[1mmise bootstrap packages import --manager brew --dry-run\x1b[22m\n"},
 	{Key: FlagBootstrapPackagesImportEnv, ValueName: "ENV", ValueDemanded: true, Short: "Write to the config file for this environment (mise.<ENV>.toml)", Long: "Write to the config file for this environment (mise.<ENV>.toml)"},
 	{Key: FlagBootstrapPackagesImportGlobal, Short: "Write to the global config (~/.config/mise/config.toml)", Long: "Write to the global config (~/.config/mise/config.toml)"},
-	{Key: FlagBootstrapPackagesImportManager, ValueName: "MANAGER", ValueDemanded: true, Short: "Only import packages for this manager. Currently only `brew` is supported", Long: "Only import packages for this manager. Currently only `brew` is supported", Choices: []string{"brew"}, Default: []string{"brew"}},
+	{Key: FlagBootstrapPackagesImportManager, ValueName: "MANAGER", ValueDemanded: true, Short: "Only import packages for this manager. Currently only `brew` is supported.", Long: "Only import packages for this manager. Currently only `brew` is supported.", Choices: []string{"brew"}, Default: []string{"brew"}},
 	{Key: FlagBootstrapPackagesImportAll, Short: "Import every linked formula, including dependencies", Long: "Import every linked formula, including dependencies"},
 	{Key: FlagBootstrapPackagesImportDryRun, Short: "Print the config change without writing config", Long: "Print the config change without writing config"},
 	{Key: FlagBootstrapPackagesImportPath, ValueName: "PATH", ValueDemanded: true, Short: "Write to this config file or directory", Long: "Write to this config file or directory"},
-	{Key: CmdBootstrapPackagesPrune, Short: "Prune installed system packages no longer declared in `[bootstrap.packages]`", Long: "Prune installed system packages no longer declared in `[bootstrap.packages]`\n\nCurrently supports Homebrew formulae only. Pruning removes linked formulae\nthat are not needed by the current config or by trusted, loadable tracked\nconfigs.", AfterLongHelp: "Examples:\n\n    $ mise bootstrap packages prune --manager brew\n    $ mise bootstrap packages prune --manager brew --dry-run\n    $ mise bootstrap packages prune --manager brew --yes\n"},
-	{Key: FlagBootstrapPackagesPruneManager, ValueName: "MANAGER", ValueDemanded: true, Short: "Only prune packages for this manager. Currently only `brew` is supported", Long: "Only prune packages for this manager. Currently only `brew` is supported", Choices: []string{"brew"}, Default: []string{"brew"}},
+	{Key: CmdBootstrapPackagesPrune, Short: "Prune installed system packages no longer declared in `[bootstrap.packages]`", Long: "Prune installed system packages no longer declared in `[bootstrap.packages]`\n\nSupports Homebrew formulae and conservatively removable, mise-owned casks.\nPruning keeps packages needed by the current config or by trusted, loadable\ntracked configs.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap packages prune --manager brew\x1b[22m\n    $ \x1b[1mmise bootstrap packages prune --manager brew --dry-run\x1b[22m\n    $ \x1b[1mmise bootstrap packages prune --manager brew --yes\x1b[22m\n    $ \x1b[1mmise bootstrap packages prune --manager brew-cask --dry-run\x1b[22m\n"},
+	{Key: FlagBootstrapPackagesPruneManager, ValueName: "MANAGER", ValueDemanded: true, Short: "Only prune packages for this manager", Long: "Only prune packages for this manager", Choices: []string{"brew", "brew-cask"}, Default: []string{"brew"}},
 	{Key: FlagBootstrapPackagesPruneDryRun, Short: "Print what would be removed without deleting anything", Long: "Print what would be removed without deleting anything"},
 	{Key: FlagBootstrapPackagesPruneYes, Short: "Skip the confirmation prompt", Long: "Skip the confirmation prompt"},
-	{Key: CmdBootstrapPackagesStatus, Short: "Show the status of system packages from `[bootstrap.packages]`", VisibleAliases: []string{"ls"}, AfterLongHelp: "Examples:\n\n    $ mise bootstrap packages status\n    $ mise bootstrap packages status --json\n    $ mise bootstrap packages status --missing # exit 1 if anything is out of sync\n"},
+	{Key: CmdBootstrapPackagesStatus, Short: "Show the status of system packages from `[bootstrap.packages]`", VisibleAliases: []string{"ls"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap packages status\x1b[22m\n    $ \x1b[1mmise bootstrap packages status --json\x1b[22m\n    $ \x1b[1mmise bootstrap packages status --missing\x1b[22m # exit 1 if anything is out of sync\n"},
 	{Key: FlagBootstrapPackagesStatusJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagBootstrapPackagesStatusMissing, Short: "Exit with code 1 if any configured packages are not in their desired state", Long: "Exit with code 1 if any configured packages are not in their desired state"},
-	{Key: CmdBootstrapPackagesUpgrade, Short: "Upgrade installed bootstrap packages from `[bootstrap.packages]`", Long: "Upgrade installed bootstrap packages from `[bootstrap.packages]`\n\nRefreshes package manager metadata and upgrades the configured packages\nthat are already installed: apk/apt/dnf/pacman upgrade to the newest available\nversion (apk, apt, and dnf honor a version pinned in config), brew pours the\nformula's current bottle and replaces the old keg, brew-cask installs\nthe current cask artifact, flatpak updates applications and runtimes, and mas upgrades App Store apps. Packages that\nare not installed yet are skipped — use `mise bootstrap packages apply`\nfor those.\n\nPackages can also be given explicitly in `manager:package` form.", VisibleAliases: []string{"up"}, AfterLongHelp: "Examples:\n\n    $ mise bootstrap packages upgrade\n    $ mise bootstrap packages upgrade brew:postgresql@17\n    $ mise bootstrap packages upgrade --manager brew-cask\n    $ mise bootstrap packages upgrade --manager mas\n    $ mise bootstrap packages upgrade --manager apt --yes\n    $ mise bootstrap packages upgrade --dry-run\n"},
+	{Key: CmdBootstrapPackagesUpgrade, Short: "Upgrade installed bootstrap packages from `[bootstrap.packages]`", Long: "Upgrade installed bootstrap packages from `[bootstrap.packages]`\n\nRefreshes package manager metadata and upgrades the configured packages\nthat are already installed: apk/apt/dnf/pacman upgrade to the newest available\nversion (apk, apt, and dnf honor a version pinned in config), brew pours the\nformula's current bottle and replaces the old keg, brew-cask installs\nthe current cask artifact, flatpak and flatpak-user update applications and runtimes, and mas upgrades App Store apps. Packages that\nare not installed yet are skipped — use `mise bootstrap packages apply`\nfor those.\n\nPackages can also be given explicitly in `manager:package` form.", VisibleAliases: []string{"up"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap packages upgrade\x1b[22m\n    $ \x1b[1mmise bootstrap packages upgrade brew:postgresql@17\x1b[22m\n    $ \x1b[1mmise bootstrap packages upgrade --manager brew-cask\x1b[22m\n    $ \x1b[1mmise bootstrap packages upgrade --manager mas\x1b[22m\n    $ \x1b[1mmise bootstrap packages upgrade --manager apt --yes\x1b[22m\n    $ \x1b[1mmise bootstrap packages upgrade --dry-run\x1b[22m\n"},
 	{Key: FlagBootstrapPackagesUpgradeManager, ValueName: "MANAGER", ValueDemanded: true, Short: "Only upgrade packages for this built-in or plugin manager", Long: "Only upgrade packages for this built-in or plugin manager"},
 	{Key: FlagBootstrapPackagesUpgradeDryRun, Short: "Print the commands that would run without running them", Long: "Print the commands that would run without running them"},
 	{Key: FlagBootstrapPackagesUpgradeYes, Short: "Skip the confirmation prompt", Long: "Skip the confirmation prompt"},
-	{Key: ArgBootstrapPackagesUpgradePackage, Short: "Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]", Long: "Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]"},
-	{Key: CmdBootstrapPackagesUse, Short: "Add bootstrap packages to [bootstrap.packages] and install them", Long: "Add bootstrap packages to [bootstrap.packages] and install them\n\nLike `mise use` for tools: writes `\"manager:package\" = \"version\"` entries\nto mise.toml (the local config by default, the global one with `-g`) and\nthen installs whatever is missing.\n\nVersions are pinned with `@`: `mise bootstrap packages use apt:curl@8.5.0-2`. Without\n`@` (or with `@latest`) no pin is written. brew formulae and casks\nversion through their names instead (for example `brew:postgresql@17`,\n`brew-cask:temurin@17`), where `@` is part of the Homebrew name rather than\na mise version selector. mas uses numeric ADAM IDs and does not support pins.", VisibleAliases: []string{"u"}, AfterLongHelp: "Examples:\n\n    $ mise bootstrap packages use apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox mas:497799835\n    $ mise bootstrap packages use -g brew:postgresql@17\n    $ mise bootstrap packages use apt:curl@8.5.0-2\n"},
+	{Key: ArgBootstrapPackagesUpgradePackage, Short: "Packages in `manager:package` form; defaults to everything configured in [bootstrap.packages]", Long: "Packages in `manager:package` form; defaults to everything configured\nin [bootstrap.packages]"},
+	{Key: CmdBootstrapPackagesUse, Short: "Add bootstrap packages to [bootstrap.packages] and install them", Long: "Add bootstrap packages to [bootstrap.packages] and install them\n\nLike `mise use` for tools: writes `\"manager:package\" = \"version\"` entries\nto mise.toml (the local config by default, the global one with `-g`) and\nthen installs whatever is missing.\n\nVersions are pinned with `@`: `mise bootstrap packages use apt:curl@8.5.0-2`. Without\n`@` (or with `@latest`) no pin is written. brew formulae and casks\nversion through their names instead (for example `brew:postgresql@17`,\n`brew-cask:temurin@17`), where `@` is part of the Homebrew name rather than\na mise version selector. mas uses numeric ADAM IDs and does not support pins.", VisibleAliases: []string{"u"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap packages use apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox flatpak-user:org.gnome.Builder mas:497799835\x1b[22m\n    $ \x1b[1mmise bootstrap packages use -g brew:postgresql@17\x1b[22m\n    $ \x1b[1mmise bootstrap packages use apt:curl@8.5.0-2\x1b[22m\n"},
 	{Key: FlagBootstrapPackagesUseEnv, ValueName: "ENV", ValueDemanded: true, Short: "Write to the config file for this environment (mise.<ENV>.toml)", Long: "Write to the config file for this environment (mise.<ENV>.toml)"},
-	{Key: FlagBootstrapPackagesUseGlobal, Short: "Write to the global config (~/.config/mise/config.toml) instead of the local one", Long: "Write to the global config (~/.config/mise/config.toml) instead of the local one"},
+	{Key: FlagBootstrapPackagesUseGlobal, Short: "Write to the global config (~/.config/mise/config.toml) instead of the local one", Long: "Write to the global config (~/.config/mise/config.toml) instead of the\nlocal one"},
 	{Key: FlagBootstrapPackagesUseDryRun, Short: "Print the commands that would run without writing config or installing", Long: "Print the commands that would run without writing config or installing"},
 	{Key: FlagBootstrapPackagesUsePath, ValueName: "PATH", ValueDemanded: true, Short: "Write to this config file or directory", Long: "Write to this config file or directory"},
 	{Key: FlagBootstrapPackagesUseYes, Short: "Skip the confirmation prompt", Long: "Skip the confirmation prompt"},
@@ -5079,6 +5121,8 @@ var HelpText = argv.HelpTable{
 	{Key: FlagBootstrapRemoteAll, Short: "Select every configured inventory host", Long: "Select every configured inventory host"},
 	{Key: FlagBootstrapRemoteBootstrapCommand, ValueName: "COMMAND", ValueDemanded: true, Short: "Explicit remote shell command that installs mise and places it on PATH", Long: "Explicit remote shell command that installs mise and places it on PATH"},
 	{Key: FlagBootstrapRemoteConnectTimeout, ValueName: "CONNECT_TIMEOUT", ValueDemanded: true, Short: "SSH connection timeout in seconds", Long: "SSH connection timeout in seconds", Default: []string{"10"}},
+	{Key: FlagBootstrapRemoteCopyLink, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Dereference one source-relative symbolic link; repeat for multiple links", Long: "Dereference one source-relative symbolic link; repeat for multiple links"},
+	{Key: FlagBootstrapRemoteCopyLinks, Short: "Dereference every symbolic link in the source archive", Long: "Dereference every symbolic link in the source archive"},
 	{Key: FlagBootstrapRemoteExclude, Repeatable: true, ValueName: "PATTERN", ValueDemanded: true, Short: "Additional archive pattern to exclude; repeat for multiple patterns", Long: "Additional archive pattern to exclude; repeat for multiple patterns"},
 	{Key: FlagBootstrapRemoteFailFast, Short: "Stop after the first failed target", Long: "Stop after the first failed target"},
 	{Key: FlagBootstrapRemoteForceDotfiles, Short: "Allow remote dotfile conflicts to be replaced", Long: "Allow remote dotfile conflicts to be replaced"},
@@ -5087,11 +5131,12 @@ var HelpText = argv.HelpTable{
 	{Key: FlagBootstrapRemoteDryRun, Short: "Print the remote bootstrap changes without applying them", Long: "Print the remote bootstrap changes without applying them"},
 	{Key: FlagBootstrapRemoteKeepStaging, Short: "Keep the remote staging directory for debugging", Long: "Keep the remote staging directory for debugging"},
 	{Key: FlagBootstrapRemoteMiseBin, ValueName: "MISE_BIN", ValueDemanded: true, Short: "Local mise binary to upload (escape hatch for custom architectures)", Long: "Local mise binary to upload (escape hatch for custom architectures)"},
-	{Key: FlagBootstrapRemoteOnly, Repeatable: true, ValueName: "ONLY", ValueDemanded: true, Short: "Run only one or more remote bootstrap parts", Long: "Run only one or more remote bootstrap parts", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}},
+	{Key: FlagBootstrapRemoteOnly, Repeatable: true, ValueName: "ONLY", ValueDemanded: true, Short: "Run only one or more remote bootstrap parts", Long: "Run only one or more remote bootstrap parts", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"}},
 	{Key: FlagBootstrapRemotePort, ValueName: "PORT", ValueDemanded: true, Short: "SSH port override", Long: "SSH port override"},
 	{Key: FlagBootstrapRemotePromptSecrets, Short: "Prompt securely for missing secret inputs on the remote host", Long: "Prompt securely for missing secret inputs on the remote host"},
+	{Key: FlagBootstrapRemoteRemoteEnv, Repeatable: true, ValueName: "ENV", ValueDemanded: true, Short: "Config environments to load on the remote host; repeat or delimit with commas (for example, ci,dotfiles)", Long: "Config environments to load on the remote host; repeat or delimit with commas (for example, ci,dotfiles)"},
 	{Key: FlagBootstrapRemoteRemoteMise, ValueName: "COMMAND", ValueDemanded: true, Short: "Existing mise executable name or path; relative paths use the staged project", Long: "Existing mise executable name or path; relative paths use the staged project"},
-	{Key: FlagBootstrapRemoteSkip, Repeatable: true, ValueName: "SKIP", ValueDemanded: true, Short: "Skip one or more remote bootstrap parts", Long: "Skip one or more remote bootstrap parts", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "shell", "macos-defaults", "defaults", "macos-launchd-agents", "launchd", "linux-systemd-units", "systemd", "user", "tools", "task", "final-hook"}},
+	{Key: FlagBootstrapRemoteSkip, Repeatable: true, ValueName: "SKIP", ValueDemanded: true, Short: "Skip one or more remote bootstrap parts", Long: "Skip one or more remote bootstrap parts", Choices: []string{"plugins", "packages", "accounts", "files", "services", "firewall", "compose", "repos", "dotfiles", "mise-shell-activate", "macos-defaults", "macos-launchd-agents", "linux-systemd-units", "user", "tools", "task", "final-hook"}},
 	{Key: FlagBootstrapRemoteSource, ValueName: "SOURCE", ValueDemanded: true, Short: "Local directory archived and sent to each target", Long: "Local directory archived and sent to each target"},
 	{Key: FlagBootstrapRemoteSshOption, Repeatable: true, ValueName: "OPTION", ValueDemanded: true, Short: "OpenSSH `-o` option; repeat for multiple options", Long: "OpenSSH `-o` option; repeat for multiple options"},
 	{Key: FlagBootstrapRemoteTag, Repeatable: true, ValueName: "TAG", ValueDemanded: true, Short: "Select configured hosts with this tag; repeat to match any tag", Long: "Select configured hosts with this tag; repeat to match any tag"},
@@ -5147,45 +5192,45 @@ var HelpText = argv.HelpTable{
 	{Key: CmdCacheClear, Short: "Deletes all cache files in mise", VisibleAliases: []string{"c"}},
 	{Key: FlagCacheClearOutdate, Hide: true, Short: "Mark all cache files as old", Long: "Mark all cache files as old"},
 	{Key: FlagCacheClearTask, ValueName: "TASK", ValueDemanded: true, Short: "Clear output cache entries for a task name or pattern", Long: "Clear output cache entries for a task name or pattern"},
-	{Key: ArgCacheClearTool, Short: "Tool(s) to clear cache for e.g.: node, python", Long: "Tool(s) to clear cache for e.g.: node, python"},
+	{Key: ArgCacheClearTool, Short: "Tool(s) to clear cache for e.g.: node, python", Long: "Tool(s) to clear cache for\ne.g.: node, python"},
 	{Key: CmdCachePath, Short: "Show the cache directory path", VisibleAliases: []string{"dir"}},
 	{Key: CmdCachePrune, Short: "Removes stale mise cache files", Long: "Removes stale mise cache files\n\nBy default, this command will remove files that have not been accessed in 30 days.\nChange this with the MISE_CACHE_PRUNE_AGE environment variable.", VisibleAliases: []string{"p"}},
 	{Key: FlagCachePruneVerbose, Repeatable: true, Short: "Show pruned files", Long: "Show pruned files"},
 	{Key: FlagCachePruneDryRun, Short: "Just show what would be pruned", Long: "Just show what would be pruned"},
-	{Key: ArgCachePruneTool, Short: "Tool(s) to prune cache for e.g.: node, python", Long: "Tool(s) to prune cache for e.g.: node, python"},
+	{Key: ArgCachePruneTool, Short: "Tool(s) to prune cache for e.g.: node, python", Long: "Tool(s) to prune cache for\ne.g.: node, python"},
 	{Key: CmdCacheTask, Short: "Inspect output cache entries for a task"},
 	{Key: FlagCacheTaskJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: ArgCacheTaskTask, Demanded: true, Short: "Task name or pattern to inspect", Long: "Task name or pattern to inspect"},
-	{Key: CmdCompletion, Short: "Generate shell completions", AfterLongHelp: "Examples:\n\n    $ mise completion bash --include-bash-completion-lib > ~/.local/share/bash-completion/completions/mise\n    $ mise completion zsh  > /usr/local/share/zsh/site-functions/_mise\n    $ mise completion fish > ~/.config/fish/completions/mise.fish\n    $ mise completion powershell >> $PROFILE\n"},
-	{Key: FlagCompletionShell, Hide: true, ValueName: "SHELL_TYPE", ValueDemanded: true, Short: "Shell type to generate completions for", Long: "Shell type to generate completions for", Choices: []string{"bash", "fish", "powershell", "zsh"}},
+	{Key: CmdCompletion, Short: "Generate shell completions", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise completion bash --include-bash-completion-lib > ~/.local/share/bash-completion/completions/mise\x1b[22m\n    $ \x1b[1mmise completion zsh  > /usr/local/share/zsh/site-functions/_mise\x1b[22m\n    $ \x1b[1mmise completion fish > ~/.config/fish/completions/mise.fish\x1b[22m\n    $ \x1b[1mmise completion powershell >> $PROFILE\x1b[22m\n"},
+	{Key: FlagCompletionShell, Hide: true, ValueName: "SHELL", ValueDemanded: true, Short: "Shell type to generate completions for", Long: "Shell type to generate completions for"},
 	{Key: FlagCompletionIncludeBashCompletionLib, Short: "Include the bash completion library in the bash completion script", Long: "Include the bash completion library in the bash completion script\n\nThis is required for completions to work in bash, but it is not included by default\nyou may source it separately or enable this flag to enable it in the script."},
 	{Key: FlagCompletionUsage, Hide: true, Short: "Always use usage for completions.\nCurrently, usage is the default for fish and bash but not zsh since it has a few quirks\nto work out first.", Long: "Always use usage for completions.\nCurrently, usage is the default for fish and bash but not zsh since it has a few quirks\nto work out first.\n\nThis requires the `usage` CLI to be installed.\nhttps://usage.jdx.dev"},
-	{Key: ArgCompletionShell, Short: "Shell type to generate completions for", Long: "Shell type to generate completions for", Choices: []string{"bash", "fish", "powershell", "zsh"}},
-	{Key: CmdConfig, Short: "Manage config files", VisibleAliases: []string{"cfg"}, AfterLongHelp: "Examples:\n\n    $ mise config ls\n    Path                        Tools\n    ~/.config/mise/config.toml  pitchfork\n    ~/src/mise/mise.toml        actionlint, bun, cargo-binstall, cargo:cargo-insta\n"},
+	{Key: ArgCompletionShell, Short: "Shell type to generate completions for", Long: "Shell type to generate completions for"},
+	{Key: CmdConfig, Short: "Manage config files", VisibleAliases: []string{"cfg"}},
 	{Key: FlagConfigJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagConfigNoHeader, Short: "Do not print table header", Long: "Do not print table header"},
 	{Key: FlagConfigTrackedConfigs, Short: "List all tracked config files", Long: "List all tracked config files"},
-	{Key: CmdConfigGet, Short: "Display the value of a setting in a mise.toml file", AfterLongHelp: "Examples:\n\n    $ mise toml get tools.python\n    3.12\n"},
+	{Key: CmdConfigGet, Short: "Display the value of a setting in a mise.toml file", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise toml get tools.python\x1b[22m\n    3.12\n"},
 	{Key: FlagConfigGetFile, ValueName: "FILE", ValueDemanded: true, Short: "The path to the mise.toml file to read", Long: "The path to the mise.toml file to read\n\nCan be a file path or directory. If a directory is provided, the config file in that directory is used.\n\nIf not provided, the nearest mise.toml file will be used"},
 	{Key: ArgConfigGetKey, Short: "The path of the config to display", Long: "The path of the config to display"},
-	{Key: CmdConfigLs, Short: "List config files currently in use", VisibleAliases: []string{"list"}, AfterLongHelp: "Examples:\n\n    $ mise config ls\n    Path                        Tools\n    ~/.config/mise/config.toml  pitchfork\n    ~/src/mise/mise.toml        actionlint, bun, cargo-binstall, cargo:cargo-insta\n"},
+	{Key: CmdConfigLs, Short: "List config files currently in use", VisibleAliases: []string{"list"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise config ls\x1b[22m\n    Path                        Tools\n    ~/.config/mise/config.toml  pitchfork\n    ~/src/mise/mise.toml        actionlint, bun, cargo-binstall, cargo:cargo-insta\n"},
 	{Key: FlagConfigLsJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagConfigLsNoHeader, Short: "Do not print table header", Long: "Do not print table header"},
 	{Key: FlagConfigLsTrackedConfigs, Short: "List all tracked config files", Long: "List all tracked config files"},
-	{Key: CmdConfigSet, Short: "Set the value of a setting in a mise.toml file", AfterLongHelp: "Examples:\n\n    $ mise config set tools.python 3.12\n    $ mise config set settings.always_keep_download true\n    $ mise config set env.TEST_ENV_VAR ABC\n    $ mise config set settings.disable_tools node,rust\n\n    # Type for `settings` is inferred\n    $ mise config set settings.jobs 4\n"},
+	{Key: CmdConfigSet, Short: "Set the value of a setting in a mise.toml file", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise config set tools.python 3.12\x1b[22m\n    $ \x1b[1mmise config set settings.always_keep_download true\x1b[22m\n    $ \x1b[1mmise config set env.TEST_ENV_VAR ABC\x1b[22m\n    $ \x1b[1mmise config set settings.disable_tools node,rust\x1b[22m\n\n    # Type for `settings` is inferred\n    $ \x1b[1mmise config set settings.jobs 4\x1b[22m\n"},
 	{Key: FlagConfigSetFile, ValueName: "FILE", ValueDemanded: true, Short: "The path to the mise.toml file to edit", Long: "The path to the mise.toml file to edit\n\nCan be a file path or directory. If a directory is provided, the config file in that directory is used.\n\nIf not provided, the nearest mise.toml file will be used"},
 	{Key: FlagConfigSetType, ValueName: "TYPE", ValueDemanded: true, Choices: []string{"infer", "string", "integer", "float", "bool", "list", "set"}, Default: []string{"infer"}},
 	{Key: ArgConfigSetKey, Demanded: true, Short: "The path of the config to display", Long: "The path of the config to display"},
 	{Key: ArgConfigSetValue, Short: "The value to set the key to (optional if provided as KEY=VALUE)", Long: "The value to set the key to (optional if provided as KEY=VALUE)"},
-	{Key: CmdCurrent, Hide: true, Short: "Shows current active and installed runtime versions", Long: "Shows current active and installed runtime versions\n\nThis is similar to `mise ls --current`, but this only shows the runtime\nand/or version. It's designed to fit into scripts more easily.", AfterLongHelp: "Examples:\n\n    # outputs `.tool-versions` compatible format\n    $ mise current\n    python 3.11.0 3.10.0\n    shfmt 3.6.0\n    shellcheck 0.9.0\n    node 20.0.0\n\n    $ mise current node\n    20.0.0\n\n    # can output multiple versions\n    $ mise current python\n    3.11.0 3.10.0\n"},
-	{Key: ArgCurrentPlugin, Short: "Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc", Long: "Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc"},
-	{Key: CmdDeactivate, Short: "Disable mise for current shell session", Long: "Disable mise for current shell session\n\nThis can be used to temporarily disable mise in a shell session.", AfterLongHelp: "Examples:\n\n    $ mise deactivate\n"},
+	{Key: CmdCurrent, Hide: true, Short: "Shows current active and installed runtime versions", Long: "Shows current active and installed runtime versions\n\nThis is similar to `mise ls --current`, but this only shows the runtime\nand/or version. It's designed to fit into scripts more easily.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # outputs `.tool-versions` compatible format\n    $ \x1b[1mmise current\x1b[22m\n    python 3.11.0 3.10.0\n    shfmt 3.6.0\n    shellcheck 0.9.0\n    node 20.0.0\n\n    $ \x1b[1mmise current node\x1b[22m\n    20.0.0\n\n    # can output multiple versions\n    $ \x1b[1mmise current python\x1b[22m\n    3.11.0 3.10.0\n"},
+	{Key: ArgCurrentPlugin, Short: "Plugin to show versions of e.g.: ruby, node, cargo:eza, npm:prettier, etc.", Long: "Plugin to show versions of\ne.g.: ruby, node, cargo:eza, npm:prettier, etc."},
+	{Key: CmdDeactivate, Short: "Disable mise for current shell session", Long: "Disable mise for current shell session\n\nThis can be used to temporarily disable mise in a shell session.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise deactivate\x1b[22m\n"},
 	{Key: CmdDirenv, Hide: true, Short: "Output direnv function to use mise inside direnv", Long: "Output direnv function to use mise inside direnv\n\nSee https://mise.jdx.dev/direnv.html for more information\n\nBecause this generates the idiomatic files based on currently installed plugins,\nyou should run this command after installing new plugins. Otherwise\ndirenv may not know to update environment variables when idiomatic file versions change."},
-	{Key: CmdDirenvActivate, Hide: true, Short: "Output direnv function to use mise inside direnv", Long: "Output direnv function to use mise inside direnv\n\nSee https://mise.jdx.dev/direnv.html for more information\n\nBecause this generates the idiomatic files based on currently installed plugins,\nyou should run this command after installing new plugins. Otherwise\ndirenv may not know to update environment variables when idiomatic file versions change.", AfterLongHelp: "Examples:\n\n    $ mise direnv activate > ~/.config/direnv/lib/use_mise.sh\n    $ echo 'use mise' > .envrc\n    $ direnv allow\n"},
+	{Key: CmdDirenvActivate, Hide: true, Short: "Output direnv function to use mise inside direnv", Long: "Output direnv function to use mise inside direnv\n\nSee https://mise.jdx.dev/direnv.html for more information\n\nBecause this generates the idiomatic files based on currently installed plugins,\nyou should run this command after installing new plugins. Otherwise\ndirenv may not know to update environment variables when idiomatic file versions change.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise direnv activate > ~/.config/direnv/lib/use_mise.sh\x1b[22m\n    $ \x1b[1mecho 'use mise' > .envrc\x1b[22m\n    $ \x1b[1mdirenv allow\x1b[22m\n"},
 	{Key: CmdDirenvEnvrc, Hide: true, Short: "[internal] This is an internal command that writes an envrc file\nfor direnv to consume."},
 	{Key: CmdDirenvExec, Hide: true, Short: "[internal] This is an internal command that writes an envrc file\nfor direnv to consume."},
 	{Key: CmdDotfiles, Hide: true, Short: "Manage dotfiles from `[dotfiles]` (deprecated)", Long: "Manage dotfiles from `[dotfiles]` (deprecated)\n\nUse `mise bootstrap dotfiles` instead.", SubcommandRequired: true},
-	{Key: CmdDotfilesAdd, Hide: true, Short: "Add or update dotfiles in `[dotfiles]`", Long: "Add or update dotfiles in `[dotfiles]`\n\nIf the target is already managed, this updates its source from the live\ntarget. Otherwise it creates a `[dotfiles]` entry and seeds the source\nunder `dotfiles.root` unless `--source` is provided.", AfterLongHelp: "Examples:\n\n    $ mise bootstrap dotfiles add ~/.zshrc\n    $ mise bootstrap dotfiles add --mode copy ~/.config/starship.toml\n    $ mise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig\n"},
+	{Key: CmdDotfilesAdd, Hide: true, Short: "Add or update dotfiles in `[dotfiles]`", Long: "Add or update dotfiles in `[dotfiles]`\n\nIf the target is already managed, this updates its source from the live\ntarget. Otherwise it creates a `[dotfiles]` entry and seeds the source\nunder `dotfiles.root` unless `--source` is provided.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap dotfiles add ~/.zshrc\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles add --mode copy ~/.config/starship.toml\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig\x1b[22m\n"},
 	{Key: FlagDotfilesAddForce, Short: "Overwrite existing sources without prompting", Long: "Overwrite existing sources without prompting"},
 	{Key: FlagDotfilesAddGlobal, Short: "Write to the global config", Long: "Write to the global config"},
 	{Key: FlagDotfilesAddLocal, Short: "Write to the local config instead of the global config", Long: "Write to the local config instead of the global config"},
@@ -5196,44 +5241,44 @@ var HelpText = argv.HelpTable{
 	{Key: FlagDotfilesAddSource, ValueName: "PATH", ValueDemanded: true, Short: "Source path to use for a single target", Long: "Source path to use for a single target"},
 	{Key: FlagDotfilesAddYes, Short: "Skip the confirmation prompt", Long: "Skip the confirmation prompt"},
 	{Key: ArgDotfilesAddTarget, Demanded: true, Short: "Targets to add or update", Long: "Targets to add or update"},
-	{Key: CmdDotfilesApply, Hide: true, Short: "Apply dotfiles from `[dotfiles]`", Long: "Apply dotfiles from `[dotfiles]`\n\nApplies configured whole-file entries and edits that aren't in their\ndesired state. Whole-file entries may symlink, copy, or render templates.\nEdit entries manage a marker-delimited block or a single line in a file\nmise doesn't otherwise own.", AfterLongHelp: "Examples:\n\n    $ mise bootstrap dotfiles apply\n    $ mise bootstrap dotfiles apply --dry-run\n    $ mise bootstrap dotfiles apply --force --yes\n"},
+	{Key: CmdDotfilesApply, Hide: true, Short: "Apply dotfiles from `[dotfiles]`", Long: "Apply dotfiles from `[dotfiles]`\n\nApplies configured whole-file entries and edits that aren't in their\ndesired state. Whole-file entries may symlink, copy, or render templates.\nEdit entries manage a marker-delimited block or a single line in a file\nmise doesn't otherwise own.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap dotfiles apply\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles apply --dry-run\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles apply --force --yes\x1b[22m\n"},
 	{Key: FlagDotfilesApplyForce, Short: "Overwrite existing files that conflict with whole-file dotfile entries", Long: "Overwrite existing files that conflict with whole-file dotfile entries"},
 	{Key: FlagDotfilesApplyDryRun, Short: "Print the actions that would run without writing anything", Long: "Print the actions that would run without writing anything"},
 	{Key: FlagDotfilesApplyYes, Short: "Skip the confirmation prompt", Long: "Skip the confirmation prompt"},
 	{Key: ArgDotfilesApplyTarget, Short: "Only apply these targets", Long: "Only apply these targets"},
-	{Key: CmdDotfilesEdit, Hide: true, Short: "Edit a managed dotfile source", AfterLongHelp: "Examples:\n\n    $ mise bootstrap dotfiles edit ~/.zshrc\n    $ mise bootstrap dotfiles edit --apply ~/.config/starship.toml\n"},
+	{Key: CmdDotfilesEdit, Hide: true, Short: "Edit a managed dotfile source", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap dotfiles edit ~/.zshrc\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles edit --apply ~/.config/starship.toml\x1b[22m\n"},
 	{Key: FlagDotfilesEditApply, Short: "Apply this target after the editor exits", Long: "Apply this target after the editor exits"},
 	{Key: FlagDotfilesEditMode, ValueName: "MODE", ValueDemanded: true, Short: "Dotfile mode to use if the target is not yet managed", Long: "Dotfile mode to use if the target is not yet managed"},
 	{Key: FlagDotfilesEditSource, ValueName: "PATH", ValueDemanded: true, Short: "Source path to use if the target is not yet managed", Long: "Source path to use if the target is not yet managed"},
 	{Key: FlagDotfilesEditYes, Short: "Skip the confirmation prompt when adding an unmanaged target", Long: "Skip the confirmation prompt when adding an unmanaged target"},
 	{Key: ArgDotfilesEditTarget, Demanded: true, Short: "Target to edit", Long: "Target to edit"},
-	{Key: CmdDotfilesStatus, Hide: true, Short: "Show the status of dotfiles from `[dotfiles]`", VisibleAliases: []string{"ls"}, AfterLongHelp: "Examples:\n\n    $ mise bootstrap dotfiles status\n    $ mise bootstrap dotfiles status ~/.zshrc\n    $ mise bootstrap dotfiles status --json\n    $ mise bootstrap dotfiles status --missing # exit 1 if anything is out of sync\n"},
+	{Key: CmdDotfilesStatus, Hide: true, Short: "Show the status of dotfiles from `[dotfiles]`", VisibleAliases: []string{"ls"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap dotfiles status\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles status ~/.zshrc\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles status --json\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles status --missing\x1b[22m # exit 1 if anything is out of sync\n"},
 	{Key: FlagDotfilesStatusJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagDotfilesStatusMissing, Short: "Exit with code 1 if any configured dotfiles are not in their desired\nstate (missing, source missing, differs)", Long: "Exit with code 1 if any configured dotfiles are not in their desired\nstate (missing, source missing, differs)"},
 	{Key: ArgDotfilesStatusTarget, Short: "Only show these targets", Long: "Only show these targets"},
-	{Key: CmdDotfilesUnapply, Hide: true, Short: "Remove dotfiles applied from `[dotfiles]`", Long: "Remove dotfiles applied from `[dotfiles]`\n\nRemoves configured whole-file entries and edits while preserving files\nmise cannot identify as managed. Modified copies, templates, and plain-line\nedits require `--force`.", AfterLongHelp: "Examples:\n\n    $ mise bootstrap dotfiles unapply\n    $ mise bootstrap dotfiles unapply ~/.zshrc\n    $ mise bootstrap dotfiles unapply --dry-run\n    $ mise bootstrap dotfiles unapply --force --yes\n"},
+	{Key: CmdDotfilesUnapply, Hide: true, Short: "Remove dotfiles applied from `[dotfiles]`", Long: "Remove dotfiles applied from `[dotfiles]`\n\nRemoves configured whole-file entries and edits while preserving files\nmise cannot identify as managed. Modified copies, templates, and plain-line\nedits require `--force`.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise bootstrap dotfiles unapply\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles unapply ~/.zshrc\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles unapply --dry-run\x1b[22m\n    $ \x1b[1mmise bootstrap dotfiles unapply --force --yes\x1b[22m\n"},
 	{Key: FlagDotfilesUnapplyForce, Short: "Remove modified or otherwise ambiguous managed files and lines", Long: "Remove modified or otherwise ambiguous managed files and lines"},
 	{Key: FlagDotfilesUnapplyDryRun, Short: "Print the actions that would run without writing anything", Long: "Print the actions that would run without writing anything"},
 	{Key: FlagDotfilesUnapplyYes, Short: "Skip the confirmation prompt", Long: "Skip the confirmation prompt"},
 	{Key: ArgDotfilesUnapplyTarget, Short: "Only unapply these targets", Long: "Only unapply these targets"},
-	{Key: CmdDoctor, Short: "Check mise installation for possible problems", VisibleAliases: []string{"dr"}, AfterLongHelp: "Examples:\n\n    $ mise doctor\n    [WARN] plugin node is not installed\n"},
+	{Key: CmdDoctor, Short: "Check mise installation for possible problems", VisibleAliases: []string{"dr"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise doctor\x1b[22m\n    [WARN] plugin node is not installed\n"},
 	{Key: FlagDoctorJson},
-	{Key: CmdDoctorPath, Short: "Print the current PATH entries mise is providing", AfterLongHelp: "Examples:\n\n    Get the current PATH entries mise is providing\n    $ mise doctor path\n    /home/user/.local/share/mise/installs/node/24.0.0/bin\n    /home/user/.local/share/mise/installs/rust/1.90.0/bin\n    /home/user/.local/share/mise/installs/python/3.10.0/bin\n"},
+	{Key: CmdDoctorPath, Short: "Print the current PATH entries mise is providing", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    Get the current PATH entries mise is providing\n    $ mise doctor path\n    /home/user/.local/share/mise/installs/node/24.0.0/bin\n    /home/user/.local/share/mise/installs/rust/1.90.0/bin\n    /home/user/.local/share/mise/installs/python/3.10.0/bin\n"},
 	{Key: FlagDoctorPathFull, Short: "Print all entries including those not provided by mise", Long: "Print all entries including those not provided by mise"},
-	{Key: CmdEn, Short: "Starts a new shell with the mise environment built from the current configuration", Long: "Starts a new shell with the mise environment built from the current configuration\n\nThis is an alternative to `mise activate` that allows you to explicitly start a mise session.\nIt will have the tools and environment variables in the configs loaded.\nNote that changing directories will not update the mise environment.", AfterLongHelp: "Examples:\n\n    $ mise en .\n    $ node -v\n    v20.0.0\n\n    Skip loading bashrc:\n    $ mise en -s \"bash --norc\"\n\n    Skip loading zshrc:\n    $ mise en -s \"zsh -f\"\n"},
+	{Key: CmdEn, Short: "Starts a new shell with the mise environment built from the current configuration", Long: "Starts a new shell with the mise environment built from the current configuration\n\nThis is an alternative to `mise activate` that allows you to explicitly start a mise session.\nIt will have the tools and environment variables in the configs loaded.\nNote that changing directories will not update the mise environment.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise en .\x1b[22m\n    $ \x1b[1mnode -v\x1b[22m\n    v20.0.0\n\n    Skip loading bashrc:\n    $ \x1b[1mmise en -s \"bash --norc\"\x1b[22m\n\n    Skip loading zshrc:\n    $ \x1b[1mmise en -s \"zsh -f\"\x1b[22m\n"},
 	{Key: FlagEnShell, ValueName: "SHELL", ValueDemanded: true, Short: "Shell to start", Long: "Shell to start\n\nDefaults to $SHELL"},
 	{Key: ArgEnDir, Short: "Directory to start the shell in", Long: "Directory to start the shell in", Default: []string{"."}},
-	{Key: CmdEnv, Short: "Exports env vars to activate mise a single time", Long: "Exports env vars to activate mise a single time\n\nUse this if you don't want to permanently install mise. It's not necessary to\nuse this if you have `mise activate` in your shell rc file.", VisibleAliases: []string{"e"}, AfterLongHelp: "Examples:\n\n    $ eval \"$(mise env -s bash)\"\n    $ eval \"$(mise env -s zsh)\"\n    $ mise env -s fish | source\n    $ execx($(mise env -s xonsh))\n"},
+	{Key: CmdEnv, Short: "Exports env vars to activate mise a single time", Long: "Exports env vars to activate mise a single time\n\nUse this if you don't want to permanently install mise. It's not necessary to\nuse this if you have `mise activate` in your shell rc file.", VisibleAliases: []string{"e"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1meval \"$(mise env -s bash)\"\x1b[22m\n    $ \x1b[1meval \"$(mise env -s zsh)\"\x1b[22m\n    $ \x1b[1mmise env -s fish | source\x1b[22m\n    $ \x1b[1mexecx($(mise env -s xonsh))\x1b[22m\n"},
 	{Key: FlagEnvDotenv, Short: "Output in dotenv format", Long: "Output in dotenv format"},
 	{Key: FlagEnvJson, Short: "Output in JSON format", Long: "Output in JSON format"},
-	{Key: FlagEnvShell, ValueName: "SHELL", ValueDemanded: true, Short: "Shell type to generate environment variables for", Long: "Shell type to generate environment variables for", Choices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}},
+	{Key: FlagEnvShell, ValueName: "SHELL", ValueDemanded: true, Short: "Shell type to generate environment variables for", Long: "Shell type to generate environment variables for"},
 	{Key: FlagEnvJsonExtended, Short: "Output in JSON format with additional information (source, tool)", Long: "Output in JSON format with additional information (source, tool)"},
 	{Key: FlagEnvRedacted, Short: "Only show redacted environment variables", Long: "Only show redacted environment variables"},
 	{Key: FlagEnvValues, Short: "Only show values of environment variables", Long: "Only show values of environment variables"},
 	{Key: ArgEnvToolVersion, Short: "Tool(s) to use", Long: "Tool(s) to use"},
-	{Key: CmdExec, Short: "Execute a command with tool(s) set", Long: "Execute a command with tool(s) set\n\nuse this to avoid modifying the shell session or running ad-hoc commands with mise tools set.\n\nTools will be loaded from mise.toml, though they can be overridden with <RUNTIME> args\nNote that only the plugin specified will be overridden, so if a `mise.toml` file\nincludes \"node 20\" but you run `mise exec python@3.11`; it will still load node@20.\n\nThe \"--\" separates runtimes from the commands to pass along to the subprocess.", VisibleAliases: []string{"x"}, AfterLongHelp: "Examples:\n\n    $ mise exec node@20 -- node ./app.js  # launch app.js using node-20.x\n    $ mise x node@20 -- node ./app.js     # shorter alias\n\n    # Specify command as a string:\n    $ mise exec node@20 python@3.11 --command \"node -v && python -V\"\n\n    # Run a command in a different directory:\n    $ mise x -C /path/to/project node@20 -- node ./app.js\n"},
-	{Key: FlagExecCommand, ValueName: "C", ValueDemanded: true, Short: "Command string to execute", Long: "Command string to execute"},
-	{Key: FlagExecJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\n[default: 4]", Long: "Number of jobs to run in parallel\n[default: 4]"},
+	{Key: CmdExec, Short: "Execute a command with tool(s) set", Long: "Execute a command with tool(s) set\n\nuse this to avoid modifying the shell session or running ad-hoc commands with mise tools set.\n\nTools will be loaded from mise.toml, though they can be overridden with <RUNTIME> args\nNote that only the plugin specified will be overridden, so if a `mise.toml` file\nincludes \"node 20\" but you run `mise exec python@3.11`; it will still load node@20.\n\nThe \"--\" separates runtimes from the commands to pass along to the subprocess.", VisibleAliases: []string{"x"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise exec node@20 -- node ./app.js\x1b[22m  # launch app.js using node-20.x\n    $ \x1b[1mmise x node@20 -- node ./app.js\x1b[22m     # shorter alias\n\n    # Specify command as a string:\n    $ \x1b[1mmise exec node@20 python@3.11 --command \"node -v && python -V\"\x1b[22m\n\n    # Run a command in a different directory:\n    $ \x1b[1mmise x -C /path/to/project node@20 -- node ./app.js\x1b[22m\n"},
+	{Key: FlagExecCommand, ValueName: "COMMAND", ValueDemanded: true, Short: "Command string to execute", Long: "Command string to execute"},
+	{Key: FlagExecJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Long: "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Env: "MISE_JOBS"},
 	{Key: FlagExecAllowEnv, Repeatable: true, ValueName: "VAR", ValueDemanded: true, Short: "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'", Long: "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'"},
 	{Key: FlagExecAllowNet, Repeatable: true, ValueName: "HOST", ValueDemanded: true, Short: "Allow network to specific host (implies --deny-net for everything else)\nmacOS only in v1; on Linux falls back to allowing all network", Long: "Allow network to specific host (implies --deny-net for everything else)\nmacOS only in v1; on Linux falls back to allowing all network"},
 	{Key: FlagExecAllowRead, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Allow reads from specific path (implies --deny-read for everything else)", Long: "Allow reads from specific path (implies --deny-read for everything else)"},
@@ -5245,68 +5290,71 @@ var HelpText = argv.HelpTable{
 	{Key: FlagExecDenyWrite, Short: "Block all filesystem writes", Long: "Block all filesystem writes"},
 	{Key: FlagExecFreshEnv, Short: "Bypass the environment cache and recompute the environment", Long: "Bypass the environment cache and recompute the environment"},
 	{Key: FlagExecNoDeps, Short: "Skip automatic dependency preparation", Long: "Skip automatic dependency preparation"},
-	{Key: FlagExecRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1"},
-	{Key: ArgExecToolVersion, Short: "Tool(s) to start e.g.: node@20 python@3.10", Long: "Tool(s) to start e.g.: node@20 python@3.10"},
+	{Key: FlagExecRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies --jobs=1"},
+	{Key: ArgExecToolVersion, Short: "Tool(s) to start e.g.: node@20 python@3.10", Long: "Tool(s) to start\ne.g.: node@20 python@3.10"},
 	{Key: ArgExecCommand, Short: "Command string to execute (same as --command)", Long: "Command string to execute (same as --command)"},
-	{Key: CmdFmt, Short: "Formats mise.toml", Long: "Formats mise.toml\n\nSorts keys and cleans up whitespace in mise.toml", AfterLongHelp: "Examples:\n\n    $ mise fmt\n"},
+	{Key: CmdFmt, Short: "Formats mise.toml", Long: "Formats mise.toml\n\nSorts keys and cleans up whitespace in mise.toml", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise fmt\x1b[22m\n"},
 	{Key: FlagFmtAll, Short: "Format all files from the current directory", Long: "Format all files from the current directory"},
 	{Key: FlagFmtCheck, Short: "Check if the configs are formatted, no formatting is done", Long: "Check if the configs are formatted, no formatting is done"},
-	{Key: FlagFmtStdin, Short: "Read config from stdin and write its formatted version into stdout", Long: "Read config from stdin and write its formatted version into stdout"},
+	{Key: FlagFmtStdin, Short: "Read config from stdin and write its formatted version into stdout", Long: "Read config from stdin and write its formatted version into\nstdout"},
 	{Key: CmdGenerate, Short: "Generate files for various tools/services", SubcommandRequired: true, VisibleAliases: []string{"gen"}},
-	{Key: CmdGenerateBootstrap, Short: "Generate a script to download+execute mise", Long: "Generate a script to download+execute mise\n\nThis is designed to be used in a project where contributors may not have mise installed.", AfterLongHelp: "Examples:\n\n    $ mise generate bootstrap >./bin/mise\n    $ chmod +x ./bin/mise\n    $ ./bin/mise install – automatically downloads mise to .mise if not already installed\n"},
+	{Key: CmdGenerateBootstrap, Short: "Generate a script to download+execute mise", Long: "Generate a script to download+execute mise\n\nThis is designed to be used in a project where contributors may not have mise installed.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise generate bootstrap --write ./bin/mise\x1b[22m\n    $ \x1b[1m./bin/mise install\x1b[22m                                    \x1b[2m# downloads mise to .mise if not already installed\x1b[22m\n\n    \x1b[2m# add a launcher for contributors who clone the project on Windows\x1b[22m\n    $ \x1b[1mmise generate bootstrap --write ./bin/mise --windows\x1b[22m  \x1b[2m# also writes bin/mise.cmd\x1b[22m\n    $ \x1b[1m.\\bin\\mise.cmd install\x1b[22m\n"},
 	{Key: FlagGenerateBootstrapLocalize, Short: "Sandboxes mise internal directories like MISE_DATA_DIR and MISE_CACHE_DIR into a `.mise` directory in the project", Long: "Sandboxes mise internal directories like MISE_DATA_DIR and MISE_CACHE_DIR into a `.mise` directory in the project\n\nThis is necessary if users may use a different version of mise outside the project."},
 	{Key: FlagGenerateBootstrapVersion, ValueName: "VERSION", ValueDemanded: true, Short: "Specify mise version to fetch", Long: "Specify mise version to fetch"},
-	{Key: FlagGenerateBootstrapWrite, ValueName: "WRITE", ValueDemanded: true, Short: "instead of outputting the script to stdout, write to a file and make it executable", Long: "instead of outputting the script to stdout, write to a file and make it executable"},
+	{Key: FlagGenerateBootstrapWrite, ValueName: "WRITE", Short: "instead of outputting the script to stdout, write to a file and make it executable", Long: "instead of outputting the script to stdout, write to a file and make it executable"},
 	{Key: FlagGenerateBootstrapLocalizedDir, ValueName: "LOCALIZED_DIR", ValueDemanded: true, Short: "Directory to put localized data into", Long: "Directory to put localized data into", Default: []string{".mise"}},
-	{Key: CmdGenerateConfig, Short: "Generate a mise.toml file", AfterLongHelp: "Examples:\n\n    $ mise generate config             # generate mise.toml interactively\n    $ mise generate config .mise.toml  # generate a specific file\n    $ mise generate config -g          # generate the global config file\n    $ mise generate config -y          # skip interactive editor\n    $ mise generate config -n          # preview without writing\n"},
+	{Key: FlagGenerateBootstrapWindows, Short: "Also write a Windows launcher, `<WRITE>.cmd`", Long: "Also write a Windows launcher, `<WRITE>.cmd`\n\nWindows cannot execute the `#!/usr/bin/env bash` script, so a contributor who clones the\nproject on Windows has nothing to run without this.\n\nGenerated on every host, not only on Windows: the file is committed, and whoever runs it\non Windows is not the person who generated it. Requires `--write`, since stdout cannot\ncarry two files."},
+	{Key: CmdGenerateConfig, Short: "Generate a mise.toml file", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise generate config\x1b[22m             \x1b[2m# generate mise.toml interactively\x1b[22m\n    $ \x1b[1mmise generate config .mise.toml\x1b[22m  \x1b[2m# generate a specific file\x1b[22m\n    $ \x1b[1mmise generate config -g\x1b[22m          \x1b[2m# generate the global config file\x1b[22m\n    $ \x1b[1mmise generate config -y\x1b[22m          \x1b[2m# skip interactive editor\x1b[22m\n    $ \x1b[1mmise generate config -n\x1b[22m          \x1b[2m# preview without writing\x1b[22m\n"},
 	{Key: FlagGenerateConfigGlobal, Short: "Generate the global config file (~/.config/mise/config.toml)", Long: "Generate the global config file (~/.config/mise/config.toml)"},
 	{Key: FlagGenerateConfigDryRun, Short: "Show what would be generated without writing to file", Long: "Show what would be generated without writing to file"},
 	{Key: FlagGenerateConfigToolVersions, ValueName: "TOOL_VERSIONS", ValueDemanded: true, Short: "Path to a .tool-versions file to import tools from", Long: "Path to a .tool-versions file to import tools from"},
 	{Key: ArgGenerateConfigPath, Short: "Path to the config file to create", Long: "Path to the config file to create"},
-	{Key: CmdGenerateDevcontainer, Short: "Generate a devcontainer to execute mise", AfterLongHelp: "Examples:\n\n    $ mise generate devcontainer\n"},
+	{Key: CmdGenerateDevcontainer, Short: "Generate a devcontainer to execute mise", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise generate devcontainer\x1b[22m\n"},
 	{Key: FlagGenerateDevcontainerImage, ValueName: "IMAGE", ValueDemanded: true, Short: "The image to use for the devcontainer", Long: "The image to use for the devcontainer"},
 	{Key: FlagGenerateDevcontainerMountMiseData, Short: "Bind the mise-data-volume to the devcontainer", Long: "Bind the mise-data-volume to the devcontainer"},
 	{Key: FlagGenerateDevcontainerName, ValueName: "NAME", ValueDemanded: true, Short: "The name of the devcontainer", Long: "The name of the devcontainer"},
 	{Key: FlagGenerateDevcontainerWrite, Short: "write to .devcontainer/devcontainer.json", Long: "write to .devcontainer/devcontainer.json"},
-	{Key: CmdGenerateGitPreCommit, Short: "Generate a git pre-commit hook", Long: "Generate a git pre-commit hook\n\nThis command generates a git pre-commit hook that runs a mise task like `mise run pre-commit`\nwhen you commit changes to your repository.\n\nStaged files are passed to the task as `STAGED`.\n\nFor more advanced pre-commit functionality, see mise's sister project: https://hk.jdx.dev/", VisibleAliases: []string{"pre-commit"}, AfterLongHelp: "Examples:\n\n    $ mise generate git-pre-commit --write --task=pre-commit\n    $ git commit -m \"feat: add new feature\" # runs `mise run pre-commit`\n"},
+	{Key: CmdGenerateGitPreCommit, Short: "Generate a git pre-commit hook", Long: "Generate a git pre-commit hook\n\nThis command generates a git pre-commit hook that runs a mise task like `mise run pre-commit`\nwhen you commit changes to your repository.\n\nStaged files are passed to the task as `STAGED`.\n\nFor more advanced pre-commit functionality, see mise's sister project: https://hk.jdx.dev/", VisibleAliases: []string{"pre-commit"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise generate git-pre-commit --write --task=pre-commit\x1b[22m\n    $ \x1b[1mgit commit -m \"feat: add new feature\"\x1b[22m \x1b[2m# runs `mise run pre-commit`\x1b[22m\n\n    \x1b[2m# config lives in a subdirectory, so the hook has to change into it first\x1b[22m\n    $ \x1b[1mmise generate git-pre-commit --write -- -C subdir\x1b[22m\n"},
 	{Key: FlagGenerateGitPreCommitTask, ValueName: "TASK", ValueDemanded: true, Short: "The task to run when the pre-commit hook is triggered", Long: "The task to run when the pre-commit hook is triggered", Default: []string{"pre-commit"}},
 	{Key: FlagGenerateGitPreCommitWrite, Short: "write to .git/hooks/pre-commit and make it executable", Long: "write to .git/hooks/pre-commit and make it executable"},
 	{Key: FlagGenerateGitPreCommitHook, ValueName: "HOOK", ValueDemanded: true, Short: "Which hook to generate (saves to .git/hooks/$hook)", Long: "Which hook to generate (saves to .git/hooks/$hook)", Default: []string{"pre-commit"}},
-	{Key: CmdGenerateGithubAction, Short: "Generate a GitHub Action workflow file", Long: "Generate a GitHub Action workflow file\n\nThis command generates a GitHub Action workflow file that runs a mise task like `mise run ci`\nwhen you push changes to your repository.", AfterLongHelp: "Examples:\n\n    $ mise generate github-action --write --task=ci\n    $ git commit -m \"feat: add new feature\"\n    $ git push # runs `mise run ci` on GitHub\n"},
+	{Key: ArgGenerateGitPreCommitMiseArg, Short: "mise flags to embed in the generated hook, given after `--`", Long: "mise flags to embed in the generated hook, given after `--`\n\nThese are inserted between `mise` and `run`, so the hook carries the same context you\nwould pass on the command line. Useful when the config is not at the repository root,\nsince git runs hooks from the top level: `-- -C subdir` makes the hook find it."},
+	{Key: CmdGenerateGithubAction, Short: "Generate a GitHub Action workflow file", Long: "Generate a GitHub Action workflow file\n\nThis command generates a GitHub Action workflow file that runs a mise task like `mise run ci`\nwhen you push changes to your repository.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise generate github-action --write --task=ci\x1b[22m\n    $ \x1b[1mgit commit -m \"feat: add new feature\"\x1b[22m\n    $ \x1b[1mgit push\x1b[22m \x1b[2m# runs `mise run ci` on GitHub\x1b[22m\n"},
 	{Key: FlagGenerateGithubActionTask, ValueName: "TASK", ValueDemanded: true, Short: "The task to run when the workflow is triggered", Long: "The task to run when the workflow is triggered", Default: []string{"ci"}},
 	{Key: FlagGenerateGithubActionWrite, Short: "write to .github/workflows/$name.yml", Long: "write to .github/workflows/$name.yml"},
 	{Key: FlagGenerateGithubActionName, ValueName: "NAME", ValueDemanded: true, Short: "the name of the workflow to generate", Long: "the name of the workflow to generate", Default: []string{"ci"}},
-	{Key: CmdGenerateTaskDocs, Short: "Generate documentation for tasks in a project", AfterLongHelp: "Examples:\n\n    $ mise generate task-docs\n"},
+	{Key: CmdGenerateTaskDocs, Short: "Generate documentation for tasks in a project", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise generate task-docs\x1b[22m\n"},
 	{Key: FlagGenerateTaskDocsInject, Short: "inserts the documentation into an existing file", Long: "inserts the documentation into an existing file\n\nThis will look for a special comment, `<!-- mise-tasks -->`, and replace it with the generated documentation.\nIt will replace everything between the comment and the next comment, `<!-- /mise-tasks -->` so it can be\nrun multiple times on the same file to update the documentation.\nThe file must already contain both comments; mise errors instead of modifying the file if they are missing."},
 	{Key: FlagGenerateTaskDocsIndex, Short: "write only an index of tasks, intended for use with `--multi`", Long: "write only an index of tasks, intended for use with `--multi`"},
 	{Key: FlagGenerateTaskDocsMulti, Short: "render each task as a separate document, requires `--output` to be a directory", Long: "render each task as a separate document, requires `--output` to be a directory"},
 	{Key: FlagGenerateTaskDocsOutput, ValueName: "OUTPUT", ValueDemanded: true, Short: "writes the generated docs to a file/directory", Long: "writes the generated docs to a file/directory"},
 	{Key: FlagGenerateTaskDocsRoot, ValueName: "ROOT", ValueDemanded: true, Short: "root directory to search for tasks", Long: "root directory to search for tasks"},
 	{Key: FlagGenerateTaskDocsStyle, ValueName: "STYLE", ValueDemanded: true, Choices: []string{"simple", "detailed"}, Default: []string{"simple"}},
-	{Key: CmdGenerateTaskStubs, Short: "Generates shims to run mise tasks", Long: "Generates shims to run mise tasks\n\nBy default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap`\nso contributors to a project can execute mise tasks without installing mise into their system.", AfterLongHelp: "Examples:\n\n    $ mise tasks add test -- echo 'running tests'\n    $ mise generate task-stubs\n    $ ./bin/test\n    running tests\n"},
+	{Key: CmdGenerateTaskStubs, Short: "Generates shims to run mise tasks", Long: "Generates shims to run mise tasks\n\nBy default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap`\nso contributors to a project can execute mise tasks without installing mise into their system.\nWhen a parent and nested task both exist, the parent stub is written to `<parent>/_default`.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise tasks add test -- echo 'running tests'\x1b[22m\n    $ \x1b[1mmise generate task-stubs\x1b[22m\n    $ \x1b[1m./bin/test\x1b[22m\n    running tests\n"},
 	{Key: FlagGenerateTaskStubsDir, ValueName: "DIR", ValueDemanded: true, Short: "Directory to create task stubs inside of", Long: "Directory to create task stubs inside of", Default: []string{"bin"}},
 	{Key: FlagGenerateTaskStubsMiseBin, ValueName: "MISE_BIN", ValueDemanded: true, Short: "Path to a mise bin to use when running the task stub.", Long: "Path to a mise bin to use when running the task stub.\n\nUse `--mise-bin=./bin/mise` to use a mise bin generated from `mise generate bootstrap`", Default: []string{"mise"}},
-	{Key: CmdGenerateToolStub, Short: "Generate a tool stub for HTTP-based tools", Long: "Generate a tool stub for HTTP-based tools\n\nThis command generates tool stubs that can automatically download and execute\ntools from HTTP URLs. It can detect checksums, file sizes, and binary paths\nautomatically by downloading and analyzing the tool.\n\nWhen generating stubs with platform-specific URLs, the command will append new\nplatforms to existing stub files rather than overwriting them. This allows you\nto incrementally build cross-platform tool stubs.", AfterLongHelp: "Examples:\n\n    Generate a tool stub for a single URL:\n    $ mise generate tool-stub ./bin/gh --url \"https://github.com/cli/cli/releases/download/v2.96.0/gh_2.96.0_linux_amd64.tar.gz\"\n\n    Generate a tool stub with platform-specific URLs:\n    $ mise generate tool-stub ./bin/rg \\\n        --platform-url linux-x64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-x86_64-unknown-linux-musl.tar.gz \\\n        --platform-url darwin-arm64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-aarch64-apple-darwin.tar.gz\n\n    Append additional platforms to an existing stub:\n    $ mise generate tool-stub ./bin/rg \\\n        --platform-url linux-x64:https://example.com/rg-linux.tar.gz\n    $ mise generate tool-stub ./bin/rg \\\n        --platform-url darwin-arm64:https://example.com/rg-darwin.tar.gz\n    # The stub now contains both platforms\n\n    Use auto-detection for platform from URL:\n    $ mise generate tool-stub ./bin/node \\\n        --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz\n    # Platform 'macos-arm64' will be auto-detected from the URL\n\n    Generate with platform-specific binary paths:\n    $ mise generate tool-stub ./bin/tool \\\n        --platform-url linux-x64:https://example.com/tool-linux.tar.gz \\\n        --platform-url windows-x64:https://example.com/tool-windows.zip \\\n        --platform-bin windows-x64:tool.exe\n\n    Generate without downloading (faster):\n    $ mise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --skip-download\n\n    Fetch checksums for an existing stub:\n    $ mise generate tool-stub ./bin/jq --fetch\n    # This will read the existing stub and download files to fill in any missing checksums/sizes\n\n    Generate a bootstrap stub that installs mise if needed:\n    $ mise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --bootstrap\n    # The stub will check for mise and install it automatically before running the tool\n\n    Generate a bootstrap stub with a pinned mise version:\n    $ mise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --bootstrap --bootstrap-version 2025.1.0\n\n    Lock an existing tool stub with pinned version and platform URLs/checksums:\n    $ mise generate tool-stub ./bin/node --lock\n\n    Bump the version in a locked stub:\n    $ mise generate tool-stub ./bin/node --lock --version 22\n    # Resolves the latest node 22.x, pins it, and updates platform URLs/checksums\n"},
+	{Key: CmdGenerateToolStub, Short: "Generate a tool stub for HTTP-based tools", Long: "Generate a tool stub for HTTP-based tools\n\nThis command generates tool stubs that can automatically download and execute\ntools from HTTP URLs. It can detect checksums, file sizes, and binary paths\nautomatically by downloading and analyzing the tool.\n\nWhen generating stubs with platform-specific URLs, the command will append new\nplatforms to existing stub files rather than overwriting them. This allows you\nto incrementally build cross-platform tool stubs.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    Generate a tool stub for a single URL:\n    $ \x1b[1mmise generate tool-stub ./bin/gh --url \"https://github.com/cli/cli/releases/download/v2.96.0/gh_2.96.0_linux_amd64.tar.gz\"\x1b[22m\n\n    Generate a tool stub with platform-specific URLs:\n    $ \x1b[1mmise generate tool-stub ./bin/rg \\\n        --platform-url linux-x64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-x86_64-unknown-linux-musl.tar.gz \\\n        --platform-url darwin-arm64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-aarch64-apple-darwin.tar.gz\x1b[22m\n\n    Append additional platforms to an existing stub:\n    $ \x1b[1mmise generate tool-stub ./bin/rg \\\n        --platform-url linux-x64:https://example.com/rg-linux.tar.gz\x1b[22m\n    $ \x1b[1mmise generate tool-stub ./bin/rg \\\n        --platform-url darwin-arm64:https://example.com/rg-darwin.tar.gz\x1b[22m\n    # The stub now contains both platforms\n\n    Use auto-detection for platform from URL:\n    $ \x1b[1mmise generate tool-stub ./bin/node \\\n        --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz\x1b[22m\n    # Platform 'macos-arm64' will be auto-detected from the URL\n\n    Generate with platform-specific binary paths:\n    $ \x1b[1mmise generate tool-stub ./bin/tool \\\n        --platform-url linux-x64:https://example.com/tool-linux.tar.gz \\\n        --platform-url windows-x64:https://example.com/tool-windows.zip \\\n        --platform-bin windows-x64:tool.exe\x1b[22m\n\n    Generate without downloading (faster):\n    $ \x1b[1mmise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --skip-download\x1b[22m\n\n    Fetch checksums for an existing stub:\n    $ \x1b[1mmise generate tool-stub ./bin/jq --fetch\x1b[22m\n    # This will read the existing stub and download files to fill in any missing checksums/sizes\n\n    Generate a bootstrap stub that installs mise if needed:\n    $ \x1b[1mmise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --bootstrap\x1b[22m\n    # The stub will check for mise and install it automatically before running the tool\n\n    Generate a bootstrap stub with a pinned mise version:\n    $ \x1b[1mmise generate tool-stub ./bin/tool --url \"https://example.com/tool.tar.gz\" --bootstrap --bootstrap-version 2025.1.0\x1b[22m\n\n    Lock an existing tool stub with pinned version and platform URLs/checksums:\n    $ \x1b[1mmise generate tool-stub ./bin/node --lock\x1b[22m\n\n    Bump the version in a locked stub:\n    $ \x1b[1mmise generate tool-stub ./bin/node --lock --version 22\x1b[22m\n    # Resolves the latest node 22.x, pins it, and updates platform URLs/checksums\n"},
 	{Key: FlagGenerateToolStubBin, ValueName: "BIN", ValueDemanded: true, Short: "Binary path within the extracted archive", Long: "Binary path within the extracted archive\n\nIf not specified and the archive is downloaded, will auto-detect the most likely binary"},
 	{Key: FlagGenerateToolStubBootstrap, Short: "Wrap stub in a bootstrap script that installs mise if not already present", Long: "Wrap stub in a bootstrap script that installs mise if not already present\n\nWhen enabled, generates a bash script that:\n1. Checks if mise is installed at the expected path\n2. If not, downloads and installs mise using the embedded installer\n3. Executes the tool stub using mise"},
 	{Key: FlagGenerateToolStubBootstrapVersion, ValueName: "BOOTSTRAP_VERSION", ValueDemanded: true, Short: "Specify mise version for the bootstrap script", Long: "Specify mise version for the bootstrap script\n\nBy default, uses the latest version from the install script.\nUse this to pin to a specific version (e.g., \"2025.1.0\")."},
-	{Key: FlagGenerateToolStubFetch, Short: "Fetch checksums and sizes for an existing tool stub file", Long: "Fetch checksums and sizes for an existing tool stub file\n\nThis reads an existing stub file and fills in any missing checksum/size fields by downloading the files. URLs must already be present in the stub."},
+	{Key: FlagGenerateToolStubChecksumAlgorithm, ValueName: "CHECKSUM_ALGORITHM", ValueDemanded: true, Short: "Checksum algorithm to use when downloading artifacts", Long: "Checksum algorithm to use when downloading artifacts\n\nAccepts `blake3` or `sha256` and defaults to `blake3`.\nCannot be used with `--lock` or `--skip-download` because those modes do not\ncalculate checksums.", Choices: []string{"blake3", "sha256"}, Default: []string{"blake3"}},
+	{Key: FlagGenerateToolStubFetch, Short: "Fetch checksums and sizes for an existing tool stub file", Long: "Fetch checksums and sizes for an existing tool stub file\n\nThis reads an existing stub file and fills in any missing checksum/size fields\nby downloading the files. URLs must already be present in the stub."},
 	{Key: FlagGenerateToolStubHttp, ValueName: "HTTP", ValueDemanded: true, Short: "HTTP backend type to use", Long: "HTTP backend type to use", Default: []string{"http"}},
-	{Key: FlagGenerateToolStubLock, Short: "Resolve and embed lockfile data (exact version + platform URLs/checksums) into an existing stub file for reproducible installs without runtime API calls", Long: "Resolve and embed lockfile data (exact version + platform URLs/checksums) into an existing stub file for reproducible installs without runtime API calls"},
+	{Key: FlagGenerateToolStubLock, Short: "Resolve and embed lockfile data (exact version + platform URLs/checksums) into an existing stub file for reproducible installs without runtime API calls", Long: "Resolve and embed lockfile data (exact version + platform URLs/checksums)\ninto an existing stub file for reproducible installs without runtime API calls"},
 	{Key: FlagGenerateToolStubPlatformBin, Repeatable: true, ValueName: "PLATFORM_BIN", ValueDemanded: true, Short: "Platform-specific binary paths in the format platform:path", Long: "Platform-specific binary paths in the format platform:path\n\nExamples: --platform-bin windows-x64:tool.exe --platform-bin linux-x64:bin/tool"},
-	{Key: FlagGenerateToolStubPlatformUrl, Repeatable: true, ValueName: "PLATFORM_URL", ValueDemanded: true, Short: "Platform-specific URLs in the format platform:url or just url (auto-detect platform)", Long: "Platform-specific URLs in the format platform:url or just url (auto-detect platform)\n\nWhen the output file already exists, new platforms will be appended to the existing platforms table. Existing platform URLs will be updated if specified again.\n\nIf only a URL is provided (without platform:), the platform will be automatically detected from the URL filename.\n\nExamples: --platform-url linux-x64:https://... --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz"},
+	{Key: FlagGenerateToolStubPlatformUrl, Repeatable: true, ValueName: "PLATFORM_URL", ValueDemanded: true, Short: "Platform-specific URLs in the format platform:url or just url (auto-detect platform)", Long: "Platform-specific URLs in the format platform:url or just url (auto-detect platform)\n\nWhen the output file already exists, new platforms will be appended to the existing\nplatforms table. Existing platform URLs will be updated if specified again.\n\nIf only a URL is provided (without platform:), the platform will be automatically\ndetected from the URL filename.\n\nExamples:\n--platform-url linux-x64:https://...\n--platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz"},
 	{Key: FlagGenerateToolStubSkipDownload, Short: "Skip downloading for checksum and binary path detection (faster but less informative)", Long: "Skip downloading for checksum and binary path detection (faster but less informative)"},
 	{Key: FlagGenerateToolStubUrl, ValueName: "URL", ValueDemanded: true, Short: "URL for downloading the tool", Long: "URL for downloading the tool\n\nExample: https://github.com/owner/repo/releases/download/v2.0.0/tool-linux-x64.tar.gz"},
 	{Key: FlagGenerateToolStubVersion, ValueName: "VERSION", ValueDemanded: true, Short: "Version of the tool", Long: "Version of the tool", Default: []string{"latest"}},
 	{Key: ArgGenerateToolStubOutput, Demanded: true, Short: "Output file path for the tool stub", Long: "Output file path for the tool stub"},
 	{Key: CmdGithub, Hide: true, Short: "GitHub related commands", SubcommandRequired: true},
-	{Key: CmdGithubToken, Hide: true, Short: "Display the GitHub token mise will use for a given host", Long: "Display the GitHub token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default.", AfterLongHelp: "Examples:\n\n    $ mise github token\n    github.com: ghp_…xxxx (source: GITHUB_TOKEN)\n\n    $ mise github token --unmask\n    github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)\n\n    $ mise github token github.mycompany.com\n    github.mycompany.com: (none)\n"},
+	{Key: CmdGithubToken, Hide: true, Short: "Display the GitHub token mise will use for a given host", Long: "Display the GitHub token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise github token\x1b[22m\n    github.com: ghp_…xxxx (source: GITHUB_TOKEN)\n\n    $ \x1b[1mmise github token --unmask\x1b[22m\n    github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)\n\n    $ \x1b[1mmise github token github.mycompany.com\x1b[22m\n    github.mycompany.com: (none)\n"},
 	{Key: FlagGithubTokenOauth, Short: "Force native GitHub OAuth device flow instead of normal token resolution", Long: "Force native GitHub OAuth device flow instead of normal token resolution"},
 	{Key: FlagGithubTokenRaw, Short: "Print only the token value", Long: "Print only the token value"},
-	{Key: FlagGithubTokenRefresh, Short: "Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow", Long: "Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow"},
+	{Key: FlagGithubTokenRefresh, Short: "Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow", Long: "Mint a fresh OAuth token even if the cached one has not\nexpired, via the refresh-token grant or a new device-code flow"},
 	{Key: FlagGithubTokenUnmask, Short: "Show the full unmasked token", Long: "Show the full unmasked token"},
 	{Key: ArgGithubTokenHost, Short: "GitHub hostname", Long: "GitHub hostname", Default: []string{"github.com"}},
-	{Key: CmdGlobal, Hide: true, Short: "Sets/gets the global tool version(s)", Long: "Sets/gets the global tool version(s)\n\nDisplays the contents of global config after writing.\nThe file is `$HOME/.config/mise/config.toml` by default. It can be changed with `$MISE_GLOBAL_CONFIG_FILE`.\nIf `$MISE_GLOBAL_CONFIG_FILE` is set to anything that ends in `.toml`, it will be parsed as `mise.toml`.\nOtherwise, it will be parsed as a `.tool-versions` file.\n\nUse MISE_ASDF_COMPAT=1 to default the global config to ~/.tool-versions\n\nUse `mise local` to set a tool version locally in the current directory.", AfterLongHelp: "Examples:\n    # set the current version of node to 20.x\n    # will use a fuzzy version (e.g.: 20) in .tool-versions file\n    $ mise global --fuzzy node@20\n\n    # set the current version of node to 20.x\n    # will use a precise version (e.g.: 20.0.0) in .tool-versions file\n    $ mise global --pin node@20\n\n    # show the current version of node in ~/.tool-versions\n    $ mise global node\n    20.0.0\n"},
+	{Key: CmdGlobal, Hide: true, Short: "Sets/gets the global tool version(s)", Long: "Sets/gets the global tool version(s)\n\nDisplays the contents of global config after writing.\nThe file is `$HOME/.config/mise/config.toml` by default. It can be changed with `$MISE_GLOBAL_CONFIG_FILE`.\nIf `$MISE_GLOBAL_CONFIG_FILE` is set to anything that ends in `.toml`, it will be parsed as `mise.toml`.\nOtherwise, it will be parsed as a `.tool-versions` file.\n\nUse MISE_ASDF_COMPAT=1 to default the global config to ~/.tool-versions\n\nUse `mise local` to set a tool version locally in the current directory.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n    # set the current version of node to 20.x\n    # will use a fuzzy version (e.g.: 20) in .tool-versions file\n    $ \x1b[1mmise global --fuzzy node@20\x1b[22m\n\n    # set the current version of node to 20.x\n    # will use a precise version (e.g.: 20.0.0) in .tool-versions file\n    $ \x1b[1mmise global --pin node@20\x1b[22m\n\n    # show the current version of node in ~/.tool-versions\n    $ \x1b[1mmise global node\x1b[22m\n    20.0.0\n"},
 	{Key: FlagGlobalFuzzy, Short: "Save fuzzy version to `~/.tool-versions`\ne.g.: `mise global --fuzzy node@20` will save `node 20` to ~/.tool-versions\nthis is the default behavior unless MISE_ASDF_COMPAT=1", Long: "Save fuzzy version to `~/.tool-versions`\ne.g.: `mise global --fuzzy node@20` will save `node 20` to ~/.tool-versions\nthis is the default behavior unless MISE_ASDF_COMPAT=1"},
 	{Key: FlagGlobalPath, Short: "Get the path of the global config file", Long: "Get the path of the global config file"},
 	{Key: FlagGlobalPin, Short: "Save exact version to `~/.tool-versions`\ne.g.: `mise global --pin node@20` will save `node 20.0.0` to ~/.tool-versions", Long: "Save exact version to `~/.tool-versions`\ne.g.: `mise global --pin node@20` will save `node 20.0.0` to ~/.tool-versions"},
@@ -5315,78 +5363,79 @@ var HelpText = argv.HelpTable{
 	{Key: CmdHookEnv, Hide: true, Short: "[internal] called by activate hook to update env vars directory change"},
 	{Key: FlagHookEnvForce, Short: "Skip early exit check", Long: "Skip early exit check"},
 	{Key: FlagHookEnvQuiet, Short: "Hide warnings such as when a tool is not installed", Long: "Hide warnings such as when a tool is not installed"},
-	{Key: FlagHookEnvShell, ValueName: "SHELL", ValueDemanded: true, Short: "Shell type to generate script for", Long: "Shell type to generate script for", Choices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}},
+	{Key: FlagHookEnvShell, ValueName: "SHELL", ValueDemanded: true, Short: "Shell type to generate script for", Long: "Shell type to generate script for"},
 	{Key: FlagHookEnvReason, Hide: true, ValueName: "REASON", ValueDemanded: true, Short: "Reason for calling hook-env (e.g., \"precmd\", \"chpwd\")", Long: "Reason for calling hook-env (e.g., \"precmd\", \"chpwd\")", Choices: []string{"precmd", "chpwd"}},
 	{Key: FlagHookEnvStatus, Hide: true, Short: "Show \"mise: <TOOL>@<VERSION>\" message when changing directories", Long: "Show \"mise: <TOOL>@<VERSION>\" message when changing directories"},
 	{Key: CmdHookNotFound, Hide: true, Short: "[internal] called by shell when a command is not found"},
-	{Key: FlagHookNotFoundShell, ValueName: "SHELL", ValueDemanded: true, Short: "Shell type to generate script for", Long: "Shell type to generate script for", Choices: []string{"bash", "elvish", "fish", "nu", "xonsh", "zsh", "pwsh"}},
+	{Key: FlagHookNotFoundShell, ValueName: "SHELL", ValueDemanded: true, Short: "Shell type to generate script for", Long: "Shell type to generate script for"},
 	{Key: ArgHookNotFoundBin, Demanded: true, Short: "Attempted bin to run", Long: "Attempted bin to run"},
 	{Key: CmdImplode, Short: "Removes mise CLI and all related data", Long: "Removes mise CLI and all related data\n\nSkips config directory by default."},
 	{Key: FlagImplodeDryRun, Short: "List directories that would be removed without actually removing them", Long: "List directories that would be removed without actually removing them"},
 	{Key: FlagImplodeConfig, Short: "Also remove config directory", Long: "Also remove config directory"},
-	{Key: CmdEdit, Short: "Edit mise.toml interactively", AfterLongHelp: "Examples:\n\n    $ mise edit             # edit mise.toml interactively\n    $ mise edit .mise.toml  # edit a specific file\n    $ mise edit -g          # edit the global config file\n    $ mise edit -y          # skip interactive editor\n    $ mise edit -n          # preview without writing\n"},
+	{Key: CmdEdit, Short: "Edit mise.toml interactively", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise edit\x1b[22m             \x1b[2m# edit mise.toml interactively\x1b[22m\n    $ \x1b[1mmise edit .mise.toml\x1b[22m  \x1b[2m# edit a specific file\x1b[22m\n    $ \x1b[1mmise edit -g\x1b[22m          \x1b[2m# edit the global config file\x1b[22m\n    $ \x1b[1mmise edit -y\x1b[22m          \x1b[2m# skip interactive editor\x1b[22m\n    $ \x1b[1mmise edit -n\x1b[22m          \x1b[2m# preview without writing\x1b[22m\n"},
 	{Key: FlagEditGlobal, Short: "Edit the global config file (~/.config/mise/config.toml)", Long: "Edit the global config file (~/.config/mise/config.toml)"},
 	{Key: FlagEditDryRun, Short: "Show what would be generated without writing to file", Long: "Show what would be generated without writing to file"},
 	{Key: FlagEditToolVersions, ValueName: "TOOL_VERSIONS", ValueDemanded: true, Short: "Path to a .tool-versions file to import tools from", Long: "Path to a .tool-versions file to import tools from"},
 	{Key: ArgEditPath, Short: "Path to the config file to create", Long: "Path to the config file to create"},
-	{Key: CmdInstall, Short: "Install a tool version", Long: "Install a tool version\n\nInstalls a tool version to `~/.local/share/mise/installs/<TOOL>/<VERSION>`\nInstalling alone will not activate the tools so they won't be in PATH.\nTo install and/or activate in one command, use `mise use` which will create a `mise.toml` file\nin the current directory to activate this tool when inside the directory.\nAlternatively, run `mise exec <TOOL>@<VERSION> -- <COMMAND>` to execute a tool without creating config files.\n\nTools will be installed in parallel. To disable, set `--jobs=1` or `MISE_JOBS=1`", VisibleAliases: []string{"i"}, AfterLongHelp: "Examples:\n\n    $ mise install node@20.0.0  # install specific node version\n    $ mise install node@20      # install fuzzy node version\n    $ mise install node         # install version specified in mise.toml\n    $ mise install              # installs everything specified in mise.toml\n"},
-	{Key: FlagInstallForce, Short: "Force reinstall even if already installed", Long: "Force reinstall even if already installed"},
-	{Key: FlagInstallJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\n[default: 4]", Long: "Number of jobs to run in parallel\n[default: 4]"},
+	{Key: CmdInstall, Short: "Install a tool version", Long: "Install a tool version\n\nInstalls a tool version to `~/.local/share/mise/installs/<TOOL>/<VERSION>`\nInstalling alone will not activate the tools so they won't be in PATH.\nTo install and/or activate in one command, use `mise use` which will create a `mise.toml` file\nin the current directory to activate this tool when inside the directory.\nAlternatively, run `mise exec <TOOL>@<VERSION> -- <COMMAND>` to execute a tool without creating config files.\n\nTools will be installed in parallel. To disable, set `--jobs=1` or `MISE_JOBS=1`", VisibleAliases: []string{"i"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise install node@20.0.0\x1b[22m  # install specific node version\n    $ \x1b[1mmise install node@20\x1b[22m      # install fuzzy node version\n    $ \x1b[1mmise install node\x1b[22m         # install version specified in mise.toml\n    $ \x1b[1mmise install\x1b[22m              # installs everything specified in mise.toml\n    $ \x1b[1mmise install --include-task-tools\x1b[22m # also install tools required by tasks\n"},
+	{Key: FlagInstallForce, Short: "Force reinstall even if already installed\nWith no tools specified, reinstall all configured tools", Long: "Force reinstall even if already installed\nWith no tools specified, reinstall all configured tools"},
+	{Key: FlagInstallJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Long: "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Env: "MISE_JOBS"},
 	{Key: FlagInstallDryRun, Short: "Show what would be installed without actually installing", Long: "Show what would be installed without actually installing"},
 	{Key: FlagInstallVerbose, Repeatable: true, Short: "Show installation output", Long: "Show installation output\n\nThis argument will print backend output such as download, configuration, and compilation output."},
 	{Key: FlagInstallDryRunCode, Short: "Like --dry-run but exits with code 1 if there are tools to install", Long: "Like --dry-run but exits with code 1 if there are tools to install\n\nThis is useful for scripts to check if tools need to be installed."},
+	{Key: FlagInstallIncludeTaskTools, Short: "Also install tools required by tasks in the current scope", Long: "Also install tools required by tasks in the current scope\n\nThis prepares task tools without running task commands or dependencies.\nCombine with --monorepo to include tasks from every configured root."},
 	{Key: FlagInstallMinimumReleaseAge, ValueName: "MINIMUM_RELEASE_AGE", ValueDemanded: true, Short: "Only install versions released before this date or older than this duration", Long: "Only install versions released before this date or older than this duration\n\nSupports absolute dates like \"2024-06-01\" and relative durations like \"90d\" or \"1y\"."},
-	{Key: FlagInstallMonorepo, Short: "Install tools from every [monorepo].config_roots config root", Long: "Install tools from every [monorepo].config_roots config root\n\nUses the active MISE_ENV and requires monorepo_root = true plus explicit\n[monorepo].config_roots in the monorepo root config."},
-	{Key: FlagInstallRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1"},
+	{Key: FlagInstallMonorepo, Short: "Install tools from every [monorepo].config_roots config root", Long: "Install tools from every [monorepo].config_roots config root\n\nUses the active MISE_ENV and requires monorepo_root = true plus explicit\n[monorepo].config_roots in the monorepo root config.", Env: "MISE_MONOREPO"},
+	{Key: FlagInstallRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies --jobs=1"},
 	{Key: FlagInstallShared, ValueName: "SHARED", ValueDemanded: true, Short: "Install tool(s) to a shared directory", Long: "Install tool(s) to a shared directory\n\nInstalls to the specified directory instead of the default install location.\nMay require elevated permissions depending on the path."},
 	{Key: FlagInstallSystem, Short: "Install tool(s) to the system-wide shared directory", Long: "Install tool(s) to the system-wide shared directory\n\nInstalls to /usr/local/share/mise/installs (or MISE_SYSTEM_DATA_DIR/installs).\nMay require elevated permissions (e.g. sudo)."},
-	{Key: ArgInstallToolVersion, Short: "Tool(s) to install e.g.: node@20", Long: "Tool(s) to install e.g.: node@20"},
-	{Key: CmdInstallInto, Short: "Install a tool version to a specific path", Long: "Install a tool version to a specific path\n\nUsed for building a tool to a directory for use outside of mise", AfterLongHelp: "Examples:\n\n    # install node@20.0.0 into ./mynode\n    $ mise install-into node@20.0.0 ./mynode && ./mynode/bin/node -v\n    20.0.0\n"},
-	{Key: ArgInstallIntoToolVersion, Demanded: true, Short: "Tool to install e.g.: node@20", Long: "Tool to install e.g.: node@20"},
+	{Key: ArgInstallToolVersion, Short: "Tool(s) to install e.g.: node@20", Long: "Tool(s) to install\ne.g.: node@20"},
+	{Key: CmdInstallInto, Short: "Install a tool version to a specific path", Long: "Install a tool version to a specific path\n\nUsed for building a tool to a directory for use outside of mise", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # install node@20.0.0 into ./mynode\n    $ \x1b[1mmise install-into node@20.0.0 ./mynode && ./mynode/bin/node -v\x1b[22m\n    20.0.0\n"},
+	{Key: ArgInstallIntoToolVersion, Demanded: true, Short: "Tool to install e.g.: node@20", Long: "Tool to install\ne.g.: node@20"},
 	{Key: ArgInstallIntoPath, Demanded: true, Short: "Path to install the tool into", Long: "Path to install the tool into"},
-	{Key: CmdLatest, Short: "Gets the latest available version for a plugin", Long: "Gets the latest available version for a plugin\n\nSupports prefixes such as `node@20` to get the latest version of node 20.", AfterLongHelp: "Examples:\n\n    $ mise latest node@20  # get the latest version of node 20\n    20.0.0\n\n    $ mise latest node     # get the latest stable version of node\n    20.0.0\n\n    $ mise latest node --minimum-release-age 2024-01-01  # latest stable node released before 2024-01-01\n"},
+	{Key: CmdLatest, Short: "Gets the latest available version for a plugin", Long: "Gets the latest available version for a plugin\n\nSupports prefixes such as `node@20` to get the latest version of node 20.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise latest node@20\x1b[22m  # get the latest version of node 20\n    20.0.0\n\n    $ \x1b[1mmise latest node\x1b[22m     # get the latest stable version of node\n    20.0.0\n\n    $ \x1b[1mmise latest node --minimum-release-age 2024-01-01\x1b[22m  # latest stable node released before 2024-01-01\n"},
 	{Key: FlagLatestInstalled, Short: "Show latest installed instead of available version", Long: "Show latest installed instead of available version"},
 	{Key: FlagLatestMinimumReleaseAge, ValueName: "MINIMUM_RELEASE_AGE", ValueDemanded: true, Short: "Only consider versions released before this date or older than this duration", Long: "Only consider versions released before this date or older than this duration\n\nSupports absolute dates like \"2024-06-01\" and relative durations like \"90d\" or \"1y\".\nOverrides per-tool `minimum_release_age` options and the global `minimum_release_age` setting."},
 	{Key: ArgLatestToolVersion, Demanded: true, Short: "Tool to get the latest version of", Long: "Tool to get the latest version of"},
-	{Key: ArgLatestAsdfVersion, Hide: true, Short: "The version prefix to use when querying the latest version same as the first argument after the \"@\" used for asdf compatibility", Long: "The version prefix to use when querying the latest version same as the first argument after the \"@\" used for asdf compatibility"},
-	{Key: CmdLink, Short: "Symlinks a tool version into mise", Long: "Symlinks a tool version into mise\n\nUse this for adding installs either custom compiled outside mise or built with a different tool.", VisibleAliases: []string{"ln"}, AfterLongHelp: "Examples:\n\n    # build node-20.0.0 with node-build and link it into mise\n    $ node-build 20.0.0 ~/.nodes/20.0.0\n    $ mise link node@20.0.0 ~/.nodes/20.0.0\n\n    # have mise use the node version provided by Homebrew\n    $ brew install node\n    $ mise link node@brew $(brew --prefix node)\n    $ mise use node@brew\n"},
+	{Key: ArgLatestAsdfVersion, Hide: true, Short: "The version prefix to use when querying the latest version same as the first argument after the \"@\" used for asdf compatibility", Long: "The version prefix to use when querying the latest version\nsame as the first argument after the \"@\"\nused for asdf compatibility"},
+	{Key: CmdLink, Short: "Symlinks a tool version into mise", Long: "Symlinks a tool version into mise\n\nUse this for adding installs either custom compiled outside mise or built with a different tool.", VisibleAliases: []string{"ln"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # build node-20.0.0 with node-build and link it into mise\n    $ \x1b[1mnode-build 20.0.0 ~/.nodes/20.0.0\x1b[22m\n    $ \x1b[1mmise link node@20.0.0 ~/.nodes/20.0.0\x1b[22m\n\n    # have mise use the node version provided by Homebrew\n    $ \x1b[1mbrew install node\x1b[22m\n    $ \x1b[1mmise link node@brew $(brew --prefix node)\x1b[22m\n    $ \x1b[1mmise use node@brew\x1b[22m\n"},
 	{Key: FlagLinkForce, Short: "Overwrite an existing tool version if it exists", Long: "Overwrite an existing tool version if it exists"},
 	{Key: ArgLinkToolVersion, Demanded: true, Short: "Tool name and version to create a symlink for", Long: "Tool name and version to create a symlink for"},
 	{Key: ArgLinkPath, Demanded: true, Short: "The local path to the tool version\ne.g.: ~/.nvm/versions/node/v20.0.0", Long: "The local path to the tool version\ne.g.: ~/.nvm/versions/node/v20.0.0"},
-	{Key: CmdLocal, Hide: true, Short: "Sets/gets tool version in local .tool-versions or mise.toml", Long: "Sets/gets tool version in local .tool-versions or mise.toml\n\nUse this to set a tool's version when within a directory\nUse `mise global` to set a tool version globally\nThis uses `.tool-version` by default unless there is a `mise.toml` file or if `MISE_USE_TOML`\nis set. A future v2 release of mise will default to using `mise.toml`.", AfterLongHelp: "Examples:\n    # set the current version of node to 20.x for the current directory\n    # will use a precise version (e.g.: 20.0.0) in .tool-versions file\n    $ mise local node@20\n\n    # set node to 20.x for the current project (recurses up to find .tool-versions)\n    $ mise local -p node@20\n\n    # set the current version of node to 20.x for the current directory\n    # will use a fuzzy version (e.g.: 20) in .tool-versions file\n    $ mise local --fuzzy node@20\n\n    # removes node from .tool-versions\n    $ mise local --remove=node\n\n    # show the current version of node in .tool-versions\n    $ mise local node\n    20.0.0\n"},
+	{Key: CmdLocal, Hide: true, Short: "Sets/gets tool version in local .tool-versions or mise.toml", Long: "Sets/gets tool version in local .tool-versions or mise.toml\n\nUse this to set a tool's version when within a directory\nUse `mise global` to set a tool version globally\nThis uses `.tool-version` by default unless there is a `mise.toml` file or if `MISE_USE_TOML`\nis set. A future v2 release of mise will default to using `mise.toml`.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n    # set the current version of node to 20.x for the current directory\n    # will use a precise version (e.g.: 20.0.0) in .tool-versions file\n    $ \x1b[1mmise local node@20\x1b[22m\n\n    # set node to 20.x for the current project (recurses up to find .tool-versions)\n    $ \x1b[1mmise local -p node@20\x1b[22m\n\n    # set the current version of node to 20.x for the current directory\n    # will use a fuzzy version (e.g.: 20) in .tool-versions file\n    $ \x1b[1mmise local --fuzzy node@20\x1b[22m\n\n    # removes node from .tool-versions\n    $ \x1b[1mmise local --remove=node\x1b[22m\n\n    # show the current version of node in .tool-versions\n    $ \x1b[1mmise local node\x1b[22m\n    20.0.0\n"},
 	{Key: FlagLocalParent, Short: "Recurse up to find a .tool-versions file rather than using the current directory only\nby default this command will only set the tool in the current directory (\"$PWD/.tool-versions\")", Long: "Recurse up to find a .tool-versions file rather than using the current directory only\nby default this command will only set the tool in the current directory (\"$PWD/.tool-versions\")"},
-	{Key: FlagLocalFuzzy, Short: "Save fuzzy version to `.tool-versions` e.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions This is the default behavior unless MISE_ASDF_COMPAT=1", Long: "Save fuzzy version to `.tool-versions` e.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions This is the default behavior unless MISE_ASDF_COMPAT=1"},
+	{Key: FlagLocalFuzzy, Short: "Save fuzzy version to `.tool-versions` e.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions This is the default behavior unless MISE_ASDF_COMPAT=1", Long: "Save fuzzy version to `.tool-versions`\ne.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions\nThis is the default behavior unless MISE_ASDF_COMPAT=1"},
 	{Key: FlagLocalPath, Short: "Get the path of the config file", Long: "Get the path of the config file"},
 	{Key: FlagLocalPin, Short: "Save exact version to `.tool-versions`\ne.g.: `mise local --pin node@20` will save `node 20.0.0` to .tool-versions", Long: "Save exact version to `.tool-versions`\ne.g.: `mise local --pin node@20` will save `node 20.0.0` to .tool-versions"},
 	{Key: FlagLocalRemove, Repeatable: true, ValueName: "TOOL", ValueDemanded: true, Short: "Remove the tool(s) from .tool-versions", Long: "Remove the tool(s) from .tool-versions"},
 	{Key: ArgLocalToolVersion, Short: "Tool(s) to add to .tool-versions/mise.toml\ne.g.: node@20\nif this is a single tool with no version,\nthe current value of .tool-versions/mise.toml will be displayed", Long: "Tool(s) to add to .tool-versions/mise.toml\ne.g.: node@20\nif this is a single tool with no version,\nthe current value of .tool-versions/mise.toml will be displayed"},
-	{Key: CmdLock, Short: "Update lockfile checksums and URLs for all specified platforms", Long: "Update lockfile checksums and URLs for all specified platforms\n\nUpdates checksums and download URLs for all platforms already specified in the lockfile.\nIf no lockfile exists, shows what would be created based on the current configuration.\nThis allows you to refresh lockfile data for platforms other than the one you're currently on.\nOperates on the lockfile in the current config root. Use TOOL arguments to target specific tools.", AfterLongHelp: "Examples:\n\n    $ mise lock                       # update lockfile for all common platforms\n    $ mise lock node python           # update only node and python\n    $ mise lock --platform linux-x64  # update only linux-x64 platform\n    $ mise lock --dry-run             # show what would be updated\n    $ mise lock --bump                # re-resolve selectors like \"latest\" or \"20\" to the latest matching versions\n    $ mise lock --bump --dry-run --json   # list available updates as JSON without writing\n    $ mise lock --minimum-release-age 2024-01-01   # lock latest/fuzzy versions released before 2024-01-01\n    $ mise lock --local               # update mise.local.lock for local configs\n    $ mise lock --global              # update only global config lockfiles\n"},
+	{Key: CmdLock, Short: "Update lockfile checksums and URLs for all specified platforms", Long: "Update lockfile checksums and URLs for all specified platforms\n\nUpdates checksums and download URLs for all platforms already specified in the lockfile.\nIf no lockfile exists, shows what would be created based on the current configuration,\nincluding tools declared by tasks.\nThis allows you to refresh lockfile data for platforms other than the one you're currently on.\nOperates on the lockfile in the current config root. Use TOOL arguments to target specific tools.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise lock\x1b[22m                       # update lockfile for all common platforms\n    $ \x1b[1mmise lock node python\x1b[22m           # update only node and python\n    $ \x1b[1mmise lock --platform linux-x64\x1b[22m  # update only linux-x64 platform\n    $ \x1b[1mmise lock --dry-run\x1b[22m             # show what would be updated\n    $ \x1b[1mmise lock --bump\x1b[22m                # re-resolve selectors like \"latest\" or \"20\" to the latest matching versions\n    $ \x1b[1mmise lock --bump --dry-run --json\x1b[22m   # list available updates as JSON without writing\n    $ \x1b[1mmise lock --minimum-release-age 2024-01-01\x1b[22m   # lock latest/fuzzy versions released before 2024-01-01\n    $ \x1b[1mmise lock --local\x1b[22m               # update mise.local.lock for local configs\n    $ \x1b[1mmise lock --global\x1b[22m              # update only global config lockfiles\n"},
 	{Key: FlagLockGlobal, Short: "Target only global config lockfiles (~/.config/mise/mise.lock and system config)\nBy default, only the active project config root is locked", Long: "Target only global config lockfiles (~/.config/mise/mise.lock and system config)\nBy default, only the active project config root is locked"},
-	{Key: FlagLockJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel", Long: "Number of jobs to run in parallel"},
+	{Key: FlagLockJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\nValues below 1 are treated as 1", Long: "Number of jobs to run in parallel\nValues below 1 are treated as 1", Env: "MISE_JOBS"},
 	{Key: FlagLockDryRun, Short: "Show what would be updated without making changes", Long: "Show what would be updated without making changes"},
 	{Key: FlagLockPlatform, Repeatable: true, ValueName: "PLATFORM", ValueDemanded: true, Short: "Comma-separated list of platforms to target\ne.g.: linux-x64,macos-arm64,windows-x64\nIf not specified, all platforms already in lockfile will be updated", Long: "Comma-separated list of platforms to target\ne.g.: linux-x64,macos-arm64,windows-x64\nIf not specified, all platforms already in lockfile will be updated"},
 	{Key: FlagLockBump, Short: "Re-resolve fuzzy version selectors against the latest available versions", Long: "Re-resolve fuzzy version selectors against the latest available versions\n\nBy default, `mise lock` refreshes metadata for the currently locked versions.\nWith this flag, selectors like \"latest\", \"lts\", or prefixes like \"20\" are\nre-resolved against the latest matching remote versions, so the lockfile\nadvances without installing anything. Config files are never modified:\nexactly pinned versions resolve to themselves and stay unchanged\n(use `mise upgrade --bump` to rewrite pins in mise.toml)."},
 	{Key: FlagLockJson, Short: "Output version changes as JSON", Long: "Output version changes as JSON\n\nPrints an array of objects describing lockfile version changes:\nname, backend, lockfile, old_versions, new_versions.\nVersion lists keep config/lockfile order; they are not sorted.\nOnly version-level changes are reported: checksum/URL refreshes for\nunchanged versions produce no entries, so plain `mise lock --json`\ntypically prints `[]` while still updating the lockfile.\nSuppresses the human-readable output. Combine with `--dry-run` to\ndetect available updates without writing the lockfile."},
 	{Key: FlagLockLocal, Short: "Update mise.local.lock instead of mise.lock\nUse for tools defined in .local.toml configs", Long: "Update mise.local.lock instead of mise.lock\nUse for tools defined in .local.toml configs"},
 	{Key: FlagLockMinimumReleaseAge, ValueName: "MINIMUM_RELEASE_AGE", ValueDemanded: true, Short: "Only lock versions released before this age or date", Long: "Only lock versions released before this age or date\n\nSupports absolute dates like \"2024-06-01\" and relative durations like \"90d\" or \"1y\".\nThis only affects fuzzy version matches like \"20\" or \"latest\".\nExplicitly pinned versions like \"22.5.0\" are not filtered.\nExisting matching lockfile entries are preserved and are not downgraded solely by this flag."},
-	{Key: ArgLockTool, Short: "Tool(s) to update in lockfile\ne.g.: node python\nIf not specified, all tools in lockfile will be updated", Long: "Tool(s) to update in lockfile\ne.g.: node python\nIf not specified, all tools in lockfile will be updated"},
-	{Key: CmdLs, Short: "List installed and active tool versions", Long: "List installed and active tool versions\n\nThis command lists tools that mise \"knows about\".\nThese may be tools that are currently installed, or those\nthat are in a config file (active) but may or may not be installed.\n\nIt's a useful command to get the current state of your tools.", VisibleAliases: []string{"list"}, AfterLongHelp: "Examples:\n\n    $ mise ls\n    node    20.0.0 ~/src/myapp/.tool-versions latest\n    python  3.11.0 ~/.tool-versions           3.10\n    python  3.10.0\n\n    $ mise ls --current\n    node    20.0.0 ~/src/myapp/.tool-versions 20\n    python  3.11.0 ~/.tool-versions           3.11.0\n\n    $ mise ls --json\n    {\n      \"node\": [\n        {\n          \"version\": \"20.0.0\",\n          \"install_path\": \"/Users/jdx/.mise/installs/node/20.0.0\",\n          \"source\": {\n            \"type\": \"mise.toml\",\n            \"path\": \"/Users/jdx/mise.toml\"\n          }\n        }\n      ],\n      \"python\": [...]\n    }\n\n    $ mise ls --all-sources\n    node    20.0.0  ~/src/myapp/mise.toml  20\n                    ~/.config/mise/config.toml  latest\n"},
+	{Key: ArgLockTool, Short: "Tool(s) to update in lockfile\ne.g.: node python\nIf not specified, all configured and task-specific tools will be updated", Long: "Tool(s) to update in lockfile\ne.g.: node python\nIf not specified, all configured and task-specific tools will be updated"},
+	{Key: CmdLs, Short: "List installed and active tool versions", Long: "List installed and active tool versions\n\nThis command lists tools that mise \"knows about\".\nThese may be tools that are currently installed, or those\nthat are in a config file (active) but may or may not be installed.\n\nIt's a useful command to get the current state of your tools.", VisibleAliases: []string{"list"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise ls\x1b[22m\n    node    20.0.0 ~/src/myapp/.tool-versions latest\n    python  3.11.0 ~/.tool-versions           3.10\n    python  3.10.0\n\n    $ \x1b[1mmise ls --current\x1b[22m\n    node    20.0.0 ~/src/myapp/.tool-versions 20\n    python  3.11.0 ~/.tool-versions           3.11.0\n\n    $ \x1b[1mmise ls --json\x1b[22m\n    {\n      \"node\": [\n        {\n          \"version\": \"20.0.0\",\n          \"install_path\": \"/Users/jdx/.mise/installs/node/20.0.0\",\n          \"source\": {\n            \"type\": \"mise.toml\",\n            \"path\": \"/Users/jdx/mise.toml\"\n          }\n        }\n      ],\n      \"python\": [...]\n    }\n\n    $ \x1b[1mmise ls --all-sources\x1b[22m\n    node    20.0.0  ~/src/myapp/mise.toml  20\n                    ~/.config/mise/config.toml  latest\n"},
 	{Key: FlagLsCurrent, Short: "Only show tool versions currently specified in a mise.toml", Long: "Only show tool versions currently specified in a mise.toml"},
 	{Key: FlagLsGlobal, Short: "Only show tool versions currently specified in the global mise.toml", Long: "Only show tool versions currently specified in the global mise.toml"},
-	{Key: FlagLsInstalled, Short: "Only show tool versions that are installed (Hides tools defined in mise.toml but not installed)", Long: "Only show tool versions that are installed (Hides tools defined in mise.toml but not installed)"},
+	{Key: FlagLsInstalled, Short: "Only show tool versions that are installed (Hides tools defined in mise.toml but not installed)", Long: "Only show tool versions that are installed\n(Hides tools defined in mise.toml but not installed)"},
 	{Key: FlagLsJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagLsLocal, Short: "Only show tool versions currently specified in the local mise.toml", Long: "Only show tool versions currently specified in the local mise.toml"},
 	{Key: FlagLsMissing, Short: "Display missing tool versions", Long: "Display missing tool versions"},
 	{Key: FlagLsOffline, Hide: true, Short: "Don't fetch information such as outdated versions", Long: "Don't fetch information such as outdated versions"},
-	{Key: FlagLsPlugin, Hide: true, ValueName: "TOOL_FLAG", ValueDemanded: true},
+	{Key: FlagLsPlugin, Hide: true, ValueName: "PLUGIN", ValueDemanded: true},
 	{Key: FlagLsAllSources, Short: "Display all tracked config sources for tools", Long: "Display all tracked config sources for tools"},
-	{Key: FlagLsMonorepo, Short: "List tools from every [monorepo].config_roots config root", Long: "List tools from every [monorepo].config_roots config root\n\nUses the active MISE_ENV and requires monorepo_root = true plus explicit\n[monorepo].config_roots in the monorepo root config."},
+	{Key: FlagLsMonorepo, Short: "List tools from every [monorepo].config_roots config root", Long: "List tools from every [monorepo].config_roots config root\n\nUses the active MISE_ENV and requires monorepo_root = true plus explicit\n[monorepo].config_roots in the monorepo root config.", Env: "MISE_MONOREPO"},
 	{Key: FlagLsNoHeader, Short: "Don't display headers", Long: "Don't display headers"},
 	{Key: FlagLsOutdated, Short: "Display whether a version is outdated", Long: "Display whether a version is outdated"},
 	{Key: FlagLsPrefix, ValueName: "PREFIX", ValueDemanded: true, Short: "Display versions matching this prefix", Long: "Display versions matching this prefix"},
 	{Key: FlagLsPrunable, Short: "List only tools that can be pruned with `mise prune`", Long: "List only tools that can be pruned with `mise prune`"},
 	{Key: ArgLsInstalledTool, Short: "Only show tool versions from [TOOL]", Long: "Only show tool versions from [TOOL]"},
-	{Key: CmdLsRemote, Short: "List runtime versions available for install.", Long: "List runtime versions available for install.\n\nNote that the results may be cached, run `mise cache clean` to clear the cache and get fresh results.", AfterLongHelp: "Examples:\n\n    $ mise ls-remote node\n    18.0.0\n    20.0.0\n\n    $ mise ls-remote node@20\n    20.0.0\n    20.1.0\n\n    $ mise ls-remote node 20\n    20.0.0\n    20.1.0\n\n    $ mise ls-remote node --minimum-release-age 2024-01-01\n    20.0.0\n\n    $ mise ls-remote github:cli/cli --json\n    [{\"version\":\"2.62.0\",\"created_at\":\"2024-11-14T15:40:35Z\",\"prerelease\":false},{\"version\":\"2.61.0\",\"created_at\":\"2024-10-23T19:22:15Z\",\"prerelease\":false}]\n"},
+	{Key: CmdLsRemote, Short: "List runtime versions available for install.", Long: "List runtime versions available for install.\n\nNote that the results may be cached, run `mise cache clean` to clear the cache and get fresh results.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise ls-remote node\x1b[22m\n    18.0.0\n    20.0.0\n\n    $ \x1b[1mmise ls-remote node@20\x1b[22m\n    20.0.0\n    20.1.0\n\n    $ \x1b[1mmise ls-remote node 20\x1b[22m\n    20.0.0\n    20.1.0\n\n    $ \x1b[1mmise ls-remote node --minimum-release-age 2024-01-01\x1b[22m\n    20.0.0\n\n    $ \x1b[1mmise ls-remote github:cli/cli --json\x1b[22m\n    [{\"version\":\"2.62.0\",\"created_at\":\"2024-11-14T15:40:35Z\",\"prerelease\":false},{\"version\":\"2.61.0\",\"created_at\":\"2024-10-23T19:22:15Z\",\"prerelease\":false}]\n"},
 	{Key: FlagLsRemoteAll, Short: "Show all installed plugins and versions", Long: "Show all installed plugins and versions"},
 	{Key: FlagLsRemoteMinimumReleaseAge, ValueName: "MINIMUM_RELEASE_AGE", ValueDemanded: true, Short: "Only show versions released before this age or date", Long: "Only show versions released before this age or date\n\nSupports absolute dates like \"2024-06-01\" and relative durations like \"90d\" or \"1y\"."},
 	{Key: FlagLsRemoteJson, Short: "Output in JSON format (includes version metadata like created_at timestamps when available)", Long: "Output in JSON format (includes version metadata like created_at timestamps when available)"},
@@ -5395,52 +5444,53 @@ var HelpText = argv.HelpTable{
 	{Key: FlagLsRemoteStrictMetadata, Short: "Fail if release metadata fetches fail", Long: "Fail if release metadata fetches fail\n\nRequires --json and --no-versions-host.\n\nThis prevents metadata consumers from accepting empty fallback results\nwhen a backend's metadata-producing upstream request fails."},
 	{Key: ArgLsRemoteToolVersion, Short: "Tool to get versions for", Long: "Tool to get versions for"},
 	{Key: ArgLsRemotePrefix, Short: "The version prefix to use when querying the latest version\nsame as the first argument after the \"@\"", Long: "The version prefix to use when querying the latest version\nsame as the first argument after the \"@\""},
-	{Key: CmdMcp, Short: "Run Model Context Protocol (MCP) server", Long: "Run Model Context Protocol (MCP) server\n\nThis command starts an MCP server that exposes mise functionality\nto AI assistants over stdin/stdout using JSON-RPC protocol.\n\nThe MCP server provides access to:\n- Installed and available tools\n- Task definitions and execution\n- Environment variables\n- Configuration information\n- Task execution via the run_task tool\n\nResources available:\n- mise://tools - List all tools (use ?include_inactive=true to include inactive tools)\n- mise://tasks - List all tasks with their configurations\n- mise://env - List all environment variables\n- mise://config - Show configuration files and project root\n\nTools available:\n- list_commands - Every mise command, with its declared effect on the world\n- install_tool - Install a tool with an optional version (not yet implemented)\n- run_task - Execute a mise task with optional arguments\n\nNote: This is primarily intended for integration with AI assistants like Claude,\nCursor, or other tools that support the Model Context Protocol.", AfterLongHelp: "Examples:\n\n    # Start the MCP server (typically used by AI assistant tools)\n    $ mise mcp\n\n    # Example integration with Claude Desktop (add to claude_desktop_config.json):\n    {\n      \"mcpServers\": {\n        \"mise\": {\n          \"command\": \"mise\",\n          \"args\": [\"mcp\"],\n          \"env\": {}\n        }\n      }\n    }\n\n    # Interactive testing with JSON-RPC commands:\n    $ echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}' | mise mcp\n\n    # Resources you can query:\n    - mise://tools - List active tools\n    - mise://tools?include_inactive=true - List all installed tools\n    - mise://tasks - List all tasks\n    - mise://env - List environment variables\n    - mise://config - Show configuration info\n\n    # Tools available:\n    - list_commands - Every mise command and what running it does\n      Example: {\"include_hidden\": false}\n    - install_tool - Install a tool (not yet implemented)\n    - run_task - Execute a mise task with optional arguments\n      Example: {\"task\": \"build\", \"args\": [\"--verbose\"]}\n"},
+	{Key: CmdMcp, Short: "Run Model Context Protocol (MCP) server", Long: "Run Model Context Protocol (MCP) server\n\nThis command starts an MCP server that exposes mise functionality\nto AI assistants over stdin/stdout using JSON-RPC protocol.\n\nThe MCP server provides access to:\n- Installed and available tools\n- Task definitions and execution\n- Environment variables\n- Configuration information\n- Task execution via the run_task tool\n\nResources available:\n- mise://tools - List all tools (use ?include_inactive=true to include inactive tools)\n- mise://tasks - List all tasks with their configurations\n- mise://env - List all environment variables\n- mise://config - Show configuration files and project root\n\nTools available:\n- list_commands - Every mise command, with its declared effect on the world\n- install_tool - Install a tool with an optional version (not yet implemented)\n- run_task - Execute a mise task with optional arguments\n\nNote: This is primarily intended for integration with AI assistants like Claude,\nCursor, or other tools that support the Model Context Protocol.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # Start the MCP server (typically used by AI assistant tools)\n    $ \x1b[1mmise mcp\x1b[22m\n\n    # Example integration with Claude Desktop (add to claude_desktop_config.json):\n    {\n      \"mcpServers\": {\n        \"mise\": {\n          \"command\": \"mise\",\n          \"args\": [\"mcp\"],\n          \"env\": {}\n        }\n      }\n    }\n\n    # Interactive testing with JSON-RPC commands:\n    $ \x1b[1mecho '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}' | mise mcp\x1b[22m\n\n    # Resources you can query:\n    - \x1b[1mmise://tools\x1b[22m - List active tools\n    - \x1b[1mmise://tools?include_inactive=true\x1b[22m - List all installed tools\n    - \x1b[1mmise://tasks\x1b[22m - List all tasks\n    - \x1b[1mmise://env\x1b[22m - List environment variables\n    - \x1b[1mmise://config\x1b[22m - Show configuration info\n\n    # Tools available:\n    - \x1b[1mlist_commands\x1b[22m - Every mise command and what running it does\n      Example: {\"include_hidden\": false}\n    - \x1b[1minstall_tool\x1b[22m - Install a tool (not yet implemented)\n    - \x1b[1mrun_task\x1b[22m - Execute a mise task with optional arguments\n      Example: {\"task\": \"build\", \"args\": [\"--verbose\"]}\n"},
 	{Key: CmdOci, Short: "[experimental] Build OCI container images from a mise.toml", Long: "[experimental] Build OCI container images from a mise.toml\n\nEach tool becomes its own OCI layer, so bumping any single tool version\nonly invalidates one content-addressable blob — unlike a Dockerfile where\nchanging an early `RUN` invalidates every layer above it.\n\nThis command is experimental and requires `mise settings experimental=true`\n(or `MISE_EXPERIMENTAL=1`). Behavior, flags, and output layout may change\nin future releases.", SubcommandRequired: true},
-	{Key: CmdOciBuild, Short: "[experimental] Build an OCI image from the current mise.toml", Long: "[experimental] Build an OCI image from the current mise.toml\n\nEach tool version becomes its own content-addressable OCI layer. Bumping a\ntool version only invalidates that tool's layer — other tools, the base\nimage, and config are reused unchanged. The output directory conforms to\nthe OCI image-layout spec and can be consumed by `skopeo`, `crane`, or\n`podman load`.\n\nRequires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).", AfterLongHelp: "Examples:\n\n    Build with defaults (debian:bookworm-slim base):\n    $ mise oci build\n\n    Build with a specific base image and tag:\n    $ mise oci build --from ubuntu:24.04 --tag myorg/dev:latest -o ./img\n\n    Inspect the result with skopeo:\n    $ skopeo inspect oci:./mise-oci\n\n    Push to a registry:\n    $ mise oci push --image-dir ./mise-oci ghcr.io/me/dev:latest\n\nNotes:\n\n    - The image only contains tools from the project's mise config (and\n      any configs at-or-below the project root). Tools from\n      `~/.config/mise/config.toml` are not included; pass --include-global\n      to package them too.\n    - asdf and vfox plugins are not supported in v1; use a different backend\n      (core, aqua, ubi, github, cargo, npm, go, pipx, spm, http) for each tool.\n    - The host mise binary is embedded at /usr/local/bin/mise by default;\n      build on the same OS/arch as your target image (or pass --no-mise).\n"},
+	{Key: CmdOciBuild, Short: "[experimental] Build an OCI image from the current mise.toml", Long: "[experimental] Build an OCI image from the current mise.toml\n\nEach tool version becomes its own content-addressable OCI layer. Bumping a\ntool version only invalidates that tool's layer — other tools, the base\nimage, and config are reused unchanged. The output directory conforms to\nthe OCI image-layout spec and can be consumed by `skopeo`, `crane`, or\n`podman load`.\n\nRequires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    Build with defaults (debian:bookworm-slim base):\n    $ \x1b[1mmise oci build\x1b[22m\n\n    Build with a specific base image and tag:\n    $ \x1b[1mmise oci build --from ubuntu:24.04 --tag myorg/dev:latest -o ./img\x1b[22m\n\n    Inspect the result with skopeo:\n    $ \x1b[1mskopeo inspect oci:./mise-oci\x1b[22m\n\n    Push to a registry:\n    $ \x1b[1mmise oci push --image-dir ./mise-oci ghcr.io/me/dev:latest\x1b[22m\n\n\x1b[1m\x1b[4mNotes:\x1b[22m\x1b[24m\n\n    - The image only contains tools from the project's mise config (and\n      any configs at-or-below the project root). Tools from\n      `~/.config/mise/config.toml` are not included; pass --include-global\n      to package them too.\n    - asdf and vfox plugins are not supported in v1; use a different backend\n      (core, aqua, ubi, github, cargo, npm, go, pipx, spm, http) for each tool.\n    - The host mise binary is embedded at /usr/local/bin/mise by default;\n      build on the same OS/arch as your target image (or pass --no-mise).\n"},
 	{Key: FlagOciBuildCopy, Repeatable: true, ValueName: "HOST_PATH:IMAGE_PATH", ValueDemanded: true, Short: "Copy a host file, directory, or symlink into the image (repeatable, HOST:IMAGE)", Long: "Copy a host file, directory, or symlink into the image (repeatable, HOST:IMAGE)"},
 	{Key: FlagOciBuildOutput, ValueName: "OUTPUT", ValueDemanded: true, Short: "Output directory for the OCI image layout", Long: "Output directory for the OCI image layout", Default: []string{"./mise-oci"}},
 	{Key: FlagOciBuildFrom, ValueName: "FROM", ValueDemanded: true, Short: "Base image reference (overrides [oci].from and the oci.default_from setting)", Long: "Base image reference (overrides [oci].from and the oci.default_from setting)"},
-	{Key: FlagOciBuildIncludeGlobal, Short: "Also include tools from the global / system config (default: project-only)", Long: "Also include tools from the global / system config (default: project-only)\n\nBy default `mise oci build` only packages tools declared in the project's mise config (and any parent configs at-or-below the project root, e.g. a monorepo root config). Personal dev tools in `~/.config/mise/config.toml` are excluded so they don't bake into a project image. Pass `--include-global` to revert to the old \"merge all loaded configs\" behavior."},
+	{Key: FlagOciBuildIncludeGlobal, Short: "Also include tools from the global / system config (default: project-only)", Long: "Also include tools from the global / system config (default: project-only)\n\nBy default `mise oci build` only packages tools declared in the\nproject's mise config (and any parent configs at-or-below the\nproject root, e.g. a monorepo root config). Personal dev tools in\n`~/.config/mise/config.toml` are excluded so they don't bake into a\nproject image. Pass `--include-global` to revert to the old\n\"merge all loaded configs\" behavior."},
 	{Key: FlagOciBuildTag, ValueName: "TAG", ValueDemanded: true, Short: "Tag to record in the image index (the org.opencontainers.image.ref.name annotation)", Long: "Tag to record in the image index (the org.opencontainers.image.ref.name annotation)"},
 	{Key: FlagOciBuildMountPoint, ValueName: "MOUNT_POINT", ValueDemanded: true, Short: "Where to place tool installs inside the image (default: /mise)", Long: "Where to place tool installs inside the image (default: /mise)"},
 	{Key: FlagOciBuildNoMise, Short: "Do not embed the currently-running mise binary at /usr/local/bin/mise", Long: "Do not embed the currently-running mise binary at /usr/local/bin/mise"},
-	{Key: FlagOciBuildOwner, ValueName: "UID[:GID]", ValueDemanded: true, Short: "UID[:GID] to assign to every tar entry in generated layers", Long: "UID[:GID] to assign to every tar entry in generated layers\n\nOverrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive."},
-	{Key: CmdOciPush, Short: "[experimental] Build an OCI image and push it to a registry", Long: "[experimental] Build an OCI image and push it to a registry\n\nPushes with mise's built-in registry client — no skopeo/crane/docker\nrequired. If `--image-dir` is not passed, builds fresh from the current\nmise.toml first. Only blobs the registry doesn't already have are\nuploaded, so repeat pushes of mostly-unchanged toolsets are cheap.\n\nTool layers whose tool, version, mount point, and file owner match the\npreviously pushed image (or `--cache-from`) are reused without being\nrebuilt — those tools don't even need to be installed locally. Pass\n`--no-cache` to force a full local rebuild.\n\nCredentials are read from the same places docker and podman use:\n`$REGISTRY_AUTH_FILE`, `$XDG_RUNTIME_DIR/containers/auth.json`,\n`~/.config/containers/auth.json`, and `~/.docker/config.json`\n(including credential helpers) — so `docker login` / `podman login`\nis all the setup needed.\n\nRequires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).", AfterLongHelp: "Examples:\n\n    Build and push to GHCR:\n    $ mise oci push ghcr.io/me/devenv:latest\n\n    Push an image built earlier:\n    $ mise oci build -o ./img\n    $ mise oci push --image-dir ./img ghcr.io/me/devenv:v1\n\nAuth:\n\n    Credentials are resolved the same way docker/podman resolve them:\n    $REGISTRY_AUTH_FILE, $XDG_RUNTIME_DIR/containers/auth.json,\n    ~/.config/containers/auth.json, then ~/.docker/config.json\n    (inline auths and credential helpers). Log in with either:\n    $ docker login ghcr.io\n    $ podman login ghcr.io\n"},
-	{Key: FlagOciPushCacheFrom, ValueName: "REF", ValueDemanded: true, Short: "Reuse unchanged tool layers from this image instead of the destination ref", Long: "Reuse unchanged tool layers from this image instead of the destination ref\n\nMust live in the same repository as the destination. Useful when each push gets a unique tag (e.g. per-commit tags in CI): `--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`."},
+	{Key: FlagOciBuildOwner, ValueName: "UID[:GID]", ValueDemanded: true, Short: "UID[:GID] to assign to every tar entry in generated layers", Long: "UID[:GID] to assign to every tar entry in generated layers\n\nOverrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is\nomitted, it defaults to UID. This affects file ownership only; [oci].user\ncontrols the image USER directive."},
+	{Key: CmdOciPush, Short: "[experimental] Build an OCI image and push it to a registry", Long: "[experimental] Build an OCI image and push it to a registry\n\nPushes with mise's built-in registry client — no skopeo/crane/docker\nrequired. If `--image-dir` is not passed, builds fresh from the current\nmise.toml first. Only blobs the registry doesn't already have are\nuploaded, so repeat pushes of mostly-unchanged toolsets are cheap.\n\nTool layers whose tool, version, mount point, and file owner match the\npreviously pushed image (or `--cache-from`) are reused without being\nrebuilt — those tools don't even need to be installed locally. Pass\n`--no-cache` to force a full local rebuild.\n\nCredentials are read from the same places docker and podman use:\n`$REGISTRY_AUTH_FILE`, `$XDG_RUNTIME_DIR/containers/auth.json`,\n`~/.config/containers/auth.json`, and `~/.docker/config.json`\n(including credential helpers) — so `docker login` / `podman login`\nis all the setup needed.\n\nRequires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    Build and push to GHCR:\n    $ \x1b[1mmise oci push ghcr.io/me/devenv:latest\x1b[22m\n\n    Push an image built earlier:\n    $ \x1b[1mmise oci build -o ./img\x1b[22m\n    $ \x1b[1mmise oci push --image-dir ./img ghcr.io/me/devenv:v1\x1b[22m\n\n\x1b[1m\x1b[4mAuth:\x1b[22m\x1b[24m\n\n    Credentials are resolved the same way docker/podman resolve them:\n    \x1b[1m$REGISTRY_AUTH_FILE\x1b[22m, \x1b[1m$XDG_RUNTIME_DIR/containers/auth.json\x1b[22m,\n    \x1b[1m~/.config/containers/auth.json\x1b[22m, then \x1b[1m~/.docker/config.json\x1b[22m\n    (inline auths and credential helpers). Log in with either:\n    $ \x1b[1mdocker login ghcr.io\x1b[22m\n    $ \x1b[1mpodman login ghcr.io\x1b[22m\n"},
+	{Key: FlagOciPushCacheFrom, ValueName: "REF", ValueDemanded: true, Short: "Reuse unchanged tool layers from this image instead of the destination ref", Long: "Reuse unchanged tool layers from this image instead of the destination ref\n\nMust live in the same repository as the destination. Useful when each\npush gets a unique tag (e.g. per-commit tags in CI):\n`--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`."},
 	{Key: FlagOciPushFrom, ValueName: "FROM", ValueDemanded: true, Short: "Base image for the build (ignored with --image-dir)", Long: "Base image for the build (ignored with --image-dir)"},
 	{Key: FlagOciPushImageDir, ValueName: "IMAGE_DIR", ValueDemanded: true, Short: "Push an already-built OCI image layout (skip the build step)", Long: "Push an already-built OCI image layout (skip the build step)"},
 	{Key: FlagOciPushIncludeGlobal, Short: "Also include tools from the global / system config (default: project-only)", Long: "Also include tools from the global / system config (default: project-only)\n\nSee `mise oci build --help` for details."},
 	{Key: FlagOciPushMountPoint, ValueName: "MOUNT_POINT", ValueDemanded: true, Short: "Override in-image mount point (ignored with --image-dir)", Long: "Override in-image mount point (ignored with --image-dir)"},
 	{Key: FlagOciPushNoCache, Short: "Don't reuse tool layers from the previously pushed image", Long: "Don't reuse tool layers from the previously pushed image"},
 	{Key: FlagOciPushNoMise, Short: "Don't embed the mise binary (ignored with --image-dir)", Long: "Don't embed the mise binary (ignored with --image-dir)"},
-	{Key: FlagOciPushOwner, ValueName: "UID[:GID]", ValueDemanded: true, Short: "UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)", Long: "UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)\n\nOverrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive."},
-	{Key: FlagOciPushUpdateIndex, Short: "Maintain the tag as a multi-arch image index", Long: "Maintain the tag as a multi-arch image index\n\nPushes this build's manifest by digest and points the tag at an OCI image index containing one entry per platform, preserving entries other architectures pushed. Run `mise oci push --update-index` from one runner per platform to assemble a multi-arch tag."},
+	{Key: FlagOciPushOwner, ValueName: "UID[:GID]", ValueDemanded: true, Short: "UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)", Long: "UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)\n\nOverrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is\nomitted, it defaults to UID. This affects file ownership only; [oci].user\ncontrols the image USER directive."},
+	{Key: FlagOciPushUpdateIndex, Short: "Maintain the tag as a multi-arch image index", Long: "Maintain the tag as a multi-arch image index\n\nPushes this build's manifest by digest and points the tag at an OCI\nimage index containing one entry per platform, preserving entries\nother architectures pushed. Run `mise oci push --update-index` from\none runner per platform to assemble a multi-arch tag."},
 	{Key: ArgOciPushRef, Demanded: true, Short: "Destination registry reference (e.g. `ghcr.io/me/devenv:latest`)", Long: "Destination registry reference (e.g. `ghcr.io/me/devenv:latest`)"},
-	{Key: CmdOciRun, Short: "[experimental] Build an OCI image from the current mise.toml and run a command in it", Long: "[experimental] Build an OCI image from the current mise.toml and run a command in it\n\nEquivalent to `mise oci build` followed by `docker run` / `podman run`.\nThe built image is loaded into the local container engine (podman pulls\nthe OCI layout natively; docker receives it via `docker load`) and the\ngiven command is executed inside it with stdin/stdout/stderr inherited.\n\nRequires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`) and\none of: `podman`, `docker`.", AfterLongHelp: "Examples:\n\n    Build the current mise.toml and drop into bash:\n    $ mise oci run -it -- bash\n\n    Run a one-shot command with env + volume (note: `-v` is reserved\n    for --verbose, so use `--volume`):\n    $ mise oci run -e DEBUG=1 --volume $PWD:/work -w /work -- npm test\n\n    Re-use a previously built layout (skip the build step):\n    $ mise oci build -o ./img && mise oci run --image-dir ./img -- node -e 'console.log(process.version)'\n\nEngines:\n\n    Prefers podman (loads OCI layouts natively). Falls back to docker\n    (loaded via docker load). Pass --engine podman or --engine docker to override.\n"},
+	{Key: CmdOciRun, Short: "[experimental] Build an OCI image from the current mise.toml and run a command in it", Long: "[experimental] Build an OCI image from the current mise.toml and run a command in it\n\nEquivalent to `mise oci build` followed by `docker run` / `podman run`.\nThe built image is loaded into the local container engine (podman pulls\nthe OCI layout natively; docker receives it via `docker load`) and the\ngiven command is executed inside it with stdin/stdout/stderr inherited.\n\nRequires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`) and\none of: `podman`, `docker`.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    Build the current mise.toml and drop into bash:\n    $ \x1b[1mmise oci run -it -- bash\x1b[22m\n\n    Run a one-shot command with env + volume (note: `-v` is reserved\n    for --verbose, so use `--volume`):\n    $ \x1b[1mmise oci run -e DEBUG=1 --volume $PWD:/work -w /work -- npm test\x1b[22m\n\n    Re-use a previously built layout (skip the build step):\n    $ \x1b[1mmise oci build -o ./img && mise oci run --image-dir ./img -- node -e 'console.log(process.version)'\x1b[22m\n\n\x1b[1m\x1b[4mEngines:\x1b[22m\x1b[24m\n\n    Prefers \x1b[1mpodman\x1b[22m (loads OCI layouts natively). Falls back to \x1b[1mdocker\x1b[22m\n    (loaded via \x1b[1mdocker load\x1b[22m). Pass \x1b[1m--engine podman\x1b[22m or \x1b[1m--engine docker\x1b[22m to override.\n"},
 	{Key: FlagOciRunEngine, ValueName: "ENGINE", ValueDemanded: true, Short: "Container engine to use (`auto`, `podman`, or `docker`)", Long: "Container engine to use (`auto`, `podman`, or `docker`)", Choices: []string{"auto", "podman", "docker"}, Default: []string{"auto"}},
 	{Key: FlagOciRunFrom, ValueName: "FROM", ValueDemanded: true, Short: "Base image reference for the build (ignored with --image-dir)", Long: "Base image reference for the build (ignored with --image-dir)"},
 	{Key: FlagOciRunImageDir, ValueName: "IMAGE_DIR", ValueDemanded: true, Short: "Use an already-built OCI image layout instead of building fresh", Long: "Use an already-built OCI image layout instead of building fresh"},
 	{Key: FlagOciRunIncludeGlobal, Short: "Also include tools from the global / system config (default: project-only)", Long: "Also include tools from the global / system config (default: project-only)\n\nSee `mise oci build --help` for details."},
-	{Key: FlagOciRunKeep, Short: "Keep the loaded image in the engine's storage after the run", Long: "Keep the loaded image in the engine's storage after the run\n\nBy default, both the container (`--rm`) and the loaded image are removed when the command exits, so repeated `mise oci run` calls don't accumulate images in podman / docker storage. Pass `--keep` to retain the image under the tag mise used (`mise-oci:run-*` for docker; the pulled image ID for podman)."},
+	{Key: FlagOciRunKeep, Short: "Keep the loaded image in the engine's storage after the run", Long: "Keep the loaded image in the engine's storage after the run\n\nBy default, both the container (`--rm`) and the loaded image are\nremoved when the command exits, so repeated `mise oci run` calls\ndon't accumulate images in podman / docker storage. Pass `--keep`\nto retain the image under the tag mise used (`mise-oci:run-*` for\ndocker; the pulled image ID for podman)."},
 	{Key: FlagOciRunMountPoint, ValueName: "MOUNT_POINT", ValueDemanded: true, Short: "Override in-image mount point (ignored with --image-dir)", Long: "Override in-image mount point (ignored with --image-dir)"},
 	{Key: FlagOciRunNoMise, Short: "Don't embed the mise binary (ignored with --image-dir)", Long: "Don't embed the mise binary (ignored with --image-dir)"},
-	{Key: FlagOciRunOwner, ValueName: "UID[:GID]", ValueDemanded: true, Short: "UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)", Long: "UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)\n\nOverrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive."},
-	{Key: FlagOciRunVolume, Repeatable: true, ValueName: "HOST:CONTAINER", ValueDemanded: true, Short: "Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)", Long: "Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)\n\nNote: unlike `docker run -v`, there's no `-v` short flag here because mise reserves `-v` for --verbose. Use `--volume` or `--mount`."},
+	{Key: FlagOciRunOwner, ValueName: "UID[:GID]", ValueDemanded: true, Short: "UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)", Long: "UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)\n\nOverrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is\nomitted, it defaults to UID. This affects file ownership only; [oci].user\ncontrols the image USER directive."},
+	{Key: FlagOciRunVolume, Repeatable: true, ValueName: "HOST:CONTAINER", ValueDemanded: true, Short: "Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)", Long: "Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)\n\nNote: unlike `docker run -v`, there's no `-v` short flag here because\nmise reserves `-v` for --verbose. Use `--volume` or `--mount`."},
 	{Key: FlagOciRunEnv, Repeatable: true, ValueName: "KEY=VAL", ValueDemanded: true, Short: "Set environment variable in the container (repeatable, `KEY=VAL`)", Long: "Set environment variable in the container (repeatable, `KEY=VAL`)"},
 	{Key: FlagOciRunInteractive, Short: "Run interactively (pass `-i` to the engine)", Long: "Run interactively (pass `-i` to the engine)"},
 	{Key: FlagOciRunTty, Short: "Allocate a TTY (pass `-t` to the engine)", Long: "Allocate a TTY (pass `-t` to the engine)"},
 	{Key: FlagOciRunWorkdir, ValueName: "WORKDIR", ValueDemanded: true, Short: "Working directory inside the container", Long: "Working directory inside the container"},
 	{Key: ArgOciRunCmd, Short: "Command and arguments to run inside the container (after `--`)", Long: "Command and arguments to run inside the container (after `--`)"},
-	{Key: CmdOutdated, Short: "Shows outdated tool versions", Long: "Shows outdated tool versions\n\nSee `mise upgrade` to upgrade these versions.", AfterLongHelp: "Examples:\n\n    $ mise outdated\n    Plugin  Requested  Current  Latest\n    python  3.11       3.11.0   3.11.1\n    node    20         20.0.0   20.1.0\n\n    $ mise outdated node\n    Plugin  Requested  Current  Latest\n    node    20         20.0.0   20.1.0\n\n    $ mise outdated --json\n    {\"python\": {\"requested\": \"3.11\", \"current\": \"3.11.0\", \"latest\": \"3.11.1\"}, ...}\n\n    $ mise outdated --local\n    Plugin  Requested  Current  Latest\n    node    20         20.0.0   20.1.0\n"},
-	{Key: FlagOutdatedJson, Short: "Output in JSON format", Long: "Output in JSON format"},
+	{Key: CmdOutdated, Short: "Shows outdated tool versions", Long: "Shows outdated tool versions\n\nSee `mise upgrade` to upgrade these versions.", AfterLongHelp: "\x1b[1m\x1b[4mDeprecation:\x1b[22m\x1b[24m\n\nThe `-l` shorthand for `--bump` is deprecated and will be removed in mise 2027.8.5.\nAfter removal, `-l` will become shorthand for `--local`. Use `-b` or `--bump` instead.\n\n\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise outdated\x1b[22m\n    Plugin  Requested  Current  Latest\n    python  3.11       3.11.0   3.11.1\n    node    20         20.0.0   20.1.0\n\n    $ \x1b[1mmise outdated node\x1b[22m\n    Plugin  Requested  Current  Latest\n    node    20         20.0.0   20.1.0\n\n    $ \x1b[1mmise outdated --json\x1b[22m\n    {\"python\": {\"requested\": \"3.11\", \"current\": \"3.11.0\", \"latest\": \"3.11.1\"}, ...}\n\n    $ \x1b[1mmise outdated --local\x1b[22m\n    Plugin  Requested  Current  Latest\n    node    20         20.0.0   20.1.0\n"},
 	{Key: FlagOutdatedBump, Short: "Compares against the latest versions available, not what matches the current config", Long: "Compares against the latest versions available, not what matches the current config\n\nFor example, if you have `node = \"20\"` in your config by default `mise outdated` will only\nshow other 20.x versions, not 21.x or 22.x versions.\n\nUsing this flag, if there are 21.x or newer versions it will display those instead of 20.x."},
+	{Key: FlagOutdatedJson, Short: "Output in JSON format", Long: "Output in JSON format"},
+	{Key: FlagOutdatedL, Hide: true, Short: "Deprecated shorthand for --bump", Long: "Deprecated shorthand for --bump"},
 	{Key: FlagOutdatedInactive, Short: "Show outdated tools including installed-but-inactive tools not present in the current config", Long: "Show outdated tools including installed-but-inactive tools not present in the current config\n\nBy default, `mise outdated` only shows tools that come from the current config."},
 	{Key: FlagOutdatedLocal, Short: "Only show outdated tools defined in local config files", Long: "Only show outdated tools defined in local config files\n\nThis will only show tools that are defined in project-local mise.toml and\nwill skip tools defined in the global config (~/.config/mise/config.toml)."},
 	{Key: FlagOutdatedMonorepo, Short: "Placeholder for future monorepo outdated checks; `mise outdated --monorepo` is not implemented yet.", Long: "Placeholder for future monorepo outdated checks; `mise outdated --monorepo` is not implemented yet."},
 	{Key: FlagOutdatedNoHeader, Short: "Don't show table header", Long: "Don't show table header"},
 	{Key: ArgOutdatedToolVersion, Short: "Tool(s) to show outdated versions for\ne.g.: node@20 python@3.10\nIf not specified, all tools in global and local configs will be shown", Long: "Tool(s) to show outdated versions for\ne.g.: node@20 python@3.10\nIf not specified, all tools in global and local configs will be shown"},
-	{Key: CmdPatrons, Short: "Show the individuals supporting mise as Patron-tier members", Long: "Show the individuals supporting mise as Patron-tier members\n\nLists the individuals on the Patron tier from <https://jdx.dev/patrons.json>.\nThe list refreshes daily; supporting terminals will render each patron's\nname as a clickable link via OSC 8 hyperlinks.\n\nTo appear here, become a patron at <https://jdx.dev/sponsors.html>.", AfterLongHelp: "Examples:\n\n    $ mise patrons\n    $ mise patrons -J\n    $ mise patrons --refresh"},
+	{Key: CmdPatrons, Short: "Show the individuals supporting mise as Patron-tier members", Long: "Show the individuals supporting mise as Patron-tier members\n\nLists the individuals on the Patron tier from <https://jdx.dev/patrons.json>.\nThe list refreshes daily; supporting terminals will render each patron's\nname as a clickable link via OSC 8 hyperlinks.\n\nTo appear here, become a patron at <https://jdx.dev/sponsors.html>.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise patrons\x1b[22m\n    $ \x1b[1mmise patrons -J\x1b[22m\n    $ \x1b[1mmise patrons --refresh\x1b[22m"},
 	{Key: FlagPatronsJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagPatronsRefresh, Short: "Bypass the local cache and re-fetch", Long: "Bypass the local cache and re-fetch"},
 	{Key: CmdPlugins, Short: "Manage plugins", VisibleAliases: []string{"p"}},
@@ -5449,19 +5499,19 @@ var HelpText = argv.HelpTable{
 	{Key: FlagPluginsUrls, Short: "Show the git url for each plugin\ne.g.: https://github.com/mise-plugins/vfox-cmake.git", Long: "Show the git url for each plugin\ne.g.: https://github.com/mise-plugins/vfox-cmake.git"},
 	{Key: FlagPluginsRefs, Hide: true, Short: "Show the git refs for each plugin\ne.g.: main 1234abc", Long: "Show the git refs for each plugin\ne.g.: main 1234abc"},
 	{Key: FlagPluginsUser, Short: "List installed plugins", Long: "List installed plugins\n\nThis is the default behavior but can be used with --core\nto show core and user plugins"},
-	{Key: CmdPluginsInstall, Short: "Install a plugin", Long: "Install a plugin\n\nnote that mise can automatically install plugins when you install a tool\ne.g.: `mise install cmake@3.30` will autoinstall the cmake plugin\n\nThis behavior can be modified in ~/.config/mise/config.toml", VisibleAliases: []string{"i", "a", "add"}, AfterLongHelp: "Examples:\n\n    # install the poetry via shorthand\n    $ mise plugins install poetry\n\n    # install the poetry plugin using a specific git url\n    $ mise plugins install poetry https://github.com/mise-plugins/mise-poetry.git\n\n    # install the poetry plugin using the git url only\n    # (poetry is inferred from the url)\n    $ mise plugins install https://github.com/mise-plugins/mise-poetry.git\n\n    # install the poetry plugin using a specific ref\n    $ mise plugins install poetry https://github.com/mise-plugins/mise-poetry.git#11d0c1e\n"},
+	{Key: CmdPluginsInstall, Short: "Install a plugin", Long: "Install a plugin\n\nnote that mise can automatically install plugins when you install a tool\ne.g.: `mise install cmake@3.30` will autoinstall the cmake plugin\n\nThis behavior can be modified in ~/.config/mise/config.toml", VisibleAliases: []string{"i", "a", "add"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # install the poetry via shorthand\n    $ \x1b[1mmise plugins install poetry\x1b[22m\n\n    # install the poetry plugin using a specific git url\n    $ \x1b[1mmise plugins install poetry https://github.com/mise-plugins/mise-poetry.git\x1b[22m\n\n    # install the poetry plugin using the git url only\n    # (poetry is inferred from the url)\n    $ \x1b[1mmise plugins install https://github.com/mise-plugins/mise-poetry.git\x1b[22m\n\n    # install the poetry plugin using a specific ref\n    $ \x1b[1mmise plugins install poetry https://github.com/mise-plugins/mise-poetry.git#11d0c1e\x1b[22m\n"},
 	{Key: FlagPluginsInstallAll, Short: "Install all missing plugins\nThis will only install plugins that have matching shorthands.\ni.e.: they don't need the full git repo url", Long: "Install all missing plugins\nThis will only install plugins that have matching shorthands.\ni.e.: they don't need the full git repo url"},
 	{Key: FlagPluginsInstallForce, Short: "Reinstall even if plugin exists", Long: "Reinstall even if plugin exists"},
-	{Key: FlagPluginsInstallJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel", Long: "Number of jobs to run in parallel"},
+	{Key: FlagPluginsInstallJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\nValues below 1 are treated as 1", Long: "Number of jobs to run in parallel\nValues below 1 are treated as 1"},
 	{Key: FlagPluginsInstallVerbose, Repeatable: true, Short: "Show installation output", Long: "Show installation output"},
 	{Key: ArgPluginsInstallNewPlugin, Short: "The name of the plugin to install\ne.g.: cmake, poetry\nCan specify multiple plugins: `mise plugins install cmake poetry`", Long: "The name of the plugin to install\ne.g.: cmake, poetry\nCan specify multiple plugins: `mise plugins install cmake poetry`"},
 	{Key: ArgPluginsInstallGitUrl, Short: "The git url of the plugin", Long: "The git url of the plugin"},
 	{Key: ArgPluginsInstallRest, Hide: true},
-	{Key: CmdPluginsLink, Short: "Symlinks a plugin into mise", Long: "Symlinks a plugin into mise\n\nThis is used for developing a plugin.", VisibleAliases: []string{"ln"}, AfterLongHelp: "Examples:\n\n    # essentially just `ln -s ./vfox-cmake ~/.local/share/mise/plugins/cmake`\n    $ mise plugins link cmake ./vfox-cmake\n\n    # infer plugin name as \"cmake\"\n    $ mise plugins link ./vfox-cmake\n"},
+	{Key: CmdPluginsLink, Short: "Symlinks a plugin into mise", Long: "Symlinks a plugin into mise\n\nThis is used for developing a plugin.", VisibleAliases: []string{"ln"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # essentially just `ln -s ./vfox-cmake ~/.local/share/mise/plugins/cmake`\n    $ \x1b[1mmise plugins link cmake ./vfox-cmake\x1b[22m\n\n    # infer plugin name as \"cmake\"\n    $ \x1b[1mmise plugins link ./vfox-cmake\x1b[22m\n"},
 	{Key: FlagPluginsLinkForce, Short: "Overwrite existing plugin", Long: "Overwrite existing plugin"},
 	{Key: ArgPluginsLinkName, Demanded: true, Short: "The name of the plugin\ne.g.: cmake, poetry", Long: "The name of the plugin\ne.g.: cmake, poetry"},
 	{Key: ArgPluginsLinkDir, Short: "The local path to the plugin\ne.g.: ./vfox-cmake", Long: "The local path to the plugin\ne.g.: ./vfox-cmake"},
-	{Key: CmdPluginsLs, Short: "List installed plugins", Long: "List installed plugins\n\nCan also show remotely available plugins to install.", VisibleAliases: []string{"list"}, AfterLongHelp: "Examples:\n\n    $ mise plugins ls\n    cmake\n    poetry\n\n    $ mise plugins ls --urls\n    cmake     https://github.com/mise-plugins/vfox-cmake.git\n    poetry    https://github.com/mise-plugins/vfox-poetry.git\n"},
+	{Key: CmdPluginsLs, Short: "List installed plugins", Long: "List installed plugins\n\nCan also show remotely available plugins to install.", VisibleAliases: []string{"list"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise plugins ls\x1b[22m\n    cmake\n    poetry\n\n    $ \x1b[1mmise plugins ls --urls\x1b[22m\n    cmake     https://github.com/mise-plugins/vfox-cmake.git\n    poetry    https://github.com/mise-plugins/vfox-poetry.git\n"},
 	{Key: FlagPluginsLsAll, Hide: true, Short: "List all available remote plugins\nSame as `mise plugins ls-remote`", Long: "List all available remote plugins\nSame as `mise plugins ls-remote`"},
 	{Key: FlagPluginsLsCore, Hide: true, Short: "The built-in plugins only\nNormally these are not shown", Long: "The built-in plugins only\nNormally these are not shown"},
 	{Key: FlagPluginsLsOutdated, Short: "Show plugins with available updates\nChecks the remote for newer versions and only displays plugins that are outdated", Long: "Show plugins with available updates\nChecks the remote for newer versions and only displays plugins that are outdated"},
@@ -5469,21 +5519,21 @@ var HelpText = argv.HelpTable{
 	{Key: FlagPluginsLsRefs, Hide: true, Short: "Show the git refs for each plugin\ne.g.: main 1234abc", Long: "Show the git refs for each plugin\ne.g.: main 1234abc"},
 	{Key: FlagPluginsLsUser, Hide: true, Short: "List installed plugins", Long: "List installed plugins"},
 	{Key: CmdPluginsLsRemote, Short: "List all available remote plugins", Long: "\nList all available remote plugins\n\nThe full list is here: https://github.com/jdx/mise/blob/main/registry/\n\nExamples:\n\n    $ mise plugins ls-remote\n", VisibleAliases: []string{"list-remote", "list-all"}},
-	{Key: FlagPluginsLsRemoteUrls, Short: "Show the git url for each plugin e.g.: https://github.com/mise-plugins/mise-poetry.git", Long: "Show the git url for each plugin e.g.: https://github.com/mise-plugins/mise-poetry.git"},
-	{Key: FlagPluginsLsRemoteOnlyNames, Short: "Only show the name of each plugin by default it will show a \"*\" next to installed plugins", Long: "Only show the name of each plugin by default it will show a \"*\" next to installed plugins"},
-	{Key: CmdPluginsUninstall, Short: "Removes a plugin", VisibleAliases: []string{"remove", "rm"}, AfterLongHelp: "Examples:\n\n    $ mise plugins uninstall cmake\n"},
+	{Key: FlagPluginsLsRemoteUrls, Short: "Show the git url for each plugin e.g.: https://github.com/mise-plugins/mise-poetry.git", Long: "Show the git url for each plugin\ne.g.: https://github.com/mise-plugins/mise-poetry.git"},
+	{Key: FlagPluginsLsRemoteOnlyNames, Short: "Only show the name of each plugin by default it will show a \"*\" next to installed plugins", Long: "Only show the name of each plugin\nby default it will show a \"*\" next to installed plugins"},
+	{Key: CmdPluginsUninstall, Short: "Removes a plugin", VisibleAliases: []string{"remove", "rm"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise plugins uninstall cmake\x1b[22m\n"},
 	{Key: FlagPluginsUninstallAll, Short: "Remove all plugins", Long: "Remove all plugins"},
 	{Key: FlagPluginsUninstallPurge, Short: "Also remove the plugin's installs, downloads, and cache", Long: "Also remove the plugin's installs, downloads, and cache"},
 	{Key: ArgPluginsUninstallPlugin, Short: "Plugin(s) to remove", Long: "Plugin(s) to remove"},
-	{Key: CmdPluginsUpdate, Short: "Updates a plugin to the latest version", Long: "Updates a plugin to the latest version\n\nnote: this updates the plugin itself, not the runtime versions", VisibleAliases: []string{"up", "upgrade"}, AfterLongHelp: "Examples:\n\n    $ mise plugins update              # update all plugins\n    $ mise plugins update cmake       # update only cmake\n    $ mise plugins update cmake#beta  # specify a ref\n"},
-	{Key: FlagPluginsUpdateJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\nDefault: 4", Long: "Number of jobs to run in parallel\nDefault: 4"},
+	{Key: CmdPluginsUpdate, Short: "Updates a plugin to the latest version", Long: "Updates a plugin to the latest version\n\nnote: this updates the plugin itself, not the runtime versions", VisibleAliases: []string{"up", "upgrade"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise plugins update\x1b[22m              # update all plugins\n    $ \x1b[1mmise plugins update cmake\x1b[22m       # update only cmake\n    $ \x1b[1mmise plugins update cmake#beta\x1b[22m  # specify a ref\n"},
+	{Key: FlagPluginsUpdateJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\nValues below 1 are treated as 1\nDefault: 4", Long: "Number of jobs to run in parallel\nValues below 1 are treated as 1\nDefault: 4"},
 	{Key: ArgPluginsUpdatePlugin, Short: "Plugin(s) to update", Long: "Plugin(s) to update"},
-	{Key: CmdDeps, Short: "[experimental] Manage project dependencies", Long: "[experimental] Manage project dependencies\n\nRuns all applicable dependency install steps for the current project.\nThis checks if dependency lockfiles are newer than installed outputs\n(e.g., package-lock.json vs node_modules/) and runs install commands\nif needed.\n\nProviders with `auto = true` are automatically invoked before `mise x` and `mise run`\nunless skipped with the --no-deps flag.", VisibleAliases: []string{"dep"}, AfterLongHelp: "Examples:\n\n    $ mise deps                    # Install all project dependencies\n    $ mise deps install            # Same as bare `mise deps`\n    $ mise deps install --force    # Force reinstall even if fresh\n    $ mise deps install --dry-run  # Show what would run\n    $ mise deps --monorepo         # Install deps from explicit monorepo config roots\n    $ mise deps add npm:react      # Add a dependency\n    $ mise deps add -D npm:vitest  # Add a dev dependency\n    $ mise deps remove npm:lodash  # Remove a dependency\n\nConfiguration:\n\n```toml\n# Built-in npm provider (auto-detects lockfile)\n[deps.npm]\nauto = true              # Auto-run before mise x/run\n\n# Custom provider\n[deps.codegen]\nauto = true\nsources = [\"schema/*.graphql\"]\noutputs = [\"src/generated/\"]\nrun = \"npm run codegen\"\n\n[deps]\ndisable = [\"npm\"]        # Disable specific providers at runtime\n```\n"},
+	{Key: CmdDeps, Short: "[experimental] Manage project dependencies", Long: "[experimental] Manage project dependencies\n\nRuns all applicable dependency install steps for the current project.\nThis checks if dependency lockfiles are newer than installed outputs\n(e.g., package-lock.json vs node_modules/) and runs install commands\nif needed.\n\nProviders with `auto = true` are automatically invoked before `mise x` and `mise run`\nunless skipped with the --no-deps flag.", VisibleAliases: []string{"dep"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise deps\x1b[22m                    # Install all project dependencies\n    $ \x1b[1mmise deps install\x1b[22m            # Same as bare `mise deps`\n    $ \x1b[1mmise deps install --force\x1b[22m    # Force reinstall even if fresh\n    $ \x1b[1mmise deps install --dry-run\x1b[22m  # Show what would run\n    $ \x1b[1mmise deps --monorepo\x1b[22m         # Install deps from explicit monorepo config roots\n    $ \x1b[1mmise deps add npm:react\x1b[22m      # Add a dependency\n    $ \x1b[1mmise deps add -D npm:vitest\x1b[22m  # Add a dev dependency\n    $ \x1b[1mmise deps remove npm:lodash\x1b[22m  # Remove a dependency\n\n\x1b[1m\x1b[4mConfiguration:\x1b[22m\x1b[24m\n\n```toml\n# Built-in npm provider (auto-detects lockfile)\n[deps.npm]\nauto = true              # Auto-run before mise x/run\n\n# Custom provider\n[deps.codegen]\nauto = true\nsources = [\"schema/*.graphql\"]\noutputs = [\"src/generated/\"]\nrun = \"npm run codegen\"\n\n[deps]\ndisable = [\"npm\"]        # Disable specific providers at runtime\n```\n"},
 	{Key: FlagDepsExplain, Short: "Show why a provider is fresh or stale (requires a provider argument)", Long: "Show why a provider is fresh or stale (requires a provider argument)"},
 	{Key: FlagDepsForce, Short: "Force run all deps steps even if outputs are fresh", Long: "Force run all deps steps even if outputs are fresh"},
 	{Key: FlagDepsDryRun, Short: "Only check if deps install is needed, don't run commands", Long: "Only check if deps install is needed, don't run commands"},
 	{Key: FlagDepsList, Short: "Show what deps providers are available", Long: "Show what deps providers are available"},
-	{Key: FlagDepsMonorepo, Short: "Install dependencies from every [monorepo].config_roots config root", Long: "Install dependencies from every [monorepo].config_roots config root\n\nRequires monorepo_root = true plus explicit [monorepo].config_roots in\nthe monorepo root config. Providers are named like //apps/api:uv."},
+	{Key: FlagDepsMonorepo, Short: "Install dependencies from every [monorepo].config_roots config root", Long: "Install dependencies from every [monorepo].config_roots config root\n\nRequires monorepo_root = true plus explicit [monorepo].config_roots in\nthe monorepo root config. Providers are named like //apps/api:uv.", Env: "MISE_MONOREPO"},
 	{Key: FlagDepsOnly, Repeatable: true, ValueName: "ONLY", ValueDemanded: true, Short: "Run specific deps rule(s) only", Long: "Run specific deps rule(s) only"},
 	{Key: FlagDepsSkip, Repeatable: true, ValueName: "SKIP", ValueDemanded: true, Short: "Skip specific deps rule(s)", Long: "Skip specific deps rule(s)"},
 	{Key: ArgDepsProvider, Short: "Provider to operate on (runs only this provider, or use with --explain)", Long: "Provider to operate on (runs only this provider, or use with --explain)"},
@@ -5495,48 +5545,49 @@ var HelpText = argv.HelpTable{
 	{Key: FlagDepsInstallForce, Short: "Force run all deps steps even if outputs are fresh", Long: "Force run all deps steps even if outputs are fresh"},
 	{Key: FlagDepsInstallDryRun, Short: "Only check if deps install is needed, don't run commands", Long: "Only check if deps install is needed, don't run commands"},
 	{Key: FlagDepsInstallList, Short: "Show what deps providers are available", Long: "Show what deps providers are available"},
-	{Key: FlagDepsInstallMonorepo, Short: "Install dependencies from every [monorepo].config_roots config root", Long: "Install dependencies from every [monorepo].config_roots config root\n\nRequires monorepo_root = true plus explicit [monorepo].config_roots in\nthe monorepo root config. Providers are named like //apps/api:uv."},
+	{Key: FlagDepsInstallMonorepo, Short: "Install dependencies from every [monorepo].config_roots config root", Long: "Install dependencies from every [monorepo].config_roots config root\n\nRequires monorepo_root = true plus explicit [monorepo].config_roots in\nthe monorepo root config. Providers are named like //apps/api:uv.", Env: "MISE_MONOREPO"},
 	{Key: FlagDepsInstallOnly, Repeatable: true, ValueName: "ONLY", ValueDemanded: true, Short: "Run specific deps rule(s) only", Long: "Run specific deps rule(s) only"},
 	{Key: FlagDepsInstallSkip, Repeatable: true, ValueName: "SKIP", ValueDemanded: true, Short: "Skip specific deps rule(s)", Long: "Skip specific deps rule(s)"},
 	{Key: ArgDepsInstallProvider, Short: "Provider to operate on (runs only this provider, or use with --explain)", Long: "Provider to operate on (runs only this provider, or use with --explain)"},
 	{Key: CmdDepsRemove, Short: "Remove a dependency", Long: "Remove a dependency\n\nRemoves one or more packages from the project using the appropriate package manager.\nPackage specs use the format `ecosystem:package`, e.g., `npm:lodash`."},
 	{Key: ArgDepsRemovePackages, Demanded: true, Short: "Package(s) to remove (e.g., npm:lodash)", Long: "Package(s) to remove (e.g., npm:lodash)"},
-	{Key: CmdPrune, Short: "Delete unused versions of tools", Long: "Delete unused versions of tools\n\nmise tracks which config files have been used in ~/.local/state/mise/tracked-configs\nVersions which are no longer the latest specified in any of those configs are deleted.\nVersions installed only with environment variables `MISE_<TOOL>_VERSION` will be deleted,\nas will versions only referenced on the command line `mise exec <TOOL>@<VERSION>`.\n\nTool stubs that have been executed are tracked in ~/.local/state/mise/tracked-stubs.\nVersions still referenced by a tracked stub are not deleted.\n\nYou can list prunable tools with `mise ls --prunable`", AfterLongHelp: "Examples:\n\n    $ mise prune --dry-run\n    rm -rf ~/.local/share/mise/versions/node/20.0.0\n    rm -rf ~/.local/share/mise/versions/node/20.0.1\n"},
+	{Key: CmdPrune, Short: "Delete unused versions of tools", Long: "Delete unused versions of tools\n\nmise tracks which config files have been used in ~/.local/state/mise/tracked-configs\nVersions which are no longer the latest specified in any of those configs are deleted.\nVersions installed only with environment variables `MISE_<TOOL>_VERSION` will be deleted,\nas will versions only referenced on the command line `mise exec <TOOL>@<VERSION>`.\n\nTool stubs that have been executed are tracked in ~/.local/state/mise/tracked-stubs.\nVersions still referenced by a tracked stub are not deleted.\n\nYou can list prunable tools with `mise ls --prunable`", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise prune --dry-run\x1b[22m\n    rm -rf ~/.local/share/mise/versions/node/20.0.0\n    rm -rf ~/.local/share/mise/versions/node/20.0.1\n"},
 	{Key: FlagPruneDryRun, Short: "Do not actually delete anything", Long: "Do not actually delete anything"},
 	{Key: FlagPruneConfigs, Short: "Prune only tracked and trusted configuration links that point to nonexistent configurations", Long: "Prune only tracked and trusted configuration links that point to nonexistent configurations"},
 	{Key: FlagPruneDryRunCode, Short: "Like --dry-run but exits with code 1 if there are tools to prune", Long: "Like --dry-run but exits with code 1 if there are tools to prune\n\nThis is useful for scripts to check if tools need to be pruned."},
 	{Key: FlagPruneMonorepo, Short: "Placeholder for future monorepo pruning; `mise prune --monorepo` is not implemented yet.", Long: "Placeholder for future monorepo pruning; `mise prune --monorepo` is not implemented yet."},
 	{Key: FlagPruneTools, Short: "Prune only unused versions of tools", Long: "Prune only unused versions of tools"},
 	{Key: ArgPruneInstalledTool, Short: "Prune only these tools", Long: "Prune only these tools"},
-	{Key: CmdRegistry, Short: "List available tools to install", Long: "List available tools to install\n\nThis command lists the tools available in the registry as shorthand names.\n\nFor example, `poetry` is shorthand for `asdf:mise-plugins/mise-poetry`.", AfterLongHelp: "Examples:\n\n    $ mise registry\n    node    core:node\n    poetry  asdf:mise-plugins/mise-poetry\n    ubi     cargo:ubi-cli\n\n    $ mise registry poetry\n    asdf:mise-plugins/mise-poetry\n"},
+	{Key: CmdRegistry, Short: "List available tools to install", Long: "List available tools to install\n\nThis command lists the tools available in the registry as shorthand names.\n\nFor example, `poetry` is shorthand for `asdf:mise-plugins/mise-poetry`.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise registry\x1b[22m\n    node    core:node\n    poetry  asdf:mise-plugins/mise-poetry\n    ubi     cargo:ubi-cli\n\n    $ \x1b[1mmise registry poetry\x1b[22m\n    asdf:mise-plugins/mise-poetry\n"},
 	{Key: FlagRegistryBackend, ValueName: "BACKEND", ValueDemanded: true, Short: "Show only tools for this backend", Long: "Show only tools for this backend"},
 	{Key: FlagRegistryComplete, Hide: true, Short: "Print all tools with descriptions for shell completions", Long: "Print all tools with descriptions for shell completions"},
 	{Key: FlagRegistryHideAliased, Short: "Hide aliased tools", Long: "Hide aliased tools"},
 	{Key: FlagRegistryJson, Short: "Output in JSON format", Long: "Output in JSON format"},
-	{Key: FlagRegistrySecurity, Short: "Include security features for each tool's backends in JSON output", Long: "Include security features for each tool's backends in JSON output.\n\nRequires --json. Security info is de-duplicated across all of a tool's backends. This can add noticeable time for large listings since each backend's security info is resolved individually."},
+	{Key: FlagRegistrySecurity, Short: "Include security features for each tool's backends in JSON output.", Long: "Include security features for each tool's backends in JSON output.\n\nRequires --json. Security info is de-duplicated across\nall of a tool's backends. This can add noticeable time for large\nlistings since each backend's security info is resolved individually."},
 	{Key: ArgRegistryName, Short: "Show only the specified tool's full name", Long: "Show only the specified tool's full name"},
 	{Key: CmdRenderHelp, Hide: true, Short: "internal command to generate markdown from help"},
-	{Key: CmdReshim, Short: "Creates new shims based on bin paths from currently installed tools.", Long: "Creates new shims based on bin paths from currently installed tools.\n\nThis creates new shims in ~/.local/share/mise/shims for CLIs that have been added.\nmise will try to do this automatically for commands like `npm i -g` but there are\nother ways to install things (like using yarn or pnpm for node) that mise does\nnot know about and so it will be necessary to call this explicitly.\n\nIf you think mise should automatically call this for a particular command, please\nopen an issue on the mise repo. You can also set up a shell function to reshim\nautomatically (it's really fast so you don't need to worry about overhead):\n\n    npm() {\n      command npm \"$@\"\n      mise reshim\n    }\n\nNote that this creates shims for _all_ installed tools, not just the ones that are\ncurrently active in mise.toml.", AfterLongHelp: "Examples:\n\n    $ mise reshim\n    $ ~/.local/share/mise/shims/node -v\n    v20.0.0\n"},
+	{Key: CmdReshim, Short: "Creates new shims based on bin paths from currently installed tools.", Long: "Creates new shims based on bin paths from currently installed tools.\n\nThis creates new shims in ~/.local/share/mise/shims for CLIs that have been added.\nmise will try to do this automatically for commands like `npm i -g` but there are\nother ways to install things (like using yarn or pnpm for node) that mise does\nnot know about and so it will be necessary to call this explicitly.\n\nIf you think mise should automatically call this for a particular command, please\nopen an issue on the mise repo. You can also set up a shell function to reshim\nautomatically (it's really fast so you don't need to worry about overhead):\n\n    npm() {\n      command npm \"$@\"\n      mise reshim\n    }\n\nNote that this creates shims for _all_ installed tools, not just the ones that are\ncurrently active in mise.toml.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise reshim\x1b[22m\n    $ \x1b[1m~/.local/share/mise/shims/node -v\x1b[22m\n    v20.0.0\n"},
 	{Key: FlagReshimForce, Short: "Removes all shims before reshimming", Long: "Removes all shims before reshimming"},
 	{Key: ArgReshimTool, Hide: true},
 	{Key: ArgReshimVersion, Hide: true},
-	{Key: CmdRun, Short: "Run task(s)", Long: "Run task(s)\n\nThis command will run a task, or multiple tasks in parallel.\nTasks may have dependencies on other tasks or on source files.\nIf source is configured on a task, it will only run if the source\nfiles have changed.\n\nTasks can be defined in mise.toml or as standalone scripts.\nIn mise.toml, tasks take this form:\n\n    [tasks.build]\n    run = \"npm run build\"\n    sources = [\"src/**/*.ts\"]\n    outputs = [\"dist/**/*.js\"]\n\nAlternatively, tasks can be defined as standalone scripts.\nThese must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or\n`.config/mise/tasks`.\nThe name of the script will be the name of the tasks.\n\n    $ cat .mise/tasks/build<<EOF\n    #!/usr/bin/env bash\n    npm run build\n    EOF\n    $ mise run build", VisibleAliases: []string{"r"}, AfterLongHelp: "Examples:\n\n    # Runs the \"lint\" tasks. This needs to either be defined in mise.toml\n    # or as a standalone script. See the project README for more information.\n    $ mise run lint\n\n    # Forces the \"build\" tasks to run even if its sources are up-to-date.\n    $ mise run --force build\n\n    # Run \"test\" with stdin/stdout/stderr all connected to the current terminal.\n    # This forces `--jobs=1` to prevent interleaving of output.\n    $ mise run --raw test\n\n    # Runs the \"lint\", \"test\", and \"check\" tasks in parallel.\n    $ mise run lint ::: test ::: check\n\n    # Execute multiple tasks each with their own arguments.\n    $ mise run cmd1 arg1 arg2 ::: cmd2 arg1 arg2\n"},
+	{Key: CmdRun, Short: "Run task(s)", Long: "Run task(s)\n\nThis command will run a task, or multiple tasks in parallel.\nTasks may have dependencies on other tasks or on source files.\nIf source is configured on a task, it will only run if the source\nfiles have changed.\n\nTasks can be defined in mise.toml or as standalone scripts.\nIn mise.toml, tasks take this form:\n\n    [tasks.build]\n    run = \"npm run build\"\n    sources = [\"src/**/*.ts\"]\n    outputs = [\"dist/**/*.js\"]\n\nAlternatively, tasks can be defined as standalone scripts.\nThese must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or\n`.config/mise/tasks`.\nThe name of the script will be the name of the tasks.\n\n    $ cat .mise/tasks/build<<EOF\n    #!/usr/bin/env bash\n    npm run build\n    EOF\n    $ mise run build", VisibleAliases: []string{"r"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # Runs the \"lint\" tasks. This needs to either be defined in mise.toml\n    # or as a standalone script. See the project README for more information.\n    $ \x1b[1mmise run lint\x1b[22m\n\n    # Forces the \"build\" tasks to run even if its sources are up-to-date.\n    $ \x1b[1mmise run --force build\x1b[22m\n\n    # Run \"test\" with stdin/stdout/stderr all connected to the current terminal.\n    # This forces `--jobs=1` to prevent interleaving of output.\n    $ \x1b[1mmise run --raw test\x1b[22m\n\n    # Runs the \"lint\", \"test\", and \"check\" tasks in parallel.\n    $ \x1b[1mmise run lint ::: test ::: check\x1b[22m\n\n    # Execute multiple tasks each with their own arguments.\n    $ \x1b[1mmise run cmd1 arg1 arg2 ::: cmd2 arg1 arg2\x1b[22m\n"},
 	{Key: FlagRunAffected, Short: "Run matching tasks only for projects affected by Git changes", Long: "Run matching tasks only for projects affected by Git changes"},
 	{Key: FlagRunAffectedBase, ValueName: "REV", ValueDemanded: true, Short: "Git base revision for --affected\nDefaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1", Long: "Git base revision for --affected\nDefaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1"},
 	{Key: FlagRunAffectedExplain, Short: "Explain why projects and tasks were selected by --affected", Long: "Explain why projects and tasks were selected by --affected"},
 	{Key: FlagRunAffectedHead, ValueName: "REV", ValueDemanded: true, Short: "Git head revision for --affected\nDefaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD", Long: "Git head revision for --affected\nDefaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD"},
 	{Key: FlagRunAffectedJson, Short: "Output affected projects and tasks as JSON without running tasks", Long: "Output affected projects and tasks as JSON without running tasks"},
+	{Key: FlagRunAll, Short: "Open the interactive selector with all tasks from the entire monorepo", Long: "Open the interactive selector with all tasks from the entire monorepo"},
 	{Key: FlagRunContinueOnError, Short: "Continue running tasks even if one fails", Long: "Continue running tasks even if one fails"},
 	{Key: FlagRunCd, ValueName: "CD", ValueDemanded: true, Short: "Change to this directory before executing the command", Long: "Change to this directory before executing the command"},
 	{Key: FlagRunForce, Short: "Force the tasks to run even if outputs are up to date", Long: "Force the tasks to run even if outputs are up to date"},
-	{Key: FlagRunJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var", Long: "Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var"},
+	{Key: FlagRunJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of tasks to run in parallel\nValues below 1 are treated as 1\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var", Long: "Number of tasks to run in parallel\nValues below 1 are treated as 1\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var", Env: "MISE_JOBS"},
 	{Key: FlagRunDryRun, Short: "Don't actually run the task(s), just print them in order of execution", Long: "Don't actually run the task(s), just print them in order of execution"},
-	{Key: FlagRunOutput, ValueName: "OUTPUT", ValueDemanded: true, Short: "Change how tasks information is output when running tasks", Long: "Change how tasks information is output when running tasks\n\n- `prefix` - Print stdout/stderr by line, prefixed with the task's label\n- `interleave` - Print directly to stdout/stderr instead of by line\n- `replacing` - Stdout is replaced each time, stderr is printed as is\n- `timed` - Only show stdout lines if they are displayed for more than 1 second\n- `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output\n- `quiet` - Don't show extra output\n- `silent` - Don't show any output including stdout and stderr from the task except for errors"},
-	{Key: FlagRunQuiet, Short: "Don't show extra output", Long: "Don't show extra output"},
+	{Key: FlagRunOutput, ValueName: "OUTPUT", ValueDemanded: true, Short: "Change how tasks information is output when running tasks", Long: "Change how tasks information is output when running tasks\n\n- `prefix` - Print stdout/stderr by line, prefixed with the task's label\n- `interleave` - Print directly to stdout/stderr instead of by line\n- `replacing` - Stdout is replaced each time, stderr is printed as is\n- `timed` - Only show stdout lines if they are displayed for more than 1 second\n- `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output\n- `quiet` - Don't show extra output\n- `silent` - Don't show any output including stdout and stderr from the task except for errors", Env: "MISE_TASK_OUTPUT"},
+	{Key: FlagRunQuiet, Short: "Don't show extra output", Long: "Don't show extra output", Env: "MISE_QUIET"},
 	{Key: FlagRunRaw, Short: "Read/write directly to stdin/stdout/stderr instead of by line\nRedactions are not applied with this option\nConfigure with `raw` config or `MISE_RAW` env var", Long: "Read/write directly to stdin/stdout/stderr instead of by line\nRedactions are not applied with this option\nConfigure with `raw` config or `MISE_RAW` env var"},
 	{Key: FlagRunShell, ValueName: "SHELL", ValueDemanded: true, Short: "Shell to use to run toml tasks", Long: "Shell to use to run toml tasks\n\nDefaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows\nCan also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS`\nOr it can be overridden with the `shell` property on a task."},
-	{Key: FlagRunSilent, Short: "Don't show any output except for errors", Long: "Don't show any output except for errors"},
-	{Key: FlagRunTool, Repeatable: true, ValueName: "TOOL@VERSION", ValueDemanded: true, Short: "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10", Long: "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10"},
+	{Key: FlagRunSilent, Short: "Don't show any output except for errors", Long: "Don't show any output except for errors", Env: "MISE_SILENT"},
+	{Key: FlagRunTool, Repeatable: true, ValueName: "TOOL@VERSION", ValueDemanded: true, Short: "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10", Long: "Tool(s) to run in addition to what is in mise.toml files\ne.g.: node@20 python@3.10"},
 	{Key: FlagRunAllowEnv, Repeatable: true, ValueName: "VAR", ValueDemanded: true, Short: "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'", Long: "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'"},
 	{Key: FlagRunAllowNet, Repeatable: true, ValueName: "HOST", ValueDemanded: true, Short: "Allow network to specific host (implies --deny-net for everything else)", Long: "Allow network to specific host (implies --deny-net for everything else)"},
 	{Key: FlagRunAllowRead, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Allow reads from specific path (implies --deny-read for everything else)", Long: "Allow reads from specific path (implies --deny-read for everything else)"},
@@ -5547,18 +5598,18 @@ var HelpText = argv.HelpTable{
 	{Key: FlagRunDenyRead, Short: "Block filesystem reads (system libs and tool dirs still accessible)", Long: "Block filesystem reads (system libs and tool dirs still accessible)"},
 	{Key: FlagRunDenyWrite, Short: "Block all filesystem writes", Long: "Block all filesystem writes"},
 	{Key: FlagRunFreshEnv, Short: "Bypass the environment cache and recompute the environment", Long: "Bypass the environment cache and recompute the environment"},
-	{Key: FlagRunNoCache, Short: "Do not use cache on remote tasks", Long: "Do not use cache on remote tasks"},
+	{Key: FlagRunNoCache, Short: "Do not use cache on remote tasks", Long: "Do not use cache on remote tasks", Env: "MISE_TASK_REMOTE_NO_CACHE"},
 	{Key: FlagRunNoDeps, Short: "Skip automatic dependency preparation", Long: "Skip automatic dependency preparation"},
 	{Key: FlagRunNoTimings, Short: "Hides elapsed time after each task completes", Long: "Hides elapsed time after each task completes\n\nDefault to always hide with `MISE_TASK_TIMINGS=0`"},
-	{Key: FlagRunSkipDeps, Short: "Run only the specified tasks skipping all dependencies", Long: "Run only the specified tasks skipping all dependencies"},
+	{Key: FlagRunSkipDeps, Short: "Run only the specified tasks skipping all dependencies", Long: "Run only the specified tasks skipping all dependencies", Env: "MISE_TASK_SKIP_DEPENDS"},
 	{Key: FlagRunSkipTools, Short: "Skip installing tools before running tasks", Long: "Skip installing tools before running tasks\n\nCan also be set persistently with the `task.run_auto_install` setting\nor `MISE_TASK_RUN_AUTO_INSTALL=false` env var"},
-	{Key: FlagRunTaskCache, ValueName: "TASK_CACHE", ValueDemanded: true, Short: "Set task output cache access for this run", Long: "Set task output cache access for this run\n\n- `read-write` - Read cached results and write new results\n- `read-only` - Read cached results without writing new results\n- `write-only` - Write new results without reading cached results\n- `off` - Disable task output caching\n- `local-only` - Read and write only the local cache; currently equivalent to `read-write`", Choices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, Default: []string{"read-write"}},
+	{Key: FlagRunTaskCache, ValueName: "TASK_CACHE", ValueDemanded: true, Short: "Set task output cache access for this run", Long: "Set task output cache access for this run\n\n- `read-write` - Read cached results and write new results\n- `read-only` - Read cached results without writing new results\n- `write-only` - Write new results without reading cached results\n- `off` - Disable task output caching\n- `local-only` - Read and write only the local cache; currently equivalent to `read-write`", Choices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, Env: "MISE_TASK_CACHE", Default: []string{"read-write"}},
 	{Key: FlagRunTaskCacheExplain, Short: "Explain the inputs that produced each task's output cache key", Long: "Explain the inputs that produced each task's output cache key"},
 	{Key: FlagRunTaskCacheExplainJson, Short: "Output cache-key input details as JSON Lines without running tasks", Long: "Output cache-key input details as JSON Lines without running tasks"},
 	{Key: FlagRunTaskCacheStats, Short: "Report task output cache hits, restored bytes, and time saved", Long: "Report task output cache hits, restored bytes, and time saved"},
 	{Key: FlagRunTimeout, ValueName: "TIMEOUT", ValueDemanded: true, Short: "Timeout for the task to complete\ne.g.: 30s, 5m", Long: "Timeout for the task to complete\ne.g.: 30s, 5m"},
 	{Key: FlagRunTimings, Hide: true, Short: "Shows elapsed time after each task completes", Long: "Shows elapsed time after each task completes\n\nDefault to always show with `MISE_TASK_TIMINGS=1`"},
-	{Key: CmdSearch, Short: "Search for tools in the registry", Long: "Search for tools in the registry\n\nThis command searches a tool in the registry.\n\nBy default, it will show all tools that fuzzy match the search term. For\nnon-fuzzy matches, use the `--match-type` flag.", AfterLongHelp: "Examples:\n\n    $ mise search jq\n    Tool  Description\n    jq    Command-line JSON processor. https://github.com/jqlang/jq\n    jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp\n    jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq\n    gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq\n\n    $ mise search --interactive\n    Tool\n    Search a tool\n    ❯ jq    Command-line JSON processor. https://github.com/jqlang/jq\n      jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp\n      jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq\n      gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq\n    /jq \n    esc clear filter • enter confirm\n"},
+	{Key: CmdSearch, Short: "Search for tools in the registry", Long: "Search for tools in the registry\n\nThis command searches a tool in the registry.\n\nBy default, it will show all tools that fuzzy match the search term. For\nnon-fuzzy matches, use the `--match-type` flag.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise search jq\x1b[22m\n    Tool  Description\n    jq    Command-line JSON processor. https://github.com/jqlang/jq\n    jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp\n    jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq\n    gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq\n\n    $ \x1b[1mmise search --interactive\x1b[22m\n    Tool\n    Search a tool\n    ❯ jq    Command-line JSON processor. https://github.com/jqlang/jq\n      jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp\n      jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq\n      gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq\n    /jq \n    esc clear filter • enter confirm\n"},
 	{Key: FlagSearchInteractive, Short: "Show interactive search", Long: "Show interactive search"},
 	{Key: FlagSearchMatchType, ValueName: "MATCH_TYPE", ValueDemanded: true, Short: "Match type: equal, contains, or fuzzy", Long: "Match type: equal, contains, or fuzzy", Choices: []string{"equal", "contains", "fuzzy"}, Default: []string{"fuzzy"}},
 	{Key: FlagSearchNoHeader, Short: "Don't display headers", Long: "Don't display headers"},
@@ -5568,7 +5619,7 @@ var HelpText = argv.HelpTable{
 	{Key: FlagSelfUpdateYes, Short: "Skip confirmation prompt", Long: "Skip confirmation prompt"},
 	{Key: FlagSelfUpdateNoPlugins, Short: "Disable auto-updating plugins", Long: "Disable auto-updating plugins"},
 	{Key: ArgSelfUpdateVersion, Short: "Update to a specific version", Long: "Update to a specific version"},
-	{Key: CmdSet, Short: "Set environment variables in mise.toml", Long: "Set environment variables in mise.toml\n\nBy default, this command modifies `mise.toml` in the current directory.\nIf multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),\nthe lowest precedence file (`mise.toml`) will be used.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations\n\nUse `-E <env>` to create/modify environment-specific config files like `mise.<env>.toml`.", AfterLongHelp: "Examples:\n\n    $ mise set NODE_ENV=production\n\n    $ mise set NODE_ENV\n    production\n\n    $ mise set -E staging NODE_ENV=staging\n    # creates or modifies mise.staging.toml\n\n    $ mise set\n    key       value       source\n    NODE_ENV  production  ~/.config/mise/config.toml\n\n    $ mise set --prompt PASSWORD\n    Enter value for PASSWORD: [hidden input]\n\n    Multiline Values (--stdin):\n\n    $ cat private.key | mise set --stdin MY_KEY\n\n    $ printf \"line1\\nline2\" | mise set --stdin MY_KEY\n\n    [experimental] Age Encryption:\n\n    $ mise set --age-encrypt API_KEY=secret\n\n    $ mise set --age-encrypt --prompt API_KEY\n    Enter value for API_KEY: [hidden input]\n"},
+	{Key: CmdSet, Short: "Set environment variables in mise.toml", Long: "Set environment variables in mise.toml\n\nBy default, this command modifies `mise.toml` in the current directory.\nIf multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),\nthe lowest precedence file (`mise.toml`) will be used.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations\n\nUse `-E <env>` to create/modify environment-specific config files like `mise.<env>.toml`.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise set NODE_ENV=production\x1b[22m\n\n    $ \x1b[1mmise set NODE_ENV\x1b[22m\n    production\n\n    $ \x1b[1mmise set -E staging NODE_ENV=staging\x1b[22m\n    # creates or modifies mise.staging.toml\n\n    $ \x1b[1mmise set\x1b[22m\n    key       value       source\n    NODE_ENV  production  ~/.config/mise/config.toml\n\n    $ \x1b[1mmise set --prompt PASSWORD\x1b[22m\n    Enter value for PASSWORD: [hidden input]\n\n    \x1b[1m\x1b[4mMultiline Values (--stdin):\x1b[22m\x1b[24m\n\n    $ \x1b[1mcat private.key | mise set --stdin MY_KEY\x1b[22m\n\n    $ \x1b[1mprintf \"line1\\nline2\" | mise set --stdin MY_KEY\x1b[22m\n\n    \x1b[1m\x1b[4m[experimental] Age Encryption:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise set --age-encrypt API_KEY=secret\x1b[22m\n\n    $ \x1b[1mmise set --age-encrypt --prompt API_KEY\x1b[22m\n    Enter value for API_KEY: [hidden input]\n"},
 	{Key: FlagSetEnv, ValueName: "ENV", ValueDemanded: true, Short: "Create/modify an environment-specific config file like .mise.<env>.toml", Long: "Create/modify an environment-specific config file like .mise.<env>.toml"},
 	{Key: FlagSetGlobal, Short: "Set the environment variable in the global config file", Long: "Set the environment variable in the global config file"},
 	{Key: FlagSetAgeEncrypt, Short: "[experimental] Encrypt the value with age before storing", Long: "[experimental] Encrypt the value with age before storing"},
@@ -5580,9 +5631,9 @@ var HelpText = argv.HelpTable{
 	{Key: FlagSetNoRedact, Short: "Show raw values instead of redacting secrets", Long: "Show raw values instead of redacting secrets"},
 	{Key: FlagSetPrompt, Short: "Prompt for environment variable values", Long: "Prompt for environment variable values"},
 	{Key: FlagSetRemove, Hide: true, Repeatable: true, ValueName: "ENV_KEY", ValueDemanded: true, Short: "Remove the environment variable from config file", Long: "Remove the environment variable from config file\n\nCan be used multiple times."},
-	{Key: FlagSetStdin, Short: "Read the value from stdin (for multiline input)", Long: "Read the value from stdin (for multiline input)\n\nWhen using --stdin, provide a single key without a value. The value will be read from stdin until EOF."},
+	{Key: FlagSetStdin, Short: "Read the value from stdin (for multiline input)", Long: "Read the value from stdin (for multiline input)\n\nWhen using --stdin, provide a single key without a value.\nThe value will be read from stdin until EOF."},
 	{Key: ArgSetEnvVar, Short: "Environment variable(s) to set\ne.g.: NODE_ENV=production", Long: "Environment variable(s) to set\ne.g.: NODE_ENV=production"},
-	{Key: CmdSettings, Short: "Manage settings", Long: "Show current settings\n\nThis is the contents of ~/.config/mise/config.toml\n\nNote that aliases are also stored in this file\nbut managed separately with `mise tool-alias`", AfterLongHelp: "Examples:\n    # list all settings\n    $ mise settings\n\n    # get the value of the setting \"always_keep_download\"\n    $ mise settings always_keep_download\n\n    # set the value of the setting \"always_keep_download\" to \"true\"\n    $ mise settings always_keep_download=true\n\n    # set the value of the setting \"node.mirror_url\" to \"https://npmmirror.com/mirrors/node/\"\n    $ mise settings node.mirror_url https://npmmirror.com/mirrors/node/\n"},
+	{Key: CmdSettings, Short: "Manage settings", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n    # list all settings\n    $ \x1b[1mmise settings\x1b[22m\n\n    # get the value of the setting \"always_keep_download\"\n    $ \x1b[1mmise settings always_keep_download\x1b[22m\n\n    # set the value of the setting \"always_keep_download\" to \"true\"\n    $ \x1b[1mmise settings always_keep_download=true\x1b[22m\n\n    # set the value of the setting \"node.mirror_url\" to \"https://npmmirror.com/mirrors/node/\"\n    $ \x1b[1mmise settings node.mirror_url https://npmmirror.com/mirrors/node/\x1b[22m\n"},
 	{Key: FlagSettingsAll, Short: "List all settings", Long: "List all settings"},
 	{Key: FlagSettingsJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagSettingsLocal, Short: "Use the local config file instead of the global one", Long: "Use the local config file instead of the global one"},
@@ -5591,14 +5642,14 @@ var HelpText = argv.HelpTable{
 	{Key: FlagSettingsJsonExtended, Short: "Output in JSON format with sources", Long: "Output in JSON format with sources"},
 	{Key: ArgSettingsSetting, Short: "Name of setting", Long: "Name of setting"},
 	{Key: ArgSettingsValue, Short: "Setting value to set", Long: "Setting value to set"},
-	{Key: CmdSettingsAdd, Short: "Adds a setting to the configuration file", Long: "Adds a setting to the configuration file\n\nUsed with an array setting, this will append the value to the array.\nThis modifies the contents of ~/.config/mise/config.toml", AfterLongHelp: "Examples:\n\n    $ mise settings add disable_hints python_multi\n"},
+	{Key: CmdSettingsAdd, Short: "Adds a setting to the configuration file", Long: "Adds a setting to the configuration file\n\nUsed with an array setting, this will append the value to the array.\nThis modifies the contents of ~/.config/mise/config.toml", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise settings add disable_hints python_multi\x1b[22m\n"},
 	{Key: FlagSettingsAddLocal, Short: "Use the local config file instead of the global one", Long: "Use the local config file instead of the global one"},
 	{Key: ArgSettingsAddSetting, Demanded: true, Short: "The setting to set", Long: "The setting to set"},
 	{Key: ArgSettingsAddValue, Short: "The value to set (optional if provided as KEY=VALUE)", Long: "The value to set (optional if provided as KEY=VALUE)"},
-	{Key: CmdSettingsGet, Short: "Show a current setting", Long: "Show a current setting\n\nThis is the contents of a single entry in ~/.config/mise/config.toml\n\nNote that aliases are also stored in this file\nbut managed separately with `mise tool-alias get`", AfterLongHelp: "Examples:\n\n    $ mise settings get idiomatic_version_file\n    true\n"},
+	{Key: CmdSettingsGet, Short: "Show a current setting", Long: "Show a current setting\n\nThis is the contents of a single entry in ~/.config/mise/config.toml\n\nNote that aliases are also stored in this file\nbut managed separately with `mise tool-alias get`", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise settings get idiomatic_version_file\x1b[22m\n    true\n"},
 	{Key: FlagSettingsGetLocal, Short: "Use the local config file instead of the global one", Long: "Use the local config file instead of the global one"},
 	{Key: ArgSettingsGetSetting, Demanded: true, Short: "The setting to show", Long: "The setting to show"},
-	{Key: CmdSettingsLs, Short: "Show current settings", Long: "Show current settings\n\nThis is the contents of ~/.config/mise/config.toml\n\nNote that aliases are also stored in this file\nbut managed separately with `mise tool-alias`", VisibleAliases: []string{"list"}, AfterLongHelp: "Examples:\n\n    $ mise settings ls\n    idiomatic_version_file = false\n    ...\n\n    $ mise settings ls python\n    default_packages_file = \"~/.default-python-packages\"\n    ...\n"},
+	{Key: CmdSettingsLs, Short: "Show current settings", Long: "Show current settings\n\nThis is the contents of ~/.config/mise/config.toml\n\nNote that aliases are also stored in this file\nbut managed separately with `mise tool-alias`", VisibleAliases: []string{"list"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise settings ls\x1b[22m\n    idiomatic_version_file = false\n    ...\n\n    $ \x1b[1mmise settings ls python\x1b[22m\n    default_packages_file = \"~/.default-python-packages\"\n    ...\n"},
 	{Key: FlagSettingsLsAll, Short: "List all settings", Long: "List all settings"},
 	{Key: FlagSettingsLsJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagSettingsLsLocal, Short: "Use the local config file instead of the global one", Long: "Use the local config file instead of the global one"},
@@ -5606,41 +5657,41 @@ var HelpText = argv.HelpTable{
 	{Key: FlagSettingsLsComplete, Hide: true, Short: "Print all settings with descriptions for shell completions", Long: "Print all settings with descriptions for shell completions"},
 	{Key: FlagSettingsLsJsonExtended, Short: "Output in JSON format with sources", Long: "Output in JSON format with sources"},
 	{Key: ArgSettingsLsSetting, Short: "Name of setting", Long: "Name of setting"},
-	{Key: CmdSettingsSet, Short: "Add/update a setting", Long: "Add/update a setting\n\nThis modifies the contents of ~/.config/mise/config.toml by default.\nWith `--local`, modifies the local config file instead.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations", VisibleAliases: []string{"create"}, AfterLongHelp: "Examples:\n\n    $ mise settings idiomatic_version_file=true\n"},
+	{Key: CmdSettingsSet, Short: "Add/update a setting", Long: "Add/update a setting\n\nThis modifies the contents of ~/.config/mise/config.toml by default.\nWith `--local`, modifies the local config file instead.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations", VisibleAliases: []string{"create"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise settings idiomatic_version_file=true\x1b[22m\n"},
 	{Key: FlagSettingsSetLocal, Short: "Use the local config file instead of the global one", Long: "Use the local config file instead of the global one"},
 	{Key: ArgSettingsSetSetting, Demanded: true, Short: "The setting to set", Long: "The setting to set"},
 	{Key: ArgSettingsSetValue, Short: "The value to set (optional if provided as KEY=VALUE)", Long: "The value to set (optional if provided as KEY=VALUE)"},
-	{Key: CmdSettingsUnset, Short: "Clears a setting", Long: "Clears a setting\n\nThis modifies the contents of ~/.config/mise/config.toml", VisibleAliases: []string{"rm", "remove", "delete", "del"}, AfterLongHelp: "Examples:\n\n    $ mise settings unset idiomatic_version_file\n"},
+	{Key: CmdSettingsUnset, Short: "Clears a setting", Long: "Clears a setting\n\nThis modifies the contents of ~/.config/mise/config.toml", VisibleAliases: []string{"rm", "remove", "delete", "del"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise settings unset idiomatic_version_file\x1b[22m\n"},
 	{Key: FlagSettingsUnsetLocal, Short: "Use the local config file instead of the global one", Long: "Use the local config file instead of the global one"},
 	{Key: ArgSettingsUnsetKey, Demanded: true, Short: "The setting to remove", Long: "The setting to remove"},
-	{Key: CmdShell, Short: "Sets a tool version for the current session.", Long: "Sets a tool version for the current session.\n\nOnly works in a session where mise is already activated.\n\nThis works by setting environment variables for the current shell session\nsuch as `MISE_NODE_VERSION=20` which is \"eval\"ed as a shell function created by `mise activate`.", VisibleAliases: []string{"sh"}, AfterLongHelp: "Examples:\n\n    $ mise shell node@20\n    $ node -v\n    v20.0.0\n"},
-	{Key: FlagShellJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\n[default: 4]", Long: "Number of jobs to run in parallel\n[default: 4]"},
+	{Key: CmdShell, Short: "Sets a tool version for the current session.", Long: "Sets a tool version for the current session.\n\nOnly works in a session where mise is already activated.\n\nThis works by setting environment variables for the current shell session\nsuch as `MISE_NODE_VERSION=20` which is \"eval\"ed as a shell function created by `mise activate`.", VisibleAliases: []string{"sh"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise shell node@20\x1b[22m\n    $ \x1b[1mnode -v\x1b[22m\n    v20.0.0\n"},
+	{Key: FlagShellJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Long: "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Env: "MISE_JOBS"},
 	{Key: FlagShellUnset, Short: "Removes a previously set version", Long: "Removes a previously set version"},
-	{Key: FlagShellRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1"},
+	{Key: FlagShellRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies --jobs=1"},
 	{Key: ArgShellToolVersion, Demanded: true, Short: "Tool(s) to use", Long: "Tool(s) to use"},
 	{Key: CmdShellAlias, Short: "Manage shell aliases."},
 	{Key: FlagShellAliasNoHeader, Short: "Don't show table header", Long: "Don't show table header"},
-	{Key: CmdShellAliasGet, Short: "Show the command for a shell alias", AfterLongHelp: "Examples:\n\n    $ mise shell-alias get ll\n    ls -la\n"},
+	{Key: CmdShellAliasGet, Short: "Show the command for a shell alias", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise shell-alias get ll\x1b[22m\n    ls -la\n"},
 	{Key: ArgShellAliasGetShellAlias, Demanded: true, Short: "The alias to show", Long: "The alias to show"},
-	{Key: CmdShellAliasLs, Short: "List shell aliases", Long: "List shell aliases\n\nShows the shell aliases that are set in the current directory.\nThese are defined in `mise.toml` under the `[shell_alias]` section.", VisibleAliases: []string{"list"}, AfterLongHelp: "Examples:\n\n    $ mise shell-alias ls\n    alias    command\n    ll       ls -la\n    gs       git status\n"},
+	{Key: CmdShellAliasLs, Short: "List shell aliases", Long: "List shell aliases\n\nShows the shell aliases that are set in the current directory.\nThese are defined in `mise.toml` under the `[shell_alias]` section.", VisibleAliases: []string{"list"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise shell-alias ls\x1b[22m\n    alias    command\n    ll       ls -la\n    gs       git status\n"},
 	{Key: FlagShellAliasLsNoHeader, Short: "Don't show table header", Long: "Don't show table header"},
-	{Key: CmdShellAliasSet, Short: "Add/update a shell alias", Long: "Add/update a shell alias\n\nThis modifies the contents of ~/.config/mise/config.toml", VisibleAliases: []string{"add", "create"}, AfterLongHelp: "Examples:\n\n    $ mise shell-alias set ll \"ls -la\"\n    $ mise shell-alias set gs \"git status\"\n"},
+	{Key: CmdShellAliasSet, Short: "Add/update a shell alias", Long: "Add/update a shell alias\n\nThis modifies the contents of ~/.config/mise/config.toml", VisibleAliases: []string{"add", "create"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise shell-alias set ll \"ls -la\"\x1b[22m\n    $ \x1b[1mmise shell-alias set gs \"git status\"\x1b[22m\n"},
 	{Key: ArgShellAliasSetShellAlias, Demanded: true, Short: "The alias name", Long: "The alias name"},
 	{Key: ArgShellAliasSetCommand, Short: "The command to run (optional if provided as ALIAS=COMMAND)", Long: "The command to run (optional if provided as ALIAS=COMMAND)"},
-	{Key: CmdShellAliasUnset, Short: "Removes a shell alias", Long: "Removes a shell alias\n\nThis modifies the contents of ~/.config/mise/config.toml", VisibleAliases: []string{"rm", "remove", "delete", "del"}, AfterLongHelp: "Examples:\n\n    $ mise shell-alias unset ll\n"},
+	{Key: CmdShellAliasUnset, Short: "Removes a shell alias", Long: "Removes a shell alias\n\nThis modifies the contents of ~/.config/mise/config.toml", VisibleAliases: []string{"rm", "remove", "delete", "del"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise shell-alias unset ll\x1b[22m\n"},
 	{Key: ArgShellAliasUnsetShellAlias, Demanded: true, Short: "The alias to remove", Long: "The alias to remove"},
 	{Key: CmdSponsors, Short: "Show the companies sponsoring mise and the jdx.dev open source tools"},
 	{Key: CmdSync, Short: "Synchronize tools from other version managers with mise", SubcommandRequired: true},
-	{Key: CmdSyncNode, Short: "Symlinks all tool versions from an external tool into mise", Long: "Symlinks all tool versions from an external tool into mise\n\nFor example, use this to import all Homebrew node installs into mise\n\nThis won't overwrite any existing installs but will overwrite any existing symlinks", AfterLongHelp: "Examples:\n\n    $ brew install node@18 node@20\n    $ mise sync node --brew\n    $ mise use -g node@18 - uses Homebrew-provided node\n"},
+	{Key: CmdSyncNode, Short: "Symlinks all tool versions from an external tool into mise", Long: "Symlinks all tool versions from an external tool into mise\n\nFor example, use this to import all Homebrew node installs into mise\n\nThis won't overwrite managed installs, runtime aliases, or links from other providers.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mbrew install node@18 node@20\x1b[22m\n    $ \x1b[1mmise sync node --brew\x1b[22m\n    $ \x1b[1mmise use -g node@18\x1b[22m - uses Homebrew-provided node\n"},
 	{Key: FlagSyncNodeBrew, Short: "Get tool versions from Homebrew", Long: "Get tool versions from Homebrew"},
 	{Key: FlagSyncNodeNodenv, Short: "Get tool versions from nodenv", Long: "Get tool versions from nodenv"},
 	{Key: FlagSyncNodeNvm, Short: "Get tool versions from nvm", Long: "Get tool versions from nvm"},
-	{Key: CmdSyncPython, Short: "Symlinks all tool versions from an external tool into mise", Long: "Symlinks all tool versions from an external tool into mise\n\nFor example, use this to import all pyenv installs into mise\n\nThis won't overwrite any existing installs but will overwrite any existing symlinks", AfterLongHelp: "Examples:\n\n    $ pyenv install 3.11.0\n    $ mise sync python --pyenv\n    $ mise use -g python@3.11.0 - uses pyenv-provided python\n\n    $ uv python install 3.11.0\n    $ mise install python@3.10.0\n    $ mise sync python --uv\n    $ mise x python@3.11.0 -- python -V - uses uv-provided python\n    $ uv run -p 3.10.0 -- python -V - uses mise-provided python\n"},
+	{Key: CmdSyncPython, Short: "Symlinks all tool versions from an external tool into mise", Long: "Symlinks all tool versions from an external tool into mise\n\nFor example, use this to import all pyenv installs into mise\n\nThis won't overwrite managed installs, runtime aliases, or links from other providers.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mpyenv install 3.11.0\x1b[22m\n    $ \x1b[1mmise sync python --pyenv\x1b[22m\n    $ \x1b[1mmise use -g python@3.11.0\x1b[22m - uses pyenv-provided python\n    \n    $ \x1b[1muv python install 3.11.0\x1b[22m\n    $ \x1b[1mmise install python@3.10.0\x1b[22m\n    $ \x1b[1mmise sync python --uv\x1b[22m\n    $ \x1b[1mmise x python@3.11.0 -- python -V\x1b[22m - uses uv-provided python\n    $ \x1b[1muv run -p 3.10.0 -- python -V\x1b[22m - uses mise-provided python\n"},
 	{Key: FlagSyncPythonPyenv, Short: "Get tool versions from pyenv", Long: "Get tool versions from pyenv"},
 	{Key: FlagSyncPythonUv, Short: "Sync tool versions with uv (2-way sync)", Long: "Sync tool versions with uv (2-way sync)"},
-	{Key: CmdSyncRuby, Short: "Symlinks all ruby tool versions from an external tool into mise", AfterLongHelp: "Examples:\n\n    $ brew install ruby\n    $ mise sync ruby --brew\n    $ mise use -g ruby - Use the latest version of Ruby installed by Homebrew\n"},
-	{Key: FlagSyncRubyBrew, Short: "Get tool versions from Homebrew", Long: "Get tool versions from Homebrew"},
-	{Key: CmdTasks, Short: "Manage tasks", VisibleAliases: []string{"t"}, AfterLongHelp: "Examples:\n\n    $ mise tasks ls\n"},
+	{Key: CmdSyncRuby, Short: "Symlinks all ruby tool versions from an external tool into mise", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mbrew install ruby\x1b[22m\n    $ \x1b[1mmise sync ruby --brew\x1b[22m\n    $ \x1b[1mmise use -g ruby\x1b[22m - Use the latest version of Ruby installed by Homebrew\n"},
+	{Key: FlagSyncRubyBrew, Demanded: true, Short: "Get tool versions from Homebrew", Long: "Get tool versions from Homebrew"},
+	{Key: CmdTasks, Short: "Manage tasks", VisibleAliases: []string{"t"}},
 	{Key: FlagTasksGlobal, Short: "Only show global tasks", Long: "Only show global tasks"},
 	{Key: FlagTasksJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagTasksLocal, Short: "Only show non-global tasks", Long: "Only show non-global tasks"},
@@ -5654,7 +5705,7 @@ var HelpText = argv.HelpTable{
 	{Key: FlagTasksSortOrder, ValueName: "SORT_ORDER", ValueDemanded: true, Short: "Sort order. Default is asc.", Long: "Sort order. Default is asc.", Choices: []string{"asc", "desc"}},
 	{Key: FlagTasksUsage, Hide: true},
 	{Key: ArgTasksTask, Short: "Task name to get info of", Long: "Task name to get info of"},
-	{Key: CmdTasksAdd, Short: "Create a new task", Long: "Create a new task\n\nAdds a task to the local mise.toml file.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations", AfterLongHelp: "Examples:\n\n    $ mise tasks add pre-commit --depends \"test\" --depends \"render\" -- echo pre-commit\n"},
+	{Key: CmdTasksAdd, Short: "Create a new task", Long: "Create a new task\n\nAdds a task to the local mise.toml file.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise tasks add pre-commit --depends \"test\" --depends \"render\" -- echo pre-commit\x1b[22m\n"},
 	{Key: FlagTasksAddAlias, Repeatable: true, ValueName: "ALIAS", ValueDemanded: true, Short: "Other names for the task", Long: "Other names for the task"},
 	{Key: FlagTasksAddDepends, Repeatable: true, ValueName: "DEPENDS", ValueDemanded: true, Short: "Add dependencies to the task", Long: "Add dependencies to the task"},
 	{Key: FlagTasksAddDir, ValueName: "DIR", ValueDemanded: true, Short: "Run the task in a specific directory", Long: "Run the task in a specific directory"},
@@ -5672,22 +5723,22 @@ var HelpText = argv.HelpTable{
 	{Key: FlagTasksAddSilent, Short: "Do not print the command or its output", Long: "Do not print the command or its output"},
 	{Key: ArgTasksAddTask, Demanded: true, Short: "Tasks name to add", Long: "Tasks name to add"},
 	{Key: ArgTasksAddRun},
-	{Key: CmdTasksDeps, Short: "Display a tree visualization of a dependency graph", AfterLongHelp: "Examples:\n\n    # Show dependencies for all tasks\n    $ mise tasks deps\n\n    # Show dependencies for the \"lint\", \"test\" and \"check\" tasks\n    $ mise tasks deps lint test check\n\n    # Show dependencies in DOT format\n    $ mise tasks deps --dot\n\n    # Collapse repeated dependencies\n    $ mise tasks deps --compact\n"},
+	{Key: CmdTasksDeps, Short: "Display a tree visualization of a dependency graph", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # Show dependencies for all tasks\n    $ \x1b[1mmise tasks deps\x1b[22m\n\n    # Show dependencies for the \"lint\", \"test\" and \"check\" tasks\n    $ \x1b[1mmise tasks deps lint test check\x1b[22m\n\n    # Show dependencies in DOT format\n    $ \x1b[1mmise tasks deps --dot\x1b[22m\n\n    # Collapse repeated dependencies\n    $ \x1b[1mmise tasks deps --compact\x1b[22m\n"},
 	{Key: FlagTasksDepsCompact, Short: "Collapse repeated dependencies after their first occurrence", Long: "Collapse repeated dependencies after their first occurrence"},
 	{Key: FlagTasksDepsDot, Short: "Display dependencies in DOT format", Long: "Display dependencies in DOT format"},
 	{Key: FlagTasksDepsHidden, Short: "Show hidden tasks", Long: "Show hidden tasks"},
 	{Key: ArgTasksDepsTasks, Short: "Tasks to show dependencies for\nCan specify multiple tasks by separating with spaces\ne.g.: mise tasks deps lint test check", Long: "Tasks to show dependencies for\nCan specify multiple tasks by separating with spaces\ne.g.: mise tasks deps lint test check"},
-	{Key: CmdTasksEdit, Short: "Edit a task with $EDITOR", Long: "Edit a task with $EDITOR\n\nThe task will be created as a standalone script if it does not already exist.", AfterLongHelp: "Examples:\n\n    $ mise tasks edit build\n    $ mise tasks edit test\n"},
+	{Key: CmdTasksEdit, Short: "Edit a task with $EDITOR", Long: "Edit a task with $EDITOR\n\nThe task will be created as a standalone script if it does not already exist.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise tasks edit build\x1b[22m\n    $ \x1b[1mmise tasks edit test\x1b[22m\n"},
 	{Key: FlagTasksEditPath, Short: "Display the path to the task instead of editing it", Long: "Display the path to the task instead of editing it"},
 	{Key: ArgTasksEditTask, Demanded: true, Short: "Task to edit", Long: "Task to edit"},
-	{Key: CmdTasksGraph, Short: "[experimental] Inspect the workspace project graph", AfterLongHelp: "Examples:\n\n    # Inspect projects and their dependency edges\n    $ mise tasks graph\n\n    # Emit the project graph as JSON\n    $ mise tasks graph --json\n\n    # Explain where inferred projects and task fields came from\n    $ mise tasks graph --explain\n"},
+	{Key: CmdTasksGraph, Short: "[experimental] Inspect the workspace project graph", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # Inspect projects and their dependency edges\n    $ \x1b[1mmise tasks graph\x1b[22m\n\n    # Emit the project graph as JSON\n    $ \x1b[1mmise tasks graph --json\x1b[22m\n\n    # Explain where inferred projects and task fields came from\n    $ \x1b[1mmise tasks graph --explain\x1b[22m\n"},
 	{Key: FlagTasksGraphJson, Short: "Output the project graph as JSON", Long: "Output the project graph as JSON"},
 	{Key: FlagTasksGraphExplain, Short: "Explain provider attribution for inferred projects and tasks", Long: "Explain provider attribution for inferred projects and tasks"},
 	{Key: FlagTasksGraphNoHeader, Short: "Do not print table headers", Long: "Do not print table headers"},
-	{Key: CmdTasksInfo, Short: "Get information about a task", AfterLongHelp: "Examples:\n\n    $ mise tasks info\n    Name: test\n    Aliases: t\n    Description: Test the application\n    Source: ~/src/myproj/mise.toml\n\n    $ mise tasks info test --json\n    {\n      \"name\": \"test\",\n      \"aliases\": \"t\",\n      \"description\": \"Test the application\",\n      \"source\": \"~/src/myproj/mise.toml\",\n      \"config_sources\": [\"~/src/myproj/mise.toml\"],\n      \"depends\": [],\n      \"env\": {},\n      \"dir\": null,\n      \"hide\": false,\n      \"raw\": false,\n      \"sources\": [],\n      \"outputs\": [],\n      \"run\": [\n        \"echo \\\"testing!\\\"\"\n      ],\n      \"file\": null,\n      \"usage_spec\": {}\n    }\n"},
+	{Key: CmdTasksInfo, Short: "Get information about a task", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise tasks info\x1b[22m\n    Name: test\n    Aliases: t\n    Description: Test the application\n    Source: ~/src/myproj/mise.toml\n\n    $ \x1b[1mmise tasks info test --json\x1b[22m\n    {\n      \"name\": \"test\",\n      \"aliases\": \"t\",\n      \"description\": \"Test the application\",\n      \"source\": \"~/src/myproj/mise.toml\",\n      \"config_sources\": [\"~/src/myproj/mise.toml\"],\n      \"depends\": [],\n      \"env\": {},\n      \"dir\": null,\n      \"hide\": false,\n      \"raw\": false,\n      \"sources\": [],\n      \"outputs\": [],\n      \"run\": [\n        \"echo \\\"testing!\\\"\"\n      ],\n      \"file\": null,\n      \"usage_spec\": {}\n    }\n"},
 	{Key: FlagTasksInfoJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: ArgTasksInfoTask, Demanded: true, Short: "Name of the task to get information about", Long: "Name of the task to get information about"},
-	{Key: CmdTasksLs, Short: "List available tasks to execute\nThese may be included from the config file or from the project's .mise/tasks directory\nmise will merge all tasks from all parent directories into this list.", Long: "List available tasks to execute\nThese may be included from the config file or from the project's .mise/tasks directory\nmise will merge all tasks from all parent directories into this list.\n\nSo if you have global tasks in `~/.config/mise/tasks/*` and project-specific tasks in\n~/myproject/.mise/tasks/*, then they'll both be available but the project-specific\ntasks will override the global ones if they have the same name.", AfterLongHelp: "Examples:\n\n    $ mise tasks ls\n"},
+	{Key: CmdTasksLs, Short: "List available tasks to execute\nThese may be included from the config file or from the project's .mise/tasks directory\nmise will merge all tasks from all parent directories into this list.", Long: "List available tasks to execute\nThese may be included from the config file or from the project's .mise/tasks directory\nmise will merge all tasks from all parent directories into this list.\n\nSo if you have global tasks in `~/.config/mise/tasks/*` and project-specific tasks in\n~/myproject/.mise/tasks/*, then they'll both be available but the project-specific\ntasks will override the global ones if they have the same name.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise tasks ls\x1b[22m\n"},
 	{Key: FlagTasksLsGlobal, Short: "Only show global tasks", Long: "Only show global tasks"},
 	{Key: FlagTasksLsJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagTasksLsLocal, Short: "Only show non-global tasks", Long: "Only show non-global tasks"},
@@ -5700,23 +5751,24 @@ var HelpText = argv.HelpTable{
 	{Key: FlagTasksLsSort, ValueName: "COLUMN", ValueDemanded: true, Short: "Sort by column. Default is name.", Long: "Sort by column. Default is name.", Choices: []string{"name", "alias", "description", "source"}},
 	{Key: FlagTasksLsSortOrder, ValueName: "SORT_ORDER", ValueDemanded: true, Short: "Sort order. Default is asc.", Long: "Sort order. Default is asc.", Choices: []string{"asc", "desc"}},
 	{Key: FlagTasksLsUsage, Hide: true},
-	{Key: CmdTasksRun, Short: "Run task(s)", Long: "Run task(s)\n\nThis command will run a task, or multiple tasks in parallel.\nTasks may have dependencies on other tasks or on source files.\nIf source is configured on a task, it will only run if the source\nfiles have changed.\n\nTasks can be defined in mise.toml or as standalone scripts.\nIn mise.toml, tasks take this form:\n\n    [tasks.build]\n    run = \"npm run build\"\n    sources = [\"src/**/*.ts\"]\n    outputs = [\"dist/**/*.js\"]\n\nAlternatively, tasks can be defined as standalone scripts.\nThese must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or\n`.config/mise/tasks`.\nThe name of the script will be the name of the tasks.\n\n    $ cat .mise/tasks/build<<EOF\n    #!/usr/bin/env bash\n    npm run build\n    EOF\n    $ mise run build", VisibleAliases: []string{"r"}, AfterLongHelp: "Examples:\n\n    # Runs the \"lint\" tasks. This needs to either be defined in mise.toml\n    # or as a standalone script. See the project README for more information.\n    $ mise run lint\n\n    # Forces the \"build\" tasks to run even if its sources are up-to-date.\n    $ mise run --force build\n\n    # Run \"test\" with stdin/stdout/stderr all connected to the current terminal.\n    # This forces `--jobs=1` to prevent interleaving of output.\n    $ mise run --raw test\n\n    # Runs the \"lint\", \"test\", and \"check\" tasks in parallel.\n    $ mise run lint ::: test ::: check\n\n    # Execute multiple tasks each with their own arguments.\n    $ mise run cmd1 arg1 arg2 ::: cmd2 arg1 arg2\n"},
+	{Key: CmdTasksRun, Short: "Run task(s)", Long: "Run task(s)\n\nThis command will run a task, or multiple tasks in parallel.\nTasks may have dependencies on other tasks or on source files.\nIf source is configured on a task, it will only run if the source\nfiles have changed.\n\nTasks can be defined in mise.toml or as standalone scripts.\nIn mise.toml, tasks take this form:\n\n    [tasks.build]\n    run = \"npm run build\"\n    sources = [\"src/**/*.ts\"]\n    outputs = [\"dist/**/*.js\"]\n\nAlternatively, tasks can be defined as standalone scripts.\nThese must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or\n`.config/mise/tasks`.\nThe name of the script will be the name of the tasks.\n\n    $ cat .mise/tasks/build<<EOF\n    #!/usr/bin/env bash\n    npm run build\n    EOF\n    $ mise run build", VisibleAliases: []string{"r"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # Runs the \"lint\" tasks. This needs to either be defined in mise.toml\n    # or as a standalone script. See the project README for more information.\n    $ \x1b[1mmise run lint\x1b[22m\n\n    # Forces the \"build\" tasks to run even if its sources are up-to-date.\n    $ \x1b[1mmise run --force build\x1b[22m\n\n    # Run \"test\" with stdin/stdout/stderr all connected to the current terminal.\n    # This forces `--jobs=1` to prevent interleaving of output.\n    $ \x1b[1mmise run --raw test\x1b[22m\n\n    # Runs the \"lint\", \"test\", and \"check\" tasks in parallel.\n    $ \x1b[1mmise run lint ::: test ::: check\x1b[22m\n\n    # Execute multiple tasks each with their own arguments.\n    $ \x1b[1mmise run cmd1 arg1 arg2 ::: cmd2 arg1 arg2\x1b[22m\n"},
 	{Key: FlagTasksRunAffected, Short: "Run matching tasks only for projects affected by Git changes", Long: "Run matching tasks only for projects affected by Git changes"},
 	{Key: FlagTasksRunAffectedBase, ValueName: "REV", ValueDemanded: true, Short: "Git base revision for --affected\nDefaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1", Long: "Git base revision for --affected\nDefaults to MISE_AFFECTED_BASE, CI metadata, or HEAD~1"},
 	{Key: FlagTasksRunAffectedExplain, Short: "Explain why projects and tasks were selected by --affected", Long: "Explain why projects and tasks were selected by --affected"},
 	{Key: FlagTasksRunAffectedHead, ValueName: "REV", ValueDemanded: true, Short: "Git head revision for --affected\nDefaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD", Long: "Git head revision for --affected\nDefaults to MISE_AFFECTED_HEAD, CI metadata, or HEAD"},
 	{Key: FlagTasksRunAffectedJson, Short: "Output affected projects and tasks as JSON without running tasks", Long: "Output affected projects and tasks as JSON without running tasks"},
+	{Key: FlagTasksRunAll, Short: "Open the interactive selector with all tasks from the entire monorepo", Long: "Open the interactive selector with all tasks from the entire monorepo"},
 	{Key: FlagTasksRunContinueOnError, Short: "Continue running tasks even if one fails", Long: "Continue running tasks even if one fails"},
 	{Key: FlagTasksRunCd, ValueName: "CD", ValueDemanded: true, Short: "Change to this directory before executing the command", Long: "Change to this directory before executing the command"},
 	{Key: FlagTasksRunForce, Short: "Force the tasks to run even if outputs are up to date", Long: "Force the tasks to run even if outputs are up to date"},
-	{Key: FlagTasksRunJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var", Long: "Number of tasks to run in parallel\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var"},
+	{Key: FlagTasksRunJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of tasks to run in parallel\nValues below 1 are treated as 1\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var", Long: "Number of tasks to run in parallel\nValues below 1 are treated as 1\n[default: 4]\nConfigure with `jobs` config or `MISE_JOBS` env var", Env: "MISE_JOBS"},
 	{Key: FlagTasksRunDryRun, Short: "Don't actually run the task(s), just print them in order of execution", Long: "Don't actually run the task(s), just print them in order of execution"},
-	{Key: FlagTasksRunOutput, ValueName: "OUTPUT", ValueDemanded: true, Short: "Change how tasks information is output when running tasks", Long: "Change how tasks information is output when running tasks\n\n- `prefix` - Print stdout/stderr by line, prefixed with the task's label\n- `interleave` - Print directly to stdout/stderr instead of by line\n- `replacing` - Stdout is replaced each time, stderr is printed as is\n- `timed` - Only show stdout lines if they are displayed for more than 1 second\n- `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output\n- `quiet` - Don't show extra output\n- `silent` - Don't show any output including stdout and stderr from the task except for errors"},
-	{Key: FlagTasksRunQuiet, Short: "Don't show extra output", Long: "Don't show extra output"},
+	{Key: FlagTasksRunOutput, ValueName: "OUTPUT", ValueDemanded: true, Short: "Change how tasks information is output when running tasks", Long: "Change how tasks information is output when running tasks\n\n- `prefix` - Print stdout/stderr by line, prefixed with the task's label\n- `interleave` - Print directly to stdout/stderr instead of by line\n- `replacing` - Stdout is replaced each time, stderr is printed as is\n- `timed` - Only show stdout lines if they are displayed for more than 1 second\n- `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output\n- `quiet` - Don't show extra output\n- `silent` - Don't show any output including stdout and stderr from the task except for errors", Env: "MISE_TASK_OUTPUT"},
+	{Key: FlagTasksRunQuiet, Short: "Don't show extra output", Long: "Don't show extra output", Env: "MISE_QUIET"},
 	{Key: FlagTasksRunRaw, Short: "Read/write directly to stdin/stdout/stderr instead of by line\nRedactions are not applied with this option\nConfigure with `raw` config or `MISE_RAW` env var", Long: "Read/write directly to stdin/stdout/stderr instead of by line\nRedactions are not applied with this option\nConfigure with `raw` config or `MISE_RAW` env var"},
 	{Key: FlagTasksRunShell, ValueName: "SHELL", ValueDemanded: true, Short: "Shell to use to run toml tasks", Long: "Shell to use to run toml tasks\n\nDefaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows\nCan also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS`\nOr it can be overridden with the `shell` property on a task."},
-	{Key: FlagTasksRunSilent, Short: "Don't show any output except for errors", Long: "Don't show any output except for errors"},
-	{Key: FlagTasksRunTool, Repeatable: true, ValueName: "TOOL@VERSION", ValueDemanded: true, Short: "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10", Long: "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10"},
+	{Key: FlagTasksRunSilent, Short: "Don't show any output except for errors", Long: "Don't show any output except for errors", Env: "MISE_SILENT"},
+	{Key: FlagTasksRunTool, Repeatable: true, ValueName: "TOOL@VERSION", ValueDemanded: true, Short: "Tool(s) to run in addition to what is in mise.toml files e.g.: node@20 python@3.10", Long: "Tool(s) to run in addition to what is in mise.toml files\ne.g.: node@20 python@3.10"},
 	{Key: FlagTasksRunAllowEnv, Repeatable: true, ValueName: "VAR", ValueDemanded: true, Short: "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'", Long: "Allow specific env var through (implies --deny-env for everything else)\nSupports wildcards, e.g. --allow-env='MYAPP_*'"},
 	{Key: FlagTasksRunAllowNet, Repeatable: true, ValueName: "HOST", ValueDemanded: true, Short: "Allow network to specific host (implies --deny-net for everything else)", Long: "Allow network to specific host (implies --deny-net for everything else)"},
 	{Key: FlagTasksRunAllowRead, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Allow reads from specific path (implies --deny-read for everything else)", Long: "Allow reads from specific path (implies --deny-read for everything else)"},
@@ -5727,45 +5779,45 @@ var HelpText = argv.HelpTable{
 	{Key: FlagTasksRunDenyRead, Short: "Block filesystem reads (system libs and tool dirs still accessible)", Long: "Block filesystem reads (system libs and tool dirs still accessible)"},
 	{Key: FlagTasksRunDenyWrite, Short: "Block all filesystem writes", Long: "Block all filesystem writes"},
 	{Key: FlagTasksRunFreshEnv, Short: "Bypass the environment cache and recompute the environment", Long: "Bypass the environment cache and recompute the environment"},
-	{Key: FlagTasksRunNoCache, Short: "Do not use cache on remote tasks", Long: "Do not use cache on remote tasks"},
+	{Key: FlagTasksRunNoCache, Short: "Do not use cache on remote tasks", Long: "Do not use cache on remote tasks", Env: "MISE_TASK_REMOTE_NO_CACHE"},
 	{Key: FlagTasksRunNoDeps, Short: "Skip automatic dependency preparation", Long: "Skip automatic dependency preparation"},
 	{Key: FlagTasksRunNoTimings, Short: "Hides elapsed time after each task completes", Long: "Hides elapsed time after each task completes\n\nDefault to always hide with `MISE_TASK_TIMINGS=0`"},
-	{Key: FlagTasksRunSkipDeps, Short: "Run only the specified tasks skipping all dependencies", Long: "Run only the specified tasks skipping all dependencies"},
+	{Key: FlagTasksRunSkipDeps, Short: "Run only the specified tasks skipping all dependencies", Long: "Run only the specified tasks skipping all dependencies", Env: "MISE_TASK_SKIP_DEPENDS"},
 	{Key: FlagTasksRunSkipTools, Short: "Skip installing tools before running tasks", Long: "Skip installing tools before running tasks\n\nCan also be set persistently with the `task.run_auto_install` setting\nor `MISE_TASK_RUN_AUTO_INSTALL=false` env var"},
-	{Key: FlagTasksRunTaskCache, ValueName: "TASK_CACHE", ValueDemanded: true, Short: "Set task output cache access for this run", Long: "Set task output cache access for this run\n\n- `read-write` - Read cached results and write new results\n- `read-only` - Read cached results without writing new results\n- `write-only` - Write new results without reading cached results\n- `off` - Disable task output caching\n- `local-only` - Read and write only the local cache; currently equivalent to `read-write`", Choices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, Default: []string{"read-write"}},
+	{Key: FlagTasksRunTaskCache, ValueName: "TASK_CACHE", ValueDemanded: true, Short: "Set task output cache access for this run", Long: "Set task output cache access for this run\n\n- `read-write` - Read cached results and write new results\n- `read-only` - Read cached results without writing new results\n- `write-only` - Write new results without reading cached results\n- `off` - Disable task output caching\n- `local-only` - Read and write only the local cache; currently equivalent to `read-write`", Choices: []string{"read-write", "read-only", "write-only", "off", "local-only"}, Env: "MISE_TASK_CACHE", Default: []string{"read-write"}},
 	{Key: FlagTasksRunTaskCacheExplain, Short: "Explain the inputs that produced each task's output cache key", Long: "Explain the inputs that produced each task's output cache key"},
 	{Key: FlagTasksRunTaskCacheExplainJson, Short: "Output cache-key input details as JSON Lines without running tasks", Long: "Output cache-key input details as JSON Lines without running tasks"},
 	{Key: FlagTasksRunTaskCacheStats, Short: "Report task output cache hits, restored bytes, and time saved", Long: "Report task output cache hits, restored bytes, and time saved"},
 	{Key: FlagTasksRunTimeout, ValueName: "TIMEOUT", ValueDemanded: true, Short: "Timeout for the task to complete\ne.g.: 30s, 5m", Long: "Timeout for the task to complete\ne.g.: 30s, 5m"},
 	{Key: FlagTasksRunTimings, Hide: true, Short: "Shows elapsed time after each task completes", Long: "Shows elapsed time after each task completes\n\nDefault to always show with `MISE_TASK_TIMINGS=1`"},
-	{Key: ArgTasksRunTask, Short: "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2", Long: "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2", Default: []string{"default"}},
-	{Key: ArgTasksRunArgs, Short: "Arguments to pass to the tasks. Use \":::\" to separate tasks", Long: "Arguments to pass to the tasks. Use \":::\" to separate tasks"},
-	{Key: ArgTasksRunArgsLast, Hide: true, Short: "Arguments to pass to the tasks. Use \":::\" to separate tasks", Long: "Arguments to pass to the tasks. Use \":::\" to separate tasks"},
-	{Key: CmdTasksValidate, Short: "Validate tasks for common errors and issues", AfterLongHelp: "Examples:\n\n    # Validate all tasks\n    $ mise tasks validate\n\n    # Validate specific tasks\n    $ mise tasks validate build test\n\n    # Output results as JSON\n    $ mise tasks validate --json\n\n    # Only show errors (skip warnings)\n    $ mise tasks validate --errors-only\n\nValidation Checks:\n\nThe validate command performs the following checks:\n\n  • Circular Dependencies: Detects dependency cycles\n  • Missing References: Finds references to nonexistent tasks\n  • Usage Spec Parsing: Validates #USAGE directives and specs\n  • Timeout Format: Checks timeout values are valid durations\n  • Alias Conflicts: Detects duplicate aliases across tasks\n  • File Existence: Verifies file-based tasks exist\n  • Directory Templates: Validates directory paths and templates\n  • Shell Commands: Checks shell executables exist\n  • Glob Patterns: Validates source and output patterns\n  • Run Entries: Ensures tasks reference valid dependencies\n"},
+	{Key: ArgTasksRunTask, Short: "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2\nDefaults to `default` when omitted", Long: "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: mise run task1 arg1 arg2 ::: task2 arg1 arg2\nDefaults to `default` when omitted"},
+	{Key: ArgTasksRunArgs, Short: "Arguments to pass to the tasks. Use \":::\" to separate tasks.", Long: "Arguments to pass to the tasks. Use \":::\" to separate tasks."},
+	{Key: ArgTasksRunArgsLast, Hide: true, Short: "Arguments to pass to the tasks. Use \":::\" to separate tasks.", Long: "Arguments to pass to the tasks. Use \":::\" to separate tasks."},
+	{Key: CmdTasksValidate, Short: "Validate tasks for common errors and issues", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # Validate all tasks\n    $ \x1b[1mmise tasks validate\x1b[22m\n\n    # Validate specific tasks\n    $ \x1b[1mmise tasks validate build test\x1b[22m\n\n    # Output results as JSON\n    $ \x1b[1mmise tasks validate --json\x1b[22m\n\n    # Only show errors (skip warnings)\n    $ \x1b[1mmise tasks validate --errors-only\x1b[22m\n\n\x1b[1m\x1b[4mValidation Checks:\x1b[22m\x1b[24m\n\nThe validate command performs the following checks:\n\n  • \x1b[1mCircular Dependencies\x1b[22m: Detects dependency cycles\n  • \x1b[1mMissing References\x1b[22m: Finds references to nonexistent tasks\n  • \x1b[1mUsage Spec Parsing\x1b[22m: Validates #USAGE directives and specs\n  • \x1b[1mTimeout Format\x1b[22m: Checks timeout values are valid durations\n  • \x1b[1mAlias Conflicts\x1b[22m: Detects duplicate aliases across tasks\n  • \x1b[1mFile Existence\x1b[22m: Verifies file-based tasks exist\n  • \x1b[1mDirectory Templates\x1b[22m: Validates directory paths and templates\n  • \x1b[1mShell Commands\x1b[22m: Checks shell executables exist\n  • \x1b[1mGlob Patterns\x1b[22m: Validates source and output patterns\n  • \x1b[1mRun Entries\x1b[22m: Ensures tasks reference valid dependencies\n"},
 	{Key: FlagTasksValidateErrorsOnly, Short: "Only show errors (skip warnings)", Long: "Only show errors (skip warnings)"},
 	{Key: FlagTasksValidateJson, Short: "Output validation results in JSON format", Long: "Output validation results in JSON format"},
 	{Key: ArgTasksValidateTasks, Short: "Tasks to validate\nIf not specified, validates all tasks", Long: "Tasks to validate\nIf not specified, validates all tasks"},
-	{Key: CmdTestTool, Short: "Test a tool installs and executes", AfterLongHelp: "Examples:\n\n    $ mise test-tool ripgrep\n"},
+	{Key: CmdTestTool, Short: "Test a tool installs and executes", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise test-tool ripgrep\x1b[22m\n"},
 	{Key: FlagTestToolAll, Short: "Test every tool specified in registry/", Long: "Test every tool specified in registry/"},
-	{Key: FlagTestToolJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of tool tests to run in parallel\n[default: 4]", Long: "Number of tool tests to run in parallel\n[default: 4]"},
+	{Key: FlagTestToolJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of tool tests to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Long: "Number of tool tests to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Env: "MISE_TEST_TOOL_JOBS"},
 	{Key: FlagTestToolAllConfig, Short: "Test all tools specified in config files", Long: "Test all tools specified in config files"},
 	{Key: FlagTestToolIncludeNonDefined, Short: "Also test tools not defined in registry/, guessing how to test it", Long: "Also test tools not defined in registry/, guessing how to test it"},
-	{Key: FlagTestToolRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1"},
+	{Key: FlagTestToolRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies --jobs=1"},
 	{Key: ArgTestToolTools, Short: "Tool(s) to test", Long: "Tool(s) to test"},
 	{Key: CmdToken, Short: "Display git provider tokens mise will use", SubcommandRequired: true},
-	{Key: CmdTokenForgejo, Short: "Forgejo token", AfterLongHelp: "Examples:\n\n    $ mise token forgejo\n    codeberg.org: a180…61f6 (source: FORGEJO_TOKEN)\n\n    $ mise token forgejo --unmask\n    codeberg.org: a18099ca69064be387fbe37b8ad1d333758361f6 (source: FORGEJO_TOKEN)\n\n    $ mise token forgejo forgejo.mycompany.com\n    forgejo.mycompany.com: (none)\n"},
+	{Key: CmdTokenForgejo, Short: "Forgejo token", Long: "Display the Forgejo token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise token forgejo\x1b[22m\n    codeberg.org: a180…61f6 (source: FORGEJO_TOKEN)\n\n    $ \x1b[1mmise token forgejo --unmask\x1b[22m\n    codeberg.org: a18099ca69064be387fbe37b8ad1d333758361f6 (source: FORGEJO_TOKEN)\n\n    $ \x1b[1mmise token forgejo forgejo.mycompany.com\x1b[22m\n    forgejo.mycompany.com: (none)\n"},
 	{Key: FlagTokenForgejoUnmask, Short: "Show the full unmasked token", Long: "Show the full unmasked token"},
 	{Key: ArgTokenForgejoHost, Short: "Forgejo hostname", Long: "Forgejo hostname", Default: []string{"codeberg.org"}},
-	{Key: CmdTokenGithub, Short: "GitHub token", AfterLongHelp: "Examples:\n\n    $ mise token github\n    github.com: ghp_…xxxx (source: GITHUB_TOKEN)\n\n    $ mise token github --unmask\n    github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)\n\n    $ mise token github github.mycompany.com\n    github.mycompany.com: (none)\n\n    $ mise token github --oauth --refresh\n    github.com: gho_…xxxx (source: GitHub OAuth)\n"},
-	{Key: FlagTokenGithubOauth, Short: "Resolve only via the native GitHub OAuth source (cache, refresh, or device-code flow), bypassing other token sources", Long: "Resolve only via the native GitHub OAuth source (cache, refresh, or device-code flow), bypassing other token sources"},
+	{Key: CmdTokenGithub, Short: "GitHub token", Long: "Display the GitHub token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise token github\x1b[22m\n    github.com: ghp_…xxxx (source: GITHUB_TOKEN)\n\n    $ \x1b[1mmise token github --unmask\x1b[22m\n    github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)\n\n    $ \x1b[1mmise token github github.mycompany.com\x1b[22m\n    github.mycompany.com: (none)\n\n    $ \x1b[1mmise token github --oauth --refresh\x1b[22m\n    github.com: gho_…xxxx (source: GitHub OAuth)\n"},
+	{Key: FlagTokenGithubOauth, Short: "Resolve only via the native GitHub OAuth source (cache, refresh, or device-code flow), bypassing other token sources", Long: "Resolve only via the native GitHub OAuth source (cache,\nrefresh, or device-code flow), bypassing other token sources"},
 	{Key: FlagTokenGithubRaw, Short: "Print only the token value", Long: "Print only the token value"},
-	{Key: FlagTokenGithubRefresh, Short: "Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow. Use after changing the GitHub App's installations or permissions: cached tokens keep their original access until they expire", Long: "Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow. Use after changing the GitHub App's installations or permissions: cached tokens keep their original access until they expire"},
+	{Key: FlagTokenGithubRefresh, Short: "Mint a fresh OAuth token even if the cached one has not expired, via the refresh-token grant or a new device-code flow. Use after changing the GitHub App's installations or permissions: cached tokens keep their original access until they expire", Long: "Mint a fresh OAuth token even if the cached one has not\nexpired, via the refresh-token grant or a new device-code flow.\nUse after changing the GitHub App's installations or permissions:\ncached tokens keep their original access until they expire"},
 	{Key: FlagTokenGithubUnmask, Short: "Show the full unmasked token", Long: "Show the full unmasked token"},
 	{Key: ArgTokenGithubHost, Short: "GitHub hostname", Long: "GitHub hostname", Default: []string{"github.com"}},
-	{Key: CmdTokenGitlab, Short: "GitLab token", AfterLongHelp: "Examples:\n\n    $ mise token gitlab\n    gitlab.com: glpa…xxxx (source: GITLAB_TOKEN)\n\n    $ mise token gitlab --unmask\n    gitlab.com: glpat-xxxxxxxxxxxx (source: GITLAB_TOKEN)\n\n    $ mise token gitlab gitlab.mycompany.com\n    gitlab.mycompany.com: (none)\n"},
+	{Key: CmdTokenGitlab, Short: "GitLab token", Long: "Display the GitLab token mise will use for a given host\n\nShows which token source mise would use, useful for debugging\nauthentication issues. The token is masked by default.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise token gitlab\x1b[22m\n    gitlab.com: glpa…xxxx (source: GITLAB_TOKEN)\n\n    $ \x1b[1mmise token gitlab --unmask\x1b[22m\n    gitlab.com: glpat-xxxxxxxxxxxx (source: GITLAB_TOKEN)\n\n    $ \x1b[1mmise token gitlab gitlab.mycompany.com\x1b[22m\n    gitlab.mycompany.com: (none)\n"},
 	{Key: FlagTokenGitlabUnmask, Short: "Show the full unmasked token", Long: "Show the full unmasked token"},
 	{Key: ArgTokenGitlabHost, Short: "GitLab hostname", Long: "GitLab hostname", Default: []string{"gitlab.com"}},
-	{Key: CmdTool, Short: "Gets information about a tool", AfterLongHelp: "Examples:\n\n    $ mise tool node\n    Backend:            core\n    Installed Versions: 20.0.0 22.0.0\n    Active Version:     20.0.0\n    Requested Version:  20\n    Config Source:      ~/.config/mise/mise.toml\n    Tool Options:       [none]\n"},
+	{Key: CmdTool, Short: "Gets information about a tool", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise tool node\x1b[22m\n    Backend:            core\n    Installed Versions: 20.0.0 22.0.0\n    Active Version:     20.0.0\n    Requested Version:  20\n    Config Source:      ~/.config/mise/mise.toml\n    Tool Options:       [none]\n"},
 	{Key: FlagToolJson, Short: "Output in JSON format", Long: "Output in JSON format"},
 	{Key: FlagToolActive, Short: "Only show active versions", Long: "Only show active versions"},
 	{Key: FlagToolBackend, Short: "Only show backend field", Long: "Only show backend field"},
@@ -5775,36 +5827,37 @@ var HelpText = argv.HelpTable{
 	{Key: FlagToolRequested, Short: "Only show requested versions", Long: "Only show requested versions"},
 	{Key: FlagToolToolOptions, Short: "Only show tool options", Long: "Only show tool options"},
 	{Key: ArgToolTool, Demanded: true, Short: "Tool name to get information about", Long: "Tool name to get information about"},
-	{Key: CmdToolStub, Short: "Execute a tool stub", Long: "Execute a tool stub\n\nTool stubs are executable files containing TOML configuration that specify which tool to run and how to run it. They provide a convenient way to create portable, self-contained executables that automatically manage tool installation and execution.\n\nA tool stub consists of: - A shebang line: #!/usr/bin/env -S mise tool-stub - TOML configuration specifying the tool, version, and options - Optional comments describing the tool's purpose\n\nExample stub file: #!/usr/bin/env -S mise tool-stub # Node.js v20 development environment\n\ntool = \"node\" version = \"20.0.0\" bin = \"node\"\n\nThe stub will automatically install the specified tool version if missing and execute it with any arguments passed to the stub.\n\nFor more information, see: https://mise.jdx.dev/dev-tools/tool-stubs.html"},
-	{Key: ArgToolStubFile, Demanded: true, Short: "Path to the TOML tool stub file to execute", Long: "Path to the TOML tool stub file to execute\n\nThe stub file must contain TOML configuration specifying the tool and version to run. At minimum, it should specify a 'version' field. Other common fields include 'tool', 'bin', and backend-specific options."},
-	{Key: ArgToolStubArgs, Short: "Arguments to pass to the tool", Long: "Arguments to pass to the tool\n\nAll arguments after the stub file path will be forwarded to the underlying tool. Use '--' to separate mise arguments from tool arguments if needed."},
-	{Key: CmdTrust, Short: "Marks a config file as trusted", Long: "Marks a config file as trusted\n\nThis means mise is allowed to parse the file when it needs to read config\nthat may execute code or affect the environment. mise checks trust before\nparsing `mise.toml`. Without trust, mise may prompt, skip the config in some\ndiscovery paths, fail with an untrusted-config error when it cannot prompt,\nor assume trust in detected CI unless paranoid mode is enabled.\n\nSafe config files do not require trust: files that only contain\n`min_version`, `[tools]` entries with plain version strings (or arrays\nof them), and `[tasks]` (no templates and no tool options) are loaded\nwithout prompting, since nothing in them executes code at load time —\ntools install and tasks run only on explicit commands like `mise install`\nor `mise run`.\n\nTrust is shared across git worktrees: a config file inside a linked\nworktree is trusted when the equivalent path in the repository's main\ncheckout has been trusted. Paranoid mode disables this sharing since\nworktrees can check out branches with different config contents.", AfterLongHelp: "Examples:\n\n    # trusts ~/some_dir/mise.toml\n    $ mise trust ~/some_dir/mise.toml\n\n    # trusts mise.toml in the current or parent directory\n    $ mise trust\n"},
+	{Key: CmdToolStub, Short: "Execute a tool stub", Long: "Execute a tool stub\n\nTool stubs are executable files containing TOML configuration that specify\nwhich tool to run and how to run it. They provide a convenient way to create\nportable, self-contained executables that automatically manage tool installation\nand execution.\n\nA tool stub consists of:\n- A shebang line: #!/usr/bin/env -S mise tool-stub\n- TOML configuration specifying the tool, version, and options\n- Optional comments describing the tool's purpose\n\nExample stub file:\n  #!/usr/bin/env -S mise tool-stub\n  # Node.js v20 development environment\n\n  tool = \"node\"\n  version = \"20.0.0\"\n  bin = \"node\"\n\nThe stub will automatically install the specified tool version if missing\nand execute it with any arguments passed to the stub.\n\nFor more information, see: https://mise.jdx.dev/dev-tools/tool-stubs.html"},
+	{Key: ArgToolStubFile, Demanded: true, Short: "Path to the TOML tool stub file to execute", Long: "Path to the TOML tool stub file to execute\n\nThe stub file must contain TOML configuration specifying the tool\nand version to run. At minimum, it should specify a 'version' field.\nOther common fields include 'tool', 'bin', and backend-specific options."},
+	{Key: ArgToolStubArgs, Short: "Arguments to pass to the tool", Long: "Arguments to pass to the tool\n\nAll arguments after the stub file path will be forwarded to the\nunderlying tool. Use '--' to separate mise arguments from tool arguments\nif needed."},
+	{Key: CmdTrust, Short: "Marks a config file as trusted", Long: "Marks a config file as trusted\n\nThis means mise is allowed to parse the file when it needs to read config\nthat may execute code or affect the environment. Without trust, mise may\nprompt, skip the config in some discovery paths, or fail with an\nuntrusted-config error when it cannot prompt.\n\nIn normal mode, commands that execute project-defined behavior (`mise run`,\nnaked task invocations such as `mise <TASK>`, `mise install`, `mise exec`,\nand `mise watch`) automatically trust their active config. Paranoid mode\nrequires explicit, content-bound trust for every non-global config.\n\nIn normal mode, safe config files do not require trust: files that only contain\n`min_version`, `[tools]` entries with plain version strings (or arrays of\nthem), and `[tasks]` without templates or tool options.\n\nTrust is shared across git worktrees: a config file inside a linked\nworktree is trusted when the equivalent path in the repository's main\ncheckout has been trusted. Paranoid mode disables this sharing since\nworktrees can check out branches with different config contents.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # trusts ~/some_dir/mise.toml\n    $ \x1b[1mmise trust ~/some_dir/mise.toml\x1b[22m\n\n    # trusts mise.toml in the current or parent directory\n    $ \x1b[1mmise trust\x1b[22m\n"},
 	{Key: FlagTrustAll, Short: "Trust all config files in the current directory, its parents, and its subdirectories", Long: "Trust all config files in the current directory, its parents, and its subdirectories\n\nSubdirectories are walked respecting .gitignore, skipping hidden directories\nand common build/dependency directories (node_modules, vendor, target, dist, build)."},
 	{Key: FlagTrustIgnore, Short: "Do not trust this config and ignore it in the future", Long: "Do not trust this config and ignore it in the future"},
 	{Key: FlagTrustShow, Short: "Show the trusted status of config files from the current directory and its parents.\nDoes not trust or untrust any files.", Long: "Show the trusted status of config files from the current directory and its parents.\nDoes not trust or untrust any files."},
-	{Key: FlagTrustUntrust, Short: "No longer trust this config, will prompt in the future", Long: "No longer trust this config, will prompt in the future"},
-	{Key: ArgTrustConfigFile, Short: "The config file to trust", Long: "The config file to trust"},
-	{Key: CmdUninstall, Short: "Removes installed tool versions", Long: "Removes installed tool versions\n\nThis only removes the installed version, it does not modify mise.toml.", AfterLongHelp: "Examples:\n\n    # will uninstall specific version\n    $ mise uninstall node@18.0.0\n\n    # will uninstall the current node version (if only one version is installed)\n    $ mise uninstall node\n\n    # will uninstall all installed versions of node\n    $ mise uninstall --all node@18.0.0 # will uninstall all node versions\n"},
+	{Key: FlagTrustUntrust, Short: "Remove explicit trust for this config", Long: "Remove explicit trust for this config"},
+	{Key: ArgTrustConfigFile, Short: "The config file whose trust status to change", Long: "The config file whose trust status to change"},
+	{Key: CmdUninstall, Short: "Removes installed tool versions", Long: "Removes installed tool versions\n\nThis only removes the installed version, it does not modify mise.toml.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # will uninstall specific version\n    $ \x1b[1mmise uninstall node@18.0.0\x1b[22m\n\n    # will uninstall the current node version (if only one version is installed)\n    $ \x1b[1mmise uninstall node\x1b[22m\n\n    # will uninstall all installed versions of node\n    $ \x1b[1mmise uninstall --all node@18.0.0\x1b[22m # will uninstall all node versions\n"},
 	{Key: FlagUninstallAll, Short: "Delete all installed versions", Long: "Delete all installed versions"},
 	{Key: FlagUninstallDryRun, Short: "Do not actually delete anything", Long: "Do not actually delete anything"},
 	{Key: FlagUninstallDryRunCode, Short: "Like --dry-run but exits with code 1 if there are tools to uninstall", Long: "Like --dry-run but exits with code 1 if there are tools to uninstall\n\nThis is useful for scripts to check if tools need to be uninstalled."},
 	{Key: ArgUninstallInstalledToolVersion, Short: "Tool(s) to remove", Long: "Tool(s) to remove"},
-	{Key: CmdUnset, Short: "Remove environment variable(s) from the config file.", Long: "Remove environment variable(s) from the config file.\n\nBy default, this command modifies `mise.toml` in the current directory.", AfterLongHelp: "Examples:\n\n    # Remove NODE_ENV from the current directory's config\n    $ mise unset NODE_ENV\n\n    # Remove NODE_ENV from the global config\n    $ mise unset NODE_ENV -g\n"},
-	{Key: FlagUnsetFile, ValueName: "FILE", ValueDemanded: true, Short: "Specify a file to use instead of `mise.toml`", Long: "Specify a file to use instead of `mise.toml`\n\nCan be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.\n\nDefaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`. Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path."},
+	{Key: CmdUnset, Short: "Remove environment variable(s) from the config file.", Long: "Remove environment variable(s) from the config file.\n\nBy default, this command modifies `mise.toml` in the current directory.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # Remove NODE_ENV from the current directory's config\n    $ \x1b[1mmise unset NODE_ENV\x1b[22m\n\n    # Remove NODE_ENV from the global config\n    $ \x1b[1mmise unset NODE_ENV -g\x1b[22m\n"},
+	{Key: FlagUnsetFile, ValueName: "FILE", ValueDemanded: true, Short: "Specify a file to use instead of `mise.toml`", Long: "Specify a file to use instead of `mise.toml`\n\nCan be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.\n\nDefaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`.\nUse [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path."},
 	{Key: FlagUnsetGlobal, Short: "Use the global config file", Long: "Use the global config file"},
 	{Key: ArgUnsetEnvKey, Short: "Environment variable(s) to remove\ne.g.: NODE_ENV", Long: "Environment variable(s) to remove\ne.g.: NODE_ENV"},
-	{Key: CmdUntrust, Short: "No longer trust a config, will prompt in the future"},
+	{Key: CmdUntrust, Short: "Remove explicit trust for a config"},
 	{Key: ArgUntrustConfigFile, Short: "The config file to untrust", Long: "The config file to untrust"},
-	{Key: CmdUnuse, Short: "Removes installed tool versions from mise.toml", Long: "Removes installed tool versions from mise.toml\n\nBy default, this will use the `mise.toml` file that has the tool defined.\nIf multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),\nthe lowest precedence file (`mise.toml`) will be used.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations\n\nIn the following order:\n  - If `--global` is set, it will use the global config file.\n  - If `--path` is set, it will use the config file at the given path.\n  - If `--env` is set, it will use `mise.<env>.toml`.\n  - If [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) is set, it will use that instead.\n  - If `MISE_OVERRIDE_CONFIG_FILENAMES` is set, it will the first from that list.\n  - Otherwise just \"mise.toml\" or global config if cwd is home directory.\n\nUse [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.\n\nWill also prune the installed version if no other configurations are using it.", VisibleAliases: []string{"rm", "remove"}, AfterLongHelp: "Examples:\n\n    # will uninstall specific version\n    $ mise unuse node@18.0.0\n\n    # will uninstall specific version from global config\n    $ mise unuse -g node@18.0.0\n\n    # will uninstall specific version from .mise.local.toml\n    $ mise unuse --env local node@20\n\n    # will uninstall specific version from .mise.staging.toml\n    $ mise unuse --env staging node@20\n"},
+	{Key: CmdUnuse, Short: "Removes installed tool versions from mise.toml", Long: "Removes installed tool versions from mise.toml\n\nBy default, this will use the `mise.toml` file that has the tool defined.\nIf multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),\nthe lowest precedence file (`mise.toml`) will be used.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations\n\nIn the following order:\n  - If `--global` is set, it will use the global config file.\n  - If `--path` is set, it will use the config file at the given path.\n  - If `--env` is set, it will use `mise.<env>.toml`.\n  - If [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) is set, it will use that instead.\n  - If `MISE_OVERRIDE_CONFIG_FILENAMES` is set, it will the first from that list.\n  - Otherwise just \"mise.toml\" or global config if cwd is home directory.\n\nUse [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.\n\nWill also prune the installed version if no other configurations are using it.", VisibleAliases: []string{"rm", "remove"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # will uninstall specific version\n    $ \x1b[1mmise unuse node@18.0.0\x1b[22m\n\n    # will uninstall specific version from global config\n    $ \x1b[1mmise unuse -g node@18.0.0\x1b[22m\n\n    # will uninstall specific version from .mise.local.toml\n    $ \x1b[1mmise unuse --env local node@20\x1b[22m\n\n    # will uninstall specific version from .mise.staging.toml\n    $ \x1b[1mmise unuse --env staging node@20\x1b[22m\n"},
 	{Key: FlagUnuseEnv, ValueName: "ENV", ValueDemanded: true, Short: "Create/modify an environment-specific config file like .mise.<env>.toml", Long: "Create/modify an environment-specific config file like .mise.<env>.toml"},
 	{Key: FlagUnuseGlobal, Short: "Use the global config file (`~/.config/mise/config.toml`) instead of the local one", Long: "Use the global config file (`~/.config/mise/config.toml`) instead of the local one"},
-	{Key: FlagUnusePath, ValueName: "PATH", ValueDemanded: true, Short: "Specify a path to a config file or directory", Long: "Specify a path to a config file or directory\n\nIf a directory is specified, it will look for a config file in that directory following the rules above."},
+	{Key: FlagUnusePath, ValueName: "PATH", ValueDemanded: true, Short: "Specify a path to a config file or directory", Long: "Specify a path to a config file or directory\n\nIf a directory is specified, it will look for a config file in that directory following\nthe rules above."},
 	{Key: FlagUnuseNoPrune, Short: "Do not also prune the installed version", Long: "Do not also prune the installed version"},
 	{Key: ArgUnuseInstalledToolVersion, Demanded: true, Short: "Tool(s) to remove", Long: "Tool(s) to remove"},
-	{Key: CmdUpgrade, Short: "Upgrades outdated tools", Long: "Upgrades outdated tools\n\nBy default, this keeps the range specified in mise.toml. So if you have node@20 set, it will\nupgrade to the latest 20.x.x version available. See the `--bump` flag to use the latest version\nand bump the version in mise.toml.\n\nThis will update mise.lock if it is enabled, see https://mise.jdx.dev/configuration/settings.html#lockfile", VisibleAliases: []string{"up"}, AfterLongHelp: "Examples:\n\n    # Upgrades node to the latest version matching the range in mise.toml\n    $ mise upgrade node\n\n    # Upgrades node to the latest version and bumps the version in mise.toml\n    $ mise upgrade node --bump\n\n    # Upgrades all tools to the latest versions\n    $ mise upgrade\n\n    # Upgrades all tools to the latest versions and bumps the version in mise.toml\n    $ mise upgrade --bump\n\n    # Just print what would be done, don't actually do it\n    $ mise upgrade --dry-run\n\n    # Upgrades node and python to the latest versions\n    $ mise upgrade node python\n\n    # Upgrade all tools except go\n    $ mise upgrade --exclude go\n\n    # Show a multiselect menu to choose which tools to upgrade\n    $ mise upgrade --interactive\n\n    # Only upgrade tools defined in local mise.toml, not global ones\n    $ mise upgrade --local\n"},
-	{Key: FlagUpgradeInteractive, Short: "Display multiselect menu to choose which tools to upgrade", Long: "Display multiselect menu to choose which tools to upgrade"},
-	{Key: FlagUpgradeJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\n[default: 4]", Long: "Number of jobs to run in parallel\n[default: 4]"},
+	{Key: CmdUpgrade, Short: "Upgrades outdated tools", Long: "Upgrades outdated tools\n\nBy default, this keeps the range specified in mise.toml. So if you have node@20 set, it will\nupgrade to the latest 20.x.x version available. See the `--bump` flag to use the latest version\nand bump the version in mise.toml.\n\nThis will update mise.lock if it is enabled, see https://mise.jdx.dev/configuration/settings.html#lockfile", VisibleAliases: []string{"up"}, AfterLongHelp: "\x1b[1m\x1b[4mDeprecation:\x1b[22m\x1b[24m\n\nThe `-l` shorthand for `--bump` is deprecated and will be removed in mise 2027.8.5.\nAfter removal, `-l` will become shorthand for `--local`. Use `-b` or `--bump` instead.\n\n\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # Upgrades node to the latest version matching the range in mise.toml\n    $ \x1b[1mmise upgrade node\x1b[22m\n\n    # Upgrades node to the latest version and bumps the version in mise.toml\n    $ \x1b[1mmise upgrade node --bump\x1b[22m\n\n    # Upgrades all tools to the latest versions\n    $ \x1b[1mmise upgrade\x1b[22m\n\n    # Upgrades all tools to the latest versions and bumps the version in mise.toml\n    $ \x1b[1mmise upgrade --bump\x1b[22m\n\n    # Just print what would be done, don't actually do it\n    $ \x1b[1mmise upgrade --dry-run\x1b[22m\n\n    # Upgrades node and python to the latest versions\n    $ \x1b[1mmise upgrade node python\x1b[22m\n\n    # Upgrade all tools except go\n    $ \x1b[1mmise upgrade --exclude go\x1b[22m\n\n    # Show a multiselect menu to choose which tools to upgrade\n    $ \x1b[1mmise upgrade --interactive\x1b[22m\n\n    # Only upgrade tools defined in local mise.toml, not global ones\n    $ \x1b[1mmise upgrade --local\x1b[22m\n"},
 	{Key: FlagUpgradeBump, Short: "Upgrades to the latest version available, bumping the version in mise.toml", Long: "Upgrades to the latest version available, bumping the version in mise.toml\n\nFor example, if you have `node = \"20.0.0\"` in your mise.toml but 22.1.0 is the latest available,\nthis will install 22.1.0 and set `node = \"22.1.0\"` in your config.\n\nIt keeps the same precision as what was there before, so if you instead had `node = \"20\"`, it\nwould change your config to `node = \"22\"`."},
+	{Key: FlagUpgradeInteractive, Short: "Display multiselect menu to choose which tools to upgrade", Long: "Display multiselect menu to choose which tools to upgrade"},
+	{Key: FlagUpgradeJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Long: "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Env: "MISE_JOBS"},
+	{Key: FlagUpgradeL, Hide: true, Short: "Deprecated shorthand for --bump", Long: "Deprecated shorthand for --bump"},
 	{Key: FlagUpgradeDryRun, Short: "Just print what would be done, don't actually do it", Long: "Just print what would be done, don't actually do it"},
 	{Key: FlagUpgradeExclude, Repeatable: true, ValueName: "INSTALLED_TOOL", ValueDemanded: true, Short: "Tool(s) to exclude from upgrading\ne.g.: go python", Long: "Tool(s) to exclude from upgrading\ne.g.: go python"},
 	{Key: FlagUpgradeDryRunCode, Short: "Like --dry-run but exits with code 1 if there are outdated tools", Long: "Like --dry-run but exits with code 1 if there are outdated tools\n\nThis is useful for scripts to check if tools need to be upgraded."},
@@ -5812,80 +5865,81 @@ var HelpText = argv.HelpTable{
 	{Key: FlagUpgradeLocal, Short: "Only upgrade tools defined in local config files", Long: "Only upgrade tools defined in local config files\n\nThis will only upgrade tools that are defined in project-local mise.toml and\nwill skip tools defined in the global config (~/.config/mise/config.toml)."},
 	{Key: FlagUpgradeMinimumReleaseAge, ValueName: "MINIMUM_RELEASE_AGE", ValueDemanded: true, Short: "Only upgrade to versions released before this date or older than this duration", Long: "Only upgrade to versions released before this date or older than this duration\n\nSupports absolute dates like \"2024-06-01\" and relative durations like \"90d\" or \"1y\".\nThis can be useful for reproducibility or security purposes.\n\nThis only affects fuzzy version matches like \"20\" or \"latest\".\nExplicitly pinned versions like \"22.5.0\" are not filtered."},
 	{Key: FlagUpgradeMonorepo, Short: "Placeholder for future monorepo upgrades; `mise upgrade --monorepo` is not implemented yet.", Long: "Placeholder for future monorepo upgrades; `mise upgrade --monorepo` is not implemented yet."},
-	{Key: FlagUpgradeNoPrune, Short: "Do not uninstall the versions that were upgraded away from", Long: "Do not uninstall the versions that were upgraded away from\n\nBy default the old version is removed once the new one installs, unless another\ntracked config or tool stub still needs it. Use this to keep it anyway, e.g. when\nsomething outside of mise points at the old install directory."},
-	{Key: FlagUpgradeRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1"},
+	{Key: FlagUpgradeNoPrune, Short: "Do not uninstall the versions that were upgraded away from", Long: "Do not uninstall the versions that were upgraded away from\n\nBy default the old version is removed once the new one installs, unless another\ntracked config or tool stub still needs it. Use this to keep it anyway, e.g. when\nsomething outside of mise points at the old install directory.\n\nSet `upgrade.auto_prune = false` to make this the default."},
+	{Key: FlagUpgradePrune, Short: "Uninstall the versions that were upgraded away from", Long: "Uninstall the versions that were upgraded away from\n\nThis is already the default. Use it to override `upgrade.auto_prune = false`\nfor a single run."},
+	{Key: FlagUpgradeRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies --jobs=1", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies --jobs=1"},
 	{Key: ArgUpgradeInstalledToolVersion, Short: "Tool(s) to upgrade\ne.g.: node@20 python@3.10\nIf not specified, all current tools will be upgraded", Long: "Tool(s) to upgrade\ne.g.: node@20 python@3.10\nIf not specified, all current tools will be upgraded"},
 	{Key: CmdUsage, Hide: true, Short: "Generate a usage CLI spec", Long: "Generate a usage CLI spec\n\nSee https://usage.jdx.dev for more information on this specification."},
-	{Key: CmdUse, Short: "Installs a tool and adds the version to mise.toml.", Long: "Installs a tool and adds the version to mise.toml.\n\nThis will install the tool version if it is not already installed.\nBy default, this will use a `mise.toml` file in the current directory.\nIf multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),\nthe lowest precedence file (`mise.toml`) will be used.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations\n\nIn the following order:\n  - If `--global` is set, it will use the global config file.\n  - If `--path` is set, it will use the config file at the given path.\n  - If `--env` is set, it will use `mise.<env>.toml`.\n  - If [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) is set, it will use that instead.\n  - If `MISE_OVERRIDE_CONFIG_FILENAMES` is set, it will the first from that list.\n  - Otherwise just \"mise.toml\" or global config if cwd is home directory.\n\nUse [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.\n\nUse the `--global` flag to use the global config file instead.", VisibleAliases: []string{"u"}, AfterLongHelp: "Examples:\n\n    # run with no arguments to use the interactive selector\n    $ mise use\n\n    # set the current version of node to 20.x in mise.toml of current directory\n    # will write the fuzzy version (e.g.: 20)\n    $ mise use node@20\n\n    # set the current version of node to 20.x in ~/.config/mise/config.toml\n    # will write the precise version (e.g.: 20.0.0)\n    $ mise use -g --pin node@20\n\n    # sets .mise.local.toml (which is intended not to be committed to a project)\n    $ mise use --env local node@20\n\n    # sets .mise.staging.toml (which is used if MISE_ENV=staging)\n    $ mise use --env staging node@20\n"},
+	{Key: CmdUse, Short: "Installs a tool and adds the version to mise.toml.", Long: "Installs a tool and adds the version to mise.toml.\n\nThis will install the tool version if it is not already installed.\nBy default, this will use a `mise.toml` file in the current directory.\nIf multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),\nthe lowest precedence file (`mise.toml`) will be used.\nSee https://mise.jdx.dev/configuration.html#target-file-for-write-operations\n\nIn the following order:\n  - If `--global` is set, it will use the global config file.\n  - If `--path` is set, it will use the config file at the given path.\n  - If `--env` is set, it will use `mise.<env>.toml`.\n  - If [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) is set, it will use that instead.\n  - If `MISE_OVERRIDE_CONFIG_FILENAMES` is set, it will the first from that list.\n  - Otherwise just \"mise.toml\" or global config if cwd is home directory.\n\nUse [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.\n\nUse the `--global` flag to use the global config file instead.", VisibleAliases: []string{"u"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # run with no arguments to use the interactive selector\n    $ \x1b[1mmise use\x1b[22m\n\n    # set the current version of node to 20.x in mise.toml of current directory\n    # will write the fuzzy version (e.g.: 20)\n    $ \x1b[1mmise use node@20\x1b[22m\n\n    # set the current version of node to 20.x in ~/.config/mise/config.toml\n    # will write the precise version (e.g.: 20.0.0)\n    $ \x1b[1mmise use -g --pin node@20\x1b[22m\n\n    # sets .mise.local.toml (which is intended not to be committed to a project)\n    $ \x1b[1mmise use --env local node@20\x1b[22m\n\n    # sets .mise.staging.toml (which is used if MISE_ENV=staging)\n    $ \x1b[1mmise use --env staging node@20\x1b[22m\n"},
 	{Key: FlagUseEnv, ValueName: "ENV", ValueDemanded: true, Short: "Create/modify an environment-specific config file like .mise.<env>.toml", Long: "Create/modify an environment-specific config file like .mise.<env>.toml"},
 	{Key: FlagUseForce, Short: "Force reinstall even if already installed", Long: "Force reinstall even if already installed"},
 	{Key: FlagUseGlobal, Short: "Use the global config file (`~/.config/mise/config.toml`) instead of the local one", Long: "Use the global config file (`~/.config/mise/config.toml`) instead of the local one"},
-	{Key: FlagUseJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\n[default: 4]", Long: "Number of jobs to run in parallel\n[default: 4]"},
+	{Key: FlagUseJobs, ValueName: "JOBS", ValueDemanded: true, Short: "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Long: "Number of jobs to run in parallel\nValues below 1 are treated as 1\n[default: 4]", Env: "MISE_JOBS"},
 	{Key: FlagUseDryRun, Short: "Perform a dry run, showing what would be installed and modified without making changes", Long: "Perform a dry run, showing what would be installed and modified without making changes"},
-	{Key: FlagUsePath, ValueName: "PATH", ValueDemanded: true, Short: "Specify a path to a config file or directory", Long: "Specify a path to a config file or directory\n\nIf a directory is specified, it will look for a config file in that directory following the rules above."},
+	{Key: FlagUsePath, ValueName: "PATH", ValueDemanded: true, Short: "Specify a path to a config file or directory", Long: "Specify a path to a config file or directory\n\nIf a directory is specified, it will look for a config file in that directory following\nthe rules above."},
 	{Key: FlagUseDryRunCode, Short: "Like --dry-run but exits with code 1 if there are changes to make", Long: "Like --dry-run but exits with code 1 if there are changes to make\n\nThis is useful for scripts to check if tools need to be added or removed."},
 	{Key: FlagUseFuzzy, Short: "Save fuzzy version to config file", Long: "Save fuzzy version to config file\n\ne.g.: `mise use --fuzzy node@20` will save 20 as the version\nthis is the default behavior unless `MISE_PIN=1`"},
 	{Key: FlagUseMinimumReleaseAge, ValueName: "MINIMUM_RELEASE_AGE", ValueDemanded: true, Short: "Only install versions released before this date or older than this duration", Long: "Only install versions released before this date or older than this duration\n\nSupports absolute dates like \"2024-06-01\" and relative durations like \"90d\" or \"1y\"."},
-	{Key: FlagUsePin, Short: "Save exact version to config file\ne.g.: `mise use --pin node@20` will save 20.0.0 as the version\nSet `MISE_PIN=1` to make this the default behavior", Long: "Save exact version to config file\ne.g.: `mise use --pin node@20` will save 20.0.0 as the version\nSet `MISE_PIN=1` to make this the default behavior\n\nConsider using mise.lock as a better alternative to pinning in mise.toml:\nhttps://mise.jdx.dev/configuration/settings.html#lockfile"},
-	{Key: FlagUseRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies `--jobs=1`", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies `--jobs=1`"},
+	{Key: FlagUsePin, Short: "Save the resolved concrete version to the config file", Long: "Save the resolved concrete version to the config file\n\nIf the request exactly matches an available release, that release is preferred over\ninstalled fuzzy matches. Use `prefix:` to explicitly request recursive prefix matching.\ne.g.: `mise use --pin node@20` will save the resolved `20.x.y` version\nSet `MISE_PIN=1` to make this the default behavior\n\nConsider using mise.lock as a better alternative to pinning in mise.toml:\nhttps://mise.jdx.dev/configuration/settings.html#lockfile"},
+	{Key: FlagUseRaw, Short: "Connect backend install command stdin/stdout/stderr directly to the terminal Implies `--jobs=1`", Long: "Connect backend install command stdin/stdout/stderr directly to the terminal\nImplies `--jobs=1`"},
 	{Key: FlagUseRemove, Repeatable: true, ValueName: "TOOL", ValueDemanded: true, Short: "Remove the tool(s) from config file", Long: "Remove the tool(s) from config file"},
 	{Key: ArgUseToolVersion, Short: "Tool(s) to add to config file", Long: "Tool(s) to add to config file\n\ne.g.: node@20, cargo:ripgrep@latest npm:prettier@3\nIf no version is specified, it will default to @latest\n\nTool options can be set with this syntax:\n\n    mise use ubi:BurntSushi/ripgrep[exe=rg]"},
-	{Key: CmdVersion, Short: "Display the version of mise", Long: "Display the version of mise\n\nDisplays the version, os, architecture, and the date of the build.\n\nIf the version is out of date, it will display a warning.", VisibleAliases: []string{"v"}, AfterLongHelp: "Examples:\n\n    $ mise version\n    $ mise --version\n    $ mise -v\n    $ mise -V\n"},
+	{Key: CmdVersion, Short: "Display the version of mise", Long: "Display the version of mise\n\nDisplays the version, os, architecture, and the date of the build.\n\nIf the version is out of date, it will display a warning.", VisibleAliases: []string{"v"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise version\x1b[22m\n    $ \x1b[1mmise --version\x1b[22m\n    $ \x1b[1mmise -v\x1b[22m\n    $ \x1b[1mmise -V\x1b[22m\n"},
 	{Key: FlagVersionJson, Short: "Print the version information in JSON format", Long: "Print the version information in JSON format"},
-	{Key: CmdWatch, Short: "Run task(s) and watch for changes to rerun it", Long: "Run task(s) and watch for changes to rerun it\n\nThis command uses the `watchexec` tool to watch for changes to files and rerun the specified task(s).\nIt must be installed for this command to work, but you can install it with `mise use -g watchexec@latest`.\n\nFor more advanced process management (daemon management, auto-restart, readiness checks,\ncron scheduling), see mise's sister project: https://pitchfork.jdx.dev", VisibleAliases: []string{"w"}, AfterLongHelp: "Examples:\n\n    $ mise watch build\n    Runs the \"build\" tasks. Will re-run the tasks when any of its sources change.\n    Uses \"sources\" from the tasks definition to determine which files to watch.\n\n    $ mise watch build --glob src/**/*.rs\n    Runs the \"build\" tasks but specify the files to watch with a glob pattern.\n    This overrides the \"sources\" from the tasks definition.\n\n    $ mise watch build --clear\n    Extra arguments are passed to watchexec. See `watchexec --help` for details.\n\n    $ mise watch serve --watch src --exts rs --restart\n    Starts an api server, watching for changes to \"*.rs\" files in \"./src\" and kills/restarts the server when they change.\n"},
+	{Key: CmdWatch, Short: "Run task(s) and watch for changes to rerun it", Long: "Run task(s) and watch for changes to rerun it\n\nThis command uses the `watchexec` tool to watch for changes to files and rerun the specified task(s).\nIt must be installed for this command to work, but you can install it with `mise use -g watchexec@latest`.\n\nFor more advanced process management (daemon management, auto-restart, readiness checks,\ncron scheduling), see mise's sister project: https://pitchfork.jdx.dev", VisibleAliases: []string{"w"}, AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise watch build\x1b[22m\n    Runs the \"build\" tasks. Will re-run the tasks when any of its sources change.\n    Uses \"sources\" from the tasks definition to determine which files to watch.\n\n    $ \x1b[1mmise watch build --glob src/**/*.rs\x1b[22m\n    Runs the \"build\" tasks but specify the files to watch with a glob pattern.\n    This overrides the \"sources\" from the tasks definition.\n\n    $ \x1b[1mmise watch build --clear\x1b[22m\n    Extra arguments are passed to watchexec. See `watchexec --help` for details.\n\n    $ \x1b[1mmise watch serve --watch src --exts rs --restart\x1b[22m\n    Starts an api server, watching for changes to \"*.rs\" files in \"./src\" and kills/restarts the server when they change.\n"},
 	{Key: FlagWatchTaskFlag, Hide: true, Repeatable: true, ValueName: "TASK_FLAG", ValueDemanded: true, Short: "Tasks to run", Long: "Tasks to run"},
 	{Key: FlagWatchGlob, Hide: true, Repeatable: true, ValueName: "GLOB", ValueDemanded: true, Short: "Files to watch\nDefaults to sources from the task(s)", Long: "Files to watch\nDefaults to sources from the task(s)"},
 	{Key: FlagWatchSkipDeps, Short: "Run only the specified tasks skipping all dependencies", Long: "Run only the specified tasks skipping all dependencies"},
-	{Key: FlagWatchWatch, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Watch a specific file or directory", Long: "Watch a specific file or directory\n\nBy default, Watchexec watches the current directory.\n\nWhen watching a single file, it's often better to watch the containing directory instead, and filter on the filename. Some editors may replace the file with a new one when saving, and some platforms may not detect that or further changes.\n\nUpon starting, Watchexec resolves a \"project origin\" from the watched paths. See the help for '--project-origin' for more information.\n\nThis option can be specified multiple times to watch multiple files or directories.\n\nThe special value '/dev/null', provided as the only path watched, will cause Watchexec to not watch any paths. Other event sources (like signals or key events) may still be used."},
-	{Key: FlagWatchWatchNonRecursive, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Watch a specific directory, non-recursively", Long: "Watch a specific directory, non-recursively\n\nUnlike '-w', folders watched with this option are not recursed into.\n\nThis option can be specified multiple times to watch multiple directories non-recursively."},
-	{Key: FlagWatchWatchFile, ValueName: "PATH", ValueDemanded: true, Short: "Watch files and directories from a file", Long: "Watch files and directories from a file\n\nEach line in the file will be interpreted as if given to '-w'.\n\nFor more complex uses (like watching non-recursively), use the argfile capability: build a file containing command-line options and pass it to watchexec with `@path/to/argfile`.\n\nThe special value '-' will read from STDIN; this in incompatible with '--stdin-quit'."},
-	{Key: FlagWatchClear, ValueName: "MODE", ValueDemanded: true, Short: "Clear screen before running command", Long: "Clear screen before running command\n\nIf this doesn't completely clear the screen, try '--clear=reset'.", Choices: []string{"clear", "reset"}},
-	{Key: FlagWatchOnBusyUpdate, ValueName: "MODE", ValueDemanded: true, Short: "What to do when receiving events while the command is running", Long: "What to do when receiving events while the command is running\n\nDefault is to 'do-nothing', which ignores events while the command is running, so that changes that occur due to the command are ignored, like compilation outputs. You can also use 'queue' which will run the command once again when the current run has finished if any events occur while it's running, or 'restart', which terminates the running command and starts a new one. Finally, there's 'signal', which only sends a signal; this can be useful with programs that can reload their configuration without a full restart.\n\nThe signal can be specified with the '--signal' option.", Choices: []string{"queue", "do-nothing", "restart", "signal"}, Default: []string{"do-nothing"}},
+	{Key: FlagWatchWatch, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Watch a specific file or directory", Long: "Watch a specific file or directory\n\nBy default, Watchexec watches the current directory.\n\nWhen watching a single file, it's often better to watch the containing directory instead,\nand filter on the filename. Some editors may replace the file with a new one when saving,\nand some platforms may not detect that or further changes.\n\nUpon starting, Watchexec resolves a \"project origin\" from the watched paths. See the help\nfor '--project-origin' for more information.\n\nThis option can be specified multiple times to watch multiple files or directories.\n\nThe special value '/dev/null', provided as the only path watched, will cause Watchexec to\nnot watch any paths. Other event sources (like signals or key events) may still be used.", Heading: "Filtering"},
+	{Key: FlagWatchWatchNonRecursive, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Watch a specific directory, non-recursively", Long: "Watch a specific directory, non-recursively\n\nUnlike '-w', folders watched with this option are not recursed into.\n\nThis option can be specified multiple times to watch multiple directories non-recursively.", Heading: "Filtering"},
+	{Key: FlagWatchWatchFile, ValueName: "PATH", ValueDemanded: true, Short: "Watch files and directories from a file", Long: "Watch files and directories from a file\n\nEach line in the file will be interpreted as if given to '-w'.\n\nFor more complex uses (like watching non-recursively), use the argfile capability: build a\nfile containing command-line options and pass it to watchexec with `@path/to/argfile`.\n\nThe special value '-' will read from STDIN; this in incompatible with '--stdin-quit'.", Heading: "Filtering"},
+	{Key: FlagWatchClear, ValueName: "MODE", Short: "Clear screen before running command", Long: "Clear screen before running command\n\nIf this doesn't completely clear the screen, try '--clear=reset'.", Heading: "Output", Choices: []string{"clear", "reset"}},
+	{Key: FlagWatchOnBusyUpdate, HideDefaultValue: true, ValueName: "MODE", ValueDemanded: true, Short: "What to do when receiving events while the command is running", Long: "What to do when receiving events while the command is running\n\nDefault is to 'do-nothing', which ignores events while the command is running, so that\nchanges that occur due to the command are ignored, like compilation outputs. You can also\nuse 'queue' which will run the command once again when the current run has finished if any\nevents occur while it's running, or 'restart', which terminates the running command and starts\na new one. Finally, there's 'signal', which only sends a signal; this can be useful with\nprograms that can reload their configuration without a full restart.\n\nThe signal can be specified with the '--signal' option.", Choices: []string{"queue", "do-nothing", "restart", "signal"}, Default: []string{"do-nothing"}},
 	{Key: FlagWatchRestart, Short: "Restart the process if it's still running", Long: "Restart the process if it's still running\n\nThis is a shorthand for '--on-busy-update=restart'."},
-	{Key: FlagWatchSignal, ValueName: "SIGNAL", ValueDemanded: true, Short: "Send a signal to the process when it's still running", Long: "Send a signal to the process when it's still running\n\nSpecify a signal to send to the process when it's still running. This implies '--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is controlled by '--stop-signal'.\n\nSee the long documentation for '--stop-signal' for syntax.\n\nSignals are not supported on Windows at the moment, and will always be overridden to 'kill'. See '--stop-signal' for more on Windows \"signals\"."},
-	{Key: FlagWatchStopSignal, ValueName: "SIGNAL", ValueDemanded: true, Short: "Signal to send to stop the command", Long: "Signal to send to stop the command\n\nThis is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is provided). The restart behaviour is to send the signal, wait for the command to exit, and if it hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.\n\nThe default on unix is \"SIGTERM\".\n\nInput is parsed as a full signal name (like \"SIGTERM\"), a short signal name (like \"TERM\"), or a signal number (like \"15\"). All input is case-insensitive.\n\nOn Windows this option is technically supported but only supports the \"KILL\" event, as Watchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it has termination (here called \"KILL\" or \"STOP\") and \"CTRL+C\", \"CTRL+BREAK\", and \"CTRL+CLOSE\" events. For portability the unix signals \"SIGKILL\", \"SIGINT\", \"SIGTERM\", and \"SIGHUP\" are respectively mapped to these."},
-	{Key: FlagWatchStopTimeout, ValueName: "TIMEOUT", ValueDemanded: true, Short: "Time to wait for the command to exit gracefully", Long: "Time to wait for the command to exit gracefully\n\nThis is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal is sent, Watchexec will wait for the command to exit. If it hasn't exited after this time, it is forcefully terminated.\n\nTakes a unit-less value in seconds, or a time span value such as \"5min 20s\". Providing a unit-less value is deprecated and will warn; it will be an error in the future.\n\nThe default is 10 seconds. Set to 0 to immediately force-kill the command.\n\nThis has no practical effect on Windows as the command is always forcefully terminated; see '--stop-signal' for why.", Default: []string{"10s"}},
-	{Key: FlagWatchMapSignal, Repeatable: true, ValueName: "SIGNAL:SIGNAL", ValueDemanded: true, Short: "Translate signals from the OS to signals to send to the command", Long: "Translate signals from the OS to signals to send to the command\n\nTakes a pair of signal names, separated by a colon, such as \"TERM:INT\" to map SIGTERM to SIGINT. The first signal is the one received by watchexec, and the second is the one sent to the command. The second can be omitted to discard the first signal, such as \"TERM:\" to not do anything on SIGTERM.\n\nIf SIGINT or SIGTERM are mapped, then they no longer quit Watchexec. Besides making it hard to quit Watchexec itself, this is useful to send pass a Ctrl-C to the command without also terminating Watchexec and the underlying program with it, e.g. with \"INT:INT\".\n\nThis option can be specified multiple times to map multiple signals.\n\nSignal syntax is case-insensitive for short names (like \"TERM\", \"USR2\") and long names (like \"SIGKILL\", \"SIGHUP\"). Signal numbers are also supported (like \"15\", \"31\"). On Windows, the forms \"STOP\", \"CTRL+C\", and \"CTRL+BREAK\" are also supported to receive, but Watchexec cannot yet deliver other \"signals\" than a STOP."},
-	{Key: FlagWatchDebounce, ValueName: "TIMEOUT", ValueDemanded: true, Short: "Time to wait for new events before taking action", Long: "Time to wait for new events before taking action\n\nWhen an event is received, Watchexec will wait for up to this amount of time before handling it (such as running the command). This is essential as what you might perceive as a single change may actually emit many events, and without this behaviour, Watchexec would run much too often. Additionally, it's not infrequent that file writes are not atomic, and each write may emit an event, so this is a good way to avoid running a command while a file is partially written.\n\nAn alternative use is to set a high value (like \"30min\" or longer), to save power or bandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that every accumulated event will build up in memory.\n\nTakes a unit-less value in milliseconds, or a time span value such as \"5sec 20ms\". Providing a unit-less value is deprecated and will warn; it will be an error in the future.\n\nThe default is 50 milliseconds. Setting to 0 is highly discouraged.", Default: []string{"50ms"}},
-	{Key: FlagWatchStdinQuit, Short: "Exit when stdin closes", Long: "Exit when stdin closes\n\nThis watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is closed. This is used by some process managers to avoid leaving zombie processes around."},
-	{Key: FlagWatchNoVcsIgnore, Short: "Don't load gitignores", Long: "Don't load gitignores\n\nAmong other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note that Watchexec will detect which of these is in use, if any, and only load the relevant files. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.\n\nThis option is useful if you want to watch files that are ignored by Git."},
-	{Key: FlagWatchNoProjectIgnore, Short: "Don't load project-local ignores", Long: "Don't load project-local ignores\n\nThis disables loading of project-local ignore files, like '.gitignore' or '.ignore' in the\nwatched project. This is contrasted with '--no-vcs-ignore', which disables loading of Git\nand other VCS ignore files, and with '--no-global-ignore', which disables loading of global\nor user ignore files, like '~/.gitignore' or '~/.config/watchexec/ignore'.\n\nSupported project ignore files:\n\n  - Git: .gitignore at project root and child directories, .git/info/exclude, and the file pointed to by `core.excludesFile` in .git/config.\n  - Mercurial: .hgignore at project root and child directories.\n  - Bazaar: .bzrignore at project root.\n  - Darcs: _darcs/prefs/boring\n  - Fossil: .fossil-settings/ignore-glob\n  - Ripgrep/Watchexec/generic: .ignore at project root and child directories.\n\nVCS ignore files (Git, Mercurial, Bazaar, Darcs, Fossil) are only used if the corresponding\nVCS is discovered to be in use for the project/origin. For example, a .bzrignore in a Git\nrepository will be discarded."},
-	{Key: FlagWatchNoGlobalIgnore, Short: "Don't load global ignores", Long: "Don't load global ignores\n\nThis disables loading of global or user ignore files, like '~/.gitignore',\n'~/.config/watchexec/ignore', or '%APPDATA%\\Bazaar\\2.0\\ignore'. Contrast with\n'--no-vcs-ignore' and '--no-project-ignore'.\n\nSupported global ignore files\n\n  - Git (if core.excludesFile is set): the file at that path\n  - Git (otherwise): the first found of $XDG_CONFIG_HOME/git/ignore, %APPDATA%/.gitignore, %USERPROFILE%/.gitignore, $HOME/.config/git/ignore, $HOME/.gitignore.\n  - Bazaar: the first found of %APPDATA%/Bazaar/2.0/ignore, $HOME/.bazaar/ignore.\n  - Watchexec: the first found of $XDG_CONFIG_HOME/watchexec/ignore, %APPDATA%/watchexec/ignore, %USERPROFILE%/.watchexec/ignore, $HOME/.watchexec/ignore.\n\nLike for project files, Git and Bazaar global files will only be used for the corresponding\nVCS as used in the project."},
-	{Key: FlagWatchNoDefaultIgnore, Short: "Don't use internal default ignores", Long: "Don't use internal default ignores\n\nWatchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`, `.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and Watchexec log files."},
-	{Key: FlagWatchNoDiscoverIgnore, Short: "Don't discover ignore files at all", Long: "Don't discover ignore files at all\n\nThis is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but even more efficient as it will skip all the ignore discovery mechanisms from the get go.\n\nNote that default ignores are still loaded, see '--no-default-ignore'."},
-	{Key: FlagWatchIgnoreNothing, Short: "Don't ignore anything at all", Long: "Don't ignore anything at all\n\nThis is a shorthand for '--no-discover-ignore', '--no-default-ignore'.\n\nNote that ignores explicitly loaded via other command line options, such as '--ignore' or '--ignore-file', will still be used."},
-	{Key: FlagWatchPostpone, Short: "Wait until first change before running command", Long: "Wait until first change before running command\n\nBy default, Watchexec will run the command once immediately. With this option, it will instead wait until an event is detected before running the command as normal."},
-	{Key: FlagWatchDelayRun, ValueName: "DURATION", ValueDemanded: true, Short: "Sleep before running the command", Long: "Sleep before running the command\n\nThis option will cause Watchexec to sleep for the specified amount of time before running the command, after an event is detected. This is like using \"sleep 5 && command\" in a shell, but portable and slightly more efficient.\n\nTakes a unit-less value in seconds, or a time span value such as \"2min 5s\". Providing a unit-less value is deprecated and will warn; it will be an error in the future."},
-	{Key: FlagWatchPoll, ValueName: "INTERVAL", ValueDemanded: true, Short: "Poll for filesystem changes", Long: "Poll for filesystem changes\n\nBy default, and where available, Watchexec uses the operating system's native file system watching capabilities. This option disables that and instead uses a polling mechanism, which is less efficient but can work around issues with some file systems (like network shares) or edge cases.\n\nOptionally takes a unit-less value in milliseconds, or a time span value such as \"2s 500ms\", to use as the polling interval. If not specified, the default is 30 seconds. Providing a unit-less value is deprecated and will warn; it will be an error in the future.\n\nAliased as '--force-poll'."},
-	{Key: FlagWatchShell, ValueName: "SHELL", ValueDemanded: true, Short: "Use a different shell", Long: "Use a different shell\n\nBy default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes, and either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec detects is the running shell.\n\nWith this option, you can override that and use a different shell, for example one with more features or one which has your custom aliases and functions.\n\nIf the value has spaces, it is parsed as a command line, and the first word used as the shell program, with the rest as arguments to the shell.\n\nThe command is run with the '-c' flag (except for 'cmd' on Windows, where it's '/C').\n\nThe special value 'none' can be used to disable shell use entirely. In that case, the command provided to Watchexec will be parsed, with the first word being the executable and the rest being the arguments, and executed directly. Note that this parsing is rudimentary, and may not work as expected in all cases.\n\nUsing 'none' is a little more efficient and can enable a stricter interpretation of the input, but it also means that you can't use shell features like globbing, redirection, control flow, logic, or pipes.\n\nExamples:\n\nUse without shell:\n\n$ watchexec -n -- zsh -x -o shwordsplit scr\n\nUse with powershell core:\n\n$ watchexec --shell=pwsh -- Test-Connection localhost\n\nUse with CMD.exe:\n\n$ watchexec --shell=cmd -- dir\n\nUse with a different unix shell:\n\n$ watchexec --shell=bash -- 'echo $BASH_VERSION'\n\nUse with a unix shell and options:\n\n$ watchexec --shell='zsh -x -o shwordsplit' -- scr"},
-	{Key: FlagWatchN, Short: "Shorthand for '--shell=none'", Long: "Shorthand for '--shell=none'"},
-	{Key: FlagWatchEmitEventsTo, ValueName: "MODE", ValueDemanded: true, Short: "Configure event emission", Long: "Configure event emission\n\nWatchexec can emit event information when running a command, which can be used by the child\nprocess to target specific changed files.\n\nOne thing to take care with is assuming inherent behaviour where there is only chance.\nNotably, it could appear as if the `RENAMED` variable contains both the original and the new\npath being renamed. In previous versions, it would even appear on some platforms as if the\noriginal always came before the new. However, none of this was true. It's impossible to\nreliably and portably know which changed path is the old or new, \"half\" renames may appear\n(only the original, only the new), \"unknown\" renames may appear (change was a rename, but\nwhether it was the old or new isn't known), rename events might split across two debouncing\nboundaries, and so on.\n\nThis option controls where that information is emitted. It defaults to 'none', which doesn't\nemit event information at all. The other options are 'environment' (deprecated), 'stdio',\n'file', 'json-stdio', and 'json-file'.\n\nThe 'stdio' and 'file' modes are text-based: 'stdio' writes absolute paths to the stdin of\nthe command, one per line, each prefixed with `create:`, `remove:`, `rename:`, `modify:`,\nor `other:`, then closes the handle; 'file' writes the same thing to a temporary file, and\nits path is given with the $WATCHEXEC_EVENTS_FILE environment variable.\n\nThere are also two JSON modes, which are based on JSON objects and can represent the full\nset of events Watchexec handles. Here's an example of a folder being created on Linux:\n\n```json\n  {\n    \"tags\": [\n      {\n        \"kind\": \"path\",\n        \"absolute\": \"/home/user/your/new-folder\",\n        \"filetype\": \"dir\"\n      },\n      {\n        \"kind\": \"fs\",\n        \"simple\": \"create\",\n        \"full\": \"Create(Folder)\"\n      },\n      {\n        \"kind\": \"source\",\n        \"source\": \"filesystem\",\n      }\n    ],\n    \"metadata\": {\n      \"notify-backend\": \"inotify\"\n    }\n  }\n```\n\nThe fields are as follows:\n\n  - `tags`, structured event data.\n  - `tags[].kind`, which can be:\n    * 'path', along with:\n      + `absolute`, an absolute path.\n      + `filetype`, a file type if known ('dir', 'file', 'symlink', 'other').\n    * 'fs':\n      + `simple`, the \"simple\" event type ('access', 'create', 'modify', 'remove', or 'other').\n      + `full`, the \"full\" event type, which is too complex to fully describe here, but looks like 'General(Precise(Specific))'.\n    * 'source', along with:\n      + `source`, the source of the event ('filesystem', 'keyboard', 'mouse', 'os', 'time', 'internal').\n    * 'keyboard', along with:\n      + `keycode`. Currently only the value 'eof' is supported.\n    * 'process', for events caused by processes:\n      + `pid`, the process ID.\n    * 'signal', for signals sent to Watchexec:\n      + `signal`, the normalised signal name ('hangup', 'interrupt', 'quit', 'terminate', 'user1', 'user2').\n    * 'completion', for when a command ends:\n      + `disposition`, the exit disposition ('success', 'error', 'signal', 'stop', 'exception', 'continued').\n      + `code`, the exit, signal, stop, or exception code.\n  - `metadata`, additional information about the event.\n\nThe 'json-stdio' mode will emit JSON events to the standard input of the command, one per\nline, then close stdin. The 'json-file' mode will create a temporary file, write the\nevents to it, and provide the path to the file with the $WATCHEXEC_EVENTS_FILE\nenvironment variable.\n\nFinally, the 'environment' mode was the default until 2.0. It sets environment variables\nwith the paths of the affected files, for filesystem events:\n\n$WATCHEXEC_COMMON_PATH is set to the longest common path of all of the below variables,\nand so should be prepended to each path to obtain the full/real path. Then:\n\n  - $WATCHEXEC_CREATED_PATH is set when files/folders were created\n  - $WATCHEXEC_REMOVED_PATH is set when files/folders were removed\n  - $WATCHEXEC_RENAMED_PATH is set when files/folders were renamed\n  - $WATCHEXEC_WRITTEN_PATH is set when files/folders were modified\n  - $WATCHEXEC_META_CHANGED_PATH is set when files/folders' metadata were modified\n  - $WATCHEXEC_OTHERWISE_CHANGED_PATH is set for every other kind of pathed event\n\nMultiple paths are separated by the system path separator, ';' on Windows and ':' on unix.\nWithin each variable, paths are deduplicated and sorted in binary order (i.e. neither\nUnicode nor locale aware).\n\nThis is the legacy mode, is deprecated, and will be removed in the future. The environment\nis a very restricted space, while also limited in what it can usefully represent. Large\nnumbers of files will either cause the environment to be truncated, or may error or crash\nthe process entirely. The $WATCHEXEC_COMMON_PATH is also unintuitive, as demonstrated by the\nmultiple confused queries that have landed in my inbox over the years.", Choices: []string{"environment", "stdio", "file", "json-stdio", "json-file", "none"}, Default: []string{"none"}},
-	{Key: FlagWatchOnlyEmitEvents, Short: "Only emit events to stdout, run no commands", Long: "Only emit events to stdout, run no commands.\n\nThis is a convenience option for using Watchexec as a file watcher, without running any commands. It is almost equivalent to using `cat` as the command, except that it will not spawn a new process for each event.\n\nThis option requires `--emit-events-to` to be set, and restricts the available modes to `stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin of the command."},
-	{Key: FlagWatchEnv, Repeatable: true, ValueName: "KEY=VALUE", ValueDemanded: true, Short: "Add env vars to the command", Long: "Add env vars to the command\n\nThis is a convenience option for setting environment variables for the command, without setting them for the Watchexec process itself.\n\nUse key=value syntax. Multiple variables can be set by repeating the option."},
-	{Key: FlagWatchWrapProcess, ValueName: "MODE", ValueDemanded: true, Short: "Configure how the process is wrapped", Long: "Configure how the process is wrapped\n\nBy default, Watchexec will run the command in a session on macOS, in a process group on other Unix platforms, and in a Job Object in Windows.\n\nSome Unix programs prefer running in a session, while others do not work in a process group.\n\nUse 'group' to use a process group, 'session' to use a process session, and 'none' to run the command directly. On Windows, either of 'group' or 'session' will use a Job Object.", Choices: []string{"group", "session", "none"}},
-	{Key: FlagWatchNotify, Short: "Alert when commands start and end", Long: "Alert when commands start and end\n\nWith this, Watchexec will emit a desktop notification when a command starts and ends, on supported platforms. On unsupported platforms, it may silently do nothing, or log a warning."},
-	{Key: FlagWatchColor, ValueName: "MODE", ValueDemanded: true, Short: "When to use terminal colours", Long: "When to use terminal colours\n\nSetting the environment variable `NO_COLOR` to any value is equivalent to `--color=never`.", Choices: []string{"auto", "always", "never"}, Default: []string{"auto"}},
-	{Key: FlagWatchTimings, Short: "Print how long the command took to run", Long: "Print how long the command took to run\n\nThis may not be exactly accurate, as it includes some overhead from Watchexec itself. Use the `time` utility, high-precision timers, or benchmarking tools for more accurate results."},
-	{Key: FlagWatchQuiet, Short: "Don't print starting and stopping messages", Long: "Don't print starting and stopping messages\n\nBy default Watchexec will print a message when the command starts and stops. This option disables this behaviour, so only the command's output, warnings, and errors will be printed."},
-	{Key: FlagWatchBell, Short: "Ring the terminal bell on command completion", Long: "Ring the terminal bell on command completion"},
-	{Key: FlagWatchProjectOrigin, ValueName: "DIRECTORY", ValueDemanded: true, Short: "Set the project origin", Long: "Set the project origin\n\nWatchexec will attempt to discover the project's \"origin\" (or \"root\") by searching for a variety of markers, like files or directory patterns. It does its best but sometimes gets it it wrong, and you can override that with this option.\n\nThe project origin is used to determine the path of certain ignore files, which VCS is being used, the meaning of a leading '/' in filtering patterns, and maybe more in the future.\n\nWhen set, Watchexec will also not bother searching, which can be significantly faster."},
-	{Key: FlagWatchWorkdir, ValueName: "DIRECTORY", ValueDemanded: true, Short: "Set the working directory", Long: "Set the working directory\n\nBy default, the working directory of the command is the working directory of Watchexec. You can change that with this option. Note that paths may be less intuitive to use with this."},
-	{Key: FlagWatchExts, Repeatable: true, ValueName: "EXTENSIONS", ValueDemanded: true, Short: "Filename extensions to filter to", Long: "Filename extensions to filter to\n\nThis is a quick filter to only emit events for files with the given extensions. Extensions can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can be given by repeating the option or by separating them with commas."},
-	{Key: FlagWatchFilter, Repeatable: true, ValueName: "PATTERN", ValueDemanded: true, Short: "Filename patterns to filter to", Long: "Filename patterns to filter to\n\nProvide a glob-like filter pattern, and only events for files matching the pattern will be emitted. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched."},
-	{Key: FlagWatchFilterFile, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Files to load filters from", Long: "Files to load filters from\n\nProvide a path to a file containing filters, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--filter' option.\n\nThis can also be used via the $WATCHEXEC_FILTER_FILES environment variable."},
-	{Key: FlagWatchFilterProg, Repeatable: true, ValueName: "EXPRESSION", ValueDemanded: true, Short: "[experimental] Filter programs", Long: "[experimental] Filter programs.\n\n/!\\ This option is EXPERIMENTAL and may change and/or vanish without notice.\n\nProvide your own custom filter programs in jaq (similar to jq) syntax. Programs are given an event in the same format as described in '--emit-events-to' and must return a boolean. Invalid programs will make watchexec fail to start; use '-v' to see program runtime errors.\n\nIn addition to the jaq stdlib, watchexec adds some custom filter definitions:\n\n- 'path | file_meta' returns file metadata or null if the file does not exist.\n\n- 'path | file_size' returns the size of the file at path, or null if it does not exist.\n\n- 'path | file_read(bytes)' returns a string with the first n bytes of the file at path. If the file is smaller than n bytes, the whole file is returned. There is no filter to read the whole file at once to encourage limiting the amount of data read and processed.\n\n- 'string | hash', and 'path | file_hash' return the hash of the string or file at path. No guarantee is made about the algorithm used: treat it as an opaque value.\n\n- 'any | kv_store(key)', 'kv_fetch(key)', and 'kv_clear' provide a simple key-value store. Data is kept in memory only, there is no persistence. Consistency is not guaranteed.\n\n- 'any | printout', 'any | printerr', and 'any | log(level)' will print or log any given value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and pass the value through (so '[1] | log(\"debug\") | .[]' will produce a '1' and log '[1]').\n\nAll filtering done with such programs, and especially those using kv or filesystem access, is much slower than the other filtering methods. If filtering is too slow, events will back up and stall watchexec. Take care when designing your filters.\n\nIf the argument to this option starts with an '@', the rest of the argument is taken to be the path to a file containing a jaq program.\n\nJaq programs are run in order, after all other filters, and short-circuit: if a filter (jaq or not) rejects an event, execution stops there, and no other filters are run. Additionally, they stop after outputting the first value, so you'll want to use 'any' or 'all' when iterating, otherwise only the first item will be processed, which can be quite confusing!\n\nFind user-contributed programs or submit your own useful ones at <https://github.com/watchexec/watchexec/discussions/592>.\n\n## Examples:\n\nRegexp ignore filter on paths:\n\n'all(.tags[] | select(.kind == \"path\"); .absolute | test(\"[.]test[.]js$\")) | not'\n\nPass any event that creates a file:\n\n'any(.tags[] | select(.kind == \"fs\"); .simple == \"create\")'\n\nPass events that touch executable files:\n\n'any(.tags[] | select(.kind == \"path\" && .filetype == \"file\"); .absolute | metadata | .executable)'\n\nIgnore files that start with shebangs:\n\n'any(.tags[] | select(.kind == \"path\" && .filetype == \"file\"); .absolute | read(2) == \"#!\") | not'"},
-	{Key: FlagWatchIgnore, Repeatable: true, ValueName: "PATTERN", ValueDemanded: true, Short: "Filename patterns to filter out", Long: "Filename patterns to filter out\n\nProvide a glob-like filter pattern, and events for files matching the pattern will be excluded. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched."},
-	{Key: FlagWatchIgnoreFile, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Files to load ignores from", Long: "Files to load ignores from\n\nProvide a path to a file containing ignores, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--ignore' option.\n\nThis can also be used via the $WATCHEXEC_IGNORE_FILES environment variable."},
-	{Key: FlagWatchFsEvents, Repeatable: true, ValueName: "EVENTS", ValueDemanded: true, Short: "Filesystem events to filter to", Long: "Filesystem events to filter to\n\nThis is a quick filter to only emit events for the given types of filesystem changes. Choose from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be given by repeating the option or by separating them with commas. By default, this is all types except for 'access'.\n\nThis may apply filtering at the kernel level when possible, which can be more efficient, but may be more confusing when reading the logs.", Choices: []string{"access", "create", "remove", "rename", "modify", "metadata"}, Default: []string{"create", "remove", "rename", "modify", "metadata"}},
-	{Key: FlagWatchNoMeta, Short: "Don't emit fs events for metadata changes", Long: "Don't emit fs events for metadata changes\n\nThis is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the '--fs-events' option is non-sensical and not allowed."},
-	{Key: FlagWatchPrintEvents, Short: "Print events that trigger actions", Long: "Print events that trigger actions\n\nThis prints the events that triggered the action when handling it (after debouncing), in a human readable form. This is useful for debugging filters.\n\nUse '-vvv' instead when you need more diagnostic information."},
-	{Key: FlagWatchManual, Short: "Show the manual page", Long: "Show the manual page\n\nThis shows the manual page for Watchexec, if the output is a terminal and the 'man' program is available. If not, the manual page is printed to stdout in ROFF format (suitable for writing to a watchexec.1 file)."},
-	{Key: ArgWatchTask, Short: "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: `mise run task1 arg1 arg2 ::: task2 arg1 arg2`", Long: "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: `mise run task1 arg1 arg2 ::: task2 arg1 arg2`"},
+	{Key: FlagWatchSignal, ValueName: "SIGNAL", ValueDemanded: true, Short: "Send a signal to the process when it's still running", Long: "Send a signal to the process when it's still running\n\nSpecify a signal to send to the process when it's still running. This implies\n'--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is\ncontrolled by '--stop-signal'.\n\nSee the long documentation for '--stop-signal' for syntax.\n\nSignals are not supported on Windows at the moment, and will always be overridden to 'kill'.\nSee '--stop-signal' for more on Windows \"signals\"."},
+	{Key: FlagWatchStopSignal, ValueName: "SIGNAL", ValueDemanded: true, Short: "Signal to send to stop the command", Long: "Signal to send to stop the command\n\nThis is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is\nprovided). The restart behaviour is to send the signal, wait for the command to exit, and if\nit hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.\n\nThe default on unix is \"SIGTERM\".\n\nInput is parsed as a full signal name (like \"SIGTERM\"), a short signal name (like \"TERM\"),\nor a signal number (like \"15\"). All input is case-insensitive.\n\nOn Windows this option is technically supported but only supports the \"KILL\" event, as\nWatchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it\nhas termination (here called \"KILL\" or \"STOP\") and \"CTRL+C\", \"CTRL+BREAK\", and \"CTRL+CLOSE\"\nevents. For portability the unix signals \"SIGKILL\", \"SIGINT\", \"SIGTERM\", and \"SIGHUP\" are\nrespectively mapped to these."},
+	{Key: FlagWatchStopTimeout, HideDefaultValue: true, ValueName: "TIMEOUT", ValueDemanded: true, Short: "Time to wait for the command to exit gracefully", Long: "Time to wait for the command to exit gracefully\n\nThis is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal\nis sent, Watchexec will wait for the command to exit. If it hasn't exited after this time,\nit is forcefully terminated.\n\nTakes a unit-less value in seconds, or a time span value such as \"5min 20s\".\nProviding a unit-less value is deprecated and will warn; it will be an error in the future.\n\nThe default is 10 seconds. Set to 0 to immediately force-kill the command.\n\nThis has no practical effect on Windows as the command is always forcefully terminated; see\n'--stop-signal' for why.", Default: []string{"10s"}},
+	{Key: FlagWatchMapSignal, Repeatable: true, ValueName: "SIGNAL:SIGNAL", ValueDemanded: true, Short: "Translate signals from the OS to signals to send to the command", Long: "Translate signals from the OS to signals to send to the command\n\nTakes a pair of signal names, separated by a colon, such as \"TERM:INT\" to map SIGTERM to\nSIGINT. The first signal is the one received by watchexec, and the second is the one sent to\nthe command. The second can be omitted to discard the first signal, such as \"TERM:\" to\nnot do anything on SIGTERM.\n\nIf SIGINT or SIGTERM are mapped, then they no longer quit Watchexec. Besides making it hard\nto quit Watchexec itself, this is useful to send pass a Ctrl-C to the command without also\nterminating Watchexec and the underlying program with it, e.g. with \"INT:INT\".\n\nThis option can be specified multiple times to map multiple signals.\n\nSignal syntax is case-insensitive for short names (like \"TERM\", \"USR2\") and long names (like\n\"SIGKILL\", \"SIGHUP\"). Signal numbers are also supported (like \"15\", \"31\"). On Windows, the\nforms \"STOP\", \"CTRL+C\", and \"CTRL+BREAK\" are also supported to receive, but Watchexec cannot\nyet deliver other \"signals\" than a STOP."},
+	{Key: FlagWatchDebounce, HideDefaultValue: true, ValueName: "TIMEOUT", ValueDemanded: true, Short: "Time to wait for new events before taking action", Long: "Time to wait for new events before taking action\n\nWhen an event is received, Watchexec will wait for up to this amount of time before handling\nit (such as running the command). This is essential as what you might perceive as a single\nchange may actually emit many events, and without this behaviour, Watchexec would run much\ntoo often. Additionally, it's not infrequent that file writes are not atomic, and each write\nmay emit an event, so this is a good way to avoid running a command while a file is\npartially written.\n\nAn alternative use is to set a high value (like \"30min\" or longer), to save power or\nbandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that\nevery accumulated event will build up in memory.\n\nTakes a unit-less value in milliseconds, or a time span value such as \"5sec 20ms\".\nProviding a unit-less value is deprecated and will warn; it will be an error in the future.\n\nThe default is 50 milliseconds. Setting to 0 is highly discouraged.", Default: []string{"50ms"}},
+	{Key: FlagWatchStdinQuit, Short: "Exit when stdin closes", Long: "Exit when stdin closes\n\nThis watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is\nclosed. This is used by some process managers to avoid leaving zombie processes around."},
+	{Key: FlagWatchNoVcsIgnore, Short: "Don't load gitignores", Long: "Don't load gitignores\n\nAmong other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note\nthat Watchexec will detect which of these is in use, if any, and only load the relevant\nfiles. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.\n\nThis option is useful if you want to watch files that are ignored by Git.", Heading: "Filtering"},
+	{Key: FlagWatchNoProjectIgnore, Short: "Don't load project-local ignores", Long: "Don't load project-local ignores\n\nThis disables loading of project-local ignore files, like '.gitignore' or '.ignore' in the\nwatched project. This is contrasted with '--no-vcs-ignore', which disables loading of Git\nand other VCS ignore files, and with '--no-global-ignore', which disables loading of global\nor user ignore files, like '~/.gitignore' or '~/.config/watchexec/ignore'.\n\nSupported project ignore files:\n\n  - Git: .gitignore at project root and child directories, .git/info/exclude, and the file pointed to by `core.excludesFile` in .git/config.\n  - Mercurial: .hgignore at project root and child directories.\n  - Bazaar: .bzrignore at project root.\n  - Darcs: _darcs/prefs/boring\n  - Fossil: .fossil-settings/ignore-glob\n  - Ripgrep/Watchexec/generic: .ignore at project root and child directories.\n\nVCS ignore files (Git, Mercurial, Bazaar, Darcs, Fossil) are only used if the corresponding\nVCS is discovered to be in use for the project/origin. For example, a .bzrignore in a Git\nrepository will be discarded.", Heading: "Filtering"},
+	{Key: FlagWatchNoGlobalIgnore, Short: "Don't load global ignores", Long: "Don't load global ignores\n\nThis disables loading of global or user ignore files, like '~/.gitignore',\n'~/.config/watchexec/ignore', or '%APPDATA%\\Bazaar\\2.0\\ignore'. Contrast with\n'--no-vcs-ignore' and '--no-project-ignore'.\n\nSupported global ignore files\n\n  - Git (if core.excludesFile is set): the file at that path\n  - Git (otherwise): the first found of $XDG_CONFIG_HOME/git/ignore, %APPDATA%/.gitignore, %USERPROFILE%/.gitignore, $HOME/.config/git/ignore, $HOME/.gitignore.\n  - Bazaar: the first found of %APPDATA%/Bazaar/2.0/ignore, $HOME/.bazaar/ignore.\n  - Watchexec: the first found of $XDG_CONFIG_HOME/watchexec/ignore, %APPDATA%/watchexec/ignore, %USERPROFILE%/.watchexec/ignore, $HOME/.watchexec/ignore.\n\nLike for project files, Git and Bazaar global files will only be used for the corresponding\nVCS as used in the project.", Heading: "Filtering"},
+	{Key: FlagWatchNoDefaultIgnore, Short: "Don't use internal default ignores", Long: "Don't use internal default ignores\n\nWatchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`,\n`.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and\nWatchexec log files.", Heading: "Filtering"},
+	{Key: FlagWatchNoDiscoverIgnore, Short: "Don't discover ignore files at all", Long: "Don't discover ignore files at all\n\nThis is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but\neven more efficient as it will skip all the ignore discovery mechanisms from the get go.\n\nNote that default ignores are still loaded, see '--no-default-ignore'.", Heading: "Filtering"},
+	{Key: FlagWatchIgnoreNothing, Short: "Don't ignore anything at all", Long: "Don't ignore anything at all\n\nThis is a shorthand for '--no-discover-ignore', '--no-default-ignore'.\n\nNote that ignores explicitly loaded via other command line options, such as '--ignore' or\n'--ignore-file', will still be used.", Heading: "Filtering"},
+	{Key: FlagWatchPostpone, Short: "Wait until first change before running command", Long: "Wait until first change before running command\n\nBy default, Watchexec will run the command once immediately. With this option, it will\ninstead wait until an event is detected before running the command as normal."},
+	{Key: FlagWatchDelayRun, ValueName: "DURATION", ValueDemanded: true, Short: "Sleep before running the command", Long: "Sleep before running the command\n\nThis option will cause Watchexec to sleep for the specified amount of time before running\nthe command, after an event is detected. This is like using \"sleep 5 && command\" in a shell,\nbut portable and slightly more efficient.\n\nTakes a unit-less value in seconds, or a time span value such as \"2min 5s\".\nProviding a unit-less value is deprecated and will warn; it will be an error in the future."},
+	{Key: FlagWatchPoll, ValueName: "INTERVAL", Short: "Poll for filesystem changes", Long: "Poll for filesystem changes\n\nBy default, and where available, Watchexec uses the operating system's native file system\nwatching capabilities. This option disables that and instead uses a polling mechanism, which\nis less efficient but can work around issues with some file systems (like network shares) or\nedge cases.\n\nOptionally takes a unit-less value in milliseconds, or a time span value such as \"2s 500ms\",\nto use as the polling interval. If not specified, the default is 30 seconds.\nProviding a unit-less value is deprecated and will warn; it will be an error in the future.\n\nAliased as '--force-poll'."},
+	{Key: FlagWatchShell, ValueName: "SHELL", ValueDemanded: true, Short: "Use a different shell", Long: "Use a different shell\n\nBy default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes,\nand either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec\ndetects is the running shell.\n\nWith this option, you can override that and use a different shell, for example one with more\nfeatures or one which has your custom aliases and functions.\n\nIf the value has spaces, it is parsed as a command line, and the first word used as the\nshell program, with the rest as arguments to the shell.\n\nThe command is run with the '-c' flag (except for 'cmd' on Windows, where it's '/C').\n\nThe special value 'none' can be used to disable shell use entirely. In that case, the\ncommand provided to Watchexec will be parsed, with the first word being the executable and\nthe rest being the arguments, and executed directly. Note that this parsing is rudimentary,\nand may not work as expected in all cases.\n\nUsing 'none' is a little more efficient and can enable a stricter interpretation of the\ninput, but it also means that you can't use shell features like globbing, redirection,\ncontrol flow, logic, or pipes.\n\nExamples:\n\nUse without shell:\n\n  $ watchexec -n -- zsh -x -o shwordsplit scr\n\nUse with powershell core:\n\n  $ watchexec --shell=pwsh -- Test-Connection localhost\n\nUse with CMD.exe:\n\n  $ watchexec --shell=cmd -- dir\n\nUse with a different unix shell:\n\n  $ watchexec --shell=bash -- 'echo $BASH_VERSION'\n\nUse with a unix shell and options:\n\n  $ watchexec --shell='zsh -x -o shwordsplit' -- scr", Heading: "Command"},
+	{Key: FlagWatchN, Short: "Shorthand for '--shell=none'", Long: "Shorthand for '--shell=none'", Heading: "Command"},
+	{Key: FlagWatchEmitEventsTo, HideDefaultValue: true, ValueName: "MODE", ValueDemanded: true, Short: "Configure event emission", Long: "Configure event emission\n\nWatchexec can emit event information when running a command, which can be used by the child\nprocess to target specific changed files.\n\nOne thing to take care with is assuming inherent behaviour where there is only chance.\nNotably, it could appear as if the `RENAMED` variable contains both the original and the new\npath being renamed. In previous versions, it would even appear on some platforms as if the\noriginal always came before the new. However, none of this was true. It's impossible to\nreliably and portably know which changed path is the old or new, \"half\" renames may appear\n(only the original, only the new), \"unknown\" renames may appear (change was a rename, but\nwhether it was the old or new isn't known), rename events might split across two debouncing\nboundaries, and so on.\n\nThis option controls where that information is emitted. It defaults to 'none', which doesn't\nemit event information at all. The other options are 'environment' (deprecated), 'stdio',\n'file', 'json-stdio', and 'json-file'.\n\nThe 'stdio' and 'file' modes are text-based: 'stdio' writes absolute paths to the stdin of\nthe command, one per line, each prefixed with `create:`, `remove:`, `rename:`, `modify:`,\nor `other:`, then closes the handle; 'file' writes the same thing to a temporary file, and\nits path is given with the $WATCHEXEC_EVENTS_FILE environment variable.\n\nThere are also two JSON modes, which are based on JSON objects and can represent the full\nset of events Watchexec handles. Here's an example of a folder being created on Linux:\n\n```json\n  {\n    \"tags\": [\n      {\n        \"kind\": \"path\",\n        \"absolute\": \"/home/user/your/new-folder\",\n        \"filetype\": \"dir\"\n      },\n      {\n        \"kind\": \"fs\",\n        \"simple\": \"create\",\n        \"full\": \"Create(Folder)\"\n      },\n      {\n        \"kind\": \"source\",\n        \"source\": \"filesystem\",\n      }\n    ],\n    \"metadata\": {\n      \"notify-backend\": \"inotify\"\n    }\n  }\n```\n\nThe fields are as follows:\n\n  - `tags`, structured event data.\n  - `tags[].kind`, which can be:\n    * 'path', along with:\n      + `absolute`, an absolute path.\n      + `filetype`, a file type if known ('dir', 'file', 'symlink', 'other').\n    * 'fs':\n      + `simple`, the \"simple\" event type ('access', 'create', 'modify', 'remove', or 'other').\n      + `full`, the \"full\" event type, which is too complex to fully describe here, but looks like 'General(Precise(Specific))'.\n    * 'source', along with:\n      + `source`, the source of the event ('filesystem', 'keyboard', 'mouse', 'os', 'time', 'internal').\n    * 'keyboard', along with:\n      + `keycode`. Currently only the value 'eof' is supported.\n    * 'process', for events caused by processes:\n      + `pid`, the process ID.\n    * 'signal', for signals sent to Watchexec:\n      + `signal`, the normalised signal name ('hangup', 'interrupt', 'quit', 'terminate', 'user1', 'user2').\n    * 'completion', for when a command ends:\n      + `disposition`, the exit disposition ('success', 'error', 'signal', 'stop', 'exception', 'continued').\n      + `code`, the exit, signal, stop, or exception code.\n  - `metadata`, additional information about the event.\n\nThe 'json-stdio' mode will emit JSON events to the standard input of the command, one per\nline, then close stdin. The 'json-file' mode will create a temporary file, write the\nevents to it, and provide the path to the file with the $WATCHEXEC_EVENTS_FILE\nenvironment variable.\n\nFinally, the 'environment' mode was the default until 2.0. It sets environment variables\nwith the paths of the affected files, for filesystem events:\n\n$WATCHEXEC_COMMON_PATH is set to the longest common path of all of the below variables,\nand so should be prepended to each path to obtain the full/real path. Then:\n\n  - $WATCHEXEC_CREATED_PATH is set when files/folders were created\n  - $WATCHEXEC_REMOVED_PATH is set when files/folders were removed\n  - $WATCHEXEC_RENAMED_PATH is set when files/folders were renamed\n  - $WATCHEXEC_WRITTEN_PATH is set when files/folders were modified\n  - $WATCHEXEC_META_CHANGED_PATH is set when files/folders' metadata were modified\n  - $WATCHEXEC_OTHERWISE_CHANGED_PATH is set for every other kind of pathed event\n\nMultiple paths are separated by the system path separator, ';' on Windows and ':' on unix.\nWithin each variable, paths are deduplicated and sorted in binary order (i.e. neither\nUnicode nor locale aware).\n\nThis is the legacy mode, is deprecated, and will be removed in the future. The environment\nis a very restricted space, while also limited in what it can usefully represent. Large\nnumbers of files will either cause the environment to be truncated, or may error or crash\nthe process entirely. The $WATCHEXEC_COMMON_PATH is also unintuitive, as demonstrated by the\nmultiple confused queries that have landed in my inbox over the years.", Heading: "Command", Choices: []string{"environment", "stdio", "file", "json-stdio", "json-file", "none"}, Default: []string{"none"}},
+	{Key: FlagWatchOnlyEmitEvents, Short: "Only emit events to stdout, run no commands.", Long: "Only emit events to stdout, run no commands.\n\nThis is a convenience option for using Watchexec as a file watcher, without running any\ncommands. It is almost equivalent to using `cat` as the command, except that it will not\nspawn a new process for each event.\n\nThis option requires `--emit-events-to` to be set, and restricts the available modes to\n`stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin\nof the command.", Heading: "Output"},
+	{Key: FlagWatchEnv, Repeatable: true, ValueName: "KEY=VALUE", ValueDemanded: true, Short: "Add env vars to the command", Long: "Add env vars to the command\n\nThis is a convenience option for setting environment variables for the command, without\nsetting them for the Watchexec process itself.\n\nUse key=value syntax. Multiple variables can be set by repeating the option.", Heading: "Command"},
+	{Key: FlagWatchWrapProcess, ValueName: "MODE", ValueDemanded: true, Short: "Configure how the process is wrapped", Long: "Configure how the process is wrapped\n\nBy default, Watchexec will run the command in a session on macOS, in a process group on\nother Unix platforms, and in a Job Object in Windows.\n\nSome Unix programs prefer running in a session, while others do not work in a process group.\n\nUse 'group' to use a process group, 'session' to use a process session, and 'none' to run\nthe command directly. On Windows, either of 'group' or 'session' will use a Job Object.", Heading: "Command", Choices: []string{"group", "session", "none"}},
+	{Key: FlagWatchNotify, Short: "Alert when commands start and end", Long: "Alert when commands start and end\n\nWith this, Watchexec will emit a desktop notification when a command starts and ends, on\nsupported platforms. On unsupported platforms, it may silently do nothing, or log a warning.", Heading: "Output"},
+	{Key: FlagWatchColor, ValueName: "MODE", ValueDemanded: true, Short: "When to use terminal colours", Long: "When to use terminal colours\n\nSetting the environment variable `NO_COLOR` to any value is equivalent to `--color=never`.", Heading: "Output", Choices: []string{"auto", "always", "never"}, Default: []string{"auto"}},
+	{Key: FlagWatchTimings, Short: "Print how long the command took to run", Long: "Print how long the command took to run\n\nThis may not be exactly accurate, as it includes some overhead from Watchexec itself. Use\nthe `time` utility, high-precision timers, or benchmarking tools for more accurate results.", Heading: "Output"},
+	{Key: FlagWatchQuiet, Short: "Don't print starting and stopping messages", Long: "Don't print starting and stopping messages\n\nBy default Watchexec will print a message when the command starts and stops. This option\ndisables this behaviour, so only the command's output, warnings, and errors will be printed.", Heading: "Output"},
+	{Key: FlagWatchBell, Short: "Ring the terminal bell on command completion", Long: "Ring the terminal bell on command completion", Heading: "Output"},
+	{Key: FlagWatchProjectOrigin, ValueName: "DIRECTORY", ValueDemanded: true, Short: "Set the project origin", Long: "Set the project origin\n\nWatchexec will attempt to discover the project's \"origin\" (or \"root\") by searching for a\nvariety of markers, like files or directory patterns. It does its best but sometimes gets it\nit wrong, and you can override that with this option.\n\nThe project origin is used to determine the path of certain ignore files, which VCS is being\nused, the meaning of a leading '/' in filtering patterns, and maybe more in the future.\n\nWhen set, Watchexec will also not bother searching, which can be significantly faster."},
+	{Key: FlagWatchWorkdir, ValueName: "DIRECTORY", ValueDemanded: true, Short: "Set the working directory", Long: "Set the working directory\n\nBy default, the working directory of the command is the working directory of Watchexec. You\ncan change that with this option. Note that paths may be less intuitive to use with this."},
+	{Key: FlagWatchExts, Repeatable: true, ValueName: "EXTENSIONS", ValueDemanded: true, Short: "Filename extensions to filter to", Long: "Filename extensions to filter to\n\nThis is a quick filter to only emit events for files with the given extensions. Extensions\ncan be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can\nbe given by repeating the option or by separating them with commas.", Heading: "Filtering"},
+	{Key: FlagWatchFilter, Repeatable: true, ValueName: "PATTERN", ValueDemanded: true, Short: "Filename patterns to filter to", Long: "Filename patterns to filter to\n\nProvide a glob-like filter pattern, and only events for files matching the pattern will be\nemitted. Multiple patterns can be given by repeating the option. Events that are not from\nfiles (e.g. signals, keyboard events) will pass through untouched.", Heading: "Filtering"},
+	{Key: FlagWatchFilterFile, HideEnv: true, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Files to load filters from", Long: "Files to load filters from\n\nProvide a path to a file containing filters, one per line. Empty lines and lines starting\nwith '#' are ignored. Uses the same pattern format as the '--filter' option.\n\nThis can also be used via the $WATCHEXEC_FILTER_FILES environment variable.", Heading: "Filtering", Env: "WATCHEXEC_FILTER_FILES"},
+	{Key: FlagWatchFilterProg, Repeatable: true, ValueName: "EXPRESSION", ValueDemanded: true, Short: "[experimental] Filter programs.", Long: "[experimental] Filter programs.\n\n/!\\ This option is EXPERIMENTAL and may change and/or vanish without notice.\n\nProvide your own custom filter programs in jaq (similar to jq) syntax. Programs are given\nan event in the same format as described in '--emit-events-to' and must return a boolean.\nInvalid programs will make watchexec fail to start; use '-v' to see program runtime errors.\n\nIn addition to the jaq stdlib, watchexec adds some custom filter definitions:\n\n  - 'path | file_meta' returns file metadata or null if the file does not exist.\n\n  - 'path | file_size' returns the size of the file at path, or null if it does not exist.\n\n  - 'path | file_read(bytes)' returns a string with the first n bytes of the file at path.\n    If the file is smaller than n bytes, the whole file is returned. There is no filter to\n    read the whole file at once to encourage limiting the amount of data read and processed.\n\n  - 'string | hash', and 'path | file_hash' return the hash of the string or file at path.\n    No guarantee is made about the algorithm used: treat it as an opaque value.\n\n  - 'any | kv_store(key)', 'kv_fetch(key)', and 'kv_clear' provide a simple key-value store.\n    Data is kept in memory only, there is no persistence. Consistency is not guaranteed.\n\n  - 'any | printout', 'any | printerr', and 'any | log(level)' will print or log any given\n    value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and\n    pass the value through (so '[1] | log(\"debug\") | .[]' will produce a '1' and log '[1]').\n\nAll filtering done with such programs, and especially those using kv or filesystem access,\nis much slower than the other filtering methods. If filtering is too slow, events will back\nup and stall watchexec. Take care when designing your filters.\n\nIf the argument to this option starts with an '@', the rest of the argument is taken to be\nthe path to a file containing a jaq program.\n\nJaq programs are run in order, after all other filters, and short-circuit: if a filter (jaq\nor not) rejects an event, execution stops there, and no other filters are run. Additionally,\nthey stop after outputting the first value, so you'll want to use 'any' or 'all' when\niterating, otherwise only the first item will be processed, which can be quite confusing!\n\nFind user-contributed programs or submit your own useful ones at\n<https://github.com/watchexec/watchexec/discussions/592>.\n\n## Examples:\n\nRegexp ignore filter on paths:\n\n  'all(.tags[] | select(.kind == \"path\"); .absolute | test(\"[.]test[.]js$\")) | not'\n\nPass any event that creates a file:\n\n  'any(.tags[] | select(.kind == \"fs\"); .simple == \"create\")'\n\nPass events that touch executable files:\n\n  'any(.tags[] | select(.kind == \"path\" && .filetype == \"file\"); .absolute | metadata | .executable)'\n\nIgnore files that start with shebangs:\n\n  'any(.tags[] | select(.kind == \"path\" && .filetype == \"file\"); .absolute | read(2) == \"#!\") | not'", Heading: "Filtering"},
+	{Key: FlagWatchIgnore, Repeatable: true, ValueName: "PATTERN", ValueDemanded: true, Short: "Filename patterns to filter out", Long: "Filename patterns to filter out\n\nProvide a glob-like filter pattern, and events for files matching the pattern will be\nexcluded. Multiple patterns can be given by repeating the option. Events that are not from\nfiles (e.g. signals, keyboard events) will pass through untouched.", Heading: "Filtering"},
+	{Key: FlagWatchIgnoreFile, HideEnv: true, Repeatable: true, ValueName: "PATH", ValueDemanded: true, Short: "Files to load ignores from", Long: "Files to load ignores from\n\nProvide a path to a file containing ignores, one per line. Empty lines and lines starting\nwith '#' are ignored. Uses the same pattern format as the '--ignore' option.\n\nThis can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.", Heading: "Filtering", Env: "WATCHEXEC_IGNORE_FILES"},
+	{Key: FlagWatchFsEvents, HideDefaultValue: true, Repeatable: true, ValueName: "EVENTS", ValueDemanded: true, Short: "Filesystem events to filter to", Long: "Filesystem events to filter to\n\nThis is a quick filter to only emit events for the given types of filesystem changes. Choose\nfrom 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be\ngiven by repeating the option or by separating them with commas. By default, this is all\ntypes except for 'access'.\n\nThis may apply filtering at the kernel level when possible, which can be more efficient, but\nmay be more confusing when reading the logs.", Heading: "Filtering", Choices: []string{"access", "create", "remove", "rename", "modify", "metadata"}, Default: []string{"create,remove,rename,modify,metadata"}},
+	{Key: FlagWatchNoMeta, Short: "Don't emit fs events for metadata changes", Long: "Don't emit fs events for metadata changes\n\nThis is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the\n'--fs-events' option is non-sensical and not allowed.", Heading: "Filtering"},
+	{Key: FlagWatchPrintEvents, Short: "Print events that trigger actions", Long: "Print events that trigger actions\n\nThis prints the events that triggered the action when handling it (after debouncing), in a\nhuman readable form. This is useful for debugging filters.\n\nUse '-vvv' instead when you need more diagnostic information.", Heading: "Debugging"},
+	{Key: FlagWatchManual, Short: "Show the manual page", Long: "Show the manual page\n\nThis shows the manual page for Watchexec, if the output is a terminal and the 'man' program\nis available. If not, the manual page is printed to stdout in ROFF format (suitable for\nwriting to a watchexec.1 file).", Heading: "Debugging"},
+	{Key: ArgWatchTask, Short: "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: `mise run task1 arg1 arg2 ::: task2 arg1 arg2`\nDefaults to `default`", Long: "Tasks to run\nCan specify multiple tasks by separating with `:::`\ne.g.: `mise run task1 arg1 arg2 ::: task2 arg1 arg2`\nDefaults to `default`"},
 	{Key: ArgWatchArgs, Short: "Task and arguments to run", Long: "Task and arguments to run"},
-	{Key: CmdWhere, Short: "Display the installation path for a tool", Long: "Display the installation path for a tool\n\nThe tool must be installed for this to work.", AfterLongHelp: "Examples:\n\n    # Show the latest installed version of node\n    # If it is is not installed, errors\n    $ mise where node@20\n    /home/jdx/.local/share/mise/installs/node/20.0.0\n\n    # Show the current, active install directory of node\n    # Errors if node is not referenced in any .tool-version file\n    $ mise where node\n    /home/jdx/.local/share/mise/installs/node/20.0.0\n"},
+	{Key: CmdWhere, Short: "Display the installation path for a tool", Long: "Display the installation path for a tool\n\nThe tool must be installed for this to work.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    # Show the latest installed version of node\n    # If it is is not installed, errors\n    $ \x1b[1mmise where node@20\x1b[22m\n    /home/jdx/.local/share/mise/installs/node/20.0.0\n\n    # Show the current, active install directory of node\n    # Errors if node is not referenced in any .tool-version file\n    $ \x1b[1mmise where node\x1b[22m\n    /home/jdx/.local/share/mise/installs/node/20.0.0\n"},
 	{Key: ArgWhereToolVersion, Demanded: true, Short: "Tool(s) to look up\ne.g.: ruby@3\nif \"@<PREFIX>\" is specified, it will show the latest installed version\nthat matches the prefix\notherwise, it will show the current, active installed version", Long: "Tool(s) to look up\ne.g.: ruby@3\nif \"@<PREFIX>\" is specified, it will show the latest installed version\nthat matches the prefix\notherwise, it will show the current, active installed version"},
 	{Key: ArgWhereAsdfVersion, Hide: true, Short: "the version prefix to use when querying the latest version\nsame as the first argument after the \"@\"\nused for asdf compatibility", Long: "the version prefix to use when querying the latest version\nsame as the first argument after the \"@\"\nused for asdf compatibility"},
-	{Key: CmdWhich, Short: "Shows the path that a tool's bin points to.", Long: "Shows the path that a tool's bin points to.\n\nUse this to figure out what version of a tool is currently active.", AfterLongHelp: "Examples:\n\n    $ mise which node\n    /home/username/.local/share/mise/installs/node/20.0.0/bin/node\n\n    $ mise which node --plugin\n    node\n\n    $ mise which node --version\n    20.0.0\n"},
+	{Key: CmdWhich, Short: "Shows the path that a tool's bin points to.", Long: "Shows the path that a tool's bin points to.\n\nUse this to figure out what version of a tool is currently active.", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise which node\x1b[22m\n    /home/username/.local/share/mise/installs/node/20.0.0/bin/node\n\n    $ \x1b[1mmise which node --plugin\x1b[22m\n    node\n\n    $ \x1b[1mmise which node --version\x1b[22m\n    20.0.0\n"},
 	{Key: FlagWhichTool, ValueName: "TOOL@VERSION", ValueDemanded: true, Short: "Use a specific tool@version\ne.g.: `mise which npm --tool=node@20`", Long: "Use a specific tool@version\ne.g.: `mise which npm --tool=node@20`"},
 	{Key: FlagWhichComplete, Hide: true},
 	{Key: FlagWhichPlugin, Short: "Show the plugin name instead of the path", Long: "Show the plugin name instead of the path"},
@@ -5895,7 +5949,7 @@ var HelpText = argv.HelpTable{
 
 // HelpMeta is what a page needs from the spec's root rather than from any one
 // command: the header, and the text that brackets every page.
-var HelpMeta = argv.HelpSpec{Name: "mise", Bin: "mise", About: "Dev tools, env vars, and tasks in one CLI", LongAbout: "mise prepares your development environment before each command runs. https://github.com/jdx/mise"}
+var HelpMeta = argv.HelpSpec{Name: "mise", Bin: "mise", About: "Dev tools, env vars, and tasks in one CLI", LongAbout: "mise prepares your development environment before each command runs. https://github.com/jdx/mise", Author: "Jeff Dickey <@jdx>", AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    $ \x1b[1mmise install node@20.0.0\x1b[22m       Install a specific node version\n    $ \x1b[1mmise install node@20\x1b[22m           Install a version matching a prefix\n    $ \x1b[1mmise install node\x1b[22m              Install the node version defined in config\n    $ \x1b[1mmise install\x1b[22m                   Install all plugins/tools defined in config\n\n    $ \x1b[1mmise install cargo:ripgrep\x1b[22m     Install something via cargo\n    $ \x1b[1mmise install npm:prettier\x1b[22m      Install something via npm\n\n    $ \x1b[1mmise use node@20\x1b[22m               Use node-20.x in current project\n    $ \x1b[1mmise use -g node@20\x1b[22m            Use node-20.x as default\n    $ \x1b[1mmise use node@latest\x1b[22m           Use latest node in current directory\n\n    $ \x1b[1mmise up --interactive\x1b[22m          Show a menu to upgrade tools\n\n    $ \x1b[1mmise x -- npm install\x1b[22m          `npm install` w/ config loaded into PATH\n    $ \x1b[1mmise x node@20 -- node app.js\x1b[22m  `node app.js` w/ config + node-20.x on PATH\n\n    $ \x1b[1mmise set NODE_ENV=production\x1b[22m   Set NODE_ENV=production in config\n\n    $ \x1b[1mmise run build\x1b[22m                 Run `build` tasks\n    $ \x1b[1mmise watch build\x1b[22m               Run `build` tasks repeatedly when files change\n\n    $ \x1b[1mmise settings\x1b[22m                  Show settings in use\n    $ \x1b[1mmise settings color=0\x1b[22m          Disable color by modifying global config file\n"}
 
 // Cli is the whole command line.
 type Cli struct {
@@ -6485,6 +6539,8 @@ type BootstrapRemoteCmd struct {
 	All              bool     // FlagBootstrapRemoteAll
 	BootstrapCommand string   // FlagBootstrapRemoteBootstrapCommand
 	ConnectTimeout   string   // FlagBootstrapRemoteConnectTimeout
+	CopyLink         []string // FlagBootstrapRemoteCopyLink
+	CopyLinks        bool     // FlagBootstrapRemoteCopyLinks
 	Exclude          []string // FlagBootstrapRemoteExclude
 	FailFast         bool     // FlagBootstrapRemoteFailFast
 	ForceDotfiles    bool     // FlagBootstrapRemoteForceDotfiles
@@ -6496,6 +6552,7 @@ type BootstrapRemoteCmd struct {
 	Only             []string // FlagBootstrapRemoteOnly
 	Port             string   // FlagBootstrapRemotePort
 	PromptSecrets    bool     // FlagBootstrapRemotePromptSecrets
+	RemoteEnv        []string // FlagBootstrapRemoteRemoteEnv
 	RemoteMise       string   // FlagBootstrapRemoteRemoteMise
 	Skip             []string // FlagBootstrapRemoteSkip
 	Source           string   // FlagBootstrapRemoteSource
@@ -6840,6 +6897,7 @@ type GenerateBootstrapCmd struct {
 	Version      string // FlagGenerateBootstrapVersion
 	Write        string // FlagGenerateBootstrapWrite
 	LocalizedDir string // FlagGenerateBootstrapLocalizedDir
+	Windows      bool   // FlagGenerateBootstrapWindows
 }
 
 // GenerateConfigCmd is `generate config`.
@@ -6860,9 +6918,10 @@ type GenerateDevcontainerCmd struct {
 
 // GenerateGitPreCommitCmd is `generate git-pre-commit`.
 type GenerateGitPreCommitCmd struct {
-	Task  string // FlagGenerateGitPreCommitTask
-	Write bool   // FlagGenerateGitPreCommitWrite
-	Hook  string // FlagGenerateGitPreCommitHook
+	Task    string   // FlagGenerateGitPreCommitTask
+	Write   bool     // FlagGenerateGitPreCommitWrite
+	Hook    string   // FlagGenerateGitPreCommitHook
+	MiseArg []string // ArgGenerateGitPreCommitMiseArg
 }
 
 // GenerateGithubActionCmd is `generate github-action`.
@@ -6890,18 +6949,19 @@ type GenerateTaskStubsCmd struct {
 
 // GenerateToolStubCmd is `generate tool-stub`.
 type GenerateToolStubCmd struct {
-	Bin              string   // FlagGenerateToolStubBin
-	Bootstrap        bool     // FlagGenerateToolStubBootstrap
-	BootstrapVersion string   // FlagGenerateToolStubBootstrapVersion
-	Fetch            bool     // FlagGenerateToolStubFetch
-	Http             string   // FlagGenerateToolStubHttp
-	Lock             bool     // FlagGenerateToolStubLock
-	PlatformBin      []string // FlagGenerateToolStubPlatformBin
-	PlatformUrl      []string // FlagGenerateToolStubPlatformUrl
-	SkipDownload     bool     // FlagGenerateToolStubSkipDownload
-	Url              string   // FlagGenerateToolStubUrl
-	Version          string   // FlagGenerateToolStubVersion
-	Output           string   // ArgGenerateToolStubOutput
+	Bin               string   // FlagGenerateToolStubBin
+	Bootstrap         bool     // FlagGenerateToolStubBootstrap
+	BootstrapVersion  string   // FlagGenerateToolStubBootstrapVersion
+	ChecksumAlgorithm string   // FlagGenerateToolStubChecksumAlgorithm
+	Fetch             bool     // FlagGenerateToolStubFetch
+	Http              string   // FlagGenerateToolStubHttp
+	Lock              bool     // FlagGenerateToolStubLock
+	PlatformBin       []string // FlagGenerateToolStubPlatformBin
+	PlatformUrl       []string // FlagGenerateToolStubPlatformUrl
+	SkipDownload      bool     // FlagGenerateToolStubSkipDownload
+	Url               string   // FlagGenerateToolStubUrl
+	Version           string   // FlagGenerateToolStubVersion
+	Output            string   // ArgGenerateToolStubOutput
 }
 
 // GithubCmd is `github`.
@@ -6963,6 +7023,7 @@ type InstallCmd struct {
 	DryRun            bool     // FlagInstallDryRun
 	Verbose           int      // FlagInstallVerbose
 	DryRunCode        bool     // FlagInstallDryRunCode
+	IncludeTaskTools  bool     // FlagInstallIncludeTaskTools
 	MinimumReleaseAge string   // FlagInstallMinimumReleaseAge
 	Monorepo          bool     // FlagInstallMonorepo
 	Raw               bool     // FlagInstallRaw
@@ -7103,8 +7164,9 @@ type OciRunCmd struct {
 
 // OutdatedCmd is `outdated`.
 type OutdatedCmd struct {
-	Json        bool     // FlagOutdatedJson
 	Bump        bool     // FlagOutdatedBump
+	Json        bool     // FlagOutdatedJson
+	L           bool     // FlagOutdatedL
 	Inactive    bool     // FlagOutdatedInactive
 	Local       bool     // FlagOutdatedLocal
 	Monorepo    bool     // FlagOutdatedMonorepo
@@ -7256,6 +7318,7 @@ type RunCmd struct {
 	AffectedExplain      bool     // FlagRunAffectedExplain
 	AffectedHead         string   // FlagRunAffectedHead
 	AffectedJson         bool     // FlagRunAffectedJson
+	All                  bool     // FlagRunAll
 	ContinueOnError      bool     // FlagRunContinueOnError
 	Cd                   string   // FlagRunCd
 	Force                bool     // FlagRunForce
@@ -7540,6 +7603,7 @@ type TasksRunCmd struct {
 	AffectedExplain      bool     // FlagTasksRunAffectedExplain
 	AffectedHead         string   // FlagTasksRunAffectedHead
 	AffectedJson         bool     // FlagTasksRunAffectedJson
+	All                  bool     // FlagTasksRunAll
 	ContinueOnError      bool     // FlagTasksRunContinueOnError
 	Cd                   string   // FlagTasksRunCd
 	Force                bool     // FlagTasksRunForce
@@ -7681,9 +7745,10 @@ type UnuseCmd struct {
 
 // UpgradeCmd is `upgrade`.
 type UpgradeCmd struct {
+	Bump                 bool     // FlagUpgradeBump
 	Interactive          bool     // FlagUpgradeInteractive
 	Jobs                 string   // FlagUpgradeJobs
-	Bump                 bool     // FlagUpgradeBump
+	L                    bool     // FlagUpgradeL
 	DryRun               bool     // FlagUpgradeDryRun
 	Exclude              []string // FlagUpgradeExclude
 	DryRunCode           bool     // FlagUpgradeDryRunCode
@@ -7692,6 +7757,7 @@ type UpgradeCmd struct {
 	MinimumReleaseAge    string   // FlagUpgradeMinimumReleaseAge
 	Monorepo             bool     // FlagUpgradeMonorepo
 	NoPrune              bool     // FlagUpgradeNoPrune
+	Prune                bool     // FlagUpgradePrune
 	Raw                  bool     // FlagUpgradeRaw
 	InstalledToolVersion []string // ArgUpgradeInstalledToolVersion
 }
@@ -8016,6 +8082,7 @@ func Parse(args []string) (*Cli, error) {
 	// before any of it is handed back.
 	given := map[uint64][]string{}
 	seen := map[uint64]int{}
+	negated := map[uint64]bool{}
 	chain := []*argv.Command{Root}
 
 	p := argv.New(Root, args)
@@ -8658,6 +8725,7 @@ func Parse(args []string) (*Cli, error) {
 			}
 		case argv.KindFlag:
 			seen[ev.Flag.Key]++
+			negated[ev.Flag.Key] = ev.Negated
 			if ev.Flag.BoolValue {
 				// Boolean binding is last-one-wins. Replace an earlier attached value even
 				// when the last occurrence is bare, so relationship polarity follows the field.
@@ -8968,6 +9036,12 @@ func Parse(args []string) (*Cli, error) {
 				cmdBootstrapRemoteV.BootstrapCommand = ev.Value
 			case FlagBootstrapRemoteConnectTimeout:
 				cmdBootstrapRemoteV.ConnectTimeout = ev.Value
+			case FlagBootstrapRemoteCopyLink:
+				if ev.HasValue {
+					cmdBootstrapRemoteV.CopyLink = append(cmdBootstrapRemoteV.CopyLink, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
+				}
+			case FlagBootstrapRemoteCopyLinks:
+				cmdBootstrapRemoteV.CopyLinks = !ev.Negated
 			case FlagBootstrapRemoteExclude:
 				if ev.HasValue {
 					cmdBootstrapRemoteV.Exclude = append(cmdBootstrapRemoteV.Exclude, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
@@ -8996,6 +9070,10 @@ func Parse(args []string) (*Cli, error) {
 				cmdBootstrapRemoteV.Port = ev.Value
 			case FlagBootstrapRemotePromptSecrets:
 				cmdBootstrapRemoteV.PromptSecrets = !ev.Negated
+			case FlagBootstrapRemoteRemoteEnv:
+				if ev.HasValue {
+					cmdBootstrapRemoteV.RemoteEnv = append(cmdBootstrapRemoteV.RemoteEnv, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)
+				}
 			case FlagBootstrapRemoteRemoteMise:
 				cmdBootstrapRemoteV.RemoteMise = ev.Value
 			case FlagBootstrapRemoteSkip:
@@ -9210,6 +9288,8 @@ func Parse(args []string) (*Cli, error) {
 				cmdGenerateBootstrapV.Write = ev.Value
 			case FlagGenerateBootstrapLocalizedDir:
 				cmdGenerateBootstrapV.LocalizedDir = ev.Value
+			case FlagGenerateBootstrapWindows:
+				cmdGenerateBootstrapV.Windows = !ev.Negated
 			case FlagGenerateConfigGlobal:
 				cmdGenerateConfigV.Global = !ev.Negated
 			case FlagGenerateConfigDryRun:
@@ -9258,6 +9338,8 @@ func Parse(args []string) (*Cli, error) {
 				cmdGenerateToolStubV.Bootstrap = !ev.Negated
 			case FlagGenerateToolStubBootstrapVersion:
 				cmdGenerateToolStubV.BootstrapVersion = ev.Value
+			case FlagGenerateToolStubChecksumAlgorithm:
+				cmdGenerateToolStubV.ChecksumAlgorithm = ev.Value
 			case FlagGenerateToolStubFetch:
 				cmdGenerateToolStubV.Fetch = !ev.Negated
 			case FlagGenerateToolStubHttp:
@@ -9328,6 +9410,8 @@ func Parse(args []string) (*Cli, error) {
 				cmdInstallV.Verbose++
 			case FlagInstallDryRunCode:
 				cmdInstallV.DryRunCode = !ev.Negated
+			case FlagInstallIncludeTaskTools:
+				cmdInstallV.IncludeTaskTools = !ev.Negated
 			case FlagInstallMinimumReleaseAge:
 				cmdInstallV.MinimumReleaseAge = ev.Value
 			case FlagInstallMonorepo:
@@ -9480,10 +9564,12 @@ func Parse(args []string) (*Cli, error) {
 				cmdOciRunV.Tty = !ev.Negated
 			case FlagOciRunWorkdir:
 				cmdOciRunV.Workdir = ev.Value
-			case FlagOutdatedJson:
-				cmdOutdatedV.Json = !ev.Negated
 			case FlagOutdatedBump:
 				cmdOutdatedV.Bump = !ev.Negated
+			case FlagOutdatedJson:
+				cmdOutdatedV.Json = !ev.Negated
+			case FlagOutdatedL:
+				cmdOutdatedV.L = !ev.Negated
 			case FlagOutdatedInactive:
 				cmdOutdatedV.Inactive = !ev.Negated
 			case FlagOutdatedLocal:
@@ -9608,6 +9694,8 @@ func Parse(args []string) (*Cli, error) {
 				cmdRunV.AffectedHead = ev.Value
 			case FlagRunAffectedJson:
 				cmdRunV.AffectedJson = !ev.Negated
+			case FlagRunAll:
+				cmdRunV.All = !ev.Negated
 			case FlagRunContinueOnError:
 				cmdRunV.ContinueOnError = !ev.Negated
 			case FlagRunCd:
@@ -9894,6 +9982,8 @@ func Parse(args []string) (*Cli, error) {
 				cmdTasksRunV.AffectedHead = ev.Value
 			case FlagTasksRunAffectedJson:
 				cmdTasksRunV.AffectedJson = !ev.Negated
+			case FlagTasksRunAll:
+				cmdTasksRunV.All = !ev.Negated
 			case FlagTasksRunContinueOnError:
 				cmdTasksRunV.ContinueOnError = !ev.Negated
 			case FlagTasksRunCd:
@@ -10036,12 +10126,14 @@ func Parse(args []string) (*Cli, error) {
 				cmdUnuseV.Path = ev.Value
 			case FlagUnuseNoPrune:
 				cmdUnuseV.NoPrune = !ev.Negated
+			case FlagUpgradeBump:
+				cmdUpgradeV.Bump = !ev.Negated
 			case FlagUpgradeInteractive:
 				cmdUpgradeV.Interactive = !ev.Negated
 			case FlagUpgradeJobs:
 				cmdUpgradeV.Jobs = ev.Value
-			case FlagUpgradeBump:
-				cmdUpgradeV.Bump = !ev.Negated
+			case FlagUpgradeL:
+				cmdUpgradeV.L = !ev.Negated
 			case FlagUpgradeDryRun:
 				cmdUpgradeV.DryRun = !ev.Negated
 			case FlagUpgradeExclude:
@@ -10060,6 +10152,8 @@ func Parse(args []string) (*Cli, error) {
 				cmdUpgradeV.Monorepo = !ev.Negated
 			case FlagUpgradeNoPrune:
 				cmdUpgradeV.NoPrune = !ev.Negated
+			case FlagUpgradePrune:
+				cmdUpgradeV.Prune = !ev.Negated
 			case FlagUpgradeRaw:
 				cmdUpgradeV.Raw = !ev.Negated
 			case FlagUseEnv:
@@ -10318,6 +10412,8 @@ func Parse(args []string) (*Cli, error) {
 				cmdExecV.CommandArg = append(cmdExecV.CommandArg, values...)
 			case ArgGenerateConfigPath:
 				cmdGenerateConfigV.Path = ev.Value
+			case ArgGenerateGitPreCommitMiseArg:
+				cmdGenerateGitPreCommitV.MiseArg = append(cmdGenerateGitPreCommitV.MiseArg, values...)
 			case ArgGenerateToolStubOutput:
 				cmdGenerateToolStubV.Output = ev.Value
 			case ArgGithubTokenHost:
@@ -10507,14 +10603,16 @@ func Parse(args []string) (*Cli, error) {
 	}
 	sources := map[uint64]argv.Source{}
 	filled := map[uint64][]string{}
+	resolved := map[uint64][]string{}
 	for _, key := range scope {
 		values, source := argv.Fill(Meta.Lookup(key), given[key], argv.LookupEnv)
 		filled[key] = values
 		sources[key] = source
 	}
-	argv.ApplyDefaultIf(Meta, scope, filled, sources, nil)
+	argv.ApplyDefaultIf(Meta, scope, filled, sources, negated)
 	for _, key := range scope {
 		values, source := filled[key], sources[key]
+		resolved[key] = values
 		entryMeta := Meta.Lookup(key)
 		if entryMeta != nil && !requirements[key] {
 			copy := *entryMeta
@@ -11314,6 +11412,14 @@ func Parse(args []string) (*Cli, error) {
 				cmdBootstrapRemoteV.BootstrapCommand = values[len(values)-1]
 			case FlagBootstrapRemoteConnectTimeout:
 				cmdBootstrapRemoteV.ConnectTimeout = values[len(values)-1]
+			case FlagBootstrapRemoteCopyLink:
+				cmdBootstrapRemoteV.CopyLink = append(cmdBootstrapRemoteV.CopyLink, values...)
+			case FlagBootstrapRemoteCopyLinks:
+				if source == argv.FromEnv {
+					cmdBootstrapRemoteV.CopyLinks = argv.EnvTruth(values[0])
+				} else {
+					cmdBootstrapRemoteV.CopyLinks = values[0] == "true"
+				}
 			case FlagBootstrapRemoteExclude:
 				cmdBootstrapRemoteV.Exclude = append(cmdBootstrapRemoteV.Exclude, values...)
 			case FlagBootstrapRemoteFailFast:
@@ -11356,6 +11462,8 @@ func Parse(args []string) (*Cli, error) {
 				} else {
 					cmdBootstrapRemoteV.PromptSecrets = values[0] == "true"
 				}
+			case FlagBootstrapRemoteRemoteEnv:
+				cmdBootstrapRemoteV.RemoteEnv = append(cmdBootstrapRemoteV.RemoteEnv, values...)
 			case FlagBootstrapRemoteRemoteMise:
 				cmdBootstrapRemoteV.RemoteMise = values[len(values)-1]
 			case FlagBootstrapRemoteSkip:
@@ -11888,6 +11996,12 @@ func Parse(args []string) (*Cli, error) {
 				cmdGenerateBootstrapV.Write = values[len(values)-1]
 			case FlagGenerateBootstrapLocalizedDir:
 				cmdGenerateBootstrapV.LocalizedDir = values[len(values)-1]
+			case FlagGenerateBootstrapWindows:
+				if source == argv.FromEnv {
+					cmdGenerateBootstrapV.Windows = argv.EnvTruth(values[0])
+				} else {
+					cmdGenerateBootstrapV.Windows = values[0] == "true"
+				}
 			case FlagGenerateConfigGlobal:
 				if source == argv.FromEnv {
 					cmdGenerateConfigV.Global = argv.EnvTruth(values[0])
@@ -11930,6 +12044,8 @@ func Parse(args []string) (*Cli, error) {
 				}
 			case FlagGenerateGitPreCommitHook:
 				cmdGenerateGitPreCommitV.Hook = values[len(values)-1]
+			case ArgGenerateGitPreCommitMiseArg:
+				cmdGenerateGitPreCommitV.MiseArg = append(cmdGenerateGitPreCommitV.MiseArg, values...)
 			case FlagGenerateGithubActionTask:
 				cmdGenerateGithubActionV.Task = values[len(values)-1]
 			case FlagGenerateGithubActionWrite:
@@ -11978,6 +12094,8 @@ func Parse(args []string) (*Cli, error) {
 				}
 			case FlagGenerateToolStubBootstrapVersion:
 				cmdGenerateToolStubV.BootstrapVersion = values[len(values)-1]
+			case FlagGenerateToolStubChecksumAlgorithm:
+				cmdGenerateToolStubV.ChecksumAlgorithm = values[len(values)-1]
 			case FlagGenerateToolStubFetch:
 				if source == argv.FromEnv {
 					cmdGenerateToolStubV.Fetch = argv.EnvTruth(values[0])
@@ -12129,6 +12247,12 @@ func Parse(args []string) (*Cli, error) {
 					cmdInstallV.DryRunCode = argv.EnvTruth(values[0])
 				} else {
 					cmdInstallV.DryRunCode = values[0] == "true"
+				}
+			case FlagInstallIncludeTaskTools:
+				if source == argv.FromEnv {
+					cmdInstallV.IncludeTaskTools = argv.EnvTruth(values[0])
+				} else {
+					cmdInstallV.IncludeTaskTools = values[0] == "true"
 				}
 			case FlagInstallMinimumReleaseAge:
 				cmdInstallV.MinimumReleaseAge = values[len(values)-1]
@@ -12468,17 +12592,23 @@ func Parse(args []string) (*Cli, error) {
 				cmdOciRunV.Workdir = values[len(values)-1]
 			case ArgOciRunCmd:
 				cmdOciRunV.Cmd = append(cmdOciRunV.Cmd, values...)
+			case FlagOutdatedBump:
+				if source == argv.FromEnv {
+					cmdOutdatedV.Bump = argv.EnvTruth(values[0])
+				} else {
+					cmdOutdatedV.Bump = values[0] == "true"
+				}
 			case FlagOutdatedJson:
 				if source == argv.FromEnv {
 					cmdOutdatedV.Json = argv.EnvTruth(values[0])
 				} else {
 					cmdOutdatedV.Json = values[0] == "true"
 				}
-			case FlagOutdatedBump:
+			case FlagOutdatedL:
 				if source == argv.FromEnv {
-					cmdOutdatedV.Bump = argv.EnvTruth(values[0])
+					cmdOutdatedV.L = argv.EnvTruth(values[0])
 				} else {
-					cmdOutdatedV.Bump = values[0] == "true"
+					cmdOutdatedV.L = values[0] == "true"
 				}
 			case FlagOutdatedInactive:
 				if source == argv.FromEnv {
@@ -12817,6 +12947,12 @@ func Parse(args []string) (*Cli, error) {
 					cmdRunV.AffectedJson = argv.EnvTruth(values[0])
 				} else {
 					cmdRunV.AffectedJson = values[0] == "true"
+				}
+			case FlagRunAll:
+				if source == argv.FromEnv {
+					cmdRunV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdRunV.All = values[0] == "true"
 				}
 			case FlagRunContinueOnError:
 				if source == argv.FromEnv {
@@ -13498,6 +13634,12 @@ func Parse(args []string) (*Cli, error) {
 				} else {
 					cmdTasksRunV.AffectedJson = values[0] == "true"
 				}
+			case FlagTasksRunAll:
+				if source == argv.FromEnv {
+					cmdTasksRunV.All = argv.EnvTruth(values[0])
+				} else {
+					cmdTasksRunV.All = values[0] == "true"
+				}
 			case FlagTasksRunContinueOnError:
 				if source == argv.FromEnv {
 					cmdTasksRunV.ContinueOnError = argv.EnvTruth(values[0])
@@ -13866,6 +14008,12 @@ func Parse(args []string) (*Cli, error) {
 				}
 			case ArgUnuseInstalledToolVersion:
 				cmdUnuseV.InstalledToolVersion = append(cmdUnuseV.InstalledToolVersion, values...)
+			case FlagUpgradeBump:
+				if source == argv.FromEnv {
+					cmdUpgradeV.Bump = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.Bump = values[0] == "true"
+				}
 			case FlagUpgradeInteractive:
 				if source == argv.FromEnv {
 					cmdUpgradeV.Interactive = argv.EnvTruth(values[0])
@@ -13874,11 +14022,11 @@ func Parse(args []string) (*Cli, error) {
 				}
 			case FlagUpgradeJobs:
 				cmdUpgradeV.Jobs = values[len(values)-1]
-			case FlagUpgradeBump:
+			case FlagUpgradeL:
 				if source == argv.FromEnv {
-					cmdUpgradeV.Bump = argv.EnvTruth(values[0])
+					cmdUpgradeV.L = argv.EnvTruth(values[0])
 				} else {
-					cmdUpgradeV.Bump = values[0] == "true"
+					cmdUpgradeV.L = values[0] == "true"
 				}
 			case FlagUpgradeDryRun:
 				if source == argv.FromEnv {
@@ -13919,6 +14067,12 @@ func Parse(args []string) (*Cli, error) {
 					cmdUpgradeV.NoPrune = argv.EnvTruth(values[0])
 				} else {
 					cmdUpgradeV.NoPrune = values[0] == "true"
+				}
+			case FlagUpgradePrune:
+				if source == argv.FromEnv {
+					cmdUpgradeV.Prune = argv.EnvTruth(values[0])
+				} else {
+					cmdUpgradeV.Prune = values[0] == "true"
 				}
 			case FlagUpgradeRaw:
 				if source == argv.FromEnv {
@@ -14193,7 +14347,9 @@ func Parse(args []string) (*Cli, error) {
 	}
 	if err := argv.CheckRelationshipsWithValuesAndRequirements(Meta, scope, func(k uint64) argv.Source {
 		return sources[k]
-	}, nil, func(k uint64) bool { return requirements[k] }); err != nil {
+	}, func(k uint64) []string {
+		return argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])
+	}, func(k uint64) bool { return requirements[k] }); err != nil {
 		return nil, err
 	}
 	return out, nil

@@ -392,6 +392,15 @@ impl<'a> Emitter<'a> {
             if e.cmd.arg_required_else_help {
                 lines.push(Line::Field("ArgRequiredElseHelp".into(), "true".into()));
             }
+            if e.cmd.disable_help_flag {
+                lines.push(Line::Field("DisableHelpFlag".into(), "true".into()));
+            }
+            if e.cmd.disable_help_subcommand {
+                lines.push(Line::Field("DisableHelpSubcommand".into(), "true".into()));
+            }
+            if e.cmd.disable_version_flag {
+                lines.push(Line::Field("DisableVersionFlag".into(), "true".into()));
+            }
             if e.cmd.subcommand_negates_reqs {
                 lines.push(Line::Field("SubcommandNegatesReqs".into(), "true".into()));
             }
@@ -993,6 +1002,12 @@ impl Emitter<'_> {
         }
         if let Some(long) = &self.spec.about_long {
             fields.push(format!("LongAbout: {}", go_string(long)));
+        }
+        if let Some(author) = &self.spec.author {
+            fields.push(format!("Author: {}", go_string(author)));
+        }
+        if let Some(license) = &self.spec.license {
+            fields.push(format!("License: {}", go_string(license)));
         }
         if let Some(before) = &self.spec.before_help {
             fields.push(format!("BeforeHelp: {}", go_string(before)));
@@ -1964,6 +1979,27 @@ cmd "run" {
             out.contains("DefaultSubcommand: cmdRun,"),
             "should point at the root's own `run`, got:\n{out}"
         );
+    }
+
+    #[test]
+    fn command_builtin_controls_reach_generated_go_tables() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+disable_help_flag #true
+disable_help_subcommand #true
+disable_version_flag #true
+"#);
+        let root = out
+            .split("var Root = &argv.Command{")
+            .nth(1)
+            .expect("the root command should be emitted")
+            .split("}\n")
+            .next()
+            .unwrap();
+        assert!(root.contains("DisableHelpFlag:"), "{root}");
+        assert!(root.contains("DisableHelpSubcommand:"), "{root}");
+        assert!(root.contains("DisableVersionFlag:"), "{root}");
     }
 
     /// A command's own name outranks another command's alias, so which command the

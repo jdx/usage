@@ -61,11 +61,10 @@ func TestRealCommandLines(t *testing.T) {
 			"cmd:use flag:global arg:TOOL@VERSION=node@20",
 		},
 		{
-			// The shape that made the Rust derive's validation wrong: `[ARGS]…`
-			// before the separator and `[-- ARGS_LAST]…` after it.
-			"a task runs with arguments after a separator",
+			// Once TASK binds, every later token is forwarded through automatic ARGS.
+			"an automatic task argument forwards every trailing token",
 			[]string{"tasks", "run", "build", "extra", "--dry-run", "--", "--verbose"},
-			"cmd:tasks cmd:run arg:TASK=build arg:ARGS=extra flag:dry-run arg:ARGS_LAST=--verbose",
+			"cmd:tasks cmd:run arg:TASK=build arg:ARGS=extra arg:ARGS=--dry-run arg:ARGS=-- arg:ARGS=--verbose",
 		},
 		{
 			// `x` is a hidden alias in the spec, and hiding is a help-output concern:

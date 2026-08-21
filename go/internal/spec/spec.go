@@ -46,6 +46,8 @@ type Spec struct {
 	LongVersion string `json:"long_version"`
 	About       string `json:"about"`
 	AboutLong   string `json:"about_long"`
+	Author      string `json:"author"`
+	License     string `json:"license"`
 	// Complete is the completers a spec declares, keyed by the lowercased name of
 	// the argument or flag value they belong to — which is how usage-lib keys
 	// them, and how a lookup has to be spelled.
@@ -66,6 +68,8 @@ func (s *Spec) HelpSpec() argv.HelpSpec {
 		LongVersion:    s.LongVersion,
 		About:          s.About,
 		LongAbout:      s.AboutLong,
+		Author:         s.Author,
+		License:        s.License,
 		BeforeHelp:     s.BeforeHelp,
 		AfterHelp:      s.AfterHelp,
 		BeforeLongHelp: s.BeforeHelpLong,

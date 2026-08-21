@@ -985,7 +985,7 @@ generated from clap via `clap_usage`. Anything clap does not expose, or that an
 older clap_usage dropped, is invisible to the gate. Trying the CLIs means
 looking at the clap surface, not only at the spec.
 
-- [ ] **Refresh the fleet fixtures against this crate's `clap_usage`.** The
+- [x] **Refresh the fleet fixtures against this crate's `clap_usage`.** The
       copies in `benches/fleet/` and `benches/mise.usage.kdl` are snapshots.
       Live `mise usage` (2026.8.8) and `aube usage` (1.20.0) still emit no
       `delimiter=` and no `allow_hyphen_values`, because they were built against
@@ -1000,8 +1000,11 @@ looking at the clap surface, not only at the spec.
       The six completed typed adopters now supply current `usage-rs` fixtures and
       regenerated shadows for hk, fnox, pitchfork, aube, tak, and communique. Their
       delimiter, optional-value, relationship, and command-policy metadata is therefore
-      visible to the gate. mise remains on its clap-era fixture until its router port can
-      emit the replacement metadata.
+      visible to the gate. mise now supplies its typed `usage-rs` metadata from
+      jdx/mise#12221; the refreshed fixture and every generated shadow are checked in.
+      That refresh exposed shadow-generator gaps for required switches and command
+      groups, which are fixed with the fixture rather than
+      being mistaken for adopter losses.
 - [x] **Docs and manpages on a fleet spec.** communique's checked-in spec and
       the KDL its shadow emits render the same markdown (index and every
       command) and the same manpage. usage-cli's own
@@ -1082,11 +1085,11 @@ a prerequisite for trying a CLI.
       The gaps found are recorded in the general launch gate above; closing the
       merge-blocking rows is required before publishing 6.x and converting these
       experiments into release-dependency PRs.
-- [ ] **mise** — the largest and least forgiving adopter. Likely a router first, then
-      commands lowered a few at a time, with mise's e2e argv corpus replayed against both
-      parsers. Adoption is measured by what it lets mise delete, listed below.
-      Do not start this until the clap-only rows in **Trying the fleet** that
-      mise actually uses are either implemented or accepted as lost.
+- [x] **mise** — jdx/mise#12221 replaces the main command tree and optional vfox CLI
+      with `usage-rs`, removes the direct clap dependencies, emits the canonical spec
+      from the same typed metadata, and uses first-party help and completions. Its CLI
+      test corpus exposed count actions, one-member implicit groups, and redeclared
+      global propagation gaps; those fixes live in their owning usage stack PRs.
 - [x] **pitchfork** — jdx/Pitchfork#754 removes clap, parses its typed command tree
       with `usage-rs`, uses the built-in completion protocol, and passes its Rust and
       bats suites against the stacked usage revision. Its refreshed spec is part of the

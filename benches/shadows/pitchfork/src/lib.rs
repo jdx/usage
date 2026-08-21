@@ -635,7 +635,7 @@ pub struct LogsArgs {
 ///     pitchfork_logs      Return recent log output for a daemon
 #[derive(Args)]
 #[usage(
-    after_long_help = "Examples:\n\n    # Start the MCP server (used by AI assistant tools)\n    $ pitchfork mcp\n\n    # Claude Desktop configuration (claude_desktop_config.json):\n    {\n      \"mcpServers\": {\n        \"pitchfork\": {\n          \"command\": \"pitchfork\",\n          \"args\": [\"mcp\"]\n        }\n      }\n    }\n\n    # Interactive testing with JSON-RPC:\n    $ echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}' | pitchfork mcp\n\n# Available tools:\n- pitchfork_status  - List all daemons and their state\n- pitchfork_start   - Start daemon(s) by name\n- pitchfork_stop    - Stop daemon(s) by name\n- pitchfork_restart - Restart daemon(s) by name\n- pitchfork_logs    - Return recent log output for daemon(s)"
+    after_long_help = "Examples:\n\n    # Start the MCP server (used by AI assistant tools)\n    $ pitchfork mcp\n\n    # Claude Desktop configuration (claude_desktop_config.json):\n    {\n      \"mcpServers\": {\n        \"pitchfork\": {\n          \"command\": \"pitchfork\",\n          \"args\": [\"mcp\"]\n        }\n      }\n    }\n\n    # Interactive testing with JSON-RPC:\n    $ echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}' | pitchfork mcp\n\n# Available tools:\n- pitchfork_status  - List all daemons and their state\n- pitchfork_start   - Start daemon(s) by name\n- pitchfork_stop    - Stop daemon(s) by name\n- pitchfork_restart - Restart daemon(s) by name\n- pitchfork_logs    - Return recent log output for daemon(s)\n"
 )]
 pub struct McpArgs {}
 
@@ -934,7 +934,7 @@ pub struct RestartArgs {
     #[usage(long = "quiet", short = 'q')]
     pub quiet: bool,
     /// ID of the daemon(s) to restart
-    #[usage(arg, name = "ID")]
+    #[usage(arg, name = "ID", conflicts("--local", "--global", "--all"))]
     pub id: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -1190,7 +1190,7 @@ pub struct StartArgs {
     #[usage(long = "quiet", short = 'q')]
     pub quiet: bool,
     /// ID of the daemon(s) in pitchfork.toml to start
-    #[usage(arg, name = "ID")]
+    #[usage(arg, name = "ID", conflicts("--local", "--global", "--all"))]
     pub id: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -1271,7 +1271,7 @@ pub struct StopArgs {
     )]
     pub global: bool,
     /// The name of the daemon(s) to stop
-    #[usage(arg, name = "ID")]
+    #[usage(arg, name = "ID", conflicts("--local", "--global", "--all"))]
     pub id: ::std::vec::Vec<::std::string::String>,
 }
 

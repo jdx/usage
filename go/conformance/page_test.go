@@ -120,8 +120,11 @@ func firstDiff(ours, theirs string) string {
 		}
 		return strings.TrimRight(out.String(), "\n")
 	}
-	return "  same for " + itoa(min(len(mine), len(ref))) + " lines, then ours has " +
-		itoa(len(mine)) + " and the reference " + itoa(len(ref))
+	shared := min(len(mine), len(ref))
+	return "  same for " + itoa(shared) + " lines, then ours has " +
+		itoa(len(mine)) + " and the reference " + itoa(len(ref)) +
+		"\n  ours continues: " + quote(strings.Join(mine[shared:], "\\n")) +
+		"\n   lib continues: " + quote(strings.Join(ref[shared:], "\\n"))
 }
 
 // at is a line of a page, or a marker where the page has ended — so a window
