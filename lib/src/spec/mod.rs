@@ -640,22 +640,35 @@ impl Spec {
                     };
                     info!("include: {}", file.display());
                     let other = Self::parse_file_with_metadata_inference(&file, false)?;
-                    // A name declared on both sides of an `include` is refused, the same as
-                    // one declared twice in a single file. Letting the incoming set win
-                    // would make which declaration a `use` gets depend on whether the
-                    // `include` stands above or below it — and only in that direction, since
-                    // a `flagset` written after an `include` already fails here.
-                    if let Some(name) = other
-                        .flagsets
-                        .keys()
-                        .find(|name| schema.flagsets.contains_key(*name))
-                    {
+                    // Two *declarations* of one name are refused, the same as two in a single
+                    // file. Letting the incoming set win would make which declaration a
+                    // `use` gets depend on whether the `include` stands above or below it —
+                    // and only in that direction, since a `flagset` written after an
+                    // `include` already fails here.
+                    //
+                    // Which declaration, not which name: a file of shared sets is included
+                    // by every file whose `use` nodes name them, since each file resolves
+                    // its own. A spec that includes two of those files sees the shared set
+                    // arrive twice, and that is one declaration by two routes.
+                    let clash = other.flagsets.values().find(|incoming| {
+                        schema
+                            .flagsets
+                            .get(&incoming.name)
+                            .is_some_and(|own| own.declared_in != incoming.declared_in)
+                    });
+                    if let Some(incoming) = clash {
+                        let name = &incoming.name;
+                        let owner = schema.flagsets[name].declared_in.clone();
+                        let owner = match owner.as_os_str().is_empty() {
+                            true => "this spec".to_string(),
+                            false => owner.display().to_string(),
+                        };
                         bail_parse!(
                             ctx,
                             node.span(),
-                            "a flagset may be declared only once: {} declares \"{name}\", \
-                             which this spec already has",
-                            file.display()
+                            "a flagset may be declared only once: \"{name}\" is declared in \
+                             {} and in {owner}",
+                            incoming.declared_in.display()
                         );
                     }
                     schema.merge(other);
@@ -725,9 +738,10 @@ impl Spec {
         merge_extend!(views);
         // An included file's sets are visible to the file that includes it, which is how a
         // spec keeps its shared declarations in a file of their own. Its own `use` nodes are
-        // already resolved by the time it gets here, so nothing is expanded twice. A name
-        // both sides declare never reaches this extend: the `include` refuses it, rather
-        // than one silently taking the other's name.
+        // already resolved by the time it gets here, so nothing is expanded twice. Two files
+        // declaring one name never reach this extend: the `include` refuses them, rather
+        // than one silently taking the other's name. What does reach it is the same shared
+        // file arriving by two routes, which overwrites an entry with itself.
         merge_extend!(flagsets);
         merge_extend!(examples);
         // An included spec brings the files *it* read, which is how a nested include is watched.

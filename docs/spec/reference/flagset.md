@@ -167,7 +167,10 @@ naming a set that does not exist is reported even inside a set nothing has reach
 
 A name may still be declared only once, and an `include` does not make that a choice: two
 files declaring `common` is an error wherever the `include` stands, rather than one of them
-quietly taking the name from the other.
+quietly taking the name from the other. What is counted is declarations rather than
+arrivals, so the shared file above may be included by every file that uses its sets and by
+the spec that includes those — one declaration reaching a spec by several routes is what
+this feature is for.
 
 A `use` belongs to the flags it stands among, so an included file that declares flags of its
 own for the same command replaces the `use` along with them — the same rule

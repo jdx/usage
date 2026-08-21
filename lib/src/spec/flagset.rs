@@ -30,6 +30,7 @@
 //! them, the same way `include` does not survive a round trip.
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use indexmap::IndexMap;
 use miette::SourceSpan;
@@ -61,6 +62,13 @@ pub struct SpecFlagSet {
     /// The node, for an error raised while flattening the set rather than at one `use`.
     #[serde(skip)]
     pub(crate) span: SourceSpan,
+    /// The file this set was declared in, resolved so two routes to one file agree.
+    ///
+    /// A name may be declared once, and what makes that one rule rather than two is that a
+    /// *declaration* is what is counted: a shared file reaching a spec through two includes
+    /// is one declaration arriving twice, not two of them.
+    #[serde(skip)]
+    pub(crate) declared_in: PathBuf,
 }
 
 /// One `use` node: the flagsets whose declarations belong where it stands.
@@ -89,8 +97,20 @@ impl Default for SpecFlagSet {
             // Nowhere to point: a set that was not read from a file has no node, and the
             // errors this span serves can only come from one that was.
             span: (0, 0).into(),
+            declared_in: PathBuf::new(),
         }
     }
+}
+
+/// Where a file's declarations come from, as a name two routes to that file share.
+///
+/// A diamond of includes reaches one shared file as `a/../common.usage.kdl` from one side and
+/// `b/../common.usage.kdl` from the other. Those are the same declaration, and comparing the
+/// paths as written would call them two.
+pub(crate) fn declaring_file(file: &Path) -> PathBuf {
+    // A spec parsed from a string has no file, and canonicalizing nothing fails: the empty
+    // path is then the honest answer, and it cannot collide with a real one.
+    std::fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf())
 }
 
 impl SpecFlagSet {
@@ -101,6 +121,7 @@ impl SpecFlagSet {
             flags: vec![],
             uses: vec![],
             span: node.span(),
+            declared_in: declaring_file(&ctx.file),
         };
         if let Some((k, v)) = node.props().first() {
             bail_parse!(ctx, v.entry.span(), "unsupported flagset prop {k}");
@@ -771,6 +792,53 @@ flagset "output" {
         std::fs::write(&before, format!("bin \"ex\"\n{include}{own}")).unwrap();
         let msg = err_file(&before);
         assert!(msg.contains("a flagset may be declared only once"), "{msg}");
+    }
+
+    #[test]
+    fn a_shared_file_may_reach_a_spec_by_two_routes() {
+        // The shape the feature asks for. Each file resolves its own `use` nodes, so every
+        // file whose commands name the shared sets includes the file that declares them —
+        // and a spec that includes two such files sees the shared set arrive twice. That is
+        // one declaration by two routes, not two declarations, so the once-only rule has
+        // nothing to say about it.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("cmds")).unwrap();
+        std::fs::write(
+            dir.path().join("common.usage.kdl"),
+            "flagset \"common\" {\n    flag \"-v --verbose\"\n}\n",
+        )
+        .unwrap();
+        for cmd in ["build", "test"] {
+            // Reached as `cmds/../common.usage.kdl` from here and as `./common.usage.kdl`
+            // from the root: the same file, spelled two ways.
+            let body = format!(
+                "include file=\"../common.usage.kdl\"\ncmd \"{cmd}\" {{\n    use \"common\"\n}}\n"
+            );
+            std::fs::write(
+                dir.path().join("cmds").join(format!("{cmd}.usage.kdl")),
+                body,
+            )
+            .unwrap();
+        }
+        let root = dir.path().join("ex.usage.kdl");
+        std::fs::write(
+            &root,
+            "bin \"ex\"\ninclude file=\"./common.usage.kdl\"\ninclude file=\"./cmds/build.usage.kdl\"\ninclude file=\"./cmds/test.usage.kdl\"\n",
+        )
+        .unwrap();
+
+        let spec = Spec::parse_file(&root).unwrap();
+
+        assert_snapshot!(spec, @r#"
+        name ex
+        bin ex
+        cmd build {
+            flag "-v --verbose"
+        }
+        cmd test {
+            flag "-v --verbose"
+        }
+        "#);
     }
 
     #[test]
