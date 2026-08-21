@@ -9,8 +9,9 @@
 //! An argv vector carries a KDL spec, because parsing argv is a question about a spec. A resolution
 //! is not: it is a question about a *registry* — keys, types, defaults, merge policies — which a
 //! CLI's build step produces from the spec long before anything is resolved. So a vector describes
-//! the registry directly in KDL, usage's canonical interchange format. How a spec becomes a
-//! registry is `usage-config-build`'s question, and its own golden test answers it.
+//! the registry directly in KDL, usage's canonical interchange format. How a *declaration*
+//! becomes a registry is the `usage::Config` derive's question, and `derive_config.rs` answers
+//! it.
 //!
 //! Nothing here touches the filesystem, the process environment, or a subprocess. A file layer is a
 //! description of what a file said, which is all the merge ever sees of one.

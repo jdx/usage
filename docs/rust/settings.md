@@ -134,9 +134,13 @@ documented one. The adopter's whole drift test is one line:
 assert_eq!(Settings::SETTINGS_REGISTRY.drift(Ex::SETTINGS_BINDINGS), Vec::<String>::new());
 ```
 
-## Spec-first instead
+## The spec block
 
-A CLI that would rather declare settings in KDL keeps the other direction:
-[usage-config-build](https://docs.rs/usage-config-build) reads the spec's `config` block at
-build time and generates the registry _and_ the typed `Settings` struct. The two backends
-emit the same registry shape, so nothing downstream can tell which way a CLI chose.
+The struct is the only declaration. `Settings::spec_kdl()` renders it as the spec's
+`config { prop … }` block, and `#[usage(config = Settings)]` on the `Cli` root puts that
+block in the emitted spec — so docs, the JSON schema, and the `config_keys` / `config_values`
+completers read settings declared in Rust exactly as they read ones written in KDL.
+
+There is no second, KDL-first backend to choose between: a `build.rs` that generated the
+registry from the spec was a third description of every setting, which is the drift this
+derive exists to remove.

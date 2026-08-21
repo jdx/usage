@@ -111,7 +111,6 @@ jobs:
         run: |
           cargo clippy -p usage-lib --no-default-features -- -D warnings
           cargo clippy -p usage-rs --no-default-features -- -D warnings
-          cargo clippy -p usage-config-build -- -D warnings
           cargo clippy -p usage-config --no-default-features -- -D warnings
       - run: mise r render
       # Same reasoning as `render`: the shadow is checked in, so a change to the derive's
@@ -154,7 +153,7 @@ jobs:
           - version: "1.91"
             crates: usage-argv usage-derive usage-config usage-validation usage-rs usage-test
           - version: "1.95"
-            crates: usage-lib usage-config-build clap_usage usage-cli
+            crates: usage-lib clap_usage usage-cli
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

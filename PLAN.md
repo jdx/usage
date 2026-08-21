@@ -13,7 +13,7 @@ already written, which is the failure mode a status file has to avoid.
    into the spec.
 
 The first is underway. The second is **underway too**, which this file said it was
-not: `usage-config` and `usage-config-build` are 8,220 lines, the spec's `config`
+not: `usage-config` and the `usage::Config` derive are the settings model, the spec's `config`
 block has a model behind it, and the derive lowers `#[usage(setting = …)]` into
 `SETTINGS_BINDINGS` with a `Registry::drift` check over it. What has _not_
 happened is adoption — none of mise, hk, pitchfork or fnox depends on the crate —
@@ -1845,8 +1845,9 @@ Where they differ is instructive, because it is mostly _drift_:
       coexisting declarations — was being paid for a benefit nobody scheduled. Nested
       groups compose through `usage_config::Props` with compile-time `concat_props`
       (duplicate keys refuse the build); `derive/src/config.rs`,
-      `conformance/tests/derive_config.rs`. A CLI that wants layer-at-a-time can still
-      write the block in KDL and use `usage-config-build`, which is unchanged.
+      `conformance/tests/derive_config.rs`. The struct is the only declaration: the
+      build-time KDL-to-registry generator (`usage-config-build`) is gone, because a
+      second backend was a third description of every setting.
 - [x] **A prop vocabulary that is the union of the four registries** — `type`
       (bool, int, string, path, duration, list, map, plus a Rust-type escape
       hatch), `default`, `env` and `deprecated_env`, `docs`, `deprecated` with
@@ -1899,9 +1900,10 @@ Where they differ is instructive, because it is mostly _drift_:
       struct.** The first adopters — pitchfork, fnox, tak — convert their registries
       into `#[derive(usage::Config)]` structs in one PR each, stacked on their clap-swap
       PRs; hk and aube are deferred (git/pkl layers, `env_only` bootstrap, per-item
-      provenance; aube's managed-policy ratchet and two-axis sources). A later
-      incremental adopter still has the KDL + `usage-config-build` path, which wraps
-      nothing and owns nothing it did not generate.
+      provenance; aube's managed-policy ratchet and two-axis sources). There is no
+      second path held open for a later incremental adopter: `usage-config-build` was
+      removed with this decision, since keeping a KDL-first backend alive meant keeping
+      two generators emitting one registry shape.
 - [x] fnox's model, where config files are not a settings source at all, is the
       one real behavior change rather than a consolidation. Worth confirming that
       is a fix and not a deliberate choice. **Decided (2026-08-21): preserve fnox's

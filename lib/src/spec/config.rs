@@ -154,7 +154,8 @@ impl SpecConfigValue {
             // is also what `usage-config` writes a float as, and the two have to agree: a spec's
             // `default=1.0` on a string-typed prop is coerced *here* and its `choice 1.0` is read
             // *there*, so a difference of one character refused a default and a choice that were
-            // written identically. `usage-config-build` has a test that holds the two together.
+            // written identically. `usage-conformance` has a test that holds the two together,
+            // because it is the one crate that can see both.
             Self::Float(f) => {
                 let text = f.to_string();
                 match f.is_finite() && !text.contains(['.', 'e', 'E']) {
