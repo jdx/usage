@@ -19,6 +19,7 @@ pub(crate) fn registry(config: &SpecConfig, name: &str) -> Result<String, Vec<St
     let props: Vec<(&String, &SpecConfigProp)> = config.props.iter().collect();
 
     check_keys(&props, &mut problems);
+    check_aliases(&props, &mut problems);
     check_renames(&props, &mut problems);
     let idents = identifiers(&props, &mut problems);
 
@@ -156,6 +157,13 @@ fn prop_meta(key: &str, prop: &SpecConfigProp, problems: &mut Vec<String>) -> St
     }
     if let Some(to) = prop.renamed_to.as_deref() {
         let _ = writeln!(fields, "        renamed_to: Some({}),", rust_str(to));
+    }
+    if !prop.aliases.is_empty() {
+        let aliases: Vec<String> = prop.aliases.iter().map(|alias| rust_str(alias)).collect();
+        let _ = writeln!(fields, "        aliases: &[{}],", aliases.join(", "));
+    }
+    if let Some(optional) = prop.optional {
+        let _ = writeln!(fields, "        optional: Some({optional}),");
     }
     if let Some(help) = prop.help.as_deref() {
         let _ = writeln!(fields, "        help: Some({}),", rust_str(help));
@@ -553,6 +561,27 @@ fn check_keys(props: &[(&String, &SpecConfigProp)], problems: &mut Vec<String>) 
                 "`{key}` has a part with no name in it: every piece of a dotted key needs an \
                  ASCII letter or digit"
             ));
+        }
+    }
+}
+
+/// Refuse aliases whose owner is ambiguous.
+fn check_aliases(props: &[(&String, &SpecConfigProp)], problems: &mut Vec<String>) {
+    let mut owners: BTreeMap<&str, &str> = props
+        .iter()
+        .map(|(key, _)| (key.as_str(), key.as_str()))
+        .collect();
+    for (key, prop) in props {
+        for alias in &prop.aliases {
+            if alias.is_empty() {
+                problems.push(format!("`{key}` has an empty alias"));
+                continue;
+            }
+            if let Some(owner) = owners.insert(alias, key) {
+                problems.push(format!(
+                    "`{alias}` names both `{owner}` and `{key}`; every setting key and alias must be unique"
+                ));
+            }
         }
     }
 }

@@ -96,6 +96,10 @@ pub struct PropMeta {
     /// The setting that replaces this one. A value found under the old key is folded into the
     /// new one at the same precedence, with a warning.
     pub renamed_to: Option<&'static str>,
+    /// Equivalent keys accepted without a rename warning.
+    pub aliases: &'static [&'static str],
+    /// An explicit optionality contract, when the declaration does not use inference.
+    pub optional: Option<bool>,
     pub help: Option<&'static str>,
 }
 
@@ -116,6 +120,8 @@ impl PropMeta {
             hide: false,
             deprecated: None,
             renamed_to: None,
+            aliases: &[],
+            optional: None,
             help: None,
         }
     }
@@ -131,6 +137,9 @@ pub struct Registry {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Lookup {
     pub id: PropId,
+    /// The canonical key or alias that matched the lookup, so diagnostics can repeat the key the
+    /// user actually wrote without treating a supported alias as a deprecated rename.
+    pub written: &'static str,
     /// The key that was asked for, when it is not the key that was found — an old name still
     /// in somebody's config file. Carried so a warning can name it.
     pub renamed_from: Option<&'static str>,
@@ -218,13 +227,19 @@ impl Registry {
     /// supplies — not once per key that exists. A binary search over a sorted table would be
     /// a fine optimization and is not yet worth the invariant it demands of the generator.
     pub fn lookup(&self, key: &str) -> Option<Lookup> {
-        let (index, meta) = self
-            .props
-            .iter()
-            .enumerate()
-            .find(|(_, meta)| meta.key == key)?;
+        let (index, written, matched_alias) =
+            self.props.iter().enumerate().find_map(|(index, meta)| {
+                if meta.key == key {
+                    Some((index, meta.key, false))
+                } else {
+                    meta.aliases
+                        .iter()
+                        .copied()
+                        .find(|alias| *alias == key)
+                        .map(|alias| (index, alias, true))
+                }
+            })?;
         let mut id = PropId(index as u16);
-        let written = meta.key;
         // A chain of renames resolves to its end, so two releases of renaming do not leave the
         // second one unreachable — walked rather than recursed, and bounded by the number of
         // settings there are. A cycle, which is one mistyped field away in a registry somebody
@@ -234,7 +249,8 @@ impl Registry {
             let Some(new_key) = self.props[id.index()].renamed_to else {
                 return Some(Lookup {
                     id,
-                    renamed_from: (id.index() != index).then_some(written),
+                    written,
+                    renamed_from: (id.index() != index && !matched_alias).then_some(written),
                 });
             };
             id = self.lookup_exact(new_key)?;
@@ -254,6 +270,30 @@ impl Registry {
             .map(|index| PropId(index as u16))
     }
 
+    /// Whether a table at `key` is itself a setting value rather than a path to
+    /// more-specific settings.
+    ///
+    /// Aliases participate in file lookup, but an alias that is also the prefix
+    /// of a declared dotted key must not swallow that nested value. A leaf alias
+    /// for a map or object still names the whole table.
+    pub fn names_file_value(&self, key: &str) -> bool {
+        let Some(found) = self.lookup(key) else {
+            return false;
+        };
+        let meta = self.get(found.id);
+        // A canonical table setting owns its value. Another declaration's alias below
+        // that key cannot turn the canonical map into a namespace and make the whole
+        // value disappear during flattening.
+        if meta.key == key && matches!(meta.ty.inner(), Ty::Map(_) | Ty::Object | Ty::Any) {
+            return true;
+        }
+        let prefix = format!("{key}.");
+        !self.props.iter().any(|meta| {
+            meta.key.starts_with(&prefix)
+                || meta.aliases.iter().any(|alias| alias.starts_with(&prefix))
+        })
+    }
+
     /// The first deprecation notice along the rename chain that starts at `key`.
     ///
     /// The chain, not the declaration named: `a` renamed to `b`, and `b` the one carrying the notice
@@ -265,7 +305,11 @@ impl Registry {
     /// same reason: this is an authoring mistake, and hanging is a worse way to report one than
     /// nothing at all. `usage-config-build` refuses such a registry outright.
     pub fn deprecation(&self, key: &str) -> Option<&'static str> {
-        let mut current = self.lookup_exact(key)?;
+        let mut current = self
+            .props
+            .iter()
+            .position(|meta| meta.key == key || meta.aliases.contains(&key))
+            .map(|index| PropId(index as u16))?;
         for _ in 0..self.props.len() {
             let meta = self.get(current);
             if let Some(why) = meta.deprecated {
@@ -393,6 +437,7 @@ mod tests {
     static PROPS: &[PropMeta] = &[
         PropMeta {
             key: "jobs",
+            aliases: &["parallelism"],
             envs: &["HK_JOBS", "HK_JOB"],
             cli: &["--jobs", "-j"],
             bindings: &[("git", "hk.jobs"), ("pkl", "jobs")],
@@ -416,6 +461,80 @@ mod tests {
         },
     ];
     const REGISTRY: Registry = Registry::new(PROPS);
+
+    #[test]
+    fn aliases_resolve_without_becoming_renames() {
+        let found = REGISTRY.lookup("parallelism").expect("alias");
+        assert_eq!(found.id, REGISTRY.lookup("jobs").unwrap().id);
+        assert_eq!(found.written, "parallelism");
+        assert_eq!(found.renamed_from, None);
+        assert_eq!(REGISTRY.deprecation("parallelism"), None);
+    }
+
+    #[test]
+    fn an_alias_on_a_renamed_prop_stays_warning_free_but_keeps_deprecation() {
+        static RENAMED: &[PropMeta] = &[
+            PropMeta::new("jobs", Ty::Uint),
+            PropMeta {
+                aliases: &["parallelism"],
+                renamed_to: Some("jobs"),
+                deprecated: Some("Use jobs instead."),
+                ..PropMeta::new("concurrency", Ty::Uint)
+            },
+        ];
+        let registry = Registry::new(RENAMED);
+        let found = registry.lookup("parallelism").unwrap();
+        assert_eq!(found.id, PropId(0));
+        assert_eq!(found.renamed_from, None);
+        assert_eq!(
+            registry.deprecation("parallelism"),
+            Some("Use jobs instead.")
+        );
+    }
+
+    #[test]
+    fn an_alias_prefix_does_not_swallow_a_nested_file_key() {
+        const PREFIXED: &[PropMeta] = &[
+            PropMeta {
+                aliases: &["old.key"],
+                ..PropMeta::new("replacement", Ty::Map(&Ty::String))
+            },
+            PropMeta::new("old.key.extra", Ty::String),
+            PropMeta {
+                aliases: &["whole.table"],
+                ..PropMeta::new("map", Ty::Map(&Ty::String))
+            },
+        ];
+        let registry = Registry::new(PREFIXED);
+        assert!(!registry.names_file_value("old.key"));
+        assert!(registry.names_file_value("old.key.extra"));
+        assert!(registry.names_file_value("whole.table"));
+    }
+
+    #[test]
+    fn a_canonical_table_value_is_not_turned_into_a_namespace_by_an_alias() {
+        const PROPS: &[PropMeta] = &[
+            PropMeta::new("providers", Ty::Map(&Ty::String)),
+            PropMeta::new("optional", Ty::Option(&Ty::Map(&Ty::String))),
+            PropMeta::new("union", Ty::Any),
+            PropMeta {
+                aliases: &["providers.legacy"],
+                ..PropMeta::new("legacy_provider", Ty::String)
+            },
+            PropMeta {
+                aliases: &["optional.legacy"],
+                ..PropMeta::new("optional_legacy", Ty::String)
+            },
+            PropMeta {
+                aliases: &["union.legacy"],
+                ..PropMeta::new("union_legacy", Ty::String)
+            },
+        ];
+        let registry = Registry::new(PROPS);
+        assert!(registry.names_file_value("providers"));
+        assert!(registry.names_file_value("optional"));
+        assert!(registry.names_file_value("union"));
+    }
 
     #[test]
     fn a_cli_that_binds_what_the_spec_declares_has_no_drift() {

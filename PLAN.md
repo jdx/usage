@@ -1582,13 +1582,11 @@ Where they differ is instructive, because it is mostly _drift_:
 - [x] **Provenance through one merge path**, so `<bin> config explain` comes free
       everywhere instead of needing a parallel implementation. `config/src/explain.rs`
       — `explain`, `warnings`, `list`.
-- [~] **Extend `SpecConfigProp` first.** Mostly done, and the list of what was
-  missing has shrunk to two: `deprecated`, `merge`, `scope`, the per-source
-  `bindings`, and `choices` (the `enum` case) all exist now, alongside
-  `default`, `data_type`, `value_type`, `env`/`envs`, `cli`, and the help
-  fields. **`optional` and `aliases` are still absent.** The markdown renderer
-  reads the block, so it is no longer true that nothing consumes it — but no
-  _CLI_ emits one yet, which is the adoption half below.
+- [x] **Extend `SpecConfigProp` first.** `deprecated`, `merge`, `scope`, the
+      per-source `bindings`, `choices`, `default`, rich types, environment and CLI
+      bindings, help fields, explicit `optional`, and warning-free key `aliases` all
+      survive the portable spec. The markdown renderer and generated runtime registry
+      consume the block; no fleet CLI emits one yet, which is the adoption half below.
 - [ ] **A registry JSON schema**, so the declaration format validates itself the
       way hk's does.
 
