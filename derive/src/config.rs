@@ -211,14 +211,16 @@ impl Ty {
             (Self::Uint, Const::Int(i)) => *i >= 0,
             (Self::Float, Const::Float(_)) => true,
             (Self::String | Self::Path | Self::Url | Self::Duration, Const::Str(_)) => true,
-            // A string type reads a bare number or boolean as its text — where something
-            // reads it. A default is handed to the field as `Value::Int(1)`, and `String`
-            // refuses that, so `default = 1` on a `String` field is a mistake and not a
-            // shorthand.
+            // A spec's `type="string"` does read a bare number as its text, and the merge
+            // coerces one — but a *declaration written in Rust* has no reason to spell a
+            // string as anything but a string. Holding both a default and a choice to that
+            // means one spelling for both, which is what lets them be compared as written:
+            // the alternative is a third implementation of "how a float is written", the
+            // drift `config_value_display.rs` exists to catch.
             (
                 Self::String | Self::Path | Self::Url | Self::Duration,
                 Const::Bool(_) | Const::Int(_) | Const::Float(_),
-            ) => coerced,
+            ) => false,
             (Self::List(item) | Self::Set(item), Const::List(items)) => {
                 items.iter().all(|value| item.admits(value, position))
             }
@@ -621,7 +623,11 @@ impl Field {
             if !prop.ty.admits(choice, Position::Choice) {
                 return Err(syn::Error::new(
                     ident.span(),
-                    format!("a choice is not a value `{}` can hold", type_name(&prop.ty)),
+                    format!(
+                        "a choice is not a value `{}` can hold. Write it as the type the \
+                         setting is — a `string` setting's choices are strings, quoted",
+                        type_name(&prop.ty)
+                    ),
                 ));
             }
         }
@@ -1307,11 +1313,10 @@ mod tests {
     }
 
     #[test]
-    fn a_choice_still_reads_the_way_the_merge_reads_one() {
-        // The other side of the same rule. A choice is compared against a resolved value
-        // *after* coercion, so a `list<string>` setting's choices name what one item may be,
-        // and a string setting may name a bare number. Tightening the default check must not
-        // tighten this one: the registry's own comparison coerces before it compares.
+    fn a_choice_on_a_list_setting_names_one_item() {
+        // A choice is compared against a resolved value *after* coercion, and a `list<string>`
+        // setting's choices name what one item may be — that is what the registry compares.
+        // Tightening the default check must not tighten this one.
         accepted(
             r#"
             struct Settings {
@@ -1320,10 +1325,37 @@ mod tests {
             }
         "#,
         );
+    }
+
+    #[test]
+    fn a_string_setting_spells_its_values_as_strings() {
+        // A spec's `type="string"` does read a bare number as its text, and the merge coerces
+        // one — so the registry would accept `choice 1` here. A declaration written in Rust
+        // still has no reason to spell a string as anything else, and requiring the quotes is
+        // what lets a default and a choice be compared as written. The alternative is a third
+        // implementation of how a float is written, which is the drift
+        // `conformance/tests/config_value_display.rs` exists to catch.
+        for attribute in ["choices(1, 2)", "default = 1", "default = true"] {
+            let err = rejection(&format!(
+                r#"
+                struct Settings {{
+                    #[usage({attribute})]
+                    level: String,
+                }}
+            "#
+            ));
+            assert!(
+                err.contains("`string` can hold"),
+                "`{attribute}` was accepted on a String field: {err}"
+            );
+        }
+
+        // Quoted, they are the same declaration and they compile — including the pairing that
+        // the literal comparison would otherwise have refused.
         accepted(
             r#"
             struct Settings {
-                #[usage(choices(1, 2))]
+                #[usage(default = "1", choices("1", "2"))]
                 level: String,
             }
         "#,
