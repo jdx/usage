@@ -10,6 +10,10 @@ non-goals.
 Updating either clap package requires updating the versions above and auditing this
 matrix in the same pull request.
 
+Usage mirrors clap's attribute vocabulary and output shape on purpose, so clap's
+license is reproduced in the repository's
+[NOTICE.md](https://github.com/jdx/usage/blob/main/NOTICE.md) file.
+
 The columns distinguish every layer a migration crosses:
 
 - **derive** — `usage-rs` / `usage-derive` can declare it and has typed coverage.

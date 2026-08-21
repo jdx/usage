@@ -7,6 +7,7 @@ include = [
     "/Cargo.toml",
     "/Cargo.lock",
     "/README.md",
+    "/NOTICE.md",
     "/src/**/*.rs",
 ]
 description = "Library for working with usage specs"
