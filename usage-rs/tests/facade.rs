@@ -3058,6 +3058,16 @@ mod first {
         #[arg(long)]
         pub left: bool,
     }
+
+    /// Holds a colliding struct, and collides itself.
+    #[derive(usage_rs::Args)]
+    #[allow(dead_code)]
+    pub struct Nested {
+        #[usage(flatten)]
+        pub inner: Collides,
+        #[arg(long)]
+        pub one: bool,
+    }
 }
 
 mod second {
@@ -3066,6 +3076,15 @@ mod second {
     pub struct Collides {
         #[arg(long)]
         pub right: bool,
+    }
+
+    #[derive(usage_rs::Args)]
+    #[allow(dead_code)]
+    pub struct Nested {
+        #[usage(flatten)]
+        pub inner: Collides,
+        #[arg(long)]
+        pub two: bool,
     }
 }
 
@@ -3124,6 +3143,67 @@ fn two_structs_whose_names_end_the_same_way_get_no_set_at_all() {
             .map(|f| f.name.as_str())
             .collect::<Vec<_>>(),
         ["right"],
+        "{kdl}"
+    );
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct NestsFirst {
+    #[usage(flatten)]
+    nested: first::Nested,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct NestsSecond {
+    #[usage(flatten)]
+    nested: second::Nested,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum NestedCollidingCommand {
+    One(NestsFirst),
+    Two(NestsSecond),
+}
+
+#[derive(Cli)]
+#[usage(bin = "nested-colliding-ex")]
+#[allow(dead_code)]
+struct NestedCollidingEx {
+    #[usage(subcommand)]
+    command: NestedCollidingCommand,
+}
+
+#[test]
+fn a_collision_does_not_hide_the_one_inside_it() {
+    // Both `Nested` types collide, and so do the `Collides` types they hold. Stopping at the
+    // outer collision left the inner pair uncompared, so whichever parent was walked first
+    // gave its `Collides` the name — and which command got a `use` came down to traversal
+    // order rather than to anything either command said.
+    let kdl = NestedCollidingEx::to_kdl();
+    assert!(!kdl.contains("flagset nested"), "{kdl}");
+    assert!(!kdl.contains("flagset collides"), "{kdl}");
+    assert!(!kdl.contains("use collides"), "{kdl}");
+
+    let spec: usage_parser::Spec = kdl.parse().expect("parses");
+    let one = spec.cmd.subcommands.get("one").expect("one");
+    assert_eq!(
+        one.flags
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>(),
+        ["left", "one"],
+        "{kdl}"
+    );
+    let two = spec.cmd.subcommands.get("two").expect("two");
+    assert_eq!(
+        two.flags
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>(),
+        ["right", "two"],
         "{kdl}"
     );
 }

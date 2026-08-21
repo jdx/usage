@@ -17,8 +17,8 @@ use quote::{format_ident, quote};
 
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
-    rendered_path, to_kebab, type_name, Cli, ConditionalDefault, Dispatch, DoubleDash,
-    ExampleDecl, Field, Kind, Shape, Subcommands, ValueEnum, ViewDecl,
+    rendered_path, to_kebab, type_name, Cli, ConditionalDefault, Dispatch, DoubleDash, ExampleDecl,
+    Field, Kind, Shape, Subcommands, ValueEnum, ViewDecl,
 };
 
 /// Construct the user's command type after its generated partial has been checked.

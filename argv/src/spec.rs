@@ -1552,12 +1552,21 @@ impl<'a> Flagsets<'a> {
 
     fn record(&mut self, group: &'a FlattenGroup<'a>) {
         if let Some(entry) = self.entries.iter_mut().find(|e| e.name == group.name) {
-            if !same_group(entry.meta, group.meta) {
-                // Two flattened types whose names end in the same word. Neither can have
-                // the name, because a `use` of it would put one struct's flags on the
-                // command that asked for the other's. Both are written inline instead, which
-                // is what every flatten did before sets existed.
-                entry.ambiguous = true;
+            if same_group(entry.meta, group.meta) {
+                // The same struct again, whose own sets were recorded the first time.
+                return;
+            }
+            // Two flattened types whose names end in the same word. Neither can have the
+            // name, because a `use` of it would put one struct's flags on the command that
+            // asked for the other's. Both are written inline instead, which is what every
+            // flatten did before sets existed.
+            entry.ambiguous = true;
+            // Its nested sets are still sets, and still have to face the same-name rule:
+            // returning here left whatever this one composes uncompared, so which of two
+            // colliding nested structs got the name came down to which parent was walked
+            // first.
+            for nested in group.meta.flatten_groups {
+                self.record(nested);
             }
             return;
         }
