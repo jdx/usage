@@ -191,10 +191,12 @@ const completionSpec: Fig.Spec = {
           name: "old",
           description:
             'The spec as it was, typically the released one, use "-" to read from stdin',
+          template: "filepaths",
         },
         {
           name: "new",
           description: 'The spec as it is now, use "-" to read from stdin',
+          template: "filepaths",
         },
       ],
     },

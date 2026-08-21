@@ -58,6 +58,8 @@ cmd diff help="Compare two usage specs and report what changed about the interfa
     flag --exit-zero help="Exit 0 even when there are breaking changes"
     arg <OLD> help="The spec as it was, typically the released one, use \"-\" to read from stdin"
     arg <NEW> help="The spec as it is now, use \"-\" to read from stdin"
+    complete old type=path
+    complete new type=path
 }
 cmd exec help="Execute a script, parsing args and exposing them as environment variables" unknown_flags=value {
     alias x

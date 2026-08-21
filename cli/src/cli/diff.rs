@@ -47,9 +47,11 @@ use usage::spec::unknown_flags::UnknownFlags;
 #[usage(effect = "read", verbatim_doc_comment)]
 pub struct Diff {
     /// The spec as it was, typically the released one, use "-" to read from stdin
+    #[usage(value_hint = usage_rs::ValueHint::FilePath)]
     old: PathBuf,
 
     /// The spec as it is now, use "-" to read from stdin
+    #[usage(value_hint = usage_rs::ValueHint::FilePath)]
     new: PathBuf,
 
     /// Output format
@@ -546,37 +548,74 @@ fn diff_command_props(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut 
     {
         c.metadata("help-changed", path, "help text changed".to_string());
     }
+
+    diff_display_order(old.display_order, new.display_order, path, "command", c);
 }
 
+/// Pair the two flag lists up, then report.
+///
+/// Two passes, because the two rules are not equals. A matching internal name is the
+/// primary pairing and claims its flag first; only then may a flag whose spellings
+/// moved onto a differently-named declaration claim what is left. Interleaving them let
+/// a spelling take a flag whose name still matched some later old flag, which then
+/// paired with it a second time and reported one comparison twice while losing another
+/// flag's removal entirely.
 fn diff_flags(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes) {
-    // Which new flags an old one has already been paired with, so a rename is not also
-    // reported as an addition.
-    let mut paired: Vec<bool> = vec![false; new.flags.len()];
+    /// What became of one old flag.
+    enum Pairing {
+        /// Paired by internal name, which is what the derive and the KDL both key on.
+        Named(usize),
+        /// Paired by a shared spelling. The name is not something a caller can type, so
+        /// this is a rename rather than a removal — reported, and then compared in full,
+        /// so a spelling that really did disappear is still reported.
+        Renamed(usize),
+        Gone,
+    }
+
+    let mut claimed: Vec<bool> = vec![false; new.flags.len()];
+    let mut pairings: Vec<Pairing> = Vec::with_capacity(old.flags.len());
 
     for was in &old.flags {
-        // By internal name first, which is what the derive and the KDL both key on.
-        if let Some(position) = new.flags.iter().position(|f| f.name == was.name) {
-            paired[position] = true;
-            diff_flag(was, &new.flags[position], path, c);
+        match new
+            .flags
+            .iter()
+            .enumerate()
+            .find(|(position, f)| !claimed[*position] && f.name == was.name)
+            .map(|(position, _)| position)
+        {
+            Some(position) => {
+                claimed[position] = true;
+                pairings.push(Pairing::Named(position));
+            }
+            None => pairings.push(Pairing::Gone),
+        }
+    }
+
+    for (index, was) in old.flags.iter().enumerate() {
+        if !matches!(pairings[index], Pairing::Gone) {
             continue;
         }
-        // Then by spelling: the name is not something a caller can type, so a flag whose
-        // spellings moved onto a differently-named declaration was renamed rather than
-        // removed. Compared in full afterwards, so a spelling that really did disappear
-        // is still reported.
         let spellings = flag_spellings(was);
-        let renamed = new
+        if let Some(position) = new
             .flags
             .iter()
             .enumerate()
             .find(|(position, f)| {
-                !paired[*position] && flag_spellings(f).iter().any(|s| spellings.contains(s))
+                !claimed[*position] && flag_spellings(f).iter().any(|s| spellings.contains(s))
             })
-            .map(|(position, _)| position);
-        match renamed {
-            Some(position) => {
-                paired[position] = true;
-                let now = &new.flags[position];
+            .map(|(position, _)| position)
+        {
+            claimed[position] = true;
+            pairings[index] = Pairing::Renamed(position);
+        }
+    }
+
+    // Reported in the old spec's declaration order, whichever pass did the pairing.
+    for (was, pairing) in old.flags.iter().zip(&pairings) {
+        match pairing {
+            Pairing::Named(position) => diff_flag(was, &new.flags[*position], path, c),
+            Pairing::Renamed(position) => {
+                let now = &new.flags[*position];
                 c.metadata(
                     "flag-renamed",
                     path,
@@ -584,16 +623,20 @@ fn diff_flags(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes)
                 );
                 diff_flag(was, now, path, c);
             }
-            _ => c.breaking(
+            Pairing::Gone => c.breaking(
                 "flag-removed",
                 path,
-                format!("flag '{}' ({}) was removed", was.name, spellings.join(", ")),
+                format!(
+                    "flag '{}' ({}) was removed",
+                    was.name,
+                    flag_spellings(was).join(", ")
+                ),
             ),
         }
     }
 
     for (position, now) in new.flags.iter().enumerate() {
-        if paired[position] {
+        if claimed[position] {
             continue;
         }
         let spellings = flag_spellings(now);
@@ -972,6 +1015,8 @@ fn diff_flag(old: &SpecFlag, new: &SpecFlag, path: &str, c: &mut Changes) {
     {
         c.metadata("help-changed", path, format!("{subject} help text changed"));
     }
+
+    diff_display_order(old.display_order, new.display_order, path, &subject, c);
 }
 
 fn diff_args(old: &[SpecArg], new: &[SpecArg], path: &str, c: &mut Changes) {
@@ -1222,6 +1267,8 @@ fn diff_arg(old: &SpecArg, new: &SpecArg, path: &str, subject: &str, c: &mut Cha
     {
         c.metadata("help-changed", path, format!("{subject} help text changed"));
     }
+
+    diff_display_order(old.display_order, new.display_order, path, subject, c);
 }
 
 fn diff_choices(
@@ -1881,6 +1928,34 @@ fn diff_unknown_flags(
             "an undeclared flag is now a value rather than an error".to_string(),
         );
     }
+}
+
+/// Where a flag, argument or command sits in help output.
+///
+/// Presentation only — nothing about parsing moves — but it is a declaration somebody
+/// made deliberately, and the documentation lists it among the things a metadata finding
+/// covers, so it is compared rather than promised.
+fn diff_display_order(
+    old: Option<usize>,
+    new: Option<usize>,
+    path: &str,
+    subject: &str,
+    c: &mut Changes,
+) {
+    if old == new {
+        return;
+    }
+    let describe =
+        |order: Option<usize>| order.map_or("declaration order".to_string(), |o| o.to_string());
+    c.metadata(
+        "display-order-changed",
+        path,
+        format!(
+            "{subject} moves from {} to {} in help",
+            describe(old),
+            describe(new)
+        ),
+    );
 }
 
 /// How many values are required. Flags carry this as well as arguments do, and a flag
@@ -2722,5 +2797,64 @@ cmd "add" help="install" {
         assert_eq!(removed.message, "alias 'i' was removed");
         assert_eq!(removed.location, "ex install");
         assert_eq!(removed.category, Category::Breaking);
+    }
+
+    #[test]
+    fn a_name_match_claims_its_flag_before_a_moved_spelling_can() {
+        // `--bar` moves from the flag named `foo` to the flag named `bar`, whose own
+        // `--baz` goes away. Pairing in one pass let `foo` claim the new `bar` by
+        // spelling, after which the old `bar` matched the same flag by name and was
+        // compared to it a second time — so `--baz` was never reported as removed.
+        let old = r#"
+name "ex"
+bin "ex"
+flag "foo: --bar" help="one"
+flag "bar: --baz" help="two"
+        "#;
+        let new = r#"
+name "ex"
+bin "ex"
+flag "bar: --bar" help="two"
+        "#;
+        let found = changes(old, new);
+        // One comparison per new flag: `bar` pairs with `bar` by name, and `foo` is gone.
+        let removed: Vec<&str> = found
+            .iter()
+            .filter(|c| c.code == "flag-removed")
+            .map(|c| c.message.as_str())
+            .collect();
+        assert_eq!(removed, ["flag 'foo' (--bar) was removed"]);
+        assert_eq!(
+            find(&found, "flag-spelling-removed").message,
+            "flag '--bar' no longer answers to '--baz'"
+        );
+        assert!(!found.iter().any(|c| c.code == "flag-renamed"), "{found:?}");
+    }
+
+    #[test]
+    fn display_order_is_compared_because_the_docs_say_it_is() {
+        let old = r#"
+name "ex"
+bin "ex"
+flag "--verbose" help="verbose" display_order=10
+        "#;
+        let new = r#"
+name "ex"
+bin "ex"
+flag "--verbose" help="verbose" display_order=20
+        "#;
+        let found = changes(old, new);
+        let moved = find(&found, "display-order-changed");
+        assert_eq!(moved.category, Category::Metadata);
+        assert_eq!(
+            moved.message,
+            "flag '--verbose' moves from 10 to 20 in help"
+        );
+        // And dropping it entirely says what it falls back to.
+        let none = "name \"ex\"\nbin \"ex\"\nflag \"--verbose\" help=\"verbose\"\n";
+        assert_eq!(
+            find(&changes(old, none), "display-order-changed").message,
+            "flag '--verbose' moves from 10 to declaration order in help"
+        );
     }
 }

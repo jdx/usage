@@ -249,7 +249,17 @@
         "name": "diff",
         "aliases": [],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "complete": {
+          "old": {
+            "name": "old",
+            "type_": "path"
+          },
+          "new": {
+            "name": "new",
+            "type_": "path"
+          }
+        }
       },
       "exec": {
         "full_cmd": ["exec"],
