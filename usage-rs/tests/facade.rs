@@ -229,6 +229,79 @@ struct StructMetadataCli {
     command: StructMetadataCommands,
 }
 
+#[derive(Args)]
+#[group(required = true, multiple = false)]
+#[allow(dead_code)]
+struct ClapImplicitGroup {
+    #[arg(long)]
+    left: bool,
+    #[arg(long)]
+    right: bool,
+}
+
+#[derive(Cli)]
+#[command(bin = "implicit-group")]
+#[allow(dead_code)]
+struct ClapImplicitGroupCli {
+    #[arg(flatten)]
+    choice: ClapImplicitGroup,
+}
+
+#[derive(Args)]
+#[group(required = true)]
+#[allow(dead_code)]
+struct SingleClapImplicitGroup {
+    #[arg(long)]
+    only: bool,
+}
+
+#[derive(Args)]
+#[group(id = "all", required = true)]
+#[group(multiple = false)]
+#[allow(dead_code)]
+struct SplitClapImplicitGroup {
+    #[arg(long, group = "explicit")]
+    left: bool,
+    #[arg(long)]
+    middle: bool,
+    #[arg(long, group = "explicit")]
+    right: bool,
+}
+
+#[derive(Cli)]
+#[command(bin = "split-implicit-group")]
+#[allow(dead_code)]
+struct SplitClapImplicitGroupCli {
+    #[arg(flatten)]
+    choice: SplitClapImplicitGroup,
+}
+
+#[derive(Cli)]
+#[command(bin = "single-implicit-group")]
+#[allow(dead_code)]
+struct SingleClapImplicitGroupCli {
+    #[arg(flatten)]
+    choice: SingleClapImplicitGroup,
+}
+
+#[derive(Args)]
+#[group(id = "renamed")]
+#[allow(dead_code)]
+struct NoopClapImplicitGroup {
+    #[arg(long)]
+    left: bool,
+    #[arg(long)]
+    right: bool,
+}
+
+#[derive(Cli)]
+#[command(bin = "noop-implicit-group")]
+#[allow(dead_code)]
+struct NoopClapImplicitGroupCli {
+    #[arg(flatten)]
+    choice: NoopClapImplicitGroup,
+}
+
 #[derive(Cli)]
 #[command(bin = "ordered")]
 #[allow(dead_code)]
@@ -1457,6 +1530,54 @@ fn clap_command_metadata_can_stay_on_the_args_struct() {
 
     assert!(StructMetadataCli::parse_from(&[OsStr::new("go")]).is_ok());
     assert!(StructMetadataCli::parse_from(&[OsStr::new("secret-run")]).is_ok());
+}
+
+#[test]
+fn clap_implicit_groups_apply_to_the_args_struct_fields() {
+    assert!(ClapImplicitGroupCli::parse_from(&[]).is_err());
+    assert!(ClapImplicitGroupCli::parse_from(&[OsStr::new("--left")]).is_ok());
+    assert!(
+        ClapImplicitGroupCli::parse_from(&[OsStr::new("--left"), OsStr::new("--right")]).is_err()
+    );
+    let kdl = ClapImplicitGroupCli::to_kdl();
+    assert!(
+        kdl.contains("group ClapImplicitGroup --left --right required=#true"),
+        "{kdl}"
+    );
+    assert!(matches!(
+        SingleClapImplicitGroupCli::parse_from(&[]),
+        Err(usage::Error::MissingRequired { name: "only" })
+    ));
+    assert!(SingleClapImplicitGroupCli::parse_from(&[OsStr::new("--only")]).is_ok());
+    let single_kdl = SingleClapImplicitGroupCli::to_kdl();
+    assert!(
+        single_kdl.contains("flag --only required=#true"),
+        "{single_kdl}"
+    );
+    assert!(
+        !single_kdl.contains("group SingleClapImplicitGroup"),
+        "{single_kdl}"
+    );
+
+    let kdl = SplitClapImplicitGroupCli::to_kdl();
+    assert!(
+        kdl.contains("group all --left --middle --right required=#true"),
+        "{kdl}"
+    );
+    assert!(kdl.contains("group explicit --left --right"), "{kdl}");
+    assert!(SplitClapImplicitGroupCli::parse_from(&[]).is_err());
+    assert!(SplitClapImplicitGroupCli::parse_from(&[OsStr::new("--middle")]).is_ok());
+    assert!(
+        SplitClapImplicitGroupCli::parse_from(&[OsStr::new("--left"), OsStr::new("--middle")])
+            .is_err()
+    );
+
+    assert!(
+        NoopClapImplicitGroupCli::parse_from(&[OsStr::new("--left"), OsStr::new("--right")])
+            .is_ok()
+    );
+    let noop_kdl = NoopClapImplicitGroupCli::to_kdl();
+    assert!(!noop_kdl.contains("group renamed"), "{noop_kdl}");
 }
 
 #[test]
