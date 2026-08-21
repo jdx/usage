@@ -840,26 +840,29 @@ feature list is not an exhaustive audit.
       `parse_from_argv` is the explicit full-argv helper: it strips the binary
       for ordinary CLIs and applies the same basename-selected applet rewrite as
       `parse()` for multicall CLIs, while returning errors for tests and embedders.
-- [~] **Generated micro-conformance against clap.** A paired typed-CLI harness now
-  compares `require_equals`, defaults, delimiters, negative and hyphenated values,
-  value enums, scalar overrides, fixed arity, globals through subcommands, required
-  flags, conflicts/requires, required exclusive groups, optional values with equals,
-  external subcommands, `arg_required_else_help`, subcommand requirement/conflict
-  policies, conditional defaults, value terminators, skipped optional positionals,
-  count/set-false actions, flag and subcommand aliases, case-insensitive value aliases,
-  help headings/placeholders/visibility, default-missing values, flatten/skip, required trailing
-  separators, short/long version output, and subcommand and value-enum completion candidates. It
-  records typed values, error classifications, exit status and stream, relevant help,
-  and version output; the remaining matrix rows and completion candidates still need
-  equivalent minimal pairs. One minimal CLI per matrix row,
-  compared on accepted and rejected argv, typed values, error kind and exit
-  status, stdout versus stderr, short and long help, usage/version output, and
-  completion candidates. Include setting-specific diagnostics: for example,
-  clap explains that `--flag=value` is required when `require_equals` rejects
-  a detached or missing value, while usage currently reports only a generic
-  missing value and forced Aube to adapt that error locally. Run the portable
-  cases on Unix and Windows and the byte-value cases on Unix. The mise fuzzer
-  remains the scale test; this is the configuration-space test it cannot be.
+- [x] **Generated micro-conformance against clap.** A paired typed-CLI harness
+      compares `require_equals`, defaults, delimiters, negative and hyphenated values,
+      value enums, scalar overrides, fixed arity, globals through subcommands, required
+      flags, conflicts/requires, required exclusive groups, optional values with equals,
+      external subcommands, `arg_required_else_help`, subcommand requirement/conflict
+      policies, conditional defaults, value terminators, skipped optional positionals,
+      count/set-false actions, flag and subcommand aliases, case-insensitive value aliases,
+      help headings/placeholders/visibility, default-missing values, flatten/skip, required trailing
+      separators, automatic trailing values and delimiter preservation, short/long version output,
+      conditional requiredness, overrides, positional conflicts, exclusive flags, the argv0-free
+      entry point, multicall applet selection, and subcommand and value-enum completion candidates. It records typed values,
+      error classifications, exit status and stream, relevant help, version output, and deterministic
+      completion candidates. The paired cases cover every behaviorful parser category in the
+      compatibility matrix; usage-only extensions and intentional differences have native corpus
+      coverage instead of a false equality assertion. Each minimal CLI is
+      compared on accepted and rejected argv, typed values, error kind and exit
+      status, stdout versus stderr, short and long help, usage/version output, and
+      completion candidates. Include setting-specific diagnostics: for example,
+      clap explains that `--flag=value` is required when `require_equals` rejects
+      a detached or missing value, while usage currently reports only a generic
+      missing value and forced Aube to adapt that error locally. Run the portable
+      cases on Unix and Windows and the byte-value cases on Unix. The mise fuzzer
+      remains the scale test; this is the configuration-space test it cannot be.
 - [x] **Combination and stateful tests.** Focused typed conformance cases pair
       defaults with env and delimiters, optional values with `require_equals`,
       globals with overrides, subcommands with required positionals, groups with
