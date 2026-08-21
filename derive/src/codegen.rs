@@ -4113,33 +4113,51 @@ fn policy_impls(cli: &Cli, ident: &syn::Ident) -> TokenStream {
         }
     });
 
+    // A type that declares nothing and holds nothing that could answers with what it was
+    // handed. Most types in a CLI are this one, and the difference is not only the `Vec`
+    // it does not build: it is a function the linker can see through, rather than two
+    // dozen of them carrying tables that never say anything.
+    let verbosity_body = if verbosity_inputs.is_empty() && flattened.is_empty() {
+        quote!(base)
+    } else {
+        quote! {
+            #[allow(unused_mut)]
+            let mut __usage_base = base;
+            #(#verbosity_from_children)*
+            #[allow(unused_mut)]
+            let mut __usage_inputs: ::std::vec::Vec<usage_argv::policy::VerbosityInput<'_>> =
+                ::std::vec::Vec::new();
+            #(#verbosity_inputs)*
+            usage_argv::policy::resolve_verbosity_from(__usage_base, __usage_inputs)
+        }
+    };
+    let color_body = if color_inputs.is_empty() && flattened.is_empty() {
+        quote!(usage_argv::policy::ColorChoice::Auto)
+    } else {
+        quote! {
+            #[allow(unused_mut)]
+            let mut __usage_choice = usage_argv::policy::ColorChoice::Auto;
+            #(#color_from_children)*
+            #[allow(unused_mut)]
+            let mut __usage_inputs: ::std::vec::Vec<usage_argv::policy::ColorInput<'_>> =
+                ::std::vec::Vec::new();
+            #(#color_inputs)*
+            __usage_choice.combine(usage_argv::policy::resolve_color(__usage_inputs))
+        }
+    };
     quote! {
         impl usage_argv::policy::VerbosityPolicy for #ident {
             fn verbosity_from(
                 &self,
                 base: usage_argv::policy::Verbosity,
             ) -> usage_argv::policy::Verbosity {
-                #[allow(unused_mut)]
-                let mut __usage_base = base;
-                #(#verbosity_from_children)*
-                #[allow(unused_mut)]
-                let mut __usage_inputs: ::std::vec::Vec<usage_argv::policy::VerbosityInput<'_>> =
-                    ::std::vec::Vec::new();
-                #(#verbosity_inputs)*
-                usage_argv::policy::resolve_verbosity_from(__usage_base, __usage_inputs)
+                #verbosity_body
             }
         }
 
         impl usage_argv::policy::ColorPolicy for #ident {
             fn color(&self) -> usage_argv::policy::ColorChoice {
-                #[allow(unused_mut)]
-                let mut __usage_choice = usage_argv::policy::ColorChoice::Auto;
-                #(#color_from_children)*
-                #[allow(unused_mut)]
-                let mut __usage_inputs: ::std::vec::Vec<usage_argv::policy::ColorInput<'_>> =
-                    ::std::vec::Vec::new();
-                #(#color_inputs)*
-                __usage_choice.combine(usage_argv::policy::resolve_color(__usage_inputs))
+                #color_body
             }
         }
     }
