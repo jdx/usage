@@ -58,12 +58,16 @@ jobs:
         run: |
           set -euo pipefail
           base="https://github.com/jdx/mr-boxington/releases/download/$MBX_VERSION"
-          curl -fsSL --retry 3 -o mbx.tar.gz "$base/mbx-x86_64-unknown-linux-musl.tar.gz"
+          # Keep the published name: SHA256SUMS lists assets by it, and
+          # `--ignore-missing` silently skips entries whose file is absent, so
+          # downloading to any other name verifies nothing at all.
+          archive="mbx-x86_64-unknown-linux-musl.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" "$base/$archive"
           curl -fsSL --retry 3 -o SHA256SUMS "$base/SHA256SUMS"
           sha256sum --ignore-missing --check SHA256SUMS
-          tar -xzf mbx.tar.gz
+          tar -xzf "$archive"
           sudo install -m 0755 mbx /usr/local/bin/mbx
-          rm -f mbx mbx.tar.gz SHA256SUMS
+          rm -f mbx "$archive" SHA256SUMS
           mbx --version
 
       # `--no-run` compiles every crate and every test binary without running
