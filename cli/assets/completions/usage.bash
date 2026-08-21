@@ -15,8 +15,8 @@ _usage() {
         return 1
     fi
 
-	local cur prev words cword split
-    _init_completion -n : || return
+	local cur prev words cword comp_args
+    _init_completion -n : -- "$@" || return
     local spec_dir="${XDG_CACHE_HOME:-$HOME/.cache}/usage"
     [[ -d "$spec_dir" ]] || mkdir -p -m 700 "$spec_dir"
     local spec_file="$spec_dir/usage__usage_spec_usage.spec"

@@ -29,6 +29,12 @@ pub fn complete_bash(opts: &CompleteOptions) -> String {
     // well as everything after it. Writing the new ones would drop Ubuntu 24.04
     // LTS, which ships 2.11 and is supported until 2029 — and did drop it, until
     // the vendored copy that hid the problem was removed.
+    //
+    // `_init_completion` still gets `-- "$@"`, as upstream's own completions pass
+    // it: 2.12+ forwards it to `_comp_initialize`, which stores it in `comp_args`
+    // for the caller, and 2.11's `getopts` stops at the `--` and ignores the rest.
+    // Nothing here reads `comp_args`, but it is declared local so that setting it
+    // does not reach into the global scope.
     out.push(
         "# Requires bash-completion (https://github.com/scop/bash-completion), which must be\n\
          # sourced before this script."
@@ -94,8 +100,8 @@ fi"#
 
     out.push(format!(
         r#"
-	local cur prev words cword split
-    _init_completion -n : || return
+	local cur prev words cword comp_args
+    _init_completion -n : -- "$@" || return
     local spec_dir="${{XDG_CACHE_HOME:-$HOME/.cache}}/usage"
     [[ -d "$spec_dir" ]] || mkdir -p -m 700 "$spec_dir"
     local spec_file="$spec_dir/usage_{spec_variable}.spec"
