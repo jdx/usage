@@ -96,13 +96,18 @@ impl Layer for EnvLayer {
 
         // Everything the environment has to say, gathered by the setting it will end up in — which
         // is what an old name shares with the name that replaced it.
-        let mut found: BTreeMap<PropId, Vec<(PropId, &str, &str)>> = BTreeMap::new();
+        let mut found: BTreeMap<PropId, Vec<(PropId, &str, &str, bool)>> = BTreeMap::new();
         for id in registry.ids() {
             let meta = registry.get(id);
             // The *declared* order, because a setting's variables are listed highest first: mise's
             // `MISE_JOBS` beside an older `MISE_JOB`. First one set wins and the rest are not looked
             // at, which is what makes an alias an alias rather than a second setting.
-            for name in meta.envs {
+            for (name, deprecated) in meta
+                .envs
+                .iter()
+                .map(|name| (*name, false))
+                .chain(meta.deprecated_envs.iter().map(|name| (*name, true)))
+            {
                 let Some(raw) = self.get(name) else {
                     continue;
                 };
@@ -114,7 +119,10 @@ impl Layer for EnvLayer {
                     .renamed_to
                     .and_then(|to| registry.lookup(to))
                     .map_or(id, |found| found.id);
-                found.entry(target).or_default().push((id, set_as, raw));
+                found
+                    .entry(target)
+                    .or_default()
+                    .push((id, set_as, raw, deprecated));
                 break;
             }
         }
@@ -125,12 +133,13 @@ impl Layer for EnvLayer {
             // items from a deprecated variable *as well*, and an emptied one cleared the default
             // before the current name was merged.
             //
-            // The setting's own name wins; among old names, the first the registry declares. Which
-            // old name should beat another is a question nothing declares an answer to, so the answer
-            // is stable and the layer says what it did.
-            candidates.sort_by_key(|(id, ..)| *id != target);
+            // Every current environment name wins over every deprecated alias, including across a
+            // renamed setting that folds into this target. Within the same class, the target's own
+            // name wins; among old setting names, registry order is stable and the layer reports
+            // what it did.
+            candidates.sort_by_key(|(id, _, _, deprecated_env)| (*deprecated_env, *id != target));
             let mut read_by: Option<&str> = None;
-            for (id, set_as, raw) in candidates {
+            for (id, set_as, raw, deprecated_env) in candidates {
                 let origin = Origin::new(SourceKind::ENV, set_as);
                 if let Some(first) = read_by {
                     out.warn(
@@ -151,6 +160,24 @@ impl Layer for EnvLayer {
                     Ok(entry) => {
                         out.push(entry);
                         read_by = Some(set_as);
+                        if deprecated_env {
+                            let target_meta = registry.get(target);
+                            out.warn(
+                                Warning::at(
+                                    format!(
+                                        "{set_as} is deprecated; use {} for {}",
+                                        target_meta
+                                            .envs
+                                            .first()
+                                            .copied()
+                                            .unwrap_or(target_meta.key),
+                                        target_meta.key
+                                    ),
+                                    Origin::new(SourceKind::ENV, set_as),
+                                )
+                                .of(WarningKind::Deprecated),
+                            );
+                        }
                     }
                     // And a value of the wrong type costs that variable and nothing else. Refusing to
                     // start because one variable in a shell profile is a typo would be worse than the
@@ -176,6 +203,7 @@ mod tests {
             default: Some(Const::Int(4)),
             // Highest first, which is what makes the second one an alias.
             envs: &["HK_JOBS", "HK_JOB"],
+            deprecated_envs: &["HK_JOBS_OLD"],
             ..PropMeta::new("jobs", Ty::Uint)
         },
         PropMeta {
@@ -192,6 +220,7 @@ mod tests {
         PropMeta::new("stash", Ty::String),
         PropMeta {
             envs: &["HK_CONCURRENCY"],
+            deprecated_envs: &["HK_CONCURRENCY_OLD"],
             deprecated: Some("Use jobs instead."),
             renamed_to: Some("jobs"),
             ..PropMeta::new("concurrency", Ty::Uint)
@@ -283,6 +312,79 @@ mod tests {
             resolved.origin(id).map(|o| o.describe()),
             Some("HK_JOB"),
             "named as the user set it"
+        );
+    }
+
+    #[test]
+    fn a_deprecated_environment_alias_is_read_last_and_warned_about() {
+        let id = REGISTRY.lookup("jobs").expect("declared").id;
+        let resolved =
+            resolve(REGISTRY, Layers::new().then(&env(&[("HK_JOBS_OLD", "3")]))).expect("resolves");
+        assert_eq!(resolved.get(id), Some(&Value::Int(3)));
+        let warnings = crate::explain::warnings(&resolved);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].contains("HK_JOBS_OLD is deprecated"),
+            "{warnings:?}"
+        );
+        assert!(warnings[0].contains("use HK_JOBS"), "{warnings:?}");
+
+        let resolved = resolve(
+            REGISTRY,
+            Layers::new().then(&env(&[("HK_JOBS", "8"), ("HK_JOBS_OLD", "3")])),
+        )
+        .expect("resolves");
+        assert_eq!(resolved.get(id), Some(&Value::Int(8)));
+        assert!(resolved.warnings.is_empty(), "{:?}", resolved.warnings);
+    }
+
+    #[test]
+    fn a_renamed_settings_deprecated_environment_alias_names_the_replacement() {
+        let resolved = resolve(
+            REGISTRY,
+            Layers::new().then(&env(&[("HK_CONCURRENCY_OLD", "6")])),
+        )
+        .expect("resolves");
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(6)));
+        let warnings = crate::explain::warnings(&resolved);
+        assert!(
+            warnings.iter().any(|warning| warning
+                .starts_with("HK_CONCURRENCY_OLD is deprecated; use HK_JOBS for jobs")),
+            "{warnings:?}"
+        );
+        assert!(
+            !warnings
+                .iter()
+                .any(|warning| warning.contains("use HK_CONCURRENCY for concurrency")),
+            "the deprecated alias should direct the user to the folded replacement: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn a_current_renamed_variable_beats_a_deprecated_target_alias() {
+        let id = REGISTRY.lookup("jobs").expect("declared").id;
+        let resolved = resolve(
+            REGISTRY,
+            Layers::new().then(&env(&[("HK_JOBS_OLD", "3"), ("HK_CONCURRENCY", "6")])),
+        )
+        .expect("resolves");
+        assert_eq!(resolved.get(id), Some(&Value::Int(6)));
+        assert_eq!(
+            resolved.origin(id).map(|origin| origin.describe()),
+            Some("HK_CONCURRENCY")
+        );
+        let warnings = crate::explain::warnings(&resolved);
+        assert!(
+            warnings
+                .iter()
+                .any(|warning| warning.starts_with("HK_JOBS_OLD was not read: HK_CONCURRENCY")),
+            "{warnings:?}"
+        );
+        assert!(
+            !warnings
+                .iter()
+                .any(|warning| warning.contains("HK_JOBS_OLD is deprecated")),
+            "an unused deprecated alias should not produce an actionable warning: {warnings:?}"
         );
     }
 

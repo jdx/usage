@@ -684,6 +684,7 @@ fn registry_of(settings: &[Setting]) -> Result<Registry, String> {
                 None => None,
             },
             envs: &[],
+            deprecated_envs: &[],
             // No flags: a corpus vector describes what reaches a *resolution*, and which flag a
             // setting declares does not change one. It is documentation, and the drift test that
             // holds it against a CLI's own binding is that CLI's test rather than this corpus's.
