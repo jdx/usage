@@ -230,6 +230,148 @@
         "hidden_aliases": [],
         "examples": []
       },
+      "explain": {
+        "full_cmd": ["explain"],
+        "usage": "explain [FLAGS] [ARGV]…",
+        "subcommands": {},
+        "args": [
+          {
+            "name": "ARGV",
+            "usage": "[ARGV]…",
+            "help": "The command line to explain, starting with the program name",
+            "help_long": "The command line to explain, starting with the program name\n\n`usage`'s own flags come before it, and flag parsing ends at the program name, so\nboth `explain -f f.kdl mycli --env=prod` and `explain -f f.kdl -- mycli --env=prod`\nwork. Separate with `--` when the explained line carries its own: the first `--` is\nstill `usage`'s separator, so `explain -f f.kdl mycli a -- b` loses one.",
+            "help_first_line": "The command line to explain, starting with the program name",
+            "required": false,
+            "double_dash": "Automatic",
+            "var": true,
+            "hide": false
+          }
+        ],
+        "flags": [
+          {
+            "name": "file",
+            "usage": "-f --file <FILE>",
+            "help": "A usage spec file or script with a usage shebang, use \"-\" to read from stdin",
+            "help_first_line": "A usage spec file or script with a usage shebang, use \"-\" to read from stdin",
+            "short": ["f"],
+            "long": ["file"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "FILE",
+              "usage": "<FILE>",
+              "required": true,
+              "double_dash": "Optional",
+              "hide": false
+            }
+          },
+          {
+            "name": "spec",
+            "usage": "-s --spec <SPEC>",
+            "help": "Raw string spec input",
+            "help_first_line": "Raw string spec input",
+            "short": ["s"],
+            "long": ["spec"],
+            "required_unless": ["--file"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "SPEC",
+              "usage": "<SPEC>",
+              "required": true,
+              "double_dash": "Optional",
+              "hide": false
+            },
+            "overrides": ["--file"]
+          },
+          {
+            "name": "format",
+            "usage": "--format <FORMAT>",
+            "help": "Output format",
+            "help_first_line": "Output format",
+            "short": [],
+            "long": ["format"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "FORMAT",
+              "usage": "<FORMAT>",
+              "required": true,
+              "double_dash": "Optional",
+              "hide": false,
+              "choices": {
+                "choices": ["text", "json"],
+                "details": [
+                  {
+                    "value": "text"
+                  },
+                  {
+                    "value": "json"
+                  }
+                ]
+              }
+            },
+            "default": ["text"]
+          },
+          {
+            "name": "view",
+            "usage": "--view <VIEW>",
+            "help": "A spec-declared executable view to explain",
+            "help_first_line": "A spec-declared executable view to explain",
+            "short": [],
+            "long": ["view"],
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "VIEW",
+              "usage": "<VIEW>",
+              "required": true,
+              "double_dash": "Optional",
+              "hide": false
+            }
+          },
+          {
+            "name": "env",
+            "usage": "-e --env… <ENV>",
+            "help": "Environment to explain against, as KEY=VALUE, repeatable",
+            "help_long": "Environment to explain against, as KEY=VALUE, repeatable\n\nGiven at all, these are the *whole* environment: an explanation pasted into a bug\nreport has to mean the same thing on the machine that reads it. Omitted, the process\nenvironment is used, which is what an execution would see.",
+            "help_first_line": "Environment to explain against, as KEY=VALUE, repeatable",
+            "short": ["e"],
+            "long": ["env"],
+            "var": true,
+            "hide": false,
+            "global": false,
+            "arg": {
+              "name": "ENV",
+              "usage": "<ENV>",
+              "required": true,
+              "double_dash": "Optional",
+              "hide": false
+            }
+          }
+        ],
+        "mounts": [],
+        "effect": "read",
+        "unknown_flags": null,
+        "hide": false,
+        "args_override_self": true,
+        "help": "Explain what a command line binds to",
+        "help_long": "Explain what a command line binds to\n\nPrints a row per argv token saying what it became, then the values that came from\nsomewhere other than argv, then anything that went wrong. Exits 0 even when the explained\ncommand line does not parse: the report succeeded, and that is the case worth a report.",
+        "name": "explain",
+        "aliases": [],
+        "hidden_aliases": [],
+        "examples": [],
+        "complete": {
+          "argv": {
+            "name": "argv",
+            "type_": "command_args"
+          },
+          "file": {
+            "name": "file",
+            "type_": "path"
+          }
+        }
+      },
       "fish": {
         "full_cmd": ["fish"],
         "usage": "fish [-h] [--help] <SCRIPT> [ARGS]…",

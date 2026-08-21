@@ -49,6 +49,35 @@ cmd exec help="Execute a script, parsing args and exposing them as environment v
     arg <BIN> help="path to script to execute"
     arg "[ARGS]..." help="arguments to pass to script"
 }
+cmd explain help="Explain what a command line binds to" effect=read {
+    long_help "Explain what a command line binds to\n\nPrints a row per argv token saying what it became, then the values that came from\nsomewhere other than argv, then anything that went wrong. Exits 0 even when the explained\ncommand line does not parse: the report succeeded, and that is the case worth a report."
+    flag "-f --file" help="A usage spec file or script with a usage shebang, use \"-\" to read from stdin" {
+        arg <FILE>
+    }
+    flag "-s --spec" help="Raw string spec input" overrides=--file required_unless=--file {
+        arg <SPEC>
+    }
+    flag --format help="Output format" default=text {
+        arg <FORMAT> {
+            choices {
+                choice text
+                choice json
+            }
+        }
+    }
+    flag --view help="A spec-declared executable view to explain" {
+        arg <VIEW>
+    }
+    flag "-e --env" help="Environment to explain against, as KEY=VALUE, repeatable" var=#true {
+        long_help "Environment to explain against, as KEY=VALUE, repeatable\n\nGiven at all, these are the *whole* environment: an explanation pasted into a bug\nreport has to mean the same thing on the machine that reads it. Omitted, the process\nenvironment is used, which is what an execution would see."
+        arg <ENV>
+    }
+    arg "[ARGV]..." help="The command line to explain, starting with the program name" double_dash=automatic {
+        long_help "The command line to explain, starting with the program name\n\n`usage`'s own flags come before it, and flag parsing ends at the program name, so\nboth `explain -f f.kdl mycli --env=prod` and `explain -f f.kdl -- mycli --env=prod`\nwork. Separate with `--` when the explained line carries its own: the first `--` is\nstill `usage`'s separator, so `explain -f f.kdl mycli a -- b` loses one."
+    }
+    complete argv type=command_args
+    complete file type=path
+}
 cmd fish help="Execute a shell script using fish" unknown_flags=value {
     long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
     flag -h help="Show help"

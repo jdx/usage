@@ -18,6 +18,38 @@ measurement, checked on every run rather than asserted here — see
 
 :::
 
+## Seeing it for yourself
+
+`usage explain` answers this page for one command line: which token bound to
+which flag or argument, and where every value that no token supplied came from.
+
+```sh
+usage explain -f mycli.usage.kdl -- mycli -j8 --env=prod build a -- --raw
+```
+
+```
+tokens
+  [0]  mycli       program
+  [1]  -j8         flag -j, value of jobs = "8", attached
+  [2]  --env=prod  flag --env, value of env = "prod", attached
+  [3]  build       subcommand build
+  [4]  a           arg target = "a"
+  [5]  --          separator
+  [6]  --raw       arg extra = "--raw"
+
+values
+  flag  --jobs     8      argv [1]
+  flag  --env      prod   argv [2]
+  flag  --color    never  env MYCLI_COLOR
+  flag  --strict   true   default_if --profile when="prod"
+  arg   <target>   a      argv [4]
+```
+
+The reference implementation is the one answering, so the report is what the
+grammar below says rather than what any particular reading of it assumes. It
+exits 0 even when the explained command line does not parse — that being the
+case a report is most wanted for.
+
 ## Terms
 
 A **token** is one element of `argv`, after the shell has finished with it. The

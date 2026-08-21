@@ -6,6 +6,7 @@ use usage::spec::cmd::SpecExample;
 use usage::{Parser, Spec, SpecArg, SpecCommand, SpecFlag, SpecFlagAction};
 
 use crate::cli::generate::parse_file_or_stdin;
+use crate::cli::OutputFormat;
 
 /// Lint a usage spec file for common issues
 #[derive(usage_rs::Args)]
@@ -36,25 +37,6 @@ pub struct Lint {
 pub struct LintOptions {
     /// Check that subcommands and flags are declared in sorted order.
     pub sorted: bool,
-}
-
-#[derive(Clone, Copy, Default, usage_rs::ValueEnum)]
-enum OutputFormat {
-    #[default]
-    Text,
-    Json,
-}
-
-impl std::str::FromStr for OutputFormat {
-    type Err = String;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "text" => Ok(Self::Text),
-            "json" => Ok(Self::Json),
-            _ => Err(format!("`{value}` is not one of: text, json")),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]

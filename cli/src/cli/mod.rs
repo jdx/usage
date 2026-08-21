@@ -5,6 +5,7 @@ use usage_rs::{Cli as DeriveCli, Subcommands};
 
 pub mod complete_word;
 mod exec;
+mod explain;
 pub(crate) mod generate;
 mod lint;
 mod mcp;
@@ -101,6 +102,7 @@ enum Command {
     Bash(shell::Bash),
     CompleteWord(complete_word::CompleteWord),
     Exec(exec::Exec),
+    Explain(explain::Explain),
     Fish(shell::Fish),
     Generate(generate::Generate),
     Lint(lint::Lint),
@@ -153,5 +155,28 @@ impl Cli {
         // above — so a command added there cannot be left unrouted, and no arm can route to
         // the wrong handler.
         usage_rs::Run::run(cli.command)
+    }
+}
+
+/// How a command that can print either prose or JSON was asked to print.
+///
+/// Shared rather than declared twice: `lint` and `explain` both offer it, and a third
+/// copy of the same four-line `FromStr` is how the two spellings drift apart.
+#[derive(Debug, Clone, Copy, Default, usage_rs::ValueEnum)]
+pub(crate) enum OutputFormat {
+    #[default]
+    Text,
+    Json,
+}
+
+impl std::str::FromStr for OutputFormat {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "text" => Ok(Self::Text),
+            "json" => Ok(Self::Json),
+            _ => Err(format!("`{value}` is not one of: text, json")),
+        }
     }
 }

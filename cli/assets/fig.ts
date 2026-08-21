@@ -195,6 +195,63 @@ const completionSpec: Fig.Spec = {
       ],
     },
     {
+      name: "explain",
+      description: "Explain what a command line binds to",
+      options: [
+        {
+          name: ["-f", "--file"],
+          description:
+            'A usage spec file or script with a usage shebang, use "-" to read from stdin',
+          isRepeatable: false,
+          args: {
+            name: "file",
+            template: "filepaths",
+          },
+        },
+        {
+          name: ["-s", "--spec"],
+          description: "Raw string spec input",
+          isRepeatable: false,
+          args: {
+            name: "spec",
+          },
+        },
+        {
+          name: "--format",
+          description: "Output format",
+          isRepeatable: false,
+          args: {
+            name: "format",
+            suggestions: ["text", "json"],
+          },
+        },
+        {
+          name: "--view",
+          description: "A spec-declared executable view to explain",
+          isRepeatable: false,
+          args: {
+            name: "view",
+          },
+        },
+        {
+          name: ["-e", "--env"],
+          description:
+            "Environment to explain against, as KEY=VALUE, repeatable",
+          isRepeatable: true,
+          args: {
+            name: "env",
+          },
+        },
+      ],
+      args: {
+        name: "argv",
+        description:
+          "The command line to explain, starting with the program name",
+        isOptional: true,
+        isVariadic: true,
+      },
+    },
+    {
       name: "fish",
       description: "Execute a shell script using fish",
       options: [

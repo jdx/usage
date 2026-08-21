@@ -337,6 +337,9 @@ pub enum TokenRole {
     /// A flag-like word no declaration matched. `bound_as` is the positional that took it
     /// under `unknown_flags="value"`, and `None` when the word was refused.
     UnknownFlag { bound_as: Option<Arc<SpecArg>> },
+    /// The word reached a declaration that would not take it, and was dropped. Without this
+    /// the token reads as having done nothing, which is the one thing it did not do.
+    Refused { reason: String },
     /// Forwarded to an external subcommand.
     External,
     /// The parser stopped before this word — a help request, a refused value.
@@ -1925,6 +1928,12 @@ fn parse_partial_with_env(
             // reported as an invalid choice, and from reaching that function's help escape.
             if arg.double_dash == SpecDoubleDashChoices::Required && !seen_double_dash {
                 report_double_dash_violation(arg, &mut out.errors, &mut double_dash_violations);
+                trace.record(
+                    argv,
+                    TokenRole::Refused {
+                        reason: format!("{} only accepts words after `--`", arg.name),
+                    },
+                );
                 // Drop the word without filling the arg or advancing the cursor: every later
                 // word hits the same arg and is rejected the same way, so the parse still ends
                 // in an error rather than in `unexpected word`.
@@ -3876,6 +3885,7 @@ fn render_role(role: &TokenRole) -> String {
             Some(arg) => format!("unknown flag, bound as {}", arg.name),
             None => "unknown flag".to_string(),
         },
+        TokenRole::Refused { reason } => format!("refused: {reason}"),
         TokenRole::External => "external".to_string(),
         TokenRole::Unread => "unread".to_string(),
     }

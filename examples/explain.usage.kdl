@@ -1,0 +1,22 @@
+// The fixture `usage explain` is documented and tested against: one declaration per way a
+// value can arrive, so a single command line exercises the whole report.
+name "mycli"
+bin "mycli"
+
+flag "-j --jobs <n>" env="MYCLI_JOBS" default="1" global=#true help="How many jobs to run"
+flag "-s --silent" global=#true help="Say nothing"
+flag "--env <env>" global=#true help="Environment to build for"
+flag "--color <when>" env="MYCLI_COLOR" default="auto" default_missing="always" global=#true help="When to colour output"
+
+// No `default` on --profile, deliberately: `default_if` is decided against argv and the
+// environment only, so a defaulted --profile would never fire --strict and the example would
+// not show what it claims to.
+flag "--profile <p>" env="MYCLI_PROFILE" global=#true help="Build profile"
+flag "--strict" global=#true help="Fail on warnings" {
+    default_if "--profile" "prod" "true"
+}
+
+cmd "build" help="Build the project" {
+    arg "<target>" help="What to build"
+    arg "[extra]..." double_dash="required" help="Passed through to the builder"
+}

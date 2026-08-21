@@ -209,6 +209,10 @@ Only considered when this flag was not on the command line and has no environmen
 value. An applied `default_if` is a default, not an explicit value: it satisfies
 [`requires`](#requires) and does not activate `requires_if`.
 
+Which condition fired, or why none did, is what
+[`usage explain`](/cli/reference/explain) reports — along with the same answer for
+`env`, `default` and [`default_missing`](#default_missing).
+
 ::: warning
 A spec generated from a clap command never carries this. clap has
 `Arg::default_value_if` as a setter with no getter, so
