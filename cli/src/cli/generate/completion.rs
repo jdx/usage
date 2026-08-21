@@ -139,11 +139,21 @@ impl Completion {
 }
 
 /// An install failure as something the CLI can print, with the way out where there is one.
+///
+/// The chain is walked rather than formatted away: `Display` on an install error names the step and
+/// the path, and keeps the operating system's own words — "permission denied", "not a directory" —
+/// on `source()`. A report built from `Display` alone drops exactly the half a user acts on.
 fn as_diagnostic(err: usage_rs::install::Error) -> miette::Report {
+    let mut message = err.to_string();
+    let mut cause = std::error::Error::source(&err);
+    while let Some(next) = cause {
+        message.push_str(&format!(": {next}"));
+        cause = next.source();
+    }
     match &err {
-        usage_rs::install::Error::Foreign { .. } => {
-            miette::miette!("{err}\n\nPass --force to replace it, or redirect the script yourself.")
-        }
-        _ => miette::miette!("{err}"),
+        usage_rs::install::Error::Foreign { .. } => miette::miette!(
+            "{message}\n\nPass --force to replace it, or redirect the script yourself."
+        ),
+        _ => miette::miette!("{message}"),
     }
 }

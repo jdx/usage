@@ -105,13 +105,13 @@ what a preview prints.
 
 Where each shell keeps a user's own scripts, and whether it finds one without being told:
 
-| Shell      | Directory                                                                                  | Loads by itself            |
-| ---------- | ------------------------------------------------------------------------------------------ | -------------------------- |
-| bash       | `$BASH_COMPLETION_USER_DIR/completions`, else `$XDG_DATA_HOME/bash-completion/completions` | yes, via bash-completion   |
-| fish       | `$XDG_CONFIG_HOME/fish/completions`                                                        | yes                        |
-| nushell    | `$NU_VENDOR_AUTOLOAD_DIR`, else the nushell config directory                               | only in a vendor directory |
-| zsh        | `$XDG_DATA_HOME/zsh/site-functions`, as `_<name>`                                          | no — needs `fpath+=`       |
-| PowerShell | `$XDG_CONFIG_HOME/powershell/completions`, `%LOCALAPPDATA%\PowerShell` on Windows          | no — needs dot-sourcing    |
+| Shell      | Directory                                                                                     | Loads by itself            |
+| ---------- | --------------------------------------------------------------------------------------------- | -------------------------- |
+| bash       | `$BASH_COMPLETION_USER_DIR/completions`, else `$XDG_DATA_HOME/bash-completion/completions`    | yes, via bash-completion   |
+| fish       | `$XDG_CONFIG_HOME/fish/completions`                                                           | yes                        |
+| nushell    | `$NU_VENDOR_AUTOLOAD_DIR`, else the nushell config directory                                  | only in a vendor directory |
+| zsh        | `$XDG_DATA_HOME/zsh/site-functions`, as `_<name>`                                             | no — needs `fpath+=`       |
+| PowerShell | `$XDG_CONFIG_HOME/powershell/completions`, `%LOCALAPPDATA%\PowerShell\completions` on Windows | no — needs dot-sourcing    |
 
 Where the answer is no, `Loading::Manual` carries the exact line and the file it belongs in.
 Printing it is the caller's job.

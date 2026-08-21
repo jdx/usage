@@ -8,7 +8,7 @@
 
 use assert_cmd::prelude::*;
 use predicates::str::contains;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -313,15 +313,51 @@ fn a_bin_that_is_not_a_plain_word_is_refused_and_writes_nothing() {
             .output()
             .unwrap();
         assert!(!out.status.success(), "{bin:?} was accepted");
-        assert!(
-            !files_under(&scratch.dir)
-                .iter()
-                .any(|p| p.extension().is_none_or(|e| e != "kdl")
-                    && p.file_name().is_some_and(|n| n != "mycli.usage.kdl")),
-            "{bin:?} left something behind: {:?}",
-            files_under(&scratch.dir)
+        // The directory listing rather than the files under it: a refusal that had already created
+        // `…/site-functions/` leaves no file behind and would pass a file-only check, while still
+        // having written into a tree it went on to refuse.
+        let entries: Vec<PathBuf> = std::fs::read_dir(&scratch.dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        assert_eq!(
+            entries,
+            vec![scratch.spec()],
+            "{bin:?} left something behind"
         );
     }
+}
+
+#[test]
+fn a_failed_install_says_what_the_system_said() {
+    // `Display` on an install error names the step and the path; the cause is on `source()`. A
+    // report built from `Display` alone leaves a user with "writing … failed" and nothing to act on.
+    let scratch = Scratch::new("io_cause");
+    // A file where a directory has to go: deterministic, and the same failure for root, which is
+    // who a container runs as.
+    let target = scratch.dir.join("data/zsh/site-functions");
+    std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+    std::fs::write(&target, "not a directory\n").unwrap();
+
+    let out = scratch.install("zsh");
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    // The operating system's own words, whatever they are in this locale — asserting the phrase
+    // would pin prose that is not ours. `os error` is `io::Error`'s own rendering.
+    assert!(stderr.contains("os error"), "{stderr}");
+    // Compared with the whitespace taken out, because miette wraps a long path across lines and
+    // where it breaks is its business, not this test's.
+    let squashed: String = stderr
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '│')
+        .collect();
+    let path: String = target
+        .display()
+        .to_string()
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect();
+    assert!(squashed.contains(&path), "{stderr}");
 }
 
 #[test]
@@ -349,21 +385,4 @@ fn an_environment_with_no_home_is_reported_rather_than_guessed() {
     // The message names what it looked at, so setting one is a thing the user can do.
     assert!(stderr.contains("XDG_DATA_HOME"), "{stderr}");
     assert!(stderr.contains("HOME"), "{stderr}");
-}
-
-/// Every file under `dir`, so a test can say that nothing was written.
-fn files_under(dir: &Path) -> Vec<PathBuf> {
-    let mut out = vec![];
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return out;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            out.extend(files_under(&path));
-        } else {
-            out.push(path);
-        }
-    }
-    out
 }

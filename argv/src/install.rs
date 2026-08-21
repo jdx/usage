@@ -619,13 +619,17 @@ fn replace(path: &Path, script: &str) -> Result<(), Error> {
     io(&tmp, Doing::Writing, std::fs::write(&tmp, script))?;
     match std::fs::rename(&tmp, path) {
         Ok(()) => Ok(()),
-        Err(rename) => {
+        Err(_) => {
             // Windows refuses to rename over a file another process holds open. A direct write is
             // the lesser evil there: a torn read is one bad prompt, while a failed rename is a CLI
             // whose completions can never be upgraded.
             let direct = std::fs::write(path, script);
             let _ = std::fs::remove_file(&tmp);
-            io(path, Doing::Renaming, direct.map_err(|_| rename))
+            // If the write fails too, its error is the one to report: it is the attempt that
+            // actually ended this, and "permission denied" on the target is what a user can act on.
+            // The rename's error is dropped rather than preferred — a caller told that *replacing*
+            // failed, when what failed was writing, looks for the wrong problem.
+            io(path, Doing::Writing, direct)
         }
     }
 }
@@ -735,10 +739,8 @@ pub enum Doing {
     CreatingDir,
     /// Reading a file that is already there, to see whose it is.
     Reading,
-    /// Writing the script.
+    /// Writing the script, either beside the target or over it.
     Writing,
-    /// Moving the finished script over the old one.
-    Renaming,
 }
 
 impl Doing {
@@ -748,7 +750,6 @@ impl Doing {
             Doing::CreatingDir => "creating",
             Doing::Reading => "reading",
             Doing::Writing => "writing",
-            Doing::Renaming => "replacing",
         }
     }
 }
