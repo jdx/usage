@@ -45,7 +45,22 @@ completion scripts as shown below.
 
 ## Per-binary completion scripts
 
-Usage can generate completion scripts for any shell. Here is an example for bash:
+Usage can generate completion scripts for any shell, and put them where that shell looks.
+`--install` does the second part:
+
+```bash
+usage g completion bash mycli -f ./mycli.usage.kdl --install
+mycli --<TAB>
+```
+
+It writes the script file and nothing else: no shell rc file and no PowerShell profile is
+edited. Where a shell needs a one-time line of its own — zsh's `fpath+=`, PowerShell's
+dot-source — the line is printed for you to add. Running it again when nothing has changed
+writes nothing, and a file usage did not write is reported rather than replaced; pass
+`--force` to replace one anyway.
+
+Without `--install` the script goes to stdout, which is what to use when you want to choose the
+path yourself. For bash:
 
 ```bash
 usage g completion bash mycli -f ./mycli.usage.kdl > ~/.bash_completions/mycli.bash
@@ -120,7 +135,15 @@ $ usage complete-word --file ./mycli.usage.kdl -- mycli cmd1 cmd2 --f
 
 ## Completions for `usage` CLI itself
 
-Completions for the `usage` CLI itself can be generated with one of the following commands:
+For yourself, the general command works — `usage` is another CLI that can describe itself, so
+there is no special case:
+
+```bash
+usage g completion zsh usage --usage-cmd "command usage --usage-spec" --install
+```
+
+For a package, keep the redirects below. Those are system directories the package manager owns,
+which is exactly why `--install` does not target them.
 
 ```bash
 usage --completions bash > /etc/bash_completion.d/usage
