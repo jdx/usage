@@ -165,6 +165,10 @@ the file that wrote it.
 Every set is resolved while its file is read, whether or not anything uses it, so a `use`
 naming a set that does not exist is reported even inside a set nothing has reached for yet.
 
+A name may still be declared only once, and an `include` does not make that a choice: two
+files declaring `common` is an error wherever the `include` stands, rather than one of them
+quietly taking the name from the other.
+
 A `use` belongs to the flags it stands among, so an included file that declares flags of its
 own for the same command replaces the `use` along with them — the same rule
 [`group`](/spec/reference/group) follows, and for the same reason: whoever owns the flag list

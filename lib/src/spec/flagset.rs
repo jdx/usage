@@ -735,6 +735,68 @@ flagset "output" {
         assert!(msg.contains("a flagset may be declared only once"), "{msg}");
     }
 
+    /// The message from a spec read off disk, so an include can take part.
+    fn err_file(root: &std::path::Path) -> String {
+        match Spec::parse_file(root).unwrap_err() {
+            crate::error::UsageErr::InvalidInput(msg, _, _) => msg,
+            err => panic!("unexpected error: {err:?}"),
+        }
+    }
+
+    #[test]
+    fn a_name_an_include_also_declares_is_refused_whichever_side_wrote_it_first() {
+        // Declared twice is declared twice, and an `include` does not make it a choice.
+        // Extending the map would have let the incoming set take the name — but only when
+        // the `include` stood below the declaration, since a `flagset` written after an
+        // `include` already hit the once-only check. So which set answered a `use` came
+        // down to where in the file the `include` was written.
+        let dir = tempfile::tempdir().unwrap();
+        let common = dir.path().join("common.usage.kdl");
+        std::fs::write(&common, "flagset \"output\" {\n    flag \"--yaml\"\n}\n").unwrap();
+        let own = "flagset \"output\" {\n    flag \"--json\"\n}\n";
+        let include = "include file=\"./common.usage.kdl\"\n";
+
+        let after = dir.path().join("after.usage.kdl");
+        std::fs::write(&after, format!("bin \"ex\"\n{own}{include}")).unwrap();
+        let msg = err_file(&after);
+        assert!(
+            msg.contains("a flagset may be declared only once")
+                && msg.contains("common.usage.kdl")
+                && msg.contains("\"output\""),
+            "{msg}"
+        );
+
+        // The other order was already refused, and still says so.
+        let before = dir.path().join("before.usage.kdl");
+        std::fs::write(&before, format!("bin \"ex\"\n{include}{own}")).unwrap();
+        let msg = err_file(&before);
+        assert!(msg.contains("a flagset may be declared only once"), "{msg}");
+    }
+
+    #[test]
+    fn two_includes_may_not_declare_the_same_name() {
+        // Neither file is the nearer declaration, so there is nothing to prefer: a CLI
+        // whose shared files have grown a collision hears about it here rather than at
+        // whichever command happened to use the name.
+        let dir = tempfile::tempdir().unwrap();
+        for (file, flag) in [("a.usage.kdl", "--json"), ("b.usage.kdl", "--yaml")] {
+            let body = format!("flagset \"output\" {{\n    flag \"{flag}\"\n}}\n");
+            std::fs::write(dir.path().join(file), body).unwrap();
+        }
+        let root = dir.path().join("ex.usage.kdl");
+        std::fs::write(
+            &root,
+            "bin \"ex\"\ninclude file=\"./a.usage.kdl\"\ninclude file=\"./b.usage.kdl\"\n",
+        )
+        .unwrap();
+
+        let msg = err_file(&root);
+        assert!(
+            msg.contains("a flagset may be declared only once") && msg.contains("b.usage.kdl"),
+            "{msg}"
+        );
+    }
+
     #[test]
     fn a_set_holds_flags_and_says_so_about_arguments() {
         let msg = err("flagset \"output\" {\n    arg \"<file>\"\n}\n");

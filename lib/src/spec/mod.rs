@@ -640,6 +640,24 @@ impl Spec {
                     };
                     info!("include: {}", file.display());
                     let other = Self::parse_file_with_metadata_inference(&file, false)?;
+                    // A name declared on both sides of an `include` is refused, the same as
+                    // one declared twice in a single file. Letting the incoming set win
+                    // would make which declaration a `use` gets depend on whether the
+                    // `include` stands above or below it — and only in that direction, since
+                    // a `flagset` written after an `include` already fails here.
+                    if let Some(name) = other
+                        .flagsets
+                        .keys()
+                        .find(|name| schema.flagsets.contains_key(*name))
+                    {
+                        bail_parse!(
+                            ctx,
+                            node.span(),
+                            "a flagset may be declared only once: {} declares \"{name}\", \
+                             which this spec already has",
+                            file.display()
+                        );
+                    }
                     schema.merge(other);
                 }
                 k => bail_parse!(ctx, node.node.name().span(), "unsupported spec key {k}"),
@@ -707,7 +725,9 @@ impl Spec {
         merge_extend!(views);
         // An included file's sets are visible to the file that includes it, which is how a
         // spec keeps its shared declarations in a file of their own. Its own `use` nodes are
-        // already resolved by the time it gets here, so nothing is expanded twice.
+        // already resolved by the time it gets here, so nothing is expanded twice. A name
+        // both sides declare never reaches this extend: the `include` refuses it, rather
+        // than one silently taking the other's name.
         merge_extend!(flagsets);
         merge_extend!(examples);
         // An included spec brings the files *it* read, which is how a nested include is watched.
