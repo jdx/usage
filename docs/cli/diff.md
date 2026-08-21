@@ -7,7 +7,7 @@ A CLI is a public API, and a spec is the only machine-readable statement of what
 usage diff released.usage.kdl current.usage.kdl
 ```
 
-```
+```text
 breaking [flag-spelling-removed] at ex: flag '--jobs' no longer answers to '-j'
 breaking [choice-removed] at ex: flag '--color' no longer accepts 'never'
 breaking [cmd-removed] at ex: command 'old-thing' was removed
@@ -60,6 +60,9 @@ on context:
 | adding a command nothing else answered to     | compatible | the word meant nothing before                             |
 | adding a command over `external_subcommand`   | breaking   | the word used to reach an external command                |
 | adding a command where a positional bound     | breaking   | the word used to be that argument's value                 |
+| declaring `required_unless` on a flag         | breaking   | the flag is now required unless one of them is present    |
+| adding to a non-empty `required_unless`       | compatible | one more way to be excused from the requirement           |
+| dropping `subcommand_precedence_over_arg`     | breaking   | a word that selected a command now fills an argument      |
 | a `renamed_to` config key that is not there   | breaking   | the promise about where the value went is not kept        |
 
 A rename is not the only thing that can happen to a command in one release, so a renamed

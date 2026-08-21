@@ -18,6 +18,7 @@
 //! this reason. Derived strings (`usage`, `full_cmd`, `help_first_line`) are not
 //! reported either, because they restate what the declarations already say.
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
@@ -459,12 +460,28 @@ fn diff_command_props(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut 
             path,
             "arguments and a subcommand can no longer appear together".to_string(),
         );
+    } else if old.args_conflicts_with_subcommands && !new.args_conflicts_with_subcommands {
+        c.compatible(
+            "args-conflicts-with-subcommands-removed",
+            path,
+            "arguments and a subcommand may now appear together".to_string(),
+        );
     }
     if !old.subcommand_precedence_over_arg && new.subcommand_precedence_over_arg {
         c.breaking(
             "subcommand-precedence-added",
             path,
             "a word matching a subcommand name now routes instead of binding as an argument"
+                .to_string(),
+        );
+    } else if old.subcommand_precedence_over_arg && !new.subcommand_precedence_over_arg {
+        // Breaking in the other direction too, and for the same reason: the word that used
+        // to select a command now fills an argument. Nothing fails, which is what makes it
+        // worth reporting — a silent change of meaning is the kind a gate exists to catch.
+        c.breaking(
+            "subcommand-precedence-removed",
+            path,
+            "a word matching a subcommand name now binds as an argument instead of routing"
                 .to_string(),
         );
     }
@@ -935,12 +952,11 @@ fn diff_flag(old: &SpecFlag, new: &SpecFlag, path: &str, c: &mut Changes) {
         "requires_if",
         c,
     );
-    diff_relaxing(
+    diff_required_unless(
         &old.required_unless,
         &new.required_unless,
         path,
         &subject,
-        "required_unless",
         c,
     );
     diff_relaxing(
@@ -1466,6 +1482,10 @@ fn diff_mounts(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes
 }
 
 fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Changes) {
+    // The commands that turned out to be somewhere an old name went. Reported as renames
+    // below and skipped by the addition loop: a command reachable by the word that always
+    // reached it is not something the interface gained.
+    let mut covering: HashSet<String> = HashSet::new();
     for (name, was) in &old.subcommands {
         let child = format!("{path} {name}");
         match new.subcommands.get(name) {
@@ -1474,20 +1494,21 @@ fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Ch
                 // A word that now selects some other command still works: rustup's
                 // `install` reaching `toolchain install` is a rename, not a removal.
                 match new.find_subcommand(name) {
-                    Some(covering) => {
+                    Some(covering_cmd) => {
                         c.metadata(
                             "cmd-renamed",
                             path,
                             format!(
                                 "command '{name}' was renamed to '{}', which still answers to '{name}'",
-                                covering.name
+                                covering_cmd.name
                             ),
                         );
                         // And then compared, because the rename is not the only thing that
                         // may have happened to it. Located under the *old* name: what a
                         // reader wants to know is what typing `{name}` does now, and the
                         // line above says which command that reaches.
-                        diff_command(was, covering, &child, Some(name), c);
+                        diff_command(was, covering_cmd, &child, Some(name), c);
+                        covering.insert(covering_cmd.name.clone());
                     }
                     None => {
                         c.breaking("cmd-removed", path, format!("command '{name}' was removed"))
@@ -1497,7 +1518,7 @@ fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Ch
         }
     }
     for (name, now) in &new.subcommands {
-        if old.subcommands.contains_key(name) {
+        if old.subcommands.contains_key(name) || covering.contains(name) {
             continue;
         }
         if old.find_subcommand(name).is_some() {
@@ -1546,6 +1567,8 @@ fn diff_subcommands(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut Ch
 /// the command line, and a released CLI that stops reading `MISE_JOBS` broke
 /// somebody's shell profile as surely as a removed flag would have.
 fn diff_config(old: &SpecConfig, new: &SpecConfig, path: &str, c: &mut Changes) {
+    // Keys an old property renamed itself to, for the same reason as `covering` above.
+    let mut renamed_to: HashSet<String> = HashSet::new();
     for (key, was) in &old.props {
         let Some(now) = new.props.get(key) else {
             // `renamed_to` is a promise about where the value went; it is only kept if
@@ -1556,11 +1579,21 @@ fn diff_config(old: &SpecConfig, new: &SpecConfig, path: &str, c: &mut Changes) 
                 .as_deref()
                 .filter(|to| new.props.contains_key(*to))
             {
-                Some(to) => c.compatible(
-                    "config-prop-renamed",
-                    path,
-                    format!("config property '{key}' was renamed to '{to}'"),
-                ),
+                Some(to) => {
+                    c.compatible(
+                        "config-prop-renamed",
+                        path,
+                        format!("config property '{key}' was renamed to '{to}'"),
+                    );
+                    renamed_to.insert(to.to_string());
+                    // A rename is not the only thing that can happen to a property in one
+                    // release: its type, default, environment names and choices are still
+                    // interface, and comparing the old key against the new one is the only
+                    // place that reads them.
+                    if let Some(now) = new.props.get(to) {
+                        diff_config_prop(key, was, now, path, c);
+                    }
+                }
                 None => c.breaking(
                     "config-prop-removed",
                     path,
@@ -1578,7 +1611,7 @@ fn diff_config(old: &SpecConfig, new: &SpecConfig, path: &str, c: &mut Changes) 
         diff_config_prop(key, was, now, path, c);
     }
     for key in new.props.keys() {
-        if !old.props.contains_key(key) {
+        if !old.props.contains_key(key) && !renamed_to.contains(key) {
             c.compatible(
                 "config-prop-added",
                 path,
@@ -1746,13 +1779,13 @@ fn diff_config_prop(
         );
     }
 
-    if old.optional.unwrap_or(false) && !new.optional.unwrap_or(false) {
+    if config_prop_is_optional(old) && !config_prop_is_optional(new) {
         c.breaking(
             "config-now-required",
             path,
             format!("{subject} must now have a value"),
         );
-    } else if !old.optional.unwrap_or(false) && new.optional.unwrap_or(false) {
+    } else if !config_prop_is_optional(old) && config_prop_is_optional(new) {
         c.compatible(
             "config-now-optional",
             path,
@@ -1901,6 +1934,57 @@ fn diff_restricting(
 
 /// The mirror of [`diff_restricting`]: entries that relieve a rule, so gaining one
 /// accepts more.
+/// Whether absence is a legitimate value for this property.
+///
+/// `optional = None` is not "required": the spec's rule is that a property with no default,
+/// or one typed `option<T>`, is optional unless it says otherwise. Reading `None` as `false`
+/// reports a no-default property gaining an explicit `optional=#false` as a change when the
+/// contract did not move, and misses the ones where it did.
+fn config_prop_is_optional(prop: &SpecConfigProp) -> bool {
+    prop.optional.unwrap_or_else(|| {
+        prop.default.is_none() && prop.default_list.is_empty()
+            || prop.value_type.as_ref().is_some_and(|t| t.is_optional())
+    })
+}
+
+/// `required_unless`, which is neither restricting nor relaxing but both in turn.
+///
+/// A non-empty list makes the declaration required unless one of the selectors is present,
+/// so declaring one at all is where the requirement appears — and once there is a list, each
+/// further entry is one more way to be excused from it. Comparing the entries alone reported
+/// a flag becoming conditionally required as compatible, which is backwards.
+fn diff_required_unless(
+    old: &[String],
+    new: &[String],
+    path: &str,
+    subject: &str,
+    c: &mut Changes,
+) {
+    match (old.is_empty(), new.is_empty()) {
+        (true, false) => c.breaking(
+            "constraint-added",
+            path,
+            format!("{subject} is now required unless {}", one_of(new)),
+        ),
+        (false, true) => c.compatible(
+            "constraint-removed",
+            path,
+            format!("{subject} is no longer required unless {}", one_of(old)),
+        ),
+        // Both non-empty: another selector is another excuse, and losing one takes an excuse
+        // away. That is what `diff_relaxing` says.
+        _ => diff_relaxing(old, new, path, subject, "required_unless", c),
+    }
+}
+
+fn one_of(selectors: &[String]) -> String {
+    selectors
+        .iter()
+        .map(|s| format!("'{s}'"))
+        .collect::<Vec<_>>()
+        .join(" or ")
+}
+
 fn diff_relaxing(
     old: &[String],
     new: &[String],
@@ -2508,6 +2592,133 @@ cmd "list" help="list"
             "name \"ex\"\nbin \"ex\"\ncmd \"build\" help=\"build\"\ncmd \"test\" help=\"test\"\n";
 
         assert_eq!(codes(old, new), ["compatible:cmd-added"]);
+    }
+
+    #[test]
+    fn declaring_required_unless_is_the_requirement_appearing() {
+        let old = "name \"ex\"\nbin \"ex\"\nflag \"--token <t>\" help=\"token\"\nflag \"--anon\" help=\"anon\"\n";
+        let new = "name \"ex\"\nbin \"ex\"\nflag \"--token <t>\" help=\"token\" required_unless=\"--anon\"\nflag \"--anon\" help=\"anon\"\n";
+
+        // `ex` on its own worked and now fails: a non-empty `required_unless` makes the flag
+        // required unless one of its selectors is there. Reading only the entries called
+        // that compatible.
+        assert_eq!(codes(old, new), ["breaking:constraint-added"]);
+        assert_eq!(codes(new, old), ["compatible:constraint-removed"]);
+    }
+
+    #[test]
+    fn another_way_out_of_required_unless_is_still_a_relaxation() {
+        let one = r#"
+name "ex"
+bin "ex"
+flag "--token <t>" help="token" {
+    required_unless "--anon"
+}
+flag "--anon" help="anon"
+flag "--guest" help="guest"
+        "#;
+        let two = r#"
+name "ex"
+bin "ex"
+flag "--token <t>" help="token" {
+    required_unless "--anon" "--guest"
+}
+flag "--anon" help="anon"
+flag "--guest" help="guest"
+        "#;
+
+        // Once there is a list, each further entry is one more excuse from the requirement.
+        assert_eq!(codes(one, two), ["compatible:constraint-removed"]);
+        assert_eq!(codes(two, one), ["breaking:constraint-added"]);
+    }
+
+    #[test]
+    fn losing_subcommand_precedence_changes_what_a_word_binds_to() {
+        let old = "name \"ex\"\nbin \"ex\"\nsubcommand_precedence_over_arg #true\narg \"<task>\" help=\"task\"\ncmd \"list\" help=\"list\"\n";
+        let new =
+            "name \"ex\"\nbin \"ex\"\narg \"<task>\" help=\"task\"\ncmd \"list\" help=\"list\"\n";
+
+        // `ex list` reached the subcommand and now fills `<task>`. Nothing fails, which is
+        // exactly why a gate should say so.
+        assert_eq!(codes(old, new), ["breaking:subcommand-precedence-removed"]);
+    }
+
+    #[test]
+    fn letting_arguments_and_subcommands_share_a_line_is_compatible() {
+        let old = "name \"ex\"\nbin \"ex\"\nargs_conflicts_with_subcommands #true\narg \"[task]\" help=\"task\"\ncmd \"list\" help=\"list\"\n";
+        let new =
+            "name \"ex\"\nbin \"ex\"\narg \"[task]\" help=\"task\"\ncmd \"list\" help=\"list\"\n";
+
+        assert_eq!(
+            codes(old, new),
+            ["compatible:args-conflicts-with-subcommands-removed"]
+        );
+    }
+
+    #[test]
+    fn a_rename_is_one_finding_rather_than_a_rename_and_an_addition() {
+        let old = "name \"ex\"\nbin \"ex\"\ncmd \"install\" help=\"install\"\n";
+        let new =
+            "name \"ex\"\nbin \"ex\"\ncmd \"add\" help=\"install\" {\n    alias \"install\"\n}\n";
+
+        // `add` is where `install` went, not something the interface gained.
+        assert_eq!(codes(old, new), ["metadata:cmd-renamed"]);
+    }
+
+    #[test]
+    fn a_renamed_config_property_is_compared_to_what_it_became() {
+        let old = r#"
+name "ex"
+bin "ex"
+config {
+    prop "jobs" type="int" default=1 env="EX_JOBS" renamed_to="workers"
+}
+        "#;
+        let new = r#"
+name "ex"
+bin "ex"
+config {
+    prop "workers" type="int" default=2 env="EX_JOBS"
+}
+        "#;
+
+        // One rename, and the default that moved underneath it — not a rename plus an
+        // addition, with the change of default never looked at.
+        let found = codes(old, new);
+        assert!(
+            found.contains(&"compatible:config-prop-renamed".to_string()),
+            "{found:?}"
+        );
+        assert!(
+            !found.contains(&"compatible:config-prop-added".to_string()),
+            "{found:?}"
+        );
+        assert!(
+            found.iter().any(|c| c.ends_with(":config-default-changed")),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn a_property_with_no_default_is_already_optional() {
+        let old = r#"
+name "ex"
+bin "ex"
+config {
+    prop "token" type="string"
+}
+        "#;
+        let new = r#"
+name "ex"
+bin "ex"
+config {
+    prop "token" type="string" optional=#true
+}
+        "#;
+
+        // `optional` unset is not `optional=#false`: the spec's rule is that a property with
+        // no default is optional. Writing down what was already true is not a change.
+        assert!(codes(old, new).is_empty(), "{:?}", codes(old, new));
     }
 
     #[test]
