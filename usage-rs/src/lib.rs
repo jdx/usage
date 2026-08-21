@@ -51,7 +51,7 @@
 extern crate self as usage_rs;
 
 pub use usage_argv as argv;
-/// The vocabulary a CLI declares its verbosity and colour flags with, and the two
+/// The vocabulary a CLI declares its verbosity and color flags with, and the two
 /// answers they resolve to. Re-exported at the root because a CLI reads them on every
 /// run: `VerbosityPolicy::verbosity(&cli)` is what configures its logger.
 #[cfg(feature = "spec")]

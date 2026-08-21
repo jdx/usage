@@ -494,10 +494,10 @@ impl ParseOutput {
         }))
     }
 
-    /// The colour choice this command line asked for.
+    /// The color choice this command line asked for.
     ///
     /// A refusal beats a request, and a command line that said nothing about
-    /// colour is [`ColorChoice::Auto`].
+    /// color is [`ColorChoice::Auto`].
     pub fn color(&self) -> ColorChoice {
         resolve_color(self.flags.iter().filter_map(|(flag, value)| {
             let role = flag.color?;

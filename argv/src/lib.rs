@@ -992,7 +992,7 @@ pub(crate) fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Co
 /// [`Error::Help`] and [`Error::Version`] are not failures and must be handled before this.
 #[cfg(feature = "diagnostics")]
 pub fn render_failure(spec: &spec::Spec<'_>, argv: &[&OsStr], error: &Error<'_, '_>) -> String {
-    // `resolve` rather than `auto`: a CLI that declared which flag means colour
+    // `resolve` rather than `auto`: a CLI that declared which flag means color
     // gets its own answer honoured, even here, where the struct that would have
     // held it was never built.
     diagnostic::render(spec, argv, error, diagnostic::Style::resolve(spec, argv))

@@ -622,7 +622,7 @@ fn a_flag_can_carry_an_effect() {
 }
 
 #[test]
-fn a_flag_can_say_what_it_means_for_verbosity_and_colour() {
+fn a_flag_can_say_what_it_means_for_verbosity_and_color() {
     let spec = parsed();
     let flag = |name: &str| {
         spec.cmd

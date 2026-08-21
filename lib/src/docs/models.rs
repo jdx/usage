@@ -118,7 +118,7 @@ pub struct SpecFlag {
     pub effect: Option<crate::spec::effect::SpecCommandEffect>,
     /// What this flag means for how much the CLI says, when it says.
     pub verbosity: Option<crate::spec::policy::SpecVerbosityRole>,
-    /// What this flag means for colour, when it says.
+    /// What this flag means for color, when it says.
     pub color: Option<crate::spec::policy::SpecColorRole>,
     pub usage: String,
     pub display_usage: String,

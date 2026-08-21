@@ -59,8 +59,8 @@ impl Style {
 
     /// Honour what this command line asked for, falling back to [`Style::auto`].
     ///
-    /// A CLI that declares `color=` on a flag has said which flag means colour,
-    /// so `mycli --no-color --help` can turn off the colour in the help page
+    /// A CLI that declares `color=` on a flag has said which flag means color,
+    /// so `mycli --no-color --help` can turn off the color in the help page
     /// usage renders for it. Reached from argv rather than from a bound struct
     /// because help is rendered on a path where no struct was ever built.
     pub fn resolve(spec: &Spec<'_>, argv: &[&std::ffi::OsStr]) -> Style {
@@ -79,7 +79,7 @@ impl Style {
         Self::for_choice(choice, is_terminal)
     }
 
-    /// Colour, or not, for an already-decided choice.
+    /// Color, or not, for an already-decided choice.
     ///
     /// [`ColorChoice::Auto`] is the rule this has always applied — `NO_COLOR`
     /// refuses, `CLICOLOR_FORCE` insists, otherwise the destination decides —

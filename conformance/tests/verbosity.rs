@@ -1,4 +1,4 @@
-//! How much a CLI says, and whether it colours it, declared on the flags it already has.
+//! How much a CLI says, and whether it colors it, declared on the flags it already has.
 //!
 //! Every CLI in the fleet hand-rolls this: mise turns six flags into a level in a
 //! forty-nine-line function, hk has the same shape with three, aube spells quiet as a value
@@ -79,7 +79,7 @@ struct Mise {
     log_level: Option<String>,
 }
 
-/// aube's, where quiet is a *value* of the level flag and colour is two switches.
+/// aube's, where quiet is a *value* of the level flag and color is two switches.
 #[derive(Debug, PartialEq, Eq, ValueEnum)]
 enum Loglevel {
     Trace,
@@ -156,7 +156,7 @@ struct Fnox {
     no_color: bool,
 }
 
-/// The other colour shape: one negatable switch rather than two flags.
+/// The other color shape: one negatable switch rather than two flags.
 #[derive(Cli)]
 #[usage(bin = "paired", name = "paired")]
 struct Paired {
@@ -237,9 +237,9 @@ typed_parse!(Tak);
 
 /// Both implementations, held to the same answer.
 macro_rules! agree {
-    ($ty:ty, $kdl:expr, $argv:expr, $level:expr, $colour:expr) => {{
+    ($ty:ty, $kdl:expr, $argv:expr, $level:expr, $color:expr) => {{
         let argv: &[&str] = &$argv;
-        let want = ($level, $colour);
+        let want = ($level, $color);
         assert_eq!(compiled::<$ty>(argv), want, "compiled: {argv:?}");
         assert_eq!(interpreted(&$kdl, argv), want, "interpreted: {argv:?}");
     }};
@@ -297,7 +297,7 @@ fn mise_six_flag_lattice() {
 }
 
 #[test]
-fn aube_level_as_a_value_and_colour_as_a_pair() {
+fn aube_level_as_a_value_and_color_as_a_pair() {
     let kdl = Aube::to_kdl();
     agree!(Aube, kdl, [], Verbosity::Info, ColorChoice::Auto);
     agree!(Aube, kdl, ["-v"], Verbosity::Debug, ColorChoice::Auto);

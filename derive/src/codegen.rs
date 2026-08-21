@@ -771,7 +771,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             };
         }
     };
-    // `resolve` rather than `auto`: a CLI that declared which of its flags means colour gets
+    // `resolve` rather than `auto`: a CLI that declared which of its flags means color gets
     // its own answer honoured here too, on the one path where the struct that would have held
     // it was never built.
     let render_page = page_of(quote!(usage_argv::help::Style::resolve(

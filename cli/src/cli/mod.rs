@@ -148,6 +148,12 @@ pub struct Cli {
     log_level: Option<String>,
 
     /// When to color output
+    //
+    // A `String` with a default rather than an `Option`: there is no such thing as an
+    // unanswered colour question — a command line that says nothing has still asked for
+    // `auto` — so the type says so. And the value is required, not optional: `--color`
+    // on its own would be a word whose meaning a reader has to look up, when `--color
+    // never` says it.
     #[usage(
         long,
         value_name = "WHEN",
@@ -155,7 +161,7 @@ pub struct Cli {
         default = "auto",
         color = "choice"
     )]
-    color: Option<String>,
+    color: String,
 }
 
 /// Start logging at the level this command line asked for.

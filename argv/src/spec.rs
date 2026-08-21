@@ -1033,7 +1033,7 @@ pub struct FlagMeta<'a> {
     pub effect: Option<Effect>,
     /// What this flag means for how much the CLI says. See [`VerbosityRole`].
     pub verbosity: Option<VerbosityRole>,
-    /// What this flag means for colour. See [`ColorRole`].
+    /// What this flag means for color. See [`ColorRole`].
     pub color: Option<ColorRole>,
 }
 

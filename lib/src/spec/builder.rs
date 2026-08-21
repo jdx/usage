@@ -470,7 +470,7 @@ impl SpecFlagBuilder {
         self
     }
 
-    /// Declare what this flag means for colour.
+    /// Declare what this flag means for color.
     pub fn color(mut self, role: SpecColorRole) -> Self {
         self.inner.color = Some(role);
         self

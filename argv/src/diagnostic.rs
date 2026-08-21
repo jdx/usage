@@ -47,7 +47,7 @@ impl Style {
     ///
     /// `NO_COLOR` wins over everything, per the convention: a user who sets it has said once, for
     /// every program, that they do not want this. `CLICOLOR_FORCE` is the other direction, for a
-    /// pipe that ends up somewhere that does render colour. Both are the
+    /// pipe that ends up somewhere that does render color. Both are the
     /// [`ColorChoice::Auto`] arm, so this rule is stated once and read here and by
     /// the help renderer alike.
     pub fn auto() -> Style {
@@ -65,7 +65,7 @@ impl Style {
         Self::for_choice(choice, std::io::stderr().is_terminal())
     }
 
-    /// Colour, or not, for an already-decided choice.
+    /// Color, or not, for an already-decided choice.
     pub fn for_choice(choice: ColorChoice, is_terminal: bool) -> Style {
         if choice.enabled_for(is_terminal) {
             Style::COLOURED

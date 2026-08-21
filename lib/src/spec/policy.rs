@@ -111,7 +111,7 @@ impl Verbosity {
     }
 }
 
-/// Whether output is coloured.
+/// Whether output is colored.
 ///
 /// `Auto` is the answer until something says otherwise, and it is resolved
 /// against the terminal and the environment where the writing happens rather
@@ -120,12 +120,12 @@ impl Verbosity {
 #[strum(serialize_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum ColorChoice {
-    /// Decide from the destination: a terminal gets colour, a pipe does not.
+    /// Decide from the destination: a terminal gets color, a pipe does not.
     #[default]
     Auto,
-    /// Colour, whatever the destination.
+    /// Color, whatever the destination.
     Always,
-    /// No colour, whatever the destination.
+    /// No color, whatever the destination.
     Never,
 }
 
@@ -151,7 +151,7 @@ impl ColorChoice {
     /// Combine two choices, most restrictive first.
     ///
     /// A refusal beats a request, which is the same convention `NO_COLOR` sets:
-    /// somebody who has said "no colour" once should not have to say it twice.
+    /// somebody who has said "no color" once should not have to say it twice.
     pub fn combine(self, other: ColorChoice) -> ColorChoice {
         match (self, other) {
             (Self::Never, _) | (_, Self::Never) => Self::Never,
@@ -241,7 +241,7 @@ impl SpecVerbosityRole {
     }
 }
 
-/// What a flag means for colour.
+/// What a flag means for color.
 ///
 /// Declared with `color=`. Two shapes are in the fleet and both are supported:
 /// aube's independent `--color` / `--no-color` pair held apart by `conflicts`,
@@ -252,9 +252,9 @@ impl SpecVerbosityRole {
 #[strum(serialize_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum SpecColorRole {
-    /// This switch forces colour; its negation, if it has one, forbids it.
+    /// This switch forces color; its negation, if it has one, forbids it.
     Always,
-    /// This switch forbids colour; its negation, if it has one, forces it.
+    /// This switch forbids color; its negation, if it has one, forces it.
     Never,
     /// The flag's value is `auto`, `always` or `never`.
     Choice,
@@ -333,7 +333,7 @@ pub fn resolve_verbosity<'a>(
     base.step(steps)
 }
 
-/// Resolve a colour choice from the roles a command line supplied.
+/// Resolve a color choice from the roles a command line supplied.
 ///
 /// `supplied` pairs each role with the spelling it arrived in — negated or not
 /// — and, for a [`SpecColorRole::Choice`] flag, the word it carried. A refusal
@@ -507,7 +507,7 @@ mod tests {
     }
 
     #[test]
-    fn a_refusal_of_colour_beats_a_request() {
+    fn a_refusal_of_color_beats_a_request() {
         let both = [
             (SpecColorRole::Always, false, None),
             (SpecColorRole::Never, false, None),
@@ -518,7 +518,7 @@ mod tests {
     }
 
     #[test]
-    fn a_negated_colour_switch_means_the_other_answer() {
+    fn a_negated_color_switch_means_the_other_answer() {
         let negated = [(SpecColorRole::Always, true, None)];
         assert_eq!(resolve_color(negated), ColorChoice::Never);
         let negated_never = [(SpecColorRole::Never, true, None)];

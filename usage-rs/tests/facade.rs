@@ -3297,7 +3297,7 @@ fn level_of(argv: &[&str]) -> usage::Verbosity {
     usage::VerbosityPolicy::verbosity(&cli)
 }
 
-fn colour_of(argv: &[&str]) -> usage::ColorChoice {
+fn color_of(argv: &[&str]) -> usage::ColorChoice {
     let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
     let cli = Loud::parse_from(&words).expect("valid command line");
     usage::ColorPolicy::color(&cli)
@@ -3358,24 +3358,24 @@ fn a_level_can_come_from_a_value_enum() {
 }
 
 #[test]
-fn a_declared_colour_resolves_to_a_choice() {
-    assert_eq!(colour_of(&[]), usage::ColorChoice::Auto);
-    assert_eq!(colour_of(&["--color", "never"]), usage::ColorChoice::Never);
-    assert_eq!(colour_of(&["--color=always"]), usage::ColorChoice::Always);
-    assert_eq!(colour_of(&["--no-color"]), usage::ColorChoice::Never);
+fn a_declared_color_resolves_to_a_choice() {
+    assert_eq!(color_of(&[]), usage::ColorChoice::Auto);
+    assert_eq!(color_of(&["--color", "never"]), usage::ColorChoice::Never);
+    assert_eq!(color_of(&["--color=always"]), usage::ColorChoice::Always);
+    assert_eq!(color_of(&["--no-color"]), usage::ColorChoice::Never);
     // A refusal beats a request, whichever order they arrive in.
     assert_eq!(
-        colour_of(&["--color", "always", "--no-color"]),
+        color_of(&["--color", "always", "--no-color"]),
         usage::ColorChoice::Never
     );
     assert_eq!(
-        colour_of(&["--no-color", "--color", "always"]),
+        color_of(&["--no-color", "--color", "always"]),
         usage::ColorChoice::Never
     );
 }
 
 #[test]
-fn a_command_line_can_be_asked_about_colour_before_anything_is_bound() {
+fn a_command_line_can_be_asked_about_color_before_anything_is_bound() {
     // What help and diagnostics read: they render on a path where the struct was
     // never built.
     let read = |argv: &[&str]| {
@@ -3401,16 +3401,16 @@ fn a_command_line_can_be_asked_about_colour_before_anything_is_bound() {
 }
 
 #[test]
-fn a_declared_colour_flag_turns_off_the_colour_in_usage_own_output() {
+fn a_declared_color_flag_turns_off_the_color_in_usage_own_output() {
     // The bug this pays for: before the declaration existed, a CLI's `--no-color`
     // could not reach the help page usage renders on its behalf.
-    let coloured = usage::help::Style::for_choice(usage::ColorChoice::Always, false);
+    let colored = usage::help::Style::for_choice(usage::ColorChoice::Always, false);
     let plain = usage::help::Style::for_choice(usage::ColorChoice::Never, true);
     let page = |style| {
         usage::help::render_styled(Loud::spec(), Loud::command(), false, style)
             .expect("a help page")
     };
-    assert!(page(coloured).contains('\u{1b}'));
+    assert!(page(colored).contains('\u{1b}'));
     assert!(!page(plain).contains('\u{1b}'));
 
     let words = [OsStr::new("--no-color"), OsStr::new("--nonsense")];

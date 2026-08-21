@@ -301,7 +301,7 @@ pub struct Field {
     /// Cold: it changes nothing about how a token binds, and is read once, after
     /// the parse, by whatever configures the CLI's logging.
     pub verbosity: Option<VerbosityRoleDecl>,
-    /// What this flag means for colour, when it says.
+    /// What this flag means for color, when it says.
     pub color: Option<ColorRoleDecl>,
     /// Whether a collecting argument needs at least one value.
     ///
@@ -595,12 +595,12 @@ impl VerbosityRoleDecl {
     }
 }
 
-/// What a field declares itself to mean for colour. The spec's `color=`.
+/// What a field declares itself to mean for color. The spec's `color=`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ColorRoleDecl {
-    /// This switch forces colour; its negation forbids it.
+    /// This switch forces color; its negation forbids it.
     Always,
-    /// This switch forbids colour; its negation forces it.
+    /// This switch forbids color; its negation forces it.
     Never,
     /// The field's value is `auto`, `always` or `never`.
     Choice,
@@ -652,7 +652,7 @@ fn verbosity_value(meta: &Meta) -> syn::Result<VerbosityRoleDecl> {
     })
 }
 
-/// What a flag means for colour.
+/// What a flag means for color.
 fn color_value(meta: &Meta) -> syn::Result<ColorRoleDecl> {
     let value = string_value(meta)?;
     Ok(match value.as_str() {
@@ -3505,7 +3505,7 @@ impl Field {
             if !matches!(kind, Kind::Flag { .. }) {
                 return Err(syn::Error::new(
                     span,
-                    "`color` describes what supplying a flag means for colour; add `long` or \
+                    "`color` describes what supplying a flag means for color; add `long` or \
                      `short` to make this field a flag",
                 ));
             }
@@ -3535,7 +3535,7 @@ impl Field {
                     ));
                 }
             }
-            // A `bool` holds the answer, not whether one was given, so a negatable colour
+            // A `bool` holds the answer, not whether one was given, so a negatable color
             // switch has to say what an absent flag means: without a default, `false` would
             // read as the negation rather than as silence.
             if matches!(
@@ -7196,7 +7196,7 @@ mod tests {
         );
         assert!(err.contains("not both"), "unhelpful: {err}");
 
-        // A negatable colour switch has to say what an absent flag means.
+        // A negatable color switch has to say what an absent flag means.
         let err = rejection(
             r#"
             struct Ex {

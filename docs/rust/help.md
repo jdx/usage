@@ -100,17 +100,17 @@ full rule, including what a default does not count as, is in
 The rendered output matches what usage-lib renders from the same spec — the two renderers are
 held to identical output over mise's 211 command pages in CI.
 
-### Colour
+### Color
 
-Help pages and error messages are coloured when the destination is a terminal, and plain when
-it is not. `NO_COLOR` (set and non-empty) turns colour off, `CLICOLOR_FORCE` (set and not `0`)
+Help pages and error messages are colored when the destination is a terminal, and plain when
+it is not. `NO_COLOR` (set and non-empty) turns color off, `CLICOLOR_FORCE` (set and not `0`)
 turns it on for a pipe, and `NO_COLOR` wins between them: someone who sets it has said once,
 for every program, that they do not want this. The palette is fixed — clap's arbitrary
 `Command::styles` is deliberately not reproduced.
 
 A flag beats all of that. Declare [`color`](/rust/args-and-flags) on the flag your CLI already
 has and `mycli --no-color --help` is plain, `mycli --color always … 2>&1 | less -R` is
-coloured, whatever the environment says: it was typed now, and the environment was set once.
+colored, whatever the environment says: it was typed now, and the environment was set once.
 The answer is read straight from argv, since help and failures are both rendered on a path
 where no struct was built.
 

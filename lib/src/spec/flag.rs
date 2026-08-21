@@ -298,10 +298,10 @@ pub struct SpecFlag {
     /// one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verbosity: Option<SpecVerbosityRole>,
-    /// What this flag means for colour.
+    /// What this flag means for color.
     ///
     /// See [`crate::spec::policy::SpecColorRole`]. Declaring it is what lets a
-    /// CLI's own `--no-color` turn off the colour in the help page and error
+    /// CLI's own `--no-color` turn off the color in the help page and error
     /// messages usage renders on its behalf.
     ///
     /// clap's `Command::color` is a statement about clap's output rather than

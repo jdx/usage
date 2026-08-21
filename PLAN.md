@@ -686,8 +686,8 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       Cold, beside `effect`: the hot `Flag` and `Flag::BOOL` are untouched and the
       role is out of `binding_hash`, since two declarations differing only in role
       bind identically.
-      **The colour half is a bug fix.** `argv/src/help.rs` and
-      `argv/src/diagnostic.rs` each decided colour from the environment and
+      **The color half is a bug fix.** `argv/src/help.rs` and
+      `argv/src/diagnostic.rs` each decided color from the environment and
       neither could be overridden, so a CLI's own `--no-color` turned off its
       output and not the help page usage rendered for it. The choice now comes
       from argv — a real parse, so `--message --no-color` is a value and a token

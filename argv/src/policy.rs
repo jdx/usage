@@ -1,4 +1,4 @@
-//! What a flag *means*: how much the CLI should say, and whether to colour it.
+//! What a flag *means*: how much the CLI should say, and whether to color it.
 //!
 //! Two declarations, both cold. A role changes nothing about where a token
 //! lands — `-v` binds the same `u8` and `--no-color` the same `bool` whether or
@@ -121,15 +121,15 @@ impl Verbosity {
     }
 }
 
-/// Whether output is coloured.
+/// Whether output is colored.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum ColorChoice {
     /// Decide from the destination and the environment.
     #[default]
     Auto,
-    /// Colour, whatever the destination.
+    /// Color, whatever the destination.
     Always,
-    /// No colour, whatever the destination.
+    /// No color, whatever the destination.
     Never,
 }
 
@@ -153,7 +153,7 @@ impl ColorChoice {
     }
 
     /// Combine two choices. A refusal beats a request, which is the convention
-    /// `NO_COLOR` sets: saying "no colour" once should be enough.
+    /// `NO_COLOR` sets: saying "no color" once should be enough.
     pub const fn combine(self, other: ColorChoice) -> ColorChoice {
         match (self, other) {
             (Self::Never, _) | (_, Self::Never) => Self::Never,
@@ -162,10 +162,10 @@ impl ColorChoice {
         }
     }
 
-    /// Whether to colour output going to a destination that is, or is not, a terminal.
+    /// Whether to color output going to a destination that is, or is not, a terminal.
     ///
     /// `Auto` consults the environment first: `NO_COLOR` refuses, `CLICOLOR_FORCE`
-    /// insists, and otherwise a terminal gets colour and a pipe does not. An explicit
+    /// insists, and otherwise a terminal gets color and a pipe does not. An explicit
     /// choice skips all of that, which is the whole point of typing one.
     pub fn enabled_for(self, is_terminal: bool) -> bool {
         match self {
@@ -227,12 +227,12 @@ impl VerbosityRole {
     }
 }
 
-/// What a flag means for colour. The spec's `color=`.
+/// What a flag means for color. The spec's `color=`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ColorRole {
-    /// This switch forces colour; its negation forbids it.
+    /// This switch forces color; its negation forbids it.
     Always,
-    /// This switch forbids colour; its negation forces it.
+    /// This switch forbids color; its negation forces it.
     Never,
     /// The flag's value is `auto`, `always` or `never`.
     Choice,
@@ -275,7 +275,7 @@ pub struct VerbosityInput<'a> {
     pub value: Option<&'a str>,
 }
 
-/// One flag's contribution to the colour choice.
+/// One flag's contribution to the color choice.
 #[derive(Debug, Clone, Copy)]
 pub struct ColorInput<'a> {
     pub role: ColorRole,
@@ -340,7 +340,7 @@ pub fn resolve_verbosity_from<'a>(
     base.step(steps)
 }
 
-/// Resolve a colour choice from what a command line supplied.
+/// Resolve a color choice from what a command line supplied.
 pub fn resolve_color<'a>(supplied: impl IntoIterator<Item = ColorInput<'a>>) -> ColorChoice {
     let mut choice = ColorChoice::Auto;
     for input in supplied {
@@ -374,13 +374,13 @@ pub trait VerbosityPolicy {
     }
 }
 
-/// The colour choice a CLI was asked for. See [`VerbosityPolicy`] on why it is a trait.
+/// The color choice a CLI was asked for. See [`VerbosityPolicy`] on why it is a trait.
 pub trait ColorPolicy {
-    /// The colour choice this command line asked for.
+    /// The color choice this command line asked for.
     fn color(&self) -> ColorChoice;
 }
 
-/// The colour choice a command line asks for, found without binding a struct.
+/// The color choice a command line asks for, found without binding a struct.
 ///
 /// Help and errors are rendered on paths where the struct was never built — a
 /// `--help` request and a parse failure both come back as an `Err` — so the
@@ -388,12 +388,12 @@ pub trait ColorPolicy {
 /// for the word: `mycli --message --no-color` gives `--message` its value, and
 /// a `--no-color` after `--` is somebody's argument.
 ///
-/// `None` means the command line said nothing about colour, which is not the
+/// `None` means the command line said nothing about color, which is not the
 /// same as asking for `Auto`: a caller can tell "no opinion" from "decide from
 /// the terminal" and fall back accordingly.
 ///
 /// Parsing stops at the first thing that does not parse, since after that the
-/// tokens no longer mean what they appear to. A colour flag before the mistake
+/// tokens no longer mean what they appear to. A color flag before the mistake
 /// is honoured; one after it is not, and the environment decides instead. That
 /// is the conservative direction: the cost is a help page painted the way it
 /// would have been painted anyway.
@@ -437,7 +437,7 @@ pub fn color_from_argv(spec: &Spec<'_>, argv: &[&OsStr]) -> Option<ColorChoice> 
     choice
 }
 
-/// The colour role declared for `flag`, looked for only among the commands on the
+/// The color role declared for `flag`, looked for only among the commands on the
 /// route argv took. A flag in scope was declared by one of them — a global by an
 /// ancestor, anything else by the command that owns it.
 fn role_of(scope: &[&crate::spec::CommandMeta<'_>], flag: &Flag<'_>) -> Option<ColorRole> {
@@ -578,7 +578,7 @@ mod tests {
         assert_eq!(resolve_verbosity(supplied), Verbosity::Info);
     }
 
-    fn colour(role: ColorRole, negated: bool) -> ColorInput<'static> {
+    fn color(role: ColorRole, negated: bool) -> ColorInput<'static> {
         ColorInput {
             role,
             negated,
@@ -588,22 +588,22 @@ mod tests {
     }
 
     #[test]
-    fn a_refusal_of_colour_beats_a_request() {
+    fn a_refusal_of_color_beats_a_request() {
         let both = [
-            colour(ColorRole::Always, false),
-            colour(ColorRole::Never, false),
+            color(ColorRole::Always, false),
+            color(ColorRole::Never, false),
         ];
         assert_eq!(resolve_color(both), ColorChoice::Never);
     }
 
     #[test]
-    fn a_negated_colour_switch_means_the_other_answer() {
+    fn a_negated_color_switch_means_the_other_answer() {
         assert_eq!(
-            resolve_color([colour(ColorRole::Always, true)]),
+            resolve_color([color(ColorRole::Always, true)]),
             ColorChoice::Never
         );
         assert_eq!(
-            resolve_color([colour(ColorRole::Never, true)]),
+            resolve_color([color(ColorRole::Never, true)]),
             ColorChoice::Always
         );
     }

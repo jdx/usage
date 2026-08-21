@@ -232,7 +232,7 @@ struct Cli {
     /// When to color output
     #[usage(long, global, value_name = "WHEN", choices("auto", "always", "never"),
             default = "auto", color = "choice")]
-    color: Option<String>,
+    color: String,
 }
 
 fn main() {
@@ -243,6 +243,12 @@ fn main() {
     env_logger::builder().filter_level(level.parse().unwrap()).init();
 }
 ```
+
+A `color = "choice"` flag takes its value. Do not reach for `value_optional` or
+`default_missing` to make a bare `--color` mean something: a detached optional value is
+ambiguous to a reader even where the grammar resolves it, and a CLI that wants one word for
+"colour, please" already has a better spelling — a switch, `color = "always"` with a
+`negate`, which says the same thing and cannot be misread.
 
 `log_filter()` rather than `as_str()`: the two agree for five of the six levels, and differ
 where it matters. The fleet spells the bottom of the scale `silent` — mise's and hk's

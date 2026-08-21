@@ -343,7 +343,7 @@ A flag that takes no value cannot declare it.
 ## `verbosity` and `color`
 
 What a flag _means_, as opposed to what it binds. Every CLI has a flag or six for how
-much to say and whether to colour it, and until now a spec could not tell them from any
+much to say and whether to color it, and until now a spec could not tell them from any
 other switch: help, generated documentation, an agent reading the spec and the CLI's own
 logger each had to guess from the spelling.
 
@@ -372,11 +372,19 @@ switch has to declare a `default`, because a `bool` holds the answer rather than
 one was given: without it, a command line that mentioned neither spelling would read as
 the negation.
 
+A `choice` flag takes its value, and should not be declared
+[`value_optional`](#value_optional) or given a [`default_missing`](#default_missing). A
+bare `--color` reads as a question a reader has to answer from memory, and the ambiguity
+is not worth the two saved words — a CLI that wants one word for "color, please" declares
+a switch instead, which says exactly that. The two are not mutually exclusive: aube
+declares `--color` and `--no-color` as switches and mise's `mise watch --color` takes a
+value, and both are ordinary declarations here.
+
 ### What they resolve to
 
 An explicit level value pins; otherwise the most restrictive pinning switch wins;
 otherwise the baseline stands. Then the stepping flags move it, saturating at both ends.
-For colour, a refusal beats a request, and a command line that said nothing is `auto`.
+For color, a refusal beats a request, and a command line that said nothing is `auto`.
 
 Most of the time the CLI's own `overrides` has already settled it. mise declares its six
 verbosity flags as a mutual override lattice, so at most one of them survives the parse
@@ -385,7 +393,7 @@ lattice, and they are order-independent so that the answer stays predictable.
 
 ### What reads them
 
-`--color`, once declared, controls the colour of the help page and the error messages
+`--color`, once declared, controls the color of the help page and the error messages
 usage renders on the CLI's behalf — which nothing could reach before, so a CLI's own
 `--no-color` turned off its output and not usage's. An explicit choice outranks
 `NO_COLOR` and `CLICOLOR_FORCE`: it was typed now, and they were set once for every
@@ -405,7 +413,7 @@ environment variables that can set it. The role says this flag expresses the lev
 _this invocation_. A CLI with both keeps writing `cli "--log-level"` on the prop, and the
 two are held together by the existing drift check.
 
-That split is why mise's colour is `mise settings color=0` rather than a root flag, and
+That split is why mise's color is `mise settings color=0` rather than a root flag, and
 why no CLI in the fleet declares an environment variable on a verbosity flag: the
 variable belongs to the setting.
 
