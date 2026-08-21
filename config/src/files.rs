@@ -32,6 +32,8 @@ pub enum Format {
     Toml,
     #[cfg(feature = "json")]
     Json,
+    #[cfg(feature = "yaml")]
+    Yaml,
 }
 
 impl Format {
@@ -39,13 +41,17 @@ impl Format {
     ///
     /// A path with no extension, or one nobody claims, returns `None` — the caller names the
     /// format itself rather than a guess being made on its behalf. `.myclirc` is TOML in one
-    /// CLI and INI in another, and neither is discoverable from the name.
+    /// CLI and YAML in another, and neither is discoverable from the name.
     pub fn of(path: &Path) -> Option<Self> {
         match path.extension().and_then(|e| e.to_str()) {
             #[cfg(feature = "toml")]
             Some("toml") => Some(Self::Toml),
             #[cfg(feature = "json")]
             Some("json") => Some(Self::Json),
+            // Both spellings, because a project picks one and the other still turns up: a CI
+            // file is `.yml` and the config next to it is `.yaml` as often as not.
+            #[cfg(feature = "yaml")]
+            Some("yaml") | Some("yml") => Some(Self::Yaml),
             _ => None,
         }
     }
@@ -350,6 +356,56 @@ fn parse(
             flatten_json(String::new(), &value, names_a_setting, &mut flat);
             Ok(flat)
         }
+        #[cfg(feature = "yaml")]
+        Format::Yaml => {
+            // An empty file, a file of comments, and a `---` with nothing after it all parse as
+            // `null`, which flattens to no keys at all: a file that says nothing, which is what
+            // a freshly-touched config file is.
+            //
+            // More than one document is the one thing the parser refuses outright, and it says
+            // so in terms of deserializing rather than in terms of the file, so its words are
+            // replaced with the file's. Matched on the message because that is all the parser
+            // exposes — should it ever be reworded, its own message comes through instead, which
+            // is the same information less plainly put.
+            let root = yaml_serde::from_str::<yaml_serde::Value>(text).map_err(|e| {
+                let message = e.to_string();
+                match message.contains("more than one document") {
+                    true => {
+                        "a settings file is one document, and this is more than one".to_string()
+                    }
+                    false => message,
+                }
+            })?;
+            // A tag on the root is stepped through for the same reason as a tag on a value: what
+            // a tag names is for a reader that has types of its own, and this one gets its types
+            // from the spec.
+            let root = untagged(&root);
+            // Asked before the table under it, and for the same reason as in JSON: a root that
+            // is not a mapping has no keys to read either way, and `get` cannot tell a list root
+            // apart from a file with no settings table in it.
+            if !(root.is_mapping() || root.is_null()) {
+                return Err("the file should be a table of settings, and is not".into());
+            }
+            let value = match prefix {
+                Some(table) => match root.get(table).map(untagged) {
+                    Some(inner) if inner.is_mapping() => inner,
+                    // `null` is how a YAML file says a key is not there, and a file that leaves
+                    // the table out entirely is allowed — the same meaning must not be the one
+                    // spelling of it that fails the read.
+                    Some(yaml_serde::Value::Null) | None => return Ok(Vec::new()),
+                    Some(_) => {
+                        return Err(format!(
+                            "`{table}` should be a table of settings, and is not"
+                        ))
+                    }
+                },
+                // Checked above: a mapping, or a `null` root that flattens to nothing.
+                None => root,
+            };
+            let mut flat = Vec::new();
+            flatten_yaml(String::new(), value, names_a_setting, &mut flat)?;
+            Ok(flat)
+        }
     }
 }
 
@@ -535,6 +591,193 @@ fn scalar_json(value: &serde_json::Value) -> String {
     match value {
         serde_json::Value::String(s) => s.clone(),
         other => other.to_string(),
+    }
+}
+
+/// The key YAML uses to mean "and everything from there".
+#[cfg(feature = "yaml")]
+const MERGE_KEY: &str = "<<";
+
+#[cfg(feature = "yaml")]
+fn flatten_yaml(
+    prefix: String,
+    value: &yaml_serde::Value,
+    names_a_setting: &dyn Fn(&str) -> bool,
+    out: &mut Vec<(String, Read)>,
+) -> Result<(), String> {
+    match untagged(value) {
+        // A mapping the spec declared as a setting is the value, not the way to it.
+        yaml_serde::Value::Mapping(_) if !prefix.is_empty() && names_a_setting(&prefix) => {
+            let table = table_yaml(value, &prefix)?;
+            out.push((prefix, Read::Shaped(table)));
+        }
+        // The same rule as JSON, and reached by more spellings: `key:`, `key: ~` and
+        // `key: null` all say there is no value, so the key is not there. Read as text they
+        // stored the *word* — a string setting holding `null`, a list setting holding one item
+        // of it — and an explicitly-emptied field set the setting rather than leaving it alone.
+        yaml_serde::Value::Null => {}
+        yaml_serde::Value::Mapping(map) => {
+            for (key, inner) in yaml_entries(map, &prefix)? {
+                flatten_yaml(joined(&prefix, &key), inner, names_a_setting, out)?;
+            }
+        }
+        yaml_serde::Value::Sequence(_) => {
+            let list = table_yaml(value, &prefix)?;
+            out.push((prefix, Read::Shaped(list)));
+        }
+        scalar => out.push((prefix, Read::Text(scalar_yaml(scalar)))),
+    }
+    Ok(())
+}
+
+/// A YAML mapping as a [`Value`], for a setting declared to hold a table.
+#[cfg(feature = "yaml")]
+fn table_yaml(value: &yaml_serde::Value, at: &str) -> Result<Value, String> {
+    Ok(match untagged(value) {
+        // Same rule inside a declared table or list as outside it: a null entry is one that is
+        // not there.
+        yaml_serde::Value::Mapping(map) => Value::Map(
+            yaml_entries(map, at)?
+                .into_iter()
+                .filter(|(_, inner)| !untagged(inner).is_null())
+                .map(|(key, inner)| table_yaml(inner, at).map(|inner| (key, inner)))
+                .collect::<Result<_, _>>()?,
+        ),
+        yaml_serde::Value::Sequence(items) => Value::List(
+            items
+                .iter()
+                .filter(|item| !untagged(item).is_null())
+                .map(|item| table_yaml(item, at))
+                .collect::<Result<_, _>>()?,
+        ),
+        yaml_serde::Value::Bool(b) => Value::Bool(*b),
+        yaml_serde::Value::Number(n) => match n.as_i64() {
+            Some(i) => Value::Int(i),
+            None => Value::Float(n.as_f64().unwrap_or_default()),
+        },
+        other => Value::String(scalar_yaml(other)),
+    })
+}
+
+#[cfg(feature = "yaml")]
+fn scalar_yaml(value: &yaml_serde::Value) -> String {
+    match value {
+        yaml_serde::Value::String(s) => s.clone(),
+        yaml_serde::Value::Bool(b) => b.to_string(),
+        // `1.5`, and also `.inf` and `.nan`, which YAML can write and a `float` setting will
+        // refuse — the same answer TOML gives for the same file.
+        yaml_serde::Value::Number(n) => n.to_string(),
+        // Nothing reaches here: a null is a key that is not there wherever one can appear, and
+        // the shaped values are matched above. Spelled out rather than left to a catch-all so
+        // that a value holding one reads as the file wrote it.
+        _ => "null".to_string(),
+    }
+}
+
+/// A YAML value with any tags on the way to it stepped through.
+///
+/// `!Custom 3` is the file naming a type for a reader that has types of its own; this layer's
+/// types come from the spec, so a tag changes nothing about what the value is. Read as part of
+/// the value it made every tagged setting the wrong type, which is a warning about a file that
+/// is perfectly good.
+#[cfg(feature = "yaml")]
+fn untagged(value: &yaml_serde::Value) -> &yaml_serde::Value {
+    let mut value = value;
+    while let yaml_serde::Value::Tagged(tagged) = value {
+        value = &tagged.value;
+    }
+    value
+}
+
+/// How a message names the mapping a bad key is in.
+///
+/// A function rather than a string built up front, because it is only ever wanted on the way to
+/// an error and every mapping in every file goes through the caller.
+#[cfg(feature = "yaml")]
+fn describe(at: &str) -> String {
+    match at.is_empty() {
+        true => "the file".to_string(),
+        false => format!("`{at}`"),
+    }
+}
+
+/// A mapping's entries, keyed by the text a settings key is, with merge keys resolved.
+///
+/// Two things a YAML file can express that neither TOML nor JSON can, and both have to be
+/// answered here rather than left to the flattener:
+///
+/// - A **key that is not text**. `18: "18.20.0"` is an integer key where the same file written
+///   in TOML holds a string, so a scalar key becomes its text and a `map` setting reads the same
+///   from either. A sequence or a mapping as a key is not a name at all, and neither is a null:
+///   a file keyed by those is not a table of settings, which is the same kind of wrong as a file
+///   that will not parse.
+/// - A **merge key**. `<<: *defaults` is what anchors exist for, and the parser does not resolve
+///   it — an alias becomes the value it points at, but the `<<` stays a key. Left alone it was
+///   reported as an unknown setting called `<<` while every setting it carried went unread, which
+///   is the loudest way to lose a value in silence. Explicit keys win over merged ones, and an
+///   earlier item of `<<: [*a, *b]` wins over a later one, which is what the merge key means.
+///
+/// `at` is the dotted key the mapping sits under, and is only ever used to say where a bad key
+/// is: a file with a stray one somewhere in it is no use to a reader who has to find it.
+#[cfg(feature = "yaml")]
+fn yaml_entries<'a>(
+    mapping: &'a yaml_serde::Mapping,
+    at: &str,
+) -> Result<Vec<(String, &'a yaml_serde::Value)>, String> {
+    let mut entries: Vec<(String, &yaml_serde::Value)> = Vec::new();
+    let mut merged: Vec<(String, &yaml_serde::Value)> = Vec::new();
+    for (key, value) in mapping {
+        if key.as_str() == Some(MERGE_KEY) {
+            for source in merge_sources(untagged(value)).ok_or_else(|| {
+                format!(
+                    "{} merges `{MERGE_KEY}` from something that is not a mapping",
+                    describe(at)
+                )
+            })? {
+                merged.extend(yaml_entries(source, at)?);
+            }
+            continue;
+        }
+        entries.push((
+            yaml_key(key)
+                .ok_or_else(|| format!("{} has a key that is not a name", describe(at)))?,
+            value,
+        ));
+    }
+    // Added last and only where nothing has the key yet, which makes an explicit key beat a
+    // merged one and the first of several merged ones beat the rest.
+    for (key, value) in merged {
+        if !entries.iter().any(|(existing, _)| *existing == key) {
+            entries.push((key, value));
+        }
+    }
+    Ok(entries)
+}
+
+/// The mappings a `<<` merges in, in the order they take precedence.
+#[cfg(feature = "yaml")]
+fn merge_sources(value: &yaml_serde::Value) -> Option<Vec<&yaml_serde::Mapping>> {
+    match value {
+        yaml_serde::Value::Mapping(map) => Some(vec![map]),
+        yaml_serde::Value::Sequence(items) => items
+            .iter()
+            .map(|item| untagged(item).as_mapping())
+            .collect(),
+        _ => None,
+    }
+}
+
+/// A mapping key as the name of a setting, when it is one.
+#[cfg(feature = "yaml")]
+fn yaml_key(key: &yaml_serde::Value) -> Option<String> {
+    match untagged(key) {
+        yaml_serde::Value::String(s) => Some(s.clone()),
+        // A number or a boolean is a name a user plainly meant as one — `18:` under a
+        // `map<string, string>`, `true:` in a table of flags — and is the text TOML and JSON
+        // would have held for the same file.
+        yaml_serde::Value::Bool(b) => Some(b.to_string()),
+        yaml_serde::Value::Number(n) => Some(n.to_string()),
+        _ => None,
     }
 }
 
@@ -1279,10 +1522,237 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn yaml_reads_the_same_settings_as_toml() {
+        // Three formats, one meaning: the flattening and the coercion are shared, so a CLI that
+        // switches formats does not change what its settings mean.
+        let tree = Tree::new("yaml");
+        let path = tree.write(
+            "hk.yaml",
+            "jobs: 4\nexclude:\n  - a,b\n  - c\ntask:\n  output: prefix\n",
+        );
+        let layer = FileLayer::at(&path, FileScope::Project);
+        let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("should resolve");
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(4)));
+        assert_eq!(
+            resolved.get_key("task.output"),
+            Some(&Value::from("prefix"))
+        );
+        // A sequence keeps the boundaries the file gave it, comma inside an item and all.
+        assert_eq!(
+            resolved.get_key("exclude"),
+            Some(&Value::List(vec![Value::from("a,b"), Value::from("c")]))
+        );
+        let origin = resolved
+            .origin(REGISTRY.lookup("jobs").unwrap().id)
+            .unwrap();
+        assert!(origin.describe().ends_with("hk.yaml#jobs"), "{origin:?}");
+
+        // `.yml` is the same format, and a settings table within the file works the same way.
+        let path = tree.write("mise.yml", "tools:\n  node: '20'\nsettings:\n  jobs: 9\n");
+        let layer = FileLayer::at(&path, FileScope::Project).under("settings");
+        let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("should resolve");
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(9)));
+        assert!(resolved.warnings.is_empty(), "{:?}", resolved.warnings);
+    }
+
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn a_yaml_file_that_says_nothing_is_not_a_file_that_is_wrong() {
+        // An empty file is what `touch` leaves and what a user who deleted every line has, and a
+        // `---` with nothing under it is a document that says nothing. None of the three is a
+        // file to refuse to start over.
+        let tree = Tree::new("yaml_empty");
+        for (name, text) in [
+            ("empty.yaml", ""),
+            ("comments.yaml", "# nothing to see\n"),
+            ("marker.yaml", "---\n"),
+            ("null.yaml", "null\n"),
+        ] {
+            let path = tree.write(name, text);
+            let layer = FileLayer::at(&path, FileScope::Project);
+            let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect(name);
+            assert_eq!(resolved.get_key("jobs"), None, "{name}");
+            assert!(
+                resolved.warnings.is_empty(),
+                "{name}: {:?}",
+                resolved.warnings
+            );
+        }
+    }
+
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn a_yaml_file_that_is_not_a_table_of_settings_says_so() {
+        // The shapes only a non-TOML format can hold, and the same answer JSON gives them.
+        let tree = Tree::new("yaml_root");
+        for (name, text) in [("list.yaml", "- 1\n- 2\n"), ("scalar.yaml", "text\n")] {
+            let path = tree.write(name, text);
+            let layer = FileLayer::at(&path, FileScope::Project);
+            let err = resolve(REGISTRY, Layers::new().then(&layer)).expect_err("should fail");
+            assert!(err.to_string().contains("should be a table"), "{err}");
+            assert!(err.to_string().contains(name), "{err}");
+        }
+
+        // And a settings table that is there and is something else.
+        let path = tree.write("under.yaml", "settings: 4\n");
+        let layer = FileLayer::at(&path, FileScope::Project).under("settings");
+        let err = resolve(REGISTRY, Layers::new().then(&layer)).expect_err("should fail");
+        assert!(
+            err.to_string().contains("`settings` should be a table"),
+            "{err}"
+        );
+
+        // A file with no settings table in it, though, is a file that says nothing.
+        let path = tree.write("other.yaml", "tools:\n  node: '20'\n");
+        let layer = FileLayer::at(&path, FileScope::Project).under("settings");
+        let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("should resolve");
+        assert_eq!(resolved.get_key("jobs"), None);
+        assert!(resolved.warnings.is_empty(), "{:?}", resolved.warnings);
+    }
+
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn more_than_one_yaml_document_is_reported_as_the_file_it_is() {
+        // The parser refuses this, in words about deserializing rather than about the file. A
+        // user with a stray `---` in their config is being told to remove it, so that is what
+        // the message says.
+        let tree = Tree::new("yaml_docs");
+        let path = tree.write("hk.yaml", "jobs: 4\n---\njobs: 8\n");
+        let layer = FileLayer::at(&path, FileScope::Project);
+        let err = resolve(REGISTRY, Layers::new().then(&layer)).expect_err("should fail");
+        assert!(err.to_string().contains("one document"), "{err}");
+        assert!(err.to_string().contains("hk.yaml"), "{err}");
+    }
+
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn a_yaml_null_is_a_key_that_is_not_there() {
+        // Three spellings of it, where JSON has one: an empty value, a `~` and the word.
+        let tree = Tree::new("yaml_nulls");
+        let path = tree.write(
+            "hk.yaml",
+            "jobs: 3\ntask:\n  output:\nplain_list: ~\nurl_replacements:\n  a: null\n  b: c\n",
+        );
+        let layer = FileLayer::at(&path, FileScope::Project);
+        let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("should resolve");
+
+        assert_eq!(resolved.get_key("task.output"), None);
+        assert_eq!(resolved.get_key("plain_list"), None);
+        assert!(resolved.warnings.is_empty(), "{:?}", resolved.warnings);
+        // The rest of the file still applies, and a null inside a declared table is a key that
+        // is not there either.
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(3)));
+        assert_eq!(
+            resolved.get_key("url_replacements"),
+            Some(&Value::Map(
+                [("b".to_string(), Value::from("c"))].into_iter().collect()
+            ))
+        );
+    }
+
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn a_yaml_key_that_is_a_number_is_the_name_it_looks_like() {
+        // `18:` in a `map<string, string>` is a key a user plainly meant as a name, and is the
+        // string the same file in TOML or JSON would hold. Left as the integer YAML made of it,
+        // the map could not be built at all.
+        let tree = Tree::new("yaml_keys");
+        let path = tree.write(
+            "hk.yaml",
+            "url_replacements:\n  18: eighteen\n  true: yes-really\n",
+        );
+        let layer = FileLayer::at(&path, FileScope::Project);
+        let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("should resolve");
+        assert_eq!(
+            resolved.get_key("url_replacements"),
+            Some(&Value::Map(
+                [
+                    ("18".to_string(), Value::from("eighteen")),
+                    ("true".to_string(), Value::from("yes-really")),
+                ]
+                .into_iter()
+                .collect()
+            ))
+        );
+
+        // A sequence or a mapping as a key is not a name, and a file keyed by those is not a
+        // table of settings. The message says where, because a stray one is the sort of thing
+        // that is hard to find by eye.
+        let path = tree.write("complex.yaml", "task:\n  ? [a, b]\n  : value\n");
+        let layer = FileLayer::at(&path, FileScope::Project);
+        let err = resolve(REGISTRY, Layers::new().then(&layer)).expect_err("should fail");
+        assert!(err.to_string().contains("`task` has a key"), "{err}");
+        assert!(err.to_string().contains("complex.yaml"), "{err}");
+    }
+
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn a_merge_key_brings_the_settings_it_points_at() {
+        // The parser resolves the alias and leaves the `<<`, so without this the whole merge
+        // arrived as an unknown setting called `<<` and every setting in it went unread.
+        let tree = Tree::new("yaml_merge");
+        let path = tree.write(
+            "hk.yaml",
+            "defaults: &defaults\n  jobs: 4\n  task:\n    output: prefix\nsettings:\n  <<: *defaults\n  jobs: 8\n",
+        );
+        let layer = FileLayer::at(&path, FileScope::Project).under("settings");
+        let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("should resolve");
+        // Explicit wins over merged...
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(8)));
+        // ...and what only the merge supplies is there, nested keys and all.
+        assert_eq!(
+            resolved.get_key("task.output"),
+            Some(&Value::from("prefix"))
+        );
+        assert!(resolved.warnings.is_empty(), "{:?}", resolved.warnings);
+
+        // Several at once: the earlier item wins, which is what the merge key means.
+        let path = tree.write(
+            "many.yaml",
+            "a: &a\n  jobs: 1\nb: &b\n  jobs: 2\n  trusted: true\nsettings:\n  <<: [*a, *b]\n",
+        );
+        let layer = FileLayer::at(&path, FileScope::System).under("settings");
+        let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("should resolve");
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(1)));
+        assert_eq!(resolved.get_key("trusted"), Some(&Value::Bool(true)));
+
+        // And a `<<` that points at something there is nothing to merge from is a broken file,
+        // not a setting called `<<`.
+        let path = tree.write("bad.yaml", "settings:\n  <<: 4\n");
+        let layer = FileLayer::at(&path, FileScope::Project).under("settings");
+        let err = resolve(REGISTRY, Layers::new().then(&layer)).expect_err("should fail");
+        assert!(err.to_string().contains("not a mapping"), "{err}");
+    }
+
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn a_yaml_tag_does_not_change_what_a_value_is() {
+        // A tag names a type for a reader that has types of its own. This one gets its types
+        // from the spec, so the tag is stepped through: read as part of the value, every tagged
+        // setting was the wrong type and every one of them warned about a good file.
+        let tree = Tree::new("yaml_tags");
+        let path = tree.write(
+            "hk.yaml",
+            "jobs: !!int 4\nurl_replacements: !Table\n  a: b\n",
+        );
+        let layer = FileLayer::at(&path, FileScope::Project);
+        let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("should resolve");
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(4)));
+        assert_eq!(
+            resolved.get_key("url_replacements"),
+            Some(&Value::Map(
+                [("a".to_string(), Value::from("b"))].into_iter().collect()
+            ))
+        );
+        assert!(resolved.warnings.is_empty(), "{:?}", resolved.warnings);
+    }
+
     #[cfg(feature = "toml")]
     #[test]
     fn a_format_nothing_can_infer_is_named_rather_than_guessed() {
-        // `.myclirc` is TOML in one CLI and INI in another, and neither is discoverable from
+        // `.myclirc` is TOML in one CLI and YAML in another, and neither is discoverable from
         // the name.
         let tree = Tree::new("format");
         let path = tree.write(".hkrc", "jobs = 5\n");
