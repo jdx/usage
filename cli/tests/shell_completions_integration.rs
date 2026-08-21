@@ -153,6 +153,16 @@ fn checked_in_completion(name: &str) -> PathBuf {
 
 /// Helper to run usage complete-word and return stdout
 fn run_complete_word(usage_bin: &Path, shell: &str, spec_file: &Path, words: &[&str]) -> String {
+    run_complete_word_in(usage_bin, shell, spec_file, words, None)
+}
+
+fn run_complete_word_in(
+    usage_bin: &Path,
+    shell: &str,
+    spec_file: &Path,
+    words: &[&str],
+    cwd: Option<&Path>,
+) -> String {
     let mut args = vec![
         "complete-word".to_string(),
         "--shell".to_string(),
@@ -163,10 +173,12 @@ fn run_complete_word(usage_bin: &Path, shell: &str, spec_file: &Path, words: &[&
     ];
     args.extend(words.iter().map(|w| w.to_string()));
 
-    let output = Command::new(usage_bin)
-        .args(&args)
-        .output()
-        .expect("Failed to run usage complete-word");
+    let mut command = Command::new(usage_bin);
+    command.args(&args);
+    if let Some(cwd) = cwd {
+        command.current_dir(cwd);
+    }
+    let output = command.output().expect("Failed to run usage complete-word");
 
     String::from_utf8_lossy(&output.stdout).to_string()
 }
@@ -1856,5 +1868,53 @@ complete path type="path"
     );
 
     // Cleanup
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
+#[test]
+fn test_complete_path_preserves_partially_typed_segments() {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!(
+        "usage_segment_path_test_{}_{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::create_dir_all(temp_dir.join("target/debug/incremental")).unwrap();
+
+    let spec_file = temp_dir.join("test.spec");
+    fs::write(
+        &spec_file,
+        "name testcli\nbin testcli\narg <path>\ncomplete path type=\"path\"\n",
+    )
+    .unwrap();
+
+    let output = run_complete_word_in(
+        &usage_bin,
+        "bash",
+        &spec_file,
+        &["testcli", "target/de/inc"],
+        Some(&temp_dir),
+    );
+    assert_eq!(output, "target/debug/incremental/\n");
+
+    let output = run_complete_word_in(
+        &usage_bin,
+        "bash",
+        &spec_file,
+        &["testcli", "tar/"],
+        Some(&temp_dir),
+    );
+    assert_eq!(output, "target/\n");
+
+    let output = run_complete_word_in(
+        &usage_bin,
+        "bash",
+        &spec_file,
+        &["testcli", "target/de/"],
+        Some(&temp_dir),
+    );
+    assert_eq!(output, "target/debug/\n");
+
     let _ = fs::remove_dir_all(&temp_dir);
 }
