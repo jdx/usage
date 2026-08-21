@@ -25,6 +25,7 @@
 
 use usage::spec::cmd::SpecExample;
 use usage::{Spec, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
+use usage_argv::policy::{ColorRole, Verbosity, VerbosityRole};
 use usage_argv::spec::{
     ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf, Effect, Example, FlagMeta,
     GroupMeta, RequiredIfEq, RequiresIf,
@@ -454,6 +455,8 @@ fn flag_meta(
         help_heading: opt(&f.help_heading),
         display_order: f.display_order,
         effect: f.effect.map(effect),
+        verbosity: f.verbosity.map(verbosity_role),
+        color: f.color.map(color_role),
         complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
         complete: NO_COMPLETER,
     }
@@ -577,6 +580,29 @@ fn effect(effect: usage::SpecCommandEffect) -> Effect {
         usage::SpecCommandEffect::Read => Effect::Read,
         usage::SpecCommandEffect::Write => Effect::Write,
         usage::SpecCommandEffect::Destructive => Effect::Destructive,
+    }
+}
+
+fn verbosity_role(role: usage::SpecVerbosityRole) -> VerbosityRole {
+    use usage::SpecVerbosityRole as Declared;
+    match role {
+        Declared::Verbose => VerbosityRole::Verbose,
+        Declared::Quiet => VerbosityRole::Quiet,
+        Declared::Level => VerbosityRole::Level,
+        Declared::Silent => VerbosityRole::Pin(Verbosity::Silent),
+        Declared::Error => VerbosityRole::Pin(Verbosity::Error),
+        Declared::Warn => VerbosityRole::Pin(Verbosity::Warn),
+        Declared::Info => VerbosityRole::Pin(Verbosity::Info),
+        Declared::Debug => VerbosityRole::Pin(Verbosity::Debug),
+        Declared::Trace => VerbosityRole::Pin(Verbosity::Trace),
+    }
+}
+
+fn color_role(role: usage::SpecColorRole) -> ColorRole {
+    match role {
+        usage::SpecColorRole::Always => ColorRole::Always,
+        usage::SpecColorRole::Never => ColorRole::Never,
+        usage::SpecColorRole::Choice => ColorRole::Choice,
     }
 }
 

@@ -23,6 +23,7 @@
 //!
 use core::fmt::Write as _;
 
+use crate::policy::{ColorRole, VerbosityRole};
 use crate::UnknownFlags;
 use crate::{Arg, Command, DoubleDash, Flag};
 
@@ -1030,6 +1031,10 @@ pub struct FlagMeta<'a> {
     /// a long flag list into sections and changes nothing about parsing.
     pub help_heading: Option<&'a str>,
     pub effect: Option<Effect>,
+    /// What this flag means for how much the CLI says. See [`VerbosityRole`].
+    pub verbosity: Option<VerbosityRole>,
+    /// What this flag means for colour. See [`ColorRole`].
+    pub color: Option<ColorRole>,
 }
 
 impl FlagMeta<'_> {
@@ -1089,6 +1094,8 @@ impl FlagMeta<'_> {
         required_unless_all: &[],
         help_heading: None,
         effect: None,
+        verbosity: None,
+        color: None,
     };
 }
 
@@ -2063,6 +2070,12 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
     if let Some(effect) = meta.effect {
         write!(out, " effect={}", quoted(effect.as_str()))?;
     }
+    if let Some(role) = meta.verbosity {
+        write!(out, " verbosity={}", quoted(role.as_str()))?;
+    }
+    if let Some(role) = meta.color {
+        write!(out, " color={}", quoted(role.as_str()))?;
+    }
     if let Some(env) = meta.env {
         write!(out, " env={}", quoted(env))?;
     }
@@ -2861,6 +2874,16 @@ pub trait ValueEnum: Sized {
     const IGNORE_CASE: bool = false;
     /// Convert one canonical word or alias into its enum variant.
     fn from_choice(value: &str) -> Option<Self>;
+
+    /// The canonical word for this variant.
+    ///
+    /// The other direction, for the places that hold a variant and need the word
+    /// back: a `verbosity="level"` field is an `Option<LogLevel>`, and the level a
+    /// command line asked for is a word on the scale. Defaulted to `None` so an
+    /// implementation written by hand keeps compiling; the derive overrides it.
+    fn to_choice(&self) -> Option<&'static str> {
+        None
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

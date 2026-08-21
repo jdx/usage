@@ -296,6 +296,13 @@ pub struct Field {
     /// A flag can only *raise* what its command does — `--dry-run` does not make a writing
     /// command read-only — which is the spec's rule and not this crate's to enforce.
     pub effect: Option<proc_macro2::TokenStream>,
+    /// What this flag means for how much the CLI says, when it says.
+    ///
+    /// Cold: it changes nothing about how a token binds, and is read once, after
+    /// the parse, by whatever configures the CLI's logging.
+    pub verbosity: Option<VerbosityRoleDecl>,
+    /// What this flag means for colour, when it says.
+    pub color: Option<ColorRoleDecl>,
     /// Whether a collecting argument needs at least one value.
     ///
     /// Required-ness is normally the type's to say: a bare `String` has nowhere to put
@@ -522,6 +529,147 @@ fn effect_value(meta: &Meta) -> syn::Result<proc_macro2::TokenStream> {
     Ok(quote::quote!(::core::option::Option::Some(
         usage_argv::spec::Effect::#variant
     )))
+}
+
+/// A point on the verbosity scale, as a field declares it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LevelDecl {
+    Silent,
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl LevelDecl {
+    fn tokens(self) -> proc_macro2::TokenStream {
+        let variant = match self {
+            Self::Silent => quote::quote!(Silent),
+            Self::Error => quote::quote!(Error),
+            Self::Warn => quote::quote!(Warn),
+            Self::Info => quote::quote!(Info),
+            Self::Debug => quote::quote!(Debug),
+            Self::Trace => quote::quote!(Trace),
+        };
+        quote::quote!(usage_argv::policy::Verbosity::#variant)
+    }
+}
+
+/// What a field declares itself to mean for verbosity. The spec's `verbosity=`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerbosityRoleDecl {
+    /// Each occurrence raises the level one step.
+    Verbose,
+    /// Each occurrence lowers the level one step.
+    Quiet,
+    /// The field's value names the level.
+    Level,
+    /// This switch pins the level.
+    Pin(LevelDecl),
+}
+
+impl VerbosityRoleDecl {
+    pub fn takes_value(self) -> bool {
+        matches!(self, Self::Level)
+    }
+
+    /// The level this role pins, for the roles that name one.
+    pub fn pinned_level(self) -> Option<LevelDecl> {
+        match self {
+            Self::Pin(level) => Some(level),
+            _ => None,
+        }
+    }
+
+    pub fn tokens(self) -> proc_macro2::TokenStream {
+        match self {
+            Self::Verbose => quote::quote!(usage_argv::policy::VerbosityRole::Verbose),
+            Self::Quiet => quote::quote!(usage_argv::policy::VerbosityRole::Quiet),
+            Self::Level => quote::quote!(usage_argv::policy::VerbosityRole::Level),
+            Self::Pin(level) => {
+                let level = level.tokens();
+                quote::quote!(usage_argv::policy::VerbosityRole::Pin(#level))
+            }
+        }
+    }
+}
+
+/// What a field declares itself to mean for colour. The spec's `color=`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorRoleDecl {
+    /// This switch forces colour; its negation forbids it.
+    Always,
+    /// This switch forbids colour; its negation forces it.
+    Never,
+    /// The field's value is `auto`, `always` or `never`.
+    Choice,
+}
+
+impl ColorRoleDecl {
+    pub fn takes_value(self) -> bool {
+        matches!(self, Self::Choice)
+    }
+
+    pub fn tokens(self) -> proc_macro2::TokenStream {
+        match self {
+            Self::Always => quote::quote!(usage_argv::policy::ColorRole::Always),
+            Self::Never => quote::quote!(usage_argv::policy::ColorRole::Never),
+            Self::Choice => quote::quote!(usage_argv::policy::ColorRole::Choice),
+        }
+    }
+}
+
+/// What a flag means for how much the CLI says.
+///
+/// Every CLI in the fleet has one of these and none of them could say so: mise
+/// hand-copies six flags into a level in a forty-nine-line function. Declaring
+/// the meaning changes no parsing — it is read after the last token, by the CLI
+/// deciding how loud to be, and by help, docs and anything else reading the spec.
+fn verbosity_value(meta: &Meta) -> syn::Result<VerbosityRoleDecl> {
+    let value = string_value(meta)?;
+    Ok(match value.as_str() {
+        "verbose" => VerbosityRoleDecl::Verbose,
+        "quiet" => VerbosityRoleDecl::Quiet,
+        "level" => VerbosityRoleDecl::Level,
+        "silent" => VerbosityRoleDecl::Pin(LevelDecl::Silent),
+        "error" => VerbosityRoleDecl::Pin(LevelDecl::Error),
+        "warn" => VerbosityRoleDecl::Pin(LevelDecl::Warn),
+        "info" => VerbosityRoleDecl::Pin(LevelDecl::Info),
+        "debug" => VerbosityRoleDecl::Pin(LevelDecl::Debug),
+        "trace" => VerbosityRoleDecl::Pin(LevelDecl::Trace),
+        other => {
+            return Err(syn::Error::new_spanned(
+                meta,
+                format!(
+                    "`verbosity = \"{other}\"` is not one the spec has; it takes \"verbose\" \
+                     or \"quiet\" for a switch that moves along the scale, \"level\" for a \
+                     flag whose value names a level, and \"silent\", \"error\", \"warn\", \
+                     \"info\", \"debug\" or \"trace\" for a switch that pins one"
+                ),
+            ));
+        }
+    })
+}
+
+/// What a flag means for colour.
+fn color_value(meta: &Meta) -> syn::Result<ColorRoleDecl> {
+    let value = string_value(meta)?;
+    Ok(match value.as_str() {
+        "always" => ColorRoleDecl::Always,
+        "never" => ColorRoleDecl::Never,
+        "choice" => ColorRoleDecl::Choice,
+        other => {
+            return Err(syn::Error::new_spanned(
+                meta,
+                format!(
+                    "`color = \"{other}\"` is not one the spec has; a switch takes \"always\" \
+                     or \"never\", and a flag whose value is `auto`, `always` or `never` takes \
+                     \"choice\""
+                ),
+            ));
+        }
+    })
 }
 
 /// usage's shell-native `ValueHint`s lowered into the completion types the spec has.
@@ -1847,6 +1995,8 @@ impl Field {
             value_optional: false,
             kind: Kind::Skip,
             effect: None,
+            verbosity: None,
+            color: None,
             complete: None,
             complete_type: None,
             shape: Shape::Bool,
@@ -1980,6 +2130,8 @@ impl Field {
             // flattened group's flags carry their own, and a subcommand field is a command's
             // place rather than a command.
             effect: None,
+            verbosity: None,
+            color: None,
             complete: None,
             complete_type: None,
             // A flattened field holds declarations, not a value, so none of what describes a
@@ -2109,6 +2261,8 @@ impl Field {
             value_optional: false,
             kind: Kind::Subcommand { ty, optional },
             effect: None,
+            verbosity: None,
+            color: None,
             complete: None,
             complete_type: None,
             // A subcommand field holds a command, not a value, so none of what
@@ -2232,6 +2386,8 @@ impl Field {
         let mut help_heading = None;
         let mut display_order = None;
         let mut effect = None;
+        let mut verbosity = None;
+        let mut color = None;
         let mut value_name = None;
         let mut value_names: Vec<String> = Vec::new();
         let mut num_args: Option<(usize, Option<usize>)> = None;
@@ -2489,6 +2645,8 @@ impl Field {
                     "help_heading" => help_heading = Some(string_value(&meta)?),
                     "display_order" => display_order = Some(int_value(&meta)?),
                     "effect" => effect = Some(effect_value(&meta)?),
+                    "verbosity" => verbosity = Some(verbosity_value(&meta)?),
+                    "color" => color = Some(color_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
                     "value_names" => value_names = selectors(&meta)?,
                     "num_args" => {
@@ -2597,7 +2755,8 @@ impl Field {
                                  `conflicts`, `requires`, `group`, `exclusive`, \
                                  `delimiter`, `allow_hyphen_values`, `allow_negative_numbers`, \
                                  `value_terminator`, `require_equals`, `bool_value`, \
-                                 `default_missing`, `default_if`, \
+                                 `default_missing`, `default_if`, `effect`, \
+                                 `verbosity`, `color`, \
                                  `required_if`, \
                                  `required_unless`, `help_heading`, `display_order`, `value_name`, `value_names`, `num_args`, \
                                  `verbatim_doc_comment`, \
@@ -3294,6 +3453,107 @@ impl Field {
             ));
         }
 
+        // A role says what a flag *means*, so it has to agree with the shape the field
+        // already has. The spec makes the same checks; making them here as well is what
+        // turns a spec error at emission time into a message pointing at the field.
+        if verbosity.is_some() && color.is_some() {
+            return Err(syn::Error::new(
+                span,
+                "a flag means one thing: `verbosity` or `color`, not both",
+            ));
+        }
+        if let Some(role) = verbosity {
+            if !matches!(kind, Kind::Flag { .. }) {
+                return Err(syn::Error::new(
+                    span,
+                    "`verbosity` describes what supplying a flag means for how much the CLI \
+                     says; add `long` or `short` to make this field a flag",
+                ));
+            }
+            if role.takes_value() && !matches!(shape, Shape::Optional | Shape::Required) {
+                return Err(syn::Error::new(
+                    span,
+                    "`verbosity = \"level\"` reads the flag's value, so the field holds one: \
+                     an `Option<T>` or a `T`, where `T` is a `ValueEnum` or a `String`",
+                ));
+            }
+            if !role.takes_value() && !matches!(shape, Shape::Bool | Shape::Count) {
+                return Err(syn::Error::new(
+                    span,
+                    "this `verbosity` is a switch, and the field takes a value; a flag whose \
+                     value names the level says `verbosity = \"level\"`",
+                ));
+            }
+            if matches!(shape, Shape::Count) && role.pinned_level().is_some() {
+                return Err(syn::Error::new(
+                    span,
+                    "a counted flag says how far to move, not where to land: use \
+                     `verbosity = \"verbose\"` or `verbosity = \"quiet\"`",
+                ));
+            }
+            if let Kind::Flag {
+                negate: Some(_), ..
+            } = &kind
+            {
+                return Err(syn::Error::new(
+                    span,
+                    "a level cannot be negated, so `verbosity` and `negate` do not go together",
+                ));
+            }
+        }
+        if let Some(role) = color {
+            if !matches!(kind, Kind::Flag { .. }) {
+                return Err(syn::Error::new(
+                    span,
+                    "`color` describes what supplying a flag means for colour; add `long` or \
+                     `short` to make this field a flag",
+                ));
+            }
+            if role.takes_value() && !matches!(shape, Shape::Optional | Shape::Required) {
+                return Err(syn::Error::new(
+                    span,
+                    "`color = \"choice\"` reads the flag's value, so the field holds one: an \
+                     `Option<T>` or a `T`, where `T` is a `ValueEnum` or a `String`",
+                ));
+            }
+            if !role.takes_value() && !matches!(shape, Shape::Bool) {
+                return Err(syn::Error::new(
+                    span,
+                    "`color = \"always\"` and `color = \"never\"` describe a switch; a flag \
+                     whose value is `auto`, `always` or `never` says `color = \"choice\"`",
+                ));
+            }
+            if role.takes_value() {
+                if let Kind::Flag {
+                    negate: Some(_), ..
+                } = &kind
+                {
+                    return Err(syn::Error::new(
+                        span,
+                        "`color = \"choice\"` already spells every answer, so it cannot also \
+                         be negated",
+                    ));
+                }
+            }
+            // A `bool` holds the answer, not whether one was given, so a negatable colour
+            // switch has to say what an absent flag means: without a default, `false` would
+            // read as the negation rather than as silence.
+            if matches!(
+                kind,
+                Kind::Flag {
+                    negate: Some(_),
+                    ..
+                }
+            ) && default.is_empty()
+            {
+                return Err(syn::Error::new(
+                    span,
+                    "a negatable `color` flag says both answers, so it needs a `default` for \
+                     the command line that says neither",
+                ));
+            }
+        }
+
         // `exclusive` is represented by flag metadata and enforced for a flag occurrence.
         // Accepting it on a positional would make the derive enforce a rule that its emitted
         // spec and documentation silently omit.
@@ -3510,6 +3770,8 @@ impl Field {
             help_heading,
             display_order,
             effect,
+            verbosity,
+            color,
             value_name,
             value_names,
             required_collection,
@@ -6848,6 +7110,113 @@ mod tests {
         assert!(err.contains("is not one the spec has"), "unhelpful: {err}");
         // The message lists them, because three words are not guessable from the attribute.
         assert!(err.contains("destructive"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn a_role_the_spec_does_not_have_is_refused() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, verbosity = "loud")]
+                verbose: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("is not one the spec has"), "unhelpful: {err}");
+        // The message lists the vocabulary, which nine words are not guessable from.
+        assert!(err.contains("level"), "unhelpful: {err}");
+
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, color = "auto")]
+                color: bool,
+            }
+        "#,
+        );
+        // `auto` is an answer a *value* can carry, not a thing a switch can mean.
+        assert!(err.contains("is not one the spec has"), "unhelpful: {err}");
+        assert!(err.contains("choice"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn a_role_has_to_agree_with_the_field_it_is_written_on() {
+        // A switch that pins a level, on a field holding a value.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, verbosity = "debug")]
+                log_level: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("verbosity = \"level\""), "unhelpful: {err}");
+
+        // And the other way about.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, verbosity = "level")]
+                verbose: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("the field holds one"), "unhelpful: {err}");
+
+        // A count says how far to move, not where to land.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, count, verbosity = "debug")]
+                verbose: u8,
+            }
+        "#,
+        );
+        assert!(err.contains("how far to move"), "unhelpful: {err}");
+
+        // A level cannot be negated.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, negate = "quiet", verbosity = "verbose")]
+                verbose: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("cannot be negated"), "unhelpful: {err}");
+
+        // A flag means one thing.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, verbosity = "verbose", color = "always")]
+                verbose: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("not both"), "unhelpful: {err}");
+
+        // A negatable colour switch has to say what an absent flag means.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(long, negate = "no-color", color = "always")]
+                color: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("says both answers"), "unhelpful: {err}");
+
+        // And a positional is not something supplied to say how loud to be.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(verbosity = "verbose")]
+                level: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("make this field a flag"), "unhelpful: {err}");
     }
 
     #[test]

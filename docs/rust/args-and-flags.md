@@ -144,6 +144,8 @@ jobs: Option<u32>,
 | `complete = my_fn`                 | Custom completion function ([Completions](/rust/completions))                           |
 | `value_hint = ValueHint::FilePath` | Ask the shell for path completion (see below)                                           |
 | `effect = "…"`                     | `"read"`, `"write"`, or `"destructive"` — see [command effects](/spec/#command-effects) |
+| `verbosity = "…"`                  | What this flag means for how much the CLI says (see below)                              |
+| `color = "…"`                      | What this flag means for color: `"always"`, `"never"`, or `"choice"`                    |
 | `setting = "key"`                  | Bind to a config setting ([Settings](/rust/settings))                                   |
 
 ### Suggested values without strict validation
@@ -205,6 +207,57 @@ and `--inspect 9229` is a missing value. The flag has to take a value. Emitted K
 `--color`, `--color=true`, and `--color=false` bind true, true, and false. A
 detached `--color false` never consumes `false`; it remains a positional. The
 portable form is `flag "--color" bool_value=#true`.
+
+`#[usage(verbosity = "…")]` and `#[usage(color = "…")]` say what a flag _means_, as
+opposed to what it binds. They are written on flags the CLI already has, add no
+relationship, and change no parsing — mise's six-flag `overrides` lattice keeps working
+exactly as written and only becomes legible to everything downstream.
+
+`verbosity` takes `"verbose"` or `"quiet"` on a switch or a counted field, `"level"` on a
+field holding the level's name, or one of `"silent"`, `"error"`, `"warn"`, `"info"`,
+`"debug"`, `"trace"` on a switch that pins the level. `color` takes `"always"` or
+`"never"` on a switch — a `negate` spelling means the other answer — or `"choice"` on a
+field holding `auto`, `always` or `never`.
+
+```rust
+#[derive(Cli)]
+#[usage(bin = "ex")]
+struct Cli {
+    /// Show extra output (use -vv for even more)
+    #[usage(long, short = 'v', global, count, verbosity = "verbose", overrides("--quiet"))]
+    verbose: u8,
+    /// Suppress non-error messages
+    #[usage(long, short = 'q', global, verbosity = "error", overrides("--verbose"))]
+    quiet: bool,
+    /// When to color output
+    #[usage(long, global, value_name = "WHEN", choices("auto", "always", "never"),
+            default = "auto", color = "choice")]
+    color: Option<String>,
+}
+
+fn main() {
+    let cli = Cli::parse();
+    // The level this command line asked for, as a word `log`, `tracing` and
+    // `env_logger` all read as a filter. usage never installs a subscriber.
+    let level = usage::VerbosityPolicy::verbosity(&cli).as_str();
+    env_logger::builder().filter_level(level.parse().unwrap()).init();
+}
+```
+
+Both are traits — `usage::VerbosityPolicy` and `usage::ColorPolicy` — rather than inherent
+methods, so a CLI that already has its own `fn verbosity` keeps it and reaches this one as
+`VerbosityPolicy::verbosity(&cli)`.
+
+Declaring `color` also fixes something usage could not do before: the help page and the
+error messages usage renders for a CLI now honour that CLI's own `--no-color`, and an
+explicit choice outranks `NO_COLOR` and `CLICOLOR_FORCE`. See
+[the spec reference](/spec/reference/flag#verbosity-and-color) for the resolution rules,
+the level scale, and how a role differs from a `config` setting.
+
+One warning drawn from usage's own adoption: think before making these `global` on a CLI
+that forwards argv to somebody else's program. `usage bash script.sh --debug` hands
+`--debug` to the script precisely because `usage` does _not_ know that flag; a global one
+it did know would be eaten before the script ever saw it.
 
 `#[usage(default_missing = "always")]` is clap's `default_missing_value`: `--color`
 binds `always`, `--color=never` binds `never`, and an absent flag stays `None`.

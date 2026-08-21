@@ -19,6 +19,7 @@
 
 use core::fmt::Write as _;
 
+use crate::policy::ColorChoice;
 use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
 use crate::Command;
 use crate::DoubleDash;
@@ -56,16 +57,43 @@ impl Style {
         Self::auto_for(std::io::stderr().is_terminal())
     }
 
-    fn auto_for(is_terminal: bool) -> Style {
-        let forced = std::env::var_os("CLICOLOR_FORCE").is_some_and(|v| v != "0");
-        let refused = std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty());
-        if refused {
-            Style::PLAIN
-        } else if forced || is_terminal {
+    /// Honour what this command line asked for, falling back to [`Style::auto`].
+    ///
+    /// A CLI that declares `color=` on a flag has said which flag means colour,
+    /// so `mycli --no-color --help` can turn off the colour in the help page
+    /// usage renders for it. Reached from argv rather than from a bound struct
+    /// because help is rendered on a path where no struct was ever built.
+    pub fn resolve(spec: &Spec<'_>, argv: &[&std::ffi::OsStr]) -> Style {
+        use std::io::IsTerminal as _;
+        Self::resolve_for(spec, argv, std::io::stdout().is_terminal())
+    }
+
+    /// The same, for the stderr side.
+    pub fn resolve_stderr(spec: &Spec<'_>, argv: &[&std::ffi::OsStr]) -> Style {
+        use std::io::IsTerminal as _;
+        Self::resolve_for(spec, argv, std::io::stderr().is_terminal())
+    }
+
+    fn resolve_for(spec: &Spec<'_>, argv: &[&std::ffi::OsStr], is_terminal: bool) -> Style {
+        let choice = crate::policy::color_from_argv(spec, argv).unwrap_or_default();
+        Self::for_choice(choice, is_terminal)
+    }
+
+    /// Colour, or not, for an already-decided choice.
+    ///
+    /// [`ColorChoice::Auto`] is the rule this has always applied — `NO_COLOR`
+    /// refuses, `CLICOLOR_FORCE` insists, otherwise the destination decides —
+    /// and an explicit choice skips it.
+    pub fn for_choice(choice: ColorChoice, is_terminal: bool) -> Style {
+        if choice.enabled_for(is_terminal) {
             Style::COLOURED
         } else {
             Style::PLAIN
         }
+    }
+
+    fn auto_for(is_terminal: bool) -> Style {
+        Self::for_choice(ColorChoice::Auto, is_terminal)
     }
 
     fn wrap(self, code: &str, text: &str) -> String {

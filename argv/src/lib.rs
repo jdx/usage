@@ -173,6 +173,8 @@ pub mod help;
 // does not dispatch to pay for, and a hand-written CLI on the bare runtime can use them.
 pub mod run;
 #[cfg(feature = "spec")]
+pub mod policy;
+#[cfg(feature = "spec")]
 pub mod spec;
 #[cfg(feature = "spec")]
 pub mod warn;
@@ -990,7 +992,10 @@ pub(crate) fn find_named<'t>(cmd: &'t Command<'t>, name: &[u8]) -> Option<&'t Co
 /// [`Error::Help`] and [`Error::Version`] are not failures and must be handled before this.
 #[cfg(feature = "diagnostics")]
 pub fn render_failure(spec: &spec::Spec<'_>, argv: &[&OsStr], error: &Error<'_, '_>) -> String {
-    diagnostic::render(spec, argv, error, diagnostic::Style::auto())
+    // `resolve` rather than `auto`: a CLI that declared which flag means colour
+    // gets its own answer honoured, even here, where the struct that would have
+    // held it was never built.
+    diagnostic::render(spec, argv, error, diagnostic::Style::resolve(spec, argv))
 }
 
 /// A parse failure, never coloured.
@@ -1018,7 +1023,16 @@ pub fn render_failure_view<'a>(
     error: &Error<'_, '_>,
     view: &'a spec::ViewMeta<'a>,
 ) -> String {
-    diagnostic::render_view(spec, argv, error, diagnostic::Style::auto(), view)
+    // A view's argv still carries argv0, which the parser behind `resolve` does
+    // not expect: it takes the words after the program name.
+    let words = argv.get(1..).unwrap_or(&[]);
+    diagnostic::render_view(
+        spec,
+        argv,
+        error,
+        diagnostic::Style::resolve(spec, words),
+        view,
+    )
 }
 
 /// What a caller should print for a parse failure, without the renderer that makes it readable.

@@ -12,6 +12,7 @@
 //! than as a diff nobody reads.
 
 use usage::Spec as LibSpec;
+use usage_argv::policy::{ColorRole, VerbosityRole};
 use usage_argv::spec::{ArgMeta, CommandMeta, Effect, Example, FlagMeta, Spec};
 use usage_argv::{Arg, Command, DoubleDash, Flag};
 
@@ -248,12 +249,16 @@ static ROOT_META: CommandMeta = CommandMeta {
             flag: &COLOR,
             help: Some("colorize output"),
             default: &["true"],
+            // A negatable switch that says which way it means: `--no-color` is the
+            // other answer rather than a second flag.
+            color: Some(ColorRole::Always),
             ..FlagMeta::EMPTY
         },
         FlagMeta {
             flag: &VERBOSE,
             count: true,
             hide: true,
+            verbosity: Some(VerbosityRole::Verbose),
             ..FlagMeta::EMPTY
         },
         FlagMeta {
@@ -614,6 +619,26 @@ fn a_flag_can_carry_an_effect() {
         .find(|f| f.name == "prune")
         .expect("--prune should be in the spec");
     assert!(matches!(prune.effect, Some(Eff::Destructive)));
+}
+
+#[test]
+fn a_flag_can_say_what_it_means_for_verbosity_and_colour() {
+    let spec = parsed();
+    let flag = |name: &str| {
+        spec.cmd
+            .flags
+            .iter()
+            .find(|f| f.name == name)
+            .unwrap_or_else(|| panic!("--{name} should be in the spec"))
+    };
+    assert_eq!(
+        flag("verbose").verbosity,
+        Some(usage::SpecVerbosityRole::Verbose)
+    );
+    assert_eq!(flag("color").color, Some(usage::SpecColorRole::Always));
+    // And a flag that says nothing about either stays silent about both.
+    assert_eq!(flag("jobs").verbosity, None);
+    assert_eq!(flag("jobs").color, None);
 }
 
 #[test]

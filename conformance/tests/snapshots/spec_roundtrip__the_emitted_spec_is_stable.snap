@@ -16,8 +16,8 @@ flag "-j --jobs" help="how many jobs, and a quote: \"" global=#true help_heading
     long_help "More about jobs.\nOn two lines."
     arg <n>
 }
-flag --color help="colorize output" negate=--no-color default="true"
-flag "-v --verbose" hide=#true count=#true
+flag --color help="colorize output" negate=--no-color color=always default="true"
+flag "-v --verbose" hide=#true count=#true verbosity=verbose
 flag --include help="patterns to include" var=#true var_min=1 var_max=5 overrides=--exclude required_if=--verbose {
     arg <pattern>...
 }

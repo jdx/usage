@@ -857,6 +857,25 @@ const completionSpec: Fig.Spec = {
       description: "Outputs a `usage.kdl` spec for this CLI itself",
       isRepeatable: false,
     },
+    {
+      name: "--verbose",
+      description: "Show more of what `usage` is doing",
+      isRepeatable: true,
+    },
+    {
+      name: ["-q", "--quiet"],
+      description: "Say nothing that is not a failure",
+      isRepeatable: false,
+    },
+    {
+      name: "--color",
+      description: "When to color output",
+      isRepeatable: false,
+      args: {
+        name: "when",
+        suggestions: ["auto", "always", "never"],
+      },
+    },
   ],
 };
 

@@ -66,6 +66,12 @@ flag "--inspect <PORT>" require_equals=#true   // --inspect=9229 yes, --inspect 
 flag "--color <WHEN>" default_missing="always" // --color is always; --color=never is never
 flag "--bump [LEVEL]" value_optional=#true      // absent, bare, and valued are distinct
 flag "--color" bool_value=#true                 // --color=false is explicit false
+
+flag "-v --verbose" count=#true verbosity="verbose" // this flag is how loud the CLI is
+flag "-q --quiet" verbosity="error"                 // ...and this one pins the level
+flag "--log-level <LEVEL>" verbosity="level"        // ...and this one's value names it
+flag "--color <WHEN>" color="choice"                // auto | always | never
+flag "--no-color" color="never"                     // a switch that means one answer
 flag "--bin-names" {
   default_if "--json" "true" // --json implies --bin-names
 }
@@ -333,6 +339,73 @@ a spec generated from a clap command never carries it — the same hole as
 is aube's `--color` / `--inspect` shape.
 
 A flag that takes no value cannot declare it.
+
+## `verbosity` and `color`
+
+What a flag _means_, as opposed to what it binds. Every CLI has a flag or six for how
+much to say and whether to colour it, and until now a spec could not tell them from any
+other switch: help, generated documentation, an agent reading the spec and the CLI's own
+logger each had to guess from the spelling.
+
+Declaring the meaning changes no parsing. A role adds no `conflicts` and no `overrides`,
+never claims a spelling, and is opt-in per flag — hk's `--trace`, which turns on tracing
+spans rather than a level, simply says nothing and stays what it is.
+
+`verbosity=` takes one of:
+
+| value                                          | on                  | means                                    |
+| ---------------------------------------------- | ------------------- | ---------------------------------------- |
+| `verbose`                                      | a switch or count   | raise the level one step per occurrence  |
+| `quiet`                                        | a switch or count   | lower the level one step per occurrence  |
+| `level`                                        | a value-taking flag | the value names the level                |
+| `silent` `error` `warn` `info` `debug` `trace` | a switch            | pin the level to that point on the scale |
+
+The scale runs `silent < error < warn < info < debug < trace`, and `info` is where a
+command line that says nothing lands. A value is read leniently in two places, because
+real CLIs already spell them that way: `warning` is `warn`, and `off` and `none` are
+`silent`. Nothing else is accepted, so a `level` flag whose declared `choices` name
+something off the scale is a spec error rather than a flag that silently does nothing.
+
+`color=` takes `always` or `never` on a switch — a `negate` spelling means the other
+answer — or `choice` on a flag whose value is `auto`, `always` or `never`. A negatable
+switch has to declare a `default`, because a `bool` holds the answer rather than whether
+one was given: without it, a command line that mentioned neither spelling would read as
+the negation.
+
+### What they resolve to
+
+An explicit level value pins; otherwise the most restrictive pinning switch wins;
+otherwise the baseline stands. Then the stepping flags move it, saturating at both ends.
+For colour, a refusal beats a request, and a command line that said nothing is `auto`.
+
+Most of the time the CLI's own `overrides` has already settled it. mise declares its six
+verbosity flags as a mutual override lattice, so at most one of them survives the parse
+and the last one typed is the answer. The rules above are for a CLI that declared no
+lattice, and they are order-independent so that the answer stays predictable.
+
+### What reads them
+
+`--color`, once declared, controls the colour of the help page and the error messages
+usage renders on the CLI's behalf — which nothing could reach before, so a CLI's own
+`--no-color` turned off its output and not usage's. An explicit choice outranks
+`NO_COLOR` and `CLICOLOR_FORCE`: it was typed now, and they were set once for every
+program.
+
+The level is the CLI's to act on. usage does not log and never installs a subscriber; it
+resolves a word — `silent`, `error`, `warn`, `info`, `debug`, `trace` — which is exactly
+the filter grammar `log`, `tracing` and `env_logger` already read.
+
+### Roles and `config` props
+
+A [`config`](/spec/reference/config) prop and a role are different statements. The prop
+says a persistent setting exists, with a type, a default, choices, and the files and
+environment variables that can set it. The role says this flag expresses the level for
+_this invocation_. A CLI with both keeps writing `cli "--log-level"` on the prop, and the
+two are held together by the existing drift check.
+
+That split is why mise's colour is `mise settings color=0` rather than a root flag, and
+why no CLI in the fleet declares an environment variable on a verbosity flag: the
+variable belongs to the setting.
 
 ## `global`
 

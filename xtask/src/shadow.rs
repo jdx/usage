@@ -1233,6 +1233,12 @@ fn usage_flag_opts(
     if let Some(effect) = flag.effect {
         opts.push(format!("effect = {:?}", effect.as_str()));
     }
+    if let Some(role) = flag.verbosity {
+        opts.push(format!("verbosity = {:?}", role.as_str()));
+    }
+    if let Some(role) = flag.color {
+        opts.push(format!("color = {:?}", role.as_str()));
+    }
     // The derive puts `effect` on the flag field, not on a nested value argument, so a
     // spec that classified the value rather than the flag has nowhere to land.
     if flag.arg.as_ref().and_then(|a| a.effect).is_some() {
@@ -1386,6 +1392,12 @@ fn clap_flag_opts(
     }
     if flag.effect.is_some() {
         skipped.note("`effect` on a flag");
+    }
+    if flag.verbosity.is_some() {
+        skipped.note("`verbosity` on a flag");
+    }
+    if flag.color.is_some() {
+        skipped.note("`color` on a flag");
     }
     if flag.arg.as_ref().and_then(|a| a.effect).is_some() {
         skipped.note("`effect` on a flag's value argument");
@@ -1619,6 +1631,12 @@ fn argh_flag_opts(flag: &SpecFlag, long: Option<&str>, skipped: &mut Skipped) ->
     if flag.effect.is_some() {
         skipped.note("`effect` on a flag");
     }
+    if flag.verbosity.is_some() {
+        skipped.note("`verbosity` on a flag");
+    }
+    if flag.color.is_some() {
+        skipped.note("`color` on a flag");
+    }
     if flag.arg.as_ref().and_then(|a| a.effect).is_some() {
         skipped.note("`effect` on a flag's value argument");
     }
@@ -1677,6 +1695,12 @@ fn bpaf_flag_opts(flag: &SpecFlag, long: Option<&str>, skipped: &mut Skipped) ->
     }
     if flag.effect.is_some() {
         skipped.note("`effect` on a flag");
+    }
+    if flag.verbosity.is_some() {
+        skipped.note("`verbosity` on a flag");
+    }
+    if flag.color.is_some() {
+        skipped.note("`color` on a flag");
     }
     if flag.arg.as_ref().and_then(|a| a.effect).is_some() {
         skipped.note("`effect` on a flag's value argument");

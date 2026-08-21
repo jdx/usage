@@ -32,6 +32,7 @@
 
 use crate::spec::cmd::SpecExample;
 use crate::spec::effect::SpecCommandEffect;
+use crate::spec::policy::{SpecColorRole, SpecVerbosityRole};
 use crate::{
     spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand, SpecDefaultIf, SpecFlag,
     SpecRequiredIfEq, SpecRequiresIf,
@@ -460,6 +461,18 @@ impl SpecFlagBuilder {
     /// Raise the command's effect when this flag is supplied.
     pub fn effect(mut self, effect: SpecCommandEffect) -> Self {
         self.inner.effect = Some(effect);
+        self
+    }
+
+    /// Declare what this flag means for how much the CLI says.
+    pub fn verbosity(mut self, role: SpecVerbosityRole) -> Self {
+        self.inner.verbosity = Some(role);
+        self
+    }
+
+    /// Declare what this flag means for colour.
+    pub fn color(mut self, role: SpecColorRole) -> Self {
+        self.inner.color = Some(role);
         self
     }
 

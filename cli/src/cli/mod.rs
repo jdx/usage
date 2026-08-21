@@ -24,10 +24,12 @@ mod sponsors;
 // outright with "unsupported cmd prop effect", so this moves in lockstep with the fields the
 // spec actually carries.
 //
-// Owed a bump: the four shell commands flatten `Shell`, which now emits a `flagset`, and no
-// 4.0 can read that node. The floor is whichever release carries flagsets, so the number waits
-// for that release rather than being guessed at here — and this crate warning about its own
-// spec until then is worse than the stale claim.
+// Owed a bump, now for two reasons: the four shell commands flatten `Shell`, which emits a
+// `flagset`, and the root's verbosity and color flags carry `verbosity=` and `color=`. No 4.0
+// can read either — the parser stops at "unsupported flag key verbosity". The floor is
+// whichever release carries them, so the number waits for that release rather than being
+// guessed at here, and this crate warning about its own spec until then is worse than the
+// stale claim.
 #[derive(DeriveCli)]
 #[usage(
     bin = "usage",
@@ -81,6 +83,93 @@ pub struct Cli {
     /// Outputs a `usage.kdl` spec for this CLI itself
     #[usage(long)]
     usage_spec: bool,
+
+    /// Show more of what `usage` is doing
+    //
+    // Long-only: `crate::run` answers a bare `-v` with the version string before a parse
+    // happens, and taking the letter here would change what an existing invocation means.
+    // The role never claims a spelling, so saying so is all this costs.
+    //
+    // And *not* global, which is the other spelling this CLI cannot have. `usage bash`,
+    // the other three shells and `usage exec` hand the words after the script to somebody
+    // else's program; `unknown_flags = "value"` forwards a flag usage does not know, but a
+    // global one it *does* know would be recognised there and eaten. A shebang script
+    // taking `--debug` would silently lose it. So these belong to `usage` itself and are
+    // written before the subcommand: `usage --verbose lint f.kdl`.
+    #[usage(
+        long,
+        count,
+        verbosity = "verbose",
+        overrides("--quiet", "--debug", "--trace", "--log-level")
+    )]
+    verbose: u8,
+
+    /// Say nothing that is not a failure
+    #[usage(
+        long,
+        short = 'q',
+        verbosity = "error",
+        overrides("--verbose", "--debug", "--trace", "--log-level")
+    )]
+    quiet: bool,
+
+    /// Sets the log level to debug
+    // `USAGE_DEBUG` and `USAGE_TRACE` were read by hand in `main` and turned into a
+    // `USAGE_LOG` nobody typed. As an `env` on the flag they are one declaration, and the
+    // help page and the spec can both say they exist.
+    #[usage(
+        long,
+        hide,
+        env = "USAGE_DEBUG",
+        verbosity = "debug",
+        overrides("--verbose", "--quiet", "--trace", "--log-level")
+    )]
+    debug: bool,
+
+    /// Sets the log level to trace
+    #[usage(
+        long,
+        hide,
+        env = "USAGE_TRACE",
+        verbosity = "trace",
+        overrides("--verbose", "--quiet", "--debug", "--log-level")
+    )]
+    trace: bool,
+
+    /// How much to say
+    #[usage(
+        long,
+        hide,
+        value_name = "LEVEL",
+        choices("silent", "error", "warn", "info", "debug", "trace"),
+        verbosity = "level",
+        overrides("--verbose", "--quiet", "--debug", "--trace")
+    )]
+    log_level: Option<String>,
+
+    /// When to color output
+    #[usage(
+        long,
+        value_name = "WHEN",
+        choices("auto", "always", "never"),
+        default = "auto",
+        color = "choice"
+    )]
+    color: Option<String>,
+}
+
+/// Start logging at the level this command line asked for.
+///
+/// The default filter is the resolved level rather than a hard-coded `info`, and
+/// `USAGE_LOG` still wins: it is an `env_logger` filter string, which can name a module,
+/// and a level cannot say that. `try_init` because a test process may run this twice.
+fn init_logging(cli: &Cli) {
+    use usage_rs::VerbosityPolicy as _;
+    let level = cli.verbosity();
+    let _ = env_logger::builder()
+        .format_timestamp(None)
+        .parse_env(env_logger::Env::default().filter_or("USAGE_LOG", level.as_str()))
+        .try_init();
 }
 
 /// What `--version` and `-v` answer with.
@@ -127,17 +216,23 @@ impl Cli {
         // went wrong instead of ending the process — which is what lets the error come out
         // through the same path as every other failure here.
         let words: Vec<&OsStr> = argv.iter().skip(1).map(OsStr::new).collect();
+        // What `--color` asked for, read from argv rather than from the struct: a help
+        // request and a parse failure both come back as an `Err`, and neither has built one.
+        // Asked for only where something is about to be printed — reading it walks the
+        // command line a second time, and a successful parse has no reason to pay for that.
+        let style = || usage_rs::help::Style::resolve(Self::spec(), &words);
         let cli = match Self::parse_from(&words) {
             Ok(cli) => cli,
             // Not failures: someone asked a question, and the answer goes to stdout.
             Err(usage_rs::Error::Help { cmd, long }) => {
-                if let Some(page) = usage_rs::help::render(Self::spec(), cmd, long) {
+                if let Some(page) = usage_rs::help::render_styled(Self::spec(), cmd, long, style())
+                {
                     print!("{page}");
                 }
                 return Ok(());
             }
             Err(usage_rs::Error::HelpAll { cmd }) => {
-                if let Some(page) = usage_rs::help::render_all(Self::spec(), cmd) {
+                if let Some(page) = usage_rs::help::render_all_styled(Self::spec(), cmd, style()) {
                     print!("{page}");
                 }
                 return Ok(());
@@ -153,6 +248,10 @@ impl Cli {
                 std::process::exit(2);
             }
         };
+        // Logging starts once the command line has been read, since the command line is
+        // what says how much of it there should be. `USAGE_LOG` still overrides, because it
+        // is a filter — `usage_cli=trace` — and a level is not.
+        init_logging(&cli);
         if let Some(shell) = cli.completions.as_deref() {
             return crate::usage_spec::complete(shell);
         }

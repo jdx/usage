@@ -116,6 +116,10 @@ impl From<&SpecCommand> for HelpCommand {
 pub struct SpecFlag {
     pub name: String,
     pub effect: Option<crate::spec::effect::SpecCommandEffect>,
+    /// What this flag means for how much the CLI says, when it says.
+    pub verbosity: Option<crate::spec::policy::SpecVerbosityRole>,
+    /// What this flag means for colour, when it says.
+    pub color: Option<crate::spec::policy::SpecColorRole>,
     pub usage: String,
     pub display_usage: String,
     pub help: Option<String>,
@@ -859,6 +863,8 @@ impl From<&crate::SpecFlag> for SpecFlag {
         Self {
             name: flag.name.clone(),
             effect: flag.effect,
+            verbosity: flag.verbosity,
+            color: flag.color,
             usage: reference_usage(flag),
             display_usage: column_usage(flag),
             help: said(&flag.help),

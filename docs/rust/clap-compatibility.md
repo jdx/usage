@@ -136,10 +136,15 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 ## Usage extensions
 
 These are not clap compatibility gaps. usage additionally supports `mount`,
-`restart_token`, `default_subcommand`, command and flag `effect`,
-`source_code_link_template`, Nushell completions,
-and a language-neutral conformance corpus. clap cannot express those properties, so
-a clap-generated spec cannot carry them without an overlay.
+`restart_token`, `default_subcommand`, command and flag `effect`, flag `verbosity` and
+`color`, `source_code_link_template`, Nushell completions, and a language-neutral
+conformance corpus. clap cannot express those properties, so a clap-generated spec cannot
+carry them without an overlay.
+
+`verbosity` and `color` have no clap equivalent to bridge from, in either direction: a
+verbosity flag in clap is an ordinary flag plus application code, and `Command::color` is
+a statement about clap's own output rather than about a declared flag. A CLI moving from
+clap declares them once and keeps the same spellings.
 
 This matrix is the compatibility baseline, not a promise to reproduce clap's dynamic
 builder and `ArgMatches` architecture. Setter-only clap state remains explicitly

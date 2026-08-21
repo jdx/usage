@@ -3207,3 +3207,247 @@ fn a_collision_does_not_hide_the_one_inside_it() {
         "{kdl}"
     );
 }
+
+/// mise's shape, which is the one the vocabulary has to fit without changing a
+/// spelling: a counted `-v`, three pinning switches, a level-valued flag, and the
+/// mutual `overrides` lattice that means at most one of them survives a parse.
+#[derive(Debug, Cli)]
+#[usage(bin = "loud")]
+struct Loud {
+    #[usage(
+        long,
+        short = 'v',
+        global,
+        count,
+        verbosity = "verbose",
+        overrides("--quiet", "--silent", "--debug", "--log-level")
+    )]
+    verbose: u8,
+    #[usage(
+        long,
+        short = 'q',
+        global,
+        verbosity = "error",
+        overrides("--verbose", "--silent", "--debug", "--log-level")
+    )]
+    quiet: bool,
+    #[usage(
+        long,
+        global,
+        verbosity = "silent",
+        overrides("--verbose", "--quiet", "--debug", "--log-level")
+    )]
+    silent: bool,
+    #[usage(
+        long,
+        global,
+        hide,
+        verbosity = "debug",
+        overrides("--verbose", "--quiet", "--silent", "--log-level")
+    )]
+    debug: bool,
+    #[usage(
+        long,
+        global,
+        hide,
+        verbosity = "level",
+        value_name = "LEVEL",
+        // mise's own list, `warning` included: the scale reads it as `warn`.
+        choices("trace", "debug", "info", "warning", "error"),
+        overrides("--verbose", "--quiet", "--silent", "--debug")
+    )]
+    log_level: Option<String>,
+    /// mise's `mise watch --color`, and aube's pair, in one CLI.
+    #[usage(
+        long,
+        color = "choice",
+        value_name = "WHEN",
+        choices("auto", "always", "never")
+    )]
+    color: Option<String>,
+    #[usage(long, color = "never")]
+    no_color: bool,
+}
+
+/// aube's `--loglevel`, whose values are a `ValueEnum` rather than words on the field.
+#[derive(Debug, PartialEq, Eq, ValueEnum)]
+enum LogLevelValue {
+    Trace,
+    Debug,
+    Info,
+    Warn,
+    Error,
+    Silent,
+}
+
+#[derive(Cli)]
+#[usage(bin = "aubish")]
+struct Aubish {
+    #[usage(long, short = 'v', global, verbosity = "debug")]
+    verbose: bool,
+    #[usage(long, global, value_enum, verbosity = "level", value_name = "LEVEL")]
+    loglevel: Option<LogLevelValue>,
+    #[usage(long, global, verbosity = "silent")]
+    silent: bool,
+}
+
+fn level_of(argv: &[&str]) -> usage::Verbosity {
+    let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+    let cli = Loud::parse_from(&words).expect("valid command line");
+    usage::VerbosityPolicy::verbosity(&cli)
+}
+
+fn colour_of(argv: &[&str]) -> usage::ColorChoice {
+    let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+    let cli = Loud::parse_from(&words).expect("valid command line");
+    usage::ColorPolicy::color(&cli)
+}
+
+#[test]
+fn a_declared_verbosity_resolves_to_a_level() {
+    assert_eq!(level_of(&[]), usage::Verbosity::Info);
+    assert_eq!(level_of(&["-v"]), usage::Verbosity::Debug);
+    assert_eq!(level_of(&["-vv"]), usage::Verbosity::Trace);
+    assert_eq!(level_of(&["-vvvv"]), usage::Verbosity::Trace);
+    assert_eq!(level_of(&["--quiet"]), usage::Verbosity::Error);
+    assert_eq!(level_of(&["--silent"]), usage::Verbosity::Silent);
+    assert_eq!(level_of(&["--debug"]), usage::Verbosity::Debug);
+    assert_eq!(level_of(&["--log-level", "trace"]), usage::Verbosity::Trace);
+    // mise spells it `warning`; the scale spells it `warn`.
+    assert_eq!(
+        level_of(&["--log-level", "warning"]),
+        usage::Verbosity::Warn
+    );
+}
+
+#[test]
+fn the_overrides_lattice_settles_a_contradiction_before_the_level_does() {
+    // Last one wins, which is the CLI's own declaration doing the work: the
+    // resolver never sees two of these at once.
+    assert_eq!(level_of(&["-vv", "--quiet"]), usage::Verbosity::Error);
+    assert_eq!(level_of(&["--quiet", "-vv"]), usage::Verbosity::Trace);
+    assert_eq!(level_of(&["--silent", "--debug"]), usage::Verbosity::Debug);
+}
+
+#[test]
+fn a_level_can_come_from_a_value_enum() {
+    let words = [OsStr::new("--loglevel"), OsStr::new("silent")];
+    let cli = Aubish::parse_from(&words).unwrap();
+    assert_eq!(
+        usage::VerbosityPolicy::verbosity(&cli),
+        usage::Verbosity::Silent
+    );
+    // aube's `-v` is a shortcut for `debug`, and `--loglevel` outranks it.
+    let words = [
+        OsStr::new("-v"),
+        OsStr::new("--loglevel"),
+        OsStr::new("trace"),
+    ];
+    let cli = Aubish::parse_from(&words).unwrap();
+    assert_eq!(
+        usage::VerbosityPolicy::verbosity(&cli),
+        usage::Verbosity::Trace
+    );
+    // With no lattice to settle it, the most restrictive switch wins.
+    let words = [OsStr::new("-v"), OsStr::new("--silent")];
+    let cli = Aubish::parse_from(&words).unwrap();
+    assert_eq!(
+        usage::VerbosityPolicy::verbosity(&cli),
+        usage::Verbosity::Silent
+    );
+}
+
+#[test]
+fn a_declared_colour_resolves_to_a_choice() {
+    assert_eq!(colour_of(&[]), usage::ColorChoice::Auto);
+    assert_eq!(colour_of(&["--color", "never"]), usage::ColorChoice::Never);
+    assert_eq!(colour_of(&["--color=always"]), usage::ColorChoice::Always);
+    assert_eq!(colour_of(&["--no-color"]), usage::ColorChoice::Never);
+    // A refusal beats a request, whichever order they arrive in.
+    assert_eq!(
+        colour_of(&["--color", "always", "--no-color"]),
+        usage::ColorChoice::Never
+    );
+    assert_eq!(
+        colour_of(&["--no-color", "--color", "always"]),
+        usage::ColorChoice::Never
+    );
+}
+
+#[test]
+fn a_command_line_can_be_asked_about_colour_before_anything_is_bound() {
+    // What help and diagnostics read: they render on a path where the struct was
+    // never built.
+    let read = |argv: &[&str]| {
+        let words: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+        usage::policy::color_from_argv(Loud::spec(), &words)
+    };
+    assert_eq!(read(&[]), None);
+    assert_eq!(read(&["--no-color"]), Some(usage::ColorChoice::Never));
+    assert_eq!(read(&["--color=never"]), Some(usage::ColorChoice::Never));
+    assert_eq!(
+        read(&["--color", "always"]),
+        Some(usage::ColorChoice::Always)
+    );
+    // Last one wins, as a repeated scalar flag does.
+    assert_eq!(
+        read(&["--color", "always", "--color", "never"]),
+        Some(usage::ColorChoice::Never)
+    );
+    // A word after the separator is somebody's argument, not a request.
+    assert_eq!(read(&["--", "--no-color"]), None);
+    // And a detached value that happens to spell one is that flag's value.
+    assert_eq!(read(&["--log-level", "--no-color"]), None);
+}
+
+#[test]
+fn a_declared_colour_flag_turns_off_the_colour_in_usage_own_output() {
+    // The bug this pays for: before the declaration existed, a CLI's `--no-color`
+    // could not reach the help page usage renders on its behalf.
+    let coloured = usage::help::Style::for_choice(usage::ColorChoice::Always, false);
+    let plain = usage::help::Style::for_choice(usage::ColorChoice::Never, true);
+    let page = |style| {
+        usage::help::render_styled(Loud::spec(), Loud::command(), false, style)
+            .expect("a help page")
+    };
+    assert!(page(coloured).contains('\u{1b}'));
+    assert!(!page(plain).contains('\u{1b}'));
+
+    let words = [OsStr::new("--no-color"), OsStr::new("--nonsense")];
+    let err = Loud::parse_from(&words).unwrap_err();
+    let rendered = usage::render_failure(Loud::spec(), &words, &err);
+    assert!(!rendered.contains('\u{1b}'), "{rendered}");
+}
+
+#[test]
+fn roles_reach_the_emitted_spec() {
+    let kdl = Loud::to_kdl();
+    assert!(kdl.contains("verbosity=verbose"), "{kdl}");
+    assert!(kdl.contains("verbosity=error"), "{kdl}");
+    assert!(kdl.contains("verbosity=silent"), "{kdl}");
+    assert!(kdl.contains("verbosity=level"), "{kdl}");
+    assert!(kdl.contains("color=choice"), "{kdl}");
+    assert!(kdl.contains("color=never"), "{kdl}");
+    // And back again, through the interpreter that reads them.
+    let spec: usage_parser::Spec = kdl.parse().expect("a spec usage-lib can read");
+    let flag = |name: &str| {
+        spec.cmd
+            .flags
+            .iter()
+            .find(|f| f.name == name)
+            .unwrap_or_else(|| panic!("no flag {name}"))
+            .clone()
+    };
+    assert_eq!(
+        flag("verbose").verbosity,
+        Some(usage_parser::SpecVerbosityRole::Verbose)
+    );
+    assert_eq!(
+        flag("log-level").verbosity,
+        Some(usage_parser::SpecVerbosityRole::Level)
+    );
+    assert_eq!(
+        flag("no-color").color,
+        Some(usage_parser::SpecColorRole::Never)
+    );
+}

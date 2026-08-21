@@ -2,13 +2,13 @@
 
 # `usage`
 
-**Usage**: `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
+**Usage**: `usage [FLAGS] <SUBCOMMAND>`
 
 **Version**: 5.1.0
 
 **Repository**: https://github.com/jdx/usage
 
-- **Usage**: `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
+- **Usage**: `usage [FLAGS] <SUBCOMMAND>`
 
 ## Flags
 
@@ -19,6 +19,32 @@ Outputs completions for the specified shell for completing the `usage` CLI itsel
 ### `--usage-spec`
 
 Outputs a `usage.kdl` spec for this CLI itself
+
+### `--verbose…`
+
+**Verbosity**: raises the log level one step per occurrence
+
+Show more of what `usage` is doing
+
+### `-q --quiet`
+
+**Verbosity**: sets the log level to error
+
+Say nothing that is not a failure
+
+### `--color <WHEN>`
+
+**Color**: chooses whether output is colored
+
+When to color output
+
+**Choices:**
+
+- `auto`
+- `always`
+- `never`
+
+**Default:** `auto`
 
 ## Subcommands
 

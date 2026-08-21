@@ -361,6 +361,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .map(|s| s.bindings.clone());
     let settings_layer = resolves.then(|| settings_layer(&config));
     let settings_guard = (!resolves).then(|| settings_guard(cli)).flatten();
+    let policy = policy_impls(cli, ident);
     // The name an adopter uses, forwarding to the one inside the const block, which is where
     // the table that reads it lives.
     let settings_binding_forward = settings_bindings.as_ref().map(|_| {
@@ -770,8 +771,17 @@ pub fn emit(cli: &Cli) -> TokenStream {
             };
         }
     };
-    let render_page = page_of(quote!(usage_argv::help::Style::auto()));
-    let render_page_stderr = page_of(quote!(usage_argv::help::Style::auto_stderr()));
+    // `resolve` rather than `auto`: a CLI that declared which of its flags means colour gets
+    // its own answer honoured here too, on the one path where the struct that would have held
+    // it was never built.
+    let render_page = page_of(quote!(usage_argv::help::Style::resolve(
+        __usage_spec,
+        &__usage_argv
+    )));
+    let render_page_stderr = page_of(quote!(usage_argv::help::Style::resolve_stderr(
+        __usage_spec,
+        &__usage_argv
+    )));
     let runtime_program = cli
         .runtime_bin
         .as_ref()
@@ -1063,6 +1073,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             #settings_bindings
             #settings_layer
             #settings_guard
+            #policy
 
             pub static SPEC: usage_argv::spec::Spec = usage_argv::spec::Spec {
                 name: #name,
@@ -2314,10 +2325,28 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
         .effect
         .clone()
         .unwrap_or_else(|| quote!(::core::option::Option::None));
+    // Cold, like the effect above: a role says what the flag means, and means it
+    // after the parse rather than during one.
+    let verbosity = match field.verbosity {
+        Some(role) => {
+            let role = role.tokens();
+            quote!(::core::option::Option::Some(#role))
+        }
+        None => quote!(::core::option::Option::None),
+    };
+    let color = match field.color {
+        Some(role) => {
+            let role = role.tokens();
+            quote!(::core::option::Option::Some(#role))
+        }
+        None => quote!(::core::option::Option::None),
+    };
     quote! {
         #completer_decl
         pub static #name: usage_argv::spec::FlagMeta = usage_argv::spec::FlagMeta {
             effect: #effect,
+            verbosity: #verbosity,
+            color: #color,
             complete: #completer,
             complete_type: #complete_type,
             flag: &#table,
@@ -3970,6 +3999,198 @@ fn joined_bindings(own: &[TokenStream], children: &[TokenStream]) -> TokenStream
 ///
 /// A group with no bindings of its own still has something to say when it flattens one that does,
 /// which is why this is not simply "does any field declare `setting`".
+/// The two policy impls, for a type that declares a role or holds a group that might.
+///
+/// Generated for every `Cli` and `Args` type rather than only for the ones that declare
+/// something, so that `VerbosityPolicy::verbosity(&cli)` is always there to call and a
+/// flattened group composes without the parent having to know whether the child declared
+/// anything. A type that declares nothing answers with the baseline it was handed, which
+/// costs nothing at run time.
+///
+/// Traits rather than inherent methods, deliberately: a CLI adopting this may already have
+/// its own `fn verbosity` or `fn color`, and an inherent method generated here would win
+/// over it and quietly change what its own code does.
+fn policy_impls(cli: &Cli, ident: &syn::Ident) -> TokenStream {
+    let verbosity_inputs: Vec<TokenStream> = cli
+        .fields
+        .iter()
+        .filter_map(|field| {
+            let role = field.verbosity?;
+            let role_tokens = role.tokens();
+            Some(if role.takes_value() {
+                let word = value_word(field);
+                quote! {
+                    __usage_inputs.push(usage_argv::policy::VerbosityInput {
+                        role: #role_tokens,
+                        count: usize::from(#word.is_some()),
+                        value: #word,
+                    });
+                }
+            } else {
+                let count = occurrences(field);
+                quote! {
+                    __usage_inputs.push(usage_argv::policy::VerbosityInput {
+                        role: #role_tokens,
+                        count: #count,
+                        value: ::core::option::Option::None,
+                    });
+                }
+            })
+        })
+        .collect();
+    let color_inputs: Vec<TokenStream> = cli
+        .fields
+        .iter()
+        .filter_map(|field| {
+            let role = field.color?;
+            let role_tokens = role.tokens();
+            let name = &field.ident;
+            Some(if role.takes_value() {
+                let word = value_word(field);
+                quote! {
+                    __usage_inputs.push(usage_argv::policy::ColorInput {
+                        role: #role_tokens,
+                        negated: false,
+                        given: #word.is_some(),
+                        value: #word,
+                    });
+                }
+            } else if matches!(
+                field.kind,
+                Kind::Flag {
+                    negate: Some(_),
+                    ..
+                }
+            ) {
+                // A switch with a negation says both answers itself, and its default is
+                // what "absent" means — which the model insists it declares, so there is
+                // no state here that means nothing.
+                quote! {
+                    __usage_inputs.push(usage_argv::policy::ColorInput {
+                        role: #role_tokens,
+                        negated: !self.#name,
+                        given: true,
+                        value: ::core::option::Option::None,
+                    });
+                }
+            } else {
+                // A plain switch can only say its one answer. `false` is absence, since a
+                // `bool` has nowhere to put the difference.
+                quote! {
+                    __usage_inputs.push(usage_argv::policy::ColorInput {
+                        role: #role_tokens,
+                        negated: false,
+                        given: self.#name,
+                        value: ::core::option::Option::None,
+                    });
+                }
+            })
+        })
+        .collect();
+
+    // A flattened group's declarations belong to this command, so its answer is part of
+    // this one's: the level it resolves is the base the parent's own roles then move.
+    let flattened: Vec<&Field> = cli
+        .fields
+        .iter()
+        .filter(|f| matches!(f.kind, Kind::Flatten { .. }))
+        .collect();
+    let verbosity_from_children = flattened.iter().map(|field| {
+        let name = &field.ident;
+        quote! {
+            __usage_base = usage_argv::policy::VerbosityPolicy::verbosity_from(
+                &self.#name,
+                __usage_base,
+            );
+        }
+    });
+    let color_from_children = flattened.iter().map(|field| {
+        let name = &field.ident;
+        quote! {
+            __usage_choice = __usage_choice.combine(
+                usage_argv::policy::ColorPolicy::color(&self.#name),
+            );
+        }
+    });
+
+    quote! {
+        impl usage_argv::policy::VerbosityPolicy for #ident {
+            fn verbosity_from(
+                &self,
+                base: usage_argv::policy::Verbosity,
+            ) -> usage_argv::policy::Verbosity {
+                #[allow(unused_mut)]
+                let mut __usage_base = base;
+                #(#verbosity_from_children)*
+                #[allow(unused_mut)]
+                let mut __usage_inputs: ::std::vec::Vec<usage_argv::policy::VerbosityInput> =
+                    ::std::vec::Vec::new();
+                #(#verbosity_inputs)*
+                usage_argv::policy::resolve_verbosity_from(__usage_base, __usage_inputs)
+            }
+        }
+
+        impl usage_argv::policy::ColorPolicy for #ident {
+            fn color(&self) -> usage_argv::policy::ColorChoice {
+                #[allow(unused_mut)]
+                let mut __usage_choice = usage_argv::policy::ColorChoice::Auto;
+                #(#color_from_children)*
+                #[allow(unused_mut)]
+                let mut __usage_inputs: ::std::vec::Vec<usage_argv::policy::ColorInput> =
+                    ::std::vec::Vec::new();
+                #(#color_inputs)*
+                __usage_choice.combine(usage_argv::policy::resolve_color(__usage_inputs))
+            }
+        }
+    }
+}
+
+/// How many times a switch or a counted flag was given, read off the built struct.
+fn occurrences(field: &Field) -> TokenStream {
+    let name = &field.ident;
+    match field.shape {
+        Shape::Count => quote! {
+            ::std::convert::TryFrom::try_from(self.#name)
+                .unwrap_or(::std::primitive::usize::MAX)
+        },
+        // A `bool` says whether, not how many, and absence and `false` are the same value.
+        _ => quote!(::std::primitive::usize::from(self.#name)),
+    }
+}
+
+/// The word a value-carrying role's field holds.
+///
+/// A `ValueEnum` gives it back through the type, which is where the list of words is
+/// declared. Anything else has to be something a `&str` can be borrowed from, which in
+/// practice means a `String`: the alternative is guessing at a conversion for a type this
+/// macro cannot see.
+fn value_word(field: &Field) -> TokenStream {
+    let name = &field.ident;
+    let borrowed = if field.value_enum {
+        quote!(usage_argv::spec::ValueEnum::to_choice(__usage_value))
+    } else {
+        quote!(::core::option::Option::Some(::std::convert::AsRef::<
+            ::std::primitive::str,
+        >::as_ref(
+            __usage_value
+        )))
+    };
+    match field.shape {
+        Shape::Optional => quote! {
+            match self.#name.as_ref() {
+                ::core::option::Option::Some(__usage_value) => #borrowed,
+                ::core::option::Option::None => ::core::option::Option::None,
+            }
+        },
+        _ => quote! {
+            {
+                let __usage_value = &self.#name;
+                #borrowed
+            }
+        },
+    }
+}
+
 fn settings(cli: &Cli) -> Option<Settings> {
     let bound: Vec<&Field> = cli.fields.iter().filter(|f| f.setting.is_some()).collect();
     let children = children(cli);
@@ -4991,6 +5212,7 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
 /// parent reach them.
 pub fn emit_args(cli: &Cli) -> TokenStream {
     let ident = &cli.ident;
+    let policy = policy_impls(cli, ident);
     let runtime = runtime_path();
     let dispatch = emit_command_dispatch(cli, &runtime);
     let validation = validation_path();
@@ -5401,6 +5623,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
             }
 
             #settings_defs
+            #policy
 
             impl usage_argv::spec::CommandArgs for #ident {
                 type Partial = Partial;
@@ -8216,6 +8439,21 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
         )
     });
     let ignore_case = value_enum.ignore_case;
+    // The canonical word back out of a variant. A `cfg`-gated variant may leave the
+    // match without an arm for some build, so an unreachable fallback keeps it total.
+    let word_arms = value_enum.variants.iter().map(|value| {
+        let ident = &value.ident;
+        let cfg = &value.cfg_attrs;
+        let word = &value.name;
+        quote! {
+            #(#cfg)*
+            Self::#ident => ::std::option::Option::Some(#word),
+        }
+    });
+    let unreachable_arm = quote! {
+        #[allow(unreachable_patterns)]
+        _ => ::std::option::Option::None,
+    };
     let parse_arms = value_enum.variants.iter().map(|value| {
         let ident = &value.ident;
         let cfg = &value.cfg_attrs;
@@ -8245,6 +8483,13 @@ pub fn emit_value_enum(value_enum: &ValueEnum) -> TokenStream {
                 fn from_choice(value: &str) -> ::std::option::Option<Self> {
                     #(#parse_arms)*
                     ::std::option::Option::None
+                }
+
+                fn to_choice(&self) -> ::std::option::Option<&'static str> {
+                    match self {
+                        #(#word_arms)*
+                        #unreachable_arm
+                    }
                 }
             }
         };

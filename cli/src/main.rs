@@ -1,22 +1,10 @@
-use env_logger::Env;
 use usage_cli::env;
 
 fn main() -> miette::Result<()> {
-    set_log_env_vars();
-    env_logger::builder()
-        .format_timestamp(None)
-        .parse_env(Env::default().filter_or("USAGE_LOG", "info"))
-        .init();
-
+    // Logging is set up after the parse, in `Cli::run`: `--verbose`, `--quiet` and the rest
+    // are declarations on the CLI itself now, so the command line is what says how much to
+    // say. `USAGE_DEBUG` and `USAGE_TRACE` are `env` fallbacks on those flags rather than
+    // two lines here that rewrote `USAGE_LOG` behind the user's back.
     let args: Vec<_> = env::args().collect();
     usage_cli::run(&args)
-}
-
-fn set_log_env_vars() {
-    if env::var_true("USAGE_DEBUG") {
-        env::set_var("USAGE_LOG", "debug");
-    }
-    if env::var_true("USAGE_TRACE") {
-        env::set_var("USAGE_LOG", "trace");
-    }
 }

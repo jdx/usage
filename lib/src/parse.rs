@@ -12,6 +12,7 @@ use strum::EnumTryAs;
 use crate::docs;
 use crate::error::UsageErr;
 use crate::spec::arg::SpecDoubleDashChoices;
+use crate::spec::policy::{resolve_color, resolve_verbosity, ColorChoice, Verbosity};
 use crate::spec::unknown_flags::UnknownFlags;
 use crate::warn::Warning;
 use crate::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag};
@@ -462,6 +463,55 @@ impl ParseOutput {
             merge_subcommand_flags(&mut offered, gather_flags(cmd), false);
         }
         offered
+    }
+
+    /// The level this command line asked for.
+    ///
+    /// Reads the flags that declared what they mean — `verbosity=` — and applies
+    /// the spec's rule: an explicit level value pins, otherwise the most
+    /// restrictive pinning switch wins, otherwise the baseline stands, and then
+    /// the stepping flags move it. This is the reference answer the compiled
+    /// parser's own resolver is measured against.
+    ///
+    /// A CLI that declares no roles gets [`Verbosity::BASELINE`], which is what a
+    /// CLI with nothing to say should get.
+    pub fn verbosity(&self) -> Verbosity {
+        resolve_verbosity(self.flags.iter().filter_map(|(flag, value)| {
+            let role = flag.verbosity?;
+            let count = match value {
+                // A negated switch says the flag was not asked for.
+                ParseValue::Bool(false) => 0,
+                ParseValue::Bool(true) => 1,
+                ParseValue::MultiBool(values) => values.len(),
+                _ => 1,
+            };
+            let word = match value {
+                ParseValue::String(value) => Some(value.as_str()),
+                ParseValue::MultiString(values) => values.last().map(String::as_str),
+                _ => None,
+            };
+            Some((role, count, word))
+        }))
+    }
+
+    /// The colour choice this command line asked for.
+    ///
+    /// A refusal beats a request, and a command line that said nothing about
+    /// colour is [`ColorChoice::Auto`].
+    pub fn color(&self) -> ColorChoice {
+        resolve_color(self.flags.iter().filter_map(|(flag, value)| {
+            let role = flag.color?;
+            let word = match value {
+                ParseValue::String(value) => Some(value.as_str()),
+                ParseValue::MultiString(values) => values.last().map(String::as_str),
+                _ => None,
+            };
+            // A switch that landed on `false` was negated, or was filled by a
+            // default that says no: either way it is the other answer, and it is
+            // only here at all because it was supplied.
+            let negated = matches!(value, ParseValue::Bool(false));
+            Some((role, negated, word))
+        }))
     }
 }
 

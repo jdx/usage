@@ -3,7 +3,7 @@
   "bin": "usage",
   "cmd": {
     "full_cmd": [],
-    "usage": "[--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>",
+    "usage": "[FLAGS] <SUBCOMMAND>",
     "subcommands": {
       "bash": {
         "full_cmd": ["bash"],
@@ -1740,6 +1740,102 @@
         "long": ["usage-spec"],
         "hide": false,
         "global": false
+      },
+      {
+        "name": "verbose",
+        "usage": "--verbose…",
+        "help": "Show more of what `usage` is doing",
+        "help_first_line": "Show more of what `usage` is doing",
+        "short": [],
+        "long": ["verbose"],
+        "var": true,
+        "hide": false,
+        "global": false,
+        "count": true,
+        "overrides": ["--quiet", "--debug", "--trace", "--log-level"],
+        "verbosity": "verbose"
+      },
+      {
+        "name": "quiet",
+        "usage": "-q --quiet",
+        "help": "Say nothing that is not a failure",
+        "help_first_line": "Say nothing that is not a failure",
+        "short": ["q"],
+        "long": ["quiet"],
+        "hide": false,
+        "global": false,
+        "overrides": ["--verbose", "--debug", "--trace", "--log-level"],
+        "verbosity": "error"
+      },
+      {
+        "name": "debug",
+        "usage": "--debug",
+        "help": "Sets the log level to debug",
+        "help_first_line": "Sets the log level to debug",
+        "short": [],
+        "long": ["debug"],
+        "hide": true,
+        "global": false,
+        "overrides": ["--verbose", "--quiet", "--trace", "--log-level"],
+        "verbosity": "debug",
+        "env": "USAGE_DEBUG"
+      },
+      {
+        "name": "trace",
+        "usage": "--trace",
+        "help": "Sets the log level to trace",
+        "help_first_line": "Sets the log level to trace",
+        "short": [],
+        "long": ["trace"],
+        "hide": true,
+        "global": false,
+        "overrides": ["--verbose", "--quiet", "--debug", "--log-level"],
+        "verbosity": "trace",
+        "env": "USAGE_TRACE"
+      },
+      {
+        "name": "log-level",
+        "usage": "--log-level <LEVEL>",
+        "help": "How much to say",
+        "help_first_line": "How much to say",
+        "short": [],
+        "long": ["log-level"],
+        "hide": true,
+        "global": false,
+        "arg": {
+          "name": "LEVEL",
+          "usage": "<LEVEL>",
+          "required": true,
+          "double_dash": "Optional",
+          "hide": false,
+          "choices": {
+            "choices": ["silent", "error", "warn", "info", "debug", "trace"]
+          }
+        },
+        "overrides": ["--verbose", "--quiet", "--debug", "--trace"],
+        "verbosity": "level"
+      },
+      {
+        "name": "color",
+        "usage": "--color <WHEN>",
+        "help": "When to color output",
+        "help_first_line": "When to color output",
+        "short": [],
+        "long": ["color"],
+        "hide": false,
+        "global": false,
+        "arg": {
+          "name": "WHEN",
+          "usage": "<WHEN>",
+          "required": true,
+          "double_dash": "Optional",
+          "hide": false,
+          "choices": {
+            "choices": ["auto", "always", "never"]
+          }
+        },
+        "default": ["auto"],
+        "color": "choice"
       }
     ],
     "mounts": [],
@@ -1763,6 +1859,6 @@
   "source_code_link_template": "{%- set path = path | replace(from='-', to='_') -%}\n{%- if cmd.subcommands | length > 0 -%}\n{%- set path = path ~ \"/mod.rs\" -%}\n{%- elif path in [\"bash\", \"fish\", \"powershell\", \"zsh\"] -%}\n{%- set path = \"shell.rs\" -%}\n{%- else -%}\n{%- set path = path ~ \".rs\" -%}\n{%- endif -%}\nhttps://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}",
   "repository": "https://github.com/jdx/usage",
   "about": "CLI for working with usage-based CLIs",
-  "min_usage_version": "4.0",
+  "min_usage_version": "5.2",
   "unknown_flags": "error"
 }

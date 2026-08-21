@@ -13,6 +13,7 @@ use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
+use crate::spec::policy::{SpecColorRole, SpecVerbosityRole, COLOR_VALUES, VERBOSITY_VALUES};
 use crate::{string, SpecArg, SpecChoices, SpecRequiredIfEq};
 
 /// A non-binding action performed when a flag is supplied.
@@ -285,6 +286,28 @@ pub struct SpecFlag {
     /// See [`crate::spec::effect::SpecCommandEffect`]; never lowers it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub effect: Option<SpecCommandEffect>,
+    /// What this flag means for how much the CLI says.
+    ///
+    /// See [`crate::spec::policy::SpecVerbosityRole`]. Purely a declaration of
+    /// meaning: it adds no relationship and changes nothing about parsing, so
+    /// mise's six-flag `overrides` lattice keeps working exactly as written and
+    /// only becomes legible to help, docs and the CLI's own logger.
+    ///
+    /// clap has no equivalent — a verbosity flag there is an ordinary flag plus
+    /// application code — so a spec generated from a clap command never carries
+    /// one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verbosity: Option<SpecVerbosityRole>,
+    /// What this flag means for colour.
+    ///
+    /// See [`crate::spec::policy::SpecColorRole`]. Declaring it is what lets a
+    /// CLI's own `--no-color` turn off the colour in the help page and error
+    /// messages usage renders on its behalf.
+    ///
+    /// clap's `Command::color` is a statement about clap's output rather than
+    /// about a declared flag, so there is nothing for the bridge to read.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<SpecColorRole>,
     /// Environment variable that can set this flag's value
     #[serde(skip_serializing_if = "Option::is_none")]
     pub env: Option<String>,
@@ -405,6 +428,28 @@ impl SpecFlag {
                             ctx,
                             v.entry.span(),
                             "unsupported effect {raw}, expected one of: {EFFECT_VALUES}"
+                        ),
+                    }
+                }
+                "verbosity" => {
+                    let raw = v.ensure_string()?;
+                    match raw.parse() {
+                        Ok(role) => flag.verbosity = Some(role),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            v.entry.span(),
+                            "unsupported verbosity {raw}, expected one of: {VERBOSITY_VALUES}"
+                        ),
+                    }
+                }
+                "color" => {
+                    let raw = v.ensure_string()?;
+                    match raw.parse() {
+                        Ok(role) => flag.color = Some(role),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            v.entry.span(),
+                            "unsupported color {raw}, expected one of: {COLOR_VALUES}"
                         ),
                     }
                 }
@@ -547,6 +592,30 @@ impl SpecFlag {
                             ctx,
                             arg.entry.span(),
                             "unsupported effect {raw}, expected one of: {EFFECT_VALUES}"
+                        ),
+                    }
+                }
+                "verbosity" => {
+                    let arg = child.arg(0)?;
+                    let raw = arg.ensure_string()?;
+                    match raw.parse() {
+                        Ok(role) => flag.verbosity = Some(role),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            arg.entry.span(),
+                            "unsupported verbosity {raw}, expected one of: {VERBOSITY_VALUES}"
+                        ),
+                    }
+                }
+                "color" => {
+                    let arg = child.arg(0)?;
+                    let raw = arg.ensure_string()?;
+                    match raw.parse() {
+                        Ok(role) => flag.color = Some(role),
+                        Err(_) => bail_parse!(
+                            ctx,
+                            arg.entry.span(),
+                            "unsupported color {raw}, expected one of: {COLOR_VALUES}"
                         ),
                     }
                 }
@@ -736,6 +805,98 @@ impl SpecFlag {
                 node.node.name().span(),
                 "bool_value is only valid on a boolean switch"
             );
+        }
+        // A role says what a flag means, so it has to agree with the shape the
+        // flag already has: a level read off a value needs a value, and a
+        // switch that pins a level must not take one.
+        if flag.verbosity.is_some() && flag.color.is_some() {
+            bail_parse!(
+                ctx,
+                node.node.name().span(),
+                "a flag means one thing: verbosity or color, not both"
+            );
+        }
+        if let Some(role) = flag.verbosity {
+            if role.takes_value() && flag.arg.is_none() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "verbosity={} reads the flag's value, so the flag must take one",
+                    role.as_str()
+                );
+            }
+            if !role.takes_value() && flag.arg.is_some() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "verbosity={} is a switch; a flag that takes a value says verbosity=level",
+                    role.as_str()
+                );
+            }
+            if flag.negate.is_some() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "a level cannot be negated, so verbosity= and negate= do not go together"
+                );
+            }
+            // A level flag whose declared values the scale cannot read would
+            // resolve to the baseline however it was invoked, which is a spec
+            // that says something it does not mean. Only strict choices are
+            // checked: with `strict=#false` an unrecognised word is expected.
+            if role.takes_value() {
+                if let Some(choices) = flag.arg.as_ref().and_then(|a| a.choices.as_ref()) {
+                    if choices.strict {
+                        if let Some(unknown) = choices
+                            .choices
+                            .iter()
+                            .find(|choice| crate::spec::policy::Verbosity::parse(choice).is_none())
+                        {
+                            bail_parse!(
+                                ctx,
+                                node.node.name().span(),
+                                "verbosity=level accepts {unknown:?}, which names no level: expected one of silent, error, warn, info, debug, trace"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(role) = flag.color {
+            if role.takes_value() && flag.arg.is_none() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "color=choice reads the flag's value, so the flag must take one"
+                );
+            }
+            if !role.takes_value() && flag.arg.is_some() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "color={} is a switch; a flag that takes a value says color=choice",
+                    role.as_str()
+                );
+            }
+            if role.takes_value() && flag.negate.is_some() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "color=choice already spells every answer, so it cannot also be negated"
+                );
+            }
+            // A switch says one answer; its negation says the other; and then the value it
+            // holds when neither was typed *is* the third statement. A `bool` has nowhere
+            // to record that nobody said anything, so the default has to be declared rather
+            // than assumed — otherwise an absent flag would read as its negation.
+            if flag.negate.is_some() && flag.default.is_empty() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "a negatable color flag says both answers, so it needs a default for the \
+                     command line that says neither"
+                );
+            }
         }
         if flag.default_missing.is_some() && flag.arg.is_none() {
             bail_parse!(
@@ -1100,6 +1261,12 @@ impl From<&SpecFlag> for KdlNode {
         }
         if let Some(effect) = &flag.effect {
             node.push(string_entry(Some("effect"), effect.as_str()));
+        }
+        if let Some(role) = &flag.verbosity {
+            node.push(string_entry(Some("verbosity"), role.as_str()));
+        }
+        if let Some(role) = &flag.color {
+            node.push(string_entry(Some("color"), role.as_str()));
         }
         if let Some(deprecated) = &flag.deprecated {
             node.push(string_entry(Some("deprecated"), deprecated));
@@ -1476,6 +1643,13 @@ impl From<&clap::Arg> for SpecFlag {
             // clap has no way to express this; consumers set it on the derived
             // spec (see the effect docs).
             effect: None,
+            // clap has no notion of what a flag *means*. `Command::color` is a
+            // statement about clap's own output rather than about a declared
+            // flag, and a verbosity flag there is an ordinary flag plus
+            // application code, so there is nothing here to read and no getter
+            // will appear. A CLI that wants these declares them in usage.
+            verbosity: None,
+            color: None,
             env: None,
             env_fallback: vec![],
             deprecated_env: vec![],
@@ -1989,6 +2163,89 @@ mod tests {
         ] {
             assert!(invalid.parse::<Spec>().is_err(), "{invalid}");
         }
+    }
+
+    #[test]
+    fn verbosity_and_color_roles_round_trip() {
+        let spec: Spec = "flag \"-v --verbose\" count=#true verbosity=verbose\n\
+                          flag \"-q --quiet\" verbosity=error\n\
+                          flag \"--log-level <LEVEL>\" verbosity=level\n\
+                          flag \"--color <WHEN>\" color=choice\n\
+                          flag \"--no-color\" color=never\n"
+            .parse()
+            .unwrap();
+        let flags = &spec.cmd.flags;
+        assert_eq!(flags[0].verbosity, Some(SpecVerbosityRole::Verbose));
+        assert_eq!(flags[1].verbosity, Some(SpecVerbosityRole::Error));
+        assert_eq!(flags[2].verbosity, Some(SpecVerbosityRole::Level));
+        assert_eq!(flags[3].color, Some(SpecColorRole::Choice));
+        assert_eq!(flags[4].color, Some(SpecColorRole::Never));
+
+        let rendered = spec.to_string();
+        assert!(rendered.contains("verbosity=verbose"), "{rendered}");
+        assert!(rendered.contains("verbosity=level"), "{rendered}");
+        assert!(rendered.contains("color=choice"), "{rendered}");
+        let reparsed: Spec = rendered.parse().unwrap();
+        assert_eq!(reparsed.cmd.flags[0].verbosity, flags[0].verbosity);
+        assert_eq!(reparsed.cmd.flags[4].color, flags[4].color);
+
+        // The child-node spelling says the same thing.
+        let spec: Spec = "flag \"--silent\" {\n    verbosity silent\n}\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.flags[0].verbosity, Some(SpecVerbosityRole::Silent));
+        let spec: Spec = "flag \"--no-color\" {\n    color never\n}\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.flags[0].color, Some(SpecColorRole::Never));
+    }
+
+    #[test]
+    fn a_role_has_to_agree_with_the_flag_it_is_written_on() {
+        for invalid in [
+            // A pinning switch that takes a value, and a level that does not.
+            "flag \"--log-level <LEVEL>\" verbosity=debug\n",
+            "flag \"--verbose\" verbosity=level\n",
+            "flag \"--color\" color=choice\n",
+            "flag \"--color <WHEN>\" color=always\n",
+            // A level cannot be negated, and a choice already spells every answer.
+            "flag \"--verbose\" negate=\"--quiet\" verbosity=verbose\n",
+            "flag \"--color <WHEN>\" negate=\"--no-color\" color=choice\n",
+            // One flag means one thing.
+            "flag \"--verbose\" verbosity=verbose color=always\n",
+            // A negatable switch has to say what an absent flag means.
+            "flag \"--color\" negate=\"--no-color\" color=always\n",
+            // A word the vocabulary does not have.
+            "flag \"--verbose\" verbosity=loud\n",
+            "flag \"--color <WHEN>\" color=auto\n",
+        ] {
+            assert!(invalid.parse::<Spec>().is_err(), "{invalid}");
+        }
+
+        // A negatable switch is fine where the negation means the other answer.
+        let spec: Spec = "flag \"--color\" negate=\"--no-color\" color=always default=#true\n"
+            .parse()
+            .unwrap();
+        assert_eq!(spec.cmd.flags[0].color, Some(SpecColorRole::Always));
+    }
+
+    #[test]
+    fn a_level_flag_must_offer_values_the_scale_can_read() {
+        // Every strict choice has to name a level, or the flag resolves to the baseline
+        // however it is invoked — a spec saying something it does not mean.
+        let invalid = "flag --log-level verbosity=level {\n    \
+                       arg <LEVEL> {\n        choices info chatty\n    }\n}\n";
+        assert!(invalid.parse::<Spec>().is_err(), "{invalid}");
+
+        // mise's own list, `warning` included.
+        let valid = "flag --log-level verbosity=level {\n    \
+                     arg <LEVEL> {\n        choices trace debug info warning error\n    }\n}\n";
+        assert!(valid.parse::<Spec>().is_ok(), "{valid}");
+
+        // Unless unknown values are expected anyway.
+        let lax = "flag --log-level verbosity=level {\n    \
+                   arg <LEVEL> {\n        choices strict=#false info chatty\n    }\n}\n";
+        assert!(lax.parse::<Spec>().is_ok(), "{lax}");
     }
 
     #[test]

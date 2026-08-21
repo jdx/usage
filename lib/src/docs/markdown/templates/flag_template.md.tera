@@ -2,6 +2,14 @@
 
 **Effect**: {% if flag.effect == "read" %}read-only{% elif flag.effect == "destructive" %}destructive — may delete or irreversibly overwrite{% else %}modifies state{% endif %}
 {%- endif %}
+{%- if flag.verbosity %}
+
+**Verbosity**: {% if flag.verbosity == "verbose" %}raises the log level one step per occurrence{% elif flag.verbosity == "quiet" %}lowers the log level one step per occurrence{% elif flag.verbosity == "level" %}names the log level{% else %}sets the log level to {{ flag.verbosity }}{% endif %}
+{%- endif %}
+{%- if flag.color %}
+
+**Color**: {% if flag.color == "choice" %}chooses whether output is colored{% elif flag.color == "always" %}forces colored output{% else %}disables colored output{% endif %}
+{%- endif %}
 {%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
 
 **Deprecated:**{% if flag.deprecated %} {{ flag.deprecated }}{% if flag.deprecated_warn_at or flag.deprecated_remove_at %};{% endif %}{% endif %}{% if flag.deprecated_warn_at %} Warns at {{ flag.deprecated_warn_at }}.{% endif %}{% if flag.deprecated_remove_at %} Removed at {{ flag.deprecated_remove_at }}.{% endif %}

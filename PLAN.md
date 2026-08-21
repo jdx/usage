@@ -669,6 +669,44 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
       names automatically, honoring `NO_COLOR` and `CLICOLOR_FORCE`; explicit
       plain/coloured rendering stays available for tests and generated artifacts.
       clap's arbitrary `Command::styles` palette is intentionally not reproduced.
+      **A declared `color=` flag now outranks all of it** — see the entry below.
+      The two `Style::auto` implementations that each decided this separately now
+      answer from one `ColorChoice`, so the rule is stated once.
+- [x] **`verbosity=` and `color=` on a flag** — what a flag _means_, as opposed to
+      what it binds. Every CLI in the fleet declares both and none of them could
+      say so: mise turns six flags into a level in a forty-nine-line function, hk
+      has the same shape with three, aube spells quiet as a value of `--loglevel`,
+      fnox has a lone `--no-color`. A spec saw six ordinary booleans.
+      Two closed vocabularies on `flag`, written on the flags a CLI already has:
+      `verbosity="verbose"|"quiet"|"level"` plus the six points on the scale
+      (`silent < error < warn < info < debug < trace`, baseline `info`), and
+      `color="always"|"never"|"choice"`. A role adds no relationship and changes
+      no parsing, so mise's override lattice keeps working as written; it is
+      opt-in per flag, so hk's `--trace` — spans, not a level — stays what it is.
+      Cold, beside `effect`: the hot `Flag` and `Flag::BOOL` are untouched and the
+      role is out of `binding_hash`, since two declarations differing only in role
+      bind identically.
+      **The colour half is a bug fix.** `argv/src/help.rs` and
+      `argv/src/diagnostic.rs` each decided colour from the environment and
+      neither could be overridden, so a CLI's own `--no-color` turned off its
+      output and not the help page usage rendered for it. The choice now comes
+      from argv — a real parse, so `--message --no-color` is a value and a token
+      after `--` is somebody's argument — and beats `NO_COLOR`/`CLICOLOR_FORCE`,
+      which were set once for every program.
+      usage-cli dogfoods it: `--verbose`, `-q`, hidden `--debug`/`--trace`
+      (carrying `USAGE_DEBUG`/`USAGE_TRACE` as `env` rather than rewriting
+      `USAGE_LOG` behind the user's back), `--log-level` and `--color`, with
+      `env_logger` started from the resolved level. Two findings came out of that:
+      `-v` could not be taken, because `crate::run` answers it with the version
+      before a parse happens; and these flags must **not** be `global` on a CLI
+      that forwards argv, since `usage bash script.sh --debug` gives `--debug` to
+      the script precisely because usage does not know it — a global one it _did_
+      know would be eaten. The completion suite caught that as a real regression.
+      **Not carried into Go**, following `effect`, the other cold semantic
+      property, which never crossed either: Go's `encoding/json` ignores the
+      unknown key, so a spec carrying `verbosity=` still works there, and a
+      generated Go front door has no logger to configure. A known gap, not a
+      design.
 - [x] **Visible aliases in generated references.** Markdown and JSON reference
       models list every visible short and long spelling while interactive help
       retains its compact aligned first-pair layout; hidden aliases stay hidden.

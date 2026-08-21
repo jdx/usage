@@ -13,6 +13,7 @@ pub mod flagset;
 pub mod group;
 pub mod helpers;
 pub mod mount;
+pub mod policy;
 pub mod unknown_flags;
 pub mod view;
 

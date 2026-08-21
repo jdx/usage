@@ -23,6 +23,7 @@
 
 use core::fmt::Write as _;
 
+use crate::policy::ColorChoice;
 use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
 use crate::{Command, Error};
 
@@ -46,15 +47,27 @@ impl Style {
     ///
     /// `NO_COLOR` wins over everything, per the convention: a user who sets it has said once, for
     /// every program, that they do not want this. `CLICOLOR_FORCE` is the other direction, for a
-    /// pipe that ends up somewhere that does render colour.
+    /// pipe that ends up somewhere that does render colour. Both are the
+    /// [`ColorChoice::Auto`] arm, so this rule is stated once and read here and by
+    /// the help renderer alike.
     pub fn auto() -> Style {
         use std::io::IsTerminal as _;
-        let forced = std::env::var_os("CLICOLOR_FORCE").is_some_and(|v| v != "0");
-        let refused = std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty());
-        if refused {
-            return Style::PLAIN;
-        }
-        if forced || std::io::stderr().is_terminal() {
+        Self::for_choice(ColorChoice::Auto, std::io::stderr().is_terminal())
+    }
+
+    /// Honour what this command line asked for, falling back to [`Style::auto`].
+    ///
+    /// A flag the CLI declared with `color=` outranks the environment: it was
+    /// typed now, and `NO_COLOR` was set once for every program.
+    pub fn resolve(spec: &Spec<'_>, argv: &[&std::ffi::OsStr]) -> Style {
+        use std::io::IsTerminal as _;
+        let choice = crate::policy::color_from_argv(spec, argv).unwrap_or_default();
+        Self::for_choice(choice, std::io::stderr().is_terminal())
+    }
+
+    /// Colour, or not, for an already-decided choice.
+    pub fn for_choice(choice: ColorChoice, is_terminal: bool) -> Style {
+        if choice.enabled_for(is_terminal) {
             Style::COLOURED
         } else {
             Style::PLAIN
@@ -676,11 +689,16 @@ fn render_inner<'a>(
             // clap prints the command's help page here, including the available subcommands,
             // while keeping exit 2; an error plus only `<SUBCOMMAND>` tells the reader what is
             // missing and withholds the list they need to fix it.
-            let help_style = if style == Style::COLOURED {
-                crate::help::Style::COLOURED
-            } else {
-                crate::help::Style::PLAIN
-            };
+            // Both styles come from one choice; this hands the decision already
+            // made here to the help renderer rather than deciding again.
+            let help_style = crate::help::Style::for_choice(
+                if style == Style::COLOURED {
+                    ColorChoice::Always
+                } else {
+                    ColorChoice::Never
+                },
+                false,
+            );
             // `spec`, `chain`, and this route have already been projected above. Feeding the
             // canonical host route through the view renderer a second time makes it look for
             // host-only ancestors under the promoted root and loses the useful full help page.
