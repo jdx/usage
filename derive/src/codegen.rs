@@ -4123,7 +4123,7 @@ fn policy_impls(cli: &Cli, ident: &syn::Ident) -> TokenStream {
                 let mut __usage_base = base;
                 #(#verbosity_from_children)*
                 #[allow(unused_mut)]
-                let mut __usage_inputs: ::std::vec::Vec<usage_argv::policy::VerbosityInput> =
+                let mut __usage_inputs: ::std::vec::Vec<usage_argv::policy::VerbosityInput<'_>> =
                     ::std::vec::Vec::new();
                 #(#verbosity_inputs)*
                 usage_argv::policy::resolve_verbosity_from(__usage_base, __usage_inputs)
@@ -4136,7 +4136,7 @@ fn policy_impls(cli: &Cli, ident: &syn::Ident) -> TokenStream {
                 let mut __usage_choice = usage_argv::policy::ColorChoice::Auto;
                 #(#color_from_children)*
                 #[allow(unused_mut)]
-                let mut __usage_inputs: ::std::vec::Vec<usage_argv::policy::ColorInput> =
+                let mut __usage_inputs: ::std::vec::Vec<usage_argv::policy::ColorInput<'_>> =
                     ::std::vec::Vec::new();
                 #(#color_inputs)*
                 __usage_choice.combine(usage_argv::policy::resolve_color(__usage_inputs))
