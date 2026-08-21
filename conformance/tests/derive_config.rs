@@ -242,6 +242,62 @@ fn the_emitted_config_block_is_the_spec_grammar() {
     assert_eq!(cache_dir.optional, Some(true));
 }
 
+/// Every metadata attribute that only reaches the registry, declared at once.
+#[derive(Config, Debug, PartialEq)]
+struct Documented {
+    /// Stop at the first failure
+    ///
+    /// Whether a failing job stops the rest of them.
+    #[usage(
+        alias("fail-fast.legacy", "failfast"),
+        example("true", "false"),
+        since = "5.2.0",
+        deprecated = "use `stop-on-error`",
+        deprecated_warn_at = "6.0.0",
+        deprecated_remove_at = "7.0.0"
+    )]
+    fail_fast: Option<bool>,
+}
+
+#[test]
+fn the_metadata_only_docs_read_survives_the_round_trip() {
+    // These fields never reach `read` — they exist for docs, the JSON schema and the
+    // completers, all of which go through the *spec*. So rendering them is only half a claim:
+    // the other half is that usage-lib reads back what the derive wrote. A field the renderer
+    // emits and the parser ignores would be metadata that silently does not exist.
+    let props = Documented::SETTINGS_PROPS;
+    assert_eq!(props.len(), 1);
+    let declared = &props[0];
+
+    let kdl = format!("name \"ex\"\nbin \"ex\"\n{}", Documented::spec_kdl());
+    let spec: usage::Spec = kdl.parse().expect("usage-lib reads the emitted block");
+    let parsed = spec.config.props.get("fail_fast").expect("declared");
+
+    assert_eq!(parsed.aliases, declared.aliases.to_vec());
+    assert_eq!(parsed.examples, declared.examples.to_vec());
+    assert_eq!(parsed.since.as_deref(), declared.since);
+    assert_eq!(parsed.deprecated.as_deref(), declared.deprecated);
+    assert_eq!(
+        parsed.deprecated_warn_at.as_deref(),
+        declared.deprecated_warn_at
+    );
+    assert_eq!(
+        parsed.deprecated_remove_at.as_deref(),
+        declared.deprecated_remove_at
+    );
+    assert_eq!(parsed.optional, declared.optional);
+
+    // A doc comment becomes both: the first paragraph is the short help, and the *whole*
+    // comment is the long one — the same `doc_comment` helper the `Cli` derive uses, so a
+    // setting's prose and a flag's are split the same way.
+    assert_eq!(parsed.help.as_deref(), Some("Stop at the first failure"));
+    assert_eq!(
+        parsed.long_help.as_deref(),
+        Some("Stop at the first failure\n\nWhether a failing job stops the rest of them.")
+    );
+    assert_eq!(parsed.long_help.as_deref(), declared.long_help);
+}
+
 /// A CLI whose settings-bound flag is deprecated.
 #[derive(Cli, Debug)]
 #[usage(bin = "dep", version = "2.0.0", config = Settings)]
