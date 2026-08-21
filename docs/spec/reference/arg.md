@@ -96,6 +96,11 @@ arg "<color>" {
   }
 }
 
+// Keep known values in help and completion while accepting others.
+arg "<backend>" {
+  choices strict=#false "core" "git"
+}
+
 arg "<file>" help_heading="Input" // group this arg under a heading in help output
 
 arg "<file>" long_help="longer help for --help (as oppoosed to -h)"
@@ -140,3 +145,6 @@ Two interactions are worth calling out:
   It does not unlock a `double_dash="required"` arg — one token cannot be both.
 - A command's `restart_token` starts a fresh invocation, which resets the separator.
   Each invocation after the token needs its own `--`.
+
+Choices are strict by default. Set `strict=#false` on `choices` to keep the
+declared values in help and completion while accepting values outside the list.

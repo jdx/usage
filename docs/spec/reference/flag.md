@@ -81,6 +81,10 @@ flag "--shell <shell>" {
   choices "bash" "zsh" "fish" // <shell> must be one of the choices
 }
 
+flag "--backend <backend>" {
+  choices strict=#false "core" "git" // suggest these, but accept other values
+}
+
 flag "--port <port>" {
   arg "<port>" validate="int(value) >= 1 && int(value) <= 65535" validate_error="must be a valid port"
 }

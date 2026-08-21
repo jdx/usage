@@ -1353,6 +1353,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let value_optional = field.value_optional;
     let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
         choices_tokens(field);
+    let allow_unknown_choices = field.allow_unknown_choices;
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
     let (var_min, var_max) = bounds_tokens(field);
@@ -1464,6 +1465,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             choice_aliases: #choice_aliases,
             choice_details: #choice_details,
             ignore_case: #ignore_case,
+            allow_unknown_choices: #allow_unknown_choices,
             validate: #validate,
             validate_error: #validate_error,
             var_min: #var_min,
@@ -1542,6 +1544,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
         (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
     let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
         choices_tokens(field);
+    let allow_unknown_choices = field.allow_unknown_choices;
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
     let (var_min, var_max) = if matches!(field.kind, Kind::Flag { .. }) {
@@ -1588,6 +1591,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
             choice_aliases: #choice_aliases,
             choice_details: #choice_details,
             ignore_case: #ignore_case,
+            allow_unknown_choices: #allow_unknown_choices,
             validate: #validate,
             validate_error: #validate_error,
             var_min: #var_min,
@@ -5065,7 +5069,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
     });
 
     let choice_checks = cli.fields.iter().filter_map(|f| {
-        if f.choices.is_empty() && !f.value_enum {
+        if (f.choices.is_empty() && !f.value_enum) || f.allow_unknown_choices {
             return None;
         }
         let ident = &f.ident;

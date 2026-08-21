@@ -377,6 +377,11 @@ type Choices struct {
 	Choices    []string `json:"choices"`
 	Details    []Choice `json:"details"`
 	IgnoreCase bool     `json:"ignore_case"`
+	Strict     *bool    `json:"strict"`
+}
+
+func (c *Choices) allowUnknown() bool {
+	return c != nil && c.Strict != nil && !*c.Strict
 }
 
 type Choice struct {
@@ -956,22 +961,23 @@ func (b *builder) flag(f *Flag, strictDuplicates bool) *argv.Flag {
 		Default:       f.defaults(),
 	})
 	b.record(out.Key, argv.Meta{
-		Name:              f.Name,
-		Flag:              true,
-		RequiresIfBoolean: f.Arg == nil,
-		Spelling:          spelling(f),
-		ValueName:         valueOf(f),
-		CompleteType:      b.completeType(first(valueOf(f), f.Name)),
-		Required:          f.Required,
-		RejectDuplicate:   strictDuplicates && !f.Var && !f.Count && (f.Arg == nil || !f.Arg.Var),
-		Choices:           f.choices(),
-		AcceptedChoices:   f.acceptedChoices(),
-		IgnoreCase:        f.Arg != nil && f.Arg.Choices != nil && f.Arg.Choices.IgnoreCase,
-		Default:           f.defaults(),
-		Env:               f.Env,
-		VarMin:            clampVarMax(f.valueMinimum()),
-		Validate:          valueValidation(f.Arg),
-		ValidateError:     valueValidationError(f.Arg),
+		Name:                f.Name,
+		Flag:                true,
+		RequiresIfBoolean:   f.Arg == nil,
+		Spelling:            spelling(f),
+		ValueName:           valueOf(f),
+		CompleteType:        b.completeType(first(valueOf(f), f.Name)),
+		Required:            f.Required,
+		RejectDuplicate:     strictDuplicates && !f.Var && !f.Count && (f.Arg == nil || !f.Arg.Var),
+		Choices:             f.choices(),
+		AcceptedChoices:     f.acceptedChoices(),
+		IgnoreCase:          f.Arg != nil && f.Arg.Choices != nil && f.Arg.Choices.IgnoreCase,
+		AllowUnknownChoices: f.Arg != nil && f.Arg.Choices.allowUnknown(),
+		Default:             f.defaults(),
+		Env:                 f.Env,
+		VarMin:              clampVarMax(f.valueMinimum()),
+		Validate:            valueValidation(f.Arg),
+		ValidateError:       valueValidationError(f.Arg),
 		// Occurrences. The per-occurrence value bound is a limit binding applies,
 		// and is set on the parse table below rather than here.
 		VarMax: clampVarMax(f.VarMax),
@@ -1039,17 +1045,18 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 		Default:            a.Default,
 	})
 	b.record(out.Key, argv.Meta{
-		Name:            a.Name,
-		Required:        a.Required,
-		CompleteType:    b.completeType(a.Name),
-		Choices:         a.Choices.visible(),
-		AcceptedChoices: a.Choices.accepted(),
-		IgnoreCase:      a.Choices != nil && a.Choices.IgnoreCase,
-		Default:         a.Default,
-		Env:             a.Env,
-		VarMin:          clampVarMax(a.VarMin),
-		Validate:        a.Validate,
-		ValidateError:   a.ValidateError,
+		Name:                a.Name,
+		Required:            a.Required,
+		CompleteType:        b.completeType(a.Name),
+		Choices:             a.Choices.visible(),
+		AcceptedChoices:     a.Choices.accepted(),
+		IgnoreCase:          a.Choices != nil && a.Choices.IgnoreCase,
+		AllowUnknownChoices: a.Choices.allowUnknown(),
+		Default:             a.Default,
+		Env:                 a.Env,
+		VarMin:              clampVarMax(a.VarMin),
+		Validate:            a.Validate,
+		ValidateError:       a.ValidateError,
 		// No VarMax: for an argument the bound is a limit binding applies, which
 		// is what makes `[a]… [b]` fillable at all, so judging it again here would
 		// fail an invocation that never broke it.

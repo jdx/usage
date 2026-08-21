@@ -96,6 +96,8 @@ func TestCheck(t *testing.T) {
 			[]string{"bash", "csh"}, 1, CodeInvalidChoice, false},
 		{"all of them allowed", Meta{Name: "shell", Choices: []string{"bash", "zsh"}},
 			[]string{"bash", "zsh"}, 2, 0, true},
+		{"suggested choices accept other values", Meta{Name: "shell", Choices: []string{"bash", "zsh"}, AllowUnknownChoices: true},
+			[]string{"csh"}, 1, 0, true},
 
 		{"fewer values than var_min", Meta{Name: "files", VarMin: 2},
 			[]string{"a"}, 1, CodeVarTooFew, false},
