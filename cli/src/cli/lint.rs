@@ -663,26 +663,27 @@ fn lint_examples(
             let Some(words) = invocation_words(spec, &line) else {
                 continue;
             };
-            match Parser::new(spec)
-                .with_env(HashMap::new())
-                .with_mount_outputs(HashMap::new())
-                .parse(&words)
-            {
+            match parse_example(spec, &words) {
                 Ok(_) => {}
-                // The example reaches a command this spec only knows by running
-                // something. Discovering it is the mounted program's answer to give,
-                // not a linter's to spawn.
-                Err(err)
-                    if matches!(
-                        err.downcast_ref::<UsageErr>(),
-                        Some(UsageErr::MissingMountOutput(_))
-                    ) => {}
+                // Everything the mounted program would have contributed is missing, and
+                // this line needed some of it. Said out loud rather than skipped
+                // quietly: a lint that stays silent about the lines it could not read
+                // reports "checked and fine" over exactly the ones it never checked.
+                Err(Unparsed::NeedsAMount) => issues.push(LintIssue {
+                    severity: Severity::Info,
+                    code: "example-not-checked".to_string(),
+                    message: format!(
+                        "Example `{line}` was not checked: it reaches past a mount, \
+                         which names its commands only when run"
+                    ),
+                    location: Some(format!("cmd {} example", cmd_path)),
+                }),
                 // `--help` and `--version` end the parse by printing, which usage-lib
                 // reports as an error carrying the text — and reports in preference to
                 // any other error on the line. The invocation works; showing an author
                 // their own help output as a lint message would not.
-                Err(_) if prints_and_exits(spec, &words) => {}
-                Err(err) => issues.push(LintIssue {
+                Err(Unparsed::Refused(_)) if prints_and_exits(spec, &words) => {}
+                Err(Unparsed::Refused(err)) => issues.push(LintIssue {
                     severity: Severity::Warning,
                     code: "example-does-not-parse".to_string(),
                     message: format!("Example `{}` does not parse: {}", line, one_line(&err)),
@@ -690,6 +691,77 @@ fn lint_examples(
                 }),
             }
         }
+    }
+}
+
+/// Why an example did not parse, once a mount has been accounted for.
+enum Unparsed {
+    /// The spec refused the line, and can answer for it.
+    Refused(miette::Error),
+    /// The line needs something only the mounted program could have said.
+    NeedsAMount,
+}
+
+/// Parse one example, without running anything and without reading the environment.
+///
+/// Mounts are the whole difficulty. usage-lib resolves a command's mounts on the way
+/// *into* it, so a spec that mounts anything cannot be parsed at all without either
+/// spawning the mounted program or being handed its answer. Injecting an empty set of
+/// answers avoids the process but refuses every line under a mounting command, checked
+/// or not — which is most of an adopter's spec, since mise, aube and pitchfork all mount.
+///
+/// So the empty set is only the first attempt. When it comes back short, the mount is
+/// answered with a spec that declares nothing and the line is parsed again: a line using
+/// only the command's own declared vocabulary now parses on its own merits, and one that
+/// still fails is a line the mounted program might have accepted, which nothing here can
+/// know. That second group — and only that group — goes unchecked.
+fn parse_example(spec: &Spec, words: &[String]) -> Result<(), Unparsed> {
+    let parse = |mounts: HashMap<String, String>| {
+        Parser::new(spec)
+            .with_env(HashMap::new())
+            .with_mount_outputs(mounts)
+            .parse(words)
+    };
+    let needs_a_mount = |err: &miette::Error| {
+        matches!(
+            err.downcast_ref::<UsageErr>(),
+            Some(UsageErr::MissingMountOutput(_))
+        )
+    };
+
+    match parse(HashMap::new()) {
+        Ok(_) => Ok(()),
+        Err(err) if !needs_a_mount(&err) => Err(Unparsed::Refused(err)),
+        Err(_) => match parse(empty_mount_answers(&spec.cmd)) {
+            Ok(_) => Ok(()),
+            Err(err) if needs_a_mount(&err) => Err(Unparsed::NeedsAMount),
+            // The mounted program contributes commands and flags, so it can only ever
+            // make a line parse. One that fails against a mount contributing nothing may
+            // still have been fine against the real one.
+            Err(_) => Err(Unparsed::NeedsAMount),
+        },
+    }
+}
+
+/// A spec that declares nothing, as the answer to every mount in the tree.
+///
+/// Keyed by the exact `run` string, which is how injected answers are looked up. It is a
+/// whole spec rather than an empty string because that is what a mount's stdout is.
+fn empty_mount_answers(cmd: &SpecCommand) -> HashMap<String, String> {
+    let mut answers = HashMap::new();
+    collect_mount_answers(cmd, &mut answers);
+    answers
+}
+
+fn collect_mount_answers(cmd: &SpecCommand, answers: &mut HashMap<String, String>) {
+    for mount in &cmd.mounts {
+        answers.insert(
+            mount.run.clone(),
+            "name \"mounted\"\nbin \"mounted\"\n".to_string(),
+        );
+    }
+    for sub in cmd.subcommands.values() {
+        collect_mount_answers(sub, answers);
     }
 }
 
@@ -746,7 +818,7 @@ fn one_line(err: &miette::Error) -> String {
 /// nonsense. An unset `lang` is the common case and means a shell.
 fn is_shell_example(lang: &str) -> bool {
     matches!(
-        lang,
+        lang.to_ascii_lowercase().as_str(),
         "" | "sh" | "bash" | "zsh" | "fish" | "shell" | "shell-session" | "console" | "terminal"
     )
 }
@@ -804,7 +876,10 @@ fn invocation_words(spec: &Spec, line: &str) -> Option<Vec<String>> {
     }
 
     let mut words = shell_words::split(line).ok()?;
-    if let Some(end) = words.iter().position(|word| is_shell_operator(word)) {
+    if let Some(end) = words
+        .iter()
+        .position(|word| is_shell_operator(word) || starts_a_redirection(word))
+    {
         words.truncate(end);
     }
     let assignments = words
@@ -822,8 +897,22 @@ fn invocation_words(spec: &Spec, line: &str) -> Option<Vec<String>> {
 fn is_shell_operator(word: &str) -> bool {
     matches!(
         word,
-        "|" | "||" | "&&" | "&" | ";" | "|&" | ">" | ">>" | "<" | "<<" | "2>" | "2>&1" | "#"
+        "|" | "||" | "&&" | "&" | ";" | "|&" | ">" | ">>" | "<" | "<<" | "2>" | "2>&1"
     )
+}
+
+/// A redirection written without the space that would make it its own word, as in
+/// `>out.txt` or `2>/dev/null`, which `shell_words` hands back whole.
+///
+/// Only the output side. `<` is deliberately absent: `mycli deploy <env>` is how
+/// documentation writes a placeholder, and truncating there would report the argument
+/// the placeholder stands in for as missing. `#` is absent for the opposite reason —
+/// `shell_words` drops an unquoted comment itself, so a `#` that survives to be a word
+/// came out of quotes and is a value, as in `mycli issue view "#123"`.
+fn starts_a_redirection(word: &str) -> bool {
+    word.strip_prefix(|c: char| c.is_ascii_digit() || c == '&')
+        .unwrap_or(word)
+        .starts_with('>')
 }
 
 /// A leading `MISE_DEBUG=1`, which sets the environment rather than being part of argv.
@@ -860,7 +949,7 @@ mod tests {
         let spec: Spec = spec.parse().unwrap();
         lint_spec(&spec, LintOptions::default())
             .into_iter()
-            .filter(|i| i.code == "example-does-not-parse")
+            .filter(|i| i.code.starts_with("example-"))
             .collect()
     }
 
@@ -1056,8 +1145,9 @@ cmd "config" help="config" {
     #[test]
     fn test_lint_example_reaching_a_mount_never_runs_it() {
         // The mount's `run` is not a command: if the linter resolved mounts by running
-        // them, the shell would fail and the example would be reported. Skipping it is
-        // the point — a linter must not spawn the program it is linting.
+        // them, the shell would fail. It must not spawn the program it is linting, so a
+        // line that only the mounted program could explain goes unchecked — and says so,
+        // rather than passing quietly as though it had been read.
         let issues = example_issues(
             r#"
 name "demo"
@@ -1069,7 +1159,143 @@ cmd "ls" help="ls" {
 example "demo discovered --whatever"
 "#,
         );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert_eq!(issues[0].code, "example-not-checked");
+        assert_eq!(issues[0].severity, Severity::Info);
+    }
+
+    #[test]
+    fn test_lint_example_under_a_mount_is_still_checked_where_it_can_be() {
+        // A mounting command's own flags are declared, so a line using them is an
+        // ordinary question with an ordinary answer. Refusing to check anything below a
+        // mount would give up on most of an adopter's spec — mise, aube and pitchfork
+        // all mount.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "tasks" help="tasks" {
+    mount run="this command must never run"
+    flag "--all" help="all"
+    example "demo tasks --all"
+}
+"#,
+        );
         assert!(issues.is_empty(), "{issues:?}");
+
+        // And the same command's unknown word is the undecidable case: the mounted
+        // program might have declared it.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "tasks" help="tasks" {
+    mount run="this command must never run"
+    flag "--all" help="all"
+    example "demo tasks --nope"
+}
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert_eq!(issues[0].code, "example-not-checked");
+    }
+
+    #[test]
+    fn test_lint_example_with_an_attached_redirection() {
+        // `shell_words` hands back `>out.txt` and `2>/dev/null` whole, so the whole-word
+        // operator rule does not see them.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "ls" help="ls" {
+    example "demo ls >out.txt"
+    example "demo ls 2>/dev/null"
+}
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_keeps_a_placeholder_and_a_quoted_hash() {
+        // The two shapes an eager redirection rule would break. `<env>` is how
+        // documentation writes a placeholder, and a `#` that survives `shell_words` came
+        // out of quotes, so it is a value rather than a comment.
+        let issues = example_issues(
+            r##"
+name "demo"
+bin "demo"
+cmd "deploy" help="deploy" {
+    arg "<env>" help="env"
+    example "demo deploy <env>"
+}
+cmd "issue" help="issue" {
+    arg "<id>" help="id"
+    example "demo issue \"#123\""
+}
+"##,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_lang_is_matched_without_case() {
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+cmd "ls" help="ls" {
+    example "demo ls --nope" lang="Bash"
+}
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+    }
+
+    #[test]
+    fn test_lint_example_invoking_a_view_or_an_applet() {
+        // One spec, more than one command name. An example is entitled to show any of
+        // them, so neither shape may be mistaken for another program and skipped.
+        // Written so that recognition is what the assertion turns on: an unrecognized
+        // program is a skipped line, which is indistinguishable from a clean one.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+view "runner" root="run" globals=#true
+cmd "run" help="run" {
+    flag "--all" help="all"
+}
+example "./runner --all"
+example "./runner --nope"
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert!(
+            issues[0].message.contains("--nope"),
+            "{}",
+            issues[0].message
+        );
+
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+multicall #true
+cmd "applet" help="applet" {
+    flag "--all" help="all"
+    example "applet --all"
+    example "applet --nope"
+}
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
+        assert!(
+            issues[0].message.contains("--nope"),
+            "{}",
+            issues[0].message
+        );
     }
 
     #[test]
