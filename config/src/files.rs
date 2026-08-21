@@ -376,10 +376,6 @@ fn parse(
                     false => message,
                 }
             })?;
-            // A tag on the root is stepped through for the same reason as a tag on a value: what
-            // a tag names is for a reader that has types of its own, and this one gets its types
-            // from the spec.
-            let root = untagged(&root);
             // Asked before the table under it, and for the same reason as in JSON: a root that
             // is not a mapping has no keys to read either way, and `get` cannot tell a list root
             // apart from a file with no settings table in it.
@@ -391,7 +387,8 @@ fn parse(
                     Some(inner) if inner.is_mapping() => inner,
                     // `null` is how a YAML file says a key is not there, and a file that leaves
                     // the table out entirely is allowed — the same meaning must not be the one
-                    // spelling of it that fails the read.
+                    // spelling of it that fails the read. Through `untagged` above, because this
+                    // arm is a variant and a tagged null would otherwise reach the one below it.
                     Some(yaml_serde::Value::Null) | None => return Ok(Vec::new()),
                     Some(_) => {
                         return Err(format!(
@@ -400,7 +397,7 @@ fn parse(
                     }
                 },
                 // Checked above: a mapping, or a `null` root that flattens to nothing.
-                None => root,
+                None => &root,
             };
             let mut flat = Vec::new();
             flatten_yaml(String::new(), value, names_a_setting, &mut flat)?;
@@ -639,14 +636,14 @@ fn table_yaml(value: &yaml_serde::Value, at: &str) -> Result<Value, String> {
         yaml_serde::Value::Mapping(map) => Value::Map(
             yaml_entries(map, at)?
                 .into_iter()
-                .filter(|(_, inner)| !untagged(inner).is_null())
+                .filter(|(_, inner)| !inner.is_null())
                 .map(|(key, inner)| table_yaml(inner, at).map(|inner| (key, inner)))
                 .collect::<Result<_, _>>()?,
         ),
         yaml_serde::Value::Sequence(items) => Value::List(
             items
                 .iter()
-                .filter(|item| !untagged(item).is_null())
+                .filter(|item| !item.is_null())
                 .map(|item| table_yaml(item, at))
                 .collect::<Result<_, _>>()?,
         ),
@@ -680,6 +677,10 @@ fn scalar_yaml(value: &yaml_serde::Value) -> String {
 /// types come from the spec, so a tag changes nothing about what the value is. Read as part of
 /// the value it made every tagged setting the wrong type, which is a warning about a file that
 /// is perfectly good.
+///
+/// Only wanted where a value is matched by variant. The parser's own accessors — `as_str`,
+/// `as_mapping`, `is_null`, `get` — see through a tag already, which is why they are what the
+/// checks around here are written with.
 #[cfg(feature = "yaml")]
 fn untagged(value: &yaml_serde::Value) -> &yaml_serde::Value {
     let mut value = value;
@@ -727,6 +728,9 @@ fn yaml_entries<'a>(
     let mut entries: Vec<(String, &yaml_serde::Value)> = Vec::new();
     let mut merged: Vec<(String, &yaml_serde::Value)> = Vec::new();
     for (key, value) in mapping {
+        // `as_str` sees through a tag, so an application's own tag on the merge key — the only
+        // spelling that reaches here as a tag at all, the standard `!!merge` being resolved away
+        // by the parser — is still the merge key rather than an unknown setting called `<<`.
         if key.as_str() == Some(MERGE_KEY) {
             for source in merge_sources(untagged(value)).ok_or_else(|| {
                 format!(
@@ -759,10 +763,7 @@ fn yaml_entries<'a>(
 fn merge_sources(value: &yaml_serde::Value) -> Option<Vec<&yaml_serde::Mapping>> {
     match value {
         yaml_serde::Value::Mapping(map) => Some(vec![map]),
-        yaml_serde::Value::Sequence(items) => items
-            .iter()
-            .map(|item| untagged(item).as_mapping())
-            .collect(),
+        yaml_serde::Value::Sequence(items) => items.iter().map(|item| item.as_mapping()).collect(),
         _ => None,
     }
 }
@@ -1717,6 +1718,19 @@ mod tests {
         let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("should resolve");
         assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(1)));
         assert_eq!(resolved.get_key("trusted"), Some(&Value::Bool(true)));
+
+        // A tag on the way to the merge key does not stop it being one. `!!merge <<` is the
+        // spelling the YAML spec blesses and the parser resolves it away, so a tag only reaches
+        // the merge check when it is an application's own — and that check is the one place
+        // around here that asks about a key by its text rather than by its shape.
+        let path = tree.write(
+            "tagged.yaml",
+            "a: &a\n  jobs: 7\nsettings:\n  !Merge <<: *a\n",
+        );
+        let layer = FileLayer::at(&path, FileScope::Project).under("settings");
+        let resolved = resolve(REGISTRY, Layers::new().then(&layer)).expect("should resolve");
+        assert_eq!(resolved.get_key("jobs"), Some(&Value::Int(7)));
+        assert!(resolved.warnings.is_empty(), "{:?}", resolved.warnings);
 
         // And a `<<` that points at something there is nothing to merge from is a broken file,
         // not a setting called `<<`.
