@@ -490,7 +490,10 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
             let mut buf = [0u8; 4];
             (*short as char).encode_utf8(&mut buf) == flag.name
         }
-        _ => false,
+        // A flag whose only spelling is its negation — clap's `SetFalse`, tak's
+        // `--no-credit` — is named after that spelling, so the prefix would repeat it:
+        // `no-credit: --no-credit`.
+        _ => show.negate && flag.negate == Some(flag.name),
     };
     if !implied_matches {
         let _ = write!(out, "{}:", flag.name);

@@ -355,3 +355,13 @@ fn a_negate_only_global_flag_still_binds_its_setting() {
     assert!(cli.credit);
     assert!(layer.is_empty());
 }
+
+#[test]
+fn a_negate_only_flag_is_not_named_twice_in_help() {
+    // `no-credit: --no-credit` — the declared name of a `SetFalse` flag is its negation, so
+    // the `name:` prefix help adds for a name the forms do not imply only repeats it.
+    let page =
+        usage_argv::help::render(NegOnly::spec(), NegOnly::spec().root.cmd, false).expect("page");
+    assert!(page.contains("--no-credit"), "{page}");
+    assert!(!page.contains("no-credit: --no-credit"), "{page}");
+}
