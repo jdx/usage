@@ -129,6 +129,34 @@ for warning in usage::config::explain::warnings(&resolved) {
 rather than the first thing found. Provenance is the merge's own output: `explain`, `list`,
 and per-setting `origin` come free, without a second merge to drift from the first.
 
+### When a value will not read
+
+`read` is all or nothing, which leaves a CLI two moves when one field is bad: refuse to start,
+or fall back to a struct of declared defaults and lose the environment and every config file
+along with the offending value. Neither is a choice a library should be making for you, so
+there is `read_lossy`:
+
+```rust
+let (settings, errors) = Settings::read_lossy(&resolved);
+for error in &errors.0 {
+    warn!("{error}");   // or bail, or ignore — the policy is yours
+}
+let settings = settings.expect("every setting declares a default");
+```
+
+A field that will not read falls back to its own declared default; every other field keeps what
+the merge gave it. The failures come back alongside as the same `ReadError`s `read` returns, so
+deciding a bad value is fatal after all costs nothing.
+
+The struct is `None` only where a setting has no value _and_ no declared default — a hole in the
+declaration rather than a bad value, and nothing to fall back to. A settings type where every
+field declares a default can `expect` it.
+
+Most of this cannot happen: the merge already coerces every value to the type its setting
+declares. What is left is a post-merge hook writing through
+`Resolved::coerced`, which is unchecked by design, a type only the tool understands, and a field
+that narrows further than the setting does — a `uint` setting held as a `u16` port.
+
 ## The spec carries the settings
 
 A root deriving [`Cli`](/rust/args-and-flags) names its settings type, and its emitted spec
