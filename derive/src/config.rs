@@ -1238,6 +1238,29 @@ pub fn emit(config: &Config) -> TokenStream {
                     ))
                 }
 
+                /// This resolution's values, keeping every setting that reads.
+                ///
+                /// [`Self::read`] is all or nothing, which leaves a CLI two moves when one
+                /// field is bad: refuse to start, or fall back to a struct of declared
+                /// defaults and lose the environment and every config file along with the
+                /// offending value. Neither is a choice this crate should be making.
+                ///
+                /// So: a field that will not read falls back to its own declared default and
+                /// the rest keep what the merge gave them, with every failure returned
+                /// alongside for the CLI to raise, log, or ignore as it sees fit. The errors
+                /// are the same [`::usage_config::ReadError`]s [`Self::read`] returns, so a
+                /// caller that decides a bad value *is* fatal has lost nothing by asking.
+                ///
+                /// `None` only where a setting has no value and no declared default — a hole
+                /// in the declaration rather than a bad value, and nothing to fall back to.
+                pub fn read_lossy(
+                    __usage_resolved: &#cfg::Resolved,
+                ) -> (::std::option::Option<Self>, #cfg::ReadErrors) {
+                    let mut __usage_fold = __usage_resolved.fold_lossy();
+                    let __usage_read = <Self as #cfg::Props>::read_at(&mut __usage_fold, 0);
+                    (__usage_read, __usage_fold.into_errors())
+                }
+
                 /// The spec `config` block for these settings, as KDL.
                 ///
                 /// What documents, JSON schema and completions read. A CLI deriving

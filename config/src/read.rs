@@ -110,6 +110,8 @@ impl std::error::Error for ReadErrors {}
 pub struct Fold<'a> {
     resolved: &'a Resolved,
     errors: Vec<ReadError>,
+    /// Whether a value that will not read falls back to the setting's declared default.
+    lossy: bool,
 }
 
 impl Resolved {
@@ -118,6 +120,26 @@ impl Resolved {
         Fold {
             resolved: self,
             errors: Vec::new(),
+            lossy: false,
+        }
+    }
+
+    /// Start reading, keeping every setting that does read.
+    ///
+    /// A strict fold reports and yields nothing, so one bad value costs the caller the whole
+    /// resolution — and a CLI whose only remaining move is `Settings::default()` has thrown away
+    /// the environment and every file over a single field. That is not a policy a library gets to
+    /// choose: erroring, warning and carrying on, or ignoring it outright are all reasonable, and
+    /// which one is right depends on the CLI. So this hands back both halves and lets it decide.
+    ///
+    /// A setting that will not read falls back to its declared default, which is the value the
+    /// CLI would have had if the offending layer had said nothing. The error is still recorded —
+    /// the fallback is not a repair, and a caller that wants to treat it as fatal still can.
+    pub fn fold_lossy(&self) -> Fold<'_> {
+        Fold {
+            resolved: self,
+            errors: Vec::new(),
+            lossy: true,
         }
     }
 
@@ -150,7 +172,7 @@ impl Fold<'_> {
                     origin: self.resolved.origin(id).cloned(),
                     kind: ReadErrorKind::Type(err),
                 });
-                None
+                self.fallback(id)
             }
         }
     }
@@ -167,9 +189,25 @@ impl Fold<'_> {
                 origin: None,
                 kind: ReadErrorKind::Missing,
             });
+            // No fallback, in a lossy fold either: the merge seeds every declared default into
+            // the values, so nothing at all here *means* nothing was declared. A setting with no
+            // value and no default is a hole in the spec, and inventing one would hide it.
             return None;
         }
         self.optional(id)
+    }
+
+    /// The declared default, for a value that would not read — in a lossy fold only.
+    ///
+    /// Nothing here re-validates: the default is a `Const` the spec declared, so if it does not
+    /// read as the field's type either, the declaration and the field disagree and there is
+    /// nothing to fall back *to*. The error is already recorded; the field goes without.
+    fn fallback<T: FromValue>(&self, id: PropId) -> Option<T> {
+        if !self.lossy {
+            return None;
+        }
+        let default = self.resolved.registry().get(id).default?;
+        T::from_value(&default.to_value()).ok()
     }
 
     /// What has gone wrong so far, for a caller that wants to add to the list.
@@ -184,6 +222,14 @@ impl Fold<'_> {
         } else {
             Err(ReadErrors(self.errors))
         }
+    }
+
+    /// Everything that went wrong, whether or not anything did.
+    ///
+    /// What a lossy fold ends with: [`Fold::finish`] answers "did this work", and the answer
+    /// there is always "not entirely" or the caller would not be folding lossily.
+    pub fn into_errors(self) -> ReadErrors {
+        ReadErrors(self.errors)
     }
 }
 
@@ -665,5 +711,63 @@ mod tests {
             err.to_string(),
             "jobs expected a boolean but has `12` (set by MYCLI_JOBS)"
         );
+    }
+
+    #[test]
+    fn a_lossy_fold_falls_back_to_the_declared_default_and_still_reports() {
+        let resolved = resolve(REGISTRY, Layers::new().then(&Text(&[]))).expect("resolves");
+        let mut resolved = resolved;
+        // The unchecked door into a resolution, and the reason these errors exist at all.
+        resolved.coerced(id("jobs"), Value::Int(-1), "a hook that got it wrong");
+
+        // Strict: nothing comes back, so a caller folding a whole struct loses every other
+        // setting it just resolved.
+        let mut strict = resolved.fold();
+        assert_eq!(strict.required::<u64>(id("jobs")), None);
+        assert_eq!(strict.required::<bool>(id("raw")), Some(false));
+        strict.finish().expect_err("one field did not read");
+
+        // Lossy: the field that failed takes what it declared, and the failure is still on the
+        // list for the CLI to raise, log, or ignore.
+        let mut lossy = resolved.fold_lossy();
+        assert_eq!(
+            lossy.required::<u64>(id("jobs")),
+            Some(4),
+            "the declared default, not the hook's -1"
+        );
+        assert_eq!(lossy.required::<bool>(id("raw")), Some(false));
+        let errors = lossy.into_errors();
+        assert_eq!(errors.0.len(), 1, "{errors}");
+        assert_eq!(errors.0[0].key, "jobs");
+    }
+
+    #[test]
+    fn a_lossy_fold_does_not_invent_a_default_that_was_never_declared() {
+        // The merge seeds every declared default into the values, so nothing at all here means
+        // nothing was declared — a hole in the spec rather than a bad value, and filling it
+        // would hide the one thing the caller needs told.
+        let resolved = resolve(REGISTRY, Layers::new().then(&Text(&[]))).expect("resolves");
+        let mut lossy = resolved.fold_lossy();
+        assert_eq!(lossy.required::<String>(id("profile")), None);
+        let errors = lossy.into_errors();
+        assert_eq!(errors.0.len(), 1, "{errors}");
+        assert!(matches!(errors.0[0].kind, ReadErrorKind::Missing));
+    }
+
+    #[test]
+    fn a_lossy_fold_leaves_an_optional_field_empty_when_its_value_is_bad() {
+        // `Option<T>` already has somewhere to put "no usable value", and the setting declares
+        // no default to reach for. The error is what carries the news.
+        let resolved = resolve(
+            REGISTRY,
+            Layers::new().then(&Text(&[("MYCLI_RATIO", "0.5")])),
+        )
+        .expect("resolves");
+        let mut resolved = resolved;
+        resolved.coerced(id("ratio"), Value::from("not a number"), "a hook, again");
+
+        let mut lossy = resolved.fold_lossy();
+        assert_eq!(lossy.optional::<f64>(id("ratio")), None);
+        assert_eq!(lossy.into_errors().0.len(), 1);
     }
 }

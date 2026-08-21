@@ -543,3 +543,67 @@ fn a_negate_only_flag_is_not_named_twice_in_help() {
     assert!(page.contains("--no-credit"), "{page}");
     assert!(!page.contains("no-credit: --no-credit"), "{page}");
 }
+
+#[test]
+fn a_lossy_read_keeps_every_setting_that_does_read() {
+    let env = EnvLayer::new([("EX_TASK_JOBS".to_string(), "2".to_string())]);
+    let mut resolved =
+        resolve(Settings::SETTINGS_REGISTRY, Layers::new().then(&env)).expect("resolves");
+
+    // The way a value gets past the merge holding something its field cannot take: a post-merge
+    // hook, unchecked by design because it is where a CLI's own rules live.
+    let jobs = Settings::SETTINGS_REGISTRY
+        .lookup("jobs")
+        .expect("declared")
+        .id;
+    resolved.coerced(jobs, Value::Int(-1), "a hook that got it wrong");
+
+    // Strict: one bad field costs the caller the whole resolution, and a CLI left holding
+    // `Settings::default()` has thrown away the environment over a value it never set.
+    Settings::read(&resolved).expect_err("-1 does not fit a u64");
+
+    // Lossy: the bad field falls back to what it declared, and nothing else is touched.
+    let (settings, errors) = Settings::read_lossy(&resolved);
+    let settings = settings.expect("every field had a value or a default");
+    assert_eq!(settings.jobs, 4, "the declared default, not the hook's -1");
+    assert_eq!(
+        settings.task.jobs,
+        Some(2),
+        "EX_TASK_JOBS is not collateral damage"
+    );
+    // A `default_fn` field has no `Const` to fall back to and does not need one: nothing was
+    // wrong with it, and the fold never reached for a fallback.
+    assert_eq!(settings.cache_dir, default_cache_dir());
+
+    // Reported, not repaired — a CLI that decides a bad value is fatal has lost nothing by
+    // asking lossily.
+    assert_eq!(errors.0.len(), 1, "{errors}");
+    assert_eq!(errors.0[0].key, "jobs");
+    assert!(
+        errors.0[0].origin.is_some(),
+        "the hook that wrote it is named: {errors}"
+    );
+}
+
+#[test]
+fn a_lossy_read_with_nothing_wrong_is_the_strict_one() {
+    let env = EnvLayer::new([("EX_JOBS".to_string(), "9".to_string())]);
+    let resolved =
+        resolve(Settings::SETTINGS_REGISTRY, Layers::new().then(&env)).expect("resolves");
+
+    let strict = Settings::read(&resolved).expect("reads");
+    let (lossy, errors) = Settings::read_lossy(&resolved);
+    assert_eq!(lossy.expect("reads"), strict);
+    assert!(errors.0.is_empty(), "{errors}");
+}
+
+#[test]
+fn a_lossy_read_does_not_invent_a_default_that_was_never_declared() {
+    // The merge seeds every declared default into the values, so a setting with no value at all
+    // is one with nothing to fall back to. Filling it anyway would hide a hole in the spec.
+    let resolved = resolve(Required::SETTINGS_REGISTRY, Layers::new()).expect("resolves");
+    let (settings, errors) = Required::read_lossy(&resolved);
+    assert!(settings.is_none(), "no value and no default");
+    assert_eq!(errors.0.len(), 1, "{errors}");
+    assert_eq!(errors.0[0].key, "token");
+}
