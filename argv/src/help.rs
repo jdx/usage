@@ -1231,12 +1231,16 @@ pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
                 .find(|short| !meta.hidden_shorts.contains(short))
                 .map(|short| format!("-{}", *short as char))
         })
+        .or_else(|| meta.flag.negate.map(|negate| format!("--{negate}")))
         .unwrap_or_else(|| meta.flag.name.to_string())
 }
 
 fn display_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     let usage = flag_usage_masked(meta, show);
     match meta.flag.negate.filter(|_| show.negate) {
+        Some(negate) if show.long.is_none() && show.short.is_none() => {
+            format!("{usage} --{negate}")
+        }
         Some(negate) => format!("{usage} / --{negate}"),
         None => usage,
     }
@@ -2660,8 +2664,9 @@ fn recursive_help<'a>(
 #[cfg(test)]
 mod style_tests {
     use super::{
-        commands_section, flag_notes, flag_usage, flat_commands_short, inline_environment_notes,
-        long_help, render_view_at_styled, styled_flag_usage, styled_help, Style,
+        commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
+        inline_environment_notes, long_help, render_view_at_styled, styled_flag_usage, styled_help,
+        Shown, Style,
     };
     use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
     use crate::{ArgAction, Command, Flag};
@@ -2682,6 +2687,28 @@ mod style_tests {
         };
 
         assert_eq!(flag_usage(&meta), "--color[=WHEN]");
+    }
+
+    #[test]
+    fn a_negation_left_after_positive_spellings_are_masked_keeps_its_flag_name() {
+        let flag = Flag {
+            name: "color",
+            shorts: b"c",
+            longs: &["color"],
+            negate: Some("no-color"),
+            ..Flag::BOOL
+        };
+        let meta = FlagMeta {
+            flag: &flag,
+            ..FlagMeta::EMPTY
+        };
+        let shown = Shown {
+            long: None,
+            short: None,
+            negate: true,
+        };
+
+        assert_eq!(display_usage_masked(&meta, &shown), "color: --no-color");
     }
 
     #[test]

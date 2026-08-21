@@ -882,20 +882,36 @@ pub(crate) fn optional_equals_usage(usage: &str) -> String {
 impl From<&SpecFlag> for KdlNode {
     fn from(flag: &SpecFlag) -> KdlNode {
         let mut node = KdlNode::new("flag");
-        let name = flag
+        let visible_shorts = flag
             .short
             .iter()
-            .filter(|short| !flag.hidden_short_aliases.contains(short))
+            .filter(|short| !flag.hidden_short_aliases.contains(short));
+        let visible_longs = flag
+            .long
+            .iter()
+            .filter(|long| !flag.hidden_aliases.contains(long));
+        let inferred_matches = visible_longs
+            .clone()
+            .next()
+            .is_some_and(|long| long == &flag.name)
+            || (visible_longs.clone().next().is_none()
+                && visible_shorts
+                    .clone()
+                    .next()
+                    .is_some_and(|short| short.to_string() == flag.name));
+        let forms = visible_shorts
             .map(|c| format!("-{c}"))
-            .chain(
-                flag.long
-                    .iter()
-                    .filter(|long| !flag.hidden_aliases.contains(long))
-                    .map(|s| format!("--{s}")),
-            )
+            .chain(visible_longs.map(|s| format!("--{s}")))
             .collect_vec()
             .join(" ");
-        node.push(KdlEntry::new(name));
+        let declaration = if inferred_matches {
+            forms
+        } else if forms.is_empty() {
+            format!("{}:", flag.name)
+        } else {
+            format!("{}: {forms}", flag.name)
+        };
+        node.push(KdlEntry::new(declaration));
         if let Some(desc) = &flag.help {
             node.push(string_entry(Some("help"), desc));
         }
@@ -1314,6 +1330,18 @@ impl From<&clap::Arg> for SpecFlag {
             .collect::<Vec<_>>();
         long.extend(hidden_aliases.iter().cloned());
         let name = get_name_from_short_and_long(&short, &long).unwrap_or_default();
+        // A false-setting switch is the negative spelling itself. The portable model keeps
+        // that as `negate`, and a name-only flag form (`color:`) preserves its identity without
+        // inventing a positive spelling that clap never accepted. One spelling is lossless;
+        // multiple aliases remain the bridge's documented action lossiness.
+        let negate = if matches!(c.get_action(), clap::ArgAction::SetFalse)
+            && short.is_empty()
+            && long.len() == 1
+        {
+            Some(format!("--{}", long.remove(0)))
+        } else {
+            None
+        };
         let arg = if let clap::ArgAction::Set | clap::ArgAction::Append = c.get_action() {
             let value_names = crate::spec::arg::value_names_from_clap(c);
             let mut arg = SpecArg::from(
@@ -1430,7 +1458,7 @@ impl From<&clap::Arg> for SpecFlag {
             },
             default,
             deprecated: None,
-            negate: None,
+            negate,
             overrides: vec![],
             // Filled by the command conversion: clap keeps conflicts on the
             // `Command`, not the `Arg`, so an `Arg` alone cannot see them.
@@ -1448,6 +1476,7 @@ impl From<&clap::Arg> for SpecFlag {
                 arg.double_dash = SpecDoubleDashChoices::Automatic;
             }
         }
+        flag.usage = flag.usage();
         flag
     }
 }
@@ -1748,6 +1777,30 @@ mod tests {
         assert!(dump.exclusive);
         let verbose = spec.cmd.flags.iter().find(|f| f.name == "verbose").unwrap();
         assert!(!verbose.exclusive);
+    }
+
+    #[test]
+    fn a_single_clap_set_false_spelling_becomes_a_negative_only_flag() {
+        let cmd = clap::Command::new("ex").arg(
+            clap::Arg::new("color")
+                .long("color")
+                .action(clap::ArgAction::SetFalse),
+        );
+        let spec = Spec::from(&cmd);
+        let color = spec.cmd.flags.iter().find(|f| f.name == "color").unwrap();
+        assert!(color.long.is_empty());
+        assert!(color.short.is_empty());
+        assert_eq!(color.negate.as_deref(), Some("--color"));
+        assert_eq!(color.usage(), "color:");
+        assert_eq!(color.usage, "color:");
+
+        let rendered = spec.to_string();
+        assert!(
+            rendered.contains("flag color: negate=--color"),
+            "{rendered}"
+        );
+        let reparsed: Spec = rendered.parse().expect("the bridge must emit readable KDL");
+        assert_eq!(reparsed.cmd.flags[0].negate.as_deref(), Some("--color"));
     }
 
     #[test]
