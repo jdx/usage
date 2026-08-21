@@ -696,14 +696,18 @@ fn lint_examples(
 /// Whether an invocation asks for help or a version rather than doing anything.
 ///
 /// The spellings are the ones the parser answers to: those of any declared flag whose
-/// action prints instead of binding, plus the `--help`, `-h` and `-?` the parser
-/// supplies for every command and the `help` subcommand word, both subject to the
-/// spec's `disable_help`. Collected over the whole tree rather than the routed chain,
-/// because a line that asks for help is one whether or not the rest of it routes.
+/// action prints instead of binding, plus the ones the parser supplies rather than a
+/// spec declaring them — `--help`, `-h`, `-?` and the `help` subcommand word under
+/// `disable_help`, and `--version` and `-V` where the spec declares a version. Collected
+/// over the whole tree rather than the routed chain, because a line that asks for help is
+/// one whether or not the rest of it routes.
 fn prints_and_exits(spec: &Spec, words: &[String]) -> bool {
     let mut spellings: Vec<String> = Vec::new();
     if spec.disable_help != Some(true) {
         spellings.extend(["--help".into(), "-h".into(), "-?".into(), "help".into()]);
+    }
+    if (spec.version.is_some() || spec.long_version.is_some()) && !spec.cmd.disable_version_flag {
+        spellings.extend(["--version".into(), "-V".into()]);
     }
     collect_printing_flags(&spec.cmd, &mut spellings);
 
@@ -930,6 +934,28 @@ cmd "deploy" help="deploy"
 "#,
         );
         assert!(issues.is_empty(), "{issues:?}");
+
+        // The same, with the version flag supplied by the parser rather than declared.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+version "1.0.0"
+example "demo --version"
+example "demo -V"
+"#,
+        );
+        assert!(issues.is_empty(), "{issues:?}");
+
+        // And where nothing declares a version, nothing supplies one either.
+        let issues = example_issues(
+            r#"
+name "demo"
+bin "demo"
+example "demo --version"
+"#,
+        );
+        assert_eq!(issues.len(), 1, "{issues:?}");
     }
 
     #[test]
