@@ -304,6 +304,27 @@ tasks --usage"`, so task names are meant to come from running that. usage-argv d
       mise's help from the shadow and diffing every line against usage-lib's — 23 of 211 differed,
       and every difference traced to one of these. They matter past help text, since the emitted
       spec is what docs, manpages, completions and the SDK generators read.
+- [x] **Reusable declarations inside a spec** — mise's checked-in spec is 5,592 lines for 711
+      flags, and most of that count is the same handful of declarations written again under the
+      next command. The derive has `flatten` for this and a hand-authored spec had nothing, so
+      `flagset "name" { flag … }` plus `use "name"` now says it once. Resolved while the file is
+      read, so nothing downstream — help, completions, docs, the generated parsers — learns a
+      concept: reuse disappears into what it stands for rather than becoming vocabulary every
+      consumer has to implement.
+      Decisions worth recording, since each had a defensible other answer. A `use` expands **in
+      place**, because help order is spec order and appending would reorder the command that
+      used it. A command's own declaration **wins** over one arriving from a set, per-form, which
+      is the rule a redeclared global already follows — so a diamond through composition also
+      contributes once. Sets may **compose**; a cycle is an error naming the path that closes it.
+      Sets hold **flags only**: a flag is identified by its spelling wherever it lands, while a
+      positional is identified by its position, so the same set spliced into two commands with
+      different arguments would mean two different things. Sets travel through `include`, and
+      each file resolves its own `use` nodes — a file cannot use a set declared only by a file
+      that includes _it_, which would make a spec's meaning depend on who read it.
+      What this does **not** do yet is give the derive's `flatten` a lossless lowering: it still
+      emits the expanded copy, so the flags mise's spec repeats stay repeated in the generated
+      file. Emitting one flagset per flattened struct is the follow-up, and it is what would
+      turn this from an authoring convenience into a smaller generated spec.
 
 ### Then: what a CLI framework has to have
 

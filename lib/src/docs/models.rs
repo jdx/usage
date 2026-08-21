@@ -613,6 +613,9 @@ impl From<&crate::SpecCommand> for SpecCommand {
             // Rendered above, or deliberately absent from the docs model.
             args: _,
             flags: _,
+            // Where a flag was declared is not something a rendered page shows: a `use` is
+            // resolved before docs are generated, and the flags it named are in `flags`.
+            uses: _,
             mounts: _,
             complete: _,
             mounted: _,

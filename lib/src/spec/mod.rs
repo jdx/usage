@@ -9,6 +9,7 @@ mod context;
 pub mod data_types;
 pub mod effect;
 pub mod flag;
+pub mod flagset;
 pub mod group;
 pub mod helpers;
 pub mod mount;
@@ -31,6 +32,7 @@ use crate::error::UsageErr;
 use crate::spec::cmd::{SpecCommand, SpecExample};
 use crate::spec::config::SpecConfig;
 use crate::spec::context::ParsingContext;
+use crate::spec::flagset::{SpecFlagSet, SpecUse};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::{SpecArg, SpecComplete, SpecFlag};
 use view::SpecView;
@@ -51,6 +53,13 @@ pub struct Spec {
     /// Named executable surfaces promoted from commands in this canonical spec.
     #[serde(skip_serializing_if = "IndexMap::is_empty")]
     pub views: IndexMap<String, SpecView>,
+    /// Reusable flag declarations, by name.
+    ///
+    /// Not serialized, and not re-emitted: a `use` is resolved while the file is read, so by
+    /// the time anything reads this spec the flags are on the commands that use them and these
+    /// entries only record where they came from.
+    #[serde(skip)]
+    pub flagsets: IndexMap<String, SpecFlagSet>,
     /// Every file this spec was read from: its own path, then each `include`, recursively.
     ///
     /// What a build script has to watch. A generator that watches only the file it was pointed at
@@ -481,6 +490,18 @@ impl Spec {
                     let node: SpecCommand = SpecCommand::parse(ctx, &node)?;
                     schema.cmd.subcommands.insert(node.name.to_string(), node);
                 }
+                "flagset" => {
+                    let set = SpecFlagSet::parse(ctx, &node)?;
+                    if schema.flagsets.insert(set.name.clone(), set).is_some() {
+                        bail_parse!(ctx, node.span(), "a flagset may be declared only once");
+                    }
+                }
+                // The root is a command like any other: if its own flags repeat a set, it
+                // says so the same way a subcommand does.
+                "use" => {
+                    let at = schema.cmd.flags.len();
+                    schema.cmd.uses.push(SpecUse::parse(ctx, &node, at)?);
+                }
                 "config" => schema.config = SpecConfig::parse(ctx, &node)?,
                 "complete" => {
                     let complete = SpecComplete::parse(ctx, &node)?;
@@ -620,6 +641,37 @@ impl Spec {
                     };
                     info!("include: {}", file.display());
                     let other = Self::parse_file_with_metadata_inference(&file, false)?;
+                    // Two *declarations* of one name are refused, the same as two in a single
+                    // file. Letting the incoming set win would make which declaration a
+                    // `use` gets depend on whether the `include` stands above or below it —
+                    // and only in that direction, since a `flagset` written after an
+                    // `include` already fails here.
+                    //
+                    // Which declaration, not which name: a file of shared sets is included
+                    // by every file whose `use` nodes name them, since each file resolves
+                    // its own. A spec that includes two of those files sees the shared set
+                    // arrive twice, and that is one declaration by two routes.
+                    let clash = other.flagsets.values().find(|incoming| {
+                        schema
+                            .flagsets
+                            .get(&incoming.name)
+                            .is_some_and(|own| own.declared_in != incoming.declared_in)
+                    });
+                    if let Some(incoming) = clash {
+                        let name = &incoming.name;
+                        let owner = schema.flagsets[name].declared_in.clone();
+                        let owner = match owner.as_os_str().is_empty() {
+                            true => "this spec".to_string(),
+                            false => owner.display().to_string(),
+                        };
+                        bail_parse!(
+                            ctx,
+                            node.span(),
+                            "a flagset may be declared only once: \"{name}\" is declared in \
+                             {} and in {owner}",
+                            incoming.declared_in.display()
+                        );
+                    }
                     schema.merge(other);
                 }
                 k => bail_parse!(ctx, node.node.name().span(), "unsupported spec key {k}"),
@@ -630,6 +682,8 @@ impl Spec {
         } else {
             schema.bin.clone()
         };
+        // Before ancestors, because a command's usage string is built from its flags.
+        flagset::expand(ctx, &mut schema.cmd, &mut schema.flagsets)?;
         set_subcommand_ancestors(&mut schema.cmd, &[]);
         Ok(schema)
     }
@@ -683,6 +737,13 @@ impl Spec {
         merge_opt!(unknown_flags);
         merge_extend!(complete);
         merge_extend!(views);
+        // An included file's sets are visible to the file that includes it, which is how a
+        // spec keeps its shared declarations in a file of their own. Its own `use` nodes are
+        // already resolved by the time it gets here, so nothing is expanded twice. Two files
+        // declaring one name never reach this extend: the `include` refuses them, rather
+        // than one silently taking the other's name. What does reach it is the same shared
+        // file arriving by two routes, which overwrites an entry with itself.
+        merge_extend!(flagsets);
         merge_extend!(examples);
         // An included spec brings the files *it* read, which is how a nested include is watched.
         merge_extend!(sources);
@@ -694,7 +755,7 @@ impl Spec {
     }
 }
 
-fn spec_flag_forms_overlap(a: &SpecFlag, b: &SpecFlag) -> bool {
+pub(crate) fn spec_flag_forms_overlap(a: &SpecFlag, b: &SpecFlag) -> bool {
     fn long_forms(flag: &SpecFlag) -> impl Iterator<Item = &str> {
         flag.long
             .iter()
