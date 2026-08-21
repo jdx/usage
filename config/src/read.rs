@@ -252,7 +252,15 @@ impl FromValue for f64 {
 
 impl FromValue for f32 {
     fn from_value(value: &Value) -> Result<Self, TypeError> {
-        f64::from_value(value).map(|f| f as Self)
+        let wide = f64::from_value(value)?;
+        let narrow = wide as Self;
+        // The rule the narrower integers below follow, held here too: a value that does not
+        // fit is reported rather than wrapped. Rounding a finite value is ordinary precision
+        // loss; turning `1e300` into `inf` is a value the declaration never named.
+        if narrow.is_infinite() && wide.is_finite() {
+            return Err(mismatch("a number that fits 32 bits", value));
+        }
+        Ok(narrow)
     }
 }
 
@@ -336,6 +344,31 @@ mod tests {
     use crate::source::SourceKind;
     use crate::ty::{Parser, Ty};
     use crate::value::Const;
+
+    /// A value that does not fit the field it reads into is reported rather than wrapped.
+    ///
+    /// The narrower integers say so; `f32` reached `f64` and then cast with `as`, which turns
+    /// `1e300` into `inf` and calls it a successful read — a setting whose effective value
+    /// nothing declared.
+    #[test]
+    fn a_value_too_wide_for_the_field_is_reported_rather_than_wrapped() {
+        u8::from_value(&Value::Int(256)).expect_err("256 does not fit 8 bits");
+        i8::from_value(&Value::Int(-129)).expect_err("-129 does not fit 8 bits");
+        usize::from_value(&Value::Int(-1)).expect_err("-1 is not non-negative");
+        assert_eq!(u8::from_value(&Value::Int(255)).expect("255 fits"), 255);
+
+        f32::from_value(&Value::Float(1e300)).expect_err("1e300 is not an f32");
+        f32::from_value(&Value::Float(-1e300)).expect_err("-1e300 is not an f32");
+        // Rounding a value that does fit is ordinary precision loss, which is allowed.
+        assert_eq!(
+            f32::from_value(&Value::Float(0.1)).expect("0.1 fits"),
+            0.1_f32
+        );
+        // An infinity a layer actually supplied is the value it supplied, not an overflow.
+        assert!(f32::from_value(&Value::Float(f64::INFINITY))
+            .expect("an infinity reads as one")
+            .is_infinite());
+    }
 
     static PROPS: &[PropMeta] = &[
         PropMeta {

@@ -1,10 +1,9 @@
 //! A registry written back out as the spec's `config` block.
 //!
-//! `usage-config-build` reads a spec and generates a registry; a CLI that declares its
-//! settings in code with `#[derive(usage::Config)]` goes the other way, and this is the other
-//! way: the registry it derived, rendered as the `config { prop … }` block the spec grammar
-//! defines, so docs, JSON schema, completions and every other spec consumer read declarations
-//! made in Rust exactly as they read ones made in KDL.
+//! A CLI declares its settings in code with `#[derive(usage::Config)]`, and this is the way
+//! back out: the registry it derived, rendered as the `config { prop … }` block the spec
+//! grammar defines, so docs, JSON schema, completions and every other spec consumer read
+//! declarations made in Rust exactly as they read ones made in KDL.
 //!
 //! Written by hand rather than through a KDL library for the same reason the argv crate's
 //! spec writer is: this crate has no dependencies, and the grammar being emitted is the small
@@ -120,10 +119,19 @@ fn write_prop(out: &mut String, meta: &PropMeta) -> std::fmt::Result {
             .collect();
         children.push(format!("source {} {}", quoted(kind), keys.join(" ")));
     }
-    if !meta.choices.is_empty() {
+    // One `choice` node carries one value, so only a scalar belongs here. A registry written
+    // by hand can hold a list or a table; rendering one produced `choice 1 2` or a bare
+    // `choice`, neither of which the prop grammar can read back.
+    let choices: Vec<String> = meta
+        .choices
+        .iter()
+        .filter(|choice| !matches!(choice, Const::List(_) | Const::Map(_)))
+        .map(|choice| const_kdl(*choice))
+        .collect();
+    if !choices.is_empty() {
         let mut block = String::from("choices {\n");
-        for choice in meta.choices {
-            let _ = writeln!(block, "            choice {}", const_kdl(*choice));
+        for choice in choices {
+            let _ = writeln!(block, "            choice {choice}");
         }
         block.push_str("        }");
         children.push(block);
@@ -185,6 +193,12 @@ fn quoted(text: &str) -> String {
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
+            // KDL forbids a raw control character in a document at all, so the rest go through
+            // the escape it does spell. A `help` string that carried an ANSI escape wrote a
+            // block no parser would read back.
+            c if c.is_control() => {
+                let _ = write!(out, "\\u{{{:x}}}", c as u32);
+            }
             c => out.push(c),
         }
     }
@@ -237,6 +251,30 @@ mod tests {
                 envs: &["CI"],
                 ..PropMeta::new("ci", Ty::Bool)
             },
+            // The rest of the vocabulary, in one prop: where each of these lands — an entry on
+            // the `prop` node, or a child of it — is exactly what a golden string is for.
+            PropMeta {
+                optional: Some(true),
+                aliases: &["fail-fast.legacy", "failfast"],
+                examples: &["true", "false"],
+                deprecated: Some("use `stop-on-error`"),
+                deprecated_warn_at: Some("6.0.0"),
+                deprecated_remove_at: Some("7.0.0"),
+                since: Some("5.2.0"),
+                help: Some("Stop at the first failure"),
+                long_help: Some("Whether a failing job stops the rest."),
+                ..PropMeta::new("fail_fast", Ty::Option(&Ty::Bool))
+            },
+            // A `choice` node carries one value, and a registry written by hand can hold a
+            // list where one belongs. The scalar survives; the list is not something the prop
+            // grammar can spell, so it is left out rather than written as two arguments.
+            PropMeta {
+                choices: &[
+                    Const::Str("plain"),
+                    Const::List(&[Const::Int(1), Const::Int(2)]),
+                ],
+                ..PropMeta::new("level", Ty::Any)
+            },
         ];
         let kdl = spec_kdl(PROPS);
         assert_eq!(
@@ -265,8 +303,47 @@ mod tests {
     prop "ci" type="bool" scope="env" hide=#true {
         env "CI"
     }
+    prop "fail_fast" type="option<bool>" optional=#true deprecated="use `stop-on-error`" deprecated_warn_at="6.0.0" deprecated_remove_at="7.0.0" since="5.2.0" help="Stop at the first failure" long_help="Whether a failing job stops the rest." {
+        alias "fail-fast.legacy" "failfast"
+        example "true"
+        example "false"
+    }
+    prop "level" type="any" {
+        choices {
+            choice "plain"
+        }
+    }
 }
 "#
+        );
+    }
+
+    /// KDL forbids a raw control character anywhere in a document, so a value carrying one has
+    /// to go out as the escape KDL does spell — or the block this renders is one no parser,
+    /// including usage's own, will read back.
+    #[test]
+    fn a_control_character_in_a_value_is_escaped_rather_than_written() {
+        static PROPS: &[PropMeta] = &[PropMeta {
+            help: Some("plain\u{1b}[0m and \u{0}"),
+            ..PropMeta::new("color", Ty::Bool)
+        }];
+        assert_eq!(
+            spec_kdl(PROPS),
+            "config {\n    prop \"color\" type=\"bool\" help=\"plain\\u{1b}[0m and \\u{0}\"\n}\n"
+        );
+    }
+
+    /// A prop whose only choices are shapes the grammar cannot spell gets no `choices` block at
+    /// all, rather than one holding a node with no argument.
+    #[test]
+    fn choices_no_single_value_can_hold_leave_no_block_behind() {
+        static PROPS: &[PropMeta] = &[PropMeta {
+            choices: &[Const::Map(&[("a", Const::Int(1))])],
+            ..PropMeta::new("shape", Ty::Any)
+        }];
+        assert_eq!(
+            spec_kdl(PROPS),
+            "config {\n    prop \"shape\" type=\"any\"\n}\n"
         );
     }
 }
