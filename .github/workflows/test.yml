@@ -46,7 +46,12 @@ jobs:
       #
       # `bash-completion` is in the list for the same reason: usage no longer embeds a copy of
       # it, so the generated bash completion needs the system one loaded, and
-      # `bash_completion_or_skip` panics under CI rather than skipping without it.
+      # `bash_completion_or_skip` panics under CI rather than skipping without it. The image
+      # already ships it; naming it here is what keeps that true if a future one stops.
+      #
+      # Deliberately the distro package rather than a newer build from source: `ubuntu-latest`
+      # is 24.04, whose 2.11 is the oldest version the generated script supports. Testing
+      # against the floor is the point — 26.04 ships 2.16, which would pass either way.
       - name: Install shells and bash-completion for completion integration tests
         timeout-minutes: 5
         run: |

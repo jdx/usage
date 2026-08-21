@@ -103,7 +103,8 @@ fn skip_if_shell_missing(shell: &str) -> bool {
 /// The system bash-completion library, or `None` if it isn't installed.
 ///
 /// usage no longer embeds a copy of bash-completion, so the generated bash completion needs
-/// the real one loaded before it — `_comp_initialize` and `_comp_compgen` come from there.
+/// the real one loaded before it — `_init_completion` and `__ltrim_colon_completions` come from
+/// there.
 ///
 /// Candidates are the library itself, never the `profile.d/bash_completion.sh` snippet that
 /// Homebrew and others also install: that one is guarded on `$PS1` and so does nothing at all
@@ -135,7 +136,7 @@ fn bash_completion_candidates() -> Vec<PathBuf> {
     candidates
 }
 
-/// Returns the first candidate that a non-interactive bash can actually load `_comp_initialize`
+/// Returns the first candidate that a non-interactive bash can actually load `_init_completion`
 /// from.
 ///
 /// Existing on disk is not the property the test needs — being sourceable into the shell the
@@ -146,7 +147,7 @@ fn system_bash_completion() -> Option<PathBuf> {
     bash_completion_candidates().into_iter().find(|candidate| {
         candidate.is_file()
             && Command::new(shell_program("bash"))
-                .args(["-c", "source \"$1\" && declare -F _comp_initialize", "--"])
+                .args(["-c", "source \"$1\" && declare -F _init_completion", "--"])
                 .arg(sh_path(candidate))
                 .output()
                 .is_ok_and(|out| out.status.success())
@@ -158,6 +159,9 @@ fn system_bash_completion() -> Option<PathBuf> {
 /// Panics under `CI` for the same reason [`skip_if_shell_missing`] does: bash-completion is
 /// installed by the workflow, so a run that quietly skipped this test would be reporting a
 /// green bash suite that never exercised a completion.
+///
+/// What CI finds is `ubuntu-latest`'s package, which is 2.11 — deliberately the oldest version
+/// the generated script claims to support, so the claim is tested rather than asserted.
 fn bash_completion_or_skip() -> Option<PathBuf> {
     if let Some(path) = system_bash_completion() {
         return Some(path);
@@ -1659,7 +1663,7 @@ fn test_bash_guard_reports_missing_bash_completion() {
 
     // usage no longer ships a copy of bash-completion, so "it isn't installed" is a
     // reachable state for anyone sourcing a generated completion. It has to say so
-    // rather than fail as `_comp_initialize: command not found`.
+    // rather than fail as `_init_completion: command not found`.
     let usage_bin = build_usage_binary();
     let temp_dir = env::temp_dir().join(format!("usage_bash_nobc_test_{}", std::process::id()));
     fs::create_dir_all(&temp_dir).unwrap();
@@ -1698,11 +1702,11 @@ echo "GUARD_EXIT=$?"
         "guard should return 1 when bash-completion is not loaded.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        stderr.contains("bash-completion 2.12+ is required"),
+        stderr.contains("bash-completion is required"),
         "guard should name bash-completion.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        !stderr.contains("_comp_initialize: command not found"),
+        !stderr.contains("_init_completion: command not found"),
         "the guard should fire before bash reports a missing function.\nstderr:\n{stderr}"
     );
 
@@ -1721,16 +1725,15 @@ fn test_bash_self_completion_uses_executable_not_shadowing_function() {
 
     // The real usage binary is on $PATH *and* a `usage` function is defined,
     // so the guard passes legitimately — only the spec call can go wrong.
-    // bash-completion isn't loaded here; stub the three helpers so the spec
+    // bash-completion isn't loaded here; stub the helpers it provides so the spec
     // write is the only thing under test.
     let test_script = format!(
         r#"#!/usr/bin/env bash
 export PATH="{usage_dir}:$PATH"
 export XDG_CACHE_HOME="{cache}"
 usage() {{ echo "FUNCTION_MARKER"; }}
-_comp_initialize() {{ return 0; }}
-_comp_compgen() {{ return 0; }}
-_comp_ltrim_colon_completions() {{ return 0; }}
+_init_completion() {{ return 0; }}
+__ltrim_colon_completions() {{ return 0; }}
 source "{asset}"
 _usage usage "" usage 1
 echo "SPEC_BEGIN"
