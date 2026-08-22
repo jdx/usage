@@ -85,7 +85,11 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     };
     let rendered = TERA.render(template, &ctx).unwrap();
     let sections = Sections::split(&rendered);
-    let page = match spec.help_template.as_deref() {
+    let page = match spec
+        .help_template
+        .as_deref()
+        .filter(|t| crate::help_template::is_set(t))
+    {
         Some(template) => crate::help_template::substitute(template, |name| sections.named(name)),
         None => sections.concatenated(),
     };

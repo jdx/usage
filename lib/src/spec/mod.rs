@@ -483,7 +483,10 @@ impl Spec {
                     if let Err(problem) = crate::help_template::check(&template) {
                         bail_parse!(ctx, node.span(), "{problem}");
                     }
-                    schema.help_template = Some(template);
+                    // Whitespace-only is no layout: store it as unset so a round trip does
+                    // not emit a node that would then render three different empty pages.
+                    schema.help_template =
+                        crate::help_template::is_set(&template).then_some(template);
                 }
                 "arg" => {
                     let arg = SpecArg::parse(ctx, &node)?;

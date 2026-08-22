@@ -21,6 +21,16 @@
 /// | `after_help` | examples, `after_help`, and the author/license footer on a long page |
 pub const SECTIONS: [&str; 6] = ["about", "usage", "commands", "args", "flags", "after_help"];
 
+/// Whether a template is one an author wrote, rather than an empty or whitespace-only
+/// string that should render as the default page.
+///
+/// `help_template ""` is accepted by KDL because it has no unknown placeholders, but it
+/// names no layout. Treating it as unset keeps the three renderers on one page instead of
+/// Rust substituting an empty string into `"\n"` while Go concatenates the default order.
+pub fn is_set(template: &str) -> bool {
+    !template.trim().is_empty()
+}
+
 /// Whether every `{{…}}` in a template names a section.
 ///
 /// The check a template is held to when a spec is read, so nothing renders a page with a
@@ -118,6 +128,14 @@ fn collapse_blank_runs(page: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn whitespace_alone_is_not_a_layout() {
+        assert!(!is_set(""));
+        assert!(!is_set("  \n\t"));
+        assert!(is_set("{{usage}}"));
+        assert!(check("").is_ok());
+    }
 
     #[test]
     fn a_placeholder_naming_no_section_is_refused_by_name() {

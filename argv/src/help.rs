@@ -204,7 +204,10 @@ fn collapse_blank_runs(page: &str) -> String {
 /// lines between sections from becoming trailing ones. That applies to a template's output too:
 /// a page ends in exactly one newline however it was assembled.
 fn assemble(spec: &Spec<'_>, sections: &Sections) -> String {
-    let page = match spec.help_template {
+    let page = match spec
+        .help_template
+        .filter(|template| !template.trim().is_empty())
+    {
         Some(template) => sections.substituted(template),
         None => sections.concatenated(),
     };

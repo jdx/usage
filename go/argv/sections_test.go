@@ -5,110 +5,152 @@ import (
 	"testing"
 )
 
+func helpKeyed(entries ...Help) HelpTable {
+	var max uint64
+	for _, e := range entries {
+		if e.Key > max {
+			max = e.Key
+		}
+	}
+	table := make(HelpTable, max)
+	for i := range table {
+		table[i].Key = uint64(i + 1)
+	}
+	for _, e := range entries {
+		table[e.Key-1] = e
+	}
+	return table
+}
+
 // Does a HelpTemplate lay a page out the way the other two implementations do?
 //
 // The pages below are the ones `corpus/render/04-help-template.json` pins for
-// usage-lib and usage-argv, transcribed. Go does not run the rendering corpus —
+// usage-lib and usage-argv. Go does not run the rendering corpus —
 // `go/conformance` checks pages against mise, which declares no template — so
-// this is where the third implementation is held to the same expectations, and a
-// transcription is the price of that. Compare against the JSON when changing
-// either.
-
-func templateFixture(template string) (HelpSpec, []string, []*Command, HelpTable) {
-	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
-	file := &Arg{Key: 3, Name: "file"}
-	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{force}, Args: []*Arg{file}}
-	help := HelpTable{
-		{Key: 1, Short: "An example"},
-		{Key: 2, Short: "Do it anyway"},
-		{Key: 3, Short: "Which file"},
-	}
-	spec := HelpSpec{Name: "ex", Bin: "ex", About: "An example", HelpTemplate: template}
-	return spec, []string{"ex"}, []*Command{root}, help
-}
+// this is where the third implementation is held to those same full pages.
 
 func TestATemplateReordersTheSections(t *testing.T) {
-	// `{{flags}}` above `{{args}}` inverts the order every default page writes.
-	spec, path, chain, help := templateFixture(
-		"{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}")
+	// corpus/render/04-help-template.json#template-reorders-the-sections
+	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
+	file := &Arg{Key: 3, Name: "file", Required: true}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{force}, Args: []*Arg{file}}
+	help := helpKeyed(
+		Help{Key: 1, Short: "An example"},
+		Help{Key: 2, Short: "Do it anyway"},
+		Help{Key: 3, Short: "Which file", Demanded: true},
+	)
+	spec := HelpSpec{
+		Name: "ex", Bin: "ex", About: "An example",
+		HelpTemplate: "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}",
+	}
 	want := strings.Join([]string{
 		"An example",
 		"",
-		"Usage: ex [--force] [file]",
+		"Usage: ex [--force] <file>",
 		"",
 		"Flags:",
 		"      --force  Do it anyway",
 		"  -h, --help   Print help",
 		"",
 		"Arguments:",
-		"  [file]  Which file",
+		"  <file>  Which file",
 	}, "\n") + "\n"
-	if got := ShortHelp(spec, path, chain, help); got != want {
+	if got := ShortHelp(spec, []string{"ex"}, []*Command{root}, help); got != want {
 		t.Fatalf("page differs\n got:\n%s\nwant:\n%s", got, want)
 	}
 }
 
 func TestATemplateOmitsASection(t *testing.T) {
-	// A section the template does not name is not on the page.
-	spec, path, chain, help := templateFixture("{{about}}\n\n{{usage}}\n\n{{flags}}")
-	got := ShortHelp(spec, path, chain, help)
-	if strings.Contains(got, "Arguments:") {
-		t.Fatalf("an unnamed section should not be rendered:\n%s", got)
+	// corpus/render/04-help-template.json#template-omits-a-section
+	install := &Command{Name: "install", Key: 4}
+	remove := &Command{Name: "remove", Key: 5}
+	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{install, remove}}
+	help := helpKeyed(
+		Help{Key: 1, Short: "An example"},
+		Help{Key: 4, Short: "Install a tool"},
+		Help{Key: 5, Short: "Remove a tool"},
+	)
+	spec := HelpSpec{
+		Name: "ex", Bin: "ex", About: "An example",
+		HelpTemplate: "{{about}}\n\n{{usage}}\n\n{{flags}}",
 	}
-	if !strings.Contains(got, "--force") {
-		t.Fatalf("a named section should be:\n%s", got)
+	want := strings.Join([]string{
+		"An example",
+		"",
+		"Usage: ex <SUBCOMMAND>",
+		"",
+		"Flags:",
+		"  -h, --help  Print help",
+	}, "\n") + "\n"
+	if got := ShortHelp(spec, []string{"ex"}, []*Command{root}, help); got != want {
+		t.Fatalf("page differs\n got:\n%s\nwant:\n%s", got, want)
 	}
 }
 
 func TestATemplateWrapsTheSectionsInText(t *testing.T) {
-	// Text around a placeholder is written as-is, which is what makes a template a
-	// layout rather than a permutation.
-	spec, path, chain, help := templateFixture(
-		"== ex ==\n\n{{usage}}\n\n{{flags}}\n\nSee https://example.com/docs for more.")
-	got := ShortHelp(spec, path, chain, help)
-	if !strings.HasPrefix(got, "== ex ==\n\n") {
-		t.Errorf("the author's heading should open the page:\n%s", got)
+	// corpus/render/04-help-template.json#template-wraps-the-sections-in-text
+	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{force}}
+	help := helpKeyed(Help{Key: 2, Short: "Do it anyway"})
+	spec := HelpSpec{
+		Name: "ex", Bin: "ex",
+		HelpTemplate: "== ex ==\n\n{{usage}}\n\n{{flags}}\n\nSee https://example.com/docs for more.",
 	}
-	if !strings.HasSuffix(got, "See https://example.com/docs for more.\n") {
-		t.Errorf("and their footer should close it:\n%s", got)
+	want := strings.Join([]string{
+		"== ex ==",
+		"",
+		"Usage: ex [--force]",
+		"",
+		"Flags:",
+		"      --force  Do it anyway",
+		"  -h, --help   Print help",
+		"",
+		"See https://example.com/docs for more.",
+	}, "\n") + "\n"
+	if got := ShortHelp(spec, []string{"ex"}, []*Command{root}, help); got != want {
+		t.Fatalf("page differs\n got:\n%s\nwant:\n%s", got, want)
 	}
 }
 
 func TestATemplateClosesTheGapAMissingSectionLeaves(t *testing.T) {
-	// The rule that lets one template serve a whole CLI: this command has no
-	// subcommands and no trailing text, and the separators around those sections
-	// collapse rather than pushing the rest of the page down.
-	spec, path, chain, help := templateFixture(
-		"{{about}}\n\n{{usage}}\n\n{{commands}}\n\n{{args}}\n\n{{flags}}\n\n{{after_help}}")
+	// corpus/render/04-help-template.json#template-closes-the-gap-a-missing-section-leaves
+	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{force}}
+	help := helpKeyed(
+		Help{Key: 1, Short: "An example"},
+		Help{Key: 2, Short: "Do it anyway"},
+	)
+	spec := HelpSpec{
+		Name: "ex", Bin: "ex", About: "An example",
+		HelpTemplate: "{{about}}\n\n{{usage}}\n\n{{commands}}\n\n{{args}}\n\n{{flags}}\n\n{{after_help}}",
+	}
 	want := strings.Join([]string{
 		"An example",
 		"",
-		"Usage: ex [--force] [file]",
-		"",
-		"Arguments:",
-		"  [file]  Which file",
+		"Usage: ex [--force]",
 		"",
 		"Flags:",
 		"      --force  Do it anyway",
 		"  -h, --help   Print help",
 	}, "\n") + "\n"
-	if got := ShortHelp(spec, path, chain, help); got != want {
+	if got := ShortHelp(spec, []string{"ex"}, []*Command{root}, help); got != want {
 		t.Fatalf("page differs\n got:\n%s\nwant:\n%s", got, want)
 	}
 }
 
 func TestATemplateGathersALongPagesTrailingSections(t *testing.T) {
-	// `{{after_help}}` is the whole tail of a page — examples, the spec's trailing
-	// text, and the author and licence a long page ends with — so a template moving
-	// it moves all of it at once.
-	root := &Command{Name: "ex", Key: 1, Version: true}
-	help := HelpTable{{Key: 1, Examples: []Example{{Header: "Force it", Code: "ex --force"}}}}
+	// corpus/render/04-help-template.json#template-gathers-a-long-pages-trailing-sections
+	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
+	root := &Command{Name: "ex", Key: 1, Version: true, Flags: []*Flag{force}}
+	help := helpKeyed(
+		Help{Key: 1, Examples: []Example{{Header: "Force it", Code: "ex --force"}}},
+		Help{Key: 2, Short: "Do it anyway"},
+	)
 	spec := HelpSpec{
 		Name: "ex", Bin: "ex", About: "An example", Version: "1.2.3",
 		Author: "Ex Ample", AfterHelp: "Read the docs.",
 		HelpTemplate: "{{after_help}}\n\n{{usage}}\n\n{{flags}}\n\n{{about}}",
 	}
-	got := LongHelp(spec, []string{"ex"}, []*Command{root}, help)
 	want := strings.Join([]string{
 		"Examples:",
 		"  Force it:",
@@ -118,56 +160,68 @@ func TestATemplateGathersALongPagesTrailingSections(t *testing.T) {
 		"",
 		"Author: Ex Ample",
 		"",
-		"Usage: ex",
+		"Usage: ex [--force]",
 		"",
 		"Flags:",
+		"      --force    Do it anyway",
 		"  -h, --help     Print help",
 		"  -V, --version  Print version",
 		"",
 		"ex 1.2.3",
 		"An example",
 	}, "\n") + "\n"
-	if got != want {
+	if got := LongHelp(spec, []string{"ex"}, []*Command{root}, help); got != want {
 		t.Fatalf("page differs\n got:\n%s\nwant:\n%s", got, want)
 	}
 }
 
 func TestAPageWithoutATemplateIsUnchanged(t *testing.T) {
-	// The default order is what every other test in this package renders, and the
-	// point of the whole arrangement is that adding a template did not move it.
-	spec, path, chain, help := templateFixture("")
+	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
+	file := &Arg{Key: 3, Name: "file", Required: true}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{force}, Args: []*Arg{file}}
+	help := helpKeyed(
+		Help{Key: 1, Short: "An example"},
+		Help{Key: 2, Short: "Do it anyway"},
+		Help{Key: 3, Short: "Which file", Demanded: true},
+	)
+	spec := HelpSpec{Name: "ex", Bin: "ex", About: "An example"}
 	want := strings.Join([]string{
 		"An example",
 		"",
-		"Usage: ex [--force] [file]",
+		"Usage: ex [--force] <file>",
 		"",
 		"Arguments:",
-		"  [file]  Which file",
+		"  <file>  Which file",
 		"",
 		"Flags:",
 		"      --force  Do it anyway",
 		"  -h, --help   Print help",
 	}, "\n") + "\n"
-	if got := ShortHelp(spec, path, chain, help); got != want {
+	if got := ShortHelp(spec, []string{"ex"}, []*Command{root}, help); got != want {
 		t.Fatalf("the default page changed\n got:\n%s\nwant:\n%s", got, want)
+	}
+
+	// An empty or whitespace-only template is the same unset: Go used to treat
+	// "" as default and Rust used to render "\n".
+	for _, template := range []string{"", "  ", "\n\t"} {
+		spec.HelpTemplate = template
+		if got := ShortHelp(spec, []string{"ex"}, []*Command{root}, help); got != want {
+			t.Fatalf("template %q should be the default page\n got:\n%s\nwant:\n%s", template, got, want)
+		}
 	}
 }
 
 func TestAPlaceholderNamingNoSectionIsLeftAlone(t *testing.T) {
-	// The vocabulary is checked where a spec is authored — KDL refuses one at parse,
-	// the Rust derive at compile time — so a name reaching this renderer is text an
-	// author meant literally rather than an error to discover here.
-	spec, path, chain, help := templateFixture("{{usage}}\n\n{{options}}")
-	got := ShortHelp(spec, path, chain, help)
+	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{force}}
+	spec := HelpSpec{Name: "ex", Bin: "ex", HelpTemplate: "{{usage}}\n\n{{options}}"}
+	got := ShortHelp(spec, []string{"ex"}, []*Command{root}, HelpTable{})
 	if !strings.Contains(got, "{{options}}") {
 		t.Fatalf("an unknown placeholder should survive as written:\n%s", got)
 	}
 }
 
 func TestTheSectionVocabularyIsTheSameSixWords(t *testing.T) {
-	// The list the other implementations hold: usage::help_template::SECTIONS and
-	// usage_argv::help::SECTIONS. Nothing mechanical compares them across languages,
-	// so this is where Go's copy is written down beside the order they share.
 	want := []string{"about", "usage", "commands", "args", "flags", "after_help"}
 	if len(HelpSections) != len(want) {
 		t.Fatalf("HelpSections = %v, want %v", HelpSections, want)
@@ -178,8 +232,6 @@ func TestTheSectionVocabularyIsTheSameSixWords(t *testing.T) {
 		}
 	}
 
-	// And every one of them can be placed: a name this renderer does not know would
-	// survive substitution as literal braces.
 	var template strings.Builder
 	for i, name := range HelpSections {
 		if i > 0 {
@@ -187,8 +239,16 @@ func TestTheSectionVocabularyIsTheSameSixWords(t *testing.T) {
 		}
 		template.WriteString("{{" + name + "}}")
 	}
-	spec, path, chain, help := templateFixture(template.String())
-	if got := ShortHelp(spec, path, chain, help); strings.Contains(got, "{{") {
+	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
+	file := &Arg{Key: 3, Name: "file", Required: true}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{force}, Args: []*Arg{file}}
+	help := helpKeyed(
+		Help{Key: 1, Short: "An example"},
+		Help{Key: 2, Short: "Do it anyway"},
+		Help{Key: 3, Short: "Which file", Demanded: true},
+	)
+	spec := HelpSpec{Name: "ex", Bin: "ex", About: "An example", HelpTemplate: template.String()}
+	if got := ShortHelp(spec, []string{"ex"}, []*Command{root}, help); strings.Contains(got, "{{") {
 		t.Fatalf("a section went unfilled:\n%s", got)
 	}
 }

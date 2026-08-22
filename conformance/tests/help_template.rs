@@ -233,6 +233,22 @@ fn a_template_naming_no_section_is_refused_where_the_spec_is_read() {
 }
 
 #[test]
+fn an_empty_template_is_the_default_page() {
+    // Accepted, because it names no unknown section, and stored as unset, because it
+    // also names no layout. Rust and Go then assemble the same default page.
+    let spec: LibSpec = "bin \"ex\"\nabout \"An example\"\nhelp_template \"\"\n"
+        .parse()
+        .expect("empty is valid");
+    assert_eq!(spec.help_template, None);
+    let with = usage::docs::cli::render_help(&spec, &spec.cmd, false);
+    let without: LibSpec = "bin \"ex\"\nabout \"An example\"\n".parse().unwrap();
+    assert_eq!(
+        with,
+        usage::docs::cli::render_help(&without, &without.cmd, false)
+    );
+}
+
+#[test]
 fn the_cli_a_template_describes_still_parses() {
     // A page describing something the parser does not do is worse than no page. Reading the
     // fixture also keeps its fields from being dead code, which CI denies.

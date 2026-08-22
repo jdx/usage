@@ -21,7 +21,11 @@ import "strings"
 //	args        every argument group, each under its heading
 //	flags       this command's flag groups, then the globals it inherits
 //	after_help  examples, AfterHelp, and the author/license footer on a long page
-var HelpSections = []string{"about", "usage", "commands", "args", "flags", "after_help"}
+//
+// An array rather than a slice, so the vocabulary cannot grow or shrink the way
+// a package-level slice can. The names themselves are still assignable; nothing
+// in this package writes them.
+var HelpSections = [...]string{"about", "usage", "commands", "args", "flags", "after_help"}
 
 // helpSections is a page under construction, cut at the boundaries a template may
 // reorder. `flattened` is not a section an author can name: it is the other half of
@@ -87,7 +91,7 @@ func (s *helpSections) named(name string) (string, bool) {
 // template's output too: a page ends in exactly one newline however it was built.
 func (s *helpSections) assemble(template string) string {
 	page := s.concatenated()
-	if template != "" {
+	if strings.TrimSpace(template) != "" {
 		page = substituteSections(template, s)
 	}
 	return strings.TrimSpace(page) + "\n"

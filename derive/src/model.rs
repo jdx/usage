@@ -957,7 +957,7 @@ impl Cli {
                         if let Err(problem) = check_help_template(&template) {
                             return Err(syn::Error::new_spanned(&meta, problem));
                         }
-                        cli.help_template = Some(template);
+                        cli.help_template = (!template.trim().is_empty()).then_some(template);
                     }
                     "before_help" => cli.before_help = Some(metadata_expr(&meta)?),
                     "next_help_heading" => cli.next_help_heading = Some(string_value(&meta)?),
@@ -5998,6 +5998,10 @@ mod tests {
         );
         assert!(err.contains("belongs on the root"), "unhelpful: {err}");
         assert!(err.contains("help_template"), "unhelpful: {err}");
+
+        let parsed = cli(r#"#[usage(help_template = "")] struct Root {}"#)
+            .expect("an empty template is no layout, not an error");
+        assert_eq!(parsed.help_template, None);
     }
 
     #[test]
