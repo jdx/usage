@@ -4762,7 +4762,9 @@ pub(crate) fn doc_comment(
         return Ok(((!short.is_empty()).then_some(short), long));
     }
 
-    let full = flow_prose(lines.join("\n").trim());
+    // Leading and trailing blank lines are already gone; do not `trim()` the
+    // joined text, which would strip indent from a first or last example line.
+    let full = flow_prose(&lines.join("\n"));
     let short = full.split("\n\n").next().unwrap_or(&full).to_string();
 
     let long = if full == short { None } else { Some(full) };
@@ -4776,34 +4778,31 @@ pub(crate) fn doc_comment(
 /// comment to 80 columns does not change the generated spec. Blank lines stay
 /// paragraph breaks. Indented lines and fenced code blocks (` ``` ` or `~~~`)
 /// keep their newlines, because mise's help is full of typed-command examples
-/// that a flatten would destroy.
+/// that a flatten would destroy. Fence state survives blank lines inside a
+/// block, and a fence closes only on the same marker it opened with.
 fn flow_prose(text: &str) -> String {
-    let mut paragraphs = Vec::new();
-    let mut current = Vec::new();
+    let mut out = String::new();
+    let mut open: Option<OpenFence> = None;
+    let mut prev_preserved = false;
+    let mut at_paragraph_break = false;
     for line in text.lines() {
         if line.trim().is_empty() {
-            if !current.is_empty() {
-                paragraphs.push(flow_paragraph(&current));
-                current.clear();
+            if open.is_some() {
+                out.push('\n');
+                prev_preserved = true;
+            } else if !out.is_empty() && !at_paragraph_break {
+                out.push_str("\n\n");
+                at_paragraph_break = true;
+                prev_preserved = false;
             }
-        } else {
-            current.push(line);
+            continue;
         }
-    }
-    if !current.is_empty() {
-        paragraphs.push(flow_paragraph(&current));
-    }
-    paragraphs.join("\n\n")
-}
 
-fn flow_paragraph(lines: &[&str]) -> String {
-    let mut out = String::new();
-    let mut in_fence = false;
-    let mut prev_preserved = false;
-    for line in lines {
-        let fence = is_markdown_fence(line);
-        let preserve = in_fence || fence || line.starts_with(char::is_whitespace);
-        if !out.is_empty() {
+        let closing = open.as_ref().is_some_and(|fence| fence.closes(line));
+        let opening = open.is_none().then(|| opening_fence(line)).flatten();
+        let preserve =
+            open.is_some() || closing || opening.is_some() || line.starts_with(char::is_whitespace);
+        if !out.is_empty() && !at_paragraph_break {
             if preserve || prev_preserved {
                 out.push('\n');
             } else {
@@ -4811,19 +4810,35 @@ fn flow_paragraph(lines: &[&str]) -> String {
             }
         }
         out.push_str(line);
-        if fence {
-            in_fence = !in_fence;
+        at_paragraph_break = false;
+        if closing {
+            open = None;
+        } else if let Some(fence) = opening {
+            open = Some(fence);
         }
         prev_preserved = preserve;
     }
     out
 }
 
-/// CommonMark code fences: three or more backticks or tildes, after indent.
-/// CommonMark code fences: three or more backticks or tildes, after indent.
-fn is_markdown_fence(line: &str) -> bool {
+struct OpenFence {
+    marker: char,
+    len: usize,
+}
+
+impl OpenFence {
+    fn closes(&self, line: &str) -> bool {
+        let trimmed = line.trim_start();
+        let n = trimmed.chars().take_while(|&c| c == self.marker).count();
+        n >= self.len && trimmed[n..].trim().is_empty()
+    }
+}
+
+fn opening_fence(line: &str) -> Option<OpenFence> {
     let trimmed = line.trim_start();
-    trimmed.starts_with("```") || trimmed.starts_with("~~~")
+    let marker = trimmed.chars().next().filter(|c| matches!(c, '`' | '~'))?;
+    let len = trimmed.chars().take_while(|&c| c == marker).count();
+    (len >= 3).then_some(OpenFence { marker, len })
 }
 
 /// `my_flag` and `MyCli` both become `my-cli`-shaped names.
@@ -8675,24 +8690,24 @@ mod tests {
 
     #[test]
     fn non_verbatim_tilde_fences_keep_their_line_breaks() {
-        let cli = cli(
-            r#"
+        let cli = cli(r#"
             /// Short summary.
             ///
             /// ~~~
-            /// kept
-            /// as
-            /// lines
+            /// first
+            ///
+            /// second
+            /// third
+            /// ```
             /// ~~~
             struct Ex {}
-        "#,
-        )
+        "#)
         .unwrap();
 
         assert_eq!(cli.about.as_deref(), Some("Short summary."));
         assert_eq!(
             cli.long_about.as_deref(),
-            Some("Short summary.\n\n~~~\nkept\nas\nlines\n~~~")
+            Some("Short summary.\n\n~~~\nfirst\n\nsecond\nthird\n```\n~~~")
         );
     }
 

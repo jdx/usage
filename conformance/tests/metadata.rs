@@ -429,9 +429,11 @@ fn ordinary_prose_doc_comments_flow_like_clap() {
 /// Short summary.
 ///
 /// ~~~
-/// kept
-/// as
-/// lines
+/// first
+///
+/// second
+/// third
+/// ```
 /// ~~~
 #[derive(Cli)]
 #[usage(bin = "tilde-fenced-comments")]
@@ -447,7 +449,7 @@ fn ordinary_tilde_fenced_blocks_keep_their_line_breaks() {
     );
     assert_eq!(
         spec.about_long.as_deref(),
-        Some("Short summary.\n\n~~~\nkept\nas\nlines\n~~~")
+        Some("Short summary.\n\n~~~\nfirst\n\nsecond\nthird\n```\n~~~")
     );
 }
 
