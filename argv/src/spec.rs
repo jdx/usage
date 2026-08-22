@@ -1472,7 +1472,7 @@ impl Spec<'_> {
         // block, so a root mount is not expressible. Emitting it anyway would
         // produce a document that does not parse, and dropping it quietly is the
         // lossiness this module claims not to have — so it fails loudly in debug
-        // builds instead, and PLAN.md carries it as a possible spec extension.
+        // builds instead; a root-level mount remains a possible spec extension.
         debug_assert!(
             self.root.mount.is_none(),
             "a mount on the root command cannot be written: the spec accepts \
@@ -3293,6 +3293,72 @@ pub trait CommandArgs: Sized {
     /// Fallible because a command can require a subcommand of its own, and "none was
     /// given" is only knowable here — at the point where the value has to exist.
     fn build<'t, 'v>(partial: Self::Partial) -> Result<Self, crate::Error<'t, 'v>>;
+
+    /// One declaration in this command whose value the caller already had.
+    ///
+    /// The standing counterpart of [`CommandArgs::any_given`], and the reason it is
+    /// asked of the built struct rather than of a partial: an update merges a parse
+    /// into a value the caller owns, and a value cannot be run backwards through
+    /// `FromStr` into the bytes a partial holds. So presence is what the type itself
+    /// can answer — a filled `Option`, a collection with items, a set switch — and a
+    /// plain value is always present.
+    ///
+    /// `None` by default, which is what a hand-written implementation that does not
+    /// take part in updates should say.
+    fn any_standing(standing: &Self) -> Option<&'static str> {
+        let _ = standing;
+        None
+    }
+
+    /// [`CommandArgs::apply_defaults`], filling only what the caller does not already have.
+    ///
+    /// A default never overwrites a value the caller set deliberately, so an update
+    /// with no relevant argv cannot change the struct.
+    fn apply_defaults_update(partial: &mut Self::Partial, standing: &Self) {
+        let _ = standing;
+        Self::apply_defaults(partial);
+    }
+
+    /// [`CommandArgs::apply_env`], filling only what the caller does not already have.
+    fn apply_env_update(partial: &mut Self::Partial, standing: &Self) {
+        let _ = standing;
+        Self::apply_env(partial);
+    }
+
+    /// [`CommandArgs::check`] against the union of this argv and what the caller had.
+    ///
+    /// Required-ness, conflicts and the rest see a field the caller already filled as
+    /// present, so an update validates both inputs together rather than this argv alone.
+    fn check_update<'t, 'v>(
+        partial: &mut Self::Partial,
+        standing: &Self,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        let _ = standing;
+        Self::check(partial)
+    }
+
+    /// [`CommandArgs::check_with_args_override_self`] against the same union.
+    fn check_update_with_args_override_self<'t, 'v>(
+        partial: &mut Self::Partial,
+        args_override_self: bool,
+        standing: &Self,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        let _ = standing;
+        Self::check_with_args_override_self(partial, args_override_self)
+    }
+
+    /// Overwrite the fields this argv gave, and leave the rest of `standing` alone.
+    ///
+    /// The default replaces the whole value, which is all a hand-written implementation
+    /// that cannot see its own fields can promise. A derived one merges field by field:
+    /// a field this command line said nothing about keeps the value it had.
+    fn merge<'t, 'v>(
+        partial: Self::Partial,
+        standing: &mut Self,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        *standing = Self::build(partial)?;
+        Ok(())
+    }
 }
 
 /// Supplies a typed placeholder for fields outside an executable view.
@@ -3567,6 +3633,42 @@ pub trait Subcommands: Sized {
         partial: Self::Partial,
         selected: usize,
     ) -> Result<Option<Self>, crate::Error<'t, 'v>>;
+
+    /// [`Subcommands::apply_env`] on an update, filling only what the caller lacks.
+    fn apply_env_update(partial: &mut Self::Partial, selected: Option<usize>, standing: &Self) {
+        let _ = standing;
+        Self::apply_env(partial, selected);
+    }
+
+    /// [`Subcommands::check`] against the union of this argv and what the caller had.
+    ///
+    /// Only when the selected variant is the one `standing` already holds. Selecting a
+    /// different command is a routing decision rather than a value to merge, so the old
+    /// variant's fields say nothing about the new one's requirements.
+    fn check_update<'t, 'v>(
+        partial: &mut Self::Partial,
+        selected: usize,
+        standing: &Self,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        let _ = standing;
+        Self::check(partial, selected)
+    }
+
+    /// Merge the selected variant into the one the caller already has.
+    ///
+    /// The same variant merges field-wise; a different one replaces it wholesale,
+    /// discarding the old variant's fields. The default always replaces, which is what
+    /// a hand-written implementation can promise without seeing its own variants.
+    fn merge_into<'t, 'v>(
+        partial: Self::Partial,
+        selected: usize,
+        standing: &mut Self,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        if let Some(built) = Self::select(partial, selected)? {
+            *standing = built;
+        }
+        Ok(())
+    }
 }
 
 /// View-aware construction for a derived subcommand enum.

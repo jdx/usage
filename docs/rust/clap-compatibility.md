@@ -40,18 +40,18 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 
 ## Types and declarations
 
-| clap surface                                     | derive   | argv     | KDL | lib | output | bridge | Notes                                                                                              |
-| ------------------------------------------------ | -------- | -------- | --- | --- | ------ | ------ | -------------------------------------------------------------------------------------------------- |
-| `Parser` / `Command` metadata                    | yes      | yes      | yes | yes | yes    | yes    | `#[derive(usage::Cli)]`; name, bin, about, long about, before/after help, and version are carried. |
-| `Args`                                           | yes      | yes      | yes | yes | yes    | yes    | Dedicated, unit, reused, nested, and flattened Args types are covered.                             |
-| `Subcommand`                                     | yes      | yes      | yes | yes | yes    | yes    | Bare, tuple, inline-struct, nested, boxed, aliases, and hidden aliases are covered.                |
-| `ValueEnum` / `PossibleValue`                    | yes      | yes      | yes | yes | yes    | yes    | Names, help, hide, visible/hidden aliases, cfg, and case-insensitive matching are preserved.       |
-| `flatten`                                        | yes      | yes      | yes | yes | yes    | yes    | Parsing and flattened `next_help_heading` topology are composed.                                   |
-| `skip`                                           | yes      | yes      | n/a | n/a | n/a    | n/a    | `#[usage(skip)]` fills the field from `Default` and emits no argument.                             |
-| `from_global`                                    | no       | no       | no  | no  | no     | no     | A global flag is parsed on its declaring root type; copying it into another field is unsupported.  |
-| arbitrary `Command` / `Arg` builder code         | non-goal | non-goal | n/a | yes | yes    | lossy  | `usage-lib` is the dynamic API; the typed derive does not reproduce clap's builder API.            |
-| `ArgMatches`, `FromArgMatches`, `CommandFactory` | non-goal | non-goal | n/a | n/a | n/a    | n/a    | Typed structs and borrowed static metadata replace these APIs.                                     |
-| `update_from` / `try_update_from`                | no       | no       | n/a | n/a | n/a    | n/a    | Parsing currently constructs a new value.                                                          |
+| clap surface                                     | derive   | argv     | KDL | lib | output | bridge | Notes                                                                                                       |
+| ------------------------------------------------ | -------- | -------- | --- | --- | ------ | ------ | ----------------------------------------------------------------------------------------------------------- |
+| `Parser` / `Command` metadata                    | yes      | yes      | yes | yes | yes    | yes    | `#[derive(usage::Cli)]`; name, bin, about, long about, before/after help, and version are carried.          |
+| `Args`                                           | yes      | yes      | yes | yes | yes    | yes    | Dedicated, unit, reused, nested, and flattened Args types are covered.                                      |
+| `Subcommand`                                     | yes      | yes      | yes | yes | yes    | yes    | Bare, tuple, inline-struct, nested, boxed, aliases, and hidden aliases are covered.                         |
+| `ValueEnum` / `PossibleValue`                    | yes      | yes      | yes | yes | yes    | yes    | Names, help, hide, visible/hidden aliases, cfg, and case-insensitive matching are preserved.                |
+| `flatten`                                        | yes      | yes      | yes | yes | yes    | yes    | Parsing and flattened `next_help_heading` topology are composed.                                            |
+| `skip`                                           | yes      | yes      | n/a | n/a | n/a    | n/a    | `#[usage(skip)]` fills the field from `Default` and emits no argument.                                      |
+| `from_global`                                    | no       | no       | no  | no  | no     | no     | A global flag is parsed on its declaring root type; copying it into another field is unsupported.           |
+| arbitrary `Command` / `Arg` builder code         | non-goal | non-goal | n/a | yes | yes    | lossy  | `usage-lib` is the dynamic API; the typed derive does not reproduce clap's builder API.                     |
+| `ArgMatches`, `FromArgMatches`, `CommandFactory` | non-goal | non-goal | n/a | n/a | n/a    | n/a    | Typed structs and borrowed static metadata replace these APIs.                                              |
+| `update_from` / `try_update_from`                | yes      | yes      | n/a | n/a | n/a    | n/a    | Merges into a value you already have; a standing value satisfies a relationship but cannot be re-validated. |
 
 ## Arguments and values
 

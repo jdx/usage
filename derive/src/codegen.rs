@@ -259,6 +259,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let argument_lookup = argument_lookup_functions(cli);
     let deprecations = deprecations_fn(cli);
     let defaults = partial_defaults(cli);
+    let merge = merge_fn(cli);
     // A root resolves settings when it binds one itself, or when it says so — which is how a CLI
     // whose bound flags all live in a flattened group asks for the entry points, since it cannot
     // see another struct's fields. A root that does neither gets the compile-time guard instead of
@@ -916,20 +917,34 @@ pub fn emit(cli: &Cli) -> TokenStream {
             /// In the module rather than beside the parse, so every reference it makes
             /// to the user's own types sits at one consistent scope — the root and a
             /// nested command generate the same code here.
+            /// `__usage_standing` is what an update already had: `None` for an ordinary
+            /// parse, which folds every question about it away. One body rather than an
+            /// update-only copy, because this is the largest function a CLI generates and
+            /// most CLIs never call the entry point that passes a value here.
+            fn check_with_view_standing<'t, 'v>(
+                partial: &mut Partial,
+                __usage_view: ::std::option::Option<
+                    &'static usage_argv::spec::ViewMeta<'static>,
+                >,
+                __usage_standing: ::std::option::Option<&#ident>,
+            ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                partial.__usage_view = __usage_view;
+                // Read unconditionally: a command that declares nothing to check would
+                // otherwise leave the parameter unused in the user's crate, where
+                // nobody can silence it.
+                let _ = (&partial, __usage_standing.is_some());
+                let args_override_self = #args_override_self;
+                #post
+                ::std::result::Result::Ok(())
+            }
+
             fn check_with_view<'t, 'v>(
                 partial: &mut Partial,
                 __usage_view: ::std::option::Option<
                     &'static usage_argv::spec::ViewMeta<'static>,
                 >,
             ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
-                partial.__usage_view = __usage_view;
-                // Read unconditionally: a command that declares nothing to check would
-                // otherwise leave the parameter unused in the user's crate, where
-                // nobody can silence it.
-                let _ = &partial;
-                let args_override_self = #args_override_self;
-                #post
-                ::std::result::Result::Ok(())
+                check_with_view_standing(partial, __usage_view, ::std::option::Option::None)
             }
 
             pub fn check<'t, 'v>(
@@ -937,6 +952,20 @@ pub fn emit(cli: &Cli) -> TokenStream {
             ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
                 check_with_view(partial, ::std::option::Option::None)
             }
+
+            /// `check`, against the union of this command line and what the caller had.
+            pub fn check_update<'t, 'v>(
+                partial: &mut Partial,
+                __usage_standing: &#ident,
+            ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                check_with_view_standing(
+                    partial,
+                    ::std::option::Option::None,
+                    ::std::option::Option::Some(__usage_standing),
+                )
+            }
+
+            #merge
 
             /// Every token read, and nothing else decided.
             ///
@@ -1269,6 +1298,120 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         }
                     }
                     Self::__usage_parse_from(__usage_words, __usage_warnings)
+                }
+
+                /// Merge a command line, excluding the program name, into this value.
+                ///
+                /// The counterpart of [`Self::parse_from`] for a CLI parsed more than once:
+                /// a REPL's standing options, a daemon reconfigured while it runs. The rules
+                /// are stated rather than inherited, because a parse cannot be run backwards
+                /// through `FromStr` to seed itself from a value — what the caller already
+                /// has is read from the struct instead, by the checks that need to know a
+                /// field is filled.
+                ///
+                /// Relationships see what is already there: `required`, `requires_if`,
+                /// `conflicts` and the rest treat a field that already holds a value as
+                /// present, so this validates the union of both inputs rather than this argv
+                /// alone. Environment variables and declared defaults fill only fields still
+                /// empty, so an update never clobbers a value the caller set. A collection
+                /// this command line mentions is replaced whole; one it says nothing about is
+                /// left alone. A subcommand word naming a different variant replaces it,
+                /// discarding the old variant's fields, since selecting a command is a
+                /// routing decision rather than a value to merge.
+                ///
+                /// `self` is left untouched when this returns an error: nothing is merged
+                /// until every check has passed.
+                ///
+                /// Two things a standing value cannot answer, because the bytes it was parsed
+                /// from are gone: a check about what a value *is* — a choice list, a
+                /// `validate` expression — is skipped for a field this argv did not supply,
+                /// and a `requires_if` comparing against a particular value does not match
+                /// one that merely stands.
+                pub fn try_update_from<'v>(
+                    &mut self,
+                    argv: &[&'v ::std::ffi::OsStr],
+                ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
+                    // A fresh partial, never seeded from `self`: `FromStr` has no inverse, so
+                    // there is no way back from a typed field to the word that made it.
+                    #defaults
+                    read_argv_into(Self::command(), argv, &mut partial)?;
+                    check_update(&mut partial, self)?;
+                    merge(partial, self)
+                }
+
+                /// Merge a full argv, including the program name, into this value.
+                ///
+                /// The [`Self::parse_from_argv`] counterpart of [`Self::try_update_from`]:
+                /// argv0 is stripped, a multicall applet name selects its subcommand, and a
+                /// view's program name is rewritten to the command it promotes. A view
+                /// projects a struct that omits the root fields it does not carry; an update
+                /// has no such struct to project into, so the words are rewritten and the
+                /// omitted fields are simply ones this command line said nothing about.
+                pub fn try_update_from_argv<'v>(
+                    &mut self,
+                    argv: &[&'v ::std::ffi::OsStr],
+                ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
+                    let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
+                        argv.split_first()
+                    else {
+                        return self.try_update_from(&[]);
+                    };
+                    if let ::std::option::Option::Some(__usage_view) =
+                        usage_argv::spec::view_for_program(&SPEC, __usage_argv0)
+                    {
+                        let mut __usage_rewritten = ::std::vec::Vec::with_capacity(
+                            __usage_words.len()
+                                + __usage_view.root.split_ascii_whitespace().count(),
+                        );
+                        __usage_rewritten.extend(
+                            __usage_view.root
+                                .split_ascii_whitespace()
+                                .map(::std::ffi::OsStr::new),
+                        );
+                        __usage_rewritten.extend_from_slice(__usage_words);
+                        return self.try_update_from(&__usage_rewritten);
+                    }
+                    if SPEC.multicall {
+                        if let ::std::option::Option::Some(__usage_word) =
+                            __usage_argv0.to_str().and_then(|s| {
+                                usage_argv::multicall_applet(s, SPEC.name, SPEC.bin)
+                            })
+                        {
+                            let mut __usage_rewritten =
+                                ::std::vec::Vec::with_capacity(argv.len());
+                            __usage_rewritten.push(::std::ffi::OsStr::new(__usage_word));
+                            __usage_rewritten.extend_from_slice(__usage_words);
+                            return self.try_update_from(&__usage_rewritten);
+                        }
+                    }
+                    self.try_update_from(__usage_words)
+                }
+
+                /// [`Self::try_update_from`], answering a failure the way [`Self::parse`]
+                /// does: help or a version on stdout, a message on stderr, and exit.
+                pub fn update_from<'v>(&mut self, argv: &[&'v ::std::ffi::OsStr]) {
+                    if let ::std::result::Result::Err(e) = self.try_update_from(argv) {
+                        Self::__usage_exit_on_error(
+                            e,
+                            argv,
+                            argv,
+                            ::std::option::Option::None,
+                        );
+                    }
+                }
+
+                /// [`Self::try_update_from_argv`], exiting on failure as [`Self::parse`] does.
+                pub fn update_from_argv<'v>(&mut self, argv: &[&'v ::std::ffi::OsStr]) {
+                    if let ::std::result::Result::Err(e) = self.try_update_from_argv(argv) {
+                        let __usage_words =
+                            argv.split_first().map_or(argv, |(_, rest)| rest);
+                        Self::__usage_exit_on_error(
+                            e,
+                            argv,
+                            __usage_words,
+                            ::std::option::Option::None,
+                        );
+                    }
                 }
 
                 /// Parse using clap's `try_parse_from` argv contract.
@@ -3058,6 +3201,136 @@ fn view_policy_given(field: &Field) -> TokenStream {
     quote!((#active) && (#given))
 }
 
+/// The local holding what the caller already had for this field, on an update.
+///
+/// A `bool` for an ordinary field, and the nested value itself — as an `Option<&T>` — for a
+/// flattened group or a subcommand, since those answer for their own fields.
+fn standing_ident(field: &Field) -> proc_macro2::Ident {
+    format_ident!("__usage_standing_{}", field.ident)
+}
+
+/// Whether a value the caller already holds counts as present for this field.
+///
+/// Read from the built struct rather than from a partial, because that is all an update has:
+/// a parse cannot be run backwards through `FromStr`, so the bytes are gone. Presence is
+/// therefore what the type itself can answer — a filled `Option`, a collection with items, a
+/// set switch — and a plain value is always present, which is what makes a standing `String`
+/// satisfy required-ness.
+///
+/// `None` for a field with nothing to answer: a skipped field is not parsed, and a flattened
+/// group answers for its own fields through its own expansion.
+fn standing_presence(field: &Field) -> Option<TokenStream> {
+    let ident = &field.ident;
+    match &field.kind {
+        Kind::Skip | Kind::Flatten { .. } => None,
+        Kind::ArgGroup { optional, .. } | Kind::Subcommand { optional, .. } => Some(if *optional {
+            quote!(__usage_s.#ident.is_some())
+        } else {
+            quote!(true)
+        }),
+        Kind::Flag { .. } | Kind::Arg { .. } => Some(match field.shape {
+            Shape::Bool => quote!(__usage_s.#ident),
+            Shape::Count => quote!(__usage_s.#ident != ::std::default::Default::default()),
+            Shape::Optional => quote!(__usage_s.#ident.is_some()),
+            // Nowhere to put "absent", so the field always holds something. The same
+            // reading of the type that makes it required in the first place.
+            Shape::Required => quote!(true),
+            Shape::Many if field.optional_collection => quote!(__usage_s.#ident.is_some()),
+            Shape::Many => quote!(!__usage_s.#ident.is_empty()),
+        }),
+    }
+}
+
+/// What the caller already had, as locals every generated check can read.
+///
+/// One body serves both entry points: `__usage_standing` is `None` for an ordinary parse, so
+/// each of these folds to `false` and the checks below are the ones that were always
+/// generated. A second, update-only copy of `check` would double the largest function a CLI
+/// generates to serve an entry point most of them never call.
+///
+/// The names start with an underscore, so a command whose checks ask about none of them does
+/// not leave an unused local in the adopter's crate, where nobody can silence it.
+fn standing_locals(cli: &Cli) -> TokenStream {
+    let locals = cli.fields.iter().filter_map(|field| {
+        let name = standing_ident(field);
+        let ident = &field.ident;
+        Some(match &field.kind {
+            Kind::Skip => return None,
+            Kind::Flatten { .. } => quote! {
+                let #name = __usage_standing.map(|__usage_s| &__usage_s.#ident);
+            },
+            Kind::Subcommand { optional: true, .. } => quote! {
+                let #name = __usage_standing.and_then(|__usage_s| __usage_s.#ident.as_ref());
+            },
+            Kind::Subcommand {
+                optional: false, ..
+            } => quote! {
+                let #name = __usage_standing.map(|__usage_s| &__usage_s.#ident);
+            },
+            _ => {
+                let present = standing_presence(field)?;
+                quote!(let #name = __usage_standing.is_some_and(|__usage_s| #present);)
+            }
+        })
+    });
+    quote!(#(#locals)*)
+}
+
+/// The `bool` saying whether this field already had a value, when it can be asked.
+fn standing_flag(field: &Field) -> Option<TokenStream> {
+    let name = standing_ident(field);
+    match &field.kind {
+        Kind::Skip | Kind::Flatten { .. } => None,
+        Kind::Subcommand { .. } => Some(quote!(#name.is_some())),
+        _ => standing_presence(field).map(|_| quote!(#name)),
+    }
+}
+
+/// A presence test that also counts a value the caller already had.
+fn given_or_standing(field: &Field, given: TokenStream) -> TokenStream {
+    match standing_flag(field) {
+        Some(standing) => quote!((#given || #standing)),
+        None => given,
+    }
+}
+
+/// `&& !__usage_standing_x`, for a fill or a complaint that a standing value answers.
+fn unless_standing(field: &Field) -> TokenStream {
+    match standing_flag(field) {
+        Some(standing) => quote!(&& !#standing),
+        None => quote!(),
+    }
+}
+
+/// `&& !(...)`, skipping a check about what a value *is* when this argv supplied none.
+///
+/// A standing value is present but unreadable: an update holds the caller's typed value, not
+/// the bytes it was parsed from, so a choice list or a validation expression has nothing to
+/// judge. Only a required field needs saying — every other shape holds nothing at all when
+/// nothing arrived, and these checks then iterate over nothing.
+fn unless_standing_only(field: &Field) -> TokenStream {
+    if field.shape != Shape::Required {
+        return quote!();
+    }
+    match standing_flag(field) {
+        Some(standing) => {
+            let given = format_ident!("__given_{}", field.ident);
+            quote!(&& !(#standing && !partial.#given))
+        }
+        None => quote!(),
+    }
+}
+
+/// [`view_policy_given`], counting a value the caller already had.
+fn standing_policy_given(field: &Field) -> TokenStream {
+    given_or_standing(field, view_policy_given(field))
+}
+
+/// [`semantic_given`], counting a value the caller already had.
+fn standing_semantic_given(field: &Field) -> TokenStream {
+    given_or_standing(field, semantic_given(field))
+}
+
 /// Whether a root field belongs to the executable surface currently being parsed.
 ///
 /// A view promotes a subcommand and carries only the root globals it names. The selected
@@ -4287,23 +4560,30 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
 /// number, or a type of the adopter's own.
 fn field_final(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
     let ident = &field.ident;
+    let value = field_value(field, omitter);
+    quote!(#ident: #value)
+}
+
+/// [`field_final`] without the field name, for a merge that assigns one field at a time.
+fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
+    let ident = &field.ident;
     let given = format_ident!("__given_{}", ident);
     let name = &field.name;
     if matches!(field.kind, Kind::Skip) {
         // clap's skip: not parsed, filled from Default when the struct is built.
-        return quote!(#ident: ::std::default::Default::default());
+        return quote!(::std::default::Default::default());
     }
     if let Kind::Flatten { ty } = &field.kind {
         // Built by its own derive, which is also what makes a nested flatten work: this is
         // the same call at every level.
         return match omitter {
             Some(omitter) => quote! {
-                #ident: <#ty as usage_argv::spec::ViewCommandArgs<#omitter>>::build_for_view(
+                <#ty as usage_argv::spec::ViewCommandArgs<#omitter>>::build_for_view(
                     partial.#ident,
                 )?
             },
             None => quote! {
-                #ident: <#ty as usage_argv::spec::CommandArgs>::build(partial.#ident)?
+                <#ty as usage_argv::spec::CommandArgs>::build(partial.#ident)?
             },
         };
     }
@@ -4314,10 +4594,10 @@ fn field_final(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
     if let Kind::ArgGroup { ty, optional } = &field.kind {
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
         return if *optional {
-            quote!(#ident: #group::build(&partial.#ident))
+            quote!(#group::build(&partial.#ident))
         } else {
             quote! {
-                #ident: match #group::build(&partial.#ident) {
+                match #group::build(&partial.#ident) {
                     ::std::option::Option::Some(__usage_member) => __usage_member,
                     ::std::option::Option::None => {
                         return ::std::result::Result::Err(
@@ -4335,10 +4615,10 @@ fn field_final(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
     let ty = &field.ty;
     let finished = |value: TokenStream| {
         let Some(omitter) = omitter else {
-            return quote!(#ident: #value);
+            return value;
         };
         quote! {
-            #ident: {
+            {
                 let __usage_view = partial.__usage_view;
                 if partial.__usage_omit_own || !(#active) {
                     <#omitter as usage_argv::spec::Omitted<#ty>>::omitted()
@@ -4612,6 +4892,151 @@ fn field_final(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
             } else {
                 finished(collected)
             }
+        }
+    }
+}
+
+/// Whether this parse produced a value for the field, so a merge should take it.
+///
+/// Wider than `__given_*` by exactly one case: a declared default that fired. Those do not
+/// mark a field given — the environment still has to be able to replace one — but a default
+/// only fires on an update when the field was empty on both sides, and dropping it would
+/// leave the field emptier than a fresh parse leaves it.
+fn merge_present(field: &Field) -> TokenStream {
+    let ident = &field.ident;
+    let given = format_ident!("__given_{}", ident);
+    match field.shape {
+        Shape::Bool => quote!(partial.#given || partial.#ident),
+        Shape::Count => {
+            quote!(partial.#given || partial.#ident != ::std::default::Default::default())
+        }
+        Shape::Optional => quote!(partial.#given || partial.#ident.is_some()),
+        Shape::Required | Shape::Many => quote!(partial.#given || !partial.#ident.is_empty()),
+    }
+}
+
+/// Overwrite what this command line gave, and leave the rest of the caller's value alone.
+///
+/// The rule is stated per field rather than inherited from the full-parse path: a collection
+/// this argv mentioned is replaced whole, one it said nothing about is untouched, and a
+/// subcommand word naming a different variant replaces it rather than merging into fields
+/// the new command does not have.
+fn merge_fn(cli: &Cli) -> TokenStream {
+    let ident = &cli.ident;
+    let merges = cli.fields.iter().filter_map(|field| {
+        let field_ident = &field.ident;
+        match &field.kind {
+            // Not parsed, so this command line said nothing about it.
+            Kind::Skip => None,
+            Kind::Flatten { ty } => Some(quote! {
+                <#ty as usage_argv::spec::CommandArgs>::merge(
+                    partial.#field_ident,
+                    &mut __usage_standing.#field_ident,
+                )?;
+            }),
+            // A group with no member given is this argv saying nothing about the group.
+            Kind::ArgGroup { ty, optional } => {
+                let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
+                let selected = if *optional {
+                    quote!(::std::option::Option::Some(__usage_member))
+                } else {
+                    quote!(__usage_member)
+                };
+                Some(quote! {
+                    if let ::std::option::Option::Some(__usage_member) =
+                        #group::build(&partial.#field_ident)
+                    {
+                        __usage_standing.#field_ident = #selected;
+                    }
+                })
+            }
+            Kind::Subcommand { ty, optional } => Some(if *optional {
+                quote! {
+                    if let ::std::option::Option::Some(__usage_at) = partial.__usage_selected {
+                        match &mut __usage_standing.#field_ident {
+                            ::std::option::Option::Some(__usage_existing) => {
+                                <#ty as usage_argv::spec::Subcommands>::merge_into(
+                                    partial.__usage_sub,
+                                    __usage_at,
+                                    __usage_existing,
+                                )?;
+                            }
+                            __usage_slot => {
+                                *__usage_slot =
+                                    <#ty as usage_argv::spec::Subcommands>::select(
+                                        partial.__usage_sub,
+                                        __usage_at,
+                                    )?;
+                            }
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    if let ::std::option::Option::Some(__usage_at) = partial.__usage_selected {
+                        <#ty as usage_argv::spec::Subcommands>::merge_into(
+                            partial.__usage_sub,
+                            __usage_at,
+                            &mut __usage_standing.#field_ident,
+                        )?;
+                    }
+                }
+            }),
+            Kind::Flag { .. } | Kind::Arg { .. } => {
+                let present = merge_present(field);
+                let value = field_value(field, None);
+                Some(quote! {
+                    if #present {
+                        __usage_standing.#field_ident = #value;
+                    }
+                })
+            }
+        }
+    });
+    quote! {
+        /// Merge what this parse collected into a value the caller already has.
+        pub fn merge<'t, 'v>(
+            partial: Partial,
+            __usage_standing: &mut #ident,
+        ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+            // Read unconditionally, so a command with nothing to merge does not leave its
+            // parameters unused in the adopter's crate, where nobody can silence it.
+            let _ = (&partial, &*__usage_standing);
+            #(#merges)*
+            ::std::result::Result::Ok(())
+        }
+    }
+}
+
+/// Which of this command's fields the caller already had a value for.
+///
+/// The standing half of `any_given`, for a parent enforcing exclusivity across a flattened
+/// boundary on an update.
+fn any_standing_fn(cli: &Cli) -> TokenStream {
+    let held = cli.fields.iter().filter_map(|field| {
+        if let Kind::Flatten { ty } = &field.kind {
+            let ident = &field.ident;
+            return Some(quote! {
+                if let ::std::option::Option::Some(__usage_name) =
+                    <#ty as usage_argv::spec::CommandArgs>::any_standing(&__usage_s.#ident)
+                {
+                    return ::std::option::Option::Some(__usage_name);
+                }
+            });
+        }
+        let present = standing_presence(field)?;
+        let name = &field.name;
+        Some(quote! {
+            if #present {
+                return ::std::option::Option::Some(#name);
+            }
+        })
+    });
+    quote! {
+        fn any_standing(__usage_s: &Self) -> ::std::option::Option<&'static str> {
+            let _ = __usage_s;
+            #(#held)*
+            ::std::option::Option::None
         }
     }
 }
@@ -5140,21 +5565,37 @@ fn subcommand_parts(cli: &Cli) -> Option<SubcommandParts> {
                 return true;
             }
         },
-        check: quote! {
-            if let ::std::option::Option::Some(__usage_at) = partial.__usage_selected {
-                match __usage_view {
-                    ::std::option::Option::Some(__usage_view) => {
-                        <#ty as usage_argv::spec::Subcommands>::check_for_view_path(
-                            &mut partial.__usage_sub,
-                            __usage_at,
-                            __usage_view.root.split_ascii_whitespace().count(),
-                        )?;
-                    }
-                    ::std::option::Option::None => {
-                        <#ty as usage_argv::spec::Subcommands>::check(
-                            &mut partial.__usage_sub,
-                            __usage_at,
-                        )?;
+        check: {
+            let standing = standing_ident(field);
+            quote! {
+                if let ::std::option::Option::Some(__usage_at) = partial.__usage_selected {
+                    match (#standing, __usage_view) {
+                        // An update's standing command, whose own fields answer for the
+                        // ones this argv did not repeat — but only when the selection is
+                        // the same one, which the enum's own expansion decides.
+                        (::std::option::Option::Some(__usage_s), _) => {
+                            <#ty as usage_argv::spec::Subcommands>::check_update(
+                                &mut partial.__usage_sub,
+                                __usage_at,
+                                __usage_s,
+                            )?;
+                        }
+                        (
+                            ::std::option::Option::None,
+                            ::std::option::Option::Some(__usage_view),
+                        ) => {
+                            <#ty as usage_argv::spec::Subcommands>::check_for_view_path(
+                                &mut partial.__usage_sub,
+                                __usage_at,
+                                __usage_view.root.split_ascii_whitespace().count(),
+                            )?;
+                        }
+                        (::std::option::Option::None, ::std::option::Option::None) => {
+                            <#ty as usage_argv::spec::Subcommands>::check(
+                                &mut partial.__usage_sub,
+                                __usage_at,
+                            )?;
+                        }
                     }
                 }
             }
@@ -5178,8 +5619,16 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .any(|field| field.validate.is_some())
         .then(|| quote!(use #validation as usage_validation;));
     let presence = presence_methods(cli);
-    let apply_defaults = declared_defaults(cli, true);
-    let apply_env = env_fallbacks(cli, true);
+    let any_standing = any_standing_fn(cli);
+    let standing_locals = standing_locals(cli);
+    let apply_defaults = {
+        let defaults = declared_defaults(cli, true);
+        quote!(#standing_locals #defaults)
+    };
+    let apply_env = {
+        let env = env_fallbacks(cli, true);
+        quote!(#standing_locals #env)
+    };
     // A group carries settings the same way a root does, minus the layer: `SettingGiven` is
     // usage-argv's own vocabulary, so a flattened group can hand its parent what it was given
     // without either of them naming the config crate. Emitted whenever it has anything to say —
@@ -5296,6 +5745,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let defaults = partial_defaults(cli);
     let apply = apply_fn(cli);
     let post = post_binding(cli);
+    let merge = merge_fn(cli);
     let parts = subcommand_parts(cli);
     let sub_commands = parts
         .as_ref()
@@ -5630,6 +6080,33 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 check_with_args_override_self(partial, #args_override_self)
             }
 
+            /// `check`, against the union of this command line and what the caller had.
+            pub fn check_update_with_args_override_self<'t, 'v>(
+                partial: &mut Partial,
+                args_override_self: bool,
+                __usage_standing: &#ident,
+            ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                check_with_args_override_self_for_view_standing(
+                    partial,
+                    args_override_self,
+                    ::std::option::Option::None,
+                    ::std::option::Option::Some(__usage_standing),
+                )
+            }
+
+            pub fn check_update<'t, 'v>(
+                partial: &mut Partial,
+                __usage_standing: &#ident,
+            ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                check_update_with_args_override_self(
+                    partial,
+                    #args_override_self,
+                    __usage_standing,
+                )
+            }
+
+            #merge
+
             #settings_defs
 
             impl usage_argv::spec::CommandArgs for #ident {
@@ -5687,7 +6164,27 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     check_with_args_override_self_for_view(partial, args_override_self, view)
                 }
 
+                fn check_update<'t, 'v>(
+                    partial: &mut Self::Partial,
+                    standing: &Self,
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                    check_update(partial, standing)
+                }
+
+                fn check_update_with_args_override_self<'t, 'v>(
+                    partial: &mut Self::Partial,
+                    args_override_self: bool,
+                    standing: &Self,
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                    check_update_with_args_override_self(
+                        partial,
+                        args_override_self,
+                        standing,
+                    )
+                }
+
                 #presence
+                #any_standing
 
                 fn apply_defaults(partial: &mut Self::Partial) {
                     apply_declared_defaults(
@@ -5707,6 +6204,14 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                         partial,
                         __usage_view,
                         ::std::option::Option::None,
+                    )
+                }
+
+                fn apply_defaults_update(partial: &mut Self::Partial, standing: &Self) {
+                    apply_declared_defaults(
+                        partial,
+                        ::std::option::Option::None,
+                        ::std::option::Option::Some(standing),
                     )
                 }
 
@@ -5731,6 +6236,14 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     )
                 }
 
+                fn apply_env_update(partial: &mut Self::Partial, standing: &Self) {
+                    apply_env_fallbacks(
+                        partial,
+                        ::std::option::Option::None,
+                        ::std::option::Option::Some(standing),
+                    )
+                }
+
                 #view_path_methods
                 #omit_own
 
@@ -5740,6 +6253,13 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     partial: Self::Partial,
                 ) -> ::std::result::Result<Self, usage_argv::Error<'t, 'v>> {
                     ::std::result::Result::Ok(#built)
+                }
+
+                fn merge<'t, 'v>(
+                    partial: Self::Partial,
+                    standing: &mut Self,
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                    merge(partial, standing)
                 }
             }
 
@@ -6754,6 +7274,85 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
     };
     let selects = select_arms(false);
     let view_selects = select_arms(true);
+
+    // The variants an update can merge into: one holding a single `Args` value, which is the
+    // only shape whose fields this enum can hand to the struct that owns them. A unit variant
+    // has no fields to keep, an external one is a list of words that argv replaces whole, and
+    // a variant with inline fields has no `Args` value to lend — those are replaced, which is
+    // what selecting a different command does anyway.
+    let mergeable: Vec<(usize, &crate::model::Variant)> = subs
+        .variants
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| !v.external && !v.unit && v.inline_fields.is_none())
+        .collect();
+    let standing_inner = |v: &crate::model::Variant| {
+        if v.boxed {
+            quote!(&**__usage_inner)
+        } else {
+            quote!(__usage_inner)
+        }
+    };
+    let standing_inner_mut = |v: &crate::model::Variant| {
+        if v.boxed {
+            quote!(&mut **__usage_inner)
+        } else {
+            quote!(__usage_inner)
+        }
+    };
+    let update_checks = mergeable.iter().map(|(i, v)| {
+        let held = format_ident!("V{i}");
+        let variant = &v.ident;
+        let ty = &v.ty;
+        let inner = standing_inner(v);
+        quote! {
+            (#i, #ident::#variant(__usage_inner)) => {
+                if let Partial::#held(__usage_p) = partial {
+                    return <#ty as usage_argv::spec::CommandArgs>::check_update(
+                        __usage_p,
+                        #inner,
+                    );
+                }
+            }
+        }
+    });
+    let update_envs = mergeable.iter().map(|(i, v)| {
+        let held = format_ident!("V{i}");
+        let variant = &v.ident;
+        let ty = &v.ty;
+        let inner = standing_inner(v);
+        quote! {
+            (::std::option::Option::Some(#i), #ident::#variant(__usage_inner)) => {
+                if let Partial::#held(__usage_p) = partial {
+                    <#ty as usage_argv::spec::CommandArgs>::apply_env_update(
+                        __usage_p,
+                        #inner,
+                    );
+                    return;
+                }
+            }
+        }
+    });
+    let merges = mergeable.iter().map(|(i, v)| {
+        let held = format_ident!("V{i}");
+        let variant = &v.ident;
+        let ty = &v.ty;
+        let inner = standing_inner_mut(v);
+        quote! {
+            if selected == #i {
+                if let #ident::#variant(__usage_inner) = &mut *standing {
+                    if let Partial::#held(__usage_p) = partial {
+                        return <#ty as usage_argv::spec::CommandArgs>::merge(
+                            __usage_p,
+                            #inner,
+                        );
+                    }
+                    // Selected but unfilled cannot happen — see `Subcommands::begin`.
+                    return ::std::result::Result::Ok(());
+                }
+            }
+        }
+    });
     let view_bounds: Vec<_> = subs
         .variants
         .iter()
@@ -6951,6 +7550,49 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         #(#selects)*
                         _ => ::std::result::Result::Ok(::std::option::Option::None),
                     }
+                }
+
+                fn check_update<'t, 'v>(
+                    partial: &mut Self::Partial,
+                    selected: usize,
+                    standing: &Self,
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                    match (selected, standing) {
+                        #(#update_checks)*
+                        // A different command than the one standing: what the old variant
+                        // holds says nothing about this one's requirements.
+                        _ => {}
+                    }
+                    Self::check(partial, selected)
+                }
+
+                fn apply_env_update(
+                    partial: &mut Self::Partial,
+                    selected: ::std::option::Option<usize>,
+                    standing: &Self,
+                ) {
+                    match (selected, standing) {
+                        #(#update_envs)*
+                        _ => {}
+                    }
+                    Self::apply_env(partial, selected)
+                }
+
+                fn merge_into<'t, 'v>(
+                    partial: Self::Partial,
+                    selected: usize,
+                    standing: &mut Self,
+                ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                    #(#merges)*
+                    // A different command replaces the variant wholesale: selecting one is
+                    // a routing decision rather than a value to merge, so the fields of the
+                    // command that was standing go with it.
+                    if let ::std::option::Option::Some(__usage_built) =
+                        Self::select(partial, selected)?
+                    {
+                        *standing = __usage_built;
+                    }
+                    ::std::result::Result::Ok(())
                 }
             }
 
@@ -7207,8 +7849,11 @@ fn declared_defaults(cli: &Cli, filter_view: bool) -> TokenStream {
         } else {
             quote!()
         };
+        // A value the caller already had is not a field waiting to be filled: an update
+        // never overwrites what somebody set deliberately.
+        let standing_held = unless_standing(f);
         Some(quote! {
-            if #active !partial.#given #standing {
+            if #active !partial.#given #standing #standing_held {
                 let mut __usage_filled = false;
                 #(#fills)*
             }
@@ -7219,12 +7864,23 @@ fn declared_defaults(cli: &Cli, filter_view: bool) -> TokenStream {
             return None;
         };
         let ident = &f.ident;
+        let standing = standing_ident(f);
         Some(if filter_view {
             quote! {
-                <#ty as usage_argv::spec::CommandArgs>::apply_defaults_for_view(
-                    &mut partial.#ident,
-                    __usage_view,
-                );
+                match #standing {
+                    ::std::option::Option::Some(__usage_s) => {
+                        <#ty as usage_argv::spec::CommandArgs>::apply_defaults_update(
+                            &mut partial.#ident,
+                            __usage_s,
+                        );
+                    }
+                    ::std::option::Option::None => {
+                        <#ty as usage_argv::spec::CommandArgs>::apply_defaults_for_view(
+                            &mut partial.#ident,
+                            __usage_view,
+                        );
+                    }
+                }
             }
         } else {
             quote! {
@@ -7337,8 +7993,11 @@ fn env_fallbacks(cli: &Cli, filter_view: bool) -> TokenStream {
         } else {
             quote!(__usage_env)
         };
+        // The environment fills what is empty. On an update a field the caller already
+        // filled is not empty, however little this argv said about it.
+        let standing_held = unless_standing(f);
         Some(quote! {
-            if #active !partial.#given #standing {
+            if #active !partial.#given #standing #standing_held {
                 for #bind in #names {
                     if let ::std::result::Result::Ok(value) = ::std::env::var(__usage_env) {
                         let mut continue_unset = false;
@@ -7358,12 +8017,23 @@ fn env_fallbacks(cli: &Cli, filter_view: bool) -> TokenStream {
             return None;
         };
         let ident = &f.ident;
+        let standing = standing_ident(f);
         Some(if filter_view {
             quote! {
-                <#ty as usage_argv::spec::CommandArgs>::apply_env_for_view(
-                    &mut partial.#ident,
-                    __usage_view,
-                );
+                match #standing {
+                    ::std::option::Option::Some(__usage_s) => {
+                        <#ty as usage_argv::spec::CommandArgs>::apply_env_update(
+                            &mut partial.#ident,
+                            __usage_s,
+                        );
+                    }
+                    ::std::option::Option::None => {
+                        <#ty as usage_argv::spec::CommandArgs>::apply_env_for_view(
+                            &mut partial.#ident,
+                            __usage_view,
+                        );
+                    }
+                }
             }
         } else {
             quote! {
@@ -7375,17 +8045,25 @@ fn env_fallbacks(cli: &Cli, filter_view: bool) -> TokenStream {
         let Kind::Subcommand { ty, .. } = &f.kind else {
             return None;
         };
+        let standing = standing_ident(f);
         Some(if filter_view {
             quote! {
-                match __usage_view {
-                    ::std::option::Option::Some(__usage_view) => {
+                match (#standing, __usage_view) {
+                    (::std::option::Option::Some(__usage_s), _) => {
+                        <#ty as usage_argv::spec::Subcommands>::apply_env_update(
+                            &mut partial.__usage_sub,
+                            partial.__usage_selected,
+                            __usage_s,
+                        );
+                    }
+                    (::std::option::Option::None, ::std::option::Option::Some(__usage_view)) => {
                         <#ty as usage_argv::spec::Subcommands>::apply_env_for_view_path(
                             &mut partial.__usage_sub,
                             partial.__usage_selected,
                             __usage_view.root.split_ascii_whitespace().count(),
                         );
                     }
-                    ::std::option::Option::None => {
+                    (::std::option::Option::None, ::std::option::Option::None) => {
                         <#ty as usage_argv::spec::Subcommands>::apply_env(
                             &mut partial.__usage_sub,
                             partial.__usage_selected,
@@ -7536,10 +8214,14 @@ fn deprecations_fn(cli: &Cli) -> TokenStream {
 /// come last, because they judge a value however it arrived, including one that came
 /// from the environment or a default.
 fn post_binding(cli: &Cli) -> TokenStream {
-    // Shadow the general presence helper in this generator only. A projected executable
+    // Shadow the general presence helpers in this generator only. A projected executable
     // validates carried root globals; policy on every other root field belongs to the
-    // surface the view omitted. Selected commands run their own checker with no view.
-    let policy_given = view_policy_given;
+    // surface the view omitted. Selected commands run their own checker with no view. On an
+    // update both also count a value the caller already had, so a relationship is judged on
+    // the union of what stands and what this command line said.
+    let policy_given = standing_policy_given;
+    let semantic_given = standing_semantic_given;
+    let standing_locals = standing_locals(cli);
     let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
     let subcommand_satisfies_requirements = if cli.subcommand_negates_reqs
         && cli
@@ -7547,7 +8229,13 @@ fn post_binding(cli: &Cli) -> TokenStream {
             .iter()
             .any(|field| matches!(field.kind, Kind::Subcommand { .. }))
     {
-        quote!(partial.__usage_selected.is_some())
+        let standing = cli
+            .fields
+            .iter()
+            .find(|field| matches!(field.kind, Kind::Subcommand { .. }))
+            .and_then(standing_flag)
+            .unwrap_or_else(|| quote!(false));
+        quote!((partial.__usage_selected.is_some() || #standing))
     } else {
         quote!(false)
     };
@@ -7598,16 +8286,30 @@ fn post_binding(cli: &Cli) -> TokenStream {
             return None;
         };
         let ident = &f.ident;
+        let standing = standing_ident(f);
         Some(quote! {
             if !__usage_exclusive_present
                 || <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident)
                     .is_some()
             {
-                <#ty as usage_argv::spec::CommandArgs>::check_with_args_override_self_for_view(
-                    &mut partial.#ident,
-                    args_override_self,
-                    __usage_view,
-                )?;
+                match #standing {
+                    ::std::option::Option::Some(__usage_s) => {
+                        <#ty as usage_argv::spec::CommandArgs>
+                            ::check_update_with_args_override_self(
+                                &mut partial.#ident,
+                                args_override_self,
+                                __usage_s,
+                            )?;
+                    }
+                    ::std::option::Option::None => {
+                        <#ty as usage_argv::spec::CommandArgs>
+                            ::check_with_args_override_self_for_view(
+                                &mut partial.#ident,
+                                args_override_self,
+                                __usage_view,
+                            )?;
+                    }
+                }
             }
         })
     });
@@ -7655,10 +8357,11 @@ fn post_binding(cli: &Cli) -> TokenStream {
         let active = view_field_active(f);
         let name = &f.name;
         // Same reason as the environment: a displaced flag was answered by the one that
-        // displaced it, so it is not missing.
+        // displaced it, so it is not missing. Nor is one an update did not have to repeat.
         let standing = displaced_guard(cli, f);
+        let standing_held = unless_standing(f);
         Some(quote! {
-            if #active && !partial.#given #standing {
+            if #active && !partial.#given #standing #standing_held {
                 return ::std::result::Result::Err(
                     usage_argv::Error::MissingRequired { name: #name },
                 );
@@ -7695,8 +8398,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
             Shape::Bool | Shape::Count => return None,
         };
         let active = view_field_active(f);
+        let standing_only = unless_standing_only(f);
         Some(quote! {
-            if #active {
+            if #active #standing_only {
                 if partial.#invalid {
                     return ::std::result::Result::Err(
                         usage_argv::Error::InvalidChoice {
@@ -7746,8 +8450,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
             Shape::Bool | Shape::Count => return None,
         };
         let active = view_field_active(f);
+        let standing_only = unless_standing_only(f);
         Some(quote! {
-            if #active {
+            if #active #standing_only {
                 for value in #values {
                     let ::std::result::Result::Ok(__usage_text) = ::std::str::from_utf8(value)
                     else {
@@ -8114,22 +8819,34 @@ fn post_binding(cli: &Cli) -> TokenStream {
         .any(|field| matches!(field.kind, Kind::Flatten { .. } | Kind::ArgGroup { .. }));
     let flattened_segments = cli.fields.iter().filter_map(|field| {
         let ident = &field.ident;
+        let standing = standing_ident(field);
         match &field.kind {
             Kind::Flatten { ty } => Some(quote! {
                 (
-                    <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#ident),
+                    <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#ident)
+                        .or_else(|| {
+                            #standing.and_then(
+                                <#ty as usage_argv::spec::CommandArgs>::any_standing,
+                            )
+                        }),
                     <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#ident),
                 ),
             }),
             // A group declares no `exclusive` member of its own — exclusivity within the
             // group is what a group *is* — so it contributes only what it was given, which
             // is what an exclusive flag elsewhere on the command collides with.
-            Kind::ArgGroup { ty, .. } => Some(quote! {
-                (
-                    <#ty as usage_argv::spec::ArgGroup>::any_given(&partial.#ident),
-                    ::std::option::Option::None,
-                ),
-            }),
+            Kind::ArgGroup { ty, .. } => {
+                // Which member an update already had is the enum's business rather than
+                // this command's; the group's own name is what it can say about it.
+                let name = &field.name;
+                Some(quote! {
+                    (
+                        <#ty as usage_argv::spec::ArgGroup>::any_given(&partial.#ident)
+                            .or_else(|| #standing.then_some(#name)),
+                        ::std::option::Option::None,
+                    ),
+                })
+            }
             _ => None,
         }
     });
@@ -8138,9 +8855,13 @@ fn post_binding(cli: &Cli) -> TokenStream {
             return None;
         };
         let name = &field.name;
+        let standing = standing_ident(field);
         Some(quote! {
             (
-                partial.__usage_selected.map(|_| #name),
+                partial
+                    .__usage_selected
+                    .map(|_| #name)
+                    .or_else(|| #standing.map(|_| #name)),
                 <#ty as usage_argv::spec::Subcommands>::exclusive_given(
                     &partial.__usage_sub,
                     partial.__usage_selected,
@@ -8435,8 +9156,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     }
                 }
             });
+        let standing_held = unless_standing(f);
         Some(quote! {
-            if #active && !partial.#given {
+            if #active && !partial.#given #standing_held {
                 #required_if
                 #required_if_eq
                 #required_if_eq_all
@@ -8446,6 +9168,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
     });
 
     quote! {
+        // What the caller already had, read once. `None` for an ordinary parse, which
+        // folds every one of these to `false`.
+        #standing_locals
         // Environment first, so a `default_if` can see a sibling filled from
         // env, and so the environment still overrides an unconditional default.
         #env_fallbacks

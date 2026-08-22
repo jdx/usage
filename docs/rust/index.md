@@ -110,6 +110,47 @@ failure to stderr and exits `2` — clap's exit status, so scripts that check fo
 `parse_from` gives you the same machinery without the process control; see
 [Help, version, and errors](/rust/help) for handling its `Err` variants.
 
+## Updating a value you already have
+
+A CLI parsed more than once — a REPL reading a line at a time, a daemon reconfigured while it
+runs — merges a command line into the value it already holds rather than building a new one:
+
+```rust
+// merge argv into self; print help/version/errors and exit as `parse()` does
+pub fn update_from<'v>(&mut self, argv: &[&'v OsStr]);
+
+// the same, handing errors back
+pub fn try_update_from<'v>(&mut self, argv: &[&'v OsStr])
+    -> Result<(), usage::Error<'static, 'v>>;
+```
+
+`update_from_argv` and `try_update_from_argv` are the `parse_from_argv` counterparts: they strip
+argv0 and apply multicall applet selection.
+
+A parse cannot be run backwards — a `String` field says nothing about the word it was made from —
+so what you already hold is read from the struct itself, and the rules are stated rather than
+inherited from a fresh parse:
+
+- **Relationships see the standing value.** `required`, `requires`, `conflicts` and the rest
+  treat a field that already holds a value as present, so a required flag need not be repeated
+  and a standing flag still conflicts with a new one. What is validated is the union of both
+  inputs.
+- **The environment and declared defaults fill only what is empty.** An update never clobbers a
+  value you set deliberately, and an update whose argv says nothing cannot change anything.
+- **A collection is replaced when this argv mentions it**, and left alone when it does not.
+  Appending was rejected because it leaves no way to clear a field.
+- **A different subcommand replaces the variant** whole, discarding the old variant's fields;
+  the same subcommand merges field by field.
+
+Nothing is merged until every check has passed, so a `try_update_from` that returns `Err` leaves
+the value exactly as it was.
+
+Two things a standing value cannot answer, because the bytes it was parsed from are gone: a check
+about what a value _is_ — a choice list, a `validate` expression — is skipped for a field this
+argv did not supply, and a `requires_if` or `default_value_if` comparing against a particular
+value does not match one that merely stands. A field whose type has nowhere to put "absent", such
+as a plain `String`, always counts as present.
+
 What runs afterwards can be generated too. A command implements `Run`, its subcommand enum
 says `#[usage(run)]`, and the `match` that routes argv to the code carrying it out is written
 from the same declaration:
