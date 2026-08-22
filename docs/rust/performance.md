@@ -21,11 +21,6 @@ measurements subtract startup from two runs of the same binary.
 | clap      |        6.31M |     855x |    544 µs |                        6,560 |
 | bpaf      |        21.9M |   2,957x |   1.61 ms |                            — |
 
-Binding three or four owned values costs usage one allocation each; clap still
-allocates 6,560. Counts vary slightly run to run. bpaf cannot express every
-property in the source spec, and its shadow reports what it drops rather than
-silently measuring a smaller program.
-
 clap and bpaf construct and validate a parser at runtime before reading a
 single word, so their floor is hundreds of microseconds. usage reads tables the
 compiler already laid out, so its floor is hundreds of nanoseconds.
@@ -50,14 +45,8 @@ does only the work the argv asks for:
   creates only that variant's accumulator, not storage for every command the
   user did not select.
 
-Early versions copied a whole-CLI accumulator four times per parse, so adding
-vocabulary multiplied the cost. Removing those copies, and storing only the
-selected subcommand's accumulator, dropped the count from tens of thousands of
-instructions to the number above. What remains scales with the command path and
-values that were typed.
-[`usage-argv`'s allocation test](https://github.com/jdx/usage/blob/main/argv/tests/no_alloc.rs)
-pins the zero-allocation parser property; the mise-scale gate checks that typed
-binding allocates only for owned values.
+The result scales with the command path and values that were typed, rather than
+with the whole CLI.
 
 ## What clap's number includes
 
