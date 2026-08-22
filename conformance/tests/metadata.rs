@@ -773,8 +773,8 @@ fn the_source_code_link_template_survives_the_typed_spec() {
     let kdl = Linked::to_kdl();
     let spec: LibSpec = kdl.parse().expect("valid spec");
 
-    // Newlines make it through: the writer escapes them into one quoted string rather than
-    // emitting a `#"""` block, and the template means nothing if its lines run together.
+    // Newlines make it through as a KDL raw multiline string, and the template means
+    // nothing if its lines run together.
     let template = spec
         .source_code_link_template
         .as_deref()
