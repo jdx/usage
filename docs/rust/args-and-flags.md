@@ -59,8 +59,7 @@ jobs: Option<u32>,
 
 The tables below cover the attributes most CLIs need. Many clap-compatible spellings
 (`visible_alias`, `hide_*`, `last`, `trailing_var_arg`, `requires_if`, and others) are also
-accepted — see [Migrating from clap](/rust/migrating-from-clap) and the
-[compatibility matrix](/rust/clap-compatibility) for the audited surface.
+accepted — see [Migrating from clap](/rust/migrating-from-clap).
 
 **Naming and shape** — what the field is called and what kind of argument it is:
 
@@ -245,9 +244,8 @@ stdin: bool,
 
 Naming a flag or positional that doesn't exist on the command is a **compile error**, not a
 runtime surprise. Conflicts, requires, and conditional requiredness may name flags or
-positionals; `overrides` and some `requires_if` forms stay flag-only. See the
-[compatibility matrix](/rust/clap-compatibility#relationships-and-command-routing) for the
-audited details.
+positionals; `overrides` and some `requires_if` forms stay flag-only. See
+[Compatibility gaps](/rust/migrating-from-clap#compatibility-gaps) for the migration details.
 
 ## Resolution order
 

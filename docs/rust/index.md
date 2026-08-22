@@ -149,10 +149,9 @@ how to opt out of the endpoint.
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
 - [Completions](/rust/completions) — static scripts and runtime completion
 - [Configuration](/rust/configuration) — settings declared in code: `usage::Config` and layered resolution
-- [Testing](/rust/testing) — assert parses, help pages, and completions with no process spawned
+- [Testing](/rust/testing) — run commands or assert directly on parsing, help, and completions
 - [Spec output](/rust/spec) — the emitted KDL and usage-cli integration
 - [Migrating from clap](/rust/migrating-from-clap) — mechanical rewrites and intentional API breaks
-- [clap compatibility](/rust/clap-compatibility) — supported behavior, bridge losses, and non-goals
 - [Performance](/rust/performance) — what a parse costs, measured at mise's scale
 
 ## Current limitations

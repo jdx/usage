@@ -8,9 +8,25 @@ The Rust framework is a typed parser with static metadata, not a compatibility l
 clap. Most derive-based CLIs migrate mechanically. Builder APIs and `ArgMatches` are intentional
 API breaks: move their behavior into typed declarations or keep clap at that boundary.
 
-Use the [compatibility matrix](/rust/clap-compatibility) as the audited baseline. It separates
-behavior supported by usage itself from metadata that `clap_usage` can recover from an existing
-`clap::Command`.
+## Compatibility gaps
+
+Check these before starting a migration:
+
+| Difference                                                                                    | What to do                                                                                                                      |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime `Command` builders, `ArgMatches`, and `CommandFactory` are not part of the typed API. | Move the declaration to derives, keep clap at that boundary, or use `usage-lib` for a CLI that is genuinely dynamic.            |
+| Unknown flags and repeated scalar flags are permissive by default.                            | Add `unknown_flags = "error"` and `args_override_self = false` where clap's strict behavior matters.                            |
+| `from_global` is unsupported.                                                                 | Read the global field from its declaring type and pass it to the command as context.                                            |
+| Typed `value_parser` callbacks cannot enter a portable spec.                                  | Use the field type's `FromStr`, a `ValueEnum`, literal choices, or a portable `validate` expression.                            |
+| Some relationships through `flatten` or on positionals are not available at binding time.     | Keep a post-parse check for the cases described under [Subcommands and shared arguments](#subcommands-and-shared-arguments).    |
+| Prefix inference is intentionally unsupported.                                                | Long flags and subcommands must use a full name or declared alias.                                                              |
+| clap help templates and style palettes are not portable as-is.                                | Rewrite templates using usage's six [help sections](/rust/help#laying-a-page-out); usage chooses terminal styles automatically. |
+| Completion generation does not target Elvish.                                                 | Keep `clap_complete` or another generator for that artifact.                                                                    |
+
+If a migration begins from a `clap::Command` rather than the Rust declaration,
+`clap_usage::spec_with_report` detects recoverable losses. It cannot report state for which clap
+exposes a setter but no getter, including the `requires` family, `default_value_if`, and
+`default_missing_value`; audit those declarations directly.
 
 ## Dependencies
 
@@ -199,10 +215,8 @@ struct Explicit {
 Relationships that cross a flattened boundary are **lossy**: common forms work, but a declaring
 type cannot yet validate a selector supplied by a flattened sibling. Positional relationships
 are **partial**: conflicts, requires, and conditional requiredness work; binding-time `overrides`
-and value-source `requires_if` remain flag-only. Keep a post-parse check only for forms the
-[compatibility matrix](/rust/clap-compatibility#relationships-and-command-routing) still marks
-lossy or partial; the derive rejects selectors it can prove invalid instead of silently
-weakening them.
+and value-source `requires_if` remain flag-only. Keep a post-parse check for those cases; the
+derive rejects selectors it can prove invalid instead of silently weakening them.
 
 ## Parse entry points
 
@@ -299,5 +313,6 @@ spellings may be added when they map to existing behavior. A spelling whose clap
 be carried losslessly is rejected or documented as partial; it is not silently accepted with
 weaker semantics.
 
-The compatibility matrix is versioned against the clap releases named at its top. Updating clap
-requires re-auditing that matrix; compiling with a new clap is not by itself a parity claim.
+The paired conformance tests are audited against the clap versions in the workspace lockfile.
+Updating clap requires re-running and reviewing those tests; compiling with a new clap is not by
+itself a parity claim.
