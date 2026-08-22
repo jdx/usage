@@ -124,10 +124,18 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
     </template>
     <p class="usage-bench-sub">
       What parsing <code>mise use -g node@20</code> costs each framework, against a shadow
-      of <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands,
-      711 flags. The usage, clap, bpaf, and cobra programs are generated from the same
-      checked-in spec; the Go methodology notes which remaining rows are still
-      hand-measured.
+      of <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands, 711 flags.
+      <template v-if="showRust && showGo">
+        The usage, clap, bpaf, and cobra programs are generated from the same checked-in
+        spec; urfave/cli and kong are still hand-measured.
+      </template>
+      <template v-else-if="showRust">
+        The usage, clap, and bpaf programs are generated from the same checked-in spec.
+      </template>
+      <template v-else>
+        usage-go and cobra are generated from the same checked-in spec; urfave/cli and kong
+        are still hand-measured.
+      </template>
     </p>
 
     <div
