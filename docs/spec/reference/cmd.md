@@ -37,19 +37,19 @@ cmd "config" {
 }
 
 cmd "list" {
-  example "Basic usage" #"""
+  example #"""
     $ mycli list
     FRUIT  COLOR
     apple  red
     banana yellow
-  """#
-  example "JSON output" #"""
+  """# header="Basic usage"
+  example #"""
     $ mycli list --json
     [
       {"FRUIT": "apple", "COLOR": "red"},
       {"FRUIT": "banana", "COLOR": "yellow"}
     ]
-  """#
+  """# header="JSON output"
 }
 ```
 
@@ -338,7 +338,7 @@ cmd "run" {
 ```
 
 ```kdl
-# emitted by the mount
+// emitted by the mount
 cmd "task1" {
   flag "--env <name>" {
     choices "dev" "stage" "prod"

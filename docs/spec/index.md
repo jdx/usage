@@ -50,7 +50,7 @@ flag "-u --user <user>" help="User to run as"
 cmd "update" help="Update the CLI"
 cmd "config" help="Manage the CLI config" {
   // "set" is an alias for "add"
-  cmd "add" "Add/set a config" {
+  cmd "add" help="Add/set a config" {
     alias "set"
     arg "<key>" help="The key for the config"
     arg "<value>" help="The new config value"
