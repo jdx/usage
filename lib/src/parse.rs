@@ -8417,7 +8417,6 @@ cmd "run" {
         );
     }
 
-    #[cfg(feature = "unstable_choices_env")]
     /// argv as `parse` wants it, program name included.
     fn words(of: &[&str]) -> Vec<String> {
         of.iter().map(|s| s.to_string()).collect()
@@ -8640,6 +8639,7 @@ cmd "ls"
         assert!(parse(&closed, &input(&["wat"])).is_err());
     }
 
+    #[cfg(feature = "unstable_choices_env")]
     #[test]
     fn test_parser_arg_choices_from_custom_env() {
         let spec = spec_arg_choices_env("DEPLOY_ENVS");
