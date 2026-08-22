@@ -4183,7 +4183,7 @@ mod tests {
         assert!(base.contains("name ex"), "{base}");
         assert!(base.contains("version \"1.0.0\""), "{base}");
         assert!(
-            base.contains("long_version \"1.0.0\\ncommit old\""),
+            base.contains("#\"\"\"\n1.0.0\ncommit old\n\"\"\"#"),
             "{base}"
         );
         assert!(!base.contains("effect="), "{base}");

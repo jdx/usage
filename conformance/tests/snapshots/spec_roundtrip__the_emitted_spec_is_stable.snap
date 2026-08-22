@@ -5,16 +5,40 @@ expression: SPEC.to_kdl()
 name ex
 bin ex
 version "1.2.3"
-long_version "1.2.3\ncommit abc123"
-source_code_link_template "{%- if cmd.subcommands | length > 0 -%}\n{%- set path = path ~ \"/mod.rs\" -%}\n{%- endif -%}\nhttps://example.com/blob/main/src/{{path}}"
+long_version #"""
+1.2.3
+commit abc123
+"""#
+source_code_link_template #"""
+{%- if cmd.subcommands | length > 0 -%}
+{%- set path = path ~ "/mod.rs" -%}
+{%- endif -%}
+https://example.com/blob/main/src/{{path}}
+"""#
 about "does things"
 long_about "Does things, at length."
-usage "Usage: ex <COMMAND>\n       ex --version \"quoted\""
-help_template "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}"
+usage #"""
+Usage: ex <COMMAND>
+       ex --version "quoted"
+"""#
+help_template #"""
+{{about}}
+
+{{usage}}
+
+{{flags}}
+
+{{args}}
+
+{{commands}}
+"""#
 default_subcommand run
 example "ex a.txt" header=Basic help="the simplest thing"
 flag "-j --jobs" help="how many jobs, and a quote: \"" global=#true help_heading=Performance env=EX_JOBS default="4" {
-    long_help "More about jobs.\nOn two lines."
+    long_help #"""
+More about jobs.
+On two lines.
+"""#
     arg <n>
 }
 flag --color help="colorize output" negate=--no-color default="true"
@@ -45,7 +69,11 @@ arg "[file]" help="the file" help_heading=Input env=EX_FILE default=a.txt
 cmd install help="install a tool" effect=write {
     alias i
     alias add hide=#true
-    long_help "Installs a tool.\n\nTakes a while."
+    long_help #"""
+Installs a tool.
+
+Takes a while.
+"""#
     example "ex install node@20" help="install a specific version"
     flag "-f --force" help="overwrite an existing install"
     arg <tool> help="the tool to install"
