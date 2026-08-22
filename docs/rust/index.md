@@ -8,7 +8,8 @@ not yet been human reviewed.
 
 The Rust framework builds your CLI from Rust types. You declare commands, flags, and args as
 structs and enums; a derive macro compiles that declaration into the parse tables the binary runs
-on and a usage spec it can print. Docs, manpages, and completions are generated from that spec.
+on and a [usage spec](/spec/) it can print. Docs, manpages, and completions are generated from
+that spec.
 
 ```rust
 use usage::Cli;
