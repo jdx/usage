@@ -1,8 +1,7 @@
 # Testing
 
 ::: warning Draft
-This page is a draft. Some of what it documents is still in open pull requests, and details may
-change before release.
+This page is a draft and has not yet been human reviewed. Details may change.
 :::
 
 A CLI's observable surface is three things: what a command line parses to, what a user reads
@@ -17,7 +16,7 @@ assertion.
 
 ```toml
 [dev-dependencies]
-usage = { package = "usage-rs", version = "6", features = ["test"] }
+usage = { package = "usage-rs", version = "5.1", features = ["test"] }
 ```
 
 The feature belongs in `dev-dependencies`: nothing in an application's own code calls it.
@@ -130,7 +129,7 @@ that answers a line:
 
 ```toml
 [dev-dependencies]
-usage = { package = "usage-rs", version = "6", features = ["test", "completions"] }
+usage = { package = "usage-rs", version = "5.1", features = ["test", "completions"] }
 ```
 
 `candidates` then answers the question a shell asks: given this half-typed line, what could this

@@ -1,8 +1,7 @@
 # Subcommands
 
 ::: warning Draft
-This page is a draft. Some of what it documents is still in open pull requests, and details may
-change before release.
+This page is a draft and has not yet been human reviewed. Details may change.
 :::
 
 Subcommands are an enum. Each variant wraps a `#[derive(Args)]` struct (or nothing), and the
@@ -57,8 +56,8 @@ Variant attributes: `name`, `alias`, `alias_hidden`, `hide`, `effect`, `help`, `
 `verbatim_doc_comment`, `external_subcommand`, `arg_required_else_help`. Aliases declared on the variant and on the `Args`
 struct are joined.
 
-Two variants wrapping the _same_ struct is a compile error — each command needs its own
-declaration (two byte-identical structs in different modules are fine).
+The same `Args` type may be mounted under more than one variant — useful for shared option
+groups across sibling commands.
 
 ## Default subcommand
 

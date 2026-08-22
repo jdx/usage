@@ -1,8 +1,12 @@
 # Migrating from clap
 
-usage 6 is a typed parser with static metadata, not a compatibility layer around clap. Most
-derive-based CLIs migrate mechanically. Builder APIs and `ArgMatches` are intentional API
-breaks: move their behavior into typed declarations or keep clap at that boundary.
+::: warning Draft
+This page is a draft and has not yet been human reviewed. Details may change.
+:::
+
+The Rust framework is a typed parser with static metadata, not a compatibility layer around
+clap. Most derive-based CLIs migrate mechanically. Builder APIs and `ArgMatches` are intentional
+API breaks: move their behavior into typed declarations or keep clap at that boundary.
 
 Use the [compatibility matrix](/rust/clap-compatibility) as the audited baseline. It separates
 behavior supported by usage itself from metadata that `clap_usage` can recover from an existing
@@ -14,7 +18,7 @@ Depend on the facade rather than on `usage-derive` or `usage-argv` separately:
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6", features = ["completions"] }
+usage = { package = "usage-rs", version = "5.1", features = ["completions"] }
 ```
 
 The defaults include the derive, help, and clap-shaped diagnostics. Add `validation` for portable
@@ -23,7 +27,7 @@ requests.
 
 During a prerelease migration, pin every producer and consumer to one revision. In particular,
 the `usage-rs` dependency that emits KDL and any installed `usage-cli` that renders that KDL must
-use the same 6.x revision. A 5.x CLI reading a 6.x spec is unsupported.
+use the same revision.
 
 The migration also shrinks the dependency graph (`cargo tree` on a minimal binary, clap 4.6.6
 with `derive` against the defaults plus `completions`):
@@ -192,9 +196,13 @@ struct Explicit {
 }
 ```
 
-Relationships that cross a flattened boundary or name a positional are not supported yet. Keep
-the check after parsing until the compatibility matrix marks that row supported; the derive
-rejects selectors it can prove invalid instead of silently weakening them.
+Relationships that cross a flattened boundary are **lossy**: common forms work, but a declaring
+type cannot yet validate a selector supplied by a flattened sibling. Positional relationships
+are **partial**: conflicts, requires, and conditional requiredness work; binding-time `overrides`
+and value-source `requires_if` remain flag-only. Keep a post-parse check only for forms the
+[compatibility matrix](/rust/clap-compatibility#relationships-and-command-routing) still marks
+lossy or partial; the derive rejects selectors it can prove invalid instead of silently
+weakening them.
 
 ## Parse entry points
 
@@ -279,11 +287,11 @@ interpreter for applications that genuinely construct a CLI at runtime.
 
 ## Compatibility policy
 
-Within usage 6.x, changes to accepted argv, typed binding, exit status, stdout versus stderr, or
-the portable spec dialect are parser behavior and follow semver. New clap spellings may be added
-compatibly when they map to existing behavior. A spelling whose clap behavior cannot be carried
-losslessly is rejected or documented as partial; it is not silently accepted with weaker
-semantics.
+While the Rust framework is experimental, changes to accepted argv, typed binding, exit status,
+stdout versus stderr, or the portable spec dialect may land in point releases. New clap
+spellings may be added when they map to existing behavior. A spelling whose clap behavior cannot
+be carried losslessly is rejected or documented as partial; it is not silently accepted with
+weaker semantics.
 
 The compatibility matrix is versioned against the clap releases named at its top. Updating clap
 requires re-auditing that matrix; compiling with a new clap is not by itself a parity claim.
