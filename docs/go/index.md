@@ -20,6 +20,8 @@ typed structs, and a `Parse` function at build time. The result:
   tables; the linker drops the ones you don't reference. No `init` functions.
 - **One source of truth.** The same KDL spec generates your completions, docs, and manpages.
 
+<UsageBenches lang="go" embedded />
+
 ## Quick start
 
 Write a spec:

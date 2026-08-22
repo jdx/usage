@@ -1,5 +1,22 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from "vue";
+import { computed, onBeforeUnmount, onMounted } from "vue";
+
+const props = withDefaults(
+  defineProps<{
+    // Homepage shows both cards. Framework pages pass the language they are
+    // documenting so the other card does not sit in the way of that page's
+    // own install instructions.
+    lang?: "all" | "rust" | "go";
+    // Doc-column layout: the homepage padding and 1120px cap do not belong
+    // inside a VitePress article.
+    embedded?: boolean;
+  }>(),
+  { lang: "all", embedded: false },
+);
+
+const showRust = computed(() => props.lang !== "go");
+const showGo = computed(() => props.lang !== "rust");
+const idPrefix = computed(() => `bench-${props.lang}`);
 
 // Rust wall clock from `time-sweep.rs`, which runs each parser repeatedly in one
 // process and keeps the fastest of many short rounds — throughput rather than
@@ -101,7 +118,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
 </script>
 
 <template>
-  <section class="usage-bench">
+  <section class="usage-bench" :class="{ embedded: embedded }">
     <p class="usage-hero-label">Benchmarks</p>
     <h2 class="usage-bench-title">Parser overhead</h2>
     <p class="usage-bench-sub">
@@ -111,8 +128,11 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
       what differs is the parser rather than one of them being written more carefully.
     </p>
 
-    <div class="usage-bench-cards">
-      <div class="usage-bench-card">
+    <div
+      class="usage-bench-cards"
+      :class="{ 'usage-bench-cards-single': !(showRust && showGo) }"
+    >
+      <div v-if="showRust" class="usage-bench-card">
         <h3>usage-rs <span>vs clap, argh, bpaf</span></h3>
         <p class="usage-bench-metric">
           wall time,
@@ -121,9 +141,9 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
             tabindex="0"
             @mouseenter="clamp"
             @focusin="clamp"
-            aria-describedby="bench-tip-warmed"
+            :aria-describedby="`${idPrefix}-tip-warmed`"
             >in-process parse throughput
-            <span class="usage-bench-tip" id="bench-tip-warmed" role="tooltip">
+            <span class="usage-bench-tip" :id="`${idPrefix}-tip-warmed`" role="tooltip">
               <strong>How this is measured</strong>
               <span>
                 Each parser runs repeatedly inside one process; process startup is excluded,
@@ -160,9 +180,9 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
             tabindex="0"
             @mouseenter="clamp"
             @focusin="clamp"
-            aria-describedby="bench-tip-build"
+            :aria-describedby="`${idPrefix}-tip-build`"
             >build a parser before they can use one
-            <span class="usage-bench-tip" id="bench-tip-build" role="tooltip">
+            <span class="usage-bench-tip" :id="`${idPrefix}-tip-build`" role="tooltip">
               <strong>Where their time goes</strong>
               <span>
                 Most of clap's is constructing and validating its command tree. bpaf's is
@@ -177,9 +197,9 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
             tabindex="0"
             @mouseenter="clamp"
             @focusin="clamp"
-            aria-describedby="bench-tip-express"
+            :aria-describedby="`${idPrefix}-tip-express`"
             >express less
-            <span class="usage-bench-tip" id="bench-tip-express" role="tooltip">
+            <span class="usage-bench-tip" :id="`${idPrefix}-tip-express`" role="tooltip">
               <strong>Missing from the argh and bpaf shadows</strong>
               <span>
                 Aliases, hidden commands, global flags, and a positional beside a
@@ -191,7 +211,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
         </p>
       </div>
 
-      <div class="usage-bench-card">
+      <div v-if="showGo" class="usage-bench-card">
         <h3>usage-go <span>vs cobra, urfave/cli, kong</span></h3>
         <p class="usage-bench-metric">
           wall time,
@@ -200,9 +220,9 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
             tabindex="0"
             @mouseenter="clamp"
             @focusin="clamp"
-            aria-describedby="bench-tip-cold"
+            :aria-describedby="`${idPrefix}-tip-cold`"
             >one cold parse
-            <span class="usage-bench-tip" id="bench-tip-cold" role="tooltip">
+            <span class="usage-bench-tip" :id="`${idPrefix}-tip-cold`" role="tooltip">
               <strong>How this is measured</strong>
               <span>
                 Whole-process, with the ~0.95ms of Go runtime startup a do-nothing process
@@ -238,13 +258,18 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
 
     <p class="usage-bench-method">
       Methodology and raw numbers:
-      <a href="https://github.com/jdx/usage/blob/main/go/README.md">go/README.md</a> ·
-      <a href="https://github.com/jdx/usage/blob/main/tasks/perf-shadow.sh">tasks/perf-shadow.sh</a>
-      ·
-      <a
-        href="https://github.com/jdx/usage/blob/main/benches/gate/src/bin/time-sweep.rs"
-        >time-sweep.rs</a
-      >
+      <template v-if="showGo">
+        <a href="https://github.com/jdx/usage/blob/main/go/README.md">go/README.md</a>
+        <template v-if="showRust"> · </template>
+      </template>
+      <template v-if="showRust">
+        <a href="https://github.com/jdx/usage/blob/main/tasks/perf-shadow.sh">tasks/perf-shadow.sh</a>
+        ·
+        <a
+          href="https://github.com/jdx/usage/blob/main/benches/gate/src/bin/time-sweep.rs"
+          >time-sweep.rs</a
+        >
+      </template>
     </p>
   </section>
 </template>
