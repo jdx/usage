@@ -116,7 +116,7 @@ same workspace release build, stripped:
 
 | Framework | Stripped binary |
 | --------- | --------------: |
-| usage     |          1.5 MB |
+| usage     |          1.6 MB |
 | bpaf      |          2.5 MB |
 | clap      |          3.1 MB |
 
@@ -134,9 +134,11 @@ a small CLI, and `#[usage(spec_endpoint = false)]` removes it.
   its framework cannot express — so a framework is measured on its own vocabulary,
   and the drops are themselves part of the comparison.
 - Binary sizes are the gate's `parse-n*` binaries from a full workspace release
-  build, stripped. The workspace build matters: cargo unifies features, so clap
-  gets the features (color, suggestions, help, derive, env) a real CLI of this
-  size enables.
+  build, stripped (`strip` with no extra flags). Regenerated against rustc 1.97.1
+  on x86_64-unknown-linux-gnu: usage 1,579,200 bytes, bpaf 2,493,264, clap
+  3,101,640, shown above as decimal megabytes to one place. The workspace build
+  matters: cargo unifies features, so clap gets the features (color, suggestions,
+  help, derive, env) a real CLI of this size enables.
 - This measures routing and parsing, not process startup, configuration loading,
   command execution, help rendering, or completion generation.
 - The mise fixture changes over time, both by growing and by being refreshed
