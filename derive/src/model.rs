@@ -5019,9 +5019,6 @@ pub struct Variant {
     pub inline_fields: Option<Vec<syn::Field>>,
     /// `#[usage(run)]` on a variant: this command is synchronous even when the enum awaits.
     pub run_sync: bool,
-    /// Whether the variant wrote redundant `#[usage(run_async)]`, retained so validation can
-    /// point at the variant and explain that async enum dispatch already awaits by default.
-    pub run_async: bool,
     /// `#[usage(no_ctx)]`: this command does not take the context the rest of the enum does.
     pub no_ctx: bool,
     /// The struct the variant wraps, with any `Box` taken off.
@@ -5219,7 +5216,7 @@ impl Subcommands {
                 ));
             }
             for v in &variants {
-                if v.external && (v.run_sync || v.run_async || v.no_ctx) {
+                if v.external && (v.run_sync || v.no_ctx) {
                     return Err(syn::Error::new_spanned(
                         &v.ident,
                         "an `external_subcommand` is dispatched by the enum's `external = …` \
@@ -5231,13 +5228,6 @@ impl Subcommands {
                         &v.ident,
                         "`run` on a variant only changes an async enum's dispatch; synchronous \
                          dispatch already calls `Run` for every variant",
-                    ));
-                }
-                if v.run_async {
-                    return Err(syn::Error::new_spanned(
-                        &v.ident,
-                        "`run_async` on a variant is redundant; async enum dispatch already \
-                         awaits every variant unless that variant says `#[usage(run)]`",
                     ));
                 }
                 if v.no_ctx && !has_ctx {
@@ -5252,9 +5242,7 @@ impl Subcommands {
             }
         } else if dispatch_external.is_some()
             || dispatch_output.is_some()
-            || variants
-                .iter()
-                .any(|v| v.run_sync || v.run_async || v.no_ctx)
+            || variants.iter().any(|v| v.run_sync || v.no_ctx)
         {
             return Err(syn::Error::new_spanned(
                 &input.ident,
@@ -5305,7 +5293,6 @@ impl Variant {
         let mut after_long_help = None;
         let mut examples: Vec<ExampleDecl> = Vec::new();
         let mut run_sync = false;
-        let mut run_async = false;
         let mut no_ctx = false;
 
         for attr in attrs(&variant.attrs) {
@@ -5346,7 +5333,16 @@ impl Variant {
                     "example" => examples.push(example_decl(&meta)?),
                     "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
                     "run" => run_sync = flag_value(&meta)?,
-                    "run_async" => run_async = flag_value(&meta)?,
+                    "run_async" => {
+                        if flag_value(&meta)? {
+                            return Err(syn::Error::new_spanned(
+                                path,
+                                "`run_async` on a variant is redundant; async enum dispatch \
+                                 already awaits every variant unless that variant says \
+                                 `#[usage(run)]`",
+                            ));
+                        }
+                    }
                     "no_ctx" => no_ctx = flag_value(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
@@ -5467,7 +5463,6 @@ impl Variant {
                 unit: false,
                 inline_fields: None,
                 run_sync,
-                run_async,
                 no_ctx,
                 ty: held,
                 boxed: false,
@@ -5540,7 +5535,6 @@ impl Variant {
             unit,
             inline_fields,
             run_sync,
-            run_async,
             no_ctx,
             ty,
             boxed,
