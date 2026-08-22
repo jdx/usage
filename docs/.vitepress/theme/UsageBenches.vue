@@ -125,9 +125,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
     </template>
     <p class="usage-bench-sub">
       What parsing <code>mise use -g node@20</code> costs each framework, against a shadow
-      of <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands,
-      711 flags. Every shadow is generated from the same spec by the same traversal, so
-      what differs is the parser rather than one of them being written more carefully.
+      of <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands, 711 flags.
     </p>
 
     <div
