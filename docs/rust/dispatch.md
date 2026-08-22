@@ -257,11 +257,3 @@ which is the reason dispatch is opt-in rather than always generated. The other r
 the generated implementation is the only one the enum can have: a CLI that wants to do
 something of its own between the parse and the dispatch leaves the attribute off and writes the
 match.
-
-## What it says in the spec
-
-Nothing. Which Rust function carries out a command is not part of what the CLI _is_, and a spec
-recording it could be read by nothing but this program — so `run` and `run_with` reach the parse
-tables, the help output and the emitted KDL exactly as much as `#[usage(skip)]` does, which is
-not at all. `usage`'s own CLI moved to a generated dispatch without one byte of its spec, its
-manpage or its completions changing.

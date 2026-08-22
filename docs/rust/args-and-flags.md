@@ -61,9 +61,7 @@ required-ness is declared rather than inferred: `#[usage(arg, required)]`.
 jobs: Option<u32>,
 ```
 
-The tables below cover the attributes most CLIs need. Many clap-compatible spellings
-(`visible_alias`, `hide_*`, `last`, `trailing_var_arg`, `requires_if`, and others) are also
-accepted — see [Migrating from clap](/rust/migrating-from-clap).
+The tables below cover the attributes most CLIs need.
 
 **Naming and shape** — what the field is called and what kind of argument it is:
 
@@ -85,7 +83,7 @@ accepted — see [Migrating from clap](/rust/migrating-from-clap).
 | ----------------------------------- | ------------------------------------------------------------------------------ |
 | `var` / `variadic`                  | Repeatable / greedy multi-value (see above)                                    |
 | `var_min = n` / `var_max = n`       | Bounds on how many values a `Vec` may hold                                     |
-| `num_args = n` / `num_args = a..=b` | clap-compatible spelling for exact or ranged `Vec` cardinality                 |
+| `num_args = n` / `num_args = a..=b` | Exact or ranged `Vec` cardinality                                              |
 | `choices("a", "b")`                 | Restrict values to a fixed set                                                 |
 | `choices_strict = false`            | Keep choices as suggestions while accepting other values                       |
 | `value_enum`                        | Take choices from a `#[derive(ValueEnum)]` type                                |
@@ -168,33 +166,32 @@ backend: Option<String>,
 The portable form is `choices strict=#false core git`. Strict validation remains
 the default.
 
-`#[usage(skip)]` is clap's `#[arg(skip)]`: the field stays on the struct so a rewrite can keep
-computed state beside parsed state, and nothing about it reaches the spec, the parse tables, or
-help. Combining it with `long`, `arg`, or any other field option is a compile error. The type
-has to implement `Default`.
+`#[usage(skip)]` keeps a field on the struct for computed state without adding it to the spec,
+parse tables, or help. Combining it with `long`, `arg`, or any other field option is a compile
+error. The type has to implement `Default`.
 
-`value_hint` accepts clap's full stable vocabulary: `Unknown`, `Other`, `FilePath`, `AnyPath`,
-`DirPath`, `ExecutablePath`, `CommandName`, `CommandString`, `CommandWithArguments`,
-`Username`, `Hostname`, `Url`, and `EmailAddress`. `CommandWithArguments` is for wrapper CLIs
-and must be a positional `Vec` with `double_dash = "automatic"`: its first value completes
-from the shell's commands, while later values fall back to ordinary argument paths. `Other`,
-URL, and email values suppress filename fallback without pretending there is a finite list.
+`value_hint` accepts `Unknown`, `Other`, `FilePath`, `AnyPath`, `DirPath`, `ExecutablePath`,
+`CommandName`, `CommandString`, `CommandWithArguments`, `Username`, `Hostname`, `Url`, and
+`EmailAddress`. `CommandWithArguments` is for wrapper CLIs and must be a positional `Vec` with
+`double_dash = "automatic"`: its first value completes from the shell's commands, while later
+values fall back to ordinary argument paths. `Other`, URL, and email values suppress filename
+fallback without pretending there is a finite list.
 
-`#[usage(allow_hyphen_values)]` is clap's attribute of the same name: `--args -destroy` binds
-`-destroy` instead of reading `-d` as a short. The flag has to take a value; a positional that
-needs the same thing already has `double_dash = "automatic"`. Emitted KDL:
+`#[usage(allow_hyphen_values)]` makes `--args -destroy` bind `-destroy` instead of reading `-d`
+as a short. The flag has to take a value; a positional that needs the same thing already has
+`double_dash = "automatic"`. Emitted KDL:
 `flag "--args <ARGS>" allow_hyphen_values=#true`.
 
-`#[usage(allow_negative_numbers)]` is the narrower clap policy: `--jobs -1` binds
-`-1`, while `--jobs --force` still leaves a flag-like token for normal parsing.
+`#[usage(allow_negative_numbers)]` makes `--jobs -1` bind `-1`, while `--jobs --force` still
+leaves a flag-like token for normal parsing.
 
 `#[usage(value_terminator = ";")]` ends a `Vec` without storing the terminator.
 It works on variadic flags and positionals and emits `value_terminator=";"` in KDL.
 
-Fixed multi-value fields can retain clap's familiar attribute unchanged:
+Fixed multi-value fields declare their cardinality and placeholders together:
 
 ```rust
-#[arg(long, num_args = 2, value_names = ["START", "END"])]
+#[usage(long, num_args = 2, value_names = ["START", "END"])]
 range: Vec<String>,
 ```
 
@@ -206,8 +203,8 @@ while flag-level bounds count how many times a repeatable flag appears. A range
 such as `num_args = 1..=3` sets the corresponding nested bounds; distinct
 `value_names` require an exact bound matching their count.
 
-`#[usage(require_equals)]` is clap's attribute of the same name: `--inspect=9229` binds
-and `--inspect 9229` is a missing value. The flag has to take a value. Emitted KDL:
+`#[usage(require_equals)]` makes `--inspect=9229` bind while `--inspect 9229` is a missing
+value. The flag has to take a value. Emitted KDL:
 `flag "--inspect <PORT>" require_equals=#true`.
 
 `#[usage(bool_value)]` is an opt-in for explicit boolean long-flag values:
@@ -215,9 +212,9 @@ and `--inspect 9229` is a missing value. The flag has to take a value. Emitted K
 detached `--color false` never consumes `false`; it remains a positional. The
 portable form is `flag "--color" bool_value=#true`.
 
-`#[usage(default_missing = "always")]` is clap's `default_missing_value`: `--color`
-binds `always`, `--color=never` binds `never`, and an absent flag stays `None`.
-The flag has to take a value. Help shows the value as optional. Emitted KDL:
+With `#[usage(default_missing = "always")]`, `--color` binds `always`, `--color=never` binds
+`never`, and an absent flag stays `None`. The flag has to take a value. Help shows the value as
+optional. Emitted KDL:
 `flag "--color <WHEN>" default_missing="always"`. Combined with `require_equals`,
 a following word is still refused.
 
@@ -226,11 +223,10 @@ flag is `None`, a bare `--bump` is `Some(None)`, and `--bump=5` is
 `Some(Some(5))`. It infers a zero-or-one value range and renders `[BUMP]` in help
 and the portable spec.
 
-`#[usage(default_if("--json", "true"))]` is clap's `default_value_if` with
-`ArgPredicate::IsPresent`. Three arguments (`default_if("--output", "json", "pretty")`)
-are `Equals`. First match wins. The target's own argv and env suppress it. An
-applied `default_if` is a default: it does not set `__given_*`, so it does not
-activate `requires_if`. Emitted KDL:
+`#[usage(default_if("--json", "true"))]` applies when `--json` is present. Three arguments
+(`default_if("--output", "json", "pretty")`) apply when the other flag equals the middle value.
+First match wins. The target's own argv and env suppress it. An applied `default_if` is a
+default: it does not set `__given_*`, so it does not activate `requires_if`. Emitted KDL:
 
 ```kdl
 flag "--bin-names" {
@@ -248,8 +244,7 @@ stdin: bool,
 
 Naming a flag or positional that doesn't exist on the command is a **compile error**, not a
 runtime surprise. Conflicts, requires, and conditional requiredness may name flags or
-positionals; `overrides` and some `requires_if` forms stay flag-only. See
-[Compatibility gaps](/rust/migrating-from-clap#compatibility-gaps) for the migration details.
+positionals; `overrides` and some `requires_if` forms stay flag-only.
 
 ## Resolution order
 
@@ -275,9 +270,9 @@ A `global` flag declared on a parent is accepted anywhere below it:
 yes: bool,
 ```
 
-A global flag may be given **once per command level**, with the innermost occurrence winning —
-`mycli -y install -y` works, matching clap. Giving it twice at the _same_ level is still a
-`DuplicateFlag` error: `mycli -y -y` is refused.
+A global flag may be given **once per command level**, with the innermost occurrence winning:
+`mycli -y install -y` works. Giving it twice at the _same_ level is still a `DuplicateFlag`
+error: `mycli -y -y` is refused.
 
 ## Container attributes
 
