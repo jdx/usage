@@ -197,7 +197,7 @@ cargo test -p usage-conformance --test config
 
 [`usage-config`](https://github.com/jdx/usage/tree/main/config) resolves; it carries
 no spec parser, so a CLI ships a resolver rather than a KDL reader. A Rust CLI declares
-its settings with [`#[derive(usage::Config)]`](/rust/settings) on the typed `Settings`
+its settings with [`#[derive(usage::Config)]`](/rust/configuration) on the typed `Settings`
 struct it already holds, and the derive emits the registry as consts beside it — so a
 setting that is declared is a setting that resolves, with no second declaration to keep
 in step, and the spec's `config` block is rendered from the same declaration. Nothing

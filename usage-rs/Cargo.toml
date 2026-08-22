@@ -30,8 +30,8 @@ completions = ["spec", "usage-argv/complete", "usage-test?/completions"]
 complete = ["completions"]
 diagnostics = ["spec", "usage-argv/diagnostics"]
 validation = ["dep:usage-validation"]
-# Assertions about what a command line parses to, what a page says, and what a shell is
-# offered. A dev-dependency feature: nothing in an application's own code calls it.
+# Assertions about command output, what a command line parses to, what a page says, and what a
+# shell is offered. A dev-dependency feature: nothing in an application's own code calls it.
 test = ["spec", "help", "dep:usage-test"]
 # Settings: the `usage::Config` derive, and the resolver as `usage::config`.
 config = ["spec", "dep:usage-config"]

@@ -38,17 +38,17 @@ const rustRows = [
 ];
 
 // Go figures from go/README.md are whole-process wall time and subtract the
-// ~0.95ms a do-nothing Go process costs, so they are deliberately approximate.
+// ~950 µs a do-nothing Go process costs, so they are deliberately approximate.
 //
 // Ratios read the same way as the Rust card's: what each framework costs against
 // usage-go, on the row that costs it. Whole multiples, because every figure here is
 // a difference between two numbers already rounded to two significant figures — a
 // ratio of those does not deserve a decimal place.
 const goRows = [
-  { name: "usage-go", value: 0.15, label: "~0.15ms", us: true },
-  { name: "urfave/cli v3", value: 0.75, label: "~0.75ms", note: "~5× more", us: false },
-  { name: "cobra", value: 1.05, label: "~1.05ms", note: "~7× more", us: false },
-  { name: "kong", value: 5.2, label: "~5.2ms", note: "~35× more", us: false },
+  { name: "usage-go", value: 0.15, label: "~150 µs", us: true },
+  { name: "urfave/cli v3", value: 0.75, label: "~750 µs", note: "~5× more", us: false },
+  { name: "cobra", value: 1.05, label: "~1.05 ms", note: "~7× more", us: false },
+  { name: "kong", value: 5.2, label: "~5.2 ms", note: "~35× more", us: false },
 ];
 
 const rustMax = Math.max(...rustRows.map((r) => r.value));
@@ -124,10 +124,18 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
     </template>
     <p class="usage-bench-sub">
       What parsing <code>mise use -g node@20</code> costs each framework, against a shadow
-      of <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands,
-      711 flags. The usage, clap, bpaf, and cobra programs are generated from the same
-      checked-in spec; the Go methodology notes which remaining rows are still
-      hand-measured.
+      of <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands, 711 flags.
+      <template v-if="showRust && showGo">
+        The usage, clap, bpaf, and cobra programs are generated from the same checked-in
+        spec; urfave/cli and kong are still hand-measured.
+      </template>
+      <template v-else-if="showRust">
+        The usage, clap, and bpaf programs are generated from the same checked-in spec.
+      </template>
+      <template v-else>
+        usage-go and cobra are generated from the same checked-in spec; urfave/cli and kong
+        are still hand-measured.
+      </template>
     </p>
 
     <div
@@ -193,7 +201,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
                 reusing the parser across parses only halves.
               </span>
             </span></span
-          >. Heap allocations for a bare parse: <strong>zero</strong>, against clap's 6,280.
+          >. <a href="/rust/performance">Heap allocations for a bare parse: <strong>zero</strong>, against clap's 6,560.</a>
         </p>
       </div>
 
@@ -211,7 +219,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
             <span class="usage-bench-tip" :id="`${idPrefix}-tip-cold`" role="tooltip">
               <strong>How this is measured</strong>
               <span>
-                Whole-process wall time with the ~0.95ms startup cost of a do-nothing Go
+                Whole-process wall time with the ~950 µs startup cost of a do-nothing Go
                 process subtracted. usage-go and cobra have generated mise-scale shadows;
                 urfave/cli and kong are hand-measured and should be read as orders of
                 magnitude. The subtraction makes every bar approximate.

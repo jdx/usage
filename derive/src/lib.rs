@@ -481,7 +481,7 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 /// The derive generates `SETTINGS_PROPS`, `SETTINGS_REGISTRY`, `SETTINGS_SPEC`,
 /// `read(&Resolved)`, and `spec_kdl()`, so the registry, the reader, and the documentation
 /// cannot drift from the struct or from each other. The whole field vocabulary is in the
-/// guide: <https://usage.jdx.dev/rust/settings>.
+/// guide: <https://usage.jdx.dev/rust/configuration>.
 ///
 /// ```ignore
 /// #[derive(usage::Config)]

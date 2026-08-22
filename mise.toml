@@ -101,6 +101,38 @@ if [ "$major" -lt 6 ]; then
 fi
 cargo semver-checks check-release -p usage-lib
 '''
+[tasks."lint:rust-docs-version"]
+run = '''
+major=$(sed -n 's/^version = "\([0-9]*\)\..*/\1/p' lib/Cargo.toml | head -1)
+python3 - "$major" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+want = sys.argv[1]
+paths = [
+    *Path("docs/rust").glob("*.md"),
+    Path("usage-rs/src/lib.rs"),
+    Path("test/src/lib.rs"),
+]
+dependency = re.compile(
+    r'^(?:\s*//!\s*)?usage(?:-[a-z]+)?\s*=\s*\{[^\n]*?\bversion\s*=\s*"([^"]+)"',
+    re.MULTILINE,
+)
+found = 0
+wrong = []
+for path in paths:
+    for match in dependency.finditer(path.read_text()):
+        found += 1
+        if match.group(1) != want:
+            wrong.append(f"{path}: expected major {want}, found {match.group(1)}")
+if not found:
+    wrong.append("no Rust dependency examples found")
+if wrong:
+    raise SystemExit("\n".join(wrong))
+print(f"{found} Rust dependency examples use major {want}")
+PY
+'''
 [tasks."lint:go"]
 dir = "{{config_root}}"
 # `gofmt -l` prints what it would change and exits 0 either way, so the output is

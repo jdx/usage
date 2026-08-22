@@ -55,7 +55,7 @@ fn spec_is_valid() {
 
 ```toml
 [dev-dependencies]
-usage-parser = { package = "usage-lib", version = "5.1" }
+usage-parser = { package = "usage-lib", version = "6" }
 ```
 
 Beyond parsing, `to_kdl` asserts (in debug builds) that the tree is coherent: no duplicate keys,

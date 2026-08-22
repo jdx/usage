@@ -117,6 +117,48 @@ for package in data["packages"]:
 '
 )
 cargo set-version "${version#v}" "${exclude_args[@]}"
+
+# User-facing dependency examples track the compatible major, not a point release.
+# Keep `version = "6"` through every 6.x release and change it only for 7.0.0.
+bump_rust_doc_major_versions() {
+  local from="$1" to="$2"
+  python3 - "$from" "$to" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+old, new = sys.argv[1:]
+paths = [
+    *Path("docs/rust").glob("*.md"),
+    Path("usage-rs/src/lib.rs"),
+    Path("test/src/lib.rs"),
+]
+dependency = re.compile(
+    r'^((?:\s*//!\s*)?usage(?:-[a-z]+)?\s*=\s*\{[^\n]*?\bversion\s*=\s*")'
+    + re.escape(old)
+    + r'("[^\n]*\})',
+    re.MULTILINE,
+)
+changed = 0
+for path in paths:
+    text = path.read_text()
+    text, count = dependency.subn(rf"\g<1>{new}\2", text)
+    if count:
+        path.write_text(text)
+        changed += count
+if changed == 0:
+    raise SystemExit(f"no Rust dependency examples used major {old}")
+print(f"updated {changed} Rust dependency examples from major {old} to {new}")
+PY
+}
+
+new_major="${version#v}"
+new_major="${new_major%%.*}"
+old_major="${cur_version%%.*}"
+if [ "$new_major" != "$old_major" ]; then
+  bump_rust_doc_major_versions "$old_major" "$new_major"
+fi
+
 mise run render
 
 git config user.name mise-en-dev
@@ -137,6 +179,9 @@ git add \
   package.json aube-lock.yaml \
   cli/usage.usage.kdl \
   docs/cli/reference/* \
+  docs/rust/*.md \
+  usage-rs/src/lib.rs \
+  test/src/lib.rs \
   CHANGELOG.md
 git checkout -B release
 git commit -m "chore: release $version"
