@@ -46,10 +46,10 @@ const javascriptPath =
               <path :d="goPath" />
             </svg>
             <span>Go</span>
-            <span class="usage-tile-experimental-pill">experimental</span>
+            <span class="usage-tile-experimental-pill">wip</span>
             <div class="usage-tile-tooltip">
               <strong>Go framework</strong>
-              <p>Build Go CLIs on the usage spec, with parsing behavior verified against the same conformance corpus as the Rust implementation. Experimental: APIs may change between releases.</p>
+              <p>Build Go CLIs on the usage spec, with parsing behavior verified against the same conformance corpus as the Rust implementation. Work in progress: APIs may change between releases.</p>
             </div>
           </a>
           <span class="usage-tile usage-tile-soon">
@@ -57,14 +57,14 @@ const javascriptPath =
               <path :d="pythonPath" />
             </svg>
             <span>Python</span>
-            <span class="usage-tile-soon-pill">soon</span>
+            <span class="usage-tile-soon-pill">maybe</span>
           </span>
           <span class="usage-tile usage-tile-soon">
             <svg class="usage-tile-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path :d="javascriptPath" />
             </svg>
             <span>JavaScript</span>
-            <span class="usage-tile-soon-pill">soon</span>
+            <span class="usage-tile-soon-pill">maybe</span>
           </span>
         </div>
 
