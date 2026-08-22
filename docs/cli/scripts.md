@@ -123,22 +123,22 @@ the working directory. Or name the shell you actually meant:
 
 ```batch
 :: Command Prompt
-set USAGE_SHELL_BASH=C:\Program Files\Git\bin\bash.exe
+set USAGECLI_SHELL_BASH=C:\Program Files\Git\bin\bash.exe
 ```
 
 ```powershell
 # PowerShell
-$env:USAGE_SHELL_BASH = 'C:\Program Files\Git\bin\bash.exe'
+$env:USAGECLI_SHELL_BASH = 'C:\Program Files\Git\bin\bash.exe'
 ```
 
 Each shell subcommand reads the variable for the program it runs:
 
-| Command            | Variable           |
-| ------------------ | ------------------ |
-| `usage bash`       | `USAGE_SHELL_BASH` |
-| `usage zsh`        | `USAGE_SHELL_ZSH`  |
-| `usage fish`       | `USAGE_SHELL_FISH` |
-| `usage powershell` | `USAGE_SHELL_PWSH` |
+| Command            | Variable              |
+| ------------------ | --------------------- |
+| `usage bash`       | `USAGECLI_SHELL_BASH` |
+| `usage zsh`        | `USAGECLI_SHELL_ZSH`  |
+| `usage fish`       | `USAGECLI_SHELL_FISH` |
+| `usage powershell` | `USAGECLI_SHELL_PWSH` |
 
 `usage powershell` runs `pwsh`, so its variable is named for that — which also lets you point it
 at `powershell.exe` on a machine that only has Windows PowerShell.
@@ -148,6 +148,20 @@ line, so it takes no arguments and needs no quoting even where the path contains
 empty or whitespace-only value reads the same as an unset one. The variable is inherited by the
 script, so a script
 that invokes `usage` again gets the same shell.
+
+### Why not `USAGE_SHELL_BASH`
+
+That was the original spelling and is still read, so nothing that set it needs changing. The
+`USAGECLI_` one exists because `USAGE_` is not usage's to take: a spec's values reach a script
+as `usage_<arg>`, and Windows environment variable names are case-insensitive, so
+`USAGE_SHELL_BASH` and a spec's own `shell_bash` argument are one variable there. The same
+applies to `USAGECLI_DEBUG`, `USAGECLI_TRACE` and `USAGECLI_LOG`, whose old names collide with
+the very ordinary argument names `debug`, `trace` and `log`.
+
+It also matters under mise, which clears `usage_*` from a task's environment so its own parsed
+arguments cannot leak in — comparing the first six characters, case-insensitively, which is why
+no `USAGE_…` spelling escapes it. A `USAGE_SHELL_BASH` set for `mise run` never reaches the
+task; a `USAGECLI_SHELL_BASH` does.
 
 `usage exec` needs none of this — it already names the interpreter, so a shebang can point
 straight at one:

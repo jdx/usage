@@ -96,8 +96,10 @@ impl Shell {
         let parsed = usage::parse::parse(&spec, &args)?;
         debug!("{parsed:?}");
 
-        let overridden = env::shell_program_override(shell, |key| env::var(key).ok());
-        let program = overridden.clone().unwrap_or_else(|| shell.to_string());
+        let overridden = env::shell_program_override_entry(shell, |key| env::var(key).ok());
+        let program = overridden
+            .as_ref()
+            .map_or_else(|| shell.to_string(), |(_, value)| value.clone());
         debug!("running {program}");
 
         let mut cmd = std::process::Command::new(&program);
@@ -116,12 +118,11 @@ impl Shell {
         env::apply_parsed_env(&mut cmd, &parsed.as_env());
 
         // Name the program: the bare io error says only "No such file or directory", which for
-        // an overridden shell gives no clue that the variable is what pointed here.
+        // an overridden shell gives no clue that the variable is what pointed here. And name the
+        // variable the user actually set — the legacy `USAGE_SHELL_*` is still read, so assuming
+        // the current spelling would send them to one they never touched.
         let mut child = cmd.spawn().map_err(|err| match &overridden {
-            Some(_) => miette::miette!(
-                "failed to run `{program}` (from ${}): {err}",
-                env::shell_var_name(shell)
-            ),
+            Some((key, _)) => miette::miette!("failed to run `{program}` (from ${key}): {err}"),
             None => miette::miette!("failed to run `{program}`: {err}"),
         })?;
         let result = child.wait().into_diagnostic()?;
@@ -217,7 +218,10 @@ mod tests {
     fn the_hint_names_the_script_and_the_override() {
         let hint = wsl_path_hint("bash", 127, r"C:\Users\me\script.sh").unwrap();
         assert!(hint.contains(r"C:\Users\me\script.sh"), "{hint}");
-        assert!(hint.contains("USAGE_SHELL_BASH"), "{hint}");
+        // The current spelling, since the hint is telling someone what to set. The legacy
+        // `USAGE_SHELL_BASH` is still read, but pointing them at it would send them to the one
+        // a mise task never receives.
+        assert!(hint.contains("USAGECLI_SHELL_BASH"), "{hint}");
         // Hedged, because a script really can exit 127 on its own.
         assert!(hint.contains("ignore this"), "{hint}");
     }
