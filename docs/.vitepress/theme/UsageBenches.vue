@@ -39,17 +39,17 @@ const rustRows = [
 ];
 
 // Go figures from go/README.md are whole-process wall time and subtract the
-// ~0.95ms a do-nothing Go process costs, so they are deliberately approximate.
+// ~950 µs a do-nothing Go process costs, so they are deliberately approximate.
 //
 // Ratios read the same way as the Rust card's: what each framework costs against
 // usage-go, on the row that costs it. Whole multiples, because every figure here is
 // a difference between two numbers already rounded to two significant figures — a
 // ratio of those does not deserve a decimal place.
 const goRows = [
-  { name: "usage-go", value: 0.15, label: "~0.15ms", us: true },
-  { name: "urfave/cli v3", value: 0.75, label: "~0.75ms", note: "~5× more", us: false },
-  { name: "cobra", value: 0.85, label: "~0.85ms", note: "~6× more", us: false },
-  { name: "kong", value: 5.2, label: "~5.2ms", note: "~35× more", us: false },
+  { name: "usage-go", value: 0.15, label: "~150 µs", us: true },
+  { name: "urfave/cli v3", value: 0.75, label: "~750 µs", note: "~5× more", us: false },
+  { name: "cobra", value: 0.85, label: "~850 µs", note: "~6× more", us: false },
+  { name: "kong", value: 5.2, label: "~5.2 ms", note: "~35× more", us: false },
 ];
 
 const rustMax = Math.max(...rustRows.map((r) => r.value));
@@ -225,7 +225,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
             <span class="usage-bench-tip" :id="`${idPrefix}-tip-cold`" role="tooltip">
               <strong>How this is measured</strong>
               <span>
-                Whole-process, with the ~0.95ms of Go runtime startup a do-nothing process
+                Whole-process, with the ~950 µs of Go runtime startup a do-nothing process
                 costs subtracted — approximate, and the reason the Rust card is timed
                 in-process instead.
               </span>
