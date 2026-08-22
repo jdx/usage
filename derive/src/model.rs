@@ -1800,8 +1800,8 @@ fn dup(span: Span, first: Span, message: &str) -> syn::Error {
 impl Field {
     /// A field marked `#[usage(skip)]`, if this is one.
     ///
-    /// clap's `#[usage(skip)]`: the field is not an argument, and is filled from `Default`
-    /// when the struct is built. Recognised before flags and arguments so a combination
+    /// The field is not an argument, and is filled from `Default` when the struct is built.
+    /// Recognised before flags and arguments so a combination
     /// like `#[usage(skip, long)]` is refused as a contradiction rather than parsed as a
     /// flag that also happens to say skip — there is no such thing, and accepting it would
     /// put a field in the tables that the build then ignored.
