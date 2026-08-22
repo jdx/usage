@@ -7,15 +7,6 @@
 #
 # `--version` is deliberately absent. It measures clap rather than usage.
 
-# Checked-in specs now emit flowed long_help as KDL raw multiline strings (`#"""`)
-# instead of escaped `\n` lines. Parsing that form costs more retired instructions
-# on the same bytes: +5.75% on the markdown benchmark (270.7M → 286.2M instructions,
-# startup +0.07%), measured on PR #1215. The generated markdown is unchanged; this
-# is the honest cost of the readable committed spec `usage g markdown` is meant to
-# exercise, not a renderer regression. `.github/workflows/perf-pr.yml` carries a
-# temporary compare allowance until merge updates `refs/notes/tak`; `gate.pct` here
-# stays at the default 1%.
-
 # The fixed cost of any invocation. Reading the generators against this
 # separates "usage got slower to start" from "generation got slower".
 [bench.startup]
