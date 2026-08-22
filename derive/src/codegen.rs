@@ -3259,10 +3259,17 @@ fn standing_locals(cli: &Cli) -> TokenStream {
             Kind::Flatten { .. } => quote! {
                 let #name = __usage_standing.map(|__usage_s| &__usage_s.#ident);
             },
-            Kind::Subcommand { optional: true, .. } => quote! {
-                let #name = __usage_standing.and_then(|__usage_s| __usage_s.#ident.as_ref());
-            },
-            Kind::Subcommand {
+            // The nested value itself, so a parent can ask which member stands — a bool
+            // would answer required-ness and nothing about `--json` vs `--yaml`.
+            Kind::ArgGroup { optional: true, .. } | Kind::Subcommand { optional: true, .. } => {
+                quote! {
+                    let #name = __usage_standing.and_then(|__usage_s| __usage_s.#ident.as_ref());
+                }
+            }
+            Kind::ArgGroup {
+                optional: false, ..
+            }
+            | Kind::Subcommand {
                 optional: false, ..
             } => quote! {
                 let #name = __usage_standing.map(|__usage_s| &__usage_s.#ident);
@@ -3281,7 +3288,7 @@ fn standing_flag(field: &Field) -> Option<TokenStream> {
     let name = standing_ident(field);
     match &field.kind {
         Kind::Skip | Kind::Flatten { .. } => None,
-        Kind::Subcommand { .. } => Some(quote!(#name.is_some())),
+        Kind::ArgGroup { .. } | Kind::Subcommand { .. } => Some(quote!(#name.is_some())),
         _ => standing_presence(field).map(|_| quote!(#name)),
     }
 }
@@ -5126,7 +5133,9 @@ fn default_if_predicate(cli: &Cli, condition: &ConditionalDefault) -> TokenStrea
     let Some(other) = cli.field_for_selector(&condition.selector) else {
         let selector = &condition.selector;
         return match &condition.when {
-            None => quote!(argument_state(partial, #selector).is_some_and(|state| state.given)),
+            None => quote!(
+                __usage_argument_state(partial, #selector).is_some_and(|state| state.given)
+            ),
             Some(when) => quote!(
                 argument_matches(partial, #selector, #when.as_bytes())
                     == ::std::option::Option::Some(true)
@@ -5621,9 +5630,10 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let presence = presence_methods(cli);
     let any_standing = any_standing_fn(cli);
     let standing_locals = standing_locals(cli);
+    let argument_state_standing = argument_state_standing(cli);
     let apply_defaults = {
         let defaults = declared_defaults(cli, true);
-        quote!(#standing_locals #defaults)
+        quote!(#standing_locals #argument_state_standing #defaults)
     };
     let apply_env = {
         let env = env_fallbacks(cli, true);
@@ -8207,6 +8217,54 @@ fn deprecations_fn(cli: &Cli) -> TokenStream {
     }
 }
 
+/// [`argument_state`] that also counts a standing `ArgGroup` member.
+///
+/// Only when this argv said nothing about the group: a fresh member on the command line
+/// replaces the standing variant, so relationships must not keep reading the old one.
+fn argument_state_standing(cli: &Cli) -> TokenStream {
+    let overlays = cli.fields.iter().filter_map(|field| {
+        let Kind::ArgGroup { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        let standing = standing_ident(field);
+        let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
+        Some(quote! {
+            if #group::any_given(&partial.#ident).is_none() {
+                if let ::std::option::Option::Some(__usage_s) = #standing {
+                    if let ::std::option::Option::Some(__usage_standing_state) =
+                        #group::standing_state(__usage_s, selector)
+                    {
+                        if __usage_standing_state.given {
+                            return ::std::option::Option::Some(__usage_standing_state);
+                        }
+                    }
+                }
+            }
+        })
+    });
+    quote! {
+        // Shadow the module helper for every check below: an update's standing group
+        // member has to answer `requires` / `conflicts` the same way a standing flag does,
+        // and only this scope holds the standing locals.
+        #[allow(dead_code)]
+        let __usage_argument_state =
+            |partial: &Partial, selector: &str| -> ::std::option::Option<
+                usage_argv::spec::ArgumentState,
+            > {
+                match argument_state(partial, selector) {
+                    ::std::option::Option::Some(state) if state.given || state.satisfied => {
+                        ::std::option::Option::Some(state)
+                    }
+                    recognized => {
+                        #(#overlays)*
+                        recognized
+                    }
+                }
+            };
+    }
+}
+
 /// Everything decided once the last token has been read.
 ///
 /// Ordered deliberately. The environment fills what argv left out, so it runs
@@ -8222,6 +8280,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
     let policy_given = standing_policy_given;
     let semantic_given = standing_semantic_given;
     let standing_locals = standing_locals(cli);
+    let argument_state_standing = argument_state_standing(cli);
     let sub_check = subcommand_parts(cli).map(|p| p.check).unwrap_or_default();
     let subcommand_satisfies_requirements = if cli.subcommand_negates_reqs
         && cli
@@ -8582,7 +8641,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
             } else {
                 quote! {
                     if #given {
-                        if let ::std::option::Option::Some(other) = argument_state(partial, #selector) {
+                        if let ::std::option::Option::Some(other) =
+                            __usage_argument_state(partial, #selector)
+                        {
                             if other.given {
                                 return ::std::result::Result::Err(
                                     usage_argv::Error::ConflictingFlags {
@@ -8614,7 +8675,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             let Some(other) = cli.field_for_selector(selector) else {
                 return quote! {
                     if #given {
-                        match argument_state(partial, #selector) {
+                        match __usage_argument_state(partial, #selector) {
                             ::std::option::Option::Some(other) if other.satisfied => {}
                             ::std::option::Option::Some(other) => {
                                 return ::std::result::Result::Err(
@@ -8688,7 +8749,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 };
                 return quote! {
                     if #given && #matches {
-                        match argument_state(partial, #selector) {
+                        match __usage_argument_state(partial, #selector) {
                             ::std::option::Option::Some(other) if other.satisfied => {}
                             ::std::option::Option::Some(other) => {
                                 return ::std::result::Result::Err(
@@ -8842,7 +8903,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 Some(quote! {
                     (
                         <#ty as usage_argv::spec::ArgGroup>::any_given(&partial.#ident)
-                            .or_else(|| #standing.then_some(#name)),
+                            .or_else(|| #standing.map(|_| #name)),
                         ::std::option::Option::None,
                     ),
                 })
@@ -9034,8 +9095,9 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // A bare `T` has nowhere to put "no member", which is the whole declaration — the
         // same reading of a type that makes a `String` field required.
         let active = view_field_active(field);
+        let standing_held = unless_standing(field);
         group_required_checks.push(quote! {
-            if #active && #group::any_given(&partial.#ident).is_none() {
+            if #active && #group::any_given(&partial.#ident).is_none() #standing_held {
                 return ::std::result::Result::Err(
                     usage_argv::Error::MissingGroup {
                         group: #group::NAME,
@@ -9071,7 +9133,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             Some(match cli.field_for_selector(selector) {
                 Some(other) => policy_given(other),
                 None => quote!(
-                    argument_state(partial, #selector).is_some_and(|state| state.given)
+                    __usage_argument_state(partial, #selector).is_some_and(|state| state.given)
                 ),
             })
         };
@@ -9171,6 +9233,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // What the caller already had, read once. `None` for an ordinary parse, which
         // folds every one of these to `false`.
         #standing_locals
+        #argument_state_standing
         // Environment first, so a `default_if` can see a sibling filled from
         // env, and so the environment still overrides an unconditional default.
         #env_fallbacks
@@ -9432,11 +9495,28 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
-                return ::std::option::Option::Some(usage_argv::spec::ArgumentState {
+                ::std::option::Option::Some(usage_argv::spec::ArgumentState {
                     name: #name,
                     given: partial.#given,
                     satisfied: partial.#given,
-                });
+                })
+            }
+        }
+    });
+    let standing_state_arms = group.variants.iter().map(|member| {
+        let cfg = &member.cfg_attrs;
+        let name = &member.name;
+        let variant = &member.ident;
+        let selectors = member_selectors(member);
+        quote! {
+            #(#cfg)*
+            #(#selectors)|* => {
+                let __usage_given = ::core::matches!(standing, Self::#variant);
+                ::std::option::Option::Some(usage_argv::spec::ArgumentState {
+                    name: #name,
+                    given: __usage_given,
+                    satisfied: __usage_given,
+                })
             }
         }
     });
@@ -9555,6 +9635,16 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 ) -> ::std::option::Option<usage_argv::spec::ArgumentState> {
                     match selector {
                         #(#state_arms)*
+                        _ => ::std::option::Option::None,
+                    }
+                }
+
+                fn standing_state(
+                    standing: &Self,
+                    selector: &str,
+                ) -> ::std::option::Option<usage_argv::spec::ArgumentState> {
+                    match selector {
+                        #(#standing_state_arms)*
                         _ => ::std::option::Option::None,
                     }
                 }

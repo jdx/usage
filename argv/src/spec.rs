@@ -2961,6 +2961,16 @@ pub trait ArgGroup: Sized {
     /// is for flattened argument groups.
     fn argument_state(partial: &Self::Partial, selector: &str) -> Option<ArgumentState>;
 
+    /// [`Self::argument_state`] for a value the caller already holds.
+    ///
+    /// An update cannot recover the partial that produced this enum, so which member stands
+    /// is read from the variant itself. `None` by default, which is what a hand-written
+    /// implementation that does not take part in updates should say.
+    fn standing_state(standing: &Self, selector: &str) -> Option<ArgumentState> {
+        let _ = (standing, selector);
+        None
+    }
+
     /// Whether a selected member is present as the given boolean value.
     ///
     /// Members are switches, so only `"true"` / `"false"` are meaningful; anything else

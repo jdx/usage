@@ -532,3 +532,74 @@ fn a_nested_subcommand_switch_replaces_only_the_inner_variant() {
         }),
     );
 }
+
+/// How to emit output — required on the holding command (bare `Mode`, not `Option`).
+#[derive(ArgGroup, Debug, PartialEq)]
+enum Mode {
+    /// Emit JSON
+    Json,
+    /// Emit YAML
+    Yaml,
+}
+
+/// A CLI whose arg group is required by type, plus a sibling that names a member.
+#[derive(Cli, Debug, PartialEq)]
+#[usage(bin = "modeupd")]
+struct ModeUpd {
+    #[usage(arg_group)]
+    mode: Mode,
+    /// Only legal beside JSON
+    #[usage(long, requires = "--json")]
+    pretty: bool,
+    /// Cannot sit beside YAML
+    #[usage(long, conflicts = "--yaml")]
+    strict: bool,
+    /// Something to change so an update has a reason to run
+    #[usage(long)]
+    tag: Option<String>,
+}
+
+#[test]
+fn a_standing_required_arg_group_need_not_be_given_again() {
+    let a = argv(["--json"]);
+    let mut upd = ModeUpd::parse_from(&a).expect("first parse selects the group");
+
+    // A bare `Mode` is required; this argv says nothing about the group. Standing must answer.
+    let a = argv(["--tag", "second"]);
+    upd.try_update_from(&a)
+        .expect("required group already stands");
+
+    assert_eq!(upd.mode, Mode::Json);
+    assert_eq!(upd.tag.as_deref(), Some("second"));
+}
+
+#[test]
+fn a_standing_group_member_satisfies_a_sibling_requires() {
+    let a = argv(["--json"]);
+    let mut upd = ModeUpd::parse_from(&a).expect("json stands");
+
+    let a = argv(["--pretty"]);
+    upd.try_update_from(&a)
+        .expect("standing --json satisfies requires");
+
+    assert_eq!(upd.mode, Mode::Json);
+    assert!(upd.pretty);
+}
+
+#[test]
+fn a_standing_group_member_conflicts_with_a_sibling_flag() {
+    let a = argv(["--yaml"]);
+    let mut upd = ModeUpd::parse_from(&a).expect("yaml stands");
+
+    let a = argv(["--strict"]);
+    assert!(
+        matches!(
+            upd.try_update_from(&a),
+            Err(Error::ConflictingFlags {
+                name: "strict",
+                other: "yaml",
+            })
+        ),
+        "standing --yaml still conflicts with --strict",
+    );
+}
