@@ -1,9 +1,5 @@
 # Spec Output
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 `Cli::to_kdl()` writes a complete [usage spec](/spec/) from the same static metadata the parser
 runs on. This is the bridge to the rest of the toolkit: markdown docs, manpages, completion
 scripts for other consumers, SDK generation, and linting all consume that KDL.

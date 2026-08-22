@@ -1,9 +1,5 @@
 # Migrating from clap
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 The Rust framework is a typed parser with static metadata, not a compatibility layer around
 clap. Most derive-based CLIs migrate mechanically. Builder APIs and `ArgMatches` are intentional
 API breaks: move their behavior into typed declarations or keep clap at that boundary.

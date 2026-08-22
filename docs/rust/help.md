@@ -1,9 +1,5 @@
 # Help, Version, and Errors
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 ## Help
 
 `-h` and `--help` are supplied by the parser — you never declare them. They aren't written into

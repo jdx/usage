@@ -1,9 +1,5 @@
 # Completions
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 Completion support is opt-in: add `completion` to the root attribute and enable the
 `completions` cargo feature (forgetting the feature is a compile error that names it):
 

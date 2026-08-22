@@ -1,9 +1,5 @@
 # Dispatch
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 A parse ends with a value: an enum whose selected variant holds the command's own struct. What
 every CLI then writes is the same `match` — one arm per command, each calling the one function
 that command exists for. At mise's size that is 210 arms of pure routing, and nothing checks
