@@ -492,17 +492,31 @@ pub fn render_warnings(warnings: &[crate::warn::Warning<'_>], style: Style) -> S
 /// Render a parse failure through a spec-declared executable view.
 pub fn render_view<'a>(
     spec: &'a Spec<'a>,
-    argv: &[&std::ffi::OsStr],
+    argv: &[&'a std::ffi::OsStr],
     error: &Error<'_, '_>,
     style: Style,
     view: &'a ViewMeta<'a>,
 ) -> String {
+    render_inner(spec, &view_words(argv, view), error, style, Some(view))
+}
+
+/// The command line as the parse walked it, for a view invocation.
+///
+/// argv0 named the view rather than the program, so the words it stands for are put back:
+/// `scoped-run --bad` is `run --bad` to everything downstream. Shared rather than done at
+/// each call site because the caller that renders and the caller that decides whether to
+/// colour have to agree about which command the words reached — they did not, and a
+/// `color=` flag on the rooted command painted a help page and not a failure.
+pub(crate) fn view_words<'a>(
+    argv: &[&'a std::ffi::OsStr],
+    view: &ViewMeta<'a>,
+) -> Vec<&'a std::ffi::OsStr> {
     let words = argv.get(1..).unwrap_or_default();
     let mut rewritten =
         Vec::with_capacity(words.len() + view.root.split_ascii_whitespace().count());
     rewritten.extend(view.root.split_ascii_whitespace().map(std::ffi::OsStr::new));
     rewritten.extend_from_slice(words);
-    render_inner(spec, &rewritten, error, style, Some(view))
+    rewritten
 }
 
 fn render_inner<'a>(

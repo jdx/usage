@@ -1019,18 +1019,20 @@ pub fn render_failure_plain(
 #[cfg(feature = "diagnostics")]
 pub fn render_failure_view<'a>(
     spec: &'a spec::Spec<'a>,
-    argv: &[&OsStr],
+    argv: &[&'a OsStr],
     error: &Error<'_, '_>,
     view: &'a spec::ViewMeta<'a>,
 ) -> String {
-    // A view's argv still carries argv0, which the parser behind `resolve` does
-    // not expect: it takes the words after the program name.
-    let words = argv.get(1..).unwrap_or(&[]);
+    // The words the parse walked, not the ones the caller typed: argv0 named the view, so
+    // the root command it stands for has to be put back before asking which command's
+    // `color=` flag applies. Dropping argv0 alone left the question answered at the root,
+    // where a view's flags are not declared.
+    let words = diagnostic::view_words(argv, view);
     diagnostic::render_view(
         spec,
         argv,
         error,
-        diagnostic::Style::resolve(spec, words),
+        diagnostic::Style::resolve(spec, &words),
         view,
     )
 }

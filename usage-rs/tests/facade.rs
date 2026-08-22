@@ -3474,6 +3474,11 @@ enum ScopedCommand {
         /// Disable colored output
         #[usage(long, color = "never")]
         no_color: bool,
+        /// Force colored output
+        #[usage(long, color = "always")]
+        force_color: bool,
+        /// The task to run.
+        task: String,
     },
 }
 
@@ -3490,6 +3495,26 @@ fn a_scoped_colour_flag_needs_the_words_that_reach_its_command() {
     // what the command line plainly asked for. Which is why anything rendering a report
     // has to be handed the rewritten words rather than the process's own.
     assert_eq!(scoped(&["--no-color"]), usage::ColorChoice::Auto);
+}
+
+#[test]
+fn a_view_failure_is_painted_by_the_command_the_view_roots_at() {
+    let view = &ScopedColor::spec().views[0];
+    let render = |argv: &[&OsStr]| {
+        let error = ScopedColor::parse_from_argv(argv).expect_err("the task is required");
+        usage::render_failure_view(ScopedColor::spec(), argv, &error, view)
+    };
+
+    // `--force-color` is declared on `run`, the command `scoped-run` roots at. Resolving
+    // the style against argv with only the program name dropped never reaches that command,
+    // so the failure came out plain while the same flag coloured a help page — the two
+    // halves of one report disagreeing about one command line.
+    let painted = render(&[OsStr::new("scoped-run"), OsStr::new("--force-color")]);
+    assert!(painted.contains('\u{1b}'), "{painted:?}");
+
+    // And nothing asked for, so nothing forced: a test process's stderr is not a terminal.
+    let plain = render(&[OsStr::new("scoped-run")]);
+    assert!(!plain.contains('\u{1b}'), "{plain:?}");
 }
 
 #[test]
