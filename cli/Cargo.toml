@@ -65,7 +65,7 @@ assert_cmd = { version = "2", features = ["color-auto"] }
 ctor = "1"
 insta = "1"
 predicates = "3"
-usage-test = { workspace = true }
+usage-rs = { workspace = true, features = ["test"] }
 
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/usage-{target}{ archive-suffix }"
