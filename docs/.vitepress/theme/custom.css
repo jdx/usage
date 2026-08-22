@@ -811,12 +811,15 @@
     text-align: center;
   }
 
+  /* The stacked hero centers its column, so the text block is shrink-to-fit and
+     would otherwise be widened past the viewport by the tile grid below. */
   .usage-hero-text {
     text-align: center;
+    align-self: stretch;
+    min-width: 0;
   }
 
-  .usage-hero-actions,
-  .usage-hero-tiles {
+  .usage-hero-actions {
     justify-content: center;
   }
 
@@ -824,6 +827,26 @@
   .usage-hero-desc {
     margin-left: auto;
     margin-right: auto;
+  }
+
+  /* Once the hero stacks, wrapping leaves ragged trailing rows. Even columns
+     keep the tiles aligned at every count. The floor clears the widest tile
+     ("Rust" plus its pill), so phones drop to one column rather than squeezing
+     a label against its pill. */
+  .usage-hero-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(208px, 1fr));
+    width: 100%;
+    max-width: 440px;
+  }
+
+  .usage-hero-tiles .usage-tile {
+    justify-content: center;
+  }
+
+  /* An odd tile count would otherwise leave the last one alone in a column. */
+  .usage-hero-tiles > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 }
 
