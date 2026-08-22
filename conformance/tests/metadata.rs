@@ -353,14 +353,13 @@ fn doc_comments_can_preserve_their_layout() {
 #[test]
 fn ordinary_multiline_doc_attributes_keep_their_indentation() {
     let spec: LibSpec = OrdinaryComments::to_kdl().parse().expect("valid spec");
+    // The continuation is indented, so it is an example line rather than wrapped
+    // prose: both forms keep the newline instead of turning it into spaces.
     assert_eq!(
         spec.about.as_deref(),
-        Some("Ordinary first line     indented continuation")
-    );
-    assert_eq!(
-        spec.about_long.as_deref(),
         Some("Ordinary first line\n    indented continuation")
     );
+    assert!(spec.about_long.is_none());
 }
 
 #[test]
@@ -373,6 +372,58 @@ fn verbatim_multiline_doc_attributes_keep_their_indentation() {
         Some("Verbatim first line\n    indented continuation")
     );
     assert!(spec.about_long.is_none());
+}
+
+/// Generates shell code that enables automatic daemon management when changing
+/// directories. Required for auto-start/stop features in pitchfork.toml.
+///
+/// Add to your shell config:
+///
+///     eval "$(pitchfork activate bash)"
+#[derive(Cli)]
+#[usage(bin = "flowed-comments")]
+struct FlowedComments {
+    /// Number of jobs to run.
+    ///
+    /// More detail continues
+    /// onto the next source line.
+    #[usage(long)]
+    jobs: bool,
+}
+
+#[test]
+fn ordinary_prose_doc_comments_flow_like_clap() {
+    let spec: LibSpec = FlowedComments::to_kdl().parse().expect("valid spec");
+    assert_eq!(
+        spec.about.as_deref(),
+        Some(
+            "Generates shell code that enables automatic daemon management when changing directories. Required for auto-start/stop features in pitchfork.toml."
+        )
+    );
+    let long = spec.about_long.as_deref().expect("long help");
+    assert_eq!(
+        long,
+        "Generates shell code that enables automatic daemon management when changing directories. Required for auto-start/stop features in pitchfork.toml.\n\nAdd to your shell config:\n\n    eval \"$(pitchfork activate bash)\""
+    );
+    assert!(
+        spec.about.as_deref().unwrap().ends_with('.'),
+        "trailing periods must survive"
+    );
+    assert!(
+        !long.contains("changing\ndirectories"),
+        "source wraps must not become markdown line breaks:\n{long}"
+    );
+
+    let jobs = spec.cmd.flags.iter().find(|f| f.name == "jobs").unwrap();
+    assert_eq!(jobs.help.as_deref(), Some("Number of jobs to run."));
+    assert_eq!(
+        jobs.help_long.as_deref(),
+        Some("Number of jobs to run.\n\nMore detail continues onto the next source line.")
+    );
+
+    let parsed = FlowedComments::parse_from(&[std::ffi::OsStr::new("--jobs")])
+        .expect("the metadata still parses");
+    assert!(parsed.jobs);
 }
 
 #[test]

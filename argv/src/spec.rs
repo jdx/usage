@@ -2787,12 +2787,22 @@ fn prop(out: &mut String, key: &str, value: &str) -> core::fmt::Result {
 /// Render a string value in KDL's canonical form.
 ///
 /// KDL 2 writes a string as a plain identifier whenever that cannot be confused
-/// with a number or keyword, and quotes it otherwise. Keeping this dependency-free
-/// copy of the identifier predicate makes derive output byte-for-byte stable across
-/// a usage-lib parse/serialize round trip.
+/// with a number or keyword, and quotes it otherwise. Newlines use the same raw
+/// multiline form as usage-lib's `string_entry` (`#"""…"""#`), so a wrapped help
+/// paragraph is not one giant escaped line in generated `.usage.kdl`. Control
+/// characters other than newline and tab still force a quoted escape, matching
+/// that helper. Keeping this dependency-free copy of the identifier predicate
+/// makes derive output byte-for-byte stable across a usage-lib parse/serialize
+/// round trip.
 fn quoted(value: &str) -> String {
     if !value.is_empty() && is_plain_kdl_identifier(value) {
         return value.to_owned();
+    }
+    let has_unsafe_control = value
+        .chars()
+        .any(|c| c.is_control() && c != '\n' && c != '\t');
+    if value.contains('\n') && !has_unsafe_control {
+        return raw_multiline_kdl_string(value);
     }
     let mut out = String::with_capacity(value.len() + 2);
     out.push('"');
@@ -2814,6 +2824,27 @@ fn quoted(value: &str) -> String {
     }
     out.push('"');
     out
+}
+
+/// Number of `#` delimiters so the closer cannot appear inside `value`.
+///
+/// Twin of `usage_lib::spec::helpers::raw_multiline_hash_count`: `n` hashes
+/// whenever a line contains `"""` followed by `n-1` hashes.
+fn raw_multiline_hash_count(value: &str) -> usize {
+    let mut max_count = 0;
+    for line in value.lines() {
+        for (idx, _) in line.match_indices("\"\"\"") {
+            let after = &line[idx + 3..];
+            let count = after.chars().take_while(|&c| c == '#').count();
+            max_count = max_count.max(count);
+        }
+    }
+    max_count + 1
+}
+
+fn raw_multiline_kdl_string(value: &str) -> String {
+    let hashes = "#".repeat(raw_multiline_hash_count(value));
+    format!("{hashes}\"\"\"\n{value}\n\"\"\"{hashes}")
 }
 
 fn is_plain_kdl_identifier(value: &str) -> bool {
@@ -3739,7 +3770,59 @@ mod tests {
         assert_eq!(quoted("with space"), r#""with space""#);
         assert_eq!(quoted(r#"say "hi""#), r#""say \"hi\"""#);
         assert_eq!(quoted("a\\b"), r#""a\\b""#);
-        assert_eq!(quoted("one\ntwo"), r#""one\ntwo""#);
+        assert_eq!(
+            quoted("one\ntwo"),
+            "#\"\"\"\none\ntwo\n\"\"\"#",
+            "newlines use KDL raw multiline syntax, not escaped quoted strings"
+        );
+        assert_eq!(
+            quoted("before\n\"\"\"#\nafter"),
+            "##\"\"\"\nbefore\n\"\"\"#\nafter\n\"\"\"##",
+            "enough hashes that the payload's closer cannot terminate the string"
+        );
+        assert_eq!(
+            quoted("before\n\"\"\"##\nafter"),
+            "###\"\"\"\nbefore\n\"\"\"##\nafter\n\"\"\"###"
+        );
+        assert_eq!(
+            quoted("ansi\n\u{1b}[0m"),
+            "\"ansi\\n\\u{1b}[0m\"",
+            "unsafe control characters keep the quoted escape form"
+        );
+        assert_eq!(quoted("tab\tonly"), "\"tab\\tonly\"");
+    }
+
+    #[test]
+    fn multiline_help_round_trips_through_emitted_kdl() {
+        static ROOT: Command = Command {
+            name: "ex",
+            ..Command::EMPTY
+        };
+        static META: CommandMeta = CommandMeta {
+            cmd: &ROOT,
+            about: Some("short"),
+            long_about: Some("First paragraph.\n\n    eval \"$(tool activate)\""),
+            ..CommandMeta::EMPTY
+        };
+        static SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &META,
+            ..Spec::EMPTY
+        };
+        let kdl = SPEC.to_kdl();
+        assert!(
+            kdl.contains("#\"\"\""),
+            "expected raw multiline syntax:\n{kdl}"
+        );
+        assert!(
+            !kdl.contains("\\n"),
+            "newlines must not be escaped in the generated document:\n{kdl}"
+        );
+        assert!(
+            kdl.contains("    eval \"$(tool activate)\""),
+            "indented example must stay indented:\n{kdl}"
+        );
     }
 
     fn test_completer(_: &CompleteCtx<'_>) -> Vec<Candidate<'static>> {

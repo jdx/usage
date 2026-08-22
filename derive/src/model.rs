@@ -4709,8 +4709,10 @@ pub(crate) fn flag_value(meta: &Meta) -> syn::Result<bool> {
 /// Split a doc comment into the short help and the long help.
 ///
 /// The first paragraph is the short form; the whole comment is the long form and is only
-/// reported when it says more than the short one. Prose is flowed by default, while
-/// `verbatim` keeps line breaks and whitespace for tables, examples, and ASCII art.
+/// reported when it says more than the short one. Prose is flowed by default — single
+/// newlines inside a paragraph become spaces in both forms, so source-code wrapping does
+/// not become help wrapping — while `verbatim` keeps line breaks and whitespace for
+/// tables, examples, and ASCII art. Trailing periods are left as written.
 pub(crate) fn doc_comment(
     attrs: &[Attribute],
     verbatim: bool,
@@ -4760,18 +4762,61 @@ pub(crate) fn doc_comment(
         return Ok(((!short.is_empty()).then_some(short), long));
     }
 
-    let full = lines.join("\n").trim().to_string();
-    let short = full
-        .split("\n\n")
-        .next()
-        .unwrap_or(&full)
-        .replace('\n', " ")
-        .trim()
-        .to_string();
+    let full = flow_prose(lines.join("\n").trim());
+    let short = full.split("\n\n").next().unwrap_or(&full).to_string();
 
     let long = if full == short { None } else { Some(full) };
     let short = if short.is_empty() { None } else { Some(short) };
     Ok((short, long))
+}
+
+/// Join wrapped prose the way clap does, without clap's trailing-period strip.
+///
+/// Consecutive unindented lines in a paragraph become one line, so wrapping a
+/// comment to 80 columns does not change the generated spec. Blank lines stay
+/// paragraph breaks. Indented lines and fenced code blocks keep their newlines,
+/// because mise's help is full of typed-command examples that a flatten would
+/// destroy.
+fn flow_prose(text: &str) -> String {
+    let mut paragraphs = Vec::new();
+    let mut current = Vec::new();
+    for line in text.lines() {
+        if line.trim().is_empty() {
+            if !current.is_empty() {
+                paragraphs.push(flow_paragraph(&current));
+                current.clear();
+            }
+        } else {
+            current.push(line);
+        }
+    }
+    if !current.is_empty() {
+        paragraphs.push(flow_paragraph(&current));
+    }
+    paragraphs.join("\n\n")
+}
+
+fn flow_paragraph(lines: &[&str]) -> String {
+    let mut out = String::new();
+    let mut in_fence = false;
+    let mut prev_preserved = false;
+    for line in lines {
+        let fence = line.trim_start().starts_with("```");
+        let preserve = in_fence || fence || line.starts_with(char::is_whitespace);
+        if !out.is_empty() {
+            if preserve || prev_preserved {
+                out.push('\n');
+            } else {
+                out.push(' ');
+            }
+        }
+        out.push_str(line);
+        if fence {
+            in_fence = !in_fence;
+        }
+        prev_preserved = preserve;
+    }
+    out
 }
 
 /// `my_flag` and `MyCli` both become `my-cli`-shaped names.
@@ -8543,6 +8588,81 @@ mod tests {
         assert_eq!(
             cli.long_about.as_deref(),
             Some("First line.\nSecond line.\n\n    indented example")
+        );
+    }
+
+    #[test]
+    fn non_verbatim_long_help_flows_and_keeps_trailing_periods() {
+        let cli = cli(r#"
+            /// Does the thing
+            /// on two lines.
+            ///
+            /// Second paragraph
+            /// continues here.
+            struct Ex {}
+        "#)
+        .unwrap();
+
+        assert_eq!(cli.about.as_deref(), Some("Does the thing on two lines."));
+        assert_eq!(
+            cli.long_about.as_deref(),
+            Some("Does the thing on two lines.\n\nSecond paragraph continues here.")
+        );
+    }
+
+    #[test]
+    fn a_single_wrapped_paragraph_is_only_the_short_form() {
+        let cli = cli(r#"
+            /// Does the thing
+            /// on two lines.
+            struct Ex {}
+        "#)
+        .unwrap();
+
+        assert_eq!(cli.about.as_deref(), Some("Does the thing on two lines."));
+        assert!(cli.long_about.is_none());
+    }
+
+    #[test]
+    fn non_verbatim_doc_comments_flow_paragraphs_and_keep_periods() {
+        let cli = cli(r#"
+            /// Generates shell code that enables automatic daemon management when changing
+            /// directories. Required for auto-start.
+            ///
+            /// Add to your shell config:
+            ///
+            ///     eval "$(tool activate bash)"
+            ///
+            /// ```
+            /// kept
+            /// as
+            /// lines
+            /// ```
+            struct Ex {}
+        "#)
+        .unwrap();
+
+        assert_eq!(
+            cli.about.as_deref(),
+            Some(
+                "Generates shell code that enables automatic daemon management when changing directories. Required for auto-start."
+            )
+        );
+        let long = cli
+            .long_about
+            .as_deref()
+            .expect("detail beyond the summary");
+        assert_eq!(
+            long,
+            "Generates shell code that enables automatic daemon management when changing directories. Required for auto-start.\n\nAdd to your shell config:\n\n    eval \"$(tool activate bash)\"\n\n```\nkept\nas\nlines\n```"
+        );
+        assert!(
+            long.ends_with("```"),
+            "fenced examples must keep their line breaks"
+        );
+        assert!(
+            cli.about.as_deref().unwrap().ends_with('.'),
+            "trailing periods must survive"
         );
     }
 
