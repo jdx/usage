@@ -38,9 +38,14 @@ cur_version="$(cargo pkgid usage-lib | cut -d# -f2 | cut -d@ -f2)"
 if ! echo "$released_versions" | grep -q "^v$cur_version$"; then
   echo "Releasing $cur_version"
   if [ "${usage_dry_run:-}" != 1 ]; then
-    # Dependency order: argv and derive first, then the facade that re-exports them.
+    # Dependency order: leaves first, then crates that re-export or depend on them.
+    # usage-rs lists usage-config / usage-validation / usage-test as optional deps;
+    # cargo publish still requires those packages to exist on crates.io.
     publish_crate_if_needed usage-argv
     publish_crate_if_needed usage-derive
+    publish_crate_if_needed usage-config
+    publish_crate_if_needed usage-validation
+    publish_crate_if_needed usage-test
     publish_crate_if_needed usage-rs
     publish_crate_if_needed usage-lib
     publish_crate_if_needed clap_usage
@@ -53,19 +58,25 @@ fi
 
 # usage-lib's current version is already released, so clap_usage's dependency
 # is satisfied; catch it up if it is behind. usage-argv rides the shared version
-# and depends on nothing, so the same catch-up applies to it. usage-rs is the
-# one package applications are documented to depend on; without this catch-up it
-# sat at the 0.0.0 placeholder while argv/derive moved to 5.x.
+# and depends on nothing, so the same catch-up applies to it.
+#
+# usage-config and usage-validation shipped in-tree at the tagged version but were
+# never published — publish them here so the next `usage-rs` release can depend on
+# them. Do not catch up usage-test / usage-rs at the already-tagged version:
+# crates.io usage-argv at that version has no features, while in-tree manifests
+# require `usage-argv/complete`. Those crates debut on the next version bump
+# (first branch above), which republishes argv with the features they need.
 publish_crate_if_needed usage-argv
 publish_crate_if_needed usage-derive
-publish_crate_if_needed usage-rs
+publish_crate_if_needed usage-config
+publish_crate_if_needed usage-validation
 publish_crate_if_needed clap_usage
 
 # Anchor the range before filtering paths. A release tag may point at a commit that only
 # changes root release files; letting the path filter hide that tag can make cliff propose
 # a version lower than the one already published.
 release_range="v$cur_version..HEAD"
-version="$(git cliff "$release_range" --bumped-version --include-path 'lib/**' --include-path 'cli/**' --include-path 'argv/**' --include-path 'derive/**' --include-path 'usage-rs/**')"
+version="$(git cliff "$release_range" --bumped-version --include-path 'lib/**' --include-path 'cli/**' --include-path 'argv/**' --include-path 'config/**' --include-path 'derive/**' --include-path 'test/**' --include-path 'usage-rs/**' --include-path 'validation/**')"
 
 if [ "v$cur_version" == "$version" ]; then
   echo "No library changes since $version; nothing to release"
@@ -74,17 +85,17 @@ fi
 
 if [ "${usage_dry_run:-}" == 1 ]; then
   echo "version: $version"
-  changelog="$(git cliff "$release_range" --tag "$version" --strip all --include-path 'lib/**' --include-path 'cli/**' --include-path 'argv/**' --include-path 'derive/**' --include-path 'usage-rs/**')"
+  changelog="$(git cliff "$release_range" --tag "$version" --strip all --include-path 'lib/**' --include-path 'cli/**' --include-path 'argv/**' --include-path 'config/**' --include-path 'derive/**' --include-path 'test/**' --include-path 'usage-rs/**' --include-path 'validation/**')"
   echo "changelog: $changelog"
   exit 0
 fi
 
 # Generate changelog using git-cliff (LLM editorialization happens in release.yml after merge)
-git cliff "$release_range" --tag "$version" --prepend CHANGELOG.md --include-path 'lib/**' --include-path 'cli/**' --include-path 'argv/**' --include-path 'derive/**' --include-path 'usage-rs/**'
+git cliff "$release_range" --tag "$version" --prepend CHANGELOG.md --include-path 'lib/**' --include-path 'cli/**' --include-path 'argv/**' --include-path 'config/**' --include-path 'derive/**' --include-path 'test/**' --include-path 'usage-rs/**' --include-path 'validation/**'
 
 # Get the unreleased notes for PR body
 # Strip version header since PR title already has version
-PR_BODY="$(git cliff "$release_range" --tag "$version" --strip all --include-path 'lib/**' --include-path 'cli/**' --include-path 'argv/**' --include-path 'derive/**' --include-path 'usage-rs/**' | tail -n +3)"
+PR_BODY="$(git cliff "$release_range" --tag "$version" --strip all --include-path 'lib/**' --include-path 'cli/**' --include-path 'argv/**' --include-path 'config/**' --include-path 'derive/**' --include-path 'test/**' --include-path 'usage-rs/**' --include-path 'validation/**' | tail -n +3)"
 
 cargo set-version "${version#v}" --exclude clap_usage --exclude usage-conformance
 mise run render
@@ -95,7 +106,7 @@ cargo update
 aube update
 mise run lint-fix
 git add \
-  {./,argv/,cli/,derive/,lib/,usage-rs/}Cargo.* \
+  {./,argv/,cli/,config/,derive/,lib/,test/,usage-rs/,validation/}Cargo.* \
   package.json aube-lock.yaml \
   cli/usage.usage.kdl \
   docs/cli/reference/* \
