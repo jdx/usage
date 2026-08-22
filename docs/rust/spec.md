@@ -168,6 +168,10 @@ computed version, while `version_spec` remains the static value exported to KDL.
 not currently apply the computed version. For a caller that already has different identity
 values, `Cli::app().name(...).bin(...).version(...)` provides the split explicitly.
 
+`Cli::render_help` and `Cli::render_failure` are the same overlay for a `parse_from` caller that
+handles help and diagnostics itself instead of using `parse()`. `help::render(Cli::spec(), …)`
+keeps the portable literals.
+
 ## What the parser does with the spec
 
 Nothing, at runtime. The derive compiles your declaration into static tables that usage-argv

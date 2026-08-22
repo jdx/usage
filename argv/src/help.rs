@@ -373,12 +373,15 @@ fn help_structure(
             }
         })
         .collect();
-    if own.iter().any(|flag| flag.help_heading.is_none()) {
+    if own
+        .iter()
+        .any(|flag| flag_help_heading(meta, flag).is_none())
+    {
         headings.push("Flags".to_string());
     }
     headings.extend(
         own.iter()
-            .filter_map(|flag| flag.help_heading)
+            .filter_map(|flag| flag_help_heading(meta, flag))
             .map(str::to_string),
     );
     if !inherited.is_empty() {
@@ -1038,7 +1041,7 @@ fn short_help_with(
         &mut sections.flags,
         "Flags",
         own.iter().copied(),
-        |f| f.help_heading,
+        |f| flag_help_heading(meta, f),
         |out, f| short_entry(out, f, column_usage(f)),
     );
     // After the command's own, and under a heading that says where they came from: `--config`
@@ -1311,12 +1314,41 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
     }
 }
 
+/// The section a flag appears under: its own heading, else the flatten site's
+/// `next_help_heading` when this flag arrived through that group.
+fn flag_help_heading<'a>(meta: &'a CommandMeta<'a>, flag: &'a FlagMeta<'a>) -> Option<&'a str> {
+    flag.help_heading
+        .or_else(|| flatten_site_heading(meta.flatten_groups, flag))
+}
+
+fn flatten_site_heading<'a>(
+    groups: &'a [crate::spec::FlattenGroup<'a>],
+    flag: &FlagMeta<'_>,
+) -> Option<&'a str> {
+    for group in groups {
+        if group
+            .meta
+            .flags
+            .iter()
+            .any(|candidate| core::ptr::eq(candidate.flag, flag.flag))
+        {
+            return group
+                .help_heading
+                .or_else(|| flatten_site_heading(group.meta.flatten_groups, flag));
+        }
+        if let Some(heading) = flatten_site_heading(group.meta.flatten_groups, flag) {
+            return Some(heading);
+        }
+    }
+    None
+}
+
 /// One section per heading, unheaded first, in the order the headings first appear.
 fn groups_section<'m, T: 'm>(
     out: &mut String,
     default_title: &str,
     items: impl Iterator<Item = &'m T> + Clone,
-    heading_of: impl Fn(&T) -> Option<&'m str>,
+    heading_of: impl Fn(&T) -> Option<&str>,
     mut write_item: impl FnMut(&mut String, &T),
 ) {
     // Headings in first-seen order, with the unheaded group before them. Collected rather
@@ -1665,7 +1697,7 @@ fn long_help_with(
         &mut sections.flags,
         "Flags",
         own.iter().copied(),
-        |f| f.help_heading,
+        |f| flag_help_heading(meta, f),
         |out, f| {
             let text = f.long_help.or(f.help);
             entry(

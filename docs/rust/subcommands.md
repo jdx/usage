@@ -160,7 +160,9 @@ struct Config {
 
 The tables are joined at compile time, so the parser walks one flat slice and `flatten` costs
 nothing at run time. Groups and `exclusive` flags declared on the flattened struct are enforced
-(and emitted) on the command that flattens them.
+(and emitted) on the command that flattens them. `#[usage(flatten, next_help_heading = "Network")]`
+puts that struct's unheaded flags under a help section at the mount site; a field that already
+names `help_heading` keeps it.
 
 The emitted KDL says the declarations are shared, rather than repeating them under each command:
 the struct becomes a [`flagset`](/spec/reference/flagset) named after it, and every command that
