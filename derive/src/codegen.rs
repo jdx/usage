@@ -3856,7 +3856,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         // do not set `__given_*`.
         let defaulted = !field.default.is_empty();
         let conditionally_defaulted =
-            default_if_would_apply(cli, field).unwrap_or_else(|| quote!(false));
+            default_if_would_apply(cli, field, Lookup::Module).unwrap_or_else(|| quote!(false));
         Some(quote! {
             #(#selectors)|* => return ::std::option::Option::Some(
                 usage_argv::spec::ArgumentState {
@@ -5129,15 +5129,44 @@ fn assign_literal(field: &Field, first: &str, all: &[String]) -> TokenStream {
     }
 }
 
-fn default_if_predicate(cli: &Cli, condition: &ConditionalDefault) -> TokenStream {
+/// Which pair of lookup helpers a generated predicate may call.
+///
+/// The standing-aware pair is a closure over locals only `check` and `apply_declared_defaults`
+/// hold, so a predicate inlined into the module-level `argument_state` has to name the plain
+/// functions instead — the same predicate, minus the value an update already had.
+#[derive(Clone, Copy, PartialEq)]
+enum Lookup {
+    Module,
+    Standing,
+}
+
+impl Lookup {
+    fn state(self) -> TokenStream {
+        match self {
+            Lookup::Module => quote!(argument_state),
+            Lookup::Standing => quote!(__usage_argument_state),
+        }
+    }
+
+    fn matches(self) -> TokenStream {
+        match self {
+            Lookup::Module => quote!(argument_matches),
+            Lookup::Standing => quote!(__usage_argument_matches),
+        }
+    }
+}
+
+fn default_if_predicate(cli: &Cli, condition: &ConditionalDefault, lookup: Lookup) -> TokenStream {
     let Some(other) = cli.field_for_selector(&condition.selector) else {
         let selector = &condition.selector;
+        let state = lookup.state();
+        let matches = lookup.matches();
         return match &condition.when {
             None => quote!(
-                __usage_argument_state(partial, #selector).is_some_and(|state| state.given)
+                #state(partial, #selector).is_some_and(|state| state.given)
             ),
             Some(when) => quote!(
-                argument_matches(partial, #selector, #when.as_bytes())
+                #matches(partial, #selector, #when.as_bytes())
                     == ::std::option::Option::Some(true)
             ),
         };
@@ -5171,16 +5200,45 @@ fn default_if_predicate(cli: &Cli, condition: &ConditionalDefault) -> TokenStrea
     }
 }
 
-fn default_if_would_apply(cli: &Cli, field: &Field) -> Option<TokenStream> {
+fn default_if_would_apply(cli: &Cli, field: &Field, lookup: Lookup) -> Option<TokenStream> {
     if field.default_if.is_empty() {
         return None;
     }
     let preds: Vec<TokenStream> = field
         .default_if
         .iter()
-        .map(|condition| default_if_predicate(cli, condition))
+        .map(|condition| default_if_predicate(cli, condition, lookup))
         .collect();
     Some(quote!(#(#preds)||*))
+}
+
+/// The `apply` arm for a field whose flags were keyed in another expansion.
+///
+/// A flattened struct and an argument group are the same shape of problem: their flags sit in
+/// this command's table, but the keys were minted where the type was declared, so only that
+/// type can recognize an event. One helper for both, so the displacement rule cannot drift
+/// between them — `trait_path` is all that differs.
+fn opaque_apply_arm(cli: &Cli, ident: &syn::Ident, trait_path: &TokenStream) -> TokenStream {
+    let reverse_displacements = cli.fields.iter().flat_map(|field| {
+        field
+            .overrides
+            .iter()
+            .filter(|selector| cli.field_for_selector(selector).is_none())
+            .map(move |selector| {
+                let statement = displace_statement(cli, field);
+                quote! {
+                    if #trait_path::event_matches(event, #selector) {
+                        #statement
+                    }
+                }
+            })
+    });
+    quote! {
+        if #trait_path::apply(&mut partial.#ident, event) {
+            #(#reverse_displacements)*
+            return true;
+        }
+    }
 }
 
 /// Take one event and say whether it belonged to this command.
@@ -5197,30 +5255,11 @@ fn apply_fn(cli: &Cli) -> TokenStream {
             let Kind::Flatten { ty } = &f.kind else {
                 return None;
             };
-            let ident = &f.ident;
-            let reverse_displacements = cli.fields.iter().flat_map(|field| {
-                field
-                    .overrides
-                    .iter()
-                    .filter(|selector| cli.field_for_selector(selector).is_none())
-                    .map(move |selector| {
-                        let statement = displace_statement(cli, field);
-                        quote! {
-                            if <#ty as usage_argv::spec::CommandArgs>::event_matches(
-                                event,
-                                #selector,
-                            ) {
-                                #statement
-                            }
-                        }
-                    })
-            });
-            Some(quote! {
-                if <#ty as usage_argv::spec::CommandArgs>::apply(&mut partial.#ident, event) {
-                    #(#reverse_displacements)*
-                    return true;
-                }
-            })
+            Some(opaque_apply_arm(
+                cli,
+                &f.ident,
+                &quote!(<#ty as usage_argv::spec::CommandArgs>),
+            ))
         })
         .collect();
     // An argument group's switches are in this command's table with keys minted in the enum's
@@ -5232,30 +5271,11 @@ fn apply_fn(cli: &Cli) -> TokenStream {
             let Kind::ArgGroup { ty, .. } = &f.kind else {
                 return None;
             };
-            let ident = &f.ident;
-            let reverse_displacements = cli.fields.iter().flat_map(|field| {
-                field
-                    .overrides
-                    .iter()
-                    .filter(|selector| cli.field_for_selector(selector).is_none())
-                    .map(move |selector| {
-                        let statement = displace_statement(cli, field);
-                        quote! {
-                            if <#ty as usage_argv::spec::ArgGroup>::event_matches(
-                                event,
-                                #selector,
-                            ) {
-                                #statement
-                            }
-                        }
-                    })
-            });
-            Some(quote! {
-                if <#ty as usage_argv::spec::ArgGroup>::apply(&mut partial.#ident, event) {
-                    #(#reverse_displacements)*
-                    return true;
-                }
-            })
+            Some(opaque_apply_arm(
+                cli,
+                &f.ident,
+                &quote!(<#ty as usage_argv::spec::ArgGroup>),
+            ))
         })
         .collect();
     let mirrored_flattened = cli.fields.iter().filter_map(|f| {
@@ -7838,7 +7858,7 @@ fn declared_defaults(cli: &Cli, filter_view: bool) -> TokenStream {
             .default_if
             .iter()
             .map(|condition| {
-                let pred = default_if_predicate(cli, condition);
+                let pred = default_if_predicate(cli, condition, Lookup::Standing);
                 let assign =
                     assign_literal(f, &condition.value, std::slice::from_ref(&condition.value));
                 quote!(if !__usage_filled && (#pred) {
@@ -8243,6 +8263,27 @@ fn argument_state_standing(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let match_overlays = cli.fields.iter().filter_map(|field| {
+        let Kind::ArgGroup { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        let standing = standing_ident(field);
+        let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
+        Some(quote! {
+            if #group::any_given(&partial.#ident).is_none() {
+                if let ::std::option::Option::Some(__usage_s) = #standing {
+                    if let ::std::option::Option::Some(__usage_standing_match) =
+                        #group::standing_matches(__usage_s, selector, value)
+                    {
+                        if __usage_standing_match {
+                            return ::std::option::Option::Some(true);
+                        }
+                    }
+                }
+            }
+        })
+    });
     quote! {
         // Shadow the module helper for every check below: an update's standing group
         // member has to answer `requires` / `conflicts` the same way a standing flag does,
@@ -8258,6 +8299,20 @@ fn argument_state_standing(cli: &Cli) -> TokenStream {
                     }
                     recognized => {
                         #(#overlays)*
+                        recognized
+                    }
+                }
+            };
+        // And the same for a check about what a member *is*: `required_if_eq` and a
+        // three-argument `default_if` name a value, not only a presence.
+        #[allow(dead_code)]
+        let __usage_argument_matches =
+            |partial: &Partial, selector: &str, value: &[u8]|
+                -> ::std::option::Option<bool> {
+                match argument_matches(partial, selector, value) {
+                    ::std::option::Option::Some(true) => ::std::option::Option::Some(true),
+                    recognized => {
+                        #(#match_overlays)*
                         recognized
                     }
                 }
@@ -8701,7 +8756,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     usage_argv::Error::MissingRequired { name: #other_name },
                 );
             };
-            match default_if_would_apply(cli, other) {
+            match default_if_would_apply(cli, other, Lookup::Standing) {
                 Some(pred) => quote! {
                     if #given && !(#other_given) && !(#pred) {
                         #missing
@@ -8787,7 +8842,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     _ => quote!(false),
                 },
             };
-            let unless_default_if = match default_if_would_apply(cli, other) {
+            let unless_default_if = match default_if_would_apply(cli, other, Lookup::Standing) {
                 Some(pred) => quote!(&& !(#pred)),
                 None => quote!(),
             };
@@ -9152,7 +9207,10 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     .and_then(Cli::selector_for_field)
                     .unwrap_or_else(|| condition.selector.clone());
                 let value = &condition.value;
-                quote!(argument_matches(partial, #selector, #value.as_bytes()).unwrap_or(false))
+                quote!(
+                    __usage_argument_matches(partial, #selector, #value.as_bytes())
+                        .unwrap_or(false)
+                )
             })
             .collect();
         let if_eq_all: Vec<_> = f
@@ -9164,7 +9222,10 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     .and_then(Cli::selector_for_field)
                     .unwrap_or_else(|| condition.selector.clone());
                 let value = &condition.value;
-                quote!(argument_matches(partial, #selector, #value.as_bytes()).unwrap_or(false))
+                quote!(
+                    __usage_argument_matches(partial, #selector, #value.as_bytes())
+                        .unwrap_or(false)
+                )
             })
             .collect();
         let unless_all_given: Vec<_> = f
@@ -9533,6 +9594,19 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
             }
         }
     });
+    let standing_match_arms = group.variants.iter().map(|member| {
+        let cfg = &member.cfg_attrs;
+        let variant = &member.ident;
+        let selectors = member_selectors(member);
+        quote! {
+            #(#cfg)*
+            #(#selectors)|* => {
+                return ::std::option::Option::Some(
+                    ::core::matches!(standing, Self::#variant) && value == b"true",
+                );
+            }
+        }
+    });
     let displace_arms = group.variants.iter().enumerate().map(|(i, member)| {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
@@ -9656,6 +9730,17 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 ) -> ::std::option::Option<bool> {
                     match selector {
                         #(#match_arms)*
+                        _ => ::std::option::Option::None,
+                    }
+                }
+
+                fn standing_matches(
+                    standing: &Self,
+                    selector: &str,
+                    value: &[u8],
+                ) -> ::std::option::Option<bool> {
+                    match selector {
+                        #(#standing_match_arms)*
                         _ => ::std::option::Option::None,
                     }
                 }

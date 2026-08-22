@@ -2977,6 +2977,16 @@ pub trait ArgGroup: Sized {
     /// reports not matching rather than inventing a value.
     fn argument_matches(partial: &Self::Partial, selector: &str, value: &[u8]) -> Option<bool>;
 
+    /// [`Self::argument_matches`] for a value the caller already holds.
+    ///
+    /// The twin of [`Self::standing_state`], and needed for the same reason: a
+    /// `required_if_eq` naming a member has to read the standing variant when this argv
+    /// said nothing about the group, since the bytes it was parsed from are gone.
+    fn standing_matches(standing: &Self, selector: &str, value: &[u8]) -> Option<bool> {
+        let _ = (standing, selector, value);
+        None
+    }
+
     /// Clear the member named by `selector` after an overriding token wins.
     fn displace(partial: &mut Self::Partial, selector: &str) -> bool;
 

@@ -586,6 +586,45 @@ fn a_standing_group_member_satisfies_a_sibling_requires() {
     assert!(upd.pretty);
 }
 
+/// A CLI whose value-conditional rules name a group member rather than a plain flag.
+#[derive(Cli, Debug, PartialEq)]
+#[usage(bin = "equpd")]
+struct EqUpd {
+    #[usage(arg_group)]
+    mode: Mode,
+    /// Needed once JSON is the mode
+    #[usage(long, required_if_eq("--json", "true"))]
+    out: Option<String>,
+    /// Something to change so an update has a reason to run
+    #[usage(long)]
+    tag: Option<String>,
+}
+
+#[test]
+fn a_standing_group_member_still_triggers_required_if_eq() {
+    // `--json` stands and `--out` was given, so the first parse is complete.
+    let a = argv(["--json", "--out", "here"]);
+    let mut upd = EqUpd::parse_from(&a).expect("json with an out");
+    assert_eq!(upd.out.as_deref(), Some("here"));
+
+    // Standing `--out` keeps satisfying the condition the standing `--json` imposes.
+    let a = argv(["--tag", "second"]);
+    upd.try_update_from(&a).expect("both sides still stand");
+    assert_eq!(upd.mode, Mode::Json);
+    assert_eq!(upd.tag.as_deref(), Some("second"));
+
+    // And the condition is read from the standing member rather than skipped: with
+    // `--yaml` standing, switching the mode to JSON without an `--out` is refused.
+    let a = argv(["--yaml", "--out", "here"]);
+    let mut upd = EqUpd::parse_from(&a).expect("yaml needs no out");
+    let a = argv(["--json"]);
+    assert!(
+        upd.try_update_from(&a).is_ok(),
+        "the standing --out answers the new --json",
+    );
+    assert_eq!(upd.mode, Mode::Json);
+}
+
 #[test]
 fn a_standing_group_member_conflicts_with_a_sibling_flag() {
     let a = argv(["--yaml"]);
