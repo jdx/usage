@@ -237,3 +237,49 @@ fn a_group_works_on_a_subcommand_beside_a_flattened_one() {
     let kdl = Nested::to_kdl();
     assert!(kdl.contains("group format --json --yaml --plain"), "{kdl}");
 }
+
+/// A sibling flag that names a group member — the relationship lookup Bugbot caught as missing.
+#[derive(Cli)]
+#[usage(bin = "rel")]
+struct Rel {
+    #[usage(arg_group)]
+    format: Option<Format>,
+    /// Only legal beside JSON
+    #[usage(long, requires = "--json")]
+    pretty: bool,
+    /// Last one wins against JSON
+    #[usage(long, overrides = "--json")]
+    raw: bool,
+    /// Cannot sit beside YAML
+    #[usage(long, conflicts = "--yaml")]
+    strict: bool,
+}
+
+#[test]
+fn a_sibling_relationship_can_name_a_group_member() {
+    // requires: --pretty alone is MissingRequired for --json.
+    let a = argv(["--pretty"]);
+    assert!(matches!(
+        Rel::parse_from(&a),
+        Err(Error::MissingRequired { name: "json", .. })
+    ));
+    let a = argv(["--json", "--pretty"]);
+    let rel = Rel::parse_from(&a).expect("json satisfies pretty");
+    assert_eq!(rel.format, Some(Format::Json));
+    assert!(rel.pretty);
+
+    // conflicts: --strict with --yaml.
+    let a = argv(["--yaml", "--strict"]);
+    assert!(matches!(
+        Rel::parse_from(&a),
+        Err(Error::ConflictingFlags { .. })
+    ));
+    let a = argv(["--json", "--strict"]);
+    assert!(Rel::parse_from(&a).expect("json does not conflict").strict);
+
+    // overrides: --raw displaces a prior --json.
+    let a = argv(["--json", "--raw"]);
+    let rel = Rel::parse_from(&a).expect("raw displaces json");
+    assert_eq!(rel.format, None);
+    assert!(rel.raw);
+}

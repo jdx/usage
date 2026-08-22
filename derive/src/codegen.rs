@@ -17,8 +17,8 @@ use quote::{format_ident, quote};
 
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
-    rendered_path, to_kebab, type_name, ArgGroup, Cli, ConditionalDefault, Dispatch, DoubleDash,
-    ExampleDecl, Field, Kind, Shape, Subcommands, ValueEnum, ViewDecl,
+    rendered_path, to_kebab, type_name, ArgGroup, ArgGroupMember, Cli, ConditionalDefault,
+    Dispatch, DoubleDash, ExampleDecl, Field, Kind, Shape, Subcommands, ValueEnum, ViewDecl,
 };
 
 /// Construct the user's command type after its generated partial has been checked.
@@ -165,6 +165,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let term_width = option_usize(cli.term_width);
     let max_term_width = option_usize(cli.max_term_width);
     let usage = option_str(cli.usage.as_deref());
+    let help_template = option_str(cli.help_template.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
     // A bare `T` subcommand field says the command cannot run alone; an `Option<T>` says it
@@ -1077,6 +1078,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 about: #about,
                 long_about: #long_about,
                 usage: #usage,
+                help_template: #help_template,
                 default_subcommand: #default_subcommand,
                 multicall: #multicall,
                 views: &[#(#views),*],
@@ -3203,6 +3205,18 @@ fn displacements(cli: &Cli, field: &Field) -> Vec<TokenStream> {
                 );
             });
         }
+        for grouped in &cli.fields {
+            let Kind::ArgGroup { ty, .. } = &grouped.kind else {
+                continue;
+            };
+            let ident = &grouped.ident;
+            displacements.push(quote! {
+                let _ = <#ty as usage_argv::spec::ArgGroup>::displace(
+                    &mut partial.#ident,
+                    #selector,
+                );
+            });
+        }
     }
     displacements
 }
@@ -3589,6 +3603,22 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let state_grouped = cli.fields.iter().filter_map(|field| {
+        let Kind::ArgGroup { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if let ::std::option::Option::Some(state) =
+                <#ty as usage_argv::spec::ArgGroup>::argument_state(
+                    &partial.#ident,
+                    selector,
+                )
+            {
+                return ::std::option::Option::Some(state);
+            }
+        })
+    });
     let match_arms = cli.fields.iter().filter_map(|field| {
         if matches!(
             field.kind,
@@ -3630,6 +3660,23 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let match_grouped = cli.fields.iter().filter_map(|field| {
+        let Kind::ArgGroup { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if let ::std::option::Option::Some(matches) =
+                <#ty as usage_argv::spec::ArgGroup>::argument_matches(
+                    &partial.#ident,
+                    selector,
+                    value,
+                )
+            {
+                return ::std::option::Option::Some(matches);
+            }
+        })
+    });
     let displace_arms = cli.fields.iter().filter_map(|field| {
         if !matches!(field.kind, Kind::Flag { .. }) || !is_displaceable(cli, field) {
             return None;
@@ -3650,6 +3697,20 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         let ident = &field.ident;
         Some(quote! {
             if <#ty as usage_argv::spec::CommandArgs>::displace(
+                &mut partial.#ident,
+                selector,
+            ) {
+                return true;
+            }
+        })
+    });
+    let displace_grouped = cli.fields.iter().filter_map(|field| {
+        let Kind::ArgGroup { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if <#ty as usage_argv::spec::ArgGroup>::displace(
                 &mut partial.#ident,
                 selector,
             ) {
@@ -3682,6 +3743,16 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let event_grouped = cli.fields.iter().filter_map(|field| {
+        let Kind::ArgGroup { ty, .. } = &field.kind else {
+            return None;
+        };
+        Some(quote! {
+            if <#ty as usage_argv::spec::ArgGroup>::event_matches(event, selector) {
+                return true;
+            }
+        })
+    });
     quote! {
         #[allow(dead_code)]
         pub fn argument_state(
@@ -3693,6 +3764,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
                 _ => {}
             }
             #(#state_flattened)*
+            #(#state_grouped)*
             ::std::option::Option::None
         }
 
@@ -3707,6 +3779,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
                 _ => {}
             }
             #(#match_flattened)*
+            #(#match_grouped)*
             ::std::option::Option::None
         }
 
@@ -3717,6 +3790,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
                 _ => {}
             }
             #(#displace_flattened)*
+            #(#displace_grouped)*
             false
         }
 
@@ -3735,6 +3809,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
                 }
             }
             #(#event_flattened)*
+            #(#event_grouped)*
             false
         }
     }
@@ -4724,8 +4799,26 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                 return None;
             };
             let ident = &f.ident;
+            let reverse_displacements = cli.fields.iter().flat_map(|field| {
+                field
+                    .overrides
+                    .iter()
+                    .filter(|selector| cli.field_for_selector(selector).is_none())
+                    .map(move |selector| {
+                        let statement = displace_statement(cli, field);
+                        quote! {
+                            if <#ty as usage_argv::spec::ArgGroup>::event_matches(
+                                event,
+                                #selector,
+                            ) {
+                                #statement
+                            }
+                        }
+                    })
+            });
             Some(quote! {
                 if <#ty as usage_argv::spec::ArgGroup>::apply(&mut partial.#ident, event) {
+                    #(#reverse_displacements)*
                     return true;
                 }
             })
@@ -5451,11 +5544,60 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 partial
             }
 
+            /// Every declared default this command has, filling what nothing else did.
+            ///
+            /// `__usage_standing` is what an update already had, and `None` for an ordinary
+            /// parse: a default does not overwrite a value the caller set deliberately.
+            fn apply_declared_defaults(
+                partial: &mut Partial,
+                __usage_view: ::std::option::Option<
+                    &'static usage_argv::spec::ViewMeta<'static>,
+                >,
+                __usage_standing: ::std::option::Option<&#ident>,
+            ) {
+                let _ = __usage_standing.is_some();
+                #apply_defaults
+            }
+
+            /// [`apply_declared_defaults`], for the environment rather than for declared
+            /// defaults.
+            fn apply_env_fallbacks(
+                partial: &mut Partial,
+                __usage_view: ::std::option::Option<
+                    &'static usage_argv::spec::ViewMeta<'static>,
+                >,
+                __usage_standing: ::std::option::Option<&#ident>,
+            ) {
+                let _ = __usage_standing.is_some();
+                #apply_env
+            }
+
             /// Everything decided after the last token, for this command.
             ///
             /// Separate from `build` because only the *selected* command's
             /// requirements apply: a flag that `install` requires says nothing about
             /// an invocation that ran `run`.
+            ///
+            /// `__usage_standing` is what an update already had: `None` for an ordinary
+            /// parse, which folds every question about it away. One body rather than an
+            /// update-only copy, because this is the largest function a command generates.
+            fn check_with_args_override_self_for_view_standing<'t, 'v>(
+                partial: &mut Partial,
+                args_override_self: bool,
+                __usage_view: ::std::option::Option<
+                    &'static usage_argv::spec::ViewMeta<'static>,
+                >,
+                __usage_standing: ::std::option::Option<&#ident>,
+            ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
+                partial.__usage_view = __usage_view;
+                // Read unconditionally: a command that declares nothing to check would
+                // otherwise leave the parameter unused in the user's crate, where
+                // nobody can silence it.
+                let _ = (&partial, __usage_standing.is_some());
+                #post
+                ::std::result::Result::Ok(())
+            }
+
             fn check_with_args_override_self_for_view<'t, 'v>(
                 partial: &mut Partial,
                 args_override_self: bool,
@@ -5463,13 +5605,12 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                     &'static usage_argv::spec::ViewMeta<'static>,
                 >,
             ) -> ::std::result::Result<(), usage_argv::Error<'t, 'v>> {
-                partial.__usage_view = __usage_view;
-                // Read unconditionally: a command that declares nothing to check would
-                // otherwise leave the parameter unused in the user's crate, where
-                // nobody can silence it.
-                let _ = &partial;
-                #post
-                ::std::result::Result::Ok(())
+                check_with_args_override_self_for_view_standing(
+                    partial,
+                    args_override_self,
+                    __usage_view,
+                    ::std::option::Option::None,
+                )
             }
 
             pub fn check_with_args_override_self<'t, 'v>(
@@ -5549,10 +5690,11 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 #presence
 
                 fn apply_defaults(partial: &mut Self::Partial) {
-                    let __usage_view: ::std::option::Option<
-                        &'static usage_argv::spec::ViewMeta<'static>,
-                    > = ::std::option::Option::None;
-                    #apply_defaults
+                    apply_declared_defaults(
+                        partial,
+                        ::std::option::Option::None,
+                        ::std::option::Option::None,
+                    )
                 }
 
                 fn apply_defaults_for_view(
@@ -5561,14 +5703,19 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                         &'static usage_argv::spec::ViewMeta<'static>,
                     >,
                 ) {
-                    #apply_defaults
+                    apply_declared_defaults(
+                        partial,
+                        __usage_view,
+                        ::std::option::Option::None,
+                    )
                 }
 
                 fn apply_env(partial: &mut Self::Partial) {
-                    let __usage_view: ::std::option::Option<
-                        &'static usage_argv::spec::ViewMeta<'static>,
-                    > = ::std::option::Option::None;
-                    #apply_env
+                    apply_env_fallbacks(
+                        partial,
+                        ::std::option::Option::None,
+                        ::std::option::Option::None,
+                    )
                 }
 
                 fn apply_env_for_view(
@@ -5577,7 +5724,11 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                         &'static usage_argv::spec::ViewMeta<'static>,
                     >,
                 ) {
-                    #apply_env
+                    apply_env_fallbacks(
+                        partial,
+                        __usage_view,
+                        ::std::option::Option::None,
+                    )
                 }
 
                 #view_path_methods
@@ -8431,10 +8582,11 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
     // groups in different modules cannot hand a parse the same key, and the arm that claims an
     // event verifies it came from this table.
     let declaration = declaration_hash(&group.fingerprint);
-    let key_decls = (0..group.variants.len()).map(|i| {
+    let key_decls = group.variants.iter().enumerate().map(|(i, member)| {
         let key = key_ident("FLAG", Some(i));
         let index = i as u64;
-        quote!(const #key: u64 = __USAGE_KEY_BASE | #KIND_FLAG | #index;)
+        let cfg = &member.cfg_attrs;
+        quote!(#(#cfg)* const #key: u64 = __USAGE_KEY_BASE | #KIND_FLAG | #index;)
     });
 
     let flags = group.variants.iter().enumerate().map(|(i, member)| {
@@ -8539,6 +8691,70 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
             }
         }
     });
+    // Long and short spellings a member answers to, for relationship lookups from a parent.
+    let member_selectors = |member: &ArgGroupMember| -> Vec<String> {
+        let mut selectors = vec![format!("--{}", member.name)];
+        if let Some(short) = member.short {
+            selectors.push(format!("-{short}"));
+        }
+        selectors
+    };
+    let state_arms = group.variants.iter().enumerate().map(|(i, member)| {
+        let given = format_ident!("given_{i}");
+        let cfg = &member.cfg_attrs;
+        let name = &member.name;
+        let selectors = member_selectors(member);
+        quote! {
+            #(#cfg)*
+            #(#selectors)|* => {
+                return ::std::option::Option::Some(usage_argv::spec::ArgumentState {
+                    name: #name,
+                    given: partial.#given,
+                    satisfied: partial.#given,
+                });
+            }
+        }
+    });
+    let match_arms = group.variants.iter().enumerate().map(|(i, member)| {
+        let given = format_ident!("given_{i}");
+        let cfg = &member.cfg_attrs;
+        let selectors = member_selectors(member);
+        // Members are SetTrue switches: presence is the value. Wrap like an ordinary
+        // bool flag's `#given && …` so a missing member does not "match" `"false"`.
+        quote! {
+            #(#cfg)*
+            #(#selectors)|* => {
+                return ::std::option::Option::Some(partial.#given && value == b"true");
+            }
+        }
+    });
+    let displace_arms = group.variants.iter().enumerate().map(|(i, member)| {
+        let given = format_ident!("given_{i}");
+        let cfg = &member.cfg_attrs;
+        let selectors = member_selectors(member);
+        quote! {
+            #(#cfg)*
+            #(#selectors)|* => {
+                if partial.#given {
+                    partial.#given = false;
+                    return true;
+                }
+                return false;
+            }
+        }
+    });
+    let event_arms = group.variants.iter().enumerate().map(|(i, member)| {
+        let table = format_ident!("FLAG_{i}");
+        let key = key_ident("FLAG", Some(i));
+        let cfg = &member.cfg_attrs;
+        let selectors = member_selectors(member);
+        quote! {
+            #(#cfg)*
+            #key if ::core::ptr::eq(*flag, &#table) => {
+                matches!(selector, #(#selectors)|*)
+            }
+        }
+    });
 
     quote! {
         #[doc(hidden)]
@@ -8605,6 +8821,47 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 fn build(partial: &Self::Partial) -> ::std::option::Option<Self> {
                     #(#build_arms)*
                     ::std::option::Option::None
+                }
+
+                fn argument_state(
+                    partial: &Self::Partial,
+                    selector: &str,
+                ) -> ::std::option::Option<usage_argv::spec::ArgumentState> {
+                    match selector {
+                        #(#state_arms)*
+                        _ => ::std::option::Option::None,
+                    }
+                }
+
+                fn argument_matches(
+                    partial: &Self::Partial,
+                    selector: &str,
+                    value: &[u8],
+                ) -> ::std::option::Option<bool> {
+                    match selector {
+                        #(#match_arms)*
+                        _ => ::std::option::Option::None,
+                    }
+                }
+
+                fn displace(partial: &mut Self::Partial, selector: &str) -> bool {
+                    match selector {
+                        #(#displace_arms)*
+                        _ => false,
+                    }
+                }
+
+                fn event_matches(
+                    event: &usage_argv::Event<'_, '_, '_>,
+                    selector: &str,
+                ) -> bool {
+                    match event {
+                        usage_argv::Event::Flag { flag, .. } => match flag.key {
+                            #(#event_arms)*
+                            _ => false,
+                        },
+                        _ => false,
+                    }
                 }
             }
         };

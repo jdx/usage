@@ -102,6 +102,12 @@ pub struct Cli {
     pub min_usage_version: Option<String>,
     /// An exact usage synopsis for shapes with explicit alternatives.
     pub usage: Option<String>,
+    /// How every page in this CLI is laid out, as named sections.
+    ///
+    /// A literal rather than an expression, unlike the package metadata beside it, because the
+    /// section names in it are checked here: a template naming a section that does not exist
+    /// would otherwise reach a reader as the placeholder they wrote.
+    pub help_template: Option<String>,
     /// What running this command does to the world, when it says.
     ///
     /// Held as the tokens for an `Option<Effect>`, since the only thing it becomes is a field of
@@ -707,6 +713,7 @@ impl Cli {
             config: None,
             min_usage_version: None,
             usage: None,
+            help_template: None,
             effect: None,
             aliases: Vec::new(),
             hidden_aliases: Vec::new(),
@@ -942,6 +949,16 @@ impl Cli {
                     "source_code_link_template" => {
                         cli.source_code_link_template = Some(metadata_expr(&meta)?)
                     }
+                    // Checked here rather than at render time: a page laid out by a template
+                    // is read by users, and a placeholder naming no section would reach them
+                    // as the braces the author typed.
+                    "help_template" => {
+                        let template = string_value(&meta)?;
+                        if let Err(problem) = check_help_template(&template) {
+                            return Err(syn::Error::new_spanned(&meta, problem));
+                        }
+                        cli.help_template = Some(template);
+                    }
                     "before_help" => cli.before_help = Some(metadata_expr(&meta)?),
                     "next_help_heading" => cli.next_help_heading = Some(string_value(&meta)?),
                     "before_long_help" => cli.before_long_help = Some(metadata_expr(&meta)?),
@@ -1035,7 +1052,7 @@ impl Cli {
                                 "unknown option `{other}` on a struct; usage::Cli takes \
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
-                                 `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `term_width`, `max_term_width`, \
+                                 `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount`, `example`, `run`, `run_with`, `run_async`, `run_async_with` and \
                                  `group` and `view` here, and the description comes from the doc \
                                  comment"
@@ -1243,6 +1260,10 @@ impl Cli {
                     "source_code_link_template",
                     self.source_code_link_template.is_some(),
                 ),
+                // One template, for the whole tree: that is what makes a section vocabulary
+                // enough. A command declaring its own would be laying out a page nobody
+                // assembles from it.
+                ("help_template", self.help_template.is_some()),
             ]
             .into_iter()
             .find_map(|(name, present)| present.then_some(name))
@@ -1696,10 +1717,9 @@ impl Cli {
         // is the advantage of declaring them in code: a spec written by hand can only
         // find a typo'd selector at parse time, or never, since a selector naming
         // nothing quietly holds no relationship at all.
-        let has_flatten = self
-            .fields
-            .iter()
-            .any(|field| matches!(field.kind, Kind::Flatten { .. }));
+        let has_opaque = self.fields.iter().any(|field| {
+            matches!(field.kind, Kind::Flatten { .. } | Kind::ArgGroup { .. })
+        });
         for field in &self.fields {
             for (option, selectors) in [
                 ("overrides", &field.overrides),
@@ -1711,10 +1731,11 @@ impl Cli {
             ] {
                 for selector in selectors {
                     let Some(target) = self.field_for_selector(selector) else {
-                        // Relationship lookup composes through an opaque flattened partial.
-                        // Post-binding rules ask it about presence and values; binding-time
-                        // overrides ask it to displace the selected field as tokens arrive.
-                        if has_flatten {
+                        // Relationship lookup composes through an opaque flattened partial
+                        // or argument-group enum. Post-binding rules ask it about presence
+                        // and values; binding-time overrides ask it to displace the selected
+                        // field as tokens arrive.
+                        if has_opaque {
                             continue;
                         }
                         return Err(syn::Error::new(
@@ -1741,7 +1762,7 @@ impl Cli {
                 for condition in conditions {
                     let selector = &condition.selector;
                     let Some(target) = self.field_for_selector(selector) else {
-                        if has_flatten {
+                        if has_opaque {
                             continue;
                         }
                         return Err(syn::Error::new(
@@ -1760,7 +1781,7 @@ impl Cli {
             for condition in &field.requires_if {
                 let selector = &condition.requires;
                 let Some(target) = self.field_for_selector(selector) else {
-                    if has_flatten {
+                    if has_opaque {
                         continue;
                     }
                     return Err(syn::Error::new(
@@ -1781,7 +1802,7 @@ impl Cli {
             for condition in &field.default_if {
                 let selector = &condition.selector;
                 let Some(target) = self.field_for_selector(selector) else {
-                    if has_flatten {
+                    if has_opaque {
                         continue;
                     }
                     return Err(syn::Error::new(
@@ -2113,13 +2134,12 @@ impl Field {
 
         // `Option<T>` is a group that may be left alone and a bare `T` is one that has to be
         // given, which is the same rule every other field's type is read by — and the only
-        // spelling of required-ness a group has.
-        let name = type_name(&field.ty);
-        let (ty, optional) = match name
-            .strip_prefix("Option<")
-            .and_then(|rest| rest.strip_suffix('>'))
-        {
-            Some(inner) => (syn::parse_str::<Type>(inner)?, true),
+        // spelling of required-ness a group has. Peel the wrapper syntactically so a path
+        // like `Option<crate::fmt::Format>` keeps the inner type intact; `type_name` would
+        // collapse it to `Format` and put a name that is not in scope into the generated
+        // tables.
+        let (ty, optional) = match peel(&field.ty, "Option") {
+            Some(inner) => (inner, true),
             None => (field.ty.clone(), false),
         };
 
@@ -3934,6 +3954,38 @@ pub(crate) fn string_value(meta: &Meta) -> syn::Result<String> {
             "expected a string, as in `long = \"jobs\"`",
         )),
     }
+}
+
+/// The sections a `help_template` may name, and nothing else.
+///
+/// The same closed vocabulary `usage_argv::help::SECTIONS` renders and the KDL parser accepts,
+/// repeated rather than imported: this is a proc-macro crate, and the list is six words that a
+/// conformance test compares against both other copies.
+const HELP_SECTIONS: [&str; 6] = ["about", "usage", "commands", "args", "flags", "after_help"];
+
+/// Whether every `{{…}}` in a template names a section.
+fn check_help_template(template: &str) -> Result<(), String> {
+    let mut rest = template;
+    while let Some(at) = rest.find("{{") {
+        let after = &rest[at + 2..];
+        let Some(end) = after.find("}}") else {
+            return Err(format!(
+                "`help_template` has a `{{{{` with no `}}}}` after it; the sections are {}",
+                HELP_SECTIONS.join(", ")
+            ));
+        };
+        let name = after[..end].trim();
+        if !HELP_SECTIONS.contains(&name) {
+            return Err(format!(
+                "`help_template` names no section `{name}`; a page is assembled from {} — \
+                 reorder, omit or wrap those, and note that clap's `{{options}}` is `{{{{flags}}}}` \
+                 here and its `{{positionals}}` is `{{{{args}}}}`",
+                HELP_SECTIONS.join(", ")
+            ));
+        }
+        rest = &after[end + 2..];
+    }
+    Ok(())
 }
 
 /// A Rust expression whose result must be usable as `&'static str` in the
@@ -5809,6 +5861,33 @@ impl ArgGroup {
                     ),
                 ));
             }
+            // Same round-trip rules as an ordinary flag: the spec writes forms as a
+            // space-delimited string, so whitespace, controls, `-`, and `=` have nowhere
+            // to go and could never be typed as a short either.
+            if let Some(short) = member
+                .short
+                .filter(|c| c.is_whitespace() || c.is_control())
+            {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    format!(
+                        "`short = {short:?}` cannot be written: a spec spells a flag's \
+                         forms as a space-delimited string, so whitespace and control \
+                         characters have nowhere to go"
+                    ),
+                ));
+            }
+            if let Some(short) = member.short.filter(|c| matches!(c, '-' | '=')) {
+                let why = if short == '-' {
+                    "`--` is the separator that ends flag parsing"
+                } else {
+                    "`=` separates a short flag from its value, as in `-j=8`"
+                };
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    format!("`short = '{short}'` can never be given: {why}"),
+                ));
+            }
             variants.push(member);
         }
         // One member is not a relationship: the spec reserves a group for something said
@@ -5889,6 +5968,32 @@ mod tests {
         let err = rejection("struct Wrapper(InnerArgs);");
         assert!(err.contains("tuple field"), "unhelpful: {err}");
         assert!(err.contains("#[usage(flatten)]"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn a_help_template_may_name_only_the_sections_a_page_has() {
+        // Refused here rather than at render time: the page is read by users, and a
+        // placeholder naming no section would reach them as the braces somebody typed.
+        let err = rejection(r#"#[usage(help_template = "{{about}}{{options}}")] struct Root {}"#);
+        assert!(err.contains("`options`"), "unhelpful: {err}");
+        // And says what to write instead, since a ported clap template is where this lands.
+        assert!(err.contains("`{{flags}}`"), "unhelpful: {err}");
+        assert!(
+            rejection(r#"#[usage(help_template = "{{about")] struct Root {}"#).contains("`}}`"),
+        );
+
+        let parsed = cli(r#"#[usage(help_template = "{{ about }}\n{{usage}}")] struct Root {}"#)
+            .expect("the vocabulary, with or without spaces");
+        assert_eq!(
+            parsed.help_template.as_deref(),
+            Some("{{ about }}\n{{usage}}")
+        );
+
+        // One template, for the whole tree: an `Args` declaring one would be laying out a
+        // page nobody assembles from it.
+        let err = position_error(r#"#[usage(help_template = "{{usage}}")] struct Inner {}"#, false);
+        assert!(err.contains("belongs on the root"), "unhelpful: {err}");
+        assert!(err.contains("help_template"), "unhelpful: {err}");
     }
 
     #[test]
@@ -7366,6 +7471,21 @@ mod tests {
         assert!(!optional, "a bare `Source` is a group that has to be given");
         assert_eq!(super::type_name(ty), "Source");
 
+        // A path inside Option is kept intact: `type_name` would collapse
+        // `crate::fmt::Format` to `Format`, which is not in scope at the use site.
+        let parsed = cli(r#"
+            struct Ex {
+                #[usage(arg_group)]
+                format: Option<crate::fmt::Format>,
+            }
+        "#)
+        .expect("should compile");
+        let Kind::ArgGroup { ty, optional } = &parsed.fields[0].kind else {
+            panic!("expected an argument group");
+        };
+        assert!(optional);
+        assert_eq!(quote::ToTokens::to_token_stream(ty).to_string(), "crate :: fmt :: Format");
+
         // And nothing wrapped around it, which the field says rather than the trait bound the
         // generated code would otherwise fail.
         for ty in ["Vec<Format>", "Option<Option<Format>>", "Box<Format>"] {
@@ -7378,6 +7498,33 @@ mod tests {
             "#
             ));
             assert!(err.contains("at most one member"), "unhelpful: {err}");
+        }
+    }
+
+    #[test]
+    fn an_arg_group_member_rejects_shorts_that_cannot_round_trip() {
+        for (short, needle) in [
+            ("'-'", "can never be given"),
+            ("'='", "can never be given"),
+            ("'\\t'", "cannot be written"),
+            ("' '", "cannot be written"),
+        ] {
+            let err = match arg_group(&format!(
+                r#"
+                enum Format {{
+                    #[usage(short = {short})]
+                    Json,
+                    Yaml,
+                }}
+            "#
+            )) {
+                Ok(_) => panic!("short = {short} should have been refused"),
+                Err(e) => e.to_string(),
+            };
+            assert!(
+                err.contains(needle),
+                "short = {short}: expected `{needle}`, got `{err}`"
+            );
         }
     }
 

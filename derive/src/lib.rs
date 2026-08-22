@@ -551,7 +551,6 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
 /// `bool`s is set. Each variant is one switch, named by its own name in kebab-case:
 ///
 /// ```ignore
-/// /// How to print the result
 /// #[derive(usage::ArgGroup)]
 /// #[usage(name = "format")]
 /// enum Format {
@@ -563,6 +562,9 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
 ///     PlainText,
 /// }
 /// ```
+///
+/// Only a variant's doc comment becomes that switch's help; the enum's own docs are not
+/// read, because a group has no help of its own — the members do.
 ///
 /// A field holds one and says `arg_group`. `Option<Format>` is a group that may be left alone
 /// and a bare `Format` is one that has to be given — the same rule every other field's type is

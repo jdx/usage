@@ -319,6 +319,13 @@ pub struct Spec<'a> {
     /// An exact usage synopsis, including the `Usage:` prefix, when the generated
     /// shape needs alternatives that cannot be inferred from one command grammar.
     pub usage: Option<&'a str>,
+    /// How every page in this CLI is laid out, as named sections.
+    ///
+    /// A template names the six pre-rendered sections — `{{about}}`, `{{usage}}`,
+    /// `{{commands}}`, `{{args}}`, `{{flags}}`, `{{after_help}}` — and may reorder,
+    /// omit or wrap them. See [`crate::help::SECTIONS`] for what each one covers and
+    /// [`crate::help::unsupported_section`] for the rule an author's template is held to.
+    pub help_template: Option<&'a str>,
     /// Which command the root falls back to when a word matches no subcommand.
     /// mise uses this so `mise foo` completes as `mise run foo`.
     pub default_subcommand: Option<&'a str>,
@@ -569,6 +576,7 @@ impl<'a> SpecView<'a> {
             about: self.base.about,
             long_about: self.base.long_about,
             usage: self.base.usage,
+            help_template: self.base.help_template,
             default_subcommand: self.base.default_subcommand,
             multicall: self.base.multicall,
             views: self.base.views,
@@ -600,6 +608,7 @@ impl Spec<'_> {
         about: None,
         long_about: None,
         usage: None,
+        help_template: None,
         default_subcommand: None,
         multicall: false,
         views: &[],
@@ -1343,6 +1352,9 @@ impl Spec<'_> {
         }
         if let Some(usage) = self.usage {
             prop(out, "usage", usage)?;
+        }
+        if let Some(template) = self.help_template {
+            prop(out, "help_template", template)?;
         }
         // Written only when it is not the default, so an ordinary spec stays quiet
         // about it.
@@ -2941,6 +2953,25 @@ pub trait ArgGroup: Sized {
 
     /// The variant that was selected, or `None` when no member was given.
     fn build(partial: &Self::Partial) -> Option<Self>;
+
+    /// Find a member by any selector it accepts.
+    ///
+    /// Parents use this for `requires` / `conflicts` / conditional defaults that name a
+    /// group member from beside the field — the same bridge [`CommandArgs::argument_state`]
+    /// is for flattened argument groups.
+    fn argument_state(partial: &Self::Partial, selector: &str) -> Option<ArgumentState>;
+
+    /// Whether a selected member is present as the given boolean value.
+    ///
+    /// Members are switches, so only `"true"` / `"false"` are meaningful; anything else
+    /// reports not matching rather than inventing a value.
+    fn argument_matches(partial: &Self::Partial, selector: &str, value: &[u8]) -> Option<bool>;
+
+    /// Clear the member named by `selector` after an overriding token wins.
+    fn displace(partial: &mut Self::Partial, selector: &str) -> bool;
+
+    /// Whether this event binds the member named by `selector`.
+    fn event_matches(event: &crate::Event<'_, '_, '_>, selector: &str) -> bool;
 }
 
 /// One value a flag was given, in a vocabulary this crate can hold.
