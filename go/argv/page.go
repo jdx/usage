@@ -41,6 +41,12 @@ type HelpSpec struct {
 	AfterHelp      string
 	BeforeLongHelp string
 	AfterLongHelp  string
+	// HelpTemplate is how every page in this CLI is laid out, as named sections:
+	// `{{about}}`, `{{usage}}`, `{{commands}}`, `{{args}}`, `{{flags}}` and
+	// `{{after_help}}`, which an author may reorder, omit or wrap. Empty means the
+	// default order, which is what every page in the fleet is compared against.
+	// See [HelpSections].
+	HelpTemplate string
 }
 
 // Example is one worked invocation, as a page prints it.
@@ -67,7 +73,8 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	}
 	cmd := chain[len(chain)-1]
 	meta := help.Lookup(cmd.Key)
-	var out strings.Builder
+	var sections helpSections
+	out := &sections.about
 
 	before := spec.BeforeHelp
 	if meta != nil && meta.BeforeHelp != "" {
@@ -107,9 +114,9 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 
 	for i, line := range usageLines(path, cmd, help) {
 		if i == 0 {
-			out.WriteString("Usage: " + line + "\n")
+			sections.usage.WriteString("Usage: " + line + "\n")
 		} else {
-			out.WriteString("       " + line + "\n")
+			sections.usage.WriteString("       " + line + "\n")
 		}
 	}
 
@@ -117,7 +124,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	// usage-lib prints the whole path from the root rather than the child's own
 	// name.
 	if meta == nil || !meta.FlattenHelp {
-		commandsSection(&out, path[min(1, len(path)):], cmd, help)
+		commandsSection(&sections.commands, path[min(1, len(path)):], cmd, help)
 	}
 
 	args := visibleArgs(cmd, help, false)
@@ -128,7 +135,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			argCol = n
 		}
 	}
-	groupsSection(&out, "Arguments", len(args),
+	groupsSection(&sections.args, "Arguments", len(args),
 		func(i int) string { return headingOf(help, args[i].Key) },
 		func(w *strings.Builder, i int) {
 			a := args[i]
@@ -201,7 +208,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		}
 		annotations(w, h, true)
 	}
-	groupsSection(&out, "Flags", len(own),
+	groupsSection(&sections.flags, "Flags", len(own),
 		func(i int) string {
 			if own[i].supplied != "" {
 				return ""
@@ -212,26 +219,24 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	// After the command's own, and under a heading that says where they came
 	// from: a global belongs to the program, not to this command, and a reader
 	// should be able to see that.
-	groupsSection(&out, "Global flags", len(inherited),
+	groupsSection(&sections.flags, "Global flags", len(inherited),
 		func(int) string { return "" },
 		func(w *strings.Builder, i int) { entry(w, inherited[i]) })
 	if meta != nil && meta.FlattenHelp {
-		flatCommandsShort(&out, path[min(1, len(path)):], cmd, help, nextLineHelp)
+		flatCommandsShort(&sections.flattened, path[min(1, len(path)):], cmd, help, nextLineHelp)
 	}
 
-	examplesSection(&out, pageExamples(chain, help, meta))
+	examplesSection(&sections.afterHelp, pageExamples(chain, help, meta))
 
 	after := spec.AfterHelp
 	if meta != nil && meta.AfterHelp != "" {
 		after = meta.AfterHelp
 	}
 	if after != "" {
-		out.WriteString("\n" + after + "\n")
+		sections.afterHelp.WriteString("\n" + after + "\n")
 	}
 
-	// usage-lib trims the whole document and puts back one newline, which keeps
-	// the blank lines between sections from becoming trailing ones.
-	return strings.TrimSpace(out.String()) + "\n"
+	return sections.assemble(spec.HelpTemplate)
 }
 
 // commandsSection lists the subcommands, and the `help` command every CLI with

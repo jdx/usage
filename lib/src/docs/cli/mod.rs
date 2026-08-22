@@ -75,12 +75,121 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     // into the context first would carry the ones computed before the two lists were joined.
     ctx.insert("cmd", &docs_cmd);
     ctx.insert("global_flags", &inherited);
+    for (name, mark) in MARKS {
+        ctx.insert(name, &mark);
+    }
     let template = if long {
         "spec_template_long.tera"
     } else {
         "spec_template_short.tera"
     };
-    TERA.render(template, &ctx).unwrap().trim().to_string() + "\n"
+    let rendered = TERA.render(template, &ctx).unwrap();
+    let sections = Sections::split(&rendered);
+    let page = match spec.help_template.as_deref() {
+        Some(template) => crate::help_template::substitute(template, |name| sections.named(name)),
+        None => sections.concatenated(),
+    };
+    page.trim().to_string() + "\n"
+}
+
+/// Where each section of a rendered page starts, as the templates write it.
+///
+/// The layout lives in the templates, and this is how it stays there: each one emits a marker
+/// at every section boundary, so the boundaries are declared beside the sections rather than
+/// worked out again here. A page with no `help_template` is the marks taken back out, which is
+/// the same string the templates produced before any of this existed — and what the fleet gate
+/// compares byte for byte.
+///
+/// Control characters, because a marker has to be something no help text contains and no
+/// terminal shows if one ever escapes.
+const MARKS: [(&str, &str); 6] = [
+    ("mark_usage", "\u{1}usage\u{1}"),
+    ("mark_commands", "\u{1}commands\u{1}"),
+    ("mark_args", "\u{1}args\u{1}"),
+    ("mark_flags", "\u{1}flags\u{1}"),
+    ("mark_flattened", "\u{1}flattened\u{1}"),
+    ("mark_after_help", "\u{1}after_help\u{1}"),
+];
+
+/// A rendered page cut into the sections a `help_template` may reorder.
+///
+/// The twin of `usage_argv::help`'s `Sections`, down to `flattened` not being a section an
+/// author can name: it is the other half of `commands`, since `flatten_help` replaces a
+/// command list with the subcommands' own bodies, and only one of the two is ever there.
+struct Sections<'a> {
+    about: &'a str,
+    usage: &'a str,
+    commands: &'a str,
+    args: &'a str,
+    flags: &'a str,
+    flattened: &'a str,
+    after_help: &'a str,
+}
+
+impl<'a> Sections<'a> {
+    fn split(rendered: &'a str) -> Self {
+        let mut rest = rendered;
+        let mut parts: Vec<&str> = Vec::with_capacity(MARKS.len() + 1);
+        for (_, mark) in MARKS {
+            // A missing marker leaves that section empty rather than swallowing the ones after
+            // it: every one is written at the top level of both templates, so this cannot
+            // happen, and it is not worth a panic in a help renderer if it ever does.
+            match rest.split_once(mark) {
+                Some((before, after)) => {
+                    parts.push(before);
+                    rest = after;
+                }
+                None => parts.push(""),
+            }
+        }
+        parts.push(rest);
+        Self {
+            about: parts[0],
+            usage: parts[1],
+            commands: parts[2],
+            args: parts[3],
+            flags: parts[4],
+            flattened: parts[5],
+            after_help: parts[6],
+        }
+    }
+
+    /// The default page: every section in the order the templates wrote them.
+    fn concatenated(&self) -> String {
+        [
+            self.about,
+            self.usage,
+            self.commands,
+            self.args,
+            self.flags,
+            self.flattened,
+            self.after_help,
+        ]
+        .concat()
+    }
+
+    /// One section by name, trimmed, so that a template owns the whitespace between them.
+    fn named(&self, name: &str) -> Option<String> {
+        Some(match name {
+            "about" => self.about.trim().to_string(),
+            "usage" => self.usage.trim().to_string(),
+            "commands" => {
+                let mut out = self.commands.trim().to_string();
+                let flattened = self.flattened.trim();
+                if !flattened.is_empty() {
+                    if !out.is_empty() {
+                        out.push_str("\n\n");
+                    }
+                    out.push_str(flattened);
+                }
+                out
+            }
+            "args" => self.args.trim().to_string(),
+            "flags" => self.flags.trim().to_string(),
+            "after_help" => self.after_help.trim().to_string(),
+            _ => return None,
+        })
+    }
 }
 
 /// The entries for `--help` and `--version`, which the parser supplies and no spec declares.
@@ -725,6 +834,99 @@ arg "[input]" help="Input" env="INPUT" default="file" hide_default_value=#true h
         assert!(reparsed.cmd.flags[0].hide_default_value);
         assert!(reparsed.cmd.flags[0].hide_env);
         assert!(reparsed.cmd.flags[0].hide_possible_values);
+    }
+
+    #[test]
+    fn a_help_template_reorders_omits_and_wraps_the_sections() {
+        // The whole of what a template can do: `{{flags}}` before `{{args}}`, no
+        // `{{commands}}` at all, and text of the author's own around them. Nothing else is
+        // substituted, so the layout is the spec's and the sections' contents are not.
+        let spec = crate::spec! { r#"
+bin "ex"
+about "An example"
+help_template "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n-- ask a person --"
+flag "--force" help="Do it anyway"
+arg "<file>" help="Which file"
+cmd "run" help="Run it"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
+        An example
+
+        Usage: ex [--force] <file> <SUBCOMMAND>
+
+        Flags:
+              --force  Do it anyway
+          -h, --help   Print help
+
+        Arguments:
+          <file>  Which file
+
+        -- ask a person --
+        ");
+    }
+
+    #[test]
+    fn a_template_places_the_sections_a_page_actually_has() {
+        // A template names every section, and this command has no arguments — the gap
+        // `{{args}}` would leave closes up rather than pushing the commands down the page.
+        // What lets one template serve a whole CLI, since most commands are missing most
+        // sections. Here the version banner and description are last, and `after_help`
+        // carries them nothing.
+        let spec = crate::spec! { r#"
+bin "ex"
+version "1.2.3"
+about "An example"
+after_help "Read the docs."
+help_template "{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}\n\n{{after_help}}\n\n{{about}}"
+flag "--force" help="Do it anyway"
+cmd "run" help="Run it"
+        "# }
+        .unwrap();
+
+        assert_snapshot!(render_help(&spec, &spec.cmd, true), @"
+        Usage: ex [--force] <SUBCOMMAND>
+
+        Flags:
+              --force    Do it anyway
+          -h, --help     Print help
+          -V, --version  Print version
+
+        Commands:
+          run
+            Run it
+
+          help
+            Print this message or the help of the given subcommand(s)
+
+        Read the docs.
+
+        ex 1.2.3
+        An example
+        ");
+    }
+
+    #[test]
+    fn a_flattened_page_puts_its_bodies_where_the_commands_would_go() {
+        // `flatten_help` replaces a command list with the subcommands' own bodies, so a
+        // template that places `{{commands}}` places whichever of the two this command has.
+        let spec = crate::spec! { r#"
+bin "ex"
+flatten_help #true
+help_template "{{usage}}\n\n{{commands}}\n\n{{flags}}"
+cmd "run" help="Run it" {
+    flag "--dry-run" help="Only show changes"
+}
+        "# }
+        .unwrap();
+
+        let page = render_help(&spec, &spec.cmd, false);
+        assert!(
+            page.find("run:").unwrap() < page.find("Flags:").unwrap(),
+            "{page}"
+        );
+        assert!(page.contains("--dry-run"), "{page}");
     }
 
     #[test]

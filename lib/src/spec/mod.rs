@@ -99,6 +99,18 @@ pub struct Spec {
     pub before_help_long: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after_help_long: Option<String>,
+    /// How every page in this CLI is laid out, as named sections.
+    ///
+    /// One template for the whole tree, holding the six pre-rendered sections — `{{about}}`,
+    /// `{{usage}}`, `{{commands}}`, `{{args}}`, `{{flags}}`, `{{after_help}}` — which an author
+    /// may reorder, omit or wrap in text of their own. Nothing else is substituted: a closed
+    /// vocabulary is what lets an interpreter, a compiled parser and a generated Go program
+    /// agree on where a section starts and ends rather than on a template language's semantics.
+    ///
+    /// A placeholder naming no section is refused when the spec is read, so a page is never
+    /// rendered from a template one of whose sections cannot be filled.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help_template: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disable_help: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -463,6 +475,16 @@ impl Spec {
                     schema.after_help_long = Some(node.arg(0)?.ensure_string()?)
                 }
                 "usage" => schema.usage = node.arg(0)?.ensure_string()?,
+                // Refused here rather than at render time, and for the reason every other
+                // unsupported word is: a page laid out by a template is read by people, and a
+                // placeholder naming no section would reach them as the braces somebody typed.
+                "help_template" => {
+                    let template = node.arg(0)?.ensure_string()?;
+                    if let Err(problem) = crate::help_template::check(&template) {
+                        bail_parse!(ctx, node.span(), "{problem}");
+                    }
+                    schema.help_template = Some(template);
+                }
                 "arg" => {
                     let arg = SpecArg::parse(ctx, &node)?;
                     // The same rule the `cmd` block applies: a delimiter with nowhere to
@@ -727,6 +749,7 @@ impl Spec {
         merge_opt!(after_help);
         merge_opt!(before_help_long);
         merge_opt!(after_help_long);
+        merge_opt!(help_template);
         merge_opt!(disable_help);
         merge_opt!(min_usage_version);
         merge_opt!(default_subcommand);
@@ -952,6 +975,11 @@ impl Display for Spec {
         if let Some(after_help_long) = &self.after_help_long {
             let mut node = KdlNode::new("after_long_help");
             node.push(string_entry(None, after_help_long));
+            nodes.push(node);
+        }
+        if let Some(help_template) = &self.help_template {
+            let mut node = KdlNode::new("help_template");
+            node.push(string_entry(None, help_template));
             nodes.push(node);
         }
         if let Some(disable_help) = self.disable_help {

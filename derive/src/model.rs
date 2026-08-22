@@ -1717,9 +1717,10 @@ impl Cli {
         // is the advantage of declaring them in code: a spec written by hand can only
         // find a typo'd selector at parse time, or never, since a selector naming
         // nothing quietly holds no relationship at all.
-        let has_opaque = self.fields.iter().any(|field| {
-            matches!(field.kind, Kind::Flatten { .. } | Kind::ArgGroup { .. })
-        });
+        let has_opaque = self
+            .fields
+            .iter()
+            .any(|field| matches!(field.kind, Kind::Flatten { .. } | Kind::ArgGroup { .. }));
         for field in &self.fields {
             for (option, selectors) in [
                 ("overrides", &field.overrides),
@@ -3959,8 +3960,11 @@ pub(crate) fn string_value(meta: &Meta) -> syn::Result<String> {
 /// The sections a `help_template` may name, and nothing else.
 ///
 /// The same closed vocabulary `usage_argv::help::SECTIONS` renders and the KDL parser accepts,
-/// repeated rather than imported: this is a proc-macro crate, and the list is six words that a
-/// conformance test compares against both other copies.
+/// repeated rather than imported: a proc-macro crate cannot depend on the crate its output calls
+/// into, and the list is six words. What keeps the copies together is
+/// `conformance/tests/help_template.rs`, which renders a page from a template naming every one of
+/// them — a section this copy had lost would refuse that fixture at compile time, and one it had
+/// gained would render as literal braces.
 const HELP_SECTIONS: [&str; 6] = ["about", "usage", "commands", "args", "flags", "after_help"];
 
 /// Whether every `{{…}}` in a template names a section.
@@ -5864,10 +5868,7 @@ impl ArgGroup {
             // Same round-trip rules as an ordinary flag: the spec writes forms as a
             // space-delimited string, so whitespace, controls, `-`, and `=` have nowhere
             // to go and could never be typed as a short either.
-            if let Some(short) = member
-                .short
-                .filter(|c| c.is_whitespace() || c.is_control())
-            {
+            if let Some(short) = member.short.filter(|c| c.is_whitespace() || c.is_control()) {
                 return Err(syn::Error::new_spanned(
                     &variant.ident,
                     format!(
@@ -5991,7 +5992,10 @@ mod tests {
 
         // One template, for the whole tree: an `Args` declaring one would be laying out a
         // page nobody assembles from it.
-        let err = position_error(r#"#[usage(help_template = "{{usage}}")] struct Inner {}"#, false);
+        let err = position_error(
+            r#"#[usage(help_template = "{{usage}}")] struct Inner {}"#,
+            false,
+        );
         assert!(err.contains("belongs on the root"), "unhelpful: {err}");
         assert!(err.contains("help_template"), "unhelpful: {err}");
     }
@@ -7484,7 +7488,10 @@ mod tests {
             panic!("expected an argument group");
         };
         assert!(optional);
-        assert_eq!(quote::ToTokens::to_token_stream(ty).to_string(), "crate :: fmt :: Format");
+        assert_eq!(
+            quote::ToTokens::to_token_stream(ty).to_string(),
+            "crate :: fmt :: Format"
+        );
 
         // And nothing wrapped around it, which the field says rather than the trait bound the
         // generated code would otherwise fail.

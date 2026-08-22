@@ -1021,6 +1021,10 @@ impl Emitter<'_> {
         if let Some(after) = &self.spec.after_help_long {
             fields.push(format!("AfterLongHelp: {}", go_string(after)));
         }
+        // One template for the whole tree, naming the sections a page is assembled from.
+        if let Some(template) = &self.spec.help_template {
+            fields.push(format!("HelpTemplate: {}", go_string(template)));
+        }
         let _ = writeln!(
             self.out,
             "// HelpMeta is what a page needs from the spec's root rather than from any one\n\

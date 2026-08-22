@@ -10,6 +10,7 @@ source_code_link_template "{%- if cmd.subcommands | length > 0 -%}\n{%- set path
 about "does things"
 long_about "Does things, at length."
 usage "Usage: ex <COMMAND>\n       ex --version \"quoted\""
+help_template "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}"
 default_subcommand run
 example "ex a.txt" header=Basic help="the simplest thing"
 flag "-j --jobs" help="how many jobs, and a quote: \"" global=#true help_heading=Performance env=EX_JOBS default="4" {

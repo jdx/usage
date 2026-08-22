@@ -29,6 +29,192 @@ use crate::DoubleDash;
 /// `[FLAGS]` or `[ARGS]…` and the sections below carry the detail.
 const INLINE_LIMIT: usize = 2;
 
+/// The sections a [`help_template`](crate::spec::Spec::help_template) may name.
+///
+/// A closed vocabulary on purpose. The alternative — handing a template the metadata tree and
+/// letting it lay a page out — makes this renderer's internals public API and asks every
+/// implementation of the spec to agree on a template language's semantics rather than on where
+/// a section starts and ends.
+///
+/// What each one holds:
+///
+/// | section        | content                                                              |
+/// | -------------- | -------------------------------------------------------------------- |
+/// | `about`        | `before_help`, the version banner, and the description               |
+/// | `usage`        | the `Usage:` synopsis, however many lines it takes                   |
+/// | `commands`     | the subcommand list, or the flattened bodies under `flatten_help`     |
+/// | `args`         | every argument group, each under its heading                          |
+/// | `flags`        | this command's flag groups, then the globals it inherits             |
+/// | `after_help`   | examples, `after_help`, and the author/license footer on a long page  |
+pub const SECTIONS: [&str; 6] = ["about", "usage", "commands", "args", "flags", "after_help"];
+
+/// The first placeholder in a template that names no section, if there is one.
+///
+/// The check a spec is held to wherever one is written down: KDL refuses a template at parse
+/// and the derive refuses one at compile time, so a page is never rendered from a template
+/// whose sections cannot all be filled. `Err` reports an opening `{{` with no `}}` after it,
+/// which is a typo rather than a section name.
+///
+/// ```
+/// use usage_argv::help::unsupported_section;
+///
+/// assert_eq!(unsupported_section("{{about}}{{usage}}"), Ok(None));
+/// assert_eq!(unsupported_section("{{ options }}"), Ok(Some("options")));
+/// assert!(unsupported_section("{{usage").is_err());
+/// ```
+pub fn unsupported_section(template: &str) -> Result<Option<&str>, &'static str> {
+    let mut rest = template;
+    while let Some(at) = rest.find("{{") {
+        let after = &rest[at + 2..];
+        let Some(end) = after.find("}}") else {
+            return Err("a `{{` with no `}}` after it");
+        };
+        let name = after[..end].trim();
+        if !SECTIONS.contains(&name) {
+            return Ok(Some(name));
+        }
+        rest = &after[end + 2..];
+    }
+    Ok(None)
+}
+
+/// The pieces of a page, before anything decides what order they go in.
+///
+/// Built in one pass and assembled twice over: concatenated in the default order, which is the
+/// page every CLI without a template gets and is what the fleet gate compares byte for byte, or
+/// substituted into a template. `flattened` is not a section an author can name — it is the
+/// other half of `commands`, and only one of the two is ever non-empty.
+#[derive(Default)]
+struct Sections {
+    about: String,
+    usage: String,
+    commands: String,
+    args: String,
+    flags: String,
+    flattened: String,
+    after_help: String,
+}
+
+impl Sections {
+    /// The default page: every section in the order the renderer wrote them.
+    ///
+    /// A plain concatenation, so this is the same string the renderer produced before sections
+    /// were separable — the separating blank lines belong to the sections themselves.
+    fn concatenated(&self) -> String {
+        let mut out = String::new();
+        for part in [
+            &self.about,
+            &self.usage,
+            &self.commands,
+            &self.args,
+            &self.flags,
+            &self.flattened,
+            &self.after_help,
+        ] {
+            out.push_str(part);
+        }
+        out
+    }
+
+    fn named(&self, name: &str) -> Option<String> {
+        Some(match name {
+            "about" => self.about.trim().to_string(),
+            "usage" => self.usage.trim().to_string(),
+            // Whichever form this command's command list took. `flatten_help` replaces the
+            // list with the subcommands' own bodies, so a template that places `{{commands}}`
+            // places whichever one the command has.
+            "commands" => {
+                let mut out = self.commands.trim().to_string();
+                let flattened = self.flattened.trim();
+                if !flattened.is_empty() {
+                    if !out.is_empty() {
+                        out.push_str("\n\n");
+                    }
+                    out.push_str(flattened);
+                }
+                out
+            }
+            "args" => self.args.trim().to_string(),
+            "flags" => self.flags.trim().to_string(),
+            "after_help" => self.after_help.trim().to_string(),
+            _ => return None,
+        })
+    }
+
+    /// A page laid out by an author's template.
+    ///
+    /// Each section arrives trimmed, so the template owns the whitespace between them: a
+    /// template is a layout, and a section carrying the blank line above it could not be moved
+    /// without carrying that decision along. A placeholder naming no section is left as it was
+    /// written — the vocabulary is checked where a spec is authored, so one reaching here is
+    /// text an author meant literally.
+    ///
+    /// A section that came out empty leaves no gap behind, which is what lets one template
+    /// serve a whole CLI: see `usage::help_template::collapse_blank_runs`, whose rule this is.
+    fn substituted(&self, template: &str) -> String {
+        let mut out = String::with_capacity(template.len());
+        let mut rest = template;
+        while let Some(at) = rest.find("{{") {
+            out.push_str(&rest[..at]);
+            let after = &rest[at + 2..];
+            let Some(end) = after.find("}}") else {
+                out.push_str(&rest[at..]);
+                return collapse_blank_runs(&out);
+            };
+            match self.named(after[..end].trim()) {
+                Some(text) => out.push_str(&text),
+                None => out.push_str(&rest[at..at + 2 + end + 2]),
+            }
+            rest = &after[end + 2..];
+        }
+        out.push_str(rest);
+        collapse_blank_runs(&out)
+    }
+}
+
+/// A page's runs of blank lines, each reduced to a single blank line.
+///
+/// The twin of `usage::help_template::collapse_blank_runs`, and the reason a template can name a
+/// section a given command does not have. A whitespace-only line counts as blank, since that is
+/// what an empty placeholder on an indented line leaves; a section's own indentation does not,
+/// since that is the page.
+fn collapse_blank_runs(page: &str) -> String {
+    let mut out = String::with_capacity(page.len());
+    let mut blank = false;
+    for line in page.split('\n') {
+        if line.trim().is_empty() {
+            blank = !out.is_empty();
+            continue;
+        }
+        if !out.is_empty() {
+            out.push('\n');
+            if blank {
+                out.push('\n');
+            }
+        }
+        blank = false;
+        out.push_str(line);
+    }
+    out
+}
+
+/// The finished page: laid out by the spec's template where it has one, and trimmed.
+///
+/// usage-lib trims the whole document and puts back one newline, which is what keeps the blank
+/// lines between sections from becoming trailing ones. That applies to a template's output too:
+/// a page ends in exactly one newline however it was assembled.
+fn assemble(spec: &Spec<'_>, sections: &Sections) -> String {
+    let page = match spec.help_template {
+        Some(template) => sections.substituted(template),
+        None => sections.concatenated(),
+    };
+    let trimmed = page.trim();
+    let mut done = String::with_capacity(trimmed.len() + 1);
+    done.push_str(trimmed);
+    done.push('\n');
+    done
+}
+
 /// Whether help output is coloured.
 ///
 /// Plain rendering remains available for generated documents and snapshots;
@@ -688,7 +874,8 @@ fn short_help_with(
         .into_iter()
         .filter(|(flag, _)| !flag.hide_short_help)
         .collect();
-    let mut out = String::new();
+    let mut sections = Sections::default();
+    let out = &mut sections.about;
 
     // Text the command puts above everything else, and below it. The short form has only the
     // one pair; the long form prefers the long variants.
@@ -716,14 +903,14 @@ fn short_help_with(
         // description is written here, so one already in the text doubles it.
         let _ = writeln!(out, "{}\n", about.trim_end());
     }
-    command_deprecation(&mut out, meta, 0);
-    usage_section(&mut out, spec, path, meta);
+    command_deprecation(out, meta, 0);
+    usage_section(&mut sections.usage, spec, path, meta);
 
     // The path without the binary, which is what a listed subcommand shows: usage-lib prints
     // `tool-alias get <TOOL>` under `mise tool-alias`, the whole path from the root rather
     // than the child's own name.
     if !meta.flatten_help {
-        commands_section(&mut out, &path[1.min(path.len())..], meta);
+        commands_section(&mut sections.commands, &path[1.min(path.len())..], meta);
     }
 
     // The short page lines its columns up too. It did not: every description began directly
@@ -742,7 +929,7 @@ fn short_help_with(
         .max()
         .unwrap_or(0);
     groups_section(
-        &mut out,
+        &mut sections.args,
         "Arguments",
         args.iter().copied(),
         |a| a.help_heading,
@@ -845,7 +1032,7 @@ fn short_help_with(
         );
     };
     groups_section(
-        &mut out,
+        &mut sections.flags,
         "Flags",
         own.iter().copied(),
         |f| f.help_heading,
@@ -855,27 +1042,21 @@ fn short_help_with(
     // belongs to the program, not to this command, and a reader should be able to see that.
     // The text is precomputed, since a spelling a descendant claimed is left out of it.
     groups_section(
-        &mut out,
+        &mut sections.flags,
         "Global flags",
         inherited.iter(),
         |_| None,
         |out, (f, usage)| short_entry(out, f, usage.clone()),
     );
     if meta.flatten_help {
-        flat_commands_short(&mut out, &path[1.min(path.len())..], meta);
+        flat_commands_short(&mut sections.flattened, &path[1.min(path.len())..], meta);
     }
-    examples_section(&mut out, spec, meta);
+    examples_section(&mut sections.after_help, spec, meta);
     if let Some(after) = meta.after_help.or(spec.root.after_help) {
-        let _ = writeln!(out, "\n{after}");
+        let _ = writeln!(sections.after_help, "\n{after}");
     }
 
-    // usage-lib trims the whole document and puts back one newline, which is what keeps the
-    // blank lines between sections from becoming trailing ones.
-    let trimmed = out.trim();
-    let mut done = String::with_capacity(trimmed.len() + 1);
-    done.push_str(trimmed);
-    done.push('\n');
-    done
+    assemble(spec, &sections)
 }
 
 /// The list of subcommands, and the `help` command every CLI with subcommands has.
@@ -1382,7 +1563,8 @@ fn long_help_with(
         .filter(|(flag, _)| !flag.hide_long_help)
         .collect();
     let width = terminal_width(meta);
-    let mut out = String::new();
+    let mut sections = Sections::default();
+    let out = &mut sections.about;
 
     if let Some(before) = meta
         .before_long_help
@@ -1418,11 +1600,11 @@ fn long_help_with(
         // description is written here, so one already in the text doubles it.
         let _ = writeln!(out, "{}\n", about.trim_end());
     }
-    command_deprecation(&mut out, meta, 0);
-    usage_section(&mut out, spec, path, meta);
+    command_deprecation(out, meta, 0);
+    usage_section(&mut sections.usage, spec, path, meta);
 
     if !meta.flatten_help {
-        long_commands_section(&mut out, &path[1.min(path.len())..], meta);
+        long_commands_section(&mut sections.commands, &path[1.min(path.len())..], meta);
     }
 
     // One column width per section, over its visible entries — the same two the reference
@@ -1439,7 +1621,7 @@ fn long_help_with(
         .max()
         .unwrap_or(0);
     groups_section(
-        &mut out,
+        &mut sections.args,
         "Arguments",
         args.iter().copied(),
         |a| a.help_heading,
@@ -1477,7 +1659,7 @@ fn long_help_with(
         .max()
         .unwrap_or(0);
     groups_section(
-        &mut out,
+        &mut sections.flags,
         "Flags",
         own.iter().copied(),
         |f| f.help_heading,
@@ -1511,7 +1693,7 @@ fn long_help_with(
     // Not grouped by `help_heading` — an ancestor's headings describe that command's page, and
     // borrowing them here would put a section title on flags that are only visiting.
     groups_section(
-        &mut out,
+        &mut sections.flags,
         "Global flags",
         inherited.iter(),
         |_| None,
@@ -1534,9 +1716,15 @@ fn long_help_with(
         },
     );
     if meta.flatten_help {
-        flat_commands_long(&mut out, &path[1.min(path.len())..], meta, width);
+        flat_commands_long(
+            &mut sections.flattened,
+            &path[1.min(path.len())..],
+            meta,
+            width,
+        );
     }
 
+    let out = &mut sections.after_help;
     let examples = page_examples(spec, meta);
     if !examples.is_empty() {
         let _ = writeln!(out, "\nExamples:");
@@ -1576,11 +1764,7 @@ fn long_help_with(
         }
     }
 
-    let trimmed = out.trim();
-    let mut done = String::with_capacity(trimmed.len() + 1);
-    done.push_str(trimmed);
-    done.push('\n');
-    done
+    assemble(spec, &sections)
 }
 
 /// Write text with every line indented, leaving blank lines blank.

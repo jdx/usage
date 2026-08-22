@@ -684,17 +684,23 @@ Groups are the opposite case: `Command::get_groups`, `ArgGroup::get_args` and
 - [x] **`flatten_help`.** Visible subcommands can be expanded into their parent's
       usage synopsis and help sections across typed Rust, KDL, the clap bridge,
       and Rust and generated Go help.
-- [ ] **`help_template`.** A root-level Tera template applying to the whole
-      command tree. **Decided (2026-08-21): a closed vocabulary of pre-rendered
-      named sections** — `usage`, `about`, `flags`, `args`, `commands`,
-      `after_help` — which an author may reorder, omit or wrap. That covers
-      clap's actual use case of rearranging help sections, which a bare
-      `{{ help }}` wrapper would not, while leaving interpreted Rust, compiled
-      Rust and generated Go to agree only on where each section starts and ends
-      rather than on layout. The alternative — exposing the metadata tree and
-      letting the template lay everything out — was rejected because it makes
-      the help renderer's internals public API and requires every
-      implementation to match Tera's semantics, not just its section names.
+- [x] **`help_template`.** A root-level template applying to the whole command
+      tree, as a closed vocabulary of pre-rendered named sections — `usage`,
+      `about`, `flags`, `args`, `commands`, `after_help` — which an author may
+      reorder, omit or wrap. That covers clap's actual use case of rearranging
+      help sections, which a bare `{{ help }}` wrapper would not, while leaving
+      interpreted Rust, compiled Rust and generated Go to agree only on where
+      each section starts and ends rather than on layout. The alternative —
+      exposing the metadata tree and letting the template lay everything out —
+      was rejected because it makes the help renderer's internals public API and
+      requires every implementation to match Tera's semantics, not just its
+      section names. Substitution is a minimal `{{name}}` replacer in all three,
+      and a section that comes out empty leaves no gap behind, so one template
+      serves a whole CLI rather than one per command shape. A placeholder naming
+      no section is refused where a spec is authored: at compile time by the
+      derive, at parse by KDL. With the template unset every page is assembled in
+      the default order and is byte-identical to before, which the fleet gate and
+      Go's 211-page parity suite both hold.
 - [x] **`subcommand_help_heading` / `subcommand_value_name`.** Custom subcommand
       section labels and synopsis placeholders survive KDL, typed Rust, generated
       Go, and the clap bridge and are rendered by both help implementations.
@@ -1669,7 +1675,8 @@ flattened group is clap#5092 (18) — the derive refuses it for lack of a rule,
 and the votes say people want the rule defined; visible aliases on enum values
 is clap#4416, stalled in clap on binary-size grounds a spec interpreter does
 not have; and a help template set once for the whole tree is clap#1184, which
-is the `help_template` row — a Tera template at spec root is the natural shape.
+the `help_template` row above now answers — one template at spec root, laying
+out every page in the tree.
 
 Noted, not taken — one item: conditional argument groups unlocked by a flag's
 value (clap#6258), the missing quadrant beside `requires_if`, `required_if`

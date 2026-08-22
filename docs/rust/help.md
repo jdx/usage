@@ -100,6 +100,73 @@ full rule, including what a default does not count as, is in
 The rendered output matches what usage-lib renders from the same spec — the two renderers are
 held to identical output over mise's 211 command pages in CI.
 
+### Laying a page out
+
+The words above change what a page _says_. `help_template` changes the order it says it in:
+
+```rust
+#[derive(usage::Cli)]
+#[usage(
+    bin = "mycli",
+    about = "Does the thing",
+    help_template = "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}"
+)]
+struct Cli { /* … */ }
+```
+
+In KDL, the same declaration is a root-level node:
+
+```kdl
+help_template "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}"
+```
+
+A template is placed on the root and lays out every page in the CLI, subcommands included. It
+holds six named sections and nothing else:
+
+| section          | what it covers                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------ |
+| `{{about}}`      | `before_help`, the `{bin} {version}` banner, and the description                     |
+| `{{usage}}`      | the `Usage:` synopsis, however many lines it takes                                   |
+| `{{commands}}`   | the subcommand list — or, under `flatten_help`, the subcommands' own bodies          |
+| `{{args}}`       | every argument group, each under its heading                                         |
+| `{{flags}}`      | this command's flag groups, then the global flags it inherits                        |
+| `{{after_help}}` | the Examples section, `after_help`, and the author and licence a long page ends with |
+
+Reorder them, leave them out, or put text of your own around them. Two rules make that
+predictable:
+
+- **A section that comes out empty leaves no gap.** Templates are written with the separators a
+  full page wants, and most commands are missing most sections — a command with no arguments
+  renders the template above with its commands directly below its flags rather than pushed down
+  the page. The flip side is that a template cannot open a gap wider than one blank line.
+- **The vocabulary is closed.** A placeholder naming anything else is refused: at compile time by
+  the derive, and when the spec is read by usage-lib. Sections are handed to the template already
+  rendered, so what the implementations agree on is where each section starts and ends rather than
+  a template language's semantics — which is how the interpreter, the compiled `usage-argv` parser,
+  and generated Go all lay a page out identically.
+
+The template applies to the terminal help page. Markdown, manpages, and JSON keep their own
+structure.
+
+#### Coming from clap
+
+clap's tags are single-braced and finer-grained, so a clap template has to be rewritten rather
+than pasted. The sections map like this:
+
+| clap                                                                                            | usage                                   |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `{name}`, `{version}`, `{about}`, `{before-help}`, and their `-with-newline` / `-section` forms | `{{about}}`                             |
+| `{usage-heading} {usage}`                                                                       | `{{usage}}`                             |
+| `{options}`                                                                                     | `{{flags}}`                             |
+| `{positionals}`                                                                                 | `{{args}}`                              |
+| `{subcommands}`                                                                                 | `{{commands}}`                          |
+| `{after-help}`, `{author}`                                                                      | `{{after_help}}`                        |
+| `{all-args}`                                                                                    | `{{commands}}\n\n{{args}}\n\n{{flags}}` |
+| `{tab}`                                                                                         | write the spaces                        |
+
+clap keeps its `get_help_template` getter private, so `clap_usage` cannot recover a template from
+a `clap::Command` — a template is one of the settings to carry across by hand when migrating.
+
 ## Version
 
 Declaring `version` (or bare `version`, which reads `CARGO_PKG_VERSION`) gives the root command
