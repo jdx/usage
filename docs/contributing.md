@@ -59,3 +59,19 @@ mise install
 ```
 
 Run the checks listed in the repository before opening a PR.
+
+## Performance checks
+
+`perf-pr` compares instruction counts against the merge base. It is a signal for
+the person who caused a change, not a check to loosen so a pull request can
+pass. If a change genuinely costs instructions, report the numbers and ask
+whether to absorb the cost, optimize, or adjust the gate.
+
+Two things move the counts without the parser changing:
+
+- The `markdown` benchmark parses `cli/usage.usage.kdl`. Rewriting that spec
+  (for example switching escaped newlines to KDL raw multiline strings) changes
+  the parse cost even when generated markdown is identical.
+- The mise shadow fixture grows and is refreshed from mise's command tree.
+  `tasks/perf-shadow.sh` warns when the parser-to-parser ratio falls below 80x,
+  which is the comparison that belongs to the parsers rather than the fixture.
