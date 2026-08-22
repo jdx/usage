@@ -96,7 +96,7 @@ files, so a setting a repository must not be able to change can say so.
 | `merge`                                      | `replace` (default), `union` for collections, `deep` for maps                                                |
 | `scope`                                      | `any` (default), `global` (never from a project file), `env` (never from a file)                             |
 | `deprecated`                                 | why not to use it any more                                                                                   |
-| `deprecated_warn_at`, `deprecated_remove_at` | CLI versions that start warnings and stop accepting configured values                                       |
+| `deprecated_warn_at`, `deprecated_remove_at` | CLI versions that start warnings and stop accepting configured values                                        |
 | `renamed_to`                                 | the property that replaces this one, so an old key folds into the new                                        |
 | `hide`                                       | keep it out of docs and completions                                                                          |
 | `since`                                      | the version that introduced it                                                                               |
