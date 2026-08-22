@@ -18,7 +18,7 @@ Depend on the facade rather than on `usage-derive` or `usage-argv` separately:
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "5.1", features = ["completions"] }
+usage = { package = "usage-rs", version = "6", features = ["completions"] }
 ```
 
 The defaults include the derive, help, and clap-shaped diagnostics. Add `validation` for portable

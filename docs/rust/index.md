@@ -58,7 +58,7 @@ One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "5.1" }
+usage = { package = "usage-rs", version = "6" }
 ```
 
 Nothing third-party links into your binary — the only non-usage crates in the graph are the
@@ -77,15 +77,15 @@ available for low-level adopters that want a thinner surface:
 
 ### Cargo features
 
-| Feature       | Default | What it enables                                                                                                   |
-| ------------- | :-----: | ----------------------------------------------------------------------------------------------------------------- |
-| `spec`        |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                                   |
-| `help`        |   ✅    | `-h` / `--help` page rendering                                                                                    |
-| `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`                                                                  |
-| `completions` |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)             |
-| `validation`  |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions))          |
-| `test`        |         | `usage::test`: parse and help assertions (a dev-dependency feature; completion assertions want `completions` too) |
-| `config`      |         | The `usage::Config` derive and the resolver as `usage::config` ([Configuration](/rust/configuration))             |
+| Feature       | Default | What it enables                                                                                          |
+| ------------- | :-----: | -------------------------------------------------------------------------------------------------------- |
+| `spec`        |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                          |
+| `help`        |   ✅    | `-h` / `--help` page rendering                                                                           |
+| `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`                                                         |
+| `completions` |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)    |
+| `validation`  |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions)) |
+| `test`        |         | `usage::test`: command output, parse, and help assertions (completion assertions want `completions` too) |
+| `config`      |         | The `usage::Config` derive and the resolver as `usage::config` ([Configuration](/rust/configuration))    |
 
 ## Parse entry points
 

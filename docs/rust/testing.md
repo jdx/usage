@@ -4,10 +4,9 @@
 This page is a draft and has not yet been human reviewed. Details may change.
 :::
 
-A CLI's observable surface is three things: what a command line parses to, what a user reads
-when it does not, and what a shell offers while one is being typed. `usage::test` asserts on all
-three from the static tables the derive already emitted — no process to spawn, no terminal to
-fake, no snapshot of a binary's stdout.
+A CLI test can run the compiled program and assert on stdout, stderr, and its exit status.
+Lower-level helpers assert what argv parses to, what a user reads when it does not, and what a
+shell offers while one is being typed.
 
 The third has no clap equivalent at all: testing a `clap_complete` script means golden-filing
 the script's text or driving a real shell, neither of which asserts what a user is actually
@@ -16,7 +15,7 @@ assertion.
 
 ```toml
 [dev-dependencies]
-usage = { package = "usage-rs", version = "5.1", features = ["test"] }
+usage = { package = "usage-rs", version = "6", features = ["test"] }
 ```
 
 The feature belongs in `dev-dependencies`: nothing in an application's own code calls it.
@@ -24,6 +23,26 @@ The feature belongs in `dev-dependencies`: nothing in an application's own code 
 Nothing here formats a page or a message of its own. Every page comes from the same function
 `parse()` renders a help request with, and every failure from the same one it prints — a harness
 that renders its own approximation is a harness whose passing tests mean nothing.
+
+## What a command writes
+
+`command!` runs one of the package's binary targets and captures its output:
+
+```rust
+// tests/cli.rs
+#[test]
+fn hello_greets_by_name() {
+    let output = usage::test::command!("greet", "hello", "Jeff").assert_success();
+
+    assert_eq!(output.stdout_text(), "hello, Jeff\n");
+    assert_eq!(output.stderr_text(), "");
+}
+```
+
+The test must be under `tests/`. Cargo provides the compiled path as
+`CARGO_BIN_EXE_<name>` to integration tests; the macro uses that path instead of assuming where
+`target/` lives. The raw `stdout` and `stderr` byte vectors remain available for commands that
+intentionally write non-UTF-8 data.
 
 ## What a command line does
 
@@ -129,7 +148,7 @@ that answers a line:
 
 ```toml
 [dev-dependencies]
-usage = { package = "usage-rs", version = "5.1", features = ["test", "completions"] }
+usage = { package = "usage-rs", version = "6", features = ["test", "completions"] }
 ```
 
 `candidates` then answers the question a shell asks: given this half-typed line, what could this

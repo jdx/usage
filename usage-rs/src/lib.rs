@@ -7,7 +7,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! usage = { package = "usage-rs", version = "5.1" }
+//! usage = { package = "usage-rs", version = "6" }
 //! ```
 //!
 //! What happens after a parse can come from the same declaration: a command implements [`Run`],
@@ -19,7 +19,7 @@
 //! Enable portable expression validation only when a CLI declares `validate` rules:
 //!
 //! ```toml
-//! usage = { package = "usage-rs", version = "5.1", features = ["validation"] }
+//! usage = { package = "usage-rs", version = "6", features = ["validation"] }
 //! ```
 //!
 //! ```

@@ -9,7 +9,7 @@ Completion support is opt-in: add `completion` to the root attribute and enable 
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "5.1", features = ["completions"] }
+usage = { package = "usage-rs", version = "6", features = ["completions"] }
 ```
 
 ```rust
