@@ -1,4 +1,4 @@
-//! Minimal paired CLIs that turn the clap compatibility matrix into executable claims.
+//! Minimal paired CLIs that turn the clap migration claims into executable checks.
 
 use std::ffi::OsStr;
 

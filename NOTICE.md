@@ -13,7 +13,7 @@ warrant attribution:
 - `usage-derive` / `usage-rs` deliberately mirror `clap_derive`'s attribute
   vocabulary and semantics (`long`, `short`, `env`, `default_value`, `flatten`,
   `value_enum`, `rename_all`, and friends) so a clap declaration can be ported
-  field by field. See [docs/rust/clap-compatibility.md](docs/rust/clap-compatibility.md).
+  field by field. See [docs/rust/migrating-from-clap.md](docs/rust/migrating-from-clap.md).
 - The rendered help, usage line, and diagnostic conventions follow clap's output
   shape so migrated CLIs keep their existing user-facing text.
 - `clap_usage` reads a `clap::Command` through clap's public API to generate a
