@@ -175,6 +175,27 @@ complete "input" run="find . -name '*.txt'"
 - Shell integration tests require bash, zsh, fish, and pwsh installed
 - Run `cargo insta test --accept` to update snapshots
 
+## Performance Gate
+
+`perf-pr` compares instruction counts against the merge base and fails when one
+rises beyond the gate. It is a signal, not a blocking check: it exists so a
+regression is noticed by the person who caused it, and a red perf check is never
+by itself a reason to change how the check works.
+
+Never loosen, disable, or route around the gate to make a pull request pass. That
+means no `--gate-pct` on the `tak compare` line in `.github/workflows/perf-pr.yml`,
+no raising `gate.pct` in `tak.toml`, no dropping a benchmark, and no
+`continue-on-error` on the compare or gate steps. The same rule applies to any
+other check whose purpose is to tell a human something: don't neuter the check to
+get a green square.
+
+When a change genuinely costs instructions, measure it, say so in the pull request
+with the numbers, and **ask the user** how to proceed. Let them decide between
+absorbing the cost, optimizing, or adjusting the gate themselves. This applies
+generally: whenever the fix under consideration is more invasive than the problem —
+bypassing a check, weakening a test, deleting an assertion, widening a lint
+allowance — stop and ask instead of doing it.
+
 ## Key Dependencies
 
 - `kdl`: KDL parser for spec files
