@@ -201,8 +201,8 @@ completion, and installation.
 
 ## Docs and manpages
 
-The generated spec can be passed to usage-cli for documentation, manpages, completion scripts,
-and other formats:
+The generated spec can be passed to [usage-cli](/cli/) for documentation, manpages, completion
+scripts, and other formats:
 
 ```bash
 greet __usage_spec__ > greet.usage.kdl
@@ -222,8 +222,8 @@ cmd hello help="Greet someone" {
     arg "[NAME]" help="Who to greet" env=GREET_NAME default=world
 }
 cmd completion help="Print a completion script" {
-    flag "--shell <SHELL>" help="Which shell to generate for" {
-        arg "<SHELL>" {
+    flag --shell help="Which shell to generate for" required=#true {
+        arg <SHELL> {
             choices bash zsh fish
         }
     }
