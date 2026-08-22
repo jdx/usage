@@ -127,13 +127,11 @@ Show help
 \fB<ARGS>\fR
 Arguments to pass to script
 
-Anything `usage` does not recognise is a value rather than a mistake, which is what
-lets a shebang script take flags of its own.
+Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 .SH "USAGE COMPLETE-WORD"
 Generate shell completion candidates for a partial command line
 
-This is used internally by shell completion scripts to provide
-intelligent completions for commands, flags, and arguments.
+This is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.
 .PP
 \fBUsage:\fR usage complete\-word [OPTIONS] [<WORDS>] ...
 .PP
@@ -252,19 +250,14 @@ A spec\-declared executable view to explain
 \fB\-e, \-\-env\fR \fI<ENV>\fR
 Environment to explain against, as KEY=VALUE, repeatable
 
-Given at all, these are the *whole* environment: an explanation pasted into a bug
-report has to mean the same thing on the machine that reads it. Omitted, the process
-environment is used, which is what an execution would see.
+Given at all, these are the *whole* environment: an explanation pasted into a bug report has to mean the same thing on the machine that reads it. Omitted, the process environment is used, which is what an execution would see.
 \fBArguments:\fR
 .PP
 .TP
 \fB<ARGV>\fR
 The command line to explain, starting with the program name
 
-`usage`'s own flags come before it, and flag parsing ends at the program name, so
-both `explain \-f f.kdl mycli \-\-env=prod` and `explain \-f f.kdl \-\- mycli \-\-env=prod`
-work. Separate with `\-\-` when the explained line carries its own: the first `\-\-` is
-still `usage`'s separator, so `explain \-f f.kdl mycli a \-\- b` loses one.
+`usage`'s own flags come before it, and flag parsing ends at the program name, so both `explain \-f f.kdl mycli \-\-env=prod` and `explain \-f f.kdl \-\- mycli \-\-env=prod` work. Separate with `\-\-` when the explained line carries its own: the first `\-\-` is still `usage`'s separator, so `explain \-f f.kdl mycli a \-\- b` loses one.
 .SH "USAGE FISH"
 Execute a shell script with the specified shell
 
@@ -289,8 +282,7 @@ Show help
 \fB<ARGS>\fR
 Arguments to pass to script
 
-Anything `usage` does not recognise is a value rather than a mistake, which is what
-lets a shebang script take flags of its own.
+Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 .SH "USAGE GENERATE COMPLETION"
 Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 .PP
@@ -302,9 +294,7 @@ Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 \fB\-\-install\fR
 Install the script where this shell looks for it, instead of printing it
 
-Writes the script file and nothing else: no shell rc file and no PowerShell profile is
-edited. Where a shell needs a one\-time line of its own — zsh's `fpath+=`, PowerShell's
-dot\-source — it is printed for you to add.
+Writes the script file and nothing else: no shell rc file and no PowerShell profile is edited. Where a shell needs a one\-time line of its own — zsh's `fpath+=`, PowerShell's dot\-source — it is printed for you to add.
 .TP
 \fB\-\-force\fR
 Replace a file at the target path that usage did not write
@@ -327,9 +317,7 @@ You may need to set this if you have a different bin named "usage"
 .RE
 .TP
 \fB\-\-usage\-cmd\fR \fI<USAGE_CMD>\fR
-A command which generates a usage spec
-e.g.: `mycli \-\-usage` or `mycli completion usage`
-Defaults to "$bin \-\-usage"
+A command which generates a usage spec e.g.: `mycli \-\-usage` or `mycli completion usage` Defaults to "$bin \-\-usage"
 \fBArguments:\fR
 .PP
 .TP
@@ -341,9 +329,7 @@ The CLI which we're generating completions for
 .SH "USAGE GENERATE COMPLETION-INIT"
 Generate a shell init script that auto\-completes any usage shebang script on $PATH
 
-Source the output once from your shell rc (e.g. ~/.bashrc) to enable
-tab\-completion for any executable whose first line is a `usage` shebang —
-no per\-script `usage g completion` step required.
+Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab\-completion for any executable whose first line is a `usage` shebang — no per\-script `usage g completion` step required.
 .PP
 \fBUsage:\fR usage generate completion\-init [OPTIONS] <SHELL>
 .PP
@@ -384,9 +370,7 @@ Raw string spec input
 .SH "USAGE GENERATE GO"
 Generate Go parse tables from a usage spec
 
-The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what
-a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build
-time — typically from a `go:generate` line:
+The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build time — typically from a `go:generate` line:
 
   //go:generate usage generate go \-f mycli.usage.kdl \-o tables.go
 .PP
@@ -464,11 +448,7 @@ Output file path, or "\-" for stdout (default)
 \fB\-s, \-\-section\fR \fI<SECTION>\fR
 Manual section number (default: 1)
 
-Common sections:
-\- 1: User commands
-\- 5: File formats
-\- 7: Miscellaneous
-\- 8: System administration commands
+Common sections: \- 1: User commands \- 5: File formats \- 7: Miscellaneous \- 8: System administration commands
 .RS
 \fIDefault: \fR1
 .RE
@@ -545,9 +525,7 @@ Treat warnings as errors
 \fB\-\-sorted\fR
 Also check that subcommands and flags are declared in sorted order
 
-Off by default: declaration order is a house convention rather than a
-correctness question, so a spec that keeps a different order is not wrong.
-Pair it with \-\-warnings\-as\-errors to hold the order in CI.
+Off by default: declaration order is a house convention rather than a correctness question, so a spec that keeps a different order is not wrong. Pair it with \-\-warnings\-as\-errors to hold the order in CI.
 \fBArguments:\fR
 .PP
 .TP
@@ -593,8 +571,7 @@ Show help
 \fB<ARGS>\fR
 Arguments to pass to script
 
-Anything `usage` does not recognise is a value rather than a mistake, which is what
-lets a shebang script take flags of its own.
+Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 .SH "USAGE ZSH"
 Execute a shell script with the specified shell
 
@@ -619,7 +596,6 @@ Show help
 \fB<ARGS>\fR
 Arguments to pass to script
 
-Anything `usage` does not recognise is a value rather than a mistake, which is what
-lets a shebang script take flags of its own.
+Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 .SH SOURCE
 https://github.com/jdx/usage

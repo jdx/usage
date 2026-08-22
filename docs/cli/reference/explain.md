@@ -18,10 +18,7 @@ command line does not parse: the report succeeded, and that is the case worth a 
 
 The command line to explain, starting with the program name
 
-`usage`'s own flags come before it, and flag parsing ends at the program name, so
-both `explain -f f.kdl mycli --env=prod` and `explain -f f.kdl -- mycli --env=prod`
-work. Separate with `--` when the explained line carries its own: the first `--` is
-still `usage`'s separator, so `explain -f f.kdl mycli a -- b` loses one.
+`usage`'s own flags come before it, and flag parsing ends at the program name, so both `explain -f f.kdl mycli --env=prod` and `explain -f f.kdl -- mycli --env=prod` work. Separate with `--` when the explained line carries its own: the first `--` is still `usage`'s separator, so `explain -f f.kdl mycli a -- b` loses one.
 
 ## Flags
 
@@ -52,6 +49,4 @@ A spec-declared executable view to explain
 
 Environment to explain against, as KEY=VALUE, repeatable
 
-Given at all, these are the _whole_ environment: an explanation pasted into a bug
-report has to mean the same thing on the machine that reads it. Omitted, the process
-environment is used, which is what an execution would see.
+Given at all, these are the _whole_ environment: an explanation pasted into a bug report has to mean the same thing on the machine that reads it. Omitted, the process environment is used, which is what an execution would see.

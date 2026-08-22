@@ -20,8 +20,7 @@ to properly escape and quote values with spaces in them.
 
 Arguments to pass to script
 
-Anything `usage` does not recognise is a value rather than a mistake, which is what
-lets a shebang script take flags of its own.
+Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 
 ## Flags
 

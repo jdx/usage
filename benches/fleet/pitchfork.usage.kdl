@@ -1,14 +1,29 @@
-// @generated from usage-rs metadata
 name pitchfork
 bin pitchfork
 version "2.22.0"
 about "Daemons with DX"
 unknown_flags error
-subcommand_required #true
-external_subcommand #true
 arg_required_else_help #true
+subcommand_required #true
 cmd activate help="Activate pitchfork in your shell session" effect=read {
-    long_help "Activate pitchfork in your shell session\n\nGenerates shell code that enables automatic daemon management when changing\ndirectories. Required for auto-start/stop features in pitchfork.toml.\n\nSupported shells: bash, zsh, fish\n\nAdd to your shell config:\n\n    bash (~/.bashrc):\n      eval \"$(pitchfork activate bash)\"\n\n    zsh (~/.zshrc):\n      eval \"$(pitchfork activate zsh)\"\n\n    fish (~/.config/fish/config.fish):\n      pitchfork activate fish | source"
+    long_help #"""
+Activate pitchfork in your shell session
+
+Generates shell code that enables automatic daemon management when changing directories. Required for auto-start/stop features in pitchfork.toml.
+
+Supported shells: bash, zsh, fish
+
+Add to your shell config:
+
+    bash (~/.bashrc):
+      eval "$(pitchfork activate bash)"
+
+    zsh (~/.zshrc):
+      eval "$(pitchfork activate zsh)"
+
+    fish (~/.config/fish/config.fish):
+      pitchfork activate fish | source
+"""#
     arg <SHELL> help="Shell to activate (bash, zsh, fish)" {
         choices {
             choice bash
@@ -20,15 +35,68 @@ cmd activate help="Activate pitchfork in your shell session" effect=read {
 cmd api-schema help="Generate JSON documentation for the web API endpoints" hide=#true effect=read {
 }
 cmd boot help="Enable or disable boot start" effect=read subcommand_required=#true {
-    long_help "Enable or disable boot start\n\nManages whether pitchfork supervisor starts automatically when the system\nboots. Uses platform-specific mechanisms (launchd on macOS, systemd on Linux).\n\nWhen run as root (or via sudo), registers a system-level entry that starts\npitchfork for all users:\n\n    macOS: /Library/LaunchDaemons/pitchfork.plist\n    Linux: /etc/systemd/system/pitchfork.service\n\nWhen run as a normal user, registers a user-level entry:\n\n    macOS: ~/Library/LaunchAgents/pitchfork.plist\n    Linux: ~/.config/systemd/user/pitchfork.service\n\nTo run the supervisor as root but keep state files and IPC sockets in a\nspecific user's home directory, set `settings.supervisor.user` in the global\npitchfork configuration (~/.config/pitchfork/config.toml or\n/etc/pitchfork/config.toml).\n\nSubcommands:\n\n    enable    Register pitchfork to start on boot\n    disable   Remove pitchfork from boot startup\n    status    Check if boot start is currently enabled\n\nExamples:\n\n    pitchfork boot enable           Start pitchfork on system boot (user-level)\n    sudo pitchfork boot enable      Start pitchfork on system boot (system-level)\n    pitchfork boot disable          Don't start pitchfork on boot\n    pitchfork boot status           Check boot start status"
+    long_help #"""
+Enable or disable boot start
+
+Manages whether pitchfork supervisor starts automatically when the system boots. Uses platform-specific mechanisms (launchd on macOS, systemd on Linux).
+
+When run as root (or via sudo), registers a system-level entry that starts pitchfork for all users:
+
+    macOS: /Library/LaunchDaemons/pitchfork.plist
+    Linux: /etc/systemd/system/pitchfork.service
+
+When run as a normal user, registers a user-level entry:
+
+    macOS: ~/Library/LaunchAgents/pitchfork.plist
+    Linux: ~/.config/systemd/user/pitchfork.service
+
+To run the supervisor as root but keep state files and IPC sockets in a specific user's home directory, set `settings.supervisor.user` in the global pitchfork configuration (~/.config/pitchfork/config.toml or /etc/pitchfork/config.toml).
+
+Subcommands:
+
+    enable    Register pitchfork to start on boot
+    disable   Remove pitchfork from boot startup
+    status    Check if boot start is currently enabled
+
+Examples:
+
+    pitchfork boot enable           Start pitchfork on system boot (user-level)
+    sudo pitchfork boot enable      Start pitchfork on system boot (system-level)
+    pitchfork boot disable          Don't start pitchfork on boot
+    pitchfork boot status           Check boot start status
+"""#
     cmd enable help="Enable boot start for pitchfork supervisor" effect=write {
-        long_help "Enable boot start for pitchfork supervisor\n\nRegisters pitchfork to start automatically when the system boots.\n\nWhen run as root (or via sudo): creates a system-level entry\n\n    macOS: /Library/LaunchDaemons/pitchfork.plist\n    Linux: /etc/systemd/system/pitchfork.service\n\nWhen run as a normal user: creates a user-level entry\n\n    macOS: ~/Library/LaunchAgents/pitchfork.plist\n    Linux: ~/.config/systemd/user/pitchfork.service\n\nIf you want the supervisor to run as root but keep state files and IPC sockets\nunder a specific user's home directory, configure `settings.supervisor.user`\nin your pitchfork configuration."
+        long_help #"""
+Enable boot start for pitchfork supervisor
+
+Registers pitchfork to start automatically when the system boots.
+
+When run as root (or via sudo): creates a system-level entry
+
+    macOS: /Library/LaunchDaemons/pitchfork.plist
+    Linux: /etc/systemd/system/pitchfork.service
+
+When run as a normal user: creates a user-level entry
+
+    macOS: ~/Library/LaunchAgents/pitchfork.plist
+    Linux: ~/.config/systemd/user/pitchfork.service
+
+If you want the supervisor to run as root but keep state files and IPC sockets under a specific user's home directory, configure `settings.supervisor.user` in your pitchfork configuration.
+"""#
     }
     cmd disable help="Disable boot start for pitchfork supervisor" effect=write {
-        long_help "Disable boot start for pitchfork supervisor\n\nRemoves the boot start registration. Pitchfork will no longer start\nautomatically on system boot."
+        long_help #"""
+Disable boot start for pitchfork supervisor
+
+Removes the boot start registration. Pitchfork will no longer start automatically on system boot.
+"""#
     }
     cmd status help="Check boot start status" effect=read {
-        long_help "Check boot start status\n\nReports whether pitchfork is configured to start on system boot."
+        long_help #"""
+Check boot start status
+
+Reports whether pitchfork is configured to start on system boot.
+"""#
     }
 }
 cmd cd hide=#true effect=read {
@@ -38,19 +106,60 @@ cmd cd hide=#true effect=read {
 }
 cmd clean help="Removes stopped/failed daemons from `pitchfork list`" effect=write {
     alias c
-    long_help "Removes stopped/failed daemons from `pitchfork list`\n\nCleans up the daemon list by removing entries for daemons that are no\nlonger running. Does not affect running daemons or their configurations.\n\nUse this to clear out old entries after stopping daemons manually or\nafter daemons have failed.\n\nExamples:\n\n    pitchfork clean                 Remove all stopped/failed entries\n    pitchfork clean my-worktree     Remove entries in one namespace\n    pitchfork clean --daemon api    Remove the local namespace's api entry\n    pitchfork clean --prune         Remove entries whose directories disappeared\n    pitchfork c                     Alias for 'clean'"
+    long_help #"""
+Removes stopped/failed daemons from `pitchfork list`
+
+Cleans up the daemon list by removing entries for daemons that are no longer running. Does not affect running daemons or their configurations.
+
+Use this to clear out old entries after stopping daemons manually or after daemons have failed.
+
+Examples:
+
+    pitchfork clean                 Remove all stopped/failed entries
+    pitchfork clean my-worktree     Remove entries in one namespace
+    pitchfork clean --daemon api    Remove the local namespace's api entry
+    pitchfork clean --prune         Remove entries whose directories disappeared
+    pitchfork c                     Alias for 'clean'
+"""#
     flag --daemon help="Only clean these daemons (repeatable; bare names use the current namespace)" var=#true {
         arg <ID>
     }
     flag --prune help="Only clean registrations whose working directories no longer exist"
     arg "[NAMESPACE]..." help="Only clean daemon registrations in these namespaces"
 }
-cmd daemons help="List configured daemons from all merged config files." effect=read args_conflicts_with_subcommands=#true {
+cmd daemons help="List configured daemons from all merged config files." effect=read {
     alias daemon
     flag --json help="Output in JSON format"
     cmd add help="Add a new daemon to pitchfork.toml" effect=write {
         alias a
-        long_help "Add a new daemon to pitchfork.toml\n\nCreates a new daemon configuration section in the pitchfork.toml file.\nThe daemon will be added to the nearest pitchfork.toml found in the\nfilesystem hierarchy starting from the current directory.\n\nExamples:\n\n    pitchfork daemons add api bun run server\n                                     Add daemon using positional args\n    pitchfork daemons add api --run 'npm start'\n                                     Add daemon with explicit run command\n    pitchfork daemons add api -- bun run server\n                                     Add daemon with explicit args after --\n    pitchfork daemons add api --run 'npm start' --retry 3\n                                     Add with retry policy\n    pitchfork daemons add api --run 'npm start' --watch 'src/**/*.ts'\n                                     Add with file watching\n    pitchfork daemons add api --run 'npm start' --autostart --autostop\n                                     Add with auto start/stop hooks\n    pitchfork daemons add worker --run './worker' --depends api\n                                     Add with daemon dependency\n    pitchfork daemons add api --run 'npm start' --local\n                                   Add to pitchfork.local.toml instead\n    pitchfork daemons add api --run 'npm start' --global\n                                  Add to ~/.config/pitchfork/config.toml instead\n    pitchfork daemons add worker --run './worker' --cron-schedule '0 * * * *' --cron-immediate\n                                  Add cron daemon that triggers immediately\n"
+        long_help #"""
+Add a new daemon to pitchfork.toml
+
+Creates a new daemon configuration section in the pitchfork.toml file. The daemon will be added to the nearest pitchfork.toml found in the filesystem hierarchy starting from the current directory.
+
+Examples:
+
+    pitchfork daemons add api bun run server
+                                     Add daemon using positional args
+    pitchfork daemons add api --run 'npm start'
+                                     Add daemon with explicit run command
+    pitchfork daemons add api -- bun run server
+                                     Add daemon with explicit args after --
+    pitchfork daemons add api --run 'npm start' --retry 3
+                                     Add with retry policy
+    pitchfork daemons add api --run 'npm start' --watch 'src/**/*.ts'
+                                     Add with file watching
+    pitchfork daemons add api --run 'npm start' --autostart --autostop
+                                     Add with auto start/stop hooks
+    pitchfork daemons add worker --run './worker' --depends api
+                                     Add with daemon dependency
+    pitchfork daemons add api --run 'npm start' --local
+                                   Add to pitchfork.local.toml instead
+    pitchfork daemons add api --run 'npm start' --global
+                                  Add to ~/.config/pitchfork/config.toml instead
+    pitchfork daemons add worker --run './worker' --cron-schedule '0 * * * *' --cron-immediate
+                                  Add cron daemon that triggers immediately
+"""#
         flag --run help="Command to run (can also use positional args)" {
             arg <RUN>
         }
@@ -130,7 +239,24 @@ cmd daemons help="List configured daemons from all merged config files." effect=
     }
 }
 cmd completion help="Generates shell completion scripts" effect=read {
-    long_help "Generates shell completion scripts\n\nCreates self-contained tab-completion scripts for your shell.\n\nSupported shells: bash, zsh, fish\n\nInstallation:\n\n    bash:\n      pitchfork completion bash > ~/.local/share/bash-completion/completions/pitchfork\n\n    zsh:\n      pitchfork completion zsh > ~/.zfunc/_pitchfork\n\n    fish:\n      pitchfork completion fish > ~/.config/fish/completions/pitchfork.fish"
+    long_help #"""
+Generates shell completion scripts
+
+Creates self-contained tab-completion scripts for your shell.
+
+Supported shells: bash, zsh, fish
+
+Installation:
+
+    bash:
+      pitchfork completion bash > ~/.local/share/bash-completion/completions/pitchfork
+
+    zsh:
+      pitchfork completion zsh > ~/.zfunc/_pitchfork
+
+    fish:
+      pitchfork completion fish > ~/.config/fish/completions/pitchfork.fish
+"""#
     arg <SHELL> help="Shell to generate completions for (bash, zsh, fish)" {
         choices {
             choice bash
@@ -141,21 +267,69 @@ cmd completion help="Generates shell completion scripts" effect=read {
 }
 cmd disable help="Prevent a daemon from restarting" effect=write {
     alias d
-    long_help "Prevent a daemon from restarting\n\nDisables a daemon to prevent it from being started automatically or manually.\nThe daemon will remain disabled until `pitchfork enable` is called.\nUseful for temporarily stopping a service without removing it from config.\n\nExamples:\n\n    pitchfork disable api           Prevent daemon from starting\n    pitchfork d api                 Alias for 'disable'\n    pitchfork list                  Shows 'disabled' status in output"
+    long_help #"""
+Prevent a daemon from restarting
+
+Disables a daemon to prevent it from being started automatically or manually. The daemon will remain disabled until `pitchfork enable` is called. Useful for temporarily stopping a service without removing it from config.
+
+Examples:
+
+    pitchfork disable api           Prevent daemon from starting
+    pitchfork d api                 Alias for 'disable'
+    pitchfork list                  Shows 'disabled' status in output
+"""#
     arg <ID> help="Name of the daemon to disable"
 }
 cmd enable help="Allow a daemon to start" effect=write {
     alias e
-    long_help "Allow a daemon to start\n\nRe-enables a previously disabled daemon, allowing it to be started manually\nor automatically. Use this after `pitchfork disable` to restore normal\noperation.\n\nExamples:\n\n    pitchfork enable api            Enable a disabled daemon\n    pitchfork e api                 Alias for 'enable'"
+    long_help #"""
+Allow a daemon to start
+
+Re-enables a previously disabled daemon, allowing it to be started manually or automatically. Use this after `pitchfork disable` to restore normal operation.
+
+Examples:
+
+    pitchfork enable api            Enable a disabled daemon
+    pitchfork e api                 Alias for 'enable'
+"""#
     arg <ID> help="Name of the daemon to enable"
 }
 cmd list help="List all daemons" effect=read {
     alias ls
-    long_help "List all daemons\n\nDisplays a table of all tracked daemons with their PIDs, status,\nwhether they are disabled, and any error messages.\n\nThis command shows both:\n- Active daemons (currently running or stopped)\n- Available daemons (defined in config but not yet started)\n\nExample:\n\n    pitchfork list\n    pitchfork ls                    Alias for 'list'\n    pitchfork list --hide-header    Output without column headers\n    pitchfork list --status running  Show only running daemons\n    pitchfork ls --status available --status stopped\n                                    Show daemons that are available OR stopped\n    pitchfork list --namespace frontend\n                                    Show only daemons in the 'frontend' namespace\n    pitchfork list --project        Show only the current project's daemons\n\nOutput:\n\n    Name    Status\n    api     running    https://api.localhost\n    worker  available\n    db      errored    exit code 127"
+    long_help #"""
+List all daemons
+
+Displays a table of all tracked daemons with their PIDs, status, whether they are disabled, and any error messages.
+
+This command shows both: - Active daemons (currently running or stopped) - Available daemons (defined in config but not yet started)
+
+Example:
+
+    pitchfork list
+    pitchfork ls                    Alias for 'list'
+    pitchfork list --hide-header    Output without column headers
+    pitchfork list --status running  Show only running daemons
+    pitchfork ls --status available --status stopped
+                                    Show daemons that are available OR stopped
+    pitchfork list --namespace frontend
+                                    Show only daemons in the 'frontend' namespace
+    pitchfork list --project        Show only the current project's daemons
+
+Output:
+
+    Name    Status
+    api     running    https://api.localhost
+    worker  available
+    db      errored    exit code 127
+"""#
     flag --hide-header help="Hide the table header row"
     flag --json help="Output in JSON format"
     flag --status help="Filter daemons by status (repeatable for OR logic)" var=#true {
-        long_help "Filter daemons by status (repeatable for OR logic)\n\nValues: running, stopped, waiting, stopping, failed, errored, available, disabled"
+        long_help #"""
+Filter daemons by status (repeatable for OR logic)
+
+Values: running, stopped, waiting, stopping, failed, errored, available, disabled
+"""#
         arg <STATUS> {
             choices {
                 choice running
@@ -173,11 +347,19 @@ cmd list help="List all daemons" effect=read {
         arg <NAMESPACE>
     }
     flag --project help="Only show daemons in the current project's namespace" {
-        long_help "Only show daemons in the current project's namespace\n\nThe namespace is resolved from the current directory the same way\nshort daemon IDs are: the nearest config file's namespace, falling\nback to 'global' when no config file is found."
+        long_help #"""
+Only show daemons in the current project's namespace
+
+The namespace is resolved from the current directory the same way short daemon IDs are: the nearest config file's namespace, falling back to 'global' when no config file is found.
+"""#
     }
 }
 cmd log-sink help="Reads a daemon's output on stdin and writes it to the log store" hide=#true effect=write {
-    long_help "Reads a daemon's output on stdin and writes it to the log store\n\nSpawned by the supervisor as a sibling of the daemon, holding the read end\nof the daemon's output pipe. Keeping the reader in its own process is what\nmakes logging survive a supervisor crash: the pipe still has a reader, so\nthe daemon is neither killed by SIGPIPE nor blocked, and no output is lost.\nExits when the pipe reaches end of file, which happens once the daemon and\nevery descendant holding the write end have gone."
+    long_help #"""
+Reads a daemon's output on stdin and writes it to the log store
+
+Spawned by the supervisor as a sibling of the daemon, holding the read end of the daemon's output pipe. Keeping the reader in its own process is what makes logging survive a supervisor crash: the pipe still has a reader, so the daemon is neither killed by SIGPIPE nor blocked, and no output is lost. Exits when the pipe reaches end of file, which happens once the daemon and every descendant holding the write end have gone.
+"""#
     flag --daemon-id help="Qualified id of the daemon whose output this is" required=#true {
         arg <DAEMON_ID>
     }
@@ -185,15 +367,27 @@ cmd log-sink help="Reads a daemon's output on stdin and writes it to the log sto
         arg <LOG_FORMAT>
     }
     flag --ready-pattern help="Regex whose first match means the daemon is ready" {
-        long_help "Regex whose first match means the daemon is ready\n\nSet for a daemon configured with `ready_output`. The supervisor cannot\nmatch it itself — this process holds the output — so the match is\nreported back over IPC."
+        long_help #"""
+Regex whose first match means the daemon is ready
+
+Set for a daemon configured with `ready_output`. The supervisor cannot match it itself — this process holds the output — so the match is reported back over IPC.
+"""#
         arg <READY_PATTERN>
     }
     flag --relay-token help="Token identifying the start attempt this sink belongs to" default="0" {
-        long_help "Token identifying the start attempt this sink belongs to\n\nQuoted back when reporting a match. The supervisor drops reports whose\ntoken is no longer current, so a sink still draining a failed attempt\ncannot mark that daemon's retry ready."
+        long_help #"""
+Token identifying the start attempt this sink belongs to
+
+Quoted back when reporting a match. The supervisor drops reports whose token is no longer current, so a sink still draining a failed attempt cannot mark that daemon's retry ready.
+"""#
         arg <RELAY_TOKEN>
     }
     flag --report-output help="Report lines so the supervisor can fire the daemon's `on_output` hook" {
-        long_help "Report lines so the supervisor can fire the daemon's `on_output` hook\n\nWithout `--output-filter` or `--output-regex` every line qualifies,\nwhich is what a hook with no pattern asks for."
+        long_help #"""
+Report lines so the supervisor can fire the daemon's `on_output` hook
+
+Without `--output-filter` or `--output-regex` every line qualifies, which is what a hook with no pattern asks for.
+"""#
     }
     flag --output-filter help="Only report lines containing this substring" {
         arg <OUTPUT_FILTER>
@@ -207,19 +401,54 @@ cmd log-sink help="Reads a daemon's output on stdin and writes it to the log sto
 }
 cmd logs help="Displays logs for daemon(s)" effect=read {
     alias l
-    long_help "Displays logs for daemon(s)\n\nShows logs from managed daemons. Logs are stored in the pitchfork logs directory\nand include timestamps for filtering.\n\nExamples:\n\n    pitchfork logs api              Show all logs for 'api' (paged if needed)\n    pitchfork logs api worker       Show logs for multiple daemons\n    pitchfork logs                  Show logs for all daemons\n    pitchfork logs api -n 50        Show last 50 lines\n    pitchfork logs api --follow     Follow logs in real-time\n    pitchfork logs api --since '2024-01-15 10:00:00'\n                                    Show logs since a specific time (forward)\n    pitchfork logs api --since '10:30:00'\n                                    Show logs since 10:30:00 today\n    pitchfork logs api --since '10:30' --until '12:00'\n                                    Show logs since 10:30:00 until 12:00:00 today\n    pitchfork logs api --since 5min Show logs from last 5 minutes\n    pitchfork logs api --raw        Output raw log lines without formatting\n    pitchfork logs api --raw -n 100 Output last 100 raw log lines\n    pitchfork logs api --clear      Delete logs for 'api'\n    pitchfork logs --clear          Delete logs for all daemons"
+    long_help #"""
+Displays logs for daemon(s)
+
+Shows logs from managed daemons. Logs are stored in the pitchfork logs directory and include timestamps for filtering.
+
+Examples:
+
+    pitchfork logs api              Show all logs for 'api' (paged if needed)
+    pitchfork logs api worker       Show logs for multiple daemons
+    pitchfork logs                  Show logs for all daemons
+    pitchfork logs api -n 50        Show last 50 lines
+    pitchfork logs api --follow     Follow logs in real-time
+    pitchfork logs api --since '2024-01-15 10:00:00'
+                                    Show logs since a specific time (forward)
+    pitchfork logs api --since '10:30:00'
+                                    Show logs since 10:30:00 today
+    pitchfork logs api --since '10:30' --until '12:00'
+                                    Show logs since 10:30:00 until 12:00:00 today
+    pitchfork logs api --since 5min Show logs from last 5 minutes
+    pitchfork logs api --raw        Output raw log lines without formatting
+    pitchfork logs api --raw -n 100 Output last 100 raw log lines
+    pitchfork logs api --clear      Delete logs for 'api'
+    pitchfork logs --clear          Delete logs for all daemons
+"""#
     flag "-c --clear" help="Delete logs" effect=destructive
     flag -n help="Show last N lines of logs" {
-        long_help "Show last N lines of logs\n\nOnly applies when --since/--until is not used.\nWithout this option, all logs are shown."
+        long_help #"""
+Show last N lines of logs
+
+Only applies when --since/--until is not used. Without this option, all logs are shown.
+"""#
         arg <N>
     }
     flag "-t -f --tail --follow" help="Show logs in real-time"
     flag "-s --since" help="Show logs from this time" {
-        long_help "Show logs from this time\n\nSupports multiple formats:\n- Full datetime: \"YYYY-MM-DD HH:MM:SS\" or \"YYYY-MM-DD HH:MM\"\n- Time only: \"HH:MM:SS\" or \"HH:MM\" (uses today's date)\n- Relative time: \"5min\", \"2h\", \"1d\" (e.g., last 5 minutes)"
+        long_help #"""
+Show logs from this time
+
+Supports multiple formats: - Full datetime: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM" - Time only: "HH:MM:SS" or "HH:MM" (uses today's date) - Relative time: "5min", "2h", "1d" (e.g., last 5 minutes)
+"""#
         arg <SINCE>
     }
     flag "-u --until" help="Show logs until this time" {
-        long_help "Show logs until this time\n\nSupports multiple formats:\n- Full datetime: \"YYYY-MM-DD HH:MM:SS\" or \"YYYY-MM-DD HH:MM\"\n- Time only: \"HH:MM:SS\" or \"HH:MM\" (uses today's date)"
+        long_help #"""
+Show logs until this time
+
+Supports multiple formats: - Full datetime: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM" - Time only: "HH:MM:SS" or "HH:MM" (uses today's date)
+"""#
         arg <UNTIL>
     }
     flag --no-pager help="Disable pager even in interactive terminal"
@@ -228,7 +457,11 @@ cmd logs help="Displays logs for daemon(s)" effect=read {
         conflicts --raw --tail
     }
     flag --grep help="Filter logs by case-insensitive substring (can be repeated)" var=#true {
-        long_help "Filter logs by case-insensitive substring (can be repeated)\n\nMultiple --grep options are combined with OR."
+        long_help #"""
+Filter logs by case-insensitive substring (can be repeated)
+
+Multiple --grep options are combined with OR.
+"""#
         arg <GREP>
     }
     flag --regex help="Filter logs by regular expression" {
@@ -236,44 +469,179 @@ cmd logs help="Displays logs for daemon(s)" effect=read {
     }
     flag --case-sensitive help="Make --grep matching case-sensitive"
     flag --level help="Filter by minimum log level (error, warn, info, debug, trace)" {
-        long_help "Filter by minimum log level (error, warn, info, debug, trace)\n\nShows entries at or above the given severity.\nFor example, `--level warn` shows warn and error.\nOnly effective for daemons with log_format json or logfmt."
+        long_help #"""
+Filter by minimum log level (error, warn, info, debug, trace)
+
+Shows entries at or above the given severity. For example, `--level warn` shows warn and error. Only effective for daemons with log_format json or logfmt.
+"""#
         arg <LEVEL>
     }
     flag --field help="Filter by structured field value (KEY=VALUE, can be repeated)" var=#true {
-        long_help "Filter by structured field value (KEY=VALUE, can be repeated)\n\nExtracts the value from fields_json using json_extract($.KEY).\nMultiple --field options are combined with AND."
+        long_help #"""
+Filter by structured field value (KEY=VALUE, can be repeated)
+
+Extracts the value from fields_json using json_extract($.KEY). Multiple --field options are combined with AND.
+"""#
         arg "<KEY=VALUE>"
     }
     flag --jq help="Filter log entries with a jq expression" {
-        long_help "Filter log entries with a jq expression\n\nEach log entry is serialized as a JSON object with fields:\ntimestamp, daemon_id, message, level, msg, logger, fields.\nEntries for which the expression produces a truthy value are shown."
+        long_help #"""
+Filter log entries with a jq expression
+
+Each log entry is serialized as a JSON object with fields: timestamp, daemon_id, message, level, msg, logger, fields. Entries for which the expression produces a truthy value are shown.
+"""#
         arg <EXPR>
     }
     flag --no-timestamp help="Omit timestamps from log output"
     arg "[ID]..." help="Show only logs for the specified daemon(s)"
 }
 cmd mcp help="Runs a Model Context Protocol (MCP) server over stdin/stdout" {
-    long_help "Runs a Model Context Protocol (MCP) server over stdin/stdout\n\nThis command starts an MCP server that exposes pitchfork daemon management\nto AI assistants (Claude, Cursor, etc.) over stdin/stdout using JSON-RPC.\n\nTypically used as a subprocess by an MCP-aware AI agent.\n\nExamples:\n\n    # In claude_desktop_config.json or similar:\n    {\n        \"mcpServers\": {\n            \"pitchfork\": {\n                \"command\": \"pitchfork\",\n                \"args\": [\"mcp\"]\n            }\n        }\n    }\n\nTools provided:\n\n    pitchfork_status    List all daemons and their state\n    pitchfork_start     Start a named daemon\n    pitchfork_stop      Stop a named daemon\n    pitchfork_restart   Restart a named daemon\n    pitchfork_logs      Return recent log output for a daemon"
-    after_long_help "Examples:\n\n    # Start the MCP server (used by AI assistant tools)\n    $ pitchfork mcp\n\n    # Claude Desktop configuration (claude_desktop_config.json):\n    {\n      \"mcpServers\": {\n        \"pitchfork\": {\n          \"command\": \"pitchfork\",\n          \"args\": [\"mcp\"]\n        }\n      }\n    }\n\n    # Interactive testing with JSON-RPC:\n    $ echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}' | pitchfork mcp\n\n# Available tools:\n- pitchfork_status  - List all daemons and their state\n- pitchfork_start   - Start daemon(s) by name\n- pitchfork_stop    - Stop daemon(s) by name\n- pitchfork_restart - Restart daemon(s) by name\n- pitchfork_logs    - Return recent log output for daemon(s)\n"
+    long_help #"""
+Runs a Model Context Protocol (MCP) server over stdin/stdout
+
+This command starts an MCP server that exposes pitchfork daemon management to AI assistants (Claude, Cursor, etc.) over stdin/stdout using JSON-RPC.
+
+Typically used as a subprocess by an MCP-aware AI agent.
+
+Examples:
+
+    # In claude_desktop_config.json or similar:
+    {
+        "mcpServers": {
+            "pitchfork": {
+                "command": "pitchfork",
+                "args": ["mcp"]
+            }
+        }
+    }
+
+Tools provided:
+
+    pitchfork_status    List all daemons and their state
+    pitchfork_start     Start a named daemon
+    pitchfork_stop      Stop a named daemon
+    pitchfork_restart   Restart a named daemon
+    pitchfork_logs      Return recent log output for a daemon
+"""#
+    after_long_help #"""
+Examples:
+
+    # Start the MCP server (used by AI assistant tools)
+    $ pitchfork mcp
+
+    # Claude Desktop configuration (claude_desktop_config.json):
+    {
+      "mcpServers": {
+        "pitchfork": {
+          "command": "pitchfork",
+          "args": ["mcp"]
+        }
+      }
+    }
+
+    # Interactive testing with JSON-RPC:
+    $ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | pitchfork mcp
+
+# Available tools:
+- pitchfork_status  - List all daemons and their state
+- pitchfork_start   - Start daemon(s) by name
+- pitchfork_stop    - Stop daemon(s) by name
+- pitchfork_restart - Restart daemon(s) by name
+- pitchfork_logs    - Return recent log output for daemon(s)
+
+"""#
 }
 cmd proxy help="Manage the pitchfork reverse proxy" effect=read subcommand_required=#true {
-    long_help "Manage the pitchfork reverse proxy\n\nThe reverse proxy routes requests from stable slug-based URLs like\n`https://myapp.localhost` to the daemon's actual listening port (e.g.\nlocalhost:3000).\n\nSlugs are defined in the global config (~/.config/pitchfork/config.toml)\nunder [slugs]. Each slug maps to a project directory and daemon name.\n\nEnable the proxy in your pitchfork.toml or settings:\n\n    [settings.proxy]\n    enable = true\n\nSubcommands:\n\n    trust     Install the proxy's TLS certificate into the system trust store\n    untrust   Remove the proxy's TLS certificate from the system trust store\n    add       Add a slug mapping to the global config\n    remove    Remove a slug mapping from the global config\n    status    Show all registered slugs and their current state"
+    long_help #"""
+Manage the pitchfork reverse proxy
+
+The reverse proxy routes requests from stable slug-based URLs like `https://myapp.localhost` to the daemon's actual listening port (e.g. localhost:3000).
+
+Slugs are defined in the global config (~/.config/pitchfork/config.toml) under [slugs]. Each slug maps to a project directory and daemon name.
+
+Enable the proxy in your pitchfork.toml or settings:
+
+    [settings.proxy]
+    enable = true
+
+Subcommands:
+
+    trust     Install the proxy's TLS certificate into the system trust store
+    untrust   Remove the proxy's TLS certificate from the system trust store
+    add       Add a slug mapping to the global config
+    remove    Remove a slug mapping from the global config
+    status    Show all registered slugs and their current state
+"""#
     cmd trust help="Install the proxy's self-signed TLS certificate into the system trust store" effect=write {
-        long_help "Install the proxy's self-signed TLS certificate into the system trust store\n\nThis command installs pitchfork's auto-generated TLS certificate into your\nsystem's trust store so that browsers and tools trust HTTPS proxy URLs\nwithout certificate warnings.\n\nOn macOS, this installs the certificate into the current user's login\nkeychain. No `sudo` required.\n\nOn Linux, the appropriate CA certificate directory and update command are\ndetected automatically based on the running distribution:\n  - Debian/Ubuntu: /usr/local/share/ca-certificates/ + update-ca-certificates\n  - RHEL/Fedora/CentOS: /etc/pki/ca-trust/source/anchors/ + update-ca-trust\n  - Arch Linux: /etc/ca-certificates/trust-source/anchors/ + trust extract-compat\n  - openSUSE: /etc/pki/trust/anchors/ + update-ca-certificates\n\nThis DOES require sudo on Linux.\n\nExample:\n\n```text\npitchfork proxy trust\nsudo pitchfork proxy trust    # Linux only\n```"
+        long_help #"""
+Install the proxy's self-signed TLS certificate into the system trust store
+
+This command installs pitchfork's auto-generated TLS certificate into your system's trust store so that browsers and tools trust HTTPS proxy URLs without certificate warnings.
+
+On macOS, this installs the certificate into the current user's login keychain. No `sudo` required.
+
+On Linux, the appropriate CA certificate directory and update command are detected automatically based on the running distribution:
+  - Debian/Ubuntu: /usr/local/share/ca-certificates/ + update-ca-certificates
+  - RHEL/Fedora/CentOS: /etc/pki/ca-trust/source/anchors/ + update-ca-trust
+  - Arch Linux: /etc/ca-certificates/trust-source/anchors/ + trust extract-compat
+  - openSUSE: /etc/pki/trust/anchors/ + update-ca-certificates
+
+This DOES require sudo on Linux.
+
+Example:
+
+```text
+pitchfork proxy trust
+sudo pitchfork proxy trust    # Linux only
+```
+"""#
         flag --cert help="Path to the certificate file to trust (defaults to pitchfork's auto-generated cert)" {
             arg <CERT>
         }
     }
     cmd untrust help="Remove the proxy's TLS certificate from the system trust store" effect=write {
-        long_help "Remove the proxy's TLS certificate from the system trust store\n\nRemoves the pitchfork CA certificate that was previously installed by\n`pitchfork proxy trust` or auto-trust.\n\nOn macOS, removes the certificate from the login keychain and system keychain.\nOn Linux, removes the certificate from the distro-specific CA directory\nand runs the appropriate update command.\n\nExample:\n\n```text\npitchfork proxy untrust\nsudo pitchfork proxy untrust    # Linux only\n```"
+        long_help #"""
+Remove the proxy's TLS certificate from the system trust store
+
+Removes the pitchfork CA certificate that was previously installed by `pitchfork proxy trust` or auto-trust.
+
+On macOS, removes the certificate from the login keychain and system keychain. On Linux, removes the certificate from the distro-specific CA directory and runs the appropriate update command.
+
+Example:
+
+```text
+pitchfork proxy untrust
+sudo pitchfork proxy untrust    # Linux only
+```
+"""#
         flag --cert help="Path to the certificate file (defaults to pitchfork's auto-generated cert)" {
             arg <CERT>
         }
     }
     cmd status help="Show all registered slugs and their current state" effect=read {
-        long_help "Show all registered slugs and their current state\n\nDisplays the proxy configuration and lists all slugs from the global config\nwith their project directory, daemon name, and current status (running/stopped, port)."
+        long_help #"""
+Show all registered slugs and their current state
+
+Displays the proxy configuration and lists all slugs from the global config with their project directory, daemon name, and current status (running/stopped, port).
+"""#
         flag --json help="Output in JSON format"
     }
     cmd add help="Add a slug mapping to the global config" effect=write {
-        long_help "Add a slug mapping to the global config\n\nRegisters a slug in ~/.config/pitchfork/config.toml that maps to a project\ndirectory and daemon name. The proxy uses this to route requests.\n\nIf --dir is not specified, uses the current directory.\nIf --daemon is not specified, defaults to the slug name.\n\nExample:\n\n```text\npitchfork proxy add api\npitchfork proxy add api --daemon server\npitchfork proxy add api --dir /home/user/my-api --daemon server\n```"
+        long_help #"""
+Add a slug mapping to the global config
+
+Registers a slug in ~/.config/pitchfork/config.toml that maps to a project directory and daemon name. The proxy uses this to route requests.
+
+If --dir is not specified, uses the current directory. If --daemon is not specified, defaults to the slug name.
+
+Example:
+
+```text
+pitchfork proxy add api
+pitchfork proxy add api --daemon server
+pitchfork proxy add api --dir /home/user/my-api --daemon server
+```
+"""#
         flag --dir help="Project directory (defaults to current directory)" {
             arg <DIR>
         }
@@ -287,18 +655,35 @@ cmd proxy help="Manage the pitchfork reverse proxy" effect=read subcommand_requi
     }
     cmd remove help="Remove a slug mapping from the global config" effect=destructive {
         alias rm
-        long_help "Remove a slug mapping from the global config\n\nExample:\n\n```text\npitchfork proxy remove api\n```"
+        long_help #"""
+Remove a slug mapping from the global config
+
+Example:
+
+```text
+pitchfork proxy remove api
+```
+"""#
         arg <SLUG> help="The slug name to remove"
     }
 }
 cmd project help="Project session management for IDE and workspace integrations." effect=read subcommand_required=#true {
     cmd enter help="Enter (or replace) a project session tied to a host process." effect=write {
-        long_help "Enter (or replace) a project session tied to a host process.\n\nThe host PID is required and is used by the supervisor to revoke the\nsession automatically when the process dies (with a title match to guard\nagainst PID reuse).\n\nOn Windows, automatic revocation when the host process exits is not\navailable (Git Bash PIDs are invisible to the process table); sessions\nmust be ended with an explicit `project leave`."
+        long_help #"""
+Enter (or replace) a project session tied to a host process.
+
+The host PID is required and is used by the supervisor to revoke the session automatically when the process dies (with a title match to guard against PID reuse).
+
+On Windows, automatic revocation when the host process exits is not available (Git Bash PIDs are invisible to the process table); sessions must be ended with an explicit `project leave`.
+"""#
         flag --pid help="Host process PID that owns the session. Required." required=#true {
             arg <PID>
         }
         flag --directory help="Project directory to associate with the session. Defaults to the current working directory and is canonicalized before tracking." {
-            long_help "Project directory to associate with the session. Defaults to the\ncurrent working directory and is canonicalized before tracking."
+            long_help #"""
+Project directory to associate with the session. Defaults to the
+current working directory and is canonicalized before tracking.
+"""#
             arg <DIRECTORY>
         }
     }
@@ -307,17 +692,45 @@ cmd project help="Project session management for IDE and workspace integrations.
             arg <PID>
         }
         flag --directory help="Project directory the session was entered with. Defaults to the current working directory and is canonicalized before lookup. Must match the directory used at enter time." {
-            long_help "Project directory the session was entered with. Defaults to the\ncurrent working directory and is canonicalized before lookup. Must\nmatch the directory used at enter time."
+            long_help #"""
+Project directory the session was entered with. Defaults to the
+current working directory and is canonicalized before lookup. Must
+match the directory used at enter time.
+"""#
             arg <DIRECTORY>
         }
     }
     cmd list help="List tracked project sessions." effect=read {
-        long_help "List tracked project sessions\n\nDisplays a table of active project sessions with their host PID, directory,\nliveness status, and recorded process title.\n\nExample:\n\n    pitchfork project list\n    pitchfork project list --json"
+        long_help #"""
+List tracked project sessions
+
+Displays a table of active project sessions with their host PID, directory,
+liveness status, and recorded process title.
+
+Example:
+
+    pitchfork project list
+    pitchfork project list --json
+"""#
         flag --json help="Output in JSON format"
     }
 }
 cmd restart help="Restarts a daemon (stops then starts it)" {
-    long_help "Restarts a daemon (stops then starts it)\n\nEquivalent to `start --force` - stops the daemon (SIGTERM) then starts it again\nfrom the pitchfork.toml configuration with dependency resolution.\n\nExamples:\n\n    pitchfork restart api           Restart a single daemon\n    pitchfork restart api worker    Restart multiple daemons\n    pitchfork restart --group backend Restart all daemons in the 'backend' group\n    pitchfork restart --all         Restart all running daemons\n    pitchfork restart -l            Restart all local daemons in pitchfork.toml\n    pitchfork restart -g            Restart all global daemons in config.toml\n    pitchfork restart api --delay 5 Wait 5 seconds for daemon to be ready"
+    long_help #"""
+Restarts a daemon (stops then starts it)
+
+Equivalent to `start --force` - stops the daemon (SIGTERM) then starts it again from the pitchfork.toml configuration with dependency resolution.
+
+Examples:
+
+    pitchfork restart api           Restart a single daemon
+    pitchfork restart api worker    Restart multiple daemons
+    pitchfork restart --group backend Restart all daemons in the 'backend' group
+    pitchfork restart --all         Restart all running daemons
+    pitchfork restart -l            Restart all local daemons in pitchfork.toml
+    pitchfork restart -g            Restart all global daemons in config.toml
+    pitchfork restart api --delay 5 Wait 5 seconds for daemon to be ready
+"""#
     flag --group help="Restart all daemons in the named group" {
         conflicts --local --global --all
         arg <GROUP>
@@ -353,7 +766,28 @@ cmd restart help="Restarts a daemon (stops then starts it)" {
 }
 cmd run help="Runs a one-off daemon" {
     alias r
-    long_help "Runs a one-off daemon\n\nRuns a command as a managed daemon without needing a pitchfork.toml.\nThe daemon is tracked by pitchfork and can be monitored with `pitchfork status`.\n\nExamples:\n\n    pitchfork run api -- npm run dev\n                                  Run npm as daemon named 'api'\n    pitchfork run api -f -- npm run dev\n                                  Force restart if 'api' is running\n    pitchfork run api --retry 3 -- ./server\n                                  Restart up to 3 times on failure\n    pitchfork run api -d 5 -- ./server\n                                  Wait 5 seconds for ready check\n    pitchfork run api -o 'Listening' -- ./server\n                                  Wait for output pattern before ready\n    pitchfork run api --http http://localhost:8080/health -- ./server\n                                  Wait for HTTP endpoint to return 2xx\n    pitchfork run api --port 8080 -- ./server\n                                  Wait for TCP port to be listening"
+    long_help #"""
+Runs a one-off daemon
+
+Runs a command as a managed daemon without needing a pitchfork.toml. The daemon is tracked by pitchfork and can be monitored with `pitchfork status`.
+
+Examples:
+
+    pitchfork run api -- npm run dev
+                                  Run npm as daemon named 'api'
+    pitchfork run api -f -- npm run dev
+                                  Force restart if 'api' is running
+    pitchfork run api --retry 3 -- ./server
+                                  Restart up to 3 times on failure
+    pitchfork run api -d 5 -- ./server
+                                  Wait 5 seconds for ready check
+    pitchfork run api -o 'Listening' -- ./server
+                                  Wait for output pattern before ready
+    pitchfork run api --http http://localhost:8080/health -- ./server
+                                  Wait for HTTP endpoint to return 2xx
+    pitchfork run api --port 8080 -- ./server
+                                  Wait for TCP port to be listening
+"""#
     flag "-f --force" help="Stop the daemon if it is already running"
     flag --retry help="Number of times to retry on error exit" default="0" {
         arg <RETRY>
@@ -385,9 +819,29 @@ cmd run help="Runs a one-off daemon" {
 }
 cmd schema help="Generate JSON Schema for pitchfork.toml configuration" hide=#true effect=read {
 }
-cmd settings help="View and modify pitchfork settings" effect=read args_conflicts_with_subcommands=#true {
+cmd settings help="View and modify pitchfork settings" effect=read {
     alias setting
-    long_help "View and modify pitchfork settings\n\nSettings can be configured in multiple ways (in order of precedence):\n1. Environment variables (highest priority)\n2. Project-level pitchfork.toml or pitchfork.local.toml in [settings] section\n3. User-level ~/.config/pitchfork/config.toml in [settings] section\n4. System-level /etc/pitchfork/config.toml in [settings] section\n5. Built-in defaults (lowest priority)\n\nSubcommands:\n\n    list    List all available settings with types and defaults\n    get     Get the current value of a setting\n    set     Set a setting value in a config file\n\nExamples:\n\n    pitchfork settings                        Show all current settings\n    pitchfork settings list                   List all available settings\n    pitchfork settings get general.log_level  Get a specific setting\n    pitchfork settings set general.log_level debug\n    pitchfork settings set web.auto_start true --global\n    pitchfork settings set supervisor.stop_timeout 10s --local\n    pitchfork settings set supervisor.stop_timeout 10s --project"
+    long_help #"""
+View and modify pitchfork settings
+
+Settings can be configured in multiple ways (in order of precedence): 1. Environment variables (highest priority) 2. Project-level pitchfork.toml or pitchfork.local.toml in [settings] section 3. User-level ~/.config/pitchfork/config.toml in [settings] section 4. System-level /etc/pitchfork/config.toml in [settings] section 5. Built-in defaults (lowest priority)
+
+Subcommands:
+
+    list    List all available settings with types and defaults
+    get     Get the current value of a setting
+    set     Set a setting value in a config file
+
+Examples:
+
+    pitchfork settings                        Show all current settings
+    pitchfork settings list                   List all available settings
+    pitchfork settings get general.log_level  Get a specific setting
+    pitchfork settings set general.log_level debug
+    pitchfork settings set web.auto_start true --global
+    pitchfork settings set supervisor.stop_timeout 10s --local
+    pitchfork settings set supervisor.stop_timeout 10s --project
+"""#
     flag --json help="Output in JSON format"
     cmd list help="List all available settings with types and defaults" effect=read {
         alias ls
@@ -412,7 +866,28 @@ cmd sponsors help="Show the companies sponsoring pitchfork and the jdx.dev open 
 }
 cmd start help="Starts a daemon from a pitchfork.toml file" {
     alias s
-    long_help "Starts a daemon from a pitchfork.toml file\n\nDaemons are defined in pitchfork.toml with a `[daemons.<name>]` section.\nThe command waits for the daemon to be ready before returning.\n\nExamples:\n\n    pitchfork start api           Start a single daemon\n    pitchfork start api worker    Start multiple daemons\n    pitchfork start --group backend Start all daemons in the 'backend' group\n    pitchfork start -l            Start all local daemons in pitchfork.toml\n    pitchfork start -g            Start all global daemons in config.toml\n    pitchfork start -a            Start all daemons (local and global)\n    pitchfork start api -f        Restart daemon if already running\n    pitchfork start api --delay 5 Wait 5 seconds for daemon to be ready\n    pitchfork start api --output 'Listening on'\n                                  Wait for output pattern before ready\n    pitchfork start api --http http://localhost:8080/health\n                                  Wait for HTTP endpoint to return 2xx\n    pitchfork start api --port 8080\n                                  Wait for TCP port to be listening"
+    long_help #"""
+Starts a daemon from a pitchfork.toml file
+
+Daemons are defined in pitchfork.toml with a `[daemons.<name>]` section. The command waits for the daemon to be ready before returning.
+
+Examples:
+
+    pitchfork start api           Start a single daemon
+    pitchfork start api worker    Start multiple daemons
+    pitchfork start --group backend Start all daemons in the 'backend' group
+    pitchfork start -l            Start all local daemons in pitchfork.toml
+    pitchfork start -g            Start all global daemons in config.toml
+    pitchfork start -a            Start all daemons (local and global)
+    pitchfork start api -f        Restart daemon if already running
+    pitchfork start api --delay 5 Wait 5 seconds for daemon to be ready
+    pitchfork start api --output 'Listening on'
+                                  Wait for output pattern before ready
+    pitchfork start api --http http://localhost:8080/health
+                                  Wait for HTTP endpoint to return 2xx
+    pitchfork start api --port 8080
+                                  Wait for TCP port to be listening
+"""#
     flag --group help="Start all daemons in the named group" {
         conflicts --local --global --all
         arg <GROUP>
@@ -458,13 +933,45 @@ cmd start help="Starts a daemon from a pitchfork.toml file" {
 }
 cmd status help="Display the status of a daemon" effect=read {
     alias stat
-    long_help "Display the status of a daemon\n\nShows detailed information about a single daemon including its PID and\ncurrent status (running, stopped, failed, etc.).\n\nExample:\n\n    pitchfork status api\n\nOutput:\n\n    Name: api\n    PID: 12345\n    Status: running"
+    long_help #"""
+Display the status of a daemon
+
+Shows detailed information about a single daemon including its PID and current status (running, stopped, failed, etc.).
+
+Example:
+
+    pitchfork status api
+
+Output:
+
+    Name: api
+    PID: 12345
+    Status: running
+"""#
     flag --json help="Output in JSON format"
     arg <ID> help="Name of the daemon to check"
 }
 cmd stop help="Sends a stop signal to a daemon" effect=write {
     alias kill
-    long_help "Sends a stop signal to a daemon\n\nUses a graceful shutdown strategy:\n1. Send SIGTERM and wait up to ~3 seconds for the process to exit (fast 10ms checks initially, then 50ms)\n2. If still running, send SIGKILL to force termination\n\nMost processes will exit immediately after the first SIGTERM. The escalation\nensures stubborn processes are eventually terminated while giving well-behaved\nprocesses time to clean up resources.\n\nWhen using --all/--local/--global, daemons are stopped in reverse dependency order:\ndependents are stopped before the daemons they depend on.\n\nExamples:\n\n    pitchfork stop api           Stop a single daemon\n    pitchfork stop api worker    Stop multiple daemons\n    pitchfork stop --group backend Stop all daemons in the 'backend' group\n    pitchfork stop --all         Stop all running daemons in dependency order\n    pitchfork stop -l            Stop all local daemons in pitchfork.toml\n    pitchfork stop -g            Stop all global daemons in config.toml\n    pitchfork kill api           Same as 'stop' (alias)"
+    long_help #"""
+Sends a stop signal to a daemon
+
+Uses a graceful shutdown strategy: 1. Send SIGTERM and wait up to ~3 seconds for the process to exit (fast 10ms checks initially, then 50ms) 2. If still running, send SIGKILL to force termination
+
+Most processes will exit immediately after the first SIGTERM. The escalation ensures stubborn processes are eventually terminated while giving well-behaved processes time to clean up resources.
+
+When using --all/--local/--global, daemons are stopped in reverse dependency order: dependents are stopped before the daemons they depend on.
+
+Examples:
+
+    pitchfork stop api           Stop a single daemon
+    pitchfork stop api worker    Stop multiple daemons
+    pitchfork stop --group backend Stop all daemons in the 'backend' group
+    pitchfork stop --all         Stop all running daemons in dependency order
+    pitchfork stop -l            Stop all local daemons in pitchfork.toml
+    pitchfork stop -g            Stop all global daemons in config.toml
+    pitchfork kill api           Same as 'stop' (alias)
+"""#
     flag --group help="Stop all daemons in the named group" {
         conflicts --local --global --all
         arg <GROUP>
@@ -505,42 +1012,52 @@ cmd supervisor help="Start, stop, and check the status of the pitchfork supervis
     }
 }
 cmd tui help="Launch the interactive TUI dashboard" {
-    long_help "Launch the interactive TUI dashboard\n\nShows live daemon status with fuzzy search, sorting, batch operations,\nlog viewing, and a config editor.\n\nThe dashboard can be scoped to one or more namespaces; the fuzzy search\n(`/`) then operates within the scoped set.\n\nExample:\n\n    pitchfork tui\n    pitchfork tui --namespace frontend\n                                    Show only daemons in the 'frontend' namespace\n    pitchfork tui --project         Show only the current project's daemons"
+    long_help #"""
+Launch the interactive TUI dashboard
+
+Shows live daemon status with fuzzy search, sorting, batch operations, log viewing, and a config editor.
+
+The dashboard can be scoped to one or more namespaces; the fuzzy search (`/`) then operates within the scoped set.
+
+Example:
+
+    pitchfork tui
+    pitchfork tui --namespace frontend
+                                    Show only daemons in the 'frontend' namespace
+    pitchfork tui --project         Show only the current project's daemons
+"""#
     flag --namespace help="Only show daemons in this namespace (repeatable for OR logic)" var=#true {
         arg <NAMESPACE>
     }
     flag --project help="Only show daemons in the current project's namespace" {
-        long_help "Only show daemons in the current project's namespace\n\nThe namespace is resolved from the current directory the same way\nshort daemon IDs are: the nearest config file's namespace, falling\nback to 'global' when no config file is found."
+        long_help #"""
+Only show daemons in the current project's namespace
+
+The namespace is resolved from the current directory the same way short daemon IDs are: the nearest config file's namespace, falling back to 'global' when no config file is found.
+"""#
     }
 }
 cmd usage help="Generates a usage spec for the CLI" hide=#true effect=read {
-    long_help "Generates a usage spec for the CLI\n\nhttps://usage.jdx.dev"
+    long_help #"""
+Generates a usage spec for the CLI
+
+https://usage.jdx.dev
+"""#
 }
 cmd wait help="Wait for a daemon to stop, tailing the logs along the way" effect=read {
     alias w
-    long_help "Wait for a daemon to stop, tailing the logs along the way\n\nBlocks until the specified daemon stops running, while displaying its\nlog output in real-time. Exits with the same status code as the daemon.\n\nUseful in scripts that need to wait for a daemon to complete.\n\nExamples:\n\n    pitchfork wait api              Wait for 'api' to stop\n    pitchfork w api                 Alias for 'wait'\n    pitchfork wait api && echo done Run command after daemon stops"
+    long_help #"""
+Wait for a daemon to stop, tailing the logs along the way
+
+Blocks until the specified daemon stops running, while displaying its log output in real-time. Exits with the same status code as the daemon.
+
+Useful in scripts that need to wait for a daemon to complete.
+
+Examples:
+
+    pitchfork wait api              Wait for 'api' to stop
+    pitchfork w api                 Alias for 'wait'
+    pitchfork wait api && echo done Run command after daemon stops
+"""#
     arg <ID> help="The name of the daemon to wait for"
 }
-
-complete "id" run=#"""
-case "{{words[1]}}" in
-  stop|wait)
-    pitchfork ls --hide-header --status running | awk '{print $1}'
-    ;;
-  restart)
-    pitchfork ls --hide-header --status running --status stopped --status errored --status failed | awk '{print $1}'
-    ;;
-  start)
-    pitchfork ls --hide-header --status available --status stopped --status errored --status failed | awk '{print $1}'
-    ;;
-  enable)
-    pitchfork ls --hide-header --status disabled | awk '{print $1}'
-    ;;
-  disable)
-    pitchfork ls --hide-header --status running --status available | awk '{print $1}'
-    ;;
-  *)
-    pitchfork ls --hide-header | awk '{print $1}'
-    ;;
-esac
-"""#

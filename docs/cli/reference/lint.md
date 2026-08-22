@@ -35,6 +35,4 @@ Treat warnings as errors
 
 Also check that subcommands and flags are declared in sorted order
 
-Off by default: declaration order is a house convention rather than a
-correctness question, so a spec that keeps a different order is not wrong.
-Pair it with --warnings-as-errors to hold the order in CI.
+Off by default: declaration order is a house convention rather than a correctness question, so a spec that keeps a different order is not wrong. Pair it with --warnings-as-errors to hold the order in CI.
