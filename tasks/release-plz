@@ -97,7 +97,26 @@ git cliff "$release_range" --tag "$version" --prepend CHANGELOG.md --include-pat
 # Strip version header since PR title already has version
 PR_BODY="$(git cliff "$release_range" --tag "$version" --strip all --include-path 'lib/**' --include-path 'cli/**' --include-path 'argv/**' --include-path 'config/**' --include-path 'derive/**' --include-path 'test/**' --include-path 'usage-rs/**' --include-path 'validation/**' | tail -n +3)"
 
-cargo set-version "${version#v}" --exclude clap_usage --exclude usage-conformance
+# clap_usage is versioned by hand. Everything still at 0.0.0 is unpublished
+# (xtask, conformance, benches) and must stay there. `cargo set-version`
+# otherwise stamps those too; `cargo update` writes 6.x into Cargo.lock; git add
+# below does not include their manifests — MSRV `cargo check --locked` then
+# fails (https://github.com/jdx/usage/pull/795).
+exclude_args=(--exclude clap_usage)
+while IFS= read -r pkg; do
+  exclude_args+=(--exclude "$pkg")
+done < <(
+  cargo metadata --format-version 1 --no-deps --offline | python3 -c '
+import json, sys
+
+data = json.load(sys.stdin)
+members = set(data["workspace_members"])
+for package in data["packages"]:
+    if package["id"] in members and package["version"] == "0.0.0":
+        print(package["name"])
+'
+)
+cargo set-version "${version#v}" "${exclude_args[@]}"
 mise run render
 
 git config user.name mise-en-dev
