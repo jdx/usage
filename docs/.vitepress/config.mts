@@ -94,6 +94,7 @@ export default defineConfig({
         link: "/cli/",
         items: [
           { text: "Completions", link: "/cli/completions" },
+          { text: "Comparing Specs", link: "/cli/diff" },
           { text: "Manpages", link: "/cli/manpages" },
           { text: "Markdown", link: "/cli/markdown" },
           { text: "SDK Generation", link: "/cli/sdk" },

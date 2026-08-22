@@ -106,6 +106,11 @@ struct FigArg {
     suggestions: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     debounce: Option<bool>,
+    /// Whether a `complete` declaration has been applied to this argument, as opposed to
+    /// the template and generator inferred from its name. Not part of a Fig spec — it
+    /// only decides which declaration wins while one is being built.
+    #[serde(skip)]
+    declared: bool,
 }
 
 #[serde_as]
@@ -178,6 +183,19 @@ impl FigGenerator {
     }
 }
 
+/// The Fig template for a portable `complete … type=`, where there is one.
+///
+/// `executable` is filesystem completion in Fig's vocabulary too; the narrower kinds
+/// (`command`, `user`, `host`, `none`) have no template and are left alone rather than
+/// approximated with the wrong one.
+fn template_for_type(type_: &str) -> Option<&'static str> {
+    match type_ {
+        "path" | "file" | "executable" => Some("filepaths"),
+        "dir" => Some("folders"),
+        _ => None,
+    }
+}
+
 impl FigArg {
     fn get_template(name: &str) -> Option<String> {
         name.to_lowercase()
@@ -228,19 +246,62 @@ impl FigArg {
             generators: FigArg::get_generator(&arg.name),
             suggestions: arg.choices.clone().map(|c| c.choices).unwrap_or_default(),
             debounce: FigArg::get_generator(&arg.name).map(|_| true),
+            declared: false,
         }
     }
 
     pub fn update_from_complete(&mut self, spec: SpecComplete) {
         let name = spec.name;
 
-        self.generators = self.generators.clone().or_else(|| {
-            Some(FigGenerator {
+        // A `complete` node with neither a command to run nor a type says nothing about
+        // what this value is, so it displaces nothing.
+        if spec.run.is_none() && spec.type_.is_none() {
+            return;
+        }
+
+        // Two rules, and keeping them apart is the whole of this function.
+        //
+        // A declaration beats a guess. The template and generator an argument starts
+        // with come from `get_template` and `get_generator` reading its *name* —
+        // `out_file` gets paths because it contains "file" — which was all there was
+        // before `type=` existed. A spec that says what its value is should not lose to a
+        // substring match, so the first declaration to arrive clears every guess,
+        // including when what it declares is that there is nothing to offer.
+        //
+        // The nearest declaration wins. Each command's completers are applied at its own
+        // level and the root spec's over the whole tree afterwards, so a later one must
+        // not overwrite a nearer one — which is what `or_else` used to arrange for the
+        // generator alone.
+        if self.declared {
+            return;
+        }
+        self.declared = true;
+        self.template = None;
+        self.generators = None;
+        self.debounce = None;
+
+        // A command to run outranks a type: `run=` is what this argument's author wrote
+        // for this argument, where a type names a category. It is also the only one of
+        // the two that reached Fig before, so a spec declaring both keeps the behaviour
+        // it already had.
+        if let Some(run) = spec.run {
+            self.generators = Some(FigGenerator {
                 type_: GeneratorType::Complete,
-                post_process: spec.run.unwrap_or("".to_string()),
+                post_process: run,
                 template_str: format!("${name}$"),
-            })
-        })
+            });
+            return;
+        }
+
+        // And a type becomes the template Fig has its own name for, where Fig has one:
+        // `none` says to offer nothing, and the kinds a shell answers for itself have no
+        // Fig equivalent worth approximating. Both leave the argument bare, which is the
+        // declaration being honoured rather than ignored.
+        self.template = spec
+            .type_
+            .as_deref()
+            .and_then(template_for_type)
+            .map(str::to_string);
     }
 }
 
@@ -305,6 +366,18 @@ impl FigCommand {
         [subcmds, vec![self.clone()]].concat()
     }
 
+    /// This command's own arguments — its positionals and its flags' values — without
+    /// descending into subcommands.
+    ///
+    /// What a `complete` node inside a `cmd` block is about. [`Self::get_args`] gathers
+    /// the whole subtree, which is right for the root spec's completers because those are
+    /// inherited, and wrong for a command's own.
+    pub fn get_own_args(&mut self) -> Vec<&mut FigArg> {
+        let mut own: Vec<&mut FigArg> = self.options.iter_mut().map(|o| o.get_args()).concat();
+        own.extend(self.args.iter_mut());
+        own
+    }
+
     pub fn get_args(&mut self) -> Vec<&mut FigArg> {
         let opt_args = self.options.iter_mut().map(|o| o.get_args()).concat();
         let sub_args = self.subcommands.iter_mut().map(|c| c.get_args()).concat();
@@ -318,6 +391,15 @@ impl FigCommand {
     }
 
     pub fn parse_from_spec(cmd: &SpecCommand) -> Option<Self> {
+        let mut command = Self::parse_declarations(cmd)?;
+        // Each command's own completers, at its own level. Only the root spec's `complete`
+        // nodes used to reach any argument, so a `complete` inside a `cmd` block — which
+        // is where a typed value hint on a subcommand's argument lands — was dropped.
+        Fig::fill_args_complete(command.get_own_args(), cmd.complete.clone());
+        Some(command)
+    }
+
+    fn parse_declarations(cmd: &SpecCommand) -> Option<Self> {
         (!cmd.hide).then(|| Self {
             name: FigCommand::get_names(cmd),
             description: cmd.help.clone(),

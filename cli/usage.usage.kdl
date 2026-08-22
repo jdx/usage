@@ -44,6 +44,23 @@ cmd complete-word help="Generate shell completion candidates for a partial comma
     }
     arg "[WORDS]..." help="User's input from the command line"
 }
+cmd diff help="Compare two usage specs and report what changed about the interface" effect=read {
+    long_help "Compare two usage specs and report what changed about the interface\n\nFindings are grouped into breaking changes (a command line that used to work\nnow fails, binds differently, or resolves to a different value), compatible\nchanges (the interface gained something or relaxed a rule), and metadata\nchanges (help text, effect, deprecation — nothing about parsing).\n\nExits 1 when there is a breaking change, so a release job can gate on it, and\neither spec may be \"-\":\n\n  mycli --usage-spec | usage diff released.usage.kdl -\n\n`version` is ignored on purpose: a release bumps it, and a check that fires\nevery release does not get left switched on."
+    flag "-f --format" help="Output format" default=text {
+        arg <FORMAT> {
+            choices {
+                choice text
+                choice json
+            }
+        }
+    }
+    flag "-b --breaking" help="Report only breaking changes"
+    flag --exit-zero help="Exit 0 even when there are breaking changes"
+    arg <OLD> help="The spec as it was, typically the released one, use \"-\" to read from stdin"
+    arg <NEW> help="The spec as it is now, use \"-\" to read from stdin"
+    complete old type=path
+    complete new type=path
+}
 cmd exec help="Execute a script, parsing args and exposing them as environment variables" unknown_flags=value {
     alias x
     flag -h help="Show help"
