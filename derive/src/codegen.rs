@@ -8732,14 +8732,15 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
         let selectors = member_selectors(member);
+        // Recognition, not mutation: every other `displace` returns true once the
+        // selector is known to this type, so a parent that short-circuits on the
+        // first true does not fall through to "unresolved" when the member was
+        // simply not given. Clearing is what happens when it *was* given.
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
-                if partial.#given {
-                    partial.#given = false;
-                    return true;
-                }
-                return false;
+                partial.#given = false;
+                return true;
             }
         }
     });
