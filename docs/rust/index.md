@@ -43,6 +43,10 @@ fn main() {
 Doc comments are the help text: the first paragraph becomes the short help shown by `-h`, the
 whole comment becomes the long help shown by `--help`.
 
+## Parser overhead
+
+<UsageBenches lang="rust" embedded />
+
 ## Installation
 
 One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:

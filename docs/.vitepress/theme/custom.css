@@ -545,6 +545,37 @@
   text-align: left;
 }
 
+.usage-bench-cards-single {
+  grid-template-columns: 1fr;
+}
+
+/* Inside a framework article the homepage's outer padding and 1120px cap fight
+   the doc column. Keep the cards, drop the stage. */
+.usage-bench.embedded {
+  max-width: none;
+  margin: 0.5rem 0 2.75rem;
+  padding: 0;
+  text-align: left;
+}
+
+.usage-bench.embedded .usage-bench-sub {
+  margin-left: 0;
+  margin-right: 0;
+  max-width: none;
+}
+
+.vp-doc .usage-bench.embedded .usage-bench-title {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.vp-doc .usage-bench.embedded .usage-bench-card h3 {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+
 .usage-bench-card {
   position: relative;
   background: rgba(21, 8, 54, 0.7);

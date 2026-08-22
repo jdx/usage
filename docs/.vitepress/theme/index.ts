@@ -16,7 +16,8 @@ export default {
       'layout-bottom': () => [h(EndevSponsors), h(EndevFooter)]
     })
   },
-  enhanceApp() {
+  enhanceApp({ app }) {
+    app.component('UsageBenches', UsageBenches)
     initBanner()
   },
   setup() {
