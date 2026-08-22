@@ -317,7 +317,7 @@ enum Commands {
     Get(Get),
 }
 
-cli.command.run_with_lazy(|| load_config(&cli)?)?;
+cli.command.run_with_lazy(|| load_config(&cli))?;
 ```
 
 ## Catch-alls

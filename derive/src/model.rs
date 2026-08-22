@@ -5004,8 +5004,8 @@ pub struct Variant {
     pub inline_fields: Option<Vec<syn::Field>>,
     /// `#[usage(run)]` on a variant: this command is synchronous even when the enum awaits.
     pub run_sync: bool,
-    /// `#[usage(run_async)]` on a variant: this command is awaited. Requires `run_async` on
-    /// the enum.
+    /// Whether the variant wrote redundant `#[usage(run_async)]`, retained so validation can
+    /// point at the variant and explain that async enum dispatch already awaits by default.
     pub run_async: bool,
     /// `#[usage(no_ctx)]`: this command does not take the context the rest of the enum does.
     pub no_ctx: bool,
@@ -5155,6 +5155,7 @@ impl Subcommands {
             // Quoted back rather than hardcoded, so an author who wrote `run_async_with` is not
             // told about `run`.
             let (attr, dispatch_trait) = dispatch.named();
+            let has_sync = dispatch.run || dispatch.run_with;
             let has_async = dispatch.run_async || dispatch.run_async_with;
             let has_ctx = dispatch.run_with || dispatch.run_async_with;
             if variants.is_empty() {
@@ -5194,23 +5195,34 @@ impl Subcommands {
                     ),
                 ));
             }
-            if dispatch.run && has_async && variants.iter().any(|v| v.run_sync) {
+            if has_sync && has_async && variants.iter().any(|v| v.run_sync) {
                 return Err(syn::Error::new_spanned(
                     &input.ident,
-                    "`run` and `run_async` on one enum generate two methods, and a command \
-                     marked `#[usage(run)]` is only reachable from the async one — leave `run` \
-                     off this enum and call `run_async`",
+                    "sync and async dispatch on one enum generate two methods, and a command \
+                     marked `#[usage(run)]` only changes the async one — request only async \
+                     dispatch when variants mix synchronous and asynchronous commands",
                 ));
             }
             for v in &variants {
-                if v.run_async && !has_async {
+                if v.external && (v.run_sync || v.run_async || v.no_ctx) {
                     return Err(syn::Error::new_spanned(
                         &v.ident,
-                        format!(
-                            "`run_async` on a variant is awaited by the generated dispatch, so \
-                             the enum has to say `run_async` (or `run_async_with`) too — or \
-                             leave it off `{attr}` and write the match by hand"
-                        ),
+                        "an `external_subcommand` is dispatched by the enum's `external = …` \
+                         function, not by `run` / `run_async` / `no_ctx` on the variant",
+                    ));
+                }
+                if v.run_sync && !has_async {
+                    return Err(syn::Error::new_spanned(
+                        &v.ident,
+                        "`run` on a variant only changes an async enum's dispatch; synchronous \
+                         dispatch already calls `Run` for every variant",
+                    ));
+                }
+                if v.run_async {
+                    return Err(syn::Error::new_spanned(
+                        &v.ident,
+                        "`run_async` on a variant is redundant; async enum dispatch already \
+                         awaits every variant unless that variant says `#[usage(run)]`",
                     ));
                 }
                 if v.no_ctx && !has_ctx {
@@ -5222,19 +5234,17 @@ impl Subcommands {
                         ),
                     ));
                 }
-                if v.external && (v.run_sync || v.run_async || v.no_ctx) {
-                    return Err(syn::Error::new_spanned(
-                        &v.ident,
-                        "an `external_subcommand` is dispatched by the enum's `external = …` \
-                         function, not by `run` / `run_async` / `no_ctx` on the variant",
-                    ));
-                }
             }
-        } else if dispatch_external.is_some() || dispatch_output.is_some() {
+        } else if dispatch_external.is_some()
+            || dispatch_output.is_some()
+            || variants
+                .iter()
+                .any(|v| v.run_sync || v.run_async || v.no_ctx)
+        {
             return Err(syn::Error::new_spanned(
                 &input.ident,
-                "`output` and `external` belong on a dispatched enum — add `run`, `run_with`, \
-                 `run_async` or `run_async_with`",
+                "`output`, `external`, and variant dispatch overrides belong on a dispatched \
+                 enum — add `run`, `run_with`, `run_async` or `run_async_with`",
             ));
         }
 
@@ -8995,6 +9005,50 @@ mod tests {
 
         let dispatch = subs.dispatch;
         assert!(dispatch.run && dispatch.run_with && dispatch.run_async && dispatch.run_async_with);
+    }
+
+    #[test]
+    fn variant_dispatch_overrides_have_to_change_the_enum_dispatch() {
+        let sync = enum_rejection(
+            r#"
+            #[usage(run)]
+            enum Command {
+                #[usage(run)]
+                Install(Install),
+            }
+        "#,
+        );
+        assert!(
+            sync.contains("only changes an async enum"),
+            "unhelpful: {sync}"
+        );
+
+        let async_variant = enum_rejection(
+            r#"
+            #[usage(run_async)]
+            enum Command {
+                #[usage(run_async)]
+                Install(Install),
+            }
+        "#,
+        );
+        assert!(
+            async_variant.contains("is redundant"),
+            "unhelpful: {async_variant}"
+        );
+
+        let undispatched = enum_rejection(
+            r#"
+            enum Command {
+                #[usage(no_ctx)]
+                Install(Install),
+            }
+        "#,
+        );
+        assert!(
+            undispatched.contains("belong on a dispatched enum"),
+            "unhelpful: {undispatched}"
+        );
     }
 
     /// A diagnostic quotes back the attribute the author wrote. Naming `run` at someone who
