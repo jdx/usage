@@ -122,10 +122,18 @@ mise run render
 git config user.name mise-en-dev
 git config user.email 123107610+mise-en-dev@users.noreply.github.com
 cargo update
+# Nested lockfiles pin path deps at the workspace version. Tests run
+# `cargo run --manifest-path` against them, which rewrites the lock when
+# set-version bumps those crates — CI then fails the render dirty-tree
+# gate (https://github.com/jdx/usage/actions/runs/32546629713).
+while IFS= read -r lock; do
+  cargo generate-lockfile --manifest-path "${lock%/Cargo.lock}/Cargo.toml"
+done < <(git ls-files 'usage-rs/tests/fixtures/*/Cargo.lock')
 aube update
 mise run lint-fix
 git add \
   {./,argv/,cli/,config/,derive/,lib/,test/,usage-rs/,validation/}Cargo.* \
+  usage-rs/tests/fixtures/*/Cargo.lock \
   package.json aube-lock.yaml \
   cli/usage.usage.kdl \
   docs/cli/reference/* \
