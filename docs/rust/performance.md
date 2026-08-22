@@ -26,6 +26,29 @@ same binary.
 The original launch targets were fewer than 100k retired instructions, less
 than 50us, and zero allocations when no value is bound. All three pass.
 
+## Why it is fast
+
+The derive does the expensive work while the application is compiled. It emits the command
+tree as static `Command`, `Flag`, and `Arg` tables, so starting a parse does not construct,
+validate, or allocate a parser. The hot path then does only the work the argv asks for:
+
+- It reads argv once, borrowing each value from its `OsStr` instead of copying it.
+- A flag lookup scans the current command's flags and inherited globals, not all 711 flags in
+  the CLI. Once found, a generated integer key selects the destination field without another
+  string lookup.
+- The parser's command stack is a fixed-size array. A bare parse never reaches the heap; an
+  owned value such as `String` accounts for one allocation only when that value is actually
+  bound.
+- Help text, spec and completion metadata, and human-readable diagnostics live outside the
+  parse tables. A successful parse neither constructs nor reads them.
+- Generated binding writes into one accumulator in place. Selecting a subcommand creates only
+  that variant's accumulator, not storage for every command the user did not select.
+
+The result scales with the command path and values that were typed, rather than with the whole
+CLI. [`usage-argv`'s allocation test](https://github.com/jdx/usage/blob/main/argv/tests/no_alloc.rs)
+pins the zero-allocation parser property; the mise-scale gate separately verifies that typed
+binding allocates only for owned values.
+
 ### How the instruction count moved
 
 The number above is not monotone, and the shape of the curve is the useful part.
@@ -67,29 +90,24 @@ validation phase. Even compared only with clap's already-built parse phase, with
 the tree constructed and paid for, usage is about 34x faster in this
 measurement.
 
-## argh and bpaf
+## Other runtime-built parsers
 
-clap is not the only comparison the gate builds. The same mise spec is shadowed in argh's and
-bpaf's vocabulary, and the same differencing measures all four parsing `mise use -g node@20`
+clap is not the only comparison the gate builds. The same mise spec is shadowed in bpaf's
+vocabulary, and the same differencing measures all three parsing `mise use -g node@20`
 (one run of `tasks/perf-shadow.sh`; counts vary slightly run to run):
 
 | Framework | Instructions, cold parse | vs usage | Wall time (min) |
 | --------- | -----------------------: | -------: | --------------: |
 | usage     |                    7,409 |        — |          350 ns |
-| argh      |                    6,292 |     0.8x |          275 ns |
 | clap      |                6,307,681 |     851x |          513 µs |
 | bpaf      |               21,909,001 |   2,957x |         1.61 ms |
 
-The table splits into two classes. clap and bpaf construct and validate a parser at runtime
-before reading a single word, so their floor is hundreds of microseconds. argh and usage read
-static tables, so their floor is hundreds of nanoseconds.
-
-Within the static class, argh is slightly cheaper — and expresses far less. Each shadow
-intentionally drops what its framework cannot say, and argh's drops the most: environment
-fallback, declared defaults, hidden and global flags, `choices`, flag relationships, aliases,
-and non-UTF-8 argv (argh parses `&[&str]`). usage's number carries the full grammar, the spec,
-and clap-shaped help and errors. The claim is not that usage is the cheapest parser possible;
-it is that carrying everything costs the same class as carrying almost nothing.
+clap and bpaf construct and validate a parser at runtime before reading a single word, so their
+floor is hundreds of microseconds. usage reads tables the compiler already laid out, so its
+floor is hundreds of nanoseconds. This comparison is still not perfect: bpaf cannot express
+every property in the source spec, and its generated shadow reports what it drops. The shared
+generator and checked-in fixture make those losses visible instead of silently hand-tuning a
+smaller program.
 
 ## Binary size
 
@@ -98,15 +116,13 @@ same workspace release build, stripped:
 
 | Framework | Stripped binary |
 | --------- | --------------: |
-| argh      |          1.0 MB |
 | usage     |          1.5 MB |
 | bpaf      |          2.5 MB |
 | clap      |          3.1 MB |
 
 The ordering matches the dependency story: usage links no third-party crates, clap links eight.
-The same expressiveness caveat applies to argh's number as to its instruction count. For what
-the spec endpoint itself weighs, see [Spec output](/rust/spec#the-endpoint) — 65 KB on a small
-CLI, and `#[usage(spec_endpoint = false)]` removes it.
+For what the spec endpoint itself weighs, see [Spec output](/rust/spec#the-endpoint) — 65 KB on
+a small CLI, and `#[usage(spec_endpoint = false)]` removes it.
 
 ## Method and limits
 

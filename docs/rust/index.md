@@ -47,6 +47,13 @@ whole comment becomes the long help shown by `--help`.
 
 <UsageBenches lang="rust" embedded />
 
+The derive emits the command tree as static tables at compile time. At runtime the parser walks
+only the selected command path, scans that command's flags plus inherited globals, and writes
+bindings into the result in place. It does not build a command tree, allocate a lookup map, or
+touch help and spec metadata on a successful parse. A bare parse allocates nothing; an owned
+value allocates only when argv actually supplies it. See [Parser performance](/rust/performance)
+for the instruction counts, allocation tests, and benchmark limits.
+
 ## Installation
 
 One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:

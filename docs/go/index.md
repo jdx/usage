@@ -14,8 +14,9 @@ typed structs, and a `Parse` function at build time. The result:
 
 - **Zero dependencies.** The module is `github.com/jdx/usage/go` and imports nothing but the
   standard library.
-- **Zero-allocation parsing.** A parse allocates nothing, on success and failure paths alike —
-  roughly 57–110ns per parse on mise's real 211-command spec.
+- **Zero-allocation routing.** The low-level event parser allocates nothing on success or
+  failure — roughly 57–110ns per parse on mise's real 211-command spec. Generated `Parse` adds
+  typed binding, defaults, and validation on top.
 - **Linker-friendly.** Parse tables, validation metadata, and help text are three separate
   tables; the linker drops the ones you don't reference. No `init` functions.
 - **One source of truth.** The same KDL spec generates your completions, docs, and manpages.
@@ -23,6 +24,13 @@ typed structs, and a `Parse` function at build time. The result:
 ## Parser overhead
 
 <UsageBenches lang="go" embedded />
+
+The generated package contains plain command and flag tables that the linker lays out before
+`main`; there is no spec parser, reflection, command-tree builder, or `init` function in the
+shipped program. The event parser keeps its state and 16-entry command stack inline, borrows
+values from argv, and scans only the flags in scope. Those are the zero-allocation,
+57–110ns measurements. Generated `Parse` does more work to produce the typed result shown
+below, so the zero-allocation claim deliberately does not apply to that higher layer.
 
 ## Quick start
 
