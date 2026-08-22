@@ -1011,7 +1011,11 @@ fn complete_word_config_values_say_nothing_when_they_know_nothing() {
     }
 }
 
-fn cmd(spec: &str, shell: Option<&str>) -> Command {
+fn cmd(example: &str, shell: Option<&str>) -> Command {
+    cmd_spec(&format!("../examples/{example}"), shell)
+}
+
+fn cmd_spec(spec: &str, shell: Option<&str>) -> Command {
     let mut cmd = Command::new(cargo::cargo_bin!("usage"));
     cmd.args(["cw"]);
     if let Some(shell) = shell {
@@ -1022,9 +1026,9 @@ fn cmd(spec: &str, shell: Option<&str>) -> Command {
 }
 
 fn assert_cmd(example: &str, args: &[&str]) -> Assert {
-    assert_spec(&format!("../examples/{example}"), args)
+    cmd(example, Some("fish")).args(args).assert().success()
 }
 
 fn assert_spec(spec: &str, args: &[&str]) -> Assert {
-    cmd(spec, Some("fish")).args(args).assert().success()
+    cmd_spec(spec, Some("fish")).args(args).assert().success()
 }
