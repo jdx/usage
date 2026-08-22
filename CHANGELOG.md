@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.0.1](https://github.com/jdx/usage/compare/v6.0.0..v6.0.1) - 2026-08-22
+
+### 🐛 Bug Fixes
+
+- **(derive)** flow long help and emit kdl raw multiline strings by [@jdx](https://github.com/jdx) in [#1215](https://github.com/jdx/usage/pull/1215)
+
+### 📚 Documentation
+
+- **(rust)** drop the restated one-declaration line from the intro by [@jdx](https://github.com/jdx) in [#1211](https://github.com/jdx/usage/pull/1211)
+- **(spec)** complete KDL reference by [@jdx](https://github.com/jdx) in [#1214](https://github.com/jdx/usage/pull/1214)
+
 ## [6.0.0](https://github.com/jdx/usage/compare/v5.1.0..v6.0.0) - 2026-08-22
 
 ### 🚀 Features
