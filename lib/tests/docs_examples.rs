@@ -152,6 +152,7 @@ fn every_kdl_example_on_the_checked_pages_parses() {
             .to_string_lossy()
             .to_string();
         let blocks = kdl_blocks(&std::fs::read_to_string(&page).expect("readable"));
+        assert!(!blocks.is_empty(), "{name} contains no KDL examples");
         let dir = tempfile::tempdir().expect("temp dir");
         let files = write_files(dir.path(), &blocks);
 
