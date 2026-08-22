@@ -33,7 +33,6 @@ const idPrefix = computed(() => `bench-${props.lang}`);
 // same binary parsing nothing.
 const rustRows = [
   { name: "usage-rs", value: 194, label: "190 ns", us: true },
-  { name: "argh", value: 268, label: "270 ns", note: "1.4× more", us: false },
   { name: "clap", value: 479605, label: "480 µs", note: "~2,500× more", us: false },
   { name: "bpaf", value: 1597028, label: "1.6 ms", note: "~8,200× more", us: false },
 ];
@@ -48,7 +47,7 @@ const rustRows = [
 const goRows = [
   { name: "usage-go", value: 0.15, label: "~0.15ms", us: true },
   { name: "urfave/cli v3", value: 0.75, label: "~0.75ms", note: "~5× more", us: false },
-  { name: "cobra", value: 0.85, label: "~0.85ms", note: "~6× more", us: false },
+  { name: "cobra", value: 1.05, label: "~1.05ms", note: "~7× more", us: false },
   { name: "kong", value: 5.2, label: "~5.2ms", note: "~35× more", us: false },
 ];
 
@@ -126,8 +125,9 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
     <p class="usage-bench-sub">
       What parsing <code>mise use -g node@20</code> costs each framework, against a shadow
       of <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands,
-      711 flags. Every shadow is generated from the same spec by the same traversal, so
-      what differs is the parser rather than one of them being written more carefully.
+      711 flags. The usage, clap, bpaf, and cobra programs are generated from the same
+      checked-in spec; the Go methodology notes which remaining rows are still
+      hand-measured.
     </p>
 
     <div
@@ -135,7 +135,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
       :class="{ 'usage-bench-cards-single': !(showRust && showGo) }"
     >
       <div v-if="showRust" class="usage-bench-card">
-        <h3>usage-rs <span>vs clap, argh, bpaf</span></h3>
+        <h3>usage-rs <span>vs clap, bpaf</span></h3>
         <p class="usage-bench-metric">
           wall time,
           <span
@@ -152,7 +152,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
                 so these bars are not full CLI invocation times. The chart reports the fastest
                 per-parse time from many short rounds. Minima and their ratios drift a few
                 percent between runs and machines, hence the <code>~</code>. Instructions for
-                one cold parse, which do not drift: 4,155 · 6,295 · 5.89M · 21.9M,
+                one cold parse, which do not drift: 4,155 · 5.89M · 21.9M,
                 agreeing across two machines to 0.15%.
               </span>
             </span>
@@ -176,7 +176,8 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
           </div>
         </div>
         <p class="usage-bench-foot">
-          clap and bpaf
+          usage-rs starts from compiler-emitted static tables and scans only the current
+          command's flags plus inherited globals. clap and bpaf
           <span
             class="usage-bench-hint"
             tabindex="0"
@@ -193,23 +194,6 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
               </span>
             </span></span
           >. Heap allocations for a bare parse: <strong>zero</strong>, against clap's 6,280.
-          argh and bpaf also
-          <span
-            class="usage-bench-hint"
-            tabindex="0"
-            @mouseenter="clamp"
-            @focusin="clamp"
-            :aria-describedby="`${idPrefix}-tip-express`"
-            >express less
-            <span class="usage-bench-tip" :id="`${idPrefix}-tip-express`" role="tooltip">
-              <strong>Missing from the argh and bpaf shadows</strong>
-              <span>
-                Aliases, hidden commands, global flags, and a positional beside a
-                subcommand — the generator drops them, counts them, and prints the count
-                when it runs.
-              </span>
-            </span></span
-          >.
         </p>
       </div>
 
@@ -223,13 +207,14 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
             @mouseenter="clamp"
             @focusin="clamp"
             :aria-describedby="`${idPrefix}-tip-cold`"
-            >one cold parse
+            >startup-adjusted process cost
             <span class="usage-bench-tip" :id="`${idPrefix}-tip-cold`" role="tooltip">
               <strong>How this is measured</strong>
               <span>
-                Whole-process, with the ~0.95ms of Go runtime startup a do-nothing process
-                costs subtracted — approximate, and the reason the Rust card is timed
-                in-process instead.
+                Whole-process wall time with the ~0.95ms startup cost of a do-nothing Go
+                process subtracted. usage-go and cobra have generated mise-scale shadows;
+                urfave/cli and kong are hand-measured and should be read as orders of
+                magnitude. The subtraction makes every bar approximate.
               </span>
             </span>
           </span>
@@ -252,7 +237,9 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
           </div>
         </div>
         <p class="usage-bench-foot">
-          Instructions for the same parse: <strong>~2.7k</strong> vs cobra's 2.0M,
+          The measured event parser walks package-level tables already laid out before
+          <code>main</code>: no runtime tree construction, reflection, or heap allocation.
+          Instructions for the same parse: <strong>~1.6k</strong> vs cobra's 3.25M,
           urfave/cli's 5.6M, kong's 57.9M.
         </p>
       </div>
