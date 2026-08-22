@@ -116,7 +116,7 @@ accepted — see [Migrating from clap](/rust/migrating-from-clap) and the
 
 | Attribute                                               | Effect                                                                                                         |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `conflicts(…)`, `requires(…)`, `overrides(…)`           | Relations to other args ([Validation](/rust/validation))                                                       |
+| `conflicts(…)`, `requires(…)`, `overrides(…)`           | Relations to other args; `overrides` is flag-only ([Validation](/rust/validation))                             |
 | `required_if(…)`, `required_if_eq…`, `required_unless…` | Conditional required-ness with single, any, and all forms                                                      |
 | `validate` / `validate_error`                           | Portable expression rule ([Validation](/rust/validation#portable-expressions)); needs the `validation` feature |
 | `group = "name"`                                        | Join a flag group ([Validation](/rust/validation#groups))                                                      |
