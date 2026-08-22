@@ -270,7 +270,10 @@ pub fn emit(cli: &Cli) -> TokenStream {
     // appends to the same string — a root can have both.
     let config_extra = match &cli.config {
         Some(ty) => quote! {
-            __usage_kdl.push_str(&#config::spec_kdl(<#ty>::SETTINGS_PROPS));
+            __usage_kdl.push_str(&#config::spec_kdl_with(
+                <#ty>::SETTINGS_PROPS,
+                <#ty>::SETTINGS_SPEC,
+            ));
         },
         None => TokenStream::new(),
     };

@@ -84,6 +84,29 @@ pub(crate) fn config_path() -> TokenStream {
 pub struct Config {
     ident: syn::Ident,
     fields: Vec<Field>,
+    sources: Vec<Source>,
+    files: Vec<File>,
+}
+
+struct Source {
+    kind: String,
+    name: Option<String>,
+    doc_hint: Option<String>,
+    set_hint: Option<String>,
+}
+
+struct File {
+    path: String,
+    findup: bool,
+    scope: FileScope,
+    format: Option<String>,
+}
+
+#[derive(Clone, Copy)]
+enum FileScope {
+    Project,
+    Global,
+    System,
 }
 
 enum Field {
@@ -125,6 +148,9 @@ struct Prop {
     examples: Vec<String>,
     help: Option<String>,
     long_help: Option<String>,
+    help_heading: Option<String>,
+    writes_to: Option<String>,
+    extensions: Vec<(String, Const)>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -298,10 +324,14 @@ impl Config {
         }
 
         let mut prefix = None;
+        let mut sources = Vec::new();
+        let mut files = Vec::new();
         for attr in attrs(&input.attrs) {
             for meta in nested(attr)? {
                 match ident_of(meta.path()).as_str() {
                     "prefix" => prefix = Some(string_value(&meta)?),
+                    "source" => sources.push(source_decl(&meta)?),
+                    "file" => files.push(file_decl(&meta)?),
                     other => {
                         return Err(syn::Error::new_spanned(
                             meta.path(),
@@ -309,6 +339,19 @@ impl Config {
                         ));
                     }
                 }
+            }
+        }
+        sources.sort_by(|a, b| a.kind.cmp(&b.kind));
+        for pair in sources.windows(2) {
+            if pair[0].kind == pair[1].kind {
+                return Err(syn::Error::new_spanned(
+                    &input.ident,
+                    format!(
+                        "config source `{}` is declared more than once; combine its metadata \
+                         into one `source(...)`",
+                        pair[0].kind
+                    ),
+                ));
             }
         }
 
@@ -372,8 +415,155 @@ impl Config {
         Ok(Self {
             ident: input.ident.clone(),
             fields,
+            sources,
+            files,
         })
     }
+}
+
+fn nested_meta(meta: &Meta) -> syn::Result<Vec<Meta>> {
+    let Meta::List(list) = meta else {
+        return Ok(Vec::new());
+    };
+    let parsed = list
+        .parse_args_with(syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated)?;
+    Ok(parsed.into_iter().collect())
+}
+
+fn source_decl(meta: &Meta) -> syn::Result<Source> {
+    let Meta::List(_) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "a config source is `source(kind = \"git\", name = \"git config\", ...)`",
+        ));
+    };
+    let mut kind = None;
+    let mut name = None;
+    let mut doc_hint = None;
+    let mut set_hint = None;
+    for item in nested_meta(meta)? {
+        let slot = match ident_of(item.path()).as_str() {
+            "kind" => &mut kind,
+            "name" => &mut name,
+            "doc_hint" => &mut doc_hint,
+            "set_hint" => &mut set_hint,
+            other => {
+                return Err(syn::Error::new_spanned(
+                    item.path(),
+                    format!(
+                        "a config source does not understand `{other}`; use `kind`, `name`, \
+                         `doc_hint`, or `set_hint`"
+                    ),
+                ))
+            }
+        };
+        if slot.is_some() {
+            return Err(syn::Error::new_spanned(
+                &item,
+                format!(
+                    "`{}` is given twice in this config source",
+                    ident_of(item.path())
+                ),
+            ));
+        }
+        *slot = Some(string_value(&item)?);
+    }
+    let kind = kind
+        .ok_or_else(|| syn::Error::new_spanned(meta, "a config source needs `kind = \"...\"`"))?;
+    if kind.is_empty() {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "a config source kind cannot be empty",
+        ));
+    }
+    Ok(Source {
+        kind,
+        name,
+        doc_hint,
+        set_hint,
+    })
+}
+
+fn file_decl(meta: &Meta) -> syn::Result<File> {
+    let Meta::List(_) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "a config file is `file(path = \"ex.toml\", findup, scope = \"project\")`",
+        ));
+    };
+    let mut path = None;
+    let mut findup = false;
+    let mut saw_findup = false;
+    let mut scope = FileScope::Project;
+    let mut saw_scope = false;
+    let mut format = None;
+    for item in nested_meta(meta)? {
+        match ident_of(item.path()).as_str() {
+            "path" => {
+                if path.is_some() {
+                    return Err(syn::Error::new_spanned(&item, "`path` is given twice"));
+                }
+                path = Some(string_value(&item)?);
+            }
+            "findup" => {
+                if saw_findup {
+                    return Err(syn::Error::new_spanned(&item, "`findup` is given twice"));
+                }
+                findup = flag_value(&item)?;
+                saw_findup = true;
+            }
+            "scope" => {
+                if saw_scope {
+                    return Err(syn::Error::new_spanned(&item, "`scope` is given twice"));
+                }
+                let value = string_value(&item)?;
+                scope = match value.as_str() {
+                    "project" => FileScope::Project,
+                    "global" => FileScope::Global,
+                    "system" => FileScope::System,
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            &item,
+                            format!(
+                                "`{value}` is not a config file scope; use `project`, `global`, \
+                                 or `system`"
+                            ),
+                        ))
+                    }
+                };
+                saw_scope = true;
+            }
+            "format" => {
+                if format.is_some() {
+                    return Err(syn::Error::new_spanned(&item, "`format` is given twice"));
+                }
+                format = Some(string_value(&item)?);
+            }
+            other => {
+                return Err(syn::Error::new_spanned(
+                    item.path(),
+                    format!(
+                        "a config file does not understand `{other}`; use `path`, `findup`, \
+                         `scope`, or `format`"
+                    ),
+                ))
+            }
+        }
+    }
+    let path =
+        path.ok_or_else(|| syn::Error::new_spanned(meta, "a config file needs `path = \"...\"`"))?;
+    if path.is_empty() {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "a config file path cannot be empty",
+        ));
+    }
+    Ok(File {
+        path,
+        findup,
+        scope,
+        format,
+    })
 }
 
 impl Field {
@@ -410,6 +600,9 @@ impl Field {
             examples: Vec::new(),
             help: None,
             long_help: None,
+            help_heading: None,
+            writes_to: None,
+            extensions: Vec::new(),
         };
         (prop.help, prop.long_help) = doc_comment(&field.attrs, false)?;
 
@@ -425,6 +618,7 @@ impl Field {
                     "cli" => prop.cli.extend(strings(&meta)?),
                     "alias" | "aliases" => prop.aliases.extend(strings(&meta)?),
                     "example" | "examples" => prop.examples.extend(strings(&meta)?),
+                    "x" | "extension" => prop.extensions.push(extension(&meta)?),
                     "source" => {
                         let mut words = strings(&meta)?;
                         if words.len() < 2 {
@@ -500,6 +694,8 @@ impl Field {
                     "since" => prop.since = Some(string_value(&meta)?),
                     "help" => prop.help = Some(string_value(&meta)?),
                     "long_help" => prop.long_help = Some(string_value(&meta)?),
+                    "help_heading" => prop.help_heading = Some(string_value(&meta)?),
+                    "writes_to" => prop.writes_to = Some(string_value(&meta)?),
                     other => {
                         return Err(syn::Error::new_spanned(
                             meta.path(),
@@ -535,6 +731,9 @@ impl Field {
                 (prop.deprecated_warn_at.is_some(), "deprecated_warn_at"),
                 (prop.deprecated_remove_at.is_some(), "deprecated_remove_at"),
                 (prop.since.is_some(), "since"),
+                (prop.help_heading.is_some(), "help_heading"),
+                (prop.writes_to.is_some(), "writes_to"),
+                (!prop.extensions.is_empty(), "x"),
             ];
             if let Some((_, what)) = described.iter().find(|(given, _)| *given) {
                 return Err(syn::Error::new(
@@ -1040,6 +1239,51 @@ fn consts(meta: &Meta) -> syn::Result<Vec<Const>> {
     parsed.into_iter().map(|expr| const_expr(&expr)).collect()
 }
 
+/// `x("mise.rust_type", "Duration")`: one tool-private key and one scalar value.
+fn extension(meta: &Meta) -> syn::Result<(String, Const)> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "an extension is `x(\"tool.key\", value)`",
+        ));
+    };
+    let values = list
+        .parse_args_with(syn::punctuated::Punctuated::<Expr, syn::Token![,]>::parse_terminated)?;
+    if values.len() != 2 {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "an extension takes exactly a string key and one scalar value, as in \
+             `x(\"tool.key\", \"value\")`",
+        ));
+    }
+    let mut values = values.into_iter();
+    let key_expr = values.next().expect("length checked");
+    let Expr::Lit(ExprLit {
+        lit: Lit::Str(key), ..
+    }) = key_expr
+    else {
+        return Err(syn::Error::new_spanned(
+            key_expr,
+            "an extension key must be a string",
+        ));
+    };
+    if key.value().is_empty() {
+        return Err(syn::Error::new_spanned(
+            key,
+            "an extension key cannot be empty",
+        ));
+    }
+    let value_expr = values.next().expect("length checked");
+    let value = const_expr(&value_expr)?;
+    if matches!(value, Const::List(_)) {
+        return Err(syn::Error::new_spanned(
+            value_expr,
+            "an extension value is one scalar, not a list",
+        ));
+    }
+    Ok((key.value(), value))
+}
+
 fn const_expr(expr: &Expr) -> syn::Result<Const> {
     match expr {
         Expr::Lit(ExprLit { lit, .. }) => const_lit(lit, false),
@@ -1095,6 +1339,14 @@ pub fn emit(config: &Config) -> TokenStream {
             Field::Flatten { .. } => None,
         })
         .collect();
+    let prop_specs: Vec<TokenStream> = config
+        .fields
+        .iter()
+        .filter_map(|field| match field {
+            Field::Prop(prop) => Some(prop_spec(prop, &cfg)),
+            Field::Flatten { .. } => None,
+        })
+        .collect();
 
     let has_flatten = config
         .fields
@@ -1117,8 +1369,20 @@ pub fn emit(config: &Config) -> TokenStream {
                 Field::Flatten { ty, .. } => quote!(<#ty as #cfg::Props>::PROPS),
             })
             .collect();
+        let spec_parts: Vec<TokenStream> = config
+            .fields
+            .iter()
+            .map(|field| match field {
+                Field::Prop(prop) => {
+                    let spec = prop_spec(prop, &cfg);
+                    quote!(&[#spec])
+                }
+                Field::Flatten { ty, .. } => quote!(<#ty as #cfg::Props>::PROP_SPECS),
+            })
+            .collect();
         quote! {
             const __USAGE_PARTS: &[&[#cfg::PropMeta]] = &[#(#parts),*];
+            const __USAGE_SPEC_PARTS: &[&[#cfg::PropSpec]] = &[#(#spec_parts),*];
             const __USAGE_LEN: usize = {
                 let mut total = 0;
                 let mut i = 0;
@@ -1130,12 +1394,44 @@ pub fn emit(config: &Config) -> TokenStream {
             };
             static __USAGE_PROPS: [#cfg::PropMeta; __USAGE_LEN] =
                 #cfg::concat_props(__USAGE_PARTS);
+            static __USAGE_PROP_SPECS: [#cfg::PropSpec; __USAGE_LEN] =
+                #cfg::concat_prop_specs(__USAGE_SPEC_PARTS);
         }
     } else {
         quote! {
             static __USAGE_PROPS: [#cfg::PropMeta; #metas_len] = [#(#metas),*];
+            static __USAGE_PROP_SPECS: [#cfg::PropSpec; #metas_len] = [#(#prop_specs),*];
         }
     };
+
+    let sources = config.sources.iter().map(|source| {
+        let kind = &source.kind;
+        let name = option_str(&source.name);
+        let doc_hint = option_str(&source.doc_hint);
+        let set_hint = option_str(&source.set_hint);
+        quote!(#cfg::SpecSource {
+            kind: #kind,
+            name: #name,
+            doc_hint: #doc_hint,
+            set_hint: #set_hint,
+        })
+    });
+    let files = config.files.iter().map(|file| {
+        let path = &file.path;
+        let findup = file.findup;
+        let scope = match file.scope {
+            FileScope::Project => quote!(#cfg::FileScope::Project),
+            FileScope::Global => quote!(#cfg::FileScope::Global),
+            FileScope::System => quote!(#cfg::FileScope::System),
+        };
+        let format = option_str(&file.format);
+        quote!(#cfg::SpecFile {
+            path: #path,
+            findup: #findup,
+            scope: #scope,
+            format: #format,
+        })
+    });
 
     // Reads in declaration order, advancing a cursor: one id per own prop, a group's length
     // for a flattened child. Everything is read before anything is judged, so the fold holds
@@ -1197,6 +1493,7 @@ pub fn emit(config: &Config) -> TokenStream {
 
             impl #cfg::Props for #ident {
                 const PROPS: &'static [#cfg::PropMeta] = &__USAGE_PROPS;
+                const PROP_SPECS: &'static [#cfg::PropSpec] = &__USAGE_PROP_SPECS;
 
                 fn read_at(
                     __usage_fold: &mut #cfg::Fold<'_>,
@@ -1222,6 +1519,13 @@ pub fn emit(config: &Config) -> TokenStream {
                 /// the layers.
                 pub const SETTINGS_REGISTRY: #cfg::Registry =
                     #cfg::Registry::new(Self::SETTINGS_PROPS);
+
+                /// Metadata used only when lowering this declaration into a usage spec.
+                pub const SETTINGS_SPEC: #cfg::ConfigSpec = #cfg::ConfigSpec::new(
+                    <Self as #cfg::Props>::PROP_SPECS,
+                    &[#(#sources),*],
+                    &[#(#files),*],
+                );
 
                 /// This resolution's values, as the struct.
                 ///
@@ -1267,7 +1571,7 @@ pub fn emit(config: &Config) -> TokenStream {
                 /// `usage::Cli` names this type in `#[usage(config = ...)]` instead of
                 /// calling this, and its `to_kdl` carries the block.
                 pub fn spec_kdl() -> ::std::string::String {
-                    #cfg::spec_kdl(Self::SETTINGS_PROPS)
+                    #cfg::spec_kdl_with(Self::SETTINGS_PROPS, Self::SETTINGS_SPEC)
                 }
             }
         };
@@ -1279,6 +1583,29 @@ fn read_local(ident: &syn::Ident) -> syn::Ident {
     let name = ident.to_string();
     let name = name.strip_prefix("r#").unwrap_or(&name);
     format_ident!("__usage_read_{name}")
+}
+
+fn option_str(value: &Option<String>) -> TokenStream {
+    match value {
+        Some(value) => quote!(::std::option::Option::Some(#value)),
+        None => quote!(::std::option::Option::None),
+    }
+}
+
+fn prop_spec(prop: &Prop, cfg: &TokenStream) -> TokenStream {
+    let help_heading = option_str(&prop.help_heading);
+    let writes_to = option_str(&prop.writes_to);
+    let extensions = prop.extensions.iter().map(|(key, value)| {
+        let value = value.tokens(cfg);
+        quote!((#key, #value))
+    });
+    quote! {
+        #cfg::PropSpec {
+            help_heading: #help_heading,
+            writes_to: #writes_to,
+            extensions: &[#(#extensions),*],
+        }
+    }
 }
 
 /// One prop as registry metadata, in struct-update form over `PropMeta::new`.
@@ -1962,6 +2289,9 @@ mod tests {
             r#"deprecated_warn_at = "6.0.0""#,
             r#"deprecated_remove_at = "7.0.0""#,
             r#"since = "5.2.0""#,
+            r#"help_heading = "Performance""#,
+            r#"writes_to = "git""#,
+            r#"x("tool.key", true)"#,
         ] {
             let err = rejection(&format!(
                 r#"
@@ -1987,6 +2317,93 @@ mod tests {
                 task: TaskSettings,
             }
         "#,
+        );
+    }
+
+    #[test]
+    fn spec_only_field_metadata_is_accepted() {
+        accepted(
+            r#"
+            struct Settings {
+                #[usage(
+                    help_heading = "Performance",
+                    writes_to = "git",
+                    x("ex.rust_type", "u64"),
+                    x("ex.restart_required", true)
+                )]
+                jobs: u64,
+            }
+        "#,
+        );
+    }
+
+    #[test]
+    fn a_config_source_and_file_are_struct_declarations() {
+        accepted(
+            r#"
+            #[usage(source(kind = "git", name = "git config"))]
+            #[usage(file(path = "ex.toml", findup, scope = "project"))]
+            struct Settings {
+                jobs: u64,
+            }
+        "#,
+        );
+
+        let err = rejection(
+            r#"
+            #[usage(source(kind = "git"))]
+            #[usage(source(kind = "git", name = "git"))]
+            struct Settings {
+                jobs: u64,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("source `git` is declared more than once"),
+            "unhelpful: {err}"
+        );
+
+        let err = rejection(
+            r#"
+            #[usage(source = "git")]
+            struct Settings {
+                jobs: u64,
+            }
+        "#,
+        );
+        assert!(err.contains("source(kind ="), "unhelpful: {err}");
+
+        let err = rejection(
+            r#"
+            #[usage(file(findup))]
+            struct Settings {
+                jobs: u64,
+            }
+        "#,
+        );
+        assert!(err.contains("needs `path"), "unhelpful: {err}");
+
+        let err = rejection(
+            r#"
+            #[usage(file(path = "ex.toml", scope = "trusted"))]
+            struct Settings {
+                jobs: u64,
+            }
+        "#,
+        );
+        assert!(err.contains("not a config file scope"), "unhelpful: {err}");
+
+        let err = rejection(
+            r#"
+            struct Settings {
+                #[usage(x("key"))]
+                jobs: u64,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("exactly a string key and one scalar value"),
+            "unhelpful: {err}"
         );
     }
 }

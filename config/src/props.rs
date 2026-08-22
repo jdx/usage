@@ -8,6 +8,7 @@
 
 use crate::read::Fold;
 use crate::registry::PropMeta;
+use crate::spec::PropSpec;
 
 /// A group of settings declared in code.
 ///
@@ -21,6 +22,9 @@ pub trait Props: Sized {
     /// parent's joined slice — which is why reading takes a `base`.
     const PROPS: &'static [PropMeta];
 
+    /// Spec-only metadata parallel to [`Props::PROPS`].
+    const PROP_SPECS: &'static [PropSpec];
+
     /// Read this group's fields from a fold, its props starting at `base`.
     ///
     /// `None` means a field could not be read and the fold has recorded why. Every field is
@@ -28,6 +32,29 @@ pub trait Props: Sized {
     /// checks [`Fold::finish`] before treating `None` as anything but "already reported".
     #[doc(hidden)]
     fn read_at(fold: &mut Fold<'_>, base: u16) -> Option<Self>;
+}
+
+/// Join flattened groups' spec metadata in the same order as their properties.
+pub const fn concat_prop_specs<const N: usize>(groups: &[&[PropSpec]]) -> [PropSpec; N] {
+    let mut out = [PropSpec::EMPTY; N];
+    let mut at = 0;
+    let mut g = 0;
+    while g < groups.len() {
+        let group = groups[g];
+        let mut i = 0;
+        while i < group.len() {
+            out[at] = group[i];
+            at += 1;
+            i += 1;
+        }
+        g += 1;
+    }
+    assert!(
+        at == N,
+        "`N` must be the summed length of the groups, or property spec metadata would not \
+         line up with its setting"
+    );
+    out
 }
 
 /// Join groups of prop metadata into one slice, at compile time.
@@ -215,5 +242,26 @@ mod tests {
         assert_eq!(JOINED[0].key, "jobs");
         assert_eq!(JOINED[1].key, "task.output");
         assert_eq!(JOINED[2].key, "task.jobs");
+    }
+
+    #[test]
+    fn spec_metadata_joins_in_the_same_order_as_props() {
+        static OWN: &[PropSpec] = &[PropSpec {
+            help_heading: Some("Performance"),
+            writes_to: None,
+            extensions: &[],
+        }];
+        static CHILD: &[PropSpec] = &[
+            PropSpec {
+                writes_to: Some("git"),
+                ..PropSpec::EMPTY
+            },
+            PropSpec::EMPTY,
+        ];
+        const N: usize = OWN.len() + CHILD.len();
+        static JOINED: [PropSpec; N] = concat_prop_specs(&[OWN, CHILD]);
+        assert_eq!(JOINED[0].help_heading, Some("Performance"));
+        assert_eq!(JOINED[1].writes_to, Some("git"));
+        assert_eq!(JOINED[2], PropSpec::EMPTY);
     }
 }
