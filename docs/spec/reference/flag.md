@@ -1,6 +1,7 @@
 # `flag`
 
-Help annotations and page variants can be hidden independently without changing
+Flags can be removed from every help page and completion with `hide`. Help
+annotations and page variants can also be hidden independently without changing
 parsing or fallback behavior. Flags accept `hide_default_value`, `hide_env`,
 `hide_env_values`, `hide_possible_values`, `hide_short_help`, and
 `hide_long_help`. Usage help prints an environment variable's name but never its
@@ -17,6 +18,8 @@ flag "--user" { alias "-u" hide=#true } // hide alias from docs and completions
 
 flag "-f --force" global=#true          // global can be set on any subcommand
 flag "--force" display_order=10         // explicit order within its help section
+flag "--config <file>" required=#true   // invocation must provide a value
+flag "--clear" effect="destructive"     // raises the command effect when supplied
 flag "--file <file>" default="file.txt" // default value for flag
 flag "-v --verbose" count=#true         // instead of true/false $usage_verbose is # of times
                                         // flag was used (e.g. -vvv = 3)
@@ -345,3 +348,18 @@ can take it into account, and it is not offered inside a mounted command — see
 A non-global flag belongs to the command that declares it, but may still appear before one of
 that command's subcommands (`mycli run --force task`): it is parsed there, just not inherited
 and not passed to mounts.
+
+## Markdown help and effects
+
+`help_md` supplies Markdown directly to generated Markdown documentation:
+
+```kdl
+flag "--output <path>" help="Output path" {
+  help_md "Write the result to **this path**."
+  effect "write"
+}
+```
+
+Without `help_md`, generated Markdown falls back to `long_help` and then
+`help`. An `effect` raises the selected command's declared effect when this flag
+is supplied; see [command effects](/spec/#command-effects).

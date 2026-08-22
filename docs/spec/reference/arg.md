@@ -1,6 +1,6 @@
 # `arg`
 
-Positionals accept `hide_default_value`, `hide_env`, `hide_env_values`,
+Positionals accept `hide`, `hide_default_value`, `hide_env`, `hide_env_values`,
 `hide_possible_values`, `hide_short_help`, and `hide_long_help`. These affect
 help presentation only; defaults, environment fallback, and validation remain
 active.
@@ -12,14 +12,15 @@ arg "[file]"                             // optional positional arg
 arg "<file>" default="file.txt"          // default value for arg
 arg "<file>" env="MY_FILE"               // arg can be backed by an env var
 arg "<file>" display_order=10             // explicit order in help; parse order is unchanged
-arg "<file>" parse="mycli parse-file {}" // parse arg value with external command
 arg "<port>" validate="int(value) >= 1 && int(value) <= 65535" validate_error="must be a valid port"
+arg "<output>" effect="write"             // raises the command effect when supplied
 
 arg "[file]" var=#true // multiple args can be passed (e.g. mycli file1 file2 file3) (0 or more)
 arg "<file>" var=#true // multiple args can be passed (e.g. mycli file1 file2 file3) (1 or more)
 arg "<file>..."        // shorthand for var=#true (trailing ellipsis)
 arg "<file>" var=#true var_min=3 // at least 3 args must be passed
 arg "<file>" var=#true var_max=3 // up to 3 args can be passed
+arg "<tag>..." delimiter="," // one word such as a,b becomes two values
 arg "<start> <end>" var_min=2 var_max=2 // exactly two values with distinct labels
 arg "<number>" allow_negative_numbers=#true // -1 is a value, --force is still flag-like
 arg "<item>..." value_terminator=";" // stop before ; without storing it
@@ -37,6 +38,9 @@ arg "[checksum]" {
 `allow_negative_numbers` accepts a leading-minus integer or decimal where a normal
 dash-prefixed token would be treated as a flag. `value_terminator` is valid only on a
 variadic argument; it ends that argument without binding the terminator token.
+
+`delimiter` splits one word into several values before choices and validation
+are applied, so it is valid only on a variadic argument.
 
 Several placeholders in one argument declare fixed arity. Each label is retained in
 help and generated Rust and Go tables; `var_min` and `var_max` must match the number
@@ -62,6 +66,37 @@ adds it to its own manifest:
 ```toml
 expr-lang = { version = "2.1", features = ["temporal"] }
 ```
+
+## Environment sources
+
+`env` is the canonical variable. `env_fallback` names additional variables in
+precedence order, and `deprecated_env` names compatibility aliases consulted
+last and reported as deprecated:
+
+```kdl
+arg "<profile>" env="MYCLI_PROFILE" {
+  env_fallback "MYCLI_ENV" "PROFILE"
+  deprecated_env "OLD_PROFILE"
+}
+```
+
+Command-line values win over every environment source. A value from an
+environment variable wins over `default`.
+
+## Markdown help and effects
+
+`help_md` supplies Markdown directly to generated Markdown documentation:
+
+```kdl
+arg "<output>" help="Output path" {
+  help_md "Write the result to **this path**."
+  effect "write"
+}
+```
+
+Without `help_md`, generated Markdown falls back to `long_help` and then
+`help`. An `effect` raises the selected command's declared effect when this
+positional is supplied; see [command effects](/spec/#command-effects).
 
 ## Using Variadic Args in Bash
 
