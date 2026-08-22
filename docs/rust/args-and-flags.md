@@ -150,7 +150,7 @@ accepted — see [Migrating from clap](/rust/migrating-from-clap) and the
 | `complete = my_fn`                 | Custom completion function ([Completions](/rust/completions))                           |
 | `value_hint = ValueHint::FilePath` | Ask the shell for path completion (see below)                                           |
 | `effect = "…"`                     | `"read"`, `"write"`, or `"destructive"` — see [command effects](/spec/#command-effects) |
-| `setting = "key"`                  | Bind to a config setting ([Settings](/rust/settings))                                   |
+| `setting = "key"`                  | Bind to a config setting ([Configuration](/rust/configuration))                         |
 
 ### Suggested values without strict validation
 
@@ -281,24 +281,24 @@ A global flag may be given **once per command level**, with the innermost occurr
 
 On the root `#[derive(Cli)]` struct:
 
-| Attribute                           | Effect                                                                                                              |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `bin = "…"`                         | The binary name (used in help and the spec)                                                                         |
-| `name = "…"`                        | A friendly display name                                                                                             |
-| `version` / `version = "…"`         | Enable `--version`/`-V`; bare form uses `CARGO_PKG_VERSION`                                                         |
-| `long_version = "…"`                | Extended `--version` text while `-V` stays concise                                                                  |
-| `about` / `long_about`              | Description (doc comments work too)                                                                                 |
-| `usage = "…"`                       | Verbatim synopsis line(s), replacing the generated one                                                              |
-| `before_help` / `after_help`        | Extra text around the help page (`*_long_help` variants too)                                                        |
-| `unknown_flags = "value"\|"error"`  | Treat unknown flags as values instead of errors                                                                     |
-| `default_subcommand = "run"`        | Command to assume when argv names none                                                                              |
-| `multicall`                         | Treat argv[0]'s basename as a subcommand (busybox-style)                                                            |
-| `view("bin", root = "command")`     | Promote a command as another executable surface                                                                     |
-| `completion`                        | Generate completion support ([Completions](/rust/completions))                                                      |
-| `settings`                          | Root resolves settings even when every `setting =` binding lives on flattened children ([Settings](/rust/settings)) |
-| `config = Settings`                 | Emit the named type's `config` block ([Settings](/rust/settings))                                                   |
-| `min_usage_version = "…"`           | Declare the minimum usage version the spec needs                                                                    |
-| `group("name", required, multiple)` | Declare a flag group ([Validation](/rust/validation#groups))                                                        |
+| Attribute                           | Effect                                                                                                                        |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `bin = "…"`                         | The binary name (used in help and the spec)                                                                                   |
+| `name = "…"`                        | A friendly display name                                                                                                       |
+| `version` / `version = "…"`         | Enable `--version`/`-V`; bare form uses `CARGO_PKG_VERSION`                                                                   |
+| `long_version = "…"`                | Extended `--version` text while `-V` stays concise                                                                            |
+| `about` / `long_about`              | Description (doc comments work too)                                                                                           |
+| `usage = "…"`                       | Verbatim synopsis line(s), replacing the generated one                                                                        |
+| `before_help` / `after_help`        | Extra text around the help page (`*_long_help` variants too)                                                                  |
+| `unknown_flags = "value"\|"error"`  | Treat unknown flags as values instead of errors                                                                               |
+| `default_subcommand = "run"`        | Command to assume when argv names none                                                                                        |
+| `multicall`                         | Treat argv[0]'s basename as a subcommand (busybox-style)                                                                      |
+| `view("bin", root = "command")`     | Promote a command as another executable surface                                                                               |
+| `completion`                        | Generate completion support ([Completions](/rust/completions))                                                                |
+| `settings`                          | Root resolves settings even when every `setting =` binding lives on flattened children ([Configuration](/rust/configuration)) |
+| `config = Settings`                 | Emit the named type's `config` block ([Configuration](/rust/configuration))                                                   |
+| `min_usage_version = "…"`           | Declare the minimum usage version the spec needs                                                                              |
+| `group("name", required, multiple)` | Declare a flag group ([Validation](/rust/validation#groups))                                                                  |
 
 On a `#[derive(Args)]` struct (refused on the root):
 

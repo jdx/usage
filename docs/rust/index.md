@@ -1,7 +1,7 @@
 # Rust Framework
 
 ::: warning Experimental
-Used by some of jdx's CLIs, but point releases may break. These docs have not been human reviewed.
+Used by some of jdx's CLIs, but point releases may break.
 :::
 
 The Rust framework builds your CLI from Rust types. You declare commands, flags, and args as
@@ -73,7 +73,7 @@ available for low-level adopters that want a thinner surface:
 | `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`, `ArgGroup`               |
 | `usage-argv`   | The zero-allocation, zero-dependency runtime the derive emits code against             |
 | `usage-test`   | Test helpers: what a command line parses to, what a page says, what a shell is offered |
-| `usage-config` | Layered settings resolution with provenance ([Settings](/rust/settings))               |
+| `usage-config` | Layered settings resolution with provenance ([Configuration](/rust/configuration))     |
 
 ### Cargo features
 
@@ -85,11 +85,7 @@ available for low-level adopters that want a thinner surface:
 | `completions` |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)             |
 | `validation`  |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions))          |
 | `test`        |         | `usage::test`: parse and help assertions (a dev-dependency feature; completion assertions want `completions` too) |
-| `config`      |         | The `usage::Config` derive and the resolver as `usage::config` ([Settings](/rust/settings))                       |
-
-`#[usage(completion)]` without the `completions` feature is a deliberate `compile_error!` that
-tells you which feature to add. To drop diagnostics (or help) from a binary that does not want
-them, turn defaults off and re-enable only what you need — or depend on `usage-argv` directly.
+| `config`      |         | The `usage::Config` derive and the resolver as `usage::config` ([Configuration](/rust/configuration))             |
 
 ## Parse entry points
 
@@ -116,86 +112,19 @@ failure to stderr and exits `2` — clap's exit status, so scripts that check fo
 `parse_from` gives you the same machinery without the process control; see
 [Help, version, and errors](/rust/help) for handling its `Err` variants.
 
-## Updating a value you already have
+For programs that parse more than once, see
+[Updating an existing value](/rust/update-from).
 
-A CLI parsed more than once — a REPL reading a line at a time, a daemon reconfigured while it
-runs — merges a command line into the value it already holds rather than building a new one:
+## Generated dispatch
 
-```rust
-// merge argv into self; print help/version/errors and exit as `parse()` does
-pub fn update_from<'v>(&mut self, argv: &[&'v OsStr]);
-
-// the same, handing errors back
-pub fn try_update_from<'v>(&mut self, argv: &[&'v OsStr])
-    -> Result<(), usage::Error<'static, 'v>>;
-```
-
-`update_from_argv` and `try_update_from_argv` are the `parse_from_argv` counterparts: they strip
-argv0 and apply multicall applet selection.
-
-A parse cannot be run backwards — a `String` field says nothing about the word it was made from —
-so what you already hold is read from the struct itself, and the rules are stated rather than
-inherited from a fresh parse:
-
-- **Relationships see the standing value.** `required`, `requires`, `conflicts` and the rest
-  treat a field that already holds a value as present, so a required flag need not be repeated
-  and a standing flag still conflicts with a new one. What is validated is the union of both
-  inputs.
-- **The environment and declared defaults fill only what is empty.** An update never clobbers a
-  value you set deliberately, and an update whose argv says nothing cannot change anything.
-- **A collection is replaced when this argv mentions it**, and left alone when it does not.
-  Appending was rejected because it leaves no way to clear a field.
-- **A different subcommand replaces the variant** whole, discarding the old variant's fields;
-  the same subcommand merges field by field.
-
-Nothing is merged until every check has passed, so a `try_update_from` that returns `Err` leaves
-the value exactly as it was.
-
-Two things a standing value cannot answer, because the bytes it was parsed from are gone: a check
-about what a value _is_ — a choice list, a `validate` expression — is skipped for a field this
-argv did not supply, and a `requires_if` or `default_value_if` comparing against a particular
-value does not match one that merely stands. A field whose type has nowhere to put "absent", such
-as a plain `String`, always counts as present.
-
-What runs afterwards can be generated too. A command implements `Run`, its subcommand enum
-says `#[usage(run)]`, and the `match` that routes argv to the code carrying it out is written
-from the same declaration:
-
-```rust
-#[derive(Cli)]
-#[usage(bin = "ex")]
-struct Ex {
-    #[usage(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommands)]
-#[usage(run)]
-enum Commands {
-    Install(Install),
-}
-
-impl Run for Install {
-    type Output = miette::Result<()>;
-    fn run(self) -> Self::Output {
-        install(&self.tools, self.force)
-    }
-}
-
-fn main() -> miette::Result<()> {
-    Ex::parse().command.run()
-}
-```
-
-`RunWith<Ctx>` and `#[usage(run_with)]` are the same for a CLI that hands its commands shared
-state, and `RunAsync` / `RunAsyncWith<Ctx>` with `#[usage(run_async)]` / `#[usage(run_async_with)]`
-are the async pair. See [Dispatch](/rust/dispatch).
+`#[usage(run)]` generates the `match` that routes parsed subcommands to their `Run`
+implementations. Context and async variants are covered in [Dispatch](/rust/dispatch).
 
 ## One declaration, every artifact
 
-Because the derive also emits a usage spec, everything on this site that consumes a spec works
-with your CLI — and you do not have to wire anything up for it. Every binary answers
-`__usage_spec__` with its own spec:
+Because the derive also emits a usage spec, [usage-cli](/cli/) can generate documentation,
+manpages, and shell completions from your CLI. Every binary answers `__usage_spec__` with its
+own spec:
 
 ```bash
 mycli __usage_spec__ > mycli.usage.kdl
@@ -213,12 +142,13 @@ how to opt out of the endpoint.
 
 - [Quickstart](/rust/quickstart) — a small CLI from declaration to generated docs, end to end
 - [Args and flags](/rust/args-and-flags) — field types, attributes, env vars, defaults
+- [Updating values](/rust/update-from) — merge another command line into an existing value
 - [Subcommands](/rust/subcommands) — command enums, nesting, `flatten`, value enums
 - [Dispatch](/rust/dispatch) — `Run`, `RunWith`, the async pair, and the generated `match`
 - [Validation](/rust/validation) — choices, groups, `exclusive`, `delimiter`, conflicts, portable `validate`
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
 - [Completions](/rust/completions) — static scripts and runtime completion
-- [Settings](/rust/settings) — settings declared in code: `usage::Config` and layered resolution
+- [Configuration](/rust/configuration) — settings declared in code: `usage::Config` and layered resolution
 - [Testing](/rust/testing) — assert parses, help pages, and completions with no process spawned
 - [Spec output](/rust/spec) — the emitted KDL and usage-cli integration
 - [Migrating from clap](/rust/migrating-from-clap) — mechanical rewrites and intentional API breaks
@@ -230,17 +160,20 @@ how to opt out of the endpoint.
 The framework intentionally targets standard GNU-style CLIs, and a few clap features have no
 equivalent yet:
 
-- A declared `value_optional` needs either `default_missing` or an
-  `Option<Option<T>>` field to define what a bare flag binds.
-- Rust `value_parser` functions are not portable metadata. Values use `FromStr`; use
-  `validate` / `validate_error` (the opt-in `validation` feature) for a portable expression
-  rule and its diagnostic.
-- Long flags and subcommands require exact spellings. Diagnostics can suggest a close match, but
-  usage does not accept prefixes whose meaning could change when another declaration is added.
+- `#[usage(value_optional)]` changes help and spec presentation only. To bind a bare flag, use
+  `default_missing` or an `Option<Option<T>>` field.
+- Literal `value_parser = ["…"]` arrays become portable choices, but typed `value_parser`
+  callbacks are rejected because they cannot enter the spec. Other values use `FromStr`;
+  portable validation expressions require the `validation` feature.
+- Long flags and subcommands require exact spellings. With `unknown_flags = "error"`,
+  diagnostics can suggest a close match, but parsing never accepts prefixes whose meaning could
+  change when another declaration is added.
 - Completion scripts cover bash, fish, Nushell, PowerShell, and zsh. Elvish is not supported; a
   clap application publishing an Elvish script must keep `clap_complete` for that one artifact.
-- `help_template` has no equivalent yet; see the
-  [compatibility matrix](/rust/clap-compatibility) for the full audited list.
+- `help_template` uses six portable, pre-rendered sections rather than clap's finer-grained
+  template tags. Existing clap templates must be rewritten, and the clap bridge cannot recover
+  them because clap does not expose its template. See
+  [Laying a page out](/rust/help#laying-a-page-out).
 - On Unix, `PathBuf` and `OsString` fields accept non-UTF-8 argv without changing a byte. String
   fields still report invalid UTF-8 precisely rather than replacing it; on Windows, values that
   cannot be converted safely are reported instead of using an unchecked reconstruction.

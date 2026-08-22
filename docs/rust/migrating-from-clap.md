@@ -223,7 +223,7 @@ must intercept those built-ins.
 `update_from` and `try_update_from` carry clap's names but state their merge rules explicitly,
 because a parse cannot be run backwards to seed itself from a value: a standing field satisfies a
 relationship, the environment and defaults fill only what is empty, and a subcommand word naming a
-different variant replaces it. See [Updating a value you already have](/rust/#updating-a-value-you-already-have).
+different variant replaces it. See [Updating an existing value](/rust/update-from).
 
 The `match cli.command { … }` a clap CLI writes after parsing can go too: implement
 `usage::Run` on each command struct, say `#[usage(run)]` on the enum, and the routing is
