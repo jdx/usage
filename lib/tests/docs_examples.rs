@@ -1,16 +1,14 @@
-//! Every KDL example on the config and flagset reference pages parses.
+//! Every KDL example on the introductory, command, config, and flagset pages parses.
 //!
 //! That page used to document a vocabulary which had never existed — `file`, `findup`,
 //! `default "k" "v"`, `alias`, `config_file` — while the parser accepted only `prop`, which
 //! the page never mentioned. Nobody noticed because nothing checked. This checks.
 //!
-//! Only that page, for now. The other reference pages are *catalogues*: a block lists half
+//! Only pages whose blocks can each stand alone, for now. Some reference pages are *catalogues*:
+//! a block lists half
 //! a dozen alternative spellings of an `arg` or a `flag`, which is not a spec and does not
 //! parse as one (one of them puts an argument after a variadic, which the parser refuses
-//! for good reason). Covering those means checking a catalogue line by line, which is worth
-//! doing and is not this change. Running this test against them today reports five
-//! failures, one of which — `flag "flag1"` in `cmd.md`, missing its dashes — is a real
-//! documentation bug of exactly the kind this test exists to catch.
+//! for good reason). Covering those means checking a catalogue line by line.
 //!
 //! A block that reads another file is parsed from disk rather than skipped, because the
 //! `include` examples are the ones a reader is least able to check for themselves: the
@@ -136,6 +134,8 @@ fn write_files(dir: &Path, blocks: &[String]) -> Vec<(usize, PathBuf)> {
 #[test]
 fn every_kdl_example_on_the_checked_pages_parses() {
     let pages = [
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/index.md"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/cmd.md"),
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/spec/reference/config.md"),
         // Every block on the flagset page is a whole spec, a top-level fragment or a file
         // another block reads, so the page can be held to parsing from the day it was
@@ -152,6 +152,7 @@ fn every_kdl_example_on_the_checked_pages_parses() {
             .to_string_lossy()
             .to_string();
         let blocks = kdl_blocks(&std::fs::read_to_string(&page).expect("readable"));
+        assert!(!blocks.is_empty(), "{name} contains no KDL examples");
         let dir = tempfile::tempdir().expect("temp dir");
         let files = write_files(dir.path(), &blocks);
 

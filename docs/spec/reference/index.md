@@ -22,6 +22,12 @@ before_long_help "before about"
 long_about "longer help"
 after_long_help "after about"
 
+// markdown used by generated markdown documentation
+about_md "Longer **markdown** description"
+
+// replace the generated synopsis
+usage "mycli [OPTIONS] <COMMAND>"
+
 // examples (shown in markdown and manpage docs)
 example "mycli --help" header="Getting help" help="Display help information"
 example "mycli --version"
@@ -34,6 +40,48 @@ include file="./my_overrides.usage.kdl" // include another spec, will be merged 
 // a reusable set of flags, pulled into a command with `use` (see ./flagset.md)
 flagset "common" { flag "-v --verbose" }
 ```
+
+## Help variants
+
+The plain fields (`about`, `before_help`, and `after_help`) are the short-help
+forms. Their `long_` variants are used for long help. `about_md` supplies
+Markdown directly to generated Markdown documentation; commands, flags, and
+arguments have the corresponding `help_md`, and commands also accept
+`before_help_md` and `after_help_md`. When no Markdown form is declared, the
+generator falls back to long help and then short help.
+
+`usage` replaces the generated synopsis at the root. A command's synopsis is
+otherwise generated from its flags, arguments, and subcommands.
+
+## Laying out help
+
+`help_template` controls the order of the six pre-rendered sections in every
+help page:
+
+```kdl
+help_template "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}\n\n{{after_help}}"
+```
+
+The supported placeholders are `about`, `usage`, `commands`, `args`, `flags`,
+and `after_help`. A placeholder outside that closed vocabulary is rejected
+when the spec is parsed. A template may omit a section or add literal text.
+
+## Root command policy
+
+The root accepts the same command-policy nodes documented in the
+[`cmd` reference](./cmd.md), except `restart_token`, which belongs to a named
+`cmd`. These root-only settings are also available:
+
+```kdl
+default_subcommand "run"
+disable_help #true
+```
+
+`default_subcommand` routes an unmatched first word to the named command. Known
+subcommands still take precedence. `disable_help` disables the parser's built-in
+recognition of `-h`, `--help`, `-?`, and `help`; use the narrower
+`disable_help_flag` or `disable_help_subcommand` command policies when only one
+entry point should be removed.
 
 ## Multicall
 

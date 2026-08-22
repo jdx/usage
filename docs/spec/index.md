@@ -50,7 +50,7 @@ flag "-u --user <user>" help="User to run as"
 cmd "update" help="Update the CLI"
 cmd "config" help="Manage the CLI config" {
   // "set" is an alias for "add"
-  cmd "add" "Add/set a config" {
+  cmd "add" help="Add/set a config" {
     alias "set"
     arg "<key>" help="The key for the config"
     arg "<value>" help="The new config value"
@@ -70,13 +70,19 @@ cmd "help" help="Print the CLI help"
 Flags/args can be backed by config files, environment variables, or defaults:
 
 ```kdl
-config_file ".mycli.toml" findup=#true
-flag "-u --user <user>" help="User to run as" env="MYCLI_USER" config="settings.user" default="admin"
+flag "-u --user <user>" help="User to run as"
+config {
+  file ".mycli.toml" findup=#true
+  prop "settings.user" type="string" default="admin" {
+    cli "--user"
+    env "MYCLI_USER"
+  }
+}
 ```
 
-The priority over which is used (CLI flag, env var, config file, default) is the order which they
-are defined,
-so in this example it will be "CLI flag > env var > config file > default".
+The priority is always CLI flag > environment variable > config file > default. See the
+[config reference](/spec/reference/config) for settings and files, and
+[configuration resolution](/spec/resolution) for the complete precedence and merging rules.
 
 ## Command effects
 

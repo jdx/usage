@@ -14,6 +14,7 @@ cmd "config" next_line_help=#true // put descriptions below each entry
 cmd "config" flatten_help=#true // expand visible subcommands into this page
 cmd "config" display_order=10 // present before commands with a greater order
 cmd "config" help_heading="Configuration" // group under this heading in its parent's help
+cmd "config" term_width=100 max_term_width=120
 
 // these are shown under -h
 cmd "config" before_help="shown before the command"
@@ -28,24 +29,36 @@ cmd "config" {
   before_long_help "shown before the command"
   long_help "longer description"
   after_long_help "shown after the command"
+
+  // used directly in generated markdown docs
+  before_help_md "Markdown before the command"
+  help_md "A **markdown** description"
+  after_help_md "Markdown after the command"
 }
 
 cmd "list" {
-  example "Basic usage" #"""
+  example #"""
     $ mycli list
     FRUIT  COLOR
     apple  red
     banana yellow
-  """#
-  example "JSON output" #"""
+  """# header="Basic usage"
+  example #"""
     $ mycli list --json
     [
       {"FRUIT": "apple", "COLOR": "red"},
       {"FRUIT": "banana", "COLOR": "yellow"}
     ]
-  """#
+  """# header="JSON output"
 }
 ```
+
+`term_width` fixes the width used to wrap help; zero disables wrapping.
+`max_term_width` caps a detected terminal width when `term_width` is unset;
+zero disables that cap.
+
+Markdown documentation prefers the `*_md` form, then long help, then short
+help. Flags and arguments also accept `help_md`.
 
 ## Deprecating a command
 
@@ -85,12 +98,12 @@ Calling `mycli mount-usage-tasks` would emit something like this:
 
 ```kdl
 cmd "task1" {
-  arg "arg1" help="task1 arg1"
-  flag "flag1" help="task1 flag1"
+  arg "<arg1>" help="task1 arg1"
+  flag "--flag1" help="task1 flag1"
 }
 cmd "task2" {
-  arg "arg1" help="task2 arg1"
-  flag "flag1" help="task2 flag1"
+  arg "<arg1>" help="task2 arg1"
+  flag "--flag1" help="task2 flag1"
 }
 ```
 
@@ -280,6 +293,36 @@ cmd "publish" args_override_self=#false
 
 Repeatable, variadic, and count flags continue collecting or counting regardless of this setting.
 
+### Restart argument parsing
+
+`restart_token` lets one command line contain several invocations of the same
+command. Encountering the token clears the positional cursor, pending flag
+value, and `--` separator state before parsing the next invocation:
+
+```kdl
+cmd "run" restart_token=":::" {
+  arg "<task>"
+  flag "--jobs <N>"
+}
+```
+
+`mycli run lint ::: test` parses `lint` and then restarts at `test`. The parser
+retains the last invocation's scalar bindings. This is a command-only property;
+it is not accepted as a top-level node.
+
+### Command-local completions
+
+A `complete` child applies only while parsing that command. It has the same
+`run`, `type`, and `descriptions` properties as a
+[top-level completer](./complete.md):
+
+```kdl
+cmd "deploy" {
+  arg "<environment>"
+  complete "environment" run="mycli environments"
+}
+```
+
 ### Global flags and mounted commands
 
 A mounted command describes a different program, so the flags of the commands it is mounted under
@@ -295,7 +338,7 @@ cmd "run" {
 ```
 
 ```kdl
-# emitted by the mount
+// emitted by the mount
 cmd "task1" {
   flag "--env <name>" {
     choices "dev" "stage" "prod"
