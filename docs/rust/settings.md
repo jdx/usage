@@ -60,6 +60,20 @@ with `ty = "…"` — a `String` field with `ty = "duration"` holds a span of ti
 which is how the fleet's registries store one. Doc comments become `help` and `long_help`,
 exactly as they do for flags.
 
+Struct-level attributes declare the `config` block around those settings. They are
+documentation for resolvers the CLI already owns, not extra runtime layers:
+
+| Attribute | Effect |
+| --------- | ------ |
+| `prefix = "task"` | Prefix every field's key in this struct |
+| `source(kind = "git", name = "git config", doc_hint = "…", set_hint = "…")` | A custom source kind's display metadata. Repeatable; kinds are written in sorted order |
+| `file(path = "ex.toml", findup, scope = "project", format = "toml")` | A config file in the documented precedence chain. Repeatable; **declaration order is precedence**, last wins |
+
+`source` and `file` belong to the struct they are written on. Flattening another `Config`
+type splices its *settings*, not its source/file declarations — a nested group that also
+documents `task.toml` still does so when emitted on its own, and does not rewrite the parent
+CLI's file chain.
+
 Field attributes mirror the spec's [`prop` vocabulary](/spec/reference/config):
 
 | Attribute                                                | Effect                                                                                                              |
@@ -78,7 +92,15 @@ Field attributes mirror the spec's [`prop` vocabulary](/spec/reference/config):
 | `alias("other")`                                         | Equivalent keys accepted without a warning — written in full, so a group's `prefix` is repeated rather than implied |
 | `key = "match"`                                          | The dotted key, when the field name is not it                                                                       |
 | `hide`, `deprecated = "…"`, `since = "…"`, `examples(…)` | Documentation and lifecycle metadata                                                                                |
+| `help_heading = "Performance"`                           | The section to list this setting under in generated docs                                                            |
+| `writes_to = "git"`                                      | Where `config set` should write this, when it is not the usual file                                                 |
+| `x("tool.key", value)`                                   | Tool-private `x` metadata. Spec-only: resolution does not interpret it. Repeatable; order is preserved              |
 | `flatten`                                                | Splice another `Config` struct's settings in at this position                                                       |
+
+`help_heading`, `writes_to`, and `x` are spec metadata. They ride in `SETTINGS_SPEC` beside
+the runtime registry rather than on `PropMeta`, because the merge never reads them. The
+emitted `config` block still carries them, so docs and round-trips match a KDL authoring of
+the same CLI.
 
 `ty` renames what the spec calls a setting; it cannot change what the field holds. The merge
 coerces to the _declared_ type, so that is what decides the shape the field is handed — a
@@ -184,9 +206,22 @@ assert_eq!(Settings::SETTINGS_REGISTRY.drift(Ex::SETTINGS_BINDINGS), Vec::<Strin
 ## The spec block
 
 The struct is the only declaration. `Settings::spec_kdl()` renders it as the spec's
-`config { prop … }` block, and `#[usage(config = Settings)]` on the `Cli` root puts that
-block in the emitted spec — so docs, the JSON schema, and the `config_keys` / `config_values`
-completers read settings declared in Rust exactly as they read ones written in KDL.
+`config { source …; file …; prop … }` block, and `#[usage(config = Settings)]` on the `Cli`
+root puts that block in the emitted spec — so docs, the JSON schema, and the `config_keys` /
+`config_values` completers read settings declared in Rust exactly as they read ones written
+in KDL.
+
+```rust
+#[derive(usage::Config)]
+#[usage(source(kind = "git", name = "git config", doc_hint = "git config `{key}`"))]
+#[usage(file(path = "/etc/ex.toml", scope = "system"))]
+#[usage(file(path = "ex.toml", findup))]
+struct Settings {
+    #[usage(env = "EX_JOBS", default = 4, help_heading = "Performance", writes_to = "git",
+            x("ex.restart_required", true))]
+    jobs: u64,
+}
+```
 
 There is no second, KDL-first backend to choose between: a `build.rs` that generated the
 registry from the spec was a third description of every setting, which is the drift this

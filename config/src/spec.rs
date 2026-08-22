@@ -10,23 +10,124 @@
 //! fixed one the spec parser defines.
 
 use crate::registry::{Merge, PropMeta, Scope};
+use crate::source::FileScope;
 use crate::value::Const;
 use std::fmt::Write;
+
+/// Documentation-only metadata for one property.
+///
+/// Kept beside, rather than in, [`PropMeta`]: resolution never interprets these fields. A
+/// derived [`crate::Props`] exposes a parallel slice in the same declaration order.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct PropSpec {
+    pub help_heading: Option<&'static str>,
+    pub writes_to: Option<&'static str>,
+    /// Tool-private metadata, emitted as `x "key" value` nodes.
+    pub extensions: &'static [(&'static str, Const)],
+}
+
+impl PropSpec {
+    pub const EMPTY: Self = Self {
+        help_heading: None,
+        writes_to: None,
+        extensions: &[],
+    };
+}
+
+/// A custom source declaration at the top of a spec's `config` block.
+#[derive(Debug, Copy, Clone)]
+pub struct SpecSource {
+    pub kind: &'static str,
+    pub name: Option<&'static str>,
+    pub doc_hint: Option<&'static str>,
+    pub set_hint: Option<&'static str>,
+}
+
+/// A config file declaration. Slice order is ascending precedence.
+#[derive(Debug, Copy, Clone)]
+pub struct SpecFile {
+    pub path: &'static str,
+    pub findup: bool,
+    pub scope: FileScope,
+    pub format: Option<&'static str>,
+}
+
+/// Spec-only declarations generated from a settings struct.
+#[derive(Debug, Copy, Clone)]
+pub struct ConfigSpec {
+    pub props: &'static [PropSpec],
+    pub sources: &'static [SpecSource],
+    pub files: &'static [SpecFile],
+}
+
+impl ConfigSpec {
+    pub const fn new(
+        props: &'static [PropSpec],
+        sources: &'static [SpecSource],
+        files: &'static [SpecFile],
+    ) -> Self {
+        Self {
+            props,
+            sources,
+            files,
+        }
+    }
+}
 
 /// The spec `config` block for these settings, as KDL.
 ///
 /// Ends with a newline, so it can be appended to an emitted spec as-is. Props are written in
 /// registry order, which for a derived registry is declaration order.
 pub fn spec_kdl(props: &[PropMeta]) -> String {
+    spec_kdl_with(props, ConfigSpec::new(&[], &[], &[]))
+}
+
+/// The complete spec `config` block, including metadata resolution does not use.
+pub fn spec_kdl_with(props: &[PropMeta], spec: ConfigSpec) -> String {
+    assert!(
+        spec.props.is_empty() || spec.props.len() == props.len(),
+        "property spec metadata must have one entry per property"
+    );
     let mut out = String::from("config {\n");
-    for meta in props {
-        let _ = write_prop(&mut out, meta);
+    // Source kinds are sorted by the derive; files deliberately retain author order because
+    // their order is precedence.
+    for source in spec.sources {
+        let _ = write!(out, "    source {}", quoted(source.kind));
+        if let Some(name) = source.name {
+            let _ = write!(out, " name={}", quoted(name));
+        }
+        if let Some(hint) = source.doc_hint {
+            let _ = write!(out, " doc_hint={}", quoted(hint));
+        }
+        if let Some(hint) = source.set_hint {
+            let _ = write!(out, " set_hint={}", quoted(hint));
+        }
+        out.push('\n');
+    }
+    for file in spec.files {
+        let _ = write!(out, "    file {}", quoted(file.path));
+        if file.findup {
+            out.push_str(" findup=#true");
+        }
+        match file.scope {
+            FileScope::Project => {}
+            FileScope::Global => out.push_str(" scope=\"global\""),
+            FileScope::System => out.push_str(" scope=\"system\""),
+        }
+        if let Some(format) = file.format {
+            let _ = write!(out, " format={}", quoted(format));
+        }
+        out.push('\n');
+    }
+    for (index, meta) in props.iter().enumerate() {
+        let prop_spec = spec.props.get(index).copied().unwrap_or(PropSpec::EMPTY);
+        let _ = write_prop(&mut out, meta, prop_spec);
     }
     out.push_str("}\n");
     out
 }
 
-fn write_prop(out: &mut String, meta: &PropMeta) -> std::fmt::Result {
+fn write_prop(out: &mut String, meta: &PropMeta, spec: PropSpec) -> std::fmt::Result {
     write!(
         out,
         "    prop {} type={}",
@@ -78,6 +179,12 @@ fn write_prop(out: &mut String, meta: &PropMeta) -> std::fmt::Result {
     }
     if let Some(long_help) = meta.long_help {
         write!(out, " long_help={}", quoted(long_help))?;
+    }
+    if let Some(heading) = spec.help_heading {
+        write!(out, " help_heading={}", quoted(heading))?;
+    }
+    if let Some(writes_to) = spec.writes_to {
+        write!(out, " writes_to={}", quoted(writes_to))?;
     }
 
     let mut children = Vec::new();
@@ -135,6 +242,9 @@ fn write_prop(out: &mut String, meta: &PropMeta) -> std::fmt::Result {
         }
         block.push_str("        }");
         children.push(block);
+    }
+    for (key, value) in spec.extensions {
+        children.push(format!("x {} {}", quoted(key), const_kdl(*value)));
     }
 
     if children.is_empty() {
@@ -335,6 +445,67 @@ mod tests {
 
     /// A prop whose only choices are shapes the grammar cannot spell gets no `choices` block at
     /// all, rather than one holding a node with no argument.
+    #[test]
+    fn spec_only_metadata_is_written_without_changing_property_order() {
+        static PROPS: &[PropMeta] = &[
+            PropMeta::new("jobs", Ty::Uint),
+            PropMeta::new("exclude", Ty::List(&Ty::String)),
+        ];
+        static PROP_SPECS: &[PropSpec] = &[
+            PropSpec {
+                help_heading: Some("Performance"),
+                writes_to: Some("git"),
+                extensions: &[("ex.restart_required", Const::Bool(true))],
+            },
+            PropSpec::EMPTY,
+        ];
+        let spec = ConfigSpec::new(
+            PROP_SPECS,
+            &[
+                SpecSource {
+                    kind: "git",
+                    name: Some("git config"),
+                    doc_hint: Some("git config `{key}`"),
+                    set_hint: None,
+                },
+                SpecSource {
+                    kind: "npmrc",
+                    name: Some(".npmrc"),
+                    doc_hint: None,
+                    set_hint: None,
+                },
+            ],
+            &[
+                SpecFile {
+                    path: "/etc/ex.toml",
+                    findup: false,
+                    scope: FileScope::System,
+                    format: Some("toml"),
+                },
+                SpecFile {
+                    path: "ex.toml",
+                    findup: true,
+                    scope: FileScope::Project,
+                    format: None,
+                },
+            ],
+        );
+        assert_eq!(
+            spec_kdl_with(PROPS, spec),
+            r#"config {
+    source "git" name="git config" doc_hint="git config `{key}`"
+    source "npmrc" name=".npmrc"
+    file "/etc/ex.toml" scope="system" format="toml"
+    file "ex.toml" findup=#true
+    prop "jobs" type="uint" help_heading="Performance" writes_to="git" {
+        x "ex.restart_required" #true
+    }
+    prop "exclude" type="list<string>"
+}
+"#
+        );
+    }
+
     #[test]
     fn choices_no_single_value_can_hold_leave_no_block_behind() {
         static PROPS: &[PropMeta] = &[PropMeta {

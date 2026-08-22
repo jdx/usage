@@ -473,10 +473,10 @@ pub fn derive_subcommands(input: TokenStream) -> TokenStream {
 /// The struct the CLI already holds its settings in becomes the declaration: field types are
 /// the settings' types, doc comments are their help, and `#[usage(...)]` carries what a spec's
 /// `prop` node would — `env`, `default`, `merge`, `scope`, `choices`, `source` bindings.
-/// The derive generates `SETTINGS_PROPS`, `SETTINGS_REGISTRY`, `read(&Resolved)`, and
-/// `spec_kdl()`, so the registry, the reader, and the documentation cannot drift from the
-/// struct or from each other. The whole field vocabulary is in the guide:
-/// <https://usage.jdx.dev/rust/settings>.
+/// The derive generates `SETTINGS_PROPS`, `SETTINGS_REGISTRY`, `SETTINGS_SPEC`,
+/// `read(&Resolved)`, and `spec_kdl()`, so the registry, the reader, and the documentation
+/// cannot drift from the struct or from each other. The whole field vocabulary is in the
+/// guide: <https://usage.jdx.dev/rust/settings>.
 ///
 /// ```ignore
 /// #[derive(usage::Config)]

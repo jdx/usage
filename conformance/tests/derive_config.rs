@@ -20,6 +20,7 @@ fn default_cache_dir() -> PathBuf {
 /// The `task.*` settings, as their own group.
 #[derive(Config, Debug, PartialEq)]
 #[usage(prefix = "task")]
+#[usage(file(path = "task.toml", findup))]
 struct TaskSettings {
     /// How task output is interleaved
     #[usage(default = "prefix", choices("prefix", "interleave"), alias("task.out"))]
@@ -32,6 +33,15 @@ struct TaskSettings {
 
 /// Every setting ex has — one of everything the derive carries.
 #[derive(Config, Debug, PartialEq)]
+#[usage(source(kind = "npmrc", name = ".npmrc"))]
+#[usage(source(
+    kind = "git",
+    name = "git config",
+    doc_hint = "git config `{key}`",
+    set_hint = "git config {key} {value}"
+))]
+#[usage(file(path = "/etc/ex.toml", scope = "system", format = "toml"))]
+#[usage(file(path = "ex.toml", findup))]
 struct Settings {
     /// How many jobs to run at once
     #[usage(
@@ -39,7 +49,11 @@ struct Settings {
         deprecated_env = "EX_JOBS_OLD",
         default = 4,
         cli("--jobs", "-j"),
-        source("git", "ex.jobs")
+        source("git", "ex.jobs"),
+        help_heading = "Performance",
+        writes_to = "git",
+        x("ex.rust_type", "u64"),
+        x("ex.restart_required", true)
     )]
     jobs: u64,
 
@@ -118,6 +132,18 @@ fn the_registry_is_the_struct_in_declaration_order() {
     assert_eq!(jobs.cli, &["--jobs", "-j"]);
     assert_eq!(jobs.bindings, &[("git", "ex.jobs")]);
     assert_eq!(jobs.help, Some("How many jobs to run at once"));
+    assert_eq!(
+        Settings::SETTINGS_SPEC.props[0].help_heading,
+        Some("Performance")
+    );
+    assert_eq!(Settings::SETTINGS_SPEC.props[0].writes_to, Some("git"));
+    assert_eq!(
+        Settings::SETTINGS_SPEC.props[0].extensions,
+        &[
+            ("ex.rust_type", Const::Str("u64")),
+            ("ex.restart_required", Const::Bool(true))
+        ]
+    );
 
     let cache_dir = &Settings::SETTINGS_PROPS[2];
     assert_eq!(cache_dir.ty, Ty::Path);
@@ -230,6 +256,52 @@ fn the_emitted_config_block_is_the_spec_grammar() {
         jobs.default
     );
     assert_eq!(jobs.help.as_deref(), Some("How many jobs to run at once"));
+    assert_eq!(jobs.help_heading.as_deref(), Some("Performance"));
+    assert_eq!(jobs.writes_to.as_deref(), Some("git"));
+    assert_eq!(
+        jobs.extensions,
+        vec![
+            (
+                "ex.rust_type".to_string(),
+                usage::spec::config::SpecConfigValue::String("u64".to_string())
+            ),
+            (
+                "ex.restart_required".to_string(),
+                usage::spec::config::SpecConfigValue::Boolean(true)
+            ),
+        ]
+    );
+
+    assert_eq!(
+        spec.config.sources.keys().collect::<Vec<_>>(),
+        vec![&"git".to_string(), &"npmrc".to_string()],
+        "source declarations have deterministic key order"
+    );
+    let git = spec.config.sources.get("git").expect("declared");
+    assert_eq!(git.name.as_deref(), Some("git config"));
+    assert_eq!(git.doc_hint.as_deref(), Some("git config `{key}`"));
+    assert_eq!(
+        git.set_hint.as_deref(),
+        Some("git config {key} {value}")
+    );
+    assert_eq!(
+        spec.config
+            .files
+            .iter()
+            .map(|file| file.path.as_str())
+            .collect::<Vec<_>>(),
+        vec!["/etc/ex.toml", "ex.toml"],
+        "file declaration order is precedence"
+    );
+    assert!(spec.config.files[1].findup);
+    assert!(
+        !spec
+            .config
+            .files
+            .iter()
+            .any(|file| file.path == "task.toml"),
+        "a flattened group's top-level files belong to its standalone spec, not its parent"
+    );
 
     let output = spec.config.props.get("task.output").expect("declared");
     assert_eq!(output.choices.len(), 2);
@@ -240,6 +312,13 @@ fn the_emitted_config_block_is_the_spec_grammar() {
         Some("under the user cache directory")
     );
     assert_eq!(cache_dir.optional, Some(true));
+}
+
+#[test]
+fn a_nested_config_keeps_its_own_top_level_declarations_when_emitted_alone() {
+    let kdl = format!("name \"task\"\nbin \"task\"\n{}", TaskSettings::spec_kdl());
+    let spec: usage::Spec = kdl.parse().expect("nested declaration parses alone");
+    assert_eq!(spec.config.files[0].path, "task.toml");
 }
 
 #[test]
@@ -424,6 +503,14 @@ fn the_clis_spec_carries_its_settings() {
     assert!(
         spec.config.props.contains_key("task.output"),
         "the config block rides in the emitted spec: {kdl}"
+    );
+    assert!(
+        spec.config.sources.contains_key("git"),
+        "struct-level source declarations ride with the CLI spec: {kdl}"
+    );
+    assert_eq!(
+        spec.config.files.last().map(|file| file.path.as_str()),
+        Some("ex.toml")
     );
 }
 
