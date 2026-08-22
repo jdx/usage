@@ -34,11 +34,11 @@
   },
   "devDependencies": {
     "@fig/eslint-config-autocomplete": "^2.0.0",
-    "@tsconfig/node24": "^24.0.4",
+    "@tsconfig/node24": "^24.0.5",
     "@withfig/autocomplete": "^2.692.3",
     "@withfig/autocomplete-tools": "^2.11.0",
     "@withfig/autocomplete-types": "^1.31.0",
-    "eslint": "^10.8.1",
+    "eslint": "^10.9.0",
     "semver": "^7.8.5"
   }
 }

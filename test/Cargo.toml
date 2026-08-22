@@ -1,7 +1,7 @@
 [package]
 name = "usage-test"
 description = "Test helpers for CLIs built with usage"
-version = "5.1.0"
+version = "6.0.0"
 edition = "2021"
 rust-version = "1.91"
 homepage = { workspace = true }
