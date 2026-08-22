@@ -247,9 +247,9 @@ fn complete_word_kitchen_sink() {
 fn complete_word_choices() {
     assert_spec(
         "../benches/mise.usage.kdl",
-        &["--", "env", "--shell", ""],
+        &["--", "activate", "--shell", ""],
     )
-        .stdout("bash\nelvish\nfish\nnu\nxonsh\nzsh\npwsh\n");
+    .stdout("bash\nelvish\nfish\nnu\nxonsh\nzsh\npwsh\n");
 }
 
 #[test]
