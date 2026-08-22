@@ -9,6 +9,7 @@
 //! Layers are given highest precedence first — the order they read in the builder and the
 //! order `--help` describes them — and folded lowest first, so the last writer wins.
 
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 use crate::layer::{Layer, LayerCtx, LayerError, Warning, WarningKind};
@@ -137,12 +138,68 @@ impl<'a> Layers<'a> {
     }
 }
 
+/// Runtime facts that affect configuration resolution.
+///
+/// The resolver cannot infer the running CLI's version from this crate's package version: a
+/// library release and an adopting CLI release are unrelated, and a CLI may compute its version at
+/// runtime. Pass it explicitly with [`ResolutionContext::for_cli_version`] when lifecycle gates
+/// should be enforced.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ResolutionContext<'a> {
+    cli_version: Option<&'a str>,
+}
+
+impl<'a> ResolutionContext<'a> {
+    /// A context with no CLI version.
+    ///
+    /// This preserves the historical [`resolve`] behavior: deprecations warn immediately, while
+    /// removal milestones do not discard values when the resolver cannot know whether they have
+    /// been reached.
+    pub const fn new() -> Self {
+        Self { cli_version: None }
+    }
+
+    /// A context for the running CLI version.
+    pub const fn for_cli_version(version: &'a str) -> Self {
+        Self {
+            cli_version: Some(version),
+        }
+    }
+
+    /// The running CLI version, if the caller supplied one.
+    pub const fn cli_version(self) -> Option<&'a str> {
+        self.cli_version
+    }
+}
+
 /// Resolve every setting in `registry` from `layers`.
 ///
 /// Declared defaults are the bottom layer always, and are not a [`Layer`]: they cost one
 /// `const` conversion per setting that needs one and cannot fail, so making them an
 /// implementation would be ceremony that could also be forgotten.
+///
+/// This compatibility entry point has no CLI version context. Use [`resolve_with_context`] to
+/// enforce `deprecated_warn_at` and `deprecated_remove_at` against the running CLI version.
 pub fn resolve(registry: Registry, layers: Layers<'_>) -> Result<Resolved, LayerError> {
+    resolve_with_context(registry, layers, ResolutionContext::new())
+}
+
+/// Resolve every setting with explicit runtime context.
+///
+/// A configured value before `deprecated_warn_at` is accepted without a deprecation warning. At
+/// that release it is accepted with a warning. At `deprecated_remove_at` it is ignored with a
+/// [`WarningKind::Removed`] warning, just like an unsupported configuration key costs only that
+/// value rather than failing the whole file. Declared defaults remain the floor: the gate removes
+/// external contributions, not the compiled setting from the caller's Rust type.
+///
+/// Missing or unreadable versions are conservative in both directions: they warn, because silence
+/// can hide a deprecation forever, but do not remove a value, because uncertainty must not silently
+/// change configuration.
+pub fn resolve_with_context(
+    registry: Registry,
+    layers: Layers<'_>,
+    context: ResolutionContext<'_>,
+) -> Result<Resolved, LayerError> {
     let ctx = LayerCtx::new(registry);
     let count = registry.props.len();
     let mut resolved = Resolved {
@@ -222,14 +279,34 @@ pub fn resolve(registry: Registry, layers: Layers<'_>) -> Result<Resolved, Layer
             // always done: a notice can sit on a name further along, and reading only the one the
             // user wrote meant `config explain` told them to stop using a key that running the CLI
             // said nothing about.
-            if let Some(why) = registry.deprecation(written_key) {
-                resolved.warnings.push(
-                    Warning::at(
-                        format!("{written_key} is deprecated: {why}"),
-                        entry.origin.clone(),
-                    )
-                    .of(WarningKind::Deprecated),
-                );
+            if let Some(deprecated) = registry.deprecation_meta(written_key) {
+                let why = deprecated.deprecated.expect("deprecated declaration");
+                if milestone_reached(context.cli_version, deprecated.deprecated_remove_at)
+                    == Some(true)
+                {
+                    let at = deprecated
+                        .deprecated_remove_at
+                        .expect("reached removal milestone");
+                    resolved.warnings.push(
+                        Warning::at(
+                            format!("{written_key} was removed at {at}: {why}"),
+                            entry.origin,
+                        )
+                        .of(WarningKind::Removed),
+                    );
+                    continue;
+                }
+                if milestone_reached(context.cli_version, deprecated.deprecated_warn_at)
+                    != Some(false)
+                {
+                    resolved.warnings.push(
+                        Warning::at(
+                            format!("{written_key} is deprecated: {why}"),
+                            entry.origin.clone(),
+                        )
+                        .of(WarningKind::Deprecated),
+                    );
+                }
             }
             if entry.renamed_from.is_some() || prop != entry.prop {
                 // Both names: the key the user wrote, and the one it was read as.
@@ -276,6 +353,57 @@ pub fn resolve(registry: Registry, layers: Layers<'_>) -> Result<Resolved, Layer
     }
 
     Ok(resolved)
+}
+
+/// Whether both versions are readable and `current` has reached `milestone`.
+///
+/// `None` is deliberately distinct from `false`: callers warn on uncertainty but only remove on
+/// certainty.
+fn milestone_reached(current: Option<&str>, milestone: Option<&str>) -> Option<bool> {
+    let ordering = compare_versions(current?, milestone?)?;
+    Some(ordering != Ordering::Less)
+}
+
+/// Compare dotted numeric versions under the argv/spec lifecycle rule.
+///
+/// Missing numeric segments are zero, prereleases sort before their release, and build metadata is
+/// ignored. This intentionally accepts calver as well as semver.
+fn compare_versions(a: &str, b: &str) -> Option<Ordering> {
+    let (a_core, a_pre) = split_version(a);
+    let (b_core, b_pre) = split_version(b);
+    let mut a_segments = a_core.split('.');
+    let mut b_segments = b_core.split('.');
+    loop {
+        let (a_next, b_next) = (a_segments.next(), b_segments.next());
+        if a_next.is_none() && b_next.is_none() {
+            break;
+        }
+        match version_segment(a_next)?.cmp(&version_segment(b_next)?) {
+            Ordering::Equal => continue,
+            ordering => return Some(ordering),
+        }
+    }
+    Some(match (a_pre, b_pre) {
+        (None, None) => Ordering::Equal,
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (Some(a), Some(b)) => a.cmp(b),
+    })
+}
+
+fn split_version(version: &str) -> (&str, Option<&str>) {
+    let version = version.split('+').next().unwrap_or(version);
+    match version.split_once('-') {
+        Some((core, pre)) => (core, Some(pre)),
+        None => (version, None),
+    }
+}
+
+fn version_segment(segment: Option<&str>) -> Option<u64> {
+    match segment {
+        None => Some(0),
+        Some(text) => text.parse().ok(),
+    }
 }
 
 /// Why this scope will not take a value from this origin, if it will not.
@@ -760,6 +888,163 @@ mod tests {
             resolved.warnings[0].origin.as_ref().unwrap().describe(),
             "hk.toml"
         );
+    }
+
+    static GATED_PROPS: &[PropMeta] = &[PropMeta {
+        default: Some(Const::Int(1)),
+        deprecated: Some("Use modern instead."),
+        deprecated_warn_at: Some("2.0.0"),
+        deprecated_remove_at: Some("3.0.0"),
+        ..PropMeta::new("legacy", Ty::Uint)
+    }];
+    const GATED: Registry = Registry::new(GATED_PROPS);
+
+    fn gated_layer() -> Fixed {
+        Fixed {
+            kind: SourceKind::FILE,
+            entries: vec![Entry::new(
+                PropId(0),
+                Value::Int(8),
+                Origin::file("app.toml", FileScope::Project),
+            )],
+        }
+    }
+
+    #[test]
+    fn deprecation_versions_gate_warnings_and_configured_values_at_boundaries() {
+        let cases = [
+            ("1.9.9", Some(8), None),
+            ("2.0.0-rc.1", Some(8), None),
+            ("2", Some(8), Some(WarningKind::Deprecated)),
+            ("2.9.9", Some(8), Some(WarningKind::Deprecated)),
+            ("3.0.0-rc.1", Some(8), Some(WarningKind::Deprecated)),
+            ("3.0.0", Some(1), Some(WarningKind::Removed)),
+            ("4.0.0", Some(1), Some(WarningKind::Removed)),
+        ];
+
+        for (version, expected, kind) in cases {
+            let layer = gated_layer();
+            let resolved = resolve_with_context(
+                GATED,
+                Layers::new().then(&layer),
+                ResolutionContext::for_cli_version(version),
+            )
+            .expect(version);
+            assert_eq!(
+                resolved.get_key("legacy"),
+                expected.map(Value::Int).as_ref(),
+                "{version}"
+            );
+            assert_eq!(
+                resolved.warnings.iter().map(|warning| warning.kind).next(),
+                kind,
+                "{version}: {:?}",
+                resolved.warnings
+            );
+        }
+    }
+
+    #[test]
+    fn a_reached_removal_is_ignored_out_loud_and_falls_back_to_the_default() {
+        let layer = gated_layer();
+        let resolved = resolve_with_context(
+            GATED,
+            Layers::new().then(&layer),
+            ResolutionContext::for_cli_version("3.0.0+build.7"),
+        )
+        .expect("resolves");
+
+        assert_eq!(resolved.get_key("legacy"), Some(&Value::Int(1)));
+        assert_eq!(
+            resolved.origin_key("legacy").unwrap().describe(),
+            "the default"
+        );
+        assert_eq!(resolved.contributors_key("legacy").len(), 1);
+        assert_eq!(resolved.warnings[0].kind, WarningKind::Removed);
+        assert_eq!(
+            resolved.warnings[0].message,
+            "legacy was removed at 3.0.0: Use modern instead."
+        );
+        assert_eq!(
+            resolved.warnings[0].origin.as_ref().unwrap().describe(),
+            "app.toml"
+        );
+    }
+
+    #[test]
+    fn no_or_unreadable_version_warns_without_discarding_configuration() {
+        for context in [
+            ResolutionContext::new(),
+            ResolutionContext::for_cli_version("nightly"),
+            ResolutionContext::for_cli_version(""),
+        ] {
+            let layer = gated_layer();
+            let resolved =
+                resolve_with_context(GATED, Layers::new().then(&layer), context).expect("resolves");
+            assert_eq!(resolved.get_key("legacy"), Some(&Value::Int(8)));
+            assert_eq!(resolved.warnings.len(), 1);
+            assert_eq!(resolved.warnings[0].kind, WarningKind::Deprecated);
+            assert_eq!(
+                resolved.warnings[0].message,
+                "legacy is deprecated: Use modern instead."
+            );
+        }
+
+        let layer = gated_layer();
+        let compatible = resolve(GATED, Layers::new().then(&layer)).expect("resolves");
+        assert_eq!(compatible.get_key("legacy"), Some(&Value::Int(8)));
+        assert_eq!(compatible.warnings[0].kind, WarningKind::Deprecated);
+    }
+
+    #[test]
+    fn unreadable_milestones_warn_but_never_remove() {
+        static INVALID_PROPS: &[PropMeta] = &[PropMeta {
+            deprecated: Some("Use modern instead."),
+            deprecated_warn_at: Some("next"),
+            deprecated_remove_at: Some("eventually"),
+            ..PropMeta::new("legacy", Ty::Uint)
+        }];
+        const INVALID: Registry = Registry::new(INVALID_PROPS);
+        let layer = Fixed {
+            kind: SourceKind::FILE,
+            entries: vec![Entry::new(
+                PropId(0),
+                Value::Int(8),
+                Origin::file("app.toml", FileScope::Project),
+            )],
+        };
+        let resolved = resolve_with_context(
+            INVALID,
+            Layers::new().then(&layer),
+            ResolutionContext::for_cli_version("99.0.0"),
+        )
+        .expect("resolves");
+
+        assert_eq!(resolved.get_key("legacy"), Some(&Value::Int(8)));
+        assert_eq!(resolved.warnings[0].kind, WarningKind::Deprecated);
+    }
+
+    #[test]
+    fn version_comparison_matches_the_argv_spec_rule() {
+        assert_eq!(
+            compare_versions("2026.12", "2026.12.0"),
+            Some(Ordering::Equal)
+        );
+        assert_eq!(
+            compare_versions("2027.1.0", "2026.12.99"),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            compare_versions("1.0.0-rc.1", "1.0.0"),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            compare_versions("1.0.0+one", "1.0.0+two"),
+            Some(Ordering::Equal)
+        );
+        assert_eq!(compare_versions("nightly", "2.0.0"), None);
+        assert_eq!(compare_versions("2.0.0", "whenever"), None);
+        assert_eq!(compare_versions("", "2.0.0"), None);
     }
 
     #[test]

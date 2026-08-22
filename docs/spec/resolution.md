@@ -158,11 +158,17 @@ program acts on:
 | `not-allowed`     | a value the declared choices do not allow          |
 | `out-of-scope`    | a place that may not set this setting              |
 | `deprecated`      | a setting whose spec says not to use it            |
+| `removed`         | a configured value ignored after its removal gate  |
 | `renamed`         | a value read as the setting that replaced its name |
 | `not-read`        | a value passed over because another name won       |
 
 An unknown key is a warning and never an error: a config file written for a newer
 binary must still work with an older one.
+
+Deprecation gates use the running CLI version supplied to resolution. Before
+`deprecated_warn_at` the value is accepted quietly; from that release it is accepted with
+a warning; from `deprecated_remove_at` it is ignored with a `removed` warning. A missing or
+unreadable version warns without removing, preserving the old no-context behavior.
 
 ## The conformance corpus
 
