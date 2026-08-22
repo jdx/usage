@@ -1,5 +1,9 @@
 # clap compatibility
 
+::: warning Draft
+This page is a draft and has not yet been human reviewed. Details may change.
+:::
+
 This is the audited compatibility matrix for `clap` 4.6.6 and `clap_derive` 4.6.4,
 the versions in this workspace's lockfile. The audit covers clap's public derive
 attributes and the corresponding `Command`, `Arg`, `ArgGroup`, and `PossibleValue`
@@ -26,6 +30,8 @@ The columns distinguish every layer a migration crosses:
 | Mark           | Meaning                                                                                                |
 | -------------- | ------------------------------------------------------------------------------------------------------ |
 | **yes**        | Supported and covered at this layer.                                                                   |
+| **exact**      | Supported with clap-matching truth tables (used where a family of forms must match clap exactly).      |
+| **partial**    | Some forms work; the note names what remains unsupported.                                              |
 | **usage-only** | Direct usage declarations work, but clap exposes no getter or the bridge cannot preserve the behavior. |
 | **lossy**      | Some common forms work; the note names what is lost.                                                   |
 | **different**  | Intentionally differs from clap.                                                                       |

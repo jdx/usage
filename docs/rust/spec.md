@@ -1,8 +1,7 @@
 # Spec Output
 
 ::: warning Draft
-This page is a draft. Some of what it documents is still in open pull requests, and details may
-change before release.
+This page is a draft and has not yet been human reviewed. Details may change.
 :::
 
 `Cli::to_kdl()` writes a complete [usage spec](/spec/) from the same static metadata the parser
@@ -47,9 +46,16 @@ the conformance suite. The test every adopter should write is one line:
 ```rust
 #[test]
 fn spec_is_valid() {
-    let spec: usage::Spec = Cli::to_kdl().parse().unwrap();
+    // usage-lib is a separate package from the usage-rs facade. Alias it so the
+    // type path does not collide with `usage`.
+    let spec: usage_parser::Spec = Cli::to_kdl().parse().unwrap();
     let _ = spec;
 }
+```
+
+```toml
+[dev-dependencies]
+usage-parser = { package = "usage-lib", version = "5.1" }
 ```
 
 Beyond parsing, `to_kdl` asserts (in debug builds) that the tree is coherent: no duplicate keys,
@@ -150,7 +156,7 @@ with the literal written to portable artifacts:
     bin = host::program_name(),
     bin_spec = "mycli",
     version = build::version(),
-    version_spec = "6.0.0"
+    version_spec = "1.0.0"
 )]
 struct Cli;
 ```
@@ -158,7 +164,7 @@ struct Cli;
 The name and bin expressions return `&'static str`; a computed version implements `ToString`.
 They are evaluated only when the process renders help, version output, diagnostics, or a
 completion script. Successful argument parsing still reads the static tables directly and does
-not allocate or build a command graph. `to_kdl()` keeps `mycli` and `6.0.0`, so generated
+not allocate or build a command graph. `to_kdl()` keeps `mycli` and `1.0.0`, so generated
 artifacts are deterministic and do not depend on the embedding process. `--version` formats the
 computed version, while `version_spec` remains the static value exported to KDL.
 

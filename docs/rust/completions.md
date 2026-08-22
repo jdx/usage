@@ -1,8 +1,7 @@
 # Completions
 
 ::: warning Draft
-This page is a draft. Some of what it documents is still in open pull requests, and details may
-change before release.
+This page is a draft and has not yet been human reviewed. Details may change.
 :::
 
 Completion support is opt-in: add `completion` to the root attribute and enable the
@@ -10,7 +9,7 @@ Completion support is opt-in: add `completion` to the root attribute and enable 
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6", features = ["completions"] }
+usage = { package = "usage-rs", version = "5.1", features = ["completions"] }
 ```
 
 ```rust
@@ -42,10 +41,9 @@ pub fn completion_request(argv: &[OsString]) -> Option<String>;
 
 `Shell` covers `Bash`, `Zsh`, `Fish`, `Nu`, and `PowerShell`.
 
-For the 6.x compatibility contract, bash, fish, PowerShell, and zsh are the
-clap-parity set. Nushell is an additional usage-native target. Elvish is not
-supported in 6.0, so a clap application that currently publishes an Elvish script
-must keep that generator or defer the migration of that artifact.
+For clap parity, bash, fish, PowerShell, and zsh are the covered set. Nushell is an additional
+usage-native target. Elvish is not supported, so a clap application that currently publishes an
+Elvish script must keep that generator or defer the migration of that artifact.
 
 ## How it works
 
@@ -60,12 +58,13 @@ A typical way to expose the scripts:
 #[derive(Args)]
 struct Completion {
     /// Which shell to generate for
-    #[usage(long, value_enum)]
-    shell: Shell,
+    shell: String,
 }
 
 // in your run function:
-print!("{}", Ex::completion_script(cli.completion.shell.into()));
+let shell = usage::complete::Shell::from_name(&completion.shell)
+    .expect("a supported shell name");
+print!("{}", Ex::completion_script(shell));
 ```
 
 Shell aliases are explicit because each shell stores and expands them differently. To complete
@@ -163,7 +162,13 @@ fn tasks_in_file(
     partial: &<Tasks as usage::spec::CommandArgs>::Partial,
     _ctx: &usage::complete::CompleteCtx<'_>,
 ) -> Vec<usage::complete::Candidate<'static>> {
-    let file = partial.file.as_deref().unwrap_or("tasks.toml");
+    // Partial string fields hold the bytes as typed — a word that is not valid UTF-8 is
+    // still a word somebody wrote.
+    let file = partial
+        .file
+        .as_deref()
+        .map(|bytes| String::from_utf8_lossy(bytes).into_owned());
+    let file = file.as_deref().unwrap_or("tasks.toml");
     read_tasks(file)
         .map(|t| usage::complete::Candidate::described(t.name, t.about))
         .collect()
