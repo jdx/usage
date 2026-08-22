@@ -642,3 +642,42 @@ fn a_standing_group_member_conflicts_with_a_sibling_flag() {
         "standing --yaml still conflicts with --strict",
     );
 }
+
+/// A counted `u8` whose presence is "not the default". The generated
+/// `!= Default::default()` must name `u8`, or `serde_json`'s `PartialEq<Value> for u8`
+/// makes the comparison ambiguous — hk's CLI hit that on every build that pulls
+/// `serde_json` into the same crate.
+#[derive(Cli, Debug, PartialEq)]
+#[usage(bin = "counted", completion)]
+struct Counted {
+    #[usage(short, long, global, count, overrides("--quiet"))]
+    verbose: u8,
+    #[usage(short, long, global, overrides("--verbose"))]
+    quiet: bool,
+    #[usage(subcommand)]
+    command: CountedCmd,
+}
+
+#[derive(Subcommands, Debug, PartialEq)]
+enum CountedCmd {
+    Run,
+}
+
+#[test]
+fn a_standing_count_compiles_beside_serde_json() {
+    // Keep `serde_json` live in this module so its `PartialEq` impls stay in scope.
+    let _ = serde_json::json!({"n": 1u8});
+
+    let a = argv(["-vv", "run"]);
+    let mut counted = Counted::parse_from(&a).expect("two -v");
+    assert_eq!(counted.verbose, 2);
+
+    // A second line that says nothing about `-v` must keep the standing count —
+    // presence is "not the default", and that comparison has to name `u8`.
+    let a = argv(["run"]);
+    counted
+        .try_update_from(&a)
+        .expect("the standing count answers for itself");
+    assert_eq!(counted.verbose, 2);
+    assert!(!counted.quiet);
+}

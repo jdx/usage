@@ -3233,7 +3233,13 @@ fn standing_presence(field: &Field) -> Option<TokenStream> {
         }),
         Kind::Flag { .. } | Kind::Arg { .. } => Some(match field.shape {
             Shape::Bool => quote!(__usage_s.#ident),
-            Shape::Count => quote!(__usage_s.#ident != ::std::default::Default::default()),
+            // Name the field's type: `Default::default()` alone is ambiguous when an
+            // adopter also brings `serde_json::Value`'s `PartialEq<u8>` into scope
+            // (hk's `verbose: u8` count under a workspace that pulls serde_json).
+            Shape::Count => {
+                let ty = &field.ty;
+                quote!(__usage_s.#ident != <#ty as ::std::default::Default>::default())
+            }
             Shape::Optional => quote!(__usage_s.#ident.is_some()),
             // Nowhere to put "absent", so the field always holds something. The same
             // reading of the type that makes it required in the first place.
@@ -4918,7 +4924,8 @@ fn merge_present(field: &Field) -> TokenStream {
     match field.shape {
         Shape::Bool => quote!(partial.#given || partial.#ident),
         Shape::Count => {
-            quote!(partial.#given || partial.#ident != ::std::default::Default::default())
+            let ty = &field.ty;
+            quote!(partial.#given || partial.#ident != <#ty as ::std::default::Default>::default())
         }
         Shape::Optional => quote!(partial.#given || partial.#ident.is_some()),
         Shape::Required | Shape::Many => quote!(partial.#given || !partial.#ident.is_empty()),
