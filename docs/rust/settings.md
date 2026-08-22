@@ -1,5 +1,9 @@
 # Settings
 
+::: warning Draft
+This page is a draft and has not yet been human reviewed. Details may change.
+:::
+
 CLIs that resolve configuration from several places — flags, environment variables, config
 files — have historically kept three descriptions of every setting in step by hand: a registry
 file, a code generator, and the struct the program reads. `#[derive(usage::Config)]` collapses
@@ -14,13 +18,21 @@ Enable the `config` feature:
 usage = { package = "usage-rs", version = "5.1", features = ["config"] }
 ```
 
+Reading config files is opt-in per format on `usage-config` itself — the facade's `config`
+feature does not pull TOML, JSON, or YAML. Add the format you need when you use `FileLayer`:
+
+```toml
+[dependencies]
+usage-config = { version = "5.1", features = ["toml"] }
+```
+
 ## Declaring
 
 ```rust
-use usage_rs as usage;
+use usage::Config;
 
 /// How this tool behaves, resolved from flags, the environment, and files.
-#[derive(usage::Config)]
+#[derive(Config)]
 struct Settings {
     /// How many jobs to run at once
     #[usage(env = "EX_JOBS", default = 4, cli("--jobs", "-j"))]
@@ -40,7 +52,7 @@ struct Settings {
 }
 
 /// The `task.*` settings.
-#[derive(usage::Config)]
+#[derive(Config)]
 #[usage(prefix = "task")]
 struct TaskSettings {
     /// How task output is interleaved
@@ -114,6 +126,7 @@ use usage::config::{resolve, EnvLayer, FileLayer, FileScope, Layers};
 
 let (cli, cli_layer) = Ex::parse_from_with_settings(&argv)?;
 let env = EnvLayer::from_process();
+// FileLayer needs a format feature on usage-config (`toml`, `json`, or `yaml`).
 let project = FileLayer::find_up("ex.toml", &cwd, None, FileScope::Project);
 let resolved = resolve(
     Settings::SETTINGS_REGISTRY,

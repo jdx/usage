@@ -1,8 +1,7 @@
 # Help, Version, and Errors
 
 ::: warning Draft
-This page is a draft. Some of what it documents is still in open pull requests, and details may
-change before release.
+This page is a draft and has not yet been human reviewed. Details may change.
 :::
 
 ## Help
@@ -181,8 +180,8 @@ clap panics at startup for the same collision.
 `parse_from` returns `usage::Error`, which distinguishes every failure the grammar can produce:
 `UnknownFlag`, `MissingFlagValue`, `UnexpectedArg`, `MissingRequired`, `DuplicateFlag`,
 `InvalidChoice`, `InvalidValue`, `VarTooFew`/`VarTooMany`, `ConflictingFlags`, `MissingGroup`,
-`MissingSubcommand`, `ArgRequiresDoubleDash`, and more — plus `Help` and `Version` as described
-above.
+`MissingSubcommand`, `ArgRequiresDoubleDash`, `MissingArgsHelp`, `HelpAll`,
+`SubcommandConflict`, and more — plus `Help` and `Version` as described above.
 
 `render_failure(spec, argv, &err)` turns any of them into the message users see. Facade defaults
 include `diagnostics`, so the message is clap-shaped out of the box:

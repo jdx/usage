@@ -73,11 +73,33 @@ mise run render
 
 ## Workspace Structure
 
-Three crates in a Cargo workspace:
+The Cargo workspace contains the published libraries and CLI plus internal
+conformance, generation, and performance tooling:
 
-- **lib** (`usage-lib`): Core library containing spec parsing, CLI argument parsing, shell completion generation, and documentation generation
-- **cli** (`usage-cli`): Command-line tool that wraps the library
-- **clap_usage**: Generates usage specs from clap Command definitions
+- **lib** (`usage-lib`): Reference implementation for parsing specs and argv,
+  generating shell completions, and rendering CLI help, Markdown, and man pages
+- **cli** (`usage-cli`): Command-line interface over `usage-lib`
+- **argv** (`usage-argv`): Dependency-free, zero-allocation runtime for compiled
+  argv parse tables; optional features add spec metadata, completion splitting,
+  and diagnostics
+- **config** (`usage-config`): Layered configuration resolution with provenance
+  and opt-in TOML, JSON, and YAML readers
+- **derive** (`usage-derive`): Procedural macros that compile Rust CLI
+  declarations into argv parse tables and usage specs
+- **usage-rs** (`usage-rs`): Application-facing Rust facade that combines the
+  argv runtime and derives, with optional config, validation, completion, and
+  test support
+- **clap_usage**: Generates usage specs from clap `Command` definitions
+- **test** (`usage-test`): Assertion helpers for CLIs built with usage
+- **validation** (`usage-validation`): Portable expression validation shared by
+  generated parsers and the reference implementation
+- **conformance** (`usage-conformance`): Unpublished harness and corpus covering
+  argv, derives, config, validation, completions, rendering, and reference parity
+- **xtask**: Unpublished maintainer generators for shadow CLIs and reference
+  help-page data
+- **benches/gate** and **benches/shadows/**: The performance/correctness gate and
+  checked-in generated CLI crates used to compare usage with other parsers at
+  realistic scale
 
 ## Architecture
 

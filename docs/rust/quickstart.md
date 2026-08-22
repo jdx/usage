@@ -1,8 +1,7 @@
 # Quickstart
 
 ::: warning Draft
-This page is a draft. Some of what it documents is still in open pull requests, and details may
-change before release.
+This page is a draft and has not yet been human reviewed. Details may change.
 :::
 
 One small CLI, end to end: declare it, run it, complete it, and generate its docs — all from one
@@ -16,7 +15,7 @@ cargo new greet
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6", features = ["completions"] }
+usage = { package = "usage-rs", version = "5.1", features = ["completions"] }
 ```
 
 ## The declaration
@@ -186,7 +185,7 @@ cmd hello help="Greet someone" {
 
 ```toml
 [dev-dependencies]
-usage = { package = "usage-rs", version = "6", features = ["test", "completions"] }
+usage = { package = "usage-rs", version = "5.1", features = ["test", "completions"] }
 ```
 
 ```rust

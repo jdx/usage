@@ -1,5 +1,9 @@
 # Parser performance
 
+::: warning Draft
+This page is a draft and has not yet been human reviewed. Details may change.
+:::
+
 usage's compiled Rust parser is designed so ordinary argv parsing reads static
 tables and writes directly into the result. Cold metadata for help, specs, and
 completions is not constructed on a successful parse.

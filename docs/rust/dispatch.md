@@ -1,8 +1,7 @@
 # Dispatch
 
 ::: warning Draft
-This page is a draft. Some of what it documents is still in open pull requests, and details may
-change before release.
+This page is a draft and has not yet been human reviewed. Details may change.
 :::
 
 A parse ends with a value: an enum whose selected variant holds the command's own struct. What

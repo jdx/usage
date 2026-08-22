@@ -1,9 +1,9 @@
 # Rust Framework
 
 ::: warning Experimental — draft docs
-The Rust framework is experimental. It is complete enough that `usage-cli` itself is built with it,
-but attribute names and APIs may still change between releases. These docs are a draft: some of
-what they document is still in open pull requests, and details may change before release.
+The Rust framework is experimental. It is complete enough that it is actively used by some of
+jdx's CLIs, but there may be breaking changes in point releases. These docs are a draft and have
+not yet been human reviewed.
 :::
 
 The Rust framework builds your CLI from Rust types. You declare commands, flags, and args as
@@ -49,7 +49,7 @@ One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:
 
 ```toml
 [dependencies]
-usage = { package = "usage-rs", version = "6" }
+usage = { package = "usage-rs", version = "5.1" }
 ```
 
 That is the whole install: derives, the argv runtime, help, and clap-shaped errors come with the
@@ -77,7 +77,8 @@ available for low-level adopters that want a thinner surface:
 | `spec`        |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                                   |
 | `help`        |   ✅    | `-h` / `--help` page rendering                                                                                    |
 | `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`                                                                  |
-| `completions` |         | Shell completion scripts and the runtime completion protocol                                                      |
+| `completions` |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)             |
+| `validation`  |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions))          |
 | `test`        |         | `usage::test`: parse and help assertions (a dev-dependency feature; completion assertions want `completions` too) |
 | `config`      |         | The `usage::Config` derive and the resolver as `usage::config` ([Settings](/rust/settings))                       |
 
@@ -209,7 +210,7 @@ how to opt out of the endpoint.
 - [Args and flags](/rust/args-and-flags) — field types, attributes, env vars, defaults
 - [Subcommands](/rust/subcommands) — command enums, nesting, `flatten`, value enums
 - [Dispatch](/rust/dispatch) — `Run`, `RunWith`, the async pair, and the generated `match`
-- [Validation](/rust/validation) — choices, groups, `exclusive`, `delimiter`, conflicts
+- [Validation](/rust/validation) — choices, groups, `exclusive`, `delimiter`, conflicts, portable `validate`
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
 - [Completions](/rust/completions) — static scripts and runtime completion
 - [Settings](/rust/settings) — settings declared in code: `usage::Config` and layered resolution
@@ -227,7 +228,8 @@ equivalent yet:
 - A declared `value_optional` needs either `default_missing` or an
   `Option<Option<T>>` field to define what a bare flag binds.
 - Rust `value_parser` functions are not portable metadata. Values use `FromStr`; use
-  `validate` for a portable expression rule and `validate_error` for its diagnostic.
+  `validate` / `validate_error` (the opt-in `validation` feature) for a portable expression
+  rule and its diagnostic.
 - Long flags and subcommands require exact spellings. Diagnostics can suggest a close match, but
   usage does not accept prefixes whose meaning could change when another declaration is added.
 - Completion scripts cover bash, fish, Nushell, PowerShell, and zsh. Elvish is not supported; a

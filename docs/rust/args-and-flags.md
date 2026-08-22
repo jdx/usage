@@ -1,8 +1,7 @@
 # Args and Flags
 
 ::: warning Draft
-This page is a draft. Some of what it documents is still in open pull requests, and details may
-change before release.
+This page is a draft and has not yet been human reviewed. Details may change.
 :::
 
 A field on a `#[derive(Cli)]` or `#[derive(Args)]` struct becomes a flag when it carries `long`
@@ -58,6 +57,11 @@ required-ness is declared rather than inferred: `#[usage(arg, required)]`.
 jobs: Option<u32>,
 ```
 
+The tables below cover the attributes most CLIs need. Many clap-compatible spellings
+(`visible_alias`, `hide_*`, `last`, `trailing_var_arg`, `requires_if`, and others) are also
+accepted — see [Migrating from clap](/rust/migrating-from-clap) and the
+[compatibility matrix](/rust/clap-compatibility) for the audited surface.
+
 **Naming and shape** — what the field is called and what kind of argument it is:
 
 | Attribute                | Effect                                                          |
@@ -110,13 +114,14 @@ jobs: Option<u32>,
 
 **Relationships** — constraints between arguments, checked after parsing:
 
-| Attribute                                               | Effect                                                                                         |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `conflicts(…)` / `requires(…)`                          | Relations to other flags ([Validation](/rust/validation))                                      |
-| `required_if(…)`, `required_if_eq…`, `required_unless…` | Conditional required-ness with single, any, and all forms                                      |
-| `group = "name"`                                        | Join a flag group ([Validation](/rust/validation#groups))                                      |
-| `arg_group`                                             | Take a whole group from an `ArgGroup` enum ([Validation](/rust/validation#a-group-as-an-enum)) |
-| `exclusive`                                             | Must be given alone ([Validation](/rust/validation#exclusive-flags))                           |
+| Attribute                                               | Effect                                                                                                         |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `conflicts(…)`, `requires(…)`, `overrides(…)`           | Relations to other args; `overrides` is flag-only ([Validation](/rust/validation))                             |
+| `required_if(…)`, `required_if_eq…`, `required_unless…` | Conditional required-ness with single, any, and all forms                                                      |
+| `validate` / `validate_error`                           | Portable expression rule ([Validation](/rust/validation#portable-expressions)); needs the `validation` feature |
+| `group = "name"`                                        | Join a flag group ([Validation](/rust/validation#groups))                                                      |
+| `arg_group`                                             | Take a whole group from an `ArgGroup` enum ([Validation](/rust/validation#a-group-as-an-enum))                 |
+| `exclusive`                                             | Must be given alone ([Validation](/rust/validation#exclusive-flags))                                           |
 
 **Deprecation** — a flag on its way out:
 
@@ -238,8 +243,11 @@ their target the way the KDL spec does — `"--long"` or `"-s"`, one value or a 
 stdin: bool,
 ```
 
-Naming a flag that doesn't exist on the command is a **compile error**, not a runtime surprise.
-Relations are flag-to-flag only; a positional cannot carry one.
+Naming a flag or positional that doesn't exist on the command is a **compile error**, not a
+runtime surprise. Conflicts, requires, and conditional requiredness may name flags or
+positionals; `overrides` and some `requires_if` forms stay flag-only. See the
+[compatibility matrix](/rust/clap-compatibility#relationships-and-command-routing) for the
+audited details.
 
 ## Resolution order
 
@@ -273,24 +281,24 @@ A global flag may be given **once per command level**, with the innermost occurr
 
 On the root `#[derive(Cli)]` struct:
 
-| Attribute                           | Effect                                                            |
-| ----------------------------------- | ----------------------------------------------------------------- |
-| `bin = "…"`                         | The binary name (used in help and the spec)                       |
-| `name = "…"`                        | A friendly display name                                           |
-| `version` / `version = "…"`         | Enable `--version`/`-V`; bare form uses `CARGO_PKG_VERSION`       |
-| `long_version = "…"`                | Extended `--version` text while `-V` stays concise                |
-| `about` / `long_about`              | Description (doc comments work too)                               |
-| `usage = "…"`                       | Verbatim synopsis line(s), replacing the generated one            |
-| `before_help` / `after_help`        | Extra text around the help page (`*_long_help` variants too)      |
-| `unknown_flags = "value"\|"error"`  | Treat unknown flags as values instead of errors                   |
-| `default_subcommand = "run"`        | Command to assume when argv names none                            |
-| `multicall`                         | Treat argv[0]'s basename as a subcommand (busybox-style)          |
-| `view("bin", root = "command")`     | Promote a command as another executable surface                   |
-| `completion`                        | Generate completion support ([Completions](/rust/completions))    |
-| `settings`                          | Generate config-settings bindings                                 |
-| `config = Settings`                 | Emit the named type's `config` block ([Settings](/rust/settings)) |
-| `min_usage_version = "…"`           | Declare the minimum usage version the spec needs                  |
-| `group("name", required, multiple)` | Declare a flag group ([Validation](/rust/validation#groups))      |
+| Attribute                           | Effect                                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `bin = "…"`                         | The binary name (used in help and the spec)                                                                         |
+| `name = "…"`                        | A friendly display name                                                                                             |
+| `version` / `version = "…"`         | Enable `--version`/`-V`; bare form uses `CARGO_PKG_VERSION`                                                         |
+| `long_version = "…"`                | Extended `--version` text while `-V` stays concise                                                                  |
+| `about` / `long_about`              | Description (doc comments work too)                                                                                 |
+| `usage = "…"`                       | Verbatim synopsis line(s), replacing the generated one                                                              |
+| `before_help` / `after_help`        | Extra text around the help page (`*_long_help` variants too)                                                        |
+| `unknown_flags = "value"\|"error"`  | Treat unknown flags as values instead of errors                                                                     |
+| `default_subcommand = "run"`        | Command to assume when argv names none                                                                              |
+| `multicall`                         | Treat argv[0]'s basename as a subcommand (busybox-style)                                                            |
+| `view("bin", root = "command")`     | Promote a command as another executable surface                                                                     |
+| `completion`                        | Generate completion support ([Completions](/rust/completions))                                                      |
+| `settings`                          | Root resolves settings even when every `setting =` binding lives on flattened children ([Settings](/rust/settings)) |
+| `config = Settings`                 | Emit the named type's `config` block ([Settings](/rust/settings))                                                   |
+| `min_usage_version = "…"`           | Declare the minimum usage version the spec needs                                                                    |
+| `group("name", required, multiple)` | Declare a flag group ([Validation](/rust/validation#groups))                                                        |
 
 On a `#[derive(Args)]` struct (refused on the root):
 

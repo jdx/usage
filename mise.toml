@@ -158,8 +158,8 @@ run = [
 [tasks."render:example-md"]
 depends = ['build']
 run = [
-    "usage g md -f examples/mise.usage.kdl --out-file examples/docs/MISE_INLINE.md --replace-pre-with-code-fences",
-    "usage g md -f examples/mise.usage.kdl --out-file examples/docs/MISE_MULTI.md --replace-pre-with-code-fences",
+    "usage g md -f benches/mise.usage.kdl --out-file examples/docs/MISE_INLINE.md --replace-pre-with-code-fences",
+    "usage g md -f benches/mise.usage.kdl --out-file examples/docs/MISE_MULTI.md --replace-pre-with-code-fences",
 ]
 
 [tasks."render:fig"]

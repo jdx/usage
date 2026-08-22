@@ -1,8 +1,7 @@
 # Validation
 
 ::: warning Draft
-This page is a draft. Some of what it documents is still in open pull requests, and details may
-change before release.
+This page is a draft and has not yet been human reviewed. Details may change.
 :::
 
 Everything on this page runs after argv is bound and env/default fallbacks are applied. Only the
@@ -29,8 +28,8 @@ are `VarTooFew`/`VarTooMany`. For enum-shaped values prefer
 ## Flag relations
 
 `conflicts`, `requires`, `required_if`, `required_if_eq`, and `required_unless` relate arguments to
-another. Targets are named the way the KDL spec names them (`"--long"` or `"-s"`), and naming a
-flag that doesn't exist is a compile error:
+another. Targets are named the way the KDL spec names them (`"--long"` or `"-s"` for flags, or a
+bare positional name), and naming one that doesn't exist is a compile error:
 
 ```rust
 /// Read from standard input
@@ -186,3 +185,27 @@ value and `var_min`/`var_max` count values, not words — `--tags a,b,c,d` with 
 
 The field must be a `Vec`, and the delimiter must be a single ASCII character; both are enforced
 at compile time. Emitted KDL: `flag "--tags <tag>" var=#true delimiter=","`.
+
+## Portable expressions
+
+For a rule that must survive KDL emission — and that clap would have expressed with a
+`value_parser` callback — enable the `validation` feature and declare an expression:
+
+```toml
+[dependencies]
+usage = { package = "usage-rs", version = "5.1", features = ["validation"] }
+```
+
+```rust
+#[usage(
+    long,
+    validate = "int(value) >= 1 && int(value) <= 65535",
+    validate_error = "must be a valid port"
+)]
+port: Option<u16>,
+```
+
+`validate` is evaluated after binding. `validate_error` is the diagnostic users see when the
+expression is false. Rust `value_parser` functions are not portable metadata — use `FromStr`
+for typed conversion and these attributes for declarative rules that docs, manpages, and other
+spec consumers can see.
