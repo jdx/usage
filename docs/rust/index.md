@@ -61,10 +61,6 @@ One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:
 usage = { package = "usage-rs", version = "5.1" }
 ```
 
-That is the whole install: derives, the argv runtime, help, and clap-shaped errors come with the
-defaults. The alias is supported directly — the derive resolves its runtime through the package
-name, so depending on `usage-rs` under any name works.
-
 Nothing third-party links into your binary — the only non-usage crates in the graph are the
 derive's compiler, which runs at build time ([comparison with clap](/rust/migrating-from-clap#dependencies)).
 
