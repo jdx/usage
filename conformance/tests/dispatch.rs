@@ -282,6 +282,39 @@ fn an_inline_variant_dispatches_through_the_struct_written_for_it() {
     assert_eq!(cli.run_command(), "src");
 }
 
+mod separate_inline_module {
+    use usage_derive::{Cli, Subcommands};
+
+    #[derive(Subcommands)]
+    #[usage(run)]
+    pub enum Command {
+        /// Print one value
+        Print { value: String },
+    }
+
+    /// A tool whose inline command is implemented outside this module
+    #[derive(Cli)]
+    #[usage(bin = "separate-inline")]
+    pub struct App {
+        #[usage(subcommand)]
+        pub command: Command,
+    }
+}
+
+impl Run for separate_inline_module::CommandPrint {
+    type Output = String;
+    fn run(self) -> Self::Output {
+        self.value
+    }
+}
+
+#[test]
+fn generated_inline_fields_are_public_for_out_of_module_dispatch() {
+    let argv = [OsStr::new("print"), OsStr::new("visible")];
+    let cli = separate_inline_module::App::parse_from(&argv).expect("valid command line");
+    assert_eq!(cli.command.run(), "visible");
+}
+
 #[test]
 fn a_root_with_flags_reads_them_then_run_command() {
     let argv = [OsStr::new("--verbose"), OsStr::new("hi")];

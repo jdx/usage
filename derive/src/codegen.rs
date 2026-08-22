@@ -6956,15 +6956,18 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .effect
                 .as_ref()
                 .map(|word| quote!(#[usage(effect = #word)]));
+            let hidden = quote!(#name).to_string().contains("__Usage");
             let fields = v.inline_fields.iter().flatten().cloned().map(|mut field| {
                 field.attrs = field
                     .attrs
                     .into_iter()
                     .filter_map(inline_field_attr)
                     .collect();
+                if !hidden {
+                    field.vis = syn::parse_quote!(pub);
+                }
                 field
             });
-            let hidden = quote!(#name).to_string().contains("__Usage");
             let doc = if hidden {
                 quote!(#[doc(hidden)])
             } else {
