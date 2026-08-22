@@ -4774,9 +4774,9 @@ pub(crate) fn doc_comment(
 ///
 /// Consecutive unindented lines in a paragraph become one line, so wrapping a
 /// comment to 80 columns does not change the generated spec. Blank lines stay
-/// paragraph breaks. Indented lines and fenced code blocks keep their newlines,
-/// because mise's help is full of typed-command examples that a flatten would
-/// destroy.
+/// paragraph breaks. Indented lines and fenced code blocks (` ``` ` or `~~~`)
+/// keep their newlines, because mise's help is full of typed-command examples
+/// that a flatten would destroy.
 fn flow_prose(text: &str) -> String {
     let mut paragraphs = Vec::new();
     let mut current = Vec::new();
@@ -4801,7 +4801,7 @@ fn flow_paragraph(lines: &[&str]) -> String {
     let mut in_fence = false;
     let mut prev_preserved = false;
     for line in lines {
-        let fence = line.trim_start().starts_with("```");
+        let fence = is_markdown_fence(line);
         let preserve = in_fence || fence || line.starts_with(char::is_whitespace);
         if !out.is_empty() {
             if preserve || prev_preserved {
@@ -4817,6 +4817,13 @@ fn flow_paragraph(lines: &[&str]) -> String {
         prev_preserved = preserve;
     }
     out
+}
+
+/// CommonMark code fences: three or more backticks or tildes, after indent.
+/// CommonMark code fences: three or more backticks or tildes, after indent.
+fn is_markdown_fence(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    trimmed.starts_with("```") || trimmed.starts_with("~~~")
 }
 
 /// `my_flag` and `MyCli` both become `my-cli`-shaped names.
@@ -8663,6 +8670,29 @@ mod tests {
         assert!(
             cli.about.as_deref().unwrap().ends_with('.'),
             "trailing periods must survive"
+        );
+    }
+
+    #[test]
+    fn non_verbatim_tilde_fences_keep_their_line_breaks() {
+        let cli = cli(
+            r#"
+            /// Short summary.
+            ///
+            /// ~~~
+            /// kept
+            /// as
+            /// lines
+            /// ~~~
+            struct Ex {}
+        "#,
+        )
+        .unwrap();
+
+        assert_eq!(cli.about.as_deref(), Some("Short summary."));
+        assert_eq!(
+            cli.long_about.as_deref(),
+            Some("Short summary.\n\n~~~\nkept\nas\nlines\n~~~")
         );
     }
 

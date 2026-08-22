@@ -426,6 +426,31 @@ fn ordinary_prose_doc_comments_flow_like_clap() {
     assert!(parsed.jobs);
 }
 
+/// Short summary.
+///
+/// ~~~
+/// kept
+/// as
+/// lines
+/// ~~~
+#[derive(Cli)]
+#[usage(bin = "tilde-fenced-comments")]
+struct TildeFencedComments {}
+
+#[test]
+fn ordinary_tilde_fenced_blocks_keep_their_line_breaks() {
+    let spec: LibSpec = TildeFencedComments::to_kdl().parse().expect("valid spec");
+    assert_eq!(spec.about.as_deref(), Some("Short summary."));
+    assert!(
+        spec.about.as_deref().unwrap().ends_with('.'),
+        "trailing periods must survive"
+    );
+    assert_eq!(
+        spec.about_long.as_deref(),
+        Some("Short summary.\n\n~~~\nkept\nas\nlines\n~~~")
+    );
+}
+
 #[test]
 fn help_text_can_keep_line_breaks_a_comment_would_flow() {
     // A doc comment's first paragraph is read the way Rust reads one, so a line break inside
