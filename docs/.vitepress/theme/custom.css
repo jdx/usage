@@ -532,6 +532,7 @@
 }
 
 .usage-bench-sub a,
+.usage-bench-foot a,
 .usage-bench-method a {
   color: var(--vw-cyan);
   text-decoration: underline;

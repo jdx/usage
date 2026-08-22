@@ -201,7 +201,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
                 reusing the parser across parses only halves.
               </span>
             </span></span
-          >. Heap allocations for a bare parse: <strong>zero</strong>, against clap's 6,280.
+          >. <a href="/rust/performance">Heap allocations for a bare parse: <strong>zero</strong>, against clap's 6,280.</a>
         </p>
       </div>
 
