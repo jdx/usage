@@ -230,3 +230,219 @@ fn dispatch_says_nothing_in_the_spec() {
     assert!(kdl.contains("cmd config"), "{kdl}");
     assert!(!kdl.contains("run"), "{kdl}");
 }
+
+/// A unit variant and an inline variant still have a type to implement `Run` on: the derive
+/// writes `{Enum}{Variant}` for them.
+#[derive(Subcommands)]
+#[usage(run)]
+enum Shape {
+    /// Greet
+    Hi,
+    /// Add a path
+    Add { path: String },
+}
+
+impl Run for ShapeHi {
+    type Output = String;
+    fn run(self) -> Self::Output {
+        "hi".to_string()
+    }
+}
+
+impl Run for ShapeAdd {
+    type Output = String;
+    fn run(self) -> Self::Output {
+        self.path
+    }
+}
+
+/// A tool whose commands are declared inline
+#[derive(Cli)]
+#[usage(bin = "shape", run)]
+struct ShapeCli {
+    /// Print more
+    #[usage(short = 'v', long)]
+    verbose: bool,
+    #[usage(subcommand)]
+    command: Shape,
+}
+
+#[test]
+fn a_unit_variant_dispatches_through_the_struct_written_for_it() {
+    let argv = [OsStr::new("hi")];
+    let cli = ShapeCli::parse_from(&argv).expect("valid command line");
+    assert!(!cli.verbose);
+    assert_eq!(cli.run_command(), "hi");
+}
+
+#[test]
+fn an_inline_variant_dispatches_through_the_struct_written_for_it() {
+    let argv = [OsStr::new("add"), OsStr::new("src")];
+    let cli = ShapeCli::parse_from(&argv).expect("valid command line");
+    assert_eq!(cli.run_command(), "src");
+}
+
+mod separate_inline_module {
+    use usage_derive::{Cli, Subcommands};
+
+    #[derive(Subcommands)]
+    #[usage(run)]
+    pub enum Command {
+        /// Print one value
+        Print { value: String },
+    }
+
+    /// A tool whose inline command is implemented outside this module
+    #[derive(Cli)]
+    #[usage(bin = "separate-inline")]
+    pub struct App {
+        #[usage(subcommand)]
+        pub command: Command,
+    }
+}
+
+impl Run for separate_inline_module::CommandPrint {
+    type Output = String;
+    fn run(self) -> Self::Output {
+        self.value
+    }
+}
+
+#[test]
+fn generated_inline_fields_are_public_for_out_of_module_dispatch() {
+    let argv = [OsStr::new("print"), OsStr::new("visible")];
+    let cli = separate_inline_module::App::parse_from(&argv).expect("valid command line");
+    assert_eq!(cli.command.run(), "visible");
+}
+
+#[test]
+fn a_root_with_flags_reads_them_then_run_command() {
+    let argv = [OsStr::new("--verbose"), OsStr::new("hi")];
+    let cli = ShapeCli::parse_from(&argv).expect("valid command line");
+    assert!(cli.verbose);
+    assert_eq!(cli.run_command(), "hi");
+}
+
+fn fallback(argv: Vec<String>) -> String {
+    format!("ext {}", argv.join(" "))
+}
+
+/// Ping
+#[derive(Args)]
+struct Ping;
+
+impl Run for Ping {
+    type Output = String;
+    fn run(self) -> Self::Output {
+        "pong".to_string()
+    }
+}
+
+#[derive(Subcommands)]
+#[usage(run, external = fallback, output = String)]
+enum Catch {
+    /// Ping
+    Ping(Ping),
+    #[usage(external_subcommand)]
+    Other(Vec<String>),
+}
+
+/// A tool with a catch-all
+#[derive(Cli)]
+#[usage(bin = "catch")]
+struct CatchCli {
+    #[usage(subcommand)]
+    command: Catch,
+}
+
+#[test]
+fn an_external_subcommand_calls_the_named_fallback() {
+    let ping = [OsStr::new("ping")];
+    let cli = CatchCli::parse_from(&ping).expect("valid command line");
+    assert_eq!(cli.command.run(), "pong");
+
+    let extra = [OsStr::new("git"), OsStr::new("status")];
+    let cli = CatchCli::parse_from(&extra).expect("valid command line");
+    assert_eq!(cli.command.run(), "ext git status");
+}
+
+/// Show the version
+#[derive(Args)]
+struct Version;
+
+/// Get a value
+#[derive(Args)]
+struct Get {
+    /// What to get
+    key: String,
+}
+
+impl Run for Version {
+    type Output = String;
+    fn run(self) -> Self::Output {
+        "1".to_string()
+    }
+}
+
+impl RunWith<&str> for Get {
+    type Output = String;
+    fn run_with(self, ctx: &str) -> Self::Output {
+        format!("{ctx}:{}", self.key)
+    }
+}
+
+#[derive(Subcommands)]
+#[usage(run_with)]
+enum MixedCtx {
+    /// Show the version
+    #[usage(no_ctx)]
+    Version(Version),
+    /// Get a value
+    Get(Get),
+}
+
+/// A tool that loads context only for some commands
+#[derive(Cli)]
+#[usage(bin = "mixed-ctx")]
+struct MixedCtxCli {
+    #[usage(subcommand)]
+    command: MixedCtx,
+}
+
+#[test]
+fn a_command_can_skip_the_context_the_rest_of_the_enum_takes() {
+    let argv = [OsStr::new("version")];
+    let cli = MixedCtxCli::parse_from(&argv).expect("valid command line");
+    assert_eq!(cli.command.run_with("loaded"), "1");
+
+    let argv = [OsStr::new("get"), OsStr::new("k")];
+    let cli = MixedCtxCli::parse_from(&argv).expect("valid command line");
+    assert_eq!(cli.command.run_with("loaded"), "loaded:k");
+}
+
+#[test]
+fn a_skipped_context_is_not_built_when_loaded_lazily() {
+    let argv = [OsStr::new("version")];
+    let cli = MixedCtxCli::parse_from(&argv).expect("valid command line");
+    let mut built = false;
+    assert_eq!(
+        cli.command.run_with_lazy(|| {
+            built = true;
+            "loaded"
+        }),
+        "1"
+    );
+    assert!(!built);
+
+    let argv = [OsStr::new("get"), OsStr::new("k")];
+    let cli = MixedCtxCli::parse_from(&argv).expect("valid command line");
+    built = false;
+    assert_eq!(
+        cli.command.run_with_lazy(|| {
+            built = true;
+            "loaded"
+        }),
+        "loaded:k"
+    );
+    assert!(built);
+}

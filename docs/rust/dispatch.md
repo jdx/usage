@@ -225,31 +225,128 @@ pub struct Generate {
 }
 ```
 
-That is all a generated `run` on a struct can do, so the struct holds one field: its
-subcommands, not in an `Option`. Any other shape is a compile error, because forwarding past
-arguments the struct declared would drop them:
+That is all a generated `run` on a **container** can do — a struct whose one field is its
+subcommands, not in an `Option`. A **root** that also declares flags gets `run_command` instead
+of `impl Run`: the flags stay on `self`, the subcommand is moved out, and whoever parsed them
+decides what `--verbose` means before calling it:
 
-- A struct with **flags or arguments of its own** has to decide what to do with them, so it
-  implements `Run` by hand — usually reading them and then calling `self.command.run()`. That
-  is the root's usual case: `--verbose` is set up before anything dispatches.
-- An **`Option` subcommand** has a state — no command at all — that nothing generated can
-  decide about. Whoever knows what an empty command line means writes the implementation.
+```rust
+fn main() -> miette::Result<()> {
+    let cli = Cli::parse();
+    if cli.verbose {
+        enable_tracing();
+    }
+    cli.run_command()
+}
+```
 
-## What cannot be dispatched
+`run_with` / `run_async` / `run_async_with` on that root become `run_command_with`,
+`run_command_async`, and `run_command_async_with`.
 
-A dispatched arm hands the command's own value to the trait, so every variant has to hold a
-type you can implement the trait for:
+An **`Option` subcommand** still has a state — no command at all — that nothing generated can
+decide about. Whoever knows what an empty command line means writes the implementation.
 
-- A **unit variant** (`Sponsors,`) and a **variant declaring its fields inline**
-  (`Add { path: String }`) are both served by a struct the derive writes for them, under a name
-  nothing else can name. Hold an `Args` struct instead — `Sponsors(Sponsors)` — which is where
-  the command's `effect` and description belong anyway.
-- An **`external_subcommand`** variant holds the argv of a command that is not declared here.
-  There is nothing to implement `Run` for and no exhaustive match to generate, so an enum with
-  a catch-all keeps its hand-written match.
+## Unit and inline variants
 
-Both are compile errors on the variant rather than a missing implementation somewhere else,
-which is the reason dispatch is opt-in rather than always generated. The other reason is that
-the generated implementation is the only one the enum can have: a CLI that wants to do
-something of its own between the parse and the dispatch leaves the attribute off and writes the
-match.
+A dispatched arm still needs a type the command can implement the trait for. A **unit variant**
+(`Sponsors,`) and a **variant declaring its fields inline** (`Add { path: String }`) get one:
+the derive writes `{Enum}{Variant}` — `CommandSponsors`, `CommandAdd` — and the generated match
+rebuilds that struct from the variant. Implement `Run` there:
+
+```rust
+#[derive(Subcommands)]
+#[usage(run)]
+enum Command {
+    Sponsors,
+    Add { path: String },
+}
+
+impl Run for CommandSponsors {
+    type Output = miette::Result<()>;
+    fn run(self) -> Self::Output {
+        print_sponsors();
+        Ok(())
+    }
+}
+
+impl Run for CommandAdd {
+    type Output = miette::Result<()>;
+    fn run(self) -> Self::Output {
+        add(&self.path)
+    }
+}
+```
+
+Holding a separately declared `Args` struct — `Sponsors(Sponsors)` — is still the usual shape
+when the command has work and description of its own. The generated name is for CLIs that kept
+clap's unit and inline layout.
+
+## Mixed sync and async
+
+One generated `async fn` can call a synchronous command and await another. The enum says
+`run_async`; a variant that should not wait says `#[usage(run)]`:
+
+```rust
+#[derive(Subcommands)]
+#[usage(run_async)]
+enum Commands {
+    #[usage(run)]
+    Activate(Activate),
+    Install(Install),
+}
+```
+
+`Activate` implements `Run`; `Install` implements `RunAsync`. The match is still one type,
+because both produce the same `Output`. Do not also put `run` on the enum: that would generate
+a second, synchronous method the async commands cannot enter.
+
+## Context some commands do not want
+
+`RunWith<Ctx>` still takes a context by value, and a variant that should not see it says
+`#[usage(no_ctx)]`. That arm implements `Run` (or `RunAsync`) instead. When at least one
+command skips the context, the enum also gets `run_with_lazy` / `run_async_with_lazy`, which
+take `FnOnce() -> Ctx` and only call it for an arm that needs it — so a missing config file is
+not opened for `version`:
+
+```rust
+#[derive(Subcommands)]
+#[usage(run_with)]
+enum Commands {
+    #[usage(no_ctx)]
+    Version(Version),
+    Get(Get),
+}
+
+cli.command.run_with_lazy(|| load_config(&cli))?;
+```
+
+## Catch-alls
+
+An `external_subcommand` holds argv, not a command struct. Name the function that should
+receive those words:
+
+```rust
+fn fallback(argv: Vec<OsString>) -> miette::Result<()> {
+    start_from_argv(argv)
+}
+
+#[derive(Subcommands)]
+#[usage(run, external = fallback)]
+enum Commands {
+    Start(Start),
+    #[usage(external_subcommand)]
+    Fallback(Vec<OsString>),
+}
+```
+
+`run_with` passes `(argv, ctx)`; `run_async` awaits the function. If the first command is not
+a reliable `Output` source — or the catch-all is the first variant — name the type with
+`output = miette::Result<()>`.
+
+## What it says in the spec
+
+Nothing. Which Rust function carries out a command is not part of what the CLI _is_, and a spec
+recording it could be read by nothing but this program — so `run` and `run_with` reach the parse
+tables, the help output and the emitted KDL exactly as much as `#[usage(skip)]` does, which is
+not at all. `usage`'s own CLI moved to a generated dispatch without one byte of its spec, its
+manpage or its completions changing.

@@ -18,7 +18,8 @@ use quote::{format_ident, quote};
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
     rendered_path, to_kebab, type_name, ArgGroup, ArgGroupMember, Cli, ConditionalDefault,
-    Dispatch, DoubleDash, ExampleDecl, Field, Kind, Shape, Subcommands, ValueEnum, ViewDecl,
+    Dispatch, DoubleDash, ExampleDecl, Field, Kind, Shape, Subcommands, ValueEnum, Variant,
+    ViewDecl,
 };
 
 /// Construct the user's command type after its generated partial has been checked.
@@ -6553,6 +6554,207 @@ impl DispatchTrait {
     }
 }
 
+/// Which trait one variant actually implements, which may differ from the enum's.
+///
+/// A `#[usage(run)]` variant in an async enum is synchronous; `#[usage(no_ctx)]` skips
+/// the context the rest of the match is handed. The generated arm and its bound both
+/// read this so they cannot disagree.
+fn arm_kind(kind: &DispatchTrait, v: &Variant) -> DispatchTrait {
+    let is_async = kind.is_async && !v.run_sync;
+    let ctx = kind.ctx && !v.no_ctx;
+    match (is_async, ctx) {
+        (false, false) => DispatchTrait {
+            wanted: true,
+            name: "Run",
+            method: "run",
+            ctx: false,
+            is_async: false,
+        },
+        (false, true) => DispatchTrait {
+            wanted: true,
+            name: "RunWith",
+            method: "run_with",
+            ctx: true,
+            is_async: false,
+        },
+        (true, false) => DispatchTrait {
+            wanted: true,
+            name: "RunAsync",
+            method: "run_async",
+            ctx: false,
+            is_async: true,
+        },
+        (true, true) => DispatchTrait {
+            wanted: true,
+            name: "RunAsyncWith",
+            method: "run_async_with",
+            ctx: true,
+            is_async: true,
+        },
+    }
+}
+
+fn first_command(subs: &Subcommands) -> Option<&Variant> {
+    subs.variants.iter().find(|v| !v.external)
+}
+
+fn dispatch_output_ty(subs: &Subcommands, kind: &DispatchTrait) -> TokenStream {
+    if let Some(ty) = &subs.dispatch_output {
+        return quote!(#ty);
+    }
+    let first = first_command(subs).expect("a dispatched enum names a command");
+    let ty = &first.ty;
+    let of = arm_kind(kind, first).as_of(&quote!(#ty));
+    quote!(#of::Output)
+}
+
+fn dispatch_pat(enum_ident: &syn::Ident, v: &Variant) -> TokenStream {
+    let variant = &v.ident;
+    if v.unit {
+        quote!(#enum_ident::#variant)
+    } else if let Some(fields) = &v.inline_fields {
+        let bindings = fields.iter().map(|field| {
+            let name = field
+                .ident
+                .as_ref()
+                .expect("named variant fields have names");
+            let cfg_attrs = field
+                .attrs
+                .iter()
+                .filter(|attr| meta_controls_field_presence(&attr.meta));
+            quote! { #(#cfg_attrs)* #name }
+        });
+        quote!(#enum_ident::#variant { #(#bindings),* })
+    } else {
+        quote!(#enum_ident::#variant(__usage_inner))
+    }
+}
+
+fn dispatch_value(v: &Variant) -> TokenStream {
+    if v.unit {
+        let ty = &v.ty;
+        quote!(#ty {})
+    } else if let Some(fields) = &v.inline_fields {
+        let ty = &v.ty;
+        let bindings = fields.iter().map(|field| {
+            let name = field
+                .ident
+                .as_ref()
+                .expect("named variant fields have names");
+            let cfg_attrs = field
+                .attrs
+                .iter()
+                .filter(|attr| meta_controls_field_presence(&attr.meta));
+            quote! { #(#cfg_attrs)* #name }
+        });
+        quote!(#ty { #(#bindings),* })
+    } else if v.boxed {
+        quote!(*__usage_inner)
+    } else {
+        quote!(__usage_inner)
+    }
+}
+
+fn dispatch_arm_call(
+    kind: &DispatchTrait,
+    v: &Variant,
+    ident: &syn::Ident,
+    external: Option<&syn::Path>,
+) -> TokenStream {
+    let pat = dispatch_pat(ident, v);
+    let value = dispatch_value(v);
+    let call = if v.external {
+        let path = external.expect("external variants name a function");
+        let call = if kind.ctx {
+            quote!(#path(#value, __usage_ctx))
+        } else {
+            quote!(#path(#value))
+        };
+        if kind.is_async {
+            quote!(#call.await)
+        } else {
+            call
+        }
+    } else {
+        let arm = arm_kind(kind, v);
+        let mut call = arm.call(value);
+        if kind.ctx && !arm.ctx {
+            call = quote! {{
+                let _ = __usage_ctx;
+                #call
+            }};
+        }
+        call
+    };
+    quote!(#pat => #call,)
+}
+
+fn variant_bound(
+    kind: &DispatchTrait,
+    v: &Variant,
+    i: usize,
+    first_non_external: usize,
+    output: &TokenStream,
+    named_output: bool,
+) -> Option<TokenStream> {
+    if v.external {
+        return None;
+    }
+    let ty = &v.ty;
+    let arm = arm_kind(kind, v);
+    if named_output || i != first_non_external {
+        let bound = arm.path_with_output(output);
+        Some(quote!(#ty: #bound))
+    } else {
+        let path = arm.path();
+        Some(quote!(#ty: #path))
+    }
+}
+
+fn lazy_arm_call(
+    kind: &DispatchTrait,
+    v: &Variant,
+    ident: &syn::Ident,
+    external: Option<&syn::Path>,
+) -> TokenStream {
+    let pat = dispatch_pat(ident, v);
+    let value = dispatch_value(v);
+    let arm = arm_kind(kind, v);
+    let call = if v.external {
+        let path = external.expect("external variants name a function");
+        let invoked = if kind.ctx {
+            quote!(#path(#value, __usage_load()))
+        } else {
+            quote! {{
+                let _ = __usage_load;
+                #path(#value)
+            }}
+        };
+        if kind.is_async {
+            quote!(#invoked.await)
+        } else {
+            invoked
+        }
+    } else if arm.ctx {
+        let name = format_ident!("{}", arm.name);
+        let method = format_ident!("{}", arm.method);
+        let invoked = quote!(usage_argv::#name::<__UsageCtx>::#method(#value, __usage_load()));
+        if arm.is_async {
+            quote!(#invoked.await)
+        } else {
+            invoked
+        }
+    } else {
+        let mut call = arm.call(value);
+        call = quote! {{
+            let _ = __usage_load;
+            #call
+        }};
+        call
+    };
+    quote!(#pat => #call,)
+}
+
 /// The dispatch a `#[usage(run)]` enum gets: the `match` every CLI writes by hand.
 ///
 /// One arm per variant, handing the command's own struct to the trait that carries it out.
@@ -6560,20 +6762,21 @@ impl DispatchTrait {
 /// command is not part of what the CLI *is*, and a spec recording it could be read by nothing
 /// but this program. `#[usage(skip)]` follows the same rule.
 ///
-/// The output type is the first variant's, and every other variant is required to agree —
-/// stated as a bound naming that variant's type, so a command returning something else is
-/// reported on the command rather than inside a generated arm. Both bounds are written as
-/// `where` clauses rather than checked here, which is also what lets the enum be declared
-/// before the implementations it dispatches to exist.
+/// The output type is the first command's, unless the enum names it, and every other variant
+/// is required to agree — stated as a bound naming that variant's type, so a command returning
+/// something else is reported on the command rather than inside a generated arm. Both bounds
+/// are written as `where` clauses rather than checked here, which is also what lets the enum
+/// be declared before the implementations it dispatches to exist.
 fn emit_subcommands_dispatch(subs: &Subcommands, runtime: &TokenStream) -> TokenStream {
     if !subs.dispatch.any() {
         return TokenStream::new();
     }
     let ident = &subs.ident;
-    // Checked in `Subcommands::from_input`: a dispatched enum has variants, and each holds a
-    // named struct rather than nothing or its fields inline.
-    let first_ty = &subs.variants[0].ty;
-    let first = quote!(#first_ty);
+    let external = subs.dispatch_external.as_ref();
+    let named_output = subs.dispatch_output.is_some();
+    let first_non_external = subs.variants.iter().position(|v| !v.external).unwrap_or(0);
+    let wants_lazy = subs.variants.iter().any(|v| v.no_ctx)
+        && (subs.dispatch.run_with || subs.dispatch.run_async_with);
 
     let impls = DispatchTrait::all(subs.dispatch)
         .into_iter()
@@ -6582,37 +6785,57 @@ fn emit_subcommands_dispatch(subs: &Subcommands, runtime: &TokenStream) -> Token
             let generics = kind.impl_generics();
             let path = kind.path();
             let signature = kind.signature();
-            let output = kind.as_of(&first);
-            let bounds = subs.variants.iter().enumerate().map(|(i, v)| {
-                let ty = &v.ty;
-                if i == 0 {
-                    let path = kind.path();
-                    quote!(#ty: #path)
-                } else {
-                    let bound = kind.path_with_output(&quote!(#output::Output));
-                    quote!(#ty: #bound)
-                }
+            let output = dispatch_output_ty(subs, &kind);
+            let bounds = subs.variants.iter().enumerate().filter_map(|(i, v)| {
+                variant_bound(&kind, v, i, first_non_external, &output, named_output)
             });
-            // `*inner` is the one place a `Box` shows: the box is how the variant holds the
-            // struct, and the struct is what implements the trait.
-            let arms = subs.variants.iter().map(|v| {
-                let variant = &v.ident;
-                let inner = if v.boxed {
-                    quote!(*__usage_inner)
-                } else {
-                    quote!(__usage_inner)
-                };
-                let call = kind.call(inner);
-                quote!(#ident::#variant(__usage_inner) => #call,)
-            });
+            let arms = subs
+                .variants
+                .iter()
+                .map(|v| dispatch_arm_call(&kind, v, ident, external));
             quote! {
                 #generics #path for #ident
                 where
                     #(#bounds,)*
                 {
-                    type Output = #output::Output;
+                    type Output = #output;
 
                     #signature {
+                        match self {
+                            #(#arms)*
+                        }
+                    }
+                }
+            }
+        });
+
+    let lazy = DispatchTrait::all(subs.dispatch)
+        .into_iter()
+        .filter(|kind| kind.wanted && kind.ctx && wants_lazy)
+        .map(|kind| {
+            let output = dispatch_output_ty(subs, &kind);
+            let arms = subs
+                .variants
+                .iter()
+                .map(|v| lazy_arm_call(&kind, v, ident, external));
+            let (name, asyncness) = if kind.is_async {
+                (format_ident!("run_async_with_lazy"), quote!(async))
+            } else {
+                (format_ident!("run_with_lazy"), TokenStream::new())
+            };
+            let bounds = subs.variants.iter().enumerate().filter_map(|(i, v)| {
+                variant_bound(&kind, v, i, first_non_external, &output, named_output)
+            });
+            quote! {
+                impl #ident {
+                    pub #asyncness fn #name<__UsageCtx, __UsageLoad>(
+                        self,
+                        __usage_load: __UsageLoad,
+                    ) -> #output
+                    where
+                        __UsageLoad: ::core::ops::FnOnce() -> __UsageCtx,
+                        #(#bounds,)*
+                    {
                         match self {
                             #(#arms)*
                         }
@@ -6627,23 +6850,21 @@ fn emit_subcommands_dispatch(subs: &Subcommands, runtime: &TokenStream) -> Token
             use #runtime as usage_argv;
 
             #(#impls)*
+            #(#lazy)*
         };
     }
 }
 
 /// The dispatch a `#[usage(run)]` struct gets: a forward to its subcommands.
 ///
-/// The `config`-style group that has no work of its own — declared as a struct holding
-/// nothing but its subcommand field, which is what [`Cli::check`](crate::model::Cli::check)
-/// holds it to, since forwarding is all this can do and a struct with arguments of its own has
-/// to decide what becomes of them.
+/// A container that holds only that field implements the trait. A root that also
+/// declares flags gets `run_command`, which moves the subcommand out and leaves the
+/// flags for whoever parsed them.
 fn emit_command_dispatch(cli: &Cli, runtime: &TokenStream) -> TokenStream {
     if !cli.dispatch.any() {
         return TokenStream::new();
     }
     let ident = &cli.ident;
-    // Checked in `Cli::check`: a struct asking for a dispatch holds exactly one field, and it
-    // is a non-optional subcommand.
     let Some((field, held_ty)) = cli.fields.iter().find_map(|field| match &field.kind {
         Kind::Subcommand {
             ty,
@@ -6654,6 +6875,59 @@ fn emit_command_dispatch(cli: &Cli, runtime: &TokenStream) -> TokenStream {
         return TokenStream::new();
     };
     let held_ty = quote!(#held_ty);
+    let extras = cli.fields.iter().any(|field| {
+        !matches!(
+            field.kind,
+            Kind::Subcommand {
+                optional: false,
+                ..
+            }
+        )
+    });
+
+    if extras {
+        let methods = DispatchTrait::all(cli.dispatch)
+            .into_iter()
+            .filter(|kind| kind.wanted)
+            .map(|kind| {
+                let held = kind.as_of(&held_ty);
+                let output = quote!(#held::Output);
+                let value = quote!(#field);
+                let call = kind.call(value);
+                let name = if kind.is_async && kind.ctx {
+                    format_ident!("run_command_async_with")
+                } else if kind.is_async {
+                    format_ident!("run_command_async")
+                } else if kind.ctx {
+                    format_ident!("run_command_with")
+                } else {
+                    format_ident!("run_command")
+                };
+                let asyncness = kind.is_async.then(|| quote!(async));
+                let generics = kind.ctx.then(|| quote!(<__UsageCtx>));
+                let ctx_arg = kind.ctx.then(|| quote!(, __usage_ctx: __UsageCtx));
+                let path = kind.path();
+                quote! {
+                    pub #asyncness fn #name #generics(self #ctx_arg) -> #output
+                    where
+                        #held_ty: #path,
+                    {
+                        let Self { #field, .. } = self;
+                        #call
+                    }
+                }
+            });
+        return quote! {
+            #[doc(hidden)]
+            const _: () = {
+                use #runtime as usage_argv;
+
+                impl #ident {
+                    #(#methods)*
+                }
+            };
+        };
+    }
 
     let impls = DispatchTrait::all(cli.dispatch)
         .into_iter()
@@ -6710,16 +6984,31 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                 .effect
                 .as_ref()
                 .map(|word| quote!(#[usage(effect = #word)]));
+            let hidden = quote!(#name).to_string().contains("__Usage");
             let fields = v.inline_fields.iter().flatten().cloned().map(|mut field| {
                 field.attrs = field
                     .attrs
                     .into_iter()
                     .filter_map(inline_field_attr)
                     .collect();
+                if !hidden {
+                    field.vis = syn::parse_quote!(pub);
+                }
                 field
             });
+            let doc = if hidden {
+                quote!(#[doc(hidden)])
+            } else {
+                let variant = v.ident.to_string();
+                let enum_name = ident.to_string();
+                let doc = format!(
+                    "Parsed arguments for `{enum_name}::{variant}`. Implement `usage::Run` \
+                     (or the context / async pair) on this type."
+                );
+                quote!(#[doc = #doc])
+            };
             quote! {
-                #[doc(hidden)]
+                #doc
                 #[derive(#derive::Args)]
                 #effect
                 pub struct #name {

@@ -148,12 +148,14 @@
 //! bound imposed either way. An enum may say several.
 //!
 //! The output type is the first variant's, and each of the others is required to agree, so a
-//! command returning something else is reported on the command. A `#[usage(run)]` *struct* gets
-//! a forward to its own subcommands, which is all it can get: it holds one field, its
-//! subcommands and not in an `Option`, since anything else would mean dropping what the struct
-//! declared or deciding what no command means. A variant holding nothing, holding its fields
-//! inline, or holding an `external_subcommand`'s argv cannot be dispatched — there is no type to
-//! implement the trait for — and says so where it is declared.
+//! command returning something else is reported on the command. A `#[usage(run)]` *struct* that
+//! holds only its subcommands implements the trait as a forward; a root that also declares
+//! flags gets `run_command`, which moves the subcommand out and leaves the flags for the
+//! caller. A variant that holds nothing or its fields inline is dispatched through the
+//! `{Enum}{Variant}` struct the derive writes for it. An `external_subcommand` is dispatched
+//! by `external = fallback` on the enum. A command that should not wait when the rest of the
+//! enum does says `#[usage(run)]` on the variant; one that should not take the context says
+//! `#[usage(no_ctx)]`.
 //!
 //! Nothing about any of this reaches the spec, the parse tables, or help: which Rust function
 //! carries out a command is not part of what the CLI *is*. `#[usage(skip)]` follows the same

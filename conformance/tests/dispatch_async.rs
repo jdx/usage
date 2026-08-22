@@ -284,6 +284,58 @@ fn async_dispatch_says_nothing_in_the_spec() {
     assert!(!kdl.contains("run"), "{kdl}");
 }
 
+/// Print immediately
+#[derive(Args)]
+struct Immediate;
+
+/// Fetch something
+#[derive(Args)]
+struct Fetch;
+
+impl Run for Immediate {
+    type Output = String;
+    fn run(self) -> Self::Output {
+        "now".to_string()
+    }
+}
+
+impl RunAsync for Fetch {
+    type Output = String;
+    async fn run_async(self) -> Self::Output {
+        yield_once().await;
+        "later".to_string()
+    }
+}
+
+#[derive(Subcommands)]
+#[usage(run_async)]
+enum Mix {
+    /// Print immediately
+    #[usage(run)]
+    Immediate(Immediate),
+    /// Fetch something
+    Fetch(Fetch),
+}
+
+/// A tool with mixed sync and async commands
+#[derive(Cli)]
+#[usage(bin = "mix")]
+struct MixCli {
+    #[usage(subcommand)]
+    command: Mix,
+}
+
+#[test]
+fn an_async_enum_can_still_run_a_synchronous_command() {
+    let argv = [OsStr::new("immediate")];
+    let cli = MixCli::parse_from(&argv).expect("valid command line");
+    assert_eq!(block_on(cli.command.run_async()), "now");
+
+    let argv = [OsStr::new("fetch")];
+    let cli = MixCli::parse_from(&argv).expect("valid command line");
+    assert_eq!(block_on(cli.command.run_async()), "later");
+}
+
 /// The smallest executor that proves these are real futures: no runtime dependency in the
 /// conformance crate, and a command that yields is resumed rather than run to completion on
 /// the first poll.
