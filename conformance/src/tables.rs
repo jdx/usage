@@ -249,6 +249,7 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         // spec that declares one is a case the two disagree about; `render/03-sections.json`
         // records it rather than this quietly declining to carry it.
         usage: (!spec.usage.trim().is_empty()).then(|| leak(spec.usage.trim())),
+        help_template: opt(&spec.help_template),
         root: root_meta,
     }))
 }

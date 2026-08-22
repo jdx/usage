@@ -338,6 +338,11 @@ static SPEC: Spec = Spec {
     about: Some("does things"),
     long_about: Some("Does things, at length."),
     usage: Some("Usage: ex <COMMAND>\n       ex --version \"quoted\""),
+    // Awkward in the way the rest of this fixture is: the braces have to survive the writer
+    // untouched, and the newlines have to come back as newlines rather than as the two
+    // characters `\n` — a template that round-trips as literal backslashes would lay out one
+    // long line and look like a renderer bug rather than a writer bug.
+    help_template: Some("{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}"),
     default_subcommand: Some("run"),
     multicall: false,
     views: &[],
@@ -372,6 +377,20 @@ fn the_program_itself_survives() {
     assert!(
         template.contains("{%- set path = path ~ \"/mod.rs\" -%}"),
         "{template:?}"
+    );
+
+    // The help template comes back braces and newlines intact, so the page usage-lib renders
+    // from the emitted spec is laid out the way the emitting binary's own would be.
+    assert_eq!(
+        spec.help_template.as_deref(),
+        Some("{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}")
+    );
+    let page = usage::docs::cli::render_help(&spec, &spec.cmd, false);
+    assert!(!page.contains("{{"), "a section went unfilled:\n{page}");
+    assert!(
+        page.find("Flags:").expect("a flags section")
+            < page.find("Commands:").expect("a commands section"),
+        "the template puts the flags above the commands:\n{page}"
     );
 }
 
@@ -790,6 +809,7 @@ fn a_declared_completer_becomes_a_run_the_reference_can_read() {
         about: None,
         long_about: None,
         usage: None,
+        help_template: None,
         default_subcommand: None,
         multicall: false,
         views: &[],
@@ -929,6 +949,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         about: None,
         long_about: None,
         usage: None,
+        help_template: None,
         default_subcommand: None,
         multicall: false,
         views: &[],
@@ -988,6 +1009,7 @@ fn two_commands_can_mean_different_things_by_one_name() {
         about: None,
         long_about: None,
         usage: None,
+        help_template: None,
         default_subcommand: None,
         multicall: false,
         views: &[],

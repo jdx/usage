@@ -214,10 +214,16 @@ clap tests usually include argv0. Choose the matching entry point explicitly:
 | words after argv0                          | `Cli::parse_from(&[&OsStr])`        |
 | full argv with argv0, returning errors     | `Cli::parse_from_argv(&[OsString])` |
 | clap-shaped call sites                     | `Cli::try_parse_from(iter)`         |
+| merging into a value you already have      | `cli.try_update_from(&[&OsStr])`    |
 
 `parse_from` is the allocation-free primitive. `parse_from_argv` also applies multicall basename
 routing. Handle `usage::Error::Help` and `usage::Error::Version` before dispatch when an embedder
 must intercept those built-ins.
+
+`update_from` and `try_update_from` carry clap's names but state their merge rules explicitly,
+because a parse cannot be run backwards to seed itself from a value: a standing field satisfies a
+relationship, the environment and defaults fill only what is empty, and a subcommand word naming a
+different variant replaces it. See [Updating a value you already have](/rust/#updating-a-value-you-already-have).
 
 The `match cli.command { … }` a clap CLI writes after parsing can go too: implement
 `usage::Run` on each command struct, say `#[usage(run)]` on the enum, and the routing is

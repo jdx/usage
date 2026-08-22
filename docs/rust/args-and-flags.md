@@ -120,6 +120,7 @@ accepted — see [Migrating from clap](/rust/migrating-from-clap) and the
 | `required_if(…)`, `required_if_eq…`, `required_unless…` | Conditional required-ness with single, any, and all forms                                                      |
 | `validate` / `validate_error`                           | Portable expression rule ([Validation](/rust/validation#portable-expressions)); needs the `validation` feature |
 | `group = "name"`                                        | Join a flag group ([Validation](/rust/validation#groups))                                                      |
+| `arg_group`                                             | Take a whole group from an `ArgGroup` enum ([Validation](/rust/validation#a-group-as-an-enum))                 |
 | `exclusive`                                             | Must be given alone ([Validation](/rust/validation#exclusive-flags))                                           |
 
 **Deprecation** — a flag on its way out:

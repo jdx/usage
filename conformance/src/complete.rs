@@ -12,7 +12,7 @@
 //! to chase: the help renderers agreed on mise and differed on five of the other six jdx CLIs
 //! until one fixture held them together.
 //!
-//! It also closes two thirds of PLAN.md's "not covered by the corpus yet" — completion parsing,
+//! It also closes two thirds of the corpus gaps that were still open — completion parsing,
 //! which is `parse_partial` over deliberately incomplete input, and restart tokens, which only
 //! matter at a cursor. Mounts stay uncovered on purpose: resolving one *runs a command*, which a
 //! corpus cannot do hermetically.

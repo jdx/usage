@@ -1,0 +1,163 @@
+package argv
+
+import "strings"
+
+// A page's sections, and the template that may reorder them.
+//
+// Ported from usage-argv's `help::Sections`, and held to the same standard as the
+// rest of this file's neighbours: the boundaries are what the three implementations
+// agree on, so a section here holds exactly what the same section holds there.
+
+// HelpSections is the vocabulary a HelpTemplate may name, and nothing else.
+//
+// A closed list on purpose. Handing a template the metadata behind a page instead
+// would make this renderer's internals part of the spec and ask every
+// implementation to agree on a template language's semantics rather than on where
+// a section starts and ends.
+//
+//	about       BeforeHelp, the version banner, and the description
+//	usage       the Usage: synopsis, however many lines it takes
+//	commands    the subcommand list, or the flattened bodies under FlattenHelp
+//	args        every argument group, each under its heading
+//	flags       this command's flag groups, then the globals it inherits
+//	after_help  examples, AfterHelp, and the author/license footer on a long page
+//
+// An array rather than a slice, so the vocabulary cannot grow or shrink the way
+// a package-level slice can. The names themselves are still assignable; nothing
+// in this package writes them.
+var HelpSections = [...]string{"about", "usage", "commands", "args", "flags", "after_help"}
+
+// helpSections is a page under construction, cut at the boundaries a template may
+// reorder. `flattened` is not a section an author can name: it is the other half of
+// `commands`, since FlattenHelp replaces a command list with the subcommands' own
+// bodies, and only one of the two is ever written.
+type helpSections struct {
+	about     strings.Builder
+	usage     strings.Builder
+	commands  strings.Builder
+	args      strings.Builder
+	flags     strings.Builder
+	flattened strings.Builder
+	afterHelp strings.Builder
+}
+
+// concatenated is the default page: every section in the order it was written.
+//
+// A plain join, so this is the same string the renderer produced before the
+// sections were separable — the blank line above a section belongs to the section.
+func (s *helpSections) concatenated() string {
+	var out strings.Builder
+	for _, part := range []*strings.Builder{
+		&s.about, &s.usage, &s.commands, &s.args, &s.flags, &s.flattened, &s.afterHelp,
+	} {
+		out.WriteString(part.String())
+	}
+	return out.String()
+}
+
+// named is one section, trimmed, so that a template owns the whitespace between
+// them: a template is a layout, and a section carrying the blank line above it
+// could not be moved without carrying that decision along.
+func (s *helpSections) named(name string) (string, bool) {
+	switch name {
+	case "about":
+		return strings.TrimSpace(s.about.String()), true
+	case "usage":
+		return strings.TrimSpace(s.usage.String()), true
+	case "commands":
+		list := strings.TrimSpace(s.commands.String())
+		flattened := strings.TrimSpace(s.flattened.String())
+		if flattened == "" {
+			return list, true
+		}
+		if list == "" {
+			return flattened, true
+		}
+		return list + "\n\n" + flattened, true
+	case "args":
+		return strings.TrimSpace(s.args.String()), true
+	case "flags":
+		return strings.TrimSpace(s.flags.String()), true
+	case "after_help":
+		return strings.TrimSpace(s.afterHelp.String()), true
+	}
+	return "", false
+}
+
+// assemble is the finished page: laid out by the spec's template where it has one.
+//
+// usage-lib trims the whole document and puts back one newline, which keeps the
+// blank lines between sections from becoming trailing ones. That holds for a
+// template's output too: a page ends in exactly one newline however it was built.
+func (s *helpSections) assemble(template string) string {
+	page := s.concatenated()
+	if strings.TrimSpace(template) != "" {
+		page = substituteSections(template, s)
+	}
+	return strings.TrimSpace(page) + "\n"
+}
+
+// substituteSections fills a template in, section by section.
+//
+// A placeholder naming no section is left exactly as it was written: the vocabulary
+// is checked where a spec is authored — KDL refuses one at parse, the Rust derive at
+// compile time — so one arriving here is text an author meant literally.
+//
+// A section that came out empty leaves no gap behind: see collapseBlankRuns, whose
+// rule is what lets one template serve a whole CLI.
+func substituteSections(template string, s *helpSections) string {
+	var out strings.Builder
+	rest := template
+	for {
+		at := strings.Index(rest, "{{")
+		if at < 0 {
+			out.WriteString(rest)
+			return collapseBlankRuns(out.String())
+		}
+		out.WriteString(rest[:at])
+		after := rest[at+2:]
+		end := strings.Index(after, "}}")
+		if end < 0 {
+			out.WriteString(rest[at:])
+			return collapseBlankRuns(out.String())
+		}
+		if text, ok := s.named(strings.TrimSpace(after[:end])); ok {
+			out.WriteString(text)
+		} else {
+			out.WriteString(rest[at : at+2+end+2])
+		}
+		rest = after[end+2:]
+	}
+}
+
+// collapseBlankRuns reduces every run of blank lines to a single blank line.
+//
+// The twin of usage::help_template::collapse_blank_runs, and the reason a template
+// may name a section a given command does not have: a template carries the
+// separators a full page wants, and a command with no arguments would otherwise
+// render two of them back to back and push its flags down the page. Most commands
+// are missing most sections, so without this a template would have to be written
+// per command rather than per CLI.
+//
+// A whitespace-only line counts as blank, since that is what an empty placeholder on
+// an indented line leaves behind; a section's own indentation does not, since that is
+// the page. Applies to a template's output alone, so a default page is untouched.
+func collapseBlankRuns(page string) string {
+	var out strings.Builder
+	blank := false
+	for _, line := range strings.Split(page, "\n") {
+		if strings.TrimSpace(line) == "" {
+			blank = out.Len() > 0
+			continue
+		}
+		if out.Len() > 0 {
+			out.WriteString("\n")
+			if blank {
+				out.WriteString("\n")
+			}
+		}
+		blank = false
+		out.WriteString(line)
+	}
+	return out.String()
+}

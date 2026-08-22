@@ -319,6 +319,13 @@ pub struct Spec<'a> {
     /// An exact usage synopsis, including the `Usage:` prefix, when the generated
     /// shape needs alternatives that cannot be inferred from one command grammar.
     pub usage: Option<&'a str>,
+    /// How every page in this CLI is laid out, as named sections.
+    ///
+    /// A template names the six pre-rendered sections — `{{about}}`, `{{usage}}`,
+    /// `{{commands}}`, `{{args}}`, `{{flags}}`, `{{after_help}}` — and may reorder,
+    /// omit or wrap them. See [`crate::help::SECTIONS`] for what each one covers and
+    /// [`crate::help::unsupported_section`] for the rule an author's template is held to.
+    pub help_template: Option<&'a str>,
     /// Which command the root falls back to when a word matches no subcommand.
     /// mise uses this so `mise foo` completes as `mise run foo`.
     pub default_subcommand: Option<&'a str>,
@@ -569,6 +576,7 @@ impl<'a> SpecView<'a> {
             about: self.base.about,
             long_about: self.base.long_about,
             usage: self.base.usage,
+            help_template: self.base.help_template,
             default_subcommand: self.base.default_subcommand,
             multicall: self.base.multicall,
             views: self.base.views,
@@ -600,6 +608,7 @@ impl Spec<'_> {
         about: None,
         long_about: None,
         usage: None,
+        help_template: None,
         default_subcommand: None,
         multicall: false,
         views: &[],
@@ -1344,6 +1353,9 @@ impl Spec<'_> {
         if let Some(usage) = self.usage {
             prop(out, "usage", usage)?;
         }
+        if let Some(template) = self.help_template {
+            prop(out, "help_template", template)?;
+        }
         // Written only when it is not the default, so an ordinary spec stays quiet
         // about it.
         if self.root.cmd.unknown_flags == Some(UnknownFlags::Error) {
@@ -1460,7 +1472,7 @@ impl Spec<'_> {
         // block, so a root mount is not expressible. Emitting it anyway would
         // produce a document that does not parse, and dropping it quietly is the
         // lossiness this module claims not to have — so it fails loudly in debug
-        // builds instead, and PLAN.md carries it as a possible spec extension.
+        // builds instead; a root-level mount remains a possible spec extension.
         debug_assert!(
             self.root.mount.is_none(),
             "a mount on the root command cannot be written: the spec accepts \
@@ -2883,6 +2895,105 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
         .any(|choice| *choice == value || ignore_case && choice.eq_ignore_ascii_case(value))
 }
 
+/// An enum whose variants are one command's mutually exclusive switch flags.
+///
+/// What a CLI spells `--json` or `--yaml` and holds as a `Mode`, rather than as one `bool` per
+/// member plus a `match` over which of them is set. Nothing new reaches the spec: the enum
+/// lowers to a [`GroupMeta`] and the switches it names, so help, completions, and the
+/// reference implementation read the declaration every hand-written group does.
+///
+/// A field holding one says `#[usage(arg_group)]`. `Option<Mode>` is a group that may be left
+/// alone and a bare `Mode` is one that has to be given, which is how the rest of the derive
+/// reads required-ness from a type. There is no default variant, so required-ness has exactly
+/// one spelling.
+pub trait ArgGroup: Sized {
+    /// What the group is called, in the emitted spec and in a failed check.
+    const NAME: &'static str;
+    /// One switch per variant, to splice into the holding command's parse table.
+    ///
+    /// A `const` for the same reason [`CommandArgs::COMMAND`] is: the tables stay `static`
+    /// all the way down, so nothing is built at run time to start a parse.
+    const FLAGS: &'static [&'static Flag<'static>];
+    /// Metadata for [`FLAGS`](Self::FLAGS), in the same order.
+    const FLAG_METAS: &'static [FlagMeta<'static>];
+    /// The selectors naming [`FLAGS`](Self::FLAGS), for [`GroupMeta::members`].
+    const MEMBERS: &'static [&'static str];
+
+    /// Which members have been given so far. Partly-filled by construction, since a parse
+    /// can stop early.
+    type Partial: Default;
+
+    /// A fresh partial, with no member given.
+    ///
+    /// Nothing to prepare, unlike [`CommandArgs::start`]: a group has no default variant, so
+    /// there is no value that has to be in place before parsing begins.
+    fn start() -> Self::Partial {
+        Self::Partial::default()
+    }
+
+    /// Take one event, and say whether it named one of this group's flags.
+    ///
+    /// Keys are unique across a CLI, so an event that is not this group's is left for
+    /// whoever owns it.
+    fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_, '_>) -> bool;
+
+    /// The first member this command line gave, if any.
+    ///
+    /// Named rather than a bare `bool`, so a parent enforcing `exclusive` across the group
+    /// can say which flag it collided with — exactly as [`CommandArgs::any_given`] does.
+    fn any_given(partial: &Self::Partial) -> Option<&'static str>;
+
+    /// The first two members given together, in declaration order.
+    ///
+    /// Exclusivity is the point of a group, so a second member is reported rather than
+    /// silently resolved to whichever came last, and the pair is what the user has to choose
+    /// between. Answered here rather than while binding for the same reason every other
+    /// relationship is: the second member may still be ahead of the first.
+    fn conflict(partial: &Self::Partial) -> Option<(&'static str, &'static str)>;
+
+    /// The variant that was selected, or `None` when no member was given.
+    fn build(partial: &Self::Partial) -> Option<Self>;
+
+    /// Find a member by any selector it accepts.
+    ///
+    /// Parents use this for `requires` / `conflicts` / conditional defaults that name a
+    /// group member from beside the field — the same bridge [`CommandArgs::argument_state`]
+    /// is for flattened argument groups.
+    fn argument_state(partial: &Self::Partial, selector: &str) -> Option<ArgumentState>;
+
+    /// [`Self::argument_state`] for a value the caller already holds.
+    ///
+    /// An update cannot recover the partial that produced this enum, so which member stands
+    /// is read from the variant itself. `None` by default, which is what a hand-written
+    /// implementation that does not take part in updates should say.
+    fn standing_state(standing: &Self, selector: &str) -> Option<ArgumentState> {
+        let _ = (standing, selector);
+        None
+    }
+
+    /// Whether a selected member is present as the given boolean value.
+    ///
+    /// Members are switches, so only `"true"` / `"false"` are meaningful; anything else
+    /// reports not matching rather than inventing a value.
+    fn argument_matches(partial: &Self::Partial, selector: &str, value: &[u8]) -> Option<bool>;
+
+    /// [`Self::argument_matches`] for a value the caller already holds.
+    ///
+    /// The twin of [`Self::standing_state`], and needed for the same reason: a
+    /// `required_if_eq` naming a member has to read the standing variant when this argv
+    /// said nothing about the group, since the bytes it was parsed from are gone.
+    fn standing_matches(standing: &Self, selector: &str, value: &[u8]) -> Option<bool> {
+        let _ = (standing, selector, value);
+        None
+    }
+
+    /// Clear the member named by `selector` after an overriding token wins.
+    fn displace(partial: &mut Self::Partial, selector: &str) -> bool;
+
+    /// Whether this event binds the member named by `selector`.
+    fn event_matches(event: &crate::Event<'_, '_, '_>, selector: &str) -> bool;
+}
+
 /// One value a flag was given, in a vocabulary this crate can hold.
 ///
 /// A settings layer is `usage-config`'s idea, and this crate does not know that crate exists —
@@ -3202,6 +3313,72 @@ pub trait CommandArgs: Sized {
     /// Fallible because a command can require a subcommand of its own, and "none was
     /// given" is only knowable here — at the point where the value has to exist.
     fn build<'t, 'v>(partial: Self::Partial) -> Result<Self, crate::Error<'t, 'v>>;
+
+    /// One declaration in this command whose value the caller already had.
+    ///
+    /// The standing counterpart of [`CommandArgs::any_given`], and the reason it is
+    /// asked of the built struct rather than of a partial: an update merges a parse
+    /// into a value the caller owns, and a value cannot be run backwards through
+    /// `FromStr` into the bytes a partial holds. So presence is what the type itself
+    /// can answer — a filled `Option`, a collection with items, a set switch — and a
+    /// plain value is always present.
+    ///
+    /// `None` by default, which is what a hand-written implementation that does not
+    /// take part in updates should say.
+    fn any_standing(standing: &Self) -> Option<&'static str> {
+        let _ = standing;
+        None
+    }
+
+    /// [`CommandArgs::apply_defaults`], filling only what the caller does not already have.
+    ///
+    /// A default never overwrites a value the caller set deliberately, so an update
+    /// with no relevant argv cannot change the struct.
+    fn apply_defaults_update(partial: &mut Self::Partial, standing: &Self) {
+        let _ = standing;
+        Self::apply_defaults(partial);
+    }
+
+    /// [`CommandArgs::apply_env`], filling only what the caller does not already have.
+    fn apply_env_update(partial: &mut Self::Partial, standing: &Self) {
+        let _ = standing;
+        Self::apply_env(partial);
+    }
+
+    /// [`CommandArgs::check`] against the union of this argv and what the caller had.
+    ///
+    /// Required-ness, conflicts and the rest see a field the caller already filled as
+    /// present, so an update validates both inputs together rather than this argv alone.
+    fn check_update<'t, 'v>(
+        partial: &mut Self::Partial,
+        standing: &Self,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        let _ = standing;
+        Self::check(partial)
+    }
+
+    /// [`CommandArgs::check_with_args_override_self`] against the same union.
+    fn check_update_with_args_override_self<'t, 'v>(
+        partial: &mut Self::Partial,
+        args_override_self: bool,
+        standing: &Self,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        let _ = standing;
+        Self::check_with_args_override_self(partial, args_override_self)
+    }
+
+    /// Overwrite the fields this argv gave, and leave the rest of `standing` alone.
+    ///
+    /// The default replaces the whole value, which is all a hand-written implementation
+    /// that cannot see its own fields can promise. A derived one merges field by field:
+    /// a field this command line said nothing about keeps the value it had.
+    fn merge<'t, 'v>(
+        partial: Self::Partial,
+        standing: &mut Self,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        *standing = Self::build(partial)?;
+        Ok(())
+    }
 }
 
 /// Supplies a typed placeholder for fields outside an executable view.
@@ -3476,6 +3653,42 @@ pub trait Subcommands: Sized {
         partial: Self::Partial,
         selected: usize,
     ) -> Result<Option<Self>, crate::Error<'t, 'v>>;
+
+    /// [`Subcommands::apply_env`] on an update, filling only what the caller lacks.
+    fn apply_env_update(partial: &mut Self::Partial, selected: Option<usize>, standing: &Self) {
+        let _ = standing;
+        Self::apply_env(partial, selected);
+    }
+
+    /// [`Subcommands::check`] against the union of this argv and what the caller had.
+    ///
+    /// Only when the selected variant is the one `standing` already holds. Selecting a
+    /// different command is a routing decision rather than a value to merge, so the old
+    /// variant's fields say nothing about the new one's requirements.
+    fn check_update<'t, 'v>(
+        partial: &mut Self::Partial,
+        selected: usize,
+        standing: &Self,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        let _ = standing;
+        Self::check(partial, selected)
+    }
+
+    /// Merge the selected variant into the one the caller already has.
+    ///
+    /// The same variant merges field-wise; a different one replaces it wholesale,
+    /// discarding the old variant's fields. The default always replaces, which is what
+    /// a hand-written implementation can promise without seeing its own variants.
+    fn merge_into<'t, 'v>(
+        partial: Self::Partial,
+        selected: usize,
+        standing: &mut Self,
+    ) -> Result<(), crate::Error<'t, 'v>> {
+        if let Some(built) = Self::select(partial, selected)? {
+            *standing = built;
+        }
+        Ok(())
+    }
 }
 
 /// View-aware construction for a derived subcommand enum.

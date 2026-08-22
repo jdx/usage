@@ -1,0 +1,105 @@
+{
+  "section": "help-template",
+  "about": "A spec's `help_template` says what order a page's sections come in. The template holds a closed vocabulary of six pre-rendered sections — `{{about}}`, `{{usage}}`, `{{commands}}`, `{{args}}`, `{{flags}}`, `{{after_help}}` — which an author may reorder, omit, or wrap in text of their own; it is deliberately not the metadata behind a page, so what the implementations agree on is where each section starts and ends rather than a template language's semantics. These vectors pin whole pages, because reordering is the one change that can only be seen across a document. The default order is not pinned here: it is what every other file in this directory renders, and the fleet gate compares it byte for byte.",
+  "vectors": [
+    {
+      "id": "template-reorders-the-sections",
+      "doc": "A template's order is the page's order: `{{flags}}` before `{{args}}` inverts the pair every other page in this directory writes the other way round.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nhelp_template \"{{about}}\\n\\n{{usage}}\\n\\n{{flags}}\\n\\n{{args}}\"\nflag \"--force\" help=\"Do it anyway\"\narg \"<file>\" help=\"Which file\"\n",
+      "expect": {
+        "usage": "ex [--force] <file>",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--force] <file>",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help",
+          "",
+          "Arguments:",
+          "  <file>  Which file"
+        ]
+      }
+    },
+    {
+      "id": "template-omits-a-section",
+      "doc": "A section the template does not name is not on the page. A CLI whose subcommands are documented elsewhere can leave `{{commands}}` out, and the entries are still parsed — omitting a section changes the page and nothing else.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nhelp_template \"{{about}}\\n\\n{{usage}}\\n\\n{{flags}}\"\ncmd \"install\" help=\"Install a tool\"\ncmd \"remove\" help=\"Remove a tool\"\n",
+      "expect": {
+        "usage": "ex <SUBCOMMAND>",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex <SUBCOMMAND>",
+          "",
+          "Flags:",
+          "  -h, --help  Print help"
+        ]
+      }
+    },
+    {
+      "id": "template-wraps-the-sections-in-text",
+      "doc": "Text around a placeholder is written as-is, which is what makes a template a layout rather than a permutation: a heading above the page and a line pointing at the docs below it are the author's, not the renderer's.",
+      "spec": "name \"ex\"\nbin \"ex\"\nhelp_template \"== ex ==\\n\\n{{usage}}\\n\\n{{flags}}\\n\\nSee https://example.com/docs for more.\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "== ex ==",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help",
+          "",
+          "See https://example.com/docs for more."
+        ]
+      }
+    },
+    {
+      "id": "template-closes-the-gap-a-missing-section-leaves",
+      "doc": "A section that came out empty leaves no gap behind. The template below names all six and this command has neither arguments nor subcommands nor trailing text, so the separators around them collapse rather than pushing the flags down the page — which is what lets one template serve a whole CLI, since most commands are missing most sections.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nhelp_template \"{{about}}\\n\\n{{usage}}\\n\\n{{commands}}\\n\\n{{args}}\\n\\n{{flags}}\\n\\n{{after_help}}\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force  Do it anyway",
+          "  -h, --help   Print help"
+        ]
+      }
+    },
+    {
+      "id": "template-gathers-a-long-pages-trailing-sections",
+      "doc": "`{{after_help}}` is the whole tail of a page — examples, the spec's `after_help`, and the author and licence a long page ends with — so a template moving it moves all of it at once. Pinned on `--help`, since that is the form those last two lines appear on.",
+      "spec": "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\nabout \"An example\"\nauthor \"Ex Ample\"\nafter_help \"Read the docs.\"\nhelp_template \"{{after_help}}\\n\\n{{usage}}\\n\\n{{flags}}\\n\\n{{about}}\"\nexample \"ex --force\" header=\"Force it\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--force]",
+        "long_help": [
+          "Examples:",
+          "  Force it:",
+          "    $ ex --force",
+          "",
+          "Read the docs.",
+          "",
+          "Author: Ex Ample",
+          "",
+          "Usage: ex [--force]",
+          "",
+          "Flags:",
+          "      --force    Do it anyway",
+          "  -h, --help     Print help",
+          "  -V, --version  Print version",
+          "",
+          "ex 1.2.3",
+          "An example"
+        ]
+      }
+    }
+  ]
+}

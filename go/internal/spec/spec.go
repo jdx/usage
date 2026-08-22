@@ -57,6 +57,9 @@ type Spec struct {
 	BeforeHelpLong string               `json:"before_help_long"`
 	AfterHelpLong  string               `json:"after_help_long"`
 	Usage          string               `json:"usage"`
+	// HelpTemplate names the pre-rendered sections a page is assembled from, in
+	// the order this CLI wants them.
+	HelpTemplate string `json:"help_template"`
 }
 
 // HelpSpec is what a page needs from the spec's root rather than from a command.
@@ -74,6 +77,7 @@ func (s *Spec) HelpSpec() argv.HelpSpec {
 		AfterHelp:      s.AfterHelp,
 		BeforeLongHelp: s.BeforeHelpLong,
 		AfterLongHelp:  s.AfterHelpLong,
+		HelpTemplate:   s.HelpTemplate,
 	}
 }
 

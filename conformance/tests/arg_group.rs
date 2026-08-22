@@ -1,0 +1,285 @@
+//! A group of mutually exclusive flags declared as an enum.
+//!
+//! clap#2621's ask, and clap's most-requested derive ergonomic: the flags that exclude one
+//! another are variants, so the code that reads them matches on a type instead of on which of
+//! several `bool`s is set. Nothing new reaches the spec — the enum lowers to the `group` node
+//! and the switches it names — so everything here is checked twice: once against the errors the
+//! generated code produces, and once against the KDL it emits and the reference implementation
+//! that reads it.
+
+use std::ffi::OsStr;
+
+use usage_argv::{help, Error};
+use usage_derive::{ArgGroup, Args, Cli, Subcommands};
+
+fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
+    tokens.map(OsStr::new)
+}
+
+/// How to print the result
+#[derive(ArgGroup, Debug, PartialEq)]
+#[usage(name = "format")]
+enum Format {
+    /// Print JSON
+    Json,
+    /// Print YAML
+    Yaml,
+    /// Print one line per record
+    #[usage(short = 'p', long = "plain")]
+    PlainText,
+}
+
+/// Where to read from
+#[derive(ArgGroup, Debug, PartialEq)]
+enum Source {
+    /// Read from standard input
+    Stdin,
+    /// Read from the clipboard
+    Clipboard,
+}
+
+/// A CLI whose format is optional and whose source is not.
+#[derive(Cli)]
+#[usage(bin = "grp")]
+struct Grp {
+    /// A file to work on
+    #[usage(long)]
+    file: Option<String>,
+    #[usage(arg_group)]
+    format: Option<Format>,
+    #[usage(arg_group)]
+    source: Source,
+}
+
+#[test]
+fn an_optional_group_may_be_left_alone() {
+    let a = argv(["--stdin"]);
+    let grp = Grp::parse_from(&a).expect("saying nothing about format is fine");
+    assert_eq!(grp.format, None);
+    assert_eq!(grp.source, Source::Stdin);
+}
+
+#[test]
+fn one_member_selects_its_variant() {
+    let a = argv(["--stdin", "--yaml"]);
+    assert_eq!(
+        Grp::parse_from(&a).expect("one member").format,
+        Some(Format::Yaml)
+    );
+
+    // By its declared spellings too, since a member is a flag like any other.
+    let a = argv(["--stdin", "--plain"]);
+    assert_eq!(
+        Grp::parse_from(&a).expect("one member").format,
+        Some(Format::PlainText)
+    );
+    let a = argv(["--stdin", "-p"]);
+    assert_eq!(
+        Grp::parse_from(&a).expect("one member").format,
+        Some(Format::PlainText)
+    );
+}
+
+#[test]
+fn two_members_cannot_both_be_given() {
+    let a = argv(["--stdin", "--json", "--yaml"]);
+    assert!(
+        matches!(
+            Grp::parse_from(&a),
+            Err(Error::ConflictingFlags {
+                name: "yaml",
+                other: "json"
+            })
+        ),
+        "{:?}",
+        Grp::parse_from(&a).err()
+    );
+
+    // The pair reported is the first two in declaration order, which is what the user has to
+    // choose between — and the same pair a hand-written group's pairwise check reports.
+    let a = argv(["--stdin", "-p", "--yaml"]);
+    assert!(matches!(
+        Grp::parse_from(&a),
+        Err(Error::ConflictingFlags {
+            name: "plain",
+            other: "yaml"
+        })
+    ));
+}
+
+#[test]
+fn a_bare_field_makes_the_group_required() {
+    let a = argv([]);
+    assert!(matches!(
+        Grp::parse_from(&a),
+        Err(Error::MissingGroup {
+            group: "source",
+            members: ["--stdin", "--clipboard"]
+        })
+    ));
+
+    let a = argv(["--clipboard"]);
+    assert_eq!(
+        Grp::parse_from(&a).expect("one member").source,
+        Source::Clipboard
+    );
+}
+
+#[test]
+fn a_conflict_answers_before_an_unsatisfied_group_does() {
+    // Both are wrong: `source` has no member and `format` has two. The conflict is the more
+    // useful answer, and it is the order the rest of the checks already follow.
+    let a = argv(["--json", "--yaml"]);
+    assert!(matches!(
+        Grp::parse_from(&a),
+        Err(Error::ConflictingFlags { .. })
+    ));
+}
+
+#[test]
+fn the_group_reaches_the_emitted_spec_and_usage_lib_agrees() {
+    let kdl = Grp::to_kdl();
+    // The switches are this command's flags, written inline where the field was declared.
+    for flag in [
+        r#"flag --json help="Print JSON""#,
+        r#"flag --yaml help="Print YAML""#,
+        r#"flag "-p --plain" help="Print one line per record""#,
+        r#"flag --stdin help="Read from standard input""#,
+        r#"flag --clipboard help="Read from the clipboard""#,
+    ] {
+        assert!(kdl.contains(flag), "{flag} missing from:\n{kdl}");
+    }
+    assert!(kdl.contains("group format --json --yaml --plain"), "{kdl}");
+    assert!(
+        kdl.contains("group source --stdin --clipboard required=#true"),
+        "{kdl}"
+    );
+
+    // The reference implementation reads what the derive wrote and enforces the same rule,
+    // which is the point of the spec being the definition rather than a summary.
+    let spec: usage::Spec = kdl.parse().expect("the emitted spec should parse");
+    let format = spec.cmd.groups.iter().find(|g| g.name == "format").unwrap();
+    assert!(!format.required);
+    assert!(!format.multiple);
+    assert_eq!(format.members.len(), 3);
+    let source = spec.cmd.groups.iter().find(|g| g.name == "source").unwrap();
+    assert!(source.required);
+    assert_eq!(source.members.len(), 2);
+}
+
+#[test]
+fn help_lists_the_members_with_their_own_descriptions() {
+    let page = help::render(Grp::spec(), Grp::spec().root.cmd, false).expect("a page");
+    for line in [
+        "      --json",
+        "      --yaml",
+        "  -p, --plain",
+        "      --stdin",
+        "      --clipboard",
+    ] {
+        assert!(
+            page.lines().any(|l| l.starts_with(line)),
+            "no line starts `{line}`:\n{page}"
+        );
+    }
+    assert!(page.contains("Print one line per record"), "{page}");
+}
+
+/// The same enum on a subcommand's own `Args`, beside a flattened group.
+#[derive(Args)]
+struct Shared {
+    /// Say more
+    #[usage(long, short = 'v')]
+    verbose: bool,
+}
+
+/// Convert something
+#[derive(Args)]
+struct Convert {
+    #[usage(flatten)]
+    shared: Shared,
+    #[usage(arg_group)]
+    format: Option<Format>,
+    /// What to convert
+    target: String,
+}
+
+#[derive(Subcommands)]
+enum Command {
+    Convert(Convert),
+}
+
+#[derive(Cli)]
+#[usage(bin = "nested")]
+struct Nested {
+    #[usage(subcommand)]
+    command: Option<Command>,
+}
+
+#[test]
+fn a_group_works_on_a_subcommand_beside_a_flattened_one() {
+    let a = argv(["convert", "--json", "-v", "x"]);
+    let Some(Command::Convert(convert)) = Nested::parse_from(&a).expect("parses").command else {
+        panic!("expected convert");
+    };
+    assert_eq!(convert.format, Some(Format::Json));
+    assert!(convert.shared.verbose);
+    assert_eq!(convert.target, "x");
+
+    let a = argv(["convert", "--json", "--yaml", "x"]);
+    assert!(matches!(
+        Nested::parse_from(&a),
+        Err(Error::ConflictingFlags { .. })
+    ));
+
+    // The subcommand's flags are joined in the order the fields were written: the flattened
+    // struct's, then the group's, then this command's own positional.
+    let kdl = Nested::to_kdl();
+    assert!(kdl.contains("group format --json --yaml --plain"), "{kdl}");
+}
+
+/// A sibling flag that names a group member — the relationship lookup Bugbot caught as missing.
+#[derive(Cli)]
+#[usage(bin = "rel")]
+struct Rel {
+    #[usage(arg_group)]
+    format: Option<Format>,
+    /// Only legal beside JSON
+    #[usage(long, requires = "--json")]
+    pretty: bool,
+    /// Last one wins against JSON
+    #[usage(long, overrides = "--json")]
+    raw: bool,
+    /// Cannot sit beside YAML
+    #[usage(long, conflicts = "--yaml")]
+    strict: bool,
+}
+
+#[test]
+fn a_sibling_relationship_can_name_a_group_member() {
+    // requires: --pretty alone is MissingRequired for --json.
+    let a = argv(["--pretty"]);
+    assert!(matches!(
+        Rel::parse_from(&a),
+        Err(Error::MissingRequired { name: "json", .. })
+    ));
+    let a = argv(["--json", "--pretty"]);
+    let rel = Rel::parse_from(&a).expect("json satisfies pretty");
+    assert_eq!(rel.format, Some(Format::Json));
+    assert!(rel.pretty);
+
+    // conflicts: --strict with --yaml.
+    let a = argv(["--yaml", "--strict"]);
+    assert!(matches!(
+        Rel::parse_from(&a),
+        Err(Error::ConflictingFlags { .. })
+    ));
+    let a = argv(["--json", "--strict"]);
+    assert!(Rel::parse_from(&a).expect("json does not conflict").strict);
+
+    // overrides: --raw displaces a prior --json.
+    let a = argv(["--json", "--raw"]);
+    let rel = Rel::parse_from(&a).expect("raw displaces json");
+    assert_eq!(rel.format, None);
+    assert!(rel.raw);
+}
