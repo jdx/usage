@@ -2829,13 +2829,14 @@ fn quoted(value: &str) -> String {
 /// Number of `#` delimiters so the closer cannot appear inside `value`.
 ///
 /// Twin of `usage_lib::spec::helpers::raw_multiline_hash_count`: `n` hashes
-/// whenever a line contains `"""` followed by `n-1` hashes.
+/// whenever the value contains `"""` followed by `n-1` hashes. Offsets overlap
+/// so `""""#` is seen as containing `"""#`, which `str::match_indices` misses.
 fn raw_multiline_hash_count(value: &str) -> usize {
     let mut max_count = 0;
-    for line in value.lines() {
-        for (idx, _) in line.match_indices("\"\"\"") {
-            let after = &line[idx + 3..];
-            let count = after.chars().take_while(|&c| c == '#').count();
+    let bytes = value.as_bytes();
+    for i in 0..bytes.len().saturating_sub(2) {
+        if bytes[i] == b'"' && bytes[i + 1] == b'"' && bytes[i + 2] == b'"' {
+            let count = value[i + 3..].chars().take_while(|&c| c == '#').count();
             max_count = max_count.max(count);
         }
     }
@@ -3783,6 +3784,15 @@ mod tests {
         assert_eq!(
             quoted("before\n\"\"\"##\nafter"),
             "###\"\"\"\nbefore\n\"\"\"##\nafter\n\"\"\"###"
+        );
+        assert_eq!(
+            quoted("before\n\"\"\"\"#\nafter"),
+            "##\"\"\"\nbefore\n\"\"\"\"#\nafter\n\"\"\"##",
+            "overlapping quotes must still raise the hash count"
+        );
+        assert_eq!(
+            quoted("before\n\"\"\"\"##\nafter"),
+            "###\"\"\"\nbefore\n\"\"\"\"##\nafter\n\"\"\"###"
         );
         assert_eq!(
             quoted("ansi\n\u{1b}[0m"),

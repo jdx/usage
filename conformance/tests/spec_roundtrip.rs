@@ -373,6 +373,35 @@ fn multiline_strings_use_raw_kdl_syntax() {
 }
 
 #[test]
+fn overlapping_quotes_in_long_help_round_trip() {
+    static ROOT: Command = Command {
+        name: "ex",
+        ..Command::EMPTY
+    };
+    static META: CommandMeta = CommandMeta {
+        cmd: &ROOT,
+        long_about: Some("before\n\"\"\"\"#\nafter"),
+        ..CommandMeta::EMPTY
+    };
+    static OVERLAPPING: Spec = Spec {
+        name: "ex",
+        bin: Some("ex"),
+        root: &META,
+        ..Spec::EMPTY
+    };
+
+    let kdl = OVERLAPPING.to_kdl();
+    assert!(
+        kdl.contains("##\"\"\""),
+        "overlapping quotes must raise the delimiter count:\n{kdl}"
+    );
+    let spec: LibSpec = kdl
+        .parse()
+        .unwrap_or_else(|e| panic!("usage-lib could not parse the emitted spec: {e}\n\n{kdl}"));
+    assert_eq!(spec.about_long.as_deref(), Some("before\n\"\"\"\"#\nafter"));
+}
+
+#[test]
 fn the_program_itself_survives() {
     let spec = parsed();
     assert_eq!(spec.name, "ex");
