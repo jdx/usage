@@ -18,23 +18,28 @@ request comes back as an _error_, because a parse that stopped to print help has
 value (clap models it the same way):
 
 ```rust
-use usage::{help, Error};
+use usage::Error;
 
 match Ex::parse_from(&argv) {
     Ok(cli) => run(cli),
     Err(Error::Help { cmd, long }) => {
-        print!("{}", help::render(Ex::spec(), cmd, long).unwrap());
+        print!("{}", Ex::render_help(cmd, long).unwrap());
     }
     Err(Error::Version { long }) => {
         let version = if long { LONG_VERSION } else { env!("CARGO_PKG_VERSION") };
         println!("ex {version}");
     }
     Err(err) => {
-        eprint!("{}", usage::render_failure(Ex::spec(), &argv, &err));
+        eprint!("{}", Ex::render_failure(&argv, &err));
         std::process::exit(2);
     }
 }
 ```
+
+`Ex::render_help` and `Ex::render_failure` apply computed `name` / `bin` the same way `parse()`
+does. `help::render(Ex::spec(), …)` and `usage::render_failure(Ex::spec(), …)` keep the portable
+`name_spec` / `bin_spec` literals, which is what generated docs want and not what an embedded
+binary should print.
 
 `Error` is `#[non_exhaustive]` — always keep a fallback arm.
 

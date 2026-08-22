@@ -1141,6 +1141,32 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 #runtime_app
 
+                /// Render a help page using this CLI's process identity.
+                ///
+                /// [`Self::spec`] keeps the portable `name_spec` / `bin_spec` literals.
+                /// `parse()` already evaluates computed `name` / `bin` when it prints help;
+                /// this is the same overlay for a `parse_from` caller that handles
+                /// [`usage_argv::Error::Help`] itself.
+                pub fn render_help(
+                    cmd: &usage_argv::Command<'_>,
+                    long: bool,
+                ) -> ::std::option::Option<::std::string::String> {
+                    #effective_spec
+                    usage_argv::help::render(__usage_spec, cmd, long)
+                }
+
+                /// Render a parse failure using this CLI's process identity.
+                ///
+                /// The counterpart of [`Self::render_help`] for every error that is not a
+                /// help or version request. `parse()` uses the same overlay on stderr.
+                pub fn render_failure<'v>(
+                    argv: &[&'v ::std::ffi::OsStr],
+                    error: &usage_argv::Error<'static, 'v>,
+                ) -> ::std::string::String {
+                    #effective_spec
+                    usage_argv::render_failure(__usage_spec, argv, error)
+                }
+
                 /// This CLI's spec as KDL, which is what `usage g markdown|manpage`
                 /// and the completion generators read.
                 pub fn to_kdl() -> ::std::string::String {
@@ -1607,7 +1633,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 /// above it, so there is no path to rewrite.
 fn flatten_checks(cli: &Cli) -> TokenStream {
     let shape_checks = cli.fields.iter().filter_map(|f| {
-        let Kind::Flatten { ty } = &f.kind else {
+        let Kind::Flatten { ty, .. } = &f.kind else {
             return None;
         };
         Some(quote! {
@@ -2849,7 +2875,7 @@ fn tables(cli: &Cli) -> Tables {
                 own_args.push(arg_at);
                 arg_at += 1;
             }
-            Kind::Flatten { ty } => {
+            Kind::Flatten { ty, help_heading } => {
                 flattened = true;
                 if own_since_flatten > 0 {
                     flag_offset.push(quote!(#own_since_flatten));
@@ -2857,11 +2883,13 @@ fn tables(cli: &Cli) -> Tables {
                 }
                 let name = flagset_name(ty);
                 let terms = flag_offset.iter();
+                let help_heading = option_str(help_heading.as_deref());
                 flatten_groups.push(quote! {
                     usage_argv::spec::FlattenGroup {
                         name: #name,
                         start: 0 #(+ #terms)*,
                         meta: <#ty as usage_argv::spec::CommandArgs>::META,
+                        help_heading: #help_heading,
                     }
                 });
                 flag_offset
@@ -3483,7 +3511,7 @@ fn displacements(cli: &Cli, field: &Field) -> Vec<TokenStream> {
         .filter(|selector| cli.field_for_selector(selector).is_none())
     {
         for flattened in &cli.fields {
-            let Kind::Flatten { ty } = &flattened.kind else {
+            let Kind::Flatten { ty, .. } = &flattened.kind else {
                 continue;
             };
             let ident = &flattened.ident;
@@ -3696,7 +3724,7 @@ fn presence_methods(cli: &Cli) -> TokenStream {
         })
     });
     let flattened_given = cli.fields.iter().filter_map(|field| {
-        let Kind::Flatten { ty } = &field.kind else {
+        let Kind::Flatten { ty, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
@@ -3745,7 +3773,7 @@ fn presence_methods(cli: &Cli) -> TokenStream {
         })
     });
     let flattened_exclusive = cli.fields.iter().filter_map(|field| {
-        let Kind::Flatten { ty } = &field.kind else {
+        let Kind::Flatten { ty, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
@@ -3877,7 +3905,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         })
     });
     let state_flattened = cli.fields.iter().filter_map(|field| {
-        let Kind::Flatten { ty } = &field.kind else {
+        let Kind::Flatten { ty, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
@@ -3933,7 +3961,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         Some(quote!(#(#selectors)|* => return ::std::option::Option::Some(#given && #matches),))
     });
     let match_flattened = cli.fields.iter().filter_map(|field| {
-        let Kind::Flatten { ty } = &field.kind else {
+        let Kind::Flatten { ty, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
@@ -3980,7 +4008,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         })
     });
     let displace_flattened = cli.fields.iter().filter_map(|field| {
-        let Kind::Flatten { ty } = &field.kind else {
+        let Kind::Flatten { ty, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
@@ -4023,7 +4051,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         }
     });
     let event_flattened = cli.fields.iter().filter_map(|field| {
-        let Kind::Flatten { ty } = &field.kind else {
+        let Kind::Flatten { ty, .. } = &field.kind else {
             return None;
         };
         Some(quote! {
@@ -4123,7 +4151,7 @@ fn partial_struct(cli: &Cli) -> TokenStream {
         }
         // A flattened struct accumulates into its own partial, whose shape only its derive
         // knows — reached through the trait, like everything else about it.
-        if let Kind::Flatten { ty } = &f.kind {
+        if let Kind::Flatten { ty, .. } = &f.kind {
             let ident = &f.ident;
             return Some(quote! {
                 pub #ident: <#ty as usage_argv::spec::CommandArgs>::Partial,
@@ -4324,7 +4352,7 @@ fn children(cli: &Cli) -> Vec<(TokenStream, TokenStream)> {
         .filter_map(|field| {
             let ident = &field.ident;
             match &field.kind {
-                Kind::Flatten { ty } => Some((
+                Kind::Flatten { ty, .. } => Some((
                     quote!(<#ty as usage_argv::spec::CommandArgs>::SETTINGS_BINDINGS),
                     quote! {
                         <#ty as usage_argv::spec::CommandArgs>::settings_given(
@@ -4504,7 +4532,7 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
         }
         // `start()` rather than `Default`, so the flattened struct's own defaults are in
         // place before parsing — the same reason this function exists at all.
-        if let Kind::Flatten { ty } = &f.kind {
+        if let Kind::Flatten { ty, .. } = &f.kind {
             let ident = &f.ident;
             return Some(quote! {
                 #ident: <#ty as usage_argv::spec::CommandArgs>::start(),
@@ -4589,7 +4617,7 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
         // clap's skip: not parsed, filled from Default when the struct is built.
         return quote!(::std::default::Default::default());
     }
-    if let Kind::Flatten { ty } = &field.kind {
+    if let Kind::Flatten { ty, .. } = &field.kind {
         // Built by its own derive, which is also what makes a nested flatten work: this is
         // the same call at every level.
         return match omitter {
@@ -4945,7 +4973,7 @@ fn merge_fn(cli: &Cli) -> TokenStream {
         match &field.kind {
             // Not parsed, so this command line said nothing about it.
             Kind::Skip => None,
-            Kind::Flatten { ty } => Some(quote! {
+            Kind::Flatten { ty, .. } => Some(quote! {
                 <#ty as usage_argv::spec::CommandArgs>::merge(
                     partial.#field_ident,
                     &mut __usage_standing.#field_ident,
@@ -5031,7 +5059,7 @@ fn merge_fn(cli: &Cli) -> TokenStream {
 /// boundary on an update.
 fn any_standing_fn(cli: &Cli) -> TokenStream {
     let held = cli.fields.iter().filter_map(|field| {
-        if let Kind::Flatten { ty } = &field.kind {
+        if let Kind::Flatten { ty, .. } = &field.kind {
             let ident = &field.ident;
             return Some(quote! {
                 if let ::std::option::Option::Some(__usage_name) =
@@ -5262,7 +5290,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
         .fields
         .iter()
         .filter_map(|f| {
-            let Kind::Flatten { ty } = &f.kind else {
+            let Kind::Flatten { ty, .. } = &f.kind else {
                 return None;
             };
             Some(opaque_apply_arm(
@@ -5289,7 +5317,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
         })
         .collect();
     let mirrored_flattened = cli.fields.iter().filter_map(|f| {
-        let Kind::Flatten { ty } = &f.kind else {
+        let Kind::Flatten { ty, .. } = &f.kind else {
             return None;
         };
         let ident = &f.ident;
@@ -5823,7 +5851,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .fields
         .iter()
         .filter_map(|field| match &field.kind {
-            Kind::Flatten { ty } => {
+            Kind::Flatten { ty, .. } => {
                 Some(quote!(#ty: usage_argv::spec::ViewCommandArgs<__UsageOmitter>))
             }
             Kind::Subcommand { ty, .. } => {
@@ -5911,7 +5939,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         })
         .unwrap_or_default();
     let omit_flattened = cli.fields.iter().filter_map(|field| {
-        let Kind::Flatten { ty } = &field.kind else {
+        let Kind::Flatten { ty, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
@@ -7796,7 +7824,7 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
     let mut emitted = vec![false; entries.len()];
     let mut any_flattened = false;
     for (i, field) in cli.fields.iter().enumerate() {
-        let Kind::Flatten { ty } = &field.kind else {
+        let Kind::Flatten { ty, .. } = &field.kind else {
             continue;
         };
         any_flattened = true;
@@ -7900,7 +7928,7 @@ fn declared_defaults(cli: &Cli, filter_view: bool) -> TokenStream {
         })
     });
     let flattened = cli.fields.iter().filter_map(|f| {
-        let Kind::Flatten { ty } = &f.kind else {
+        let Kind::Flatten { ty, .. } = &f.kind else {
             return None;
         };
         let ident = &f.ident;
@@ -8053,7 +8081,7 @@ fn env_fallbacks(cli: &Cli, filter_view: bool) -> TokenStream {
         })
     });
     let flattened = cli.fields.iter().filter_map(|f| {
-        let Kind::Flatten { ty } = &f.kind else {
+        let Kind::Flatten { ty, .. } = &f.kind else {
             return None;
         };
         let ident = &f.ident;
@@ -8188,7 +8216,7 @@ fn deprecations_fn(cli: &Cli) -> TokenStream {
         })
     });
     let flattened = cli.fields.iter().filter_map(|f| {
-        let Kind::Flatten { ty } = &f.kind else {
+        let Kind::Flatten { ty, .. } = &f.kind else {
             return None;
         };
         let ident = &f.ident;
@@ -8370,7 +8398,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         Some(policy_given(field))
     });
     let flattened_exclusive_present = cli.fields.iter().filter_map(|field| {
-        let Kind::Flatten { ty } = &field.kind else {
+        let Kind::Flatten { ty, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
@@ -8406,7 +8434,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // there is no "in declaration order" to offer — a flattened group's errors interleave with
     // this command's by kind, not by where the field was written.
     let flattened_checks = cli.fields.iter().filter_map(|f| {
-        let Kind::Flatten { ty } = &f.kind else {
+        let Kind::Flatten { ty, .. } = &f.kind else {
             return None;
         };
         let ident = &f.ident;
@@ -8947,7 +8975,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         let ident = &field.ident;
         let standing = standing_ident(field);
         match &field.kind {
-            Kind::Flatten { ty } => Some(quote! {
+            Kind::Flatten { ty, .. } => Some(quote! {
                 (
                     <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#ident)
                         .or_else(|| {

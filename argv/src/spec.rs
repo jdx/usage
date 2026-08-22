@@ -923,6 +923,12 @@ pub struct FlattenGroup<'a> {
     /// The flagset's body comes from here rather than from the parent's slice, so a struct
     /// that flattens another can be written as a set that `use`s a set.
     pub meta: &'a CommandMeta<'a>,
+    /// Heading for this group's unheaded flags, from `next_help_heading` on the flatten site.
+    ///
+    /// A field that already names a heading keeps it. This is clap's
+    /// `#[command(flatten, next_help_heading = "…")]`: the section is declared where the
+    /// group is mounted, not on every field inside it.
+    pub help_heading: Option<&'a str>,
 }
 
 /// What a flag knows about itself beyond how it parses.
@@ -1563,6 +1569,14 @@ impl<'a> Flagsets<'a> {
     }
 
     fn record(&mut self, group: &'a FlattenGroup<'a>) {
+        if group.help_heading.is_some() {
+            // A flatten-site heading is per mount, so this run cannot be a shared
+            // `flagset`. Nested sets that have no heading of their own still can.
+            for nested in group.meta.flatten_groups {
+                self.record(nested);
+            }
+            return;
+        }
         if let Some(entry) = self.entries.iter_mut().find(|e| e.name == group.name) {
             if same_group(entry.meta, group.meta) {
                 // The same struct again, whose own sets were recorded the first time.
@@ -1635,6 +1649,16 @@ fn write_flag_layout(
     depth: usize,
     sets: &Flagsets<'_>,
 ) -> core::fmt::Result {
+    write_flag_layout_with(out, meta, depth, sets, None)
+}
+
+fn write_flag_layout_with(
+    out: &mut String,
+    meta: &CommandMeta<'_>,
+    depth: usize,
+    sets: &Flagsets<'_>,
+    inherited_heading: Option<&str>,
+) -> core::fmt::Result {
     let mut i = 0;
     while i < meta.flags.len() {
         // A group that contributed no flags has no run to stand for, and matching it would
@@ -1644,13 +1668,23 @@ fn write_flag_layout(
             .iter()
             .find(|g| g.start == i && !g.meta.flags.is_empty());
         match group {
-            Some(group) if sets.covers(group) => {
+            Some(group)
+                if sets.covers(group)
+                    && group.help_heading.is_none()
+                    && inherited_heading.is_none() =>
+            {
                 indent(out, depth)?;
                 writeln!(out, "use {}", quoted(group.name))?;
                 i += group.meta.flags.len();
             }
             Some(group) => {
-                write_flag_layout(out, group.meta, depth, sets)?;
+                write_flag_layout_with(
+                    out,
+                    group.meta,
+                    depth,
+                    sets,
+                    group.help_heading.or(inherited_heading),
+                )?;
                 i += group.meta.flags.len();
             }
             None => {
@@ -1663,7 +1697,7 @@ fn write_flag_layout(
                         .is_some_and(|f| core::ptr::eq(*f, meta.flags[i].flag)),
                     "flag metadata is out of step with the parse table"
                 );
-                write_flag(out, &meta.flags[i], depth)?;
+                write_flag(out, &meta.flags[i], depth, inherited_heading)?;
                 i += 1;
             }
         }
@@ -2001,7 +2035,12 @@ fn write_completers(
     Ok(())
 }
 
-fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt::Result {
+fn write_flag(
+    out: &mut String,
+    meta: &FlagMeta<'_>,
+    depth: usize,
+    inherited_heading: Option<&str>,
+) -> core::fmt::Result {
     indent(out, depth)?;
     write!(out, "flag {}", quoted(&flag_forms(meta)))?;
 
@@ -2066,7 +2105,7 @@ fn write_flag(out: &mut String, meta: &FlagMeta<'_>, depth: usize) -> core::fmt:
         // name, since that is what a token is matched against.
         write!(out, " negate={}", quoted(&format!("--{negate}")))?;
     }
-    if let Some(heading) = meta.help_heading {
+    if let Some(heading) = meta.help_heading.or(inherited_heading) {
         write!(out, " help_heading={}", quoted(heading))?;
     }
     if let Some(order) = meta.display_order {

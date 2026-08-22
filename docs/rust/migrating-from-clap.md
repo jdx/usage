@@ -218,7 +218,8 @@ clap tests usually include argv0. Choose the matching entry point explicitly:
 
 `parse_from` is the allocation-free primitive. `parse_from_argv` also applies multicall basename
 routing. Handle `usage::Error::Help` and `usage::Error::Version` before dispatch when an embedder
-must intercept those built-ins.
+must intercept those built-ins. Render those with `Cli::render_help` and `Cli::render_failure` so
+computed `name` / `bin` appear in the page; `Cli::spec()` is the portable identity.
 
 `update_from` and `try_update_from` carry clap's names but state their merge rules explicitly,
 because a parse cannot be run backwards to seed itself from a value: a standing field satisfies a

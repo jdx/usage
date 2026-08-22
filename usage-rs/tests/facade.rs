@@ -1282,6 +1282,57 @@ struct HeadedFlatten {
 
 #[derive(Args)]
 #[allow(dead_code)]
+struct BareNetworkArgs {
+    /// Registry URL.
+    #[arg(long)]
+    registry: Option<String>,
+}
+
+#[derive(Cli)]
+#[usage(bin = "site-headed-flatten")]
+#[allow(dead_code)]
+struct SiteHeadedFlatten {
+    /// Ordinary root flag.
+    #[arg(long)]
+    verbose: bool,
+    #[usage(flatten, next_help_heading = "Network")]
+    network: BareNetworkArgs,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct SiteInstall {
+    /// Force reinstall.
+    #[arg(long)]
+    force: bool,
+    #[usage(flatten, next_help_heading = "Lockfile")]
+    lockfile: BareLockfileArgs,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct BareLockfileArgs {
+    /// Error if the lockfile drifts.
+    #[arg(long)]
+    frozen_lockfile: bool,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum SiteCommands {
+    Install(SiteInstall),
+}
+
+#[derive(Cli)]
+#[usage(bin = "site-headed-cmd")]
+#[allow(dead_code)]
+struct SiteHeadedCmd {
+    #[usage(subcommand)]
+    command: SiteCommands,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
 struct FlattenedRepeatPolicy {
     #[arg(long)]
     jobs: Option<u32>,
@@ -1460,6 +1511,20 @@ struct SharedNestedCli {
 const DEFAULT_RUNS: u32 = 7;
 const DYNAMIC_ABOUT: &str = "Metadata from a Rust constant.";
 const DYNAMIC_AFTER_HELP: &str = "More details from a Rust constant.";
+
+fn hosted_program() -> &'static str {
+    "hosted-ex"
+}
+
+#[derive(Cli)]
+#[usage(
+    name = hosted_program(),
+    name_spec = "portable-hosted",
+    bin = hosted_program(),
+    bin_spec = "portable-hosted",
+    unknown_flags = "error"
+)]
+struct HostedEx;
 
 fn computed_version() -> &'static str {
     "1.2.3+runtime"
@@ -2056,6 +2121,56 @@ fn flattened_args_keep_their_help_heading_topology() {
 }
 
 #[test]
+fn flatten_site_next_help_heading_groups_unheaded_fields() {
+    let spec = SiteHeadedFlatten::spec();
+    let registry = spec
+        .root
+        .flags
+        .iter()
+        .find(|field| field.flag.name == "registry")
+        .unwrap();
+    assert_eq!(
+        registry.help_heading, None,
+        "the heading lives on the flatten site, not the field"
+    );
+
+    for long in [false, true] {
+        let help = usage::help::render(spec, spec.root.cmd, long).unwrap();
+        let flags = help.find("Flags:").unwrap();
+        let network = help.find("Network:").unwrap();
+        assert!(flags < network, "{help}");
+        assert!(help.contains("--registry"), "{help}");
+    }
+
+    let kdl = SiteHeadedFlatten::to_kdl();
+    assert!(
+        kdl.contains("help_heading=Network") || kdl.contains("help_heading=\"Network\""),
+        "flatten-site headings must reach emitted KDL: {kdl}"
+    );
+    assert!(
+        !kdl.contains("flagset"),
+        "a per-mount heading cannot share a flagset: {kdl}"
+    );
+}
+
+#[test]
+fn flatten_site_headings_reach_subcommand_help() {
+    let spec = SiteHeadedCmd::spec();
+    let install = spec
+        .root
+        .subcommands
+        .iter()
+        .find(|cmd| cmd.cmd.name == "install")
+        .unwrap();
+    for long in [false, true] {
+        let help = usage::help::render(spec, install.cmd, long).unwrap();
+        assert!(help.contains("Lockfile:"), "{help}");
+        assert!(help.contains("--frozen-lockfile"), "{help}");
+        assert!(help.contains("Flags:"), "{help}");
+    }
+}
+
+#[test]
 fn a_parent_repeat_policy_applies_through_flattening() {
     assert!(
         StrictFlatten::parse_from(&[
@@ -2502,6 +2617,36 @@ fn runtime_program_identity_is_separate_from_the_portable_spec() {
     let script = RuntimeIdentityEx::completion_script(usage::complete::Shell::Bash);
     assert!(script.contains("runtime-ex"), "{script}");
     assert!(!script.contains("'portable-ex'"), "{script}");
+}
+
+#[test]
+fn parse_from_help_helpers_use_runtime_identity() {
+    let portable = HostedEx::spec();
+    assert_eq!(portable.name, "portable-hosted");
+    assert_eq!(portable.bin, Some("portable-hosted"));
+
+    let from_spec = usage::help::render(portable, HostedEx::command(), true).unwrap();
+    assert!(
+        from_spec.contains("Usage: portable-hosted"),
+        "Cli::spec() is the portable identity: {from_spec}"
+    );
+
+    let from_helper = HostedEx::render_help(HostedEx::command(), true).unwrap();
+    assert!(
+        from_helper.contains("Usage: hosted-ex"),
+        "render_help evaluates computed name/bin: {from_helper}"
+    );
+    assert!(!from_helper.contains("portable-hosted"), "{from_helper}");
+
+    let err = match HostedEx::parse_from(&[OsStr::new("--nope")]) {
+        Err(err) => err,
+        Ok(_) => panic!("unknown flags are errors"),
+    };
+    let failure = HostedEx::render_failure(&[OsStr::new("--nope")], &err);
+    assert!(
+        failure.contains("Usage: hosted-ex"),
+        "render_failure evaluates computed name/bin: {failure}"
+    );
 }
 
 /// A CLI whose declarations have all four shapes of deprecation on them.

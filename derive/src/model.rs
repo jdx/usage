@@ -607,6 +607,9 @@ pub enum Kind {
     Flatten {
         /// The struct's type, as written.
         ty: syn::Type,
+        /// Heading applied to unheaded fields this flatten contributes, clap's
+        /// `next_help_heading` on the flatten site.
+        help_heading: Option<String>,
     },
     /// Holds the enum whose variants are one group of this command's exclusive flags.
     ///
@@ -1961,30 +1964,41 @@ impl Field {
         span: proc_macro2::Span,
     ) -> syn::Result<Option<Self>> {
         let mut found = false;
+        let mut help_heading = None;
         for attr in attrs(&field.attrs) {
             for meta in nested(attr)? {
-                if ident_of(&meta.path().clone()) != "flatten" {
-                    continue;
+                let name = ident_of(&meta.path().clone());
+                match name.as_str() {
+                    "flatten" => {
+                        if !matches!(meta, Meta::Path(_)) {
+                            return Err(syn::Error::new_spanned(
+                                meta.path(),
+                                "`flatten` takes no value: the struct it holds is the field's type",
+                            ));
+                        }
+                        found = true;
+                    }
+                    "next_help_heading" | "help_heading" => {
+                        help_heading = Some(string_value(&meta)?);
+                    }
+                    _ => {}
                 }
-                if !matches!(meta, Meta::Path(_)) {
-                    return Err(syn::Error::new_spanned(
-                        meta.path(),
-                        "`flatten` takes no value: the struct it holds is the field's type",
-                    ));
-                }
-                found = true;
             }
         }
         if !found {
             return Ok(None);
         }
 
-        // Nothing else may be declared beside it. `#[usage(flatten, long)]` reads as though
-        // the flattening were also a flag, and there is no such thing.
+        // A flatten is a seam, not a flag. `next_help_heading` / `help_heading` name the
+        // section its unheaded fields appear under; everything else belongs on the
+        // flattened struct's own fields.
         for attr in attrs(&field.attrs) {
             for meta in nested(attr)? {
                 let name = ident_of(&meta.path().clone());
-                if name != "flatten" {
+                if !matches!(
+                    name.as_str(),
+                    "flatten" | "next_help_heading" | "help_heading"
+                ) {
                     return Err(syn::Error::new_spanned(
                         meta.path(),
                         format!(
@@ -2014,6 +2028,7 @@ impl Field {
             value_optional: false,
             kind: Kind::Flatten {
                 ty: field.ty.clone(),
+                help_heading,
             },
             // Neither holds a flag of its own, so neither has an effect to declare: a
             // flattened group's flags carry their own, and a subcommand field is a command's
