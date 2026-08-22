@@ -1,4 +1,5 @@
-//! `USAGE_SHELL_<SHELL>` replaces the program `usage <shell>` runs.
+//! `USAGECLI_SHELL_<SHELL>` replaces the program `usage <shell>` runs, and the legacy
+//! `USAGE_SHELL_<SHELL>` still does.
 //!
 //! Runs on every platform, Windows above all: that is where `bash` resolves to the WSL
 //! launcher ahead of `PATH`, which is the reason the variable exists. Nothing here assumes the
@@ -24,11 +25,15 @@ fn substitute_program() -> String {
     std::env::var("CARGO").expect("cargo sets $CARGO for the processes it spawns")
 }
 
-/// `usage bash <script> --foo`, with every `USAGE_SHELL_*` cleared so a developer's own
-/// environment cannot change the result.
+/// `usage bash <script> --foo`, with every shell override cleared under both spellings so a
+/// developer's own environment cannot change the result.
 fn usage_bash() -> Command {
     let mut cmd = Command::new(cargo::cargo_bin!("usage"));
-    cmd.env_remove("USAGE_SHELL_BASH")
+    cmd.env_remove("USAGECLI_SHELL_BASH")
+        .env_remove("USAGECLI_SHELL_ZSH")
+        .env_remove("USAGECLI_SHELL_FISH")
+        .env_remove("USAGECLI_SHELL_PWSH")
+        .env_remove("USAGE_SHELL_BASH")
         .env_remove("USAGE_SHELL_ZSH")
         .env_remove("USAGE_SHELL_FISH")
         .env_remove("USAGE_SHELL_PWSH")
@@ -101,12 +106,60 @@ fn the_override_may_name_a_program_on_path() {
 fn a_program_that_cannot_be_started_names_itself_and_the_variable() {
     // A bare name rather than a path, so it fails the same way on every platform: nothing
     // resolves it on PATH, and no filesystem layout can accidentally make it exist.
+    //
+    // The variable named back is the one that was set, not whichever spelling is current — a
+    // message pointing at USAGECLI_SHELL_BASH would send whoever set the legacy name looking
+    // at a variable they never touched.
     usage_bash()
         .env("USAGE_SHELL_BASH", "usage-no-such-shell-xyz")
         .assert()
         .failure()
         .stderr(contains("usage-no-such-shell-xyz"))
         .stderr(contains("USAGE_SHELL_BASH"));
+}
+
+// The tests above set the legacy name, which is the point: they were written before the rename
+// and still pass, so they are what says nothing that set it has broken. Below is the same
+// ground under the current one.
+
+#[test]
+fn the_current_name_replaces_the_program() {
+    let out = usage_bash()
+        .env("USAGECLI_SHELL_BASH", substitute_program())
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains(SCRIPT), "{stderr}");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(!stdout.contains("foo: true"), "{stdout}");
+}
+
+#[test]
+fn the_current_name_wins_over_the_legacy_one() {
+    // Both set, and only the current one is read — so the run looks exactly like the one where
+    // the legacy name was not there at all.
+    let expected = usage_bash()
+        .env("USAGECLI_SHELL_BASH", substitute_program())
+        .output()
+        .unwrap();
+    let out = usage_bash()
+        .env("USAGECLI_SHELL_BASH", substitute_program())
+        .env("USAGE_SHELL_BASH", "usage-no-such-shell-xyz")
+        .output()
+        .unwrap();
+
+    assert_eq!(out.status.code(), expected.status.code());
+    assert_eq!(out.stdout, expected.stdout);
+}
+
+#[test]
+fn a_failure_under_the_current_name_names_it() {
+    usage_bash()
+        .env("USAGECLI_SHELL_BASH", "usage-no-such-shell-xyz")
+        .assert()
+        .failure()
+        .stderr(contains("USAGECLI_SHELL_BASH"));
 }
 
 #[test]

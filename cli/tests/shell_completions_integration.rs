@@ -4,19 +4,31 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// The program to run for `shell`, honouring the same `USAGE_SHELL_<SHELL>` override the CLI
-/// itself reads (`shell_program_override` in `cli/src/env.rs`).
+/// The program to run for `shell`, honouring the same `USAGECLI_SHELL_<SHELL>` override the CLI
+/// itself reads (`shell_program_override` in `cli/src/env.rs`), and the legacy
+/// `USAGE_SHELL_<SHELL>` behind it.
 ///
 /// It matters on Windows, where the executable search order puts the system directory ahead of
 /// `PATH` and installing WSL puts `bash.exe` there — so a bare `bash` is the WSL launcher,
 /// which cannot open the Windows paths these tests write. Pointing the variable at a real bash
 /// is what makes them runnable. Unset, which is every other platform, means the bare name.
+///
+/// The current spelling is also the one that survives `mise run`, which clears `usage_*` from a
+/// task's environment — so it is what lets these tests be driven by `mise r test` rather than by
+/// a bare `cargo test`.
 fn shell_program(shell: &str) -> String {
-    env::var(format!("USAGE_SHELL_{}", shell.to_ascii_uppercase()))
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| shell.to_string())
+    let upper = shell.to_ascii_uppercase();
+    [
+        format!("USAGECLI_SHELL_{upper}"),
+        format!("USAGE_SHELL_{upper}"),
+    ]
+    .iter()
+    .find_map(|key| {
+        let value = env::var(key).ok()?;
+        let value = value.trim().to_string();
+        (!value.is_empty()).then_some(value)
+    })
+    .unwrap_or_else(|| shell.to_string())
 }
 
 /// A path as a POSIX shell will read it.
