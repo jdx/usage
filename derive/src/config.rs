@@ -460,14 +460,16 @@ fn source_decl(meta: &Meta) -> syn::Result<Source> {
         if slot.is_some() {
             return Err(syn::Error::new_spanned(
                 &item,
-                format!("`{}` is given twice in this config source", ident_of(item.path())),
+                format!(
+                    "`{}` is given twice in this config source",
+                    ident_of(item.path())
+                ),
             ));
         }
         *slot = Some(string_value(&item)?);
     }
-    let kind = kind.ok_or_else(|| {
-        syn::Error::new_spanned(meta, "a config source needs `kind = \"...\"`")
-    })?;
+    let kind = kind
+        .ok_or_else(|| syn::Error::new_spanned(meta, "a config source needs `kind = \"...\"`"))?;
     if kind.is_empty() {
         return Err(syn::Error::new_spanned(
             meta,
@@ -1257,8 +1259,7 @@ fn extension(meta: &Meta) -> syn::Result<(String, Const)> {
     let mut values = values.into_iter();
     let key_expr = values.next().expect("length checked");
     let Expr::Lit(ExprLit {
-        lit: Lit::Str(key),
-        ..
+        lit: Lit::Str(key), ..
     }) = key_expr
     else {
         return Err(syn::Error::new_spanned(
@@ -2370,10 +2371,7 @@ mod tests {
             }
         "#,
         );
-        assert!(
-            err.contains("source(kind ="),
-            "unhelpful: {err}"
-        );
+        assert!(err.contains("source(kind ="), "unhelpful: {err}");
 
         let err = rejection(
             r#"
@@ -2393,10 +2391,7 @@ mod tests {
             }
         "#,
         );
-        assert!(
-            err.contains("not a config file scope"),
-            "unhelpful: {err}"
-        );
+        assert!(err.contains("not a config file scope"), "unhelpful: {err}");
 
         let err = rejection(
             r#"

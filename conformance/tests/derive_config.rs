@@ -267,7 +267,7 @@ fn the_emitted_config_block_is_the_spec_grammar() {
             ),
             (
                 "ex.restart_required".to_string(),
-                usage::spec::config::SpecConfigValue::Boolean(true)
+                usage::spec::config::SpecConfigValue::Bool(true)
             ),
         ]
     );
@@ -280,10 +280,7 @@ fn the_emitted_config_block_is_the_spec_grammar() {
     let git = spec.config.sources.get("git").expect("declared");
     assert_eq!(git.name.as_deref(), Some("git config"));
     assert_eq!(git.doc_hint.as_deref(), Some("git config `{key}`"));
-    assert_eq!(
-        git.set_hint.as_deref(),
-        Some("git config {key} {value}")
-    );
+    assert_eq!(git.set_hint.as_deref(), Some("git config {key} {value}"));
     assert_eq!(
         spec.config
             .files
