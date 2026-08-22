@@ -140,9 +140,23 @@ impl Ty {
             (Self::Bool, Value::String(text)) => match text.as_str() {
                 // The spellings every one of these registries accepts. Deliberately not
                 // "anything non-empty is true": `FOO=false` meaning true is the kind of
-                // surprise a config system exists to prevent.
-                "true" | "1" | "yes" | "y" | "on" => Ok(Value::Bool(true)),
-                "false" | "0" | "no" | "n" | "off" | "" => Ok(Value::Bool(false)),
+                // surprise a config system exists to prevent. Words are ASCII-case-insensitive:
+                // environment variables such as fnox's `FNOX_NO_DEFAULTS=TRUE` accepted that
+                // spelling before moving to this shared resolver.
+                "1" => Ok(Value::Bool(true)),
+                "0" | "" => Ok(Value::Bool(false)),
+                word if ["true", "yes", "y", "on"]
+                    .iter()
+                    .any(|known| word.eq_ignore_ascii_case(known)) =>
+                {
+                    Ok(Value::Bool(true))
+                }
+                word if ["false", "no", "n", "off"]
+                    .iter()
+                    .any(|known| word.eq_ignore_ascii_case(known)) =>
+                {
+                    Ok(Value::Bool(false))
+                }
                 _ => Err(TypeError {
                     expected: "a boolean",
                     found: text,
@@ -299,6 +313,12 @@ mod tests {
         // in a real CLI take.
         assert_eq!(Ty::Bool.coerce(s("yes")), Ok(Value::Bool(true)));
         assert_eq!(Ty::Bool.coerce(s("off")), Ok(Value::Bool(false)));
+        for value in ["TRUE", "True", "YES", "On"] {
+            assert_eq!(Ty::Bool.coerce(s(value)), Ok(Value::Bool(true)), "{value}");
+        }
+        for value in ["FALSE", "False", "NO", "Off"] {
+            assert_eq!(Ty::Bool.coerce(s(value)), Ok(Value::Bool(false)), "{value}");
+        }
         assert_eq!(Ty::Int.coerce(s("-3")), Ok(Value::Int(-3)));
         assert_eq!(Ty::Float.coerce(s(" 1.5 ")), Ok(Value::Float(1.5)));
         // Whitespace around a number is a typo, not a different number.
