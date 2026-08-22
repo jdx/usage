@@ -245,7 +245,10 @@ fn complete_word_kitchen_sink() {
 
 #[test]
 fn complete_word_choices() {
-    assert_cmd("mise.usage.kdl", &["--", "env", "--shell", ""])
+    assert_spec(
+        "../benches/mise.usage.kdl",
+        &["--", "env", "--shell", ""],
+    )
         .stdout("bash\nelvish\nfish\nnu\nxonsh\nzsh\npwsh\n");
 }
 
@@ -1008,16 +1011,20 @@ fn complete_word_config_values_say_nothing_when_they_know_nothing() {
     }
 }
 
-fn cmd(example: &str, shell: Option<&str>) -> Command {
+fn cmd(spec: &str, shell: Option<&str>) -> Command {
     let mut cmd = Command::new(cargo::cargo_bin!("usage"));
     cmd.args(["cw"]);
     if let Some(shell) = shell {
         cmd.args(["--shell", shell]);
     }
-    cmd.args(["-f", &format!("../examples/{example}"), "mycli"]);
+    cmd.args(["-f", spec, "mycli"]);
     cmd
 }
 
 fn assert_cmd(example: &str, args: &[&str]) -> Assert {
-    cmd(example, Some("fish")).args(args).assert().success()
+    assert_spec(&format!("../examples/{example}"), args)
+}
+
+fn assert_spec(spec: &str, args: &[&str]) -> Assert {
+    cmd(spec, Some("fish")).args(args).assert().success()
 }
