@@ -2468,7 +2468,7 @@ fn runtime_metadata_expressions_have_explicit_portable_values() {
     let kdl = DynamicEx::to_kdl();
     assert!(kdl.contains("version \"1.2.3\""), "{kdl}");
     assert!(
-        kdl.contains("long_version \"1.2.3\\ncommit portable\""),
+        kdl.contains("#\"\"\"\n1.2.3\ncommit portable\n\"\"\"#"),
         "{kdl}"
     );
     assert!(kdl.contains("default=\"7\""), "{kdl}");

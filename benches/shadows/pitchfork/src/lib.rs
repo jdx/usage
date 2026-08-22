@@ -9,8 +9,7 @@ use usage_derive::{Args, Cli, Subcommands, ValueEnum};
 
 /// Activate pitchfork in your shell session
 ///
-/// Generates shell code that enables automatic daemon management when changing
-/// directories. Required for auto-start/stop features in pitchfork.toml.
+/// Generates shell code that enables automatic daemon management when changing directories. Required for auto-start/stop features in pitchfork.toml.
 ///
 /// Supported shells: bash, zsh, fish
 ///
@@ -61,17 +60,14 @@ pub struct ApiSchemaArgs {}
 ///     macOS: ~/Library/LaunchAgents/pitchfork.plist
 ///     Linux: ~/.config/systemd/user/pitchfork.service
 ///
-/// If you want the supervisor to run as root but keep state files and IPC sockets
-/// under a specific user's home directory, configure `settings.supervisor.user`
-/// in your pitchfork configuration.
+/// If you want the supervisor to run as root but keep state files and IPC sockets under a specific user's home directory, configure `settings.supervisor.user` in your pitchfork configuration.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct BootEnableArgs {}
 
 /// Disable boot start for pitchfork supervisor
 ///
-/// Removes the boot start registration. Pitchfork will no longer start
-/// automatically on system boot.
+/// Removes the boot start registration. Pitchfork will no longer start automatically on system boot.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct BootDisableArgs {}
@@ -85,11 +81,9 @@ pub struct BootStatusArgs {}
 
 /// Enable or disable boot start
 ///
-/// Manages whether pitchfork supervisor starts automatically when the system
-/// boots. Uses platform-specific mechanisms (launchd on macOS, systemd on Linux).
+/// Manages whether pitchfork supervisor starts automatically when the system boots. Uses platform-specific mechanisms (launchd on macOS, systemd on Linux).
 ///
-/// When run as root (or via sudo), registers a system-level entry that starts
-/// pitchfork for all users:
+/// When run as root (or via sudo), registers a system-level entry that starts pitchfork for all users:
 ///
 ///     macOS: /Library/LaunchDaemons/pitchfork.plist
 ///     Linux: /etc/systemd/system/pitchfork.service
@@ -99,10 +93,7 @@ pub struct BootStatusArgs {}
 ///     macOS: ~/Library/LaunchAgents/pitchfork.plist
 ///     Linux: ~/.config/systemd/user/pitchfork.service
 ///
-/// To run the supervisor as root but keep state files and IPC sockets in a
-/// specific user's home directory, set `settings.supervisor.user` in the global
-/// pitchfork configuration (~/.config/pitchfork/config.toml or
-/// /etc/pitchfork/config.toml).
+/// To run the supervisor as root but keep state files and IPC sockets in a specific user's home directory, set `settings.supervisor.user` in the global pitchfork configuration (~/.config/pitchfork/config.toml or /etc/pitchfork/config.toml).
 ///
 /// Subcommands:
 ///
@@ -145,11 +136,9 @@ pub struct CdArgs {
 
 /// Removes stopped/failed daemons from `pitchfork list`
 ///
-/// Cleans up the daemon list by removing entries for daemons that are no
-/// longer running. Does not affect running daemons or their configurations.
+/// Cleans up the daemon list by removing entries for daemons that are no longer running. Does not affect running daemons or their configurations.
 ///
-/// Use this to clear out old entries after stopping daemons manually or
-/// after daemons have failed.
+/// Use this to clear out old entries after stopping daemons manually or after daemons have failed.
 ///
 /// Examples:
 ///
@@ -174,9 +163,7 @@ pub struct CleanArgs {
 
 /// Add a new daemon to pitchfork.toml
 ///
-/// Creates a new daemon configuration section in the pitchfork.toml file.
-/// The daemon will be added to the nearest pitchfork.toml found in the
-/// filesystem hierarchy starting from the current directory.
+/// Creates a new daemon configuration section in the pitchfork.toml file. The daemon will be added to the nearest pitchfork.toml found in the filesystem hierarchy starting from the current directory.
 ///
 /// Examples:
 ///
@@ -372,9 +359,7 @@ pub enum CompletionShellValue {
 
 /// Prevent a daemon from restarting
 ///
-/// Disables a daemon to prevent it from being started automatically or manually.
-/// The daemon will remain disabled until `pitchfork enable` is called.
-/// Useful for temporarily stopping a service without removing it from config.
+/// Disables a daemon to prevent it from being started automatically or manually. The daemon will remain disabled until `pitchfork enable` is called. Useful for temporarily stopping a service without removing it from config.
 ///
 /// Examples:
 ///
@@ -391,9 +376,7 @@ pub struct DisableArgs {
 
 /// Allow a daemon to start
 ///
-/// Re-enables a previously disabled daemon, allowing it to be started manually
-/// or automatically. Use this after `pitchfork disable` to restore normal
-/// operation.
+/// Re-enables a previously disabled daemon, allowing it to be started manually or automatically. Use this after `pitchfork disable` to restore normal operation.
 ///
 /// Examples:
 ///
@@ -409,12 +392,9 @@ pub struct EnableArgs {
 
 /// List all daemons
 ///
-/// Displays a table of all tracked daemons with their PIDs, status,
-/// whether they are disabled, and any error messages.
+/// Displays a table of all tracked daemons with their PIDs, status, whether they are disabled, and any error messages.
 ///
-/// This command shows both:
-/// - Active daemons (currently running or stopped)
-/// - Available daemons (defined in config but not yet started)
+/// This command shows both: - Active daemons (currently running or stopped) - Available daemons (defined in config but not yet started)
 ///
 /// Example:
 ///
@@ -453,9 +433,7 @@ pub struct ListArgs {
     pub namespace: ::std::vec::Vec<::std::string::String>,
     /// Only show daemons in the current project's namespace
     ///
-    /// The namespace is resolved from the current directory the same way
-    /// short daemon IDs are: the nearest config file's namespace, falling
-    /// back to 'global' when no config file is found.
+    /// The namespace is resolved from the current directory the same way short daemon IDs are: the nearest config file's namespace, falling back to 'global' when no config file is found.
     #[usage(long = "project")]
     pub project: bool,
 }
@@ -482,12 +460,7 @@ pub enum ListStatusValue {
 
 /// Reads a daemon's output on stdin and writes it to the log store
 ///
-/// Spawned by the supervisor as a sibling of the daemon, holding the read end
-/// of the daemon's output pipe. Keeping the reader in its own process is what
-/// makes logging survive a supervisor crash: the pipe still has a reader, so
-/// the daemon is neither killed by SIGPIPE nor blocked, and no output is lost.
-/// Exits when the pipe reaches end of file, which happens once the daemon and
-/// every descendant holding the write end have gone.
+/// Spawned by the supervisor as a sibling of the daemon, holding the read end of the daemon's output pipe. Keeping the reader in its own process is what makes logging survive a supervisor crash: the pipe still has a reader, so the daemon is neither killed by SIGPIPE nor blocked, and no output is lost. Exits when the pipe reaches end of file, which happens once the daemon and every descendant holding the write end have gone.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct LogSinkArgs {
@@ -499,22 +472,17 @@ pub struct LogSinkArgs {
     pub log_format: ::std::option::Option<::std::string::String>,
     /// Regex whose first match means the daemon is ready
     ///
-    /// Set for a daemon configured with `ready_output`. The supervisor cannot
-    /// match it itself — this process holds the output — so the match is
-    /// reported back over IPC.
+    /// Set for a daemon configured with `ready_output`. The supervisor cannot match it itself — this process holds the output — so the match is reported back over IPC.
     #[usage(long = "ready-pattern", value_name = "READY_PATTERN")]
     pub ready_pattern: ::std::option::Option<::std::string::String>,
     /// Token identifying the start attempt this sink belongs to
     ///
-    /// Quoted back when reporting a match. The supervisor drops reports whose
-    /// token is no longer current, so a sink still draining a failed attempt
-    /// cannot mark that daemon's retry ready.
+    /// Quoted back when reporting a match. The supervisor drops reports whose token is no longer current, so a sink still draining a failed attempt cannot mark that daemon's retry ready.
     #[usage(long = "relay-token", value_name = "RELAY_TOKEN", default = "0")]
     pub relay_token: ::std::option::Option<::std::string::String>,
     /// Report lines so the supervisor can fire the daemon's `on_output` hook
     ///
-    /// Without `--output-filter` or `--output-regex` every line qualifies,
-    /// which is what a hook with no pattern asks for.
+    /// Without `--output-filter` or `--output-regex` every line qualifies, which is what a hook with no pattern asks for.
     #[usage(long = "report-output")]
     pub report_output: bool,
     /// Only report lines containing this substring
@@ -534,8 +502,7 @@ pub struct LogSinkArgs {
 
 /// Displays logs for daemon(s)
 ///
-/// Shows logs from managed daemons. Logs are stored in the pitchfork logs directory
-/// and include timestamps for filtering.
+/// Shows logs from managed daemons. Logs are stored in the pitchfork logs directory and include timestamps for filtering.
 ///
 /// Examples:
 ///
@@ -563,8 +530,7 @@ pub struct LogsArgs {
     pub clear: bool,
     /// Show last N lines of logs
     ///
-    /// Only applies when --since/--until is not used.
-    /// Without this option, all logs are shown.
+    /// Only applies when --since/--until is not used. Without this option, all logs are shown.
     #[usage(short = 'n', value_name = "N")]
     pub n: ::std::option::Option<::std::string::String>,
     /// Show logs in real-time
@@ -572,17 +538,12 @@ pub struct LogsArgs {
     pub tail: bool,
     /// Show logs from this time
     ///
-    /// Supports multiple formats:
-    /// - Full datetime: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM"
-    /// - Time only: "HH:MM:SS" or "HH:MM" (uses today's date)
-    /// - Relative time: "5min", "2h", "1d" (e.g., last 5 minutes)
+    /// Supports multiple formats: - Full datetime: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM" - Time only: "HH:MM:SS" or "HH:MM" (uses today's date) - Relative time: "5min", "2h", "1d" (e.g., last 5 minutes)
     #[usage(long = "since", short = 's', value_name = "SINCE")]
     pub since: ::std::option::Option<::std::string::String>,
     /// Show logs until this time
     ///
-    /// Supports multiple formats:
-    /// - Full datetime: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM"
-    /// - Time only: "HH:MM:SS" or "HH:MM" (uses today's date)
+    /// Supports multiple formats: - Full datetime: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM" - Time only: "HH:MM:SS" or "HH:MM" (uses today's date)
     #[usage(long = "until", short = 'u', value_name = "UNTIL")]
     pub until: ::std::option::Option<::std::string::String>,
     /// Disable pager even in interactive terminal
@@ -607,22 +568,17 @@ pub struct LogsArgs {
     pub case_sensitive: bool,
     /// Filter by minimum log level (error, warn, info, debug, trace)
     ///
-    /// Shows entries at or above the given severity.
-    /// For example, `--level warn` shows warn and error.
-    /// Only effective for daemons with log_format json or logfmt.
+    /// Shows entries at or above the given severity. For example, `--level warn` shows warn and error. Only effective for daemons with log_format json or logfmt.
     #[usage(long = "level", value_name = "LEVEL")]
     pub level: ::std::option::Option<::std::string::String>,
     /// Filter by structured field value (KEY=VALUE, can be repeated)
     ///
-    /// Extracts the value from fields_json using json_extract($.KEY).
-    /// Multiple --field options are combined with AND.
+    /// Extracts the value from fields_json using json_extract($.KEY). Multiple --field options are combined with AND.
     #[usage(long = "field", value_name = "KEY=VALUE", var)]
     pub field: ::std::vec::Vec<::std::string::String>,
     /// Filter log entries with a jq expression
     ///
-    /// Each log entry is serialized as a JSON object with fields:
-    /// timestamp, daemon_id, message, level, msg, logger, fields.
-    /// Entries for which the expression produces a truthy value are shown.
+    /// Each log entry is serialized as a JSON object with fields: timestamp, daemon_id, message, level, msg, logger, fields. Entries for which the expression produces a truthy value are shown.
     #[usage(long = "jq", value_name = "EXPR")]
     pub jq: ::std::option::Option<::std::string::String>,
     /// Omit timestamps from log output
@@ -635,8 +591,7 @@ pub struct LogsArgs {
 
 /// Runs a Model Context Protocol (MCP) server over stdin/stdout
 ///
-/// This command starts an MCP server that exposes pitchfork daemon management
-/// to AI assistants (Claude, Cursor, etc.) over stdin/stdout using JSON-RPC.
+/// This command starts an MCP server that exposes pitchfork daemon management to AI assistants (Claude, Cursor, etc.) over stdin/stdout using JSON-RPC.
 ///
 /// Typically used as a subprocess by an MCP-aware AI agent.
 ///
@@ -667,15 +622,11 @@ pub struct McpArgs {}
 
 /// Install the proxy's self-signed TLS certificate into the system trust store
 ///
-/// This command installs pitchfork's auto-generated TLS certificate into your
-/// system's trust store so that browsers and tools trust HTTPS proxy URLs
-/// without certificate warnings.
+/// This command installs pitchfork's auto-generated TLS certificate into your system's trust store so that browsers and tools trust HTTPS proxy URLs without certificate warnings.
 ///
-/// On macOS, this installs the certificate into the current user's login
-/// keychain. No `sudo` required.
+/// On macOS, this installs the certificate into the current user's login keychain. No `sudo` required.
 ///
-/// On Linux, the appropriate CA certificate directory and update command are
-/// detected automatically based on the running distribution:
+/// On Linux, the appropriate CA certificate directory and update command are detected automatically based on the running distribution:
 ///   - Debian/Ubuntu: /usr/local/share/ca-certificates/ + update-ca-certificates
 ///   - RHEL/Fedora/CentOS: /etc/pki/ca-trust/source/anchors/ + update-ca-trust
 ///   - Arch Linux: /etc/ca-certificates/trust-source/anchors/ + trust extract-compat
@@ -699,12 +650,9 @@ pub struct ProxyTrustArgs {
 
 /// Remove the proxy's TLS certificate from the system trust store
 ///
-/// Removes the pitchfork CA certificate that was previously installed by
-/// `pitchfork proxy trust` or auto-trust.
+/// Removes the pitchfork CA certificate that was previously installed by `pitchfork proxy trust` or auto-trust.
 ///
-/// On macOS, removes the certificate from the login keychain and system keychain.
-/// On Linux, removes the certificate from the distro-specific CA directory
-/// and runs the appropriate update command.
+/// On macOS, removes the certificate from the login keychain and system keychain. On Linux, removes the certificate from the distro-specific CA directory and runs the appropriate update command.
 ///
 /// Example:
 ///
@@ -722,8 +670,7 @@ pub struct ProxyUntrustArgs {
 
 /// Show all registered slugs and their current state
 ///
-/// Displays the proxy configuration and lists all slugs from the global config
-/// with their project directory, daemon name, and current status (running/stopped, port).
+/// Displays the proxy configuration and lists all slugs from the global config with their project directory, daemon name, and current status (running/stopped, port).
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ProxyStatusArgs {
@@ -734,11 +681,9 @@ pub struct ProxyStatusArgs {
 
 /// Add a slug mapping to the global config
 ///
-/// Registers a slug in ~/.config/pitchfork/config.toml that maps to a project
-/// directory and daemon name. The proxy uses this to route requests.
+/// Registers a slug in ~/.config/pitchfork/config.toml that maps to a project directory and daemon name. The proxy uses this to route requests.
 ///
-/// If --dir is not specified, uses the current directory.
-/// If --daemon is not specified, defaults to the slug name.
+/// If --dir is not specified, uses the current directory. If --daemon is not specified, defaults to the slug name.
 ///
 /// Example:
 ///
@@ -781,12 +726,9 @@ pub struct ProxyRemoveArgs {
 
 /// Manage the pitchfork reverse proxy
 ///
-/// The reverse proxy routes requests from stable slug-based URLs like
-/// `https://myapp.localhost` to the daemon's actual listening port (e.g.
-/// localhost:3000).
+/// The reverse proxy routes requests from stable slug-based URLs like `https://myapp.localhost` to the daemon's actual listening port (e.g. localhost:3000).
 ///
-/// Slugs are defined in the global config (~/.config/pitchfork/config.toml)
-/// under [slugs]. Each slug maps to a project directory and daemon name.
+/// Slugs are defined in the global config (~/.config/pitchfork/config.toml) under [slugs]. Each slug maps to a project directory and daemon name.
 ///
 /// Enable the proxy in your pitchfork.toml or settings:
 ///
@@ -828,13 +770,9 @@ pub enum ProxyCommands {
 
 /// Enter (or replace) a project session tied to a host process.
 ///
-/// The host PID is required and is used by the supervisor to revoke the
-/// session automatically when the process dies (with a title match to guard
-/// against PID reuse).
+/// The host PID is required and is used by the supervisor to revoke the session automatically when the process dies (with a title match to guard against PID reuse).
 ///
-/// On Windows, automatic revocation when the host process exits is not
-/// available (Git Bash PIDs are invisible to the process table); sessions
-/// must be ended with an explicit `project leave`.
+/// On Windows, automatic revocation when the host process exits is not available (Git Bash PIDs are invisible to the process table); sessions must be ended with an explicit `project leave`.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct ProjectEnterArgs {
@@ -901,8 +839,7 @@ pub enum ProjectCommands {
 
 /// Restarts a daemon (stops then starts it)
 ///
-/// Equivalent to `start --force` - stops the daemon (SIGTERM) then starts it again
-/// from the pitchfork.toml configuration with dependency resolution.
+/// Equivalent to `start --force` - stops the daemon (SIGTERM) then starts it again from the pitchfork.toml configuration with dependency resolution.
 ///
 /// Examples:
 ///
@@ -966,8 +903,7 @@ pub struct RestartArgs {
 
 /// Runs a one-off daemon
 ///
-/// Runs a command as a managed daemon without needing a pitchfork.toml.
-/// The daemon is tracked by pitchfork and can be monitored with `pitchfork status`.
+/// Runs a command as a managed daemon without needing a pitchfork.toml. The daemon is tracked by pitchfork and can be monitored with `pitchfork status`.
 ///
 /// Examples:
 ///
@@ -1082,12 +1018,7 @@ pub struct SettingsSetArgs {
 
 /// View and modify pitchfork settings
 ///
-/// Settings can be configured in multiple ways (in order of precedence):
-/// 1. Environment variables (highest priority)
-/// 2. Project-level pitchfork.toml or pitchfork.local.toml in [settings] section
-/// 3. User-level ~/.config/pitchfork/config.toml in [settings] section
-/// 4. System-level /etc/pitchfork/config.toml in [settings] section
-/// 5. Built-in defaults (lowest priority)
+/// Settings can be configured in multiple ways (in order of precedence): 1. Environment variables (highest priority) 2. Project-level pitchfork.toml or pitchfork.local.toml in [settings] section 3. User-level ~/.config/pitchfork/config.toml in [settings] section 4. System-level /etc/pitchfork/config.toml in [settings] section 5. Built-in defaults (lowest priority)
 ///
 /// Subcommands:
 ///
@@ -1134,8 +1065,7 @@ pub struct SponsorsArgs {}
 
 /// Starts a daemon from a pitchfork.toml file
 ///
-/// Daemons are defined in pitchfork.toml with a `[daemons.<name>]` section.
-/// The command waits for the daemon to be ready before returning.
+/// Daemons are defined in pitchfork.toml with a `[daemons.<name>]` section. The command waits for the daemon to be ready before returning.
 ///
 /// Examples:
 ///
@@ -1222,8 +1152,7 @@ pub struct StartArgs {
 
 /// Display the status of a daemon
 ///
-/// Shows detailed information about a single daemon including its PID and
-/// current status (running, stopped, failed, etc.).
+/// Shows detailed information about a single daemon including its PID and current status (running, stopped, failed, etc.).
 ///
 /// Example:
 ///
@@ -1247,16 +1176,11 @@ pub struct StatusArgs {
 
 /// Sends a stop signal to a daemon
 ///
-/// Uses a graceful shutdown strategy:
-/// 1. Send SIGTERM and wait up to ~3 seconds for the process to exit (fast 10ms checks initially, then 50ms)
-/// 2. If still running, send SIGKILL to force termination
+/// Uses a graceful shutdown strategy: 1. Send SIGTERM and wait up to ~3 seconds for the process to exit (fast 10ms checks initially, then 50ms) 2. If still running, send SIGKILL to force termination
 ///
-/// Most processes will exit immediately after the first SIGTERM. The escalation
-/// ensures stubborn processes are eventually terminated while giving well-behaved
-/// processes time to clean up resources.
+/// Most processes will exit immediately after the first SIGTERM. The escalation ensures stubborn processes are eventually terminated while giving well-behaved processes time to clean up resources.
 ///
-/// When using --all/--local/--global, daemons are stopped in reverse dependency order:
-/// dependents are stopped before the daemons they depend on.
+/// When using --all/--local/--global, daemons are stopped in reverse dependency order: dependents are stopped before the daemons they depend on.
 ///
 /// Examples:
 ///
@@ -1369,11 +1293,9 @@ pub enum SupervisorCommands {
 
 /// Launch the interactive TUI dashboard
 ///
-/// Shows live daemon status with fuzzy search, sorting, batch operations,
-/// log viewing, and a config editor.
+/// Shows live daemon status with fuzzy search, sorting, batch operations, log viewing, and a config editor.
 ///
-/// The dashboard can be scoped to one or more namespaces; the fuzzy search
-/// (`/`) then operates within the scoped set.
+/// The dashboard can be scoped to one or more namespaces; the fuzzy search (`/`) then operates within the scoped set.
 ///
 /// Example:
 ///
@@ -1388,9 +1310,7 @@ pub struct TuiArgs {
     pub namespace: ::std::vec::Vec<::std::string::String>,
     /// Only show daemons in the current project's namespace
     ///
-    /// The namespace is resolved from the current directory the same way
-    /// short daemon IDs are: the nearest config file's namespace, falling
-    /// back to 'global' when no config file is found.
+    /// The namespace is resolved from the current directory the same way short daemon IDs are: the nearest config file's namespace, falling back to 'global' when no config file is found.
     #[usage(long = "project")]
     pub project: bool,
 }
@@ -1404,8 +1324,7 @@ pub struct UsageArgs {}
 
 /// Wait for a daemon to stop, tailing the logs along the way
 ///
-/// Blocks until the specified daemon stops running, while displaying its
-/// log output in real-time. Exits with the same status code as the daemon.
+/// Blocks until the specified daemon stops running, while displaying its log output in real-time. Exits with the same status code as the daemon.
 ///
 /// Useful in scripts that need to wait for a daemon to complete.
 ///

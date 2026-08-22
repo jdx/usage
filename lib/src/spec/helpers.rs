@@ -9,12 +9,16 @@ use crate::spec::context::ParsingContext;
 
 /// Compute the number of `#` characters needed for a raw multiline string.
 /// We need `n` such that the value does not contain `"""` followed by `n` `#` characters.
+///
+/// Scans overlapping offsets: `""""#` contains `"""#` starting at the second
+/// quote, which `str::match_indices` skips. One hash would then emit a closer
+/// that sits inside the payload and truncates the string.
 fn raw_multiline_hash_count(value: &str) -> usize {
     let mut max_count = 0;
-    for line in value.lines() {
-        for (idx, _) in line.match_indices("\"\"\"") {
-            let after = &line[idx + 3..];
-            let count = after.chars().take_while(|&c| c == '#').count();
+    let bytes = value.as_bytes();
+    for i in 0..bytes.len().saturating_sub(2) {
+        if bytes[i] == b'"' && bytes[i + 1] == b'"' && bytes[i + 2] == b'"' {
+            let count = value[i + 3..].chars().take_while(|&c| c == '#').count();
             max_count = max_count.max(count);
         }
     }
@@ -345,5 +349,30 @@ mod tests {
         let helper = NodeHelper::new(&ctx, node);
 
         assert!(helper.arg(0).unwrap().ensure_usize().is_err());
+    }
+
+    #[test]
+    fn overlapping_quotes_raise_the_raw_multiline_hash_count() {
+        assert_eq!(raw_multiline_hash_count("\"\"\"#"), 2);
+        assert_eq!(raw_multiline_hash_count("\"\"\"\"#"), 2);
+        assert_eq!(raw_multiline_hash_count("\"\"\"\"##"), 3);
+        assert_eq!(raw_multiline_hash_count("plain"), 1);
+    }
+
+    #[test]
+    fn overlapping_quotes_round_trip_through_parse() {
+        for value in [
+            "before\n\"\"\"\"#\nafter",
+            "before\n\"\"\"\"##\nafter",
+            "line\n\"\"\"#\nstill",
+        ] {
+            let mut node = KdlNode::new("about");
+            node.push(string_entry(None, value));
+            let kdl = format!("name ex\nbin ex\n{node}\n");
+            let spec: crate::Spec = kdl
+                .parse()
+                .unwrap_or_else(|e| panic!("emitted spec must parse: {e}\n{kdl}"));
+            assert_eq!(spec.about.as_deref(), Some(value), "{kdl}");
+        }
     }
 }

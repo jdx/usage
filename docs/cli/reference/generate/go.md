@@ -8,9 +8,7 @@
 
 Generate Go parse tables from a usage spec
 
-The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what
-a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build
-time — typically from a `go:generate` line:
+The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build time — typically from a `go:generate` line:
 
 //go:generate usage generate go -f mycli.usage.kdl -o tables.go
 

@@ -9,16 +9,13 @@ use bpaf::Bpaf;
 
 /// Initializes mise in the current shell session
 ///
-/// This should go into your shell's rc file or login shell.
-/// Otherwise, it will only take effect in the current session.
-/// (e.g. ~/.zshrc, ~/.zprofile, ~/.zshenv, ~/.bashrc, ~/.bash_profile, ~/.profile, ~/.config/fish/config.fish, or $PROFILE for powershell)
+/// This should go into your shell's rc file or login shell. Otherwise, it will only take effect in the current session. (e.g. ~/.zshrc, ~/.zprofile, ~/.zshenv, ~/.bashrc, ~/.bash_profile, ~/.profile, ~/.config/fish/config.fish, or $PROFILE for powershell)
 ///
 /// Typically, this can be added with something like the following:
 ///
 ///     echo 'eval "$(mise activate zsh)"' >> ~/.zshrc
 ///
-/// However, this requires that "mise" is in your PATH. If it is not, you need to
-/// specify the full path like this:
+/// However, this requires that "mise" is in your PATH. If it is not, you need to specify the full path like this:
 ///
 ///     echo 'eval "$(/path/to/mise activate zsh)"' >> ~/.zshrc
 ///
@@ -34,10 +31,7 @@ pub struct ActivateArgs {
     pub shell: Option<String>,
     /// Do not automatically call hook-env
     ///
-    /// This can be helpful for debugging mise. If you run `eval "$(mise activate --no-hook-env)"`, then
-    /// you can call `mise hook-env` manually which will output the env vars to stdout without actually
-    /// modifying the environment. That way you can do things like `mise hook-env --trace` to get more
-    /// information or just see the values that hook-env is outputting.
+    /// This can be helpful for debugging mise. If you run `eval "$(mise activate --no-hook-env)"`, then you can call `mise hook-env` manually which will output the env vars to stdout without actually modifying the environment. That way you can do things like `mise hook-env --trace` to get more information or just see the values that hook-env is outputting.
     #[bpaf(long("no-hook-env"), switch)]
     pub no_hook_env: bool,
     #[bpaf(long("shims"), switch)]
@@ -292,9 +286,7 @@ pub enum BootstrapComposeCommands {
 
 /// Add or update dotfiles in `[dotfiles]`
 ///
-/// If the target is already managed, this updates its source from the live
-/// target. Otherwise it creates a `[dotfiles]` entry and seeds the source
-/// under `dotfiles.root` unless `--source` is provided.
+/// If the target is already managed, this updates its source from the live target. Otherwise it creates a `[dotfiles]` entry and seeds the source under `dotfiles.root` unless `--source` is provided.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(bootstrapdotfilesaddargs_p))]
 pub struct BootstrapDotfilesAddArgs {
@@ -332,10 +324,7 @@ pub struct BootstrapDotfilesAddArgs {
 
 /// Apply dotfiles from `[dotfiles]`
 ///
-/// Applies configured whole-file entries and edits that aren't in their
-/// desired state. Whole-file entries may symlink, copy, or render templates.
-/// Edit entries manage a marker-delimited block or a single line in a file
-/// mise doesn't otherwise own.
+/// Applies configured whole-file entries and edits that aren't in their desired state. Whole-file entries may symlink, copy, or render templates. Edit entries manage a marker-delimited block or a single line in a file mise doesn't otherwise own.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(bootstrapdotfilesapplyargs_p))]
 pub struct BootstrapDotfilesApplyArgs {
@@ -390,9 +379,7 @@ pub struct BootstrapDotfilesStatusArgs {
 
 /// Remove dotfiles applied from `[dotfiles]`
 ///
-/// Removes configured whole-file entries and edits while preserving files
-/// mise cannot identify as managed. Modified copies, templates, and plain-line
-/// edits require `--force`.
+/// Removes configured whole-file entries and edits while preserving files mise cannot identify as managed. Modified copies, templates, and plain-line edits require `--force`.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(bootstrapdotfilesunapplyargs_p))]
 pub struct BootstrapDotfilesUnapplyArgs {
@@ -825,14 +812,9 @@ pub enum BootstrapMiseShellActivateCommands {
 
 /// Apply system packages from `[bootstrap.packages]`
 ///
-/// Checks which configured packages are missing and installs them with the
-/// system package manager. Built-in system managers may elevate with sudo when
-/// not running as root (see `system_packages.sudo`); package plugins never do.
+/// Checks which configured packages are missing and installs them with the system package manager. Built-in system managers may elevate with sudo when not running as root (see `system_packages.sudo`); package plugins never do.
 ///
-/// Packages can also be given explicitly in `manager:package` form (e.g.
-/// `apk:zlib-dev`, `apt:curl`, `brew:jq`); they are installed whether or not they appear in
-/// the config. Explicit packages and `--manager` scope the run to packages
-/// only. `install` is accepted as an alias for this command.
+/// Packages can also be given explicitly in `manager:package` form (e.g. `apk:zlib-dev`, `apt:curl`, `brew:jq`); they are installed whether or not they appear in the config. Explicit packages and `--manager` scope the run to packages only. `install` is accepted as an alias for this command.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(bootstrappackagesapplyargs_p))]
 pub struct BootstrapPackagesApplyArgs {
@@ -893,8 +875,7 @@ pub struct BootstrapPackagesBrewUntapArgs {
 
 /// Manage Homebrew taps used by bootstrap packages
 ///
-/// These commands edit `[bootstrap.brew.taps]` so tapped formulae and casks
-/// can be fetched directly by mise without a Homebrew installation.
+/// These commands edit `[bootstrap.brew.taps]` so tapped formulae and casks can be fetched directly by mise without a Homebrew installation.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(bootstrappackagesbrewargs_p))]
 pub struct BootstrapPackagesBrewArgs {
@@ -915,9 +896,7 @@ pub enum BootstrapPackagesBrewCommands {
 
 /// Import installed system packages into `[bootstrap.packages]`
 ///
-/// Currently supports Homebrew formulae only. By default, imports linked
-/// formulae whose active keg receipt says they were installed on request.
-/// Pass `--all` to import every linked formula, including dependencies.
+/// Currently supports Homebrew formulae only. By default, imports linked formulae whose active keg receipt says they were installed on request. Pass `--all` to import every linked formula, including dependencies.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(bootstrappackagesimportargs_p))]
 pub struct BootstrapPackagesImportArgs {
@@ -943,9 +922,7 @@ pub struct BootstrapPackagesImportArgs {
 
 /// Prune installed system packages no longer declared in `[bootstrap.packages]`
 ///
-/// Supports Homebrew formulae and conservatively removable, mise-owned casks.
-/// Pruning keeps packages needed by the current config or by trusted, loadable
-/// tracked configs.
+/// Supports Homebrew formulae and conservatively removable, mise-owned casks. Pruning keeps packages needed by the current config or by trusted, loadable tracked configs.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(bootstrappackagespruneargs_p))]
 pub struct BootstrapPackagesPruneArgs {
@@ -974,13 +951,7 @@ pub struct BootstrapPackagesStatusArgs {
 
 /// Upgrade installed bootstrap packages from `[bootstrap.packages]`
 ///
-/// Refreshes package manager metadata and upgrades the configured packages
-/// that are already installed: apk/apt/dnf/pacman upgrade to the newest available
-/// version (apk, apt, and dnf honor a version pinned in config), brew pours the
-/// formula's current bottle and replaces the old keg, brew-cask installs
-/// the current cask artifact, flatpak and flatpak-user update applications and runtimes, and mas upgrades App Store apps. Packages that
-/// are not installed yet are skipped — use `mise bootstrap packages apply`
-/// for those.
+/// Refreshes package manager metadata and upgrades the configured packages that are already installed: apk/apt/dnf/pacman upgrade to the newest available version (apk, apt, and dnf honor a version pinned in config), brew pours the formula's current bottle and replaces the old keg, brew-cask installs the current cask artifact, flatpak and flatpak-user update applications and runtimes, and mas upgrades App Store apps. Packages that are not installed yet are skipped — use `mise bootstrap packages apply` for those.
 ///
 /// Packages can also be given explicitly in `manager:package` form.
 #[derive(Debug, Clone, Bpaf)]
@@ -1001,15 +972,9 @@ pub struct BootstrapPackagesUpgradeArgs {
 
 /// Add bootstrap packages to [bootstrap.packages] and install them
 ///
-/// Like `mise use` for tools: writes `"manager:package" = "version"` entries
-/// to mise.toml (the local config by default, the global one with `-g`) and
-/// then installs whatever is missing.
+/// Like `mise use` for tools: writes `"manager:package" = "version"` entries to mise.toml (the local config by default, the global one with `-g`) and then installs whatever is missing.
 ///
-/// Versions are pinned with `@`: `mise bootstrap packages use apt:curl@8.5.0-2`. Without
-/// `@` (or with `@latest`) no pin is written. brew formulae and casks
-/// version through their names instead (for example `brew:postgresql@17`,
-/// `brew-cask:temurin@17`), where `@` is part of the Homebrew name rather than
-/// a mise version selector. mas uses numeric ADAM IDs and does not support pins.
+/// Versions are pinned with `@`: `mise bootstrap packages use apt:curl@8.5.0-2`. Without `@` (or with `@latest`) no pin is written. brew formulae and casks version through their names instead (for example `brew:postgresql@17`, `brew-cask:temurin@17`), where `@` is part of the Homebrew name rather than a mise version selector. mas uses numeric ADAM IDs and does not support pins.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(bootstrappackagesuseargs_p))]
 pub struct BootstrapPackagesUseArgs {
@@ -1441,8 +1406,7 @@ pub enum BootstrapUserCommands {
 ///    `[bootstrap.groups]` (Linux)
 /// 1. `mise bootstrap plugins apply` — install `[bootstrap.plugins]`
 ///    1.7. `[bootstrap.hooks.pre-packages]` — optional setup hook
-/// 2. Install built-in-manager entries from `[bootstrap.packages]`
-/// 3. `mise bootstrap files apply` — converge `[bootstrap.files]` and
+/// 2. Install built-in-manager entries from `[bootstrap.packages]` 3. `mise bootstrap files apply` — converge `[bootstrap.files]` and
 ///    `[bootstrap.directories]`
 /// 4. `mise bootstrap services apply` — converge `[bootstrap.services]`
 ///    systemd system services (Linux)
@@ -1470,18 +1434,11 @@ pub enum BootstrapUserCommands {
 ///     surrounded by `pre-tools`/`post-tools` hooks; package-plugin entries
 ///     from `[bootstrap.packages]` install afterward, followed by
 ///     `[bootstrap.hooks.post-packages]`
-/// 15. `mise run bootstrap` — if a task named `bootstrap` is defined
-/// 16. `[bootstrap.hooks.final]` — optional final hook
+/// 15. `mise run bootstrap` — if a task named `bootstrap` is defined 16. `[bootstrap.hooks.final]` — optional final hook
 ///
-/// The declarative steps converge — anything already in its desired state
-/// is skipped, so re-running is safe. The `bootstrap` task runs on every
-/// invocation; keep it idempotent. Use it for any project-specific setup
-/// that doesn't fit the declarative sections (seeding databases, auth flows,
-/// etc.) — it runs with the installed tools on PATH.
+/// The declarative steps converge — anything already in its desired state is skipped, so re-running is safe. The `bootstrap` task runs on every invocation; keep it idempotent. Use it for any project-specific setup that doesn't fit the declarative sections (seeding databases, auth flows, etc.) — it runs with the installed tools on PATH.
 ///
-/// Use `--skip <part>` to skip named parts, or `--only <part>` to run just
-/// named parts. Both flags can be repeated or comma-separated, but they
-/// cannot be used together.
+/// Use `--skip <part>` to skip named parts, or `--only <part>` to run just named parts. Both flags can be repeated or comma-separated, but they cannot be used together.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(bootstrapargs_p))]
 pub struct BootstrapArgs {
@@ -1496,8 +1453,7 @@ pub struct BootstrapArgs {
     pub force_dotfiles: bool,
     /// Run only one or more bootstrap parts
     ///
-    /// Can be passed multiple times or as a comma-separated list.
-    /// Cannot be used with `--skip`.
+    /// Can be passed multiple times or as a comma-separated list. Cannot be used with `--skip`.
     #[bpaf(long("only"), argument("ONLY"))]
     pub only: Vec<String>,
     /// Prompt securely for missing bootstrap secret inputs
@@ -1625,8 +1581,7 @@ pub struct CachePathArgs {}
 
 /// Removes stale mise cache files
 ///
-/// By default, this command will remove files that have not been accessed in 30 days.
-/// Change this with the MISE_CACHE_PRUNE_AGE environment variable.
+/// By default, this command will remove files that have not been accessed in 30 days. Change this with the MISE_CACHE_PRUNE_AGE environment variable.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(cachepruneargs_p))]
 pub struct CachePruneArgs {
@@ -1688,8 +1643,7 @@ pub struct CompletionArgs {
     pub shell: Option<String>,
     /// Include the bash completion library in the bash completion script
     ///
-    /// This is required for completions to work in bash, but it is not included by default
-    /// you may source it separately or enable this flag to enable it in the script.
+    /// This is required for completions to work in bash, but it is not included by default you may source it separately or enable this flag to enable it in the script.
     #[bpaf(long("include-bash-completion-lib"), switch)]
     pub include_bash_completion_lib: bool,
     #[bpaf(long("usage"), switch)]
@@ -1784,8 +1738,7 @@ pub enum ConfigCommands {
 
 /// Shows current active and installed runtime versions
 ///
-/// This is similar to `mise ls --current`, but this only shows the runtime
-/// and/or version. It's designed to fit into scripts more easily.
+/// This is similar to `mise ls --current`, but this only shows the runtime and/or version. It's designed to fit into scripts more easily.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(currentargs_p))]
 pub struct CurrentArgs {
@@ -1804,9 +1757,7 @@ pub struct DeactivateArgs {}
 ///
 /// See https://mise.jdx.dev/direnv.html for more information
 ///
-/// Because this generates the idiomatic files based on currently installed plugins,
-/// you should run this command after installing new plugins. Otherwise
-/// direnv may not know to update environment variables when idiomatic file versions change.
+/// Because this generates the idiomatic files based on currently installed plugins, you should run this command after installing new plugins. Otherwise direnv may not know to update environment variables when idiomatic file versions change.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(direnvactivateargs_p))]
 pub struct DirenvActivateArgs {}
@@ -1823,9 +1774,7 @@ pub struct DirenvExecArgs {}
 ///
 /// See https://mise.jdx.dev/direnv.html for more information
 ///
-/// Because this generates the idiomatic files based on currently installed plugins,
-/// you should run this command after installing new plugins. Otherwise
-/// direnv may not know to update environment variables when idiomatic file versions change.
+/// Because this generates the idiomatic files based on currently installed plugins, you should run this command after installing new plugins. Otherwise direnv may not know to update environment variables when idiomatic file versions change.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(direnvargs_p))]
 pub struct DirenvArgs {
@@ -1847,9 +1796,7 @@ pub enum DirenvCommands {
 
 /// Add or update dotfiles in `[dotfiles]`
 ///
-/// If the target is already managed, this updates its source from the live
-/// target. Otherwise it creates a `[dotfiles]` entry and seeds the source
-/// under `dotfiles.root` unless `--source` is provided.
+/// If the target is already managed, this updates its source from the live target. Otherwise it creates a `[dotfiles]` entry and seeds the source under `dotfiles.root` unless `--source` is provided.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(dotfilesaddargs_p))]
 pub struct DotfilesAddArgs {
@@ -1887,10 +1834,7 @@ pub struct DotfilesAddArgs {
 
 /// Apply dotfiles from `[dotfiles]`
 ///
-/// Applies configured whole-file entries and edits that aren't in their
-/// desired state. Whole-file entries may symlink, copy, or render templates.
-/// Edit entries manage a marker-delimited block or a single line in a file
-/// mise doesn't otherwise own.
+/// Applies configured whole-file entries and edits that aren't in their desired state. Whole-file entries may symlink, copy, or render templates. Edit entries manage a marker-delimited block or a single line in a file mise doesn't otherwise own.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(dotfilesapplyargs_p))]
 pub struct DotfilesApplyArgs {
@@ -1945,9 +1889,7 @@ pub struct DotfilesStatusArgs {
 
 /// Remove dotfiles applied from `[dotfiles]`
 ///
-/// Removes configured whole-file entries and edits while preserving files
-/// mise cannot identify as managed. Modified copies, templates, and plain-line
-/// edits require `--force`.
+/// Removes configured whole-file entries and edits while preserving files mise cannot identify as managed. Modified copies, templates, and plain-line edits require `--force`.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(dotfilesunapplyargs_p))]
 pub struct DotfilesUnapplyArgs {
@@ -2024,9 +1966,7 @@ pub enum DoctorCommands {
 
 /// Starts a new shell with the mise environment built from the current configuration
 ///
-/// This is an alternative to `mise activate` that allows you to explicitly start a mise session.
-/// It will have the tools and environment variables in the configs loaded.
-/// Note that changing directories will not update the mise environment.
+/// This is an alternative to `mise activate` that allows you to explicitly start a mise session. It will have the tools and environment variables in the configs loaded. Note that changing directories will not update the mise environment.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(enargs_p))]
 pub struct EnArgs {
@@ -2042,8 +1982,7 @@ pub struct EnArgs {
 
 /// Exports env vars to activate mise a single time
 ///
-/// Use this if you don't want to permanently install mise. It's not necessary to
-/// use this if you have `mise activate` in your shell rc file.
+/// Use this if you don't want to permanently install mise. It's not necessary to use this if you have `mise activate` in your shell rc file.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(envargs_p))]
 pub struct EnvArgs {
@@ -2074,9 +2013,7 @@ pub struct EnvArgs {
 ///
 /// use this to avoid modifying the shell session or running ad-hoc commands with mise tools set.
 ///
-/// Tools will be loaded from mise.toml, though they can be overridden with <RUNTIME> args
-/// Note that only the plugin specified will be overridden, so if a `mise.toml` file
-/// includes "node 20" but you run `mise exec python@3.11`; it will still load node@20.
+/// Tools will be loaded from mise.toml, though they can be overridden with <RUNTIME> args Note that only the plugin specified will be overridden, so if a `mise.toml` file includes "node 20" but you run `mise exec python@3.11`; it will still load node@20.
 ///
 /// The "--" separates runtimes from the commands to pass along to the subprocess.
 #[derive(Debug, Clone, Bpaf)]
@@ -2165,12 +2102,9 @@ pub struct GenerateBootstrapArgs {
     pub localized_dir: Option<String>,
     /// Also write a Windows launcher, `<WRITE>.cmd`
     ///
-    /// Windows cannot execute the `#!/usr/bin/env bash` script, so a contributor who clones the
-    /// project on Windows has nothing to run without this.
+    /// Windows cannot execute the `#!/usr/bin/env bash` script, so a contributor who clones the project on Windows has nothing to run without this.
     ///
-    /// Generated on every host, not only on Windows: the file is committed, and whoever runs it
-    /// on Windows is not the person who generated it. Requires `--write`, since stdout cannot
-    /// carry two files.
+    /// Generated on every host, not only on Windows: the file is committed, and whoever runs it on Windows is not the person who generated it. Requires `--write`, since stdout cannot carry two files.
     #[bpaf(long("windows"), switch)]
     pub windows: bool,
 }
@@ -2213,8 +2147,7 @@ pub struct GenerateDevcontainerArgs {
 
 /// Generate a git pre-commit hook
 ///
-/// This command generates a git pre-commit hook that runs a mise task like `mise run pre-commit`
-/// when you commit changes to your repository.
+/// This command generates a git pre-commit hook that runs a mise task like `mise run pre-commit` when you commit changes to your repository.
 ///
 /// Staged files are passed to the task as `STAGED`.
 ///
@@ -2233,17 +2166,14 @@ pub struct GenerateGitPreCommitArgs {
     pub hook: Option<String>,
     /// mise flags to embed in the generated hook, given after `--`
     ///
-    /// These are inserted between `mise` and `run`, so the hook carries the same context you
-    /// would pass on the command line. Useful when the config is not at the repository root,
-    /// since git runs hooks from the top level: `-- -C subdir` makes the hook find it.
+    /// These are inserted between `mise` and `run`, so the hook carries the same context you would pass on the command line. Useful when the config is not at the repository root, since git runs hooks from the top level: `-- -C subdir` makes the hook find it.
     #[bpaf(positional("MISE_ARG"), strict, many)]
     pub mise_arg: Vec<String>,
 }
 
 /// Generate a GitHub Action workflow file
 ///
-/// This command generates a GitHub Action workflow file that runs a mise task like `mise run ci`
-/// when you push changes to your repository.
+/// This command generates a GitHub Action workflow file that runs a mise task like `mise run ci` when you push changes to your repository.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(generategithubactionargs_p))]
 pub struct GenerateGithubActionArgs {
@@ -2264,10 +2194,7 @@ pub struct GenerateGithubActionArgs {
 pub struct GenerateTaskDocsArgs {
     /// inserts the documentation into an existing file
     ///
-    /// This will look for a special comment, `<!-- mise-tasks -->`, and replace it with the generated documentation.
-    /// It will replace everything between the comment and the next comment, `<!-- /mise-tasks -->` so it can be
-    /// run multiple times on the same file to update the documentation.
-    /// The file must already contain both comments; mise errors instead of modifying the file if they are missing.
+    /// This will look for a special comment, `<!-- mise-tasks -->`, and replace it with the generated documentation. It will replace everything between the comment and the next comment, `<!-- /mise-tasks -->` so it can be run multiple times on the same file to update the documentation. The file must already contain both comments; mise errors instead of modifying the file if they are missing.
     #[bpaf(long("inject"), short('i'), switch)]
     pub inject: bool,
     /// write only an index of tasks, intended for use with `--multi`
@@ -2288,9 +2215,7 @@ pub struct GenerateTaskDocsArgs {
 
 /// Generates shims to run mise tasks
 ///
-/// By default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap`
-/// so contributors to a project can execute mise tasks without installing mise into their system.
-/// When a parent and nested task both exist, the parent stub is written to `<parent>/_default`.
+/// By default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap` so contributors to a project can execute mise tasks without installing mise into their system. When a parent and nested task both exist, the parent stub is written to `<parent>/_default`.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(generatetaskstubsargs_p))]
 pub struct GenerateTaskStubsArgs {
@@ -2306,13 +2231,9 @@ pub struct GenerateTaskStubsArgs {
 
 /// Generate a tool stub for HTTP-based tools
 ///
-/// This command generates tool stubs that can automatically download and execute
-/// tools from HTTP URLs. It can detect checksums, file sizes, and binary paths
-/// automatically by downloading and analyzing the tool.
+/// This command generates tool stubs that can automatically download and execute tools from HTTP URLs. It can detect checksums, file sizes, and binary paths automatically by downloading and analyzing the tool.
 ///
-/// When generating stubs with platform-specific URLs, the command will append new
-/// platforms to existing stub files rather than overwriting them. This allows you
-/// to incrementally build cross-platform tool stubs.
+/// When generating stubs with platform-specific URLs, the command will append new platforms to existing stub files rather than overwriting them. This allows you to incrementally build cross-platform tool stubs.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(generatetoolstubargs_p))]
 pub struct GenerateToolStubArgs {
@@ -2323,29 +2244,22 @@ pub struct GenerateToolStubArgs {
     pub bin: Option<String>,
     /// Wrap stub in a bootstrap script that installs mise if not already present
     ///
-    /// When enabled, generates a bash script that:
-    /// 1. Checks if mise is installed at the expected path
-    /// 2. If not, downloads and installs mise using the embedded installer
-    /// 3. Executes the tool stub using mise
+    /// When enabled, generates a bash script that: 1. Checks if mise is installed at the expected path 2. If not, downloads and installs mise using the embedded installer 3. Executes the tool stub using mise
     #[bpaf(long("bootstrap"), switch)]
     pub bootstrap: bool,
     /// Specify mise version for the bootstrap script
     ///
-    /// By default, uses the latest version from the install script.
-    /// Use this to pin to a specific version (e.g., "2025.1.0").
+    /// By default, uses the latest version from the install script. Use this to pin to a specific version (e.g., "2025.1.0").
     #[bpaf(long("bootstrap-version"), argument("BOOTSTRAP_VERSION"))]
     pub bootstrap_version: Option<String>,
     /// Checksum algorithm to use when downloading artifacts
     ///
-    /// Accepts `blake3` or `sha256` and defaults to `blake3`.
-    /// Cannot be used with `--lock` or `--skip-download` because those modes do not
-    /// calculate checksums.
+    /// Accepts `blake3` or `sha256` and defaults to `blake3`. Cannot be used with `--lock` or `--skip-download` because those modes do not calculate checksums.
     #[bpaf(long("checksum-algorithm"), argument("CHECKSUM_ALGORITHM"))]
     pub checksum_algorithm: Option<String>,
     /// Fetch checksums and sizes for an existing tool stub file
     ///
-    /// This reads an existing stub file and fills in any missing checksum/size fields
-    /// by downloading the files. URLs must already be present in the stub.
+    /// This reads an existing stub file and fills in any missing checksum/size fields by downloading the files. URLs must already be present in the stub.
     #[bpaf(long("fetch"), switch)]
     pub fetch: bool,
     /// HTTP backend type to use
@@ -2360,15 +2274,11 @@ pub struct GenerateToolStubArgs {
     pub platform_bin: Vec<String>,
     /// Platform-specific URLs in the format platform:url or just url (auto-detect platform)
     ///
-    /// When the output file already exists, new platforms will be appended to the existing
-    /// platforms table. Existing platform URLs will be updated if specified again.
+    /// When the output file already exists, new platforms will be appended to the existing platforms table. Existing platform URLs will be updated if specified again.
     ///
-    /// If only a URL is provided (without platform:), the platform will be automatically
-    /// detected from the URL filename.
+    /// If only a URL is provided (without platform:), the platform will be automatically detected from the URL filename.
     ///
-    /// Examples:
-    /// --platform-url linux-x64:https://...
-    /// --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
+    /// Examples: --platform-url linux-x64:https://... --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
     #[bpaf(long("platform-url"), argument("PLATFORM_URL"))]
     pub platform_url: Vec<String>,
     /// Skip downloading for checksum and binary path detection (faster but less informative)
@@ -2426,8 +2336,7 @@ pub enum GenerateCommands {
 
 /// Display the GitHub token mise will use for a given host
 ///
-/// Shows which token source mise would use, useful for debugging
-/// authentication issues. The token is masked by default.
+/// Shows which token source mise would use, useful for debugging authentication issues. The token is masked by default.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(githubtokenargs_p))]
 pub struct GithubTokenArgs {
@@ -2465,10 +2374,7 @@ pub enum GithubCommands {
 
 /// Sets/gets the global tool version(s)
 ///
-/// Displays the contents of global config after writing.
-/// The file is `$HOME/.config/mise/config.toml` by default. It can be changed with `$MISE_GLOBAL_CONFIG_FILE`.
-/// If `$MISE_GLOBAL_CONFIG_FILE` is set to anything that ends in `.toml`, it will be parsed as `mise.toml`.
-/// Otherwise, it will be parsed as a `.tool-versions` file.
+/// Displays the contents of global config after writing. The file is `$HOME/.config/mise/config.toml` by default. It can be changed with `$MISE_GLOBAL_CONFIG_FILE`. If `$MISE_GLOBAL_CONFIG_FILE` is set to anything that ends in `.toml`, it will be parsed as `mise.toml`. Otherwise, it will be parsed as a `.tool-versions` file.
 ///
 /// Use MISE_ASDF_COMPAT=1 to default the global config to ~/.tool-versions
 ///
@@ -2557,11 +2463,7 @@ pub struct EditArgs {
 
 /// Install a tool version
 ///
-/// Installs a tool version to `~/.local/share/mise/installs/<TOOL>/<VERSION>`
-/// Installing alone will not activate the tools so they won't be in PATH.
-/// To install and/or activate in one command, use `mise use` which will create a `mise.toml` file
-/// in the current directory to activate this tool when inside the directory.
-/// Alternatively, run `mise exec <TOOL>@<VERSION> -- <COMMAND>` to execute a tool without creating config files.
+/// Installs a tool version to `~/.local/share/mise/installs/<TOOL>/<VERSION>` Installing alone will not activate the tools so they won't be in PATH. To install and/or activate in one command, use `mise use` which will create a `mise.toml` file in the current directory to activate this tool when inside the directory. Alternatively, run `mise exec <TOOL>@<VERSION> -- <COMMAND>` to execute a tool without creating config files.
 ///
 /// Tools will be installed in parallel. To disable, set `--jobs=1` or `MISE_JOBS=1`
 #[derive(Debug, Clone, Bpaf)]
@@ -2586,8 +2488,7 @@ pub struct InstallArgs {
     pub dry_run_code: bool,
     /// Also install tools required by tasks in the current scope
     ///
-    /// This prepares task tools without running task commands or dependencies.
-    /// Combine with --monorepo to include tasks from every configured root.
+    /// This prepares task tools without running task commands or dependencies. Combine with --monorepo to include tasks from every configured root.
     #[bpaf(long("include-task-tools"), switch)]
     pub include_task_tools: bool,
     /// Only install versions released before this date or older than this duration
@@ -2597,22 +2498,19 @@ pub struct InstallArgs {
     pub minimum_release_age: Option<String>,
     /// Install tools from every [monorepo].config_roots config root
     ///
-    /// Uses the active MISE_ENV and requires monorepo_root = true plus explicit
-    /// [monorepo].config_roots in the monorepo root config.
+    /// Uses the active MISE_ENV and requires monorepo_root = true plus explicit [monorepo].config_roots in the monorepo root config.
     #[bpaf(long("monorepo"), switch)]
     pub monorepo: bool,
     #[bpaf(long("raw"), switch)]
     pub raw: bool,
     /// Install tool(s) to a shared directory
     ///
-    /// Installs to the specified directory instead of the default install location.
-    /// May require elevated permissions depending on the path.
+    /// Installs to the specified directory instead of the default install location. May require elevated permissions depending on the path.
     #[bpaf(long("shared"), argument("SHARED"))]
     pub shared: Option<String>,
     /// Install tool(s) to the system-wide shared directory
     ///
-    /// Installs to /usr/local/share/mise/installs (or MISE_SYSTEM_DATA_DIR/installs).
-    /// May require elevated permissions (e.g. sudo).
+    /// Installs to /usr/local/share/mise/installs (or MISE_SYSTEM_DATA_DIR/installs). May require elevated permissions (e.g. sudo).
     #[bpaf(long("system"), switch)]
     pub system: bool,
     #[bpaf(positional("TOOL@VERSION"))]
@@ -2643,8 +2541,7 @@ pub struct LatestArgs {
     pub installed: bool,
     /// Only consider versions released before this date or older than this duration
     ///
-    /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-    /// Overrides per-tool `minimum_release_age` options and the global `minimum_release_age` setting.
+    /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y". Overrides per-tool `minimum_release_age` options and the global `minimum_release_age` setting.
     #[bpaf(long("minimum-release-age"), argument("MINIMUM_RELEASE_AGE"))]
     pub minimum_release_age: Option<String>,
     /// Tool to get the latest version of
@@ -2672,10 +2569,7 @@ pub struct LinkArgs {
 
 /// Sets/gets tool version in local .tool-versions or mise.toml
 ///
-/// Use this to set a tool's version when within a directory
-/// Use `mise global` to set a tool version globally
-/// This uses `.tool-version` by default unless there is a `mise.toml` file or if `MISE_USE_TOML`
-/// is set. A future v2 release of mise will default to using `mise.toml`.
+/// Use this to set a tool's version when within a directory Use `mise global` to set a tool version globally This uses `.tool-version` by default unless there is a `mise.toml` file or if `MISE_USE_TOML` is set. A future v2 release of mise will default to using `mise.toml`.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(localargs_p))]
 pub struct LocalArgs {
@@ -2697,11 +2591,7 @@ pub struct LocalArgs {
 
 /// Update lockfile checksums and URLs for all specified platforms
 ///
-/// Updates checksums and download URLs for all platforms already specified in the lockfile.
-/// If no lockfile exists, shows what would be created based on the current configuration,
-/// including tools declared by tasks.
-/// This allows you to refresh lockfile data for platforms other than the one you're currently on.
-/// Operates on the lockfile in the current config root. Use TOOL arguments to target specific tools.
+/// Updates checksums and download URLs for all platforms already specified in the lockfile. If no lockfile exists, shows what would be created based on the current configuration, including tools declared by tasks. This allows you to refresh lockfile data for platforms other than the one you're currently on. Operates on the lockfile in the current config root. Use TOOL arguments to target specific tools.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(lockargs_p))]
 pub struct LockArgs {
@@ -2716,34 +2606,19 @@ pub struct LockArgs {
     pub platform: Vec<String>,
     /// Re-resolve fuzzy version selectors against the latest available versions
     ///
-    /// By default, `mise lock` refreshes metadata for the currently locked versions.
-    /// With this flag, selectors like "latest", "lts", or prefixes like "20" are
-    /// re-resolved against the latest matching remote versions, so the lockfile
-    /// advances without installing anything. Config files are never modified:
-    /// exactly pinned versions resolve to themselves and stay unchanged
-    /// (use `mise upgrade --bump` to rewrite pins in mise.toml).
+    /// By default, `mise lock` refreshes metadata for the currently locked versions. With this flag, selectors like "latest", "lts", or prefixes like "20" are re-resolved against the latest matching remote versions, so the lockfile advances without installing anything. Config files are never modified: exactly pinned versions resolve to themselves and stay unchanged (use `mise upgrade --bump` to rewrite pins in mise.toml).
     #[bpaf(long("bump"), switch)]
     pub bump: bool,
     /// Output version changes as JSON
     ///
-    /// Prints an array of objects describing lockfile version changes:
-    /// name, backend, lockfile, old_versions, new_versions.
-    /// Version lists keep config/lockfile order; they are not sorted.
-    /// Only version-level changes are reported: checksum/URL refreshes for
-    /// unchanged versions produce no entries, so plain `mise lock --json`
-    /// typically prints `[]` while still updating the lockfile.
-    /// Suppresses the human-readable output. Combine with `--dry-run` to
-    /// detect available updates without writing the lockfile.
+    /// Prints an array of objects describing lockfile version changes: name, backend, lockfile, old_versions, new_versions. Version lists keep config/lockfile order; they are not sorted. Only version-level changes are reported: checksum/URL refreshes for unchanged versions produce no entries, so plain `mise lock --json` typically prints `[]` while still updating the lockfile. Suppresses the human-readable output. Combine with `--dry-run` to detect available updates without writing the lockfile.
     #[bpaf(long("json"), switch)]
     pub json: bool,
     #[bpaf(long("local"), switch)]
     pub local: bool,
     /// Only lock versions released before this age or date
     ///
-    /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-    /// This only affects fuzzy version matches like "20" or "latest".
-    /// Explicitly pinned versions like "22.5.0" are not filtered.
-    /// Existing matching lockfile entries are preserved and are not downgraded solely by this flag.
+    /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y". This only affects fuzzy version matches like "20" or "latest". Explicitly pinned versions like "22.5.0" are not filtered. Existing matching lockfile entries are preserved and are not downgraded solely by this flag.
     #[bpaf(long("minimum-release-age"), argument("MINIMUM_RELEASE_AGE"))]
     pub minimum_release_age: Option<String>,
     #[bpaf(positional("TOOL"))]
@@ -2752,9 +2627,7 @@ pub struct LockArgs {
 
 /// List installed and active tool versions
 ///
-/// This command lists tools that mise "knows about".
-/// These may be tools that are currently installed, or those
-/// that are in a config file (active) but may or may not be installed.
+/// This command lists tools that mise "knows about". These may be tools that are currently installed, or those that are in a config file (active) but may or may not be installed.
 ///
 /// It's a useful command to get the current state of your tools.
 #[derive(Debug, Clone, Bpaf)]
@@ -2787,8 +2660,7 @@ pub struct LsArgs {
     pub all_sources: bool,
     /// List tools from every [monorepo].config_roots config root
     ///
-    /// Uses the active MISE_ENV and requires monorepo_root = true plus explicit
-    /// [monorepo].config_roots in the monorepo root config.
+    /// Uses the active MISE_ENV and requires monorepo_root = true plus explicit [monorepo].config_roots in the monorepo root config.
     #[bpaf(long("monorepo"), switch)]
     pub monorepo: bool,
     /// Don't display headers
@@ -2834,8 +2706,7 @@ pub struct LsRemoteArgs {
     ///
     /// Requires --json and --no-versions-host.
     ///
-    /// This prevents metadata consumers from accepting empty fallback results
-    /// when a backend's metadata-producing upstream request fails.
+    /// This prevents metadata consumers from accepting empty fallback results when a backend's metadata-producing upstream request fails.
     #[bpaf(long("strict-metadata"), switch)]
     pub strict_metadata: bool,
     /// Tool to get versions for
@@ -2847,40 +2718,22 @@ pub struct LsRemoteArgs {
 
 /// Run Model Context Protocol (MCP) server
 ///
-/// This command starts an MCP server that exposes mise functionality
-/// to AI assistants over stdin/stdout using JSON-RPC protocol.
+/// This command starts an MCP server that exposes mise functionality to AI assistants over stdin/stdout using JSON-RPC protocol.
 ///
-/// The MCP server provides access to:
-/// - Installed and available tools
-/// - Task definitions and execution
-/// - Environment variables
-/// - Configuration information
-/// - Task execution via the run_task tool
+/// The MCP server provides access to: - Installed and available tools - Task definitions and execution - Environment variables - Configuration information - Task execution via the run_task tool
 ///
-/// Resources available:
-/// - mise://tools - List all tools (use ?include_inactive=true to include inactive tools)
-/// - mise://tasks - List all tasks with their configurations
-/// - mise://env - List all environment variables
-/// - mise://config - Show configuration files and project root
+/// Resources available: - mise://tools - List all tools (use ?include_inactive=true to include inactive tools) - mise://tasks - List all tasks with their configurations - mise://env - List all environment variables - mise://config - Show configuration files and project root
 ///
-/// Tools available:
-/// - list_commands - Every mise command, with its declared effect on the world
-/// - install_tool - Install a tool with an optional version (not yet implemented)
-/// - run_task - Execute a mise task with optional arguments
+/// Tools available: - list_commands - Every mise command, with its declared effect on the world - install_tool - Install a tool with an optional version (not yet implemented) - run_task - Execute a mise task with optional arguments
 ///
-/// Note: This is primarily intended for integration with AI assistants like Claude,
-/// Cursor, or other tools that support the Model Context Protocol.
+/// Note: This is primarily intended for integration with AI assistants like Claude, Cursor, or other tools that support the Model Context Protocol.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(mcpargs_p))]
 pub struct McpArgs {}
 
 /// [experimental] Build an OCI image from the current mise.toml
 ///
-/// Each tool version becomes its own content-addressable OCI layer. Bumping a
-/// tool version only invalidates that tool's layer — other tools, the base
-/// image, and config are reused unchanged. The output directory conforms to
-/// the OCI image-layout spec and can be consumed by `skopeo`, `crane`, or
-/// `podman load`.
+/// Each tool version becomes its own content-addressable OCI layer. Bumping a tool version only invalidates that tool's layer — other tools, the base image, and config are reused unchanged. The output directory conforms to the OCI image-layout spec and can be consumed by `skopeo`, `crane`, or `podman load`.
 ///
 /// Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).
 #[derive(Debug, Clone, Bpaf)]
@@ -2897,12 +2750,7 @@ pub struct OciBuildArgs {
     pub from: Option<String>,
     /// Also include tools from the global / system config (default: project-only)
     ///
-    /// By default `mise oci build` only packages tools declared in the
-    /// project's mise config (and any parent configs at-or-below the
-    /// project root, e.g. a monorepo root config). Personal dev tools in
-    /// `~/.config/mise/config.toml` are excluded so they don't bake into a
-    /// project image. Pass `--include-global` to revert to the old
-    /// "merge all loaded configs" behavior.
+    /// By default `mise oci build` only packages tools declared in the project's mise config (and any parent configs at-or-below the project root, e.g. a monorepo root config). Personal dev tools in `~/.config/mise/config.toml` are excluded so they don't bake into a project image. Pass `--include-global` to revert to the old "merge all loaded configs" behavior.
     #[bpaf(long("include-global"), switch)]
     pub include_global: bool,
     /// Tag to record in the image index (the org.opencontainers.image.ref.name annotation)
@@ -2916,30 +2764,18 @@ pub struct OciBuildArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry in generated layers
     ///
-    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
-    /// omitted, it defaults to UID. This affects file ownership only; [oci].user
-    /// controls the image USER directive.
+    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
     #[bpaf(long("owner"), argument("UID[:GID]"))]
     pub owner: Option<String>,
 }
 
 /// [experimental] Build an OCI image and push it to a registry
 ///
-/// Pushes with mise's built-in registry client — no skopeo/crane/docker
-/// required. If `--image-dir` is not passed, builds fresh from the current
-/// mise.toml first. Only blobs the registry doesn't already have are
-/// uploaded, so repeat pushes of mostly-unchanged toolsets are cheap.
+/// Pushes with mise's built-in registry client — no skopeo/crane/docker required. If `--image-dir` is not passed, builds fresh from the current mise.toml first. Only blobs the registry doesn't already have are uploaded, so repeat pushes of mostly-unchanged toolsets are cheap.
 ///
-/// Tool layers whose tool, version, mount point, and file owner match the
-/// previously pushed image (or `--cache-from`) are reused without being
-/// rebuilt — those tools don't even need to be installed locally. Pass
-/// `--no-cache` to force a full local rebuild.
+/// Tool layers whose tool, version, mount point, and file owner match the previously pushed image (or `--cache-from`) are reused without being rebuilt — those tools don't even need to be installed locally. Pass `--no-cache` to force a full local rebuild.
 ///
-/// Credentials are read from the same places docker and podman use:
-/// `$REGISTRY_AUTH_FILE`, `$XDG_RUNTIME_DIR/containers/auth.json`,
-/// `~/.config/containers/auth.json`, and `~/.docker/config.json`
-/// (including credential helpers) — so `docker login` / `podman login`
-/// is all the setup needed.
+/// Credentials are read from the same places docker and podman use: `$REGISTRY_AUTH_FILE`, `$XDG_RUNTIME_DIR/containers/auth.json`, `~/.config/containers/auth.json`, and `~/.docker/config.json` (including credential helpers) — so `docker login` / `podman login` is all the setup needed.
 ///
 /// Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).
 #[derive(Debug, Clone, Bpaf)]
@@ -2947,9 +2783,7 @@ pub struct OciBuildArgs {
 pub struct OciPushArgs {
     /// Reuse unchanged tool layers from this image instead of the destination ref
     ///
-    /// Must live in the same repository as the destination. Useful when each
-    /// push gets a unique tag (e.g. per-commit tags in CI):
-    /// `--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`.
+    /// Must live in the same repository as the destination. Useful when each push gets a unique tag (e.g. per-commit tags in CI): `--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`.
     #[bpaf(long("cache-from"), argument("REF"))]
     pub cache_from: Option<String>,
     /// Base image for the build (ignored with --image-dir)
@@ -2974,17 +2808,12 @@ pub struct OciPushArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
     ///
-    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
-    /// omitted, it defaults to UID. This affects file ownership only; [oci].user
-    /// controls the image USER directive.
+    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
     #[bpaf(long("owner"), argument("UID[:GID]"))]
     pub owner: Option<String>,
     /// Maintain the tag as a multi-arch image index
     ///
-    /// Pushes this build's manifest by digest and points the tag at an OCI
-    /// image index containing one entry per platform, preserving entries
-    /// other architectures pushed. Run `mise oci push --update-index` from
-    /// one runner per platform to assemble a multi-arch tag.
+    /// Pushes this build's manifest by digest and points the tag at an OCI image index containing one entry per platform, preserving entries other architectures pushed. Run `mise oci push --update-index` from one runner per platform to assemble a multi-arch tag.
     #[bpaf(long("update-index"), switch)]
     pub update_index: bool,
     /// Destination registry reference (e.g. `ghcr.io/me/devenv:latest`)
@@ -2994,13 +2823,9 @@ pub struct OciPushArgs {
 
 /// [experimental] Build an OCI image from the current mise.toml and run a command in it
 ///
-/// Equivalent to `mise oci build` followed by `docker run` / `podman run`.
-/// The built image is loaded into the local container engine (podman pulls
-/// the OCI layout natively; docker receives it via `docker load`) and the
-/// given command is executed inside it with stdin/stdout/stderr inherited.
+/// Equivalent to `mise oci build` followed by `docker run` / `podman run`. The built image is loaded into the local container engine (podman pulls the OCI layout natively; docker receives it via `docker load`) and the given command is executed inside it with stdin/stdout/stderr inherited.
 ///
-/// Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`) and
-/// one of: `podman`, `docker`.
+/// Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`) and one of: `podman`, `docker`.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(ocirunargs_p))]
 pub struct OciRunArgs {
@@ -3020,11 +2845,7 @@ pub struct OciRunArgs {
     pub include_global: bool,
     /// Keep the loaded image in the engine's storage after the run
     ///
-    /// By default, both the container (`--rm`) and the loaded image are
-    /// removed when the command exits, so repeated `mise oci run` calls
-    /// don't accumulate images in podman / docker storage. Pass `--keep`
-    /// to retain the image under the tag mise used (`mise-oci:run-*` for
-    /// docker; the pulled image ID for podman).
+    /// By default, both the container (`--rm`) and the loaded image are removed when the command exits, so repeated `mise oci run` calls don't accumulate images in podman / docker storage. Pass `--keep` to retain the image under the tag mise used (`mise-oci:run-*` for docker; the pulled image ID for podman).
     #[bpaf(long("keep"), switch)]
     pub keep: bool,
     /// Override in-image mount point (ignored with --image-dir)
@@ -3035,15 +2856,12 @@ pub struct OciRunArgs {
     pub no_mise: bool,
     /// UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
     ///
-    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
-    /// omitted, it defaults to UID. This affects file ownership only; [oci].user
-    /// controls the image USER directive.
+    /// Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
     #[bpaf(long("owner"), argument("UID[:GID]"))]
     pub owner: Option<String>,
     /// Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)
     ///
-    /// Note: unlike `docker run -v`, there's no `-v` short flag here because
-    /// mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
+    /// Note: unlike `docker run -v`, there's no `-v` short flag here because mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
     #[bpaf(long("volume"), argument("HOST:CONTAINER"))]
     pub volume: Vec<String>,
     /// Set environment variable in the container (repeatable, `KEY=VAL`)
@@ -3065,13 +2883,9 @@ pub struct OciRunArgs {
 
 /// [experimental] Build OCI container images from a mise.toml
 ///
-/// Each tool becomes its own OCI layer, so bumping any single tool version
-/// only invalidates one content-addressable blob — unlike a Dockerfile where
-/// changing an early `RUN` invalidates every layer above it.
+/// Each tool becomes its own OCI layer, so bumping any single tool version only invalidates one content-addressable blob — unlike a Dockerfile where changing an early `RUN` invalidates every layer above it.
 ///
-/// This command is experimental and requires `mise settings experimental=true`
-/// (or `MISE_EXPERIMENTAL=1`). Behavior, flags, and output layout may change
-/// in future releases.
+/// This command is experimental and requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`). Behavior, flags, and output layout may change in future releases.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(ociargs_p))]
 pub struct OciArgs {
@@ -3101,8 +2915,7 @@ pub enum OciCommands {
 pub struct OutdatedArgs {
     /// Compares against the latest versions available, not what matches the current config
     ///
-    /// For example, if you have `node = "20"` in your config by default `mise outdated` will only
-    /// show other 20.x versions, not 21.x or 22.x versions.
+    /// For example, if you have `node = "20"` in your config by default `mise outdated` will only show other 20.x versions, not 21.x or 22.x versions.
     ///
     /// Using this flag, if there are 21.x or newer versions it will display those instead of 20.x.
     #[bpaf(long("bump"), short('b'), switch)]
@@ -3120,8 +2933,7 @@ pub struct OutdatedArgs {
     pub inactive: bool,
     /// Only show outdated tools defined in local config files
     ///
-    /// This will only show tools that are defined in project-local mise.toml and
-    /// will skip tools defined in the global config (~/.config/mise/config.toml).
+    /// This will only show tools that are defined in project-local mise.toml and will skip tools defined in the global config (~/.config/mise/config.toml).
     #[bpaf(long("local"), switch)]
     pub local: bool,
     /// Placeholder for future monorepo outdated checks; `mise outdated --monorepo` is not implemented yet.
@@ -3136,9 +2948,7 @@ pub struct OutdatedArgs {
 
 /// Show the individuals supporting mise as Patron-tier members
 ///
-/// Lists the individuals on the Patron tier from <https://jdx.dev/patrons.json>.
-/// The list refreshes daily; supporting terminals will render each patron's
-/// name as a clickable link via OSC 8 hyperlinks.
+/// Lists the individuals on the Patron tier from <https://jdx.dev/patrons.json>. The list refreshes daily; supporting terminals will render each patron's name as a clickable link via OSC 8 hyperlinks.
 ///
 /// To appear here, become a patron at <https://jdx.dev/sponsors.html>.
 #[derive(Debug, Clone, Bpaf)]
@@ -3154,8 +2964,7 @@ pub struct PatronsArgs {
 
 /// Install a plugin
 ///
-/// note that mise can automatically install plugins when you install a tool
-/// e.g.: `mise install cmake@3.30` will autoinstall the cmake plugin
+/// note that mise can automatically install plugins when you install a tool e.g.: `mise install cmake@3.30` will autoinstall the cmake plugin
 ///
 /// This behavior can be modified in ~/.config/mise/config.toml
 #[derive(Debug, Clone, Bpaf)]
@@ -3270,8 +3079,7 @@ pub struct PluginsArgs {
     pub refs: bool,
     /// List installed plugins
     ///
-    /// This is the default behavior but can be used with --core
-    /// to show core and user plugins
+    /// This is the default behavior but can be used with --core to show core and user plugins
     #[bpaf(long("user"), switch)]
     pub user: bool,
     #[bpaf(external(pluginscommands_p), optional)]
@@ -3303,8 +3111,7 @@ pub enum PluginsCommands {
 
 /// Add a dependency
 ///
-/// Adds one or more packages to the project using the appropriate package manager.
-/// Package specs use the format `ecosystem:package`, e.g., `npm:react` or `npm:@types/react@19`.
+/// Adds one or more packages to the project using the appropriate package manager. Package specs use the format `ecosystem:package`, e.g., `npm:react` or `npm:@types/react@19`.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(depsaddargs_p))]
 pub struct DepsAddArgs {
@@ -3318,8 +3125,7 @@ pub struct DepsAddArgs {
 
 /// Install all project dependencies
 ///
-/// Checks if dependency lockfiles are newer than installed outputs
-/// and runs install commands if needed.
+/// Checks if dependency lockfiles are newer than installed outputs and runs install commands if needed.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(depsinstallargs_p))]
 pub struct DepsInstallArgs {
@@ -3337,8 +3143,7 @@ pub struct DepsInstallArgs {
     pub list: bool,
     /// Install dependencies from every [monorepo].config_roots config root
     ///
-    /// Requires monorepo_root = true plus explicit [monorepo].config_roots in
-    /// the monorepo root config. Providers are named like //apps/api:uv.
+    /// Requires monorepo_root = true plus explicit [monorepo].config_roots in the monorepo root config. Providers are named like //apps/api:uv.
     #[bpaf(long("monorepo"), switch)]
     pub monorepo: bool,
     /// Run specific deps rule(s) only
@@ -3354,8 +3159,7 @@ pub struct DepsInstallArgs {
 
 /// Remove a dependency
 ///
-/// Removes one or more packages from the project using the appropriate package manager.
-/// Package specs use the format `ecosystem:package`, e.g., `npm:lodash`.
+/// Removes one or more packages from the project using the appropriate package manager. Package specs use the format `ecosystem:package`, e.g., `npm:lodash`.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(depsremoveargs_p))]
 pub struct DepsRemoveArgs {
@@ -3366,13 +3170,9 @@ pub struct DepsRemoveArgs {
 
 /// [experimental] Manage project dependencies
 ///
-/// Runs all applicable dependency install steps for the current project.
-/// This checks if dependency lockfiles are newer than installed outputs
-/// (e.g., package-lock.json vs node_modules/) and runs install commands
-/// if needed.
+/// Runs all applicable dependency install steps for the current project. This checks if dependency lockfiles are newer than installed outputs (e.g., package-lock.json vs node_modules/) and runs install commands if needed.
 ///
-/// Providers with `auto = true` are automatically invoked before `mise x` and `mise run`
-/// unless skipped with the --no-deps flag.
+/// Providers with `auto = true` are automatically invoked before `mise x` and `mise run` unless skipped with the --no-deps flag.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(depsargs_p))]
 pub struct DepsArgs {
@@ -3390,8 +3190,7 @@ pub struct DepsArgs {
     pub list: bool,
     /// Install dependencies from every [monorepo].config_roots config root
     ///
-    /// Requires monorepo_root = true plus explicit [monorepo].config_roots in
-    /// the monorepo root config. Providers are named like //apps/api:uv.
+    /// Requires monorepo_root = true plus explicit [monorepo].config_roots in the monorepo root config. Providers are named like //apps/api:uv.
     #[bpaf(long("monorepo"), switch)]
     pub monorepo: bool,
     /// Run specific deps rule(s) only
@@ -3420,13 +3219,9 @@ pub enum DepsCommands {
 
 /// Delete unused versions of tools
 ///
-/// mise tracks which config files have been used in ~/.local/state/mise/tracked-configs
-/// Versions which are no longer the latest specified in any of those configs are deleted.
-/// Versions installed only with environment variables `MISE_<TOOL>_VERSION` will be deleted,
-/// as will versions only referenced on the command line `mise exec <TOOL>@<VERSION>`.
+/// mise tracks which config files have been used in ~/.local/state/mise/tracked-configs Versions which are no longer the latest specified in any of those configs are deleted. Versions installed only with environment variables `MISE_<TOOL>_VERSION` will be deleted, as will versions only referenced on the command line `mise exec <TOOL>@<VERSION>`.
 ///
-/// Tool stubs that have been executed are tracked in ~/.local/state/mise/tracked-stubs.
-/// Versions still referenced by a tracked stub are not deleted.
+/// Tool stubs that have been executed are tracked in ~/.local/state/mise/tracked-stubs. Versions still referenced by a tracked stub are not deleted.
 ///
 /// You can list prunable tools with `mise ls --prunable`
 #[derive(Debug, Clone, Bpaf)]
@@ -3476,9 +3271,7 @@ pub struct RegistryArgs {
     pub json: bool,
     /// Include security features for each tool's backends in JSON output.
     ///
-    /// Requires --json. Security info is de-duplicated across
-    /// all of a tool's backends. This can add noticeable time for large
-    /// listings since each backend's security info is resolved individually.
+    /// Requires --json. Security info is de-duplicated across all of a tool's backends. This can add noticeable time for large listings since each backend's security info is resolved individually.
     #[bpaf(long("security"), switch)]
     pub security: bool,
     /// Show only the specified tool's full name
@@ -3493,22 +3286,16 @@ pub struct RenderHelpArgs {}
 
 /// Creates new shims based on bin paths from currently installed tools.
 ///
-/// This creates new shims in ~/.local/share/mise/shims for CLIs that have been added.
-/// mise will try to do this automatically for commands like `npm i -g` but there are
-/// other ways to install things (like using yarn or pnpm for node) that mise does
-/// not know about and so it will be necessary to call this explicitly.
+/// This creates new shims in ~/.local/share/mise/shims for CLIs that have been added. mise will try to do this automatically for commands like `npm i -g` but there are other ways to install things (like using yarn or pnpm for node) that mise does not know about and so it will be necessary to call this explicitly.
 ///
-/// If you think mise should automatically call this for a particular command, please
-/// open an issue on the mise repo. You can also set up a shell function to reshim
-/// automatically (it's really fast so you don't need to worry about overhead):
+/// If you think mise should automatically call this for a particular command, please open an issue on the mise repo. You can also set up a shell function to reshim automatically (it's really fast so you don't need to worry about overhead):
 ///
 ///     npm() {
 ///       command npm "$@"
 ///       mise reshim
 ///     }
 ///
-/// Note that this creates shims for _all_ installed tools, not just the ones that are
-/// currently active in mise.toml.
+/// Note that this creates shims for _all_ installed tools, not just the ones that are currently active in mise.toml.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(reshimargs_p))]
 pub struct ReshimArgs {
@@ -3523,23 +3310,16 @@ pub struct ReshimArgs {
 
 /// Run task(s)
 ///
-/// This command will run a task, or multiple tasks in parallel.
-/// Tasks may have dependencies on other tasks or on source files.
-/// If source is configured on a task, it will only run if the source
-/// files have changed.
+/// This command will run a task, or multiple tasks in parallel. Tasks may have dependencies on other tasks or on source files. If source is configured on a task, it will only run if the source files have changed.
 ///
-/// Tasks can be defined in mise.toml or as standalone scripts.
-/// In mise.toml, tasks take this form:
+/// Tasks can be defined in mise.toml or as standalone scripts. In mise.toml, tasks take this form:
 ///
 ///     [tasks.build]
 ///     run = "npm run build"
 ///     sources = ["src/**/*.ts"]
 ///     outputs = ["dist/**/*.js"]
 ///
-/// Alternatively, tasks can be defined as standalone scripts.
-/// These must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or
-/// `.config/mise/tasks`.
-/// The name of the script will be the name of the tasks.
+/// Alternatively, tasks can be defined as standalone scripts. These must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or `.config/mise/tasks`. The name of the script will be the name of the tasks.
 ///
 ///     $ cat .mise/tasks/build<<EOF
 ///     #!/usr/bin/env bash
@@ -3581,13 +3361,7 @@ pub struct RunArgs {
     pub dry_run: bool,
     /// Change how tasks information is output when running tasks
     ///
-    /// - `prefix` - Print stdout/stderr by line, prefixed with the task's label
-    /// - `interleave` - Print directly to stdout/stderr instead of by line
-    /// - `replacing` - Stdout is replaced each time, stderr is printed as is
-    /// - `timed` - Only show stdout lines if they are displayed for more than 1 second
-    /// - `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output
-    /// - `quiet` - Don't show extra output
-    /// - `silent` - Don't show any output including stdout and stderr from the task except for errors
+    /// - `prefix` - Print stdout/stderr by line, prefixed with the task's label - `interleave` - Print directly to stdout/stderr instead of by line - `replacing` - Stdout is replaced each time, stderr is printed as is - `timed` - Only show stdout lines if they are displayed for more than 1 second - `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output - `quiet` - Don't show extra output - `silent` - Don't show any output including stdout and stderr from the task except for errors
     #[bpaf(long("output"), short('o'), argument("OUTPUT"))]
     pub output: Option<String>,
     /// Don't show extra output
@@ -3597,9 +3371,7 @@ pub struct RunArgs {
     pub raw: bool,
     /// Shell to use to run toml tasks
     ///
-    /// Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows
-    /// Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS`
-    /// Or it can be overridden with the `shell` property on a task.
+    /// Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS` Or it can be overridden with the `shell` property on a task.
     #[bpaf(long("shell"), short('s'), argument("SHELL"))]
     pub shell: Option<String>,
     /// Don't show any output except for errors
@@ -3652,17 +3424,12 @@ pub struct RunArgs {
     pub skip_deps: bool,
     /// Skip installing tools before running tasks
     ///
-    /// Can also be set persistently with the `task.run_auto_install` setting
-    /// or `MISE_TASK_RUN_AUTO_INSTALL=false` env var
+    /// Can also be set persistently with the `task.run_auto_install` setting or `MISE_TASK_RUN_AUTO_INSTALL=false` env var
     #[bpaf(long("skip-tools"), switch)]
     pub skip_tools: bool,
     /// Set task output cache access for this run
     ///
-    /// - `read-write` - Read cached results and write new results
-    /// - `read-only` - Read cached results without writing new results
-    /// - `write-only` - Write new results without reading cached results
-    /// - `off` - Disable task output caching
-    /// - `local-only` - Read and write only the local cache; currently equivalent to `read-write`
+    /// - `read-write` - Read cached results and write new results - `read-only` - Read cached results without writing new results - `write-only` - Write new results without reading cached results - `off` - Disable task output caching - `local-only` - Read and write only the local cache; currently equivalent to `read-write`
     #[bpaf(long("task-cache"), argument("TASK_CACHE"))]
     pub task_cache: Option<String>,
     /// Explain the inputs that produced each task's output cache key
@@ -3687,8 +3454,7 @@ pub struct RunArgs {
 ///
 /// This command searches a tool in the registry.
 ///
-/// By default, it will show all tools that fuzzy match the search term. For
-/// non-fuzzy matches, use the `--match-type` flag.
+/// By default, it will show all tools that fuzzy match the search term. For non-fuzzy matches, use the `--match-type` flag.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(searchargs_p))]
 pub struct SearchArgs {
@@ -3708,13 +3474,9 @@ pub struct SearchArgs {
 
 /// Updates mise itself.
 ///
-/// Uses the GitHub Releases API to find the latest release and binary.
-/// By default, this will also update any installed plugins.
-/// Uses mise's GitHub token resolution chain for authenticated requests.
+/// Uses the GitHub Releases API to find the latest release and binary. By default, this will also update any installed plugins. Uses mise's GitHub token resolution chain for authenticated requests.
 ///
-/// Packagers can disable this command so that mise is updated through the
-/// package manager instead. See
-/// https://mise.jdx.dev/contributing.html#packaging-and-self-update-instructions
+/// Packagers can disable this command so that mise is updated through the package manager instead. See https://mise.jdx.dev/contributing.html#packaging-and-self-update-instructions
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(selfupdateargs_p))]
 pub struct SelfUpdateArgs {
@@ -3734,10 +3496,7 @@ pub struct SelfUpdateArgs {
 
 /// Set environment variables in mise.toml
 ///
-/// By default, this command modifies `mise.toml` in the current directory.
-/// If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),
-/// the lowest precedence file (`mise.toml`) will be used.
-/// See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
+/// By default, this command modifies `mise.toml` in the current directory. If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`), the lowest precedence file (`mise.toml`) will be used. See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 ///
 /// Use `-E <env>` to create/modify environment-specific config files like `mise.<env>.toml`.
 #[derive(Debug, Clone, Bpaf)]
@@ -3772,9 +3531,7 @@ pub struct SetArgs {
     pub complete: bool,
     /// The TOML file to update
     ///
-    /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
-    /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`.
-    /// Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
+    /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory. Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`. Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
     #[bpaf(long("file"), argument("FILE"))]
     pub file: Option<String>,
     /// Show raw values instead of redacting secrets
@@ -3790,8 +3547,7 @@ pub struct SetArgs {
     pub remove: Vec<String>,
     /// Read the value from stdin (for multiline input)
     ///
-    /// When using --stdin, provide a single key without a value.
-    /// The value will be read from stdin until EOF.
+    /// When using --stdin, provide a single key without a value. The value will be read from stdin until EOF.
     #[bpaf(long("stdin"), switch)]
     pub stdin: bool,
     #[bpaf(positional("ENV_VAR"))]
@@ -3800,8 +3556,7 @@ pub struct SetArgs {
 
 /// Adds a setting to the configuration file
 ///
-/// Used with an array setting, this will append the value to the array.
-/// This modifies the contents of ~/.config/mise/config.toml
+/// Used with an array setting, this will append the value to the array. This modifies the contents of ~/.config/mise/config.toml
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(settingsaddargs_p))]
 pub struct SettingsAddArgs {
@@ -3820,8 +3575,7 @@ pub struct SettingsAddArgs {
 ///
 /// This is the contents of a single entry in ~/.config/mise/config.toml
 ///
-/// Note that aliases are also stored in this file
-/// but managed separately with `mise tool-alias get`
+/// Note that aliases are also stored in this file but managed separately with `mise tool-alias get`
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(settingsgetargs_p))]
 pub struct SettingsGetArgs {
@@ -3837,8 +3591,7 @@ pub struct SettingsGetArgs {
 ///
 /// This is the contents of ~/.config/mise/config.toml
 ///
-/// Note that aliases are also stored in this file
-/// but managed separately with `mise tool-alias`
+/// Note that aliases are also stored in this file but managed separately with `mise tool-alias`
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(settingslsargs_p))]
 pub struct SettingsLsArgs {
@@ -3867,9 +3620,7 @@ pub struct SettingsLsArgs {
 
 /// Add/update a setting
 ///
-/// This modifies the contents of ~/.config/mise/config.toml by default.
-/// With `--local`, modifies the local config file instead.
-/// See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
+/// This modifies the contents of ~/.config/mise/config.toml by default. With `--local`, modifies the local config file instead. See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(settingssetargs_p))]
 pub struct SettingsSetArgs {
@@ -3948,8 +3699,7 @@ pub enum SettingsCommands {
 ///
 /// Only works in a session where mise is already activated.
 ///
-/// This works by setting environment variables for the current shell session
-/// such as `MISE_NODE_VERSION=20` which is "eval"ed as a shell function created by `mise activate`.
+/// This works by setting environment variables for the current shell session such as `MISE_NODE_VERSION=20` which is "eval"ed as a shell function created by `mise activate`.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(shellargs_p))]
 pub struct ShellArgs {
@@ -3976,8 +3726,7 @@ pub struct ShellAliasGetArgs {
 
 /// List shell aliases
 ///
-/// Shows the shell aliases that are set in the current directory.
-/// These are defined in `mise.toml` under the `[shell_alias]` section.
+/// Shows the shell aliases that are set in the current directory. These are defined in `mise.toml` under the `[shell_alias]` section.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(shellaliaslsargs_p))]
 pub struct ShellAliasLsArgs {
@@ -4112,8 +3861,7 @@ pub enum SyncCommands {
 
 /// Create a new task
 ///
-/// Adds a task to the local mise.toml file.
-/// See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
+/// Adds a task to the local mise.toml file. See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(tasksaddargs_p))]
 pub struct TasksAddArgs {
@@ -4268,23 +4016,16 @@ pub struct TasksLsArgs {
 
 /// Run task(s)
 ///
-/// This command will run a task, or multiple tasks in parallel.
-/// Tasks may have dependencies on other tasks or on source files.
-/// If source is configured on a task, it will only run if the source
-/// files have changed.
+/// This command will run a task, or multiple tasks in parallel. Tasks may have dependencies on other tasks or on source files. If source is configured on a task, it will only run if the source files have changed.
 ///
-/// Tasks can be defined in mise.toml or as standalone scripts.
-/// In mise.toml, tasks take this form:
+/// Tasks can be defined in mise.toml or as standalone scripts. In mise.toml, tasks take this form:
 ///
 ///     [tasks.build]
 ///     run = "npm run build"
 ///     sources = ["src/**/*.ts"]
 ///     outputs = ["dist/**/*.js"]
 ///
-/// Alternatively, tasks can be defined as standalone scripts.
-/// These must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or
-/// `.config/mise/tasks`.
-/// The name of the script will be the name of the tasks.
+/// Alternatively, tasks can be defined as standalone scripts. These must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or `.config/mise/tasks`. The name of the script will be the name of the tasks.
 ///
 ///     $ cat .mise/tasks/build<<EOF
 ///     #!/usr/bin/env bash
@@ -4326,13 +4067,7 @@ pub struct TasksRunArgs {
     pub dry_run: bool,
     /// Change how tasks information is output when running tasks
     ///
-    /// - `prefix` - Print stdout/stderr by line, prefixed with the task's label
-    /// - `interleave` - Print directly to stdout/stderr instead of by line
-    /// - `replacing` - Stdout is replaced each time, stderr is printed as is
-    /// - `timed` - Only show stdout lines if they are displayed for more than 1 second
-    /// - `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output
-    /// - `quiet` - Don't show extra output
-    /// - `silent` - Don't show any output including stdout and stderr from the task except for errors
+    /// - `prefix` - Print stdout/stderr by line, prefixed with the task's label - `interleave` - Print directly to stdout/stderr instead of by line - `replacing` - Stdout is replaced each time, stderr is printed as is - `timed` - Only show stdout lines if they are displayed for more than 1 second - `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output - `quiet` - Don't show extra output - `silent` - Don't show any output including stdout and stderr from the task except for errors
     #[bpaf(long("output"), short('o'), argument("OUTPUT"))]
     pub output: Option<String>,
     /// Don't show extra output
@@ -4342,9 +4077,7 @@ pub struct TasksRunArgs {
     pub raw: bool,
     /// Shell to use to run toml tasks
     ///
-    /// Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows
-    /// Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS`
-    /// Or it can be overridden with the `shell` property on a task.
+    /// Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS` Or it can be overridden with the `shell` property on a task.
     #[bpaf(long("shell"), short('s'), argument("SHELL"))]
     pub shell: Option<String>,
     /// Don't show any output except for errors
@@ -4397,17 +4130,12 @@ pub struct TasksRunArgs {
     pub skip_deps: bool,
     /// Skip installing tools before running tasks
     ///
-    /// Can also be set persistently with the `task.run_auto_install` setting
-    /// or `MISE_TASK_RUN_AUTO_INSTALL=false` env var
+    /// Can also be set persistently with the `task.run_auto_install` setting or `MISE_TASK_RUN_AUTO_INSTALL=false` env var
     #[bpaf(long("skip-tools"), switch)]
     pub skip_tools: bool,
     /// Set task output cache access for this run
     ///
-    /// - `read-write` - Read cached results and write new results
-    /// - `read-only` - Read cached results without writing new results
-    /// - `write-only` - Write new results without reading cached results
-    /// - `off` - Disable task output caching
-    /// - `local-only` - Read and write only the local cache; currently equivalent to `read-write`
+    /// - `read-write` - Read cached results and write new results - `read-only` - Read cached results without writing new results - `write-only` - Write new results without reading cached results - `off` - Disable task output caching - `local-only` - Read and write only the local cache; currently equivalent to `read-write`
     #[bpaf(long("task-cache"), argument("TASK_CACHE"))]
     pub task_cache: Option<String>,
     /// Explain the inputs that produced each task's output cache key
@@ -4639,15 +4367,9 @@ pub struct ToolArgs {
 
 /// Execute a tool stub
 ///
-/// Tool stubs are executable files containing TOML configuration that specify
-/// which tool to run and how to run it. They provide a convenient way to create
-/// portable, self-contained executables that automatically manage tool installation
-/// and execution.
+/// Tool stubs are executable files containing TOML configuration that specify which tool to run and how to run it. They provide a convenient way to create portable, self-contained executables that automatically manage tool installation and execution.
 ///
-/// A tool stub consists of:
-/// - A shebang line: #!/usr/bin/env -S mise tool-stub
-/// - TOML configuration specifying the tool, version, and options
-/// - Optional comments describing the tool's purpose
+/// A tool stub consists of: - A shebang line: #!/usr/bin/env -S mise tool-stub - TOML configuration specifying the tool, version, and options - Optional comments describing the tool's purpose
 ///
 /// Example stub file:
 ///   #!/usr/bin/env -S mise tool-stub
@@ -4657,8 +4379,7 @@ pub struct ToolArgs {
 ///   version = "20.0.0"
 ///   bin = "node"
 ///
-/// The stub will automatically install the specified tool version if missing
-/// and execute it with any arguments passed to the stub.
+/// The stub will automatically install the specified tool version if missing and execute it with any arguments passed to the stub.
 ///
 /// For more information, see: https://mise.jdx.dev/dev-tools/tool-stubs.html
 #[derive(Debug, Clone, Bpaf)]
@@ -4666,47 +4387,31 @@ pub struct ToolArgs {
 pub struct ToolStubArgs {
     /// Path to the TOML tool stub file to execute
     ///
-    /// The stub file must contain TOML configuration specifying the tool
-    /// and version to run. At minimum, it should specify a 'version' field.
-    /// Other common fields include 'tool', 'bin', and backend-specific options.
+    /// The stub file must contain TOML configuration specifying the tool and version to run. At minimum, it should specify a 'version' field. Other common fields include 'tool', 'bin', and backend-specific options.
     #[bpaf(positional("FILE"))]
     pub file: String,
     /// Arguments to pass to the tool
     ///
-    /// All arguments after the stub file path will be forwarded to the
-    /// underlying tool. Use '--' to separate mise arguments from tool arguments
-    /// if needed.
+    /// All arguments after the stub file path will be forwarded to the underlying tool. Use '--' to separate mise arguments from tool arguments if needed.
     #[bpaf(positional("ARGS"))]
     pub args: Vec<String>,
 }
 
 /// Marks a config file as trusted
 ///
-/// This means mise is allowed to parse the file when it needs to read config
-/// that may execute code or affect the environment. Without trust, mise may
-/// prompt, skip the config in some discovery paths, or fail with an
-/// untrusted-config error when it cannot prompt.
+/// This means mise is allowed to parse the file when it needs to read config that may execute code or affect the environment. Without trust, mise may prompt, skip the config in some discovery paths, or fail with an untrusted-config error when it cannot prompt.
 ///
-/// In normal mode, commands that execute project-defined behavior (`mise run`,
-/// naked task invocations such as `mise <TASK>`, `mise install`, `mise exec`,
-/// and `mise watch`) automatically trust their active config. Paranoid mode
-/// requires explicit, content-bound trust for every non-global config.
+/// In normal mode, commands that execute project-defined behavior (`mise run`, naked task invocations such as `mise <TASK>`, `mise install`, `mise exec`, and `mise watch`) automatically trust their active config. Paranoid mode requires explicit, content-bound trust for every non-global config.
 ///
-/// In normal mode, safe config files do not require trust: files that only contain
-/// `min_version`, `[tools]` entries with plain version strings (or arrays of
-/// them), and `[tasks]` without templates or tool options.
+/// In normal mode, safe config files do not require trust: files that only contain `min_version`, `[tools]` entries with plain version strings (or arrays of them), and `[tasks]` without templates or tool options.
 ///
-/// Trust is shared across git worktrees: a config file inside a linked
-/// worktree is trusted when the equivalent path in the repository's main
-/// checkout has been trusted. Paranoid mode disables this sharing since
-/// worktrees can check out branches with different config contents.
+/// Trust is shared across git worktrees: a config file inside a linked worktree is trusted when the equivalent path in the repository's main checkout has been trusted. Paranoid mode disables this sharing since worktrees can check out branches with different config contents.
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(trustargs_p))]
 pub struct TrustArgs {
     /// Trust all config files in the current directory, its parents, and its subdirectories
     ///
-    /// Subdirectories are walked respecting .gitignore, skipping hidden directories
-    /// and common build/dependency directories (node_modules, vendor, target, dist, build).
+    /// Subdirectories are walked respecting .gitignore, skipping hidden directories and common build/dependency directories (node_modules, vendor, target, dist, build).
     #[bpaf(long("all"), short('a'), switch)]
     pub all: bool,
     /// Do not trust this config and ignore it in the future
@@ -4754,8 +4459,7 @@ pub struct UnsetArgs {
     ///
     /// Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
     ///
-    /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`.
-    /// Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
+    /// Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`. Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
     #[bpaf(long("file"), short('f'), argument("FILE"))]
     pub file: Option<String>,
     /// Use the global config file
@@ -4776,10 +4480,7 @@ pub struct UntrustArgs {
 
 /// Removes installed tool versions from mise.toml
 ///
-/// By default, this will use the `mise.toml` file that has the tool defined.
-/// If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),
-/// the lowest precedence file (`mise.toml`) will be used.
-/// See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
+/// By default, this will use the `mise.toml` file that has the tool defined. If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`), the lowest precedence file (`mise.toml`) will be used. See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 ///
 /// In the following order:
 ///   - If `--global` is set, it will use the global config file.
@@ -4803,8 +4504,7 @@ pub struct UnuseArgs {
     pub global: bool,
     /// Specify a path to a config file or directory
     ///
-    /// If a directory is specified, it will look for a config file in that directory following
-    /// the rules above.
+    /// If a directory is specified, it will look for a config file in that directory following the rules above.
     #[bpaf(long("path"), short('p'), argument("PATH"))]
     pub path: Option<String>,
     /// Do not also prune the installed version
@@ -4817,9 +4517,7 @@ pub struct UnuseArgs {
 
 /// Upgrades outdated tools
 ///
-/// By default, this keeps the range specified in mise.toml. So if you have node@20 set, it will
-/// upgrade to the latest 20.x.x version available. See the `--bump` flag to use the latest version
-/// and bump the version in mise.toml.
+/// By default, this keeps the range specified in mise.toml. So if you have node@20 set, it will upgrade to the latest 20.x.x version available. See the `--bump` flag to use the latest version and bump the version in mise.toml.
 ///
 /// This will update mise.lock if it is enabled, see https://mise.jdx.dev/configuration/settings.html#lockfile
 #[derive(Debug, Clone, Bpaf)]
@@ -4827,11 +4525,9 @@ pub struct UnuseArgs {
 pub struct UpgradeArgs {
     /// Upgrades to the latest version available, bumping the version in mise.toml
     ///
-    /// For example, if you have `node = "20.0.0"` in your mise.toml but 22.1.0 is the latest available,
-    /// this will install 22.1.0 and set `node = "22.1.0"` in your config.
+    /// For example, if you have `node = "20.0.0"` in your mise.toml but 22.1.0 is the latest available, this will install 22.1.0 and set `node = "22.1.0"` in your config.
     ///
-    /// It keeps the same precision as what was there before, so if you instead had `node = "20"`, it
-    /// would change your config to `node = "22"`.
+    /// It keeps the same precision as what was there before, so if you instead had `node = "20"`, it would change your config to `node = "22"`.
     #[bpaf(long("bump"), short('b'), switch)]
     pub bump: bool,
     /// Display multiselect menu to choose which tools to upgrade
@@ -4857,17 +4553,14 @@ pub struct UpgradeArgs {
     pub inactive: bool,
     /// Only upgrade tools defined in local config files
     ///
-    /// This will only upgrade tools that are defined in project-local mise.toml and
-    /// will skip tools defined in the global config (~/.config/mise/config.toml).
+    /// This will only upgrade tools that are defined in project-local mise.toml and will skip tools defined in the global config (~/.config/mise/config.toml).
     #[bpaf(long("local"), switch)]
     pub local: bool,
     /// Only upgrade to versions released before this date or older than this duration
     ///
-    /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-    /// This can be useful for reproducibility or security purposes.
+    /// Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y". This can be useful for reproducibility or security purposes.
     ///
-    /// This only affects fuzzy version matches like "20" or "latest".
-    /// Explicitly pinned versions like "22.5.0" are not filtered.
+    /// This only affects fuzzy version matches like "20" or "latest". Explicitly pinned versions like "22.5.0" are not filtered.
     #[bpaf(long("minimum-release-age"), argument("MINIMUM_RELEASE_AGE"))]
     pub minimum_release_age: Option<String>,
     /// Placeholder for future monorepo upgrades; `mise upgrade --monorepo` is not implemented yet.
@@ -4875,17 +4568,14 @@ pub struct UpgradeArgs {
     pub monorepo: bool,
     /// Do not uninstall the versions that were upgraded away from
     ///
-    /// By default the old version is removed once the new one installs, unless another
-    /// tracked config or tool stub still needs it. Use this to keep it anyway, e.g. when
-    /// something outside of mise points at the old install directory.
+    /// By default the old version is removed once the new one installs, unless another tracked config or tool stub still needs it. Use this to keep it anyway, e.g. when something outside of mise points at the old install directory.
     ///
     /// Set `upgrade.auto_prune = false` to make this the default.
     #[bpaf(long("no-prune"), switch)]
     pub no_prune: bool,
     /// Uninstall the versions that were upgraded away from
     ///
-    /// This is already the default. Use it to override `upgrade.auto_prune = false`
-    /// for a single run.
+    /// This is already the default. Use it to override `upgrade.auto_prune = false` for a single run.
     #[bpaf(long("prune"), switch)]
     pub prune: bool,
     #[bpaf(long("raw"), switch)]
@@ -4903,11 +4593,7 @@ pub struct UsageArgs {}
 
 /// Installs a tool and adds the version to mise.toml.
 ///
-/// This will install the tool version if it is not already installed.
-/// By default, this will use a `mise.toml` file in the current directory.
-/// If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),
-/// the lowest precedence file (`mise.toml`) will be used.
-/// See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
+/// This will install the tool version if it is not already installed. By default, this will use a `mise.toml` file in the current directory. If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`), the lowest precedence file (`mise.toml`) will be used. See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 ///
 /// In the following order:
 ///   - If `--global` is set, it will use the global config file.
@@ -4939,8 +4625,7 @@ pub struct UseArgs {
     pub dry_run: bool,
     /// Specify a path to a config file or directory
     ///
-    /// If a directory is specified, it will look for a config file in that directory following
-    /// the rules above.
+    /// If a directory is specified, it will look for a config file in that directory following the rules above.
     #[bpaf(long("path"), short('p'), argument("PATH"))]
     pub path: Option<String>,
     /// Like --dry-run but exits with code 1 if there are changes to make
@@ -4950,8 +4635,7 @@ pub struct UseArgs {
     pub dry_run_code: bool,
     /// Save fuzzy version to config file
     ///
-    /// e.g.: `mise use --fuzzy node@20` will save 20 as the version
-    /// this is the default behavior unless `MISE_PIN=1`
+    /// e.g.: `mise use --fuzzy node@20` will save 20 as the version this is the default behavior unless `MISE_PIN=1`
     #[bpaf(long("fuzzy"), switch)]
     pub fuzzy: bool,
     /// Only install versions released before this date or older than this duration
@@ -4961,13 +4645,9 @@ pub struct UseArgs {
     pub minimum_release_age: Option<String>,
     /// Save the resolved concrete version to the config file
     ///
-    /// If the request exactly matches an available release, that release is preferred over
-    /// installed fuzzy matches. Use `prefix:` to explicitly request recursive prefix matching.
-    /// e.g.: `mise use --pin node@20` will save the resolved `20.x.y` version
-    /// Set `MISE_PIN=1` to make this the default behavior
+    /// If the request exactly matches an available release, that release is preferred over installed fuzzy matches. Use `prefix:` to explicitly request recursive prefix matching. e.g.: `mise use --pin node@20` will save the resolved `20.x.y` version Set `MISE_PIN=1` to make this the default behavior
     ///
-    /// Consider using mise.lock as a better alternative to pinning in mise.toml:
-    /// https://mise.jdx.dev/configuration/settings.html#lockfile
+    /// Consider using mise.lock as a better alternative to pinning in mise.toml: https://mise.jdx.dev/configuration/settings.html#lockfile
     #[bpaf(long("pin"), switch)]
     pub pin: bool,
     #[bpaf(long("raw"), switch)]
@@ -4977,8 +4657,7 @@ pub struct UseArgs {
     pub remove: Vec<String>,
     /// Tool(s) to add to config file
     ///
-    /// e.g.: node@20, cargo:ripgrep@latest npm:prettier@3
-    /// If no version is specified, it will default to @latest
+    /// e.g.: node@20, cargo:ripgrep@latest npm:prettier@3 If no version is specified, it will default to @latest
     ///
     /// Tool options can be set with this syntax:
     ///
@@ -5002,11 +4681,9 @@ pub struct VersionArgs {
 
 /// Run task(s) and watch for changes to rerun it
 ///
-/// This command uses the `watchexec` tool to watch for changes to files and rerun the specified task(s).
-/// It must be installed for this command to work, but you can install it with `mise use -g watchexec@latest`.
+/// This command uses the `watchexec` tool to watch for changes to files and rerun the specified task(s). It must be installed for this command to work, but you can install it with `mise use -g watchexec@latest`.
 ///
-/// For more advanced process management (daemon management, auto-restart, readiness checks,
-/// cron scheduling), see mise's sister project: https://pitchfork.jdx.dev
+/// For more advanced process management (daemon management, auto-restart, readiness checks, cron scheduling), see mise's sister project: https://pitchfork.jdx.dev
 #[derive(Debug, Clone, Bpaf)]
 #[bpaf(generate(watchargs_p))]
 pub struct WatchArgs {
@@ -5022,17 +4699,13 @@ pub struct WatchArgs {
     ///
     /// By default, Watchexec watches the current directory.
     ///
-    /// When watching a single file, it's often better to watch the containing directory instead,
-    /// and filter on the filename. Some editors may replace the file with a new one when saving,
-    /// and some platforms may not detect that or further changes.
+    /// When watching a single file, it's often better to watch the containing directory instead, and filter on the filename. Some editors may replace the file with a new one when saving, and some platforms may not detect that or further changes.
     ///
-    /// Upon starting, Watchexec resolves a "project origin" from the watched paths. See the help
-    /// for '--project-origin' for more information.
+    /// Upon starting, Watchexec resolves a "project origin" from the watched paths. See the help for '--project-origin' for more information.
     ///
     /// This option can be specified multiple times to watch multiple files or directories.
     ///
-    /// The special value '/dev/null', provided as the only path watched, will cause Watchexec to
-    /// not watch any paths. Other event sources (like signals or key events) may still be used.
+    /// The special value '/dev/null', provided as the only path watched, will cause Watchexec to not watch any paths. Other event sources (like signals or key events) may still be used.
     #[bpaf(long("watch"), short('w'), argument("PATH"))]
     pub watch: Vec<String>,
     /// Watch a specific directory, non-recursively
@@ -5046,8 +4719,7 @@ pub struct WatchArgs {
     ///
     /// Each line in the file will be interpreted as if given to '-w'.
     ///
-    /// For more complex uses (like watching non-recursively), use the argfile capability: build a
-    /// file containing command-line options and pass it to watchexec with `@path/to/argfile`.
+    /// For more complex uses (like watching non-recursively), use the argfile capability: build a file containing command-line options and pass it to watchexec with `@path/to/argfile`.
     ///
     /// The special value '-' will read from STDIN; this in incompatible with '--stdin-quit'.
     #[bpaf(long("watch-file"), short('F'), argument("PATH"))]
@@ -5059,12 +4731,7 @@ pub struct WatchArgs {
     pub clear: Option<String>,
     /// What to do when receiving events while the command is running
     ///
-    /// Default is to 'do-nothing', which ignores events while the command is running, so that
-    /// changes that occur due to the command are ignored, like compilation outputs. You can also
-    /// use 'queue' which will run the command once again when the current run has finished if any
-    /// events occur while it's running, or 'restart', which terminates the running command and starts
-    /// a new one. Finally, there's 'signal', which only sends a signal; this can be useful with
-    /// programs that can reload their configuration without a full restart.
+    /// Default is to 'do-nothing', which ignores events while the command is running, so that changes that occur due to the command are ignored, like compilation outputs. You can also use 'queue' which will run the command once again when the current run has finished if any events occur while it's running, or 'restart', which terminates the running command and starts a new one. Finally, there's 'signal', which only sends a signal; this can be useful with programs that can reload their configuration without a full restart.
     ///
     /// The signal can be specified with the '--signal' option.
     #[bpaf(long("on-busy-update"), short('o'), argument("MODE"))]
@@ -5076,108 +4743,72 @@ pub struct WatchArgs {
     pub restart: bool,
     /// Send a signal to the process when it's still running
     ///
-    /// Specify a signal to send to the process when it's still running. This implies
-    /// '--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is
-    /// controlled by '--stop-signal'.
+    /// Specify a signal to send to the process when it's still running. This implies '--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is controlled by '--stop-signal'.
     ///
     /// See the long documentation for '--stop-signal' for syntax.
     ///
-    /// Signals are not supported on Windows at the moment, and will always be overridden to 'kill'.
-    /// See '--stop-signal' for more on Windows "signals".
+    /// Signals are not supported on Windows at the moment, and will always be overridden to 'kill'. See '--stop-signal' for more on Windows "signals".
     #[bpaf(long("signal"), short('s'), argument("SIGNAL"))]
     pub signal: Option<String>,
     /// Signal to send to stop the command
     ///
-    /// This is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is
-    /// provided). The restart behaviour is to send the signal, wait for the command to exit, and if
-    /// it hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.
+    /// This is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is provided). The restart behaviour is to send the signal, wait for the command to exit, and if it hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.
     ///
     /// The default on unix is "SIGTERM".
     ///
-    /// Input is parsed as a full signal name (like "SIGTERM"), a short signal name (like "TERM"),
-    /// or a signal number (like "15"). All input is case-insensitive.
+    /// Input is parsed as a full signal name (like "SIGTERM"), a short signal name (like "TERM"), or a signal number (like "15"). All input is case-insensitive.
     ///
-    /// On Windows this option is technically supported but only supports the "KILL" event, as
-    /// Watchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it
-    /// has termination (here called "KILL" or "STOP") and "CTRL+C", "CTRL+BREAK", and "CTRL+CLOSE"
-    /// events. For portability the unix signals "SIGKILL", "SIGINT", "SIGTERM", and "SIGHUP" are
-    /// respectively mapped to these.
+    /// On Windows this option is technically supported but only supports the "KILL" event, as Watchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it has termination (here called "KILL" or "STOP") and "CTRL+C", "CTRL+BREAK", and "CTRL+CLOSE" events. For portability the unix signals "SIGKILL", "SIGINT", "SIGTERM", and "SIGHUP" are respectively mapped to these.
     #[bpaf(long("stop-signal"), argument("SIGNAL"))]
     pub stop_signal: Option<String>,
     /// Time to wait for the command to exit gracefully
     ///
-    /// This is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal
-    /// is sent, Watchexec will wait for the command to exit. If it hasn't exited after this time,
-    /// it is forcefully terminated.
+    /// This is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal is sent, Watchexec will wait for the command to exit. If it hasn't exited after this time, it is forcefully terminated.
     ///
-    /// Takes a unit-less value in seconds, or a time span value such as "5min 20s".
-    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Takes a unit-less value in seconds, or a time span value such as "5min 20s". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// The default is 10 seconds. Set to 0 to immediately force-kill the command.
     ///
-    /// This has no practical effect on Windows as the command is always forcefully terminated; see
-    /// '--stop-signal' for why.
+    /// This has no practical effect on Windows as the command is always forcefully terminated; see '--stop-signal' for why.
     #[bpaf(long("stop-timeout"), argument("TIMEOUT"))]
     pub stop_timeout: Option<String>,
     /// Translate signals from the OS to signals to send to the command
     ///
-    /// Takes a pair of signal names, separated by a colon, such as "TERM:INT" to map SIGTERM to
-    /// SIGINT. The first signal is the one received by watchexec, and the second is the one sent to
-    /// the command. The second can be omitted to discard the first signal, such as "TERM:" to
-    /// not do anything on SIGTERM.
+    /// Takes a pair of signal names, separated by a colon, such as "TERM:INT" to map SIGTERM to SIGINT. The first signal is the one received by watchexec, and the second is the one sent to the command. The second can be omitted to discard the first signal, such as "TERM:" to not do anything on SIGTERM.
     ///
-    /// If SIGINT or SIGTERM are mapped, then they no longer quit Watchexec. Besides making it hard
-    /// to quit Watchexec itself, this is useful to send pass a Ctrl-C to the command without also
-    /// terminating Watchexec and the underlying program with it, e.g. with "INT:INT".
+    /// If SIGINT or SIGTERM are mapped, then they no longer quit Watchexec. Besides making it hard to quit Watchexec itself, this is useful to send pass a Ctrl-C to the command without also terminating Watchexec and the underlying program with it, e.g. with "INT:INT".
     ///
     /// This option can be specified multiple times to map multiple signals.
     ///
-    /// Signal syntax is case-insensitive for short names (like "TERM", "USR2") and long names (like
-    /// "SIGKILL", "SIGHUP"). Signal numbers are also supported (like "15", "31"). On Windows, the
-    /// forms "STOP", "CTRL+C", and "CTRL+BREAK" are also supported to receive, but Watchexec cannot
-    /// yet deliver other "signals" than a STOP.
+    /// Signal syntax is case-insensitive for short names (like "TERM", "USR2") and long names (like "SIGKILL", "SIGHUP"). Signal numbers are also supported (like "15", "31"). On Windows, the forms "STOP", "CTRL+C", and "CTRL+BREAK" are also supported to receive, but Watchexec cannot yet deliver other "signals" than a STOP.
     #[bpaf(long("map-signal"), argument("SIGNAL:SIGNAL"))]
     pub map_signal: Vec<String>,
     /// Time to wait for new events before taking action
     ///
-    /// When an event is received, Watchexec will wait for up to this amount of time before handling
-    /// it (such as running the command). This is essential as what you might perceive as a single
-    /// change may actually emit many events, and without this behaviour, Watchexec would run much
-    /// too often. Additionally, it's not infrequent that file writes are not atomic, and each write
-    /// may emit an event, so this is a good way to avoid running a command while a file is
-    /// partially written.
+    /// When an event is received, Watchexec will wait for up to this amount of time before handling it (such as running the command). This is essential as what you might perceive as a single change may actually emit many events, and without this behaviour, Watchexec would run much too often. Additionally, it's not infrequent that file writes are not atomic, and each write may emit an event, so this is a good way to avoid running a command while a file is partially written.
     ///
-    /// An alternative use is to set a high value (like "30min" or longer), to save power or
-    /// bandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that
-    /// every accumulated event will build up in memory.
+    /// An alternative use is to set a high value (like "30min" or longer), to save power or bandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that every accumulated event will build up in memory.
     ///
-    /// Takes a unit-less value in milliseconds, or a time span value such as "5sec 20ms".
-    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Takes a unit-less value in milliseconds, or a time span value such as "5sec 20ms". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// The default is 50 milliseconds. Setting to 0 is highly discouraged.
     #[bpaf(long("debounce"), short('d'), argument("TIMEOUT"))]
     pub debounce: Option<String>,
     /// Exit when stdin closes
     ///
-    /// This watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is
-    /// closed. This is used by some process managers to avoid leaving zombie processes around.
+    /// This watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is closed. This is used by some process managers to avoid leaving zombie processes around.
     #[bpaf(long("stdin-quit"), switch)]
     pub stdin_quit: bool,
     /// Don't load gitignores
     ///
-    /// Among other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note
-    /// that Watchexec will detect which of these is in use, if any, and only load the relevant
-    /// files. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.
+    /// Among other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note that Watchexec will detect which of these is in use, if any, and only load the relevant files. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.
     ///
     /// This option is useful if you want to watch files that are ignored by Git.
     #[bpaf(long("no-vcs-ignore"), switch)]
     pub no_vcs_ignore: bool,
     /// Don't load project-local ignores
     ///
-    /// This disables loading of project-local ignore files, like '.gitignore' or '.ignore' in the
-    /// watched project. This is contrasted with '--no-vcs-ignore', which disables loading of Git
-    /// and other VCS ignore files, and with '--no-global-ignore', which disables loading of global
-    /// or user ignore files, like '~/.gitignore' or '~/.config/watchexec/ignore'.
+    /// This disables loading of project-local ignore files, like '.gitignore' or '.ignore' in the watched project. This is contrasted with '--no-vcs-ignore', which disables loading of Git and other VCS ignore files, and with '--no-global-ignore', which disables loading of global or user ignore files, like '~/.gitignore' or '~/.config/watchexec/ignore'.
     ///
     /// Supported project ignore files:
     ///
@@ -5188,16 +4819,12 @@ pub struct WatchArgs {
     ///   - Fossil: .fossil-settings/ignore-glob
     ///   - Ripgrep/Watchexec/generic: .ignore at project root and child directories.
     ///
-    /// VCS ignore files (Git, Mercurial, Bazaar, Darcs, Fossil) are only used if the corresponding
-    /// VCS is discovered to be in use for the project/origin. For example, a .bzrignore in a Git
-    /// repository will be discarded.
+    /// VCS ignore files (Git, Mercurial, Bazaar, Darcs, Fossil) are only used if the corresponding VCS is discovered to be in use for the project/origin. For example, a .bzrignore in a Git repository will be discarded.
     #[bpaf(long("no-project-ignore"), switch)]
     pub no_project_ignore: bool,
     /// Don't load global ignores
     ///
-    /// This disables loading of global or user ignore files, like '~/.gitignore',
-    /// '~/.config/watchexec/ignore', or '%APPDATA%\Bazaar\2.0\ignore'. Contrast with
-    /// '--no-vcs-ignore' and '--no-project-ignore'.
+    /// This disables loading of global or user ignore files, like '~/.gitignore', '~/.config/watchexec/ignore', or '%APPDATA%\Bazaar\2.0\ignore'. Contrast with '--no-vcs-ignore' and '--no-project-ignore'.
     ///
     /// Supported global ignore files
     ///
@@ -5206,21 +4833,17 @@ pub struct WatchArgs {
     ///   - Bazaar: the first found of %APPDATA%/Bazaar/2.0/ignore, $HOME/.bazaar/ignore.
     ///   - Watchexec: the first found of $XDG_CONFIG_HOME/watchexec/ignore, %APPDATA%/watchexec/ignore, %USERPROFILE%/.watchexec/ignore, $HOME/.watchexec/ignore.
     ///
-    /// Like for project files, Git and Bazaar global files will only be used for the corresponding
-    /// VCS as used in the project.
+    /// Like for project files, Git and Bazaar global files will only be used for the corresponding VCS as used in the project.
     #[bpaf(long("no-global-ignore"), switch)]
     pub no_global_ignore: bool,
     /// Don't use internal default ignores
     ///
-    /// Watchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`,
-    /// `.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and
-    /// Watchexec log files.
+    /// Watchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`, `.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and Watchexec log files.
     #[bpaf(long("no-default-ignore"), switch)]
     pub no_default_ignore: bool,
     /// Don't discover ignore files at all
     ///
-    /// This is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but
-    /// even more efficient as it will skip all the ignore discovery mechanisms from the get go.
+    /// This is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but even more efficient as it will skip all the ignore discovery mechanisms from the get go.
     ///
     /// Note that default ignores are still loaded, see '--no-default-ignore'.
     #[bpaf(long("no-discover-ignore"), switch)]
@@ -5229,62 +4852,43 @@ pub struct WatchArgs {
     ///
     /// This is a shorthand for '--no-discover-ignore', '--no-default-ignore'.
     ///
-    /// Note that ignores explicitly loaded via other command line options, such as '--ignore' or
-    /// '--ignore-file', will still be used.
+    /// Note that ignores explicitly loaded via other command line options, such as '--ignore' or '--ignore-file', will still be used.
     #[bpaf(long("ignore-nothing"), switch)]
     pub ignore_nothing: bool,
     /// Wait until first change before running command
     ///
-    /// By default, Watchexec will run the command once immediately. With this option, it will
-    /// instead wait until an event is detected before running the command as normal.
+    /// By default, Watchexec will run the command once immediately. With this option, it will instead wait until an event is detected before running the command as normal.
     #[bpaf(long("postpone"), short('p'), switch)]
     pub postpone: bool,
     /// Sleep before running the command
     ///
-    /// This option will cause Watchexec to sleep for the specified amount of time before running
-    /// the command, after an event is detected. This is like using "sleep 5 && command" in a shell,
-    /// but portable and slightly more efficient.
+    /// This option will cause Watchexec to sleep for the specified amount of time before running the command, after an event is detected. This is like using "sleep 5 && command" in a shell, but portable and slightly more efficient.
     ///
-    /// Takes a unit-less value in seconds, or a time span value such as "2min 5s".
-    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Takes a unit-less value in seconds, or a time span value such as "2min 5s". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     #[bpaf(long("delay-run"), argument("DURATION"))]
     pub delay_run: Option<String>,
     /// Poll for filesystem changes
     ///
-    /// By default, and where available, Watchexec uses the operating system's native file system
-    /// watching capabilities. This option disables that and instead uses a polling mechanism, which
-    /// is less efficient but can work around issues with some file systems (like network shares) or
-    /// edge cases.
+    /// By default, and where available, Watchexec uses the operating system's native file system watching capabilities. This option disables that and instead uses a polling mechanism, which is less efficient but can work around issues with some file systems (like network shares) or edge cases.
     ///
-    /// Optionally takes a unit-less value in milliseconds, or a time span value such as "2s 500ms",
-    /// to use as the polling interval. If not specified, the default is 30 seconds.
-    /// Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+    /// Optionally takes a unit-less value in milliseconds, or a time span value such as "2s 500ms", to use as the polling interval. If not specified, the default is 30 seconds. Providing a unit-less value is deprecated and will warn; it will be an error in the future.
     ///
     /// Aliased as '--force-poll'.
     #[bpaf(long("poll"), argument("INTERVAL"))]
     pub poll: Option<String>,
     /// Use a different shell
     ///
-    /// By default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes,
-    /// and either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec
-    /// detects is the running shell.
+    /// By default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes, and either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec detects is the running shell.
     ///
-    /// With this option, you can override that and use a different shell, for example one with more
-    /// features or one which has your custom aliases and functions.
+    /// With this option, you can override that and use a different shell, for example one with more features or one which has your custom aliases and functions.
     ///
-    /// If the value has spaces, it is parsed as a command line, and the first word used as the
-    /// shell program, with the rest as arguments to the shell.
+    /// If the value has spaces, it is parsed as a command line, and the first word used as the shell program, with the rest as arguments to the shell.
     ///
     /// The command is run with the '-c' flag (except for 'cmd' on Windows, where it's '/C').
     ///
-    /// The special value 'none' can be used to disable shell use entirely. In that case, the
-    /// command provided to Watchexec will be parsed, with the first word being the executable and
-    /// the rest being the arguments, and executed directly. Note that this parsing is rudimentary,
-    /// and may not work as expected in all cases.
+    /// The special value 'none' can be used to disable shell use entirely. In that case, the command provided to Watchexec will be parsed, with the first word being the executable and the rest being the arguments, and executed directly. Note that this parsing is rudimentary, and may not work as expected in all cases.
     ///
-    /// Using 'none' is a little more efficient and can enable a stricter interpretation of the
-    /// input, but it also means that you can't use shell features like globbing, redirection,
-    /// control flow, logic, or pipes.
+    /// Using 'none' is a little more efficient and can enable a stricter interpretation of the input, but it also means that you can't use shell features like globbing, redirection, control flow, logic, or pipes.
     ///
     /// Examples:
     ///
@@ -5314,29 +4918,15 @@ pub struct WatchArgs {
     pub n: bool,
     /// Configure event emission
     ///
-    /// Watchexec can emit event information when running a command, which can be used by the child
-    /// process to target specific changed files.
+    /// Watchexec can emit event information when running a command, which can be used by the child process to target specific changed files.
     ///
-    /// One thing to take care with is assuming inherent behaviour where there is only chance.
-    /// Notably, it could appear as if the `RENAMED` variable contains both the original and the new
-    /// path being renamed. In previous versions, it would even appear on some platforms as if the
-    /// original always came before the new. However, none of this was true. It's impossible to
-    /// reliably and portably know which changed path is the old or new, "half" renames may appear
-    /// (only the original, only the new), "unknown" renames may appear (change was a rename, but
-    /// whether it was the old or new isn't known), rename events might split across two debouncing
-    /// boundaries, and so on.
+    /// One thing to take care with is assuming inherent behaviour where there is only chance. Notably, it could appear as if the `RENAMED` variable contains both the original and the new path being renamed. In previous versions, it would even appear on some platforms as if the original always came before the new. However, none of this was true. It's impossible to reliably and portably know which changed path is the old or new, "half" renames may appear (only the original, only the new), "unknown" renames may appear (change was a rename, but whether it was the old or new isn't known), rename events might split across two debouncing boundaries, and so on.
     ///
-    /// This option controls where that information is emitted. It defaults to 'none', which doesn't
-    /// emit event information at all. The other options are 'environment' (deprecated), 'stdio',
-    /// 'file', 'json-stdio', and 'json-file'.
+    /// This option controls where that information is emitted. It defaults to 'none', which doesn't emit event information at all. The other options are 'environment' (deprecated), 'stdio', 'file', 'json-stdio', and 'json-file'.
     ///
-    /// The 'stdio' and 'file' modes are text-based: 'stdio' writes absolute paths to the stdin of
-    /// the command, one per line, each prefixed with `create:`, `remove:`, `rename:`, `modify:`,
-    /// or `other:`, then closes the handle; 'file' writes the same thing to a temporary file, and
-    /// its path is given with the $WATCHEXEC_EVENTS_FILE environment variable.
+    /// The 'stdio' and 'file' modes are text-based: 'stdio' writes absolute paths to the stdin of the command, one per line, each prefixed with `create:`, `remove:`, `rename:`, `modify:`, or `other:`, then closes the handle; 'file' writes the same thing to a temporary file, and its path is given with the $WATCHEXEC_EVENTS_FILE environment variable.
     ///
-    /// There are also two JSON modes, which are based on JSON objects and can represent the full
-    /// set of events Watchexec handles. Here's an example of a folder being created on Linux:
+    /// There are also two JSON modes, which are based on JSON objects and can represent the full set of events Watchexec handles. Here's an example of a folder being created on Linux:
     ///
     /// ```json
     ///   {
@@ -5385,16 +4975,11 @@ pub struct WatchArgs {
     ///       + `code`, the exit, signal, stop, or exception code.
     ///   - `metadata`, additional information about the event.
     ///
-    /// The 'json-stdio' mode will emit JSON events to the standard input of the command, one per
-    /// line, then close stdin. The 'json-file' mode will create a temporary file, write the
-    /// events to it, and provide the path to the file with the $WATCHEXEC_EVENTS_FILE
-    /// environment variable.
+    /// The 'json-stdio' mode will emit JSON events to the standard input of the command, one per line, then close stdin. The 'json-file' mode will create a temporary file, write the events to it, and provide the path to the file with the $WATCHEXEC_EVENTS_FILE environment variable.
     ///
-    /// Finally, the 'environment' mode was the default until 2.0. It sets environment variables
-    /// with the paths of the affected files, for filesystem events:
+    /// Finally, the 'environment' mode was the default until 2.0. It sets environment variables with the paths of the affected files, for filesystem events:
     ///
-    /// $WATCHEXEC_COMMON_PATH is set to the longest common path of all of the below variables,
-    /// and so should be prepended to each path to obtain the full/real path. Then:
+    /// $WATCHEXEC_COMMON_PATH is set to the longest common path of all of the below variables, and so should be prepended to each path to obtain the full/real path. Then:
     ///
     ///   - $WATCHEXEC_CREATED_PATH is set when files/folders were created
     ///   - $WATCHEXEC_REMOVED_PATH is set when files/folders were removed
@@ -5403,51 +4988,37 @@ pub struct WatchArgs {
     ///   - $WATCHEXEC_META_CHANGED_PATH is set when files/folders' metadata were modified
     ///   - $WATCHEXEC_OTHERWISE_CHANGED_PATH is set for every other kind of pathed event
     ///
-    /// Multiple paths are separated by the system path separator, ';' on Windows and ':' on unix.
-    /// Within each variable, paths are deduplicated and sorted in binary order (i.e. neither
-    /// Unicode nor locale aware).
+    /// Multiple paths are separated by the system path separator, ';' on Windows and ':' on unix. Within each variable, paths are deduplicated and sorted in binary order (i.e. neither Unicode nor locale aware).
     ///
-    /// This is the legacy mode, is deprecated, and will be removed in the future. The environment
-    /// is a very restricted space, while also limited in what it can usefully represent. Large
-    /// numbers of files will either cause the environment to be truncated, or may error or crash
-    /// the process entirely. The $WATCHEXEC_COMMON_PATH is also unintuitive, as demonstrated by the
-    /// multiple confused queries that have landed in my inbox over the years.
+    /// This is the legacy mode, is deprecated, and will be removed in the future. The environment is a very restricted space, while also limited in what it can usefully represent. Large numbers of files will either cause the environment to be truncated, or may error or crash the process entirely. The $WATCHEXEC_COMMON_PATH is also unintuitive, as demonstrated by the multiple confused queries that have landed in my inbox over the years.
     #[bpaf(long("emit-events-to"), argument("MODE"))]
     pub emit_events_to: Option<String>,
     /// Only emit events to stdout, run no commands.
     ///
-    /// This is a convenience option for using Watchexec as a file watcher, without running any
-    /// commands. It is almost equivalent to using `cat` as the command, except that it will not
-    /// spawn a new process for each event.
+    /// This is a convenience option for using Watchexec as a file watcher, without running any commands. It is almost equivalent to using `cat` as the command, except that it will not spawn a new process for each event.
     ///
-    /// This option requires `--emit-events-to` to be set, and restricts the available modes to
-    /// `stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin
-    /// of the command.
+    /// This option requires `--emit-events-to` to be set, and restricts the available modes to `stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin of the command.
     #[bpaf(long("only-emit-events"), switch)]
     pub only_emit_events: bool,
     /// Add env vars to the command
     ///
-    /// This is a convenience option for setting environment variables for the command, without
-    /// setting them for the Watchexec process itself.
+    /// This is a convenience option for setting environment variables for the command, without setting them for the Watchexec process itself.
     ///
     /// Use key=value syntax. Multiple variables can be set by repeating the option.
     #[bpaf(long("env"), short('E'), argument("KEY=VALUE"))]
     pub env: Vec<String>,
     /// Configure how the process is wrapped
     ///
-    /// By default, Watchexec will run the command in a session on macOS, in a process group on
-    /// other Unix platforms, and in a Job Object in Windows.
+    /// By default, Watchexec will run the command in a session on macOS, in a process group on other Unix platforms, and in a Job Object in Windows.
     ///
     /// Some Unix programs prefer running in a session, while others do not work in a process group.
     ///
-    /// Use 'group' to use a process group, 'session' to use a process session, and 'none' to run
-    /// the command directly. On Windows, either of 'group' or 'session' will use a Job Object.
+    /// Use 'group' to use a process group, 'session' to use a process session, and 'none' to run the command directly. On Windows, either of 'group' or 'session' will use a Job Object.
     #[bpaf(long("wrap-process"), argument("MODE"))]
     pub wrap_process: Option<String>,
     /// Alert when commands start and end
     ///
-    /// With this, Watchexec will emit a desktop notification when a command starts and ends, on
-    /// supported platforms. On unsupported platforms, it may silently do nothing, or log a warning.
+    /// With this, Watchexec will emit a desktop notification when a command starts and ends, on supported platforms. On unsupported platforms, it may silently do nothing, or log a warning.
     #[bpaf(long("notify"), short('N'), switch)]
     pub notify: bool,
     /// When to use terminal colours
@@ -5457,14 +5028,12 @@ pub struct WatchArgs {
     pub color: Option<String>,
     /// Print how long the command took to run
     ///
-    /// This may not be exactly accurate, as it includes some overhead from Watchexec itself. Use
-    /// the `time` utility, high-precision timers, or benchmarking tools for more accurate results.
+    /// This may not be exactly accurate, as it includes some overhead from Watchexec itself. Use the `time` utility, high-precision timers, or benchmarking tools for more accurate results.
     #[bpaf(long("timings"), switch)]
     pub timings: bool,
     /// Don't print starting and stopping messages
     ///
-    /// By default Watchexec will print a message when the command starts and stops. This option
-    /// disables this behaviour, so only the command's output, warnings, and errors will be printed.
+    /// By default Watchexec will print a message when the command starts and stops. This option disables this behaviour, so only the command's output, warnings, and errors will be printed.
     #[bpaf(long("quiet"), short('q'), switch)]
     pub quiet: bool,
     /// Ring the terminal bell on command completion
@@ -5472,40 +5041,31 @@ pub struct WatchArgs {
     pub bell: bool,
     /// Set the project origin
     ///
-    /// Watchexec will attempt to discover the project's "origin" (or "root") by searching for a
-    /// variety of markers, like files or directory patterns. It does its best but sometimes gets it
-    /// it wrong, and you can override that with this option.
+    /// Watchexec will attempt to discover the project's "origin" (or "root") by searching for a variety of markers, like files or directory patterns. It does its best but sometimes gets it it wrong, and you can override that with this option.
     ///
-    /// The project origin is used to determine the path of certain ignore files, which VCS is being
-    /// used, the meaning of a leading '/' in filtering patterns, and maybe more in the future.
+    /// The project origin is used to determine the path of certain ignore files, which VCS is being used, the meaning of a leading '/' in filtering patterns, and maybe more in the future.
     ///
     /// When set, Watchexec will also not bother searching, which can be significantly faster.
     #[bpaf(long("project-origin"), argument("DIRECTORY"))]
     pub project_origin: Option<String>,
     /// Set the working directory
     ///
-    /// By default, the working directory of the command is the working directory of Watchexec. You
-    /// can change that with this option. Note that paths may be less intuitive to use with this.
+    /// By default, the working directory of the command is the working directory of Watchexec. You can change that with this option. Note that paths may be less intuitive to use with this.
     #[bpaf(long("workdir"), argument("DIRECTORY"))]
     pub workdir: Option<String>,
     /// Filename extensions to filter to
     ///
-    /// This is a quick filter to only emit events for files with the given extensions. Extensions
-    /// can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can
-    /// be given by repeating the option or by separating them with commas.
+    /// This is a quick filter to only emit events for files with the given extensions. Extensions can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can be given by repeating the option or by separating them with commas.
     #[bpaf(long("exts"), short('e'), argument("EXTENSIONS"))]
     pub exts: Vec<String>,
     /// Filename patterns to filter to
     ///
-    /// Provide a glob-like filter pattern, and only events for files matching the pattern will be
-    /// emitted. Multiple patterns can be given by repeating the option. Events that are not from
-    /// files (e.g. signals, keyboard events) will pass through untouched.
+    /// Provide a glob-like filter pattern, and only events for files matching the pattern will be emitted. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
     #[bpaf(long("filter"), short('f'), argument("PATTERN"))]
     pub filter: Vec<String>,
     /// Files to load filters from
     ///
-    /// Provide a path to a file containing filters, one per line. Empty lines and lines starting
-    /// with '#' are ignored. Uses the same pattern format as the '--filter' option.
+    /// Provide a path to a file containing filters, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--filter' option.
     ///
     /// This can also be used via the $WATCHEXEC_FILTER_FILES environment variable.
     #[bpaf(long("filter-file"), argument("PATH"))]
@@ -5514,9 +5074,7 @@ pub struct WatchArgs {
     ///
     /// /!\ This option is EXPERIMENTAL and may change and/or vanish without notice.
     ///
-    /// Provide your own custom filter programs in jaq (similar to jq) syntax. Programs are given
-    /// an event in the same format as described in '--emit-events-to' and must return a boolean.
-    /// Invalid programs will make watchexec fail to start; use '-v' to see program runtime errors.
+    /// Provide your own custom filter programs in jaq (similar to jq) syntax. Programs are given an event in the same format as described in '--emit-events-to' and must return a boolean. Invalid programs will make watchexec fail to start; use '-v' to see program runtime errors.
     ///
     /// In addition to the jaq stdlib, watchexec adds some custom filter definitions:
     ///
@@ -5538,20 +5096,13 @@ pub struct WatchArgs {
     ///     value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and
     ///     pass the value through (so '[1] | log("debug") | .[]' will produce a '1' and log '[1]').
     ///
-    /// All filtering done with such programs, and especially those using kv or filesystem access,
-    /// is much slower than the other filtering methods. If filtering is too slow, events will back
-    /// up and stall watchexec. Take care when designing your filters.
+    /// All filtering done with such programs, and especially those using kv or filesystem access, is much slower than the other filtering methods. If filtering is too slow, events will back up and stall watchexec. Take care when designing your filters.
     ///
-    /// If the argument to this option starts with an '@', the rest of the argument is taken to be
-    /// the path to a file containing a jaq program.
+    /// If the argument to this option starts with an '@', the rest of the argument is taken to be the path to a file containing a jaq program.
     ///
-    /// Jaq programs are run in order, after all other filters, and short-circuit: if a filter (jaq
-    /// or not) rejects an event, execution stops there, and no other filters are run. Additionally,
-    /// they stop after outputting the first value, so you'll want to use 'any' or 'all' when
-    /// iterating, otherwise only the first item will be processed, which can be quite confusing!
+    /// Jaq programs are run in order, after all other filters, and short-circuit: if a filter (jaq or not) rejects an event, execution stops there, and no other filters are run. Additionally, they stop after outputting the first value, so you'll want to use 'any' or 'all' when iterating, otherwise only the first item will be processed, which can be quite confusing!
     ///
-    /// Find user-contributed programs or submit your own useful ones at
-    /// <https://github.com/watchexec/watchexec/discussions/592>.
+    /// Find user-contributed programs or submit your own useful ones at <https://github.com/watchexec/watchexec/discussions/592>.
     ///
     /// ## Examples:
     ///
@@ -5574,49 +5125,38 @@ pub struct WatchArgs {
     pub filter_prog: Vec<String>,
     /// Filename patterns to filter out
     ///
-    /// Provide a glob-like filter pattern, and events for files matching the pattern will be
-    /// excluded. Multiple patterns can be given by repeating the option. Events that are not from
-    /// files (e.g. signals, keyboard events) will pass through untouched.
+    /// Provide a glob-like filter pattern, and events for files matching the pattern will be excluded. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
     #[bpaf(long("ignore"), short('i'), argument("PATTERN"))]
     pub ignore: Vec<String>,
     /// Files to load ignores from
     ///
-    /// Provide a path to a file containing ignores, one per line. Empty lines and lines starting
-    /// with '#' are ignored. Uses the same pattern format as the '--ignore' option.
+    /// Provide a path to a file containing ignores, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--ignore' option.
     ///
     /// This can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.
     #[bpaf(long("ignore-file"), argument("PATH"))]
     pub ignore_file: Vec<String>,
     /// Filesystem events to filter to
     ///
-    /// This is a quick filter to only emit events for the given types of filesystem changes. Choose
-    /// from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be
-    /// given by repeating the option or by separating them with commas. By default, this is all
-    /// types except for 'access'.
+    /// This is a quick filter to only emit events for the given types of filesystem changes. Choose from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be given by repeating the option or by separating them with commas. By default, this is all types except for 'access'.
     ///
-    /// This may apply filtering at the kernel level when possible, which can be more efficient, but
-    /// may be more confusing when reading the logs.
+    /// This may apply filtering at the kernel level when possible, which can be more efficient, but may be more confusing when reading the logs.
     #[bpaf(long("fs-events"), argument("EVENTS"))]
     pub fs_events: Vec<String>,
     /// Don't emit fs events for metadata changes
     ///
-    /// This is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the
-    /// '--fs-events' option is non-sensical and not allowed.
+    /// This is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the '--fs-events' option is non-sensical and not allowed.
     #[bpaf(long("no-meta"), switch)]
     pub no_meta: bool,
     /// Print events that trigger actions
     ///
-    /// This prints the events that triggered the action when handling it (after debouncing), in a
-    /// human readable form. This is useful for debugging filters.
+    /// This prints the events that triggered the action when handling it (after debouncing), in a human readable form. This is useful for debugging filters.
     ///
     /// Use '-vvv' instead when you need more diagnostic information.
     #[bpaf(long("print-events"), switch)]
     pub print_events: bool,
     /// Show the manual page
     ///
-    /// This shows the manual page for Watchexec, if the output is a terminal and the 'man' program
-    /// is available. If not, the manual page is printed to stdout in ROFF format (suitable for
-    /// writing to a watchexec.1 file).
+    /// This shows the manual page for Watchexec, if the output is a terminal and the 'man' program is available. If not, the manual page is printed to stdout in ROFF format (suitable for writing to a watchexec.1 file).
     #[bpaf(long("manual"), switch)]
     pub manual: bool,
     #[bpaf(positional("TASK"))]
@@ -5730,9 +5270,7 @@ pub struct Cli {
     pub raw: bool,
     /// Require lockfile URLs to be present during installation
     ///
-    /// Fails if tools don't have pre-resolved URLs in the lockfile for the current platform.
-    /// This prevents API calls to GitHub, aqua registry, etc.
-    /// Can also be enabled via MISE_LOCKED=1 or settings.locked=true
+    /// Fails if tools don't have pre-resolved URLs in the lockfile for the current platform. This prevents API calls to GitHub, aqua registry, etc. Can also be enabled via MISE_LOCKED=1 or settings.locked=true
     #[bpaf(long("locked"), switch)]
     pub locked: bool,
     /// Suppress all task output and mise non-error messages

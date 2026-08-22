@@ -9,9 +9,7 @@
 
 Generate a shell init script that auto-completes any usage shebang script on $PATH
 
-Source the output once from your shell rc (e.g. ~/.bashrc) to enable
-tab-completion for any executable whose first line is a `usage` shebang —
-no per-script `usage g completion` step required.
+Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required.
 
 ## Arguments
 

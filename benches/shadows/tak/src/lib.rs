@@ -63,8 +63,7 @@ pub struct InitArgs {
 
 /// Benchmark published release binaries to bootstrap history.
 ///
-/// A new adopter's first chart is empty. Rather than rebuilding a project at
-/// a hundred historical commits, download what it already published.
+/// A new adopter's first chart is empty. Rather than rebuilding a project at a hundred historical commits, download what it already published.
 #[derive(Args)]
 pub struct BackfillArgs {
     #[usage(
@@ -105,8 +104,7 @@ pub struct BackfillArgs {
 
 /// Compare this commit's measurements against another's.
 ///
-/// Fails when an instruction count has risen by more than `gate_pct`. Wall
-/// clock is reported and never gated.
+/// Fails when an instruction count has risen by more than `gate_pct`. Wall clock is reported and never gated.
 #[derive(Args)]
 pub struct CompareArgs {
     /// Revision to compare. Defaults to HEAD.

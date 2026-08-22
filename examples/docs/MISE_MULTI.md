@@ -51,9 +51,7 @@ Read/write directly to stdin/stdout/stderr instead of by line
 
 Require lockfile URLs to be present during installation
 
-Fails if tools don't have pre-resolved URLs in the lockfile for the current platform.
-This prevents API calls to GitHub, aqua registry, etc.
-Can also be enabled via MISE_LOCKED=1 or settings.locked=true
+Fails if tools don't have pre-resolved URLs in the lockfile for the current platform. This prevents API calls to GitHub, aqua registry, etc. Can also be enabled via MISE_LOCKED=1 or settings.locked=true
 
 ### `--silent`
 
@@ -85,20 +83,16 @@ Can also use `MISE_NO_HOOKS=1`
 
 - **Usage**: `mise activate [FLAGS] [SHELL_TYPE]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/activate.rs`](https://github.com/jdx/mise/blob/main/src/cli/activate.rs)
 
 Initializes mise in the current shell session
 
-This should go into your shell's rc file or login shell.
-Otherwise, it will only take effect in the current session.
-(e.g. ~/.zshrc, ~/.zprofile, ~/.zshenv, ~/.bashrc, ~/.bash_profile, ~/.profile, ~/.config/fish/config.fish, or $PROFILE for powershell)
+This should go into your shell's rc file or login shell. Otherwise, it will only take effect in the current session. (e.g. ~/.zshrc, ~/.zprofile, ~/.zshenv, ~/.bashrc, ~/.bash_profile, ~/.profile, ~/.config/fish/config.fish, or $PROFILE for powershell)
 
 Typically, this can be added with something like the following:
 
     echo 'eval "$(mise activate zsh)"' >> ~/.zshrc
 
-However, this requires that "mise" is in your PATH. If it is not, you need to
-specify the full path like this:
+However, this requires that "mise" is in your PATH. If it is not, you need to specify the full path like this:
 
     echo 'eval "$(/path/to/mise activate zsh)"' >> ~/.zshrc
 
@@ -130,10 +124,7 @@ Suppress non-error messages
 
 Do not automatically call hook-env
 
-This can be helpful for debugging mise. If you run `eval "$(mise activate --no-hook-env)"`, then
-you can call `mise hook-env` manually which will output the env vars to stdout without actually
-modifying the environment. That way you can do things like `mise hook-env --trace` to get more
-information or just see the values that hook-env is outputting.
+This can be helpful for debugging mise. If you run `eval "$(mise activate --no-hook-env)"`, then you can call `mise hook-env` manually which will output the env vars to stdout without actually modifying the environment. That way you can do things like `mise hook-env --trace` to get more information or just see the values that hook-env is outputting.
 
 #### `--shims`
 
@@ -157,7 +148,6 @@ Examples:
 
 - **Usage**: `mise tool-alias [-p --tool <TOOL>] [--no-header] <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/tool_alias/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/tool_alias/mod.rs)
 
 Manage tool version aliases.
 
@@ -175,7 +165,6 @@ Don't show table header
 
 - **Usage**: `mise tool-alias get <TOOL> <ALIAS>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/tool_alias/get.rs`](https://github.com/jdx/mise/blob/main/src/cli/tool_alias/get.rs)
 
 Show an alias for a tool
 
@@ -201,7 +190,6 @@ Examples:
 - **Usage**: `mise tool-alias ls [--no-header] [TOOL]`
 - **Aliases**: `list`
 - **Effect**: read-only
-- **Source code**: [`src/cli/tool_alias/ls.rs`](https://github.com/jdx/mise/blob/main/src/cli/tool_alias/ls.rs)
 
 List tool version aliases
 Shows the aliases that can be specified.
@@ -234,7 +222,6 @@ Examples:
 - **Usage**: `mise tool-alias set <ARGS>…`
 - **Aliases**: `add`, `create`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/tool_alias/set.rs`](https://github.com/jdx/mise/blob/main/src/cli/tool_alias/set.rs)
 
 Add/update an alias for a tool/backend
 
@@ -264,7 +251,6 @@ Examples:
 - **Usage**: `mise tool-alias unset <TOOL> [ALIAS]`
 - **Aliases**: `rm`, `remove`, `delete`, `del`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/tool_alias/unset.rs`](https://github.com/jdx/mise/blob/main/src/cli/tool_alias/unset.rs)
 
 Clears an alias for a tool/backend
 
@@ -288,7 +274,6 @@ Examples:
 ## `mise asdf`
 
 - **Usage**: `mise asdf [ARGS]…`
-- **Source code**: [`src/cli/asdf.rs`](https://github.com/jdx/mise/blob/main/src/cli/asdf.rs)
 
 [internal] simulates asdf for plugins that call "asdf" internally
 
@@ -302,7 +287,6 @@ all arguments
 
 - **Usage**: `mise backends <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/backends/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/backends/mod.rs)
 
 Manage backends
 
@@ -316,7 +300,6 @@ Use `mise backends` instead.
 - **Usage**: `mise backends ls`
 - **Aliases**: `list`
 - **Effect**: read-only
-- **Source code**: [`src/cli/backends/ls.rs`](https://github.com/jdx/mise/blob/main/src/cli/backends/ls.rs)
 
 List built-in backends
 
@@ -340,7 +323,6 @@ Examples:
 
 - **Usage**: `mise bin-paths [--bin-names] [-J --json] [TOOL@VERSION]…`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bin_paths.rs`](https://github.com/jdx/mise/blob/main/src/cli/bin_paths.rs)
 
 List all the active runtime bin paths
 
@@ -365,7 +347,6 @@ Output executable entries in JSON format (implies --bin-names)
 
 - **Usage**: `mise bootstrap [FLAGS] <SUBCOMMAND>`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Set up a machine for the current config in one command
 
@@ -375,8 +356,7 @@ Runs the bootstrap steps for the current config in order:
    `[bootstrap.groups]` (Linux)
 1. `mise bootstrap plugins apply` — install `[bootstrap.plugins]`
    1.7. `[bootstrap.hooks.pre-packages]` — optional setup hook
-2. Install built-in-manager entries from `[bootstrap.packages]`
-3. `mise bootstrap files apply` — converge `[bootstrap.files]` and
+2. Install built-in-manager entries from `[bootstrap.packages]` 3. `mise bootstrap files apply` — converge `[bootstrap.files]` and
    `[bootstrap.directories]`
 4. `mise bootstrap services apply` — converge `[bootstrap.services]`
    systemd system services (Linux)
@@ -404,18 +384,11 @@ Runs the bootstrap steps for the current config in order:
     surrounded by `pre-tools`/`post-tools` hooks; package-plugin entries
     from `[bootstrap.packages]` install afterward, followed by
     `[bootstrap.hooks.post-packages]`
-15. `mise run bootstrap` — if a task named `bootstrap` is defined
-16. `[bootstrap.hooks.final]` — optional final hook
+15. `mise run bootstrap` — if a task named `bootstrap` is defined 16. `[bootstrap.hooks.final]` — optional final hook
 
-The declarative steps converge — anything already in its desired state
-is skipped, so re-running is safe. The `bootstrap` task runs on every
-invocation; keep it idempotent. Use it for any project-specific setup
-that doesn't fit the declarative sections (seeding databases, auth flows,
-etc.) — it runs with the installed tools on PATH.
+The declarative steps converge — anything already in its desired state is skipped, so re-running is safe. The `bootstrap` task runs on every invocation; keep it idempotent. Use it for any project-specific setup that doesn't fit the declarative sections (seeding databases, auth flows, etc.) — it runs with the installed tools on PATH.
 
-Use `--skip <part>` to skip named parts, or `--only <part>` to run just
-named parts. Both flags can be repeated or comma-separated, but they
-cannot be used together.
+Use `--skip <part>` to skip named parts, or `--only <part>` to run just named parts. Both flags can be repeated or comma-separated, but they cannot be used together.
 
 ### Flags
 
@@ -435,8 +408,7 @@ Overwrite existing files that conflict with whole-file dotfile entries
 
 Run only one or more bootstrap parts
 
-Can be passed multiple times or as a comma-separated list.
-Cannot be used with `--skip`.
+Can be passed multiple times or as a comma-separated list. Cannot be used with `--skip`.
 
 **Choices:**
 
@@ -513,43 +485,36 @@ Examples:
 
 - **Usage**: `mise bootstrap __apply-account-plan`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ## `mise bootstrap __apply-service-plan`
 
 - **Usage**: `mise bootstrap __apply-service-plan`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ## `mise bootstrap __apply-firewall-plan`
 
 - **Usage**: `mise bootstrap __apply-firewall-plan`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ## `mise bootstrap __apply-system-plan`
 
 - **Usage**: `mise bootstrap __apply-system-plan`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ## `mise bootstrap __inspect-system-files`
 
 - **Usage**: `mise bootstrap __inspect-system-files`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ## `mise bootstrap __inspect-firewall-plan`
 
 - **Usage**: `mise bootstrap __inspect-firewall-plan`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ## `mise bootstrap accounts`
 
 - **Usage**: `mise bootstrap accounts <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage Linux users and groups from `[bootstrap.users]` and `[bootstrap.groups]`
 
@@ -557,7 +522,6 @@ Manage Linux users and groups from `[bootstrap.users]` and `[bootstrap.groups]`
 
 - **Usage**: `mise bootstrap accounts apply [-n --dry-run] [-y --yes]`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Apply configured Linux users and groups
 
@@ -575,7 +539,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap accounts status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Show configured Linux user and group state
 
@@ -593,7 +556,6 @@ Exit with code 1 when any account is not converged
 
 - **Usage**: `mise bootstrap compose <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage Docker Compose projects from `[bootstrap.compose]`
 
@@ -601,7 +563,6 @@ Manage Docker Compose projects from `[bootstrap.compose]`
 
 - **Usage**: `mise bootstrap compose apply [-n --dry-run] [-y --yes]`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Apply configured Docker Compose project state
 
@@ -619,7 +580,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap compose status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Show configured Docker Compose project state
 
@@ -637,7 +597,6 @@ Exit with code 1 when any Compose project is not converged
 
 - **Usage**: `mise bootstrap dotfiles <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage dotfiles from `[dotfiles]`
 
@@ -645,13 +604,10 @@ Manage dotfiles from `[dotfiles]`
 
 - **Usage**: `mise bootstrap dotfiles add [FLAGS] <TARGET>…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/dotfiles/add.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/add.rs)
 
 Add or update dotfiles in `[dotfiles]`
 
-If the target is already managed, this updates its source from the live
-target. Otherwise it creates a `[dotfiles]` entry and seeds the source
-under `dotfiles.root` unless `--source` is provided.
+If the target is already managed, this updates its source from the live target. Otherwise it creates a `[dotfiles]` entry and seeds the source under `dotfiles.root` unless `--source` is provided.
 
 ### Arguments
 
@@ -707,14 +663,10 @@ Examples:
 
 - **Usage**: `mise bootstrap dotfiles apply [FLAGS] [TARGET]…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/dotfiles/apply.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/apply.rs)
 
 Apply dotfiles from `[dotfiles]`
 
-Applies configured whole-file entries and edits that aren't in their
-desired state. Whole-file entries may symlink, copy, or render templates.
-Edit entries manage a marker-delimited block or a single line in a file
-mise doesn't otherwise own.
+Applies configured whole-file entries and edits that aren't in their desired state. Whole-file entries may symlink, copy, or render templates. Edit entries manage a marker-delimited block or a single line in a file mise doesn't otherwise own.
 
 ### Arguments
 
@@ -746,7 +698,6 @@ Examples:
 
 - **Usage**: `mise bootstrap dotfiles edit [FLAGS] <TARGET>`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/dotfiles/edit.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/edit.rs)
 
 Edit a managed dotfile source
 
@@ -783,7 +734,6 @@ Examples:
 
 - **Usage**: `mise bootstrap dotfiles status [-J --json] [--missing] [TARGET]…`
 - **Effect**: read-only
-- **Source code**: [`src/cli/dotfiles/status.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/status.rs)
 
 Show the status of dotfiles from `[dotfiles]`
 
@@ -815,13 +765,10 @@ Examples:
 
 - **Usage**: `mise bootstrap dotfiles unapply [FLAGS] [TARGET]…`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/dotfiles/unapply.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/unapply.rs)
 
 Remove dotfiles applied from `[dotfiles]`
 
-Removes configured whole-file entries and edits while preserving files
-mise cannot identify as managed. Modified copies, templates, and plain-line
-edits require `--force`.
+Removes configured whole-file entries and edits while preserving files mise cannot identify as managed. Modified copies, templates, and plain-line edits require `--force`.
 
 ### Arguments
 
@@ -854,7 +801,6 @@ Examples:
 
 - **Usage**: `mise bootstrap files <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage privileged files and directories from `[bootstrap.files]` and `[bootstrap.directories]`
 
@@ -862,7 +808,6 @@ Manage privileged files and directories from `[bootstrap.files]` and `[bootstrap
 
 - **Usage**: `mise bootstrap files apply [FLAGS]`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Apply configured privileged files and directories
 
@@ -884,7 +829,6 @@ Prompt securely for missing bootstrap secret inputs
 
 - **Usage**: `mise bootstrap files status [FLAGS]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Show configured privileged file and directory state
 
@@ -906,7 +850,6 @@ Prompt securely for missing bootstrap secret inputs
 
 - **Usage**: `mise bootstrap firewall <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage the Linux host firewall from `[bootstrap.linux.firewall]`
 
@@ -914,7 +857,6 @@ Manage the Linux host firewall from `[bootstrap.linux.firewall]`
 
 - **Usage**: `mise bootstrap firewall apply [-n --dry-run] [-y --yes]`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Apply the configured Linux host firewall
 
@@ -932,7 +874,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap firewall status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Show configured Linux host firewall state
 
@@ -950,7 +891,6 @@ Exit with code 1 when the firewall is not converged
 
 - **Usage**: `mise bootstrap launchd <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
 
@@ -958,7 +898,6 @@ Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
 
 - **Usage**: `mise bootstrap launchd apply [-n --dry-run] [-y --yes]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -974,7 +913,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap launchd status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -990,7 +928,6 @@ Exit with code 1 if any configured LaunchAgent is not in its desired state
 
 - **Usage**: `mise bootstrap linux <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage Linux bootstrap config from `[bootstrap.linux]`
 
@@ -998,7 +935,6 @@ Manage Linux bootstrap config from `[bootstrap.linux]`
 
 - **Usage**: `mise bootstrap linux systemd-units <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage systemd user services from `[bootstrap.linux.systemd.units]`
 
@@ -1006,7 +942,6 @@ Manage systemd user services from `[bootstrap.linux.systemd.units]`
 
 - **Usage**: `mise bootstrap linux systemd-units apply [-n --dry-run] [-y --yes]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1022,7 +957,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap linux systemd-units status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1038,7 +972,6 @@ Exit with code 1 if any configured systemd user service is not in its desired st
 
 - **Usage**: `mise bootstrap macos <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage macOS bootstrap config from `[bootstrap.macos]`
 
@@ -1046,7 +979,6 @@ Manage macOS bootstrap config from `[bootstrap.macos]`
 
 - **Usage**: `mise bootstrap macos defaults <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage macOS defaults from `[bootstrap.macos.defaults]`
 
@@ -1054,7 +986,6 @@ Manage macOS defaults from `[bootstrap.macos.defaults]`
 
 - **Usage**: `mise bootstrap macos defaults apply [-n --dry-run] [-y --yes]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1070,7 +1001,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap macos defaults status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1086,7 +1016,6 @@ Exit with code 1 if any configured defaults are not in their desired state
 
 - **Usage**: `mise bootstrap macos launchd-agents <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
 
@@ -1094,7 +1023,6 @@ Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
 
 - **Usage**: `mise bootstrap macos launchd-agents apply [-n --dry-run] [-y --yes]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1110,7 +1038,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap macos launchd-agents status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1126,7 +1053,6 @@ Exit with code 1 if any configured LaunchAgent is not in its desired state
 
 - **Usage**: `mise bootstrap macos-defaults <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage macOS defaults from `[bootstrap.macos.defaults]`
 
@@ -1134,7 +1060,6 @@ Manage macOS defaults from `[bootstrap.macos.defaults]`
 
 - **Usage**: `mise bootstrap macos-defaults apply [-n --dry-run] [-y --yes]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1150,7 +1075,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap macos-defaults status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1166,7 +1090,6 @@ Exit with code 1 if any configured defaults are not in their desired state
 
 - **Usage**: `mise bootstrap mise-shell-activate <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage mise shell activation from `[bootstrap.mise_shell_activate]`
 
@@ -1174,7 +1097,6 @@ Manage mise shell activation from `[bootstrap.mise_shell_activate]`
 
 - **Usage**: `mise bootstrap mise-shell-activate apply [-n --dry-run] [-y --yes]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1190,7 +1112,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap mise-shell-activate status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1206,7 +1127,6 @@ Exit with code 1 if any configured shell activation is not in its desired state
 
 - **Usage**: `mise bootstrap packages <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage bootstrap system packages from `[bootstrap.packages]`
 
@@ -1215,18 +1135,12 @@ Manage bootstrap system packages from `[bootstrap.packages]`
 - **Usage**: `mise bootstrap packages apply [FLAGS] [PACKAGE]…`
 - **Aliases**: `i`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/system/install.rs`](https://github.com/jdx/mise/blob/main/src/cli/system/install.rs)
 
 Apply system packages from `[bootstrap.packages]`
 
-Checks which configured packages are missing and installs them with the
-system package manager. Built-in system managers may elevate with sudo when
-not running as root (see `system_packages.sudo`); package plugins never do.
+Checks which configured packages are missing and installs them with the system package manager. Built-in system managers may elevate with sudo when not running as root (see `system_packages.sudo`); package plugins never do.
 
-Packages can also be given explicitly in `manager:package` form (e.g.
-`apk:zlib-dev`, `apt:curl`, `brew:jq`); they are installed whether or not they appear in
-the config. Explicit packages and `--manager` scope the run to packages
-only. `install` is accepted as an alias for this command.
+Packages can also be given explicitly in `manager:package` form (e.g. `apk:zlib-dev`, `apt:curl`, `brew:jq`); they are installed whether or not they appear in the config. Explicit packages and `--manager` scope the run to packages only. `install` is accepted as an alias for this command.
 
 ### Arguments
 
@@ -1264,18 +1178,15 @@ Examples:
 
 - **Usage**: `mise bootstrap packages brew <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/system/brew/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/system/brew/mod.rs)
 
 Manage Homebrew taps used by bootstrap packages
 
-These commands edit `[bootstrap.brew.taps]` so tapped formulae and casks
-can be fetched directly by mise without a Homebrew installation.
+These commands edit `[bootstrap.brew.taps]` so tapped formulae and casks can be fetched directly by mise without a Homebrew installation.
 
 ## `mise bootstrap packages brew tap`
 
 - **Usage**: `mise bootstrap packages brew tap [FLAGS] <TAP> [URL]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/system/brew/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/system/brew/mod.rs)
 
 Add a Homebrew tap URL to [bootstrap.brew.taps]
 
@@ -1313,7 +1224,6 @@ Examples:
 - **Usage**: `mise bootstrap packages brew untap [FLAGS] <TAPS>…`
 - **Aliases**: `remove`, `rm`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/system/brew/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/system/brew/mod.rs)
 
 Remove Homebrew tap URLs from [bootstrap.brew.taps]
 
@@ -1345,13 +1255,10 @@ Examples:
 
 - **Usage**: `mise bootstrap packages import [FLAGS]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/system/import.rs`](https://github.com/jdx/mise/blob/main/src/cli/system/import.rs)
 
 Import installed system packages into `[bootstrap.packages]`
 
-Currently supports Homebrew formulae only. By default, imports linked
-formulae whose active keg receipt says they were installed on request.
-Pass `--all` to import every linked formula, including dependencies.
+Currently supports Homebrew formulae only. By default, imports linked formulae whose active keg receipt says they were installed on request. Pass `--all` to import every linked formula, including dependencies.
 
 ### Flags
 
@@ -1396,13 +1303,10 @@ Examples:
 
 - **Usage**: `mise bootstrap packages prune [FLAGS]`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/system/prune.rs`](https://github.com/jdx/mise/blob/main/src/cli/system/prune.rs)
 
 Prune installed system packages no longer declared in `[bootstrap.packages]`
 
-Supports Homebrew formulae and conservatively removable, mise-owned casks.
-Pruning keeps packages needed by the current config or by trusted, loadable
-tracked configs.
+Supports Homebrew formulae and conservatively removable, mise-owned casks. Pruning keeps packages needed by the current config or by trusted, loadable tracked configs.
 
 ### Flags
 
@@ -1437,7 +1341,6 @@ Examples:
 - **Usage**: `mise bootstrap packages status [-J --json] [--missing]`
 - **Aliases**: `ls`
 - **Effect**: read-only
-- **Source code**: [`src/cli/system/status.rs`](https://github.com/jdx/mise/blob/main/src/cli/system/status.rs)
 
 Show the status of system packages from `[bootstrap.packages]`
 
@@ -1462,17 +1365,10 @@ Examples:
 - **Usage**: `mise bootstrap packages upgrade [FLAGS] [PACKAGE]…`
 - **Aliases**: `up`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/system/upgrade.rs`](https://github.com/jdx/mise/blob/main/src/cli/system/upgrade.rs)
 
 Upgrade installed bootstrap packages from `[bootstrap.packages]`
 
-Refreshes package manager metadata and upgrades the configured packages
-that are already installed: apk/apt/dnf/pacman upgrade to the newest available
-version (apk, apt, and dnf honor a version pinned in config), brew pours the
-formula's current bottle and replaces the old keg, brew-cask installs
-the current cask artifact, flatpak and flatpak-user update applications and runtimes, and mas upgrades App Store apps. Packages that
-are not installed yet are skipped — use `mise bootstrap packages apply`
-for those.
+Refreshes package manager metadata and upgrades the configured packages that are already installed: apk/apt/dnf/pacman upgrade to the newest available version (apk, apt, and dnf honor a version pinned in config), brew pours the formula's current bottle and replaces the old keg, brew-cask installs the current cask artifact, flatpak and flatpak-user update applications and runtimes, and mas upgrades App Store apps. Packages that are not installed yet are skipped — use `mise bootstrap packages apply` for those.
 
 Packages can also be given explicitly in `manager:package` form.
 
@@ -1511,19 +1407,12 @@ Examples:
 - **Usage**: `mise bootstrap packages use [FLAGS] <PACKAGE>…`
 - **Aliases**: `u`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/system/use.rs`](https://github.com/jdx/mise/blob/main/src/cli/system/use.rs)
 
 Add bootstrap packages to [bootstrap.packages] and install them
 
-Like `mise use` for tools: writes `"manager:package" = "version"` entries
-to mise.toml (the local config by default, the global one with `-g`) and
-then installs whatever is missing.
+Like `mise use` for tools: writes `"manager:package" = "version"` entries to mise.toml (the local config by default, the global one with `-g`) and then installs whatever is missing.
 
-Versions are pinned with `@`: `mise bootstrap packages use apt:curl@8.5.0-2`. Without
-`@` (or with `@latest`) no pin is written. brew formulae and casks
-version through their names instead (for example `brew:postgresql@17`,
-`brew-cask:temurin@17`), where `@` is part of the Homebrew name rather than
-a mise version selector. mas uses numeric ADAM IDs and does not support pins.
+Versions are pinned with `@`: `mise bootstrap packages use apt:curl@8.5.0-2`. Without `@` (or with `@latest`) no pin is written. brew formulae and casks version through their names instead (for example `brew:postgresql@17`, `brew-cask:temurin@17`), where `@` is part of the Homebrew name rather than a mise version selector. mas uses numeric ADAM IDs and does not support pins.
 
 ### Arguments
 
@@ -1564,7 +1453,6 @@ Examples:
 
 - **Usage**: `mise bootstrap plan [FLAGS]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Show the changes declarative bootstrap resources would make
 
@@ -1586,7 +1474,6 @@ Prompt securely for missing bootstrap secret inputs
 
 - **Usage**: `mise bootstrap plugins <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage package manager plugins declared in `[bootstrap.plugins]`
 
@@ -1594,7 +1481,6 @@ Manage package manager plugins declared in `[bootstrap.plugins]`
 
 - **Usage**: `mise bootstrap plugins apply [-n --dry-run]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1606,7 +1492,6 @@ Print what would happen without installing plugins
 
 - **Usage**: `mise bootstrap plugins status [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1618,7 +1503,6 @@ Exit with code 1 if a declared plugin is missing
 
 - **Usage**: `mise bootstrap remote [FLAGS] [TARGET]…`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Bootstrap one or more machines over OpenSSH
 
@@ -1772,7 +1656,6 @@ Skip remote confirmation prompts
 
 - **Usage**: `mise bootstrap repos <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage git repo checkouts from `[bootstrap.repos]`
 
@@ -1780,7 +1663,6 @@ Manage git repo checkouts from `[bootstrap.repos]`
 
 - **Usage**: `mise bootstrap repos apply [-n --dry-run] [-y --yes]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1795,7 +1677,6 @@ Skip the confirmation prompt
 ## `mise bootstrap repos exec`
 
 - **Usage**: `mise bootstrap repos exec [-c --continue-on-error] [-n --dry-run] [PATH]… <-- COMMAND>…`
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Arguments
 
@@ -1821,7 +1702,6 @@ Print the commands that would run without running them
 
 - **Usage**: `mise bootstrap repos status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1837,7 +1717,6 @@ Exit with code 1 if any configured repo is not in its desired state
 
 - **Usage**: `mise bootstrap repos update [-n --dry-run] [-y --yes] [PATH]…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Arguments
 
@@ -1859,7 +1738,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap secrets <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Inspect bootstrap secret inputs without revealing their values
 
@@ -1867,7 +1745,6 @@ Inspect bootstrap secret inputs without revealing their values
 
 - **Usage**: `mise bootstrap secrets status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Show whether declared bootstrap secret inputs are available
 
@@ -1885,7 +1762,6 @@ Exit with code 1 if a declared secret input is unavailable
 
 - **Usage**: `mise bootstrap services <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage Linux system services from `[bootstrap.services]`
 
@@ -1893,7 +1769,6 @@ Manage Linux system services from `[bootstrap.services]`
 
 - **Usage**: `mise bootstrap services apply [-n --dry-run] [-y --yes]`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Apply configured Linux system service state
 
@@ -1911,7 +1786,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap services status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Show configured Linux system service state
 
@@ -1930,7 +1804,6 @@ Exit with code 1 when any service is not converged
 - **Usage**: `mise bootstrap status [FLAGS]`
 - **Aliases**: `ls`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Show the aggregate bootstrap status
 
@@ -1952,7 +1825,6 @@ Prompt securely for missing bootstrap secret inputs
 
 - **Usage**: `mise bootstrap systemd <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage systemd user services from `[bootstrap.linux.systemd.units]`
 
@@ -1960,7 +1832,6 @@ Manage systemd user services from `[bootstrap.linux.systemd.units]`
 
 - **Usage**: `mise bootstrap systemd apply [-n --dry-run] [-y --yes]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1976,7 +1847,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap systemd status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -1992,7 +1862,6 @@ Exit with code 1 if any configured systemd user service is not in its desired st
 
 - **Usage**: `mise bootstrap user <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 Manage current-user bootstrap settings from `[bootstrap.user]`
 
@@ -2000,7 +1869,6 @@ Manage current-user bootstrap settings from `[bootstrap.user]`
 
 - **Usage**: `mise bootstrap user apply [-n --dry-run] [-y --yes]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -2016,7 +1884,6 @@ Skip the confirmation prompt
 
 - **Usage**: `mise bootstrap user status [-J --json] [--missing]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/bootstrap.rs)
 
 ### Flags
 
@@ -2032,7 +1899,6 @@ Exit with code 1 if any configured user setting is not in its desired state
 
 - **Usage**: `mise cache <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/cache/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/cache/mod.rs)
 
 Manage the mise cache
 
@@ -2043,7 +1909,6 @@ Run `mise cache` with no args to view the current cache directory.
 - **Usage**: `mise cache clear [--task <TASK>] [TOOL]…`
 - **Aliases**: `c`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/cache/clear.rs`](https://github.com/jdx/mise/blob/main/src/cli/cache/clear.rs)
 
 Deletes all cache files in mise
 
@@ -2065,7 +1930,6 @@ Clear output cache entries for a task name or pattern
 - **Usage**: `mise cache path`
 - **Aliases**: `dir`
 - **Effect**: read-only
-- **Source code**: [`src/cli/cache/path.rs`](https://github.com/jdx/mise/blob/main/src/cli/cache/path.rs)
 
 Show the cache directory path
 
@@ -2074,12 +1938,10 @@ Show the cache directory path
 - **Usage**: `mise cache prune [-v --verbose…] [--dry-run] [TOOL]…`
 - **Aliases**: `p`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/cache/prune.rs`](https://github.com/jdx/mise/blob/main/src/cli/cache/prune.rs)
 
 Removes stale mise cache files
 
-By default, this command will remove files that have not been accessed in 30 days.
-Change this with the MISE_CACHE_PRUNE_AGE environment variable.
+By default, this command will remove files that have not been accessed in 30 days. Change this with the MISE_CACHE_PRUNE_AGE environment variable.
 
 ### Arguments
 
@@ -2102,7 +1964,6 @@ Just show what would be pruned
 
 - **Usage**: `mise cache task [-J --json] <TASK>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/cache/task.rs`](https://github.com/jdx/mise/blob/main/src/cli/cache/task.rs)
 
 Inspect output cache entries for a task
 
@@ -2122,7 +1983,6 @@ Output in JSON format
 
 - **Usage**: `mise completion [--include-bash-completion-lib] [SHELL]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/completion.rs`](https://github.com/jdx/mise/blob/main/src/cli/completion.rs)
 
 Generate shell completions
 
@@ -2138,8 +1998,7 @@ Shell type to generate completions for
 
 Include the bash completion library in the bash completion script
 
-This is required for completions to work in bash, but it is not included by default
-you may source it separately or enable this flag to enable it in the script.
+This is required for completions to work in bash, but it is not included by default you may source it separately or enable this flag to enable it in the script.
 
 Examples:
 
@@ -2153,7 +2012,6 @@ Examples:
 - **Usage**: `mise config [FLAGS] <SUBCOMMAND>`
 - **Aliases**: `cfg`
 - **Effect**: read-only
-- **Source code**: [`src/cli/config/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/config/mod.rs)
 
 Manage config files
 
@@ -2175,7 +2033,6 @@ List all tracked config files
 
 - **Usage**: `mise config get [-f --file <FILE>] [KEY]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/config/get.rs`](https://github.com/jdx/mise/blob/main/src/cli/config/get.rs)
 
 Display the value of a setting in a mise.toml file
 
@@ -2205,7 +2062,6 @@ Examples:
 - **Usage**: `mise config ls [FLAGS]`
 - **Aliases**: `list`
 - **Effect**: read-only
-- **Source code**: [`src/cli/config/ls.rs`](https://github.com/jdx/mise/blob/main/src/cli/config/ls.rs)
 
 List config files currently in use
 
@@ -2234,7 +2090,6 @@ Examples:
 
 - **Usage**: `mise config set [-f --file <FILE>] [-t --type <TYPE>] <KEY> [VALUE]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/config/set.rs`](https://github.com/jdx/mise/blob/main/src/cli/config/set.rs)
 
 Set the value of a setting in a mise.toml file
 
@@ -2286,12 +2141,10 @@ Examples:
 
 - **Usage**: `mise current [PLUGIN]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/current.rs`](https://github.com/jdx/mise/blob/main/src/cli/current.rs)
 
 Shows current active and installed runtime versions
 
-This is similar to `mise ls --current`, but this only shows the runtime
-and/or version. It's designed to fit into scripts more easily.
+This is similar to `mise ls --current`, but this only shows the runtime and/or version. It's designed to fit into scripts more easily.
 
 ### Arguments
 
@@ -2320,7 +2173,6 @@ Examples:
 
 - **Usage**: `mise deactivate`
 - **Effect**: read-only
-- **Source code**: [`src/cli/deactivate.rs`](https://github.com/jdx/mise/blob/main/src/cli/deactivate.rs)
 
 Disable mise for current shell session
 
@@ -2334,29 +2186,23 @@ Examples:
 
 - **Usage**: `mise direnv <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/direnv/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/direnv/mod.rs)
 
 Output direnv function to use mise inside direnv
 
 See https://mise.jdx.dev/direnv.html for more information
 
-Because this generates the idiomatic files based on currently installed plugins,
-you should run this command after installing new plugins. Otherwise
-direnv may not know to update environment variables when idiomatic file versions change.
+Because this generates the idiomatic files based on currently installed plugins, you should run this command after installing new plugins. Otherwise direnv may not know to update environment variables when idiomatic file versions change.
 
 ## `mise direnv activate`
 
 - **Usage**: `mise direnv activate`
 - **Effect**: read-only
-- **Source code**: [`src/cli/direnv/activate.rs`](https://github.com/jdx/mise/blob/main/src/cli/direnv/activate.rs)
 
 Output direnv function to use mise inside direnv
 
 See https://mise.jdx.dev/direnv.html for more information
 
-Because this generates the idiomatic files based on currently installed plugins,
-you should run this command after installing new plugins. Otherwise
-direnv may not know to update environment variables when idiomatic file versions change.
+Because this generates the idiomatic files based on currently installed plugins, you should run this command after installing new plugins. Otherwise direnv may not know to update environment variables when idiomatic file versions change.
 
 Examples:
 
@@ -2368,7 +2214,6 @@ Examples:
 
 - **Usage**: `mise direnv envrc`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/direnv/envrc.rs`](https://github.com/jdx/mise/blob/main/src/cli/direnv/envrc.rs)
 
 [internal] This is an internal command that writes an envrc file
 for direnv to consume.
@@ -2376,7 +2221,6 @@ for direnv to consume.
 ## `mise direnv exec`
 
 - **Usage**: `mise direnv exec`
-- **Source code**: [`src/cli/direnv/exec.rs`](https://github.com/jdx/mise/blob/main/src/cli/direnv/exec.rs)
 
 [internal] This is an internal command that writes an envrc file
 for direnv to consume.
@@ -2385,7 +2229,6 @@ for direnv to consume.
 
 - **Usage**: `mise dotfiles <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/dotfiles/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/mod.rs)
 
 Manage dotfiles from `[dotfiles]` (deprecated)
 
@@ -2395,13 +2238,10 @@ Use `mise bootstrap dotfiles` instead.
 
 - **Usage**: `mise dotfiles add [FLAGS] <TARGET>…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/dotfiles/add.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/add.rs)
 
 Add or update dotfiles in `[dotfiles]`
 
-If the target is already managed, this updates its source from the live
-target. Otherwise it creates a `[dotfiles]` entry and seeds the source
-under `dotfiles.root` unless `--source` is provided.
+If the target is already managed, this updates its source from the live target. Otherwise it creates a `[dotfiles]` entry and seeds the source under `dotfiles.root` unless `--source` is provided.
 
 ### Arguments
 
@@ -2457,14 +2297,10 @@ Examples:
 
 - **Usage**: `mise dotfiles apply [FLAGS] [TARGET]…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/dotfiles/apply.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/apply.rs)
 
 Apply dotfiles from `[dotfiles]`
 
-Applies configured whole-file entries and edits that aren't in their
-desired state. Whole-file entries may symlink, copy, or render templates.
-Edit entries manage a marker-delimited block or a single line in a file
-mise doesn't otherwise own.
+Applies configured whole-file entries and edits that aren't in their desired state. Whole-file entries may symlink, copy, or render templates. Edit entries manage a marker-delimited block or a single line in a file mise doesn't otherwise own.
 
 ### Arguments
 
@@ -2496,7 +2332,6 @@ Examples:
 
 - **Usage**: `mise dotfiles edit [FLAGS] <TARGET>`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/dotfiles/edit.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/edit.rs)
 
 Edit a managed dotfile source
 
@@ -2534,7 +2369,6 @@ Examples:
 - **Usage**: `mise dotfiles status [-J --json] [--missing] [TARGET]…`
 - **Aliases**: `ls`
 - **Effect**: read-only
-- **Source code**: [`src/cli/dotfiles/status.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/status.rs)
 
 Show the status of dotfiles from `[dotfiles]`
 
@@ -2566,13 +2400,10 @@ Examples:
 
 - **Usage**: `mise dotfiles unapply [FLAGS] [TARGET]…`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/dotfiles/unapply.rs`](https://github.com/jdx/mise/blob/main/src/cli/dotfiles/unapply.rs)
 
 Remove dotfiles applied from `[dotfiles]`
 
-Removes configured whole-file entries and edits while preserving files
-mise cannot identify as managed. Modified copies, templates, and plain-line
-edits require `--force`.
+Removes configured whole-file entries and edits while preserving files mise cannot identify as managed. Modified copies, templates, and plain-line edits require `--force`.
 
 ### Arguments
 
@@ -2606,7 +2437,6 @@ Examples:
 - **Usage**: `mise doctor [-J --json] <SUBCOMMAND>`
 - **Aliases**: `dr`
 - **Effect**: read-only
-- **Source code**: [`src/cli/doctor/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/doctor/mod.rs)
 
 Check mise installation for possible problems
 
@@ -2623,7 +2453,6 @@ Examples:
 
 - **Usage**: `mise doctor path [-f --full]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/doctor/path.rs`](https://github.com/jdx/mise/blob/main/src/cli/doctor/path.rs)
 
 Print the current PATH entries mise is providing
 
@@ -2644,13 +2473,10 @@ Examples:
 ## `mise en`
 
 - **Usage**: `mise en [-s --shell <SHELL>] [DIR]`
-- **Source code**: [`src/cli/en.rs`](https://github.com/jdx/mise/blob/main/src/cli/en.rs)
 
 Starts a new shell with the mise environment built from the current configuration
 
-This is an alternative to `mise activate` that allows you to explicitly start a mise session.
-It will have the tools and environment variables in the configs loaded.
-Note that changing directories will not update the mise environment.
+This is an alternative to `mise activate` that allows you to explicitly start a mise session. It will have the tools and environment variables in the configs loaded. Note that changing directories will not update the mise environment.
 
 ### Arguments
 
@@ -2685,12 +2511,10 @@ Examples:
 - **Usage**: `mise env [FLAGS] [TOOL@VERSION]…`
 - **Aliases**: `e`
 - **Effect**: read-only
-- **Source code**: [`src/cli/env.rs`](https://github.com/jdx/mise/blob/main/src/cli/env.rs)
 
 Exports env vars to activate mise a single time
 
-Use this if you don't want to permanently install mise. It's not necessary to
-use this if you have `mise activate` in your shell rc file.
+Use this if you don't want to permanently install mise. It's not necessary to use this if you have `mise activate` in your shell rc file.
 
 ### Arguments
 
@@ -2735,15 +2559,12 @@ Examples:
 
 - **Usage**: `mise exec [FLAGS] [TOOL@VERSION]… [-- COMMAND]…`
 - **Aliases**: `x`
-- **Source code**: [`src/cli/exec.rs`](https://github.com/jdx/mise/blob/main/src/cli/exec.rs)
 
 Execute a command with tool(s) set
 
 use this to avoid modifying the shell session or running ad-hoc commands with mise tools set.
 
-Tools will be loaded from mise.toml, though they can be overridden with <RUNTIME> args
-Note that only the plugin specified will be overridden, so if a `mise.toml` file
-includes "node 20" but you run `mise exec python@3.11`; it will still load node@20.
+Tools will be loaded from mise.toml, though they can be overridden with <RUNTIME> args Note that only the plugin specified will be overridden, so if a `mise.toml` file includes "node 20" but you run `mise exec python@3.11`; it will still load node@20.
 
 The "--" separates runtimes from the commands to pass along to the subprocess.
 
@@ -2838,7 +2659,6 @@ Examples:
 
 - **Usage**: `mise fmt [FLAGS]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/fmt.rs`](https://github.com/jdx/mise/blob/main/src/cli/fmt.rs)
 
 Formats mise.toml
 
@@ -2868,7 +2688,6 @@ Examples:
 - **Usage**: `mise generate <SUBCOMMAND>`
 - **Aliases**: `gen`
 - **Effect**: read-only
-- **Source code**: [`src/cli/generate/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/generate/mod.rs)
 
 Generate files for various tools/services
 
@@ -2876,7 +2695,6 @@ Generate files for various tools/services
 
 - **Usage**: `mise generate bootstrap [FLAGS]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/generate/bootstrap.rs`](https://github.com/jdx/mise/blob/main/src/cli/generate/bootstrap.rs)
 
 Generate a script to download+execute mise
 
@@ -2908,12 +2726,9 @@ Directory to put localized data into
 
 Also write a Windows launcher, `<WRITE>.cmd`
 
-Windows cannot execute the `#!/usr/bin/env bash` script, so a contributor who clones the
-project on Windows has nothing to run without this.
+Windows cannot execute the `#!/usr/bin/env bash` script, so a contributor who clones the project on Windows has nothing to run without this.
 
-Generated on every host, not only on Windows: the file is committed, and whoever runs it
-on Windows is not the person who generated it. Requires `--write`, since stdout cannot
-carry two files.
+Generated on every host, not only on Windows: the file is committed, and whoever runs it on Windows is not the person who generated it. Requires `--write`, since stdout cannot carry two files.
 
 Examples:
 
@@ -2928,7 +2743,6 @@ Examples:
 
 - **Usage**: `mise generate config [FLAGS] [PATH]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/generate/config.rs`](https://github.com/jdx/mise/blob/main/src/cli/generate/config.rs)
 
 Generate a mise.toml file
 
@@ -2964,7 +2778,6 @@ Examples:
 
 - **Usage**: `mise generate devcontainer [FLAGS]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/generate/devcontainer.rs`](https://github.com/jdx/mise/blob/main/src/cli/generate/devcontainer.rs)
 
 Generate a devcontainer to execute mise
 
@@ -2995,12 +2808,10 @@ Examples:
 - **Usage**: `mise generate git-pre-commit [FLAGS] [-- MISE_ARG]…`
 - **Aliases**: `pre-commit`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/generate/git_pre_commit.rs`](https://github.com/jdx/mise/blob/main/src/cli/generate/git_pre_commit.rs)
 
 Generate a git pre-commit hook
 
-This command generates a git pre-commit hook that runs a mise task like `mise run pre-commit`
-when you commit changes to your repository.
+This command generates a git pre-commit hook that runs a mise task like `mise run pre-commit` when you commit changes to your repository.
 
 Staged files are passed to the task as `STAGED`.
 
@@ -3012,9 +2823,7 @@ For more advanced pre-commit functionality, see mise's sister project: https://h
 
 mise flags to embed in the generated hook, given after `--`
 
-These are inserted between `mise` and `run`, so the hook carries the same context you
-would pass on the command line. Useful when the config is not at the repository root,
-since git runs hooks from the top level: `-- -C subdir` makes the hook find it.
+These are inserted between `mise` and `run`, so the hook carries the same context you would pass on the command line. Useful when the config is not at the repository root, since git runs hooks from the top level: `-- -C subdir` makes the hook find it.
 
 ### Flags
 
@@ -3046,12 +2855,10 @@ Examples:
 
 - **Usage**: `mise generate github-action [FLAGS]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/generate/github_action.rs`](https://github.com/jdx/mise/blob/main/src/cli/generate/github_action.rs)
 
 Generate a GitHub Action workflow file
 
-This command generates a GitHub Action workflow file that runs a mise task like `mise run ci`
-when you push changes to your repository.
+This command generates a GitHub Action workflow file that runs a mise task like `mise run ci` when you push changes to your repository.
 
 ### Flags
 
@@ -3081,7 +2888,6 @@ Examples:
 
 - **Usage**: `mise generate task-docs [FLAGS]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/generate/task_docs.rs`](https://github.com/jdx/mise/blob/main/src/cli/generate/task_docs.rs)
 
 Generate documentation for tasks in a project
 
@@ -3091,10 +2897,7 @@ Generate documentation for tasks in a project
 
 inserts the documentation into an existing file
 
-This will look for a special comment, `<!-- mise-tasks -->`, and replace it with the generated documentation.
-It will replace everything between the comment and the next comment, `<!-- /mise-tasks -->` so it can be
-run multiple times on the same file to update the documentation.
-The file must already contain both comments; mise errors instead of modifying the file if they are missing.
+This will look for a special comment, `<!-- mise-tasks -->`, and replace it with the generated documentation. It will replace everything between the comment and the next comment, `<!-- /mise-tasks -->` so it can be run multiple times on the same file to update the documentation. The file must already contain both comments; mise errors instead of modifying the file if they are missing.
 
 #### `-I --index`
 
@@ -3129,13 +2932,10 @@ Examples:
 
 - **Usage**: `mise generate task-stubs [-d --dir <DIR>] [-m --mise-bin <MISE_BIN>]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/generate/task_stubs.rs`](https://github.com/jdx/mise/blob/main/src/cli/generate/task_stubs.rs)
 
 Generates shims to run mise tasks
 
-By default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap`
-so contributors to a project can execute mise tasks without installing mise into their system.
-When a parent and nested task both exist, the parent stub is written to `<parent>/_default`.
+By default, this will build shims like ./bin/<task>. These can be paired with `mise generate bootstrap` so contributors to a project can execute mise tasks without installing mise into their system. When a parent and nested task both exist, the parent stub is written to `<parent>/_default`.
 
 ### Flags
 
@@ -3164,17 +2964,12 @@ Examples:
 
 - **Usage**: `mise generate tool-stub [FLAGS] <OUTPUT>`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/generate/tool_stub.rs`](https://github.com/jdx/mise/blob/main/src/cli/generate/tool_stub.rs)
 
 Generate a tool stub for HTTP-based tools
 
-This command generates tool stubs that can automatically download and execute
-tools from HTTP URLs. It can detect checksums, file sizes, and binary paths
-automatically by downloading and analyzing the tool.
+This command generates tool stubs that can automatically download and execute tools from HTTP URLs. It can detect checksums, file sizes, and binary paths automatically by downloading and analyzing the tool.
 
-When generating stubs with platform-specific URLs, the command will append new
-platforms to existing stub files rather than overwriting them. This allows you
-to incrementally build cross-platform tool stubs.
+When generating stubs with platform-specific URLs, the command will append new platforms to existing stub files rather than overwriting them. This allows you to incrementally build cross-platform tool stubs.
 
 ### Arguments
 
@@ -3194,25 +2989,19 @@ If not specified and the archive is downloaded, will auto-detect the most likely
 
 Wrap stub in a bootstrap script that installs mise if not already present
 
-When enabled, generates a bash script that:
-1. Checks if mise is installed at the expected path
-2. If not, downloads and installs mise using the embedded installer
-3. Executes the tool stub using mise
+When enabled, generates a bash script that: 1. Checks if mise is installed at the expected path 2. If not, downloads and installs mise using the embedded installer 3. Executes the tool stub using mise
 
 #### `--bootstrap-version <BOOTSTRAP_VERSION>`
 
 Specify mise version for the bootstrap script
 
-By default, uses the latest version from the install script.
-Use this to pin to a specific version (e.g., "2025.1.0").
+By default, uses the latest version from the install script. Use this to pin to a specific version (e.g., "2025.1.0").
 
 #### `--checksum-algorithm <CHECKSUM_ALGORITHM>`
 
 Checksum algorithm to use when downloading artifacts
 
-Accepts `blake3` or `sha256` and defaults to `blake3`.
-Cannot be used with `--lock` or `--skip-download` because those modes do not
-calculate checksums.
+Accepts `blake3` or `sha256` and defaults to `blake3`. Cannot be used with `--lock` or `--skip-download` because those modes do not calculate checksums.
 
 **Choices:**
 
@@ -3225,8 +3014,7 @@ calculate checksums.
 
 Fetch checksums and sizes for an existing tool stub file
 
-This reads an existing stub file and fills in any missing checksum/size fields
-by downloading the files. URLs must already be present in the stub.
+This reads an existing stub file and fills in any missing checksum/size fields by downloading the files. URLs must already be present in the stub.
 
 #### `--http <HTTP>`
 
@@ -3249,15 +3037,11 @@ Examples: --platform-bin windows-x64:tool.exe --platform-bin linux-x64:bin/tool
 
 Platform-specific URLs in the format platform:url or just url (auto-detect platform)
 
-When the output file already exists, new platforms will be appended to the existing
-platforms table. Existing platform URLs will be updated if specified again.
+When the output file already exists, new platforms will be appended to the existing platforms table. Existing platform URLs will be updated if specified again.
 
-If only a URL is provided (without platform:), the platform will be automatically
-detected from the URL filename.
+If only a URL is provided (without platform:), the platform will be automatically detected from the URL filename.
 
-Examples:
---platform-url linux-x64:https://...
---platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
+Examples: --platform-url linux-x64:https://... --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
 
 #### `--skip-download`
 
@@ -3328,7 +3112,6 @@ Examples:
 
 - **Usage**: `mise github <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/github/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/github/mod.rs)
 
 GitHub related commands
 
@@ -3336,12 +3119,10 @@ GitHub related commands
 
 - **Usage**: `mise github token [FLAGS] [HOST]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/github/token.rs`](https://github.com/jdx/mise/blob/main/src/cli/github/token.rs)
 
 Display the GitHub token mise will use for a given host
 
-Shows which token source mise would use, useful for debugging
-authentication issues. The token is masked by default.
+Shows which token source mise would use, useful for debugging authentication issues. The token is masked by default.
 
 ### Arguments
 
@@ -3385,14 +3166,10 @@ Examples:
 
 - **Usage**: `mise global [FLAGS] [TOOL@VERSION]…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/global.rs`](https://github.com/jdx/mise/blob/main/src/cli/global.rs)
 
 Sets/gets the global tool version(s)
 
-Displays the contents of global config after writing.
-The file is `$HOME/.config/mise/config.toml` by default. It can be changed with `$MISE_GLOBAL_CONFIG_FILE`.
-If `$MISE_GLOBAL_CONFIG_FILE` is set to anything that ends in `.toml`, it will be parsed as `mise.toml`.
-Otherwise, it will be parsed as a `.tool-versions` file.
+Displays the contents of global config after writing. The file is `$HOME/.config/mise/config.toml` by default. It can be changed with `$MISE_GLOBAL_CONFIG_FILE`. If `$MISE_GLOBAL_CONFIG_FILE` is set to anything that ends in `.toml`, it will be parsed as `mise.toml`. Otherwise, it will be parsed as a `.tool-versions` file.
 
 Use MISE_ASDF_COMPAT=1 to default the global config to ~/.tool-versions
 
@@ -3445,7 +3222,6 @@ Examples:
 
 - **Usage**: `mise hook-env [FLAGS]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/hook_env.rs`](https://github.com/jdx/mise/blob/main/src/cli/hook_env.rs)
 
 [internal] called by activate hook to update env vars directory change
 
@@ -3467,7 +3243,6 @@ Shell type to generate script for
 
 - **Usage**: `mise hook-not-found [-s --shell <SHELL>] <BIN>`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/hook_not_found.rs`](https://github.com/jdx/mise/blob/main/src/cli/hook_not_found.rs)
 
 [internal] called by shell when a command is not found
 
@@ -3487,7 +3262,6 @@ Shell type to generate script for
 
 - **Usage**: `mise implode [-n --dry-run] [--config]`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/implode.rs`](https://github.com/jdx/mise/blob/main/src/cli/implode.rs)
 
 Removes mise CLI and all related data
 
@@ -3507,7 +3281,6 @@ Also remove config directory
 
 - **Usage**: `mise edit [FLAGS] [PATH]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/edit.rs`](https://github.com/jdx/mise/blob/main/src/cli/edit.rs)
 
 Edit mise.toml interactively
 
@@ -3544,15 +3317,10 @@ Examples:
 - **Usage**: `mise install [FLAGS] [TOOL@VERSION]…`
 - **Aliases**: `i`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/install.rs`](https://github.com/jdx/mise/blob/main/src/cli/install.rs)
 
 Install a tool version
 
-Installs a tool version to `~/.local/share/mise/installs/<TOOL>/<VERSION>`
-Installing alone will not activate the tools so they won't be in PATH.
-To install and/or activate in one command, use `mise use` which will create a `mise.toml` file
-in the current directory to activate this tool when inside the directory.
-Alternatively, run `mise exec <TOOL>@<VERSION> -- <COMMAND>` to execute a tool without creating config files.
+Installs a tool version to `~/.local/share/mise/installs/<TOOL>/<VERSION>` Installing alone will not activate the tools so they won't be in PATH. To install and/or activate in one command, use `mise use` which will create a `mise.toml` file in the current directory to activate this tool when inside the directory. Alternatively, run `mise exec <TOOL>@<VERSION> -- <COMMAND>` to execute a tool without creating config files.
 
 Tools will be installed in parallel. To disable, set `--jobs=1` or `MISE_JOBS=1`
 
@@ -3598,8 +3366,7 @@ This is useful for scripts to check if tools need to be installed.
 
 Also install tools required by tasks in the current scope
 
-This prepares task tools without running task commands or dependencies.
-Combine with --monorepo to include tasks from every configured root.
+This prepares task tools without running task commands or dependencies. Combine with --monorepo to include tasks from every configured root.
 
 #### `--minimum-release-age <MINIMUM_RELEASE_AGE>`
 
@@ -3611,8 +3378,7 @@ Supports absolute dates like "2024-06-01" and relative durations like "90d" or "
 
 Install tools from every [monorepo].config_roots config root
 
-Uses the active MISE_ENV and requires monorepo_root = true plus explicit
-[monorepo].config_roots in the monorepo root config.
+Uses the active MISE_ENV and requires monorepo_root = true plus explicit [monorepo].config_roots in the monorepo root config.
 
 **Environment Variable:** `MISE_MONOREPO`
 
@@ -3625,15 +3391,13 @@ Implies --jobs=1
 
 Install tool(s) to a shared directory
 
-Installs to the specified directory instead of the default install location.
-May require elevated permissions depending on the path.
+Installs to the specified directory instead of the default install location. May require elevated permissions depending on the path.
 
 #### `--system`
 
 Install tool(s) to the system-wide shared directory
 
-Installs to /usr/local/share/mise/installs (or MISE_SYSTEM_DATA_DIR/installs).
-May require elevated permissions (e.g. sudo).
+Installs to /usr/local/share/mise/installs (or MISE_SYSTEM_DATA_DIR/installs). May require elevated permissions (e.g. sudo).
 
 Examples:
 
@@ -3647,7 +3411,6 @@ Examples:
 
 - **Usage**: `mise install-into <TOOL@VERSION> <PATH>`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/install_into.rs`](https://github.com/jdx/mise/blob/main/src/cli/install_into.rs)
 
 Install a tool version to a specific path
 
@@ -3674,7 +3437,6 @@ Examples:
 
 - **Usage**: `mise latest [-i --installed] [--minimum-release-age <MINIMUM_RELEASE_AGE>] <TOOL@VERSION>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/latest.rs`](https://github.com/jdx/mise/blob/main/src/cli/latest.rs)
 
 Gets the latest available version for a plugin
 
@@ -3696,8 +3458,7 @@ Show latest installed instead of available version
 
 Only consider versions released before this date or older than this duration
 
-Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-Overrides per-tool `minimum_release_age` options and the global `minimum_release_age` setting.
+Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y". Overrides per-tool `minimum_release_age` options and the global `minimum_release_age` setting.
 
 Examples:
 
@@ -3714,7 +3475,6 @@ Examples:
 - **Usage**: `mise link [-f --force] <TOOL@VERSION> <PATH>`
 - **Aliases**: `ln`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/link.rs`](https://github.com/jdx/mise/blob/main/src/cli/link.rs)
 
 Symlinks a tool version into mise
 
@@ -3752,14 +3512,10 @@ Examples:
 
 - **Usage**: `mise local [FLAGS] [TOOL@VERSION]…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/local.rs`](https://github.com/jdx/mise/blob/main/src/cli/local.rs)
 
 Sets/gets tool version in local .tool-versions or mise.toml
 
-Use this to set a tool's version when within a directory
-Use `mise global` to set a tool version globally
-This uses `.tool-version` by default unless there is a `mise.toml` file or if `MISE_USE_TOML`
-is set. A future v2 release of mise will default to using `mise.toml`.
+Use this to set a tool's version when within a directory Use `mise global` to set a tool version globally This uses `.tool-version` by default unless there is a `mise.toml` file or if `MISE_USE_TOML` is set. A future v2 release of mise will default to using `mise.toml`.
 
 ### Arguments
 
@@ -3819,15 +3575,10 @@ Examples:
 
 - **Usage**: `mise lock [FLAGS] [TOOL]…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/lock.rs`](https://github.com/jdx/mise/blob/main/src/cli/lock.rs)
 
 Update lockfile checksums and URLs for all specified platforms
 
-Updates checksums and download URLs for all platforms already specified in the lockfile.
-If no lockfile exists, shows what would be created based on the current configuration,
-including tools declared by tasks.
-This allows you to refresh lockfile data for platforms other than the one you're currently on.
-Operates on the lockfile in the current config root. Use TOOL arguments to target specific tools.
+Updates checksums and download URLs for all platforms already specified in the lockfile. If no lockfile exists, shows what would be created based on the current configuration, including tools declared by tasks. This allows you to refresh lockfile data for platforms other than the one you're currently on. Operates on the lockfile in the current config root. Use TOOL arguments to target specific tools.
 
 ### Arguments
 
@@ -3865,25 +3616,13 @@ If not specified, all platforms already in lockfile will be updated
 
 Re-resolve fuzzy version selectors against the latest available versions
 
-By default, `mise lock` refreshes metadata for the currently locked versions.
-With this flag, selectors like "latest", "lts", or prefixes like "20" are
-re-resolved against the latest matching remote versions, so the lockfile
-advances without installing anything. Config files are never modified:
-exactly pinned versions resolve to themselves and stay unchanged
-(use `mise upgrade --bump` to rewrite pins in mise.toml).
+By default, `mise lock` refreshes metadata for the currently locked versions. With this flag, selectors like "latest", "lts", or prefixes like "20" are re-resolved against the latest matching remote versions, so the lockfile advances without installing anything. Config files are never modified: exactly pinned versions resolve to themselves and stay unchanged (use `mise upgrade --bump` to rewrite pins in mise.toml).
 
 #### `--json`
 
 Output version changes as JSON
 
-Prints an array of objects describing lockfile version changes:
-name, backend, lockfile, old_versions, new_versions.
-Version lists keep config/lockfile order; they are not sorted.
-Only version-level changes are reported: checksum/URL refreshes for
-unchanged versions produce no entries, so plain `mise lock --json`
-typically prints `[]` while still updating the lockfile.
-Suppresses the human-readable output. Combine with `--dry-run` to
-detect available updates without writing the lockfile.
+Prints an array of objects describing lockfile version changes: name, backend, lockfile, old_versions, new_versions. Version lists keep config/lockfile order; they are not sorted. Only version-level changes are reported: checksum/URL refreshes for unchanged versions produce no entries, so plain `mise lock --json` typically prints `[]` while still updating the lockfile. Suppresses the human-readable output. Combine with `--dry-run` to detect available updates without writing the lockfile.
 
 #### `--local`
 
@@ -3894,10 +3633,7 @@ Use for tools defined in .local.toml configs
 
 Only lock versions released before this age or date
 
-Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-This only affects fuzzy version matches like "20" or "latest".
-Explicitly pinned versions like "22.5.0" are not filtered.
-Existing matching lockfile entries are preserved and are not downgraded solely by this flag.
+Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y". This only affects fuzzy version matches like "20" or "latest". Explicitly pinned versions like "22.5.0" are not filtered. Existing matching lockfile entries are preserved and are not downgraded solely by this flag.
 
 Examples:
 
@@ -3916,13 +3652,10 @@ Examples:
 - **Usage**: `mise ls [FLAGS] [INSTALLED_TOOL]…`
 - **Aliases**: `list`
 - **Effect**: read-only
-- **Source code**: [`src/cli/ls.rs`](https://github.com/jdx/mise/blob/main/src/cli/ls.rs)
 
 List installed and active tool versions
 
-This command lists tools that mise "knows about".
-These may be tools that are currently installed, or those
-that are in a config file (active) but may or may not be installed.
+This command lists tools that mise "knows about". These may be tools that are currently installed, or those that are in a config file (active) but may or may not be installed.
 
 It's a useful command to get the current state of your tools.
 
@@ -3967,8 +3700,7 @@ Display all tracked config sources for tools
 
 List tools from every [monorepo].config_roots config root
 
-Uses the active MISE_ENV and requires monorepo_root = true plus explicit
-[monorepo].config_roots in the monorepo root config.
+Uses the active MISE_ENV and requires monorepo_root = true plus explicit [monorepo].config_roots in the monorepo root config.
 
 **Environment Variable:** `MISE_MONOREPO`
 
@@ -4022,7 +3754,6 @@ Examples:
 
 - **Usage**: `mise ls-remote [FLAGS] [TOOL@VERSION] [PREFIX]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/ls_remote.rs`](https://github.com/jdx/mise/blob/main/src/cli/ls_remote.rs)
 
 List runtime versions available for install.
 
@@ -4072,8 +3803,7 @@ Fail if release metadata fetches fail
 
 Requires --json and --no-versions-host.
 
-This prevents metadata consumers from accepting empty fallback results
-when a backend's metadata-producing upstream request fails.
+This prevents metadata consumers from accepting empty fallback results when a backend's metadata-producing upstream request fails.
 
 Examples:
 
@@ -4098,33 +3828,18 @@ Examples:
 ## `mise mcp`
 
 - **Usage**: `mise mcp`
-- **Source code**: [`src/cli/mcp.rs`](https://github.com/jdx/mise/blob/main/src/cli/mcp.rs)
 
 Run Model Context Protocol (MCP) server
 
-This command starts an MCP server that exposes mise functionality
-to AI assistants over stdin/stdout using JSON-RPC protocol.
+This command starts an MCP server that exposes mise functionality to AI assistants over stdin/stdout using JSON-RPC protocol.
 
-The MCP server provides access to:
-- Installed and available tools
-- Task definitions and execution
-- Environment variables
-- Configuration information
-- Task execution via the run_task tool
+The MCP server provides access to: - Installed and available tools - Task definitions and execution - Environment variables - Configuration information - Task execution via the run_task tool
 
-Resources available:
-- mise://tools - List all tools (use ?include_inactive=true to include inactive tools)
-- mise://tasks - List all tasks with their configurations
-- mise://env - List all environment variables
-- mise://config - Show configuration files and project root
+Resources available: - mise://tools - List all tools (use ?include_inactive=true to include inactive tools) - mise://tasks - List all tasks with their configurations - mise://env - List all environment variables - mise://config - Show configuration files and project root
 
-Tools available:
-- list_commands - Every mise command, with its declared effect on the world
-- install_tool - Install a tool with an optional version (not yet implemented)
-- run_task - Execute a mise task with optional arguments
+Tools available: - list_commands - Every mise command, with its declared effect on the world - install_tool - Install a tool with an optional version (not yet implemented) - run_task - Execute a mise task with optional arguments
 
-Note: This is primarily intended for integration with AI assistants like Claude,
-Cursor, or other tools that support the Model Context Protocol.
+Note: This is primarily intended for integration with AI assistants like Claude, Cursor, or other tools that support the Model Context Protocol.
 
 Examples:
 
@@ -4163,31 +3878,21 @@ Examples:
 
 - **Usage**: `mise oci <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/oci/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/oci/mod.rs)
 
 [experimental] Build OCI container images from a mise.toml
 
-Each tool becomes its own OCI layer, so bumping any single tool version
-only invalidates one content-addressable blob — unlike a Dockerfile where
-changing an early `RUN` invalidates every layer above it.
+Each tool becomes its own OCI layer, so bumping any single tool version only invalidates one content-addressable blob — unlike a Dockerfile where changing an early `RUN` invalidates every layer above it.
 
-This command is experimental and requires `mise settings experimental=true`
-(or `MISE_EXPERIMENTAL=1`). Behavior, flags, and output layout may change
-in future releases.
+This command is experimental and requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`). Behavior, flags, and output layout may change in future releases.
 
 ## `mise oci build`
 
 - **Usage**: `mise oci build [FLAGS]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/oci/build.rs`](https://github.com/jdx/mise/blob/main/src/cli/oci/build.rs)
 
 [experimental] Build an OCI image from the current mise.toml
 
-Each tool version becomes its own content-addressable OCI layer. Bumping a
-tool version only invalidates that tool's layer — other tools, the base
-image, and config are reused unchanged. The output directory conforms to
-the OCI image-layout spec and can be consumed by `skopeo`, `crane`, or
-`podman load`.
+Each tool version becomes its own content-addressable OCI layer. Bumping a tool version only invalidates that tool's layer — other tools, the base image, and config are reused unchanged. The output directory conforms to the OCI image-layout spec and can be consumed by `skopeo`, `crane`, or `podman load`.
 
 Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).
 
@@ -4211,12 +3916,7 @@ Base image reference (overrides [oci].from and the oci.default_from setting)
 
 Also include tools from the global / system config (default: project-only)
 
-By default `mise oci build` only packages tools declared in the
-project's mise config (and any parent configs at-or-below the
-project root, e.g. a monorepo root config). Personal dev tools in
-`~/.config/mise/config.toml` are excluded so they don't bake into a
-project image. Pass `--include-global` to revert to the old
-"merge all loaded configs" behavior.
+By default `mise oci build` only packages tools declared in the project's mise config (and any parent configs at-or-below the project root, e.g. a monorepo root config). Personal dev tools in `~/.config/mise/config.toml` are excluded so they don't bake into a project image. Pass `--include-global` to revert to the old "merge all loaded configs" behavior.
 
 #### `-t --tag <TAG>`
 
@@ -4234,9 +3934,7 @@ Do not embed the currently-running mise binary at /usr/local/bin/mise
 
 UID[:GID] to assign to every tar entry in generated layers
 
-Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
-omitted, it defaults to UID. This affects file ownership only; [oci].user
-controls the image USER directive.
+Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
 
 Examples:
 
@@ -4267,25 +3965,14 @@ Notes:
 
 - **Usage**: `mise oci push [FLAGS] <REF>`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/oci/push.rs`](https://github.com/jdx/mise/blob/main/src/cli/oci/push.rs)
 
 [experimental] Build an OCI image and push it to a registry
 
-Pushes with mise's built-in registry client — no skopeo/crane/docker
-required. If `--image-dir` is not passed, builds fresh from the current
-mise.toml first. Only blobs the registry doesn't already have are
-uploaded, so repeat pushes of mostly-unchanged toolsets are cheap.
+Pushes with mise's built-in registry client — no skopeo/crane/docker required. If `--image-dir` is not passed, builds fresh from the current mise.toml first. Only blobs the registry doesn't already have are uploaded, so repeat pushes of mostly-unchanged toolsets are cheap.
 
-Tool layers whose tool, version, mount point, and file owner match the
-previously pushed image (or `--cache-from`) are reused without being
-rebuilt — those tools don't even need to be installed locally. Pass
-`--no-cache` to force a full local rebuild.
+Tool layers whose tool, version, mount point, and file owner match the previously pushed image (or `--cache-from`) are reused without being rebuilt — those tools don't even need to be installed locally. Pass `--no-cache` to force a full local rebuild.
 
-Credentials are read from the same places docker and podman use:
-`$REGISTRY_AUTH_FILE`, `$XDG_RUNTIME_DIR/containers/auth.json`,
-`~/.config/containers/auth.json`, and `~/.docker/config.json`
-(including credential helpers) — so `docker login` / `podman login`
-is all the setup needed.
+Credentials are read from the same places docker and podman use: `$REGISTRY_AUTH_FILE`, `$XDG_RUNTIME_DIR/containers/auth.json`, `~/.config/containers/auth.json`, and `~/.docker/config.json` (including credential helpers) — so `docker login` / `podman login` is all the setup needed.
 
 Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).
 
@@ -4301,9 +3988,7 @@ Destination registry reference (e.g. `ghcr.io/me/devenv:latest`)
 
 Reuse unchanged tool layers from this image instead of the destination ref
 
-Must live in the same repository as the destination. Useful when each
-push gets a unique tag (e.g. per-commit tags in CI):
-`--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`.
+Must live in the same repository as the destination. Useful when each push gets a unique tag (e.g. per-commit tags in CI): `--cache-from ghcr.io/me/dev:latest ghcr.io/me/dev:$SHA`.
 
 #### `--from <FROM>`
 
@@ -4335,18 +4020,13 @@ Don't embed the mise binary (ignored with --image-dir)
 
 UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
 
-Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
-omitted, it defaults to UID. This affects file ownership only; [oci].user
-controls the image USER directive.
+Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
 
 #### `--update-index`
 
 Maintain the tag as a multi-arch image index
 
-Pushes this build's manifest by digest and points the tag at an OCI
-image index containing one entry per platform, preserving entries
-other architectures pushed. Run `mise oci push --update-index` from
-one runner per platform to assemble a multi-arch tag.
+Pushes this build's manifest by digest and points the tag at an OCI image index containing one entry per platform, preserving entries other architectures pushed. Run `mise oci push --update-index` from one runner per platform to assemble a multi-arch tag.
 
 Examples:
 
@@ -4369,17 +4049,12 @@ Auth:
 ## `mise oci run`
 
 - **Usage**: `mise oci run [FLAGS] [-- CMD]…`
-- **Source code**: [`src/cli/oci/run.rs`](https://github.com/jdx/mise/blob/main/src/cli/oci/run.rs)
 
 [experimental] Build an OCI image from the current mise.toml and run a command in it
 
-Equivalent to `mise oci build` followed by `docker run` / `podman run`.
-The built image is loaded into the local container engine (podman pulls
-the OCI layout natively; docker receives it via `docker load`) and the
-given command is executed inside it with stdin/stdout/stderr inherited.
+Equivalent to `mise oci build` followed by `docker run` / `podman run`. The built image is loaded into the local container engine (podman pulls the OCI layout natively; docker receives it via `docker load`) and the given command is executed inside it with stdin/stdout/stderr inherited.
 
-Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`) and
-one of: `podman`, `docker`.
+Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`) and one of: `podman`, `docker`.
 
 ### Arguments
 
@@ -4419,11 +4094,7 @@ See `mise oci build --help` for details.
 
 Keep the loaded image in the engine's storage after the run
 
-By default, both the container (`--rm`) and the loaded image are
-removed when the command exits, so repeated `mise oci run` calls
-don't accumulate images in podman / docker storage. Pass `--keep`
-to retain the image under the tag mise used (`mise-oci:run-*` for
-docker; the pulled image ID for podman).
+By default, both the container (`--rm`) and the loaded image are removed when the command exits, so repeated `mise oci run` calls don't accumulate images in podman / docker storage. Pass `--keep` to retain the image under the tag mise used (`mise-oci:run-*` for docker; the pulled image ID for podman).
 
 #### `--mount-point <MOUNT_POINT>`
 
@@ -4437,16 +4108,13 @@ Don't embed the mise binary (ignored with --image-dir)
 
 UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
 
-Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is
-omitted, it defaults to UID. This affects file ownership only; [oci].user
-controls the image USER directive.
+Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
 
 #### `--volume… <HOST:CONTAINER>`
 
 Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)
 
-Note: unlike `docker run -v`, there's no `-v` short flag here because
-mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
+Note: unlike `docker run -v`, there's no `-v` short flag here because mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
 
 #### `-e --env… <KEY=VAL>`
 
@@ -4485,7 +4153,6 @@ Engines:
 
 - **Usage**: `mise outdated [FLAGS] [TOOL@VERSION]…`
 - **Effect**: read-only
-- **Source code**: [`src/cli/outdated.rs`](https://github.com/jdx/mise/blob/main/src/cli/outdated.rs)
 
 Shows outdated tool versions
 
@@ -4505,8 +4172,7 @@ If not specified, all tools in global and local configs will be shown
 
 Compares against the latest versions available, not what matches the current config
 
-For example, if you have `node = "20"` in your config by default `mise outdated` will only
-show other 20.x versions, not 21.x or 22.x versions.
+For example, if you have `node = "20"` in your config by default `mise outdated` will only show other 20.x versions, not 21.x or 22.x versions.
 
 Using this flag, if there are 21.x or newer versions it will display those instead of 20.x.
 
@@ -4524,8 +4190,7 @@ By default, `mise outdated` only shows tools that come from the current config.
 
 Only show outdated tools defined in local config files
 
-This will only show tools that are defined in project-local mise.toml and
-will skip tools defined in the global config (~/.config/mise/config.toml).
+This will only show tools that are defined in project-local mise.toml and will skip tools defined in the global config (~/.config/mise/config.toml).
 
 #### `--monorepo`
 
@@ -4562,13 +4227,10 @@ Examples:
 
 - **Usage**: `mise patrons [-J --json] [--refresh]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/patrons.rs`](https://github.com/jdx/mise/blob/main/src/cli/patrons.rs)
 
 Show the individuals supporting mise as Patron-tier members
 
-Lists the individuals on the Patron tier from <https://jdx.dev/patrons.json>.
-The list refreshes daily; supporting terminals will render each patron's
-name as a clickable link via OSC 8 hyperlinks.
+Lists the individuals on the Patron tier from <https://jdx.dev/patrons.json>. The list refreshes daily; supporting terminals will render each patron's name as a clickable link via OSC 8 hyperlinks.
 
 To appear here, become a patron at <https://jdx.dev/sponsors.html>.
 
@@ -4593,7 +4255,6 @@ Examples:
 - **Usage**: `mise plugins [FLAGS] <SUBCOMMAND>`
 - **Aliases**: `p`
 - **Effect**: read-only
-- **Source code**: [`src/cli/plugins/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugins/mod.rs)
 
 Manage plugins
 
@@ -4613,20 +4274,17 @@ e.g.: https://github.com/mise-plugins/vfox-cmake.git
 
 List installed plugins
 
-This is the default behavior but can be used with --core
-to show core and user plugins
+This is the default behavior but can be used with --core to show core and user plugins
 
 ## `mise plugins install`
 
 - **Usage**: `mise plugins install [FLAGS] [NEW_PLUGIN] [GIT_URL]`
 - **Aliases**: `i`, `a`, `add`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/plugins/install.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugins/install.rs)
 
 Install a plugin
 
-note that mise can automatically install plugins when you install a tool
-e.g.: `mise install cmake@3.30` will autoinstall the cmake plugin
+note that mise can automatically install plugins when you install a tool e.g.: `mise install cmake@3.30` will autoinstall the cmake plugin
 
 This behavior can be modified in ~/.config/mise/config.toml
 
@@ -4683,7 +4341,6 @@ Examples:
 - **Usage**: `mise plugins link [-f --force] <NAME> [DIR]`
 - **Aliases**: `ln`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/plugins/link.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugins/link.rs)
 
 Symlinks a plugin into mise
 
@@ -4720,7 +4377,6 @@ Examples:
 - **Usage**: `mise plugins ls [-o --outdated] [-u --urls]`
 - **Aliases**: `list`
 - **Effect**: read-only
-- **Source code**: [`src/cli/plugins/ls.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugins/ls.rs)
 
 List installed plugins
 
@@ -4753,7 +4409,6 @@ Examples:
 - **Usage**: `mise plugins ls-remote [-u --urls] [--only-names]`
 - **Aliases**: `list-remote`, `list-all`
 - **Effect**: read-only
-- **Source code**: [`src/cli/plugins/ls_remote.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugins/ls_remote.rs)
 
 
 List all available remote plugins
@@ -4781,7 +4436,6 @@ by default it will show a "*" next to installed plugins
 - **Usage**: `mise plugins uninstall [-a --all] [-p --purge] [PLUGIN]…`
 - **Aliases**: `remove`, `rm`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/plugins/uninstall.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugins/uninstall.rs)
 
 Removes a plugin
 
@@ -4810,7 +4464,6 @@ Examples:
 - **Usage**: `mise plugins update [-j --jobs <JOBS>] [PLUGIN]…`
 - **Aliases**: `up`, `upgrade`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/plugins/update.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugins/update.rs)
 
 Updates a plugin to the latest version
 
@@ -4841,17 +4494,12 @@ Examples:
 - **Usage**: `mise deps [FLAGS] [PROVIDER] <SUBCOMMAND>`
 - **Aliases**: `dep`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/deps/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/deps/mod.rs)
 
 [experimental] Manage project dependencies
 
-Runs all applicable dependency install steps for the current project.
-This checks if dependency lockfiles are newer than installed outputs
-(e.g., package-lock.json vs node_modules/) and runs install commands
-if needed.
+Runs all applicable dependency install steps for the current project. This checks if dependency lockfiles are newer than installed outputs (e.g., package-lock.json vs node_modules/) and runs install commands if needed.
 
-Providers with `auto = true` are automatically invoked before `mise x` and `mise run`
-unless skipped with the --no-deps flag.
+Providers with `auto = true` are automatically invoked before `mise x` and `mise run` unless skipped with the --no-deps flag.
 
 ### Arguments
 
@@ -4881,8 +4529,7 @@ Show what deps providers are available
 
 Install dependencies from every [monorepo].config_roots config root
 
-Requires monorepo_root = true plus explicit [monorepo].config_roots in
-the monorepo root config. Providers are named like //apps/api:uv.
+Requires monorepo_root = true plus explicit [monorepo].config_roots in the monorepo root config. Providers are named like //apps/api:uv.
 
 **Environment Variable:** `MISE_MONOREPO`
 
@@ -4927,12 +4574,10 @@ disable = ["npm"]        # Disable specific providers at runtime
 
 - **Usage**: `mise deps add [-D --dev] <PACKAGES>…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/deps/add.rs`](https://github.com/jdx/mise/blob/main/src/cli/deps/add.rs)
 
 Add a dependency
 
-Adds one or more packages to the project using the appropriate package manager.
-Package specs use the format `ecosystem:package`, e.g., `npm:react` or `npm:@types/react@19`.
+Adds one or more packages to the project using the appropriate package manager. Package specs use the format `ecosystem:package`, e.g., `npm:react` or `npm:@types/react@19`.
 
 ### Arguments
 
@@ -4950,12 +4595,10 @@ Add as a development dependency
 
 - **Usage**: `mise deps install [FLAGS] [PROVIDER]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/deps/install.rs`](https://github.com/jdx/mise/blob/main/src/cli/deps/install.rs)
 
 Install all project dependencies
 
-Checks if dependency lockfiles are newer than installed outputs
-and runs install commands if needed.
+Checks if dependency lockfiles are newer than installed outputs and runs install commands if needed.
 
 ### Arguments
 
@@ -4985,8 +4628,7 @@ Show what deps providers are available
 
 Install dependencies from every [monorepo].config_roots config root
 
-Requires monorepo_root = true plus explicit [monorepo].config_roots in
-the monorepo root config. Providers are named like //apps/api:uv.
+Requires monorepo_root = true plus explicit [monorepo].config_roots in the monorepo root config. Providers are named like //apps/api:uv.
 
 **Environment Variable:** `MISE_MONOREPO`
 
@@ -5002,12 +4644,10 @@ Skip specific deps rule(s)
 
 - **Usage**: `mise deps remove <PACKAGES>…`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/deps/remove.rs`](https://github.com/jdx/mise/blob/main/src/cli/deps/remove.rs)
 
 Remove a dependency
 
-Removes one or more packages from the project using the appropriate package manager.
-Package specs use the format `ecosystem:package`, e.g., `npm:lodash`.
+Removes one or more packages from the project using the appropriate package manager. Package specs use the format `ecosystem:package`, e.g., `npm:lodash`.
 
 ### Arguments
 
@@ -5019,17 +4659,12 @@ Package(s) to remove (e.g., npm:lodash)
 
 - **Usage**: `mise prune [FLAGS] [INSTALLED_TOOL]…`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/prune.rs`](https://github.com/jdx/mise/blob/main/src/cli/prune.rs)
 
 Delete unused versions of tools
 
-mise tracks which config files have been used in ~/.local/state/mise/tracked-configs
-Versions which are no longer the latest specified in any of those configs are deleted.
-Versions installed only with environment variables `MISE_<TOOL>_VERSION` will be deleted,
-as will versions only referenced on the command line `mise exec <TOOL>@<VERSION>`.
+mise tracks which config files have been used in ~/.local/state/mise/tracked-configs Versions which are no longer the latest specified in any of those configs are deleted. Versions installed only with environment variables `MISE_<TOOL>_VERSION` will be deleted, as will versions only referenced on the command line `mise exec <TOOL>@<VERSION>`.
 
-Tool stubs that have been executed are tracked in ~/.local/state/mise/tracked-stubs.
-Versions still referenced by a tracked stub are not deleted.
+Tool stubs that have been executed are tracked in ~/.local/state/mise/tracked-stubs. Versions still referenced by a tracked stub are not deleted.
 
 You can list prunable tools with `mise ls --prunable`
 
@@ -5073,7 +4708,6 @@ Examples:
 
 - **Usage**: `mise registry [FLAGS] [NAME]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/registry.rs`](https://github.com/jdx/mise/blob/main/src/cli/registry.rs)
 
 List available tools to install
 
@@ -5105,9 +4739,7 @@ Output in JSON format
 
 Include security features for each tool's backends in JSON output.
 
-Requires --json. Security info is de-duplicated across
-all of a tool's backends. This can add noticeable time for large
-listings since each backend's security info is resolved individually.
+Requires --json. Security info is de-duplicated across all of a tool's backends. This can add noticeable time for large listings since each backend's security info is resolved individually.
 
 Examples:
 
@@ -5123,7 +4755,6 @@ Examples:
 
 - **Usage**: `mise render-help`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/render_help.rs`](https://github.com/jdx/mise/blob/main/src/cli/render_help.rs)
 
 internal command to generate markdown from help
 
@@ -5131,26 +4762,19 @@ internal command to generate markdown from help
 
 - **Usage**: `mise reshim [-f --force]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/reshim.rs`](https://github.com/jdx/mise/blob/main/src/cli/reshim.rs)
 
 Creates new shims based on bin paths from currently installed tools.
 
-This creates new shims in ~/.local/share/mise/shims for CLIs that have been added.
-mise will try to do this automatically for commands like `npm i -g` but there are
-other ways to install things (like using yarn or pnpm for node) that mise does
-not know about and so it will be necessary to call this explicitly.
+This creates new shims in ~/.local/share/mise/shims for CLIs that have been added. mise will try to do this automatically for commands like `npm i -g` but there are other ways to install things (like using yarn or pnpm for node) that mise does not know about and so it will be necessary to call this explicitly.
 
-If you think mise should automatically call this for a particular command, please
-open an issue on the mise repo. You can also set up a shell function to reshim
-automatically (it's really fast so you don't need to worry about overhead):
+If you think mise should automatically call this for a particular command, please open an issue on the mise repo. You can also set up a shell function to reshim automatically (it's really fast so you don't need to worry about overhead):
 
     npm() {
       command npm "$@"
       mise reshim
     }
 
-Note that this creates shims for _all_ installed tools, not just the ones that are
-currently active in mise.toml.
+Note that this creates shims for _all_ installed tools, not just the ones that are currently active in mise.toml.
 
 ### Flags
 
@@ -5168,27 +4792,19 @@ Examples:
 
 - **Usage**: `mise run [FLAGS]`
 - **Aliases**: `r`
-- **Source code**: [`src/cli/run.rs`](https://github.com/jdx/mise/blob/main/src/cli/run.rs)
 
 Run task(s)
 
-This command will run a task, or multiple tasks in parallel.
-Tasks may have dependencies on other tasks or on source files.
-If source is configured on a task, it will only run if the source
-files have changed.
+This command will run a task, or multiple tasks in parallel. Tasks may have dependencies on other tasks or on source files. If source is configured on a task, it will only run if the source files have changed.
 
-Tasks can be defined in mise.toml or as standalone scripts.
-In mise.toml, tasks take this form:
+Tasks can be defined in mise.toml or as standalone scripts. In mise.toml, tasks take this form:
 
     [tasks.build]
     run = "npm run build"
     sources = ["src/**/*.ts"]
     outputs = ["dist/**/*.js"]
 
-Alternatively, tasks can be defined as standalone scripts.
-These must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or
-`.config/mise/tasks`.
-The name of the script will be the name of the tasks.
+Alternatively, tasks can be defined as standalone scripts. These must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or `.config/mise/tasks`. The name of the script will be the name of the tasks.
 
     $ cat .mise/tasks/build<<EOF
     #!/usr/bin/env bash
@@ -5253,13 +4869,7 @@ Don't actually run the task(s), just print them in order of execution
 
 Change how tasks information is output when running tasks
 
-- `prefix` - Print stdout/stderr by line, prefixed with the task's label
-- `interleave` - Print directly to stdout/stderr instead of by line
-- `replacing` - Stdout is replaced each time, stderr is printed as is
-- `timed` - Only show stdout lines if they are displayed for more than 1 second
-- `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output
-- `quiet` - Don't show extra output
-- `silent` - Don't show any output including stdout and stderr from the task except for errors
+- `prefix` - Print stdout/stderr by line, prefixed with the task's label - `interleave` - Print directly to stdout/stderr instead of by line - `replacing` - Stdout is replaced each time, stderr is printed as is - `timed` - Only show stdout lines if they are displayed for more than 1 second - `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output - `quiet` - Don't show extra output - `silent` - Don't show any output including stdout and stderr from the task except for errors
 
 **Environment Variable:** `MISE_TASK_OUTPUT`
 
@@ -5279,9 +4889,7 @@ Configure with `raw` config or `MISE_RAW` env var
 
 Shell to use to run toml tasks
 
-Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows
-Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS`
-Or it can be overridden with the `shell` property on a task.
+Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS` Or it can be overridden with the `shell` property on a task.
 
 #### `-S --silent`
 
@@ -5361,18 +4969,13 @@ Run only the specified tasks skipping all dependencies
 
 Skip installing tools before running tasks
 
-Can also be set persistently with the `task.run_auto_install` setting
-or `MISE_TASK_RUN_AUTO_INSTALL=false` env var
+Can also be set persistently with the `task.run_auto_install` setting or `MISE_TASK_RUN_AUTO_INSTALL=false` env var
 
 #### `--task-cache <TASK_CACHE>`
 
 Set task output cache access for this run
 
-- `read-write` - Read cached results and write new results
-- `read-only` - Read cached results without writing new results
-- `write-only` - Write new results without reading cached results
-- `off` - Disable task output caching
-- `local-only` - Read and write only the local cache; currently equivalent to `read-write`
+- `read-write` - Read cached results and write new results - `read-only` - Read cached results without writing new results - `write-only` - Write new results without reading cached results - `off` - Disable task output caching - `local-only` - Read and write only the local cache; currently equivalent to `read-write`
 
 **Choices:**
 
@@ -5426,14 +5029,12 @@ Examples:
 
 - **Usage**: `mise search [FLAGS] [NAME]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/search.rs`](https://github.com/jdx/mise/blob/main/src/cli/search.rs)
 
 Search for tools in the registry
 
 This command searches a tool in the registry.
 
-By default, it will show all tools that fuzzy match the search term. For
-non-fuzzy matches, use the `--match-type` flag.
+By default, it will show all tools that fuzzy match the search term. For non-fuzzy matches, use the `--match-type` flag.
 
 ### Arguments
 
@@ -5486,17 +5087,12 @@ Examples:
 
 - **Usage**: `mise self-update [FLAGS] [VERSION]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/self_update.rs`](https://github.com/jdx/mise/blob/main/src/cli/self_update.rs)
 
 Updates mise itself.
 
-Uses the GitHub Releases API to find the latest release and binary.
-By default, this will also update any installed plugins.
-Uses mise's GitHub token resolution chain for authenticated requests.
+Uses the GitHub Releases API to find the latest release and binary. By default, this will also update any installed plugins. Uses mise's GitHub token resolution chain for authenticated requests.
 
-Packagers can disable this command so that mise is updated through the
-package manager instead. See
-https://mise.jdx.dev/contributing.html#packaging-and-self-update-instructions
+Packagers can disable this command so that mise is updated through the package manager instead. See https://mise.jdx.dev/contributing.html#packaging-and-self-update-instructions
 
 ### Arguments
 
@@ -5522,14 +5118,10 @@ Disable auto-updating plugins
 
 - **Usage**: `mise set [FLAGS] [ENV_VAR]…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/set.rs`](https://github.com/jdx/mise/blob/main/src/cli/set.rs)
 
 Set environment variables in mise.toml
 
-By default, this command modifies `mise.toml` in the current directory.
-If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),
-the lowest precedence file (`mise.toml`) will be used.
-See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
+By default, this command modifies `mise.toml` in the current directory. If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`), the lowest precedence file (`mise.toml`) will be used. See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 
 Use `-E <env>` to create/modify environment-specific config files like `mise.<env>.toml`.
 
@@ -5576,9 +5168,7 @@ Can be used multiple times. Requires --age-encrypt.
 
 The TOML file to update
 
-Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
-Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`.
-Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
+Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory. Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`. Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
 
 #### `--no-redact`
 
@@ -5592,8 +5182,7 @@ Prompt for environment variable values
 
 Read the value from stdin (for multiline input)
 
-When using --stdin, provide a single key without a value.
-The value will be read from stdin until EOF.
+When using --stdin, provide a single key without a value. The value will be read from stdin until EOF.
 
 Examples:
 
@@ -5629,7 +5218,6 @@ Examples:
 
 - **Usage**: `mise settings [FLAGS] [SETTING] [VALUE] <SUBCOMMAND>`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/settings/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/settings/mod.rs)
 
 Manage settings
 
@@ -5684,12 +5272,10 @@ Examples:
 
 - **Usage**: `mise settings add [-l --local] <SETTING> [VALUE]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/settings/add.rs`](https://github.com/jdx/mise/blob/main/src/cli/settings/add.rs)
 
 Adds a setting to the configuration file
 
-Used with an array setting, this will append the value to the array.
-This modifies the contents of ~/.config/mise/config.toml
+Used with an array setting, this will append the value to the array. This modifies the contents of ~/.config/mise/config.toml
 
 ### Arguments
 
@@ -5715,14 +5301,12 @@ Examples:
 
 - **Usage**: `mise settings get [-l --local] <SETTING>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/settings/get.rs`](https://github.com/jdx/mise/blob/main/src/cli/settings/get.rs)
 
 Show a current setting
 
 This is the contents of a single entry in ~/.config/mise/config.toml
 
-Note that aliases are also stored in this file
-but managed separately with `mise tool-alias get`
+Note that aliases are also stored in this file but managed separately with `mise tool-alias get`
 
 ### Arguments
 
@@ -5746,14 +5330,12 @@ Examples:
 - **Usage**: `mise settings ls [FLAGS] [SETTING]`
 - **Aliases**: `list`
 - **Effect**: read-only
-- **Source code**: [`src/cli/settings/ls.rs`](https://github.com/jdx/mise/blob/main/src/cli/settings/ls.rs)
 
 Show current settings
 
 This is the contents of ~/.config/mise/config.toml
 
-Note that aliases are also stored in this file
-but managed separately with `mise tool-alias`
+Note that aliases are also stored in this file but managed separately with `mise tool-alias`
 
 ### Arguments
 
@@ -5798,13 +5380,10 @@ Examples:
 - **Usage**: `mise settings set [-l --local] <SETTING> [VALUE]`
 - **Aliases**: `create`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/settings/set.rs`](https://github.com/jdx/mise/blob/main/src/cli/settings/set.rs)
 
 Add/update a setting
 
-This modifies the contents of ~/.config/mise/config.toml by default.
-With `--local`, modifies the local config file instead.
-See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
+This modifies the contents of ~/.config/mise/config.toml by default. With `--local`, modifies the local config file instead. See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 
 ### Arguments
 
@@ -5831,7 +5410,6 @@ Examples:
 - **Usage**: `mise settings unset [-l --local] <KEY>`
 - **Aliases**: `rm`, `remove`, `delete`, `del`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/settings/unset.rs`](https://github.com/jdx/mise/blob/main/src/cli/settings/unset.rs)
 
 Clears a setting
 
@@ -5858,14 +5436,12 @@ Examples:
 - **Usage**: `mise shell [FLAGS] <TOOL@VERSION>…`
 - **Aliases**: `sh`
 - **Effect**: read-only
-- **Source code**: [`src/cli/shell.rs`](https://github.com/jdx/mise/blob/main/src/cli/shell.rs)
 
 Sets a tool version for the current session.
 
 Only works in a session where mise is already activated.
 
-This works by setting environment variables for the current shell session
-such as `MISE_NODE_VERSION=20` which is "eval"ed as a shell function created by `mise activate`.
+This works by setting environment variables for the current shell session such as `MISE_NODE_VERSION=20` which is "eval"ed as a shell function created by `mise activate`.
 
 ### Arguments
 
@@ -5902,7 +5478,6 @@ Examples:
 
 - **Usage**: `mise shell-alias [--no-header] <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/shell_alias/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/shell_alias/mod.rs)
 
 Manage shell aliases.
 
@@ -5916,7 +5491,6 @@ Don't show table header
 
 - **Usage**: `mise shell-alias get <shell_alias>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/shell_alias/get.rs`](https://github.com/jdx/mise/blob/main/src/cli/shell_alias/get.rs)
 
 Show the command for a shell alias
 
@@ -5936,12 +5510,10 @@ Examples:
 - **Usage**: `mise shell-alias ls [--no-header]`
 - **Aliases**: `list`
 - **Effect**: read-only
-- **Source code**: [`src/cli/shell_alias/ls.rs`](https://github.com/jdx/mise/blob/main/src/cli/shell_alias/ls.rs)
 
 List shell aliases
 
-Shows the shell aliases that are set in the current directory.
-These are defined in `mise.toml` under the `[shell_alias]` section.
+Shows the shell aliases that are set in the current directory. These are defined in `mise.toml` under the `[shell_alias]` section.
 
 ### Flags
 
@@ -5961,7 +5533,6 @@ Examples:
 - **Usage**: `mise shell-alias set <shell_alias> [COMMAND]`
 - **Aliases**: `add`, `create`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/shell_alias/set.rs`](https://github.com/jdx/mise/blob/main/src/cli/shell_alias/set.rs)
 
 Add/update a shell alias
 
@@ -5987,7 +5558,6 @@ Examples:
 - **Usage**: `mise shell-alias unset <shell_alias>`
 - **Aliases**: `rm`, `remove`, `delete`, `del`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/shell_alias/unset.rs`](https://github.com/jdx/mise/blob/main/src/cli/shell_alias/unset.rs)
 
 Removes a shell alias
 
@@ -6007,7 +5577,6 @@ Examples:
 
 - **Usage**: `mise sponsors`
 - **Effect**: read-only
-- **Source code**: [`src/cli/sponsors.rs`](https://github.com/jdx/mise/blob/main/src/cli/sponsors.rs)
 
 Show the companies sponsoring mise and the jdx.dev open source tools
 
@@ -6015,7 +5584,6 @@ Show the companies sponsoring mise and the jdx.dev open source tools
 
 - **Usage**: `mise sync <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/sync/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/sync/mod.rs)
 
 Synchronize tools from other version managers with mise
 
@@ -6023,7 +5591,6 @@ Synchronize tools from other version managers with mise
 
 - **Usage**: `mise sync node [FLAGS]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/sync/node.rs`](https://github.com/jdx/mise/blob/main/src/cli/sync/node.rs)
 
 Symlinks all tool versions from an external tool into mise
 
@@ -6055,7 +5622,6 @@ Examples:
 
 - **Usage**: `mise sync python [--pyenv] [--uv]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/sync/python.rs`](https://github.com/jdx/mise/blob/main/src/cli/sync/python.rs)
 
 Symlinks all tool versions from an external tool into mise
 
@@ -6089,7 +5655,6 @@ Examples:
 
 - **Usage**: `mise sync ruby <--brew>`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/sync/ruby.rs`](https://github.com/jdx/mise/blob/main/src/cli/sync/ruby.rs)
 
 Symlinks all ruby tool versions from an external tool into mise
 
@@ -6110,7 +5675,6 @@ Examples:
 - **Usage**: `mise tasks [FLAGS] [TASK] <SUBCOMMAND>`
 - **Aliases**: `t`
 - **Effect**: read-only
-- **Source code**: [`src/cli/tasks/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/mod.rs)
 
 Manage tasks
 
@@ -6179,12 +5743,10 @@ Sort order. Default is asc.
 
 - **Usage**: `mise tasks add [FLAGS] <TASK> [-- RUN]…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/tasks/add.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/add.rs)
 
 Create a new task
 
-Adds a task to the local mise.toml file.
-See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
+Adds a task to the local mise.toml file. See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 
 ### Arguments
 
@@ -6264,7 +5826,6 @@ Examples:
 
 - **Usage**: `mise tasks deps [FLAGS] [TASKS]…`
 - **Effect**: read-only
-- **Source code**: [`src/cli/tasks/deps.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/deps.rs)
 
 Display a tree visualization of a dependency graph
 
@@ -6308,7 +5869,6 @@ Examples:
 
 - **Usage**: `mise tasks edit [-p --path] <TASK>`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/tasks/edit.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/edit.rs)
 
 Edit a task with $EDITOR
 
@@ -6335,7 +5895,6 @@ Examples:
 
 - **Usage**: `mise tasks graph [FLAGS]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/tasks/graph.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/graph.rs)
 
 [experimental] Inspect the workspace project graph
 
@@ -6368,7 +5927,6 @@ Examples:
 
 - **Usage**: `mise tasks info [-J --json] <TASK>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/tasks/info.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/info.rs)
 
 Get information about a task
 
@@ -6417,7 +5975,6 @@ Examples:
 
 - **Usage**: `mise tasks ls [FLAGS]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/tasks/ls.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/ls.rs)
 
 List available tasks to execute
 These may be included from the config file or from the project's .mise/tasks directory
@@ -6490,27 +6047,19 @@ Examples:
 
 - **Usage**: `mise tasks run [FLAGS] [TASK] [ARGS]…`
 - **Aliases**: `r`
-- **Source code**: [`src/cli/run.rs`](https://github.com/jdx/mise/blob/main/src/cli/run.rs)
 
 Run task(s)
 
-This command will run a task, or multiple tasks in parallel.
-Tasks may have dependencies on other tasks or on source files.
-If source is configured on a task, it will only run if the source
-files have changed.
+This command will run a task, or multiple tasks in parallel. Tasks may have dependencies on other tasks or on source files. If source is configured on a task, it will only run if the source files have changed.
 
-Tasks can be defined in mise.toml or as standalone scripts.
-In mise.toml, tasks take this form:
+Tasks can be defined in mise.toml or as standalone scripts. In mise.toml, tasks take this form:
 
     [tasks.build]
     run = "npm run build"
     sources = ["src/**/*.ts"]
     outputs = ["dist/**/*.js"]
 
-Alternatively, tasks can be defined as standalone scripts.
-These must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or
-`.config/mise/tasks`.
-The name of the script will be the name of the tasks.
+Alternatively, tasks can be defined as standalone scripts. These must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or `.config/mise/tasks`. The name of the script will be the name of the tasks.
 
     $ cat .mise/tasks/build<<EOF
     #!/usr/bin/env bash
@@ -6588,13 +6137,7 @@ Don't actually run the task(s), just print them in order of execution
 
 Change how tasks information is output when running tasks
 
-- `prefix` - Print stdout/stderr by line, prefixed with the task's label
-- `interleave` - Print directly to stdout/stderr instead of by line
-- `replacing` - Stdout is replaced each time, stderr is printed as is
-- `timed` - Only show stdout lines if they are displayed for more than 1 second
-- `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output
-- `quiet` - Don't show extra output
-- `silent` - Don't show any output including stdout and stderr from the task except for errors
+- `prefix` - Print stdout/stderr by line, prefixed with the task's label - `interleave` - Print directly to stdout/stderr instead of by line - `replacing` - Stdout is replaced each time, stderr is printed as is - `timed` - Only show stdout lines if they are displayed for more than 1 second - `keep-order` - Print stdout/stderr by line, prefixed with the task's label, but keep the order of the output - `quiet` - Don't show extra output - `silent` - Don't show any output including stdout and stderr from the task except for errors
 
 **Environment Variable:** `MISE_TASK_OUTPUT`
 
@@ -6614,9 +6157,7 @@ Configure with `raw` config or `MISE_RAW` env var
 
 Shell to use to run toml tasks
 
-Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows
-Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS`
-Or it can be overridden with the `shell` property on a task.
+Defaults to `sh -c -o errexit -o pipefail` on unix, and `cmd /c` on Windows Can also be set with the setting `MISE_UNIX_DEFAULT_INLINE_SHELL_ARGS` or `MISE_WINDOWS_DEFAULT_INLINE_SHELL_ARGS` Or it can be overridden with the `shell` property on a task.
 
 #### `-S --silent`
 
@@ -6696,18 +6237,13 @@ Run only the specified tasks skipping all dependencies
 
 Skip installing tools before running tasks
 
-Can also be set persistently with the `task.run_auto_install` setting
-or `MISE_TASK_RUN_AUTO_INSTALL=false` env var
+Can also be set persistently with the `task.run_auto_install` setting or `MISE_TASK_RUN_AUTO_INSTALL=false` env var
 
 #### `--task-cache <TASK_CACHE>`
 
 Set task output cache access for this run
 
-- `read-write` - Read cached results and write new results
-- `read-only` - Read cached results without writing new results
-- `write-only` - Write new results without reading cached results
-- `off` - Disable task output caching
-- `local-only` - Read and write only the local cache; currently equivalent to `read-write`
+- `read-write` - Read cached results and write new results - `read-only` - Read cached results without writing new results - `write-only` - Write new results without reading cached results - `off` - Disable task output caching - `local-only` - Read and write only the local cache; currently equivalent to `read-write`
 
 **Choices:**
 
@@ -6761,7 +6297,6 @@ Examples:
 
 - **Usage**: `mise tasks validate [--errors-only] [--json] [TASKS]…`
 - **Effect**: read-only
-- **Source code**: [`src/cli/tasks/validate.rs`](https://github.com/jdx/mise/blob/main/src/cli/tasks/validate.rs)
 
 Validate tasks for common errors and issues
 
@@ -6814,7 +6349,6 @@ The validate command performs the following checks:
 ## `mise test-tool`
 
 - **Usage**: `mise test-tool [FLAGS] [TOOLS]…`
-- **Source code**: [`src/cli/test_tool.rs`](https://github.com/jdx/mise/blob/main/src/cli/test_tool.rs)
 
 Test a tool installs and executes
 
@@ -6859,7 +6393,6 @@ Examples:
 
 - **Usage**: `mise token <SUBCOMMAND>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/token/mod.rs`](https://github.com/jdx/mise/blob/main/src/cli/token/mod.rs)
 
 Display git provider tokens mise will use
 
@@ -6867,7 +6400,6 @@ Display git provider tokens mise will use
 
 - **Usage**: `mise token forgejo [--unmask] [HOST]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/token/forgejo.rs`](https://github.com/jdx/mise/blob/main/src/cli/token/forgejo.rs)
 
 Display the Forgejo token mise will use for a given host
 
@@ -6903,7 +6435,6 @@ Examples:
 
 - **Usage**: `mise token github [FLAGS] [HOST]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/token/github.rs`](https://github.com/jdx/mise/blob/main/src/cli/token/github.rs)
 
 Display the GitHub token mise will use for a given host
 
@@ -6958,7 +6489,6 @@ Examples:
 
 - **Usage**: `mise token gitlab [--unmask] [HOST]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/token/gitlab.rs`](https://github.com/jdx/mise/blob/main/src/cli/token/gitlab.rs)
 
 Display the GitLab token mise will use for a given host
 
@@ -6994,7 +6524,6 @@ Examples:
 
 - **Usage**: `mise tool [FLAGS] <TOOL>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/tool.rs`](https://github.com/jdx/mise/blob/main/src/cli/tool.rs)
 
 Gets information about a tool
 
@@ -7051,19 +6580,12 @@ Examples:
 ## `mise tool-stub`
 
 - **Usage**: `mise tool-stub <FILE> [ARGS]…`
-- **Source code**: [`src/cli/tool_stub.rs`](https://github.com/jdx/mise/blob/main/src/cli/tool_stub.rs)
 
 Execute a tool stub
 
-Tool stubs are executable files containing TOML configuration that specify
-which tool to run and how to run it. They provide a convenient way to create
-portable, self-contained executables that automatically manage tool installation
-and execution.
+Tool stubs are executable files containing TOML configuration that specify which tool to run and how to run it. They provide a convenient way to create portable, self-contained executables that automatically manage tool installation and execution.
 
-A tool stub consists of:
-- A shebang line: #!/usr/bin/env -S mise tool-stub
-- TOML configuration specifying the tool, version, and options
-- Optional comments describing the tool's purpose
+A tool stub consists of: - A shebang line: #!/usr/bin/env -S mise tool-stub - TOML configuration specifying the tool, version, and options - Optional comments describing the tool's purpose
 
 Example stub file:
   #!/usr/bin/env -S mise tool-stub
@@ -7073,8 +6595,7 @@ Example stub file:
   version = "20.0.0"
   bin = "node"
 
-The stub will automatically install the specified tool version if missing
-and execute it with any arguments passed to the stub.
+The stub will automatically install the specified tool version if missing and execute it with any arguments passed to the stub.
 
 For more information, see: https://mise.jdx.dev/dev-tools/tool-stubs.html
 
@@ -7084,44 +6605,28 @@ For more information, see: https://mise.jdx.dev/dev-tools/tool-stubs.html
 
 Path to the TOML tool stub file to execute
 
-The stub file must contain TOML configuration specifying the tool
-and version to run. At minimum, it should specify a 'version' field.
-Other common fields include 'tool', 'bin', and backend-specific options.
+The stub file must contain TOML configuration specifying the tool and version to run. At minimum, it should specify a 'version' field. Other common fields include 'tool', 'bin', and backend-specific options.
 
 #### `[ARGS]…`
 
 Arguments to pass to the tool
 
-All arguments after the stub file path will be forwarded to the
-underlying tool. Use '--' to separate mise arguments from tool arguments
-if needed.
+All arguments after the stub file path will be forwarded to the underlying tool. Use '--' to separate mise arguments from tool arguments if needed.
 
 ## `mise trust`
 
 - **Usage**: `mise trust [FLAGS] [CONFIG_FILE]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/trust.rs`](https://github.com/jdx/mise/blob/main/src/cli/trust.rs)
 
 Marks a config file as trusted
 
-This means mise is allowed to parse the file when it needs to read config
-that may execute code or affect the environment. Without trust, mise may
-prompt, skip the config in some discovery paths, or fail with an
-untrusted-config error when it cannot prompt.
+This means mise is allowed to parse the file when it needs to read config that may execute code or affect the environment. Without trust, mise may prompt, skip the config in some discovery paths, or fail with an untrusted-config error when it cannot prompt.
 
-In normal mode, commands that execute project-defined behavior (`mise run`,
-naked task invocations such as `mise <TASK>`, `mise install`, `mise exec`,
-and `mise watch`) automatically trust their active config. Paranoid mode
-requires explicit, content-bound trust for every non-global config.
+In normal mode, commands that execute project-defined behavior (`mise run`, naked task invocations such as `mise <TASK>`, `mise install`, `mise exec`, and `mise watch`) automatically trust their active config. Paranoid mode requires explicit, content-bound trust for every non-global config.
 
-In normal mode, safe config files do not require trust: files that only contain
-`min_version`, `[tools]` entries with plain version strings (or arrays of
-them), and `[tasks]` without templates or tool options.
+In normal mode, safe config files do not require trust: files that only contain `min_version`, `[tools]` entries with plain version strings (or arrays of them), and `[tasks]` without templates or tool options.
 
-Trust is shared across git worktrees: a config file inside a linked
-worktree is trusted when the equivalent path in the repository's main
-checkout has been trusted. Paranoid mode disables this sharing since
-worktrees can check out branches with different config contents.
+Trust is shared across git worktrees: a config file inside a linked worktree is trusted when the equivalent path in the repository's main checkout has been trusted. Paranoid mode disables this sharing since worktrees can check out branches with different config contents.
 
 ### Arguments
 
@@ -7135,8 +6640,7 @@ The config file whose trust status to change
 
 Trust all config files in the current directory, its parents, and its subdirectories
 
-Subdirectories are walked respecting .gitignore, skipping hidden directories
-and common build/dependency directories (node_modules, vendor, target, dist, build).
+Subdirectories are walked respecting .gitignore, skipping hidden directories and common build/dependency directories (node_modules, vendor, target, dist, build).
 
 #### `--ignore`
 
@@ -7163,7 +6667,6 @@ Examples:
 
 - **Usage**: `mise uninstall [FLAGS] [INSTALLED_TOOL@VERSION]…`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/uninstall.rs`](https://github.com/jdx/mise/blob/main/src/cli/uninstall.rs)
 
 Removes installed tool versions
 
@@ -7206,7 +6709,6 @@ Examples:
 
 - **Usage**: `mise unset [-f --file <FILE>] [-g --global] [ENV_KEY]…`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/unset.rs`](https://github.com/jdx/mise/blob/main/src/cli/unset.rs)
 
 Remove environment variable(s) from the config file.
 
@@ -7227,8 +6729,7 @@ Specify a file to use instead of `mise.toml`
 
 Can be a file path or directory. If a directory is provided, will create/use mise.toml in that directory.
 
-Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`.
-Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
+Defaults to [`MISE_DEFAULT_CONFIG_FILENAME`](https://mise.jdx.dev/configuration.html#mise_default_config_filename) environment variable, or `mise.toml`. Use [`MISE_GLOBAL_CONFIG_FILE`](https://mise.jdx.dev/configuration.html#mise_global_config_file) to choose a different global config path.
 
 #### `-g --global`
 
@@ -7246,7 +6747,6 @@ Examples:
 
 - **Usage**: `mise untrust [CONFIG_FILE]`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/untrust.rs`](https://github.com/jdx/mise/blob/main/src/cli/untrust.rs)
 
 Remove explicit trust for a config
 
@@ -7261,14 +6761,10 @@ The config file to untrust
 - **Usage**: `mise unuse [FLAGS] <INSTALLED_TOOL@VERSION>…`
 - **Aliases**: `rm`, `remove`
 - **Effect**: destructive — may delete or irreversibly overwrite
-- **Source code**: [`src/cli/unuse.rs`](https://github.com/jdx/mise/blob/main/src/cli/unuse.rs)
 
 Removes installed tool versions from mise.toml
 
-By default, this will use the `mise.toml` file that has the tool defined.
-If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),
-the lowest precedence file (`mise.toml`) will be used.
-See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
+By default, this will use the `mise.toml` file that has the tool defined. If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`), the lowest precedence file (`mise.toml`) will be used. See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 
 In the following order:
   - If `--global` is set, it will use the global config file.
@@ -7302,8 +6798,7 @@ Use the global config file (`~/.config/mise/config.toml`) instead of the local o
 
 Specify a path to a config file or directory
 
-If a directory is specified, it will look for a config file in that directory following
-the rules above.
+If a directory is specified, it will look for a config file in that directory following the rules above.
 
 #### `--no-prune`
 
@@ -7328,13 +6823,10 @@ Examples:
 - **Usage**: `mise upgrade [FLAGS] [INSTALLED_TOOL@VERSION]…`
 - **Aliases**: `up`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/upgrade.rs`](https://github.com/jdx/mise/blob/main/src/cli/upgrade.rs)
 
 Upgrades outdated tools
 
-By default, this keeps the range specified in mise.toml. So if you have node@20 set, it will
-upgrade to the latest 20.x.x version available. See the `--bump` flag to use the latest version
-and bump the version in mise.toml.
+By default, this keeps the range specified in mise.toml. So if you have node@20 set, it will upgrade to the latest 20.x.x version available. See the `--bump` flag to use the latest version and bump the version in mise.toml.
 
 This will update mise.lock if it is enabled, see https://mise.jdx.dev/configuration/settings.html#lockfile
 
@@ -7352,11 +6844,9 @@ If not specified, all current tools will be upgraded
 
 Upgrades to the latest version available, bumping the version in mise.toml
 
-For example, if you have `node = "20.0.0"` in your mise.toml but 22.1.0 is the latest available,
-this will install 22.1.0 and set `node = "22.1.0"` in your config.
+For example, if you have `node = "20.0.0"` in your mise.toml but 22.1.0 is the latest available, this will install 22.1.0 and set `node = "22.1.0"` in your config.
 
-It keeps the same precision as what was there before, so if you instead had `node = "20"`, it
-would change your config to `node = "22"`.
+It keeps the same precision as what was there before, so if you instead had `node = "20"`, it would change your config to `node = "22"`.
 
 #### `-i --interactive`
 
@@ -7393,18 +6883,15 @@ Upgrade all tools, including installed-but-inactive tools not present in the cur
 
 Only upgrade tools defined in local config files
 
-This will only upgrade tools that are defined in project-local mise.toml and
-will skip tools defined in the global config (~/.config/mise/config.toml).
+This will only upgrade tools that are defined in project-local mise.toml and will skip tools defined in the global config (~/.config/mise/config.toml).
 
 #### `--minimum-release-age <MINIMUM_RELEASE_AGE>`
 
 Only upgrade to versions released before this date or older than this duration
 
-Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y".
-This can be useful for reproducibility or security purposes.
+Supports absolute dates like "2024-06-01" and relative durations like "90d" or "1y". This can be useful for reproducibility or security purposes.
 
-This only affects fuzzy version matches like "20" or "latest".
-Explicitly pinned versions like "22.5.0" are not filtered.
+This only affects fuzzy version matches like "20" or "latest". Explicitly pinned versions like "22.5.0" are not filtered.
 
 #### `--monorepo`
 
@@ -7414,9 +6901,7 @@ Placeholder for future monorepo upgrades; `mise upgrade --monorepo` is not imple
 
 Do not uninstall the versions that were upgraded away from
 
-By default the old version is removed once the new one installs, unless another
-tracked config or tool stub still needs it. Use this to keep it anyway, e.g. when
-something outside of mise points at the old install directory.
+By default the old version is removed once the new one installs, unless another tracked config or tool stub still needs it. Use this to keep it anyway, e.g. when something outside of mise points at the old install directory.
 
 Set `upgrade.auto_prune = false` to make this the default.
 
@@ -7424,8 +6909,7 @@ Set `upgrade.auto_prune = false` to make this the default.
 
 Uninstall the versions that were upgraded away from
 
-This is already the default. Use it to override `upgrade.auto_prune = false`
-for a single run.
+This is already the default. Use it to override `upgrade.auto_prune = false` for a single run.
 
 #### `--raw`
 
@@ -7470,7 +6954,6 @@ Examples:
 
 - **Usage**: `mise usage`
 - **Effect**: read-only
-- **Source code**: [`src/cli/usage.rs`](https://github.com/jdx/mise/blob/main/src/cli/usage.rs)
 
 Generate a usage CLI spec
 
@@ -7481,15 +6964,10 @@ See https://usage.jdx.dev for more information on this specification.
 - **Usage**: `mise use [FLAGS] [TOOL@VERSION]…`
 - **Aliases**: `u`
 - **Effect**: modifies state
-- **Source code**: [`src/cli/use.rs`](https://github.com/jdx/mise/blob/main/src/cli/use.rs)
 
 Installs a tool and adds the version to mise.toml.
 
-This will install the tool version if it is not already installed.
-By default, this will use a `mise.toml` file in the current directory.
-If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`),
-the lowest precedence file (`mise.toml`) will be used.
-See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
+This will install the tool version if it is not already installed. By default, this will use a `mise.toml` file in the current directory. If multiple config files exist (e.g., both `mise.toml` and `mise.local.toml`), the lowest precedence file (`mise.toml`) will be used. See https://mise.jdx.dev/configuration.html#target-file-for-write-operations
 
 In the following order:
   - If `--global` is set, it will use the global config file.
@@ -7509,8 +6987,7 @@ Use the `--global` flag to use the global config file instead.
 
 Tool(s) to add to config file
 
-e.g.: node@20, cargo:ripgrep@latest npm:prettier@3
-If no version is specified, it will default to @latest
+e.g.: node@20, cargo:ripgrep@latest npm:prettier@3 If no version is specified, it will default to @latest
 
 Tool options can be set with this syntax:
 
@@ -7546,8 +7023,7 @@ Perform a dry run, showing what would be installed and modified without making c
 
 Specify a path to a config file or directory
 
-If a directory is specified, it will look for a config file in that directory following
-the rules above.
+If a directory is specified, it will look for a config file in that directory following the rules above.
 
 #### `--dry-run-code`
 
@@ -7559,8 +7035,7 @@ This is useful for scripts to check if tools need to be added or removed.
 
 Save fuzzy version to config file
 
-e.g.: `mise use --fuzzy node@20` will save 20 as the version
-this is the default behavior unless `MISE_PIN=1`
+e.g.: `mise use --fuzzy node@20` will save 20 as the version this is the default behavior unless `MISE_PIN=1`
 
 #### `--minimum-release-age <MINIMUM_RELEASE_AGE>`
 
@@ -7572,13 +7047,9 @@ Supports absolute dates like "2024-06-01" and relative durations like "90d" or "
 
 Save the resolved concrete version to the config file
 
-If the request exactly matches an available release, that release is preferred over
-installed fuzzy matches. Use `prefix:` to explicitly request recursive prefix matching.
-e.g.: `mise use --pin node@20` will save the resolved `20.x.y` version
-Set `MISE_PIN=1` to make this the default behavior
+If the request exactly matches an available release, that release is preferred over installed fuzzy matches. Use `prefix:` to explicitly request recursive prefix matching. e.g.: `mise use --pin node@20` will save the resolved `20.x.y` version Set `MISE_PIN=1` to make this the default behavior
 
-Consider using mise.lock as a better alternative to pinning in mise.toml:
-https://mise.jdx.dev/configuration/settings.html#lockfile
+Consider using mise.lock as a better alternative to pinning in mise.toml: https://mise.jdx.dev/configuration/settings.html#lockfile
 
 #### `--raw`
 
@@ -7613,7 +7084,6 @@ Examples:
 - **Usage**: `mise version [-J --json]`
 - **Aliases**: `v`
 - **Effect**: read-only
-- **Source code**: [`src/cli/version.rs`](https://github.com/jdx/mise/blob/main/src/cli/version.rs)
 
 Display the version of mise
 
@@ -7638,15 +7108,12 @@ Examples:
 
 - **Usage**: `mise watch [FLAGS] [TASK] [ARGS]…`
 - **Aliases**: `w`
-- **Source code**: [`src/cli/watch.rs`](https://github.com/jdx/mise/blob/main/src/cli/watch.rs)
 
 Run task(s) and watch for changes to rerun it
 
-This command uses the `watchexec` tool to watch for changes to files and rerun the specified task(s).
-It must be installed for this command to work, but you can install it with `mise use -g watchexec@latest`.
+This command uses the `watchexec` tool to watch for changes to files and rerun the specified task(s). It must be installed for this command to work, but you can install it with `mise use -g watchexec@latest`.
 
-For more advanced process management (daemon management, auto-restart, readiness checks,
-cron scheduling), see mise's sister project: https://pitchfork.jdx.dev
+For more advanced process management (daemon management, auto-restart, readiness checks, cron scheduling), see mise's sister project: https://pitchfork.jdx.dev
 
 ### Arguments
 
@@ -7671,12 +7138,7 @@ Run only the specified tasks skipping all dependencies
 
 What to do when receiving events while the command is running
 
-Default is to 'do-nothing', which ignores events while the command is running, so that
-changes that occur due to the command are ignored, like compilation outputs. You can also
-use 'queue' which will run the command once again when the current run has finished if any
-events occur while it's running, or 'restart', which terminates the running command and starts
-a new one. Finally, there's 'signal', which only sends a signal; this can be useful with
-programs that can reload their configuration without a full restart.
+Default is to 'do-nothing', which ignores events while the command is running, so that changes that occur due to the command are ignored, like compilation outputs. You can also use 'queue' which will run the command once again when the current run has finished if any events occur while it's running, or 'restart', which terminates the running command and starts a new one. Finally, there's 'signal', which only sends a signal; this can be useful with programs that can reload their configuration without a full restart.
 
 The signal can be specified with the '--signal' option.
 
@@ -7699,49 +7161,35 @@ This is a shorthand for '--on-busy-update=restart'.
 
 Send a signal to the process when it's still running
 
-Specify a signal to send to the process when it's still running. This implies
-'--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is
-controlled by '--stop-signal'.
+Specify a signal to send to the process when it's still running. This implies '--on-busy-update=signal'; otherwise the signal used when that mode is 'restart' is controlled by '--stop-signal'.
 
 See the long documentation for '--stop-signal' for syntax.
 
-Signals are not supported on Windows at the moment, and will always be overridden to 'kill'.
-See '--stop-signal' for more on Windows "signals".
+Signals are not supported on Windows at the moment, and will always be overridden to 'kill'. See '--stop-signal' for more on Windows "signals".
 
 #### `--stop-signal <SIGNAL>`
 
 Signal to send to stop the command
 
-This is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is
-provided). The restart behaviour is to send the signal, wait for the command to exit, and if
-it hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.
+This is used by 'restart' and 'signal' modes of '--on-busy-update' (unless '--signal' is provided). The restart behaviour is to send the signal, wait for the command to exit, and if it hasn't exited after some time (see '--timeout-stop'), forcefully terminate it.
 
 The default on unix is "SIGTERM".
 
-Input is parsed as a full signal name (like "SIGTERM"), a short signal name (like "TERM"),
-or a signal number (like "15"). All input is case-insensitive.
+Input is parsed as a full signal name (like "SIGTERM"), a short signal name (like "TERM"), or a signal number (like "15"). All input is case-insensitive.
 
-On Windows this option is technically supported but only supports the "KILL" event, as
-Watchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it
-has termination (here called "KILL" or "STOP") and "CTRL+C", "CTRL+BREAK", and "CTRL+CLOSE"
-events. For portability the unix signals "SIGKILL", "SIGINT", "SIGTERM", and "SIGHUP" are
-respectively mapped to these.
+On Windows this option is technically supported but only supports the "KILL" event, as Watchexec cannot yet deliver other events. Windows doesn't have signals as such; instead it has termination (here called "KILL" or "STOP") and "CTRL+C", "CTRL+BREAK", and "CTRL+CLOSE" events. For portability the unix signals "SIGKILL", "SIGINT", "SIGTERM", and "SIGHUP" are respectively mapped to these.
 
 #### `--stop-timeout <TIMEOUT>`
 
 Time to wait for the command to exit gracefully
 
-This is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal
-is sent, Watchexec will wait for the command to exit. If it hasn't exited after this time,
-it is forcefully terminated.
+This is used by the 'restart' mode of '--on-busy-update'. After the graceful stop signal is sent, Watchexec will wait for the command to exit. If it hasn't exited after this time, it is forcefully terminated.
 
-Takes a unit-less value in seconds, or a time span value such as "5min 20s".
-Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+Takes a unit-less value in seconds, or a time span value such as "5min 20s". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
 
 The default is 10 seconds. Set to 0 to immediately force-kill the command.
 
-This has no practical effect on Windows as the command is always forcefully terminated; see
-'--stop-signal' for why.
+This has no practical effect on Windows as the command is always forcefully terminated; see '--stop-signal' for why.
 
 **Default:** `10s`
 
@@ -7749,39 +7197,23 @@ This has no practical effect on Windows as the command is always forcefully term
 
 Translate signals from the OS to signals to send to the command
 
-Takes a pair of signal names, separated by a colon, such as "TERM:INT" to map SIGTERM to
-SIGINT. The first signal is the one received by watchexec, and the second is the one sent to
-the command. The second can be omitted to discard the first signal, such as "TERM:" to
-not do anything on SIGTERM.
+Takes a pair of signal names, separated by a colon, such as "TERM:INT" to map SIGTERM to SIGINT. The first signal is the one received by watchexec, and the second is the one sent to the command. The second can be omitted to discard the first signal, such as "TERM:" to not do anything on SIGTERM.
 
-If SIGINT or SIGTERM are mapped, then they no longer quit Watchexec. Besides making it hard
-to quit Watchexec itself, this is useful to send pass a Ctrl-C to the command without also
-terminating Watchexec and the underlying program with it, e.g. with "INT:INT".
+If SIGINT or SIGTERM are mapped, then they no longer quit Watchexec. Besides making it hard to quit Watchexec itself, this is useful to send pass a Ctrl-C to the command without also terminating Watchexec and the underlying program with it, e.g. with "INT:INT".
 
 This option can be specified multiple times to map multiple signals.
 
-Signal syntax is case-insensitive for short names (like "TERM", "USR2") and long names (like
-"SIGKILL", "SIGHUP"). Signal numbers are also supported (like "15", "31"). On Windows, the
-forms "STOP", "CTRL+C", and "CTRL+BREAK" are also supported to receive, but Watchexec cannot
-yet deliver other "signals" than a STOP.
+Signal syntax is case-insensitive for short names (like "TERM", "USR2") and long names (like "SIGKILL", "SIGHUP"). Signal numbers are also supported (like "15", "31"). On Windows, the forms "STOP", "CTRL+C", and "CTRL+BREAK" are also supported to receive, but Watchexec cannot yet deliver other "signals" than a STOP.
 
 #### `-d --debounce <TIMEOUT>`
 
 Time to wait for new events before taking action
 
-When an event is received, Watchexec will wait for up to this amount of time before handling
-it (such as running the command). This is essential as what you might perceive as a single
-change may actually emit many events, and without this behaviour, Watchexec would run much
-too often. Additionally, it's not infrequent that file writes are not atomic, and each write
-may emit an event, so this is a good way to avoid running a command while a file is
-partially written.
+When an event is received, Watchexec will wait for up to this amount of time before handling it (such as running the command). This is essential as what you might perceive as a single change may actually emit many events, and without this behaviour, Watchexec would run much too often. Additionally, it's not infrequent that file writes are not atomic, and each write may emit an event, so this is a good way to avoid running a command while a file is partially written.
 
-An alternative use is to set a high value (like "30min" or longer), to save power or
-bandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that
-every accumulated event will build up in memory.
+An alternative use is to set a high value (like "30min" or longer), to save power or bandwidth on intensive tasks, like an ad-hoc backup script. In those use cases, note that every accumulated event will build up in memory.
 
-Takes a unit-less value in milliseconds, or a time span value such as "5sec 20ms".
-Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+Takes a unit-less value in milliseconds, or a time span value such as "5sec 20ms". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
 
 The default is 50 milliseconds. Setting to 0 is highly discouraged.
 
@@ -7791,39 +7223,29 @@ The default is 50 milliseconds. Setting to 0 is highly discouraged.
 
 Exit when stdin closes
 
-This watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is
-closed. This is used by some process managers to avoid leaving zombie processes around.
+This watches the stdin file descriptor for EOF, and exits Watchexec gracefully when it is closed. This is used by some process managers to avoid leaving zombie processes around.
 
 #### `-p --postpone`
 
 Wait until first change before running command
 
-By default, Watchexec will run the command once immediately. With this option, it will
-instead wait until an event is detected before running the command as normal.
+By default, Watchexec will run the command once immediately. With this option, it will instead wait until an event is detected before running the command as normal.
 
 #### `--delay-run <DURATION>`
 
 Sleep before running the command
 
-This option will cause Watchexec to sleep for the specified amount of time before running
-the command, after an event is detected. This is like using "sleep 5 && command" in a shell,
-but portable and slightly more efficient.
+This option will cause Watchexec to sleep for the specified amount of time before running the command, after an event is detected. This is like using "sleep 5 && command" in a shell, but portable and slightly more efficient.
 
-Takes a unit-less value in seconds, or a time span value such as "2min 5s".
-Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+Takes a unit-less value in seconds, or a time span value such as "2min 5s". Providing a unit-less value is deprecated and will warn; it will be an error in the future.
 
 #### `--poll [INTERVAL]`
 
 Poll for filesystem changes
 
-By default, and where available, Watchexec uses the operating system's native file system
-watching capabilities. This option disables that and instead uses a polling mechanism, which
-is less efficient but can work around issues with some file systems (like network shares) or
-edge cases.
+By default, and where available, Watchexec uses the operating system's native file system watching capabilities. This option disables that and instead uses a polling mechanism, which is less efficient but can work around issues with some file systems (like network shares) or edge cases.
 
-Optionally takes a unit-less value in milliseconds, or a time span value such as "2s 500ms",
-to use as the polling interval. If not specified, the default is 30 seconds.
-Providing a unit-less value is deprecated and will warn; it will be an error in the future.
+Optionally takes a unit-less value in milliseconds, or a time span value such as "2s 500ms", to use as the polling interval. If not specified, the default is 30 seconds. Providing a unit-less value is deprecated and will warn; it will be an error in the future.
 
 Aliased as '--force-poll'.
 
@@ -7831,12 +7253,9 @@ Aliased as '--force-poll'.
 
 Set the project origin
 
-Watchexec will attempt to discover the project's "origin" (or "root") by searching for a
-variety of markers, like files or directory patterns. It does its best but sometimes gets it
-it wrong, and you can override that with this option.
+Watchexec will attempt to discover the project's "origin" (or "root") by searching for a variety of markers, like files or directory patterns. It does its best but sometimes gets it it wrong, and you can override that with this option.
 
-The project origin is used to determine the path of certain ignore files, which VCS is being
-used, the meaning of a leading '/' in filtering patterns, and maybe more in the future.
+The project origin is used to determine the path of certain ignore files, which VCS is being used, the meaning of a leading '/' in filtering patterns, and maybe more in the future.
 
 When set, Watchexec will also not bother searching, which can be significantly faster.
 
@@ -7844,8 +7263,7 @@ When set, Watchexec will also not bother searching, which can be significantly f
 
 Set the working directory
 
-By default, the working directory of the command is the working directory of Watchexec. You
-can change that with this option. Note that paths may be less intuitive to use with this.
+By default, the working directory of the command is the working directory of Watchexec. You can change that with this option. Note that paths may be less intuitive to use with this.
 
 ### Filtering
 
@@ -7855,17 +7273,13 @@ Watch a specific file or directory
 
 By default, Watchexec watches the current directory.
 
-When watching a single file, it's often better to watch the containing directory instead,
-and filter on the filename. Some editors may replace the file with a new one when saving,
-and some platforms may not detect that or further changes.
+When watching a single file, it's often better to watch the containing directory instead, and filter on the filename. Some editors may replace the file with a new one when saving, and some platforms may not detect that or further changes.
 
-Upon starting, Watchexec resolves a "project origin" from the watched paths. See the help
-for '--project-origin' for more information.
+Upon starting, Watchexec resolves a "project origin" from the watched paths. See the help for '--project-origin' for more information.
 
 This option can be specified multiple times to watch multiple files or directories.
 
-The special value '/dev/null', provided as the only path watched, will cause Watchexec to
-not watch any paths. Other event sources (like signals or key events) may still be used.
+The special value '/dev/null', provided as the only path watched, will cause Watchexec to not watch any paths. Other event sources (like signals or key events) may still be used.
 
 #### `-W --watch-non-recursive… <PATH>`
 
@@ -7881,8 +7295,7 @@ Watch files and directories from a file
 
 Each line in the file will be interpreted as if given to '-w'.
 
-For more complex uses (like watching non-recursively), use the argfile capability: build a
-file containing command-line options and pass it to watchexec with `@path/to/argfile`.
+For more complex uses (like watching non-recursively), use the argfile capability: build a file containing command-line options and pass it to watchexec with `@path/to/argfile`.
 
 The special value '-' will read from STDIN; this in incompatible with '--stdin-quit'.
 
@@ -7890,9 +7303,7 @@ The special value '-' will read from STDIN; this in incompatible with '--stdin-q
 
 Don't load gitignores
 
-Among other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note
-that Watchexec will detect which of these is in use, if any, and only load the relevant
-files. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.
+Among other VCS exclude files, like for Mercurial, Subversion, Bazaar, DARCS, Fossil. Note that Watchexec will detect which of these is in use, if any, and only load the relevant files. Both global (like '~/.gitignore') and local (like '.gitignore') files are considered.
 
 This option is useful if you want to watch files that are ignored by Git.
 
@@ -7900,10 +7311,7 @@ This option is useful if you want to watch files that are ignored by Git.
 
 Don't load project-local ignores
 
-This disables loading of project-local ignore files, like '.gitignore' or '.ignore' in the
-watched project. This is contrasted with '--no-vcs-ignore', which disables loading of Git
-and other VCS ignore files, and with '--no-global-ignore', which disables loading of global
-or user ignore files, like '~/.gitignore' or '~/.config/watchexec/ignore'.
+This disables loading of project-local ignore files, like '.gitignore' or '.ignore' in the watched project. This is contrasted with '--no-vcs-ignore', which disables loading of Git and other VCS ignore files, and with '--no-global-ignore', which disables loading of global or user ignore files, like '~/.gitignore' or '~/.config/watchexec/ignore'.
 
 Supported project ignore files:
 
@@ -7914,17 +7322,13 @@ Supported project ignore files:
   - Fossil: .fossil-settings/ignore-glob
   - Ripgrep/Watchexec/generic: .ignore at project root and child directories.
 
-VCS ignore files (Git, Mercurial, Bazaar, Darcs, Fossil) are only used if the corresponding
-VCS is discovered to be in use for the project/origin. For example, a .bzrignore in a Git
-repository will be discarded.
+VCS ignore files (Git, Mercurial, Bazaar, Darcs, Fossil) are only used if the corresponding VCS is discovered to be in use for the project/origin. For example, a .bzrignore in a Git repository will be discarded.
 
 #### `--no-global-ignore`
 
 Don't load global ignores
 
-This disables loading of global or user ignore files, like '~/.gitignore',
-'~/.config/watchexec/ignore', or '%APPDATA%\Bazaar\2.0\ignore'. Contrast with
-'--no-vcs-ignore' and '--no-project-ignore'.
+This disables loading of global or user ignore files, like '~/.gitignore', '~/.config/watchexec/ignore', or '%APPDATA%\Bazaar\2.0\ignore'. Contrast with '--no-vcs-ignore' and '--no-project-ignore'.
 
 Supported global ignore files
 
@@ -7933,23 +7337,19 @@ Supported global ignore files
   - Bazaar: the first found of %APPDATA%/Bazaar/2.0/ignore, $HOME/.bazaar/ignore.
   - Watchexec: the first found of $XDG_CONFIG_HOME/watchexec/ignore, %APPDATA%/watchexec/ignore, %USERPROFILE%/.watchexec/ignore, $HOME/.watchexec/ignore.
 
-Like for project files, Git and Bazaar global files will only be used for the corresponding
-VCS as used in the project.
+Like for project files, Git and Bazaar global files will only be used for the corresponding VCS as used in the project.
 
 #### `--no-default-ignore`
 
 Don't use internal default ignores
 
-Watchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`,
-`.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and
-Watchexec log files.
+Watchexec has a set of default ignore patterns, such as editor swap files, `*.pyc`, `*.pyo`, `.DS_Store`, `.bzr`, `_darcs`, `.fossil-settings`, `.git`, `.hg`, `.pijul`, `.svn`, and Watchexec log files.
 
 #### `--no-discover-ignore`
 
 Don't discover ignore files at all
 
-This is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but
-even more efficient as it will skip all the ignore discovery mechanisms from the get go.
+This is a shorthand for '--no-global-ignore', '--no-vcs-ignore', '--no-project-ignore', but even more efficient as it will skip all the ignore discovery mechanisms from the get go.
 
 Note that default ignores are still loaded, see '--no-default-ignore'.
 
@@ -7959,31 +7359,25 @@ Don't ignore anything at all
 
 This is a shorthand for '--no-discover-ignore', '--no-default-ignore'.
 
-Note that ignores explicitly loaded via other command line options, such as '--ignore' or
-'--ignore-file', will still be used.
+Note that ignores explicitly loaded via other command line options, such as '--ignore' or '--ignore-file', will still be used.
 
 #### `-e --exts… <EXTENSIONS>`
 
 Filename extensions to filter to
 
-This is a quick filter to only emit events for files with the given extensions. Extensions
-can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can
-be given by repeating the option or by separating them with commas.
+This is a quick filter to only emit events for files with the given extensions. Extensions can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can be given by repeating the option or by separating them with commas.
 
 #### `-f --filter… <PATTERN>`
 
 Filename patterns to filter to
 
-Provide a glob-like filter pattern, and only events for files matching the pattern will be
-emitted. Multiple patterns can be given by repeating the option. Events that are not from
-files (e.g. signals, keyboard events) will pass through untouched.
+Provide a glob-like filter pattern, and only events for files matching the pattern will be emitted. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
 
 #### `--filter-file… <PATH>`
 
 Files to load filters from
 
-Provide a path to a file containing filters, one per line. Empty lines and lines starting
-with '#' are ignored. Uses the same pattern format as the '--filter' option.
+Provide a path to a file containing filters, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--filter' option.
 
 This can also be used via the $WATCHEXEC_FILTER_FILES environment variable.
 
@@ -7995,9 +7389,7 @@ This can also be used via the $WATCHEXEC_FILTER_FILES environment variable.
 
 /!\ This option is EXPERIMENTAL and may change and/or vanish without notice.
 
-Provide your own custom filter programs in jaq (similar to jq) syntax. Programs are given
-an event in the same format as described in '--emit-events-to' and must return a boolean.
-Invalid programs will make watchexec fail to start; use '-v' to see program runtime errors.
+Provide your own custom filter programs in jaq (similar to jq) syntax. Programs are given an event in the same format as described in '--emit-events-to' and must return a boolean. Invalid programs will make watchexec fail to start; use '-v' to see program runtime errors.
 
 In addition to the jaq stdlib, watchexec adds some custom filter definitions:
 
@@ -8019,20 +7411,13 @@ In addition to the jaq stdlib, watchexec adds some custom filter definitions:
     value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and
     pass the value through (so '[1] | log("debug") | .[]' will produce a '1' and log '[1]').
 
-All filtering done with such programs, and especially those using kv or filesystem access,
-is much slower than the other filtering methods. If filtering is too slow, events will back
-up and stall watchexec. Take care when designing your filters.
+All filtering done with such programs, and especially those using kv or filesystem access, is much slower than the other filtering methods. If filtering is too slow, events will back up and stall watchexec. Take care when designing your filters.
 
-If the argument to this option starts with an '@', the rest of the argument is taken to be
-the path to a file containing a jaq program.
+If the argument to this option starts with an '@', the rest of the argument is taken to be the path to a file containing a jaq program.
 
-Jaq programs are run in order, after all other filters, and short-circuit: if a filter (jaq
-or not) rejects an event, execution stops there, and no other filters are run. Additionally,
-they stop after outputting the first value, so you'll want to use 'any' or 'all' when
-iterating, otherwise only the first item will be processed, which can be quite confusing!
+Jaq programs are run in order, after all other filters, and short-circuit: if a filter (jaq or not) rejects an event, execution stops there, and no other filters are run. Additionally, they stop after outputting the first value, so you'll want to use 'any' or 'all' when iterating, otherwise only the first item will be processed, which can be quite confusing!
 
-Find user-contributed programs or submit your own useful ones at
-<https://github.com/watchexec/watchexec/discussions/592>.
+Find user-contributed programs or submit your own useful ones at <https://github.com/watchexec/watchexec/discussions/592>.
 
 ## Examples:
 
@@ -8056,16 +7441,13 @@ Ignore files that start with shebangs:
 
 Filename patterns to filter out
 
-Provide a glob-like filter pattern, and events for files matching the pattern will be
-excluded. Multiple patterns can be given by repeating the option. Events that are not from
-files (e.g. signals, keyboard events) will pass through untouched.
+Provide a glob-like filter pattern, and events for files matching the pattern will be excluded. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
 
 #### `--ignore-file… <PATH>`
 
 Files to load ignores from
 
-Provide a path to a file containing ignores, one per line. Empty lines and lines starting
-with '#' are ignored. Uses the same pattern format as the '--ignore' option.
+Provide a path to a file containing ignores, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--ignore' option.
 
 This can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.
 
@@ -8075,13 +7457,9 @@ This can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.
 
 Filesystem events to filter to
 
-This is a quick filter to only emit events for the given types of filesystem changes. Choose
-from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be
-given by repeating the option or by separating them with commas. By default, this is all
-types except for 'access'.
+This is a quick filter to only emit events for the given types of filesystem changes. Choose from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be given by repeating the option or by separating them with commas. By default, this is all types except for 'access'.
 
-This may apply filtering at the kernel level when possible, which can be more efficient, but
-may be more confusing when reading the logs.
+This may apply filtering at the kernel level when possible, which can be more efficient, but may be more confusing when reading the logs.
 
 **Choices:**
 
@@ -8098,8 +7476,7 @@ may be more confusing when reading the logs.
 
 Don't emit fs events for metadata changes
 
-This is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the
-'--fs-events' option is non-sensical and not allowed.
+This is a shorthand for '--fs-events create,remove,rename,modify'. Using it alongside the '--fs-events' option is non-sensical and not allowed.
 
 ### Output
 
@@ -8118,20 +7495,15 @@ If this doesn't completely clear the screen, try '--clear=reset'.
 
 Only emit events to stdout, run no commands.
 
-This is a convenience option for using Watchexec as a file watcher, without running any
-commands. It is almost equivalent to using `cat` as the command, except that it will not
-spawn a new process for each event.
+This is a convenience option for using Watchexec as a file watcher, without running any commands. It is almost equivalent to using `cat` as the command, except that it will not spawn a new process for each event.
 
-This option requires `--emit-events-to` to be set, and restricts the available modes to
-`stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin
-of the command.
+This option requires `--emit-events-to` to be set, and restricts the available modes to `stdio` and `json-stdio`, modifying their behaviour to write to stdout instead of the stdin of the command.
 
 #### `-N --notify`
 
 Alert when commands start and end
 
-With this, Watchexec will emit a desktop notification when a command starts and ends, on
-supported platforms. On unsupported platforms, it may silently do nothing, or log a warning.
+With this, Watchexec will emit a desktop notification when a command starts and ends, on supported platforms. On unsupported platforms, it may silently do nothing, or log a warning.
 
 #### `--color <MODE>`
 
@@ -8151,15 +7523,13 @@ Setting the environment variable `NO_COLOR` to any value is equivalent to `--col
 
 Print how long the command took to run
 
-This may not be exactly accurate, as it includes some overhead from Watchexec itself. Use
-the `time` utility, high-precision timers, or benchmarking tools for more accurate results.
+This may not be exactly accurate, as it includes some overhead from Watchexec itself. Use the `time` utility, high-precision timers, or benchmarking tools for more accurate results.
 
 #### `-q --quiet`
 
 Don't print starting and stopping messages
 
-By default Watchexec will print a message when the command starts and stops. This option
-disables this behaviour, so only the command's output, warnings, and errors will be printed.
+By default Watchexec will print a message when the command starts and stops. This option disables this behaviour, so only the command's output, warnings, and errors will be printed.
 
 #### `--bell`
 
@@ -8171,26 +7541,17 @@ Ring the terminal bell on command completion
 
 Use a different shell
 
-By default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes,
-and either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec
-detects is the running shell.
+By default, Watchexec will use '$SHELL' if it's defined or a default of 'sh' on Unix-likes, and either 'pwsh', 'powershell', or 'cmd' (CMD.EXE) on Windows, depending on what Watchexec detects is the running shell.
 
-With this option, you can override that and use a different shell, for example one with more
-features or one which has your custom aliases and functions.
+With this option, you can override that and use a different shell, for example one with more features or one which has your custom aliases and functions.
 
-If the value has spaces, it is parsed as a command line, and the first word used as the
-shell program, with the rest as arguments to the shell.
+If the value has spaces, it is parsed as a command line, and the first word used as the shell program, with the rest as arguments to the shell.
 
 The command is run with the '-c' flag (except for 'cmd' on Windows, where it's '/C').
 
-The special value 'none' can be used to disable shell use entirely. In that case, the
-command provided to Watchexec will be parsed, with the first word being the executable and
-the rest being the arguments, and executed directly. Note that this parsing is rudimentary,
-and may not work as expected in all cases.
+The special value 'none' can be used to disable shell use entirely. In that case, the command provided to Watchexec will be parsed, with the first word being the executable and the rest being the arguments, and executed directly. Note that this parsing is rudimentary, and may not work as expected in all cases.
 
-Using 'none' is a little more efficient and can enable a stricter interpretation of the
-input, but it also means that you can't use shell features like globbing, redirection,
-control flow, logic, or pipes.
+Using 'none' is a little more efficient and can enable a stricter interpretation of the input, but it also means that you can't use shell features like globbing, redirection, control flow, logic, or pipes.
 
 Examples:
 
@@ -8222,29 +7583,15 @@ Shorthand for '--shell=none'
 
 Configure event emission
 
-Watchexec can emit event information when running a command, which can be used by the child
-process to target specific changed files.
+Watchexec can emit event information when running a command, which can be used by the child process to target specific changed files.
 
-One thing to take care with is assuming inherent behaviour where there is only chance.
-Notably, it could appear as if the `RENAMED` variable contains both the original and the new
-path being renamed. In previous versions, it would even appear on some platforms as if the
-original always came before the new. However, none of this was true. It's impossible to
-reliably and portably know which changed path is the old or new, "half" renames may appear
-(only the original, only the new), "unknown" renames may appear (change was a rename, but
-whether it was the old or new isn't known), rename events might split across two debouncing
-boundaries, and so on.
+One thing to take care with is assuming inherent behaviour where there is only chance. Notably, it could appear as if the `RENAMED` variable contains both the original and the new path being renamed. In previous versions, it would even appear on some platforms as if the original always came before the new. However, none of this was true. It's impossible to reliably and portably know which changed path is the old or new, "half" renames may appear (only the original, only the new), "unknown" renames may appear (change was a rename, but whether it was the old or new isn't known), rename events might split across two debouncing boundaries, and so on.
 
-This option controls where that information is emitted. It defaults to 'none', which doesn't
-emit event information at all. The other options are 'environment' (deprecated), 'stdio',
-'file', 'json-stdio', and 'json-file'.
+This option controls where that information is emitted. It defaults to 'none', which doesn't emit event information at all. The other options are 'environment' (deprecated), 'stdio', 'file', 'json-stdio', and 'json-file'.
 
-The 'stdio' and 'file' modes are text-based: 'stdio' writes absolute paths to the stdin of
-the command, one per line, each prefixed with `create:`, `remove:`, `rename:`, `modify:`,
-or `other:`, then closes the handle; 'file' writes the same thing to a temporary file, and
-its path is given with the $WATCHEXEC_EVENTS_FILE environment variable.
+The 'stdio' and 'file' modes are text-based: 'stdio' writes absolute paths to the stdin of the command, one per line, each prefixed with `create:`, `remove:`, `rename:`, `modify:`, or `other:`, then closes the handle; 'file' writes the same thing to a temporary file, and its path is given with the $WATCHEXEC_EVENTS_FILE environment variable.
 
-There are also two JSON modes, which are based on JSON objects and can represent the full
-set of events Watchexec handles. Here's an example of a folder being created on Linux:
+There are also two JSON modes, which are based on JSON objects and can represent the full set of events Watchexec handles. Here's an example of a folder being created on Linux:
 
 ```json
   {
@@ -8293,16 +7640,11 @@ The fields are as follows:
       + `code`, the exit, signal, stop, or exception code.
   - `metadata`, additional information about the event.
 
-The 'json-stdio' mode will emit JSON events to the standard input of the command, one per
-line, then close stdin. The 'json-file' mode will create a temporary file, write the
-events to it, and provide the path to the file with the $WATCHEXEC_EVENTS_FILE
-environment variable.
+The 'json-stdio' mode will emit JSON events to the standard input of the command, one per line, then close stdin. The 'json-file' mode will create a temporary file, write the events to it, and provide the path to the file with the $WATCHEXEC_EVENTS_FILE environment variable.
 
-Finally, the 'environment' mode was the default until 2.0. It sets environment variables
-with the paths of the affected files, for filesystem events:
+Finally, the 'environment' mode was the default until 2.0. It sets environment variables with the paths of the affected files, for filesystem events:
 
-$WATCHEXEC_COMMON_PATH is set to the longest common path of all of the below variables,
-and so should be prepended to each path to obtain the full/real path. Then:
+$WATCHEXEC_COMMON_PATH is set to the longest common path of all of the below variables, and so should be prepended to each path to obtain the full/real path. Then:
 
   - $WATCHEXEC_CREATED_PATH is set when files/folders were created
   - $WATCHEXEC_REMOVED_PATH is set when files/folders were removed
@@ -8311,15 +7653,9 @@ and so should be prepended to each path to obtain the full/real path. Then:
   - $WATCHEXEC_META_CHANGED_PATH is set when files/folders' metadata were modified
   - $WATCHEXEC_OTHERWISE_CHANGED_PATH is set for every other kind of pathed event
 
-Multiple paths are separated by the system path separator, ';' on Windows and ':' on unix.
-Within each variable, paths are deduplicated and sorted in binary order (i.e. neither
-Unicode nor locale aware).
+Multiple paths are separated by the system path separator, ';' on Windows and ':' on unix. Within each variable, paths are deduplicated and sorted in binary order (i.e. neither Unicode nor locale aware).
 
-This is the legacy mode, is deprecated, and will be removed in the future. The environment
-is a very restricted space, while also limited in what it can usefully represent. Large
-numbers of files will either cause the environment to be truncated, or may error or crash
-the process entirely. The $WATCHEXEC_COMMON_PATH is also unintuitive, as demonstrated by the
-multiple confused queries that have landed in my inbox over the years.
+This is the legacy mode, is deprecated, and will be removed in the future. The environment is a very restricted space, while also limited in what it can usefully represent. Large numbers of files will either cause the environment to be truncated, or may error or crash the process entirely. The $WATCHEXEC_COMMON_PATH is also unintuitive, as demonstrated by the multiple confused queries that have landed in my inbox over the years.
 
 **Choices:**
 
@@ -8336,8 +7672,7 @@ multiple confused queries that have landed in my inbox over the years.
 
 Add env vars to the command
 
-This is a convenience option for setting environment variables for the command, without
-setting them for the Watchexec process itself.
+This is a convenience option for setting environment variables for the command, without setting them for the Watchexec process itself.
 
 Use key=value syntax. Multiple variables can be set by repeating the option.
 
@@ -8345,13 +7680,11 @@ Use key=value syntax. Multiple variables can be set by repeating the option.
 
 Configure how the process is wrapped
 
-By default, Watchexec will run the command in a session on macOS, in a process group on
-other Unix platforms, and in a Job Object in Windows.
+By default, Watchexec will run the command in a session on macOS, in a process group on other Unix platforms, and in a Job Object in Windows.
 
 Some Unix programs prefer running in a session, while others do not work in a process group.
 
-Use 'group' to use a process group, 'session' to use a process session, and 'none' to run
-the command directly. On Windows, either of 'group' or 'session' will use a Job Object.
+Use 'group' to use a process group, 'session' to use a process session, and 'none' to run the command directly. On Windows, either of 'group' or 'session' will use a Job Object.
 
 **Choices:**
 
@@ -8365,8 +7698,7 @@ the command directly. On Windows, either of 'group' or 'session' will use a Job 
 
 Print events that trigger actions
 
-This prints the events that triggered the action when handling it (after debouncing), in a
-human readable form. This is useful for debugging filters.
+This prints the events that triggered the action when handling it (after debouncing), in a human readable form. This is useful for debugging filters.
 
 Use '-vvv' instead when you need more diagnostic information.
 
@@ -8374,9 +7706,7 @@ Use '-vvv' instead when you need more diagnostic information.
 
 Show the manual page
 
-This shows the manual page for Watchexec, if the output is a terminal and the 'man' program
-is available. If not, the manual page is printed to stdout in ROFF format (suitable for
-writing to a watchexec.1 file).
+This shows the manual page for Watchexec, if the output is a terminal and the 'man' program is available. If not, the manual page is printed to stdout in ROFF format (suitable for writing to a watchexec.1 file).
 
 Examples:
 
@@ -8398,7 +7728,6 @@ Examples:
 
 - **Usage**: `mise where <TOOL@VERSION>`
 - **Effect**: read-only
-- **Source code**: [`src/cli/where.rs`](https://github.com/jdx/mise/blob/main/src/cli/where.rs)
 
 Display the installation path for a tool
 
@@ -8430,7 +7759,6 @@ Examples:
 
 - **Usage**: `mise which [FLAGS] [BIN_NAME]`
 - **Effect**: read-only
-- **Source code**: [`src/cli/which.rs`](https://github.com/jdx/mise/blob/main/src/cli/which.rs)
 
 Shows the path that a tool's bin points to.
 

@@ -90,12 +90,9 @@ pub enum DaemonCommands {
 
 /// Disable fnox shell integration in the current shell session
 ///
-/// This removes the hook that automatically loads secrets when entering
-/// directories with fnox.toml files. It also restores environment variables
-/// to their state before fnox was activated.
+/// This removes the hook that automatically loads secrets when entering directories with fnox.toml files. It also restores environment variables to their state before fnox was activated.
 ///
-/// Note: This only affects the current shell session. To re-enable fnox,
-/// run the activation command again for your shell.
+/// Note: This only affects the current shell session. To re-enable fnox, run the activation command again for your shell.
 #[derive(Args)]
 pub struct DeactivateArgs {}
 
@@ -543,10 +540,7 @@ pub enum ProxyCommands {
 
 /// Re-encrypt secrets with current provider configuration
 ///
-/// When you add or remove recipients from an encryption provider (e.g. age),
-/// existing secrets remain encrypted with the old recipient set. This command
-/// decrypts and re-encrypts all matching secrets with the current provider
-/// configuration.
+/// When you add or remove recipients from an encryption provider (e.g. age), existing secrets remain encrypted with the old recipient set. This command decrypts and re-encrypts all matching secrets with the current provider configuration.
 #[derive(Args)]
 pub struct ReencryptArgs {
     /// Skip confirmation prompt
@@ -644,11 +638,9 @@ pub struct SetArgs {
     pub key: ::std::string::String,
     /// Secret value to store.
     ///
-    /// If omitted: reads from stdin when piped (`echo "x" | fnox set KEY`),
-    /// or prompts interactively with hidden input.
+    /// If omitted: reads from stdin when piped (`echo "x" | fnox set KEY`), or prompts interactively with hidden input.
     ///
-    /// Passing secrets as arguments exposes them in shell history and `ps` output.
-    /// For sensitive values, prefer stdin or the interactive prompt.
+    /// Passing secrets as arguments exposes them in shell history and `ps` output. For sensitive values, prefer stdin or the interactive prompt.
     #[usage(arg, name = "VALUE")]
     pub value: ::std::option::Option<::std::string::String>,
 }

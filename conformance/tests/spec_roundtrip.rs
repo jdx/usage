@@ -326,8 +326,8 @@ static SPEC: Spec = Spec {
     author: None,
     license: None,
     repository: None,
-    // Multi-line and full of quotes, because that is what a real one looks like and the
-    // writer has to escape it into a single KDL string rather than a `#"""` block.
+    // Multi-line and full of quotes, because that is what a real one looks like.
+    // Newlines must come out as KDL raw multiline strings, not one escaped line.
     source_code_link_template: Some(concat!(
         "{%- if cmd.subcommands | length > 0 -%}\n",
         "{%- set path = path ~ \"/mod.rs\" -%}\n",
@@ -353,6 +353,52 @@ fn parsed() -> LibSpec {
     let kdl = SPEC.to_kdl();
     kdl.parse()
         .unwrap_or_else(|e| panic!("usage-lib could not parse the emitted spec: {e}\n\n{kdl}"))
+}
+
+#[test]
+fn multiline_strings_use_raw_kdl_syntax() {
+    let kdl = SPEC.to_kdl();
+    assert!(
+        kdl.contains("#\"\"\""),
+        "newline-bearing values should use raw multiline syntax:\n{kdl}"
+    );
+    assert!(
+        !kdl.contains(r#"long_help "More about jobs.\nOn two lines.""#),
+        "prose newlines must not be escaped into one line:\n{kdl}"
+    );
+    assert!(
+        kdl.contains(r#"long_help "Deletes things.\u{1b}[0m Carefully.""#),
+        "unsafe control characters still force a quoted escape:\n{kdl}"
+    );
+}
+
+#[test]
+fn overlapping_quotes_in_long_help_round_trip() {
+    static ROOT: Command = Command {
+        name: "ex",
+        ..Command::EMPTY
+    };
+    static META: CommandMeta = CommandMeta {
+        cmd: &ROOT,
+        long_about: Some("before\n\"\"\"\"#\nafter"),
+        ..CommandMeta::EMPTY
+    };
+    static OVERLAPPING: Spec = Spec {
+        name: "ex",
+        bin: Some("ex"),
+        root: &META,
+        ..Spec::EMPTY
+    };
+
+    let kdl = OVERLAPPING.to_kdl();
+    assert!(
+        kdl.contains("##\"\"\""),
+        "overlapping quotes must raise the delimiter count:\n{kdl}"
+    );
+    let spec: LibSpec = kdl
+        .parse()
+        .unwrap_or_else(|e| panic!("usage-lib could not parse the emitted spec: {e}\n\n{kdl}"));
+    assert_eq!(spec.about_long.as_deref(), Some("before\n\"\"\"\"#\nafter"));
 }
 
 #[test]

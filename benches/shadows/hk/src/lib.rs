@@ -270,8 +270,7 @@ pub struct CompletionArgs {
 
 /// Print effective runtime settings (JSON format)
 ///
-/// Shows the merged configuration from all sources including CLI flags,
-/// environment variables, git config, user config, and project config.
+/// Shows the merged configuration from all sources including CLI flags, environment variables, git config, user config, and project config.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigDumpArgs {
@@ -287,8 +286,7 @@ pub struct ConfigDumpArgs {
 
 /// Explain where a configuration value comes from
 ///
-/// Shows the resolved value, its source (env/git/cli/default), and
-/// the full precedence chain showing all layers that could affect it.
+/// Shows the resolved value, its source (env/git/cli/default), and the full precedence chain showing all layers that could affect it.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigExplainArgs {
@@ -299,33 +297,27 @@ pub struct ConfigExplainArgs {
 
 /// Get a specific configuration value
 ///
-/// Available keys: jobs, enabled_profiles, disabled_profiles, fail_fast,
-/// display_skip_reasons, warnings, exclude, skip_steps, skip_hooks, stage
+/// Available keys: jobs, enabled_profiles, disabled_profiles, fail_fast, display_skip_reasons, warnings, exclude, skip_steps, skip_hooks, stage
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigGetArgs {
     /// Configuration key to retrieve
     ///
-    /// Available keys: jobs, enabled_profiles, disabled_profiles, fail_fast,
-    /// display_skip_reasons, warnings, exclude, skip_steps, skip_hooks, stage
+    /// Available keys: jobs, enabled_profiles, disabled_profiles, fail_fast, display_skip_reasons, warnings, exclude, skip_steps, skip_hooks, stage
     #[usage(arg, name = "KEY")]
     pub key: ::std::string::String,
 }
 
 /// Show the configuration source precedence order
 ///
-/// Lists all configuration sources in order of precedence to help
-/// understand where configuration values come from.
+/// Lists all configuration sources in order of precedence to help understand where configuration values come from.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigSourcesArgs {}
 
 /// Configuration introspection and management
 ///
-/// View and inspect hk's configuration from all sources.
-/// Configuration is merged from multiple sources in precedence order:
-/// CLI flags > Environment variables > Git config (local) > User config (.hkrc.pkl) >
-/// Git config (global) > Project config (hk.pkl) > Built-in defaults.
+/// View and inspect hk's configuration from all sources. Configuration is merged from multiple sources in precedence order: CLI flags > Environment variables > Git config (local) > User config (.hkrc.pkl) > Git config (global) > Project config (hk.pkl) > Built-in defaults.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct ConfigArgs {
@@ -518,22 +510,11 @@ pub struct InitArgs {
 
 /// Sets up git hooks to run hk.
 ///
-/// The recommended setup is `hk install --global`, which installs hooks
-/// once into the user's `~/.gitconfig` so every repository on the machine
-/// picks them up automatically. In a project without an `hk.pkl`, the
-/// installed hook exits silently — no-op — so it's safe to enable
-/// everywhere. Requires Git 2.54+.
+/// The recommended setup is `hk install --global`, which installs hooks once into the user's `~/.gitconfig` so every repository on the machine picks them up automatically. In a project without an `hk.pkl`, the installed hook exits silently — no-op — so it's safe to enable everywhere. Requires Git 2.54+.
 ///
-/// Without `--global`, hooks are installed into the current repo only.
-/// On Git 2.54+ this uses config-based hooks (`hook.<name>.command`),
-/// which keeps `.git/hooks/` untouched and composes cleanly with other
-/// hook managers. On older Git it falls back to writing script shims.
+/// Without `--global`, hooks are installed into the current repo only. On Git 2.54+ this uses config-based hooks (`hook.<name>.command`), which keeps `.git/hooks/` untouched and composes cleanly with other hook managers. On older Git it falls back to writing script shims.
 ///
-/// If hk is already configured globally (any `hook.hk-*` entry in
-/// `~/.gitconfig`), the per-repo install is skipped — and any stale
-/// local hooks are cleaned up — so the global install remains the
-/// single source of truth and hk doesn't fire twice per event. Pass
-/// `--force-local` to install local hooks anyway.
+/// If hk is already configured globally (any `hook.hk-*` entry in `~/.gitconfig`), the per-repo install is skipped — and any stale local hooks are cleaned up — so the global install remains the single source of truth and hk doesn't fire twice per event. Pass `--force-local` to install local hooks anyway.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct InstallArgs {
@@ -2246,8 +2227,7 @@ pub struct UtilCheckCaseConflictArgs {
 
 /// Check for conventional commit message
 ///
-/// Titles starting with `fixup! `, `squash! `, or `amend! ` (temporary commits
-/// created for `git rebase --autosquash`) skip validation.
+/// Titles starting with `fixup! `, `squash! `, or `amend! ` (temporary commits created for `git rebase --autosquash`) skip validation.
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct UtilCheckConventionalCommitArgs {

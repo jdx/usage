@@ -3,7 +3,10 @@ bin tak
 unknown_flags error
 subcommand_required #true
 flag --env-deny help="Remove a variable from the environment of measured commands. Repeatable. Replaces the default list rather than adding to it." global=#true var=#true {
-    long_help "Remove a variable from the environment of measured commands. Repeatable.\nReplaces the default list rather than adding to it."
+    long_help #"""
+Remove a variable from the environment of measured commands. Repeatable.
+Replaces the default list rather than adding to it.
+"""#
     arg <VAR>
 }
 flag --env-allow help="Keep a variable that --env-deny would remove. Repeatable." global=#true var=#true {
@@ -18,7 +21,10 @@ flag --runner help="Machine class to record under. Overrides the derived name." 
 }
 cmd run help="Benchmark a command, or everything declared in tak.toml." {
     flag --bench help="Name to record this measurement under. With no command, selects a single benchmark from tak.toml instead of running all of them." {
-        long_help "Name to record this measurement under. With no command, selects a\nsingle benchmark from tak.toml instead of running all of them."
+        long_help #"""
+Name to record this measurement under. With no command, selects a
+single benchmark from tak.toml instead of running all of them.
+"""#
         arg <BENCH>
     }
     flag --runs help="Timed runs. Overrides tak.toml when both are given." {
@@ -48,13 +54,23 @@ cmd init help="Teach plain `git fetch` about the notes ref." {
     }
 }
 cmd backfill help="Benchmark published release binaries to bootstrap history." {
-    long_help "Benchmark published release binaries to bootstrap history.\n\nA new adopter's first chart is empty. Rather than rebuilding a project at\na hundred historical commits, download what it already published."
+    long_help #"""
+Benchmark published release binaries to bootstrap history.
+
+A new adopter's first chart is empty. Rather than rebuilding a project at a hundred historical commits, download what it already published.
+"""#
     flag --repo help="Repository to pull releases from, as \"owner/name\". Defaults to the `origin` remote of the current repository." {
-        long_help "Repository to pull releases from, as \"owner/name\". Defaults to the\n`origin` remote of the current repository."
+        long_help #"""
+Repository to pull releases from, as "owner/name". Defaults to the
+`origin` remote of the current repository.
+"""#
         arg <REPO>
     }
     flag --bin help="Executable name to look for inside each release archive. Defaults to the repository name." {
-        long_help "Executable name to look for inside each release archive. Defaults to\nthe repository name."
+        long_help #"""
+Executable name to look for inside each release archive. Defaults to
+the repository name.
+"""#
         arg <BIN>
     }
     flag --bench help="Name to record measurements under." default=release {
@@ -68,11 +84,18 @@ cmd backfill help="Benchmark published release binaries to bootstrap history." {
     }
     flag --dry-run help="Measure but do not write to refs/notes/tak."
     arg "[ARGS]..." help="Arguments passed to the downloaded binary, after `--`. Defaults to `--version`, which every CLI answers cheaply." double_dash=required {
-        long_help "Arguments passed to the downloaded binary, after `--`.\nDefaults to `--version`, which every CLI answers cheaply."
+        long_help #"""
+Arguments passed to the downloaded binary, after `--`.
+Defaults to `--version`, which every CLI answers cheaply.
+"""#
     }
 }
 cmd compare help="Compare this commit's measurements against another's." {
-    long_help "Compare this commit's measurements against another's.\n\nFails when an instruction count has risen by more than `gate_pct`. Wall\nclock is reported and never gated."
+    long_help #"""
+Compare this commit's measurements against another's.
+
+Fails when an instruction count has risen by more than `gate_pct`. Wall clock is reported and never gated.
+"""#
     flag --rev help="Revision to compare. Defaults to HEAD." default=HEAD {
         arg <REV>
     }

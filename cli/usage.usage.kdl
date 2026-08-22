@@ -4,9 +4,23 @@ name usage
 bin usage
 version "6.0.0"
 repository "https://github.com/jdx/usage"
-source_code_link_template "{%- set path = path | replace(from='-', to='_') -%}\n{%- if cmd.subcommands | length > 0 -%}\n{%- set path = path ~ \"/mod.rs\" -%}\n{%- elif path in [\"bash\", \"fish\", \"powershell\", \"zsh\"] -%}\n{%- set path = \"shell.rs\" -%}\n{%- else -%}\n{%- set path = path ~ \".rs\" -%}\n{%- endif -%}\nhttps://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}"
+source_code_link_template #"""
+{%- set path = path | replace(from='-', to='_') -%}
+{%- if cmd.subcommands | length > 0 -%}
+{%- set path = path ~ "/mod.rs" -%}
+{%- elif path in ["bash", "fish", "powershell", "zsh"] -%}
+{%- set path = "shell.rs" -%}
+{%- else -%}
+{%- set path = path ~ ".rs" -%}
+{%- endif -%}
+https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}
+"""#
 about "CLI for working with usage-based CLIs"
-usage "Usage: usage <COMMAND>\n       usage --completions <COMPLETIONS>\n       usage --usage-spec"
+usage #"""
+Usage: usage <COMMAND>
+       usage --completions <COMPLETIONS>
+       usage --usage-spec
+"""#
 unknown_flags error
 subcommand_required #true
 flagset shell {
@@ -18,16 +32,31 @@ flag --completions help="Outputs completions for the specified shell for complet
 }
 flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
 cmd bash help="Execute a shell script using bash" unknown_flags=value {
-    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    long_help #"""
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+"""#
     use shell
     arg <SCRIPT>
     arg "[ARGS]..." help="Arguments to pass to script" {
-        long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."
+        long_help #"""
+Arguments to pass to script
+
+Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
+"""#
     }
 }
 cmd complete-word help="Generate shell completion candidates for a partial command line" effect=read {
     alias cw
-    long_help "Generate shell completion candidates for a partial command line\n\nThis is used internally by shell completion scripts to provide\nintelligent completions for commands, flags, and arguments."
+    long_help #"""
+Generate shell completion candidates for a partial command line
+
+This is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.
+"""#
     flag "-f --file" help="Usage spec file or script with usage shebang, use \"-\" to read from stdin" {
         arg <FILE>
     }
@@ -45,7 +74,22 @@ cmd complete-word help="Generate shell completion candidates for a partial comma
     arg "[WORDS]..." help="User's input from the command line"
 }
 cmd diff help="Compare two usage specs and report what changed about the interface" effect=read {
-    long_help "Compare two usage specs and report what changed about the interface\n\nFindings are grouped into breaking changes (a command line that used to work\nnow fails, binds differently, or resolves to a different value), compatible\nchanges (the interface gained something or relaxed a rule), and metadata\nchanges (help text, effect, deprecation — nothing about parsing).\n\nExits 1 when there is a breaking change, so a release job can gate on it, and\neither spec may be \"-\":\n\n  mycli --usage-spec | usage diff released.usage.kdl -\n\n`version` is ignored on purpose: a release bumps it, and a check that fires\nevery release does not get left switched on."
+    long_help #"""
+Compare two usage specs and report what changed about the interface
+
+Findings are grouped into breaking changes (a command line that used to work
+now fails, binds differently, or resolves to a different value), compatible
+changes (the interface gained something or relaxed a rule), and metadata
+changes (help text, effect, deprecation — nothing about parsing).
+
+Exits 1 when there is a breaking change, so a release job can gate on it, and
+either spec may be "-":
+
+  mycli --usage-spec | usage diff released.usage.kdl -
+
+`version` is ignored on purpose: a release bumps it, and a check that fires
+every release does not get left switched on.
+"""#
     flag "-f --format" help="Output format" default=text {
         arg <FORMAT> {
             choices {
@@ -70,7 +114,13 @@ cmd exec help="Execute a script, parsing args and exposing them as environment v
     arg "[ARGS]..." help="arguments to pass to script"
 }
 cmd explain help="Explain what a command line binds to" effect=read {
-    long_help "Explain what a command line binds to\n\nPrints a row per argv token saying what it became, then the values that came from\nsomewhere other than argv, then anything that went wrong. Exits 0 even when the explained\ncommand line does not parse: the report succeeded, and that is the case worth a report."
+    long_help #"""
+Explain what a command line binds to
+
+Prints a row per argv token saying what it became, then the values that came from
+somewhere other than argv, then anything that went wrong. Exits 0 even when the explained
+command line does not parse: the report succeeded, and that is the case worth a report.
+"""#
     flag "-f --file" help="A usage spec file or script with a usage shebang, use \"-\" to read from stdin" {
         arg <FILE>
     }
@@ -89,21 +139,40 @@ cmd explain help="Explain what a command line binds to" effect=read {
         arg <VIEW>
     }
     flag "-e --env" help="Environment to explain against, as KEY=VALUE, repeatable" var=#true {
-        long_help "Environment to explain against, as KEY=VALUE, repeatable\n\nGiven at all, these are the *whole* environment: an explanation pasted into a bug\nreport has to mean the same thing on the machine that reads it. Omitted, the process\nenvironment is used, which is what an execution would see."
+        long_help #"""
+Environment to explain against, as KEY=VALUE, repeatable
+
+Given at all, these are the *whole* environment: an explanation pasted into a bug report has to mean the same thing on the machine that reads it. Omitted, the process environment is used, which is what an execution would see.
+"""#
         arg <ENV>
     }
     arg "[ARGV]..." help="The command line to explain, starting with the program name" double_dash=automatic {
-        long_help "The command line to explain, starting with the program name\n\n`usage`'s own flags come before it, and flag parsing ends at the program name, so\nboth `explain -f f.kdl mycli --env=prod` and `explain -f f.kdl -- mycli --env=prod`\nwork. Separate with `--` when the explained line carries its own: the first `--` is\nstill `usage`'s separator, so `explain -f f.kdl mycli a -- b` loses one."
+        long_help #"""
+The command line to explain, starting with the program name
+
+`usage`'s own flags come before it, and flag parsing ends at the program name, so both `explain -f f.kdl mycli --env=prod` and `explain -f f.kdl -- mycli --env=prod` work. Separate with `--` when the explained line carries its own: the first `--` is still `usage`'s separator, so `explain -f f.kdl mycli a -- b` loses one.
+"""#
     }
     complete argv type=command_args
     complete file type=path
 }
 cmd fish help="Execute a shell script using fish" unknown_flags=value {
-    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    long_help #"""
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+"""#
     use shell
     arg <SCRIPT>
     arg "[ARGS]..." help="Arguments to pass to script" {
-        long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."
+        long_help #"""
+Arguments to pass to script
+
+Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
+"""#
     }
 }
 cmd generate help="Generate completions, documentation, and other artifacts from usage specs" effect=read subcommand_required=#true {
@@ -113,7 +182,11 @@ cmd generate help="Generate completions, documentation, and other artifacts from
         alias complete hide=#true
         alias completions hide=#true
         flag --install help="Install the script where this shell looks for it, instead of printing it" effect=write {
-            long_help "Install the script where this shell looks for it, instead of printing it\n\nWrites the script file and nothing else: no shell rc file and no PowerShell profile is\nedited. Where a shell needs a one-time line of its own — zsh's `fpath+=`, PowerShell's\ndot-source — it is printed for you to add."
+            long_help #"""
+Install the script where this shell looks for it, instead of printing it
+
+Writes the script file and nothing else: no shell rc file and no PowerShell profile is edited. Where a shell needs a one-time line of its own — zsh's `fpath+=`, PowerShell's dot-source — it is printed for you to add.
+"""#
         }
         flag --force help="Replace a file at the target path that usage did not write" effect=write requires=--install
         flag "-f --file" help="A .usage.kdl spec file to use for generating completions, use \"-\" to read from stdin" {
@@ -123,11 +196,14 @@ cmd generate help="Generate completions, documentation, and other artifacts from
             arg <CACHE_KEY>
         }
         flag --usage-bin help="Override the bin used for calling back to usage-cli" env=JDX_USAGE_BIN default=usage {
-            long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
+            long_help #"""
+Override the bin used for calling back to usage-cli
+
+You may need to set this if you have a different bin named "usage"
+"""#
             arg <USAGE_BIN>
         }
         flag --usage-cmd help="A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"" required_unless=--file {
-            long_help "A command which generates a usage spec\ne.g.: `mycli --usage` or `mycli completion usage`\nDefaults to \"$bin --usage\""
             arg <USAGE_CMD>
         }
         arg <SHELL> help="Shell to generate completions for" {
@@ -139,9 +215,17 @@ cmd generate help="Generate completions, documentation, and other artifacts from
         alias ci
         alias init hide=#true
         alias completions-init hide=#true
-        long_help "Generate a shell init script that auto-completes any usage shebang script on $PATH\n\nSource the output once from your shell rc (e.g. ~/.bashrc) to enable\ntab-completion for any executable whose first line is a `usage` shebang —\nno per-script `usage g completion` step required."
+        long_help #"""
+Generate a shell init script that auto-completes any usage shebang script on $PATH
+
+Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required.
+"""#
         flag --usage-bin help="Override the bin used for calling back to usage-cli" env=JDX_USAGE_BIN default=usage {
-            long_help "Override the bin used for calling back to usage-cli\n\nYou may need to set this if you have a different bin named \"usage\""
+            long_help #"""
+Override the bin used for calling back to usage-cli
+
+You may need to set this if you have a different bin named "usage"
+"""#
             arg <USAGE_BIN>
         }
         arg <SHELL> help="Shell to generate the init script for" {
@@ -161,7 +245,13 @@ cmd generate help="Generate completions, documentation, and other artifacts from
         complete out_file type=path
     }
     cmd go help="Generate Go parse tables from a usage spec" effect=read {
-        long_help "Generate Go parse tables from a usage spec\n\nThe tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what\na Rust CLI gets from a derive at compile time, a Go CLI gets from this at build\ntime — typically from a `go:generate` line:\n\n  //go:generate usage generate go -f mycli.usage.kdl -o tables.go"
+        long_help #"""
+Generate Go parse tables from a usage spec
+
+The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a Rust CLI gets from a derive at compile time, a Go CLI gets from this at build time — typically from a `go:generate` line:
+
+  //go:generate usage generate go -f mycli.usage.kdl -o tables.go
+"""#
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
             arg <FILE>
         }
@@ -217,7 +307,11 @@ cmd generate help="Generate completions, documentation, and other artifacts from
             arg <OUT_FILE>
         }
         flag "-s --section" help="Manual section number (default: 1)" default="1" {
-            long_help "Manual section number (default: 1)\n\nCommon sections:\n- 1: User commands\n- 5: File formats\n- 7: Miscellaneous\n- 8: System administration commands"
+            long_help #"""
+Manual section number (default: 1)
+
+Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands
+"""#
             arg <SECTION>
         }
         complete out_file type=path
@@ -276,13 +370,22 @@ cmd lint help="Lint a usage spec file for common issues" effect=read {
     }
     flag "-W --warnings-as-errors" help="Treat warnings as errors"
     flag --sorted help="Also check that subcommands and flags are declared in sorted order" {
-        long_help "Also check that subcommands and flags are declared in sorted order\n\nOff by default: declaration order is a house convention rather than a\ncorrectness question, so a spec that keeps a different order is not wrong.\nPair it with --warnings-as-errors to hold the order in CI."
+        long_help #"""
+Also check that subcommands and flags are declared in sorted order
+
+Off by default: declaration order is a house convention rather than a correctness question, so a spec that keeps a different order is not wrong. Pair it with --warnings-as-errors to hold the order in CI.
+"""#
     }
     arg <FILE> help="A usage spec file to lint, use \"-\" to read from stdin"
 }
 cmd mcp help="Serve a usage spec over the Model Context Protocol" effect=read {
     alias mcp-server
-    long_help "Serve a usage spec over the Model Context Protocol\n\nReads JSON-RPC over stdin and writes responses to stdout, which is how MCP\nclients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`."
+    long_help #"""
+Serve a usage spec over the Model Context Protocol
+
+Reads JSON-RPC over stdin and writes responses to stdout, which is how MCP
+clients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.
+"""#
     flag "-f --file" help="Usage spec file (not \"-\": stdin is the MCP transport)" {
         arg <FILE>
     }
@@ -291,20 +394,42 @@ cmd mcp help="Serve a usage spec over the Model Context Protocol" effect=read {
     }
 }
 cmd powershell help="Execute a shell script using PowerShell" unknown_flags=value {
-    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    long_help #"""
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+"""#
     use shell
     arg <SCRIPT>
     arg "[ARGS]..." help="Arguments to pass to script" {
-        long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."
+        long_help #"""
+Arguments to pass to script
+
+Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
+"""#
     }
 }
 cmd sponsors help="Show the companies sponsoring usage and the jdx.dev open source tools" effect=read {
 }
 cmd zsh help="Execute a shell script using zsh" unknown_flags=value {
-    long_help "Execute a shell script with the specified shell\n\nTypically, this will be called by a script's shebang.\n\nIf using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`\nto properly escape and quote values with spaces in them."
+    long_help #"""
+Execute a shell script with the specified shell
+
+Typically, this will be called by a script's shebang.
+
+If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
+to properly escape and quote values with spaces in them.
+"""#
     use shell
     arg <SCRIPT>
     arg "[ARGS]..." help="Arguments to pass to script" {
-        long_help "Arguments to pass to script\n\nAnything `usage` does not recognise is a value rather than a mistake, which is what\nlets a shebang script take flags of its own."
+        long_help #"""
+Arguments to pass to script
+
+Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
+"""#
     }
 }
