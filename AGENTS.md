@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents working in this repository.
 
 ## Conventional Commits
 
@@ -102,6 +102,16 @@ conformance, generation, and performance tooling:
   realistic scale
 
 ## Architecture
+
+### Rust Derives (`derive/`, `usage-rs/`)
+
+The Rust framework uses `#[derive(Cli)]`, `Args`, `Subcommands`, `ValueEnum`, and
+`ArgGroup` to compile typed declarations into argv parse tables and portable spec
+metadata. All derive metadata uses the native `#[usage(...)]` helper attribute.
+Legacy clap helper namespaces such as `#[command(...)]`, `#[arg(...)]`,
+`#[value(...)]`, and `#[group(...)]` are rejected with migration diagnostics; do
+not add compatibility spellings back. Keep clap migration examples as explicit
+before/after rewrites to `#[usage(...)]`.
 
 ### Spec Model (`lib/src/spec/`)
 
