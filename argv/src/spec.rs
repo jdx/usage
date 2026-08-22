@@ -1683,7 +1683,7 @@ fn write_flag_layout_with(
                     group.meta,
                     depth,
                     sets,
-                    group.help_heading.or(inherited_heading),
+                    inherited_heading.or(group.help_heading),
                 )?;
                 i += group.meta.flags.len();
             }

@@ -1301,6 +1301,29 @@ struct SiteHeadedFlatten {
 
 #[derive(Args)]
 #[allow(dead_code)]
+struct NestedInnerHeadingArgs {
+    /// Registry URL.
+    #[arg(long)]
+    nested_registry: Option<String>,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct NestedHeadingArgs {
+    #[usage(flatten, next_help_heading = "Inner")]
+    inner: NestedInnerHeadingArgs,
+}
+
+#[derive(Cli)]
+#[usage(bin = "nested-site-headed-flatten")]
+#[allow(dead_code)]
+struct NestedSiteHeadedFlatten {
+    #[usage(flatten, next_help_heading = "Outer")]
+    nested: NestedHeadingArgs,
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
 struct SiteInstall {
     /// Force reinstall.
     #[arg(long)]
@@ -2151,6 +2174,27 @@ fn flatten_site_next_help_heading_groups_unheaded_fields() {
         !kdl.contains("flagset"),
         "a per-mount heading cannot share a flagset: {kdl}"
     );
+}
+
+#[test]
+fn outer_flatten_site_heading_wins_in_help_and_emitted_kdl() {
+    let spec = NestedSiteHeadedFlatten::spec();
+    for long in [false, true] {
+        let help = usage::help::render(spec, spec.root.cmd, long).unwrap();
+        assert!(help.contains("Outer:"), "{help}");
+        assert!(!help.contains("Inner:"), "{help}");
+        assert!(help.contains("--nested-registry"), "{help}");
+    }
+
+    let kdl = NestedSiteHeadedFlatten::to_kdl();
+    let reparsed: usage_parser::Spec = kdl.parse().expect("the emitted spec parses");
+    let registry = reparsed
+        .cmd
+        .flags
+        .iter()
+        .find(|flag| flag.name == "nested-registry")
+        .expect("nested flattened flag");
+    assert_eq!(registry.help_heading.as_deref(), Some("Outer"), "{kdl}");
 }
 
 #[test]
