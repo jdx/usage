@@ -27,6 +27,9 @@
 //!   otherwise.
 //! - **Warnings, not output.** Nothing here prints. An unknown key, a value of the wrong
 //!   type, a deprecated setting: all returned, for the CLI to render when its logging is up.
+//! - **Lifecycle gates are explicit.** `deprecated_warn_at` and `deprecated_remove_at` act
+//!   against the running CLI version supplied to [`resolve_with_context`]. This crate's own
+//!   package version is never assumed.
 //!
 //! # Example
 //!
@@ -79,7 +82,7 @@ pub use layer::{Entry, Layer, LayerCtx, LayerError, LayerOutput, Warning, Warnin
 pub use props::{concat_prop_specs, concat_props, Props};
 pub use read::{Fold, FromValue, ReadError, ReadErrorKind, ReadErrors};
 pub use registry::{Lookup, Merge, PropId, PropMeta, Registry, Scope};
-pub use resolve::{resolve, Layers, Resolved};
+pub use resolve::{resolve, resolve_with_context, Layers, ResolutionContext, Resolved};
 pub use source::{FileScope, Origin, SourceKind, Trust};
 pub use spec::{spec_kdl, spec_kdl_with, ConfigSpec, PropSpec, SpecFile, SpecSource};
 pub use ty::{Parser, Ty, TypeError};

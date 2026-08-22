@@ -88,26 +88,27 @@ CLI's file chain.
 
 Field attributes mirror the spec's [`prop` vocabulary](/spec/reference/config):
 
-| Attribute                                                | Effect                                                                                                              |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `env = "X"` / `env("A", "B")`                            | Environment variables, highest precedence first                                                                     |
-| `deprecated_env("OLD")`                                  | Deprecated aliases, consulted afterwards and warned about                                                           |
-| `default = 4` / `default(80, 443)`                       | The value when no layer supplies one                                                                                |
-| `default_fn = path`                                      | A computed default (`fn() -> T`), applied after the resolution                                                      |
-| `default_note = "…"`                                     | Prose beside the default, for docs                                                                                  |
-| `cli("--jobs", "-j")`                                    | The flags that set it — what `Registry::drift` holds bindings against                                               |
-| `source("git", "hk.jobs")`                               | Its keys in sources usage does not know about                                                                       |
-| `choices("a", "b")`                                      | The only values it accepts                                                                                          |
-| `merge = "union"` / `"deep"`                             | How a collection combines across layers                                                                             |
-| `scope = "global"` / `"env"`                             | Where a value is accepted from                                                                                      |
-| `parse = "list_by_comma"`                                | How one string becomes several values                                                                               |
-| `alias("other")`                                         | Equivalent keys accepted without a warning — written in full, so a group's `prefix` is repeated rather than implied |
-| `key = "match"`                                          | The dotted key, when the field name is not it                                                                       |
-| `hide`, `deprecated = "…"`, `since = "…"`, `examples(…)` | Documentation and lifecycle metadata                                                                                |
-| `help_heading = "Performance"`                           | The section to list this setting under in generated docs                                                            |
-| `writes_to = "git"`                                      | Where `config set` should write this, when it is not the usual file                                                 |
-| `x("tool.key", value)`                                   | Tool-private `x` metadata. Spec-only: resolution does not interpret it. Repeatable; order is preserved              |
-| `flatten`                                                | Splice another `Config` struct's settings in at this position                                                       |
+| Attribute                                    | Effect                                                                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `env = "X"` / `env("A", "B")`                | Environment variables, highest precedence first                                                                     |
+| `deprecated_env("OLD")`                      | Deprecated aliases, consulted afterwards and warned about                                                           |
+| `default = 4` / `default(80, 443)`           | The value when no layer supplies one                                                                                |
+| `default_fn = path`                          | A computed default (`fn() -> T`), applied after the resolution                                                      |
+| `default_note = "…"`                         | Prose beside the default, for docs                                                                                  |
+| `cli("--jobs", "-j")`                        | The flags that set it — what `Registry::drift` holds bindings against                                               |
+| `source("git", "hk.jobs")`                   | Its keys in sources usage does not know about                                                                       |
+| `choices("a", "b")`                          | The only values it accepts                                                                                          |
+| `merge = "union"` / `"deep"`                 | How a collection combines across layers                                                                             |
+| `scope = "global"` / `"env"`                 | Where a value is accepted from                                                                                      |
+| `parse = "list_by_comma"`                    | How one string becomes several values                                                                               |
+| `alias("other")`                             | Equivalent keys accepted without a warning — written in full, so a group's `prefix` is repeated rather than implied |
+| `key = "match"`                              | The dotted key, when the field name is not it                                                                       |
+| `hide`, `since = "…"`, `examples(…)`         | Documentation and lifecycle metadata                                                                                |
+| `deprecated = "…"` and its `*_at` milestones | Warn, then ignore configured values when explicit CLI version context reaches removal                               |
+| `help_heading = "Performance"`               | The section to list this setting under in generated docs                                                            |
+| `writes_to = "git"`                          | Where `config set` should write this, when it is not the usual file                                                 |
+| `x("tool.key", value)`                       | Tool-private `x` metadata. Spec-only: resolution does not interpret it. Repeatable; order is preserved              |
+| `flatten`                                    | Splice another `Config` struct's settings in at this position                                                       |
 
 `help_heading`, `writes_to`, and `x` are spec metadata. They ride in `SETTINGS_SPEC` beside
 the runtime registry rather than on `PropMeta`, because the merge never reads them. The
@@ -124,6 +125,18 @@ An `alias` is written in full, including a group's `prefix` — `alias("task.out
 `#[usage(prefix = "task")]` group, not `alias("out")`. An alias is usually a name a setting
 used to have, and one that moved into a group often wants its old unprefixed spelling, so the
 full form is the one that can say either.
+
+Pass the running program version explicitly when resolving lifecycle gates:
+
+```rust
+let context = usage::config::ResolutionContext::for_cli_version(env!("CARGO_PKG_VERSION"));
+let resolved =
+    usage::config::resolve_with_context(Settings::SETTINGS_REGISTRY, layers, context)?;
+```
+
+The caller chooses that string because an adopting CLI's version is not `usage-config`'s package
+version and may be computed at runtime. `resolve(...)` remains available for compatibility when
+there is no version context; it warns about a deprecated setting but does not remove its value.
 
 A default and a choice are written as the type the field holds. Nothing coerces a declared
 default — the resolver seeds it as written and hands it to the field — so `default = 1` on a

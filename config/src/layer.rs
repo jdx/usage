@@ -80,6 +80,9 @@ pub enum WarningKind {
     OutOfScope,
     /// A setting whose spec says not to use it any more.
     Deprecated,
+    /// A configured value for a setting whose removal milestone has been reached, and which was
+    /// therefore ignored.
+    Removed,
     /// A value that arrived under an old name and was read as the setting that replaced it.
     Renamed,
     /// A value that was passed over because another name for the same setting won.

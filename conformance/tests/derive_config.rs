@@ -10,7 +10,9 @@ use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-use usage_config::{resolve, Const, EnvLayer, Layers, Ty, Value};
+use usage_config::{
+    resolve, resolve_with_context, Const, EnvLayer, Layers, ResolutionContext, Ty, Value,
+};
 use usage_derive::{Cli, Config};
 
 fn default_cache_dir() -> PathBuf {
@@ -389,6 +391,52 @@ fn the_metadata_only_docs_read_survives_the_round_trip() {
         Some("Stop at the first failure\n\nWhether a failing job stops the rest of them.")
     );
     assert_eq!(parsed.long_help.as_deref(), declared.long_help);
+}
+
+#[derive(Config, Debug, PartialEq)]
+struct GatedSetting {
+    #[usage(
+        env = "EX_LEGACY",
+        deprecated = "use modern",
+        deprecated_warn_at = "6.0.0",
+        deprecated_remove_at = "7.0.0"
+    )]
+    legacy: Option<bool>,
+}
+
+#[test]
+fn derived_config_lifecycle_metadata_controls_resolution() {
+    let env = EnvLayer::new([("EX_LEGACY".to_string(), "true".to_string())]);
+
+    let before = resolve_with_context(
+        GatedSetting::SETTINGS_REGISTRY,
+        Layers::new().then(&env),
+        ResolutionContext::for_cli_version("5.9.9"),
+    )
+    .expect("resolves before warning");
+    assert_eq!(GatedSetting::read(&before).unwrap().legacy, Some(true));
+    assert!(before.warnings.is_empty());
+
+    let warning = resolve_with_context(
+        GatedSetting::SETTINGS_REGISTRY,
+        Layers::new().then(&env),
+        ResolutionContext::for_cli_version("6.0.0"),
+    )
+    .expect("resolves at warning");
+    assert_eq!(GatedSetting::read(&warning).unwrap().legacy, Some(true));
+    assert_eq!(
+        warning.warnings[0].kind,
+        usage_config::WarningKind::Deprecated
+    );
+
+    let removed = resolve_with_context(
+        GatedSetting::SETTINGS_REGISTRY,
+        Layers::new().then(&env),
+        ResolutionContext::for_cli_version("7.0.0"),
+    )
+    .expect("resolves at removal");
+    assert_eq!(GatedSetting::read(&removed).unwrap().legacy, None);
+    assert_eq!(removed.warnings[0].kind, usage_config::WarningKind::Removed);
 }
 
 /// A CLI whose settings-bound flag is deprecated.

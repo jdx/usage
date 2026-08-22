@@ -109,7 +109,8 @@ pub struct PropMeta {
     pub default_note: Option<&'static str>,
     /// The release that introduced this setting, when the declaration says.
     pub since: Option<&'static str>,
-    /// The release that starts warning about a deprecated setting, and the one that removes it.
+    /// The CLI version that starts warning about a deprecated setting, and the one after which
+    /// configured values for it are ignored.
     pub deprecated_warn_at: Option<&'static str>,
     pub deprecated_remove_at: Option<&'static str>,
     /// Values worth showing a reader, verbatim.
@@ -314,7 +315,7 @@ impl Registry {
         })
     }
 
-    /// The first deprecation notice along the rename chain that starts at `key`.
+    /// The first deprecated declaration along the rename chain that starts at `key`.
     ///
     /// The chain, not the declaration named: `a` renamed to `b`, and `b` the one carrying the notice
     /// that says to use `c`. A user who wrote `a` is being told the same thing either way, and which
@@ -324,7 +325,7 @@ impl Registry {
     /// rather than following them forever — the same guard [`Registry::lookup`] uses, and for the
     /// same reason: this is an authoring mistake, and hanging is a worse way to report one than
     /// nothing at all. The derive refuses such a declaration outright.
-    pub fn deprecation(&self, key: &str) -> Option<&'static str> {
+    pub fn deprecation_meta(&self, key: &str) -> Option<&'static PropMeta> {
         let mut current = self
             .props
             .iter()
@@ -332,12 +333,20 @@ impl Registry {
             .map(|index| PropId(index as u16))?;
         for _ in 0..self.props.len() {
             let meta = self.get(current);
-            if let Some(why) = meta.deprecated {
-                return Some(why);
+            if meta.deprecated.is_some() {
+                return Some(meta);
             }
             current = meta.renamed_to.and_then(|next| self.lookup_exact(next))?;
         }
         None
+    }
+
+    /// The first deprecation notice along the rename chain that starts at `key`.
+    ///
+    /// Kept as the message-only counterpart to [`Registry::deprecation_meta`] for callers that do
+    /// not need lifecycle milestones.
+    pub fn deprecation(&self, key: &str) -> Option<&'static str> {
+        self.deprecation_meta(key).and_then(|meta| meta.deprecated)
     }
 
     /// The settings an environment variable sets, and the variable that set them.
@@ -509,6 +518,10 @@ mod tests {
         assert_eq!(
             registry.deprecation("parallelism"),
             Some("Use jobs instead.")
+        );
+        assert_eq!(
+            registry.deprecation_meta("parallelism").unwrap().key,
+            "concurrency"
         );
     }
 

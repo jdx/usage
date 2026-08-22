@@ -96,7 +96,7 @@ files, so a setting a repository must not be able to change can say so.
 | `merge`                                      | `replace` (default), `union` for collections, `deep` for maps                                                |
 | `scope`                                      | `any` (default), `global` (never from a project file), `env` (never from a file)                             |
 | `deprecated`                                 | why not to use it any more                                                                                   |
-| `deprecated_warn_at`, `deprecated_remove_at` | versions, for a tool that warns then removes                                                                 |
+| `deprecated_warn_at`, `deprecated_remove_at` | CLI versions that start warnings and stop accepting configured values                                       |
 | `renamed_to`                                 | the property that replaces this one, so an old key folds into the new                                        |
 | `hide`                                       | keep it out of docs and completions                                                                          |
 | `since`                                      | the version that introduced it                                                                               |
@@ -117,6 +117,23 @@ And as child nodes, for anything multi-valued or long:
 | `example "…"`                     | one invocation worth showing                                   |
 | `choices { choice "a" help="…" }` | the values it accepts, each with its own help                  |
 | `x "ns.key" value`                | see [extensions](#extensions)                                  |
+
+### Deprecation gates
+
+`deprecated_warn_at` withholds a setting's deprecation warning until the running CLI version
+reaches that release. At `deprecated_remove_at`, configured values for the setting are ignored and
+reported as removed; resolution continues, as it does for an unknown setting, and a declared
+default remains available to the compiled settings type.
+
+The CLI version is runtime context, not the version of `usage-config`. Rust callers pass it
+explicitly with `resolve_with_context` and `ResolutionContext::for_cli_version`. The compatibility
+`resolve` entry point has no version context: it warns but keeps the value. An unreadable CLI
+version or milestone does the same, so uncertainty neither hides the deprecation nor silently
+changes configuration.
+
+Versions follow the same rule as [argv deprecations](/spec/argv#warnings): dotted numeric segments
+support semver and calver, missing segments are zero, prereleases precede their release, and build
+metadata is ignored.
 
 ## Types
 
