@@ -1588,12 +1588,12 @@ above are where it lands.
       clap#5925's fallback across several env names preserves declaration
       order. This is parser behavior rather than command/flag presentation, so
       it remains separate from the deprecation metadata above.
-- [ ] **A group as an enum in the derive** (clap#2621, 102 votes — tied for
+- [x] **A group as an enum in the derive** (clap#2621, 102 votes — tied for
       clap's most-requested) — mutually exclusive flags declared as enum
       variants, lowering to the `group`/`conflicts` vocabulary the spec already
       has. Derive ergonomics rather than new spec surface, and clap has sat on
-      it since 2021. **Decided (2026-08-21): `#[derive(usage::ArgGroup)]` on the
-      enum**, held by an `Option<Mode>` field for an optional group and a bare
+      it since 2021. **`#[derive(usage::ArgGroup)]` on the enum**, held by an
+      `Option<Mode>` field for an optional group and a bare
       `Mode` field for a required one. A new derive rather than an overloaded
       `ValueEnum`, because the same enum would otherwise lower two entirely
       different ways depending on the field holding it; and an enum rather than a
@@ -1608,7 +1608,10 @@ above are where it lands.
       generators to describe. **Two members on one command line is an error**,
       matching clap's `ArgGroup` and the `conflicts` vocabulary this lowers to;
       exclusivity is the point, so a typo is reported rather than silently
-      resolved to whichever came last.
+      resolved to whichever came last. Nothing new reaches the spec: the enum
+      emits the `group` node and the switches it names, so KDL, usage-lib, help,
+      docs and completions all read an ordinary group, and one field holding the
+      enum is what a command declares.
 - [x] **Recursive help** (clap#4813) — `ArgAction::HelpAll` renders long help
       for the selected command and every visible descendant in one depth-first
       output. Typed Rust, portable KDL, usage-lib, and generated Go retain the

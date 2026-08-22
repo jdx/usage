@@ -65,7 +65,7 @@ available for low-level adopters that want a thinner surface:
 | Crate          | Role                                                                                   |
 | -------------- | -------------------------------------------------------------------------------------- |
 | `usage-rs`     | The one package an application depends on; re-exports the whole runtime                |
-| `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`                           |
+| `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`, `ArgGroup`               |
 | `usage-argv`   | The zero-allocation, zero-dependency runtime the derive emits code against             |
 | `usage-test`   | Test helpers: what a command line parses to, what a page says, what a shell is offered |
 | `usage-config` | Layered settings resolution with provenance ([Settings](/rust/settings))               |

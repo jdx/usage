@@ -602,6 +602,18 @@ pub enum Kind {
         /// The struct's type, as written.
         ty: syn::Type,
     },
+    /// Holds the enum whose variants are one group of this command's exclusive flags.
+    ///
+    /// The type is carried rather than resolved, as for a flatten: the derive cannot see the
+    /// enum's variants, so the switches, their metadata, and the state that collects them all
+    /// arrive through [`ArgGroup`](usage_argv::spec::ArgGroup).
+    ArgGroup {
+        /// The enum's type with any `Option` stripped, which is what names the trait.
+        ty: syn::Type,
+        /// Whether the field is `Option<T>`, and so may be left alone. A bare `T` says one
+        /// member has to be given, which is reported once the last token has been read.
+        optional: bool,
+    },
     /// A field that is not an argument at all, filled from `Default`.
     ///
     /// clap's `#[arg(skip)]`: the struct still holds the field so a rewrite can keep
@@ -1467,6 +1479,11 @@ impl Cli {
                 // where the whole tree is visible, by the duplicate-form check in
                 // `Spec::to_kdl`.
                 Kind::Flatten { .. } => {}
+                // Nothing to check here either, and for the same reason: the enum's own
+                // derive checked its members, and a collision between one of them and a flag
+                // this struct declares is invisible from either side. `Spec::to_kdl`'s
+                // duplicate-form check is where the whole tree is visible.
+                Kind::ArgGroup { .. } => {}
                 Kind::Skip => {}
                 Kind::Arg { double_dash } => {
                     // A variadic takes every remaining word, so anything after it can
@@ -2045,6 +2062,158 @@ impl Field {
         }))
     }
 
+    /// A field marked `#[usage(arg_group)]`, if this is one.
+    ///
+    /// Recognized before flags and arguments for the same reason a flatten is: the field holds
+    /// a set of declarations rather than a value, and the enum's own variants say what each of
+    /// them is called. What a doc comment or a `long` here would describe is one member, and
+    /// there is more than one.
+    fn arg_group(
+        field: &syn::Field,
+        ident: &syn::Ident,
+        span: proc_macro2::Span,
+    ) -> syn::Result<Option<Self>> {
+        let mut found = false;
+        for attr in attrs(&field.attrs) {
+            for meta in nested(attr)? {
+                if ident_of(&meta.path().clone()) != "arg_group" {
+                    continue;
+                }
+                if !matches!(meta, Meta::Path(_)) {
+                    return Err(syn::Error::new_spanned(
+                        meta.path(),
+                        "`arg_group` takes no value: the enum it holds is the field's type, \
+                         and the group's name is declared on the enum",
+                    ));
+                }
+                found = true;
+            }
+        }
+        if !found {
+            return Ok(None);
+        }
+
+        // Nothing else may be declared beside it. A group's members are the enum's variants,
+        // so `long` or `group =` here would be naming a set as though it were one flag —
+        // and `group = "other"` would be a second group with the same members.
+        for attr in attrs(&field.attrs) {
+            for meta in nested(attr)? {
+                let name = ident_of(&meta.path().clone());
+                if name != "arg_group" {
+                    return Err(syn::Error::new_spanned(
+                        meta.path(),
+                        format!(
+                            "`arg_group` cannot be combined with `{name}`: the enum's variants \
+                             declare the members, and the enum itself declares the group"
+                        ),
+                    ));
+                }
+            }
+        }
+
+        // `Option<T>` is a group that may be left alone and a bare `T` is one that has to be
+        // given, which is the same rule every other field's type is read by — and the only
+        // spelling of required-ness a group has.
+        let name = type_name(&field.ty);
+        let (ty, optional) = match name
+            .strip_prefix("Option<")
+            .and_then(|rest| rest.strip_suffix('>'))
+        {
+            Some(inner) => (syn::parse_str::<Type>(inner)?, true),
+            None => (field.ty.clone(), false),
+        };
+
+        // Anything wrapped around the enum is refused here, where the field is, rather than
+        // left to the unsatisfied trait bound the generated code would report: a group
+        // resolves to at most one member, so there is nothing for a container to hold.
+        let inner = type_name(&ty);
+        if let Some(container) = ["Vec", "Option", "Box"]
+            .into_iter()
+            .find(|container| inner.starts_with(&format!("{container}<")))
+        {
+            return Err(syn::Error::new_spanned(
+                &field.ty,
+                format!(
+                    "`arg_group` holds its enum as `Mode` for a required group or \
+                     `Option<Mode>` for an optional one: a group resolves to at most one \
+                     member, so there is nothing for `{container}` to hold"
+                ),
+            ));
+        }
+
+        Ok(Some(Field {
+            ident: ident.clone(),
+            ty: field.ty.clone(),
+            name: to_kebab(&ident.to_string()),
+            value_optional: false,
+            kind: Kind::ArgGroup { ty, optional },
+            // Each member carries its own, as a flattened group's flags do: the field holds
+            // no flag of its own to describe.
+            effect: None,
+            complete: None,
+            complete_type: None,
+            // The field holds declarations rather than a value, the same as a flatten.
+            shape: Shape::Bool,
+            value_ty: None,
+            optional_collection: false,
+            optional_value_type: false,
+            help: None,
+            long_help: None,
+            deprecated: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
+            env: None,
+            env_fallback: Vec::new(),
+            deprecated_env: Vec::new(),
+            setting: None,
+            default: Vec::new(),
+            default_value_t: None,
+            help_heading: None,
+            display_order: None,
+            value_name: None,
+            value_names: Vec::new(),
+            required_collection: false,
+            choices: Vec::new(),
+            allow_unknown_choices: false,
+            validate: None,
+            validate_error: None,
+            value_enum: false,
+            var_min: None,
+            var_max: None,
+            value_var_min: None,
+            value_var_max: None,
+            overrides: Vec::new(),
+            conflicts: Vec::new(),
+            requires: Vec::new(),
+            requires_if: Vec::new(),
+            default_if: Vec::new(),
+            delimiter: None,
+            allow_hyphen_values: false,
+            allow_negative_numbers: false,
+            value_terminator: None,
+            require_equals: false,
+            bool_value: false,
+            default_missing: None,
+            exclusive: false,
+            group: None,
+            required_if: Vec::new(),
+            required_if_eq: Vec::new(),
+            required_if_eq_all: Vec::new(),
+            required_unless: Vec::new(),
+            required_unless_all: Vec::new(),
+            hide: false,
+            hide_default_value: false,
+            hide_env: false,
+            hide_env_values: false,
+            hide_possible_values: false,
+            hide_short_help: false,
+            hide_long_help: false,
+            repeatable: false,
+            action: ArgAction::Set,
+            span,
+        }))
+    }
+
     /// A field marked `#[usage(subcommand)]`, if this is one.
     fn subcommand(
         field: &syn::Field,
@@ -2198,6 +2367,9 @@ impl Field {
         }
         if let Some(flattened) = Self::flatten(field, &ident, span)? {
             return Ok(flattened);
+        }
+        if let Some(group) = Self::arg_group(field, &ident, span)? {
+            return Ok(group);
         }
 
         let rust_name = ident.unraw().to_string();
@@ -5503,9 +5675,194 @@ impl ValueEnum {
     }
 }
 
+/// An enum whose variants are one group of a command's exclusive flags.
+pub struct ArgGroup {
+    pub ident: syn::Ident,
+    /// What the group is called in the emitted spec: the type's name in kebab-case,
+    /// unless the enum says otherwise.
+    pub name: String,
+    /// What this type's keys are derived from. See [`Cli::fingerprint`].
+    pub fingerprint: String,
+    /// Each variant, and the switch it answers to.
+    pub variants: Vec<ArgGroupMember>,
+}
+
+pub struct ArgGroupMember {
+    pub ident: syn::Ident,
+    /// The flag's long form, without the leading `--`, which is also its spec name.
+    pub name: String,
+    pub short: Option<char>,
+    pub help: Option<String>,
+    pub long_help: Option<String>,
+    pub hide: bool,
+    pub cfg_attrs: Vec<syn::Attribute>,
+}
+
+impl ArgGroup {
+    pub fn from_input(input: &DeriveInput) -> syn::Result<Self> {
+        let Data::Enum(data) = &input.data else {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "usage::ArgGroup describes a set of flags at most one of which may be given, \
+                 so it needs an enum",
+            ));
+        };
+        if !input.generics.params.is_empty() {
+            return Err(syn::Error::new_spanned(
+                &input.generics,
+                "usage::ArgGroup does not support generic parameters: the flag tables are \
+                 `const`",
+            ));
+        }
+
+        let mut name = to_kebab(&input.ident.unraw().to_string());
+        for attr in attrs(&input.attrs) {
+            for meta in nested(attr)? {
+                let path = meta.path().clone();
+                match ident_of(&path).as_str() {
+                    "name" => name = string_value(&meta)?,
+                    other => {
+                        return Err(syn::Error::new_spanned(
+                            path,
+                            format!(
+                                "unknown arg-group option `{other}`; the enum takes `name` \
+                                 here, and everything else belongs on a variant"
+                            ),
+                        ))
+                    }
+                }
+            }
+        }
+        if name.is_empty() {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "a group with no name has nothing for a failed check to report",
+            ));
+        }
+
+        let mut variants: Vec<ArgGroupMember> = Vec::new();
+        for variant in &data.variants {
+            if !matches!(variant.fields, Fields::Unit) {
+                return Err(syn::Error::new_spanned(
+                    &variant.fields,
+                    "a group member is a switch, so each variant is a bare name: a member \
+                     taking a value stays a hand-written `conflicts` set, where the values \
+                     have somewhere to land",
+                ));
+            }
+            let cfg_attrs = cfg_gate_attrs(&variant.attrs)?;
+            let (doc_help, doc_long_help) = doc_comment(&variant.attrs, false)?;
+            let mut member = ArgGroupMember {
+                ident: variant.ident.clone(),
+                name: to_kebab(&variant.ident.unraw().to_string()),
+                short: None,
+                help: doc_help,
+                long_help: doc_long_help,
+                hide: false,
+                cfg_attrs,
+            };
+            for attr in attrs(&variant.attrs) {
+                for meta in nested(attr)? {
+                    let path = meta.path().clone();
+                    match ident_of(&path).as_str() {
+                        // One spelling reaches both, because a switch's long form and its
+                        // spec name are the same word: two ways to say it would be two
+                        // things to keep in step.
+                        "long" | "name" => member.name = strip_dashes(&string_value(&meta)?),
+                        "short" => member.short = Some(char_value(&meta)?),
+                        "help" => member.help = Some(string_value(&meta)?),
+                        "long_help" => member.long_help = Some(string_value(&meta)?),
+                        "hide" => member.hide = flag_value(&meta)?,
+                        "default" | "default_value" | "default_value_t" => {
+                            return Err(syn::Error::new_spanned(
+                                path,
+                                "a group has no default member: required-ness is the \
+                                 `Option<T>` versus `T` distinction on the field holding it, \
+                                 and a default would be a second way to spell one",
+                            ))
+                        }
+                        other => {
+                            return Err(syn::Error::new_spanned(
+                                path,
+                                format!(
+                                    "unknown option `{other}` on a group member; a variant \
+                                     takes `long`, `name`, `short`, `help`, `long_help`, or \
+                                     `hide` here"
+                                ),
+                            ));
+                        }
+                    }
+                }
+            }
+            if member.name.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "a member with no long form would answer to nothing",
+                ));
+            }
+            if let Some(short) = member.short.filter(|short| !short.is_ascii()) {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    format!(
+                        "`short = '{short}'` is not ASCII, and a cluster like `-xyz` is \
+                         walked one byte at a time, so it could never be matched"
+                    ),
+                ));
+            }
+            variants.push(member);
+        }
+        // One member is not a relationship: the spec reserves a group for something said
+        // about a set, and "at most one of this one flag" is always true.
+        if variants.len() < 2 {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "a group needs at least two members: with one there is nothing to be \
+                 exclusive with, so declare the flag on the command instead",
+            ));
+        }
+
+        let mut seen_long: Vec<(&str, Span, &[Attribute])> = Vec::new();
+        let mut seen_short: Vec<(char, Span, &[Attribute])> = Vec::new();
+        for member in &variants {
+            let collides = |cfg: &[Attribute]| !cfg_variants_are_disjoint(cfg, &member.cfg_attrs);
+            if let Some((long, first, _)) = seen_long
+                .iter()
+                .find(|(long, _, cfg)| *long == member.name && collides(cfg))
+            {
+                return Err(dup(
+                    member.ident.span(),
+                    *first,
+                    &format!("--{long} names two of these members"),
+                ));
+            }
+            seen_long.push((&member.name, member.ident.span(), &member.cfg_attrs));
+            if let Some(short) = member.short {
+                if let Some((short, first, _)) = seen_short
+                    .iter()
+                    .find(|(seen, _, cfg)| *seen == short && collides(cfg))
+                {
+                    return Err(dup(
+                        member.ident.span(),
+                        *first,
+                        &format!("-{short} names two of these members"),
+                    ));
+                }
+                seen_short.push((short, member.ident.span(), &member.cfg_attrs));
+            }
+        }
+
+        Ok(ArgGroup {
+            ident: input.ident.clone(),
+            name,
+            fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
+            variants,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Cli, DoubleDash, Kind, Shape, Subcommands, ValueEnum};
+    use super::{ArgGroup, Cli, DoubleDash, Kind, Shape, Subcommands, ValueEnum};
 
     fn cli(body: &str) -> syn::Result<Cli> {
         Cli::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
@@ -6823,6 +7180,205 @@ mod tests {
             err.contains("names two of these values"),
             "unhelpful: {err}"
         );
+    }
+
+    fn arg_group(body: &str) -> syn::Result<ArgGroup> {
+        ArgGroup::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
+    }
+
+    /// The message a bad argument group produces.
+    fn group_rejection(body: &str) -> String {
+        match arg_group(body) {
+            Ok(_) => panic!("should not have compiled"),
+            Err(e) => e.to_string(),
+        }
+    }
+
+    #[test]
+    fn an_arg_group_names_itself_and_its_members_after_the_rust_names() {
+        let group = arg_group(
+            r#"
+            enum OutputFormat {
+                /// Print JSON
+                Json,
+                PlainText,
+            }
+        "#,
+        )
+        .expect("should compile");
+        assert_eq!(group.name, "output-format");
+        assert_eq!(group.variants[0].name, "json");
+        assert_eq!(group.variants[0].help.as_deref(), Some("Print JSON"));
+        assert!(group.variants[0].short.is_none());
+        assert_eq!(group.variants[1].name, "plain-text");
+    }
+
+    #[test]
+    fn an_arg_group_takes_a_declared_name_and_member_spellings() {
+        let group = arg_group(
+            r#"
+            #[usage(name = "format")]
+            enum OutputFormat {
+                #[usage(long = "--json", short = 'j')]
+                Json,
+                #[usage(name = "plain", hide, help = "One line per record")]
+                PlainText,
+            }
+        "#,
+        )
+        .expect("should compile");
+        assert_eq!(group.name, "format");
+        assert_eq!(group.variants[0].name, "json");
+        assert_eq!(group.variants[0].short, Some('j'));
+        assert_eq!(group.variants[1].name, "plain");
+        assert!(group.variants[1].hide);
+        assert_eq!(
+            group.variants[1].help.as_deref(),
+            Some("One line per record")
+        );
+    }
+
+    #[test]
+    fn an_arg_group_member_is_a_switch_and_holds_nothing() {
+        let err = group_rejection("enum Format { Json, Wrapped(String) }");
+        assert!(err.contains("bare name"), "unhelpful: {err}");
+        // And the message says where a valued member belongs, which is the useful half.
+        assert!(err.contains("conflicts"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn a_group_of_one_says_nothing_about_a_set() {
+        let err = group_rejection("enum Format { Json }");
+        assert!(err.contains("at least two members"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn a_group_has_no_default_member() {
+        let err = group_rejection(
+            r#"
+            enum Format {
+                #[usage(default)]
+                Json,
+                Yaml,
+            }
+        "#,
+        );
+        assert!(err.contains("no default member"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn two_members_cannot_answer_to_one_spelling() {
+        let err = group_rejection(
+            r#"
+            enum Format {
+                #[usage(name = "text")]
+                Plain,
+                #[usage(name = "text")]
+                Pretty,
+            }
+        "#,
+        );
+        assert!(err.contains("--text names two"), "unhelpful: {err}");
+
+        let err = group_rejection(
+            r#"
+            enum Format {
+                #[usage(short = 'j')]
+                Json,
+                #[usage(short = 'j')]
+                Jsonl,
+            }
+        "#,
+        );
+        assert!(err.contains("-j names two"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn a_conditional_member_keeps_its_cfg_for_static_emission() {
+        let group = arg_group(
+            r#"
+            enum Format {
+                Json,
+                #[cfg(windows)]
+                Clipboard,
+            }
+        "#,
+        )
+        .expect("conditional variants should compile");
+        assert!(group.variants[0].cfg_attrs.is_empty());
+        assert_eq!(group.variants[1].cfg_attrs.len(), 1);
+    }
+
+    #[test]
+    fn an_arg_group_needs_an_enum() {
+        let err = group_rejection("struct Format { json: bool }");
+        assert!(err.contains("needs an enum"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn an_arg_group_field_declares_nothing_of_its_own() {
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg_group, long)]
+                format: Option<Format>,
+            }
+        "#,
+        );
+        assert!(
+            err.contains("`arg_group` cannot be combined with `long`"),
+            "unhelpful: {err}"
+        );
+
+        // Including membership of a second group, which would give the same flags two.
+        let err = rejection(
+            r#"
+            struct Ex {
+                #[usage(arg_group, group = "other")]
+                format: Option<Format>,
+            }
+        "#,
+        );
+        assert!(err.contains("cannot be combined"), "unhelpful: {err}");
+    }
+
+    #[test]
+    fn an_arg_group_field_reads_required_ness_from_its_type() {
+        let parsed = cli(r#"
+            struct Ex {
+                #[usage(arg_group)]
+                format: Option<Format>,
+                #[usage(arg_group)]
+                source: Source,
+            }
+        "#)
+        .expect("should compile");
+        let Kind::ArgGroup { optional, .. } = &parsed.fields[0].kind else {
+            panic!("expected an argument group");
+        };
+        assert!(
+            optional,
+            "`Option<Format>` is a group that may be left alone"
+        );
+        let Kind::ArgGroup { optional, ty } = &parsed.fields[1].kind else {
+            panic!("expected an argument group");
+        };
+        assert!(!optional, "a bare `Source` is a group that has to be given");
+        assert_eq!(super::type_name(ty), "Source");
+
+        // And nothing wrapped around it, which the field says rather than the trait bound the
+        // generated code would otherwise fail.
+        for ty in ["Vec<Format>", "Option<Option<Format>>", "Box<Format>"] {
+            let err = rejection(&format!(
+                r#"
+                struct Ex {{
+                    #[usage(arg_group)]
+                    format: {ty},
+                }}
+            "#
+            ));
+            assert!(err.contains("at most one member"), "unhelpful: {err}");
+        }
     }
 
     /// The position rules, which each derive applies for the place it stands in.

@@ -96,6 +96,54 @@ Groups are emitted into the KDL spec
 command that flattens it. Malformed groups — one member, no members, declared twice, a group on
 a positional — are compile errors.
 
+## A group as an enum
+
+When every member is a valueless flag, the group can be the type instead: an enum deriving
+`ArgGroup`, whose variants are the flags. The code that reads it then matches on a variant
+rather than working out which of several `bool`s is set.
+
+```rust
+/// How to print the result
+#[derive(ArgGroup)]
+#[usage(name = "format")]
+enum Format {
+    /// Print JSON
+    Json,
+    /// Print YAML
+    Yaml,
+    /// Print one line per record
+    #[usage(short = 'p', long = "plain")]
+    PlainText,
+}
+
+#[derive(Cli)]
+#[usage(bin = "fmt")]
+struct Fmt {
+    #[usage(arg_group)]
+    format: Option<Format>,
+}
+```
+
+The variants are bare: each is one switch, named by its own name in kebab-case unless `long`
+or `name` says otherwise, with `short`, `hide`, `help` and `long_help` as the rest of what a
+switch has. A doc comment is the help. Without `#[usage(name = "…")]` the group is named after
+the type.
+
+The field's type says whether the group is required, exactly as it does everywhere else:
+`Option<Format>` is a group that may be left alone, and a bare `Format` is one that has to be
+given. There is no default variant, so that distinction is the only spelling of required-ness a
+group has.
+
+Nothing new reaches the spec. The enum lowers to the same `group` node
+(`group "format" "--json" "--yaml" "--plain"`), so `--json --yaml` is the same
+`ConflictingFlags` a hand-written group produces, a required group with none of its members
+given is the same `MissingGroup`, and help, docs and completions list the member flags without
+knowing an enum was involved.
+
+A member that takes a value stays a hand-written `conflicts` set or a
+[`ValueEnum`](/rust/subcommands#value-enums) on one flag, where the values have somewhere to
+land.
+
 ## Exclusive flags
 
 An `exclusive` flag has to be given alone — no other flag, no argument, no subcommand:

@@ -296,6 +296,7 @@
 //! | `double_dash = "…"` | how a positional relates to `--`: `optional` (the default), `required` (fillable only after one), `preserve` (the `--` is a value), `automatic` (filling it ends flag parsing, so a wrapper forwards) |
 //! | `complete = my_fn` | a function that answers for this value when a shell asks |
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |
+//! | `arg_group` | the flags come from the field's type, which derives [`ArgGroup`]; at most one may be given |
 //! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
 //! | `arg` | force a field to be positional |
 //! | `id = "name"` | clap-compatible spelling for the field identity / positional name |
@@ -357,6 +358,10 @@
 //! be given, so a bare group is "at most one", `required` alone is "exactly one", and the
 //! two together are "at least one" — clap's two properties, read the same way. A group
 //! with one member, or a declaration no field joins, is a compile error.
+//!
+//! A group of valueless flags may instead be an enum deriving [`ArgGroup`], held by one
+//! field marked `arg_group`, so the code reading it matches on a variant rather than on
+//! which of several `bool`s is set. It lowers to the same `group` node and the same errors.
 //!
 //! These post-parse relationships work on flags and positionals. `overrides` remains a
 //! flag-only binding rule. An argument ID such as `"mode"`, as clap attributes commonly
@@ -535,6 +540,58 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match model::ValueEnum::from_input(&input) {
         Ok(value_enum) => codegen::emit_value_enum(&value_enum).into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+/// Compile an enum into a set of flags at most one of which may be given.
+///
+/// clap's most-requested derive ergonomic (clap#2621): mutually exclusive flags as enum
+/// variants, so the code that reads them matches on a type rather than on which of several
+/// `bool`s is set. Each variant is one switch, named by its own name in kebab-case:
+///
+/// ```ignore
+/// /// How to print the result
+/// #[derive(usage::ArgGroup)]
+/// #[usage(name = "format")]
+/// enum Format {
+///     /// Print JSON
+///     Json,
+///     /// Print YAML
+///     Yaml,
+///     #[usage(short = 'p', long = "plain")]
+///     PlainText,
+/// }
+/// ```
+///
+/// A field holds one and says `arg_group`. `Option<Format>` is a group that may be left alone
+/// and a bare `Format` is one that has to be given — the same rule every other field's type is
+/// read by, and the only spelling of required-ness a group has, since there is no default
+/// variant:
+///
+/// ```ignore
+/// #[derive(usage::Cli)]
+/// #[usage(bin = "ex")]
+/// struct Ex {
+///     #[usage(arg_group)]
+///     format: Option<Format>,
+/// }
+/// ```
+///
+/// Nothing new reaches the spec: the enum lowers to the `group` node and the flags it names,
+/// so `--json --yaml` is the same [`Error::ConflictingFlags`](usage_argv::Error::ConflictingFlags)
+/// a hand-written group produces, and a missing member of a required one is the same
+/// [`Error::MissingGroup`](usage_argv::Error::MissingGroup). A member taking a value stays a
+/// hand-written `conflicts` set, where the values have somewhere to land.
+///
+/// A variant's doc comment becomes its help. `help = "..."`, `long_help = "..."`, `hide`, and
+/// `short = 'x'` are the rest of what a switch has; `cfg` and `cfg_attr` are copied to the
+/// variant's entries in the static tables, as [`ValueEnum`] copies them.
+#[proc_macro_derive(ArgGroup, attributes(usage, command, arg, group))]
+pub fn derive_arg_group(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match model::ArgGroup::from_input(&input) {
+        Ok(group) => codegen::emit_arg_group(&group).into(),
         Err(e) => e.to_compile_error().into(),
     }
 }

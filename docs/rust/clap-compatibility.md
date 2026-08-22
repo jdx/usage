@@ -92,7 +92,7 @@ the Rust declaration, not only from generated KDL, wherever the bridge column sa
 | `requires`                                           | yes       | yes       | yes       | yes       | yes     | usage-only | clap exposes setters but no getter.                                                                                     |
 | `requires_if(s)`                                     | yes       | yes       | yes       | yes       | yes     | usage-only | Presence and value-conditional forms are supported.                                                                     |
 | `required_if_eq`, `required_unless_present` families | exact     | exact     | exact     | exact     | exact   | usage-only | Single, any, and all truth tables work for flags and positionals; clap exposes setters but no getters.                  |
-| `ArgGroup`, required groups, `exclusive`             | yes       | yes       | yes       | yes       | yes     | yes        | Bare selectors preserve positional members.                                                                             |
+| `ArgGroup`, required groups, `exclusive`             | yes       | yes       | yes       | yes       | yes     | yes        | Bare selectors preserve positional members. A group of switches may also be declared as an enum (see Usage extensions). |
 | positional conflicts                                 | yes       | yes       | yes       | yes       | yes     | yes        | Bare selectors name positionals; dashed selectors name flags.                                                           |
 | other relationships declared on positionals          | partial   | partial   | partial   | partial   | partial | usage-only | `requires` and conditional requiredness work; binding-time `overrides` and value-source `requires_if` remain flag-only. |
 | relationships through `flatten`                      | lossy     | lossy     | yes       | yes       | yes     | lossy      | A declaring type cannot yet validate a selector supplied by a flattened sibling.                                        |
@@ -140,6 +140,13 @@ These are not clap compatibility gaps. usage additionally supports `mount`,
 `source_code_link_template`, Nushell completions,
 and a language-neutral conformance corpus. clap cannot express those properties, so
 a clap-generated spec cannot carry them without an overlay.
+
+`#[derive(usage::ArgGroup)]` is one more: a group of valueless flags declared as an
+enum of bare variants, held by an `Option<T>` field for an optional group or a bare `T`
+field for a required one. This is clap#2621, which clap has not implemented, so there is
+nothing for the bridge to recover; it lowers to the same `group` node and the same
+`ConflictingFlags` and `MissingGroup` errors a hand-written group produces, so every
+other layer sees an ordinary group.
 
 This matrix is the compatibility baseline, not a promise to reproduce clap's dynamic
 builder and `ArgMatches` architecture. Setter-only clap state remains explicitly

@@ -57,7 +57,7 @@ pub use usage_config as config;
 #[cfg(feature = "config")]
 pub use usage_derive::Config;
 #[cfg(feature = "spec")]
-pub use usage_derive::{Args, Cli, Subcommands, ValueEnum};
+pub use usage_derive::{ArgGroup, Args, Cli, Subcommands, ValueEnum};
 #[cfg(feature = "test")]
 pub use usage_test as test;
 #[cfg(feature = "validation")]

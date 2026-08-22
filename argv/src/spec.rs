@@ -2883,6 +2883,66 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
         .any(|choice| *choice == value || ignore_case && choice.eq_ignore_ascii_case(value))
 }
 
+/// An enum whose variants are one command's mutually exclusive switch flags.
+///
+/// What a CLI spells `--json` or `--yaml` and holds as a `Mode`, rather than as one `bool` per
+/// member plus a `match` over which of them is set. Nothing new reaches the spec: the enum
+/// lowers to a [`GroupMeta`] and the switches it names, so help, completions, and the
+/// reference implementation read the declaration every hand-written group does.
+///
+/// A field holding one says `#[usage(arg_group)]`. `Option<Mode>` is a group that may be left
+/// alone and a bare `Mode` is one that has to be given, which is how the rest of the derive
+/// reads required-ness from a type. There is no default variant, so required-ness has exactly
+/// one spelling.
+pub trait ArgGroup: Sized {
+    /// What the group is called, in the emitted spec and in a failed check.
+    const NAME: &'static str;
+    /// One switch per variant, to splice into the holding command's parse table.
+    ///
+    /// A `const` for the same reason [`CommandArgs::COMMAND`] is: the tables stay `static`
+    /// all the way down, so nothing is built at run time to start a parse.
+    const FLAGS: &'static [&'static Flag<'static>];
+    /// Metadata for [`FLAGS`](Self::FLAGS), in the same order.
+    const FLAG_METAS: &'static [FlagMeta<'static>];
+    /// The selectors naming [`FLAGS`](Self::FLAGS), for [`GroupMeta::members`].
+    const MEMBERS: &'static [&'static str];
+
+    /// Which members have been given so far. Partly-filled by construction, since a parse
+    /// can stop early.
+    type Partial: Default;
+
+    /// A fresh partial, with no member given.
+    ///
+    /// Nothing to prepare, unlike [`CommandArgs::start`]: a group has no default variant, so
+    /// there is no value that has to be in place before parsing begins.
+    fn start() -> Self::Partial {
+        Self::Partial::default()
+    }
+
+    /// Take one event, and say whether it named one of this group's flags.
+    ///
+    /// Keys are unique across a CLI, so an event that is not this group's is left for
+    /// whoever owns it.
+    fn apply(partial: &mut Self::Partial, event: &crate::Event<'_, '_, '_>) -> bool;
+
+    /// The first member this command line gave, if any.
+    ///
+    /// Named rather than a bare `bool`, so a parent enforcing `exclusive` across the group
+    /// can say which flag it collided with — exactly as [`CommandArgs::any_given`] does.
+    fn any_given(partial: &Self::Partial) -> Option<&'static str>;
+
+    /// The first two members given together, in declaration order.
+    ///
+    /// Exclusivity is the point of a group, so a second member is reported rather than
+    /// silently resolved to whichever came last, and the pair is what the user has to choose
+    /// between. Answered here rather than while binding for the same reason every other
+    /// relationship is: the second member may still be ahead of the first.
+    fn conflict(partial: &Self::Partial) -> Option<(&'static str, &'static str)>;
+
+    /// The variant that was selected, or `None` when no member was given.
+    fn build(partial: &Self::Partial) -> Option<Self>;
+}
+
 /// One value a flag was given, in a vocabulary this crate can hold.
 ///
 /// A settings layer is `usage-config`'s idea, and this crate does not know that crate exists —
