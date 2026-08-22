@@ -204,11 +204,11 @@ For a flag or arg whose values are a fixed set of words, derive `ValueEnum` inst
 #[derive(usage::ValueEnum)]
 enum Shell {
     /// Bourne Again shell
-    #[value(visible_alias = "b")]
+    #[usage(visible_alias = "b")]
     Bash,
-    #[value(alias = "shell-z", hide = true)]
+    #[usage(alias = "shell-z", hide = true)]
     Zsh,
-    #[value(name = "pwsh", help = "PowerShell")]
+    #[usage(name = "pwsh", help = "PowerShell")]
     PowerShell,
 }
 

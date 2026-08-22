@@ -1,17 +1,52 @@
 # Usage
 
-Usage is a spec and CLI for defining CLI tools. Arguments, flags, environment variables, and config files
-can all be defined in a Usage spec. It can be thought of like [OpenAPI (swagger)](https://www.openapis.org/)
-for CLIs. Here are some potential reasons for defining your CLI with a Usage spec:
+Usage is a spec, CLI, and Rust framework for defining command-line interfaces.
+Arguments, flags, environment variables, and config files can all be described in
+a portable KDL spec. Think of it as [OpenAPI](https://www.openapis.org/) for CLIs:
+one declaration can drive parsing and every user-facing artifact.
 
-- Generate autocompletion scripts
-- Generate markdown documentation
-- Generate man pages
-- Use an advanced arg parser in any language
-- Scaffold one spec into different CLI frameworks—even different languages
-- [coming soon] Host your CLI documentation on usage.sh
+- Generate shell completions
+- Generate Markdown documentation and man pages
+- Parse arguments from any language
+- Scaffold a spec into CLI frameworks in different languages
+- Build a typed Rust CLI with a zero-dependency runtime
 
 See more at [usage.jdx.dev](https://usage.jdx.dev/).
+
+## Rust framework
+
+Applications can use `usage-rs` to derive a typed parser and a portable Usage
+spec from the same Rust declaration:
+
+```toml
+[dependencies]
+usage = { package = "usage-rs", version = "6" }
+```
+
+```rust
+use usage::Cli;
+
+#[derive(Cli)]
+#[usage(bin = "example", version)]
+struct App {
+    /// Print more detail.
+    #[usage(short = 'v', long, count)]
+    verbose: u8,
+
+    /// Files to process.
+    files: Vec<String>,
+}
+
+fn main() {
+    let app = App::parse();
+    // app.verbose and app.files are ready to use
+}
+```
+
+Usage has its own derive vocabulary: use `#[usage(...)]` on commands, fields,
+and value variants. See the [Rust framework guide](https://usage.jdx.dev/rust/)
+and [clap migration guide](https://usage.jdx.dev/rust/migrating-from-clap) for
+the supported mappings and intentional differences.
 
 ## Sponsors
 
@@ -21,10 +56,10 @@ usage is sponsored by [entire.io](https://entire.io) and [37signals](https://37s
 
 ## Acknowledgements
 
-Usage's design owes a great deal to [clap](https://github.com/clap-rs/clap) — the
-derive attribute vocabulary, the help output shape, and the diagnostic conventions
-all follow it deliberately so clap CLIs can be ported field by field. clap's
-license is reproduced in [NOTICE.md](NOTICE.md).
+Usage's design owes a great deal to [clap](https://github.com/clap-rs/clap). Its
+help output and diagnostic conventions make clap migrations familiar, while
+Usage's native derive attributes reflect its portable spec model. clap's license
+is reproduced in [NOTICE.md](NOTICE.md).
 
 ## License
 

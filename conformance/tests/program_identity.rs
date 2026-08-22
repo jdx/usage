@@ -35,7 +35,7 @@ struct Busy {
 }
 
 #[derive(Cli)]
-#[command(no_binary_name)]
+#[usage(no_binary_name)]
 struct WordsOnly {
     #[usage(long)]
     plain: bool,
@@ -56,7 +56,7 @@ enum BusyCommand {
 struct ViewHost {
     #[usage(long, global)]
     verbose: bool,
-    #[arg(long = "build-info", action = clap::ArgAction::Version)]
+    #[usage(long = "build-info", action = clap::ArgAction::Version)]
     build_info: bool,
     #[usage(subcommand)]
     command: Option<ViewCommand>,

@@ -4,7 +4,7 @@ use usage::Spec;
 use usage_derive::{Args, Cli, Subcommands};
 
 #[derive(Cli)]
-#[command(
+#[usage(
     name = "canonical",
     bin = "canonical",
     version = "1.2.3",
@@ -12,14 +12,14 @@ use usage_derive::{Args, Cli, Subcommands};
 )]
 struct Ex {
     /// Number of jobs to run.
-    #[arg(short, long, global, env = "JOBS", default = "4")]
+    #[usage(short, long, global, env = "JOBS", default = "4")]
     jobs: usize,
 
     /// Select the output format.
-    #[arg(long, choices("human", "json"))]
+    #[usage(long, choices("human", "json"))]
     format: Option<String>,
 
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Commands,
 }
 
@@ -32,7 +32,7 @@ enum Commands {
 #[derive(Args)]
 struct Run {
     /// Configuration file.
-    #[arg(long)]
+    #[usage(long)]
     config: Option<String>,
 
     /// Task name.

@@ -147,19 +147,19 @@ pub struct ExportArgs {
 #[derive(ValueEnum)]
 pub enum ExportFormatValue {
     /// Environment variable format (KEY=value)
-    #[value(name = "env")]
+    #[usage(name = "env")]
     Env,
     /// POSIX shell format (export KEY=value)
-    #[value(name = "shell")]
+    #[usage(name = "shell")]
     Shell,
     /// JSON format
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
     /// YAML format
-    #[value(name = "yaml")]
+    #[usage(name = "yaml")]
     Yaml,
     /// TOML format
-    #[value(name = "toml")]
+    #[usage(name = "toml")]
     Toml,
 }
 
@@ -214,16 +214,16 @@ pub struct ImportArgs {
 #[derive(ValueEnum)]
 pub enum ImportFormatValue {
     /// Environment variable format (KEY=value)
-    #[value(name = "env")]
+    #[usage(name = "env")]
     Env,
     /// JSON format
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
     /// YAML format
-    #[value(name = "yaml")]
+    #[usage(name = "yaml")]
     Yaml,
     /// TOML format
-    #[value(name = "toml")]
+    #[usage(name = "toml")]
     Toml,
 }
 
@@ -281,11 +281,11 @@ pub struct LeaseCreateArgs {
 
 #[derive(ValueEnum)]
 pub enum LeaseCreateFormatValue {
-    #[value(name = "shell")]
+    #[usage(name = "shell")]
     Shell,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "env")]
+    #[usage(name = "env")]
     Env,
 }
 
@@ -380,79 +380,79 @@ pub struct ProviderAddArgs {
 #[derive(ValueEnum)]
 pub enum ProviderAddProviderTypeValue {
     /// 1Password
-    #[value(name = "1password")]
+    #[usage(name = "1password")]
     Value1,
     /// Age encryption
-    #[value(name = "age")]
+    #[usage(name = "age")]
     Age,
     /// AWS Secrets Manager
-    #[value(name = "aws")]
+    #[usage(name = "aws")]
     Aws,
     /// AWS KMS
-    #[value(name = "aws-kms")]
+    #[usage(name = "aws-kms")]
     AwsKms,
     /// AWS Parameter Store
-    #[value(name = "aws-ps")]
+    #[usage(name = "aws-ps")]
     AwsPs,
     /// Azure App Configuration
-    #[value(name = "azure-ac")]
+    #[usage(name = "azure-ac")]
     AzureAc,
     /// Azure Key Vault KMS
-    #[value(name = "azure-kms")]
+    #[usage(name = "azure-kms")]
     AzureKms,
     /// Azure Key Vault Secrets Manager
-    #[value(name = "azure-sm")]
+    #[usage(name = "azure-sm")]
     AzureSm,
     /// Google Cloud Secret Manager
-    #[value(name = "gcp")]
+    #[usage(name = "gcp")]
     Gcp,
     /// Google Cloud KMS
-    #[value(name = "gcp-kms")]
+    #[usage(name = "gcp-kms")]
     GcpKms,
     /// FIDO2 hmac-secret hardware-backed encryption
-    #[value(name = "fido2")]
+    #[usage(name = "fido2")]
     Fido2,
     /// Bitwarden Password Manager
-    #[value(name = "bitwarden")]
+    #[usage(name = "bitwarden")]
     Bitwarden,
     /// Doppler secrets manager
-    #[value(name = "doppler")]
+    #[usage(name = "doppler")]
     Doppler,
     /// FOKS (Federated Open Key Service)
-    #[value(name = "foks")]
+    #[usage(name = "foks")]
     Foks,
     /// Bitwarden Secrets Manager
-    #[value(name = "bitwarden-sm")]
+    #[usage(name = "bitwarden-sm")]
     BitwardenSm,
     /// Infisical
-    #[value(name = "infisical")]
+    #[usage(name = "infisical")]
     Infisical,
     /// KeePass
-    #[value(name = "keepass")]
+    #[usage(name = "keepass")]
     Keepass,
     /// Keeper Secrets Manager
-    #[value(name = "keeper-sm")]
+    #[usage(name = "keeper-sm")]
     KeeperSm,
     /// OS Keychain
-    #[value(name = "keychain")]
+    #[usage(name = "keychain")]
     Keychain,
     /// password-store (pass)
-    #[value(name = "password-store")]
+    #[usage(name = "password-store")]
     PasswordStore,
     /// Click Studios Passwordstate
-    #[value(name = "passwordstate")]
+    #[usage(name = "passwordstate")]
     Passwordstate,
     /// Plain text provider
-    #[value(name = "plain")]
+    #[usage(name = "plain")]
     Plain,
     /// Proton Pass
-    #[value(name = "proton-pass")]
+    #[usage(name = "proton-pass")]
     ProtonPass,
     /// HashiCorp Vault
-    #[value(name = "vault")]
+    #[usage(name = "vault")]
     Vault,
     /// YubiKey HMAC-SHA1 hardware-backed encryption
-    #[value(name = "yubikey")]
+    #[usage(name = "yubikey")]
     Yubikey,
 }
 
@@ -593,9 +593,9 @@ pub struct ScanArgs {
 
 #[derive(ValueEnum)]
 pub enum ScanFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
 }
 
@@ -647,11 +647,11 @@ pub struct SetArgs {
 
 #[derive(ValueEnum)]
 pub enum SetIfMissingValue {
-    #[value(name = "error")]
+    #[usage(name = "error")]
     Error,
-    #[value(name = "warn")]
+    #[usage(name = "warn")]
     Warn,
-    #[value(name = "ignore")]
+    #[usage(name = "ignore")]
     Ignore,
 }
 

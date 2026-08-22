@@ -245,10 +245,8 @@
 //! `source_code_link_template` — a tera template rendered with the command path as `path`,
 //! which generated markdown turns into a "view source" link — `about`,
 //! `long_about`, `before_help`, `after_help`,
-//! clap-compatible `visible_alias(es)`, hidden `alias(es)`, and `hide` may stay on an
+//! `visible_alias(es)`, hidden `alias(es)`, and `hide` may be declared on an
 //! `Args` struct and are inherited by every subcommand variant that mounts it —
-//! clap's `#[group(required = ..., multiple = ...)]` may also stay on an `Args`
-//! struct; its direct flags and positionals become the implicit group members —
 //! `verbatim_doc_comment` — preserve doc-comment line breaks and whitespace —
 //! `default_subcommand`, `multicall` — argv[0]'s basename selects a subcommand —
 //! `arg_required_else_help` — a selected command with no argv of its own shows short help —
@@ -270,9 +268,7 @@
 //!
 //! [Settings]: #settings-and-the-flags-that-set-them
 //!
-//! Named fields accept both `#[usage(...)]` and clap-compatible `#[arg(...)]`.
-//! Lossless clap spellings such as `id` and visible or hidden aliases may therefore stay in
-//! place while a CLI changes derives.
+//! Named fields accept metadata through `#[usage(...)]`.
 //!
 //! | option | meaning |
 //! | --- | --- |
@@ -301,18 +297,11 @@
 //! | `arg_group` | the flags come from the field's type, which derives [`ArgGroup`]; at most one may be given |
 //! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
 //! | `arg` | force a field to be positional |
-//! | `id = "name"` | clap-compatible spelling for the field identity / positional name |
-//! | `value_name = "NAME"` | clap-compatible positional name, or the placeholder for a flag value |
-//! | `default_value = "x"` | clap-compatible spelling for a portable `default` |
-//! | `default_missing_value = "x"` | clap-compatible spelling for `default_missing` |
-//! | `default_value_if("other", predicate, "x")` | clap-compatible conditional default for portable presence and equality predicates |
-//! | `value_delimiter = ','` | clap-compatible spelling for `delimiter` |
-//! | `value_parser = ["a", "b"]` | clap-compatible literal choice list; typed parsers remain the field type's `FromStr` |
-//! | `last` | clap-compatible spelling for a positional requiring `--` |
-//! | `visible_alias = "other"` | clap-compatible advertised long alias; the plural array spelling also works |
-//! | `alias = "other"` | clap-compatible hidden long alias; the plural array spelling also works |
+//! | `value_name = "NAME"` | a positional name, or the placeholder for a flag value |
+//! | `choices("a", "b")` | accepted values; typed conversion still uses the field type's `FromStr` |
+//! | `visible_alias = "other"` | an advertised long alias; the plural array spelling also works |
+//! | `alias = "other"` | a hidden long alias; the plural array spelling also works |
 //! | `overrides = "--other"` | a flag this one displaces, the last given winning |
-//! | `overrides_with = "other"` | clap-compatible spelling; `overrides_with_all = ["a", "b"]` also works |
 //! | `conflicts = "--other"` | an argument this one cannot be given with |
 //! | `requires = "--other"` | a flag that must also be given when this one is |
 //! | `requires_if("value", "--other")` | a flag required when this one explicitly has `value` |
@@ -330,8 +319,8 @@
 //! | `required_if_eq_any = [("mode", "a"), ("mode", "b")]` | any matching value makes this one necessary |
 //! | `required_if_eq_all = [("mode", "a"), ("scope", "global")]` | every value condition must match |
 //! | `required_unless = "--other"` | a flag whose presence makes this one unnecessary |
-//! | `required_unless_present_any = ["stdin", "file"]` | any present argument makes this unnecessary |
-//! | `required_unless_present_all = ["stdin", "file"]` | every named argument must be present |
+//! | `required_unless = ["stdin", "file"]` | any present argument makes this unnecessary |
+//! | `required_unless_all = ["stdin", "file"]` | every named argument must be present |
 //!
 //! These name a flag as `"--long"` or `"-s"`, and a positional by its bare name. They
 //! take several as a list: `conflicts("--file", "target")`. A selector naming no argument
@@ -424,7 +413,9 @@ mod crate_name;
 mod model;
 
 /// Compile a struct into a parser and a spec. See the [crate docs](crate).
-#[proc_macro_derive(Cli, attributes(usage, command, arg, group))]
+// Legacy helper names stay registered so the derive can reject them at their
+// source span with a `#[usage(...)]` migration message.
+#[proc_macro_derive(Cli, attributes(usage, command, arg, value, group))]
 pub fn derive_cli(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let parsed = model::Cli::from_input(&input)
@@ -443,7 +434,7 @@ pub fn derive_cli(input: TokenStream) -> TokenStream {
 /// tables and metadata as [`Cli`], minus the program-level parts a subcommand does
 /// not have — a name, a version, an entry point — plus the trait a parent uses to
 /// route events into it.
-#[proc_macro_derive(Args, attributes(usage, command, arg, group))]
+#[proc_macro_derive(Args, attributes(usage, command, arg, value, group))]
 pub fn derive_args(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     // `restart_token` and `mount` are per-command and belong here; `default_subcommand` is
@@ -460,13 +451,13 @@ pub fn derive_args(input: TokenStream) -> TokenStream {
 
 /// Compile an enum into a set of subcommands.
 ///
-/// Each variant may wrap a struct deriving [`Args`] or declare its fields inline,
-/// clap-style. A field holding this enum is marked `#[usage(subcommand)]`.
+/// Each variant may wrap a struct deriving [`Args`] or declare its fields inline.
+/// A field holding this enum is marked `#[usage(subcommand)]`.
 ///
 /// `#[usage(run)]`, `#[usage(run_with)]`, `#[usage(run_async)]` or `#[usage(run_async_with)]` on
 /// the enum also writes the `match` that hands the selected command to its implementation; see
 /// the [crate docs](crate#dispatch).
-#[proc_macro_derive(Subcommands, attributes(usage, command, arg))]
+#[proc_macro_derive(Subcommands, attributes(usage, command, arg, value, group))]
 pub fn derive_subcommands(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match model::Subcommands::from_input(&input) {
@@ -518,9 +509,9 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
 /// enum Shell {
 ///     /// Bourne Again shell.
 ///     Bash,
-///     #[value(alias = "shell-z")]
+///     #[usage(alias = "shell-z")]
 ///     Zsh,
-///     #[value(name = "pwsh", visible_alias = "powershell", hide = true)]
+///     #[usage(name = "pwsh", visible_alias = "powershell", hide = true)]
 ///     PowerShell,
 /// }
 /// ```
@@ -537,7 +528,7 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
 /// A field holding one says `value_enum`, which is what puts the words in the spec — so
 /// help, completions and the check that rejects a wrong word all read the same list, and
 /// none of them can drift from the type.
-#[proc_macro_derive(ValueEnum, attributes(usage, value))]
+#[proc_macro_derive(ValueEnum, attributes(usage, command, arg, value, group))]
 pub fn derive_value_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match model::ValueEnum::from_input(&input) {
@@ -591,7 +582,7 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
 /// A variant's doc comment becomes its help. `help = "..."`, `long_help = "..."`, `hide`, and
 /// `short = 'x'` are the rest of what a switch has; `cfg` and `cfg_attr` are copied to the
 /// variant's entries in the static tables, as [`ValueEnum`] copies them.
-#[proc_macro_derive(ArgGroup, attributes(usage, command, arg, group))]
+#[proc_macro_derive(ArgGroup, attributes(usage, command, arg, value, group))]
 pub fn derive_arg_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match model::ArgGroup::from_input(&input) {

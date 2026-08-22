@@ -33,11 +33,11 @@ pub struct ActivateArgs {
 
 #[derive(ValueEnum)]
 pub enum ActivateShellValue {
-    #[value(name = "bash")]
+    #[usage(name = "bash")]
     Bash,
-    #[value(name = "zsh")]
+    #[usage(name = "zsh")]
     Zsh,
-    #[value(name = "fish")]
+    #[usage(name = "fish")]
     Fish,
 }
 
@@ -349,11 +349,11 @@ pub struct CompletionArgs {
 
 #[derive(ValueEnum)]
 pub enum CompletionShellValue {
-    #[value(name = "bash")]
+    #[usage(name = "bash")]
     Bash,
-    #[value(name = "zsh")]
+    #[usage(name = "zsh")]
     Zsh,
-    #[value(name = "fish")]
+    #[usage(name = "fish")]
     Fish,
 }
 
@@ -440,21 +440,21 @@ pub struct ListArgs {
 
 #[derive(ValueEnum)]
 pub enum ListStatusValue {
-    #[value(name = "running")]
+    #[usage(name = "running")]
     Running,
-    #[value(name = "stopped")]
+    #[usage(name = "stopped")]
     Stopped,
-    #[value(name = "waiting")]
+    #[usage(name = "waiting")]
     Waiting,
-    #[value(name = "stopping")]
+    #[usage(name = "stopping")]
     Stopping,
-    #[value(name = "failed")]
+    #[usage(name = "failed")]
     Failed,
-    #[value(name = "errored")]
+    #[usage(name = "errored")]
     Errored,
-    #[value(name = "available")]
+    #[usage(name = "available")]
     Available,
-    #[value(name = "disabled")]
+    #[usage(name = "disabled")]
     Disabled,
 }
 

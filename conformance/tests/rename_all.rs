@@ -7,25 +7,25 @@ fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
 }
 
 #[derive(Cli)]
-#[command(bin = "ex", rename_all = "camelCase", rename_all_env = "kebab-case")]
+#[usage(bin = "ex", rename_all = "camelCase", rename_all_env = "kebab-case")]
 struct Renamed {
-    #[arg(long, env)]
+    #[usage(long, env)]
     api_token: Option<String>,
-    #[arg(env, id = "service_credential", long)]
+    #[usage(env, name = "service_credential", long)]
     credential: Option<String>,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Option<Commands>,
 }
 
 #[derive(Subcommands)]
-#[command(rename_all = "SCREAMING_SNAKE_CASE")]
+#[usage(rename_all = "SCREAMING_SNAKE_CASE")]
 enum Commands {
     ApiServer(ApiServer),
 }
 
 #[derive(Args)]
 struct ApiServer {
-    #[arg(long)]
+    #[usage(long)]
     ready: bool,
 }
 

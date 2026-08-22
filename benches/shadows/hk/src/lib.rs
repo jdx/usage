@@ -17,11 +17,11 @@ pub struct AgentHooksArgs {
 
 #[derive(ValueEnum)]
 pub enum AgentHooksTargetValue {
-    #[value(name = "codex")]
+    #[usage(name = "codex")]
     Codex,
-    #[value(name = "claude-code")]
+    #[usage(name = "claude-code")]
     ClaudeCode,
-    #[value(name = "vscode")]
+    #[usage(name = "vscode")]
     Vscode,
 }
 
@@ -35,11 +35,11 @@ pub struct AgentInstructionsArgs {
 
 #[derive(ValueEnum)]
 pub enum AgentInstructionsTargetValue {
-    #[value(name = "codex")]
+    #[usage(name = "codex")]
     Codex,
-    #[value(name = "claude-code")]
+    #[usage(name = "claude-code")]
     ClaudeCode,
-    #[value(name = "generic")]
+    #[usage(name = "generic")]
     Generic,
 }
 
@@ -53,13 +53,13 @@ pub struct AgentMcpArgs {
 
 #[derive(ValueEnum)]
 pub enum AgentMcpTargetValue {
-    #[value(name = "codex")]
+    #[usage(name = "codex")]
     Codex,
-    #[value(name = "claude-desktop")]
+    #[usage(name = "claude-desktop")]
     ClaudeDesktop,
-    #[value(name = "claude-code")]
+    #[usage(name = "claude-code")]
     ClaudeCode,
-    #[value(name = "vscode")]
+    #[usage(name = "vscode")]
     Vscode,
 }
 
@@ -251,11 +251,11 @@ pub struct CheckArgs {
 
 #[derive(ValueEnum)]
 pub enum CheckFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -483,11 +483,11 @@ pub struct FixArgs {
 
 #[derive(ValueEnum)]
 pub enum FixFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -742,11 +742,11 @@ pub struct RunCommitMsgArgs {
 
 #[derive(ValueEnum)]
 pub enum RunCommitMsgFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -900,11 +900,11 @@ pub struct RunPostCheckoutArgs {
 
 #[derive(ValueEnum)]
 pub enum RunPostCheckoutFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -1049,11 +1049,11 @@ pub struct RunPostCommitArgs {
 
 #[derive(ValueEnum)]
 pub enum RunPostCommitFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -1201,11 +1201,11 @@ pub struct RunPostMergeArgs {
 
 #[derive(ValueEnum)]
 pub enum RunPostMergeFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -1353,11 +1353,11 @@ pub struct RunPostRewriteArgs {
 
 #[derive(ValueEnum)]
 pub enum RunPostRewriteFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -1503,11 +1503,11 @@ pub struct RunPreCommitArgs {
 
 #[derive(ValueEnum)]
 pub enum RunPreCommitFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -1658,11 +1658,11 @@ pub struct RunPrePushArgs {
 
 #[derive(ValueEnum)]
 pub enum RunPrePushFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -1813,11 +1813,11 @@ pub struct RunPreRebaseArgs {
 
 #[derive(ValueEnum)]
 pub enum RunPreRebaseFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -1971,11 +1971,11 @@ pub struct RunPrepareCommitMsgArgs {
 
 #[derive(ValueEnum)]
 pub enum RunPrepareCommitMsgFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -2126,11 +2126,11 @@ pub struct RunArgs {
 
 #[derive(ValueEnum)]
 pub enum RunFormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 
@@ -2512,11 +2512,11 @@ pub struct Cli {
 
 #[derive(ValueEnum)]
 pub enum FormatValue {
-    #[value(name = "human")]
+    #[usage(name = "human")]
     Human,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "jsonl")]
+    #[usage(name = "jsonl")]
     Jsonl,
 }
 

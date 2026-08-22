@@ -454,62 +454,62 @@ pub struct Cli {
 
 #[derive(ValueEnum)]
 pub enum TypeValue {
-    #[value(name = "file", alias = "f")]
+    #[usage(name = "file", alias = "f")]
     File,
-    #[value(name = "directory", alias = "d", alias = "dir")]
+    #[usage(name = "directory", alias = "d", alias = "dir")]
     Directory,
-    #[value(name = "symlink", alias = "l")]
+    #[usage(name = "symlink", alias = "l")]
     Symlink,
-    #[value(name = "block-device", alias = "b")]
+    #[usage(name = "block-device", alias = "b")]
     BlockDevice,
-    #[value(name = "char-device", alias = "c")]
+    #[usage(name = "char-device", alias = "c")]
     CharDevice,
     /// A file which is executable by the current effective user
-    #[value(name = "executable", alias = "x")]
+    #[usage(name = "executable", alias = "x")]
     Executable,
-    #[value(name = "empty", alias = "e")]
+    #[usage(name = "empty", alias = "e")]
     Empty,
-    #[value(name = "socket", alias = "s")]
+    #[usage(name = "socket", alias = "s")]
     Socket,
-    #[value(name = "pipe", alias = "p")]
+    #[usage(name = "pipe", alias = "p")]
     Pipe,
 }
 
 #[derive(ValueEnum)]
 pub enum ColorValue {
     /// show colors if the output goes to an interactive console (default)
-    #[value(name = "auto")]
+    #[usage(name = "auto")]
     Auto,
     /// always use colorized output
-    #[value(name = "always")]
+    #[usage(name = "always")]
     Always,
     /// do not use colorized output
-    #[value(name = "never")]
+    #[usage(name = "never")]
     Never,
 }
 
 #[derive(ValueEnum)]
 pub enum HyperlinkValue {
     /// Use hyperlinks only if color is enabled
-    #[value(name = "auto")]
+    #[usage(name = "auto")]
     Auto,
     /// Always use hyperlinks when printing file paths
-    #[value(name = "always")]
+    #[usage(name = "always")]
     Always,
     /// Never use hyperlinks
-    #[value(name = "never")]
+    #[usage(name = "never")]
     Never,
 }
 
 #[derive(ValueEnum)]
 pub enum StripCwdPrefixValue {
     /// Use the default behavior
-    #[value(name = "auto")]
+    #[usage(name = "auto")]
     Auto,
     /// Always strip the ./ at the beginning of paths
-    #[value(name = "always")]
+    #[usage(name = "always")]
     Always,
     /// Never strip the ./
-    #[value(name = "never")]
+    #[usage(name = "never")]
     Never,
 }

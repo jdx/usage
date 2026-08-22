@@ -1290,77 +1290,77 @@ pub struct BootstrapRemoteArgs {
 
 #[derive(ValueEnum)]
 pub enum BootstrapRemoteOnlyValue {
-    #[value(name = "plugins")]
+    #[usage(name = "plugins")]
     Plugins,
-    #[value(name = "packages")]
+    #[usage(name = "packages")]
     Packages,
-    #[value(name = "accounts")]
+    #[usage(name = "accounts")]
     Accounts,
-    #[value(name = "files")]
+    #[usage(name = "files")]
     Files,
-    #[value(name = "services")]
+    #[usage(name = "services")]
     Services,
-    #[value(name = "firewall")]
+    #[usage(name = "firewall")]
     Firewall,
-    #[value(name = "compose")]
+    #[usage(name = "compose")]
     Compose,
-    #[value(name = "repos")]
+    #[usage(name = "repos")]
     Repos,
-    #[value(name = "dotfiles")]
+    #[usage(name = "dotfiles")]
     Dotfiles,
-    #[value(name = "mise-shell-activate", alias = "shell")]
+    #[usage(name = "mise-shell-activate", alias = "shell")]
     MiseShellActivate,
-    #[value(name = "macos-defaults", alias = "defaults")]
+    #[usage(name = "macos-defaults", alias = "defaults")]
     MacosDefaults,
-    #[value(name = "macos-launchd-agents", alias = "launchd")]
+    #[usage(name = "macos-launchd-agents", alias = "launchd")]
     MacosLaunchdAgents,
-    #[value(name = "linux-systemd-units", alias = "systemd")]
+    #[usage(name = "linux-systemd-units", alias = "systemd")]
     LinuxSystemdUnits,
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
-    #[value(name = "tools")]
+    #[usage(name = "tools")]
     Tools,
-    #[value(name = "task")]
+    #[usage(name = "task")]
     Task,
-    #[value(name = "final-hook")]
+    #[usage(name = "final-hook")]
     FinalHook,
 }
 
 #[derive(ValueEnum)]
 pub enum BootstrapRemoteSkipValue {
-    #[value(name = "plugins")]
+    #[usage(name = "plugins")]
     Plugins,
-    #[value(name = "packages")]
+    #[usage(name = "packages")]
     Packages,
-    #[value(name = "accounts")]
+    #[usage(name = "accounts")]
     Accounts,
-    #[value(name = "files")]
+    #[usage(name = "files")]
     Files,
-    #[value(name = "services")]
+    #[usage(name = "services")]
     Services,
-    #[value(name = "firewall")]
+    #[usage(name = "firewall")]
     Firewall,
-    #[value(name = "compose")]
+    #[usage(name = "compose")]
     Compose,
-    #[value(name = "repos")]
+    #[usage(name = "repos")]
     Repos,
-    #[value(name = "dotfiles")]
+    #[usage(name = "dotfiles")]
     Dotfiles,
-    #[value(name = "mise-shell-activate", alias = "shell")]
+    #[usage(name = "mise-shell-activate", alias = "shell")]
     MiseShellActivate,
-    #[value(name = "macos-defaults", alias = "defaults")]
+    #[usage(name = "macos-defaults", alias = "defaults")]
     MacosDefaults,
-    #[value(name = "macos-launchd-agents", alias = "launchd")]
+    #[usage(name = "macos-launchd-agents", alias = "launchd")]
     MacosLaunchdAgents,
-    #[value(name = "linux-systemd-units", alias = "systemd")]
+    #[usage(name = "linux-systemd-units", alias = "systemd")]
     LinuxSystemdUnits,
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
-    #[value(name = "tools")]
+    #[usage(name = "tools")]
     Tools,
-    #[value(name = "task")]
+    #[usage(name = "task")]
     Task,
-    #[value(name = "final-hook")]
+    #[usage(name = "final-hook")]
     FinalHook,
 }
 
@@ -1681,77 +1681,77 @@ pub struct BootstrapArgs {
 
 #[derive(ValueEnum)]
 pub enum BootstrapOnlyValue {
-    #[value(name = "plugins")]
+    #[usage(name = "plugins")]
     Plugins,
-    #[value(name = "packages")]
+    #[usage(name = "packages")]
     Packages,
-    #[value(name = "accounts")]
+    #[usage(name = "accounts")]
     Accounts,
-    #[value(name = "files")]
+    #[usage(name = "files")]
     Files,
-    #[value(name = "services")]
+    #[usage(name = "services")]
     Services,
-    #[value(name = "firewall")]
+    #[usage(name = "firewall")]
     Firewall,
-    #[value(name = "compose")]
+    #[usage(name = "compose")]
     Compose,
-    #[value(name = "repos")]
+    #[usage(name = "repos")]
     Repos,
-    #[value(name = "dotfiles")]
+    #[usage(name = "dotfiles")]
     Dotfiles,
-    #[value(name = "mise-shell-activate", alias = "shell")]
+    #[usage(name = "mise-shell-activate", alias = "shell")]
     MiseShellActivate,
-    #[value(name = "macos-defaults", alias = "defaults")]
+    #[usage(name = "macos-defaults", alias = "defaults")]
     MacosDefaults,
-    #[value(name = "macos-launchd-agents", alias = "launchd")]
+    #[usage(name = "macos-launchd-agents", alias = "launchd")]
     MacosLaunchdAgents,
-    #[value(name = "linux-systemd-units", alias = "systemd")]
+    #[usage(name = "linux-systemd-units", alias = "systemd")]
     LinuxSystemdUnits,
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
-    #[value(name = "tools")]
+    #[usage(name = "tools")]
     Tools,
-    #[value(name = "task")]
+    #[usage(name = "task")]
     Task,
-    #[value(name = "final-hook")]
+    #[usage(name = "final-hook")]
     FinalHook,
 }
 
 #[derive(ValueEnum)]
 pub enum BootstrapSkipValue {
-    #[value(name = "plugins")]
+    #[usage(name = "plugins")]
     Plugins,
-    #[value(name = "packages")]
+    #[usage(name = "packages")]
     Packages,
-    #[value(name = "accounts")]
+    #[usage(name = "accounts")]
     Accounts,
-    #[value(name = "files")]
+    #[usage(name = "files")]
     Files,
-    #[value(name = "services")]
+    #[usage(name = "services")]
     Services,
-    #[value(name = "firewall")]
+    #[usage(name = "firewall")]
     Firewall,
-    #[value(name = "compose")]
+    #[usage(name = "compose")]
     Compose,
-    #[value(name = "repos")]
+    #[usage(name = "repos")]
     Repos,
-    #[value(name = "dotfiles")]
+    #[usage(name = "dotfiles")]
     Dotfiles,
-    #[value(name = "mise-shell-activate", alias = "shell")]
+    #[usage(name = "mise-shell-activate", alias = "shell")]
     MiseShellActivate,
-    #[value(name = "macos-defaults", alias = "defaults")]
+    #[usage(name = "macos-defaults", alias = "defaults")]
     MacosDefaults,
-    #[value(name = "macos-launchd-agents", alias = "launchd")]
+    #[usage(name = "macos-launchd-agents", alias = "launchd")]
     MacosLaunchdAgents,
-    #[value(name = "linux-systemd-units", alias = "systemd")]
+    #[usage(name = "linux-systemd-units", alias = "systemd")]
     LinuxSystemdUnits,
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
-    #[value(name = "tools")]
+    #[usage(name = "tools")]
     Tools,
-    #[value(name = "task")]
+    #[usage(name = "task")]
     Task,
-    #[value(name = "final-hook")]
+    #[usage(name = "final-hook")]
     FinalHook,
 }
 
@@ -2010,19 +2010,19 @@ pub struct ConfigSetArgs {
 
 #[derive(ValueEnum)]
 pub enum ConfigSetTypeValue {
-    #[value(name = "infer")]
+    #[usage(name = "infer")]
     Infer,
-    #[value(name = "string")]
+    #[usage(name = "string")]
     String,
-    #[value(name = "integer")]
+    #[usage(name = "integer")]
     Integer,
-    #[value(name = "float")]
+    #[usage(name = "float")]
     Float,
-    #[value(name = "bool")]
+    #[usage(name = "bool")]
     Bool,
-    #[value(name = "list")]
+    #[usage(name = "list")]
     List,
-    #[value(name = "set")]
+    #[usage(name = "set")]
     Set,
 }
 
@@ -2678,9 +2678,9 @@ pub struct GenerateTaskDocsArgs {
 
 #[derive(ValueEnum)]
 pub enum GenerateTaskDocsStyleValue {
-    #[value(name = "simple")]
+    #[usage(name = "simple")]
     Simple,
-    #[value(name = "detailed")]
+    #[usage(name = "detailed")]
     Detailed,
 }
 
@@ -2814,9 +2814,9 @@ pub struct GenerateToolStubArgs {
 
 #[derive(ValueEnum)]
 pub enum GenerateToolStubChecksumAlgorithmValue {
-    #[value(name = "blake3")]
+    #[usage(name = "blake3")]
     Blake3,
-    #[value(name = "sha256")]
+    #[usage(name = "sha256")]
     Sha256,
 }
 
@@ -2963,9 +2963,9 @@ pub struct HookEnvArgs {
 
 #[derive(ValueEnum)]
 pub enum HookEnvReasonValue {
-    #[value(name = "precmd")]
+    #[usage(name = "precmd")]
     Precmd,
-    #[value(name = "chpwd")]
+    #[usage(name = "chpwd")]
     Chpwd,
 }
 
@@ -3601,11 +3601,11 @@ pub struct OciRunArgs {
 
 #[derive(ValueEnum)]
 pub enum OciRunEngineValue {
-    #[value(name = "auto")]
+    #[usage(name = "auto")]
     Auto,
-    #[value(name = "podman")]
+    #[usage(name = "podman")]
     Podman,
-    #[value(name = "docker")]
+    #[usage(name = "docker")]
     Docker,
 }
 
@@ -4362,19 +4362,19 @@ pub struct RunArgs {
 #[derive(ValueEnum)]
 pub enum RunTaskCacheValue {
     /// Read cached results and write new results.
-    #[value(name = "read-write")]
+    #[usage(name = "read-write")]
     ReadWrite,
     /// Read cached results without writing new results.
-    #[value(name = "read-only")]
+    #[usage(name = "read-only")]
     ReadOnly,
     /// Write new results without reading cached results.
-    #[value(name = "write-only")]
+    #[usage(name = "write-only")]
     WriteOnly,
     /// Disable task output caching for this run.
-    #[value(name = "off")]
+    #[usage(name = "off")]
     Off,
     /// Read and write only the local cache.
-    #[value(name = "local-only")]
+    #[usage(name = "local-only")]
     LocalOnly,
 }
 
@@ -4415,11 +4415,11 @@ pub struct SearchArgs {
 
 #[derive(ValueEnum)]
 pub enum SearchMatchTypeValue {
-    #[value(name = "equal")]
+    #[usage(name = "equal")]
     Equal,
-    #[value(name = "contains")]
+    #[usage(name = "contains")]
     Contains,
-    #[value(name = "fuzzy")]
+    #[usage(name = "fuzzy")]
     Fuzzy,
 }
 
@@ -5080,21 +5080,21 @@ pub struct TasksLsArgs {
 
 #[derive(ValueEnum)]
 pub enum TasksLsSortValue {
-    #[value(name = "name")]
+    #[usage(name = "name")]
     Name,
-    #[value(name = "alias")]
+    #[usage(name = "alias")]
     Alias,
-    #[value(name = "description")]
+    #[usage(name = "description")]
     Description,
-    #[value(name = "source")]
+    #[usage(name = "source")]
     Source,
 }
 
 #[derive(ValueEnum)]
 pub enum TasksLsSortOrderValue {
-    #[value(name = "asc")]
+    #[usage(name = "asc")]
     Asc,
-    #[value(name = "desc")]
+    #[usage(name = "desc")]
     Desc,
 }
 
@@ -5320,19 +5320,19 @@ pub struct TasksRunArgs {
 #[derive(ValueEnum)]
 pub enum TasksRunTaskCacheValue {
     /// Read cached results and write new results.
-    #[value(name = "read-write")]
+    #[usage(name = "read-write")]
     ReadWrite,
     /// Read cached results without writing new results.
-    #[value(name = "read-only")]
+    #[usage(name = "read-only")]
     ReadOnly,
     /// Write new results without reading cached results.
-    #[value(name = "write-only")]
+    #[usage(name = "write-only")]
     WriteOnly,
     /// Disable task output caching for this run.
-    #[value(name = "off")]
+    #[usage(name = "off")]
     Off,
     /// Read and write only the local cache.
-    #[value(name = "local-only")]
+    #[usage(name = "local-only")]
     LocalOnly,
 }
 
@@ -5407,21 +5407,21 @@ pub struct TasksArgs {
 
 #[derive(ValueEnum)]
 pub enum TasksSortValue {
-    #[value(name = "name")]
+    #[usage(name = "name")]
     Name,
-    #[value(name = "alias")]
+    #[usage(name = "alias")]
     Alias,
-    #[value(name = "description")]
+    #[usage(name = "description")]
     Description,
-    #[value(name = "source")]
+    #[usage(name = "source")]
     Source,
 }
 
 #[derive(ValueEnum)]
 pub enum TasksSortOrderValue {
-    #[value(name = "asc")]
+    #[usage(name = "asc")]
     Asc,
-    #[value(name = "desc")]
+    #[usage(name = "desc")]
     Desc,
 }
 
@@ -6666,73 +6666,73 @@ pub struct WatchArgs {
 
 #[derive(ValueEnum)]
 pub enum WatchClearValue {
-    #[value(name = "clear")]
+    #[usage(name = "clear")]
     Clear,
-    #[value(name = "reset")]
+    #[usage(name = "reset")]
     Reset,
 }
 
 #[derive(ValueEnum)]
 pub enum WatchOnBusyUpdateValue {
-    #[value(name = "queue")]
+    #[usage(name = "queue")]
     Queue,
-    #[value(name = "do-nothing")]
+    #[usage(name = "do-nothing")]
     DoNothing,
-    #[value(name = "restart")]
+    #[usage(name = "restart")]
     Restart,
-    #[value(name = "signal")]
+    #[usage(name = "signal")]
     Signal,
 }
 
 #[derive(ValueEnum)]
 pub enum WatchEmitEventsToValue {
-    #[value(name = "environment")]
+    #[usage(name = "environment")]
     Environment,
-    #[value(name = "stdio")]
+    #[usage(name = "stdio")]
     Stdio,
-    #[value(name = "file")]
+    #[usage(name = "file")]
     File,
-    #[value(name = "json-stdio")]
+    #[usage(name = "json-stdio")]
     JsonStdio,
-    #[value(name = "json-file")]
+    #[usage(name = "json-file")]
     JsonFile,
-    #[value(name = "none")]
+    #[usage(name = "none")]
     None,
 }
 
 #[derive(ValueEnum)]
 pub enum WatchWrapProcessValue {
-    #[value(name = "group")]
+    #[usage(name = "group")]
     Group,
-    #[value(name = "session")]
+    #[usage(name = "session")]
     Session,
-    #[value(name = "none")]
+    #[usage(name = "none")]
     None,
 }
 
 #[derive(ValueEnum)]
 pub enum WatchColorValue {
-    #[value(name = "auto")]
+    #[usage(name = "auto")]
     Auto,
-    #[value(name = "always")]
+    #[usage(name = "always")]
     Always,
-    #[value(name = "never")]
+    #[usage(name = "never")]
     Never,
 }
 
 #[derive(ValueEnum)]
 pub enum WatchFsEventsValue {
-    #[value(name = "access")]
+    #[usage(name = "access")]
     Access,
-    #[value(name = "create")]
+    #[usage(name = "create")]
     Create,
-    #[value(name = "remove")]
+    #[usage(name = "remove")]
     Remove,
-    #[value(name = "rename")]
+    #[usage(name = "rename")]
     Rename,
-    #[value(name = "modify")]
+    #[usage(name = "modify")]
     Modify,
-    #[value(name = "metadata")]
+    #[usage(name = "metadata")]
     Metadata,
 }
 
@@ -6957,15 +6957,15 @@ pub struct Cli {
 
 #[derive(ValueEnum)]
 pub enum LogLevelValue {
-    #[value(name = "trace")]
+    #[usage(name = "trace")]
     Trace,
-    #[value(name = "debug")]
+    #[usage(name = "debug")]
     Debug,
-    #[value(name = "info")]
+    #[usage(name = "info")]
     Info,
-    #[value(name = "warning")]
+    #[usage(name = "warning")]
     Warning,
-    #[value(name = "error")]
+    #[usage(name = "error")]
     Error,
 }
 
