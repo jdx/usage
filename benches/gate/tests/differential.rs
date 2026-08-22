@@ -353,8 +353,8 @@ fn explained(o: Outcome) -> Option<&'static str> {
         // Not a dropped declaration — the shadow's `--profile` carries `conflicts: ["env"]`, and
         // clap enforces it perfectly well when both flags land on the same command, whether that
         // is the root or `config set`. What it does not do is check a pair a *global* spread
-        // across a boundary, which is clap#1546 and one of the requests `PLAN.md` records usage as
-        // already answering: globals go through the same post-binding checks as everything else.
+        // across a boundary, which is clap#1546 and one of the requests usage already
+        // answers: globals go through the same post-binding checks as everything else.
         //
         // So this is the one arm here where the disagreement is a difference an adopter feels
         // going the *strict* way — a line clap accepted stops being accepted. Recorded rather
@@ -387,7 +387,7 @@ fn explained(o: Outcome) -> Option<&'static str> {
 
         // Both usage parsers accept an unknown flag where clap refuses it: mise's spec lets an
         // unrecognised flag fall through to a positional, so `mise dotfiles status --stdin`
-        // binds `--stdin` as a value rather than failing. PLAN.md carries this as an open
+        // binds `--stdin` as a value rather than failing. That remains an open product
         // decision — mise parses *task* arguments with this parser at run time, so refusing an
         // undeclared flag would change what a task accepts, not only what a completion offers.
         //

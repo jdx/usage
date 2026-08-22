@@ -21,7 +21,7 @@ rules is the arrangement that produced every drift this project has had to chase
 renderers agreed on mise and differed on five of the other six CLIs until #972 held them to one
 fixture.
 
-It also closes the two easier thirds of PLAN.md's "not covered by the corpus yet": completion
+It also closes the two easier thirds of the corpus gaps that were still open: completion
 parsing, which is `parse_partial` over deliberately incomplete input, and restart tokens, which
 only matter at a cursor. Mounts remain uncovered, and deliberately — resolving one _runs a
 command_, which a corpus cannot do hermetically. The differential fuzzer learned that the
