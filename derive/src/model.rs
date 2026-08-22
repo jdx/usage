@@ -1581,51 +1581,47 @@ impl Cli {
             }
         }
 
-        // What `run` on a *struct* can generate is a forwarder to its subcommands, and only
-        // that: a struct that declares arguments of its own has to decide what to do with
-        // them, and a generated `run` that quietly dropped them would be a wrong program
-        // rather than a missing one. So the attribute belongs on a container — the
-        // `config`-style group that is nothing but its subcommand field — and every other
-        // shape says so where it is written, next to the alternative, which is to implement
-        // the trait by hand.
+        // What `run` on a *struct* can generate is a forwarder to its subcommands. A
+        // container that holds only that field implements the trait; a root that also
+        // declares flags gets `run_command`, which moves the subcommand out and leaves the
+        // flags for the caller. An `Option` subcommand still has a state — no command at
+        // all — that nothing generated can decide, so that shape implements the trait by
+        // hand.
         if self.dispatch.any() {
             let span = self.attr_span.unwrap_or_else(Span::call_site);
-            // Quoted back rather than hardcoded, so an author who wrote `run_async_with` is not
-            // told about `run`.
             let (attr, dispatch_trait) = self.dispatch.named();
-            match self.fields.iter().find(|field| {
-                !matches!(
+            let required_sub = self.fields.iter().any(|field| {
+                matches!(
                     field.kind,
                     Kind::Subcommand {
                         optional: false,
                         ..
                     }
                 )
-            }) {
-                Some(field) => {
-                    return Err(syn::Error::new(
-                        field.span,
+            });
+            if !required_sub {
+                let optional = self
+                    .fields
+                    .iter()
+                    .any(|field| matches!(field.kind, Kind::Subcommand { optional: true, .. }));
+                return Err(syn::Error::new(
+                    span,
+                    if optional {
                         format!(
                             "`{attr}` on a struct forwards to its subcommands and can do \
-                             nothing else, so the struct holds one field: its subcommands, not \
-                             in an `Option`. A command that has arguments of its own — or that \
-                             decides what no subcommand means — implements `{dispatch_trait}` \
-                             itself, and forwarding to the field is what this would have written"
-                        ),
-                    ));
-                }
-                None if self.fields.is_empty() => {
-                    return Err(syn::Error::new(
-                        span,
+                             nothing else, so the subcommand is not in an `Option`. A command \
+                             that decides what no subcommand means implements `{dispatch_trait}` \
+                             itself"
+                        )
+                    } else {
                         format!(
                             "`{attr}` on a struct forwards to its subcommands, and this struct \
                              has none. A command that does the work itself implements \
                              `{dispatch_trait}` for it: that is the point the generated dispatch \
                              calls"
-                        ),
-                    ));
-                }
-                None => {}
+                        )
+                    },
+                ));
             }
         }
 
@@ -4898,6 +4894,11 @@ pub struct Subcommands {
     /// for it is also what makes a variant that cannot be dispatched an error where it is
     /// declared rather than a missing implementation somewhere else.
     pub dispatch: Dispatch,
+    /// The `Output` every arm has to produce, when the enum names it rather than taking it
+    /// from the first command.
+    pub dispatch_output: Option<syn::Type>,
+    /// Called with the unmatched argv of an `external_subcommand` variant.
+    pub dispatch_external: Option<syn::Path>,
 }
 
 /// Which of the four dispatches a command or a command set asked the derive to write.
@@ -4941,16 +4942,26 @@ impl Dispatch {
 ///
 /// The enum's name is in it because two enums in one module may each declare a `Sponsors`, and
 /// two structs of one name is a worse error than the one this is avoiding.
-fn unit_struct_ident(enum_ident: &syn::Ident, variant: &syn::Ident) -> syn::Ident {
+///
+/// When the enum is dispatched, the name is `{Enum}{Variant}` — `CommandSponsors` — so the
+/// command can implement `Run` on a type it can spell. Otherwise the struct stays hidden
+/// under a length-prefixed name nothing else should mention: length-prefixed rather than
+/// concatenated, because `Foo::BarBaz` and `FooBar::Baz` both read as `FooBarBaz`, and an
+/// underscore between the parts would land a `non_camel_case_types` warning in the adopter's
+/// crate about a type they never wrote.
+fn unit_struct_ident(
+    enum_ident: &syn::Ident,
+    variant: &syn::Ident,
+    for_dispatch: bool,
+) -> syn::Ident {
     // `unraw` first: a raw identifier prints as `r#type`, and `Ident::new` *panics* on the
     // `#` — a proc-macro panic, which is the worst way for a CLI to learn it used a keyword
     // for a command name.
     let enum_name = enum_ident.unraw();
     let variant_name = variant.unraw();
-    // Length-prefixed rather than separated: plain concatenation is ambiguous — `Foo::BarBaz`
-    // and `FooBar::Baz` both read as `FooBarBaz` — and an underscore between the parts would
-    // land a `non_camel_case_types` warning in the adopter's crate about a type they never
-    // wrote. A count is unambiguous and still spells a name Rust is happy with.
+    if for_dispatch {
+        return syn::Ident::new(&format!("{enum_name}{variant_name}"), variant.span());
+    }
     let n = enum_name.to_string().chars().count();
     syn::Ident::new(
         &format!("__Usage{n}{enum_name}{variant_name}"),
@@ -4991,6 +5002,13 @@ pub struct Variant {
     /// Fields declared directly on a struct-style enum variant. They are copied
     /// into a generated Args struct, then moved back into the enum after binding.
     pub inline_fields: Option<Vec<syn::Field>>,
+    /// `#[usage(run)]` on a variant: this command is synchronous even when the enum awaits.
+    pub run_sync: bool,
+    /// `#[usage(run_async)]` on a variant: this command is awaited. Requires `run_async` on
+    /// the enum.
+    pub run_async: bool,
+    /// `#[usage(no_ctx)]`: this command does not take the context the rest of the enum does.
+    pub no_ctx: bool,
     /// The struct the variant wraps, with any `Box` taken off.
     ///
     /// Everything generated speaks to the struct — its tables, its partial, its `build` —
@@ -5047,6 +5065,8 @@ impl Subcommands {
 
         let mut rename_all = None;
         let mut dispatch = Dispatch::default();
+        let mut dispatch_output = None;
+        let mut dispatch_external = None;
         for attr in attrs(&input.attrs) {
             for meta in nested(attr)? {
                 let path = meta.path().clone();
@@ -5056,13 +5076,24 @@ impl Subcommands {
                     "run_with" => dispatch.run_with = flag_value(&meta)?,
                     "run_async" => dispatch.run_async = flag_value(&meta)?,
                     "run_async_with" => dispatch.run_async_with = flag_value(&meta)?,
+                    "output" => {
+                        let value = &meta.require_name_value()?.value;
+                        dispatch_output =
+                            Some(syn::parse2(quote::ToTokens::to_token_stream(value))?);
+                    }
+                    "external" => {
+                        let value = &meta.require_name_value()?.value;
+                        dispatch_external =
+                            Some(syn::parse2(quote::ToTokens::to_token_stream(value))?);
+                    }
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!(
                                 "unknown option `{other}` on a subcommand enum; \
                                  usage::Subcommands takes `rename_all`, `run`, \
-                                 `run_with`, `run_async` and `run_async_with` here"
+                                 `run_with`, `run_async`, `run_async_with`, \
+                                 `output` and `external` here"
                             ),
                         ));
                     }
@@ -5073,7 +5104,7 @@ impl Subcommands {
         let variants = data
             .variants
             .iter()
-            .map(|v| Variant::from_variant(v, &input.ident, rename_all))
+            .map(|v| Variant::from_variant(v, &input.ident, rename_all, dispatch.any()))
             .collect::<syn::Result<Vec<_>>>()?;
         for v in &variants {
             if v.effect.is_some() && !v.unit && v.inline_fields.is_none() {
@@ -5124,54 +5155,95 @@ impl Subcommands {
             // Quoted back rather than hardcoded, so an author who wrote `run_async_with` is not
             // told about `run`.
             let (attr, dispatch_trait) = dispatch.named();
-            // A dispatch is a `match` over the variants, so every variant has to name
-            // something that can run. An `external_subcommand` variant names argv — the words
-            // nothing here claimed — and there is no type to implement the trait for, so the
-            // enum keeps its hand-written match rather than getting a generated one that
-            // cannot be exhaustive.
-            if let Some(external) = variants.iter().find(|v| v.external) {
-                return Err(syn::Error::new_spanned(
-                    &external.ident,
-                    format!(
-                        "`{attr}` generates a match over every variant, and this one holds the \
-                         argv of a command that is not declared here — there is nothing to \
-                         implement `{dispatch_trait}` for. Write the match by hand, or move the \
-                         catch-all out of the dispatched enum"
-                    ),
-                ));
-            }
+            let has_async = dispatch.run_async || dispatch.run_async_with;
+            let has_ctx = dispatch.run_with || dispatch.run_async_with;
             if variants.is_empty() {
                 return Err(syn::Error::new_spanned(
                     &input.ident,
                     format!("`{attr}` generates a match over the variants, and this enum has none"),
                 ));
             }
-            // A dispatched arm hands the command's own value to the trait, so the variant has
-            // to hold a type the CLI can write an implementation for. A bare variant and a
-            // variant declaring its fields inline are both served by a struct this derive
-            // writes for them, under a name nothing else can name — so the command that has
-            // work to do says where that work lives by holding its `Args` struct.
-            if let Some(variant) = variants
-                .iter()
-                .find(|v| v.unit || v.inline_fields.is_some())
-            {
+            // A catch-all holds argv, not a command struct. The generated match calls the
+            // function named here rather than a trait the words could not implement.
+            let externals: Vec<_> = variants.iter().filter(|v| v.external).collect();
+            if let Some(external) = externals.first() {
+                if dispatch_external.is_none() {
+                    return Err(syn::Error::new_spanned(
+                        &external.ident,
+                        format!(
+                            "`{attr}` generates a match over every variant, and this one holds \
+                             the argv of a command that is not declared here — name the function \
+                             that should receive those words: `#[{attr}, external = fallback]`, \
+                             or leave `{attr}` off and write the match by hand"
+                        ),
+                    ));
+                }
+            } else if dispatch_external.is_some() {
                 return Err(syn::Error::new_spanned(
-                    &variant.ident,
+                    &input.ident,
+                    "`external` names the function that receives an `external_subcommand` \
+                     variant's argv, and this enum has no such variant",
+                ));
+            }
+            if dispatch_output.is_none() && variants.iter().all(|v| v.external) {
+                return Err(syn::Error::new_spanned(
+                    &input.ident,
                     format!(
-                        "a dispatched command holds the struct its work is implemented on, and \
-                         this variant holds nothing this crate can name: write \
-                         `#[derive(usage::Args)] struct Sponsors;` and hold it — \
-                         `Sponsors(Sponsors)` — or leave `{attr}` off and write the match by \
-                         hand"
+                        "`{attr}` takes its `Output` from the first command, and every variant \
+                         here is a catch-all — name the type with `output = …`"
                     ),
                 ));
             }
+            if dispatch.run && has_async && variants.iter().any(|v| v.run_sync) {
+                return Err(syn::Error::new_spanned(
+                    &input.ident,
+                    "`run` and `run_async` on one enum generate two methods, and a command \
+                     marked `#[usage(run)]` is only reachable from the async one — leave `run` \
+                     off this enum and call `run_async`",
+                ));
+            }
+            for v in &variants {
+                if v.run_async && !has_async {
+                    return Err(syn::Error::new_spanned(
+                        &v.ident,
+                        format!(
+                            "`run_async` on a variant is awaited by the generated dispatch, so \
+                             the enum has to say `run_async` (or `run_async_with`) too — or \
+                             leave it off `{attr}` and write the match by hand"
+                        ),
+                    ));
+                }
+                if v.no_ctx && !has_ctx {
+                    return Err(syn::Error::new_spanned(
+                        &v.ident,
+                        format!(
+                            "`no_ctx` skips the context `{dispatch_trait}` would have handed \
+                             this command, so the enum has to say `run_with` or `run_async_with`"
+                        ),
+                    ));
+                }
+                if v.external && (v.run_sync || v.run_async || v.no_ctx) {
+                    return Err(syn::Error::new_spanned(
+                        &v.ident,
+                        "an `external_subcommand` is dispatched by the enum's `external = …` \
+                         function, not by `run` / `run_async` / `no_ctx` on the variant",
+                    ));
+                }
+            }
+        } else if dispatch_external.is_some() || dispatch_output.is_some() {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "`output` and `external` belong on a dispatched enum — add `run`, `run_with`, \
+                 `run_async` or `run_async_with`",
+            ));
         }
 
         Ok(Subcommands {
             ident: input.ident.clone(),
             variants,
             dispatch,
+            dispatch_output,
+            dispatch_external,
         })
     }
 }
@@ -5181,6 +5253,7 @@ impl Variant {
         variant: &syn::Variant,
         enum_ident: &syn::Ident,
         rename_all: Option<CasingStyle>,
+        for_dispatch: bool,
     ) -> syn::Result<Self> {
         let mut verbatim_doc_comment = false;
         // `unraw` first: `r#type` is how a variant named after a keyword prints, and a command
@@ -5206,6 +5279,9 @@ impl Variant {
         let mut after_help = None;
         let mut after_long_help = None;
         let mut examples: Vec<ExampleDecl> = Vec::new();
+        let mut run_sync = false;
+        let mut run_async = false;
+        let mut no_ctx = false;
 
         for attr in attrs(&variant.attrs) {
             let clap_attr = attr.path().is_ident("command");
@@ -5244,6 +5320,9 @@ impl Variant {
                     "after_long_help" => after_long_help = Some(metadata_expr(&meta)?),
                     "example" => examples.push(example_decl(&meta)?),
                     "verbatim_doc_comment" => verbatim_doc_comment = flag_value(&meta)?,
+                    "run" => run_sync = flag_value(&meta)?,
+                    "run_async" => run_async = flag_value(&meta)?,
+                    "no_ctx" => no_ctx = flag_value(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
@@ -5251,7 +5330,8 @@ impl Variant {
                                 "unknown option `{other}` on a variant; a subcommand \
                                  variant takes `name`, `alias`, `alias_hidden`, `help_heading`, `display_order`, \
                                  `external_subcommand`, `help`, `long_help`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `before_help`, \
-                                 `before_long_help`, `after_help`, `after_long_help`, `example`, and `verbatim_doc_comment` here, \
+                                 `before_long_help`, `after_help`, `after_long_help`, `example`, `verbatim_doc_comment`, \
+                                 `run`, `run_async`, and `no_ctx` here, \
                                  and its description comes from the doc comment"
                             ),
                         ));
@@ -5361,6 +5441,9 @@ impl Variant {
                 display_order: None,
                 unit: false,
                 inline_fields: None,
+                run_sync,
+                run_async,
+                no_ctx,
                 ty: held,
                 boxed: false,
                 external: true,
@@ -5392,11 +5475,11 @@ impl Variant {
             Fields::Unnamed(unnamed) if unnamed.unnamed.len() == 1 => unnamed.unnamed[0].ty.clone(),
             Fields::Unit => {
                 unit = true;
-                let ident = unit_struct_ident(enum_ident, &variant.ident);
+                let ident = unit_struct_ident(enum_ident, &variant.ident, for_dispatch);
                 syn::parse_quote!(#ident)
             }
             Fields::Named(named) => {
-                let ident = unit_struct_ident(enum_ident, &variant.ident);
+                let ident = unit_struct_ident(enum_ident, &variant.ident, for_dispatch);
                 inline_fields = Some(named.named.iter().cloned().collect());
                 syn::parse_quote!(#ident)
             }
@@ -5431,6 +5514,9 @@ impl Variant {
             effect,
             unit,
             inline_fields,
+            run_sync,
+            run_async,
+            no_ctx,
             ty,
             boxed,
             external: false,
@@ -6010,6 +6096,7 @@ impl ArgGroup {
 #[cfg(test)]
 mod tests {
     use super::{ArgGroup, Cli, DoubleDash, Kind, Shape, Subcommands, ValueEnum};
+    use syn::Type;
 
     fn cli(body: &str) -> syn::Result<Cli> {
         Cli::from_input(&syn::parse_str::<syn::DeriveInput>(body).expect("valid Rust"))
@@ -8835,12 +8922,9 @@ mod tests {
         assert!(cli.dispatch.run_with);
     }
 
-    /// Forwarding is all a generated `run` on a struct can do, so a struct with arguments of
-    /// its own is refused rather than having them dropped on the way past.
     #[test]
-    fn a_dispatched_struct_holds_nothing_but_its_subcommands() {
-        let err = rejection(
-            r#"
+    fn a_dispatched_struct_with_flags_gets_run_command() {
+        let cli = cli(r#"
             #[usage(run)]
             struct Ex {
                 #[usage(long)]
@@ -8848,16 +8932,9 @@ mod tests {
                 #[usage(subcommand)]
                 command: Command,
             }
-        "#,
-        );
-        assert!(
-            err.contains("forwards to its subcommands"),
-            "unhelpful: {err}"
-        );
-        assert!(
-            err.contains("implements `usage::Run` itself"),
-            "unhelpful: {err}"
-        );
+        "#)
+        .expect("a root with flags gets run_command rather than a dropped forward");
+        assert!(cli.dispatch.run);
     }
 
     /// An `Option` has a state — no command at all — that nothing generated can decide what to
@@ -8927,9 +9004,7 @@ mod tests {
         let err = enum_rejection(
             r#"
             #[usage(run_async_with)]
-            enum Command {
-                Sponsors,
-            }
+            enum Command {}
         "#,
         );
         assert!(err.contains("`run_async_with`"), "unhelpful: {err}");
@@ -8938,12 +9013,7 @@ mod tests {
         let struct_err = rejection(
             r#"
             #[usage(run_async)]
-            struct Ex {
-                #[usage(long)]
-                verbose: bool,
-                #[usage(subcommand)]
-                command: Command,
-            }
+            struct Ex;
         "#,
         );
         assert!(
@@ -8956,10 +9026,9 @@ mod tests {
         );
     }
 
-    /// The catch-all holds the argv of a command that is not declared here, so there is no type
-    /// to implement the trait for and no exhaustive match to generate.
+    /// The catch-all holds argv, so the generated match needs a function to hand them to.
     #[test]
-    fn a_dispatched_enum_refuses_an_external_subcommand() {
+    fn a_dispatched_enum_needs_external_to_name_a_function() {
         let err = enum_rejection(
             r#"
             #[usage(run)]
@@ -8970,14 +9039,27 @@ mod tests {
             }
         "#,
         );
-        assert!(err.contains("nothing to implement"), "unhelpful: {err}");
+        assert!(err.contains("external = fallback"), "unhelpful: {err}");
+
+        let ok = subcommands(
+            r#"
+            #[usage(run, external = fallback)]
+            enum Command {
+                Install(Install),
+                #[usage(external_subcommand)]
+                Other(Vec<String>),
+            }
+        "#,
+        )
+        .expect("a named fallback is enough to dispatch a catch-all");
+        assert!(ok.dispatch_external.is_some());
     }
 
-    /// A bare variant's struct is written by the derive, under a name nothing else can name —
-    /// so the command that has work to do holds its own `Args` struct instead.
+    /// A bare or inline variant's struct is written for it under `{Enum}{Variant}` so the
+    /// command can implement `Run` on a type it can spell.
     #[test]
-    fn a_dispatched_enum_refuses_a_variant_that_holds_nothing() {
-        let err = enum_rejection(
+    fn a_dispatched_enum_names_the_struct_a_bare_variant_implies() {
+        let subs = subcommands(
             r#"
             #[usage(run)]
             enum Command {
@@ -8985,23 +9067,26 @@ mod tests {
                 Sponsors,
             }
         "#,
-        );
+        )
+        .expect("a unit variant is dispatched via the struct written for it");
+        assert!(subs.variants[1].unit);
         assert!(
-            err.contains("holds nothing this crate can name"),
-            "unhelpful: {err}"
+            matches!(&subs.variants[1].ty, Type::Path(p) if p.path.is_ident("CommandSponsors"))
         );
 
-        let inline = enum_rejection(
+        let inline = subcommands(
             r#"
             #[usage(run_with)]
             enum Command {
                 Add { path: String },
             }
         "#,
-        );
-        assert!(
-            inline.contains("holds nothing this crate can name"),
-            "unhelpful: {inline}"
-        );
+        )
+        .expect("an inline variant is dispatched via the struct written for it");
+        assert!(inline.variants[0].inline_fields.is_some());
+        assert!(matches!(
+            &inline.variants[0].ty,
+            Type::Path(p) if p.path.is_ident("CommandAdd")
+        ));
     }
 }

@@ -46,7 +46,8 @@ struct Install {
   `#[usage(subcommand)]` field, up to a maximum depth of 16.
 - `#[usage(run)]` on the enum generates the `match` that hands the selected command to the code
   that carries it out — with `run_with`, `run_async` and `run_async_with` for a dispatch that
-  carries a context, is awaited, or both; see [Dispatch](/rust/dispatch).
+  carries a context, is awaited, or both; unit and inline variants, catch-alls, and mixed
+  sync/async commands are covered in [Dispatch](/rust/dispatch).
 
 Variant attributes: `name`, `alias`, `alias_hidden`, `hide`, `effect`, `help`, `long_help`,
 `verbatim_doc_comment`, `external_subcommand`, `arg_required_else_help`. Aliases declared on the variant and on the `Args`
