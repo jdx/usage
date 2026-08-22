@@ -144,8 +144,8 @@ a small CLI, and `#[usage(spec_endpoint = false)]` removes it.
 - The `markdown` benchmark reads `cli/usage.usage.kdl`, which is a committed spec
   in the same dialect `usage g` emits. When that file switched from escaped newlines
   to KDL raw multiline strings for flowed long help, the benchmark rose ~5.75% with
-  byte-identical output — parse cost only. `tak.toml` documents the allowance; after
-  merge updates `refs/notes/tak`, later pull requests compare within the new floor.
+  byte-identical output — parse cost only. `perf-pr.yml` carries a temporary compare
+  allowance until merge updates `refs/notes/tak`; `tak.toml` keeps the default 1% gate.
 - The mise fixture changes over time, both by growing and by being refreshed
   from mise's current command tree, so one commit's count is not directly
   comparable with another's. CI protects the absolute instruction target, and
