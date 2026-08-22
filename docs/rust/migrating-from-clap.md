@@ -55,18 +55,18 @@ clap_derive itself. The opt-in `validation` feature is the exception; it adds `e
 
 ## Derive mapping
 
-| clap                    | usage                                                   |
-| ----------------------- | ------------------------------------------------------- |
-| `#[derive(Parser)]`     | `#[derive(usage::Cli)]`                                 |
-| `#[derive(Args)]`       | `#[derive(usage::Args)]`                                |
-| `#[derive(Subcommand)]` | `#[derive(usage::Subcommands)]`                         |
-| `#[derive(ValueEnum)]`  | `#[derive(usage::ValueEnum)]`                           |
-| `#[command(...)]`       | `#[usage(...)]`                                         |
-| `#[arg(...)]`           | `#[usage(...)]`, or keep a supported migration spelling |
-| `#[value(...)]`         | `#[usage(...)]`, or keep supported names and aliases    |
+| clap                    | usage                           |
+| ----------------------- | ------------------------------- |
+| `#[derive(Parser)]`     | `#[derive(usage::Cli)]`         |
+| `#[derive(Args)]`       | `#[derive(usage::Args)]`        |
+| `#[derive(Subcommand)]` | `#[derive(usage::Subcommands)]` |
+| `#[derive(ValueEnum)]`  | `#[derive(usage::ValueEnum)]`   |
+| `#[command(...)]`       | `#[usage(...)]`                 |
+| `#[arg(...)]`           | `#[usage(...)]`                 |
+| `#[value(...)]`         | `#[usage(...)]`                 |
 
-`#[arg(long)]` is accepted on fields and inline subcommand variants, so the first pass can keep
-small diffs. Prefer `#[usage(...)]` for usage-only behavior and for the final declaration.
+Rename every helper attribute when replacing the derive. usage rejects clap's helper namespaces
+and points the compile error to `#[usage(...)]`.
 
 ```rust
 use usage::{Cli, Subcommands};
@@ -82,9 +82,9 @@ struct Cli {
 enum Command {
     /// Benchmark a command.
     Run {
-        #[arg(long)]
+        #[usage(long)]
         bench: Option<String>,
-        #[arg(long)]
+        #[usage(long)]
         runs: Option<u32>,
     },
     Version,
@@ -94,60 +94,38 @@ enum Command {
 Unknown flags are values by default, which is useful for wrapper CLIs. Add
 `unknown_flags = "error"` on each command where unknown flag-like words must be rejected.
 
-### Familiar field attributes
-
-Many derive attributes migrate unchanged; `#[arg(...)]` remains accepted while a CLI is being
-converted:
-
-| clap declaration                                      | usage behavior or spelling                                       |
-| ----------------------------------------------------- | ---------------------------------------------------------------- |
-| `visible_alias`, `hide_*`, `last`, `trailing_var_arg` | Accepted with their existing meanings                            |
-| `requires_if` and the other relationship attributes   | Accepted; see the cross-boundary limits below                    |
-| `skip`                                                | Accepted; the field is filled from `Default`                     |
-| `num_args = n` / `num_args = a..=b`                   | Exact or ranged `Vec` cardinality                                |
-| `value_hint = ValueHint::…`                           | The full stable `ValueHint` vocabulary is accepted               |
-| `allow_hyphen_values`, `allow_negative_numbers`       | Accepted with their existing token policies                      |
-| `value_terminator`, `require_equals`                  | Accepted with their existing parsing behavior                    |
-| `global`                                              | May appear once per command level; the innermost occurrence wins |
-| `default_missing_value = "…"`                         | Write `default_missing = "…"`                                    |
-| `default_value_if(…, ArgPredicate::IsPresent, value)` | Write `default_if(other, value)`                                 |
-| `default_value_if(…, value, default)`                 | Write `default_if(other, value, default)`                        |
-
-The native forms and their exact runtime behavior are documented under
-[Args and flags](/rust/args-and-flags).
-
 Repeated scalar flags also use permissive last-one-wins behavior by default. Add
-`#[command(args_override_self = false)]` on commands that should reject a second occurrence.
+`#[usage(args_override_self = false)]` on commands that should reject a second occurrence.
 The clap bridge records clap's setting, so generated specs retain the source command's policy.
 
-`#[command(arg_required_else_help)]` migrates in place. usage checks whether the selected
+`#[usage(arg_required_else_help)]` checks whether the selected
 command received an argv token; environment and default fallbacks do not count.
 
-Help and version entry points migrate in place too. `disable_help_flag`,
+Help and version entry points use the same option names. `disable_help_flag`,
 `disable_help_subcommand`, and `disable_version_flag` remove the synthesized entries, while
-`#[arg(action = usage::ArgAction::HelpShort)]` (or `Help`, `HelpLong`, `HelpAll`, and `Version`) can put
+`#[usage(action = usage::ArgAction::HelpShort)]` (or `Help`, `HelpLong`, `HelpAll`, and `Version`) can put
 the action on any declared flag and keep that flag's own help text.
 
-`#[command(subcommand_negates_reqs)]` also migrates in place. Selecting a child suppresses
+`#[usage(subcommand_negates_reqs)]` suppresses
 the parent's positive requirements while leaving conflicts and the child's requirements active.
 
-`#[command(args_conflicts_with_subcommands)]` migrates in place as well. A flag
+`#[usage(args_conflicts_with_subcommands)]` makes a flag
 or positional bound on the parent prevents selecting a later child command.
 
-`#[command(subcommand_precedence_over_arg)]` retains clap's opt-in rule that a
+`#[usage(subcommand_precedence_over_arg)]` retains clap's opt-in rule that a
 known child ends an in-progress variadic value owner.
 
-`#[command(allow_missing_positional)]` also migrates in place. When only enough
-words remain for later required positionals, earlier optional fields stay empty.
+`#[usage(allow_missing_positional)]` leaves earlier optional fields empty when only enough
+words remain for later required positionals.
 
-Granular help visibility attributes migrate in place as well:
+Granular help visibility options retain their names:
 `hide_default_value`, `hide_env`, `hide_env_values`, `hide_possible_values`,
 `hide_short_help`, and `hide_long_help`. They change presentation without changing
 defaults, environment fallback, or accepted values.
 
-Container casing also migrates in place. `#[command(rename_all = "snake_case")]` controls
+Container casing uses `#[usage(rename_all = "snake_case")]` to control
 inferred field or subcommand names, and `rename_all_env` controls names generated by bare
-`#[arg(env)]`; an explicit `long`, `name`, or `env = "NAME"` still wins.
+`#[usage(env)]`; an explicit `long`, `name`, or `env = "NAME"` still wins.
 
 ## Fields
 
@@ -273,18 +251,18 @@ Doc comments remain the source of short and long help. `Cli::to_kdl()` emits the
 `Cli::spec().view()` provides cold-path identity and metadata overlays without moving normal
 parsing onto a dynamic command graph.
 
-Command-level presentation settings keep their clap spellings:
+Command-level presentation settings use the same option names in the usage namespace:
 
 ```rust
 #[derive(usage::Cli)]
-#[command(
+#[usage(
     subcommand_help_heading = "Actions",
     subcommand_value_name = "ACTION",
     next_line_help,
     flatten_help
 )]
 struct Cli {
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Option<Command>,
 }
 ```
@@ -293,7 +271,7 @@ Package metadata is declared on the root and travels with the generated spec and
 
 ```rust
 #[derive(usage::Cli)]
-#[command(
+#[usage(
     author = "Example Maintainers",
     license = "MIT OR Apache-2.0",
     repository = "https://example.com/tool"

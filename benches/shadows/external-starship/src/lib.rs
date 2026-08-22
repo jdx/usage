@@ -22,17 +22,17 @@ pub struct CompletionsArgs {
 
 #[derive(ValueEnum)]
 pub enum CompletionsShellValue {
-    #[value(name = "bash")]
+    #[usage(name = "bash")]
     Bash,
-    #[value(name = "elvish")]
+    #[usage(name = "elvish")]
     Elvish,
-    #[value(name = "fish")]
+    #[usage(name = "fish")]
     Fish,
-    #[value(name = "nushell")]
+    #[usage(name = "nushell")]
     Nushell,
-    #[value(name = "powershell", alias = "pwsh", alias = "power-shell")]
+    #[usage(name = "powershell", alias = "pwsh", alias = "power-shell")]
     Powershell,
-    #[value(name = "zsh")]
+    #[usage(name = "zsh")]
     Zsh,
 }
 
@@ -313,7 +313,7 @@ pub struct StatuslineArgs {
 
 #[derive(ValueEnum)]
 pub enum StatuslineProviderValue {
-    #[value(name = "claude-code", alias = "claude")]
+    #[usage(name = "claude-code", alias = "claude")]
     ClaudeCode,
 }
 

@@ -627,7 +627,7 @@ struct NegOnly {
     /// Leave the credit line off
     // clap's SetFalse spelling: the single long becomes the negative spelling, so this
     // flag's *only* selector is the negation.
-    #[arg(long = "no-credit", action = clap::ArgAction::SetFalse, global = true)]
+    #[usage(long = "no-credit", action = clap::ArgAction::SetFalse, global = true)]
     #[usage(default = "true", setting = "credit")]
     credit: bool,
 

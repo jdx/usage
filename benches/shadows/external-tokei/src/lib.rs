@@ -88,38 +88,38 @@ pub struct Cli {
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 pub enum StreamingValue {
-    #[value(name = "simple")]
+    #[usage(name = "simple")]
     Simple,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
 }
 
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 pub enum SortValue {
-    #[value(name = "files")]
+    #[usage(name = "files")]
     Files,
-    #[value(name = "lines")]
+    #[usage(name = "lines")]
     Lines,
-    #[value(name = "blanks")]
+    #[usage(name = "blanks")]
     Blanks,
-    #[value(name = "code")]
+    #[usage(name = "code")]
     Code,
-    #[value(name = "comments")]
+    #[usage(name = "comments")]
     Comments,
 }
 
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 pub enum RsortValue {
-    #[value(name = "files")]
+    #[usage(name = "files")]
     Files,
-    #[value(name = "lines")]
+    #[usage(name = "lines")]
     Lines,
-    #[value(name = "blanks")]
+    #[usage(name = "blanks")]
     Blanks,
-    #[value(name = "code")]
+    #[usage(name = "code")]
     Code,
-    #[value(name = "comments")]
+    #[usage(name = "comments")]
     Comments,
 }

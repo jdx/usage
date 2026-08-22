@@ -8,16 +8,16 @@ fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
 }
 
 #[derive(Cli)]
-#[command(bin = "ex", arg_required_else_help)]
+#[usage(bin = "ex", arg_required_else_help)]
 struct RootPolicy {
-    #[arg(long, default = "defaulted")]
+    #[usage(long, default = "defaulted")]
     value: String,
 }
 
 #[derive(Cli)]
-#[command(bin = "ex")]
+#[usage(bin = "ex")]
 struct NestedPolicy {
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Commands,
 }
 
@@ -27,16 +27,16 @@ enum Commands {
 }
 
 #[derive(Args)]
-#[command(arg_required_else_help)]
+#[usage(arg_required_else_help)]
 struct Run {
-    #[arg(long)]
+    #[usage(long)]
     all: bool,
 }
 
 #[derive(Cli)]
-#[command(bin = "ex", default_subcommand = "run")]
+#[usage(bin = "ex", default_subcommand = "run")]
 struct DefaultPolicy {
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Option<DefaultCommands>,
 }
 
@@ -46,7 +46,7 @@ enum DefaultCommands {
 }
 
 #[derive(Args)]
-#[command(arg_required_else_help)]
+#[usage(arg_required_else_help)]
 struct DefaultRun {
     task: String,
 }

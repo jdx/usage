@@ -1062,7 +1062,7 @@ fn emit_usage_value_enum(out: &mut String, name: &str, choices: &SpecChoices) {
                 opts.push(format!("{option} = {:?}", alias.value));
             }
         }
-        writeln!(out, "    #[value({})]", opts.join(", ")).expect("writing to a String");
+        writeln!(out, "    #[usage({})]", opts.join(", ")).expect("writing to a String");
 
         let mut variant = camel(value);
         if variant.is_empty() || variant.starts_with(|c: char| c.is_ascii_digit()) {
@@ -2751,7 +2751,7 @@ flag "--shell <SHELL>" {
         assert!(usage.contains("#[usage(ignore_case)]"), "{usage}");
         assert!(
             usage
-                .contains(r#"#[value(name = "fish", visible_alias = "f", alias = "secret-fish")]"#),
+                .contains(r#"#[usage(name = "fish", visible_alias = "f", alias = "secret-fish")]"#),
             "{usage}"
         );
         assert!(

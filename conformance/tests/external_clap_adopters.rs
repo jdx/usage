@@ -83,15 +83,15 @@ mod fd {
     #[derive(Debug, Cli)]
     #[usage(bin = "fd", unknown_flags = "error")]
     struct UsageCli {
-        #[arg(short = 'H', long)]
+        #[usage(short = 'H', long)]
         hidden: bool,
-        #[arg(short = 'S', long, allow_hyphen_values)]
+        #[usage(short = 'S', long, allow_hyphen_values)]
         size: Option<Size>,
-        #[arg(short = 'x', long, conflicts("--max-results", "--list-details"))]
+        #[usage(short = 'x', long, conflicts("--max-results", "--list-details"))]
         exec: Option<String>,
-        #[arg(long, conflicts("--exec", "--list-details"))]
+        #[usage(long, conflicts("--exec", "--list-details"))]
         max_results: Option<usize>,
-        #[arg(short = 'l', long, conflicts("--exec", "--max-results"))]
+        #[usage(short = 'l', long, conflicts("--exec", "--max-results"))]
         list_details: bool,
     }
 
@@ -159,7 +159,7 @@ mod starship {
     enum Shell {
         Bash,
         Fish,
-        #[value(alias = "pwsh")]
+        #[usage(alias = "pwsh")]
         #[clap(alias = "pwsh")]
         Powershell,
         Zsh,
@@ -188,18 +188,18 @@ mod starship {
     #[derive(Debug, Cli)]
     #[usage(bin = "starship", unknown_flags = "error")]
     struct UsageCli {
-        #[command(subcommand)]
+        #[usage(subcommand)]
         command: UsageCommand,
     }
 
     #[derive(Debug, Subcommands)]
     enum UsageCommand {
         Completions {
-            #[arg(value_enum)]
+            #[usage(value_enum)]
             shell: Shell,
         },
         Config {
-            #[arg(requires = "value")]
+            #[usage(requires = "value")]
             name: Option<String>,
             value: Option<String>,
         },

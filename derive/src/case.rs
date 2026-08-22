@@ -13,7 +13,7 @@
 //! This is *not* the default naming policy. With no `rename_all`, names come from
 //! `model::to_kebab`, which breaks before every uppercase char: `HTTPServer` is
 //! `h-t-t-p-server` there and `http-server` here. Both spellings are pinned by
-//! `model::tests::a_value_enum_accepts_clap_container_casing`. Do not unify them.
+//! `model::tests::a_value_enum_supports_container_casing`. Do not unify them.
 
 /// The words in `s`, as heck segments them.
 ///

@@ -370,7 +370,7 @@ mod fixed_arity {
     #[derive(Debug, Cli)]
     #[usage(bin = "micro", unknown_flags = "error")]
     struct UsageCli {
-        #[arg(long, num_args = 2, value_names = ["START", "END"])]
+        #[usage(long, num_args = 2, value_names = ["START", "END"])]
         range: Vec<String>,
     }
 
@@ -865,7 +865,7 @@ mod value_terminator {
     #[derive(Debug, Cli)]
     #[usage(bin = "micro", unknown_flags = "error")]
     struct UsageCli {
-        #[arg(long, num_args = 1.., value_terminator = ";")]
+        #[usage(long, num_args = 1.., value_terminator = ";")]
         include: Vec<String>,
         #[usage(arg)]
         rest: Option<String>,
@@ -944,7 +944,7 @@ mod actions {
     struct UsageCli {
         #[usage(short, long, count)]
         verbose: u8,
-        #[arg(long, action = clap::ArgAction::SetFalse, default_value = "true")]
+        #[usage(long, action = clap::ArgAction::SetFalse, default = "true")]
         color: bool,
     }
 
@@ -992,7 +992,7 @@ mod aliases_and_case {
     #[derive(Clone, Debug, PartialEq, Eq, usage_derive::ValueEnum)]
     #[usage(ignore_case)]
     enum UsageMode {
-        #[value(alias = "quick")]
+        #[usage(alias = "quick")]
         Fast,
         Slow,
     }
@@ -1005,7 +1005,7 @@ mod aliases_and_case {
 
     #[derive(Debug, usage_derive::Subcommands)]
     enum UsageCommand {
-        #[command(visible_alias = "go", alias = "secret-run")]
+        #[usage(visible_alias = "go", alias_hidden = "secret-run")]
         Run,
     }
 
@@ -1023,7 +1023,7 @@ mod aliases_and_case {
     #[derive(Debug, Cli)]
     #[usage(bin = "micro", unknown_flags = "error")]
     struct UsageCli {
-        #[arg(long, visible_alias = "out", alias = "secret-output")]
+        #[usage(long, visible_alias = "out", alias = "secret-output")]
         output: bool,
         #[usage(long, value_enum)]
         mode: Option<UsageMode>,
@@ -1108,7 +1108,7 @@ mod help_metadata {
     enum UsageCommand {
         /// Run the task.
         Run,
-        #[command(hide = true)]
+        #[usage(hide = true)]
         Secret,
     }
 
@@ -1140,9 +1140,9 @@ mod help_metadata {
     )]
     struct UsageCli {
         /// Write JSON output.
-        #[arg(long, help_heading = "Output")]
+        #[usage(long, help_heading = "Output")]
         json: bool,
-        #[arg(long, hide = true)]
+        #[usage(long, hide = true)]
         secret: bool,
         #[usage(subcommand)]
         command: Option<UsageCommand>,
@@ -1528,8 +1528,7 @@ mod no_binary_name {
     }
 
     #[derive(Debug, Cli)]
-    #[command(name = "micro", no_binary_name = true)]
-    #[usage(unknown_flags = "error")]
+    #[usage(name = "micro", no_binary_name = true, unknown_flags = "error")]
     struct UsageCli {
         #[usage(long)]
         all: bool,

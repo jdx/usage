@@ -536,25 +536,25 @@ pub struct AuditArgs {
 
 #[derive(ValueEnum)]
 pub enum AuditAuditLevelValue {
-    #[value(name = "info")]
+    #[usage(name = "info")]
     Info,
-    #[value(name = "low")]
+    #[usage(name = "low")]
     Low,
-    #[value(name = "moderate")]
+    #[usage(name = "moderate")]
     Moderate,
-    #[value(name = "high")]
+    #[usage(name = "high")]
     High,
-    #[value(name = "critical")]
+    #[usage(name = "critical")]
     Critical,
 }
 
 #[derive(ValueEnum)]
 pub enum AuditFixValue {
     /// Refresh the lockfile to patched versions allowed by existing ranges.
-    #[value(name = "update")]
+    #[usage(name = "update")]
     Update,
     /// Write package.json overrides that force patched versions.
-    #[value(name = "override")]
+    #[usage(name = "override")]
     Override,
 }
 
@@ -904,13 +904,13 @@ pub struct ConfigDeleteArgs {
 #[derive(ValueEnum)]
 pub enum ConfigDeleteLocationValue {
     /// User config (`~/.config/aube/config.toml` for known aube settings, `~/.npmrc` for registry/auth and unknown keys)
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
     /// `<cwd>/.npmrc`
-    #[value(name = "project")]
+    #[usage(name = "project")]
     Project,
     /// Alias for `user` — aube has no separate global config file.
-    #[value(name = "global")]
+    #[usage(name = "global")]
     Global,
 }
 
@@ -964,16 +964,16 @@ pub struct ConfigGetArgs {
 #[derive(ValueEnum)]
 pub enum ConfigGetLocationValue {
     /// Merge `~/.npmrc`, user aube config, and project `.npmrc`, last-write-wins (same precedence install uses).
-    #[value(name = "merged")]
+    #[usage(name = "merged")]
     Merged,
     /// Only user config (`~/.config/aube/config.toml` + `~/.npmrc`)
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
     /// Only `<cwd>/.npmrc`
-    #[value(name = "project")]
+    #[usage(name = "project")]
     Project,
     /// Alias for `user`.
-    #[value(name = "global")]
+    #[usage(name = "global")]
     Global,
 }
 
@@ -1008,16 +1008,16 @@ pub struct ConfigListArgs {
 #[derive(ValueEnum)]
 pub enum ConfigListLocationValue {
     /// Merge `~/.npmrc`, user aube config, and project `.npmrc`, last-write-wins (same precedence install uses).
-    #[value(name = "merged")]
+    #[usage(name = "merged")]
     Merged,
     /// Only user config (`~/.config/aube/config.toml` + `~/.npmrc`)
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
     /// Only `<cwd>/.npmrc`
-    #[value(name = "project")]
+    #[usage(name = "project")]
     Project,
     /// Alias for `user`.
-    #[value(name = "global")]
+    #[usage(name = "global")]
     Global,
 }
 
@@ -1051,13 +1051,13 @@ pub struct ConfigSetArgs {
 #[derive(ValueEnum)]
 pub enum ConfigSetLocationValue {
     /// User config (`~/.config/aube/config.toml` for known aube settings, `~/.npmrc` for registry/auth and unknown keys)
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
     /// `<cwd>/.npmrc`
-    #[value(name = "project")]
+    #[usage(name = "project")]
     Project,
     /// Alias for `user` — aube has no separate global config file.
-    #[value(name = "global")]
+    #[usage(name = "global")]
     Global,
 }
 
@@ -1099,16 +1099,16 @@ pub struct ConfigArgs {
 #[derive(ValueEnum)]
 pub enum ConfigLocationValue {
     /// Merge `~/.npmrc`, user aube config, and project `.npmrc`, last-write-wins (same precedence install uses).
-    #[value(name = "merged")]
+    #[usage(name = "merged")]
     Merged,
     /// Only user config (`~/.config/aube/config.toml` + `~/.npmrc`)
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
     /// Only `<cwd>/.npmrc`
-    #[value(name = "project")]
+    #[usage(name = "project")]
     Project,
     /// Alias for `user`.
-    #[value(name = "global")]
+    #[usage(name = "global")]
     Global,
 }
 
@@ -2134,16 +2134,16 @@ pub struct GetArgs {
 #[derive(ValueEnum)]
 pub enum GetLocationValue {
     /// Merge `~/.npmrc`, user aube config, and project `.npmrc`, last-write-wins (same precedence install uses).
-    #[value(name = "merged")]
+    #[usage(name = "merged")]
     Merged,
     /// Only user config (`~/.config/aube/config.toml` + `~/.npmrc`)
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
     /// Only `<cwd>/.npmrc`
-    #[value(name = "project")]
+    #[usage(name = "project")]
     Project,
     /// Alias for `user`.
-    #[value(name = "global")]
+    #[usage(name = "global")]
     Global,
 }
 
@@ -2625,11 +2625,11 @@ pub struct LaArgs {
 
 #[derive(ValueEnum)]
 pub enum LaFormatValue {
-    #[value(name = "default")]
+    #[usage(name = "default")]
     Default,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "parseable")]
+    #[usage(name = "parseable")]
     Parseable,
 }
 
@@ -2766,11 +2766,11 @@ pub struct ListArgs {
 
 #[derive(ValueEnum)]
 pub enum ListFormatValue {
-    #[value(name = "default")]
+    #[usage(name = "default")]
     Default,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "parseable")]
+    #[usage(name = "parseable")]
     Parseable,
 }
 
@@ -2825,11 +2825,11 @@ pub struct LlArgs {
 
 #[derive(ValueEnum)]
 pub enum LlFormatValue {
-    #[value(name = "default")]
+    #[usage(name = "default")]
     Default,
-    #[value(name = "json")]
+    #[usage(name = "json")]
     Json,
-    #[value(name = "parseable")]
+    #[usage(name = "parseable")]
     Parseable,
 }
 
@@ -3916,9 +3916,9 @@ pub struct SbomArgs {
 
 #[derive(ValueEnum)]
 pub enum SbomFormatValue {
-    #[value(name = "cyclonedx")]
+    #[usage(name = "cyclonedx")]
     Cyclonedx,
-    #[value(name = "spdx")]
+    #[usage(name = "spdx")]
     Spdx,
 }
 
@@ -4009,13 +4009,13 @@ pub struct SetArgs {
 #[derive(ValueEnum)]
 pub enum SetLocationValue {
     /// User config (`~/.config/aube/config.toml` for known aube settings, `~/.npmrc` for registry/auth and unknown keys)
-    #[value(name = "user")]
+    #[usage(name = "user")]
     User,
     /// `<cwd>/.npmrc`
-    #[value(name = "project")]
+    #[usage(name = "project")]
     Project,
     /// Alias for `user` — aube has no separate global config file.
-    #[value(name = "global")]
+    #[usage(name = "global")]
     Global,
 }
 
@@ -5245,29 +5245,29 @@ pub struct Cli {
 
 #[derive(ValueEnum)]
 pub enum LoglevelValue {
-    #[value(name = "trace")]
+    #[usage(name = "trace")]
     Trace,
-    #[value(name = "debug")]
+    #[usage(name = "debug")]
     Debug,
-    #[value(name = "info")]
+    #[usage(name = "info")]
     Info,
-    #[value(name = "warn")]
+    #[usage(name = "warn")]
     Warn,
-    #[value(name = "error")]
+    #[usage(name = "error")]
     Error,
-    #[value(name = "silent")]
+    #[usage(name = "silent")]
     Silent,
 }
 
 #[derive(ValueEnum)]
 pub enum ReporterValue {
-    #[value(name = "default")]
+    #[usage(name = "default")]
     Default,
-    #[value(name = "append-only")]
+    #[usage(name = "append-only")]
     AppendOnly,
-    #[value(name = "ndjson")]
+    #[usage(name = "ndjson")]
     Ndjson,
-    #[value(name = "silent")]
+    #[usage(name = "silent")]
     Silent,
 }
 

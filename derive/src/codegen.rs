@@ -1446,7 +1446,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 /// Parse using clap's `try_parse_from` argv contract.
                 ///
-                /// Input includes argv0 by default. `#[command(no_binary_name)]`
+                /// Input includes argv0 by default. `#[usage(no_binary_name)]`
                 /// opts into treating every supplied word as an argument.
                 pub fn try_parse_from<'v>(
                     argv: &[&'v ::std::ffi::OsStr],
@@ -2392,10 +2392,8 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     // describe a different CLI from the one that runs.
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
-    let required = (field.shape == Shape::Required
-        || field.required_collection
-        || required_by_single_implicit_group(cli, field))
-        && field.default.is_empty();
+    let required =
+        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
     // Declared, not inferred: `Option<String>` already says the *flag* is optional and says
     // nothing about whether its value is.
     let value_optional = field.value_optional;
@@ -2604,10 +2602,8 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     // `String` must be filled; `Option` and `Vec` need not be.
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
-    let required = (field.shape == Shape::Required
-        || field.required_collection
-        || required_by_single_implicit_group(cli, field))
-        && field.default.is_empty();
+    let required =
+        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
     let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
         choices_tokens(field);
     let allow_unknown_choices = field.allow_unknown_choices;
@@ -7999,15 +7995,7 @@ fn declared_groups(cli: &Cli) -> Vec<(String, bool, bool, Vec<String>)> {
         let Some(selector) = Cli::selector_for_field(field) else {
             continue;
         };
-        let names = field
-            .group
-            .iter()
-            .map(String::as_str)
-            .chain(cli.groups.iter().filter_map(|decl| {
-                decl.members
-                    .contains(&selector)
-                    .then_some(decl.name.as_str())
-            }));
+        let names = field.group.iter().map(String::as_str);
         for name in names {
             match groups.iter_mut().find(|(n, _, _, _)| n == name) {
                 Some((_, _, _, members)) => {
@@ -8031,19 +8019,6 @@ fn declared_groups(cli: &Cli) -> Vec<(String, bool, bool, Vec<String>)> {
         }
     }
     groups
-}
-
-/// A one-member implicit clap group has no portable group representation: the
-/// spec deliberately reserves groups for relationships between arguments. Its
-/// only meaningful property is requiredness, which lowers directly onto the
-/// sole argument instead.
-fn required_by_single_implicit_group(cli: &Cli, field: &Field) -> bool {
-    let Some(selector) = Cli::selector_for_field(field) else {
-        return false;
-    };
-    cli.groups.iter().any(|group| {
-        group.implicit && group.required && group.members.len() == 1 && group.members[0] == selector
-    })
 }
 
 /// The `static` array of group metadata, and the expression referring to it.
@@ -8787,11 +8762,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // meant a `Vec` marked `required` was reported as one-or-more by the spec, the help, the
         // manpage and the completions, and accepted zero values from the CLI that actually ran.
         // One expression cannot disagree with itself.
-        if !(f.shape == Shape::Required
-            || f.required_collection
-            || required_by_single_implicit_group(cli, f))
-            || !f.default.is_empty()
-        {
+        if !(f.shape == Shape::Required || f.required_collection) || !f.default.is_empty() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
@@ -9352,9 +9323,6 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // up with a value, and a default is a value.
     let group_checks = declared_groups(cli)
         .into_iter()
-        // A one-member implicit clap group lowers to ordinary field requiredness in both
-        // emitted metadata and runtime diagnostics.
-        .filter(|(_, _, _, members)| members.len() >= 2)
         .map(|(name, required, multiple, members)| {
             let fields: Vec<&Field> = members
                 .iter()

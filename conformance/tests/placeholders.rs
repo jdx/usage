@@ -50,10 +50,10 @@ struct Ex {
 #[usage(bin = "fixed")]
 struct Fixed {
     /// A pair consumed by one flag occurrence.
-    #[arg(long, num_args = 2, value_names = ["START", "END"])]
+    #[usage(long, num_args = 2, value_names = ["START", "END"])]
     range: Vec<String>,
     /// Two positional values with distinct labels.
-    #[arg(num_args = 2, value_names = ["LEFT", "RIGHT"])]
+    #[usage(num_args = 2, value_names = ["LEFT", "RIGHT"])]
     pair: Vec<String>,
 }
 

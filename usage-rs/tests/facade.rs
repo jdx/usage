@@ -33,29 +33,29 @@ struct Ex {
 )]
 #[cfg_attr(feature = "completions", usage(completion))]
 struct ViewHost {
-    #[arg(long, global)]
+    #[usage(long, global)]
     root_token: String,
-    #[arg(long, global, required = true)]
+    #[usage(long, global, required = true)]
     verbose: bool,
-    #[arg(long, global)]
+    #[usage(long, global)]
     color: bool,
-    #[arg(long = "help-all", global, action = usage::ArgAction::HelpAll)]
+    #[usage(long = "help-all", global, action = usage::ArgAction::HelpAll)]
     help_all: bool,
-    #[command(flatten)]
+    #[usage(flatten)]
     view_globals: ViewGlobals,
-    #[arg(long)]
+    #[usage(long)]
     root_number: u32,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: ViewCommand,
 }
 
 #[derive(Args)]
 struct ViewGlobals {
-    #[arg(long, global, required = true)]
+    #[usage(long, global, required = true)]
     flat_required: bool,
-    #[arg(long, global, default_value = "carried")]
+    #[usage(long, global, default = "carried")]
     flat_default: String,
-    #[arg(long, global)]
+    #[usage(long, global)]
     flat_hidden: String,
 }
 
@@ -63,9 +63,9 @@ struct ViewGlobals {
 enum ViewCommand {
     /// Run one task.
     Run {
-        #[arg(short = 'v', long)]
+        #[usage(short = 'v', long)]
         verbose: bool,
-        #[arg(long)]
+        #[usage(long)]
         dry_run: bool,
         task: String,
     },
@@ -341,15 +341,15 @@ fn an_install_plan_follows_the_runtime_identity_and_not_the_portable_one() {
     view("nested-run", root = "admin run")
 )]
 struct NestedViewHost {
-    #[command(flatten)]
+    #[usage(flatten)]
     host: NestedViewHostArgs,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: NestedViewTop,
 }
 
 #[derive(Args)]
 struct NestedViewHostArgs {
-    #[arg(long, complete = host_probe_words)]
+    #[usage(long, complete = host_probe_words)]
     probe: Option<String>,
 }
 
@@ -368,17 +368,17 @@ enum NestedViewTop {
 
 #[derive(Args)]
 struct NestedViewAdmin {
-    #[arg(long, global)]
+    #[usage(long, global)]
     intermediate: bool,
-    #[arg(long)]
+    #[usage(long)]
     intermediate_required: String,
-    #[arg(long)]
+    #[usage(long)]
     intermediate_number: u32,
-    #[arg(long, default_value = "parent-default")]
+    #[usage(long, default = "parent-default")]
     intermediate_default: Option<String>,
-    #[arg(long, env = "PATH")]
+    #[usage(long, env = "PATH")]
     intermediate_env: Option<String>,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: NestedViewAdminCommand,
 }
 
@@ -389,9 +389,9 @@ enum NestedViewAdminCommand {
 
 #[derive(Args)]
 struct NestedViewRun {
-    #[arg(long)]
+    #[usage(long)]
     leaf: bool,
-    #[arg(long, complete = nested_view_words)]
+    #[usage(long, complete = nested_view_words)]
     probe: Option<String>,
 }
 
@@ -461,11 +461,11 @@ fn view_completers_receive_the_users_original_line() {
     view("view-group-left", root = "run", global = "--left")
 )]
 struct ViewGroupHost {
-    #[arg(long, global, group = "mode")]
+    #[usage(long, global, group = "mode")]
     left: bool,
-    #[arg(long, global, group = "mode")]
+    #[usage(long, global, group = "mode")]
     right: bool,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: ViewGroupCommand,
 }
 
@@ -567,7 +567,7 @@ enum Command {
 
 #[derive(Args)]
 struct RepeatedGlobalChild {
-    #[arg(long)]
+    #[usage(long)]
     cd: Option<String>,
 }
 
@@ -579,9 +579,9 @@ enum RepeatedGlobalCommand {
 #[derive(Cli)]
 #[usage(bin = "repeated-global")]
 struct RepeatedGlobal {
-    #[arg(long, global, default_value = "/default")]
+    #[usage(long, global, default = "/default")]
     cd: Option<String>,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: RepeatedGlobalCommand,
 }
 
@@ -596,16 +596,16 @@ fn a_redeclared_global_value_reaches_the_ancestor_and_child() {
 
 #[derive(Args)]
 struct FlattenedGlobal {
-    #[arg(long, global)]
+    #[usage(long, global)]
     cd: Option<String>,
 }
 
 #[derive(Cli)]
 #[usage(bin = "flattened-repeated-global")]
 struct FlattenedRepeatedGlobal {
-    #[command(flatten)]
+    #[usage(flatten)]
     global: FlattenedGlobal,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: RepeatedGlobalCommand,
 }
 
@@ -621,7 +621,7 @@ fn a_redeclared_global_value_reaches_a_flattened_ancestor_field() {
 
 #[derive(Args)]
 struct GlobalAliasChild {
-    #[arg(long = "work-dir", alias = "dir")]
+    #[usage(long = "work-dir", alias = "dir")]
     work_dir: Option<String>,
 }
 
@@ -633,9 +633,9 @@ enum GlobalAliasCommand {
 #[derive(Cli)]
 #[usage(bin = "global-alias")]
 struct GlobalAliasCli {
-    #[arg(long = "directory", alias = "dir", global)]
+    #[usage(long = "directory", alias = "dir", global)]
     directory: Option<String>,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: GlobalAliasCommand,
 }
 
@@ -651,9 +651,9 @@ fn a_shared_alias_does_not_fill_an_unrelated_global() {
 #[derive(Subcommands)]
 enum IncompatibleGlobalCommand {
     Run {
-        #[arg(long)]
+        #[usage(long)]
         mode: bool,
-        #[arg(long)]
+        #[usage(long)]
         jobs: String,
     },
 }
@@ -661,11 +661,11 @@ enum IncompatibleGlobalCommand {
 #[derive(Cli)]
 #[usage(bin = "incompatible-global")]
 struct IncompatibleGlobalCli {
-    #[arg(long, global, default_value = "fast", value_parser = ["fast", "slow"])]
+    #[usage(long, global, default = "fast", choices("fast", "slow"))]
     mode: String,
-    #[arg(long, global, default_value = "1")]
+    #[usage(long, global, default = "1")]
     jobs: u32,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: IncompatibleGlobalCommand,
 }
 
@@ -736,12 +736,12 @@ fn required_root_subcommand_survives_spec_emission() {
 }
 
 #[derive(Cli)]
-#[command(bin = "negated-requirements", subcommand_negates_reqs)]
+#[usage(bin = "negated-requirements", subcommand_negates_reqs)]
 #[allow(dead_code)]
 struct NegatedRequirements {
-    #[arg(long, required = true)]
+    #[usage(long, required = true)]
     config: Option<String>,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Option<NegatedCommand>,
 }
 
@@ -749,19 +749,19 @@ struct NegatedRequirements {
 #[allow(dead_code)]
 enum NegatedCommand {
     Run {
-        #[arg(long)]
+        #[usage(long)]
         target: String,
     },
     Show,
 }
 
 #[derive(Cli)]
-#[command(bin = "argument-conflict", args_conflicts_with_subcommands)]
+#[usage(bin = "argument-conflict", args_conflicts_with_subcommands)]
 #[allow(dead_code)]
 struct ArgumentConflict {
-    #[arg(long)]
+    #[usage(long)]
     verbose: bool,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Option<ArgumentConflictCommand>,
 }
 
@@ -772,27 +772,27 @@ enum ArgumentConflictCommand {
 }
 
 #[derive(Cli)]
-#[command(bin = "precedence", subcommand_precedence_over_arg)]
+#[usage(bin = "precedence", subcommand_precedence_over_arg)]
 struct Precedence {
-    #[arg(long, num_args = 1..)]
+    #[usage(long, num_args = 1..)]
     values: Vec<String>,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Option<ArgumentConflictCommand>,
 }
 
 #[derive(Cli)]
-#[command(bin = "missing-positional", allow_missing_positional)]
+#[usage(bin = "missing-positional", allow_missing_positional)]
 struct MissingPositional {
-    #[arg()]
+    #[usage()]
     optional: Option<String>,
-    #[arg()]
+    #[usage()]
     required: String,
 }
 
 #[derive(Cli)]
-#[command(bin = "hidden-help")]
+#[usage(bin = "hidden-help")]
 struct HiddenHelp {
-    #[arg(
+    #[usage(
         long,
         default = "fast",
         hide_default_value,
@@ -844,7 +844,7 @@ struct NextLineHelp {
     /// Config file.
     #[usage(long)]
     config: Option<String>,
-    #[arg(long, env = "NEXT_HELP_MODE", default = "fast")]
+    #[usage(long, env = "NEXT_HELP_MODE", default = "fast")]
     mode: String,
 }
 
@@ -871,21 +871,21 @@ struct FlatRun {
 }
 
 #[derive(Cli)]
-#[command(
+#[usage(
     bin = "presented",
     subcommand_help_heading = "Actions",
     subcommand_value_name = "ACTION"
 )]
 #[allow(dead_code)]
 struct PresentedSubcommands {
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Option<ArgumentConflictCommand>,
 }
 
 #[derive(Args)]
-#[command(
+#[usage(
     visible_alias = "go",
-    alias = "secret-run",
+    alias_hidden = "secret-run",
     hide,
     after_long_help = "More details."
 )]
@@ -897,97 +897,57 @@ enum StructMetadataCommands {
 }
 
 #[derive(Cli)]
-#[command(bin = "struct-metadata", about)]
+#[usage(bin = "struct-metadata", about)]
 #[allow(dead_code)]
 struct StructMetadataCli {
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: StructMetadataCommands,
 }
 
 #[derive(Args)]
-#[group(required = true, multiple = false)]
+#[usage(group("choice", required))]
 #[allow(dead_code)]
-struct ClapImplicitGroup {
-    #[arg(long)]
+struct FlattenedGroup {
+    #[usage(long, group = "choice")]
     left: bool,
-    #[arg(long)]
+    #[usage(long, group = "choice")]
     right: bool,
 }
 
 #[derive(Cli)]
-#[command(bin = "implicit-group")]
+#[usage(bin = "implicit-group")]
 #[allow(dead_code)]
-struct ClapImplicitGroupCli {
-    #[arg(flatten)]
-    choice: ClapImplicitGroup,
+struct FlattenedGroupCli {
+    #[usage(flatten)]
+    choice: FlattenedGroup,
 }
 
 #[derive(Args)]
-#[group(required = true)]
 #[allow(dead_code)]
-struct SingleClapImplicitGroup {
-    #[arg(long)]
+struct SingleRequiredFlag {
+    #[usage(long, required)]
     only: bool,
 }
 
-#[derive(Args)]
-#[group(id = "all", required = true)]
-#[group(multiple = false)]
+#[derive(Cli)]
+#[usage(bin = "single-required-flag")]
 #[allow(dead_code)]
-struct SplitClapImplicitGroup {
-    #[arg(long, group = "explicit")]
-    left: bool,
-    #[arg(long)]
-    middle: bool,
-    #[arg(long, group = "explicit")]
-    right: bool,
+struct SingleRequiredFlagCli {
+    #[usage(flatten)]
+    choice: SingleRequiredFlag,
 }
 
 #[derive(Cli)]
-#[command(bin = "split-implicit-group")]
-#[allow(dead_code)]
-struct SplitClapImplicitGroupCli {
-    #[arg(flatten)]
-    choice: SplitClapImplicitGroup,
-}
-
-#[derive(Cli)]
-#[command(bin = "single-implicit-group")]
-#[allow(dead_code)]
-struct SingleClapImplicitGroupCli {
-    #[arg(flatten)]
-    choice: SingleClapImplicitGroup,
-}
-
-#[derive(Args)]
-#[group(id = "renamed")]
-#[allow(dead_code)]
-struct NoopClapImplicitGroup {
-    #[arg(long)]
-    left: bool,
-    #[arg(long)]
-    right: bool,
-}
-
-#[derive(Cli)]
-#[command(bin = "noop-implicit-group")]
-#[allow(dead_code)]
-struct NoopClapImplicitGroupCli {
-    #[arg(flatten)]
-    choice: NoopClapImplicitGroup,
-}
-
-#[derive(Cli)]
-#[command(bin = "ordered")]
+#[usage(bin = "ordered")]
 #[allow(dead_code)]
 struct OrderedHelp {
     /// Shown second.
-    #[arg(long, global, display_order = 20)]
+    #[usage(long, global, display_order = 20)]
     second: bool,
     /// Shown first.
-    #[arg(long, global, display_order = 10)]
+    #[usage(long, global, display_order = 10)]
     first: bool,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Option<OrderedCommand>,
 }
 
@@ -995,18 +955,18 @@ struct OrderedHelp {
 #[allow(dead_code)]
 enum OrderedCommand {
     /// Shown second.
-    #[command(display_order = 20)]
+    #[usage(display_order = 20)]
     Second,
     /// Shown first.
-    #[command(display_order = 10)]
+    #[usage(display_order = 10)]
     First,
 }
 
 #[derive(Cli)]
-#[command(bin = "grouped")]
+#[usage(bin = "grouped")]
 #[allow(dead_code)]
 struct GroupedHelp {
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Option<GroupedCommand>,
 }
 
@@ -1014,18 +974,18 @@ struct GroupedHelp {
 #[allow(dead_code)]
 enum GroupedCommand {
     /// Run the application.
-    #[command(help_heading = "Core commands")]
+    #[usage(help_heading = "Core commands")]
     Run,
     /// Remove old state.
-    #[command(help_heading = "Maintenance")]
+    #[usage(help_heading = "Maintenance")]
     Clean,
     /// Show the current status.
-    #[command(help_heading = "Commands")]
+    #[usage(help_heading = "Commands")]
     Status,
 }
 
 #[derive(Cli)]
-#[command(
+#[usage(
     bin = "custom-builtins",
     version,
     disable_help_flag,
@@ -1035,18 +995,18 @@ enum GroupedCommand {
 #[allow(dead_code)]
 struct CustomBuiltins {
     /// Show the concise help page.
-    #[arg(long = "assist", action = usage::ArgAction::HelpShort)]
+    #[usage(long = "assist", action = usage::ArgAction::HelpShort)]
     assist: bool,
     /// Show help selected by spelling.
-    #[arg(short = '?', long = "help-all", action = usage::ArgAction::Help)]
+    #[usage(short = '?', long = "help-all", action = usage::ArgAction::Help)]
     help_all: bool,
     /// Show the full help page.
-    #[arg(long = "manual", action = usage::ArgAction::HelpLong)]
+    #[usage(long = "manual", action = usage::ArgAction::HelpLong)]
     manual: bool,
     /// Show version information.
-    #[arg(long = "release", action = usage::ArgAction::Version)]
+    #[usage(long = "release", action = usage::ArgAction::Version)]
     release: bool,
-    #[command(subcommand)]
+    #[usage(subcommand)]
     command: Option<ArgumentConflictCommand>,
 }
 
@@ -1105,22 +1065,22 @@ enum InlineCommand {
     #[usage(after_long_help = INLINE_AFTER_HELP)]
     Run {
         #[serde(default)]
-        #[arg(long)]
+        #[usage(long)]
         bench: Option<String>,
         #[usage(long)]
         runs: Option<u32>,
-        #[cfg_attr(all(), arg(long))]
+        #[cfg_attr(all(), usage(long))]
         iterations: Option<u32>,
-        #[arg]
+        #[usage(arg)]
         label: Option<String>,
         #[cfg(any())]
-        #[arg(long)]
+        #[usage(long)]
         platform_only: Option<String>,
     },
     Empty {},
     PlatformOnly {
         #[cfg(any())]
-        #[arg(long)]
+        #[usage(long)]
         platform_only: Option<String>,
     },
 }
@@ -1145,10 +1105,10 @@ struct PositionalRelations {
 }
 
 #[derive(Cli)]
-#[command(bin = "clap-spellings", rename_all = "kebab-case")]
-struct ClapSpellings {
-    #[arg(
-        id = "output",
+#[usage(bin = "clap-spellings", rename_all = "kebab-case")]
+struct NativeAliases {
+    #[usage(
+        name = "output",
         long,
         visible_aliases = ["out", "dest"],
         aliases = ["quietly", "silent-output"]
@@ -1158,30 +1118,30 @@ struct ClapSpellings {
 
 #[deny(dead_code)]
 #[derive(Cli)]
-#[command(bin = "parse-only-field")]
+#[usage(bin = "parse-only-field")]
 struct ParseOnlyField {
     /// Accepted for compatibility even though the application intentionally ignores it.
-    #[arg(long)]
+    #[usage(long)]
     compatibility: bool,
 }
 
 #[derive(Cli)]
-#[command(bin = "clap-override-id")]
-struct ClapOverrideId {
-    #[arg(long, overrides_with = "installed_tool")]
+#[usage(bin = "clap-override-id")]
+struct NativeOverrideName {
+    #[usage(long, overrides = "installed_tool")]
     reset: bool,
-    #[arg(id = "installed_tool", long = "installed")]
+    #[usage(name = "installed_tool", long = "installed")]
     tool: Option<String>,
 }
 
 #[derive(Cli)]
-#[command(bin = "fixed-arity")]
+#[usage(bin = "fixed-arity")]
 struct FixedArity {
-    #[arg(long, num_args = 2, value_names = ["START", "END"])]
+    #[usage(long, num_args = 2, value_names = ["START", "END"])]
     pair: Vec<String>,
-    #[arg(long, num_args = 2, value_name = "ITEM")]
+    #[usage(long, num_args = 2, value_name = "ITEM")]
     pair_same: Vec<String>,
-    #[arg(long, value_names = ["INPUT"])]
+    #[usage(long, value_names = ["INPUT"])]
     input: Option<String>,
 }
 
@@ -1222,26 +1182,26 @@ struct FlattenedRelationships {
 #[usage(bin = "relationship-families")]
 #[allow(dead_code)]
 struct RelationshipFamilies {
-    #[arg(long)]
+    #[usage(long)]
     mode: Option<String>,
-    #[arg(long)]
+    #[usage(long)]
     scope: Option<String>,
-    #[arg(long, required_if_eq("mode", "remote"))]
+    #[usage(long, required_if_eq("mode", "remote"))]
     token: Option<String>,
-    #[arg(
+    #[usage(
         long,
         required_if_eq_all = [("mode", "remote"), ("scope", "global")]
     )]
     approval: Option<String>,
-    #[arg(long, required_unless_present_any = ["stdin", "file"])]
+    #[usage(long, required_unless = ["stdin", "file"])]
     input: Option<String>,
-    #[arg(long, required_unless_present_all = ["stdin", "file"])]
+    #[usage(long, required_unless_all = ["stdin", "file"])]
     checksum: Option<String>,
-    #[arg(long)]
+    #[usage(long)]
     stdin: bool,
-    #[arg(long)]
+    #[usage(long)]
     file: Option<String>,
-    #[arg(requires_all = ["mode", "scope"])]
+    #[usage(requires = ["mode", "scope"])]
     request: Option<String>,
 }
 
@@ -1249,23 +1209,23 @@ struct RelationshipFamilies {
 #[usage(bin = "single-unless-all")]
 #[allow(dead_code)]
 struct SingleUnlessAll {
-    #[arg(long)]
+    #[usage(long)]
     stdin: bool,
-    #[arg(long, required_unless_present_all = ["stdin"])]
+    #[usage(long, required_unless_all = ["stdin"])]
     token: Option<String>,
-    #[arg(required_unless_present_all = ["stdin"])]
+    #[usage(required_unless_all = ["stdin"])]
     target: Option<String>,
 }
 
 #[derive(usage::Args)]
-#[command(next_help_heading = "Network")]
+#[usage(next_help_heading = "Network")]
 #[allow(dead_code)]
 struct HeadedSharedArgs {
     /// Registry URL.
-    #[arg(long)]
+    #[usage(long)]
     registry: Option<String>,
     /// Authentication token.
-    #[arg(long, help_heading = "Authentication")]
+    #[usage(long, help_heading = "Authentication")]
     token: Option<String>,
 }
 
@@ -1274,7 +1234,7 @@ struct HeadedSharedArgs {
 #[allow(dead_code)]
 struct HeadedFlatten {
     /// Ordinary root flag.
-    #[arg(long)]
+    #[usage(long)]
     verbose: bool,
     #[usage(flatten)]
     shared: HeadedSharedArgs,
@@ -1284,7 +1244,7 @@ struct HeadedFlatten {
 #[allow(dead_code)]
 struct BareNetworkArgs {
     /// Registry URL.
-    #[arg(long)]
+    #[usage(long)]
     registry: Option<String>,
 }
 
@@ -1293,7 +1253,7 @@ struct BareNetworkArgs {
 #[allow(dead_code)]
 struct SiteHeadedFlatten {
     /// Ordinary root flag.
-    #[arg(long)]
+    #[usage(long)]
     verbose: bool,
     #[usage(flatten, next_help_heading = "Network")]
     network: BareNetworkArgs,
@@ -1303,7 +1263,7 @@ struct SiteHeadedFlatten {
 #[allow(dead_code)]
 struct NestedInnerHeadingArgs {
     /// Registry URL.
-    #[arg(long)]
+    #[usage(long)]
     nested_registry: Option<String>,
 }
 
@@ -1326,7 +1286,7 @@ struct NestedSiteHeadedFlatten {
 #[allow(dead_code)]
 struct SiteInstall {
     /// Force reinstall.
-    #[arg(long)]
+    #[usage(long)]
     force: bool,
     #[usage(flatten, next_help_heading = "Lockfile")]
     lockfile: BareLockfileArgs,
@@ -1336,7 +1296,7 @@ struct SiteInstall {
 #[allow(dead_code)]
 struct BareLockfileArgs {
     /// Error if the lockfile drifts.
-    #[arg(long)]
+    #[usage(long)]
     frozen_lockfile: bool,
 }
 
@@ -1357,7 +1317,7 @@ struct SiteHeadedCmd {
 #[derive(Args)]
 #[allow(dead_code)]
 struct FlattenedRepeatPolicy {
-    #[arg(long)]
+    #[usage(long)]
     jobs: Option<u32>,
     #[usage(long, negate = "no-color")]
     color: bool,
@@ -1373,14 +1333,14 @@ struct StrictFlatten {
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
 enum Shell {
-    #[value(
+    #[usage(
         aliases(["bourne-again", "bash-shell"]),
         visible_alias = "b",
         help = "Bourne Again shell"
     )]
     Bash,
     /// Z shell.
-    #[value(
+    #[usage(
         aliases = ["shell-z", "z-shell", "zsh-shell"],
         hide = true
     )]
@@ -1900,7 +1860,7 @@ fn positional_relationships_parse_and_emit_losslessly() {
 }
 
 #[test]
-fn clap_field_ids_and_aliases_need_no_rewrite() {
+fn native_names_and_aliases_render_portably() {
     for spelling in [
         "--output",
         "--out",
@@ -1908,12 +1868,12 @@ fn clap_field_ids_and_aliases_need_no_rewrite() {
         "--quietly",
         "--silent-output",
     ] {
-        let parsed = ClapSpellings::parse_from(&[OsStr::new(spelling), OsStr::new("file")])
+        let parsed = NativeAliases::parse_from(&[OsStr::new(spelling), OsStr::new("file")])
             .expect("every visible alias should parse");
         assert_eq!(parsed.path.as_deref(), Some("file"));
     }
 
-    let kdl = ClapSpellings::to_kdl();
+    let kdl = NativeAliases::to_kdl();
     assert!(kdl.contains("--output --out --dest"), "{kdl}");
     assert!(!kdl.contains("--dest --quietly"), "{kdl}");
     assert!(
@@ -1929,7 +1889,7 @@ fn parse_only_fields_do_not_trigger_dead_code() {
 }
 
 #[test]
-fn clap_value_arity_stays_on_each_flag_occurrence() {
+fn value_arity_stays_on_each_flag_occurrence() {
     let parsed = FixedArity::parse_from(&[
         OsStr::new("--pair"),
         OsStr::new("a"),
@@ -2023,23 +1983,23 @@ fn relationships_resolve_targets_inside_flattened_args() {
 }
 
 #[test]
-fn clap_override_ids_emit_portable_flag_selectors() {
-    let parsed = ClapOverrideId::parse_from(&[
+fn native_override_names_emit_portable_flag_selectors() {
+    let parsed = NativeOverrideName::parse_from(&[
         OsStr::new("--installed"),
         OsStr::new("tool"),
         OsStr::new("--reset"),
     ])
-    .expect("the later override should displace the clap-id target");
+    .expect("the later override should displace the named target");
     assert!(parsed.reset);
     assert_eq!(parsed.tool, None);
 
-    let kdl = ClapOverrideId::to_kdl();
+    let kdl = NativeOverrideName::to_kdl();
     assert!(kdl.contains("overrides=--installed"), "{kdl}");
     assert!(!kdl.contains("overrides=installed_tool"), "{kdl}");
 }
 
 #[test]
-fn complete_relationship_families_follow_clap_truth_tables() {
+fn complete_relationship_families_follow_native_truth_tables() {
     assert!(RelationshipFamilies::parse_from(&[
         OsStr::new("--mode"),
         OsStr::new("remote"),
@@ -2085,7 +2045,7 @@ fn complete_relationship_families_follow_clap_truth_tables() {
         OsStr::new("sum"),
         OsStr::new("request.json"),
     ])
-    .expect("requires_all accepts every satisfied target");
+    .expect("requires accepts every satisfied target");
 
     let kdl = RelationshipFamilies::to_kdl();
     assert!(kdl.contains("required_if_eq --mode remote"), "{kdl}");
@@ -2398,7 +2358,7 @@ fn typed_subcommand_presentation_reaches_help_and_the_spec() {
 }
 
 #[test]
-fn clap_command_metadata_can_stay_on_the_args_struct() {
+fn command_metadata_on_args_struct_reaches_subcommands() {
     let spec = StructMetadataCli::spec();
     let meta = spec.root.subcommands[0];
     assert_eq!(meta.cmd.aliases, ["go", "secret-run"]);
@@ -2411,51 +2371,25 @@ fn clap_command_metadata_can_stay_on_the_args_struct() {
 }
 
 #[test]
-fn clap_implicit_groups_apply_to_the_args_struct_fields() {
-    assert!(ClapImplicitGroupCli::parse_from(&[]).is_err());
-    assert!(ClapImplicitGroupCli::parse_from(&[OsStr::new("--left")]).is_ok());
+fn native_groups_and_required_flags_survive_flattening() {
+    assert!(FlattenedGroupCli::parse_from(&[]).is_err());
+    assert!(FlattenedGroupCli::parse_from(&[OsStr::new("--left")]).is_ok());
+    assert!(FlattenedGroupCli::parse_from(&[OsStr::new("--left"), OsStr::new("--right")]).is_err());
+    let kdl = FlattenedGroupCli::to_kdl();
     assert!(
-        ClapImplicitGroupCli::parse_from(&[OsStr::new("--left"), OsStr::new("--right")]).is_err()
-    );
-    let kdl = ClapImplicitGroupCli::to_kdl();
-    assert!(
-        kdl.contains("group ClapImplicitGroup --left --right required=#true"),
+        kdl.contains("group choice --left --right required=#true"),
         "{kdl}"
     );
     assert!(matches!(
-        SingleClapImplicitGroupCli::parse_from(&[]),
+        SingleRequiredFlagCli::parse_from(&[]),
         Err(usage::Error::MissingRequired { name: "only" })
     ));
-    assert!(SingleClapImplicitGroupCli::parse_from(&[OsStr::new("--only")]).is_ok());
-    let single_kdl = SingleClapImplicitGroupCli::to_kdl();
+    assert!(SingleRequiredFlagCli::parse_from(&[OsStr::new("--only")]).is_ok());
+    let single_kdl = SingleRequiredFlagCli::to_kdl();
     assert!(
         single_kdl.contains("flag --only required=#true"),
         "{single_kdl}"
     );
-    assert!(
-        !single_kdl.contains("group SingleClapImplicitGroup"),
-        "{single_kdl}"
-    );
-
-    let kdl = SplitClapImplicitGroupCli::to_kdl();
-    assert!(
-        kdl.contains("group all --left --middle --right required=#true"),
-        "{kdl}"
-    );
-    assert!(kdl.contains("group explicit --left --right"), "{kdl}");
-    assert!(SplitClapImplicitGroupCli::parse_from(&[]).is_err());
-    assert!(SplitClapImplicitGroupCli::parse_from(&[OsStr::new("--middle")]).is_ok());
-    assert!(
-        SplitClapImplicitGroupCli::parse_from(&[OsStr::new("--left"), OsStr::new("--middle")])
-            .is_err()
-    );
-
-    assert!(
-        NoopClapImplicitGroupCli::parse_from(&[OsStr::new("--left"), OsStr::new("--right")])
-            .is_ok()
-    );
-    let noop_kdl = NoopClapImplicitGroupCli::to_kdl();
-    assert!(!noop_kdl.contains("group renamed"), "{noop_kdl}");
 }
 
 #[test]
@@ -3048,21 +2982,21 @@ fn the_endpoint_wins_over_default_subcommand_routing() {
 #[allow(dead_code)]
 struct SharedFlags {
     /// Print more.
-    #[arg(long, short)]
+    #[usage(long, short)]
     verbose: bool,
     /// How many at once.
-    #[arg(long)]
+    #[usage(long)]
     jobs: Option<usize>,
 }
 
 #[derive(Args)]
 #[allow(dead_code)]
 struct BuildCmd {
-    #[arg(long)]
+    #[usage(long)]
     release: bool,
     #[usage(flatten)]
     shared: SharedFlags,
-    #[arg(long)]
+    #[usage(long)]
     target: Option<String>,
 }
 
@@ -3148,7 +3082,7 @@ fn what_the_flagset_expands_to_is_what_the_typed_parse_binds() {
 #[derive(Args)]
 #[allow(dead_code)]
 struct InnerFlags {
-    #[arg(long)]
+    #[usage(long)]
     inner: bool,
 }
 
@@ -3157,7 +3091,7 @@ struct InnerFlags {
 struct OuterFlags {
     #[usage(flatten)]
     inner: InnerFlags,
-    #[arg(long)]
+    #[usage(long)]
     outer: bool,
 }
 
@@ -3244,7 +3178,7 @@ mod first {
     #[derive(usage_rs::Args)]
     #[allow(dead_code)]
     pub struct Collides {
-        #[arg(long)]
+        #[usage(long)]
         pub left: bool,
     }
 
@@ -3254,7 +3188,7 @@ mod first {
     pub struct Nested {
         #[usage(flatten)]
         pub inner: Collides,
-        #[arg(long)]
+        #[usage(long)]
         pub one: bool,
     }
 }
@@ -3263,7 +3197,7 @@ mod second {
     #[derive(usage_rs::Args)]
     #[allow(dead_code)]
     pub struct Collides {
-        #[arg(long)]
+        #[usage(long)]
         pub right: bool,
     }
 
@@ -3272,7 +3206,7 @@ mod second {
     pub struct Nested {
         #[usage(flatten)]
         pub inner: Collides,
-        #[arg(long)]
+        #[usage(long)]
         pub two: bool,
     }
 }
