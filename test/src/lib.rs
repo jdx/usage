@@ -1,9 +1,9 @@
 //! Test helpers for a CLI built with usage.
 //!
-//! A CLI's observable surface is three things: what a command line parses to, what a user is
-//! shown when it does not, and what a shell offers while one is being typed. All three are
-//! testable from the static tables the derive already emits — no process to spawn, no
-//! terminal to fake — and none of them was pleasant to reach for. This crate is the reaching.
+//! The parser's observable surface is what a command line parses to, what a user is shown when
+//! it does not, and what a shell offers while one is being typed. All three are testable from
+//! the static tables the derive already emits. [`command!`] covers the other half of a CLI test:
+//! run the compiled binary and capture what its command handler writes.
 //!
 //! What it is *not* is a second implementation of any of them. Every page here comes from
 //! [`usage_argv::help::page`], the same function `parse()` renders a help request with, and
@@ -42,6 +42,7 @@
 #![forbid(unsafe_code)]
 
 use std::ffi::{OsStr, OsString};
+use std::process::{Command as ProcessCommand, ExitStatus};
 
 use usage_argv::help::Style;
 use usage_argv::spec::{CommandMeta, Spec};
@@ -89,6 +90,114 @@ where
     S: Into<OsString>,
 {
     Argv::new(words)
+}
+
+/// Output captured from a CLI integration test.
+///
+/// [`command!`] runs the package's compiled binary, so this includes the same stdout, stderr,
+/// and exit status a user receives. Keep these tests under `tests/`: Cargo defines the binary
+/// path for integration tests, not for a crate's unit tests.
+#[derive(Debug)]
+pub struct CommandOutput {
+    /// The process exit status.
+    pub status: ExitStatus,
+    /// Stdout exactly as the process wrote it.
+    pub stdout: Vec<u8>,
+    /// Stderr exactly as the process wrote it.
+    pub stderr: Vec<u8>,
+}
+
+impl CommandOutput {
+    /// Assert that the command succeeded, printing stderr when it did not.
+    #[track_caller]
+    pub fn assert_success(self) -> Self {
+        assert!(
+            self.status.success(),
+            "command exited with {}:\n{}",
+            self.status,
+            String::from_utf8_lossy(&self.stderr)
+        );
+        self
+    }
+
+    /// Stdout as UTF-8.
+    ///
+    /// Use the public [`Self::stdout`] bytes directly when non-UTF-8 output is intentional.
+    #[track_caller]
+    pub fn stdout_text(&self) -> &str {
+        std::str::from_utf8(&self.stdout).expect("command stdout was not UTF-8")
+    }
+
+    /// Stderr as UTF-8.
+    ///
+    /// Use the public [`Self::stderr`] bytes directly when non-UTF-8 output is intentional.
+    #[track_caller]
+    pub fn stderr_text(&self) -> &str {
+        std::str::from_utf8(&self.stderr).expect("command stderr was not UTF-8")
+    }
+}
+
+/// Run one of the current package's binaries and capture its output.
+///
+/// This is the implementation behind [`command!`]. The public macro supplies `program` from
+/// Cargo's `CARGO_BIN_EXE_<name>` integration-test variable.
+#[doc(hidden)]
+pub fn __command<I, S>(program: &str, args: I) -> CommandOutput
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let output = ProcessCommand::new(program)
+        .args(args)
+        .output()
+        .unwrap_or_else(|error| panic!("could not run {program:?}: {error}"));
+    CommandOutput {
+        status: output.status,
+        stdout: output.stdout,
+        stderr: output.stderr,
+    }
+}
+
+/// Run a binary target from an integration test and capture stdout, stderr, and its exit status.
+///
+/// The first argument is the binary target's Cargo name. Remaining arguments are passed to the
+/// process:
+///
+/// ```ignore
+/// let output = usage::test::command!("greet", "hello", "Jeff").assert_success();
+/// assert_eq!(output.stdout_text(), "hello, Jeff\n");
+/// ```
+///
+/// Put the test under `tests/`, where Cargo provides `CARGO_BIN_EXE_<name>` for each binary
+/// target in the package.
+#[macro_export]
+macro_rules! command {
+    ($bin:literal $(,)?) => {
+        $crate::__command(
+            env!(
+                concat!("CARGO_BIN_EXE_", $bin),
+                concat!(
+                    "`",
+                    $bin,
+                    "` is not available; use `command!` from an integration test under `tests/`"
+                )
+            ),
+            ::std::iter::empty::<&::std::ffi::OsStr>(),
+        )
+    };
+    ($bin:literal, $($arg:expr),+ $(,)?) => {
+        $crate::__command(
+            env!(
+                concat!("CARGO_BIN_EXE_", $bin),
+                concat!(
+                    "`",
+                    $bin,
+                    "` is not available; use `command!` from an integration test under `tests/`"
+                )
+            ),
+            [$($arg),+],
+        )
+    };
 }
 
 /// What a program would have written, where, and what it would have exited with.
