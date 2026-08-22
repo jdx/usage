@@ -1,9 +1,7 @@
 # Rust Framework
 
-::: warning Experimental — draft docs
-The Rust framework is experimental. It is complete enough that it is actively used by some of
-jdx's CLIs, but there may be breaking changes in point releases. These docs are a draft and have
-not yet been human reviewed.
+::: warning Experimental
+Used by some of jdx's CLIs, but point releases may break. These docs have not been human reviewed.
 :::
 
 The Rust framework builds your CLI from Rust types. You declare commands, flags, and args as
