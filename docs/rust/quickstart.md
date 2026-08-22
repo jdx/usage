@@ -1,9 +1,5 @@
 # Quickstart
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 ## A new project
 
 ```bash

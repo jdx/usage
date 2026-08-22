@@ -1,9 +1,5 @@
 # Configuration
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 CLIs that resolve configuration from several places — flags, environment variables, config
 files — have historically kept three descriptions of every setting in step by hand: a registry
 file, a code generator, and the struct the program reads. `#[derive(usage::Config)]` collapses

@@ -1,9 +1,5 @@
 # Validation
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 Everything on this page runs after argv is bound and env/default fallbacks are applied. Only the
 command that actually ran is judged. Contradictory declarations — `choices` on a `bool`,
 `var_min` greater than `var_max`, a default that isn't one of the choices — are compile errors,

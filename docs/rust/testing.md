@@ -1,9 +1,5 @@
 # Testing
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 A CLI test can run the compiled program and assert on stdout, stderr, and its exit status.
 Lower-level helpers assert what argv parses to, what a user reads when it does not, and what a
 shell offers while one is being typed.

@@ -4,10 +4,18 @@
 Used by some of jdx's CLIs, but point releases may break.
 :::
 
-The Rust framework builds your CLI from Rust types. You declare commands, flags, and args as
-structs and enums; a derive macro compiles that declaration into the parse tables the binary runs
-on and a [usage spec](/spec/) it can print. Docs, manpages, and completions are generated from
-that spec.
+`usage-rs` is a fast, typed framework for building complete command-line applications in Rust.
+Declare commands, flags, arguments, and settings with familiar structs and enums, and get
+first-class environment and config-file resolution, advanced shell completions, portable
+validation, negation flags, typed argument groups, categorized subcommands, and more.
+
+In the mise-scale benchmark it parses hundreds of times faster than clap, with no third-party
+runtime crates and a 1.6 MB stripped binary versus clap's 3.1 MB. See the
+[performance results](/rust/performance) and [clap migration guide](/rust/migrating-from-clap).
+
+The same declaration also becomes a portable [usage spec](/spec/) that the binary can print.
+`usage-cli` turns it into documentation, manpages, and completions—the same toolchain used across
+jdx's CLIs.
 
 ```rust
 use usage::Cli;
@@ -44,13 +52,6 @@ whole comment becomes the long help shown by `--help`.
 ## Parser overhead
 
 <UsageBenches lang="rust" embedded />
-
-The derive emits the command tree as static tables at compile time. At runtime the parser walks
-only the selected command path, scans that command's flags plus inherited globals, and writes
-bindings into the result in place. It does not build a command tree, allocate a lookup map, or
-touch help and spec metadata on a successful parse. A bare parse allocates nothing; an owned
-value allocates only when argv actually supplies it. See [Parser performance](/rust/performance)
-for the instruction counts, allocation tests, and benchmark limits.
 
 ## Installation
 

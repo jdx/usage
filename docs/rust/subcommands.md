@@ -1,9 +1,5 @@
 # Subcommands
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 Subcommands are an enum. Each variant wraps a `#[derive(Args)]` struct (or nothing), and the
 enum derives `Subcommands`:
 

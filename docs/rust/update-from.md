@@ -1,9 +1,5 @@
 # Updating an existing value
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 Long-running programs such as REPLs and daemons can merge another command line into a value they
 already hold:
 

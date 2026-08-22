@@ -1,9 +1,5 @@
 # Migrating from clap
 
-::: warning Draft
-This page is a draft and has not yet been human reviewed. Details may change.
-:::
-
 The Rust framework is a typed parser with static metadata, not a compatibility layer around
 clap. Most derive-based CLIs migrate mechanically. Builder APIs and `ArgMatches` are intentional
 API breaks: move their behavior into typed declarations or keep clap at that boundary.
@@ -97,6 +93,28 @@ enum Command {
 
 Unknown flags are values by default, which is useful for wrapper CLIs. Add
 `unknown_flags = "error"` on each command where unknown flag-like words must be rejected.
+
+### Familiar field attributes
+
+Many derive attributes migrate unchanged; `#[arg(...)]` remains accepted while a CLI is being
+converted:
+
+| clap declaration                                      | usage behavior or spelling                                       |
+| ----------------------------------------------------- | ---------------------------------------------------------------- |
+| `visible_alias`, `hide_*`, `last`, `trailing_var_arg` | Accepted with their existing meanings                            |
+| `requires_if` and the other relationship attributes   | Accepted; see the cross-boundary limits below                    |
+| `skip`                                                | Accepted; the field is filled from `Default`                     |
+| `num_args = n` / `num_args = a..=b`                   | Exact or ranged `Vec` cardinality                                |
+| `value_hint = ValueHint::…`                           | The full stable `ValueHint` vocabulary is accepted               |
+| `allow_hyphen_values`, `allow_negative_numbers`       | Accepted with their existing token policies                      |
+| `value_terminator`, `require_equals`                  | Accepted with their existing parsing behavior                    |
+| `global`                                              | May appear once per command level; the innermost occurrence wins |
+| `default_missing_value = "…"`                         | Write `default_missing = "…"`                                    |
+| `default_value_if(…, ArgPredicate::IsPresent, value)` | Write `default_if(other, value)`                                 |
+| `default_value_if(…, value, default)`                 | Write `default_if(other, value, default)`                        |
+
+The native forms and their exact runtime behavior are documented under
+[Args and flags](/rust/args-and-flags).
 
 Repeated scalar flags also use permissive last-one-wins behavior by default. Add
 `#[command(args_override_self = false)]` on commands that should reject a second occurrence.
@@ -305,15 +323,3 @@ separately named usage spec/view API.
 These are architectural boundaries, not temporarily undocumented compatibility promises. The
 static typed path is what keeps normal parsing allocation-free; `usage-lib` remains the dynamic
 interpreter for applications that genuinely construct a CLI at runtime.
-
-## Compatibility policy
-
-While the Rust framework is experimental, changes to accepted argv, typed binding, exit status,
-stdout versus stderr, or the portable spec dialect may land in point releases. New clap
-spellings may be added when they map to existing behavior. A spelling whose clap behavior cannot
-be carried losslessly is rejected or documented as partial; it is not silently accepted with
-weaker semantics.
-
-The paired conformance tests are audited against the clap versions in the workspace lockfile.
-Updating clap requires re-running and reviewing those tests; compiling with a new clap is not by
-itself a parity claim.
