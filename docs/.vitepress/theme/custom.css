@@ -553,8 +553,15 @@
    the doc column. Keep the cards, drop the stage. */
 .usage-bench.embedded {
   max-width: none;
-  margin: 2rem 0 2.75rem;
+  margin: 0.5rem 0 2.75rem;
   padding: 0;
+  text-align: left;
+}
+
+.usage-bench.embedded .usage-bench-sub {
+  margin-left: 0;
+  margin-right: 0;
+  max-width: none;
 }
 
 .vp-doc .usage-bench.embedded .usage-bench-title {

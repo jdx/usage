@@ -119,8 +119,10 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
 
 <template>
   <section class="usage-bench" :class="{ embedded: embedded }">
-    <p class="usage-hero-label">Benchmarks</p>
-    <h2 class="usage-bench-title">Parser overhead</h2>
+    <template v-if="!embedded">
+      <p class="usage-hero-label">Benchmarks</p>
+      <h2 class="usage-bench-title">Parser overhead</h2>
+    </template>
     <p class="usage-bench-sub">
       What parsing <code>mise use -g node@20</code> costs each framework, against a shadow
       of <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands,
