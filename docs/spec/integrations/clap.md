@@ -39,8 +39,7 @@ The report includes the command path, clap argument ID, feature, and source deta
 for each detectable loss. `is_lossless()` therefore means lossless for behavior
 visible through clap's public getters, not for every setter clap exposes. Before
 treating the generated spec as fully compatible, audit the declaration against the
-[compatibility matrix](/rust/clap-compatibility), especially its **usage-only** and
-**lossy** bridge rows.
+[clap migration guide](/rust/migrating-from-clap#compatibility-gaps).
 
 ## Integration Pattern
 
@@ -87,6 +86,6 @@ constraint. `Arg::default_value_if` is the same hole: a generated spec never car
 
 ## Links
 
-- [clap compatibility matrix](/rust/clap-compatibility)
+- [Migrating from clap](/rust/migrating-from-clap)
 - [crate on crates.io](https://crates.io/crates/clap_usage)
 - [source code](https://github.com/jdx/usage/tree/main/clap_usage)

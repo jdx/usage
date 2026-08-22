@@ -41,6 +41,10 @@ Values are built with `FromStr`, so `PathBuf`, `usize`, `IpAddr`, and your own t
 The `FromStr` error type must implement `Display` (a compile error names the type otherwise);
 a conversion failure at runtime becomes `Error::InvalidValue { name, value, reason }`.
 
+On Unix, `PathBuf` and `OsString` keep non-UTF-8 argv bytes unchanged. `String` fields report
+invalid UTF-8 rather than replacing it. On Windows, values that cannot be converted safely are
+reported instead of using an unchecked reconstruction.
+
 A `Vec` flag is repeatable (`var` in spec terms) automatically. Two related attributes cover the
 other shapes:
 
@@ -59,8 +63,7 @@ jobs: Option<u32>,
 
 The tables below cover the attributes most CLIs need. Many clap-compatible spellings
 (`visible_alias`, `hide_*`, `last`, `trailing_var_arg`, `requires_if`, and others) are also
-accepted — see [Migrating from clap](/rust/migrating-from-clap) and the
-[compatibility matrix](/rust/clap-compatibility) for the audited surface.
+accepted — see [Migrating from clap](/rust/migrating-from-clap).
 
 **Naming and shape** — what the field is called and what kind of argument it is:
 
@@ -89,7 +92,7 @@ accepted — see [Migrating from clap](/rust/migrating-from-clap) and the
 | `delimiter = ','`                   | Split one word into several values ([Validation](/rust/validation#delimiters)) |
 | `value_terminator = ";"`            | End a variadic field at this token without storing the token                   |
 | `bool_value`                        | Let a boolean long flag accept attached `=true` or `=false`                    |
-| `value_optional`                    | Mark the value optional in help (help-only; the parser still wants one)        |
+| `value_optional`                    | Help/spec only; bind a bare flag with `default_missing` or `Option<Option<T>>` |
 
 **Env vars and defaults** — where a value comes from when argv has none:
 
@@ -245,9 +248,8 @@ stdin: bool,
 
 Naming a flag or positional that doesn't exist on the command is a **compile error**, not a
 runtime surprise. Conflicts, requires, and conditional requiredness may name flags or
-positionals; `overrides` and some `requires_if` forms stay flag-only. See the
-[compatibility matrix](/rust/clap-compatibility#relationships-and-command-routing) for the
-audited details.
+positionals; `overrides` and some `requires_if` forms stay flag-only. See
+[Compatibility gaps](/rust/migrating-from-clap#compatibility-gaps) for the migration details.
 
 ## Resolution order
 
