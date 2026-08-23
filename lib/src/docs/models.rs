@@ -547,9 +547,18 @@ fn fold_outputs(
 
 impl From<crate::Spec> for Spec {
     fn from(spec: crate::Spec) -> Self {
+        Self::from(&spec)
+    }
+}
+
+impl From<&crate::Spec> for Spec {
+    fn from(spec: &crate::Spec) -> Self {
+        // One clone, because folding rewrites every command's effective outputs and the
+        // caller's spec is not ours to change. Taking a reference is what keeps this to one:
+        // rendering a help page used to clone at the call site and again right here.
         let spec = {
             let mut folded = spec.clone();
-            fold_outputs(&spec, &mut folded.cmd, &mut Vec::new());
+            fold_outputs(spec, &mut folded.cmd, &mut Vec::new());
             folded
         };
         Self {
