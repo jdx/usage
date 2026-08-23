@@ -1,3 +1,7 @@
+{%- if flag.aliases %}
+
+**Aliases:** {% for alias in flag.aliases %}`{{ alias }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif %}
 {%- if flag.effect %}
 
 **Effect**: {% if flag.effect == "read" %}read-only{% elif flag.effect == "destructive" %}destructive — may delete or irreversibly overwrite{% else %}modifies state{% endif %}

@@ -117,6 +117,7 @@ pub struct SpecFlag {
     pub name: String,
     pub effect: Option<crate::spec::effect::SpecCommandEffect>,
     pub usage: String,
+    pub aliases: Vec<String>,
     pub display_usage: String,
     pub help: Option<String>,
     pub help_long: Option<String>,
@@ -811,20 +812,19 @@ fn column_usage(flag: &crate::SpecFlag) -> String {
     format!("{short:<SHORT_COL$}{after}")
 }
 
-/// Every visible spelling for generated reference documentation.
-///
-/// Interactive help keeps the compact first short/long pair in its aligned
-/// column, while a reference page should document aliases users can type.
+/// The canonical visible spelling for generated reference documentation.
 fn reference_usage(flag: &crate::SpecFlag) -> String {
     let mut forms: Vec<String> = flag
         .short
         .iter()
         .filter(|short| !flag.hidden_short_aliases.contains(short))
+        .take(1)
         .map(|short| format!("-{short}"))
         .chain(
             flag.long
                 .iter()
                 .filter(|long| !flag.hidden_aliases.contains(long))
+                .take(1)
                 .map(|long| format!("--{long}")),
         )
         .collect();
@@ -860,6 +860,9 @@ impl From<&crate::SpecFlag> for SpecFlag {
             name: flag.name.clone(),
             effect: flag.effect,
             usage: reference_usage(flag),
+            // Interactive help intentionally keeps aliases out of its aligned flag table.
+            // Markdown fills these from the already-filtered spelling lists in `render_md`.
+            aliases: Vec::new(),
             display_usage: column_usage(flag),
             help: said(&flag.help),
             help_long: flag.help_long.clone(),
@@ -1043,6 +1046,13 @@ impl SpecFlag {
                 self.help_md = Some(renderer.replace_code_fences(h));
             }
         }
+        self.aliases = self
+            .short
+            .iter()
+            .skip(1)
+            .map(|short| format!("-{short}"))
+            .chain(self.long.iter().skip(1).map(|long| format!("--{long}")))
+            .collect();
     }
 }
 

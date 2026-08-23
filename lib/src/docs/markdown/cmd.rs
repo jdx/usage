@@ -258,7 +258,7 @@ cmd "sub" help="a subcommand"
     }
 
     #[test]
-    fn generated_reference_lists_every_visible_flag_alias() {
+    fn generated_reference_separates_visible_flag_aliases() {
         let spec: Spec = r#"
 bin "mycli"
 flag "-t -f --tail --follow" help="Follow output"
@@ -267,8 +267,13 @@ flag "-t -f --tail --follow" help="Follow output"
         .unwrap();
         let ctx = MarkdownRenderer::new(spec.clone()).with_multi(true);
         let rendered = ctx.render_cmd(&spec.cmd).unwrap();
+        assert!(rendered.contains("### `-t --tail`"), "{rendered}");
         assert!(
-            rendered.contains("### `-t -f --tail --follow`"),
+            rendered.contains("**Aliases:** `-f`, `--follow`"),
+            "{rendered}"
+        );
+        assert!(
+            !rendered.contains("### `-t -f --tail --follow`"),
             "{rendered}"
         );
     }

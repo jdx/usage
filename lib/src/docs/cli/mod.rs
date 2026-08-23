@@ -504,6 +504,21 @@ mod tests {
     use insta::assert_snapshot;
 
     #[test]
+    fn flag_aliases_do_not_leak_into_interactive_help() {
+        let spec = crate::spec! { r#"
+bin "ex"
+flag "-t -f --tail --follow" help="Follow output"
+        "# }
+        .unwrap();
+
+        for long in [false, true] {
+            let page = super::render_help(&spec, &spec.cmd, long);
+            assert!(page.contains("-t, --tail"), "long={long}:\n{page}");
+            assert!(!page.contains("aliases:"), "long={long}:\n{page}");
+        }
+    }
+
+    #[test]
     fn a_hidden_ancestor_claim_keeps_help_off_the_page() {
         // `--help` is supplied by the parser, and a hidden global that declares it still binds
         // first — `hide` keeps a flag off the page, not out of the parse. Deciding the supplied
