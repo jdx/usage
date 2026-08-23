@@ -522,8 +522,12 @@ fn value_span(
     argv: &[&std::ffi::OsStr],
     name: &str,
     wanted: impl Fn(&str) -> bool,
+    view: Option<&ViewMeta<'_>>,
 ) -> Option<ArgvSpan> {
     let mut parser = crate::Parser::new(root, argv);
+    if let Some(view) = view {
+        parser = parser.with_view(view);
+    }
     while let Some(event) = parser.next_event() {
         let value = match event {
             Ok(crate::Event::Arg { arg, value, .. }) if arg.name == name => value,
@@ -542,9 +546,25 @@ fn value_span(
     None
 }
 
-fn flag_span(argv: &[&std::ffi::OsStr], flag: &crate::Flag<'_>) -> Option<ArgvSpan> {
-    argv.iter().enumerate().rev().find_map(|(index, word)| {
-        let bytes = word.as_encoded_bytes();
+fn flag_span(
+    root: &Command<'_>,
+    argv: &[&std::ffi::OsStr],
+    flag: &crate::Flag<'_>,
+    view: Option<&ViewMeta<'_>>,
+) -> Option<ArgvSpan> {
+    let mut parser = crate::Parser::new(root, argv);
+    if let Some(view) = view {
+        parser = parser.with_view(view);
+    }
+    while let Some(event) = parser.next_event() {
+        let Err(Error::MissingFlagValue { flag: missing }) = event else {
+            continue;
+        };
+        if !core::ptr::eq(missing, flag) {
+            return None;
+        }
+        let index = parser.pos.checked_sub(1)?;
+        let bytes = argv.get(index)?.as_encoded_bytes();
         if let Some(long) = bytes.strip_prefix(b"--") {
             let name = long.split(|byte| *byte == b'=').next().unwrap_or(long);
             return flag.longs.iter().find_map(|candidate| {
@@ -556,14 +576,15 @@ fn flag_span(argv: &[&std::ffi::OsStr], flag: &crate::Flag<'_>) -> Option<ArgvSp
             });
         }
         let shorts = bytes.strip_prefix(b"-")?;
-        shorts.iter().enumerate().find_map(|(offset, short)| {
+        return shorts.iter().enumerate().find_map(|(offset, short)| {
             flag.shorts.contains(short).then_some(ArgvSpan {
                 index,
                 start: offset + 1,
                 end: offset + 2,
             })
-        })
-    })
+        });
+    }
+    None
 }
 
 fn code(error: &Error<'_, '_>) -> Code {
@@ -615,16 +636,29 @@ fn subject(error: &Error<'_, '_>) -> Option<String> {
     }
 }
 
-fn location(spec: &Spec<'_>, argv: &[&std::ffi::OsStr], error: &Error<'_, '_>) -> Option<ArgvSpan> {
+fn location(
+    spec: &Spec<'_>,
+    argv: &[&std::ffi::OsStr],
+    error: &Error<'_, '_>,
+    view: Option<&ViewMeta<'_>>,
+) -> Option<ArgvSpan> {
     match error {
         Error::UnknownFlag { token } | Error::UnexpectedArg { token } => span_of_slice(argv, token),
-        Error::MissingFlagValue { flag } => flag_span(argv, flag),
-        Error::InvalidChoice { name, choices } => {
-            value_span(spec.root.cmd, argv, name, |value| !choices.contains(&value))
-        }
-        Error::InvalidValue(invalid) => value_span(spec.root.cmd, argv, invalid.name, |value| {
-            value == invalid.value
-        }),
+        Error::MissingFlagValue { flag } => flag_span(spec.root.cmd, argv, flag, view),
+        Error::InvalidChoice { name, choices } => value_span(
+            spec.root.cmd,
+            argv,
+            name,
+            |value| !choices.contains(&value),
+            view,
+        ),
+        Error::InvalidValue(invalid) => value_span(
+            spec.root.cmd,
+            argv,
+            invalid.name,
+            |value| value == invalid.value,
+            view,
+        ),
         _ => None,
     }
 }
@@ -638,8 +672,38 @@ pub fn report(spec: &Spec<'_>, argv: &[&std::ffi::OsStr], error: &Error<'_, '_>)
     Report {
         code: code(error),
         subject: subject(error),
-        location: location(spec, argv, error),
+        location: location(spec, argv, error, None),
         rendered: render(spec, argv, error, Style::PLAIN),
+    }
+}
+
+/// Describe a parse outcome through a spec-declared executable view.
+///
+/// `argv` is the original full argv, including the view executable as argv0. Locations address
+/// that original slice; synthetic words from the view's canonical root are never exposed.
+pub fn report_view<'a>(
+    spec: &'a Spec<'a>,
+    argv: &[&std::ffi::OsStr],
+    error: &Error<'_, '_>,
+    view: &'a ViewMeta<'a>,
+) -> Report {
+    let words = argv.get(1..).unwrap_or_default();
+    let root_depth = view.root.split_ascii_whitespace().count();
+    let mut rewritten = Vec::with_capacity(words.len() + root_depth);
+    rewritten.extend(view.root.split_ascii_whitespace().map(std::ffi::OsStr::new));
+    rewritten.extend_from_slice(words);
+    let location = location(spec, &rewritten, error, Some(view)).and_then(|span| {
+        (span.index >= root_depth).then_some(ArgvSpan {
+            index: span.index - root_depth + 1,
+            start: span.start,
+            end: span.end,
+        })
+    });
+    Report {
+        code: code(error),
+        subject: subject(error),
+        location,
+        rendered: render_inner(spec, &rewritten, error, Style::PLAIN, Some(view)),
     }
 }
 
@@ -1323,6 +1387,84 @@ mod tests {
                 index: 1,
                 start: 0,
                 end: 6,
+            })
+        );
+    }
+
+    #[test]
+    fn a_repeated_missing_flag_points_at_the_occurrence_the_parser_refused() {
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("--jobs"),
+            std::ffi::OsString::from("--jobs"),
+        ];
+        let argv = owned
+            .iter()
+            .map(|word| word.as_os_str())
+            .collect::<Vec<_>>();
+        let error = Error::MissingFlagValue { flag: &JOBS };
+        assert_eq!(
+            report(&SPEC, &argv, &error).location,
+            Some(ArgvSpan {
+                index: 1,
+                start: 0,
+                end: 6,
+            })
+        );
+    }
+
+    #[test]
+    fn view_reports_map_invalid_values_back_to_the_original_argv() {
+        static VIEW: ViewMeta = ViewMeta {
+            id: "runner",
+            name: "runner",
+            bin: "runner",
+            root: "use",
+            all_globals: false,
+            globals: &[],
+        };
+
+        let invalid_owned = [
+            std::ffi::OsString::from("runner"),
+            std::ffi::OsString::from("--jobs=wat"),
+        ];
+        let invalid_argv = invalid_owned
+            .iter()
+            .map(|word| word.as_os_str())
+            .collect::<Vec<_>>();
+        let invalid = Error::InvalidValue(Box::new(crate::InvalidValue {
+            name: "jobs",
+            value: "wat".to_string(),
+            reason: "invalid digit found in string".to_string(),
+        }));
+        assert_eq!(
+            report_view(&SPEC, &invalid_argv, &invalid, &VIEW).location,
+            Some(ArgvSpan {
+                index: 1,
+                start: 7,
+                end: 10,
+            })
+        );
+
+        let choice_owned = [
+            std::ffi::OsString::from("runner"),
+            std::ffi::OsString::from("tool"),
+            std::ffi::OsString::from("fish"),
+        ];
+        let choice_argv = choice_owned
+            .iter()
+            .map(|word| word.as_os_str())
+            .collect::<Vec<_>>();
+        let choice = Error::InvalidChoice {
+            name: "SHELLS",
+            choices: &["bash", "zsh"],
+        };
+        assert_eq!(
+            report_view(&SPEC, &choice_argv, &choice, &VIEW).location,
+            Some(ArgvSpan {
+                index: 2,
+                start: 0,
+                end: 4,
             })
         );
     }
