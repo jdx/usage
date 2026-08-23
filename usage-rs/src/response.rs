@@ -130,24 +130,25 @@ fn expand_one(
     } else {
         base.join(requested)
     };
-    if active.len() >= options.max_depth {
-        return Err(Error {
-            path,
-            kind: ErrorKind::DepthExceeded {
-                max_depth: options.max_depth,
-            },
-        });
-    }
     let canonical = std::fs::canonicalize(&path).map_err(|error| Error {
         path: path.clone(),
         kind: ErrorKind::Io(error),
     })?;
-    if !active.insert(canonical.clone()) {
+    if active.contains(&canonical) {
         return Err(Error {
             path: canonical,
             kind: ErrorKind::Cycle,
         });
     }
+    if active.len() >= options.max_depth {
+        return Err(Error {
+            path: canonical,
+            kind: ErrorKind::DepthExceeded {
+                max_depth: options.max_depth,
+            },
+        });
+    }
+    active.insert(canonical.clone());
 
     let result = (|| {
         let contents = std::fs::read_to_string(&canonical).map_err(|error| Error {
@@ -218,6 +219,21 @@ mod tests {
             "@{}",
             dir.path().join("a.args").display()
         ))])
+        .unwrap_err();
+        assert!(matches!(error.kind, ErrorKind::Cycle));
+    }
+
+    #[test]
+    fn a_cycle_at_the_depth_boundary_is_still_a_cycle() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.args"), "@a.args").unwrap();
+        let error = expand_with(
+            [OsString::from(format!(
+                "@{}",
+                dir.path().join("a.args").display()
+            ))],
+            Options { max_depth: 1 },
+        )
         .unwrap_err();
         assert!(matches!(error.kind, ErrorKind::Cycle));
     }

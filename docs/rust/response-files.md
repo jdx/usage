@@ -15,7 +15,6 @@ use usage::Cli;
 let expanded = usage::response::expand(std::env::args_os().skip(1))?;
 let argv: Vec<&OsStr> = expanded.iter().map(|word| word.as_os_str()).collect();
 let cli = MyCli::parse_from(&argv)?;
-# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 An argument beginning with `@` names a UTF-8 file of shell-style words:
