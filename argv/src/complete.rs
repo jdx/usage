@@ -423,6 +423,8 @@ impl core::fmt::Display for CompletionTrace<'_> {
         writeln!(f, "command: {}", self.command_path.join(" "))?;
         let position = if let Some(flag) = self.awaiting_value {
             format!("value of {flag}")
+        } else if self.flags_possible && self.prefix.starts_with('-') {
+            "flag".to_string()
         } else if let Some(arg) = self.next_arg {
             format!("argument {arg}")
         } else if self.help_topic {
@@ -451,7 +453,7 @@ impl core::fmt::Display for CompletionTrace<'_> {
 pub fn trace<'a>(spec: &'a Spec<'a>, split: &Split) -> CompletionTrace<'a> {
     let position = walk(spec.root.cmd, split.argv());
     let answer = complete(spec, split);
-    trace_from(split, position, answer)
+    trace_from(spec, split, position, answer)
 }
 
 /// Explain a completion answer through one executable view.
@@ -462,30 +464,74 @@ pub fn trace_view<'a>(
 ) -> CompletionTrace<'a> {
     let position = walk_view(spec.root.cmd, split.argv(), view);
     let answer = complete_view(spec, split, view);
-    trace_from(split, position, answer)
+    trace_from(spec, split, position, answer)
 }
 
 fn trace_from<'a>(
+    spec: &'a Spec<'a>,
     split: &Split,
     position: Position<'a>,
     answer: Completions<'a>,
 ) -> CompletionTrace<'a> {
+    let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
+    let next_arg = if restarted(meta, split) {
+        meta.and_then(|meta| meta.args.first())
+            .map(|field| field.arg)
+    } else {
+        position
+            .next_arg
+            .or_else(|| default_subcommand_arg(spec, split, &position).map(|(_, field)| field.arg))
+    };
+    let command_path = if position.help_topic {
+        command_path_to(spec.root.cmd, position.cmd)
+    } else {
+        position
+            .path
+            .iter()
+            .map(|(command, _)| command.name)
+            .collect()
+    };
     CompletionTrace {
         words: split.words.clone(),
         cword: split.cword,
         prefix: split.prefix.clone(),
-        command_path: position
-            .path
-            .iter()
-            .map(|(command, _)| command.name)
-            .collect(),
+        command_path,
         flags_possible: position.flags_possible,
         awaiting_value: position.awaiting_value.map(|flag| flag.name),
-        next_arg: position.next_arg.map(|arg| arg.name),
+        next_arg: next_arg.map(|arg| arg.name),
         separator_seen: position.separator_seen,
         help_topic: position.help_topic,
         candidates: answer.candidates,
         files: answer.files,
+    }
+}
+
+fn command_path_to<'a>(root: &'a Command<'a>, target: &'a Command<'a>) -> Vec<&'a str> {
+    fn visit<'a>(
+        command: &'a Command<'a>,
+        target: &'a Command<'a>,
+        path: &mut Vec<&'a str>,
+    ) -> bool {
+        path.push(command.name);
+        if core::ptr::eq(command, target) {
+            return true;
+        }
+        if command
+            .subcommands
+            .iter()
+            .any(|subcommand| visit(subcommand, target, path))
+        {
+            return true;
+        }
+        path.pop();
+        false
+    }
+
+    let mut path = Vec::new();
+    if visit(root, target, &mut path) {
+        path
+    } else {
+        vec![target.name]
     }
 }
 
@@ -3320,6 +3366,30 @@ mod tests {
         let rendered = trace.to_string();
         assert!(rendered.contains("position: value of jobs"), "{rendered}");
         assert!(rendered.contains("shell fallback: none"), "{rendered}");
+    }
+
+    #[test]
+    fn a_trace_uses_the_effective_argument_after_a_restart() {
+        let trace = trace(&SPEC, &at_end("mise ship fast script ::: "));
+        assert_eq!(trace.next_arg, Some("MODE"));
+        assert_eq!(trace.files, None);
+        assert!(trace.to_string().contains("position: argument MODE"));
+    }
+
+    #[test]
+    fn a_help_trace_keeps_the_selected_topic_path() {
+        let trace = trace(&SPEC, &at_end("mise help plugins "));
+        assert!(trace.help_topic);
+        assert_eq!(trace.command_path, ["mise", "plugins"]);
+        assert!(trace.to_string().contains("command: mise plugins"));
+    }
+
+    #[test]
+    fn a_trace_labels_a_dash_prefixed_cursor_as_a_flag_position() {
+        let trace = trace(&SPEC, &at_end("mise install --s"));
+        assert!(trace.flags_possible);
+        assert_eq!(trace.next_arg, Some("TOOL"));
+        assert!(trace.to_string().contains("position: flag"));
     }
 
     #[test]
