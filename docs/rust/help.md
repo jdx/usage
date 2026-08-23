@@ -104,12 +104,12 @@ held to identical output over mise's 211 command pages in CI.
 
 Help prose accepts a small inline Markdown vocabulary when it is printed to a styled terminal:
 
-| source                   | terminal style |
-| ------------------------ | -------------- |
-| `**bold**` / `__bold__`  | bold           |
-| `*italic*` / `_italic_`  | italic         |
-| `` `literal` ``          | code/literal   |
-| `~~obsolete~~`           | strikethrough  |
+| source                  | terminal style |
+| ----------------------- | -------------- |
+| `**bold**` / `__bold__` | bold           |
+| `*italic*` / `_italic_` | italic         |
+| `` `literal` ``         | code/literal   |
+| `~~obsolete~~`          | strikethrough  |
 
 The forms can be nested, and a backslash escapes a delimiter (`\*literal\*`). Formatting is
 terminal-aware: `parse()` emits ANSI styling only on a terminal (or with `CLICOLOR_FORCE`), and
