@@ -251,3 +251,24 @@ Without `diagnostics` (for example after `default-features = false`, or when dep
 `usage-argv` alone), it falls back to the `Debug` form of the error — fine for internal tools,
 not what you want to ship. `parse()` prints the rendered failure to **stderr** and exits **2**,
 clap's status, so scripts that check for it keep working.
+
+### Structured diagnostics
+
+Editors, JSON reporters, NAPI/WASM hosts, and diagnostic frameworks can read the same failure as
+fields instead of scraping its terminal rendering:
+
+```rust
+let error = Ex::parse_from(&argv).unwrap_err();
+let report = usage::diagnostic::report(Ex::spec(), &argv, &error);
+
+assert_eq!(report.code.as_str(), "invalid_value");
+if let Some(location) = report.location {
+    // The argv word and the exact byte range within it.
+    eprintln!("argv[{}], bytes {}..{}", location.index, location.start, location.end);
+}
+```
+
+`Report` also carries the diagnostic's subject and its ordinary plain-text rendering. Locations
+use byte offsets into `OsStr`, so they remain exact for non-UTF-8 argv. A location is intentionally
+absent when no single token is responsible, such as a missing required argument or a conflict
+between two otherwise-valid flags.

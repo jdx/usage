@@ -26,6 +26,82 @@ use core::fmt::Write as _;
 use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
 use crate::{Command, Error};
 
+/// A stable machine-readable category for one parse outcome.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Code {
+    UnknownFlag,
+    MissingFlagValue,
+    UnexpectedArg,
+    ArgRequiresDoubleDash,
+    SubcommandConflict,
+    TooDeep,
+    MissingRequired,
+    DuplicateFlag,
+    InvalidChoice,
+    VarTooFew,
+    VarTooMany,
+    ConflictingFlags,
+    InvalidValue,
+    MissingGroup,
+    MissingSubcommand,
+    Help,
+    MissingArgsHelp,
+    HelpAll,
+    Version,
+}
+
+impl Code {
+    /// The stable snake-case spelling intended for JSON, logs, and editor protocols.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::UnknownFlag => "unknown_flag",
+            Self::MissingFlagValue => "missing_flag_value",
+            Self::UnexpectedArg => "unexpected_arg",
+            Self::ArgRequiresDoubleDash => "arg_requires_double_dash",
+            Self::SubcommandConflict => "subcommand_conflict",
+            Self::TooDeep => "too_deep",
+            Self::MissingRequired => "missing_required",
+            Self::DuplicateFlag => "duplicate_flag",
+            Self::InvalidChoice => "invalid_choice",
+            Self::VarTooFew => "var_too_few",
+            Self::VarTooMany => "var_too_many",
+            Self::ConflictingFlags => "conflicting_flags",
+            Self::InvalidValue => "invalid_value",
+            Self::MissingGroup => "missing_group",
+            Self::MissingSubcommand => "missing_subcommand",
+            Self::Help => "help",
+            Self::MissingArgsHelp => "missing_args_help",
+            Self::HelpAll => "help_all",
+            Self::Version => "version",
+        }
+    }
+}
+
+/// The bytes within one argv word responsible for a diagnostic.
+///
+/// `index` addresses the argv slice passed to [`report`]. `start` and `end` are byte offsets in
+/// that [`std::ffi::OsStr`], so the location remains lossless for non-UTF-8 command lines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArgvSpan {
+    pub index: usize,
+    pub start: usize,
+    pub end: usize,
+}
+
+/// A parse outcome ready for a JSON reporter, editor, or another diagnostic framework.
+///
+/// The parser's original [`Error`] remains allocation-free on ordinary grammar failures. This
+/// cold-path value owns its human rendering and optional subject so an embedding does not need
+/// to reverse-engineer enum variants or scrape terminal text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Report {
+    pub code: Code,
+    pub subject: Option<String>,
+    pub location: Option<ArgvSpan>,
+    pub rendered: String,
+}
+
 /// Whether to colour, and what with.
 ///
 /// The codes are clap's, so that a terminal shows the same thing: bold red for `error:`, yellow
@@ -424,6 +500,147 @@ fn resolve<'a>(
         chain.push(next);
     }
     Some((names, chain))
+}
+
+fn span_of_slice(argv: &[&std::ffi::OsStr], slice: &[u8]) -> Option<ArgvSpan> {
+    let start = slice.as_ptr() as usize;
+    let end = start.checked_add(slice.len())?;
+    argv.iter().enumerate().find_map(|(index, word)| {
+        let bytes = word.as_encoded_bytes();
+        let word_start = bytes.as_ptr() as usize;
+        let word_end = word_start.checked_add(bytes.len())?;
+        (start >= word_start && end <= word_end).then(|| ArgvSpan {
+            index,
+            start: start - word_start,
+            end: end - word_start,
+        })
+    })
+}
+
+fn value_span(
+    root: &Command<'_>,
+    argv: &[&std::ffi::OsStr],
+    name: &str,
+    wanted: impl Fn(&str) -> bool,
+) -> Option<ArgvSpan> {
+    let mut parser = crate::Parser::new(root, argv);
+    while let Some(event) = parser.next_event() {
+        let value = match event {
+            Ok(crate::Event::Arg { arg, value, .. }) if arg.name == name => value,
+            Ok(crate::Event::Flag {
+                flag,
+                value: Some(value),
+                ..
+            }) if flag.name == name => value,
+            Ok(_) => continue,
+            Err(_) => break,
+        };
+        if wanted(&String::from_utf8_lossy(value)) {
+            return span_of_slice(argv, value);
+        }
+    }
+    None
+}
+
+fn flag_span(argv: &[&std::ffi::OsStr], flag: &crate::Flag<'_>) -> Option<ArgvSpan> {
+    argv.iter().enumerate().rev().find_map(|(index, word)| {
+        let bytes = word.as_encoded_bytes();
+        if let Some(long) = bytes.strip_prefix(b"--") {
+            let name = long.split(|byte| *byte == b'=').next().unwrap_or(long);
+            return flag.longs.iter().find_map(|candidate| {
+                (name == candidate.as_bytes()).then_some(ArgvSpan {
+                    index,
+                    start: 0,
+                    end: candidate.len() + 2,
+                })
+            });
+        }
+        let shorts = bytes.strip_prefix(b"-")?;
+        shorts.iter().enumerate().find_map(|(offset, short)| {
+            flag.shorts.contains(short).then_some(ArgvSpan {
+                index,
+                start: offset + 1,
+                end: offset + 2,
+            })
+        })
+    })
+}
+
+fn code(error: &Error<'_, '_>) -> Code {
+    match error {
+        Error::UnknownFlag { .. } => Code::UnknownFlag,
+        Error::MissingFlagValue { .. } => Code::MissingFlagValue,
+        Error::UnexpectedArg { .. } => Code::UnexpectedArg,
+        Error::ArgRequiresDoubleDash { .. } => Code::ArgRequiresDoubleDash,
+        Error::SubcommandConflict { .. } => Code::SubcommandConflict,
+        Error::TooDeep => Code::TooDeep,
+        Error::MissingRequired { .. } => Code::MissingRequired,
+        Error::DuplicateFlag { .. } => Code::DuplicateFlag,
+        Error::InvalidChoice { .. } => Code::InvalidChoice,
+        Error::VarTooFew { .. } => Code::VarTooFew,
+        Error::VarTooMany { .. } => Code::VarTooMany,
+        Error::ConflictingFlags { .. } => Code::ConflictingFlags,
+        Error::InvalidValue(_) => Code::InvalidValue,
+        Error::MissingGroup { .. } => Code::MissingGroup,
+        Error::MissingSubcommand => Code::MissingSubcommand,
+        Error::Help { .. } => Code::Help,
+        Error::MissingArgsHelp { .. } => Code::MissingArgsHelp,
+        Error::HelpAll { .. } => Code::HelpAll,
+        Error::Version { .. } => Code::Version,
+    }
+}
+
+fn subject(error: &Error<'_, '_>) -> Option<String> {
+    match error {
+        Error::UnknownFlag { token } | Error::UnexpectedArg { token } => {
+            Some(String::from_utf8_lossy(token).into_owned())
+        }
+        Error::MissingFlagValue { flag } => Some(flag.name.to_string()),
+        Error::ArgRequiresDoubleDash { arg } => Some(arg.name.to_string()),
+        Error::SubcommandConflict { subcommand } => Some(subcommand.name.to_string()),
+        Error::MissingRequired { name }
+        | Error::DuplicateFlag { name }
+        | Error::InvalidChoice { name, .. }
+        | Error::VarTooFew { name, .. }
+        | Error::VarTooMany { name, .. }
+        | Error::ConflictingFlags { name, .. } => Some((*name).to_string()),
+        Error::InvalidValue(invalid) => Some(invalid.name.to_string()),
+        Error::MissingGroup { group, .. } => Some((*group).to_string()),
+        Error::TooDeep
+        | Error::MissingSubcommand
+        | Error::Help { .. }
+        | Error::MissingArgsHelp { .. }
+        | Error::HelpAll { .. }
+        | Error::Version { .. } => None,
+    }
+}
+
+fn location(spec: &Spec<'_>, argv: &[&std::ffi::OsStr], error: &Error<'_, '_>) -> Option<ArgvSpan> {
+    match error {
+        Error::UnknownFlag { token } | Error::UnexpectedArg { token } => span_of_slice(argv, token),
+        Error::MissingFlagValue { flag } => flag_span(argv, flag),
+        Error::InvalidChoice { name, choices } => {
+            value_span(spec.root.cmd, argv, name, |value| !choices.contains(&value))
+        }
+        Error::InvalidValue(invalid) => value_span(spec.root.cmd, argv, invalid.name, |value| {
+            value == invalid.value
+        }),
+        _ => None,
+    }
+}
+
+/// Describe a parse outcome as stable fields plus the ordinary plain-text rendering.
+///
+/// Locations are present when one argv word (or bytes within it) caused the failure. They are
+/// absent for omissions and command-wide relationship failures, which have no honest single
+/// token to underline.
+pub fn report(spec: &Spec<'_>, argv: &[&std::ffi::OsStr], error: &Error<'_, '_>) -> Report {
+    Report {
+        code: code(error),
+        subject: subject(error),
+        location: location(spec, argv, error),
+        rendered: render(spec, argv, error, Style::PLAIN),
+    }
 }
 
 /// Render `error` the way a user should read it.
@@ -1005,6 +1222,109 @@ mod tests {
         let owned: Vec<std::ffi::OsString> = words.iter().map(std::ffi::OsString::from).collect();
         let argv: Vec<&std::ffi::OsStr> = owned.iter().map(|o| o.as_os_str()).collect();
         render(&SPEC, &argv, &error, Style::PLAIN)
+    }
+
+    #[test]
+    fn a_structured_report_locates_the_exact_unknown_word() {
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("--fore"),
+        ];
+        let argv = owned
+            .iter()
+            .map(|word| word.as_os_str())
+            .collect::<Vec<_>>();
+        let error = Error::UnknownFlag {
+            token: argv[1].as_encoded_bytes(),
+        };
+        let report = report(&SPEC, &argv, &error);
+        assert_eq!(report.code, Code::UnknownFlag);
+        assert_eq!(report.code.as_str(), "unknown_flag");
+        assert_eq!(report.subject.as_deref(), Some("--fore"));
+        assert_eq!(
+            report.location,
+            Some(ArgvSpan {
+                index: 1,
+                start: 0,
+                end: 6,
+            })
+        );
+        assert!(report.rendered.starts_with("error: unexpected argument"));
+    }
+
+    #[test]
+    fn a_structured_report_locates_an_attached_invalid_value() {
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("--jobs=wat"),
+            std::ffi::OsString::from("tool"),
+        ];
+        let argv = owned
+            .iter()
+            .map(|word| word.as_os_str())
+            .collect::<Vec<_>>();
+        let error = Error::InvalidValue(Box::new(crate::InvalidValue {
+            name: "jobs",
+            value: "wat".to_string(),
+            reason: "invalid digit found in string".to_string(),
+        }));
+        let report = report(&SPEC, &argv, &error);
+        assert_eq!(report.code, Code::InvalidValue);
+        assert_eq!(
+            report.location,
+            Some(ArgvSpan {
+                index: 1,
+                start: 7,
+                end: 10,
+            })
+        );
+    }
+
+    #[test]
+    fn a_structured_report_finds_the_refused_value_in_a_variadic() {
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("tool"),
+            std::ffi::OsString::from("bash"),
+            std::ffi::OsString::from("fish"),
+        ];
+        let argv = owned
+            .iter()
+            .map(|word| word.as_os_str())
+            .collect::<Vec<_>>();
+        let error = Error::InvalidChoice {
+            name: "SHELLS",
+            choices: &["bash", "zsh"],
+        };
+        assert_eq!(
+            report(&SPEC, &argv, &error).location,
+            Some(ArgvSpan {
+                index: 3,
+                start: 0,
+                end: 4,
+            })
+        );
+    }
+
+    #[test]
+    fn a_missing_flag_value_points_at_the_flag() {
+        let owned = [
+            std::ffi::OsString::from("use"),
+            std::ffi::OsString::from("--jobs"),
+        ];
+        let argv = owned
+            .iter()
+            .map(|word| word.as_os_str())
+            .collect::<Vec<_>>();
+        let error = Error::MissingFlagValue { flag: &JOBS };
+        assert_eq!(
+            report(&SPEC, &argv, &error).location,
+            Some(ArgvSpan {
+                index: 1,
+                start: 0,
+                end: 6,
+            })
+        );
     }
 
     #[test]
