@@ -174,4 +174,6 @@ fn tasks_in_file(
 The first parameter is the _partial parse_ of the completer's own command — flags the user has
 already typed are available, so a `--file` flag can steer what gets completed. Build candidates
 with `Candidate::new(value)` or `Candidate::described(value, description)`; shells that display
-descriptions (zsh, fish) show them, shells that don't get the value alone.
+descriptions show them, shells that don't get the value alone. Chain `.displayed(label)` when a
+short insertion needs a more explanatory presentation; zsh and PowerShell keep that label
+separate from the text inserted into the command line, while other shells display the value.

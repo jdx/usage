@@ -628,9 +628,9 @@ pub const COMMANDS_MARKER: &str = "\u{1}commands";
 /// Write an answer the way `shell` reads it.
 ///
 /// One line per candidate, in the shape the shell's own completion machinery expects — which is
-/// where the five differ. bash reads values only; fish, nu and PowerShell take a description
-/// after a tab; zsh takes a third field, the text to insert, because what it displays and what
-/// it types are not always the same string.
+/// where the five differ. bash reads values only; fish and nu take a description after a tab;
+/// PowerShell takes value, description and display text; zsh takes display text, description and
+/// the quoted text to insert.
 ///
 /// A trailing [`FILES_MARKER`] says the generated script should hand the position to the
 /// shell's own path completion afterwards.
@@ -649,13 +649,24 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
             Shell::Zsh => {
                 // Display, then description, then what to type: a candidate containing a space
                 // or a quote has to reach the command line intact.
-                out.push_str(&candidate.value);
+                out.push_str(&one_line(
+                    candidate.display.as_deref().unwrap_or(&candidate.value),
+                ));
                 out.push('\t');
                 out.push_str(description);
                 out.push('\t');
                 out.push_str(&zsh_quote(&candidate.value));
             }
-            Shell::Fish | Shell::Nu | Shell::PowerShell => {
+            Shell::PowerShell => {
+                out.push_str(&candidate.value);
+                out.push('\t');
+                out.push_str(description);
+                out.push('\t');
+                out.push_str(&one_line(
+                    candidate.display.as_deref().unwrap_or(&candidate.value),
+                ));
+            }
+            Shell::Fish | Shell::Nu => {
                 out.push_str(&candidate.value);
                 if described {
                     out.push('\t');
@@ -1303,6 +1314,7 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
             if name.starts_with(token) {
                 out.push(Candidate {
                     value: (*name).to_string(),
+                    display: None,
                     description: deprecated_description(
                         sub.about,
                         sub.deprecated,
@@ -1340,6 +1352,7 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             if value.starts_with(token) {
                 out.push(Candidate {
                     value,
+                    display: None,
                     description: description.clone(),
                 });
             }
@@ -1354,6 +1367,7 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             if value.starts_with(token) {
                 out.push(Candidate {
                     value,
+                    display: None,
                     description: description.clone(),
                 });
             }
@@ -1386,6 +1400,7 @@ fn short_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> 
             if asked_about {
                 out.push(Candidate {
                     value: format!("-{}", short as char),
+                    display: None,
                     description: meta.and_then(|m| {
                         deprecated_description(
                             m.help,
@@ -1443,6 +1458,7 @@ fn positional<'a>(
         if token.is_empty() {
             return vec![Candidate {
                 value: "--".to_string(),
+                display: None,
                 description: None,
             }];
         }
@@ -1519,6 +1535,7 @@ fn choices<'a>(
         .filter(|c| c.starts_with(token))
         .map(|c| Candidate {
             value: (*c).to_string(),
+            display: None,
             description: details
                 .iter()
                 .find(|detail| {
@@ -3277,13 +3294,38 @@ mod tests {
         // bash shows values and nothing else.
         assert_eq!(render(&answer, Shell::Bash), "plugins\n");
 
-        // fish, nu and PowerShell take a description after a tab.
+        // fish and nu take a description after a tab.
         assert_eq!(render(&answer, Shell::Fish), "plugins\tManage plugins\n");
+
+        // PowerShell also receives its separately selectable display text.
+        assert_eq!(
+            render(&answer, Shell::PowerShell),
+            "plugins\tManage plugins\tplugins\n"
+        );
 
         // zsh takes a third field: what to type, which is not always what is shown.
         assert_eq!(
             render(&answer, Shell::Zsh),
             "plugins\tManage plugins\tplugins\n"
+        );
+    }
+
+    #[test]
+    fn display_text_does_not_change_what_the_shell_inserts() {
+        let answer = Completions {
+            candidates: vec![Candidate::described("iad", "US East").displayed("IAD · Virginia")],
+            files: None,
+        };
+
+        assert_eq!(render(&answer, Shell::Bash), "iad\n");
+        assert_eq!(render(&answer, Shell::Fish), "iad\tUS East\n");
+        assert_eq!(
+            render(&answer, Shell::PowerShell),
+            "iad\tUS East\tIAD · Virginia\n"
+        );
+        assert_eq!(
+            render(&answer, Shell::Zsh),
+            "IAD · Virginia\tUS East\tiad\n"
         );
     }
 

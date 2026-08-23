@@ -256,12 +256,14 @@ pub type Completer = fn(&CompleteCtx<'_>) -> Vec<Candidate<'static>>;
 
 /// Something a shell could offer at the cursor.
 ///
-/// The description is what fish, zsh, nu and PowerShell show beside a candidate; bash shows
-/// only the value. It is borrowed from the spec rather than built, because it is already
-/// there — the help text a page would print for the same thing.
+/// `value` is what the shell inserts. `display` may replace it in shells whose completion API
+/// separates presentation from insertion, and `description` is the help shown beside it.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Candidate<'a> {
     pub value: String,
+    /// A presentation-only label. Zsh and PowerShell support this distinction; other shells
+    /// display [`Self::value`] because their native candidate format couples the two.
+    pub display: Option<::std::borrow::Cow<'a, str>>,
     /// Borrowed from the spec where it is already there, owned where a callback made it.
     pub description: Option<::std::borrow::Cow<'a, str>>,
 }
@@ -271,6 +273,7 @@ impl Candidate<'_> {
     pub fn new(value: impl Into<String>) -> Self {
         Self {
             value: value.into(),
+            display: None,
             description: None,
         }
     }
@@ -279,8 +282,15 @@ impl Candidate<'_> {
     pub fn described(value: impl Into<String>, description: impl Into<String>) -> Self {
         Self {
             value: value.into(),
+            display: None,
             description: Some(::std::borrow::Cow::Owned(description.into())),
         }
+    }
+
+    /// Use a different label in shells that can display one value while inserting another.
+    pub fn displayed(mut self, display: impl Into<String>) -> Self {
+        self.display = Some(::std::borrow::Cow::Owned(display.into()));
+        self
     }
 }
 
