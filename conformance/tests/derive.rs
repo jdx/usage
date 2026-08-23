@@ -532,7 +532,7 @@ fn a_cli_with_only_a_positional_works() {
 
     let spec: LibSpec = Bare::to_kdl().parse().expect("should be a valid spec");
     assert_eq!(spec.cmd.args.len(), 1);
-    assert!(spec.cmd.flags.is_empty());
+    assert!(spec.cmd.flags.iter().all(|flag| flag.builtin));
 }
 
 /// And a CLI with no positionals, for the same reason.
@@ -551,7 +551,10 @@ fn a_cli_with_only_a_flag_works() {
 
     let spec: LibSpec = FlagsOnly::to_kdl().parse().expect("should be a valid spec");
     assert!(spec.cmd.args.is_empty());
-    assert_eq!(spec.cmd.flags.len(), 1);
+    assert_eq!(
+        spec.cmd.flags.iter().filter(|flag| !flag.builtin).count(),
+        1
+    );
 }
 
 /// An explicit `long` written with its dashes is the natural mistake, and would

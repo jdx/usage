@@ -679,7 +679,11 @@ impl SpecCommand {
 
     fn usage_with_subcommands(&self, include_subcommands: bool) -> String {
         let mut usage = self.full_cmd.join(" ");
-        let flags = self.flags.iter().filter(|f| !f.hide).collect_vec();
+        let flags = self
+            .flags
+            .iter()
+            .filter(|f| !f.hide && !f.builtin)
+            .collect_vec();
         let args = self.args.iter().filter(|a| !a.hide).collect_vec();
         if !flags.is_empty() {
             if flags.len() <= 2 {

@@ -238,10 +238,11 @@
 //! script checking for it keeps working. `Cli::parse_from(argv)` hands the error back instead,
 //! for a library embedding a CLI that wants to decide for itself.
 //!
-//! Declaring a `version` or `long_version` also gives the CLI `--version` and `-V`, as clap does — supplied by
-//! the parser rather than listed in the spec, exactly as `--help` is, and yielding to either
-//! spelling the CLI declares for itself. clap refuses that collision by panicking at startup;
-//! here the declaration simply wins and the other spelling still answers.
+//! Declaring a `version` or `long_version` also gives the CLI `--version` and `-V`, as clap does.
+//! The parser supplies version and help entry points, and generated specs materialize their
+//! surviving spellings as `action` flags so metadata consumers see the same interface. Either
+//! spelling yields to a flag the CLI declares for itself. clap refuses that collision by
+//! panicking at startup; here the declaration simply wins and the other spelling still answers.
 //!
 //! On the struct itself: `bin`, `version`, `long_version`, `author`, `license`, `repository`,
 //! `source_code_link_template` — a tera template rendered with the command path as `path`,

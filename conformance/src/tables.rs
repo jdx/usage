@@ -375,6 +375,7 @@ fn flag_meta(
     let choices = arg.and_then(|a| a.choices.as_ref());
     FlagMeta {
         flag: table,
+        builtin: f.builtin,
         hidden_shorts: bytes(&f.hidden_short_aliases),
         hidden_longs: strs(&f.hidden_aliases),
         help: opt(&f.help),

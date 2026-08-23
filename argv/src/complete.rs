@@ -1089,6 +1089,7 @@ fn complete_inner<'a>(
     };
     let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
+    let attached = attached_long_value(&position, token);
     let candidates = candidates_inner(spec, split, view);
 
     // Which argument the cursor is at — the same question `candidates` answers, asked once so
@@ -1104,11 +1105,14 @@ fn complete_inner<'a>(
 
     // A dash-prefixed word is a flag or nothing: no path starts with one, and the reference
     // suppresses its own listing there for the same reason.
-    let flag_like = position.flags_possible && token.starts_with('-');
+    let flag_like = attached.is_none() && position.flags_possible && token.starts_with('-');
 
     // The name a value here would have, which is what says whether paths belong, and whether
     // that value declares its own set.
-    let (named, declares_choices, complete_type) = if let Some(flag) = position.awaiting_value {
+    let value_flag = position
+        .awaiting_value
+        .or_else(|| attached.map(|(flag, _, _)| flag));
+    let (named, declares_choices, complete_type) = if let Some(flag) = value_flag {
         let meta = flag_meta(spec.root, flag);
         (
             meta.and_then(|m| m.value_name).or(Some(flag.name)),
@@ -1191,6 +1195,8 @@ pub async fn complete_with<'a>(
         return complete(spec, split);
     };
 
+    let attached = attached_long_value(&position, &split.prefix);
+    let value_prefix = attached.map_or(split.prefix.as_str(), |(_, _, prefix)| prefix);
     let words = split.argv();
     let command_path: Vec<(&Command<'_>, &[String])> = position
         .path
@@ -1200,7 +1206,7 @@ pub async fn complete_with<'a>(
     let ctx = CompleteCtx {
         words: &split.words,
         cword: split.cword,
-        prefix: &split.prefix,
+        prefix: value_prefix,
         command_words: command_words(split, &position),
         command_path: &command_path,
     };
@@ -1208,7 +1214,10 @@ pub async fn complete_with<'a>(
         CompletionHandler::Sync(completer) => completer(&ctx),
         CompletionHandler::Async(completer) => completer(ctx).await,
     };
-    dynamic.retain(|candidate| candidate.value.starts_with(&split.prefix));
+    dynamic.retain(|candidate| candidate.value.starts_with(value_prefix));
+    if let Some((_, form, _)) = attached {
+        attach_candidates(&mut dynamic, form);
+    }
 
     let mut answer = complete(spec, split);
     answer.candidates.extend(dynamic);
@@ -1226,6 +1235,8 @@ async fn complete_named_with<'a>(
     name: &str,
 ) -> Completions<'a> {
     let position = walk(spec.root.cmd, split.argv());
+    let attached = attached_long_value(&position, &split.prefix);
+    let value_prefix = attached.map_or(split.prefix.as_str(), |(_, _, prefix)| prefix);
     let words = split.argv();
     let command_path: Vec<(&Command<'_>, &[String])> = position
         .path
@@ -1235,7 +1246,7 @@ async fn complete_named_with<'a>(
     let ctx = CompleteCtx {
         words: &split.words,
         cword: split.cword,
-        prefix: &split.prefix,
+        prefix: value_prefix,
         command_words: command_words(split, &position),
         command_path: &command_path,
     };
@@ -1247,7 +1258,10 @@ async fn complete_named_with<'a>(
         };
         candidates.append(&mut dynamic);
     }
-    candidates.retain(|candidate| candidate.value.starts_with(&split.prefix));
+    candidates.retain(|candidate| candidate.value.starts_with(value_prefix));
+    if let Some((_, form, _)) = attached {
+        attach_candidates(&mut candidates, form);
+    }
     sort_and_dedup_candidates(&mut candidates);
     Completions {
         candidates,
@@ -1307,8 +1321,10 @@ fn overlay_at_cursor<'o>(
     position: &Position<'_>,
     overlays: &'o [CompletionOverlay<'_>],
 ) -> Option<&'o CompletionOverlay<'o>> {
+    let attached = attached_long_value(position, &split.prefix);
     if split.cword == 0
         || (position.awaiting_value.is_none()
+            && attached.is_none()
             && position.flags_possible
             && split.prefix.starts_with('-'))
     {
@@ -1325,7 +1341,10 @@ fn overlay_at_cursor<'o>(
                 )
             })
         })
-    } else if let Some(flag) = position.awaiting_value {
+    } else if let Some(flag) = position
+        .awaiting_value
+        .or_else(|| attached.map(|(flag, _, _)| flag))
+    {
         flag_meta_owner_on_route(spec, position, flag)
             .map(|(owner, field)| (owner, field.value_name.unwrap_or(field.flag.name), false))
     } else {
@@ -1473,7 +1492,23 @@ fn candidates_inner<'a>(
         both.extend(long_flags(spec, &position, ""));
         both
     } else if position.flags_possible && token.starts_with("--") {
-        long_flags(spec, &position, token)
+        match attached_long_value(&position, token) {
+            Some((flag, form, value_prefix)) => flag_meta(spec.root, flag)
+                .map(|meta| {
+                    let mut found = declared(
+                        meta.choices,
+                        meta.choice_details,
+                        meta.complete,
+                        split,
+                        &position,
+                        value_prefix,
+                    );
+                    attach_candidates(&mut found, form);
+                    found
+                })
+                .unwrap_or_default(),
+            None => long_flags(spec, &position, token),
+        }
     } else if position.flags_possible && token.starts_with('-') {
         short_flags(spec, &position, token)
     } else if restarted(meta, split) {
@@ -1518,6 +1553,30 @@ fn candidates_inner<'a>(
 
     sort_and_dedup_candidates(&mut out);
     out
+}
+
+/// A value being typed in the same word as its long flag.
+///
+/// The shell replaces the whole word, so callers complete against the fragment after `=` and
+/// then put the flag spelling back on each candidate.
+fn attached_long_value<'t, 'p>(
+    position: &Position<'t>,
+    token: &'p str,
+) -> Option<(&'t Flag<'t>, &'p str, &'p str)> {
+    let (form, prefix) = token.split_once('=')?;
+    let long = form.strip_prefix("--")?;
+    position
+        .flags
+        .iter()
+        .copied()
+        .find(|flag| (flag.takes_value || flag.bool_value) && flag.longs.contains(&long))
+        .map(|flag| (flag, form, prefix))
+}
+
+fn attach_candidates(candidates: &mut [Candidate<'_>], form: &str) {
+    for candidate in candidates {
+        candidate.value = format!("{form}={}", candidate.value);
+    }
 }
 
 /// Whether the word before the cursor is this command's restart token.
@@ -3929,13 +3988,13 @@ mod tests {
         assert_eq!(a.files, Some(Files::Any));
     }
     #[test]
-    fn an_attached_value_is_not_answered_by_the_positional() {
-        // `--source=⌶` is a dash-prefixed token, so it is a *flag* position: the flag branches
-        // come first and the positional's completer is never reached. Worth pinning, because the
-        // word being completed is excluded from the walk — so the flag is not `awaiting_value`
-        // either, and the position could look like the argument's if the order changed.
+    fn an_attached_value_is_answered_by_its_flag() {
+        // The shell replaces the whole word, so an attached value keeps its flag prefix.
+        assert_eq!(offered("mise install --source="), ["--source=upstream"]);
+        assert_eq!(offered("mise install --source=u"), ["--source=upstream"]);
+
+        // It remains a flag position: the positional's completer is never reached.
         assert!(!offered("mise install --source=").contains(&"node".to_string()));
-        assert!(!offered("mise install --source=").contains(&"upstream".to_string()));
         assert!(!offered("mise install -s").contains(&"node".to_string()));
 
         // Detached, the flag's own completer answers — which is the case that works.

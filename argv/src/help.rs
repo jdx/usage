@@ -708,11 +708,14 @@ fn usage_line_with_subcommands(
 
     // Hidden entries are absent from the line as they are from the sections: help describes
     // what a user is invited to type.
-    let flags: usize = meta.flags.iter().filter(|f| !f.hide).count();
+    let flags: usize = meta.flags.iter().filter(|f| !f.hide && !f.builtin).count();
     if flags > 0 {
-        let required = meta.flags.iter().any(|f| !f.hide && flag_demanded(f));
+        let required = meta
+            .flags
+            .iter()
+            .any(|f| !f.hide && !f.builtin && flag_demanded(f));
         if flags <= INLINE_LIMIT {
-            for flag in meta.flags.iter().filter(|f| !f.hide) {
+            for flag in meta.flags.iter().filter(|f| !f.hide && !f.builtin) {
                 // A required flag is angled, like a required argument: the brackets are what
                 // say whether leaving it out is allowed.
                 let (open, close) = if flag_demanded(flag) {
@@ -2459,20 +2462,22 @@ pub fn find<'a>(
 /// claimed otherwise would be describing a flag that never binds.
 mod supplied {
     use crate::spec::FlagMeta;
-    use crate::Flag;
+    use crate::{ArgAction, Flag};
 
     macro_rules! entry {
-        ($name:ident, $flag:ident, $key:expr, $label:expr, $longs:expr, $shorts:expr, $help:expr) => {
+        ($name:ident, $flag:ident, $key:expr, $label:expr, $longs:expr, $shorts:expr, $help:expr, $action:expr) => {
             static $flag: Flag<'static> = Flag {
                 key: $key,
                 name: $label,
                 longs: $longs,
                 shorts: $shorts,
+                action: $action,
                 ..Flag::BOOL
             };
             pub static $name: FlagMeta<'static> = FlagMeta {
                 flag: &$flag,
                 help: Some($help),
+                builtin: true,
                 ..FlagMeta::EMPTY
             };
         };
@@ -2485,7 +2490,8 @@ mod supplied {
         "help",
         &["help"],
         b"h",
-        "Print help"
+        "Print help",
+        ArgAction::Help
     );
     entry!(
         HELP_LONG_ONLY,
@@ -2494,7 +2500,8 @@ mod supplied {
         "help",
         &["help"],
         b"",
-        "Print help"
+        "Print help",
+        ArgAction::Help
     );
     // Named `h`, not `help`: the declared name is judged against the forms the entry shows,
     // and a short-only entry called `help` reads as a renamed flag — it printed `help: -h`.
@@ -2505,7 +2512,8 @@ mod supplied {
         "h",
         &[],
         b"h",
-        "Print help"
+        "Print help",
+        ArgAction::Help
     );
     entry!(
         VERSION_BOTH,
@@ -2514,7 +2522,8 @@ mod supplied {
         "version",
         &["version"],
         b"V",
-        "Print version"
+        "Print version",
+        ArgAction::Version
     );
     entry!(
         VERSION_LONG_ONLY,
@@ -2523,7 +2532,8 @@ mod supplied {
         "version",
         &["version"],
         b"",
-        "Print version"
+        "Print version",
+        ArgAction::Version
     );
     entry!(
         VERSION_SHORT_ONLY,
@@ -2532,7 +2542,8 @@ mod supplied {
         "V",
         &[],
         b"V",
-        "Print version"
+        "Print version",
+        ArgAction::Version
     );
 }
 
@@ -2541,7 +2552,10 @@ mod supplied {
 /// `--version` only where the parser actually accepts it: on a command whose table says so,
 /// which the derive sets on the root when a version is declared. A page offering one that the
 /// parser would refuse is worse than a page that stays quiet.
-fn supplied_entries(cmd: &Command<'_>, taken: &[String]) -> Vec<&'static FlagMeta<'static>> {
+pub(crate) fn supplied_entries(
+    cmd: &Command<'_>,
+    taken: &[String],
+) -> Vec<&'static FlagMeta<'static>> {
     // Against the same set every other decision on this page uses, so a spelling claimed by a
     // hidden declaration or by a negation is claimed here too. Offering a `--help` that
     // something else binds is exactly the lie the model exists to prevent.

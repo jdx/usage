@@ -64,6 +64,7 @@ flag --paths {
     required_if --force --prune
     arg <path>
 }
+flag "-h --help" help="Print help" action=help builtin=#true
 arg "[file]" help="the file" help_heading=Input env=EX_FILE default=a.txt
 example "ex a.txt" header=Basic help="the simplest thing"
 exit_code 0 success
@@ -81,6 +82,7 @@ Takes a while.
     flag --format {
         arg <format>
     }
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg <tool> help="the tool to install"
     output human help="a progress log" default=#true
     output json framing=json {
@@ -95,7 +97,9 @@ Takes a while.
     exit_code 3 "the tool was not found"
 }
 cmd settings help="manage settings" {
+    flag "-h --help" help="Print help" action=help builtin=#true
     cmd set help="set a value" {
+        flag "-h --help" help="Print help" action=help builtin=#true
         arg <mode> {
             choices on off
         }
@@ -103,11 +107,14 @@ cmd settings help="manage settings" {
 }
 cmd run help="run a task" restart_token=::: {
     mount run="ex tasks --usage"
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg "[args]..." double_dash=preserve
 }
 cmd exec help="run a command" effect=destructive {
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg <cmd>... double_dash=required
 }
 cmd watch help="watch files" hide=#true {
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg "[files]..." double_dash=automatic
 }

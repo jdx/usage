@@ -196,7 +196,7 @@ fn the_spec_carries_the_commands() {
     // The variant's doc comment wins: it is where a reader of the enum expects to
     // describe the command, and ignoring it would lose the description silently.
     assert_eq!(install.help.as_deref(), Some("Install a tool"));
-    assert_eq!(install.flags.len(), 2);
+    assert_eq!(install.flags.iter().filter(|flag| !flag.builtin).count(), 2);
     assert_eq!(install.args.len(), 1);
     assert!(install.args[0].var, "`tools` is a Vec, so it takes several");
 
@@ -399,7 +399,7 @@ fn boxing_changes_nothing_about_the_spec() {
     let spec: LibSpec = Boxed::to_kdl().parse().expect("valid spec");
     let install = spec.cmd.subcommands.get("install").expect("install");
     assert_eq!(install.aliases, vec!["i".to_string()]);
-    assert_eq!(install.flags.len(), 1);
+    assert_eq!(install.flags.iter().filter(|flag| !flag.builtin).count(), 1);
     assert_eq!(install.args.len(), 1);
     assert!(!Boxed::to_kdl().contains("Box"), "{}", Boxed::to_kdl());
 }

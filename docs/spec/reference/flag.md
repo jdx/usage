@@ -27,6 +27,7 @@ flag "--assist" action="help_short" help="Show concise help"
 flag "--manual" action="help_long" help="Show full help"
 flag "--help-all" action="help_all" help="Show help for every command"
 flag "--release" action="version" help="Print version"
+flag "-h --help" action="help" builtin=#true // parser-supplied, materialized by a generator
 
 flag "--include <pattern>" var=#true            // flag can be repeated (--include a --include b)
 flag "--include... <pattern>"                   // same as above, ellipsis on flag

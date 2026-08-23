@@ -257,6 +257,11 @@ The same properties are accepted on a `cmd` node. A declared flag can then reloc
 behavior with `action="help"`, `help_short`, `help_long`, `help_all`, or `version`; its ordinary `help`
 text is what the help page displays.
 
+Rust-derived generated specs write the parser-supplied help and version spellings as explicit
+flags with those actions and `builtin=#true`. This keeps generated metadata complete for
+documentation and other consumers while keeping built-ins out of ordinary command synopses. If
+a declared flag claims one spelling, only the surviving built-in spelling is written.
+
 ## Let a subcommand satisfy parent requirements
 
 `subcommand_negates_reqs` makes required arguments, flags, groups, and conditional
