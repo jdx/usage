@@ -7,30 +7,33 @@ scripts for other consumers, SDK generation, and linting all consume that KDL.
 For the declarations shown across these pages, the emitted spec looks like:
 
 ```kdl
-name "ex"
-bin "ex"
+name ex
+bin ex
 version "1.2.3"
 about "does things"
-flag "-j --jobs" help="how many jobs" global=#true help_heading="Performance" env="EX_JOBS" default="4" {
-    long_help "More about jobs.\nOn two lines."
-    arg "<n>"
+flag "-j --jobs" help="how many jobs" global=#true help_heading=Performance env=EX_JOBS default="4" {
+    long_help #"""
+More about jobs.
+On two lines.
+"""#
+    arg <n>
 }
-flag "--color" help="colorize output" negate="--no-color" default="true"
+flag --color help="colorize output" negate=--no-color default="true"
 flag "-v --verbose" hide=#true count=#true
-flag "--include" var=#true var_min=1 var_max=5 overrides="--exclude" {
-    arg "<pattern>..."
+flag --include var=#true var_min=1 var_max=5 overrides=--exclude {
+    arg <pattern>...
 }
-group "input" "--file" "--url" "--stdin" required=#true
-arg "[file]" help="the file" env="EX_FILE" default="a.txt"
-cmd "install" help="install a tool" effect="write" {
-    alias "i"
-    alias "add" hide=#true
+group input --file --url --stdin required=#true
+arg "[file]" help="the file" env=EX_FILE default=a.txt
+cmd install help="install a tool" effect=write {
+    alias i
+    alias add hide=#true
     flag "-f --force"
-    arg "<tool>"
+    arg <tool>
 }
-cmd "run" help="run a task" restart_token=":::" {
+cmd run help="run a task" restart_token=::: {
     mount run="ex tasks --usage"
-    arg "[args]..." double_dash="preserve"
+    arg "[args]..." double_dash=preserve
 }
 ```
 

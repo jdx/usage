@@ -68,14 +68,14 @@ export default defineConfig({
           { text: "Updating Values", link: "/rust/update-from" },
           { text: "Subcommands", link: "/rust/subcommands" },
           { text: "Dispatch", link: "/rust/dispatch" },
-          { text: "Migrating from clap", link: "/rust/migrating-from-clap" },
           { text: "Validation", link: "/rust/validation" },
-          { text: "Configuration", link: "/rust/configuration" },
           { text: "Help, Version, and Errors", link: "/rust/help" },
-          { text: "Performance", link: "/rust/performance" },
           { text: "Completions", link: "/rust/completions" },
+          { text: "Configuration", link: "/rust/configuration" },
           { text: "Testing", link: "/rust/testing" },
-          { text: "Spec Output", link: "/rust/spec" }
+          { text: "Spec Output", link: "/rust/spec" },
+          { text: "Migrating from clap", link: "/rust/migrating-from-clap" },
+          { text: "Performance", link: "/rust/performance" }
         ]
       },
       {

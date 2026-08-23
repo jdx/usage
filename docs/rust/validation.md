@@ -86,7 +86,7 @@ spelling, so giving one member as `-s` and another as `--file` still counts. A c
 reported before an unsatisfied group.
 
 Groups are emitted into the KDL spec
-(`group "input" "--file" "--url" "--stdin" required=#true`), and a group declared on a
+(`group input --file --url --stdin required=#true`), and a group declared on a
 [flattened](/rust/subcommands#sharing-declarations-with-flatten) struct is enforced on every
 command that flattens it. Malformed groups — one member, no members, declared twice, a group on
 a positional — are compile errors.
@@ -144,7 +144,7 @@ given. There is no default variant, so that distinction is the only spelling of 
 group has.
 
 Nothing new reaches the spec. The enum lowers to the same `group` node
-(`group "format" "--json" "--yaml" "--plain"`), so `--json --yaml` is the same
+(`group format --json --yaml --plain`), so `--json --yaml` is the same
 `ConflictingFlags` a hand-written group produces, a required group with none of its members
 given is the same `MissingGroup`, and help, docs and completions list the member flags without
 knowing an enum was involved.
@@ -194,7 +194,7 @@ value and `var_min`/`var_max` count values, not words — `--tags a,b,c,d` with 
 `VarTooMany { got: 4 }`.
 
 The field must be a `Vec`, and the delimiter must be a single ASCII character; both are enforced
-at compile time. Emitted KDL: `flag "--tags <tag>" var=#true delimiter=","`.
+at compile time. In KDL: `flag "--tags <tag>" var=#true delimiter=","`.
 
 ## Cross-field validation and typed finalization
 

@@ -95,6 +95,8 @@ flag "--port <port>" {
 
 flag "--env <env>" {
   choices env="DEPLOY_ENVS" // values from $DEPLOY_ENVS, split on commas and/or whitespace
+  // note: `choices env=` requires the `unstable_choices_env` cargo feature of
+  // usage-lib; the usage CLI enables it, but library consumers must opt in
 }
 
 // argv wins, then APP_TOKEN, then the fallbacks from left to right, then the

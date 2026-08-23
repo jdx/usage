@@ -50,8 +50,9 @@ struct Install {
   sync/async commands are covered in [Dispatch](/rust/dispatch).
 
 Variant attributes: `name`, `alias`, `alias_hidden`, `hide`, `effect`, `help`, `long_help`,
-`verbatim_doc_comment`, `external_subcommand`, `arg_required_else_help`. Aliases declared on the variant and on the `Args`
-struct are joined.
+`help_heading`, `display_order`, `deprecated`, `before_help`/`after_help` (and their `_long_`
+forms), `example`, `verbatim_doc_comment`, `external_subcommand`. Aliases declared on the variant
+and on the `Args` struct are joined.
 
 The same `Args` type may be mounted under more than one variant — useful for shared option
 groups across sibling commands.

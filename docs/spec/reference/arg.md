@@ -46,6 +46,23 @@ Several placeholders in one argument declare fixed arity. Each label is retained
 help and generated Rust and Go tables; `var_min` and `var_max` must match the number
 of placeholders.
 
+The labels can also be spelled out with a `value_names` child node, which takes one
+or more strings:
+
+```kdl
+arg "<range>" {
+  value_names "START" "END" // same as arg "<START> <END>"
+}
+
+arg "<ITEM>..." var=#true var_min=2 var_max=2 {
+  value_names "ITEM" // one label, shown as <ITEM> <ITEM>
+}
+```
+
+The first name replaces the argument's own label. More than one name declares fixed
+arity: `var_min` and `var_max` default to the number of names and must equal it when
+given. A single name relabels the values of an exact-arity variadic.
+
 Positionals accept the same post-parse relationship nodes as flags: `conflicts`,
 `requires`, `required_if`, `required_if_eq`, `required_if_eq_all`, `required_unless`,
 and `required_unless_all`. Bare selectors name positionals and dashed selectors name
@@ -128,6 +145,8 @@ arg "<shell>" {
 
 arg "<env>" {
   choices env="DEPLOY_ENVS" // values from $DEPLOY_ENVS, split on commas and/or whitespace
+  // note: `choices env=` requires the `unstable_choices_env` cargo feature of
+  // usage-lib; the usage CLI enables it, but library consumers must opt in
 }
 
 // Rich choices keep clap PossibleValue metadata portable in KDL.
@@ -148,7 +167,7 @@ arg "<backend>" {
 
 arg "<file>" help_heading="Input" // group this arg under a heading in help output
 
-arg "<file>" long_help="longer help for --help (as oppoosed to -h)"
+arg "<file>" long_help="longer help for --help (as opposed to -h)"
 
 // double-dash behavior
 arg "<file>" double_dash="required" // arg only accepts values after a double dash; `mycli file.txt` is an error, `mycli -- file.txt` is not

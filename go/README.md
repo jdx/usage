@@ -11,10 +11,11 @@ A CLI framework for Go, built the way [usage-argv](../argv) is built for Rust: t
 command line is bound against **static tables** instead of a command tree
 assembled at run time.
 
-> **Status: the binder.** `argv` implements the [argv grammar](../docs/spec/argv.md)
-> and passes every binding vector in the [conformance corpus](../corpus). The code
-> generator that emits tables from a spec, and the layer above binding that fills a
-> typed struct, are not written yet. See [what is missing](#what-is-missing).
+> **Status: parsing, binding, help, and completions.** `argv` implements the
+> [argv grammar](../docs/spec/argv.md) and passes every binding vector in the
+> [conformance corpus](../corpus). `usage generate go` emits the tables from a spec,
+> along with a typed `Parse` that fills a struct per command. See
+> [what is missing](#what-is-missing).
 
 ## Why
 
@@ -297,8 +298,6 @@ claim is measured at real scale rather than against a fixture with four flags:
 
 ## What is missing
 
-- **A typed front door.** The conversions exist; what is missing is generated
-  code that calls them, so a CLI author gets a struct rather than events.
 - **Shadow programs for the other frameworks.** usage-go's own numbers are
   reproducible with `mise run perf:go`; urfave's and kong's are still
   hand-measured, because generating mise-sized programs for them from the spec is

@@ -39,10 +39,6 @@ binary should print.
 
 `Error` is `#[non_exhaustive]` — always keep a fallback arm.
 
-`version` supplies the concise `-V` response. `long_version` optionally supplies a richer
-`--version` response, falling back to `version` when omitted. Computed expressions use matching
-`version_spec` / `long_version_spec` literals so emitted KDL stays portable.
-
 That match is also the post-parse interception point. An application that must
 run an update notifier, rewrite output, or re-exec before answering help or
 version does that work in the corresponding arm and then renders or returns.
@@ -251,9 +247,11 @@ combines both blocks in their normal help order. Hidden entries never create or 
 ## Version
 
 Declaring `version` (or bare `version`, which reads `CARGO_PKG_VERSION`) gives the root command
-`--version` and `-V`, and lists them on its page. If your CLI declares its own `--version` or
-`-V`, your spelling wins, the other still answers, and the page shows whichever is left — where
-clap panics at startup for the same collision.
+`--version` and `-V`, and lists them on its page. `long_version` optionally supplies a richer
+`--version` response, falling back to `version` when omitted; computed expressions use matching
+`version_spec` / `long_version_spec` literals so emitted KDL stays portable. If your CLI declares
+its own `--version` or `-V`, your spelling wins, the other still answers, and the page shows
+whichever is left — where clap panics at startup for the same collision.
 
 `parse()` prints `{bin} {version}` and exits `0`.
 
