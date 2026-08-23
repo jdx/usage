@@ -797,7 +797,6 @@ dependencies = [
  "shadow-mise",
  "shadow-mise-bpaf",
  "shadow-mise-clap",
- "shadow-mise-usage-clap",
  "shadow-pitchfork",
  "shadow-tak",
  "usage-argv",
@@ -1811,14 +1810,6 @@ name = "shadow-mise-clap"
 version = "0.0.0"
 dependencies = [
  "clap",
-]
-
-[[package]]
-name = "shadow-mise-usage-clap"
-version = "0.0.0"
-dependencies = [
- "usage-argv",
- "usage-derive",
 ]
 
 [[package]]

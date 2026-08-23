@@ -15,7 +15,6 @@ members = [
     "benches/gate",
     "benches/shadows/mise",
     "benches/shadows/mise-clap",
-    "benches/shadows/mise-usage-clap",
     "benches/shadows/mise-bpaf",
     "benches/shadows/hk",
     "benches/shadows/fnox",

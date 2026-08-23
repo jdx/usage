@@ -64,16 +64,11 @@ usage is about 34x faster in this measurement.
 The gate's parse-only binaries — each linking its framework's mise-scale
 shadow, built by the same workspace release build, stripped:
 
-| Framework                   |     Bytes | Decimal MB |
-| --------------------------- | --------: | ---------: |
-| usage, clap vocabulary      | 1,311,096 |     1.3 MB |
-| usage, full spec vocabulary | 1,319,424 |     1.3 MB |
-| bpaf                        | 2,493,936 |     2.5 MB |
-| clap                        | 3,102,696 |     3.1 MB |
-
-The clap-vocabulary row excludes features clap cannot express, including the
-spec endpoint, so it compares equivalent CLIs. On that basis, usage is 58%
-smaller than clap.
+| Framework |     Bytes | Decimal MB |
+| --------- | --------: | ---------: |
+| usage     | 1,319,424 |     1.3 MB |
+| bpaf      | 2,493,936 |     2.5 MB |
+| clap      | 3,102,696 |     3.1 MB |
 
 ### Where the size lives, and what removes it
 
@@ -95,9 +90,8 @@ Two profile settings any CLI can apply cut further, independent of usage:
   benchmark host is much lower than wall-clock timing.
 - `tak` runs the release binaries repeatedly and reports the difference between
   the no-parse and parse paths.
-- Every shadow is generated from the same spec, and each intentionally drops
-  what its framework cannot express. `parse-n-usage-clap` applies clap's exact drop set to
-  usage for a common-vocabulary binary-size comparison.
+- Every shadow is generated from the same spec, and each comparison framework
+  intentionally drops what it cannot express.
 - Binary sizes are the gate's `parse-n*` binaries from a full workspace release
   build, stripped, against rustc 1.97.1 on x86_64-unknown-linux-gnu. The
   workspace build matters: cargo unifies features, so clap gets the features

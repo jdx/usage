@@ -34,9 +34,6 @@ fn main() {
                 "usage" => {
                     shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Usage)
                 }
-                "usage-clap" => {
-                    shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::UsageClap)
-                }
                 "clap" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Clap),
                 "bpaf" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Bpaf),
                 // Go rather than Rust, so these have emitters of their own.
@@ -45,7 +42,7 @@ fn main() {
                 "kong" => go::generate(Path::new(spec), Path::new(out), go::Dialect::Kong),
                 other => fail(&format!(
                     "unknown dialect `{other}`; the dialects are \
-                     `usage`, `usage-clap`, `clap`, `bpaf`, `cobra`, `urfave` and `kong`"
+                     `usage`, `clap`, `bpaf`, `cobra`, `urfave` and `kong`"
                 )),
             },
             _ => {
@@ -60,8 +57,7 @@ fn main() {
         },
         other => fail(&format!(
             "unknown task `{other}`; the tasks are: \
-             gen-shadow <spec.kdl> <out-dir> \
-             [usage|usage-clap|clap|bpaf|cobra|urfave|kong], \
+             gen-shadow <spec.kdl> <out-dir> [usage|clap|bpaf|cobra|urfave|kong], \
              help-pages <spec.kdl>"
         )),
     }

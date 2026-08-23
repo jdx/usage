@@ -28,7 +28,7 @@ tmp=$(mktemp)
 size_tmp=$(mktemp -d)
 trap 'rm -f "$tmp" cachegrind.out.*; rm -rf "$size_tmp"' EXIT
 
-# One argv for all four binaries. `parse-n-clap` needs a program name in front of the words and
+# One argv for all three binaries. `parse-n-clap` needs a program name in front of the words and
 # already has one, because it collects `args_os()` whole with argv[0] included — so spelling
 # `mise` here as well would hand clap one token too many. It does not fail on that, which is
 # the trap: clap binds the extra word to the root's `[TASK]` positional and parses on, so the
@@ -98,7 +98,7 @@ if ! command -v valgrind >/dev/null 2>&1; then
   exit 0
 fi
 
-for binary in parse-n parse-n-usage-clap parse-n-clap parse-n-bpaf; do
+for binary in parse-n parse-n-clap parse-n-bpaf; do
   verify "$binary"
 done
 
@@ -123,9 +123,7 @@ bpaf_cold=$(cold parse-n-bpaf)
   printf 'what to watch is the ratio rather than either column.\n\n'
   printf '| framework | stripped binary, bytes |\n'
   printf '|---|---:|\n'
-  printf '| usage, clap vocabulary | %s |\n' \
-    "$(printf "%'d" "$(stripped_size parse-n-usage-clap)")"
-  printf '| usage, full vocabulary | %s |\n' "$(printf "%'d" "$(stripped_size parse-n)")"
+  printf '| usage | %s |\n' "$(printf "%'d" "$(stripped_size parse-n)")"
   printf '| bpaf | %s |\n' "$(printf "%'d" "$(stripped_size parse-n-bpaf)")"
   printf '| clap | %s |\n\n' "$(printf "%'d" "$(stripped_size parse-n-clap)")"
   printf '| framework | instructions, cold parse | vs usage |\n'
