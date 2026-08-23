@@ -1,16 +1,24 @@
-//! Opt-in runtime command catalogs for a derive-generated usage-rs host.
+//! Runtime commands for a derive-generated usage-rs host.
 //!
-//! Applications discover and cache plugin specs themselves, then attach them below a static
-//! command that declares an external-subcommand variant. The catalog builds a separate merged
-//! tree for navigable help and deep completion while generic parsing stays in `usage-lib` and
-//! the derive-generated parse tables remain unchanged.
+//! A plugin manager knows what `host plugin-x` is only after it has read its own configuration,
+//! which is long after the tables describing the rest of its CLI were compiled. Those tables
+//! stay as they are: an application discovers and caches plugin specs itself, and a [`Catalog`]
+//! attaches them beneath a static command that declared an
+//! [`external_subcommand`](usage_parser::SpecCommand::external_subcommand) catch-all.
+//!
+//! What that buys is the three things the static tables cannot answer for a command they have
+//! never seen: help that lists and navigates runtime commands, completion that descends into
+//! them, and a parse of the argv the catch-all captured. Nothing here mutates the derived parse
+//! tables or the KDL they emit, and nothing here runs a subprocess, reads a file, or calls back
+//! into the application.
 
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
 use std::fmt;
+use std::sync::OnceLock;
 
-use usage_argv::complete::{self, Completions, Files, Shell, Split};
+use usage_argv::complete::{self, CompletionOverlay, CompletionRequest, Completions, Files, Split};
 use usage_argv::spec::{Candidate, CandidateKind, CommandMeta, SpecView};
 use usage_parser::error::UsageErr;
 use usage_parser::Parser;
@@ -19,26 +27,45 @@ pub use usage_parser::parse::ParseOutput;
 pub use usage_parser::Spec;
 
 /// A validated collection of caller-supplied runtime command specs.
+///
+/// Building one validates; it does not assemble. The merged tree help and completion navigate
+/// costs a KDL round trip of the whole host spec, and dispatching a plugin command needs none of
+/// it — so it is built when something asks for it, and a host that only ever runs plugins never
+/// pays. See [`app`](Self::app).
 #[derive(Debug)]
 pub struct Catalog<'a> {
     host: SpecView<'a>,
     entries: Vec<Entry>,
-    merged: Spec,
-    completion: Spec,
+    overlays: &'a [CompletionOverlay<'a>],
+    projection: Option<&'a str>,
+    merged: OnceLock<Result<Spec, Error>>,
 }
 
 #[derive(Debug)]
 struct Entry {
     parent: String,
     name: String,
+    /// Answered to and advertised.
     aliases: Vec<String>,
+    /// Answered to and never advertised — an old name kept working.
+    hidden_aliases: Vec<String>,
     spec: Spec,
 }
 
-/// Cold-path help and completion over the fully merged runtime tree.
+impl Entry {
+    /// Whether this is what the user typed, by any name it answers to.
+    fn answers_to(&self, word: &str) -> bool {
+        self.name == word
+            || self.aliases.iter().any(|alias| alias == word)
+            || self.hidden_aliases.iter().any(|alias| alias == word)
+    }
+}
+
+/// Help and completion over the whole command tree, static and runtime alike.
 #[derive(Debug, Clone, Copy)]
 pub struct App<'a> {
     catalog: &'a Catalog<'a>,
+    merged: &'a Spec,
 }
 
 /// A catalog under construction.
@@ -46,6 +73,8 @@ pub struct App<'a> {
 pub struct Builder<'a> {
     host: SpecView<'a>,
     pending: Vec<(String, Spec)>,
+    overlays: &'a [CompletionOverlay<'a>],
+    projection: Option<&'a str>,
 }
 
 impl<'a> Catalog<'a> {
@@ -54,19 +83,87 @@ impl<'a> Catalog<'a> {
         Builder {
             host,
             pending: Vec::new(),
+            overlays: &[],
+            projection: None,
         }
     }
 
-    /// Cold-path help, completion, and spec access over the fully merged command tree.
-    pub fn app(&self) -> App<'_> {
-        App { catalog: self }
+    /// Help and completion over the whole tree, static commands and runtime ones alike.
+    ///
+    /// The merged tree is assembled here, on the first call, and kept. Building it is a KDL
+    /// round trip of the host spec — cheap next to rendering a page, and not something
+    /// [`parse_external`](Self::parse_external) should ever pay for, which is why it waits until
+    /// somebody asks.
+    ///
+    /// The error is a disagreement between the derived tables and the spec model that read
+    /// them, which [`Builder::build`] cannot see because it has not lowered the host yet.
+    pub fn app(&self) -> Result<App<'_>, &Error> {
+        let merged = self.merged.get_or_init(|| self.merge()).as_ref()?;
+        Ok(App {
+            catalog: self,
+            merged,
+        })
     }
 
-    /// Parse argv captured by an existing external-subcommand variant.
+    /// Whether the merged tree has been assembled yet.
     ///
-    /// `parent` is a static command path, with the empty string denoting the root. The first
-    /// argv token is the external command name. Unknown names return `Ok(None)` so callers may
-    /// retain arbitrary fallback dispatch.
+    /// [`app`](Self::app) builds it once and keeps it, so this answers whether the next call is
+    /// the expensive one. A catalog that is only ever dispatched through never assembles.
+    pub fn is_assembled(&self) -> bool {
+        self.merged.get().is_some()
+    }
+
+    /// Lower the host tables into a spec and graft every entry into it.
+    fn merge(&self) -> Result<Spec, Error> {
+        let mut merged: Spec = self
+            .host
+            .clone()
+            .to_kdl()
+            .parse()
+            .map_err(|error: UsageErr| Error::HostSpec(error.to_string()))?;
+        for entry in &self.entries {
+            insert_plugin(&mut merged, entry)?;
+        }
+        // A grafted command still carries the path it had in the spec it came from, where it was
+        // the root — and so does its parent's usage line, which has just gained a subcommand.
+        // Restamping is what makes the result indistinguishable from a spec that declared these
+        // commands in KDL.
+        merged.restamp();
+        Ok(merged)
+    }
+
+    /// The entry a word beneath a canonical parent path names, by any name it answers to.
+    fn entry(&self, parent: &str, word: &str) -> Option<&Entry> {
+        self.entries
+            .iter()
+            .find(|entry| entry.parent == parent && entry.answers_to(word))
+    }
+
+    /// The static tables' own completion surface, carrying whatever the host registered.
+    fn host_app(&self) -> usage_argv::complete::App<'_> {
+        let app = usage_argv::complete::App::new(self.host.clone()).completions(self.overlays);
+        match self.projection {
+            Some(path) => app.project(path),
+            None => app,
+        }
+    }
+
+    /// Parse the argv an external-subcommand variant captured.
+    ///
+    /// `parent` is the static command path the catch-all sits on, with the empty string meaning
+    /// the root. The first token is the runtime command's name, by any spelling it answers to.
+    ///
+    /// Two of the outcomes here are the caller's to handle rather than errors:
+    ///
+    /// - `Ok(None)` — no catalogued command answers to that name. Whatever the host did with
+    ///   unrecognized words before it had a catalog, it should still do.
+    /// - `Err(Error::NonUtf8)` — a token the portable spec model cannot represent, because it
+    ///   parses `String`s and this one is not one. The derive handed over `OsString`s, which
+    ///   lose nothing, so the argv is still intact: dispatch it the same way as `Ok(None)`
+    ///   rather than failing a command whose argument happens to be an unusual path.
+    ///
+    /// Defaults and environment fallbacks are applied by the plugin's own spec, and `--help` and
+    /// `--version` come back as [`Outcome`]s rather than as errors.
     pub fn parse_external(
         &self,
         parent: &str,
@@ -77,10 +174,7 @@ impl<'a> Catalog<'a> {
             return Ok(None);
         };
         let invoked = invoked.to_str().ok_or(Error::NonUtf8 { index: 0 })?;
-        let Some(entry) = self.entries.iter().find(|entry| {
-            entry.parent == canonical_parent
-                && (entry.name == invoked || entry.aliases.iter().any(|alias| alias == invoked))
-        }) else {
+        let Some(entry) = self.entry(&canonical_parent, invoked) else {
             return Ok(None);
         };
         let mut input = Vec::with_capacity(argv.len());
@@ -125,37 +219,212 @@ impl<'a> Catalog<'a> {
     }
 }
 
-impl App<'_> {
-    /// The fully merged portable spec used for dynamic help and completion.
-    pub fn spec(&self) -> &Spec {
-        &self.catalog.merged
+impl<'a> App<'a> {
+    /// The merged tree: the host's commands with the catalogued ones grafted in.
+    pub fn spec(&self) -> &'a Spec {
+        self.merged
     }
 
-    /// Render help for a static or dynamic command path. The empty path is the root.
+    /// Render help for a static or runtime command path. The empty path is the root.
+    ///
+    /// `long` is the `--help` / `-h` distinction: the full page or the summary.
     pub fn help(self, path: &str, long: bool) -> Option<String> {
-        let command = find_command(&self.catalog.merged, path)?;
+        let command = find_command(self.merged, path)?;
         Some(usage_parser::docs::cli::render_help(
-            &self.catalog.merged,
+            self.merged,
             command,
             long,
         ))
     }
 
-    /// Use this merged tree to answer the usage-rs completion protocol.
-    pub const fn completion_app(self) -> Self {
-        self
+    /// Answer a hidden `__complete_word__` invocation, or return `None` for ordinary argv.
+    ///
+    /// Two answerers, one line. Up to the catch-all the words are the host's, and the host's own
+    /// tables answer for them — the same engine, so registered completers, multicall
+    /// projections and a `--candidates` request all keep working, and the catalogued names are
+    /// added where a subcommand belongs. Past it the words are a plugin's, and that plugin's
+    /// spec answers alone. A name in neither is a program nobody here can describe, and the
+    /// answer is nothing.
+    pub async fn completion_request(self, argv: &[OsString]) -> Option<String> {
+        let request = CompletionRequest::parse(argv)?;
+        let answer = self.complete_request(&request).await;
+        Some(complete::render(&answer, request.shell))
+    }
+
+    /// The answer to a parsed request, before it is written the way a shell reads it.
+    pub async fn complete_request(self, request: &CompletionRequest) -> Completions<'static> {
+        let host = self.catalog.host_app();
+        let split = host.effective_split(&request.split);
+        let position = complete::walk(self.catalog.host.spec().root.cmd, split.argv());
+        match position.external {
+            None => {
+                let mut answer = own(host.complete_request(request).await);
+                if request.candidates_for.is_none() {
+                    self.add_catalogued_commands(&position, &split, &mut answer);
+                }
+                answer
+            }
+            // A spec's `run=` names a completer to *execute*, and executing one is the thing
+            // this crate does not do. A stale script asking for one gets nothing rather than
+            // the wrong list.
+            Some(_) if request.candidates_for.is_some() => Completions {
+                candidates: Vec::new(),
+                files: None,
+            },
+            Some(index) => self.complete_plugin(&position, index, &split),
+        }
     }
 
     /// Complete an already split command line without rendering a shell protocol.
-    pub fn complete(self, split: &Split) -> Result<Completions<'static>, Error> {
-        complete_merged(&self.catalog.completion, split)
+    pub fn complete(self, split: &Split) -> Completions<'static> {
+        // Overlays may be async; this half is for callers that registered none, so polling a
+        // future that never suspends is enough to get at the answer.
+        let request = CompletionRequest::for_split(split.clone());
+        pollster(self.complete_request(&request))
     }
 
-    /// Answer a hidden `__complete_word__` invocation, or return `None` for ordinary argv.
-    pub async fn completion_request(self, argv: &[OsString]) -> Option<String> {
-        let request = CompletionRequest::parse(argv)?;
-        let answer = self.complete(&request.split).ok()?;
-        Some(complete::render(&answer, request.shell))
+    /// Add the runtime commands catalogued beneath the command the cursor is at.
+    ///
+    /// The static tables have never heard of them, so this is the one place their names come
+    /// from. Where they belong is wherever a subcommand of that parent would: not in a flag's
+    /// value, not after a dash, and not where a `help` topic is being asked for.
+    fn add_catalogued_commands(
+        self,
+        position: &usage_argv::complete::Position<'_>,
+        split: &Split,
+        answer: &mut Completions<'static>,
+    ) {
+        if position.help_topic
+            || position.awaiting_value.is_some()
+            || (position.flags_possible && split.prefix.starts_with('-'))
+        {
+            return;
+        }
+        let parent = position
+            .path
+            .iter()
+            .skip(1)
+            .map(|(command, _)| command.name)
+            .collect::<Vec<_>>()
+            .join(" ");
+        let before = answer.candidates.len();
+        for entry in self.catalog.entries.iter().filter(|e| e.parent == parent) {
+            let description = entry
+                .spec
+                .cmd
+                .help
+                .clone()
+                .or_else(|| entry.spec.about.clone());
+            for name in std::iter::once(&entry.name).chain(&entry.aliases) {
+                if name.starts_with(&split.prefix) {
+                    answer.candidates.push(Candidate {
+                        value: name.clone(),
+                        kind: CandidateKind::Command,
+                        display: None,
+                        description: description.clone().map(Cow::Owned),
+                    });
+                }
+            }
+        }
+        if answer.candidates.len() == before {
+            return;
+        }
+        sort_and_dedup(&mut answer.candidates);
+
+        // The static tables offered the working directory because *they* had nothing to say
+        // here; a catalogued name is something to say, and the same rule that closes a position
+        // with candidates in it closes this one. Only when no argument is at the cursor, since
+        // an argument may have asked for paths outright — then both belong.
+        if position.next_arg.is_none()
+            && position.awaiting_value.is_none()
+            && matches!(answer.files, Some(Files::Any))
+        {
+            answer.files = None;
+        }
+    }
+
+    /// Answer from the plugin's own spec, for the words that belong to it.
+    fn complete_plugin(
+        self,
+        position: &usage_argv::complete::Position<'_>,
+        index: usize,
+        split: &Split,
+    ) -> Completions<'static> {
+        let nothing = Completions {
+            candidates: Vec::new(),
+            files: None,
+        };
+        let parent = position
+            .path
+            .iter()
+            .skip(1)
+            .map(|(command, _)| command.name)
+            .collect::<Vec<_>>()
+            .join(" ");
+        let words = split.argv();
+        let Some(invoked) = words.get(index) else {
+            return nothing;
+        };
+        let Some(entry) = self.catalog.entry(&parent, invoked) else {
+            return nothing;
+        };
+        // The plugin's spec describes a program of its own, so the words it is given start with
+        // its own name — its `bin`, not whichever alias was typed, so that a spec selecting an
+        // applet or a view by argv0 selects the same one either way.
+        let argv0 = if entry.spec.bin.trim().is_empty() {
+            entry.name.clone()
+        } else {
+            entry.spec.bin.clone()
+        };
+        let mut input = vec![argv0];
+        input.extend(words[index + 1..].iter().cloned());
+        complete_subtree(&entry.spec, &input, &split.prefix).unwrap_or(nothing)
+    }
+}
+
+/// Sorted and deduplicated the way the static engine does it, so an answer with catalogued
+/// names in it reads as one list rather than two concatenated.
+fn sort_and_dedup(candidates: &mut Vec<Candidate<'static>>) {
+    candidates.sort_unstable();
+    candidates.dedup_by(|a, b| a.value == b.value);
+}
+
+/// Take ownership of an answer borrowed from the static tables.
+///
+/// The tables are `'static` in a real program, but a caller's are not required to be, and this
+/// crate's answers say nothing about where they came from.
+fn own(answer: Completions<'_>) -> Completions<'static> {
+    Completions {
+        candidates: answer
+            .candidates
+            .into_iter()
+            .map(|candidate| Candidate {
+                value: candidate.value,
+                kind: candidate.kind,
+                display: candidate.display.map(|text| Cow::Owned(text.into_owned())),
+                description: candidate
+                    .description
+                    .map(|text| Cow::Owned(text.into_owned())),
+            })
+            .collect(),
+        files: answer.files,
+    }
+}
+
+/// Drive a future that never suspends.
+///
+/// Everything here is synchronous; the async signature exists because a host's *registered*
+/// completers may not be, and this half of the surface is for callers that registered none.
+fn pollster<T>(future: impl std::future::Future<Output = T>) -> T {
+    use std::pin::pin;
+    use std::task::{Context, Poll, Waker};
+    let mut future = pin!(future);
+    match future
+        .as_mut()
+        .poll(&mut Context::from_waker(Waker::noop()))
+    {
+        Poll::Ready(value) => value,
+        Poll::Pending => unreachable!("a completion with no registered callbacks cannot suspend"),
     }
 }
 
@@ -167,23 +436,44 @@ fn find_command<'a>(spec: &'a Spec, path: &str) -> Option<&'a usage_parser::Spec
     Some(command)
 }
 
-fn complete_merged(spec: &Spec, split: &Split) -> Result<Completions<'static>, Error> {
-    let words: Vec<String> = split.words.iter().take(split.cword).cloned().collect();
-    let parsed = usage_parser::parse::parse_partial(spec, &words)
+/// What could go at the cursor, asked of one plugin's own spec.
+///
+/// `input` is the plugin's argv as the plugin would see it — its own name first — and `prefix`
+/// is the word being typed, which is not in `input`: a half-typed word constrains the answer
+/// without being part of the line yet.
+fn complete_subtree(
+    spec: &Spec,
+    input: &[String],
+    prefix: &str,
+) -> Result<Completions<'static>, Error> {
+    let parsed = usage_parser::parse::parse_partial(spec, input)
         .map_err(|error| Error::Parse(error.to_string()))?;
-    let prefix = &split.prefix;
+    // A plugin may itself forward to a program of its own. One level down, the same rule: these
+    // words describe nothing this spec knows about.
+    if parsed.external.is_some() {
+        return Ok(Completions {
+            candidates: Vec::new(),
+            files: None,
+        });
+    }
     let flags_possible = !parsed.double_dash_seen;
+    // A dash-prefixed word is a flag or nothing: no path starts with one.
+    let flag_like = flags_possible && prefix.starts_with('-');
     let mut candidates = Vec::new();
     let mut files = None;
-    let mut declared_completion = false;
+    // Whether the position names its own answers. An unmatched prefix against a declared set
+    // means "nothing matched what you typed", not "ask the filesystem" — offering the working
+    // directory for a mistyped choice answers a question nobody asked.
+    let mut closed = false;
+    let mut at_cursor = None;
 
     if let Some(flag) = parsed.flag_awaiting_value.first() {
         if let Some(arg) = &flag.arg {
             candidates.extend(choice_candidates(arg, prefix));
-            declared_completion = completion_for(spec, &parsed.cmd, &arg.name).is_some();
+            closed |= declares_its_own(spec, &parsed.cmd, arg);
             files = completion_files(spec, &parsed.cmd, &arg.name);
         }
-    } else if flags_possible && prefix.starts_with('-') {
+    } else if flag_like {
         for (form, flag) in parsed.completion_flags() {
             if flag.hide || !form.starts_with(prefix) || hidden_flag_form(&form, &flag) {
                 continue;
@@ -197,8 +487,9 @@ fn complete_merged(spec: &Spec, split: &Split) -> Result<Completions<'static>, E
         }
     } else {
         if let Some(arg) = parsed.next_arg.as_deref() {
+            at_cursor = Some(arg);
             candidates.extend(choice_candidates(arg, prefix));
-            declared_completion = completion_for(spec, &parsed.cmd, &arg.name).is_some();
+            closed |= declares_its_own(spec, &parsed.cmd, arg);
             files = completion_files(spec, &parsed.cmd, &arg.name);
         }
         for command in parsed
@@ -219,13 +510,41 @@ fn complete_merged(spec: &Spec, split: &Split) -> Result<Completions<'static>, E
             }
         }
     }
-    candidates.sort_unstable();
-    candidates.dedup_by(|a, b| a.value == b.value);
-    if candidates.is_empty() && files.is_none() && !declared_completion && !prefix.starts_with('-')
-    {
+    sort_and_dedup(&mut candidates);
+
+    // An argument that requires a `--` is asking for that one word specifically; nothing else
+    // belongs at the cursor until it is there.
+    let needs_separator = parsed.flag_awaiting_value.is_empty()
+        && at_cursor
+            .is_some_and(|arg| arg.double_dash == usage_parser::SpecDoubleDashChoices::Required)
+        && !parsed.double_dash_seen;
+
+    if flag_like || needs_separator {
+        files = None;
+    } else if files.is_none() && candidates.is_empty() && !closed {
         files = Some(Files::Any);
     }
     Ok(Completions { candidates, files })
+}
+
+/// Whether this position states what it accepts, so an unmatched prefix means "no matches".
+///
+/// Choices are the obvious case. A declared `complete` block is one too — unless it says its
+/// values are paths, which is a way of saying the filesystem *is* the answer, or says nothing
+/// at all with `unknown`.
+fn declares_its_own(
+    spec: &Spec,
+    command: &usage_parser::SpecCommand,
+    arg: &usage_parser::SpecArg,
+) -> bool {
+    if arg.choices.is_some() {
+        return true;
+    }
+    completion_for(spec, command, &arg.name).is_some_and(|completion| {
+        completion.type_.as_deref().is_some_and(|type_| {
+            !type_.eq_ignore_ascii_case("unknown") && files_kind(type_).is_none()
+        })
+    })
 }
 
 fn choice_candidates(arg: &usage_parser::SpecArg, prefix: &str) -> Vec<Candidate<'static>> {
@@ -276,8 +595,11 @@ fn hidden_flag_form(form: &str, flag: &usage_parser::SpecFlag) -> bool {
 }
 
 fn completion_files(spec: &Spec, command: &usage_parser::SpecCommand, name: &str) -> Option<Files> {
-    let completion = completion_for(spec, command, name)?;
-    let type_ = completion.type_.as_deref()?;
+    files_kind(completion_for(spec, command, name)?.type_.as_deref()?)
+}
+
+/// The path fallback a declared `complete` type asks for, if it asks for one at all.
+fn files_kind(type_: &str) -> Option<Files> {
     let (kind, filter) = type_
         .split_once(':')
         .map_or((type_, None), |(kind, filter)| (kind, Some(filter)));
@@ -309,62 +631,6 @@ fn completion_for<'a>(
         .or_else(|| spec.complete.get(name))
 }
 
-struct CompletionRequest {
-    shell: Shell,
-    split: Split,
-}
-
-impl CompletionRequest {
-    fn parse(argv: &[OsString]) -> Option<Self> {
-        if argv.first()?.to_str()? != "__complete_word__" {
-            return None;
-        }
-        let mut shell = Shell::Bash;
-        let mut line = String::new();
-        let mut cursor = None;
-        let mut words: Option<Vec<String>> = None;
-        let mut rest = argv[1..].iter();
-        while let Some(arg) = rest.next() {
-            match arg.to_str().unwrap_or_default() {
-                "--shell" => {
-                    shell = rest
-                        .next()
-                        .and_then(|name| Shell::from_name(&name.to_string_lossy()))
-                        .unwrap_or(shell);
-                }
-                "--line" => {
-                    line = rest.next()?.to_string_lossy().into_owned();
-                }
-                "--cursor" => {
-                    cursor = rest.next()?.to_str()?.parse().ok();
-                }
-                "--words" => {
-                    words = Some(
-                        rest.map(|word| word.to_string_lossy().into_owned())
-                            .collect(),
-                    );
-                    break;
-                }
-                _ => {}
-            }
-        }
-        let split = if let Some(mut words) = words {
-            if words.is_empty() {
-                words.push(String::new());
-            }
-            let cword = words.len() - 1;
-            Split {
-                prefix: words[cword].clone(),
-                words,
-                cword,
-            }
-        } else {
-            complete::split(&line, cursor.unwrap_or(line.len()), shell)
-        };
-        Some(Self { shell, split })
-    }
-}
-
 impl<'a> Builder<'a> {
     /// Attach a supplied plugin spec beneath the static root.
     pub fn root(mut self, spec: Spec) -> Self {
@@ -381,15 +647,32 @@ impl<'a> Builder<'a> {
         self
     }
 
-    /// Validate all parents and namespaces and finish the catalog.
+    /// Register the host's own completion callbacks, as
+    /// [`usage_argv::complete::App::completions`] would.
+    ///
+    /// Words before a runtime command are the host's, and the host's engine answers for them —
+    /// so whatever it was given, it keeps.
+    pub const fn completions(mut self, overlays: &'a [CompletionOverlay<'a>]) -> Self {
+        self.overlays = overlays;
+        self
+    }
+
+    /// Answer as though this command path came after argv0, for a multicall binary.
+    ///
+    /// The same projection [`usage_argv::complete::App::project`] applies, applied once, before
+    /// anything asks where the words are.
+    pub const fn project(mut self, command_path: &'a str) -> Self {
+        self.projection = Some(command_path);
+        self
+    }
+
+    /// Validate every parent and name, and finish the catalog.
+    ///
+    /// What is checked here is what the static tables can answer on their own: that the parent
+    /// exists, that it invited runtime commands, and that no name collides. Assembling the
+    /// merged tree is left to [`Catalog::app`] — dispatching a plugin command never needs it.
     pub fn build(self) -> Result<Catalog<'a>, Error> {
         let host = self.host.spec();
-        let mut merged: Spec = self
-            .host
-            .clone()
-            .to_kdl()
-            .parse()
-            .map_err(|error: UsageErr| Error::HostSpec(error.to_string()))?;
         let mut entries = Vec::with_capacity(self.pending.len());
         let mut claimed: HashMap<String, HashSet<String>> = HashMap::new();
         for (requested_parent, spec) in self.pending {
@@ -406,15 +689,18 @@ impl<'a> Builder<'a> {
             if name.is_empty() {
                 return Err(Error::EmptyName);
             }
-            let mut aliases = spec.cmd.aliases.clone();
-            for alias in &spec.cmd.hidden_aliases {
-                if !aliases.contains(alias) {
-                    aliases.push(alias.clone());
-                }
-            }
-            let mut forms = Vec::with_capacity(1 + aliases.len());
+            let aliases = spec.cmd.aliases.clone();
+            let hidden_aliases: Vec<String> = spec
+                .cmd
+                .hidden_aliases
+                .iter()
+                .filter(|alias| !aliases.contains(alias))
+                .cloned()
+                .collect();
+            let mut forms = Vec::with_capacity(1 + aliases.len() + hidden_aliases.len());
             forms.push(name.clone());
             forms.extend(aliases.iter().cloned());
+            forms.extend(hidden_aliases.iter().cloned());
             if forms.iter().any(|form| form.is_empty()) {
                 return Err(Error::EmptyName);
             }
@@ -436,35 +722,32 @@ impl<'a> Builder<'a> {
                     });
                 }
             }
-            insert_plugin(&mut merged, &parent, &name, &spec)?;
             entries.push(Entry {
                 parent,
                 name,
                 aliases,
+                hidden_aliases,
                 spec,
             });
         }
-        // Re-reading recalculates every `full_cmd`, usage line, and command lookup cache after
-        // insertion. This is cold construction work and keeps the merged tree internally
-        // indistinguishable from a spec that declared the commands in KDL.
-        merged = merged
-            .to_string()
-            .parse()
-            .map_err(|error: UsageErr| Error::HostSpec(error.to_string()))?;
-        let mut completion = merged.clone();
-        clear_mounts(&mut completion.cmd);
         Ok(Catalog {
             host: self.host,
             entries,
-            merged,
-            completion,
+            overlays: self.overlays,
+            projection: self.projection,
+            merged: OnceLock::new(),
         })
     }
 }
 
-fn insert_plugin(merged: &mut Spec, parent: &str, name: &str, plugin: &Spec) -> Result<(), Error> {
+/// Graft one entry's spec into the merged tree as a command of its parent.
+///
+/// A spec describes a program, and a command is one thing a program can be. What the two models
+/// keep in different places — a program's `about` is a command's `help` — moves across here.
+fn insert_plugin(merged: &mut Spec, entry: &Entry) -> Result<(), Error> {
+    let plugin = &entry.spec;
     let mut command = plugin.cmd.clone();
-    command.name = name.to_owned();
+    command.name = entry.name.clone();
     command.help = command.help.or_else(|| plugin.about.clone());
     command.help_long = command.help_long.or_else(|| plugin.about_long.clone());
     command.before_help = command.before_help.or_else(|| plugin.before_help.clone());
@@ -479,13 +762,13 @@ fn insert_plugin(merged: &mut Spec, parent: &str, name: &str, plugin: &Spec) -> 
         command.complete.insert(key.clone(), complete.clone());
     }
     let mut current = &mut merged.cmd;
-    for component in parent.split_ascii_whitespace() {
+    for component in entry.parent.split_ascii_whitespace() {
         current = current
             .subcommands
             .get_mut(component)
-            .ok_or_else(|| Error::MissingParent(parent.to_owned()))?;
+            .ok_or_else(|| Error::MissingParent(entry.parent.clone()))?;
     }
-    current.subcommands.insert(name.to_owned(), command);
+    current.subcommands.insert(entry.name.clone(), command);
     Ok(())
 }
 
@@ -501,7 +784,11 @@ fn resolve_parent<'a>(
     let mut canonical = Vec::new();
     for component in requested.split_ascii_whitespace() {
         let Some(next) = current.subcommands.iter().copied().find(|candidate| {
-            candidate.cmd.name == component || candidate.cmd.aliases.contains(&component)
+            candidate.cmd.name == component
+                || candidate.cmd.aliases.contains(&component)
+                // A hidden alias is one the CLI answers to, and an application naming its own
+                // static command is not "a user" being kept from an old spelling.
+                || candidate.hidden_aliases.contains(&component)
         }) else {
             return Err(Error::MissingParent(requested.to_owned()));
         };
@@ -519,13 +806,6 @@ fn reject_mounts(command: &usage_parser::SpecCommand) -> Result<(), Error> {
         reject_mounts(child)?;
     }
     Ok(())
-}
-
-fn clear_mounts(command: &mut usage_parser::SpecCommand) {
-    command.mounts.clear();
-    for child in command.subcommands.values_mut() {
-        clear_mounts(child);
-    }
 }
 
 /// The result of parsing a catalogued external command.

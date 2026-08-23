@@ -776,6 +776,18 @@ pub struct CompletionRequest {
 }
 
 impl CompletionRequest {
+    /// A request for a line that is already split, with everything else defaulted.
+    ///
+    /// For a caller holding a [`Split`] rather than the argv a shell passed — a host answering
+    /// part of a line itself, a test asking what a position offers.
+    pub const fn for_split(split: Split) -> Self {
+        Self {
+            shell: Shell::Bash,
+            split,
+            candidates_for: None,
+        }
+    }
+
     /// Read a completion request, or return `None` for ordinary argv.
     ///
     /// `None` is the load-bearing case: it is what tells a `main` that this is a real
