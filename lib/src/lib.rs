@@ -3,6 +3,7 @@ extern crate insta;
 extern crate log;
 
 pub use crate::parse::{available_flags, parse, Parser};
+pub use crate::spec::admonition::{SpecAdmonition, SpecAdmonitionKind};
 pub use crate::spec::arg::{SpecArg, SpecDoubleDashChoices, SpecRequiredIfEq};
 pub use crate::spec::builder::{SpecArgBuilder, SpecCommandBuilder, SpecFlagBuilder};
 pub use crate::spec::choices::{SpecChoice, SpecChoiceAlias, SpecChoices};

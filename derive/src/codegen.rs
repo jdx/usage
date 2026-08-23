@@ -17,10 +17,22 @@ use quote::{format_ident, quote};
 
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
-    rendered_path, to_kebab, type_name, ArgGroup, ArgGroupMember, Cli, ConditionalDefault,
-    Dispatch, DoubleDash, ExampleDecl, Field, Kind, SchemaSource, Shape, Subcommands, ValueEnum,
-    Variant, ViewDecl,
+    rendered_path, to_kebab, type_name, AdmonitionKind, ArgGroup, ArgGroupMember, Cli,
+    ConditionalDefault, Dispatch, DoubleDash, ExampleDecl, Field, Kind, SchemaSource, Shape,
+    Subcommands, ValueEnum, Variant, ViewDecl,
 };
+
+fn admonitions(field: &Field) -> TokenStream {
+    let entries = field.admonitions.iter().map(|admonition| {
+        let text = &admonition.text;
+        let kind = match admonition.kind {
+            AdmonitionKind::Note => quote!(usage_argv::spec::AdmonitionKind::Note),
+            AdmonitionKind::Warning => quote!(usage_argv::spec::AdmonitionKind::Warning),
+        };
+        quote!(usage_argv::spec::AdmonitionMeta { kind: #kind, text: #text })
+    });
+    quote!(&[#(#entries),*])
+}
 
 /// Construct the user's command type after its generated partial has been checked.
 ///
@@ -2569,6 +2581,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let table = format_ident!("FLAG_{i}");
     let help = option_str(field.help.as_deref());
     let long_help = option_str(field.long_help.as_deref());
+    let admonitions = admonitions(field);
     let env = option_str(field.env.as_deref());
     let env_fallback = &field.env_fallback;
     let deprecated_env = &field.deprecated_env;
@@ -2707,6 +2720,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             display_order: #display_order,
             help: #help,
             long_help: #long_help,
+            admonitions: #admonitions,
             deprecated: #deprecated,
             deprecated_warn_at: #deprecated_warn_at,
             deprecated_remove_at: #deprecated_remove_at,
@@ -2766,6 +2780,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     let table = format_ident!("ARG_{i}");
     let help = option_str(field.help.as_deref());
     let long_help = option_str(field.long_help.as_deref());
+    let admonitions = admonitions(field);
     let env = option_str(field.env.as_deref());
     let env_fallback = &field.env_fallback;
     let deprecated_env = &field.deprecated_env;
@@ -2844,6 +2859,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
             value_names: &[#(#value_names),*],
             help: #help,
             long_help: #long_help,
+            admonitions: #admonitions,
             env: #env,
             env_fallback: &[#(#env_fallback),*],
             deprecated_env: &[#(#deprecated_env),*],

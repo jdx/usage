@@ -1,6 +1,6 @@
 use crate::docs::markdown::MarkdownRenderer;
 use crate::spec::effect::SpecCommandEffect;
-use crate::SpecChoices;
+use crate::{SpecAdmonition, SpecChoices};
 use indexmap::IndexMap;
 use serde::Serialize;
 
@@ -132,6 +132,7 @@ pub struct SpecFlag {
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_md: Option<String>,
+    pub admonitions: Vec<SpecAdmonition>,
     pub help_first_line: Option<String>,
     pub short: Vec<char>,
     pub long: Vec<String>,
@@ -478,6 +479,7 @@ pub struct SpecArg {
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_md: Option<String>,
+    pub admonitions: Vec<SpecAdmonition>,
     pub help_first_line: Option<String>,
     pub required: bool,
     pub var: bool,
@@ -974,6 +976,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
             help: said(&flag.help),
             help_long: flag.help_long.clone(),
             help_md: flag.help_md.clone(),
+            admonitions: flag.admonitions.clone(),
             help_first_line: flag.help_first_line.clone(),
             short: flag
                 .short
@@ -1041,6 +1044,7 @@ impl From<&crate::SpecArg> for SpecArg {
             help: said(&arg.help),
             help_long: arg.help_long.clone(),
             help_md: arg.help_md.clone(),
+            admonitions: arg.admonitions.clone(),
             help_first_line: arg.help_first_line.clone(),
             required: arg.required,
             var: arg.var,

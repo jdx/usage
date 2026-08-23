@@ -2,6 +2,10 @@
 
 {{ arg.help_md | escape_md }}
 {%- endif %}
+{%- for admonition in arg.admonitions %}
+
+> **{% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}:** {{ admonition.text | escape_md | replace(from="\n", to="\n> ") }}
+{%- endfor %}
 {%- if arg.choices and arg.choices.choices %}
 
 **Choices:**

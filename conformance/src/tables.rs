@@ -29,8 +29,9 @@ use usage::{
     SpecGroup, SpecOutput,
 };
 use usage_argv::spec::{
-    ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf, Effect, Example, ExitCodeMeta,
-    FlagMeta, Framing as ArgvFraming, GroupMeta, OutputMeta, RequiredIfEq, RequiresIf,
+    AdmonitionKind, AdmonitionMeta, ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf,
+    Effect, Example, ExitCodeMeta, FlagMeta, Framing as ArgvFraming, GroupMeta, OutputMeta,
+    RequiredIfEq, RequiresIf,
 };
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
@@ -379,6 +380,7 @@ fn flag_meta(
         hidden_longs: strs(&f.hidden_aliases),
         help: opt(&f.help),
         long_help: opt(&f.help_long),
+        admonitions: admonitions(&f.admonitions),
         deprecated: opt(&f.deprecated),
         deprecated_warn_at: opt(&f.deprecated_warn_at),
         deprecated_remove_at: opt(&f.deprecated_remove_at),
@@ -488,6 +490,7 @@ fn arg_meta(
         value_names: strs(&a.value_names),
         help: opt(&a.help),
         long_help: opt(&a.help_long),
+        admonitions: admonitions(&a.admonitions),
         env: opt(&a.env),
         env_fallback: strs(&a.env_fallback),
         deprecated_env: strs(&a.deprecated_env),
@@ -608,6 +611,21 @@ fn strs(list: &[String]) -> &'static [&'static str] {
     Box::leak(
         list.iter()
             .map(|s| leak(s))
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn admonitions(list: &[usage::SpecAdmonition]) -> &'static [AdmonitionMeta<'static>] {
+    Box::leak(
+        list.iter()
+            .map(|block| AdmonitionMeta {
+                kind: match block.kind {
+                    usage::SpecAdmonitionKind::Note => AdmonitionKind::Note,
+                    usage::SpecAdmonitionKind::Warning => AdmonitionKind::Warning,
+                },
+                text: leak(&block.text),
+            })
             .collect::<Vec<_>>()
             .into_boxed_slice(),
     )

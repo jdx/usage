@@ -13,7 +13,7 @@ use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
-use crate::{string, SpecArg, SpecChoices, SpecRequiredIfEq};
+use crate::{string, SpecAdmonition, SpecAdmonitionKind, SpecArg, SpecChoices, SpecRequiredIfEq};
 
 /// A non-binding action performed when a flag is supplied.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -123,6 +123,9 @@ pub struct SpecFlag {
     /// Markdown-formatted help text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
+    /// Structured notes and warnings, in presentation order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub admonitions: Vec<SpecAdmonition>,
     /// First line of help text (auto-generated)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_first_line: Option<String>,
@@ -434,6 +437,12 @@ impl SpecFlag {
                 "long_help" => flag.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_long" => flag.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_md" => flag.help_md = Some(child.arg(0)?.ensure_string()?),
+                "note" => flag
+                    .admonitions
+                    .push(SpecAdmonition::note(child.arg(0)?.ensure_string()?)),
+                "warning" => flag
+                    .admonitions
+                    .push(SpecAdmonition::warning(child.arg(0)?.ensure_string()?)),
                 "required" => flag.required = child.arg(0)?.ensure_bool()?,
                 "required_if" => {
                     flag.required_if = child
@@ -966,6 +975,16 @@ impl From<&SpecFlag> for KdlNode {
             node.push(string_entry(None, desc));
             children.nodes_mut().push(node);
         }
+        for admonition in &flag.admonitions {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let name = match admonition.kind {
+                SpecAdmonitionKind::Note => "note",
+                SpecAdmonitionKind::Warning => "warning",
+            };
+            let mut block = KdlNode::new(name);
+            block.push(string_entry(None, &admonition.text));
+            children.nodes_mut().push(block);
+        }
         if flag.required {
             node.push(KdlEntry::new_prop("required", true));
         }
@@ -1466,6 +1485,7 @@ impl From<&clap::Arg> for SpecFlag {
             help,
             help_long,
             help_md: None,
+            admonitions: Vec::new(),
             help_first_line,
             var,
             var_min: None,
