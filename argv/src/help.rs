@@ -2751,18 +2751,19 @@ fn topic_blocks(sections: &Sections) -> Vec<(String, String)> {
                     return;
                 };
                 let text = block.trim().to_string();
-                if text.is_empty() {
+                let Some((_, body)) = text.split_once('\n') else {
+                    block.clear();
+                    return;
+                };
+                if body.trim().is_empty() {
                     block.clear();
                     return;
                 }
                 if let Some((_, existing)) = topics.iter_mut().find(|(known, _)| known == title) {
-                    let continuation = text
-                        .split_once('\n')
-                        .map_or(text.as_str(), |(_, body)| body);
                     if !existing.is_empty() {
                         existing.push_str("\n\n");
                     }
-                    existing.push_str(continuation);
+                    existing.push_str(body);
                 } else {
                     topics.push((title.to_string(), text));
                 }

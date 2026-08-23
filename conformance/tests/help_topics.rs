@@ -31,6 +31,20 @@ enum Command {
     Status,
 }
 
+#[derive(Cli)]
+#[usage(bin = "custom", disable_help_subcommand)]
+struct OnlyCustomCommands {
+    #[usage(subcommand)]
+    command: Option<OnlyCustomCommand>,
+}
+
+#[derive(Subcommands)]
+enum OnlyCustomCommand {
+    /// Run the task
+    #[usage(help_heading = "Actions")]
+    Run,
+}
+
 #[test]
 fn visible_help_groups_and_standard_sections_are_addressable() {
     let topics = help::topics(Guide::spec(), Guide::command(), true).expect("the root command");
@@ -68,4 +82,16 @@ fn one_topic_combines_argument_and_flag_groups_with_the_same_heading() {
 #[test]
 fn a_topic_that_is_not_on_the_page_is_absent() {
     assert!(help::render_topic(Guide::spec(), Guide::command(), "internals", false).is_none());
+}
+
+#[test]
+fn an_empty_standard_heading_is_not_a_topic() {
+    let topics = help::topics(
+        OnlyCustomCommands::spec(),
+        OnlyCustomCommands::command(),
+        true,
+    )
+    .expect("the root command");
+    assert!(topics.iter().any(|topic| topic.title == "Actions"));
+    assert!(!topics.iter().any(|topic| topic.title == "Commands"));
 }
