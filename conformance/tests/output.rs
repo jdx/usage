@@ -123,6 +123,23 @@ fn a_name_and_a_framing_are_different_things() {
 }
 
 #[test]
+fn a_media_type_without_a_selector_starts_a_markdown_list() {
+    let spec: LibSpec = r#"
+name "ex"
+output "xml" media_type="application/xml"
+"#
+    .parse()
+    .expect("standalone output spec");
+    let markdown = usage::docs::markdown::MarkdownRenderer::new(spec.clone())
+        .render_cmd(&spec.cmd)
+        .expect("markdown page");
+    assert!(
+        markdown.contains("`xml`\n\n- **Media type**: `application/xml`"),
+        "{markdown}"
+    );
+}
+
+#[test]
 fn a_schema_reaches_the_spec() {
     let spec = parsed();
     let check = spec.cmd.subcommands.get("check").unwrap();
