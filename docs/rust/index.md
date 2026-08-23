@@ -53,6 +53,10 @@ whole comment becomes the long help shown by `--help`.
 
 <UsageBenches lang="rust" embedded />
 
+That speed moves work into compilation. For mise's 211 commands and 722 flags, a debug
+rebuild took about 10 seconds with usage-rs, 4 seconds with clap, and 2 seconds with bpaf
+([measurements](/rust/performance#compile-time)).
+
 ## Installation
 
 One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:

@@ -1,4 +1,4 @@
-//! Wall clock for the four parsers, measured so it survives a loaded machine.
+//! Wall clock for the three parsers, measured so it survives a loaded machine.
 //!
 //! `time-parse` takes the best of five rounds of 20,000 iterations. On a busy box that is
 //! the wrong shape twice over: a round long enough to be interrupted almost certainly is,
@@ -12,7 +12,7 @@
 //!
 //! What this buys: on a 32-core box under load, `time-parse` swung 50% for an unchanged
 //! binary where the minimum here moves a few percent — 3% for clap and 14% for usage-rs
-//! across fourteen invocations, and the CI runner read the same four within 2 to 4% of a
+//! across fourteen invocations, and the CI runner read the same three within 2 to 4% of a
 //! developer machine. That is enough for two significant figures and not a third, which is
 //! how the landing page quotes them. Anything that has to be firmer reads the instruction
 //! counts beside these: those are deterministic per binary and agreed across the same two
@@ -22,7 +22,6 @@ use std::ffi::{OsStr, OsString};
 use std::hint::black_box;
 use std::time::Instant;
 
-use argh::FromArgs as _;
 use clap::Parser as _;
 
 /// Per-round iteration counts, chosen so a round is ~0.5–3ms of work.
@@ -85,16 +84,6 @@ fn main() {
         "usage-rs: argv -> struct",
         sweep(ROUNDS, 2_000, || {
             black_box(shadow_mise::Cli::parse_from(black_box(&usage_argv))).ok();
-        }),
-    );
-    report(
-        "argh: argv -> struct",
-        sweep(ROUNDS, 2_000, || {
-            black_box(shadow_mise_argh::Cli::from_args(
-                &["mise"],
-                black_box(&str_argv),
-            ))
-            .ok();
         }),
     );
     report(

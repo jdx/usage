@@ -25,13 +25,14 @@ out=${1:-/dev/stdout}
 # failure part way through must not leave a truncated table behind for the comment to
 # publish as though it were a comparison.
 tmp=$(mktemp)
-trap 'rm -f "$tmp" cachegrind.out.*' EXIT
+size_tmp=$(mktemp -d)
+trap 'rm -f "$tmp" cachegrind.out.*; rm -rf "$size_tmp"' EXIT
 
-# One argv for all four. `parse-n-clap` needs a program name in front of the words and
+# One argv for all three binaries. `parse-n-clap` needs a program name in front of the words and
 # already has one, because it collects `args_os()` whole with argv[0] included — so spelling
 # `mise` here as well would hand clap one token too many. It does not fail on that, which is
 # the trap: clap binds the extra word to the root's `[TASK]` positional and parses on, so the
-# column would report a command line the other three never saw. A shadow that rejected the
+# column would report a command line the other five never saw. A shadow that rejected the
 # input would at least be loud about it.
 ARGV="use -g node@20"
 
@@ -97,12 +98,18 @@ if ! command -v valgrind >/dev/null 2>&1; then
   exit 0
 fi
 
-for binary in parse-n parse-n-argh parse-n-clap parse-n-bpaf; do
+for binary in parse-n parse-n-clap parse-n-bpaf; do
   verify "$binary"
 done
 
+stripped_size() {
+  local binary=$1 copy="$size_tmp/$1"
+  cp "./target/release/$binary" "$copy"
+  strip "$copy"
+  wc -c <"$copy" | tr -d ' '
+}
+
 usage_cold=$(cold parse-n)
-argh_cold=$(cold parse-n-argh)
 clap_cold=$(cold parse-n-clap)
 bpaf_cold=$(cold parse-n-bpaf)
 
@@ -114,10 +121,15 @@ bpaf_cold=$(cold parse-n-bpaf)
   printf 'Parsing `mise use -g node@20` against a shadow of mise'"'"'s committed spec.\n'
   printf 'Reported, not gated: the shadow grows as the derive learns to express more, so\n'
   printf 'what to watch is the ratio rather than either column.\n\n'
+  printf '| framework | stripped binary, bytes |\n'
+  printf '|---|---:|\n'
+  printf '| usage | %s |\n' "$(printf "%'d" "$(stripped_size parse-n)")"
+  printf '| bpaf | %s |\n' "$(printf "%'d" "$(stripped_size parse-n-bpaf)")"
+  printf '| clap | %s |\n\n' "$(printf "%'d" "$(stripped_size parse-n-clap)")"
   printf '| framework | instructions, cold parse | vs usage |\n'
   printf '|---|---:|---:|\n'
   printf '| usage | %s | — |\n' "$(printf "%'d" "$usage_cold")"
-  for row in "argh:$argh_cold" "clap:$clap_cold" "bpaf:$bpaf_cold"; do
+  for row in "clap:$clap_cold" "bpaf:$bpaf_cold"; do
     printf '| %s | %s | %sx |\n' "${row%%:*}" \
       "$(printf "%'d" "${row#*:}")" \
       "$(ratio "${row#*:}" "$usage_cold")"

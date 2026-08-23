@@ -230,7 +230,6 @@ dir = "{{config_root}}"
 run = [
     "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise usage",
     "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise-clap clap",
-    "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise-argh argh",
     "cargo run -q -p xtask -- gen-shadow benches/mise.usage.kdl benches/shadows/mise-bpaf bpaf",
     # Go, in a module of its own: these three are what usage-go is compared against, so they
     # must not be dependencies of the module being measured.
