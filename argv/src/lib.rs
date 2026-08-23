@@ -138,6 +138,8 @@ pub enum ValueHint {
 pub mod complete;
 #[cfg(feature = "diagnostics")]
 pub mod diagnostic;
+#[cfg(feature = "spec")]
+pub mod embedded;
 #[cfg(feature = "complete")]
 pub mod install;
 #[cfg(feature = "complete")]
