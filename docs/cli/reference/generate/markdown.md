@@ -47,6 +47,10 @@ Replace `<pre>` tags with markdown code fences
 
 Prefix to add to all URLs
 
+### `--template… <TEMPLATE>`
+
+Override a Tera template with NAME=PATH
+
 ### `-h --help`
 
 Print help

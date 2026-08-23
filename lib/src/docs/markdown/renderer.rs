@@ -193,7 +193,16 @@ impl MarkdownRenderer {
     /// contain `{% include "cmd_template.md.tera" %}`. Replacing the same member more than once
     /// uses the last value. Syntax and include errors are returned by the render method.
     pub fn with_template(mut self, template: MarkdownTemplate, source: impl Into<String>) -> Self {
-        self.templates.push((template, source.into()));
+        let source = source.into();
+        if let Some((_, current)) = self
+            .templates
+            .iter_mut()
+            .find(|(current, _)| *current == template)
+        {
+            *current = source;
+        } else {
+            self.templates.push((template, source));
+        }
         self
     }
 
@@ -345,7 +354,7 @@ mod tests {
     fn the_last_replacement_of_a_template_wins() {
         let spec = "bin \"ex\"\n".parse().unwrap();
         let page = MarkdownRenderer::new(spec)
-            .with_template(MarkdownTemplate::Spec, "first")
+            .with_template(MarkdownTemplate::Spec, "{{")
             .with_template(MarkdownTemplate::Spec, "second")
             .render_spec()
             .unwrap();

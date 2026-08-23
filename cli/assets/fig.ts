@@ -726,6 +726,14 @@ const completionSpec: Fig.Spec = {
               },
             },
             {
+              name: "--template",
+              description: "Override a Tera template with NAME=PATH",
+              isRepeatable: true,
+              args: {
+                name: "template",
+              },
+            },
+            {
               name: ["-h", "--help"],
               description: "Print help",
               isRepeatable: false,
