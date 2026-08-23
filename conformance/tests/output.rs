@@ -99,7 +99,7 @@ struct NestedOutput {
 }
 
 #[derive(Cli)]
-#[usage(name = "flattened-output")]
+#[usage(name = "flattened-output", exit_code(130, "interrupted"))]
 #[allow(dead_code)]
 struct FlattenedOutput {
     #[usage(flatten)]
@@ -118,6 +118,8 @@ fn flattened_args_contribute_command_output_metadata() {
     let spec: LibSpec = kdl
         .parse()
         .unwrap_or_else(|e| panic!("usage-lib could not parse the emitted spec: {e}\n\n{kdl}"));
+    assert!(kdl.find("output human") < kdl.find("select \"--format\""));
+    assert!(kdl.find("select \"--format\"") < kdl.find("exit_code 130"));
 
     assert_eq!(spec.outputs.len(), 2, "{kdl}");
     assert_eq!(spec.outputs[0].name, "human");
@@ -130,6 +132,7 @@ fn flattened_args_contribute_command_output_metadata() {
             .map(|exit| exit.help.as_str()),
         Some("invalid output selection")
     );
+    assert_eq!(spec.exit_codes[0].code, 130);
 
     let format = spec
         .cmd

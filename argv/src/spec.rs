@@ -2164,18 +2164,18 @@ fn write_group(out: &mut String, group: &GroupMeta<'_>, depth: usize) -> core::f
 /// order — outputs, then `select`, then exit codes — has to match what usage-lib's writer
 /// produces or `canonical_kdl` fails.
 fn write_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
-    write_own_outputs(out, meta, depth)?;
     // A flattened `Args` type contributes to the command it is mounted on. Its flags and
     // groups are already composed into the parent's metadata tables; command-level output
     // metadata has to follow the same seam or a selector declared beside those flags simply
-    // disappears from the emitted spec.
-    for group in meta.flatten_groups {
-        write_outputs(out, group.meta, depth)?;
-    }
-    Ok(())
+    // disappears from the emitted spec. Each kind gets its own recursive pass so flattening
+    // cannot interleave an exit code before a nested output: the portable writer's canonical
+    // order is every output, then selectors, then exit codes.
+    write_output_decls(out, meta, depth)?;
+    write_selects(out, meta, depth)?;
+    write_exit_codes(out, meta, depth)
 }
 
-fn write_own_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
+fn write_output_decls(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
     for output in meta.outputs {
         indent(out, depth)?;
         write!(out, "output {}", quoted(output.name))?;
@@ -2205,10 +2205,24 @@ fn write_own_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> 
             None => out.push('\n'),
         }
     }
+    for group in meta.flatten_groups {
+        write_output_decls(out, group.meta, depth)?;
+    }
+    Ok(())
+}
+
+fn write_selects(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
     if let Some(select) = meta.select {
         indent(out, depth)?;
         writeln!(out, "select {}", quoted_arg(select))?;
     }
+    for group in meta.flatten_groups {
+        write_selects(out, group.meta, depth)?;
+    }
+    Ok(())
+}
+
+fn write_exit_codes(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
     for exit_code in meta.exit_codes {
         indent(out, depth)?;
         writeln!(
@@ -2217,6 +2231,9 @@ fn write_own_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> 
             exit_code.code,
             quoted(exit_code.help)
         )?;
+    }
+    for group in meta.flatten_groups {
+        write_exit_codes(out, group.meta, depth)?;
     }
     Ok(())
 }
