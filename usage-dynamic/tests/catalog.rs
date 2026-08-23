@@ -670,3 +670,46 @@ fn a_named_completer_request_is_answered_by_the_host() {
     let rendered = block_on(catalog.app().unwrap().completion_request(&argv)).unwrap();
     assert!(rendered.trim().is_empty(), "{rendered:?}");
 }
+
+#[test]
+fn a_builtin_never_needs_a_catalog_and_a_fallback_needs_one_spec() {
+    // The design's cost promise: parse first, against the static tables alone. A built-in
+    // command dispatches before any catalog exists, so a plugin manager pays for discovery
+    // only when the catch-all actually fired — and then only for the specs it chose to load.
+    let host = Host::parse_from(&[OsStr::new("builtin")]).unwrap();
+    assert!(matches!(host.command, HostCommand::Builtin));
+    // No catalog was constructed on that path at all.
+
+    let host = Host::parse_from(&[
+        OsStr::new("plugins"),
+        OsStr::new("formatter"),
+        OsStr::new("src"),
+    ])
+    .unwrap();
+    let HostCommand::Plugins {
+        command: PluginCommand::External(captured),
+    } = host.command
+    else {
+        panic!("expected the catch-all")
+    };
+    // Load exactly one plugin's spec, after the parse decided one is needed.
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", plugin("formatter", "arg \"[path]\"\n"))
+        .build()
+        .unwrap();
+    assert!(matches!(
+        catalog.parse_external("plugins", &captured).unwrap(),
+        Some(Outcome::Parsed(_))
+    ));
+    assert!(!catalog.is_assembled(), "dispatch built no merged tree");
+
+    // A name the loaded specs do not answer to falls through, same as always.
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", plugin("audit", ""))
+        .build()
+        .unwrap();
+    assert!(catalog
+        .parse_external("plugins", &captured)
+        .unwrap()
+        .is_none());
+}
