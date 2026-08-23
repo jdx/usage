@@ -1,0 +1,2 @@
+{"v":1,"bench":"markdown","tool":"self","runner":"gha-linux-x64","ts":"2026-07-30T12:00:19Z","metrics":{"instructions":110309304.0,"wall_max_ms":15.539862,"wall_mean_ms":15.0832042,"wall_min_ms":14.870988,"wall_n":10.0,"wall_p50_ms":15.088797}}
+{"v":1,"bench":"startup","tool":"self","runner":"gha-linux-x64","ts":"2026-07-30T12:00:21Z","metrics":{"instructions":1230064.0,"wall_max_ms":1.179428,"wall_mean_ms":1.0941303500000001,"wall_min_ms":1.063664,"wall_n":20.0,"wall_p50_ms":1.093899}}
