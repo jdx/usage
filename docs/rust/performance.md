@@ -46,18 +46,10 @@ with the whole CLI.
 
 ## Compile time
 
-That runtime speed moves work into compilation. On the same mise-scale generated
-shadows, a debug rebuild of only the CLI crate, with each framework's dependencies
-already built, took a median 10.2 seconds with usage-rs, 3.6 seconds with clap, and
-1.6 seconds with bpaf over three runs. In a separate isolated clean-build pass,
-the same ordering held at about 15, 6, and 4 seconds respectively. These
-measurements used rustc 1.97.1 on x86_64 Linux.
-
-The absolute times are specific to this unusually large command tree and the
-benchmark host, but the tradeoff is not: usage-rs is doing substantially more
-work at compile time. A project with a large CLI declaration and a tight edit-build
-loop may be better served by clap or bpaf, especially when parser startup is not a
-meaningful part of its runtime.
+Compiling the mise-scale shadow is slower with usage-rs: a debug rebuild took
+10.2 seconds, compared with 3.6 seconds for clap and 1.6 seconds for bpaf. Each
+framework's dependencies were already built; measurements used rustc 1.97.1 on
+x86_64 Linux.
 
 ## What clap's number includes
 
@@ -79,13 +71,9 @@ shadow, built by the same workspace release build, stripped:
 | bpaf                        | 2,493,936 |     2.5 MB |
 | clap                        | 3,102,696 |     3.1 MB |
 
-The common-vocabulary usage shadow drops exactly the properties the clap generator
-drops and disables the spec endpoint clap does not have. That leaves both parsers operating
-over the same expressible CLI instead of charging usage for richer metadata. The full usage
-shadow remains the conformance fixture. On common vocabulary, usage is 58% smaller than clap.
-For what the spec endpoint itself weighs, see
-[Spec output](/rust/spec#the-endpoint) — 65 KB on a small CLI, and
-`#[usage(spec_endpoint = false)]` removes it.
+The clap-vocabulary row excludes features clap cannot express, including the
+spec endpoint, so it compares equivalent CLIs. On that basis, usage is 58%
+smaller than clap.
 
 ### Where the size lives, and what removes it
 
