@@ -1189,7 +1189,10 @@ impl Cli {
                      `select = \"…\"`; keep one of them",
                 ));
             }
-            let Some(selector) = Cli::selector_for_field(field) else {
+            let Some(selector) = (field.takes_value() && matches!(field.kind, Kind::Flag { .. }))
+                .then(|| Cli::selector_for_field(field))
+                .flatten()
+            else {
                 return Err(syn::Error::new_spanned(
                     &field.ident,
                     "`select` belongs on a flag that takes a value, and this field is not one",
@@ -6767,6 +6770,22 @@ mod tests {
         "#)
         .expect("should parse");
         assert_eq!(parsed.select.as_deref(), Some("--format"));
+    }
+
+    #[test]
+    fn a_field_selector_requires_a_value_taking_flag() {
+        for field in [
+            "#[usage(select)] format: String,",
+            "#[usage(long, select)] format: bool,",
+        ] {
+            let err = rejection(&format!(
+                r#"
+                #[usage(output("json", framing = "json"))]
+                struct Ex {{ {field} }}
+                "#
+            ));
+            assert!(err.contains("flag that takes a value"), "{err}");
+        }
     }
 
     #[test]

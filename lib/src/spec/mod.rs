@@ -202,16 +202,17 @@ impl Spec {
     /// If `bin` is not specified in the spec, it defaults to the filename.
     #[must_use = "parsing result should be used"]
     pub fn parse_file(file: &Path) -> Result<Spec, UsageErr> {
-        Self::parse_file_with_metadata_inference(file, true)
+        Self::parse_file_with_metadata_inference(file, true, true)
     }
 
     fn parse_file_with_metadata_inference(
         file: &Path,
         infer_metadata_from_filename: bool,
+        resolve_outputs: bool,
     ) -> Result<Spec, UsageErr> {
         let spec = split_script(file)?;
         let ctx = ParsingContext::new(file, &spec);
-        let mut schema = Self::parse(&ctx, &spec)?;
+        let mut schema = Self::parse_with_output_resolution(&ctx, &spec, resolve_outputs)?;
         if infer_metadata_from_filename && schema.bin.is_empty() {
             schema.bin = file
                 .file_name()
@@ -447,6 +448,14 @@ impl Spec {
     }
 
     pub(crate) fn parse(ctx: &ParsingContext, input: &str) -> Result<Spec, UsageErr> {
+        Self::parse_with_output_resolution(ctx, input, true)
+    }
+
+    fn parse_with_output_resolution(
+        ctx: &ParsingContext,
+        input: &str,
+        resolve_outputs: bool,
+    ) -> Result<Spec, UsageErr> {
         let kdl: KdlDocument = input
             .parse()
             .map_err(|err: kdl::KdlError| UsageErr::KdlError(err))?;
@@ -683,7 +692,7 @@ impl Spec {
                         false => file.to_path_buf(),
                     };
                     info!("include: {}", file.display());
-                    let other = Self::parse_file_with_metadata_inference(&file, false)?;
+                    let other = Self::parse_file_with_metadata_inference(&file, false, false)?;
                     // Two *declarations* of one name are refused, the same as two in a single
                     // file. Letting the incoming set win would make which declaration a
                     // `use` gets depend on whether the `include` stands above or below it —
@@ -728,7 +737,9 @@ impl Spec {
         // Before ancestors are stamped, because expanding a flagset or narrowing a selector can
         // add a flag to a command and the usage strings are computed from the flag list.
         flagset::expand(ctx, &mut schema.cmd, &mut schema.flagsets)?;
-        output::resolve_selectors(&mut schema)?;
+        if resolve_outputs {
+            output::resolve_selectors(&mut schema)?;
+        }
         schema.sources.extend(ctx.sources());
         set_subcommand_ancestors(&mut schema.cmd, &[]);
         Ok(schema)

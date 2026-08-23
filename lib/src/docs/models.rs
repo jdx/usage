@@ -511,7 +511,11 @@ fn fold_outputs(
     cmd: &mut crate::SpecCommand,
     path: &mut Vec<crate::SpecCommand>,
 ) {
+    // The inheritance helpers only read declarations on each ancestor. Move the subtree
+    // aside while cloning so descendants are not copied once for every level above them.
+    let subcommands = std::mem::take(&mut cmd.subcommands);
     path.push(cmd.clone());
+    cmd.subcommands = subcommands;
     cmd.outputs = crate::effective_outputs(spec, path);
     cmd.select = crate::effective_select(spec, path);
     cmd.exit_codes = crate::effective_exit_codes(spec, path);

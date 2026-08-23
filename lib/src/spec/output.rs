@@ -346,7 +346,7 @@ pub fn effective_outputs(spec: &Spec, path: &[SpecCommand]) -> Vec<SpecOutput> {
 }
 
 /// Reference-based form used by tree walkers that already hold the command chain.
-pub(crate) fn effective_outputs_ref<'a>(
+pub fn effective_outputs_ref<'a>(
     spec: &Spec,
     path: impl IntoIterator<Item = &'a SpecCommand>,
 ) -> Vec<SpecOutput> {
@@ -370,7 +370,7 @@ pub fn effective_select(spec: &Spec, path: &[SpecCommand]) -> Option<String> {
 }
 
 /// Reference-based form used by tree walkers that already hold the command chain.
-pub(crate) fn effective_select_ref(spec: &Spec, path: &[&SpecCommand]) -> Option<String> {
+pub fn effective_select_ref(spec: &Spec, path: &[&SpecCommand]) -> Option<String> {
     let mut select = spec.select.clone();
     for cmd in path {
         if let Some(own) = &cmd.select {
@@ -460,7 +460,7 @@ fn resolve_cmd(
             materialize(cmd, inherited_flags, name, &outputs)?;
         }
     }
-    check_boolean_selectors(cmd, inherited_flags, &outputs)?;
+    check_boolean_selectors(cmd, inherited_flags, &outputs, &cmd.outputs)?;
 
     for sub in cmd.subcommands.values_mut() {
         resolve_cmd(sub, &available, &outputs, select.as_deref())?;
@@ -589,15 +589,19 @@ fn check_boolean_selectors(
     cmd: &SpecCommand,
     inherited: &[SpecFlag],
     outputs: &[SpecOutput],
+    local_outputs: &[SpecOutput],
 ) -> Result<()> {
     for output in outputs.iter().filter(|o| o.select.is_some()) {
         let name = output.select.as_deref().expect("filtered");
         let Some((flag, _)) = find_selector(cmd, inherited, name) else {
-            return Err(invalid(format!(
-                "output `{}` on `{}` is selected by `{name}`, which names no flag here or \
-                 above it",
-                output.name, cmd.name
-            )));
+            if local_outputs.iter().any(|local| local.name == output.name) {
+                return Err(invalid(format!(
+                    "output `{}` on `{}` is selected by `{name}`, which names no flag here or \
+                     above it",
+                    output.name, cmd.name
+                )));
+            }
+            continue;
         };
         if flag.arg.is_some() {
             return Err(invalid(format!(
@@ -817,6 +821,20 @@ cmd "ls" {
     }
 
     #[test]
+    fn an_inherited_boolean_selector_stops_with_its_non_global_flag() {
+        let spec = parse(
+            r#"
+name "ex"
+flag "--json"
+output "text" default=#true
+output "json" framing="json" select="--json"
+cmd "nested"
+"#,
+        );
+        assert!(spec.cmd.subcommands.contains_key("nested"));
+    }
+
+    #[test]
     fn a_boolean_selector_naming_a_value_flag_points_back() {
         let err = error(
             r#"
@@ -957,6 +975,31 @@ cmd "ls" {
         let emitted = spec.to_string();
         assert!(!emitted.contains("report.schema.json"));
         assert_eq!(parse(&emitted).outputs[0].schema.as_deref(), Some(schema));
+    }
+
+    #[test]
+    fn an_included_selector_resolves_against_the_parent_document() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("root.usage.kdl");
+        let included = dir.path().join("outputs.usage.kdl");
+        std::fs::write(
+            &included,
+            "output \"text\" default=#true\noutput \"json\" framing=\"json\"\nselect \"--format\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &root,
+            "name \"ex\"\ninclude file=\"outputs.usage.kdl\"\nflag \"--format <FORMAT>\"\n",
+        )
+        .unwrap();
+
+        let spec = Spec::parse_file(&root).unwrap();
+        let choices = spec.cmd.flags[0]
+            .arg
+            .as_ref()
+            .and_then(|arg| arg.choices.as_ref())
+            .map(|choices| choices.values());
+        assert_eq!(choices, Some(vec!["text".into(), "json".into()]));
     }
 
     #[test]

@@ -122,7 +122,7 @@
 | Code | Meaning |
 | ---- | ------- |
 {%- for exit_code in cmd.exit_codes %}
-| `{{ exit_code.code }}` | {{ exit_code.help }} |
+| `{{ exit_code.code }}` | {{ exit_code.help | replace(from="|", to="\\|") }} |
 {%- endfor %}
 {%- endif %}
 

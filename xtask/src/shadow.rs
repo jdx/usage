@@ -2362,6 +2362,60 @@ mod tests {
     }
 
     #[test]
+    fn the_usage_shadow_carries_command_result_declarations() {
+        let spec = r#"
+name "ex"
+bin "ex"
+cmd "report" {
+    flag "--json"
+    output "json" framing="json" help="A report" default=#true hide=#true select="--json" {
+        schema "{\"type\":\"object\"}"
+    }
+    exit_code 2 "report failed"
+}
+"#;
+        let (out, skipped) = rendered_as(spec, Dialect::Usage);
+        for declaration in [
+            r#"output("json""#,
+            r#"framing = "json""#,
+            r#"help = "A report""#,
+            "default",
+            "hide",
+            r#"select = "--json""#,
+            r#"schema = "{\"type\":\"object\"}""#,
+            r#"exit_code(2, "report failed")"#,
+        ] {
+            assert!(out.contains(declaration), "missing {declaration}: {out}");
+        }
+        assert!(skipped.counts.is_empty(), "{:?}", skipped.counts);
+    }
+
+    #[test]
+    fn the_usage_shadow_reports_a_selector_whose_flag_is_only_above_it() {
+        let mut spec: Spec = r#"
+name "ex"
+bin "ex"
+flag "--format <FORMAT>" global=#true
+cmd "report" {
+    output "json" framing="json"
+    select "--format"
+}
+"#
+        .parse()
+        .unwrap();
+        // Selector resolution normally materializes a narrowed copy. Removing it models
+        // the declaration shape the shadow guard exists to handle.
+        spec.cmd.subcommands["report"].flags.clear();
+        let (_, skipped) = render(&spec, Path::new("probe.usage.kdl"), Dialect::Usage);
+        assert_eq!(
+            skipped
+                .counts
+                .get("a `select` naming a flag declared further up"),
+            Some(&1)
+        );
+    }
+
+    #[test]
     fn variadic_value_terminators_survive_generated_shadows() {
         let spec = "name \"ex\"\nbin \"ex\"\nflag \"-x --exec\" var=#true value_terminator=\";\" { arg \"<cmd>…\" var=#true var_min=1 value_terminator=\";\" }\narg \"[rest]…\" value_terminator=\"STOP\"\n";
 

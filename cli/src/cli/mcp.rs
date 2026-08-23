@@ -232,10 +232,9 @@ fn flags_for(chain: &[&SpecCommand]) -> Vec<Value> {
 
 fn describe(spec: &Spec, chain: &[&SpecCommand]) -> Value {
     let cmd = chain.last().expect("chain is never empty");
-    let owned_chain = chain.iter().map(|cmd| (*cmd).clone()).collect::<Vec<_>>();
-    let outputs = usage::effective_outputs(spec, &owned_chain);
-    let select = usage::effective_select(spec, &owned_chain);
-    let exit_codes = usage::effective_exit_codes(spec, &owned_chain);
+    let outputs = usage::effective_outputs_ref(spec, chain.iter().copied());
+    let select = usage::effective_select_ref(spec, chain);
+    let exit_codes = usage::effective_exit_codes_ref(spec, chain.iter().copied());
     json!({
         // The path without the binary, which is what `list_commands` emits and
         // what this tool takes back. Prefixing the bin here made the two ends

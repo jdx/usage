@@ -274,12 +274,13 @@ fn render_command_types(
             .map(|e| e.code.to_string())
             .collect::<Vec<_>>()
             .join(", ");
+        let exit_name = crate::sdk::command_path_type_name(cmd, package_name);
         w.line("");
         w.line(&format!(
             "{}_EXIT_CODES: dict[int, str] = {{{entries}}}",
-            crate::sdk::shouty(&name)
+            crate::sdk::shouty(&exit_name)
         ));
-        w.line(&format!("{name}ExitCode = Literal[{union}]"));
+        w.line(&format!("{exit_name}ExitCode = Literal[{union}]"));
     }
 
     for subcmd in cmd.subcommands.values() {
@@ -556,7 +557,11 @@ fn render_client(spec: &Spec, package_name: &str, source_file: &Option<String>) 
     w.line(&generated_header("#", source_file));
     w.line("from __future__ import annotations");
     w.line("from typing import Optional");
-    w.line("from .runtime import CliResult, CliRunner");
+    if any_outputs(&spec.cmd, spec, package_name) {
+        w.line("from .runtime import CliJsonResult, CliResult, CliRunner, CliStream");
+    } else {
+        w.line("from .runtime import CliResult, CliRunner");
+    }
 
     // collect imports from types
     let choice_types = collect_choice_types(&spec.cmd);
@@ -1089,6 +1094,38 @@ mod tests {
     fn test_python_client() {
         let output = crate::sdk::generate(&SPEC_KITCHEN_SINK, &make_opts());
         insta::assert_snapshot!(get_file(&output, "client.py"));
+    }
+
+    #[test]
+    fn structured_output_client_imports_its_runtime_result_types() {
+        let spec: Spec = r#"
+            bin "reporter"
+            flag "--json"
+            output "text" default=#true
+            output "json" framing="json" select="--json"
+        "#
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.py");
+        assert!(client.contains("CliJsonResult, CliResult, CliRunner, CliStream"));
+    }
+
+    #[test]
+    fn nested_same_named_commands_get_distinct_exit_code_exports() {
+        let spec: Spec = r#"
+            bin "app"
+            cmd "one" { cmd "show" { exit_code 1 "one failed" } }
+            cmd "two" { cmd "show" { exit_code 2 "two failed" } }
+        "#
+        .parse()
+        .unwrap();
+        let output = crate::sdk::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.py");
+        assert!(types.contains("ONE_SHOW_EXIT_CODES"), "{types}");
+        assert!(types.contains("TWO_SHOW_EXIT_CODES"), "{types}");
+        assert!(types.contains("OneShowExitCode"), "{types}");
+        assert!(types.contains("TwoShowExitCode"), "{types}");
     }
 
     #[test]

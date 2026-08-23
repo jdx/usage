@@ -301,7 +301,7 @@ flag "-t -f --tail --follow" help="Follow output"
 name "ex"
 bin "ex"
 exit_code 0 "success"
-exit_code 130 "interrupted"
+exit_code 130 "interrupted | terminated"
 cmd "check" help="Check the project" {
     flag "--format <FMT>" help="Output format"
     output "human" default=#true help="A table"
@@ -337,7 +337,10 @@ cmd "version" help="Show the version"
             "{rendered}"
         );
         assert!(rendered.contains("| `1` | a check failed |"), "{rendered}");
-        assert!(rendered.contains("| `130` | interrupted |"), "{rendered}");
+        assert!(
+            rendered.contains(r"| `130` | interrupted \| terminated |"),
+            "{rendered}"
+        );
 
         let version = ctx.render_cmd(&spec.cmd.subcommands["version"]).unwrap();
         assert!(!version.contains("## Output"), "{version}");

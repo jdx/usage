@@ -159,6 +159,18 @@ pub(crate) fn command_type_name(cmd: &SpecCommand, package_name: &str) -> String
     }
 }
 
+/// A command type name qualified by its full path, for declarations emitted at module scope.
+pub(crate) fn command_path_type_name(cmd: &SpecCommand, package_name: &str) -> String {
+    if cmd.full_cmd.is_empty() {
+        command_type_name(cmd, package_name)
+    } else {
+        cmd.full_cmd
+            .iter()
+            .map(|part| AsPascalCase(part).to_string())
+            .collect()
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Declared outputs, as generated client methods
 // ---------------------------------------------------------------------------
@@ -255,7 +267,7 @@ pub(crate) fn flag_names(flag: &crate::SpecFlag, selector: &str) -> bool {
 
 /// SHOUTY_SNAKE, for the generated constant names.
 pub(crate) fn shouty(value: &str) -> String {
-    value
+    let separated = value
         .chars()
         .flat_map(|c| {
             if c.is_uppercase() {
@@ -268,7 +280,12 @@ pub(crate) fn shouty(value: &str) -> String {
         })
         .collect::<String>()
         .trim_start_matches('_')
-        .replace("__", "_")
+        .to_string();
+    separated
+        .split('_')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("_")
 }
 
 /// The exit codes a generated client should document, folded from the spec's.
@@ -518,6 +535,11 @@ mod tests {
         assert!(cmd.name.is_empty());
         let result = command_type_name(&cmd, "mypackage");
         assert_eq!(result, "Mypackage");
+    }
+
+    #[test]
+    fn shouty_collapses_every_separator_run() {
+        assert_eq!(shouty("a---b...c"), "A_B_C");
     }
 
     #[test]

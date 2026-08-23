@@ -841,10 +841,10 @@ impl SpecCommand {
         // Outputs describe what the *mounted* program writes, so they move with the flags
         // rather than being folded into what was here — the same reason groups follow the
         // flags they name.
-        if !outputs.is_empty() {
+        if flags_replaced || !outputs.is_empty() {
             self.outputs = outputs;
         }
-        if select.is_some() {
+        if flags_replaced || select.is_some() {
             self.select = select;
         }
         if !exit_codes.is_empty() {
@@ -1642,6 +1642,19 @@ mod merge_tests {
         let mut cmd = declared;
         cmd.merge(contradicting);
         assert_eq!(cmd.deprecated.as_deref(), Some("gone in v3"));
+    }
+
+    #[test]
+    fn mounted_flags_replace_outputs_and_their_selector() {
+        let mut mounting = uninstall(
+            r#"cmd "uninstall" { flag "--format <FORMAT>"; output "json" framing="json"; select "--format" }"#,
+        );
+        let mounted = uninstall(r#"cmd "uninstall" { flag "--quiet" }"#);
+
+        mounting.merge(mounted);
+
+        assert!(mounting.outputs.is_empty());
+        assert!(mounting.select.is_none());
     }
 }
 

@@ -204,12 +204,13 @@ fn render_command_types(
             .map(|e| e.code.to_string())
             .collect::<Vec<_>>()
             .join(" | ");
-        let prefix = crate::sdk::shouty(&name);
+        let exit_name = crate::sdk::command_path_type_name(cmd, package_name);
+        let prefix = crate::sdk::shouty(&exit_name);
         w.line("");
         w.line(&format!(
             "export const {prefix}_EXIT_CODES: Readonly<Record<number, string>> = {{ {entries} }};"
         ));
-        w.line(&format!("export type {name}ExitCode = {union};"));
+        w.line(&format!("export type {exit_name}ExitCode = {union};"));
     }
 
     for subcmd in cmd.subcommands.values() {
@@ -1093,5 +1094,26 @@ mod tests {
         let doc = client.find("/** [--json] */").unwrap();
         let exec = client.find("async exec").unwrap();
         assert!(helper < doc && doc < exec, "{client}");
+        assert!(
+            client.contains("}\n\n  /**\n   * Selected with"),
+            "{client}"
+        );
+    }
+
+    #[test]
+    fn nested_same_named_commands_get_distinct_exit_code_exports() {
+        let spec: Spec = r#"
+            bin "app"
+            cmd "one" { cmd "show" { exit_code 1 "one failed" } }
+            cmd "two" { cmd "show" { exit_code 2 "two failed" } }
+        "#
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("ONE_SHOW_EXIT_CODES"), "{types}");
+        assert!(types.contains("TWO_SHOW_EXIT_CODES"), "{types}");
+        assert!(types.contains("OneShowExitCode"), "{types}");
+        assert!(types.contains("TwoShowExitCode"), "{types}");
     }
 }

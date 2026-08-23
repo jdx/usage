@@ -97,7 +97,7 @@ pub fn effective_exit_codes(spec: &Spec, path: &[SpecCommand]) -> Vec<SpecExitCo
 }
 
 /// Reference-based form used by tree walkers that already hold the command chain.
-pub(crate) fn effective_exit_codes_ref<'a>(
+pub fn effective_exit_codes_ref<'a>(
     spec: &Spec,
     path: impl IntoIterator<Item = &'a SpecCommand>,
 ) -> Vec<SpecExitCode> {

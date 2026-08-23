@@ -400,6 +400,7 @@ fn render_class(
         w.line("}");
 
         for output in &outputs {
+            w.line("");
             let mut doc = Vec::new();
             if let Some(help) = &output.help {
                 doc.push(help.clone());
