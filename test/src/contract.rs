@@ -187,21 +187,32 @@ impl fmt::Display for Replay {
             if mismatch.expected.stdout != mismatch.actual.stdout {
                 writeln!(
                     f,
-                    "  stdout:\n    expected: {:?}\n    actual:   {:?}",
-                    String::from_utf8_lossy(&mismatch.expected.stdout),
-                    String::from_utf8_lossy(&mismatch.actual.stdout)
+                    "  stdout:\n    expected: {}\n    actual:   {}",
+                    Stream(&mismatch.expected.stdout),
+                    Stream(&mismatch.actual.stdout)
                 )?;
             }
             if mismatch.expected.stderr != mismatch.actual.stderr {
                 writeln!(
                     f,
-                    "  stderr:\n    expected: {:?}\n    actual:   {:?}",
-                    String::from_utf8_lossy(&mismatch.expected.stderr),
-                    String::from_utf8_lossy(&mismatch.actual.stderr)
+                    "  stderr:\n    expected: {}\n    actual:   {}",
+                    Stream(&mismatch.expected.stderr),
+                    Stream(&mismatch.actual.stderr)
                 )?;
             }
         }
         Ok(())
+    }
+}
+
+struct Stream<'a>(&'a [u8]);
+
+impl fmt::Display for Stream<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match std::str::from_utf8(self.0) {
+            Ok(text) => write!(f, "{text:?}"),
+            Err(_) => write!(f, "{:02x?}", self.0),
+        }
     }
 }
 
@@ -239,9 +250,14 @@ fn run(program: &Path, case: &Case) -> std::io::Result<Observation> {
         .transpose()?;
     let output = child.wait_with_output()?;
     if let Some(stdin_writer) = stdin_writer {
-        stdin_writer
+        let result = stdin_writer
             .join()
-            .map_err(|_| std::io::Error::other("CLI contract stdin writer panicked"))??;
+            .map_err(|_| std::io::Error::other("CLI contract stdin writer panicked"))?;
+        if let Err(error) = result {
+            if error.kind() != std::io::ErrorKind::BrokenPipe {
+                return Err(error);
+            }
+        }
     }
     Ok(Observation {
         success: output.status.success(),
@@ -313,5 +329,37 @@ mod tests {
         let rendered = replay.to_string();
         assert!(rendered.contains("help"), "{rendered}");
         assert!(rendered.contains("stdout"), "{rendered}");
+    }
+
+    #[test]
+    fn a_program_may_exit_without_consuming_stdin() {
+        let program = std::env::current_exe().unwrap();
+        let contract = Contract::record(
+            program,
+            [Case::new("help", ["--help"]).stdin(vec![b'x'; 1024 * 1024])],
+        )
+        .unwrap();
+        assert_eq!(contract.cases.len(), 1);
+    }
+
+    #[test]
+    fn binary_stream_diffs_show_the_exact_bytes() {
+        let observation = |stdout| Observation {
+            success: true,
+            code: Some(0),
+            stdout,
+            stderr: Vec::new(),
+        };
+        let replay = Replay {
+            mismatches: vec![Mismatch {
+                name: "binary".into(),
+                expected: observation(vec![0xff]),
+                actual: observation(vec![0xfe]),
+            }],
+        };
+
+        let rendered = replay.to_string();
+        assert!(rendered.contains("[ff]"), "{rendered}");
+        assert!(rendered.contains("[fe]"), "{rendered}");
     }
 }
