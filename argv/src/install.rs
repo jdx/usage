@@ -247,7 +247,7 @@ pub fn plan_for(bin: &str, name: &str, shell: Shell, env: &Env) -> Result<Plan, 
     Ok(Plan {
         shell,
         name: name.to_string(),
-        loading: loading(shell, resolved_from, &path),
+        loading: loading(shell, resolved_from, &dir, &path),
         note: note(shell, resolved_from),
         path,
         resolved_from,
@@ -468,17 +468,30 @@ fn first_entry(value: &OsStr, list: bool, platform: Platform) -> Option<&OsStr> 
 /// avoid: a plan is made *for* a platform, not on one. On a Windows host a Linux plan came out
 /// as `/home/u\.local\share\zsh\site-functions`, which no zsh resolves.
 ///
-/// A separator already at the end of `base` is not doubled — a `HOME` of `/home/u/` is as
-/// ordinary as one without.
+/// `base` is appended to rather than rebuilt from a string. `Env` keeps values as `OsString`
+/// because a home directory that is not UTF-8 is still a home directory, and `to_string_lossy`
+/// would turn those bytes into `U+FFFD` and hand back a path that is not the one the variable
+/// named. Only the last byte is looked at, which needs no reconstruction — the unsafe step
+/// `first_entry` says this crate has nothing to spend.
 fn join_for(base: &Path, part: &str, platform: Platform) -> PathBuf {
-    let separator = platform.separator();
-    let base = base.to_string_lossy();
-    let trimmed = base.trim_end_matches(['/', '\\']);
-    // Nothing left means `base` was the root itself, whose separator is the whole of it.
-    if trimmed.is_empty() {
-        return PathBuf::from(format!("{base}{part}"));
+    let bytes = base.as_os_str().as_encoded_bytes();
+    let mut out = base.as_os_str().to_os_string();
+    // A base that already ends in a separator does not get another — a `HOME` of `/home/u/` is
+    // as ordinary as one without, and a root is nothing but its separator.
+    //
+    // What counts as one is the planned platform's business, for the reason everything else here
+    // is: off Windows a `\` is an ordinary character in a filename, so a `HOME` of `/home/u\`
+    // names a directory called `u\`. Reading that trailing byte as a separator would put the
+    // child in `/home/u\.local` — a sibling named `u\.local`, not `.local` inside it.
+    let ends_with_separator = match platform {
+        Platform::Windows => matches!(bytes.last(), Some(b'/' | b'\\')),
+        Platform::Linux | Platform::MacOs => bytes.last() == Some(&b'/'),
+    };
+    if !bytes.is_empty() && !ends_with_separator {
+        out.push(platform.separator().to_string());
     }
-    PathBuf::from(format!("{trimmed}{separator}{part}"))
+    out.push(part);
+    PathBuf::from(out)
 }
 
 /// `Path::is_absolute` answers for the host, which is the wrong question twice over: a Windows path
@@ -497,8 +510,12 @@ fn is_absolute(value: &OsStr, platform: Platform) -> bool {
 }
 
 /// Whether a shell will find this file by itself, and the one line it needs if it will not.
-fn loading(shell: Shell, resolved_from: &'static str, path: &Path) -> Loading {
-    let dir = path.parent().unwrap_or(path);
+///
+/// `dir` is taken rather than derived from `path`. `Path::parent` splits on the *host's*
+/// separator, so on a Unix host a plan made for Windows — `C:\…\_ex`, one component to a parser
+/// that does not read `\` as a separator — has an empty parent, and zsh was told to add nothing
+/// at all to its `$fpath`. The caller already holds the directory it built.
+fn loading(shell: Shell, resolved_from: &'static str, dir: &Path, path: &Path) -> Loading {
     match shell {
         Shell::Bash | Shell::Fish => Loading::Automatic,
         Shell::Zsh => Loading::Manual {
@@ -1127,6 +1144,41 @@ mod tests {
         assert_eq!(
             join_for(Path::new(r"C:\Users\u"), "AppData", Platform::Windows),
             PathBuf::from(r"C:\Users\u\AppData")
+        );
+    }
+
+    #[test]
+    fn zsh_planned_for_windows_names_the_directory_it_was_given() {
+        // `Path::parent` splits on the host's separator, so deriving the directory from an
+        // all-backslash path on a Unix host produced an empty one and `fpath+=('')`.
+        let windows = described(
+            Platform::Windows,
+            &[("XDG_DATA_HOME", r"C:\Users\u\AppData\Local")],
+        );
+        let target = plan("ex", Shell::Zsh, &windows).unwrap();
+        let Loading::Manual { line, .. } = &target.loading else {
+            panic!("zsh finds nothing on its own: {:?}", target.loading);
+        };
+        assert!(
+            line.contains(r"C:\Users\u\AppData\Local\zsh\site-functions"),
+            "{line}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_base_that_is_not_utf8_survives_the_join() {
+        // `Env` keeps values as `OsString` because a home directory that is not UTF-8 is still a
+        // home directory. Building the path through `to_string_lossy` replaced those bytes with
+        // `U+FFFD` and returned a path that is not the one `HOME` named.
+        use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+        let base = PathBuf::from(OsString::from_vec(b"/home/\xff".to_vec()));
+        let joined = join_for(&base, ".local", Platform::Linux);
+        assert_eq!(
+            joined.as_os_str().as_bytes(),
+            b"/home/\xff/.local",
+            "{joined:?}"
         );
     }
 
