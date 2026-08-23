@@ -87,6 +87,7 @@ fn full_spec() -> Spec {
 /// stderr and reads only stdout deadlocks at exactly that point, and it is the failure a
 /// small fixture never reproduces. Exits non-zero while still emitting valid output, which
 /// is what a declared `exit_code 1 "a check failed"` means.
+#[cfg(not(windows))]
 const FAKE_CLI: &str = r#"#!/usr/bin/env python3
 import sys
 
