@@ -38,9 +38,7 @@
       "spec": "name \"ex\"\nbin \"ex\"\ncmd \"plugins\" {\n  external_subcommand #true\n  cmd \"ls\" {}\n}\n",
       "line": "ex plugins ",
       "expect": {
-        "candidates": [
-          "ls"
-        ]
+        "candidates": ["ls"]
       }
     },
     {
@@ -49,9 +47,7 @@
       "spec": "name \"ex\"\nbin \"ex\"\ncmd \"plugins\" {\n  external_subcommand #true\n  cmd \"ls\" {}\n}\n",
       "line": "ex plugins l",
       "expect": {
-        "candidates": [
-          "ls"
-        ]
+        "candidates": ["ls"]
       }
     },
     {

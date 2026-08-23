@@ -79,7 +79,7 @@ available for low-level adopters that want a thinner surface:
 | `usage-argv`    | The zero-allocation, zero-dependency runtime the derive emits code against                                           |
 | `usage-test`    | Test helpers: what a command line parses to, what a page says, what a shell is offered                               |
 | `usage-config`  | Layered settings resolution with provenance ([Configuration](/rust/configuration))                                   |
-| `usage-dynamic` | Opt-in runtime command catalogs for plugin-aware derived hosts ([Dynamic commands](/rust/dynamic-commands))          |
+| `usage-dynamic` | Commands discovered at runtime, merged into help and completion ([Dynamic commands](/rust/dynamic-commands))         |
 
 ### Cargo features
 
@@ -151,7 +151,7 @@ how to opt out of the endpoint.
 - [Args and flags](/rust/args-and-flags) — field types, attributes, env vars, defaults
 - [Updating values](/rust/update-from) — merge another command line into an existing value
 - [Subcommands](/rust/subcommands) — command enums, nesting, `flatten`, value enums
-- [Dynamic commands](/rust/dynamic-commands) — merge runtime-discovered plugins into help and completion
+- [Dynamic commands](/rust/dynamic-commands) — commands discovered at runtime, in help and completion
 - [Dispatch](/rust/dispatch) — `Run`, `RunWith`, the async pair, and the generated `match`
 - [Validation](/rust/validation) — choices, groups, `exclusive`, `delimiter`, conflicts, portable `validate`
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
