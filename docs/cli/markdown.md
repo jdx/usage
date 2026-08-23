@@ -24,6 +24,29 @@ docs
 └── update.md
 ```
 
+## Custom templates from the CLI
+
+Each renderer template can be replaced with a Tera template file. For example, a custom
+single-file document can keep the built-in command template:
+
+```sh
+$ usage g markdown -f ./mycli.usage.kdl \
+    --spec-template ./templates/spec.md.tera \
+    --out-file ./docs/cli.md
+```
+
+```tera
+{# templates/spec.md.tera #}
+# {{ spec.bin }} reference
+{% set cmd = spec.cmd %}
+{% include "cmd_template.md.tera" %}
+```
+
+The available options are `--spec-template`, `--index-template`, `--command-template`,
+`--argument-template`, `--flag-template`, and `--config-template`. Options can be combined;
+templates that are not named keep their built-in definitions and remain available through
+Tera's `include`.
+
 ## Custom templates from Rust
 
 `MarkdownRenderer` bundles a complete set of Tera templates. A Rust caller can replace one
