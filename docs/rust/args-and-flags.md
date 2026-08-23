@@ -170,7 +170,7 @@ does have one stable portable spelling.
 | Attribute                        | Effect                                                                  |
 | -------------------------------- | ----------------------------------------------------------------------- |
 | `help = "…"` / `long_help = "…"` | Help text (doc comments are usually nicer)                              |
-| `note = "…"` / `warning = "…"`   | Semantic blocks in long help and generated Markdown                    |
+| `note = "…"` / `warning = "…"`   | Semantic blocks in long help and generated Markdown                     |
 | `value_name = "…"`               | The placeholder shown in help (`--file <PATH>`)                         |
 | `value_names = ["A", "B"]`       | Distinct placeholders for a fixed multi-value field                     |
 | `help_heading = "…"`             | Group the entry under a heading in help output                          |

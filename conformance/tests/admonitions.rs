@@ -47,6 +47,20 @@ fn semantic_blocks_adapt_to_terminal_help_and_markdown() {
     );
 
     let spec: usage::Spec = kdl.parse().expect("generated spec");
+    let portable_terminal = usage::docs::cli::render_help(&spec, &spec.cmd, true);
+    assert!(
+        portable_terminal.contains("Note: Only changes import resolution."),
+        "{portable_terminal}"
+    );
+    assert!(
+        portable_terminal.contains("Warning: Type-aware linting discovers its own configuration."),
+        "{portable_terminal}"
+    );
+    assert!(
+        portable_terminal.contains("Note: Directories are traversed recursively."),
+        "{portable_terminal}"
+    );
+
     let markdown = MarkdownRenderer::new(spec.clone())
         .render_cmd(&spec.cmd)
         .expect("markdown page");
