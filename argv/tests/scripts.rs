@@ -17,7 +17,7 @@ use std::process::Command;
 #[cfg(unix)]
 use std::process::Stdio;
 use usage_argv::complete::Shell;
-use usage_argv::script::script;
+use usage_argv::script::{script, script_for};
 
 /// A directory of this test's own, with the generated script and a stand-in `ex` binary in it.
 struct Fixture {
@@ -220,6 +220,9 @@ fn elvish_offers_what_the_binary_answered() {
         Shell::Elvish,
         "install\tInstall a package\tINSTALL\n",
     );
+    let mut rc = fs::read_to_string(fixture.dir.join("script")).expect("reading the Elvish RC");
+    rc.push_str(&script_for("ex", "ex-alias", Shell::Elvish));
+    fs::write(fixture.dir.join("script"), rc).expect("writing both Elvish completers");
     let rc = fixture.dir.join("script");
     let command = format!("elvish -rc {}", shell_quote(&rc.to_string_lossy()));
     let mut child = Command::new("script")

@@ -101,9 +101,8 @@ fn elvish(bin: &str, name: &str) -> String {
         r#"{head}use os
 use str
 
-var usage-command = (external '{bin}')
-
 set edit:completion:arg-completer[{name}] = {{|@words|
+    var usage-command = (external '{bin}')
     var lines = [($usage-command __complete_word__ --shell elvish --words $@words 2>$os:dev-null | from-lines)]
     for line $lines {{
         if (eq $line "\x01files") {{
@@ -661,7 +660,9 @@ mod tests {
     fn elvish_keeps_candidates_as_values_through_its_protocol() {
         let out = script("mise", Shell::Elvish);
         assert!(
-            out.contains("var usage-command = (external 'mise')"),
+            out.contains(
+                "arg-completer[mise] = {|@words|\n    var usage-command = (external 'mise')"
+            ),
             "{out}"
         );
         assert!(out.contains("| from-lines)"), "{out}");

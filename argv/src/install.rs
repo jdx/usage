@@ -541,12 +541,15 @@ fn loading(
     match shell {
         Shell::Bash | Shell::Fish => Loading::Automatic,
         Shell::Elvish => Loading::Manual {
-            line: format!("source {}", quote(shell, &path.display().to_string())),
+            line: format!(
+                "eval (slurp <{})",
+                quote(shell, &path.display().to_string())
+            ),
             file: join_for(dir.parent().unwrap_or(dir), "rc.elv", platform)
                 .display()
                 .to_string(),
             why: "Elvish argument completers are registered by evaluating configuration, so its \
-                  rc.elv must source the generated file.",
+                  rc.elv must evaluate the generated file.",
         },
         Shell::Zsh => Loading::Manual {
             line: format!(
@@ -1018,7 +1021,10 @@ mod tests {
         let Loading::Manual { line, file, .. } = target.loading else {
             panic!("Elvish needs its rc file to source the generated script");
         };
-        assert_eq!(line, "source '/home/u/.config/elvish/completions/ex.elv'");
+        assert_eq!(
+            line,
+            "eval (slurp <'/home/u/.config/elvish/completions/ex.elv')"
+        );
         assert_eq!(file, "/home/u/.config/elvish/rc.elv");
         assert_eq!(quote(Shell::Elvish, "a'b"), "'a''b'");
     }
