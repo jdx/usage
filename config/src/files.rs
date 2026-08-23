@@ -13,7 +13,7 @@
 //! whose files are pkl or `.npmrc` writes its own layer against [`Layer`] and takes nothing it
 //! does not use.
 
-use std::path::{Component, Path, PathBuf};
+use std::path::{Component, Path, PathBuf, Prefix};
 
 use crate::layer::{Layer, LayerCtx, LayerError, LayerOutput};
 use crate::source::{FileScope, Origin, SourceKind};
@@ -421,7 +421,7 @@ fn parse(
 /// compares like with like even when both paths are strange.
 fn normalize(path: &Path) -> PathBuf {
     if let Ok(real) = path.canonicalize() {
-        return real;
+        return plain(real);
     }
     let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
     let mut out = PathBuf::new();
@@ -442,7 +442,45 @@ fn normalize(path: &Path) -> PathBuf {
             }
         }
     }
-    out
+    plain(out)
+}
+
+/// A canonicalized path in the spelling a person recognizes.
+///
+/// `canonicalize` returns Windows' extended-length form — `\\?\C:\…`, or `\\?\UNC\host\share`
+/// for a network path. That prefix is right for the API that produced it and wrong for
+/// everything downstream: these paths are what a CLI reports as the provenance of a setting, so
+/// `config explain` would name a file the user cannot find by that name, and any comparison
+/// against a plainly-built path is false. Stripping it is the whole of the difference —
+/// canonicalization still did the work of resolving symlinks and `..`.
+///
+/// Read off `Component::Prefix` rather than by trimming a leading `\\?\`, so the UNC form is
+/// rebuilt as `\\host\share` rather than left as `UNC\host\share`. A bare `Verbatim` prefix
+/// (`\\?\pipe\…`) is left alone: there is no plain spelling of one to return.
+///
+/// Off Windows there are no prefixes at all, so this is the identity.
+fn plain(path: PathBuf) -> PathBuf {
+    let mut components = path.components();
+    let Some(Component::Prefix(prefix)) = components.next() else {
+        return path;
+    };
+    let rebuilt = match prefix.kind() {
+        Prefix::VerbatimDisk(letter) => PathBuf::from(format!("{}:\\", letter as char)),
+        Prefix::VerbatimUNC(host, share) => {
+            let mut out = PathBuf::from(r"\\");
+            out.push(host);
+            out.push(share);
+            out
+        }
+        _ => return path,
+    };
+    // `components` has already yielded the prefix; the root that follows it is part of the
+    // spelling rebuilt above, so only what comes after both is appended.
+    rebuilt.join(
+        components
+            .filter(|c| !matches!(c, Component::RootDir))
+            .collect::<PathBuf>(),
+    )
 }
 
 /// The link along `path` that leads nowhere, if there is one.
@@ -789,6 +827,39 @@ mod tests {
     use crate::resolve::{resolve, Layers};
     use crate::ty::{Parser, Ty};
     use crate::value::Value;
+
+    #[test]
+    fn a_verbatim_disk_path_comes_back_in_the_spelling_a_person_knows() {
+        // `cfg!` rather than `#[cfg]`, so both arms are type-checked wherever this compiles.
+        // Off Windows there is no prefix to find and the path is returned as it came.
+        let given = PathBuf::from(r"\\?\C:\Users\u\hk.toml");
+        let want = if cfg!(windows) {
+            PathBuf::from(r"C:\Users\u\hk.toml")
+        } else {
+            given.clone()
+        };
+        assert_eq!(plain(given), want);
+    }
+
+    #[test]
+    fn a_verbatim_unc_path_is_rebuilt_as_a_share_rather_than_trimmed() {
+        // Trimming a leading `\\?\` would leave `UNC\host\share`, which names nothing.
+        let given = PathBuf::from(r"\\?\UNC\host\share\hk.toml");
+        let want = if cfg!(windows) {
+            PathBuf::from(r"\\host\share\hk.toml")
+        } else {
+            given.clone()
+        };
+        assert_eq!(plain(given), want);
+    }
+
+    #[test]
+    fn a_path_with_no_verbatim_prefix_is_left_alone() {
+        for path in [r"C:\Users\u\hk.toml", "/home/u/hk.toml", "hk.toml"] {
+            let given = PathBuf::from(path);
+            assert_eq!(plain(given.clone()), given, "{path}");
+        }
+    }
 
     static PROPS: &[PropMeta] = &[
         PropMeta::new("jobs", Ty::Uint),
