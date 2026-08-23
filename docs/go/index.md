@@ -31,7 +31,11 @@ The generated package contains plain command and flag tables that the linker lay
 shipped program. The event parser keeps its state and 16-entry command stack inline, borrows
 values from argv, and scans only the flags in scope. Those are the zero-allocation,
 57–110ns measurements. Generated `Parse` does more work to produce the typed result shown
-below, so the zero-allocation claim deliberately does not apply to that higher layer.
+below, so the zero-allocation claim deliberately does not apply to that higher layer — and
+it is `Parse` the chart above measures, at about 5.9µs on mise's spec, because binding to a
+filled struct is the whole of what cobra, urfave/cli and kong each do in one call. The
+[Go README](https://github.com/jdx/usage/blob/main/go/README.md) has both numbers, what a
+whole process costs, and where `Parse` spends its time.
 
 ## Quick start
 
