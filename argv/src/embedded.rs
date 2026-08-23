@@ -2,8 +2,10 @@
 //!
 //! [`crate::Cli::parse`](https://docs.rs/usage-rs) owns a process: it prints help, versions and
 //! failures, then exits where appropriate. An N-API module, WASM host or editor integration cannot
-//! let a library end its process. [`outcome`] turns the same decisions into a value the host can
-//! print or return instead.
+//! let a library end its process. A derived CLI's `embedded_outcome` entry point owns the whole
+//! control protocol — spec and completion requests as well as help, versions and failures — and
+//! turns every decision into a value the host can print or return instead. [`outcome`] is the
+//! lower-level parser-and-renderer for hand-written tables.
 
 use std::ffi::OsStr;
 
@@ -22,7 +24,7 @@ pub struct Exit {
     pub code: i32,
 }
 
-/// The two things parsing inside another runtime can do.
+/// The two things dispatching a CLI inside another runtime can do.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome<T> {
     /// The command line parsed and the host can run it.
