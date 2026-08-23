@@ -93,9 +93,9 @@ a positional — are compile errors.
 
 ## A group as an enum
 
-When every member is a valueless flag, the group can be the type instead: an enum deriving
-`ArgGroup`, whose variants are the flags. The code that reads it then matches on a variant
-rather than working out which of several `bool`s is set.
+The group can be the type instead: an enum deriving `ArgGroup`, whose variants are the flags.
+The code that reads it then matches on a variant rather than working out which of several
+fields is set.
 
 ```rust
 /// How to print the result
@@ -119,10 +119,24 @@ struct Fmt {
 }
 ```
 
-The variants are bare: each is one switch, named by its own name in kebab-case unless `long`
-or `name` says otherwise, with `short`, `hide`, `help` and `long_help` as the rest of what a
-switch has. A doc comment is the help. Without `#[usage(name = "…")]` the group is named after
-the type.
+Unit variants are switches. A tuple variant with one field is a value-taking flag:
+
+```rust
+#[derive(ArgGroup)]
+enum Mode {
+    Write,
+    Check,
+    #[usage(value_name = "SOURCE", value_enum)]
+    Migrate(MigrationSource),
+    #[usage(value_name = "PATH")]
+    StdinFilepath(std::path::PathBuf),
+}
+```
+
+Each member is named by its variant in kebab-case unless `long` or `name` says otherwise.
+`short`, `hide`, `help` and `long_help` apply to both forms; `value_name` and `value_enum`
+describe a tuple variant's payload. A doc comment is the help. Without
+`#[usage(name = "…")]` the group is named after the type.
 
 The field's type says whether the group is required, exactly as it does everywhere else:
 `Option<Format>` is a group that may be left alone, and a bare `Format` is one that has to be
@@ -135,9 +149,9 @@ Nothing new reaches the spec. The enum lowers to the same `group` node
 given is the same `MissingGroup`, and help, docs and completions list the member flags without
 knowing an enum was involved.
 
-A member that takes a value stays a hand-written `conflicts` set or a
-[`ValueEnum`](/rust/subcommands#value-enums) on one flag, where the values have somewhere to
-land.
+A payload converts through `FromStr`, preserving non-UTF-8 bytes for `PathBuf` and `OsString`.
+With `value_enum`, its choices, aliases, help and case policy reach validation, help, generated
+specs and completions from the same enum declaration.
 
 ## Exclusive flags
 

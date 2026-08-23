@@ -3036,7 +3036,7 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
         .any(|choice| *choice == value || ignore_case && choice.eq_ignore_ascii_case(value))
 }
 
-/// An enum whose variants are one command's mutually exclusive switch flags.
+/// An enum whose variants are one command's mutually exclusive flags.
 ///
 /// What a CLI spells `--json` or `--yaml` and holds as a `Mode`, rather than as one `bool` per
 /// member plus a `match` over which of them is set. Nothing new reaches the spec: the enum
@@ -3050,7 +3050,7 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
 pub trait ArgGroup: Sized {
     /// What the group is called, in the emitted spec and in a failed check.
     const NAME: &'static str;
-    /// One switch per variant, to splice into the holding command's parse table.
+    /// One flag per variant, to splice into the holding command's parse table.
     ///
     /// A `const` for the same reason [`CommandArgs::COMMAND`] is: the tables stay `static`
     /// all the way down, so nothing is built at run time to start a parse.
@@ -3094,6 +3094,15 @@ pub trait ArgGroup: Sized {
 
     /// The variant that was selected, or `None` when no member was given.
     fn build(partial: &Self::Partial) -> Option<Self>;
+
+    /// Build the selected variant, reporting a payload that could not be converted.
+    ///
+    /// The default preserves hand-written implementations whose members are all switches.
+    /// Derived groups with value-carrying variants override this and keep their raw word in
+    /// [`Self::Partial`] until this step, just as an ordinary command field does.
+    fn try_build(partial: &Self::Partial) -> Result<Option<Self>, crate::Error<'static, 'static>> {
+        Ok(Self::build(partial))
+    }
 
     /// Find a member by any selector it accepts.
     ///

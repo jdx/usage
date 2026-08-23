@@ -10,7 +10,7 @@
 use std::ffi::OsStr;
 
 use usage_argv::{help, Error};
-use usage_derive::{ArgGroup, Args, Cli, Subcommands};
+use usage_derive::{ArgGroup, Args, Cli, Subcommands, ValueEnum};
 
 fn argv<const N: usize>(tokens: [&str; N]) -> [&OsStr; N] {
     tokens.map(OsStr::new)
@@ -36,6 +36,81 @@ enum Source {
     Stdin,
     /// Read from the clipboard
     Clipboard,
+}
+
+#[derive(Debug, PartialEq, ValueEnum)]
+#[usage(ignore_case)]
+enum MigrationSource {
+    Prettier,
+    Biome,
+}
+
+/// What the formatter should do.
+#[derive(ArgGroup, Debug, PartialEq)]
+enum Mode {
+    /// Write files in place.
+    Write,
+    /// Check files without changing them.
+    Check,
+    /// Migrate a configuration.
+    #[usage(value_name = "SOURCE", value_enum)]
+    Migrate(MigrationSource),
+    /// Read source from standard input as this path.
+    #[usage(value_name = "PATH")]
+    StdinFilepath(std::path::PathBuf),
+}
+
+#[derive(Cli)]
+#[usage(bin = "valued-group")]
+struct ValuedGroup {
+    #[usage(arg_group)]
+    mode: Option<Mode>,
+}
+
+#[test]
+fn a_group_member_can_carry_a_typed_value() {
+    let a = argv(["--migrate", "BIOME"]);
+    assert_eq!(
+        ValuedGroup::parse_from(&a)
+            .expect("value-enum payload")
+            .mode,
+        Some(Mode::Migrate(MigrationSource::Biome))
+    );
+
+    let a = argv(["--stdin-filepath", "src/input.ts"]);
+    assert_eq!(
+        ValuedGroup::parse_from(&a).expect("path payload").mode,
+        Some(Mode::StdinFilepath("src/input.ts".into()))
+    );
+
+    let a = argv(["--migrate", "unknown"]);
+    assert!(matches!(
+        ValuedGroup::parse_from(&a),
+        Err(Error::InvalidValue(error)) if error.name == "migrate"
+    ));
+}
+
+#[test]
+fn a_value_carrying_group_member_reaches_help_and_the_spec() {
+    let help =
+        help::render(ValuedGroup::spec(), ValuedGroup::spec().root.cmd, false).expect("a page");
+    assert!(help.contains("--migrate <SOURCE>"), "{help}");
+    assert!(help.contains("[prettier, biome]"), "{help}");
+    assert!(help.contains("--stdin-filepath <PATH>"), "{help}");
+
+    let kdl = ValuedGroup::to_kdl();
+    assert!(
+        kdl.contains("flag --migrate")
+            && kdl.contains("arg <SOURCE>")
+            && kdl.contains("choices ignore_case=#true")
+            && kdl.contains("choice prettier")
+            && kdl.contains("choice biome"),
+        "{kdl}"
+    );
+    assert!(
+        kdl.contains("group mode --write --check --migrate --stdin-filepath"),
+        "{kdl}"
+    );
 }
 
 /// A CLI whose format is optional and whose source is not.

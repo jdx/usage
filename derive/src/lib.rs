@@ -577,11 +577,12 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
 /// Nothing new reaches the spec: the enum lowers to the `group` node and the flags it names,
 /// so `--json --yaml` is the same [`Error::ConflictingFlags`](usage_argv::Error::ConflictingFlags)
 /// a hand-written group produces, and a missing member of a required one is the same
-/// [`Error::MissingGroup`](usage_argv::Error::MissingGroup). A member taking a value stays a
-/// hand-written `conflicts` set, where the values have somewhere to land.
+/// [`Error::MissingGroup`](usage_argv::Error::MissingGroup). A tuple variant with one field is a
+/// value-taking member such as `Migrate(Source)`; `value_name` and `value_enum` describe that
+/// payload exactly as they do on an ordinary flag.
 ///
 /// A variant's doc comment becomes its help. `help = "..."`, `long_help = "..."`, `hide`, and
-/// `short = 'x'` are the rest of what a switch has; `cfg` and `cfg_attr` are copied to the
+/// `short = 'x'` are the rest of what a member has; `cfg` and `cfg_attr` are copied to the
 /// variant's entries in the static tables, as [`ValueEnum`] copies them.
 #[proc_macro_derive(ArgGroup, attributes(usage, command, arg, value, group))]
 pub fn derive_arg_group(input: TokenStream) -> TokenStream {

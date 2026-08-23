@@ -4657,10 +4657,10 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
     if let Kind::ArgGroup { ty, optional } = &field.kind {
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
         return if *optional {
-            quote!(#group::build(&partial.#ident))
+            quote!(#group::try_build(&partial.#ident)?)
         } else {
             quote! {
-                match #group::build(&partial.#ident) {
+                match #group::try_build(&partial.#ident)? {
                     ::std::option::Option::Some(__usage_member) => __usage_member,
                     ::std::option::Option::None => {
                         return ::std::result::Result::Err(
@@ -9718,6 +9718,11 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let cfg = &member.cfg_attrs;
         let long = &member.name;
         let shorts: Vec<u8> = member.short.map(|short| short as u8).into_iter().collect();
+        let shape = if member.value_ty.is_some() {
+            quote!(usage_argv::Flag::VALUE)
+        } else {
+            quote!(usage_argv::Flag::BOOL)
+        };
         quote! {
             #(#cfg)*
             pub static #table: usage_argv::Flag = usage_argv::Flag {
@@ -9725,7 +9730,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 name: #long,
                 longs: &[#long],
                 shorts: &[#(#shorts),*],
-                ..usage_argv::Flag::BOOL
+                ..#shape
             };
         }
     });
@@ -9741,6 +9746,24 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let help = option_str(member.help.as_deref());
         let long_help = option_str(member.long_help.as_deref());
         let hide = member.hide;
+        let value_name = option_str(member.value_name.as_deref());
+        let (accepted_choices, choices, choice_aliases, choice_details, ignore_case) =
+            match (&member.value_ty, member.value_enum) {
+                (Some(ty), true) => (
+                    quote!(<#ty as usage_argv::spec::ValueEnum>::ACCEPTED_CHOICES),
+                    quote!(<#ty as usage_argv::spec::ValueEnum>::CHOICES),
+                    quote!(<#ty as usage_argv::spec::ValueEnum>::ALIASES),
+                    quote!(<#ty as usage_argv::spec::ValueEnum>::DETAILS),
+                    quote!(<#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE),
+                ),
+                _ => (
+                    quote!(&[]),
+                    quote!(&[]),
+                    quote!(&[]),
+                    quote!(&[]),
+                    quote!(false),
+                ),
+            };
         quote! {
             #(#cfg)*
             usage_argv::spec::FlagMeta {
@@ -9748,6 +9771,12 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 help: #help,
                 long_help: #long_help,
                 hide: #hide,
+                value_name: #value_name,
+                accepted_choices: #accepted_choices,
+                choices: #choices,
+                choice_aliases: #choice_aliases,
+                choice_details: #choice_details,
+                ignore_case: #ignore_case,
                 ..usage_argv::spec::FlagMeta::EMPTY
             }
         }
@@ -9761,17 +9790,30 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
     let partial_fields = group.variants.iter().enumerate().map(|(i, member)| {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
-        quote!(#(#cfg)* pub #given: bool,)
+        if member.value_ty.is_some() {
+            quote!(#(#cfg)* pub #given: ::std::option::Option<::std::vec::Vec<u8>>,)
+        } else {
+            quote!(#(#cfg)* pub #given: bool,)
+        }
     });
     let apply_arms = group.variants.iter().enumerate().map(|(i, member)| {
         let table = format_ident!("FLAG_{i}");
         let key = key_ident("FLAG", Some(i));
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
+        let assign = if member.value_ty.is_some() {
+            quote! {
+                if let ::std::option::Option::Some(value) = value {
+                    partial.#given = ::std::option::Option::Some(value.to_vec());
+                }
+            }
+        } else {
+            quote!(partial.#given = true;)
+        };
         quote! {
             #(#cfg)*
             #key if ::core::ptr::eq(*flag, &#table) => {
-                partial.#given = true;
+                #assign
                 true
             }
         }
@@ -9780,9 +9822,14 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
         let name = &member.name;
+        let is_given = if member.value_ty.is_some() {
+            quote!(partial.#given.is_some())
+        } else {
+            quote!(partial.#given)
+        };
         quote! {
             #(#cfg)*
-            if partial.#given {
+            if #is_given {
                 return ::std::option::Option::Some(#name);
             }
         }
@@ -9793,9 +9840,14 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
         let name = &member.name;
+        let is_given = if member.value_ty.is_some() {
+            quote!(partial.#given.is_some())
+        } else {
+            quote!(partial.#given)
+        };
         quote! {
             #(#cfg)*
-            if partial.#given {
+            if #is_given {
                 if let ::std::option::Option::Some(__usage_earlier) = __usage_first {
                     return ::std::option::Option::Some((__usage_earlier, #name));
                 }
@@ -9807,10 +9859,83 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
         let variant = &member.ident;
+        let Some(ty) = &member.value_ty else {
+            return quote! {
+                #(#cfg)*
+                if partial.#given {
+                    return ::std::result::Result::Ok(
+                        ::std::option::Option::Some(Self::#variant),
+                    );
+                }
+            };
+        };
+        let name = &member.name;
+        let rendered = rendered_path(ty);
+        let converted = match rendered.as_str() {
+            "PathBuf" | "std::path::PathBuf" | "::std::path::PathBuf" => quote! {
+                match usage_argv::os_string_from_bytes(__usage_value) {
+                    ::std::result::Result::Ok(value) => ::std::path::PathBuf::from(value),
+                    ::std::result::Result::Err(bytes) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_os_value(#name, bytes),
+                        );
+                    }
+                }
+            },
+            "OsString" | "std::ffi::OsString" | "::std::ffi::OsString" => quote! {
+                match usage_argv::os_string_from_bytes(__usage_value) {
+                    ::std::result::Result::Ok(value) => value,
+                    ::std::result::Result::Err(bytes) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_os_value(#name, bytes),
+                        );
+                    }
+                }
+            },
+            _ if member.value_enum => quote! {{
+                let __usage_text = match ::std::string::String::from_utf8(__usage_value) {
+                    ::std::result::Result::Ok(text) => text,
+                    ::std::result::Result::Err(bad) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_utf8_value(#name, bad),
+                        );
+                    }
+                };
+                match <#ty as usage_argv::spec::ValueEnum>::from_choice(&__usage_text) {
+                    ::std::option::Option::Some(value) => value,
+                    ::std::option::Option::None => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_choice_value(#name, __usage_text),
+                        );
+                    }
+                }
+            }},
+            _ => quote! {{
+                let __usage_text = match ::std::string::String::from_utf8(__usage_value) {
+                    ::std::result::Result::Ok(text) => text,
+                    ::std::result::Result::Err(bad) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_utf8_value(#name, bad),
+                        );
+                    }
+                };
+                match ::std::str::FromStr::from_str(&__usage_text) {
+                    ::std::result::Result::Ok(value) => value,
+                    ::std::result::Result::Err(reason) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_parsed_value(#name, __usage_text, &reason),
+                        );
+                    }
+                }
+            }},
+        };
         quote! {
             #(#cfg)*
-            if partial.#given {
-                return ::std::option::Option::Some(Self::#variant);
+            if let ::std::option::Option::Some(__usage_value) = partial.#given.clone() {
+                let __usage_value: #ty = #converted;
+                return ::std::result::Result::Ok(
+                    ::std::option::Option::Some(Self::#variant(__usage_value)),
+                );
             }
         }
     });
@@ -9827,13 +9952,18 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let cfg = &member.cfg_attrs;
         let name = &member.name;
         let selectors = member_selectors(member);
+        let is_given = if member.value_ty.is_some() {
+            quote!(partial.#given.is_some())
+        } else {
+            quote!(partial.#given)
+        };
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
                 ::std::option::Option::Some(usage_argv::spec::ArgumentState {
                     name: #name,
-                    given: partial.#given,
-                    satisfied: partial.#given,
+                    given: #is_given,
+                    satisfied: #is_given,
                 })
             }
         }
@@ -9843,10 +9973,15 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let name = &member.name;
         let variant = &member.ident;
         let selectors = member_selectors(member);
+        let standing = if member.value_ty.is_some() {
+            quote!(::core::matches!(standing, Self::#variant(_)))
+        } else {
+            quote!(::core::matches!(standing, Self::#variant))
+        };
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
-                let __usage_given = ::core::matches!(standing, Self::#variant);
+                let __usage_given = #standing;
                 ::std::option::Option::Some(usage_argv::spec::ArgumentState {
                     name: #name,
                     given: __usage_given,
@@ -9859,12 +9994,17 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
         let selectors = member_selectors(member);
-        // Members are SetTrue switches: presence is the value. Wrap like an ordinary
-        // bool flag's `#given && …` so a missing member does not "match" `"false"`.
+        let matches = if member.value_ty.is_some() {
+            quote!(partial.#given.as_deref().is_some_and(|given| given == value))
+        } else {
+            // Switch presence is the value. Wrap like an ordinary bool flag so a missing
+            // member does not "match" `"false"`.
+            quote!(partial.#given && value == b"true")
+        };
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
-                return ::std::option::Option::Some(partial.#given && value == b"true");
+                return ::std::option::Option::Some(#matches);
             }
         }
     });
@@ -9872,12 +10012,22 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let cfg = &member.cfg_attrs;
         let variant = &member.ident;
         let selectors = member_selectors(member);
+        let Some(_) = &member.value_ty else {
+            return quote! {
+                #(#cfg)*
+                #(#selectors)|* => {
+                    return ::std::option::Option::Some(
+                        ::core::matches!(standing, Self::#variant) && value == b"true",
+                    );
+                }
+            };
+        };
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
-                return ::std::option::Option::Some(
-                    ::core::matches!(standing, Self::#variant) && value == b"true",
-                );
+                // `FromStr` has no inverse. An update can retain the selected payload, but
+                // cannot reconstruct the bytes needed for a value-equality relationship.
+                return ::std::option::Option::None;
             }
         }
     });
@@ -9889,10 +10039,15 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         // selector is known to this type, so a parent that short-circuits on the
         // first true does not fall through to "unresolved" when the member was
         // simply not given. Clearing is what happens when it *was* given.
+        let clear = if member.value_ty.is_some() {
+            quote!(partial.#given = ::std::option::Option::None;)
+        } else {
+            quote!(partial.#given = false;)
+        };
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
-                partial.#given = false;
+                #clear
                 return true;
             }
         }
@@ -9946,7 +10101,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                     event: &usage_argv::Event<'_, '_, '_>,
                 ) -> bool {
                     match event {
-                        usage_argv::Event::Flag { flag, .. } => match flag.key {
+                        usage_argv::Event::Flag { flag, value, .. } => match flag.key {
                             #(#apply_arms)*
                             // Another declaration's flag, left for whoever owns it.
                             _ => false,
@@ -9973,8 +10128,17 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 }
 
                 fn build(partial: &Self::Partial) -> ::std::option::Option<Self> {
+                    Self::try_build(partial).ok().flatten()
+                }
+
+                fn try_build(
+                    partial: &Self::Partial,
+                ) -> ::std::result::Result<
+                    ::std::option::Option<Self>,
+                    usage_argv::Error<'static, 'static>,
+                > {
                     #(#build_arms)*
-                    ::std::option::Option::None
+                    ::std::result::Result::Ok(::std::option::Option::None)
                 }
 
                 fn argument_state(
