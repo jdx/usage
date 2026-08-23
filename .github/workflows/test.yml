@@ -95,14 +95,6 @@ jobs:
       # Run here rather than in a job of its own: the corpus vectors carry KDL
       # specs, and lowering them needs the `usage` CLI this job has already built.
       - run: mise r test:go
-      # `os_string_from_bytes` has a `cfg` branch per platform, and every test of it is
-      # `#[cfg(unix)]` — so the Windows one is not compiled anywhere else in this pipeline.
-      # A compile check is not coverage, but it is what keeps that branch from rotting
-      # unseen.
-      - name: check the Windows-only conversion still compiles
-        run: |
-          rustup target add x86_64-pc-windows-msvc
-          cargo check -p usage-argv --all-features --target x86_64-pc-windows-msvc
       # Everything else in this pipeline builds with `--all-features`, and resolver-v2 unification
       # means a workspace build turns a feature on for every member as soon as one member wants it.
       # So the shapes an adopter actually gets — usage-lib without `docs`, usage-rs without its
@@ -128,6 +120,59 @@ jobs:
             exit 1
           fi
       - run: mise r lint
+
+  # The only job that is not Linux, and for several `cfg` branches the only place they are
+  # compiled at all. The argv path planner, the config path normaliser and
+  # `os_string_from_bytes` all exist for Windows and had never been built on it — each of
+  # #1232, #1233 and #1234 fixed something no other job could see. This is the job that keeps
+  # that true going forward rather than once.
+  test-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      # Before the checkout, and not optional: there is no `.gitattributes`, and Windows git
+      # defaults to `autocrlf=true`. The fixtures would arrive with CRLF and the help snapshots
+      # in `lib/tests/parse.rs` and `cli/tests/markdown.rs` would fail on a difference
+      # `pretty_assertions` prints as two identical strings.
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: test-windows
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+      - run: mise r build
+      # `usage bash` runs whatever Windows resolves `bash` to, and `CreateProcess` searches the
+      # system directory before `PATH`. On this runner that is `C:\Windows\System32\bash.exe` —
+      # the WSL launcher, with no distribution installed — so the mount fixtures cannot run.
+      # Naming Git Bash is what makes them run rather than skip.
+      #
+      # `USAGECLI_`, not `USAGE_`: mise strips `usage_*` from a task's environment by comparing
+      # six characters case-insensitively, and Windows variable names are case-insensitive, so
+      # `USAGE_SHELL_BASH` would not survive `mise r`. That collision is why the `USAGECLI_`
+      # spelling exists.
+      #
+      # Unquoted on purpose. In double quotes YAML reads `\b` as a backspace.
+      #
+      # If this ever stops arriving, the job fails rather than passing quietly:
+      # `skip_if_posix_shell_missing` panics under CI on every platform, so a run cannot skip
+      # its way to green.
+      - env:
+          USAGECLI_SHELL_BASH: C:\Program Files\Git\bin\bash.exe
+        run: mise r test
+      # No zsh, fish or bash-completion, and nothing to install them with: they have no Windows
+      # equivalent, which is why `skip_if_shell_missing` and `bash_completion_or_skip` limit
+      # their CI panic to Unix. Three tests skip here and the Linux job covers them.
+      #
+      # Linting here is not duplication of the Linux job. `#[cfg]` decides whether code exists,
+      # so a warning can be real on one platform and absent on the other — both of the ones
+      # #1234 fixed were invisible to every other job in this file. `lint:clippy` denies
+      # warnings and passes `--all-targets`, which makes those a build failure rather than noise.
+      - run: mise r lint:clippy
 
   # The declared `rust-version` is a promise to anyone depending on these crates, and nothing
   # was checking it. It said 1.80 — set in 2024 when `LazyLock` landed and never revisited —
