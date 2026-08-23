@@ -5,6 +5,41 @@ use itertools::Itertools;
 use regex::Regex;
 use std::sync::LazyLock;
 
+/// One of the templates used to generate Markdown documentation.
+///
+/// A renderer starts with a complete built-in template set. Replacing one member keeps the
+/// others available, including through Tera's `{% include %}` directive. This lets an adopter
+/// change the document shell or the presentation of one kind of item without copying the whole
+/// theme.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MarkdownTemplate {
+    /// A single-file document containing the root and every subcommand.
+    Spec,
+    /// The landing page generated in multi-file mode.
+    Index,
+    /// A command and its arguments, flags, outputs, exits, and examples.
+    Command,
+    /// The details beneath one positional argument.
+    Argument,
+    /// The details beneath one flag.
+    Flag,
+    /// The configuration reference appended to a spec or written in multi-file mode.
+    Config,
+}
+
+impl MarkdownTemplate {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Spec => "spec_template.md.tera",
+            Self::Index => "index_template.md.tera",
+            Self::Command => "cmd_template.md.tera",
+            Self::Argument => "arg_template.md.tera",
+            Self::Flag => "flag_template.md.tera",
+            Self::Config => "config_template.md.tera",
+        }
+    }
+}
+
 /// An ANSI escape sequence: what `color_print::cstr!` leaves in help text.
 static SGR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\x1b\[[0-?]*[ -/]*[@-~]").unwrap());
 /// A backtick span, or a bare `<` outside one.
@@ -75,6 +110,7 @@ pub struct MarkdownRenderer {
     url_prefix: Option<String>,
     html_encode: bool,
     replace_pre_with_code_fences: bool,
+    templates: Vec<(MarkdownTemplate, String)>,
 }
 
 impl MarkdownRenderer {
@@ -87,6 +123,7 @@ impl MarkdownRenderer {
             url_prefix: None,
             html_encode: true,
             replace_pre_with_code_fences: false,
+            templates: Vec::new(),
         };
         let mut spec = renderer.spec.clone();
         spec.render_md(&renderer);
@@ -149,6 +186,17 @@ impl MarkdownRenderer {
         self
     }
 
+    /// Replace one built-in Markdown template.
+    ///
+    /// Templates use [Tera](https://keats.github.io/tera/). A replacement may include any of the
+    /// templates it did not replace; for example, a custom [`MarkdownTemplate::Spec`] can still
+    /// contain `{% include "cmd_template.md.tera" %}`. Replacing the same member more than once
+    /// uses the last value. Syntax and include errors are returned by the render method.
+    pub fn with_template(mut self, template: MarkdownTemplate, source: impl Into<String>) -> Self {
+        self.templates.push((template, source.into()));
+        self
+    }
+
     fn tera_ctx(&self) -> tera::Context {
         let mut ctx = tera::Context::new();
         ctx.insert("spec", &self.spec);
@@ -170,6 +218,10 @@ impl MarkdownRenderer {
         enrich: impl FnOnce(&mut tera::Context),
     ) -> Result<String, UsageErr> {
         let mut tera = TERA.clone();
+
+        for (template, source) in &self.templates {
+            tera.add_raw_template(template.name(), source)?;
+        }
 
         let html_encode = self.html_encode;
         tera.register_filter(
@@ -221,7 +273,7 @@ impl MarkdownRenderer {
 
 #[cfg(test)]
 mod tests {
-    use super::escape_md;
+    use super::{escape_md, MarkdownRenderer, MarkdownTemplate};
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -270,5 +322,45 @@ mod tests {
 
         assert_eq!(escape_md(input, true), expected);
         assert_eq!(escape_md(input, false), expected);
+    }
+
+    #[test]
+    fn one_template_can_be_replaced_without_copying_its_includes() {
+        let spec = "bin \"ex\"\nflag \"--force\" help=\"Do it anyway\"\n"
+            .parse()
+            .unwrap();
+        let page = MarkdownRenderer::new(spec)
+            .with_template(
+                MarkdownTemplate::Spec,
+                "# Custom {{ spec.bin }}\n{% set cmd = spec.cmd %}\n{% include \"cmd_template.md.tera\" %}",
+            )
+            .render_spec()
+            .unwrap();
+
+        assert!(page.starts_with("# Custom ex\n"), "{page}");
+        assert!(page.contains("### `--force`"), "{page}");
+    }
+
+    #[test]
+    fn the_last_replacement_of_a_template_wins() {
+        let spec = "bin \"ex\"\n".parse().unwrap();
+        let page = MarkdownRenderer::new(spec)
+            .with_template(MarkdownTemplate::Spec, "first")
+            .with_template(MarkdownTemplate::Spec, "second")
+            .render_spec()
+            .unwrap();
+
+        assert_eq!(page, "second");
+    }
+
+    #[test]
+    fn a_bad_custom_template_is_a_render_error() {
+        let spec = "bin \"ex\"\n".parse().unwrap();
+        let err = MarkdownRenderer::new(spec)
+            .with_template(MarkdownTemplate::Spec, "{{")
+            .render_spec()
+            .unwrap_err();
+
+        assert!(err.to_string().contains("template"), "{err}");
     }
 }
