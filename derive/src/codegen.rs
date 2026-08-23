@@ -528,6 +528,22 @@ pub fn emit(cli: &Cli) -> TokenStream {
         };
         validated_value(cli, &built_value(cli, view_sub_build, &view_field_finals))
     };
+    let update_clone_bound = cli
+        .validate_with
+        .as_ref()
+        .map(|_| quote!(where Self: ::std::clone::Clone));
+    let update_merge = if let Some(validate_with) = &cli.validate_with {
+        quote! {
+            let mut __usage_candidate = self.clone();
+            merge(partial, &mut __usage_candidate)?;
+            #validate_with(&__usage_candidate)
+                .map_err(usage_argv::ValidationError::into_parse_error)?;
+            *self = __usage_candidate;
+            ::std::result::Result::Ok(())
+        }
+    } else {
+        quote!(merge(partial, self))
+    };
 
     let parse_into = cli.try_into.as_ref().map(|target| {
         quote! {
@@ -1473,13 +1489,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 pub fn try_update_from<'v>(
                     &mut self,
                     argv: &[&'v ::std::ffi::OsStr],
-                ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
+                ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>>
+                #update_clone_bound
+                {
                     // A fresh partial, never seeded from `self`: `FromStr` has no inverse, so
                     // there is no way back from a typed field to the word that made it.
                     #defaults
                     read_argv_into(Self::command(), argv, &mut partial)?;
                     check_update(&mut partial, self)?;
-                    merge(partial, self)
+                    #update_merge
                 }
 
                 /// Merge a full argv, including the program name, into this value.
@@ -1493,7 +1511,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 pub fn try_update_from_argv<'v>(
                     &mut self,
                     argv: &[&'v ::std::ffi::OsStr],
-                ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
+                ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>>
+                #update_clone_bound
+                {
                     let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
                         argv.split_first()
                     else {
@@ -1532,7 +1552,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 /// [`Self::try_update_from`], answering a failure the way [`Self::parse`]
                 /// does: help or a version on stdout, a message on stderr, and exit.
-                pub fn update_from<'v>(&mut self, argv: &[&'v ::std::ffi::OsStr]) {
+                pub fn update_from<'v>(&mut self, argv: &[&'v ::std::ffi::OsStr])
+                #update_clone_bound
+                {
                     if let ::std::result::Result::Err(e) = self.try_update_from(argv) {
                         Self::__usage_exit_on_error(
                             e,
@@ -1544,7 +1566,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 }
 
                 /// [`Self::try_update_from_argv`], exiting on failure as [`Self::parse`] does.
-                pub fn update_from_argv<'v>(&mut self, argv: &[&'v ::std::ffi::OsStr]) {
+                pub fn update_from_argv<'v>(&mut self, argv: &[&'v ::std::ffi::OsStr])
+                #update_clone_bound
+                {
                     if let ::std::result::Result::Err(e) = self.try_update_from_argv(argv) {
                         let __usage_words =
                             argv.split_first().map_or(argv, |(_, rest)| rest);
@@ -6081,7 +6105,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
         .map(|field| field_final(field, None))
         .collect();
-    let built = validated_value(cli, &built_value(cli, &sub_build, &field_finals));
+    let built = built_value(cli, &sub_build, &field_finals);
     let view_omitter = quote!(__UsageOmitter);
     let view_field_finals: Vec<_> = cli
         .fields
@@ -6089,8 +6113,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
         .map(|field| field_final(field, Some(&view_omitter)))
         .collect();
-    let built_for_view =
-        validated_value(cli, &built_value(cli, &sub_view_build, &view_field_finals));
+    let built_for_view = built_value(cli, &sub_view_build, &view_field_finals);
     let view_bounds: Vec<_> = cli
         .fields
         .iter()

@@ -2,9 +2,9 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use usage_argv::{Error, ValidationError};
-use usage_derive::{Args, Cli, Subcommands};
+use usage_derive::Cli;
 
-#[derive(Debug, Cli)]
+#[derive(Clone, Debug, Cli)]
 #[usage(bin = "copy", validate_with = validate_copy, try_into = CopyCommand)]
 struct CopyArgs {
     #[usage(long)]
@@ -86,6 +86,16 @@ fn finalization_failures_use_the_normal_parse_error() {
 }
 
 #[test]
+fn updates_validate_the_candidate_and_leave_the_standing_value_on_failure() {
+    let words = argv(&["--source", "input.txt", "--destination", "output.txt"]);
+    let mut args = CopyArgs::parse_from(&words).expect("valid initial command");
+    let update = argv(&["--destination", "input.txt"]);
+    assert!(args.try_update_from(&update).is_err());
+    assert_eq!(args.source, PathBuf::from("input.txt"));
+    assert_eq!(args.destination, PathBuf::from("output.txt"));
+}
+
+#[test]
 fn full_argv_finalization_strips_the_program_name() {
     let words = argv(&[
         "copy",
@@ -96,43 +106,4 @@ fn full_argv_finalization_strips_the_program_name() {
     ]);
     assert!(CopyArgs::parse_into_from_argv(&words).is_ok());
     assert!(CopyArgs::try_parse_into_from(&words).is_ok());
-}
-
-#[derive(Debug, Cli)]
-#[usage(bin = "nested")]
-struct NestedCli {
-    #[usage(subcommand)]
-    command: NestedCommand,
-}
-
-#[derive(Debug, Subcommands)]
-enum NestedCommand {
-    Range(RangeArgs),
-}
-
-#[derive(Debug, Args)]
-#[usage(validate_with = validate_range)]
-struct RangeArgs {
-    #[usage(long)]
-    start: u16,
-    #[usage(long)]
-    end: u16,
-}
-
-fn validate_range(args: &RangeArgs) -> Result<(), ValidationError> {
-    if args.start > args.end {
-        return Err(ValidationError::field("--end")
-            .value(args.end.to_string())
-            .reason("must be greater than or equal to --start"));
-    }
-    Ok(())
-}
-
-#[test]
-fn nested_argument_structs_validate_their_own_invariants() {
-    let words = argv(&["range", "--start", "5", "--end", "2"]);
-    assert!(matches!(
-        NestedCli::parse_from(&words),
-        Err(Error::InvalidValue(invalid)) if invalid.name == "--end"
-    ));
 }

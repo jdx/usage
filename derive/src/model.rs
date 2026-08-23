@@ -1415,6 +1415,12 @@ impl Cli {
                     "`try_into` belongs on the root, where `#[derive(Cli)]` generates the `parse_into_*` entry points",
                 ));
             }
+            if self.validate_with.is_some() {
+                return Err(self.misplaced(
+                    ident,
+                    "`validate_with` belongs on the root, where `#[derive(Cli)]` owns the complete parsed value and its transactional update entry points",
+                ));
+            }
             if !self.views.is_empty() {
                 return Err(self.misplaced(
                     ident,

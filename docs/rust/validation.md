@@ -184,9 +184,9 @@ at compile time. Emitted KDL: `flag "--tags <tag>" var=#true delimiter=","`.
 
 ## Cross-field validation and typed finalization
 
-Use `validate_with` for an invariant that needs a fully typed command rather than one field's
-text. It works on `Cli` and nested `Args`, after field conversion and environment/default
-resolution on every parse path:
+Use `validate_with` for an invariant that needs the fully typed root command rather than one
+field's text. It runs after field conversion and environment/default resolution on every parse
+path:
 
 ```rust
 use usage::{Cli, ValidationError};
@@ -211,7 +211,9 @@ fn validate_copy(args: &CopyArgs) -> Result<(), ValidationError> {
 ```
 
 The error is returned as the ordinary `Error::InvalidValue`, so renderers and embedding code do
-not need a second diagnostic path.
+not need a second diagnostic path. Derive `Clone` when using the update entry points: updates are
+applied to a clone, validated, and committed only on success, so a failed update leaves the
+standing value untouched.
 
 For applications that keep their parser declaration separate from the type passed to the rest of
 the program, `try_into` generates finalizing parse entry points:
