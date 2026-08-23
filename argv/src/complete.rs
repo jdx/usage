@@ -473,7 +473,8 @@ fn trace_from<'a>(
     position: Position<'a>,
     answer: Completions<'a>,
 ) -> CompletionTrace<'a> {
-    let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
+    let chain = metadata_chain_on_route(spec, &position);
+    let meta = chain.as_ref().and_then(|chain| chain.last().copied());
     let next_arg = if restarted(meta, split) {
         meta.and_then(|meta| meta.args.first())
             .map(|field| field.arg)
@@ -483,7 +484,9 @@ fn trace_from<'a>(
             .or_else(|| default_subcommand_arg(spec, split, &position).map(|(_, field)| field.arg))
     };
     let command_path = if position.help_topic {
-        command_path_to(spec.root.cmd, position.cmd)
+        chain
+            .map(|chain| chain.into_iter().map(|meta| meta.cmd.name).collect())
+            .unwrap_or_else(|| vec![position.cmd.name])
     } else {
         position
             .path
@@ -503,35 +506,6 @@ fn trace_from<'a>(
         help_topic: position.help_topic,
         candidates: answer.candidates,
         files: answer.files,
-    }
-}
-
-fn command_path_to<'a>(root: &'a Command<'a>, target: &'a Command<'a>) -> Vec<&'a str> {
-    fn visit<'a>(
-        command: &'a Command<'a>,
-        target: &'a Command<'a>,
-        path: &mut Vec<&'a str>,
-    ) -> bool {
-        path.push(command.name);
-        if core::ptr::eq(command, target) {
-            return true;
-        }
-        if command
-            .subcommands
-            .iter()
-            .any(|subcommand| visit(subcommand, target, path))
-        {
-            return true;
-        }
-        path.pop();
-        false
-    }
-
-    let mut path = Vec::new();
-    if visit(root, target, &mut path) {
-        path
-    } else {
-        vec![target.name]
     }
 }
 
