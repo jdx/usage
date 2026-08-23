@@ -16,7 +16,7 @@
 //! in a real invocation.
 
 use crate::spec::{ArgMeta, CommandMeta, CommandSelector, FlagMeta, Spec, SpecView};
-pub use crate::spec::{Candidate, CompleteCtx, Completer};
+pub use crate::spec::{Candidate, CandidateKind, CompleteCtx, Completer};
 use crate::{Arg, Command, Error, Flag, Parser};
 use core::future::Future;
 use core::pin::Pin;
@@ -820,6 +820,14 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
                 out.push_str(&one_line(
                     candidate.display.as_deref().unwrap_or(&candidate.value),
                 ));
+                out.push('\t');
+                out.push_str(match candidate.kind {
+                    CandidateKind::Value => "value",
+                    CandidateKind::Command => "command",
+                    CandidateKind::Flag => "flag",
+                    CandidateKind::File => "file",
+                    CandidateKind::Directory => "directory",
+                });
             }
             Shell::Fish | Shell::Nu => {
                 out.push_str(&candidate.value);
@@ -1512,6 +1520,7 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
             if name.starts_with(token) {
                 out.push(Candidate {
                     value: (*name).to_string(),
+                    kind: CandidateKind::Command,
                     display: None,
                     description: deprecated_description(
                         sub.about,
@@ -1550,6 +1559,7 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             if value.starts_with(token) {
                 out.push(Candidate {
                     value,
+                    kind: CandidateKind::Flag,
                     display: None,
                     description: description.clone(),
                 });
@@ -1565,6 +1575,7 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             if value.starts_with(token) {
                 out.push(Candidate {
                     value,
+                    kind: CandidateKind::Flag,
                     display: None,
                     description: description.clone(),
                 });
@@ -1598,6 +1609,7 @@ fn short_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> 
             if asked_about {
                 out.push(Candidate {
                     value: format!("-{}", short as char),
+                    kind: CandidateKind::Flag,
                     display: None,
                     description: meta.and_then(|m| {
                         deprecated_description(
@@ -1656,6 +1668,7 @@ fn positional<'a>(
         if token.is_empty() {
             return vec![Candidate {
                 value: "--".to_string(),
+                kind: CandidateKind::Value,
                 display: None,
                 description: None,
             }];
@@ -1733,6 +1746,7 @@ fn choices<'a>(
         .filter(|c| c.starts_with(token))
         .map(|c| Candidate {
             value: (*c).to_string(),
+            kind: CandidateKind::Value,
             display: None,
             description: details
                 .iter()
@@ -3670,7 +3684,7 @@ mod tests {
         // PowerShell also receives its separately selectable display text.
         assert_eq!(
             render(&answer, Shell::PowerShell),
-            "plugins\tManage plugins\tplugins\n"
+            "plugins\tManage plugins\tplugins\tcommand\n"
         );
 
         // zsh takes a third field: what to type, which is not always what is shown.
@@ -3691,12 +3705,26 @@ mod tests {
         assert_eq!(render(&answer, Shell::Fish), "iad\tUS East\n");
         assert_eq!(
             render(&answer, Shell::PowerShell),
-            "iad\tUS East\tIAD · Virginia\n"
+            "iad\tUS East\tIAD · Virginia\tvalue\n"
         );
         assert_eq!(
             render(&answer, Shell::Zsh),
             "IAD · Virginia\tUS East\tiad\n"
         );
+    }
+
+    #[test]
+    fn powershell_receives_native_candidate_kinds() {
+        let answer = Completions {
+            candidates: vec![Candidate::new("deploy").with_kind(CandidateKind::Command)],
+            files: None,
+        };
+        assert_eq!(
+            render(&answer, Shell::PowerShell),
+            "deploy\t\tdeploy\tcommand\n"
+        );
+        // Shells without a typed candidate API lose only the metadata.
+        assert_eq!(render(&answer, Shell::Fish), "deploy\n");
     }
 
     #[test]

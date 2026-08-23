@@ -254,6 +254,21 @@ impl<'a> CompleteCtx<'a> {
 /// capture anything.
 pub type Completer = fn(&CompleteCtx<'_>) -> Vec<Candidate<'static>>;
 
+/// The semantic role of one completion candidate.
+///
+/// PowerShell presents these with its native result types. Other shells currently preserve the
+/// value and description while ignoring the kind.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
+pub enum CandidateKind {
+    #[default]
+    Value,
+    Command,
+    Flag,
+    File,
+    Directory,
+}
+
 /// Something a shell could offer at the cursor.
 ///
 /// `value` is what the shell inserts. `display` may replace it in shells whose completion API
@@ -261,6 +276,7 @@ pub type Completer = fn(&CompleteCtx<'_>) -> Vec<Candidate<'static>>;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Candidate<'a> {
     pub value: String,
+    pub kind: CandidateKind,
     /// A presentation-only label. Zsh and PowerShell support this distinction; other shells
     /// display [`Self::value`] because their native candidate format couples the two.
     pub display: Option<::std::borrow::Cow<'a, str>>,
@@ -273,6 +289,7 @@ impl Candidate<'_> {
     pub fn new(value: impl Into<String>) -> Self {
         Self {
             value: value.into(),
+            kind: CandidateKind::Value,
             display: None,
             description: None,
         }
@@ -282,6 +299,7 @@ impl Candidate<'_> {
     pub fn described(value: impl Into<String>, description: impl Into<String>) -> Self {
         Self {
             value: value.into(),
+            kind: CandidateKind::Value,
             display: None,
             description: Some(::std::borrow::Cow::Owned(description.into())),
         }
@@ -290,6 +308,12 @@ impl Candidate<'_> {
     /// Use a different label in shells that can display one value while inserting another.
     pub fn displayed(mut self, display: impl Into<String>) -> Self {
         self.display = Some(::std::borrow::Cow::Owned(display.into()));
+        self
+    }
+
+    /// Classify the candidate for shells that present semantic result types.
+    pub fn with_kind(mut self, kind: CandidateKind) -> Self {
+        self.kind = kind;
         self
     }
 }

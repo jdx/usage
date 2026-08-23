@@ -185,6 +185,9 @@ with `Candidate::new(value)` or `Candidate::described(value, description)`; shel
 descriptions show them, shells that don't get the value alone. Chain `.displayed(label)` when a
 short insertion needs a more explanatory presentation; zsh and PowerShell keep that label
 separate from the text inserted into the command line, while other shells display the value.
+Chain `.with_kind(CandidateKind::Command)` (or `Flag`, `File`, or `Directory`) when a runtime
+candidate has a more specific role. PowerShell maps it to the corresponding native completion
+result type; shells without typed candidates keep the same value and description.
 
 ## Tracing an answer
 
