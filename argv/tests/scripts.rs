@@ -47,6 +47,8 @@ impl Fixture {
         // Files for the path cases to find, and a directory among them so `dirs` can differ.
         fs::write(dir.join("alpha.txt"), "").expect("a file");
         fs::write(dir.join("beta.txt"), "").expect("another");
+        fs::write(dir.join("manifest.toml"), "").expect("a filtered file");
+        fs::write(dir.join("settings.yaml"), "").expect("another filtered file");
         fs::create_dir(dir.join("gamma")).expect("a directory");
 
         Self { dir }
@@ -279,6 +281,38 @@ printf '%s\n' "${COMPREPLY[@]}"
 }
 
 #[test]
+fn bash_filters_files_by_the_extensions_the_binary_declared() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "bash-extensions",
+        Shell::Bash,
+        "\u{1}extensions\ttoml\tyaml\n",
+    );
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex '
+COMP_POINT=3
+COMP_WORDS=(ex '')
+COMP_CWORD=1
+_usage_complete_ex
+printf '%s\n' "${COMPREPLY[@]}"
+"#,
+    );
+    let offered: Vec<&str> = out.lines().filter(|line| !line.is_empty()).collect();
+    assert!(offered.contains(&"manifest.toml"), "{offered:?}");
+    assert!(offered.contains(&"settings.yaml"), "{offered:?}");
+    assert!(
+        offered.contains(&"gamma"),
+        "directories remain traversable: {offered:?}"
+    );
+    assert!(!offered.contains(&"alpha.txt"), "{offered:?}");
+}
+
+#[test]
 fn fish_prints_the_candidates_it_was_given() {
     if !available("fish") {
         println!("fish is not installed; skipping");
@@ -427,6 +461,24 @@ fn zsh_hands_paths_to_files_and_forces_a_menu_when_a_value_needs_quoting() {
         &format!("{ZSH_STUBS}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_ex\n"),
     );
     assert!(out.contains("_files:-/"), "{out}");
+}
+
+#[test]
+fn zsh_passes_extension_filters_to_its_native_file_completer() {
+    if !available("zsh") {
+        println!("zsh is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "zsh-extensions",
+        Shell::Zsh,
+        "\u{1}extensions\ttoml\tyaml\n",
+    );
+    let out = fixture.run(
+        "zsh",
+        &format!("{ZSH_STUBS}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_ex\n"),
+    );
+    assert!(out.contains("_files:-g *.(toml|yaml)"), "{out}");
 }
 
 #[test]

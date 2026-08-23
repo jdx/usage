@@ -666,6 +666,13 @@ fn complete_word_fallback_to_files() {
 }
 
 #[test]
+fn complete_word_filters_declared_file_extensions() {
+    assert_cmd("extensions.usage.kdl", &["C"])
+        .stdout(contains("Cargo.toml\n"))
+        .stdout(predicates::str::contains("Cargo.lock").not());
+}
+
+#[test]
 fn complete_word_command_args_starts_with_executables() {
     let usage = cargo::cargo_bin!("usage");
     let executable = usage.file_name().unwrap().to_string_lossy().into_owned();

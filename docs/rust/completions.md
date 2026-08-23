@@ -140,6 +140,14 @@ format: Option<String>,
 #[usage(long, value_hint = usage::ValueHint::FilePath)]
 file: Option<PathBuf>,
 
+// filtered paths — directories remain available for traversal
+#[usage(
+    long,
+    value_hint = usage::ValueHint::FilePath,
+    extensions("toml", "yaml")
+)]
+manifest: Option<PathBuf>,
+
 // anything you can compute
 #[usage(arg, name = "TASK", complete = tasks_in_file)]
 task: Option<String>,

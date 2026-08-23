@@ -129,7 +129,7 @@ fn bash(bin: &str, name: &str) -> String {
     format!(
         r#"{head}
 _usage_complete_{name}() {{
-    local __usage_out __usage_line __usage_files=
+    local __usage_out __usage_line __usage_files= __usage_extensions=
     # Truncated here rather than passed with an offset: every shell counts a cursor in its own
     # units — characters in a UTF-8 locale for bash and zsh, characters for fish and PowerShell —
     # and a number that means one thing here and another there is a bug waiting for a non-ASCII
@@ -145,6 +145,10 @@ _usage_complete_{name}() {{
             $'\001dirs') __usage_files=dirs ;;
             $'\001executables') __usage_files=executables ;;
             $'\001commands') __usage_files=commands ;;
+            $'\001extensions\t'*)
+                __usage_files=extensions
+                __usage_extensions="${{__usage_line#*$'\t'}}"
+                ;;
             '') ;;
             *) COMPREPLY+=("$__usage_line") ;;
         esac
@@ -168,8 +172,19 @@ _usage_complete_{name}() {{
             while IFS= read -r __usage_path; do __usage_paths+=("$__usage_path"); done \
                 < <(compgen -d -- "$__usage_cur")
         else
-            while IFS= read -r __usage_path; do __usage_paths+=("$__usage_path"); done \
-                < <(compgen -f -- "$__usage_cur")
+            while IFS= read -r __usage_path; do
+                if [[ $__usage_files != extensions || -d "$__usage_path" ]]; then
+                    __usage_paths+=("$__usage_path")
+                    continue
+                fi
+                local __usage_extension
+                while IFS= read -r __usage_extension; do
+                    [[ "$__usage_path" == *."$__usage_extension" ]] && {{
+                        __usage_paths+=("$__usage_path")
+                        break
+                    }}
+                done < <(tr '\t' '\n' <<< "$__usage_extensions")
+            done < <(compgen -f -- "$__usage_cur")
         fi
         # Guarded, because an empty array expands to one empty word in older bash.
         (( ${{#__usage_paths[@]}} )) && COMPREPLY+=("${{__usage_paths[@]}}")
@@ -199,7 +214,7 @@ fn zsh(bin: &str, name: &str) -> String {
         r#"#compdef {name}
 {head}
 _{name}() {{
-    local -a values=() descriptions=() inserts=()
+    local -a values=() descriptions=() inserts=() extensions=()
     local __usage_files= __usage_line __usage_menu=0
     # `$BUFFER[1,CURSOR]` is the text before the cursor, cut with zsh's own offset — see the
     # bash script on why the cutting happens here rather than through a `--cursor` argument.
@@ -209,6 +224,11 @@ _{name}() {{
             $'\001dirs') __usage_files=dirs; continue ;;
             $'\001executables') __usage_files=executables; continue ;;
             $'\001commands') __usage_files=commands; continue ;;
+            $'\001extensions\t'*)
+                __usage_files=extensions
+                extensions=("${{(@ps:\t:)${{__usage_line#*$'\t'}}}}")
+                continue
+                ;;
             '') continue ;;
         esac
         local -a parts=("${{(@ps:\t:)__usage_line}}")
@@ -247,6 +267,10 @@ _{name}() {{
         dirs) _files -/ && __usage_ret=0 ;;
         executables) _files -g '*(-/,*)' && __usage_ret=0 ;;
         commands) _command_names && __usage_ret=0 ;;
+        extensions)
+            local __usage_glob="*.(${{(j:|:)extensions}})"
+            _files -g "$__usage_glob" && __usage_ret=0
+            ;;
     esac
     return $__usage_ret
 }}
@@ -279,7 +303,9 @@ function __usage_complete_{name}
     set -l marker_dirs (printf '\x01dirs')
     set -l marker_executables (printf '\x01executables')
     set -l marker_commands (printf '\x01commands')
+    set -l marker_extensions (printf '\x01extensions')
     set -l files ""
+    set -l extensions
     for entry in $out
         if test "$entry" = "$marker_any"
             set files any
@@ -289,6 +315,10 @@ function __usage_complete_{name}
             set files executables
         else if test "$entry" = "$marker_commands"
             set files commands
+        else if string match -q "$marker_extensions*" -- "$entry"
+            set files extensions
+            set extensions (string split (printf '\t') -- "$entry")
+            set -e extensions[1]
         else if test -n "$entry"
             # printf, not echo: fish's echo reads a leading -n, -e, -s or -E as its own option,
             # so a CLI with a `-n` would have that candidate swallowed on the way to the prompt.
@@ -311,6 +341,20 @@ function __usage_complete_{name}
             end
         case commands
             __fish_complete_command (commandline -ct)
+        case extensions
+            for candidate in (__fish_complete_path (commandline -ct))
+                set -l value (string split -m 1 (printf '\t') -- $candidate)[1]
+                if test -d "$value"
+                    printf '%s\n' $candidate
+                    continue
+                end
+                for extension in $extensions
+                    if string match -q "*.$extension" -- "$value"
+                        printf '%s\n' $candidate
+                        break
+                    end
+                end
+            end
     end
 end
 
@@ -336,7 +380,7 @@ def --env __usage_complete_{ident} [spans: list<string>] {{
     if $out.exit_code != 0 {{ return null }}
     let lines = ($out.stdout | lines | where {{|l| $l != "" }})
     let marker = "\u{{1}}"
-    let wants_files = ($lines | any {{|l| $l == $marker + "files" or $l == $marker + "dirs" or $l == $marker + "executables" }})
+    let wants_files = ($lines | any {{|l| $l == $marker + "files" or $l == $marker + "dirs" or $l == $marker + "executables" or ($l | str starts-with ($marker + "extensions" + (char tab))) }})
     let wants_commands = ($lines | any {{|l| $l == $marker + "commands" }})
     let declared = (
         $lines
@@ -419,6 +463,7 @@ Register-ArgumentCompleter -Native -CommandName '{name}' -ScriptBlock {{
     $out = @(& '{bin}' __complete_word__ --shell powershell --line $line 2>$null)
 
     $files = $null
+    $extensions = @()
     $results = [System.Collections.Generic.List[System.Management.Automation.CompletionResult]]::new()
     foreach ($entry in $out) {{
         if ([string]::IsNullOrEmpty($entry)) {{ continue }}
@@ -426,6 +471,11 @@ Register-ArgumentCompleter -Native -CommandName '{name}' -ScriptBlock {{
         if ($entry -eq ($marker + 'dirs')) {{ $files = 'dirs'; continue }}
         if ($entry -eq ($marker + 'executables')) {{ $files = 'executables'; continue }}
         if ($entry -eq ($marker + 'commands')) {{ $files = 'commands'; continue }}
+        if ($entry.StartsWith($marker + "extensions`t")) {{
+            $files = 'extensions'
+            $extensions = @($entry -split "`t" | Select-Object -Skip 1)
+            continue
+        }}
         $parts = $entry -split "`t", 3
         $value = $parts[0]
         $description = if ($parts.Count -gt 1 -and $parts[1]) {{ $parts[1] }} else {{ $value }}
@@ -458,6 +508,12 @@ Register-ArgumentCompleter -Native -CommandName '{name}' -ScriptBlock {{
             if ($files -eq 'executables' -and $path.ResultType -ne 'ProviderContainer') {{
                 $candidatePath = $path.CompletionText.Trim([char[]]@([char]39, [char]34))
                 if (-not (Get-Command -Name $candidatePath -CommandType Application, ExternalScript -ErrorAction SilentlyContinue)) {{
+                    continue
+                }}
+            }}
+            if ($files -eq 'extensions' -and $path.ResultType -ne 'ProviderContainer') {{
+                $candidatePath = $path.CompletionText.Trim([char[]]@([char]39, [char]34))
+                if ($extensions -notcontains [System.IO.Path]::GetExtension($candidatePath).TrimStart('.')) {{
                     continue
                 }}
             }}

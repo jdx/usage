@@ -12,9 +12,14 @@ and `type` are alternatives; setting both is an error.
 
 ```kdl
 complete "path" type="file"
+complete "manifest" type="path:toml,yaml"
 complete "key" type="config_keys"
 complete "value" type="config_values"
 ```
+
+Append a comma-separated extension list to `path:` or `file:` to keep directory traversal while
+offering only matching files. Extensions omit the leading dot; for example,
+`type="path:toml,yaml"` offers directories plus `.toml` and `.yaml` files.
 
 | type            | completes                                                            |
 | --------------- | -------------------------------------------------------------------- |
