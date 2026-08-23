@@ -465,6 +465,24 @@ pub struct CommandOverlay<'a> {
     pub effect: Effect,
 }
 
+/// An owned runtime command summary attached to a static command path.
+///
+/// Runtime commands are presentation metadata only. They are never inserted into the
+/// derive-generated [`Command`] tables, so they cannot affect parsing or emitted KDL.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeCommand {
+    /// Canonical, space-separated static parent path. The empty string is the root.
+    pub parent: std::string::String,
+    pub name: std::string::String,
+    pub aliases: std::vec::Vec<std::string::String>,
+    pub hidden_aliases: std::vec::Vec<std::string::String>,
+    pub about: Option<std::string::String>,
+    pub long_about: Option<std::string::String>,
+    pub help_heading: Option<std::string::String>,
+    pub hide: bool,
+    pub display_order: Option<usize>,
+}
+
 impl<'a> CommandOverlay<'a> {
     pub const fn effect(path: &'a str, effect: Effect) -> Self {
         Self {
@@ -494,6 +512,7 @@ pub struct SpecView<'a> {
     version: Option<&'a str>,
     omit_version: bool,
     commands: Vec<CommandOverlay<'a>>,
+    runtime_commands: Vec<RuntimeCommand>,
 }
 
 impl<'a> SpecView<'a> {
@@ -505,6 +524,7 @@ impl<'a> SpecView<'a> {
             version: None,
             omit_version: false,
             commands: Vec::new(),
+            runtime_commands: Vec::new(),
         }
     }
 
@@ -519,6 +539,7 @@ impl<'a> SpecView<'a> {
             version: self.version,
             omit_version: self.omit_version,
             commands: self.commands,
+            runtime_commands: self.runtime_commands,
         }
     }
 
@@ -571,6 +592,42 @@ impl<'a> SpecView<'a> {
         let mut view = self.reborrow();
         view.commands.extend_from_slice(commands);
         view
+    }
+
+    /// Add owned command summaries to help and command-name completion.
+    ///
+    /// This does not alter [`Self::spec`], argv parsing, or [`Self::to_kdl`]. Companion
+    /// crates should validate paths and collisions before constructing the view.
+    pub fn runtime_commands(mut self, commands: impl IntoIterator<Item = RuntimeCommand>) -> Self {
+        self.runtime_commands.extend(commands);
+        self
+    }
+
+    pub(crate) fn runtime_at(&self, path: &[&str]) -> Vec<&RuntimeCommand> {
+        self.runtime_commands
+            .iter()
+            .filter(|command| {
+                command
+                    .parent
+                    .split_ascii_whitespace()
+                    .eq(path.iter().copied())
+            })
+            .collect()
+    }
+
+    /// Render short or long help for a canonical static command path.
+    pub fn help(&self, path: &str, long: bool) -> Option<std::string::String> {
+        crate::help::render_runtime(self, path, long, crate::help::Style::PLAIN)
+    }
+
+    /// Render help with an explicit colour policy.
+    pub fn help_styled(
+        &self,
+        path: &str,
+        long: bool,
+        style: crate::help::Style,
+    ) -> Option<std::string::String> {
+        crate::help::render_runtime(self, path, long, style)
     }
 
     /// The shallow effective spec. Its command metadata still borrows the derive's static tree.

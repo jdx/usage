@@ -6,6 +6,7 @@ members = [
     "derive",
     "test",
     "usage-rs",
+    "usage-dynamic",
     "validation",
     "clap_usage",
     "cli",
@@ -52,6 +53,7 @@ usage-derive = { path = "./derive", version = "6.1.1" }
 # what they need, `docs` included.
 usage-lib = { path = "./lib", version = "6.1.1", default-features = false }
 usage-rs = { path = "./usage-rs", version = "6.1.1" }
+usage-dynamic = { path = "./usage-dynamic", version = "6.1.1" }
 usage-test = { path = "./test", version = "6.1.1" }
 usage-validation = { path = "./validation", version = "6.1.1" }
 

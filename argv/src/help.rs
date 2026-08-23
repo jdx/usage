@@ -20,7 +20,8 @@
 use core::fmt::Write as _;
 
 use crate::spec::{
-    AdmonitionKind, AdmonitionMeta, ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta,
+    AdmonitionKind, AdmonitionMeta, ArgMeta, CommandMeta, Example, FlagMeta, RuntimeCommand,
+    Spec, SpecView, ViewMeta,
 };
 use crate::Command;
 use crate::DoubleDash;
@@ -593,7 +594,7 @@ fn help_structure(
     flag_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
 
     let mut synopsis = String::new();
-    usage_section(&mut synopsis, spec, path, meta);
+    usage_section(&mut synopsis, spec, path, meta, false);
     let synopsis = synopsis.lines().map(str::to_string).collect();
     (headings, flag_usages, synopsis)
 }
@@ -759,7 +760,13 @@ fn usage_line_with_subcommands(
 ///
 /// An explicit synopsis belongs to the program rather than every command below it. Subcommand
 /// pages still derive their own invocation from the route and command metadata.
-fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &CommandMeta<'_>) {
+fn usage_section(
+    out: &mut String,
+    spec: &Spec<'_>,
+    path: &[&str],
+    meta: &CommandMeta<'_>,
+    has_runtime_commands: bool,
+) {
     if path.len() <= 1 {
         if let Some(usage) = spec.usage.filter(|usage| !usage.trim().is_empty()) {
             let _ = writeln!(out, "{}", usage.trim());
@@ -785,7 +792,12 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
             }
         }
     } else {
-        let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+        let mut line = usage_line(path, meta);
+        if has_runtime_commands && meta.cmd.subcommands.is_empty() {
+            let name = meta.subcommand_value_name.unwrap_or("SUBCOMMAND");
+            let _ = write!(line, " <{name}>");
+        }
+        let _ = writeln!(out, "Usage: {line}");
     }
 }
 
@@ -1073,7 +1085,7 @@ fn exact_arity(min: Option<usize>, max: Option<usize>) -> Option<usize> {
 ///
 /// `path` is the command as invoked, as for [`usage_line`].
 pub fn short_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
-    short_help_with(spec, path, chain, false)
+    short_help_with(spec, path, chain, false, &[])
 }
 
 fn short_help_with(
@@ -1081,10 +1093,11 @@ fn short_help_with(
     path: &[&str],
     chain: &[&CommandMeta<'_>],
     inherit_version_actions: bool,
+    runtime: &[&RuntimeCommand],
 ) -> String {
     assemble(
         spec,
-        &short_sections(spec, path, chain, inherit_version_actions),
+        &short_sections(spec, path, chain, inherit_version_actions, runtime),
     )
 }
 
@@ -1093,6 +1106,7 @@ fn short_sections(
     path: &[&str],
     chain: &[&CommandMeta<'_>],
     inherit_version_actions: bool,
+    runtime: &[&RuntimeCommand],
 ) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
@@ -1134,13 +1148,18 @@ fn short_sections(
         let _ = writeln!(out, "{}\n", about.trim_end());
     }
     command_deprecation(out, meta, 0);
-    usage_section(&mut sections.usage, spec, path, meta);
+    usage_section(&mut sections.usage, spec, path, meta, !runtime.is_empty());
 
     // The path without the binary, which is what a listed subcommand shows: usage-lib prints
     // `tool-alias get <TOOL>` under `mise tool-alias`, the whole path from the root rather
     // than the child's own name.
     if !meta.flatten_help {
-        commands_section(&mut sections.commands, &path[1.min(path.len())..], meta);
+        commands_section(
+            &mut sections.commands,
+            &path[1.min(path.len())..],
+            meta,
+            runtime,
+        );
     }
 
     // The short page lines its columns up too. It did not: every description began directly
@@ -1296,14 +1315,19 @@ fn short_sections(
 }
 
 /// The list of subcommands, and the `help` command every CLI with subcommands has.
-fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
+fn commands_section(
+    out: &mut String,
+    path: &[&str],
+    meta: &CommandMeta<'_>,
+    runtime: &[&RuntimeCommand],
+) {
     let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
     order_commands(&mut visible);
     // Nothing visible, no section — `mise direnv` and `mise dotfiles` have subcommands and
     // every one of them is hidden. The usage *line* still says `<SUBCOMMAND>`, because
     // usage-lib computes it before filtering and stores it; matching the reference means
     // matching that too, odd as the pair looks together.
-    if visible.is_empty() {
+    if visible.is_empty() && runtime.iter().all(|command| command.hide) {
         return;
     }
     // Sorted by the rendered usage rather than by name, as usage-lib sorts them — for a
@@ -1328,6 +1352,15 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
     let mut headings = vec![None];
     for (_, sub) in &lines {
         let heading = command_help_section(sub, default_title);
+        if !headings.contains(&heading) {
+            headings.push(heading);
+        }
+    }
+    for command in runtime.iter().filter(|command| !command.hide) {
+        let heading = command
+            .help_heading
+            .as_deref()
+            .filter(|heading| *heading != default_title);
         if !headings.contains(&heading) {
             headings.push(heading);
         }
@@ -1368,6 +1401,47 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
                 sub.deprecated_remove_at,
             ) {
                 let _ = write!(out, "  {label}");
+            }
+            out.push('\n');
+        }
+        let mut dynamic: Vec<_> = runtime
+            .iter()
+            .copied()
+            .filter(|command| {
+                !command.hide
+                    && command
+                        .help_heading
+                        .as_deref()
+                        .filter(|h| *h != default_title)
+                        == heading
+            })
+            .collect();
+        dynamic.sort_unstable_by(|a, b| {
+            a.display_order
+                .unwrap_or(999)
+                .cmp(&b.display_order.unwrap_or(999))
+                .then_with(|| a.name.cmp(&b.name))
+        });
+        for command in dynamic {
+            let mut usage = path.to_vec();
+            usage.push(&command.name);
+            let _ = write!(out, "  {}", usage.join(" "));
+            let aliases: Vec<_> = command
+                .aliases
+                .iter()
+                .filter(|alias| !command.hidden_aliases.contains(alias))
+                .map(String::as_str)
+                .collect();
+            if !aliases.is_empty() {
+                let _ = write!(out, " [aliases: {}]", aliases.join(", "));
+            }
+            if let Some(about) = &command.about {
+                if meta.next_line_help {
+                    out.push('\n');
+                    write_indented(out, about.trim_end(), 4);
+                    continue;
+                }
+                let _ = write!(out, "  {}", about.trim_end());
             }
             out.push('\n');
         }
@@ -1818,7 +1892,7 @@ fn terminal_width(meta: &CommandMeta<'_>) -> usize {
 /// under the usage rather than beside it, because there is no column that keeps a line the
 /// author already broke readable.
 pub fn long_help(spec: &Spec<'_>, path: &[&str], chain: &[&CommandMeta<'_>]) -> String {
-    long_help_with(spec, path, chain, false)
+    long_help_with(spec, path, chain, false, &[])
 }
 
 fn long_help_with(
@@ -1826,10 +1900,11 @@ fn long_help_with(
     path: &[&str],
     chain: &[&CommandMeta<'_>],
     inherit_version_actions: bool,
+    runtime: &[&RuntimeCommand],
 ) -> String {
     assemble(
         spec,
-        &long_sections(spec, path, chain, inherit_version_actions),
+        &long_sections(spec, path, chain, inherit_version_actions, runtime),
     )
 }
 
@@ -1838,6 +1913,7 @@ fn long_sections(
     path: &[&str],
     chain: &[&CommandMeta<'_>],
     inherit_version_actions: bool,
+    runtime: &[&RuntimeCommand],
 ) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
@@ -1888,10 +1964,15 @@ fn long_sections(
         let _ = writeln!(out, "{}\n", about.trim_end());
     }
     command_deprecation(out, meta, 0);
-    usage_section(&mut sections.usage, spec, path, meta);
+    usage_section(&mut sections.usage, spec, path, meta, !runtime.is_empty());
 
     if !meta.flatten_help {
-        long_commands_section(&mut sections.commands, &path[1.min(path.len())..], meta);
+        long_commands_section(
+            &mut sections.commands,
+            &path[1.min(path.len())..],
+            meta,
+            runtime,
+        );
     }
 
     // One column width per section, over its visible entries — the same two the reference
@@ -2248,10 +2329,15 @@ fn flag_notes(out: &mut String, meta: &FlagMeta<'_>, indent: usize) {
 }
 
 /// The commands list, with each command's help beneath its usage.
-fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
+fn long_commands_section(
+    out: &mut String,
+    path: &[&str],
+    meta: &CommandMeta<'_>,
+    runtime: &[&RuntimeCommand],
+) {
     let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
     order_commands(&mut visible);
-    if visible.is_empty() {
+    if visible.is_empty() && runtime.iter().all(|command| command.hide) {
         return;
     }
     let mut lines: Vec<(String, &&CommandMeta<'_>)> = visible
@@ -2273,6 +2359,15 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
     let mut headings = vec![None];
     for (_, sub) in &lines {
         let heading = command_help_section(sub, default_title);
+        if !headings.contains(&heading) {
+            headings.push(heading);
+        }
+    }
+    for command in runtime.iter().filter(|command| !command.hide) {
+        let heading = command
+            .help_heading
+            .as_deref()
+            .filter(|heading| *heading != default_title);
         if !headings.contains(&heading) {
             headings.push(heading);
         }
@@ -2306,6 +2401,43 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
             command_deprecation(out, sub, 4);
             // A blank line between entries, which the wider layout can afford and which keeps a
             // multi-line description from running into the next command's name.
+            out.push('\n');
+        }
+        let mut dynamic: Vec<_> = runtime
+            .iter()
+            .copied()
+            .filter(|command| {
+                !command.hide
+                    && command
+                        .help_heading
+                        .as_deref()
+                        .filter(|h| *h != default_title)
+                        == heading
+            })
+            .collect();
+        dynamic.sort_unstable_by(|a, b| {
+            a.display_order
+                .unwrap_or(999)
+                .cmp(&b.display_order.unwrap_or(999))
+                .then_with(|| a.name.cmp(&b.name))
+        });
+        for command in dynamic {
+            let mut usage = path.to_vec();
+            usage.push(&command.name);
+            let _ = write!(out, "  {}", usage.join(" "));
+            let aliases: Vec<_> = command
+                .aliases
+                .iter()
+                .filter(|alias| !command.hidden_aliases.contains(alias))
+                .map(String::as_str)
+                .collect();
+            if !aliases.is_empty() {
+                let _ = write!(out, " [aliases: {}]", aliases.join(", "));
+            }
+            out.push('\n');
+            if let Some(about) = command.long_about.as_ref().or(command.about.as_ref()) {
+                write_indented(out, about.trim_end(), 4);
+            }
             out.push('\n');
         }
         if heading.is_none() && !meta.cmd.disable_help_subcommand {
@@ -2827,9 +2959,9 @@ fn topics_with_blocks(
 ) -> Option<Vec<(Topic, String)>> {
     let (path, chain) = find(spec, cmd)?;
     let sections = if long {
-        long_sections(spec, &path, &chain, false)
+        long_sections(spec, &path, &chain, false, &[])
     } else {
-        short_sections(spec, &path, &chain, false)
+        short_sections(spec, &path, &chain, false, &[])
     };
     let mut used = Vec::<String>::new();
     Some(
@@ -2901,6 +3033,47 @@ pub fn render_styled(
         short_help(spec, &path, &chain)
     };
     let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long, false);
+    Some(styled_help(
+        &page,
+        style,
+        &headings,
+        &flag_usages,
+        &synopsis,
+    ))
+}
+
+/// Render a static command page with the runtime summaries attached to its [`SpecView`].
+///
+/// The route is canonical and excludes the root name. Runtime entries affect only this
+/// command's list and synopsis; they do not become navigable pages in the host tree.
+pub fn render_runtime(
+    view: &SpecView<'_>,
+    route: &str,
+    long: bool,
+    style: Style,
+) -> Option<String> {
+    let spec = view.spec();
+    let route_parts: Vec<&str> = route.split_ascii_whitespace().collect();
+    let mut path = vec![spec.bin.unwrap_or(spec.name)];
+    let mut chain = vec![spec.root];
+    let mut current = spec.root;
+    for name in &route_parts {
+        current = current
+            .subcommands
+            .iter()
+            .copied()
+            .find(|command| command.cmd.name == *name || command.cmd.aliases.contains(name))?;
+        path.push(current.cmd.name);
+        chain.push(current);
+    }
+    let canonical: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
+    let runtime = view.runtime_at(&canonical);
+    let page = if long {
+        long_help_with(&spec, &path, &chain, false, &runtime)
+    } else {
+        short_help_with(&spec, &path, &chain, false, &runtime)
+    };
+    let (headings, flag_usages, synopsis) = help_structure(&spec, &path, &chain, long, false);
     Some(styled_help(
         &page,
         style,
@@ -3108,9 +3281,9 @@ pub fn render_view_at_styled(
         ..*spec
     };
     let page = if long {
-        long_help_with(&viewed, &path, &chain, true)
+        long_help_with(&viewed, &path, &chain, true, &[])
     } else {
-        short_help_with(&viewed, &path, &chain, true)
+        short_help_with(&viewed, &path, &chain, true, &[])
     };
     let (headings, flag_usages, synopsis) = help_structure(&viewed, &path, &chain, long, true);
     Some(styled_help(
@@ -3344,7 +3517,7 @@ fn recursive_help<'a>(
         if !out.is_empty() {
             out.push('\n');
         }
-        let page = long_help_with(spec, path, chain, inherit_version_actions);
+        let page = long_help_with(spec, path, chain, inherit_version_actions, &[]);
         let (headings, flag_usages, synopsis) =
             help_structure(spec, path, chain, true, inherit_version_actions);
         out.push_str(&styled_help(
@@ -3586,7 +3759,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        commands_section(&mut page, &[], &root_meta);
+        commands_section(&mut page, &[], &root_meta, &[]);
 
         assert!(page.contains("  run  run it\n  help"));
         assert!(!page.contains("  run  run it\n\n  help"));

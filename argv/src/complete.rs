@@ -699,12 +699,74 @@ impl<'a> App<'a> {
             }
         }
         let spec = self.view.spec();
-        let answer = if let Some(name) = request.candidates_for {
-            complete_named_with(&spec, &split, self.overlays, &name).await
+        let mut answer = if let Some(ref name) = request.candidates_for {
+            complete_named_with(&spec, &split, self.overlays, name).await
         } else {
             complete_with(&spec, &split, self.overlays).await
         };
+        if request.candidates_for.is_none() {
+            merge_runtime_commands(&self.view, &spec, &split, &mut answer);
+        }
         Some(render(&answer, request.shell))
+    }
+}
+
+fn merge_runtime_commands<'a>(
+    view: &'a SpecView<'a>,
+    spec: &'a Spec<'a>,
+    split: &Split,
+    answer: &mut Completions<'a>,
+) {
+    let position = walk(spec.root.cmd, split.argv());
+    if position.awaiting_value.is_some()
+        || position.help_topic
+        || (position.flags_possible && split.prefix.starts_with('-'))
+    {
+        return;
+    }
+    let Some(chain) = metadata_chain_on_route(spec, &position) else {
+        return;
+    };
+    let path: Vec<&str> = chain.iter().skip(1).map(|meta| meta.cmd.name).collect();
+    let runtime = view.runtime_at(&path);
+    if runtime.is_empty() {
+        return;
+    }
+
+    // Once any external command has already been selected, its application owns deeper
+    // completion. Ask the parser rather than scanning words: a plugin name can also be a
+    // flag value, and only the parser knows which role that token actually had.
+    let argv: Vec<&std::ffi::OsStr> = split.argv().iter().map(std::ffi::OsStr::new).collect();
+    let mut parser = Parser::new(spec.root.cmd, &argv);
+    let mut selected = false;
+    while let Some(event) = parser.next_event() {
+        if matches!(event, Ok(crate::Event::External { .. })) {
+            selected = true;
+            break;
+        }
+    }
+    if selected {
+        answer.candidates.clear();
+        answer.files = None;
+        return;
+    }
+
+    for command in runtime.into_iter().filter(|command| !command.hide) {
+        for name in core::iter::once(&command.name).chain(command.aliases.iter()) {
+            if command.hidden_aliases.contains(name) || !name.starts_with(&split.prefix) {
+                continue;
+            }
+            answer.candidates.push(Candidate {
+                value: name.clone(),
+                kind: CandidateKind::Command,
+                display: None,
+                description: command.about.as_deref().map(std::borrow::Cow::Borrowed),
+            });
+        }
+    }
+    sort_and_dedup_candidates(&mut answer.candidates);
+    if !answer.candidates.is_empty() {
+        answer.files = None;
     }
 }
 

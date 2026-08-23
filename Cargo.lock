@@ -2274,6 +2274,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "usage-dynamic"
+version = "6.1.1"
+dependencies = [
+ "futures",
+ "usage-argv",
+ "usage-lib",
+ "usage-rs",
+]
+
+[[package]]
 name = "usage-lib"
 version = "6.1.1"
 dependencies = [

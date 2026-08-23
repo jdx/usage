@@ -198,7 +198,7 @@ jobs:
           - version: "1.91"
             crates: usage-argv usage-derive usage-config usage-validation usage-rs usage-test
           - version: "1.95"
-            crates: usage-lib clap_usage usage-cli
+            crates: usage-lib usage-dynamic clap_usage usage-cli
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
