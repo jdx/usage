@@ -119,9 +119,7 @@ fn nu_ident(bin: &str) -> String {
 /// The header every script carries, so nobody edits one by hand twice.
 fn header(bin: &str, shell: Shell, comment: &str) -> String {
     format!(
-        "{comment} {GENERATED_MARKER}-argv for `{bin} __complete_word__ --shell {}`\n\
-         {comment} Do not edit: regenerate it. Needs no other program, and no cached spec —\n\
-         {comment} the binary answers from the tables it was compiled with.\n",
+        "{comment} {GENERATED_MARKER}-argv for `{bin} __complete_word__ --shell {}`\n",
         shell.as_str()
     )
 }
