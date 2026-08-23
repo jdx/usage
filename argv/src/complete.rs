@@ -1297,8 +1297,7 @@ fn candidates_inner<'a>(
         found
     };
 
-    out.sort();
-    out.dedup_by(|a, b| a.value == b.value);
+    sort_and_dedup_candidates(&mut out);
     out
 }
 
@@ -2069,6 +2068,7 @@ mod tests {
             Candidate::described("node", "JavaScript"),
             Candidate::described("python", "Snakes"),
             Candidate::new("ruby"),
+            Candidate::new("ruby").displayed("Ruby runtime"),
         ]
     }
 
@@ -3493,6 +3493,10 @@ mod tests {
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].value, "node");
         assert_eq!(found[0].description.as_deref(), Some("JavaScript"));
+
+        let ruby = candidates(&SPEC, &at_end("mise install ru"));
+        assert_eq!(ruby.len(), 1, "{ruby:?}");
+        assert_eq!(ruby[0].display.as_deref(), Some("Ruby runtime"));
 
         // For a flag's value as well as an argument's.
         assert_eq!(offered("mise install --only "), ["node"]);
