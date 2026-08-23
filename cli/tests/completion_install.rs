@@ -335,7 +335,12 @@ fn a_failed_install_says_what_the_system_said() {
     let scratch = Scratch::new("io_cause");
     // A file where a directory has to go: deterministic, and the same failure for root, which is
     // who a container runs as.
-    let target = scratch.dir.join("data/zsh/site-functions");
+    //
+    // Joined a segment at a time. `join("data/zsh/site-functions")` keeps the slashes it was
+    // given, so on Windows `display()` renders `…\data/zsh/site-functions` while the error
+    // being matched against says `…\data\zsh\site-functions` — the same path, spelled two
+    // ways, and the assertion below compares spellings.
+    let target = scratch.dir.join("data").join("zsh").join("site-functions");
     std::fs::create_dir_all(target.parent().unwrap()).unwrap();
     std::fs::write(&target, "not a directory\n").unwrap();
 
