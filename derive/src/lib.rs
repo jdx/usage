@@ -218,7 +218,9 @@
 //! fields such as `about` and `after_long_help` accept expressions usable as `&'static str`.
 //! A computed `version` additionally declares `version_spec = "..."`, and a typed field
 //! default declares both `default_value_t = EXPR` and `default = "..."`: runtime behavior
-//! evaluates the expression while portable KDL uses the explicit literal.
+//! evaluates the expression while portable KDL uses the explicit literal. A genuinely dynamic
+//! value uses `default_fn = function` instead; an optional `default_note = "..."` reaches help,
+//! while portable KDL deliberately declares no concrete default it could not reproduce.
 //!
 //! A completer is written as
 //!
@@ -286,6 +288,8 @@
 //! | `env_fallback("OLD_X", "OLDER_X")` | additional environment variables, consulted in declaration order |
 //! | `deprecated_env("LEGACY_X")` | deprecated aliases, consulted after ordinary fallbacks and labeled in help |
 //! | `default = "x"` | the value when the command line does not supply one; a `Vec` may be given several, and starts out holding all of them |
+//! | `default_fn = function` | compute one typed default at parse time without claiming a concrete portable value |
+//! | `default_note = "x"` | describe a `default_fn` in help; the note is prose, not a value |
 //! | `help_heading = "x"` | the section to list this under in help output |
 //! | `display_order = n` | explicit help order; positional parsing still follows declaration order |
 //! | `verbatim_doc_comment` | preserve line breaks and whitespace in the doc comment instead of flowing its first paragraph |

@@ -2405,7 +2405,7 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     let field_name = &field.name;
     let var = field.shape == Shape::Many;
     let required =
-        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
+        (field.shape == Shape::Required || field.required_collection) && !field.has_default();
     let Kind::Arg { double_dash } = &field.kind else {
         unreachable!("filtered by the caller");
     };
@@ -2552,7 +2552,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
     let required =
-        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
+        (field.shape == Shape::Required || field.required_collection) && !field.has_default();
     // Declared, not inferred: `Option<String>` already says the *flag* is optional and says
     // nothing about whether its value is.
     let value_optional = field.value_optional;
@@ -2762,7 +2762,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
     let required =
-        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
+        (field.shape == Shape::Required || field.required_collection) && !field.has_default();
     let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
         choices_tokens(cli, field);
     let allow_unknown_choices = field.allow_unknown_choices;
@@ -4195,7 +4195,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         // runs after `apply_defaults` during relationship validation, so a predicate
         // that filled the field is still observable even though defaults deliberately
         // do not set `__given_*`.
-        let defaulted = !field.default.is_empty();
+        let defaulted = field.has_default();
         let conditionally_defaulted =
             default_if_would_apply(cli, field, Lookup::Module).unwrap_or_else(|| quote!(false));
         Some(quote! {
@@ -5362,8 +5362,26 @@ fn reset_to_default(field: &Field) -> TokenStream {
         Shape::Many => quote!(partial.#ident.clear();),
         _ => quote!(partial.#ident = ::std::default::Default::default();),
     };
-    if field.default.is_empty() {
+    if !field.has_default() {
         return cleared;
+    }
+    if let Some(default_fn) = &field.default_fn {
+        let value_ty = field
+            .value_ty
+            .as_ref()
+            .expect("a computed default belongs to a value-taking field");
+        let bytes = quote!({
+            let __usage_default: #value_ty = #default_fn();
+            ::std::string::ToString::to_string(&__usage_default).into_bytes()
+        });
+        return match field.shape {
+            Shape::Optional => quote! {
+                partial.#ident = ::std::option::Option::Some(#bytes);
+            },
+            Shape::Required => quote!(partial.#ident = #bytes;),
+            // The model rejects these shapes before codegen.
+            _ => cleared,
+        };
     }
     if let Some(value) = &field.default_value_t {
         let value_ty = field
@@ -8426,7 +8444,7 @@ fn declared_defaults(cli: &Cli, filter_view: bool) -> TokenStream {
         if matches!(f.kind, Kind::Subcommand { .. } | Kind::Skip) {
             return None;
         }
-        if f.default.is_empty() && f.default_if.is_empty() {
+        if !f.has_default() && f.default_if.is_empty() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
@@ -8444,7 +8462,7 @@ fn declared_defaults(cli: &Cli, filter_view: bool) -> TokenStream {
                 })
             })
             .collect();
-        if !f.default.is_empty() {
+        if f.has_default() {
             let assign = reset_to_default(f);
             fills.push(quote!(if !__usage_filled {
                 #assign
@@ -9037,7 +9055,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // meant a `Vec` marked `required` was reported as one-or-more by the spec, the help, the
         // manpage and the completions, and accepted zero values from the CLI that actually ran.
         // One expression cannot disagree with itself.
-        if !(f.shape == Shape::Required || f.required_collection) || !f.default.is_empty() {
+        if !(f.shape == Shape::Required || f.required_collection) || f.has_default() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
@@ -9319,7 +9337,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             // can never fail — the same reason plain required-ness skips such a field.
             // Decided at compile time, so the check is not merely always-true at run
             // time, it is not there.
-            if !other.default.is_empty() {
+            if other.has_default() {
                 return quote!();
             }
             let other_given = semantic_given(other);
@@ -9390,7 +9408,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 };
             }
             let other = other.expect("the local relationship was resolved above");
-            if !other.default.is_empty() {
+            if other.has_default() {
                 return quote!();
             }
             let other_given = semantic_given(other);
@@ -9652,7 +9670,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     .zip(&given)
                     .zip(&active)
                     .map(|((field, given), active)| {
-                        if field.default.is_empty() {
+                        if !field.has_default() {
                             quote!((#active) && (#given))
                         } else {
                             quote!(#active)
@@ -9748,7 +9766,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         }
         // A field with a default is already filled, so no condition can make it
         // missing. Plain required-ness skips these too, and so does usage-lib.
-        if !f.default.is_empty() {
+        if f.has_default() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
