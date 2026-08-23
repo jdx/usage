@@ -453,7 +453,7 @@ impl core::fmt::Display for CompletionTrace<'_> {
 pub fn trace<'a>(spec: &'a Spec<'a>, split: &Split) -> CompletionTrace<'a> {
     let position = walk(spec.root.cmd, split.argv());
     let answer = complete(spec, split);
-    trace_from(spec, split, position, answer)
+    trace_from(spec, split, position, answer, None)
 }
 
 /// Explain a completion answer through one executable view.
@@ -464,7 +464,7 @@ pub fn trace_view<'a>(
 ) -> CompletionTrace<'a> {
     let position = walk_view(spec.root.cmd, split.argv(), view);
     let answer = complete_view(spec, split, view);
-    trace_from(spec, split, position, answer)
+    trace_from(spec, split, position, answer, Some(view))
 }
 
 fn trace_from<'a>(
@@ -472,6 +472,7 @@ fn trace_from<'a>(
     split: &Split,
     position: Position<'a>,
     answer: Completions<'a>,
+    view: Option<&crate::spec::ViewMeta<'_>>,
 ) -> CompletionTrace<'a> {
     let chain = metadata_chain_on_route(spec, &position);
     let meta = chain.as_ref().and_then(|chain| chain.last().copied());
@@ -484,8 +485,18 @@ fn trace_from<'a>(
             .or_else(|| default_subcommand_arg(spec, split, &position).map(|(_, field)| field.arg))
     };
     let command_path = if position.help_topic {
-        chain
-            .map(|chain| chain.into_iter().map(|meta| meta.cmd.name).collect())
+        let argv = split
+            .argv()
+            .iter()
+            .map(std::ffi::OsStr::new)
+            .collect::<Vec<_>>();
+        let route = match view {
+            Some(view) => crate::help::route_to_view(spec.root.cmd, &argv, position.cmd, view),
+            None => crate::help::route_to(spec.root.cmd, &argv, position.cmd),
+        };
+        route
+            .map(|route| route.into_iter().map(|command| command.name).collect())
+            .or_else(|| chain.map(|chain| chain.into_iter().map(|meta| meta.cmd.name).collect()))
             .unwrap_or_else(|| vec![position.cmd.name])
     } else {
         position
@@ -3356,6 +3367,58 @@ mod tests {
         assert!(trace.help_topic);
         assert_eq!(trace.command_path, ["mise", "plugins"]);
         assert!(trace.to_string().contains("command: mise plugins"));
+    }
+
+    #[test]
+    fn a_help_trace_keeps_the_typed_route_to_a_shared_command() {
+        static SHARED: Command = Command {
+            name: "shared",
+            ..Command::EMPTY
+        };
+        static LEFT: Command = Command {
+            name: "left",
+            subcommands: &[&SHARED],
+            ..Command::EMPTY
+        };
+        static RIGHT: Command = Command {
+            name: "right",
+            subcommands: &[&SHARED],
+            ..Command::EMPTY
+        };
+        static ROOT: Command = Command {
+            name: "ex",
+            subcommands: &[&LEFT, &RIGHT],
+            ..Command::EMPTY
+        };
+        static SHARED_META: CommandMeta = CommandMeta {
+            cmd: &SHARED,
+            ..CommandMeta::EMPTY
+        };
+        static LEFT_META: CommandMeta = CommandMeta {
+            cmd: &LEFT,
+            subcommands: &[&SHARED_META],
+            ..CommandMeta::EMPTY
+        };
+        static RIGHT_META: CommandMeta = CommandMeta {
+            cmd: &RIGHT,
+            subcommands: &[&SHARED_META],
+            ..CommandMeta::EMPTY
+        };
+        static ROOT_META: CommandMeta = CommandMeta {
+            cmd: &ROOT,
+            subcommands: &[&LEFT_META, &RIGHT_META],
+            ..CommandMeta::EMPTY
+        };
+        static SHARED_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &ROOT_META,
+            ..Spec::EMPTY
+        };
+
+        let trace = trace(&SHARED_SPEC, &at_end("ex help right shared "));
+        assert!(trace.help_topic);
+        assert_eq!(trace.command_path, ["ex", "right", "shared"]);
     }
 
     #[test]
