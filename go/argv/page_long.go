@@ -89,7 +89,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 			argCol = n
 		}
 	}
-	groupsSection(&sections.args, "Arguments", len(args),
+	groupsSection(&sections.args, &sections.ungroupedArgs, &sections.groupedArgs, "Arguments", len(args),
 		func(i int) string { return headingOf(help, args[i].Key) },
 		func(w *strings.Builder, i int) {
 			h := help.Lookup(args[i].Key)
@@ -120,7 +120,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 			metaField(h, func(x *Help) string { return x.Short })), flagCol, nextLineHelp)
 		longAnnotations(w, h, true)
 	}
-	groupsSection(&sections.flags, "Flags", len(own),
+	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Flags", len(own),
 		func(i int) string {
 			if own[i].supplied != "" {
 				return ""
@@ -131,7 +131,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	// Not grouped by heading: an ancestor's headings describe that command's page,
 	// and borrowing them here would put a section title on flags that are only
 	// visiting.
-	groupsSection(&sections.flags, "Global flags", len(inherited),
+	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Global flags", len(inherited),
 		func(int) string { return "" },
 		func(w *strings.Builder, i int) { writeFlag(w, inherited[i]) })
 	if meta != nil && meta.FlattenHelp {

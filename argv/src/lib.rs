@@ -138,6 +138,8 @@ pub enum ValueHint {
 pub mod complete;
 #[cfg(feature = "diagnostics")]
 pub mod diagnostic;
+#[cfg(feature = "spec")]
+pub mod embedded;
 #[cfg(feature = "complete")]
 pub mod install;
 #[cfg(feature = "complete")]
@@ -781,6 +783,51 @@ pub struct InvalidValue<'t> {
     pub value: ::std::string::String,
     /// What the type's own conversion complained about.
     pub reason: ::std::string::String,
+}
+
+/// A command-wide validation or finalization failure.
+///
+/// Return this from a `#[usage(validate_with = ...)]` hook or from the
+/// `TryFrom` implementation named by `#[usage(try_into = ...)]`. The derive
+/// turns it into the same [`Error::InvalidValue`] diagnostic used by field
+/// conversion, so callers keep one parse error type.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ValidationError {
+    name: &'static str,
+    value: String,
+    reason: String,
+}
+
+impl ValidationError {
+    /// Start an error attributed to a flag, positional, or command name.
+    pub fn field(name: &'static str) -> Self {
+        Self {
+            name,
+            value: String::new(),
+            reason: String::new(),
+        }
+    }
+
+    /// Record the value that failed the command-wide invariant.
+    pub fn value(mut self, value: impl Into<String>) -> Self {
+        self.value = value.into();
+        self
+    }
+
+    /// Explain the invariant that the value did not satisfy.
+    pub fn reason(mut self, reason: impl Into<String>) -> Self {
+        self.reason = reason.into();
+        self
+    }
+
+    /// Convert this application-level failure into the parser's diagnostic.
+    pub fn into_parse_error<'v>(self) -> Error<'static, 'v> {
+        Error::InvalidValue(Box::new(InvalidValue {
+            name: self.name,
+            value: self.value,
+            reason: self.reason,
+        }))
+    }
 }
 
 /// Interpret a value as UTF-8.

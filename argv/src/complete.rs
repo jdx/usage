@@ -16,7 +16,7 @@
 //! in a real invocation.
 
 use crate::spec::{ArgMeta, CommandMeta, CommandSelector, FlagMeta, Spec, SpecView};
-pub use crate::spec::{Candidate, CompleteCtx, Completer};
+pub use crate::spec::{Candidate, CandidateKind, CompleteCtx, Completer};
 use crate::{Arg, Command, Error, Flag, Parser};
 use core::future::Future;
 use core::pin::Pin;
@@ -349,7 +349,7 @@ pub fn completers_on(meta: &CommandMeta<'_>) -> Vec<String> {
 /// This is a deliberate divergence from usage-lib, which reads the directory itself and returns
 /// the names. The conformance comparison holds the two equivalent rather than equal: where the
 /// reference answers with a listing, this answers with the marker.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Files {
     /// Anything: files, directories, whatever the shell shows for a path.
     Any,
@@ -359,6 +359,29 @@ pub enum Files {
     ExecutablePaths,
     /// Command names, including entries from the shell's command table and `PATH`.
     Commands,
+    /// Files with one of these extensions, plus directories for continued traversal.
+    Extensions(Vec<String>),
+}
+
+impl core::fmt::Display for Files {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Any => f.write_str("paths"),
+            Self::Dirs => f.write_str("directories"),
+            Self::ExecutablePaths => f.write_str("executable paths"),
+            Self::Commands => f.write_str("commands"),
+            Self::Extensions(extensions) => {
+                f.write_str("paths with extensions ")?;
+                for (index, extension) in extensions.iter().enumerate() {
+                    if index > 0 {
+                        f.write_str(", ")?;
+                    }
+                    write!(f, ".{extension}")?;
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 /// Everything a shell needs to answer one Tab.
@@ -368,6 +391,138 @@ pub struct Completions<'a> {
     pub candidates: Vec<Candidate<'a>>,
     /// Paths the shell should add, if the position admits them.
     pub files: Option<Files>,
+}
+
+/// An inspectable account of how a partial line reached its completion answer.
+///
+/// This is deliberately data rather than log output: a CLI can print it in a hidden diagnostic
+/// command, a test can assert on one field, and another frontend can render it differently.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompletionTrace<'a> {
+    pub words: Vec<String>,
+    pub cword: usize,
+    pub prefix: String,
+    pub command_path: Vec<&'a str>,
+    pub flags_possible: bool,
+    pub awaiting_value: Option<&'a str>,
+    pub next_arg: Option<&'a str>,
+    pub separator_seen: bool,
+    pub help_topic: bool,
+    pub candidates: Vec<Candidate<'a>>,
+    pub files: Option<Files>,
+}
+
+impl core::fmt::Display for CompletionTrace<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, "words: {:?}", self.words)?;
+        writeln!(
+            f,
+            "cursor: word {} with prefix {:?}",
+            self.cword, self.prefix
+        )?;
+        writeln!(f, "command: {}", self.command_path.join(" "))?;
+        let position = if let Some(flag) = self.awaiting_value {
+            format!("value of {flag}")
+        } else if self.flags_possible && self.prefix.starts_with('-') {
+            "flag".to_string()
+        } else if let Some(arg) = self.next_arg {
+            format!("argument {arg}")
+        } else if self.help_topic {
+            "help topic".to_string()
+        } else {
+            "command or flag".to_string()
+        };
+        writeln!(f, "position: {position}")?;
+        writeln!(f, "flags possible: {}", self.flags_possible)?;
+        writeln!(f, "separator seen: {}", self.separator_seen)?;
+        let candidates = self
+            .candidates
+            .iter()
+            .map(|candidate| candidate.value.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        writeln!(f, "candidates: {candidates}")?;
+        match &self.files {
+            Some(files) => writeln!(f, "shell fallback: {files}"),
+            None => writeln!(f, "shell fallback: none"),
+        }
+    }
+}
+
+/// Explain a completion answer using the same parser walk and tables that produced it.
+pub fn trace<'a>(spec: &'a Spec<'a>, split: &Split) -> CompletionTrace<'a> {
+    let position = walk(spec.root.cmd, split.argv());
+    let answer = complete(spec, split);
+    trace_from(spec, split, position, answer, None)
+}
+
+/// Explain a completion answer through one executable view.
+pub fn trace_view<'a>(
+    spec: &'a Spec<'a>,
+    split: &Split,
+    view: &'a crate::spec::ViewMeta<'a>,
+) -> CompletionTrace<'a> {
+    let position = walk_view(spec.root.cmd, split.argv(), view);
+    let answer = complete_view(spec, split, view);
+    trace_from(spec, split, position, answer, Some(view))
+}
+
+fn trace_from<'a>(
+    spec: &'a Spec<'a>,
+    split: &Split,
+    position: Position<'a>,
+    answer: Completions<'a>,
+    view: Option<&crate::spec::ViewMeta<'_>>,
+) -> CompletionTrace<'a> {
+    let chain = metadata_chain_on_route(spec, &position);
+    let meta = chain.as_ref().and_then(|chain| chain.last().copied());
+    let next_arg = if restarted(meta, split) {
+        meta.and_then(|meta| meta.args.first())
+            .map(|field| field.arg)
+    } else {
+        position
+            .next_arg
+            .or_else(|| default_subcommand_arg(spec, split, &position).map(|(_, field)| field.arg))
+    };
+    let command_path = if position.help_topic {
+        let argv = split
+            .argv()
+            .iter()
+            .map(std::ffi::OsStr::new)
+            .collect::<Vec<_>>();
+        let route = match view {
+            Some(view) => {
+                let mut view_argv = Vec::with_capacity(argv.len() + 1);
+                view_argv.push(std::ffi::OsStr::new(view.bin));
+                view_argv.extend_from_slice(&argv);
+                crate::help::route_to_view(spec.root.cmd, &view_argv, position.cmd, view)
+            }
+            None => crate::help::route_to(spec.root.cmd, &argv, position.cmd),
+        };
+        route
+            .map(|route| route.into_iter().map(|command| command.name).collect())
+            .or_else(|| chain.map(|chain| chain.into_iter().map(|meta| meta.cmd.name).collect()))
+            .unwrap_or_else(|| vec![position.cmd.name])
+    } else {
+        position
+            .path
+            .iter()
+            .map(|(command, _)| command.name)
+            .collect()
+    };
+    CompletionTrace {
+        words: split.words.clone(),
+        cword: split.cword,
+        prefix: split.prefix.clone(),
+        command_path,
+        flags_possible: position.flags_possible,
+        awaiting_value: position.awaiting_value.map(|flag| flag.name),
+        next_arg: next_arg.map(|arg| arg.name),
+        separator_seen: position.separator_seen,
+        help_topic: position.help_topic,
+        candidates: answer.candidates,
+        files: answer.files,
+    }
 }
 
 /// A completion future supplied by an embedding CLI.
@@ -575,6 +730,7 @@ impl Request {
         let mut line = String::new();
         let mut cursor = None;
         let mut candidates_for = None;
+        let mut words: Option<Vec<String>> = None;
         let mut rest = argv[1..].iter();
         while let Some(arg) = rest.next() {
             match arg.to_str().unwrap_or_default() {
@@ -599,13 +755,37 @@ impl Request {
                 "--candidates" => {
                     candidates_for = rest.next().map(|v| v.to_string_lossy().into_owned());
                 }
+                "--words" => {
+                    words = Some(
+                        rest.map(|word| word.to_string_lossy().into_owned())
+                            .collect(),
+                    );
+                    break;
+                }
                 _ => {}
             }
         }
-        let cursor = cursor.unwrap_or(line.len());
+        let split = match words {
+            Some(mut words) => {
+                if words.is_empty() {
+                    words.push(String::new());
+                }
+                let cword = words.len() - 1;
+                let prefix = words[cword].clone();
+                Split {
+                    words,
+                    cword,
+                    prefix,
+                }
+            }
+            None => {
+                let cursor = cursor.unwrap_or(line.len());
+                split(&line, cursor, shell)
+            }
+        };
         Some(Self {
             shell,
-            split: split(&line, cursor, shell),
+            split,
             candidates_for,
         })
     }
@@ -628,9 +808,9 @@ pub const COMMANDS_MARKER: &str = "\u{1}commands";
 /// Write an answer the way `shell` reads it.
 ///
 /// One line per candidate, in the shape the shell's own completion machinery expects — which is
-/// where the five differ. bash reads values only; fish, nu and PowerShell take a description
-/// after a tab; zsh takes a third field, the text to insert, because what it displays and what
-/// it types are not always the same string.
+/// where the five differ. bash reads values only; fish and nu take a description after a tab;
+/// PowerShell takes value, description and display text; zsh takes display text, description and
+/// the quoted text to insert.
 ///
 /// A trailing [`FILES_MARKER`] says the generated script should hand the position to the
 /// shell's own path completion afterwards.
@@ -649,13 +829,41 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
             Shell::Zsh => {
                 // Display, then description, then what to type: a candidate containing a space
                 // or a quote has to reach the command line intact.
-                out.push_str(&candidate.value);
+                out.push_str(&one_line(
+                    candidate.display.as_deref().unwrap_or(&candidate.value),
+                ));
                 out.push('\t');
                 out.push_str(description);
                 out.push('\t');
                 out.push_str(&zsh_quote(&candidate.value));
             }
-            Shell::Fish | Shell::Nu | Shell::PowerShell => {
+            Shell::PowerShell => {
+                out.push_str(&candidate.value);
+                out.push('\t');
+                out.push_str(description);
+                out.push('\t');
+                out.push_str(&one_line(
+                    candidate.display.as_deref().unwrap_or(&candidate.value),
+                ));
+                out.push('\t');
+                out.push_str(match candidate.kind {
+                    CandidateKind::Value => "value",
+                    CandidateKind::Command => "command",
+                    CandidateKind::Flag => "flag",
+                    CandidateKind::File => "file",
+                    CandidateKind::Directory => "directory",
+                });
+            }
+            Shell::Elvish => {
+                out.push_str(&candidate.value);
+                out.push('\t');
+                out.push_str(description);
+                out.push('\t');
+                out.push_str(&one_line(
+                    candidate.display.as_deref().unwrap_or(&candidate.value),
+                ));
+            }
+            Shell::Fish | Shell::Nu => {
                 out.push_str(&candidate.value);
                 if described {
                     out.push('\t');
@@ -666,7 +874,7 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
         out.push('\n');
     }
 
-    match answer.files {
+    match &answer.files {
         Some(Files::Any) => {
             out.push_str(FILES_MARKER);
             out.push('\n');
@@ -681,6 +889,14 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
         }
         Some(Files::Commands) => {
             out.push_str(COMMANDS_MARKER);
+            out.push('\n');
+        }
+        Some(Files::Extensions(extensions)) => {
+            out.push_str("\u{1}extensions");
+            for extension in extensions {
+                out.push('\t');
+                out.push_str(extension);
+            }
             out.push('\n');
         }
         None => {}
@@ -756,6 +972,20 @@ fn files_for(name: &str) -> Option<Files> {
 }
 
 fn declared_files(type_: &str, next_arg_values: u32) -> Option<Files> {
+    if let Some(extensions) = type_
+        .strip_prefix("path:")
+        .or_else(|| type_.strip_prefix("file:"))
+    {
+        let extensions = extensions
+            .split(',')
+            .map(|extension| extension.trim().trim_start_matches('.'))
+            .filter(|extension| !extension.is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if !extensions.is_empty() {
+            return Some(Files::Extensions(extensions));
+        }
+    }
     if type_.eq_ignore_ascii_case("command_args") {
         return Some(if next_arg_values == 0 {
             Files::Commands
@@ -982,10 +1212,7 @@ pub async fn complete_with<'a>(
 
     let mut answer = complete(spec, split);
     answer.candidates.extend(dynamic);
-    answer.candidates.sort();
-    answer
-        .candidates
-        .dedup_by(|left, right| left.value == right.value);
+    sort_and_dedup_candidates(&mut answer.candidates);
     // Even an empty callback suppresses the cwd fallback, but a field that
     // explicitly declares files or directories keeps that shell completion.
     answer.files = declared_files_at_cursor(spec, split, &position);
@@ -1021,12 +1248,37 @@ async fn complete_named_with<'a>(
         candidates.append(&mut dynamic);
     }
     candidates.retain(|candidate| candidate.value.starts_with(&split.prefix));
-    candidates.sort();
-    candidates.dedup_by(|left, right| left.value == right.value);
+    sort_and_dedup_candidates(&mut candidates);
     Completions {
         candidates,
         files: None,
     }
+}
+
+/// Sort candidates by insertion value and merge presentation metadata from duplicates.
+///
+/// Static metadata and a runtime overlay can legitimately offer the same value. Keeping the
+/// first candidate after derived sorting would prefer `None` over `Some`, discarding the richer
+/// display label or description.
+fn sort_and_dedup_candidates(candidates: &mut Vec<Candidate<'_>>) {
+    candidates.sort();
+    let mut deduped: Vec<Candidate<'_>> = Vec::with_capacity(candidates.len());
+    for mut candidate in candidates.drain(..) {
+        if let Some(existing) = deduped
+            .last_mut()
+            .filter(|existing| existing.value == candidate.value)
+        {
+            if existing.display.is_none() {
+                existing.display = candidate.display.take();
+            }
+            if existing.description.is_none() {
+                existing.description = candidate.description.take();
+            }
+        } else {
+            deduped.push(candidate);
+        }
+    }
+    *candidates = deduped;
 }
 
 fn overlay_for_name<'o>(
@@ -1264,8 +1516,7 @@ fn candidates_inner<'a>(
         found
     };
 
-    out.sort();
-    out.dedup_by(|a, b| a.value == b.value);
+    sort_and_dedup_candidates(&mut out);
     out
 }
 
@@ -1303,6 +1554,8 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
             if name.starts_with(token) {
                 out.push(Candidate {
                     value: (*name).to_string(),
+                    kind: CandidateKind::Command,
+                    display: None,
                     description: deprecated_description(
                         sub.about,
                         sub.deprecated,
@@ -1340,6 +1593,8 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             if value.starts_with(token) {
                 out.push(Candidate {
                     value,
+                    kind: CandidateKind::Flag,
+                    display: None,
                     description: description.clone(),
                 });
             }
@@ -1354,6 +1609,8 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             if value.starts_with(token) {
                 out.push(Candidate {
                     value,
+                    kind: CandidateKind::Flag,
+                    display: None,
                     description: description.clone(),
                 });
             }
@@ -1386,6 +1643,8 @@ fn short_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> 
             if asked_about {
                 out.push(Candidate {
                     value: format!("-{}", short as char),
+                    kind: CandidateKind::Flag,
+                    display: None,
                     description: meta.and_then(|m| {
                         deprecated_description(
                             m.help,
@@ -1443,6 +1702,8 @@ fn positional<'a>(
         if token.is_empty() {
             return vec![Candidate {
                 value: "--".to_string(),
+                kind: CandidateKind::Value,
+                display: None,
                 description: None,
             }];
         }
@@ -1519,6 +1780,8 @@ fn choices<'a>(
         .filter(|c| c.starts_with(token))
         .map(|c| Candidate {
             value: (*c).to_string(),
+            kind: CandidateKind::Value,
+            display: None,
             description: details
                 .iter()
                 .find(|detail| {
@@ -1552,7 +1815,8 @@ fn arg_meta<'a>(meta: &'a CommandMeta<'a>, arg: &Arg<'_>) -> Option<&'a ArgMeta<
 
 /// Which shell's quoting rules a line follows.
 ///
-/// Only two rule sets, not five: bash, zsh, fish and nushell all follow the POSIX shape
+/// Most shells follow the POSIX word shape, while PowerShell and Elvish need their own
+/// lossless argv handling and output protocols.
 /// closely enough that a completion request cannot tell them apart, while PowerShell escapes
 /// with a backtick and doubles a quote to escape it. The distinction is kept per *shell*
 /// rather than per rule set so that a shell whose rules turn out to differ can be given its
@@ -1561,6 +1825,7 @@ fn arg_meta<'a>(meta: &'a CommandMeta<'a>, arg: &Arg<'_>) -> Option<&'a ArgMeta<
 #[non_exhaustive]
 pub enum Shell {
     Bash,
+    Elvish,
     Zsh,
     Fish,
     Nu,
@@ -1572,6 +1837,7 @@ impl Shell {
     pub fn as_str(self) -> &'static str {
         match self {
             Shell::Bash => "bash",
+            Shell::Elvish => "elvish",
             Shell::Zsh => "zsh",
             Shell::Fish => "fish",
             Shell::Nu => "nu",
@@ -1583,6 +1849,7 @@ impl Shell {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "bash" => Some(Shell::Bash),
+            "elvish" => Some(Shell::Elvish),
             "zsh" => Some(Shell::Zsh),
             "fish" => Some(Shell::Fish),
             "nu" | "nushell" => Some(Shell::Nu),
@@ -2030,6 +2297,7 @@ mod tests {
             Candidate::described("node", "JavaScript"),
             Candidate::described("python", "Snakes"),
             Candidate::new("ruby"),
+            Candidate::new("ruby").displayed("Ruby runtime"),
         ]
     }
 
@@ -2248,12 +2516,18 @@ mod tests {
         })
     }
 
+    fn labeled_ruby(_ctx: &CompleteCtx<'_>) -> Vec<Candidate<'static>> {
+        vec![Candidate::new("ruby").displayed("Ruby runtime")]
+    }
+
     static RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
         [CompletionOverlay::asynchronous(
             "use",
             "tool",
             runtime_tools,
         )];
+    static LABELED_COMPLETIONS: [CompletionOverlay<'static>; 1] =
+        [CompletionOverlay::sync("install", "tool", labeled_ruby)];
     static GLOBAL_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
         [CompletionOverlay::async_any("tool", runtime_tools)];
     static FILE_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
@@ -2526,6 +2800,37 @@ mod tests {
         let unrelated = at_end("mise plugins ");
         let answer = run_ready(complete_with(&SPEC, &unrelated, &RUNTIME_COMPLETIONS));
         assert_eq!(answer.candidates[0].value, "ls");
+    }
+
+    #[test]
+    fn cursor_completion_keeps_presentation_metadata_from_duplicate_values() {
+        let answer = run_ready(complete_with(
+            &SPEC,
+            &at_end("mise install r"),
+            &LABELED_COMPLETIONS,
+        ));
+        assert_eq!(answer.candidates.len(), 1, "{answer:?}");
+        assert_eq!(answer.candidates[0].value, "ruby");
+        assert_eq!(
+            answer.candidates[0].display.as_deref(),
+            Some("Ruby runtime")
+        );
+    }
+
+    #[test]
+    fn named_completion_keeps_presentation_metadata_from_duplicate_values() {
+        let answer = run_ready(complete_named_with(
+            &SPEC,
+            &at_end("mise install r"),
+            &LABELED_COMPLETIONS,
+            "tool",
+        ));
+        assert_eq!(answer.candidates.len(), 1, "{answer:?}");
+        assert_eq!(answer.candidates[0].value, "ruby");
+        assert_eq!(
+            answer.candidates[0].display.as_deref(),
+            Some("Ruby runtime")
+        );
     }
 
     /// The position at the cursor of a line, which is what a completion asks about.
@@ -3075,6 +3380,140 @@ mod tests {
     }
 
     #[test]
+    fn extension_types_preserve_the_filter_for_the_shell() {
+        assert_eq!(
+            declared_files("path:toml, .yaml,.", 0),
+            Some(Files::Extensions(vec![
+                "toml".to_string(),
+                "yaml".to_string()
+            ]))
+        );
+        let answer = Completions {
+            candidates: Vec::new(),
+            files: declared_files("path:toml,yaml", 0),
+        };
+        assert_eq!(
+            render(&answer, Shell::Bash),
+            "\u{1}extensions\ttoml\tyaml\n"
+        );
+    }
+
+    #[test]
+    fn a_trace_exposes_the_parser_decision_behind_an_answer() {
+        let trace = trace(&SPEC, &at_end("mise use --jobs "));
+        assert_eq!(trace.command_path, ["mise", "use"]);
+        assert_eq!(trace.awaiting_value, Some("jobs"));
+        assert_eq!(trace.next_arg, Some("TOOL"));
+        assert_eq!(trace.files, None);
+        let rendered = trace.to_string();
+        assert!(rendered.contains("position: value of jobs"), "{rendered}");
+        assert!(rendered.contains("shell fallback: none"), "{rendered}");
+    }
+
+    #[test]
+    fn a_trace_uses_the_effective_argument_after_a_restart() {
+        let trace = trace(&SPEC, &at_end("mise ship fast script ::: "));
+        assert_eq!(trace.next_arg, Some("MODE"));
+        assert_eq!(trace.files, None);
+        assert!(trace.to_string().contains("position: argument MODE"));
+    }
+
+    #[test]
+    fn a_help_trace_keeps_the_selected_topic_path() {
+        let trace = trace(&SPEC, &at_end("mise help plugins "));
+        assert!(trace.help_topic);
+        assert_eq!(trace.command_path, ["mise", "plugins"]);
+        assert!(trace.to_string().contains("command: mise plugins"));
+    }
+
+    #[test]
+    fn a_help_trace_keeps_the_typed_route_to_a_shared_command() {
+        static CONFIG: Flag = Flag {
+            name: "config",
+            longs: &["config"],
+            global: true,
+            ..Flag::VALUE
+        };
+        static SHARED: Command = Command {
+            name: "shared",
+            ..Command::EMPTY
+        };
+        static LEFT: Command = Command {
+            name: "left",
+            subcommands: &[&SHARED],
+            ..Command::EMPTY
+        };
+        static RIGHT: Command = Command {
+            name: "right",
+            subcommands: &[&SHARED],
+            ..Command::EMPTY
+        };
+        static ROOT: Command = Command {
+            name: "ex",
+            flags: &[&CONFIG],
+            subcommands: &[&LEFT, &RIGHT],
+            ..Command::EMPTY
+        };
+        static SHARED_META: CommandMeta = CommandMeta {
+            cmd: &SHARED,
+            ..CommandMeta::EMPTY
+        };
+        static LEFT_META: CommandMeta = CommandMeta {
+            cmd: &LEFT,
+            subcommands: &[&SHARED_META],
+            ..CommandMeta::EMPTY
+        };
+        static RIGHT_META: CommandMeta = CommandMeta {
+            cmd: &RIGHT,
+            subcommands: &[&SHARED_META],
+            ..CommandMeta::EMPTY
+        };
+        static ROOT_META: CommandMeta = CommandMeta {
+            cmd: &ROOT,
+            flags: &[FlagMeta {
+                flag: &CONFIG,
+                ..FlagMeta::EMPTY
+            }],
+            subcommands: &[&LEFT_META, &RIGHT_META],
+            ..CommandMeta::EMPTY
+        };
+        static SHARED_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &ROOT_META,
+            ..Spec::EMPTY
+        };
+        static RIGHT_VIEW: crate::spec::ViewMeta = crate::spec::ViewMeta {
+            id: "right",
+            name: "right",
+            bin: "right",
+            root: "right",
+            all_globals: true,
+            globals: &[],
+        };
+
+        let trace = trace(&SHARED_SPEC, &at_end("ex help right shared "));
+        assert!(trace.help_topic);
+        assert_eq!(trace.command_path, ["ex", "right", "shared"]);
+
+        let trace = trace_view(
+            &SHARED_SPEC,
+            &at_end("right --config alpha help shared "),
+            &RIGHT_VIEW,
+        );
+        assert!(trace.help_topic);
+        assert_eq!(trace.command_path, ["ex", "right", "shared"]);
+    }
+
+    #[test]
+    fn a_trace_labels_a_dash_prefixed_cursor_as_a_flag_position() {
+        let trace = trace(&SPEC, &at_end("mise install --s"));
+        assert!(trace.flags_possible);
+        assert_eq!(trace.next_arg, Some("TOOL"));
+        assert!(trace.to_string().contains("position: flag"));
+    }
+
+    #[test]
     fn executable_paths_and_command_names_are_distinct_shell_requests() {
         assert_eq!(files_for("executable"), Some(Files::ExecutablePaths));
         assert_eq!(files_for("command"), Some(Files::Commands));
@@ -3277,14 +3716,77 @@ mod tests {
         // bash shows values and nothing else.
         assert_eq!(render(&answer, Shell::Bash), "plugins\n");
 
-        // fish, nu and PowerShell take a description after a tab.
+        // fish and nu take a description after a tab.
         assert_eq!(render(&answer, Shell::Fish), "plugins\tManage plugins\n");
+
+        // Elvish receives insertion, description, and presentation separately.
+        assert_eq!(
+            render(&answer, Shell::Elvish),
+            "plugins\tManage plugins\tplugins\n"
+        );
+
+        // PowerShell also receives its separately selectable display text.
+        assert_eq!(
+            render(&answer, Shell::PowerShell),
+            "plugins\tManage plugins\tplugins\tcommand\n"
+        );
 
         // zsh takes a third field: what to type, which is not always what is shown.
         assert_eq!(
             render(&answer, Shell::Zsh),
             "plugins\tManage plugins\tplugins\n"
         );
+    }
+
+    #[test]
+    fn a_shell_that_already_split_words_can_send_them_losslessly() {
+        let argv = [
+            OsString::from("__complete_word__"),
+            OsString::from("--shell"),
+            OsString::from("elvish"),
+            OsString::from("--words"),
+            OsString::from("mise"),
+            OsString::from("run"),
+            OsString::from("two words"),
+        ];
+        let request = Request::parse(&argv).expect("a completion request");
+        assert_eq!(request.shell, Shell::Elvish);
+        assert_eq!(request.split.words, ["mise", "run", "two words"]);
+        assert_eq!(request.split.cword, 2);
+        assert_eq!(request.split.prefix, "two words");
+    }
+
+    #[test]
+    fn display_text_does_not_change_what_the_shell_inserts() {
+        let answer = Completions {
+            candidates: vec![Candidate::described("iad", "US East").displayed("IAD · Virginia")],
+            files: None,
+        };
+
+        assert_eq!(render(&answer, Shell::Bash), "iad\n");
+        assert_eq!(render(&answer, Shell::Fish), "iad\tUS East\n");
+        assert_eq!(
+            render(&answer, Shell::PowerShell),
+            "iad\tUS East\tIAD · Virginia\tvalue\n"
+        );
+        assert_eq!(
+            render(&answer, Shell::Zsh),
+            "IAD · Virginia\tUS East\tiad\n"
+        );
+    }
+
+    #[test]
+    fn powershell_receives_native_candidate_kinds() {
+        let answer = Completions {
+            candidates: vec![Candidate::new("deploy").with_kind(CandidateKind::Command)],
+            files: None,
+        };
+        assert_eq!(
+            render(&answer, Shell::PowerShell),
+            "deploy\t\tdeploy\tcommand\n"
+        );
+        // Shells without a typed candidate API lose only the metadata.
+        assert_eq!(render(&answer, Shell::Fish), "deploy\n");
     }
 
     #[test]
@@ -3392,6 +3894,10 @@ mod tests {
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].value, "node");
         assert_eq!(found[0].description.as_deref(), Some("JavaScript"));
+
+        let ruby = candidates(&SPEC, &at_end("mise install ru"));
+        assert_eq!(ruby.len(), 1, "{ruby:?}");
+        assert_eq!(ruby[0].display.as_deref(), Some("Ruby runtime"));
 
         // For a flag's value as well as an argument's.
         assert_eq!(offered("mise install --only "), ["node"]);

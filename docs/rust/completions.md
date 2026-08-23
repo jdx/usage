@@ -35,11 +35,9 @@ pub fn install_completion_for_alias(alias, shell, env, on_foreign) -> Result<Ins
 pub fn completion_request(argv: &[OsString]) -> Option<String>;
 ```
 
-`Shell` covers `Bash`, `Zsh`, `Fish`, `Nu`, and `PowerShell`.
+`Shell` covers `Bash`, `Elvish`, `Zsh`, `Fish`, `Nu`, and `PowerShell`.
 
-For clap parity, bash, fish, PowerShell, and zsh are the covered set. Nushell is an additional
-usage-native target. Elvish is not supported, so a clap application that currently publishes an
-Elvish script must keep that generator or defer the migration of that artifact.
+This covers clap's native shell set and adds a usage-native Nushell target.
 
 ## How it works
 
@@ -103,6 +101,7 @@ Where each shell keeps a user's own scripts, and whether it finds one without be
 | Shell      | Directory                                                                                     | Loads by itself            |
 | ---------- | --------------------------------------------------------------------------------------------- | -------------------------- |
 | bash       | `$BASH_COMPLETION_USER_DIR/completions`, else `$XDG_DATA_HOME/bash-completion/completions`    | yes, via bash-completion   |
+| Elvish     | `$XDG_CONFIG_HOME/elvish/completions`                                                         | no — needs sourcing        |
 | fish       | `$XDG_CONFIG_HOME/fish/completions`                                                           | yes                        |
 | nushell    | `$NU_VENDOR_AUTOLOAD_DIR`, else the nushell config directory                                  | only in a vendor directory |
 | zsh        | `$XDG_DATA_HOME/zsh/site-functions`, as `_<name>`                                             | no — needs `fpath+=`       |
@@ -140,6 +139,14 @@ format: Option<String>,
 #[usage(long, value_hint = usage::ValueHint::FilePath)]
 file: Option<PathBuf>,
 
+// filtered paths — directories remain available for traversal
+#[usage(
+    long,
+    value_hint = usage::ValueHint::FilePath,
+    extensions("toml", "yaml")
+)]
+manifest: Option<PathBuf>,
+
 // anything you can compute
 #[usage(arg, name = "TASK", complete = tasks_in_file)]
 task: Option<String>,
@@ -174,4 +181,27 @@ fn tasks_in_file(
 The first parameter is the _partial parse_ of the completer's own command — flags the user has
 already typed are available, so a `--file` flag can steer what gets completed. Build candidates
 with `Candidate::new(value)` or `Candidate::described(value, description)`; shells that display
-descriptions (zsh, fish) show them, shells that don't get the value alone.
+descriptions show them, shells that don't get the value alone. Chain `.displayed(label)` when a
+short insertion needs a more explanatory presentation; zsh and PowerShell keep that label
+separate from the text inserted into the command line, while other shells display the value.
+Chain `.with_kind(CandidateKind::Command)` (or `Flag`, `File`, or `Directory`) when a runtime
+candidate has a more specific role. PowerShell maps it to the corresponding native completion
+result type; shells without typed candidates keep the same value and description.
+
+## Tracing an answer
+
+Completion decisions are available as structured diagnostic data. This uses the same split,
+parser walk, and completion tables as the runtime request:
+
+```rust
+let line = "ex build --out ";
+let split = usage::complete::split(line, line.len(), usage::complete::Shell::Zsh);
+let trace = usage::complete::trace(Ex::spec(), &split);
+
+assert_eq!(trace.awaiting_value, Some("out"));
+eprintln!("{trace}");
+```
+
+The trace includes the shell-split words and prefix, selected command path, cursor owner, flag and
+separator state, candidates, and native shell fallback. Applications can expose its `Display`
+form from a diagnostic command or render the public fields themselves.

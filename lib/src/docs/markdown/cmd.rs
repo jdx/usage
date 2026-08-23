@@ -5,8 +5,25 @@ use crate::error::UsageErr;
 impl MarkdownRenderer {
     pub fn render_cmd(&self, cmd: &crate::SpecCommand) -> Result<String, UsageErr> {
         let mut cmd = SpecCommand::from(cmd);
+        // Anything that folds with the spec's CLI-wide declarations is taken from the
+        // renderer's own model, where the fold already happened. Converting the raw command
+        // gets only what that command declared, so a page would show a command's exit codes
+        // and silently omit the ones every command has.
+        if let Some(folded) = self.folded(&cmd.full_cmd) {
+            cmd.outputs = folded.outputs.clone();
+            cmd.exit_codes = folded.exit_codes.clone();
+        }
         cmd.render_md(self);
         self.render_with("cmd_template.md.tera", |ctx| ctx.insert("cmd", &cmd))
+    }
+
+    /// The command at this path in the renderer's folded model.
+    fn folded(&self, path: &[String]) -> Option<&SpecCommand> {
+        let mut cmd = &self.spec.cmd;
+        for name in path {
+            cmd = cmd.subcommands.get(name)?;
+        }
+        Some(cmd)
     }
 }
 
@@ -276,5 +293,72 @@ flag "-t -f --tail --follow" help="Follow output"
             !rendered.contains("### `-t -f --tail --follow`"),
             "{rendered}"
         );
+    }
+
+    #[test]
+    fn test_render_markdown_cmd_outputs_and_exit_codes() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+exit_code 0 "success"
+exit_code 130 "interrupted | terminated"
+cmd "check" help="Check the project" {
+    flag "--format <FMT>" help="Output format"
+    output "human" default=#true help="A table"
+    output "jsonl" framing="jsonl" help="One event per line"
+    select "--format"
+    exit_code 1 "a check failed"
+}
+cmd "version" help="Show the version"
+        "#
+        .parse()
+        .unwrap();
+        let ctx = MarkdownRenderer::new(spec.clone()).with_multi(true);
+        let rendered = spec
+            .cmd
+            .subcommands
+            .values()
+            .map(|cmd| ctx.render_cmd(cmd).unwrap())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        // `check` shows what it writes, how to ask for it, and the CLI-wide codes folded
+        // together with its own. `version` declares no outputs, so it renders no Output
+        // section — but the CLI-wide exit codes still reach it, because those are the
+        // program's, not the command's.
+        assert!(rendered.contains("## Output"), "{rendered}");
+        assert!(rendered.contains("### `human` (default)"), "{rendered}");
+        assert!(
+            rendered.contains("- **Select**: `--format jsonl`"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("one document per line, read as it arrives"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("| `1` | a check failed |"), "{rendered}");
+        assert!(
+            rendered.contains(r"| `130` | interrupted \| terminated |"),
+            "{rendered}"
+        );
+
+        let version = ctx.render_cmd(&spec.cmd.subcommands["version"]).unwrap();
+        assert!(!version.contains("## Output"), "{version}");
+        assert!(version.contains("| `0` | success |"), "{version}");
+    }
+
+    #[test]
+    fn a_command_with_no_outputs_renders_no_output_section() {
+        let spec: Spec = r#"
+name "ex"
+bin "ex"
+cmd "ls" help="List things"
+        "#
+        .parse()
+        .unwrap();
+        let ctx = MarkdownRenderer::new(spec.clone()).with_multi(true);
+        let rendered = ctx.render_cmd(&spec.cmd.subcommands["ls"]).unwrap();
+        assert!(!rendered.contains("## Output"), "{rendered}");
+        assert!(!rendered.contains("## Exit Status"), "{rendered}");
     }
 }

@@ -60,6 +60,9 @@ zero disables that cap.
 Markdown documentation prefers the `*_md` form, then long help, then short
 help. Flags and arguments also accept `help_md`.
 
+Commands can also declare their stdout formats, JSON Schemas, and exit statuses. See
+[Command outputs and exit codes](./output.md).
+
 ## Deprecating a command
 
 `deprecated="use build"` on a `cmd` says the command still works and should not be used

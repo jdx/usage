@@ -18,8 +18,8 @@ use quote::{format_ident, quote};
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
     rendered_path, to_kebab, type_name, ArgGroup, ArgGroupMember, Cli, ConditionalDefault,
-    Dispatch, DoubleDash, ExampleDecl, Field, Kind, Shape, Subcommands, ValueEnum, Variant,
-    ViewDecl,
+    Dispatch, DoubleDash, ExampleDecl, Field, Kind, SchemaSource, Shape, Subcommands, ValueEnum,
+    Variant, ViewDecl,
 };
 
 /// Construct the user's command type after its generated partial has been checked.
@@ -48,6 +48,19 @@ fn built_value(cli: &Cli, sub_build: &TokenStream, fields: &[TokenStream]) -> To
             }
         }
     }
+}
+
+/// Apply a root command's cross-field validation after every typed field exists.
+fn validated_value(cli: &Cli, built: &TokenStream) -> TokenStream {
+    let Some(validate_with) = &cli.validate_with else {
+        return built.clone();
+    };
+    quote! {{
+        let __usage_built = #built;
+        #validate_with(&__usage_built)
+            .map_err(usage_argv::ValidationError::into_parse_error)?;
+        __usage_built
+    }}
 }
 
 /// The runtime as the adopter depended on it.
@@ -96,6 +109,23 @@ fn derive_path() -> TokenStream {
             }
             _ => quote!(::usage_derive),
         },
+    }
+}
+
+/// The schema library, as the adopter depended on it.
+///
+/// Emitted only where a `schema_from = T` was written, so a CLI that never asks for one
+/// needs no such dependency. This crate does not have one either: it writes the path and
+/// the adopter's compile resolves it, the same arrangement `usage_config` already has.
+fn schemars_path() -> TokenStream {
+    match crate_name("schemars") {
+        Ok(FoundCrate::Itself) => quote!(::schemars),
+        Ok(FoundCrate::Name(name)) => {
+            let schemars = format_ident!("{}", name.replace('-', "_"));
+            quote!(::#schemars)
+        }
+        // Keeps the useful "use of undeclared crate" error pointing at the attribute.
+        _ => quote!(::schemars),
     }
 }
 
@@ -169,6 +199,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let help_template = option_str(cli.help_template.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
+    let OutputTokens {
+        decls: output_schema_decls,
+        outputs,
+        select,
+        exit_codes,
+    } = output_tokens(cli);
     // A bare `T` subcommand field says the command cannot run alone; an `Option<T>` says it
     // can. The parser already refuses the invocation from the type — this is so the emitted
     // spec says it too, since help, docs and completions read that rather than the type.
@@ -390,7 +426,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
             .map(|field| field_final(field, None))
             .collect();
-        let built = built_value(cli, &sub_build, &field_finals);
+        let built = validated_value(cli, &built_value(cli, &sub_build, &field_finals));
         quote! {
             /// Parse a command line, and the settings it gave values for.
             ///
@@ -465,7 +501,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
         .map(|field| field_final(field, None))
         .collect();
-    let built = built_value(cli, &sub_build, &field_finals);
+    let built = validated_value(cli, &built_value(cli, &sub_build, &field_finals));
     let built_for_view = if cli.views.is_empty() {
         built.clone()
     } else {
@@ -490,8 +526,95 @@ pub fn emit(cli: &Cli) -> TokenStream {
         } else {
             &sub_default_view_build
         };
-        built_value(cli, view_sub_build, &view_field_finals)
+        validated_value(cli, &built_value(cli, view_sub_build, &view_field_finals))
     };
+    let update_clone_bound = cli
+        .validate_with
+        .as_ref()
+        .map(|_| quote!(where Self: ::std::clone::Clone));
+    let update_merge = if let Some(validate_with) = &cli.validate_with {
+        quote! {
+            let mut __usage_candidate = self.clone();
+            merge(partial, &mut __usage_candidate)?;
+            #validate_with(&__usage_candidate)
+                .map_err(usage_argv::ValidationError::into_parse_error)?;
+            *self = __usage_candidate;
+            ::std::result::Result::Ok(())
+        }
+    } else {
+        quote!(merge(partial, self))
+    };
+
+    let parse_into = cli.try_into.as_ref().map(|target| {
+        quote! {
+            /// Parse a command line and finalize the parser type into the application's domain type.
+            pub fn parse_into_from<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<#target, usage_argv::Error<'static, 'v>> {
+                Self::parse_from(argv).and_then(Self::__usage_finalize)
+            }
+
+            /// [`Self::parse_into_from`], collecting the deprecations it used.
+            pub fn parse_into_from_with_warnings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+                warnings: &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+            ) -> ::std::result::Result<#target, usage_argv::Error<'static, 'v>> {
+                Self::parse_from_with_warnings(argv, warnings).and_then(Self::__usage_finalize)
+            }
+
+            /// Parse a full argv, including the program name, and finalize it.
+            pub fn parse_into_from_argv<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<#target, usage_argv::Error<'static, 'v>> {
+                Self::parse_from_argv(argv).and_then(Self::__usage_finalize)
+            }
+
+            /// Parse using clap's argv convention and finalize it.
+            pub fn try_parse_into_from<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<#target, usage_argv::Error<'static, 'v>> {
+                Self::try_parse_from(argv).and_then(Self::__usage_finalize)
+            }
+
+            #[doc(hidden)]
+            fn __usage_finalize<'v>(
+                parsed: Self,
+            ) -> ::std::result::Result<#target, usage_argv::Error<'static, 'v>> {
+                <#target as ::std::convert::TryFrom<Self>>::try_from(parsed)
+                    .map_err(usage_argv::ValidationError::into_parse_error)
+            }
+
+        /// Parse the process's arguments and finalize them into the domain type.
+        pub fn parse_into() -> #target {
+            #completion_intercept
+            #parse_preamble
+            let mut __usage_warnings = ::std::vec::Vec::new();
+            let __usage_result = Self::__usage_parse_from_argv(
+                &__usage_all_refs,
+                ::std::option::Option::Some(&mut __usage_warnings),
+            ).and_then(Self::__usage_finalize);
+            match __usage_result {
+                ::std::result::Result::Ok(finalized) => {
+                    if !__usage_warnings.is_empty() {
+                        ::std::eprint!(
+                            "{}",
+                            usage_argv::render_warnings(&__usage_warnings),
+                        );
+                    }
+                    finalized
+                }
+                ::std::result::Result::Err(error) => {
+                    Self::__usage_exit_on_error(
+                        error,
+                        &__usage_all_refs,
+                        &__usage_argv,
+                        __usage_selected_view,
+                    )
+                }
+            }
+            }
+        }
+    });
 
     // The process entry with a settings layer beside it, for a CLI that binds settings and
     // resolves them at startup — the fleet's `main` shape. Same help, version, and error
@@ -867,8 +990,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
             #group_meta_decl
 
+            #(#output_schema_decls)*
+
             pub static ROOT_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &ROOT,
+                outputs: #outputs,
+                select: #select,
+                exit_codes: #exit_codes,
                 about: #about,
                 long_about: #long_about,
                 deprecated: #deprecated,
@@ -1182,6 +1310,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 #settings_binding_forward
                 #settings_parse
+                #parse_into
 
                 /// Parse a command line, excluding the program name.
                 pub fn parse_from<'v>(
@@ -1360,13 +1489,15 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 pub fn try_update_from<'v>(
                     &mut self,
                     argv: &[&'v ::std::ffi::OsStr],
-                ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
+                ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>>
+                #update_clone_bound
+                {
                     // A fresh partial, never seeded from `self`: `FromStr` has no inverse, so
                     // there is no way back from a typed field to the word that made it.
                     #defaults
                     read_argv_into(Self::command(), argv, &mut partial)?;
                     check_update(&mut partial, self)?;
-                    merge(partial, self)
+                    #update_merge
                 }
 
                 /// Merge a full argv, including the program name, into this value.
@@ -1380,7 +1511,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 pub fn try_update_from_argv<'v>(
                     &mut self,
                     argv: &[&'v ::std::ffi::OsStr],
-                ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>> {
+                ) -> ::std::result::Result<(), usage_argv::Error<'static, 'v>>
+                #update_clone_bound
+                {
                     let ::std::option::Option::Some((__usage_argv0, __usage_words)) =
                         argv.split_first()
                     else {
@@ -1419,7 +1552,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 /// [`Self::try_update_from`], answering a failure the way [`Self::parse`]
                 /// does: help or a version on stdout, a message on stderr, and exit.
-                pub fn update_from<'v>(&mut self, argv: &[&'v ::std::ffi::OsStr]) {
+                pub fn update_from<'v>(&mut self, argv: &[&'v ::std::ffi::OsStr])
+                #update_clone_bound
+                {
                     if let ::std::result::Result::Err(e) = self.try_update_from(argv) {
                         Self::__usage_exit_on_error(
                             e,
@@ -1431,7 +1566,9 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 }
 
                 /// [`Self::try_update_from_argv`], exiting on failure as [`Self::parse`] does.
-                pub fn update_from_argv<'v>(&mut self, argv: &[&'v ::std::ffi::OsStr]) {
+                pub fn update_from_argv<'v>(&mut self, argv: &[&'v ::std::ffi::OsStr])
+                #update_clone_bound
+                {
                     if let ::std::result::Result::Err(e) = self.try_update_from_argv(argv) {
                         let __usage_words =
                             argv.split_first().map_or(argv, |(_, rest)| rest);
@@ -1907,6 +2044,8 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             let mut cursor = ::std::option::Option::None;
             let mut candidates_for: ::std::option::Option<::std::string::String> =
                 ::std::option::Option::None;
+            let mut words: ::std::option::Option<::std::vec::Vec<::std::string::String>> =
+                ::std::option::Option::None;
             let mut rest = argv[1..].iter();
             while let ::std::option::Option::Some(arg) = rest.next() {
                 match arg.to_str().unwrap_or_default() {
@@ -1938,6 +2077,14 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                     "--candidates" => {
                         candidates_for = rest.next().map(|v| v.to_string_lossy().into_owned());
                     }
+                    // Elvish already hands its completer losslessly split words. Keeping them as
+                    // argv avoids re-quoting text just so the shared line splitter can undo it.
+                    "--words" => {
+                        words = ::std::option::Option::Some(
+                            rest.map(|word| word.to_string_lossy().into_owned()).collect(),
+                        );
+                        break;
+                    }
                     // Anything else is a shell passing something this version does not know
                     // about. Ignored rather than refused: a completion that errors out is a
                     // shell that beeps at every keystroke.
@@ -1946,8 +2093,20 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             }
             // No cursor means the end of the line, which is where a shell puts it when it has
             // no way to say — nushell, whose completer only ever sees the words.
-            let cursor = cursor.unwrap_or(line.len());
-            let mut split = usage_argv::complete::split(&line, cursor, shell);
+            let mut split = match words {
+                ::std::option::Option::Some(mut words) => {
+                    if words.is_empty() {
+                        words.push(::std::string::String::new());
+                    }
+                    let cword = words.len() - 1;
+                    let prefix = words[cword].clone();
+                    usage_argv::complete::Split { words, cword, prefix }
+                }
+                ::std::option::Option::None => {
+                    let cursor = cursor.unwrap_or(line.len());
+                    usage_argv::complete::split(&line, cursor, shell)
+                }
+            };
             let __usage_selected_view = split.words.first().and_then(|__usage_program| {
                 usage_argv::spec::view_for_program(
                     Self::spec(),
@@ -2398,7 +2557,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     // nothing about whether its value is.
     let value_optional = field.value_optional;
     let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
-        choices_tokens(field);
+        choices_tokens(cli, field);
     let allow_unknown_choices = field.allow_unknown_choices;
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
@@ -2605,7 +2764,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     let required =
         (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
     let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
-        choices_tokens(field);
+        choices_tokens(cli, field);
     let allow_unknown_choices = field.allow_unknown_choices;
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
@@ -2668,6 +2827,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
 
 /// A field's declared choices, as the metadata holds them.
 fn choices_tokens(
+    cli: &Cli,
     field: &Field,
 ) -> (
     TokenStream,
@@ -2687,6 +2847,40 @@ fn choices_tokens(
             quote!(<#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE),
         );
     }
+    // The flag that picks among the outputs accepts exactly their names, so it gets them
+    // without the author writing the list twice. usage-lib fills the same list in when it
+    // parses a spec, and `output.rs`'s byte-identity test is what holds the two together.
+    if let Some(outputs) = selector_choices(cli, field) {
+        let values: Vec<&str> = outputs
+            .iter()
+            .filter(|o| !o.hide)
+            .map(|o| o.name.as_str())
+            .collect();
+        let details: Vec<TokenStream> = outputs
+            .iter()
+            .filter(|o| !o.hide && o.help.is_some())
+            .map(|o| {
+                let value = &o.name;
+                let help = o.help.as_deref().expect("filtered");
+                quote! {
+                    usage_argv::spec::ChoiceMeta {
+                        value: #value,
+                        help: ::std::option::Option::Some(#help),
+                        hide: false,
+                        aliases: &[],
+                    }
+                }
+            })
+            .collect();
+        let choices = quote!(&[#(#values),*]);
+        return (
+            choices.clone(),
+            choices,
+            quote!(&[]),
+            quote!(&[#(#details),*]),
+            quote!(false),
+        );
+    }
     let choices = &field.choices;
     let choices = quote!(&[#(#choices),*]);
     (
@@ -2696,6 +2890,25 @@ fn choices_tokens(
         quote!(&[]),
         quote!(false),
     )
+}
+
+/// The outputs this field selects among, if it is the one doing the selecting.
+///
+/// [`None`] when the field is not the selector, or when it already declares choices of its
+/// own — a hand-written list carries aliases and per-value help that a list of output names
+/// does not, so it wins and usage-lib checks the two agree rather than replacing either.
+fn selector_choices<'a>(cli: &'a Cli, field: &Field) -> Option<&'a [crate::model::OutputDecl]> {
+    let select = cli.select.as_deref()?;
+    if cli.outputs.is_empty() || !field.choices.is_empty() {
+        return None;
+    }
+    let selected = Cli::selector_for_field(field).is_some_and(|s| s == select);
+    // Also matches when `select = "-f"` names the short spelling of a field whose long is
+    // what `selector_for_field` returns.
+    let by_field = cli
+        .field_for_selector(select)
+        .is_some_and(|f| f.ident == field.ident);
+    (selected || by_field).then_some(cli.outputs.as_slice())
 }
 
 /// A field's declared bounds, as the metadata holds them.
@@ -3688,6 +3901,100 @@ fn examples_table(examples: &[ExampleDecl]) -> TokenStream {
     quote!(&[#(#entries),*])
 }
 
+/// What a command's `output`, `select` and `exit_code` declarations become in its
+/// `CommandMeta`, plus the schema functions those refer to.
+///
+/// Shared by the root and the per-`Args` emission because the three fields are identical
+/// on both; only where they are spliced differs.
+struct OutputTokens {
+    /// `fn` items, declared beside the metas because a `static` cannot call anything.
+    decls: Vec<TokenStream>,
+    outputs: TokenStream,
+    select: TokenStream,
+    exit_codes: TokenStream,
+}
+
+fn output_tokens(cli: &Cli) -> OutputTokens {
+    let mut decls = Vec::new();
+    let outputs: Vec<TokenStream> = cli
+        .outputs
+        .iter()
+        .enumerate()
+        .map(|(i, output)| {
+            let name = &output.name;
+            let framing = match output.framing.as_str() {
+                "json" => quote!(usage_argv::spec::Framing::Json),
+                "jsonl" => quote!(usage_argv::spec::Framing::Jsonl),
+                _ => quote!(usage_argv::spec::Framing::Text),
+            };
+            let help = option_str(output.help.as_deref());
+            let default = output.default;
+            let hide = output.hide;
+            let select = option_str(output.select.as_deref());
+            // A schema is a `fn` pointer rather than a string because `schema_for!` is a
+            // call and this initializes a `static`. The literal spelling goes through the
+            // same pointer so every consumer reads one field.
+            let schema_fn = match &output.schema {
+                None => quote!(::std::option::Option::None),
+                Some(SchemaSource::Function(path)) => {
+                    quote!(::std::option::Option::Some(#path))
+                }
+                Some(source) => {
+                    let wrapper = format_ident!("__usage_output_schema_{i}");
+                    let body = match source {
+                        SchemaSource::Literal(text) => {
+                            quote!(::std::string::ToString::to_string(#text))
+                        }
+                        SchemaSource::Type(ty) => {
+                            let schemars = schemars_path();
+                            // Compact rather than pretty: the emitted KDL is compared to
+                            // usage-lib's byte for byte, and a value with no newline in it
+                            // cannot disagree about how newlines are written.
+                            quote!(::std::string::ToString::to_string(
+                                &#schemars::schema_for!(#ty)
+                            ))
+                        }
+                        SchemaSource::Function(_) => unreachable!("handled above"),
+                    };
+                    decls.push(quote! {
+                        fn #wrapper() -> ::std::string::String { #body }
+                    });
+                    quote!(::std::option::Option::Some(#wrapper))
+                }
+            };
+            quote! {
+                usage_argv::spec::OutputMeta {
+                    name: #name,
+                    framing: #framing,
+                    help: #help,
+                    default: #default,
+                    hide: #hide,
+                    select: #select,
+                    schema: ::std::option::Option::None,
+                    schema_fn: #schema_fn,
+                }
+            }
+        })
+        .collect();
+    let exit_codes: Vec<TokenStream> = cli
+        .exit_codes
+        .iter()
+        .map(|exit_code| {
+            let code = exit_code.code;
+            let help = &exit_code.help;
+            quote! {
+                usage_argv::spec::ExitCodeMeta { code: #code, help: #help }
+            }
+        })
+        .collect();
+    OutputTokens {
+        decls,
+        outputs: quote!(&[#(#outputs),*]),
+        select: option_str(cli.select.as_deref()),
+        exit_codes: quote!(&[#(#exit_codes),*]),
+    }
+}
+
 fn option_expr(value: Option<&TokenStream>) -> TokenStream {
     match value {
         Some(v) => quote!(::std::option::Option::Some(#v)),
@@ -4635,10 +4942,10 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
     if let Kind::ArgGroup { ty, optional } = &field.kind {
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
         return if *optional {
-            quote!(#group::build(&partial.#ident))
+            quote!(#group::try_build(&partial.#ident)?)
         } else {
             quote! {
-                match #group::build(&partial.#ident) {
+                match #group::try_build(&partial.#ident)? {
                     ::std::option::Option::Some(__usage_member) => __usage_member,
                     ::std::option::Option::None => {
                         return ::std::result::Result::Err(
@@ -4943,7 +5250,7 @@ fn merge_fn(cli: &Cli) -> TokenStream {
                 };
                 Some(quote! {
                     if let ::std::option::Option::Some(__usage_member) =
-                        #group::build(&partial.#field_ident)
+                        #group::try_build(&partial.#field_ident)?
                     {
                         __usage_standing.#field_ident = #selected;
                     }
@@ -5676,6 +5983,12 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let command_key = key_ident("COMMAND", None);
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
+    let OutputTokens {
+        decls: output_schema_decls,
+        outputs,
+        select,
+        exit_codes,
+    } = output_tokens(cli);
     // A bare `T` subcommand field says the command cannot run alone; an `Option<T>` says it
     // can. The parser already refuses the invocation from the type — this is so the emitted
     // spec says it too, since help, docs and completions read that rather than the type.
@@ -5963,8 +6276,13 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
             #group_meta_decl
 
+            #(#output_schema_decls)*
+
             pub static COMMAND_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &COMMAND,
+                outputs: #outputs,
+                select: #select,
+                exit_codes: #exit_codes,
                 effect: #effect,
                 about: #about,
                 long_about: #long_about,
@@ -9696,6 +10014,11 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let cfg = &member.cfg_attrs;
         let long = &member.name;
         let shorts: Vec<u8> = member.short.map(|short| short as u8).into_iter().collect();
+        let shape = if member.value_ty.is_some() {
+            quote!(usage_argv::Flag::VALUE)
+        } else {
+            quote!(usage_argv::Flag::BOOL)
+        };
         quote! {
             #(#cfg)*
             pub static #table: usage_argv::Flag = usage_argv::Flag {
@@ -9703,7 +10026,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 name: #long,
                 longs: &[#long],
                 shorts: &[#(#shorts),*],
-                ..usage_argv::Flag::BOOL
+                ..#shape
             };
         }
     });
@@ -9719,6 +10042,24 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let help = option_str(member.help.as_deref());
         let long_help = option_str(member.long_help.as_deref());
         let hide = member.hide;
+        let value_name = option_str(member.value_name.as_deref());
+        let (accepted_choices, choices, choice_aliases, choice_details, ignore_case) =
+            match (&member.value_ty, member.value_enum) {
+                (Some(ty), true) => (
+                    quote!(<#ty as usage_argv::spec::ValueEnum>::ACCEPTED_CHOICES),
+                    quote!(<#ty as usage_argv::spec::ValueEnum>::CHOICES),
+                    quote!(<#ty as usage_argv::spec::ValueEnum>::ALIASES),
+                    quote!(<#ty as usage_argv::spec::ValueEnum>::DETAILS),
+                    quote!(<#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE),
+                ),
+                _ => (
+                    quote!(&[]),
+                    quote!(&[]),
+                    quote!(&[]),
+                    quote!(&[]),
+                    quote!(false),
+                ),
+            };
         quote! {
             #(#cfg)*
             usage_argv::spec::FlagMeta {
@@ -9726,6 +10067,12 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 help: #help,
                 long_help: #long_help,
                 hide: #hide,
+                value_name: #value_name,
+                accepted_choices: #accepted_choices,
+                choices: #choices,
+                choice_aliases: #choice_aliases,
+                choice_details: #choice_details,
+                ignore_case: #ignore_case,
                 ..usage_argv::spec::FlagMeta::EMPTY
             }
         }
@@ -9739,17 +10086,30 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
     let partial_fields = group.variants.iter().enumerate().map(|(i, member)| {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
-        quote!(#(#cfg)* pub #given: bool,)
+        if member.value_ty.is_some() {
+            quote!(#(#cfg)* pub #given: ::std::option::Option<::std::vec::Vec<u8>>,)
+        } else {
+            quote!(#(#cfg)* pub #given: bool,)
+        }
     });
     let apply_arms = group.variants.iter().enumerate().map(|(i, member)| {
         let table = format_ident!("FLAG_{i}");
         let key = key_ident("FLAG", Some(i));
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
+        let assign = if member.value_ty.is_some() {
+            quote! {
+                if let ::std::option::Option::Some(value) = value {
+                    partial.#given = ::std::option::Option::Some(value.to_vec());
+                }
+            }
+        } else {
+            quote!(partial.#given = true;)
+        };
         quote! {
             #(#cfg)*
             #key if ::core::ptr::eq(*flag, &#table) => {
-                partial.#given = true;
+                #assign
                 true
             }
         }
@@ -9758,9 +10118,14 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
         let name = &member.name;
+        let is_given = if member.value_ty.is_some() {
+            quote!(partial.#given.is_some())
+        } else {
+            quote!(partial.#given)
+        };
         quote! {
             #(#cfg)*
-            if partial.#given {
+            if #is_given {
                 return ::std::option::Option::Some(#name);
             }
         }
@@ -9771,9 +10136,14 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
         let name = &member.name;
+        let is_given = if member.value_ty.is_some() {
+            quote!(partial.#given.is_some())
+        } else {
+            quote!(partial.#given)
+        };
         quote! {
             #(#cfg)*
-            if partial.#given {
+            if #is_given {
                 if let ::std::option::Option::Some(__usage_earlier) = __usage_first {
                     return ::std::option::Option::Some((__usage_earlier, #name));
                 }
@@ -9785,10 +10155,83 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
         let variant = &member.ident;
+        let Some(ty) = &member.value_ty else {
+            return quote! {
+                #(#cfg)*
+                if partial.#given {
+                    return ::std::result::Result::Ok(
+                        ::std::option::Option::Some(Self::#variant),
+                    );
+                }
+            };
+        };
+        let name = &member.name;
+        let rendered = rendered_path(ty);
+        let converted = match rendered.as_str() {
+            "PathBuf" | "std::path::PathBuf" | "::std::path::PathBuf" => quote! {
+                match usage_argv::os_string_from_bytes(__usage_value) {
+                    ::std::result::Result::Ok(value) => ::std::path::PathBuf::from(value),
+                    ::std::result::Result::Err(bytes) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_os_value(#name, bytes),
+                        );
+                    }
+                }
+            },
+            "OsString" | "std::ffi::OsString" | "::std::ffi::OsString" => quote! {
+                match usage_argv::os_string_from_bytes(__usage_value) {
+                    ::std::result::Result::Ok(value) => value,
+                    ::std::result::Result::Err(bytes) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_os_value(#name, bytes),
+                        );
+                    }
+                }
+            },
+            _ if member.value_enum => quote! {{
+                let __usage_text = match ::std::string::String::from_utf8(__usage_value) {
+                    ::std::result::Result::Ok(text) => text,
+                    ::std::result::Result::Err(bad) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_utf8_value(#name, bad),
+                        );
+                    }
+                };
+                match <#ty as usage_argv::spec::ValueEnum>::from_choice(&__usage_text) {
+                    ::std::option::Option::Some(value) => value,
+                    ::std::option::Option::None => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_choice_value(#name, __usage_text),
+                        );
+                    }
+                }
+            }},
+            _ => quote! {{
+                let __usage_text = match ::std::string::String::from_utf8(__usage_value) {
+                    ::std::result::Result::Ok(text) => text,
+                    ::std::result::Result::Err(bad) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_utf8_value(#name, bad),
+                        );
+                    }
+                };
+                match ::std::str::FromStr::from_str(&__usage_text) {
+                    ::std::result::Result::Ok(value) => value,
+                    ::std::result::Result::Err(reason) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_parsed_value(#name, __usage_text, &reason),
+                        );
+                    }
+                }
+            }},
+        };
         quote! {
             #(#cfg)*
-            if partial.#given {
-                return ::std::option::Option::Some(Self::#variant);
+            if let ::std::option::Option::Some(__usage_value) = partial.#given.clone() {
+                let __usage_value: #ty = #converted;
+                return ::std::result::Result::Ok(
+                    ::std::option::Option::Some(Self::#variant(__usage_value)),
+                );
             }
         }
     });
@@ -9805,13 +10248,18 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let cfg = &member.cfg_attrs;
         let name = &member.name;
         let selectors = member_selectors(member);
+        let is_given = if member.value_ty.is_some() {
+            quote!(partial.#given.is_some())
+        } else {
+            quote!(partial.#given)
+        };
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
                 ::std::option::Option::Some(usage_argv::spec::ArgumentState {
                     name: #name,
-                    given: partial.#given,
-                    satisfied: partial.#given,
+                    given: #is_given,
+                    satisfied: #is_given,
                 })
             }
         }
@@ -9821,10 +10269,15 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let name = &member.name;
         let variant = &member.ident;
         let selectors = member_selectors(member);
+        let standing = if member.value_ty.is_some() {
+            quote!(::core::matches!(standing, Self::#variant(_)))
+        } else {
+            quote!(::core::matches!(standing, Self::#variant))
+        };
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
-                let __usage_given = ::core::matches!(standing, Self::#variant);
+                let __usage_given = #standing;
                 ::std::option::Option::Some(usage_argv::spec::ArgumentState {
                     name: #name,
                     given: __usage_given,
@@ -9837,12 +10290,31 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
         let selectors = member_selectors(member);
-        // Members are SetTrue switches: presence is the value. Wrap like an ordinary
-        // bool flag's `#given && …` so a missing member does not "match" `"false"`.
+        let matches = if member.value_enum {
+            let ty = member
+                .value_ty
+                .as_ref()
+                .expect("value_enum members were checked to carry a value");
+            quote! {
+                partial.#given.as_deref().is_some_and(|given| {
+                    if <#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE {
+                        given.eq_ignore_ascii_case(value)
+                    } else {
+                        given == value
+                    }
+                })
+            }
+        } else if member.value_ty.is_some() {
+            quote!(partial.#given.as_deref().is_some_and(|given| given == value))
+        } else {
+            // Switch presence is the value. Wrap like an ordinary bool flag so a missing
+            // member does not "match" `"false"`.
+            quote!(partial.#given && value == b"true")
+        };
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
-                return ::std::option::Option::Some(partial.#given && value == b"true");
+                return ::std::option::Option::Some(#matches);
             }
         }
     });
@@ -9850,12 +10322,22 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let cfg = &member.cfg_attrs;
         let variant = &member.ident;
         let selectors = member_selectors(member);
+        let Some(_) = &member.value_ty else {
+            return quote! {
+                #(#cfg)*
+                #(#selectors)|* => {
+                    return ::std::option::Option::Some(
+                        ::core::matches!(standing, Self::#variant) && value == b"true",
+                    );
+                }
+            };
+        };
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
-                return ::std::option::Option::Some(
-                    ::core::matches!(standing, Self::#variant) && value == b"true",
-                );
+                // `FromStr` has no inverse. An update can retain the selected payload, but
+                // cannot reconstruct the bytes needed for a value-equality relationship.
+                return ::std::option::Option::None;
             }
         }
     });
@@ -9867,10 +10349,15 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         // selector is known to this type, so a parent that short-circuits on the
         // first true does not fall through to "unresolved" when the member was
         // simply not given. Clearing is what happens when it *was* given.
+        let clear = if member.value_ty.is_some() {
+            quote!(partial.#given = ::std::option::Option::None;)
+        } else {
+            quote!(partial.#given = false;)
+        };
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
-                partial.#given = false;
+                #clear
                 return true;
             }
         }
@@ -9924,7 +10411,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                     event: &usage_argv::Event<'_, '_, '_>,
                 ) -> bool {
                     match event {
-                        usage_argv::Event::Flag { flag, .. } => match flag.key {
+                        usage_argv::Event::Flag { flag, value, .. } => match flag.key {
                             #(#apply_arms)*
                             // Another declaration's flag, left for whoever owns it.
                             _ => false,
@@ -9951,8 +10438,17 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 }
 
                 fn build(partial: &Self::Partial) -> ::std::option::Option<Self> {
+                    Self::try_build(partial).ok().flatten()
+                }
+
+                fn try_build(
+                    partial: &Self::Partial,
+                ) -> ::std::result::Result<
+                    ::std::option::Option<Self>,
+                    usage_argv::Error<'static, 'static>,
+                > {
                     #(#build_arms)*
-                    ::std::option::Option::None
+                    ::std::result::Result::Ok(::std::option::Option::None)
                 }
 
                 fn argument_state(

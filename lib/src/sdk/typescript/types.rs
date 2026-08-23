@@ -90,6 +90,7 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
         package_name,
         &choice_types,
         has_global_flags,
+        spec,
         &mut w,
     );
 
@@ -118,6 +119,7 @@ fn render_command_types(
     package_name: &str,
     choice_types: &ChoiceTypeMap,
     has_global_flags: bool,
+    spec: &Spec,
     w: &mut CodeWriter,
 ) {
     if cmd.hide {
@@ -161,8 +163,65 @@ fn render_command_types(
         w.line("}");
     }
 
+    // One alias per declared output, and the schema beside it.
+    //
+    // The alias is `unknown` today and a real interface later: every generated signature
+    // names the alias rather than `unknown` directly, so filling it in is a substitution
+    // no call site sees. Generating a type from a JSON Schema is its own piece of work —
+    // `$ref`, `oneOf`, recursion — and a half-correct one emits types that lie.
+    let outputs = crate::sdk::output_methods(cmd, spec, package_name);
+    if !outputs.is_empty() {
+        w.line("");
+        for output in &outputs {
+            let alias = &output.type_alias;
+            if let Some(help) = &output.help {
+                w.line(&format!("/** {} */", escape_jsdoc(help)));
+            }
+            w.line(&format!("export type {alias} = unknown;"));
+        }
+    }
+    for output in &outputs {
+        // A string, not an inlined object literal: the escapers guarantee the module
+        // parses whatever the schema holds, including a schema that is not valid JSON.
+        // `JSON.parse` it to hand to ajv or anything else that wants one.
+        if let (Some(name), Some(schema)) = (&output.schema_const, &output.schema) {
+            w.line("");
+            w.line(&format!(
+                "export const {name}: string = \"{}\";",
+                escape_ts_string(schema)
+            ));
+        }
+    }
+    let exit_codes = crate::sdk::exit_codes_for(cmd, spec);
+    if !exit_codes.is_empty() {
+        let entries = exit_codes
+            .iter()
+            .map(|e| format!("{}: \"{}\"", e.code, escape_ts_string(&e.help)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let union = exit_codes
+            .iter()
+            .map(|e| e.code.to_string())
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let exit_name = crate::sdk::command_path_type_name(cmd, package_name);
+        let prefix = crate::sdk::shouty(&exit_name);
+        w.line("");
+        w.line(&format!(
+            "export const {prefix}_EXIT_CODES: Readonly<Record<number, string>> = {{ {entries} }};"
+        ));
+        w.line(&format!("export type {exit_name}ExitCode = {union};"));
+    }
+
     for subcmd in cmd.subcommands.values() {
-        render_command_types(subcmd, package_name, choice_types, has_global_flags, w);
+        render_command_types(
+            subcmd,
+            package_name,
+            choice_types,
+            has_global_flags,
+            spec,
+            w,
+        );
     }
 }
 
@@ -1016,5 +1075,45 @@ mod tests {
         let client = get_file(&output, "client.ts");
         assert!(client.contains("double_dash=automatic"));
         insta::assert_snapshot!(client);
+    }
+
+    #[test]
+    fn structured_output_keeps_exec_jsdoc_on_exec() {
+        let spec: Spec = r##"
+            bin "reporter"
+            usage "reporter [--json]"
+            flag "--json"
+            output "text" default=#true
+            output "json" framing="json" select="--json"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.ts");
+        let helper = client.find("private cmdArgsFor").unwrap();
+        let doc = client.find("/** [--json] */").unwrap();
+        let exec = client.find("async exec").unwrap();
+        assert!(helper < doc && doc < exec, "{client}");
+        assert!(
+            client.contains("}\n\n  /**\n   * Selected with"),
+            "{client}"
+        );
+    }
+
+    #[test]
+    fn nested_same_named_commands_get_distinct_exit_code_exports() {
+        let spec: Spec = r#"
+            bin "app"
+            cmd "one" { cmd "show" { exit_code 1 "one failed" } }
+            cmd "two" { cmd "show" { exit_code 2 "two failed" } }
+        "#
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let types = get_file(&output, "types.ts");
+        assert!(types.contains("ONE_SHOW_EXIT_CODES"), "{types}");
+        assert!(types.contains("TWO_SHOW_EXIT_CODES"), "{types}");
+        assert!(types.contains("OneShowExitCode"), "{types}");
+        assert!(types.contains("TwoShowExitCode"), "{types}");
     }
 }

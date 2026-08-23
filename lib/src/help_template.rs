@@ -18,8 +18,23 @@
 /// | `commands`   | the subcommand list, or the flattened bodies under `flatten_help`   |
 /// | `args`       | every argument group, each under its heading                        |
 /// | `flags`      | this command's flag groups, then the globals it inherits            |
+/// | `grouped_args` | arguments with a declared help heading                            |
+/// | `ungrouped_args` | arguments under the default `Arguments` heading                 |
+/// | `grouped_flags` | flags with a declared help heading                               |
+/// | `ungrouped_flags` | flags under `Flags`, plus inherited global flags                |
 /// | `after_help` | examples, `after_help`, and the author/license footer on a long page |
-pub const SECTIONS: [&str; 6] = ["about", "usage", "commands", "args", "flags", "after_help"];
+pub const SECTIONS: [&str; 10] = [
+    "about",
+    "usage",
+    "commands",
+    "args",
+    "flags",
+    "grouped_args",
+    "ungrouped_args",
+    "grouped_flags",
+    "ungrouped_flags",
+    "after_help",
+];
 
 /// Whether a template is one an author wrote, rather than an empty or whitespace-only
 /// string that should render as the default page.

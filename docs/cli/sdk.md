@@ -143,3 +143,14 @@ Each generated SDK consists of three parts:
 3. **Runtime module** -- A small, static module containing `CliResult` (stdout, stderr, exit code)
    and `CliRunner` (the subprocess invocation logic). This module is identical across all SDKs
    generated from the same language target.
+
+## Structured and streaming outputs
+
+When a command [declares structured outputs](/spec/reference/output), the SDK keeps `exec()` for
+raw text and adds a method matching each wire format. A `json` output produces `execJson()` in
+TypeScript and `exec_json()` in Python; a `jsonl` output produces an async iterable or iterator
+that parses one document at a time. The generated result still carries stderr and the exit code,
+because a documented nonzero status may accompany valid structured output.
+
+Declared JSON Schemas are exported as string constants, and declared exit statuses become a table
+and a literal-union type in the generated types module.

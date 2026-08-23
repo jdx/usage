@@ -356,6 +356,43 @@ impl CompleteWord {
         type_: &str,
         ctoken: &str,
     ) -> (Vec<(String, String)>, bool) {
+        if let Some(encoded) = type_
+            .strip_prefix("path:")
+            .or_else(|| type_.strip_prefix("file:"))
+        {
+            let extensions = encoded
+                .split(',')
+                .map(|extension| {
+                    extension
+                        .trim()
+                        .trim_start_matches('.')
+                        .to_ascii_lowercase()
+                })
+                .filter(|extension| !extension.is_empty())
+                .collect::<Vec<_>>();
+            if !extensions.is_empty() {
+                let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                let paths = self.complete_path(&cwd, ctoken, |path| {
+                    path.is_dir()
+                        || path
+                            .file_name()
+                            .and_then(|name| name.to_str())
+                            .is_some_and(|name| {
+                                let name = name.to_ascii_lowercase();
+                                extensions
+                                    .iter()
+                                    .any(|wanted| name.ends_with(&format!(".{wanted}")))
+                            })
+                });
+                return (
+                    paths
+                        .into_iter()
+                        .map(|value| (value, String::new()))
+                        .collect(),
+                    true,
+                );
+            }
+        }
         // The two config completers describe values, so they carry their own descriptions
         // rather than going through the path branch's empty ones.
         match type_ {
@@ -591,12 +628,24 @@ impl CompleteWord {
         }
 
         if let Some(choices) = &arg.choices {
-            let values = choices.values();
             return Ok((
-                values
+                choices
+                    .values()
                     .into_iter()
-                    .map(|c| (c, String::new()))
-                    .filter(|(c, _)| c.starts_with(ctoken))
+                    .filter(|c| c.starts_with(ctoken))
+                    .map(|value| {
+                        // The description a shell shows beside a candidate. `details`
+                        // has carried per-choice help since choices grew a long form,
+                        // and nothing here read it — so `--format <TAB>` offered bare
+                        // words while the spec had "One report object" written down.
+                        let help = choices
+                            .details
+                            .iter()
+                            .find(|detail| detail.value == value)
+                            .and_then(|detail| detail.help.clone())
+                            .unwrap_or_default();
+                        (value, help)
+                    })
                     .collect(),
                 true,
             ));

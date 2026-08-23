@@ -3,5 +3,5 @@ source: lib/src/sdk/python/mod.rs
 expression: init
 ---
 from .client import MyCustomSdk
-from .runtime import CliResult, CliRunner
+from .runtime import CliError, CliJsonResult, CliResult, CliRunner, CliStream
 from .types import *

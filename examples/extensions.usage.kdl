@@ -1,0 +1,3 @@
+name mycli
+arg "<manifest>"
+complete manifest type="path:toml"

@@ -9,10 +9,15 @@ pub use crate::spec::choices::{SpecChoice, SpecChoiceAlias, SpecChoices};
 pub use crate::spec::cmd::SpecCommand;
 pub use crate::spec::complete::SpecComplete;
 pub use crate::spec::effect::SpecCommandEffect;
+pub use crate::spec::exit_code::{effective_exit_codes, effective_exit_codes_ref, SpecExitCode};
 pub use crate::spec::flag::{SpecDefaultIf, SpecFlag, SpecFlagAction, SpecRequiresIf};
 pub use crate::spec::flagset::{SpecFlagSet, SpecUse};
 pub use crate::spec::group::SpecGroup;
 pub use crate::spec::mount::SpecMount;
+pub use crate::spec::output::{
+    effective_outputs, effective_outputs_ref, effective_select, effective_select_ref, Framing,
+    Selector, SpecOutput,
+};
 pub use crate::spec::unknown_flags::UnknownFlags;
 pub use crate::spec::view::SpecView;
 pub use crate::spec::Spec;

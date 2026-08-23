@@ -1,59 +1,68 @@
 # Migrating from clap
 
-The Rust framework is a typed parser with static metadata, not a compatibility layer around
-clap. Most derive-based CLIs migrate mechanically. Builder APIs and `ArgMatches` are intentional
-API breaks: move their behavior into typed declarations or keep clap at that boundary.
+If your CLI uses clap's derive API, most of the migration is a rename: swap the derives, change
+`#[command]`/`#[arg]`/`#[value]` to `#[usage(...)]`, and let the compiler walk you through the
+rest. usage is a typed parser with static metadata, not a compatibility layer around clap, so the
+places where it diverges are deliberate — builder `Command`s and `ArgMatches` don't come along,
+and a couple of parsing defaults are looser. This page covers the gaps worth knowing about up
+front, then the rewrite itself.
 
 ## Compatibility gaps
 
-Check these before starting a migration:
+Skim this list before you start. Everything else on the page is mechanical; these are the parts
+that need a decision.
 
-| Difference                                                                                    | What to do                                                                                                                      |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime `Command` builders, `ArgMatches`, and `CommandFactory` are not part of the typed API. | Move the declaration to derives, keep clap at that boundary, or use `usage-lib` for a CLI that is genuinely dynamic.            |
-| Unknown flags and repeated scalar flags are permissive by default.                            | Add `unknown_flags = "error"` and `args_override_self = false` where clap's strict behavior matters.                            |
-| `from_global` is unsupported.                                                                 | Read the global field from its declaring type and pass it to the command as context.                                            |
-| Typed `value_parser` callbacks cannot enter a portable spec.                                  | Use the field type's `FromStr`, a `ValueEnum`, literal choices, or a portable `validate` expression.                            |
-| `#[usage(value_optional)]` changes help and spec presentation only.                           | Bind a bare flag with `default_missing` or an `Option<Option<T>>` field.                                                        |
-| Some relationships through `flatten` or on positionals are not available at binding time.     | Keep a post-parse check for the cases described under [Subcommands and shared arguments](#subcommands-and-shared-arguments).    |
-| Prefix inference is intentionally unsupported.                                                | Long flags and subcommands must use a full name or declared alias.                                                              |
-| clap help templates and style palettes are not portable as-is.                                | Rewrite templates using usage's six [help sections](/rust/help#laying-a-page-out); usage chooses terminal styles automatically. |
-| Completion generation does not target Elvish.                                                 | Keep `clap_complete` or another generator for that artifact.                                                                    |
+- **Runtime builders.** `Command`, `ArgMatches`, and `CommandFactory` are not part of the typed
+  API. Move the declaration into derives and keep clap at whatever boundary still needs it — or
+  reach for `usage-lib` if your CLI genuinely constructs itself at runtime.
+- **Permissive defaults.** Unknown flags parse as values, and repeating a scalar flag is
+  last-one-wins. Where clap's strictness matters, add `unknown_flags = "error"` and
+  `args_override_self = false`.
+- **`from_global`.** Unsupported. Read the global field from the type that declares it and pass
+  it to the command as context.
+- **`value_parser` callbacks.** A Rust closure can't travel in a portable spec. Use the field
+  type's `FromStr`, a `ValueEnum`, literal choices, or a portable `validate` expression.
+- **`value_optional`.** `#[usage(value_optional)]` changes help and spec presentation only. To
+  actually accept a bare flag, bind it with `default_missing` or an `Option<Option<T>>` field.
+- **Relationships across `flatten` and on positionals.** A few aren't available at binding time;
+  keep a post-parse check for the cases described under
+  [Subcommands and shared arguments](#subcommands-and-shared-arguments).
+- **Prefix inference.** Intentionally unsupported. Long flags and subcommands must be spelled
+  with their full name or a declared alias.
+- **Help templates and styles.** clap templates and style palettes don't port as-is. Rewrite
+  them against usage's six [help sections](/rust/help#laying-a-page-out); usage chooses terminal
+  styles automatically.
 
-If a migration begins from a `clap::Command` rather than the Rust declaration,
-`clap_usage::spec_with_report` detects recoverable losses. It cannot report state for which clap
-exposes a setter but no getter, including the `requires` family, `default_value_if`, and
-`default_missing_value`; audit those declarations directly.
+If you're migrating from a `clap::Command` value rather than from the Rust declaration,
+`clap_usage::spec_with_report` detects recoverable losses. It cannot see state for which clap
+exposes a setter but no getter — the `requires` family, `default_value_if`, and
+`default_missing_value` — so audit those declarations by hand.
 
 ## Dependencies
 
-Depend on the facade rather than on `usage-derive` or `usage-argv` separately:
+Depend on the facade, not on `usage-derive` or `usage-argv` separately:
 
 ```toml
 [dependencies]
 usage = { package = "usage-rs", version = "6", features = ["completions"] }
 ```
 
-The defaults include the derive, help, and clap-shaped diagnostics. Add `validation` for portable
-validation expressions and `completions` when the binary generates or answers completion
-requests.
+The defaults include the derive, help rendering, and clap-shaped diagnostics. Add `completions`
+if the binary generates or answers completion requests, and `validation` for portable validation
+expressions.
 
-During a prerelease migration, pin every producer and consumer to one revision. In particular,
-the `usage-rs` dependency that emits KDL and any installed `usage-cli` that renders that KDL must
-use the same revision.
+During a prerelease migration, pin every producer and consumer to one revision — in particular,
+the `usage-rs` that emits KDL and any installed `usage-cli` that renders it must match.
 
-The migration also shrinks the dependency graph (`cargo tree` on a minimal binary, clap 4.6.6
-with `derive` against the defaults plus `completions`):
-
-|                                              | clap | usage |
-| -------------------------------------------- | ---: | ----: |
-| third-party crates compiled into your binary |    8 |     0 |
-
-The whole graph is 17 crates against 7: usage's four non-usage crates — proc-macro2, quote, syn,
-unicode-ident — are build-time only and already compiled by any project using serde's derive or
-clap_derive itself. The opt-in `validation` feature is the exception; it adds `expr-lang`.
+The swap also shrinks the build. On a minimal binary, clap 4.6.6 with `derive` compiles 8
+third-party crates into the binary; usage's defaults plus `completions` compile 0. The whole
+graph is 17 crates against 7, and usage's four non-usage crates — proc-macro2, quote, syn,
+unicode-ident — are build-time only, already compiled by any project using serde's derive or
+clap_derive itself. The one exception is the opt-in `validation` feature, which adds `expr-lang`.
 
 ## Derive mapping
+
+The renames are one-to-one:
 
 | clap                    | usage                           |
 | ----------------------- | ------------------------------- |
@@ -65,10 +74,35 @@ clap_derive itself. The opt-in `validation` feature is the exception; it adds `e
 | `#[arg(...)]`           | `#[usage(...)]`                 |
 | `#[value(...)]`         | `#[usage(...)]`                 |
 
-Rename every helper attribute when replacing the derive. usage rejects clap's helper namespaces
-and points the compile error to `#[usage(...)]`.
+Rename every helper attribute when you replace the derive — usage rejects clap's helper
+namespaces, and the compile error points at `#[usage(...)]`. A typical root migrates like this:
 
 ```rust
+// before
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(name = "tak", version)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Benchmark a command.
+    Run {
+        #[arg(long)]
+        bench: Option<String>,
+        #[arg(long)]
+        runs: Option<u32>,
+    },
+    Version,
+}
+```
+
+```rust
+// after
 use usage::{Cli, Subcommands};
 
 #[derive(Cli)]
@@ -91,47 +125,68 @@ enum Command {
 }
 ```
 
-Unknown flags are values by default, which is useful for wrapper CLIs. Add
-`unknown_flags = "error"` on each command where unknown flag-like words must be rejected.
+The one addition is `unknown_flags = "error"`. usage treats unknown flag-like words as values by
+default — useful for wrapper CLIs — so a command that should reject them, as clap does, says so.
+Likewise, a repeated scalar flag is last-one-wins unless the command opts out with
+`#[usage(args_override_self = false)]`. The clap bridge records clap's setting, so generated
+specs keep the source command's policy either way.
 
-Repeated scalar flags also use permissive last-one-wins behavior by default. Add
-`#[usage(args_override_self = false)]` on commands that should reject a second occurrence.
-The clap bridge records clap's setting, so generated specs retain the source command's policy.
+### Command settings
 
-`#[usage(arg_required_else_help)]` checks whether the selected
-command received an argv token; environment and default fallbacks do not count.
+Most command-level options keep their clap names and meanings, so this section is mostly
+confirmation. The ones with a nuance worth knowing:
 
-Help and version entry points use the same option names. `disable_help_flag`,
-`disable_help_subcommand`, and `disable_version_flag` remove the synthesized entries, while
-`#[usage(action = usage::ArgAction::HelpShort)]` (or `Help`, `HelpLong`, `HelpAll`, and `Version`) can put
-the action on any declared flag and keep that flag's own help text.
-
-`#[usage(subcommand_negates_reqs)]` suppresses
-the parent's positive requirements while leaving conflicts and the child's requirements active.
-
-`#[usage(args_conflicts_with_subcommands)]` makes a flag
-or positional bound on the parent prevents selecting a later child command.
-
-`#[usage(subcommand_precedence_over_arg)]` retains clap's opt-in rule that a
-known child ends an in-progress variadic value owner.
-
-`#[usage(allow_missing_positional)]` leaves earlier optional fields empty when only enough
-words remain for later required positionals.
-
-Granular help visibility options retain their names:
-`hide_default_value`, `hide_env`, `hide_env_values`, `hide_possible_values`,
-`hide_short_help`, and `hide_long_help`. They change presentation without changing
-defaults, environment fallback, or accepted values.
-
-Container casing uses `#[usage(rename_all = "snake_case")]` to control
-inferred field or subcommand names, and `rename_all_env` controls names generated by bare
-`#[usage(env)]`; an explicit `long`, `name`, or `env = "NAME"` still wins.
+- `arg_required_else_help` checks whether the selected command received an argv token —
+  environment and default fallbacks don't count.
+- `disable_help_flag`, `disable_help_subcommand`, and `disable_version_flag` remove the
+  synthesized entries. To put the built-in behavior on a flag you declare yourself — keeping that
+  flag's own help text — set `#[usage(action = usage::ArgAction::HelpShort)]` (or `Help`,
+  `HelpLong`, `HelpAll`, `Version`).
+- `subcommand_negates_reqs` suppresses the parent's positive requirements while leaving conflicts
+  and the child's own requirements active.
+- `args_conflicts_with_subcommands` means a flag or positional bound on the parent prevents
+  selecting a child command later in argv.
+- `subcommand_precedence_over_arg` keeps clap's opt-in rule that a known child ends an
+  in-progress variadic value owner.
+- `allow_missing_positional` leaves earlier optional fields empty when only enough words remain
+  for later required positionals.
+- The granular help-visibility options — `hide_default_value`, `hide_env`, `hide_env_values`,
+  `hide_possible_values`, `hide_short_help`, `hide_long_help` — change presentation only, never
+  defaults, environment fallback, or accepted values.
+- `#[usage(rename_all = "snake_case")]` controls inferred field and subcommand names, and
+  `rename_all_env` controls names generated by bare `#[usage(env)]`. An explicit `long`, `name`,
+  or `env = "NAME"` still wins.
 
 ## Fields
 
-Common mappings retain their meaning:
+Field attributes rename the same way. The common clap spellings and their usage equivalents,
+side by side:
 
 ```rust
+// before
+use clap::ArgAction;
+
+#[derive(clap::Args)]
+struct Options {
+    #[arg(short = 'v', long, action = ArgAction::Count)]
+    verbose: u8,
+
+    #[arg(long, env = "APP_COLOR", default_value = "auto")]
+    color: String,
+
+    #[arg(long, value_delimiter = ',')]
+    tags: Vec<String>,
+
+    #[arg(long, value_enum)]
+    shell: Shell,
+
+    #[arg(skip)]
+    computed: bool,
+}
+```
+
+```rust
+// after
 #[derive(usage::Args)]
 struct Options {
     #[usage(short = 'v', long, count)]
@@ -151,16 +206,18 @@ struct Options {
 }
 ```
 
-Defaults make a field optional in the generated grammar. `Option<T>` is also optional; `T`
-without a default is required. A bare optional-value flag needs an explicit meaning:
+Requiredness follows the types, as in clap: a default makes a field optional in the generated
+grammar, `Option<T>` is optional, and a bare `T` without a default is required.
+
+One place usage asks for more than clap did: a flag whose value is optional. usage doesn't guess
+clap's per-occurrence `num_args(0..=1)` semantics — say what a bare occurrence means:
 
 ```rust
 #[usage(long, default_missing = "always", require_equals)]
 color: Option<String>,
 ```
 
-That accepts `--color` and `--color=never`, while refusing a detached value. usage does not
-guess clap's per-occurrence `num_args(0..=1)` semantics.
+This accepts `--color` and `--color=never` while refusing a detached value.
 
 For validation that must survive KDL emission, use a portable expression instead of a Rust
 `value_parser` callback:
@@ -176,8 +233,8 @@ port: Option<u16>,
 
 ## Subcommands and shared arguments
 
-Unit commands, inline struct variants, nested enums, flattened groups, and one `Args` type mounted
-under more than one command are supported:
+Everything the derive can see comes over: unit variants, inline struct variants, nested enums,
+flattened groups, and one `Args` type mounted under more than one command.
 
 ```rust
 #[derive(usage::Args)]
@@ -194,7 +251,8 @@ enum Command {
 }
 ```
 
-Tuple `Cli` and `Args` structs are not inferred. Name the field and say whether it is flattened:
+Tuple `Cli` and `Args` structs are not inferred, though — name the field and say whether it is
+flattened:
 
 ```compile_fail
 #[derive(usage::Args)]
@@ -209,15 +267,17 @@ struct Explicit {
 }
 ```
 
-Relationships that cross a flattened boundary are **lossy**: common forms work, but a declaring
-type cannot yet validate a selector supplied by a flattened sibling. Positional relationships
-are **partial**: conflicts, requires, and conditional requiredness work; binding-time `overrides`
-and value-source `requires_if` remain flag-only. Keep a post-parse check for those cases; the
-derive rejects selectors it can prove invalid instead of silently weakening them.
+Relationships that cross a flattened boundary are **lossy**: the common forms work, but a
+declaring type cannot yet validate a selector supplied by a flattened sibling. Positional
+relationships are **partial**: conflicts, requires, and conditional requiredness work, while
+binding-time `overrides` and value-source `requires_if` remain flag-only. Keep a post-parse check
+for those cases — the derive rejects selectors it can prove invalid rather than silently
+weakening them.
 
 ## Parse entry points
 
-clap tests usually include argv0. Choose the matching entry point explicitly:
+clap tests usually include argv0; usage makes the choice explicit rather than guessing. Pick the
+entry point that matches what you're handing it:
 
 | Need                                       | Entry point                         |
 | ------------------------------------------ | ----------------------------------- |
@@ -227,31 +287,32 @@ clap tests usually include argv0. Choose the matching entry point explicitly:
 | clap-shaped call sites                     | `Cli::try_parse_from(iter)`         |
 | merging into a value you already have      | `cli.try_update_from(&[&OsStr])`    |
 
-`parse_from` is the allocation-free primitive. `parse_from_argv` also applies multicall basename
-routing. Handle `usage::Error::Help` and `usage::Error::Version` before dispatch when an embedder
-must intercept those built-ins. Render those with `Cli::render_help` and `Cli::render_failure` so
-computed `name` / `bin` appear in the page; `Cli::spec()` is the portable identity.
+`parse_from` is the allocation-free primitive; `parse_from_argv` additionally applies multicall
+basename routing. An embedder that must intercept the built-ins handles `usage::Error::Help` and
+`usage::Error::Version` before dispatch, rendering them with `Cli::render_help` and
+`Cli::render_failure` so computed `name` / `bin` appear in the page. `Cli::spec()` is the
+portable identity.
 
 `update_from` and `try_update_from` carry clap's names but state their merge rules explicitly,
-because a parse cannot be run backwards to seed itself from a value: a standing field satisfies a
-relationship, the environment and defaults fill only what is empty, and a subcommand word naming a
-different variant replaces it. See [Updating an existing value](/rust/update-from).
+because a parse can't be run backwards to seed itself from a value: a standing field satisfies a
+relationship, the environment and defaults fill only what is empty, and a subcommand word naming
+a different variant replaces it. See [Updating an existing value](/rust/update-from).
 
-The `match cli.command { … }` a clap CLI writes after parsing can go too: implement
-`usage::Run` on each command struct, say `#[usage(run)]` on the enum, and the routing is
-generated. Commands that need shared state implement `usage::RunWith<Ctx>` and the enum says
-`#[usage(run_with)]`; async commands implement `usage::RunAsync` or `usage::RunAsyncWith<Ctx>`
-under `#[usage(run_async)]` / `#[usage(run_async_with)]`. A clap unit or inline-struct variant
-is dispatched through the `{Enum}{Variant}` struct the derive writes for it. A catch-all
-`external_subcommand` names `external = fallback` on the enum. See [Dispatch](/rust/dispatch).
+The `match cli.command { … }` a clap CLI writes after parsing can go too. Implement `usage::Run`
+on each command struct, put `#[usage(run)]` on the enum, and the routing is generated. Commands
+that need shared state implement `usage::RunWith<Ctx>` under `#[usage(run_with)]`; async commands
+implement `usage::RunAsync` or `usage::RunAsyncWith<Ctx>` under `#[usage(run_async)]` /
+`#[usage(run_async_with)]`. A clap unit or inline-struct variant is dispatched through the
+`{Enum}{Variant}` struct the derive writes for it, and a catch-all `external_subcommand` becomes
+`external = fallback` on the enum. See [Dispatch](/rust/dispatch).
 
 ## Help, specs, and completions
 
-Doc comments remain the source of short and long help. `Cli::to_kdl()` emits the portable spec;
-`Cli::spec().view()` provides cold-path identity and metadata overlays without moving normal
-parsing onto a dynamic command graph.
+Doc comments stay the source of short and long help. `Cli::to_kdl()` emits the portable spec, and
+`Cli::spec().view()` gives cold-path identity and metadata overlays without moving normal parsing
+onto a dynamic command graph.
 
-Command-level presentation settings use the same option names in the usage namespace:
+Command-level presentation settings keep their clap names in the usage namespace:
 
 ```rust
 #[derive(usage::Cli)]
@@ -283,21 +344,21 @@ For an embedded CLI whose program name is computed, pair `name = expression` wit
 `name_spec = "literal"`, and `bin = expression` with `bin_spec = "literal"`. The expression is
 used only by process output; the literal keeps generated specs reproducible.
 
-With the `completions` feature, prefer the built-in completion surface:
+With the `completions` feature, prefer the built-in completion surface over `clap_complete`:
 
 ```rust
 let script = Cli::completion_script(usage::complete::Shell::Zsh);
 ```
 
-Use `Cli::app().completion_app()` for projections and sync or async runtime candidates. Async
-callbacks return a future and run on the application's executor; usage does not bundle one.
+`Cli::app().completion_app()` covers projections and sync or async runtime candidates. Async
+callbacks return a future and run on the application's executor — usage does not bundle one.
 
 ## Intentional non-goals
 
 usage does not reproduce `Command::new`, `augment_args`, `ArgMatches`, `FromArgMatches`, or the
-complete public `CommandFactory` builder surface. A library that publicly returns
-`clap::Command` must make a major-version API change, retain a clap-specific adapter, or expose a
-separately named usage spec/view API.
+complete public `CommandFactory` builder surface. A library that publicly returns `clap::Command`
+must make a major-version API change, keep a clap-specific adapter, or expose a separately named
+usage spec/view API.
 
 These are architectural boundaries, not temporarily undocumented compatibility promises. The
 static typed path is what keeps normal parsing allocation-free; `usage-lib` remains the dynamic

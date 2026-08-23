@@ -679,7 +679,7 @@ impl From<&str> for SpecArg {
                 .iter()
                 .map(|placeholder| placeholder[1..placeholder.len() - 1].to_string())
                 .collect::<Vec<_>>();
-            return SpecArg {
+            let mut arg = SpecArg {
                 name: value_names[0].clone(),
                 value_names,
                 required,
@@ -693,6 +693,8 @@ impl From<&str> for SpecArg {
                 },
                 ..Default::default()
             };
+            arg.usage = arg.usage();
+            return arg;
         }
         let mut arg = SpecArg {
             name: input.to_string(),
@@ -743,6 +745,11 @@ impl From<&str> for SpecArg {
                 arg.name = name.to_string();
             }
         }
+        // As `SpecArg::parse` does for the KDL child-node spelling. Without it, an arg
+        // written inline on a flag (`flag "--format <FMT>"`) carried an empty `usage`
+        // until the spec had been through one round trip, at which point it came back as
+        // a child node and got one — so a spec was not equal to itself re-read.
+        arg.usage = arg.usage();
         arg
     }
 }

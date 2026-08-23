@@ -51,6 +51,27 @@ arm and before command dispatch. There is no hidden callback lifecycle: the
 embedding application owns the order explicitly, and `parse()` remains the
 convenience entry point for CLIs that want immediate print-and-exit behavior.
 
+### Embedding without exiting
+
+An N-API module, WASM host, editor integration, or test runner cannot let a library terminate
+its process. `embedded::outcome` turns the same process boundary into a value:
+
+```rust
+match usage::embedded::outcome(Ex::spec(), Ex::command(), &argv, Ex::parse_from) {
+    usage::embedded::Outcome::Parsed(cli) => run(cli),
+    usage::embedded::Outcome::Exit(exit) => {
+        // Send `exit.text` to stdout or stderr according to `exit.stderr`, then return
+        // `exit.code` to the host instead of calling `std::process::exit`.
+        host.respond(exit)
+    }
+}
+```
+
+The outcome renders requested help and version responses as stdout status 0, and automatic help
+or a parse failure as stderr status 2. It uses the portable binary name and version from the spec;
+a CLI whose identity is computed at runtime handles `Error::Version` itself so it can substitute
+that runtime value.
+
 ### Deprecation warnings
 
 A `deprecated` flag or command, or a value that arrived through a `deprecated_env` alias, is
@@ -137,16 +158,22 @@ help_template "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}"
 ```
 
 A template is placed on the root and lays out every page in the CLI, subcommands included. It
-holds six named sections and nothing else:
+holds ten named sections and nothing else. `args` and `flags` retain the complete sections used by
+existing templates; their grouped and ungrouped variants expose the same content in smaller pieces
+when a port needs to interleave them:
 
-| section          | what it covers                                                                       |
-| ---------------- | ------------------------------------------------------------------------------------ |
-| `{{about}}`      | `before_help`, the `{bin} {version}` banner, and the description                     |
-| `{{usage}}`      | the `Usage:` synopsis, however many lines it takes                                   |
-| `{{commands}}`   | the subcommand list — or, under `flatten_help`, the subcommands' own bodies          |
-| `{{args}}`       | every argument group, each under its heading                                         |
-| `{{flags}}`      | this command's flag groups, then the global flags it inherits                        |
-| `{{after_help}}` | the Examples section, `after_help`, and the author and licence a long page ends with |
+| section               | what it covers                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| `{{about}}`           | `before_help`, the `{bin} {version}` banner, and the description                     |
+| `{{usage}}`           | the `Usage:` synopsis, however many lines it takes                                   |
+| `{{commands}}`        | the subcommand list — or, under `flatten_help`, the subcommands' own bodies          |
+| `{{args}}`            | every argument group, each under its heading                                         |
+| `{{flags}}`           | this command's flag groups, then the global flags it inherits                        |
+| `{{grouped_args}}`    | arguments with a declared help heading                                               |
+| `{{ungrouped_args}}`  | arguments under the default `Arguments` heading                                      |
+| `{{grouped_flags}}`   | flags with a declared help heading                                                   |
+| `{{ungrouped_flags}}` | flags under `Flags`, plus inherited global flags                                     |
+| `{{after_help}}`      | the Examples section, `after_help`, and the author and licence a long page ends with |
 
 Reorder them, leave them out, or put text of your own around them. Two rules make that
 predictable:
@@ -163,6 +190,15 @@ predictable:
 
 The template applies to the terminal help page. Markdown, manpages, and JSON keep their own
 structure.
+
+For example, a CLI migrating from a renderer that put named option groups before positionals and
+ordinary options after them can preserve that order without recreating help text itself:
+
+```rust
+#[usage(
+    help_template = "{{grouped_flags}}\n\n{{ungrouped_args}}\n\n{{ungrouped_flags}}"
+)]
+```
 
 #### Coming from clap
 

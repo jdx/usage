@@ -17,6 +17,48 @@ struct Ex {
 }
 
 #[derive(Cli)]
+#[usage(bin = "filtered-completion")]
+#[cfg_attr(feature = "completions", usage(completion))]
+#[allow(dead_code)]
+struct FilteredCompletion {
+    #[usage(
+        long,
+        value_hint = usage::ValueHint::FilePath,
+        extensions("toml", ".yaml")
+    )]
+    manifest: Option<PathBuf>,
+}
+
+#[test]
+fn file_extension_hints_are_portable() {
+    let kdl = FilteredCompletion::to_kdl();
+    assert!(
+        kdl.contains("complete manifest type=path:toml,yaml"),
+        "{kdl}"
+    );
+    let portable: usage_parser::Spec = kdl.parse().expect("usage-lib should read the filter");
+    assert_eq!(
+        portable.complete["manifest"].type_.as_deref(),
+        Some("path:toml,yaml")
+    );
+}
+
+#[cfg(feature = "completions")]
+#[test]
+fn file_extension_hints_reach_the_shell_protocol() {
+    let line = "filtered-completion --manifest ";
+    let split = usage::complete::split(line, line.len(), usage::complete::Shell::Bash);
+    let answer = usage::complete::complete(FilteredCompletion::spec(), &split);
+    assert_eq!(
+        answer.files,
+        Some(usage::complete::Files::Extensions(vec![
+            "toml".to_string(),
+            "yaml".to_string()
+        ]))
+    );
+}
+
+#[derive(Cli)]
 #[usage(
     bin = "view-host",
     version = "1.2.3",

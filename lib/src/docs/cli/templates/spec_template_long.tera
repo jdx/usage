@@ -53,9 +53,10 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
     Print this message or the help of the given subcommand(s)
 {%- endif %}
 {%- endfor %}
-{%- endif %}{{ mark_args }}
+{%- endif %}{{ mark_args }}{% if not arg_has_ungrouped %}{{ mark_grouped_args }}{% endif %}
 
 {%- for group in cmd.arg_groups %}
+{%- if group.heading and arg_has_ungrouped and loop.index0 == 1 %}{{ mark_grouped_args }}{% endif %}
 
 {{ group.heading | default(value="Arguments") }}:
 {%- for arg in group.items %}
@@ -95,9 +96,10 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
     (default: {{ arg.default | join(sep=", ") }})
 {%- endif %}
 {%- endfor %}
-{%- endfor %}{{ mark_flags }}
+{%- endfor %}{% if arg_has_ungrouped and not arg_has_grouped %}{{ mark_grouped_args }}{% endif %}{{ mark_flags }}{% if not flag_has_ungrouped %}{{ mark_grouped_flags }}{% endif %}
 
 {%- for group in cmd.flag_groups %}
+{%- if group.heading and flag_has_ungrouped and loop.index0 == 1 %}{{ mark_grouped_flags }}{% endif %}
 
 {{ group.heading | default(value="Flags") }}:
 {%- for flag in group.items %}
@@ -142,7 +144,7 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
     [deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]
 {%- endif %}
 {%- endfor %}
-{%- endfor %}
+{%- endfor %}{% if flag_has_ungrouped and not flag_has_grouped %}{{ mark_grouped_flags }}{% endif %}{{ mark_global_flags }}
 
 {%- if global_flags %}
 

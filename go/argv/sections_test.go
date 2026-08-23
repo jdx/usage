@@ -60,6 +60,46 @@ func TestATemplateReordersTheSections(t *testing.T) {
 	}
 }
 
+func TestGroupedAndUngroupedSectionsCanBeInterleaved(t *testing.T) {
+	config := &Flag{Key: 2, Name: "config", Longs: []string{"config"}, TakesValue: true}
+	verbose := &Flag{Key: 3, Name: "verbose", Longs: []string{"verbose"}}
+	file := &Arg{Key: 4, Name: "file", Required: true}
+	mode := &Arg{Key: 5, Name: "mode"}
+	root := &Command{
+		Name: "ported", Key: 1,
+		Flags: []*Flag{config, verbose}, Args: []*Arg{file, mode},
+	}
+	help := helpKeyed(
+		Help{Key: 2, Short: "Read settings from this file", Heading: "Configuration", ValueName: "path", ValueDemanded: true},
+		Help{Key: 3, Short: "Print more detail"},
+		Help{Key: 4, Short: "File to process", Demanded: true},
+		Help{Key: 5, Short: "Processing mode", Heading: "Modes"},
+	)
+	spec := HelpSpec{
+		Name: "ported", Bin: "ported",
+		HelpTemplate: "{{grouped_flags}}\n\n{{ungrouped_args}}\n\n{{ungrouped_flags}}\n\n{{grouped_args}}",
+	}
+	page := ShortHelp(spec, []string{"ported"}, []*Command{root}, help)
+
+	headings := []string{"Configuration:", "Arguments:", "Flags:", "Modes:"}
+	last := -1
+	for _, heading := range headings {
+		if strings.Count(page, heading) != 1 {
+			t.Fatalf("expected one %q heading:\n%s", heading, page)
+		}
+		at := strings.Index(page, heading)
+		if at <= last {
+			t.Fatalf("sections are not in template order:\n%s", page)
+		}
+		last = at
+	}
+	for _, text := range []string{"--config", "<file>", "--verbose", "--help", "[mode]"} {
+		if !strings.Contains(page, text) {
+			t.Fatalf("missing %q:\n%s", text, page)
+		}
+	}
+}
+
 func TestATemplateOmitsASection(t *testing.T) {
 	// corpus/render/04-help-template.json#template-omits-a-section
 	install := &Command{Name: "install", Key: 4}
@@ -221,8 +261,12 @@ func TestAPlaceholderNamingNoSectionIsLeftAlone(t *testing.T) {
 	}
 }
 
-func TestTheSectionVocabularyIsTheSameSixWords(t *testing.T) {
-	want := []string{"about", "usage", "commands", "args", "flags", "after_help"}
+func TestTheSectionVocabularyMatchesThePortableTemplate(t *testing.T) {
+	want := []string{
+		"about", "usage", "commands", "args", "flags",
+		"grouped_args", "ungrouped_args", "grouped_flags", "ungrouped_flags",
+		"after_help",
+	}
 	if len(HelpSections) != len(want) {
 		t.Fatalf("HelpSections = %v, want %v", HelpSections, want)
 	}

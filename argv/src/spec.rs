@@ -254,14 +254,32 @@ impl<'a> CompleteCtx<'a> {
 /// capture anything.
 pub type Completer = fn(&CompleteCtx<'_>) -> Vec<Candidate<'static>>;
 
+/// The semantic role of one completion candidate.
+///
+/// PowerShell presents these with its native result types. Other shells currently preserve the
+/// value and description while ignoring the kind.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
+pub enum CandidateKind {
+    #[default]
+    Value,
+    Command,
+    Flag,
+    File,
+    Directory,
+}
+
 /// Something a shell could offer at the cursor.
 ///
-/// The description is what fish, zsh, nu and PowerShell show beside a candidate; bash shows
-/// only the value. It is borrowed from the spec rather than built, because it is already
-/// there — the help text a page would print for the same thing.
+/// `value` is what the shell inserts. `display` may replace it in shells whose completion API
+/// separates presentation from insertion, and `description` is the help shown beside it.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Candidate<'a> {
     pub value: String,
+    pub kind: CandidateKind,
+    /// A presentation-only label. Zsh and PowerShell support this distinction; other shells
+    /// display [`Self::value`] because their native candidate format couples the two.
+    pub display: Option<::std::borrow::Cow<'a, str>>,
     /// Borrowed from the spec where it is already there, owned where a callback made it.
     pub description: Option<::std::borrow::Cow<'a, str>>,
 }
@@ -271,6 +289,8 @@ impl Candidate<'_> {
     pub fn new(value: impl Into<String>) -> Self {
         Self {
             value: value.into(),
+            kind: CandidateKind::Value,
+            display: None,
             description: None,
         }
     }
@@ -279,8 +299,22 @@ impl Candidate<'_> {
     pub fn described(value: impl Into<String>, description: impl Into<String>) -> Self {
         Self {
             value: value.into(),
+            kind: CandidateKind::Value,
+            display: None,
             description: Some(::std::borrow::Cow::Owned(description.into())),
         }
+    }
+
+    /// Use a different label in shells that can display one value while inserting another.
+    pub fn displayed(mut self, display: impl Into<String>) -> Self {
+        self.display = Some(::std::borrow::Cow::Owned(display.into()));
+        self
+    }
+
+    /// Classify the candidate for shells that present semantic result types.
+    pub fn with_kind(mut self, kind: CandidateKind) -> Self {
+        self.kind = kind;
+        self
     }
 }
 
@@ -849,6 +883,12 @@ pub struct CommandMeta<'a> {
     pub after_help: Option<&'a str>,
     pub after_long_help: Option<&'a str>,
     pub examples: &'a [Example<'a>],
+    /// What this command writes, and how a consumer should read it.
+    pub outputs: &'a [OutputMeta<'a>],
+    /// The flag whose value picks among [`Self::outputs`], e.g. `--format`.
+    pub select: Option<&'a str>,
+    /// What this command's exit statuses mean.
+    pub exit_codes: &'a [ExitCodeMeta<'a>],
     /// Metadata for `cmd.flags`, in the same order.
     pub flags: &'a [FlagMeta<'a>],
     /// Metadata for `cmd.args`, in the same order.
@@ -898,6 +938,9 @@ impl CommandMeta<'_> {
         after_help: None,
         after_long_help: None,
         examples: &[],
+        outputs: &[],
+        select: None,
+        exit_codes: &[],
         groups: &[],
         flags: &[],
         args: &[],
@@ -1243,6 +1286,94 @@ pub struct Example<'a> {
     pub help: Option<&'a str>,
 }
 
+/// The wire format of what a command writes to stdout.
+///
+/// The machine contract, as distinct from the token a user types for it: aube spells its
+/// line-delimited output `ndjson` and hk spells the identical format `jsonl`, so a
+/// consumer keys off this and a user off [`OutputMeta::name`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Framing {
+    /// Human-readable text, with no structure a consumer may assume.
+    #[default]
+    Text,
+    /// One JSON document, read to end of stream.
+    Json,
+    /// One JSON document per line, read incrementally and possibly unbounded.
+    Jsonl,
+}
+
+impl Framing {
+    /// The spelling used in a spec.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Framing::Text => "text",
+            Framing::Json => "json",
+            Framing::Jsonl => "jsonl",
+        }
+    }
+
+    /// Whether a consumer has to read this incrementally rather than to the end.
+    pub fn is_streaming(self) -> bool {
+        matches!(self, Framing::Jsonl)
+    }
+}
+
+/// One thing a command can write.
+#[derive(Debug, Clone, Copy)]
+pub struct OutputMeta<'a> {
+    /// The token a user types for it.
+    pub name: &'a str,
+    pub framing: Framing,
+    pub help: Option<&'a str>,
+    /// What the command writes when nothing selects otherwise.
+    pub default: bool,
+    /// Remove an inherited output of the same name.
+    pub hide: bool,
+    /// A boolean flag whose presence picks this output, for the `--json` spelling.
+    pub select: Option<&'a str>,
+    /// A JSON Schema written into the table as text.
+    ///
+    /// What a hand-written table or an `include_str!`ed file uses. A derive that lowers a
+    /// Rust type uses [`Self::schema_fn`] instead, because `schema_for!` is a call.
+    pub schema: Option<&'a str>,
+    /// A JSON Schema produced on demand.
+    ///
+    /// A `fn` pointer for the same reason [`Completer`] is one: this lives in a
+    /// `&'static` table that a const expression initializes, and a schema derived from a
+    /// Rust type is a runtime call. Preferred over [`Self::schema`] when both are set.
+    pub schema_fn: Option<fn() -> String>,
+}
+
+impl OutputMeta<'_> {
+    /// A named output with nothing else said about it, for struct-update syntax.
+    pub const EMPTY: OutputMeta<'static> = OutputMeta {
+        name: "",
+        framing: Framing::Text,
+        help: None,
+        default: false,
+        hide: false,
+        select: None,
+        schema: None,
+        schema_fn: None,
+    };
+
+    /// The schema, whichever way it was declared.
+    pub fn schema_text(&self) -> Option<String> {
+        match (self.schema_fn, self.schema) {
+            (Some(f), _) => Some(f()),
+            (None, Some(s)) => Some(s.into()),
+            (None, None) => None,
+        }
+    }
+}
+
+/// One documented exit status.
+#[derive(Debug, Clone, Copy)]
+pub struct ExitCodeMeta<'a> {
+    pub code: i64,
+    pub help: &'a str,
+}
+
 /// What running a command does to the world.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Effect {
@@ -1496,9 +1627,6 @@ impl Spec<'_> {
             "the root command cannot carry an effect, hide, a restart token, or \
              aliases: the spec accepts those only inside a `cmd` block"
         );
-        for example in self.root.examples {
-            write_example(out, example, 0)?;
-        }
         // Before the flags, since that is where the first `use` of one appears. Which sets
         // there are is a property of the whole tree, so it is settled before anything is
         // written rather than discovered command by command.
@@ -1514,7 +1642,7 @@ impl Spec<'_> {
         }
         // Nothing above the root, so what it does not state is the default.
         let mut path = Vec::new();
-        write_body(out, self.root, 0, UnknownFlags::Value, &w, &mut path)
+        write_body(out, self.root, 0, UnknownFlags::Value, &w, &mut path, true)
     }
 }
 
@@ -1716,6 +1844,7 @@ fn write_body<'a>(
     inherited_unknown_flags: UnknownFlags,
     w: &Writing<'_, '_>,
     path: &mut Vec<&'a str>,
+    root: bool,
 ) -> core::fmt::Result {
     // The effective setting for everything inside, which is this command's if it stated one
     // and otherwise whatever it inherited.
@@ -1753,6 +1882,12 @@ fn write_body<'a>(
     // rule about them — the order usage-lib writes, so a round trip reads the same way.
     for group in meta.groups {
         write_group(out, group, depth)?;
+    }
+    if root {
+        for example in meta.examples {
+            write_example(out, example, depth)?;
+        }
+        write_outputs(out, meta, depth)?;
     }
     #[cfg(feature = "complete")]
     write_completers(out, meta, w.bin, depth)?;
@@ -1962,7 +2097,10 @@ fn write_command<'a>(
     for example in meta.examples {
         write_example(out, example, inner)?;
     }
-    write_body(out, meta, inner, effective_unknown_flags, w, path)?;
+    write_body(out, meta, inner, effective_unknown_flags, w, path, false)?;
+    // After the body, because usage-lib's writer puts these after the flags, args and
+    // subcommands, and `canonical_kdl` compares the two documents byte for byte.
+    write_outputs(out, meta, inner)?;
 
     indent(out, depth)?;
     out.push_str("}\n");
@@ -1983,6 +2121,57 @@ fn write_group(out: &mut String, group: &GroupMeta<'_>, depth: usize) -> core::f
         out.push_str(" multiple=#true");
     }
     out.push('\n');
+    Ok(())
+}
+
+/// A command's outputs, the flag that picks among them, and its exit codes.
+///
+/// One function because the three are one declaration read together, and because the
+/// order — outputs, then `select`, then exit codes — has to match what usage-lib's writer
+/// produces or `canonical_kdl` fails.
+fn write_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
+    for output in meta.outputs {
+        indent(out, depth)?;
+        write!(out, "output {}", quoted(output.name))?;
+        if output.framing != Framing::Text {
+            write!(out, " framing={}", quoted(output.framing.as_str()))?;
+        }
+        if let Some(help) = output.help {
+            write!(out, " help={}", quoted(help))?;
+        }
+        if output.default {
+            out.push_str(" default=#true");
+        }
+        if output.hide {
+            out.push_str(" hide=#true");
+        }
+        if let Some(select) = output.select {
+            write!(out, " select={}", quoted(select))?;
+        }
+        match output.schema_text() {
+            Some(schema) => {
+                out.push_str(" {\n");
+                indent(out, depth + 1)?;
+                writeln!(out, "schema {}", quoted(&schema))?;
+                indent(out, depth)?;
+                out.push_str("}\n");
+            }
+            None => out.push('\n'),
+        }
+    }
+    if let Some(select) = meta.select {
+        indent(out, depth)?;
+        writeln!(out, "select {}", quoted_arg(select))?;
+    }
+    for exit_code in meta.exit_codes {
+        indent(out, depth)?;
+        writeln!(
+            out,
+            "exit_code {} {}",
+            exit_code.code,
+            quoted(exit_code.help)
+        )?;
+    }
     Ok(())
 }
 
@@ -2843,6 +3032,11 @@ fn quoted(value: &str) -> String {
     if value.contains('\n') && !has_unsafe_control {
         return raw_multiline_kdl_string(value);
     }
+    escaped(value)
+}
+
+/// A KDL quoted string with everything that has to be escaped, escaped.
+fn escaped(value: &str) -> String {
     let mut out = String::with_capacity(value.len() + 2);
     out.push('"');
     for ch in value.chars() {
@@ -2863,6 +3057,18 @@ fn quoted(value: &str) -> String {
     }
     out.push('"');
     out
+}
+
+/// Render a string in *node argument* position, where a leading dash has to be quoted.
+///
+/// KDL reads `select "--format"` but not `select --format`, and usage-lib quotes a dashed
+/// node argument for that reason (`string_entry`, lib/src/spec/helpers.rs). Properties are
+/// left alone on both sides — `negate=--no-color` parses today.
+fn quoted_arg(value: &str) -> String {
+    if value.starts_with('-') {
+        return escaped(value);
+    }
+    quoted(value)
 }
 
 /// Number of `#` delimiters so the closer cannot appear inside `value`.
@@ -3002,7 +3208,7 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
         .any(|choice| *choice == value || ignore_case && choice.eq_ignore_ascii_case(value))
 }
 
-/// An enum whose variants are one command's mutually exclusive switch flags.
+/// An enum whose variants are one command's mutually exclusive flags.
 ///
 /// What a CLI spells `--json` or `--yaml` and holds as a `Mode`, rather than as one `bool` per
 /// member plus a `match` over which of them is set. Nothing new reaches the spec: the enum
@@ -3016,7 +3222,7 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
 pub trait ArgGroup: Sized {
     /// What the group is called, in the emitted spec and in a failed check.
     const NAME: &'static str;
-    /// One switch per variant, to splice into the holding command's parse table.
+    /// One flag per variant, to splice into the holding command's parse table.
     ///
     /// A `const` for the same reason [`CommandArgs::COMMAND`] is: the tables stay `static`
     /// all the way down, so nothing is built at run time to start a parse.
@@ -3060,6 +3266,15 @@ pub trait ArgGroup: Sized {
 
     /// The variant that was selected, or `None` when no member was given.
     fn build(partial: &Self::Partial) -> Option<Self>;
+
+    /// Build the selected variant, reporting a payload that could not be converted.
+    ///
+    /// The default preserves hand-written implementations whose members are all switches.
+    /// Derived groups with value-carrying variants override this and keep their raw word in
+    /// [`Self::Partial`] until this step, just as an ordinary command field does.
+    fn try_build(partial: &Self::Partial) -> Result<Option<Self>, crate::Error<'static, 'static>> {
+        Ok(Self::build(partial))
+    }
 
     /// Find a member by any selector it accepts.
     ///
@@ -3875,6 +4090,7 @@ mod tests {
             "unsafe control characters keep the quoted escape form"
         );
         assert_eq!(quoted("tab\tonly"), "\"tab\\tonly\"");
+        assert_eq!(quoted_arg("--format"), "\"--format\"");
     }
 
     #[test]
@@ -4159,6 +4375,7 @@ mod tests {
             UnknownFlags::Value,
             &w,
             &mut Vec::new(),
+            false,
         )
         .unwrap();
 

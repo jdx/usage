@@ -12,7 +12,9 @@
 //! than as a diff nobody reads.
 
 use usage::Spec as LibSpec;
-use usage_argv::spec::{ArgMeta, CommandMeta, Effect, Example, FlagMeta, Spec};
+use usage_argv::spec::{
+    ArgMeta, CommandMeta, Effect, Example, ExitCodeMeta, FlagMeta, Framing, OutputMeta, Spec,
+};
 use usage_argv::{Arg, Command, DoubleDash, Flag};
 
 static JOBS: Flag = Flag {
@@ -62,6 +64,13 @@ static PRUNE: Flag = Flag {
     name: "prune",
     longs: &["prune"],
     ..Flag::BOOL
+};
+/// The value-taking flag `install`'s outputs are selected with.
+static FORMAT: Flag = Flag {
+    key: 20,
+    name: "format",
+    longs: &["format"],
+    ..Flag::VALUE
 };
 static PATHS: Flag = Flag {
     key: 8,
@@ -119,7 +128,7 @@ static SETTINGS: Command = Command {
 static INSTALL: Command = Command {
     name: "install",
     aliases: &["i", "add"],
-    flags: &[&FORCE],
+    flags: &[&FORCE, &FORMAT],
     args: &[&TOOL],
     key: 102,
     ..Command::EMPTY
@@ -179,11 +188,43 @@ static INSTALL_META: CommandMeta = CommandMeta {
         header: None,
         help: Some("install a specific version"),
     }],
-    flags: &[FlagMeta {
-        flag: &FORCE,
-        help: Some("overwrite an existing install"),
-        ..FlagMeta::EMPTY
+    // A schema with newlines in it, so the raw-multiline path is exercised on the way out
+    // and `usage_lib_can_reserialize_what_we_emit` proves the two writers agree about it.
+    outputs: &[
+        OutputMeta {
+            name: "human",
+            default: true,
+            help: Some("a progress log"),
+            ..OutputMeta::EMPTY
+        },
+        OutputMeta {
+            name: "json",
+            framing: Framing::Json,
+            schema: Some("{\n  \"type\": \"object\"\n}"),
+            ..OutputMeta::EMPTY
+        },
+        OutputMeta {
+            name: "jsonl",
+            framing: Framing::Jsonl,
+            ..OutputMeta::EMPTY
+        },
+    ],
+    select: Some("--format"),
+    exit_codes: &[ExitCodeMeta {
+        code: 3,
+        help: "the tool was not found",
     }],
+    flags: &[
+        FlagMeta {
+            flag: &FORCE,
+            help: Some("overwrite an existing install"),
+            ..FlagMeta::EMPTY
+        },
+        FlagMeta {
+            flag: &FORMAT,
+            ..FlagMeta::EMPTY
+        },
+    ],
     args: &[ArgMeta {
         arg: &TOOL,
         help: Some("the tool to install"),
@@ -233,6 +274,18 @@ static ROOT_META: CommandMeta = CommandMeta {
         header: Some("Basic"),
         help: Some("the simplest thing"),
     }],
+    // CLI-wide, and refined per command: `install` says something more specific about 3
+    // without having to restate 0 and 130.
+    exit_codes: &[
+        ExitCodeMeta {
+            code: 0,
+            help: "success",
+        },
+        ExitCodeMeta {
+            code: 130,
+            help: "interrupted",
+        },
+    ],
     flags: &[
         FlagMeta {
             flag: &JOBS,
@@ -651,6 +704,58 @@ fn effects_mounts_restart_tokens_and_examples_survive() {
     let run = spec.cmd.subcommands.get("run").unwrap();
     assert_eq!(run.restart_token.as_deref(), Some(":::"));
     assert_eq!(run.mounts.len(), 1, "run should declare a mount");
+}
+
+#[test]
+fn outputs_and_exit_codes_survive() {
+    let spec = parsed();
+    let install = spec.cmd.subcommands.get("install").unwrap();
+
+    let framings: Vec<(&str, &str)> = install
+        .outputs
+        .iter()
+        .map(|o| (o.name.as_str(), o.framing.as_str()))
+        .collect();
+    assert_eq!(
+        framings,
+        vec![("human", "text"), ("json", "json"), ("jsonl", "jsonl")]
+    );
+    assert!(install.outputs[0].default);
+    assert_eq!(
+        install.outputs[1].schema.as_deref(),
+        Some("{\n  \"type\": \"object\"\n}"),
+        "a schema with newlines should come back as it went out"
+    );
+    assert_eq!(install.select.as_deref(), Some("--format"));
+
+    // Selection is resolved on the way in, so the flag usage-lib parsed knows the values.
+    let format = install
+        .flags
+        .iter()
+        .find(|f| f.name == "format")
+        .expect("--format should be in the parsed spec");
+    assert_eq!(
+        format
+            .arg
+            .as_ref()
+            .and_then(|a| a.choices.as_ref())
+            .map(|c| c.values()),
+        Some(vec!["human".into(), "json".into(), "jsonl".into()])
+    );
+
+    // Root-level codes, refined by the command's own.
+    let codes: Vec<(i64, &str)> = usage::effective_exit_codes(&spec, std::slice::from_ref(install))
+        .iter()
+        .map(|e| (e.code, Box::leak(e.help.clone().into_boxed_str()) as &str))
+        .collect();
+    assert_eq!(
+        codes,
+        vec![
+            (0, "success"),
+            (130, "interrupted"),
+            (3, "the tool was not found")
+        ]
+    );
 }
 
 #[test]

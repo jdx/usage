@@ -3,5 +3,5 @@ source: lib/src/sdk/python/mod.rs
 expression: "get_file(&output, \"__init__.py\")"
 ---
 from .client import Mycli
-from .runtime import CliResult, CliRunner
+from .runtime import CliError, CliJsonResult, CliResult, CliRunner, CliStream
 from .types import *

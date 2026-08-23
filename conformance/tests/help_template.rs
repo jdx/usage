@@ -142,12 +142,12 @@ fn a_template_survives_the_round_trip_through_kdl() {
     );
 }
 
-/// A CLI naming every section there is, in an order no default page uses.
+/// A CLI naming every original, combined section, in an order no default page uses.
 ///
-/// The fixture that holds the vocabularies together. The derive keeps its own copy of the six
-/// names — a proc-macro crate cannot depend on the crate its output calls into — so a name
-/// missing from that copy refuses this struct at compile time, and one missing from
-/// `usage_argv::help` renders here as the braces somebody typed.
+/// Together with `SplitSections`, this holds the vocabularies together. The derive keeps its own
+/// copy of the ten names — a proc-macro crate cannot depend on the crate its output calls into —
+/// so a name missing from that copy refuses one of those structs at compile time, and one missing
+/// from `usage_argv::help` renders as the braces somebody typed.
 #[derive(Cli)]
 #[usage(
     bin = "every-section",
@@ -178,7 +178,7 @@ fn every_section_the_vocabulary_holds_can_be_placed() {
     // substitution as literal braces rather than fail, so the braces are what to look for.
     assert!(!page.contains("{{"), "a section went unfilled:\n{page}");
 
-    // Each of the six put its own content where the template asked for it.
+    // Each combined section put its own content where the template asked for it.
     let at = |needle: &str| {
         page.find(needle)
             .unwrap_or_else(|| panic!("{needle}:\n{page}"))
@@ -205,15 +205,71 @@ fn every_section_the_vocabulary_holds_can_be_placed() {
 }
 
 #[test]
-fn the_two_rust_vocabularies_are_the_same_six_words() {
+fn the_two_rust_vocabularies_are_the_same_words() {
     // One list, three Rust copies: this one, usage-argv's, and the derive's. The derive's cannot
-    // be reached from here, which is what `every_section_the_vocabulary_holds_can_be_placed` is
-    // for; these two can be compared outright.
+    // be reached from here, which is what the two derived fixtures above are for; these two can
+    // be compared outright.
     assert_eq!(
         usage::help_template::SECTIONS,
         usage_argv::help::SECTIONS,
         "the reference and the compiled renderer name different sections"
     );
+}
+
+/// A ported CLI that needs headed flags before its positional arguments, with the ordinary
+/// flags after them. The combined `args` and `flags` sections cannot express that ordering.
+#[derive(Cli)]
+#[usage(
+    bin = "ported",
+    help_template = "{{grouped_flags}}\n\n{{ungrouped_args}}\n\n{{ungrouped_flags}}\n\n{{grouped_args}}"
+)]
+struct SplitSections {
+    /// Read settings from this file
+    #[usage(long, help_heading = "Configuration")]
+    config: Option<String>,
+
+    /// Print more detail
+    #[usage(long)]
+    verbose: bool,
+
+    /// File to process
+    #[usage(arg, name = "file")]
+    file: String,
+
+    /// Processing mode
+    #[usage(arg, name = "mode", help_heading = "Modes")]
+    mode: Option<String>,
+}
+
+#[test]
+fn grouped_and_ungrouped_sections_can_be_interleaved() {
+    let spec = SplitSections::spec();
+    let page = usage_argv::help::short_help(spec, &["ported"], &[spec.root]);
+
+    let lib: LibSpec = spec
+        .to_kdl()
+        .parse()
+        .expect("the derive emits a valid spec");
+    assert_eq!(page, usage::docs::cli::render_help(&lib, &lib.cmd, false));
+
+    let at = |needle: &str| {
+        page.find(needle)
+            .unwrap_or_else(|| panic!("{needle}:\n{page}"))
+    };
+    let order = [
+        at("Configuration:"),
+        at("Arguments:"),
+        at("Flags:"),
+        at("Modes:"),
+    ];
+    assert!(
+        order.windows(2).all(|pair| pair[0] < pair[1]),
+        "the split sections are not in the template's order:\n{page}"
+    );
+    assert_eq!(page.matches("Configuration:").count(), 1, "{page}");
+    assert_eq!(page.matches("Arguments:").count(), 1, "{page}");
+    assert_eq!(page.matches("Flags:").count(), 1, "{page}");
+    assert_eq!(page.matches("Modes:").count(), 1, "{page}");
 }
 
 #[test]
@@ -272,4 +328,17 @@ fn the_cli_a_template_describes_still_parses() {
     assert!(every.force);
     assert_eq!(every.file.as_deref(), Some("notes.txt"));
     assert!(every.command.is_none());
+
+    let split = SplitSections::parse_from(&[
+        OsStr::new("--config"),
+        OsStr::new("settings.toml"),
+        OsStr::new("--verbose"),
+        OsStr::new("notes.txt"),
+        OsStr::new("fast"),
+    ])
+    .expect("split-section fixture parses like the page says");
+    assert_eq!(split.config.as_deref(), Some("settings.toml"));
+    assert!(split.verbose);
+    assert_eq!(split.file, "notes.txt");
+    assert_eq!(split.mode.as_deref(), Some("fast"));
 }

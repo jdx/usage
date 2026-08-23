@@ -93,9 +93,9 @@ a positional — are compile errors.
 
 ## A group as an enum
 
-When every member is a valueless flag, the group can be the type instead: an enum deriving
-`ArgGroup`, whose variants are the flags. The code that reads it then matches on a variant
-rather than working out which of several `bool`s is set.
+The group can be the type instead: an enum deriving `ArgGroup`, whose variants are the flags.
+The code that reads it then matches on a variant rather than working out which of several
+fields is set.
 
 ```rust
 /// How to print the result
@@ -119,10 +119,24 @@ struct Fmt {
 }
 ```
 
-The variants are bare: each is one switch, named by its own name in kebab-case unless `long`
-or `name` says otherwise, with `short`, `hide`, `help` and `long_help` as the rest of what a
-switch has. A doc comment is the help. Without `#[usage(name = "…")]` the group is named after
-the type.
+Unit variants are switches. A tuple variant with one field is a value-taking flag:
+
+```rust
+#[derive(ArgGroup)]
+enum Mode {
+    Write,
+    Check,
+    #[usage(value_name = "SOURCE", value_enum)]
+    Migrate(MigrationSource),
+    #[usage(value_name = "PATH")]
+    StdinFilepath(std::path::PathBuf),
+}
+```
+
+Each member is named by its variant in kebab-case unless `long` or `name` says otherwise.
+`short`, `hide`, `help` and `long_help` apply to both forms; `value_name` and `value_enum`
+describe a tuple variant's payload. A doc comment is the help. Without
+`#[usage(name = "…")]` the group is named after the type.
 
 The field's type says whether the group is required, exactly as it does everywhere else:
 `Option<Format>` is a group that may be left alone, and a bare `Format` is one that has to be
@@ -135,9 +149,9 @@ Nothing new reaches the spec. The enum lowers to the same `group` node
 given is the same `MissingGroup`, and help, docs and completions list the member flags without
 knowing an enum was involved.
 
-A member that takes a value stays a hand-written `conflicts` set or a
-[`ValueEnum`](/rust/subcommands#value-enums) on one flag, where the values have somewhere to
-land.
+A payload converts through `FromStr`, preserving non-UTF-8 bytes for `PathBuf` and `OsString`.
+With `value_enum`, its choices, aliases, help and case policy reach validation, help, generated
+specs and completions from the same enum declaration.
 
 ## Exclusive flags
 
@@ -181,6 +195,67 @@ value and `var_min`/`var_max` count values, not words — `--tags a,b,c,d` with 
 
 The field must be a `Vec`, and the delimiter must be a single ASCII character; both are enforced
 at compile time. Emitted KDL: `flag "--tags <tag>" var=#true delimiter=","`.
+
+## Cross-field validation and typed finalization
+
+Use `validate_with` for an invariant that needs the fully typed root command rather than one
+field's text. It runs after field conversion and environment/default resolution on every parse
+path:
+
+```rust
+use usage::{Cli, ValidationError};
+
+#[derive(Cli)]
+#[usage(bin = "copy", validate_with = validate_copy)]
+struct CopyArgs {
+    #[usage(long)]
+    source: std::path::PathBuf,
+    #[usage(long)]
+    destination: std::path::PathBuf,
+}
+
+fn validate_copy(args: &CopyArgs) -> Result<(), ValidationError> {
+    if args.source == args.destination {
+        return Err(ValidationError::field("--destination")
+            .value(args.destination.display().to_string())
+            .reason("must differ from --source"));
+    }
+    Ok(())
+}
+```
+
+The error is returned as the ordinary `Error::InvalidValue`, so renderers and embedding code do
+not need a second diagnostic path. Derive `Clone` when using the update entry points: updates are
+applied to a clone, validated, and committed only on success, so a failed update leaves the
+standing value untouched.
+
+For applications that keep their parser declaration separate from the type passed to the rest of
+the program, `try_into` generates finalizing parse entry points:
+
+```rust
+#[derive(Cli)]
+#[usage(bin = "copy", try_into = CopyCommand)]
+struct CopyArgs { /* flags and arguments */ }
+
+struct CopyCommand(CopyArgs);
+
+impl TryFrom<CopyArgs> for CopyCommand {
+    type Error = usage::ValidationError;
+
+    fn try_from(args: CopyArgs) -> Result<Self, Self::Error> {
+        // Resolve modes, normalize paths, or establish richer invariants here.
+        Ok(Self(args))
+    }
+}
+
+fn main() {
+    let command: CopyCommand = CopyArgs::parse_into();
+}
+```
+
+`parse_into_from`, `parse_into_from_with_warnings`, `parse_into_from_argv`, and
+`try_parse_into_from` are the returning-error counterparts. The original `parse_*` methods remain
+available when a caller wants the declaration type itself.
 
 ## Portable expressions
 

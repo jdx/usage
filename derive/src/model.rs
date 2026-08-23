@@ -218,6 +218,17 @@ pub struct Cli {
     pub groups: Vec<GroupDecl>,
     /// Spec-declared executable views promoted from subcommands.
     pub views: Vec<ViewDecl>,
+    /// What this command writes, and how a consumer should read it.
+    pub outputs: Vec<OutputDecl>,
+    /// The flag whose value picks among [`Self::outputs`]. Set either by the struct-level
+    /// `select = "--format"` or by a field carrying `#[usage(select)]`.
+    pub select: Option<String>,
+    /// What this command's exit statuses mean.
+    pub exit_codes: Vec<ExitCodeDecl>,
+    /// A command-wide invariant checked after every field has been converted.
+    pub validate_with: Option<syn::Path>,
+    /// An application type built from this parser type by the generated `parse_into_*` APIs.
+    pub try_into: Option<syn::Type>,
     pub fields: Vec<Field>,
 }
 
@@ -236,6 +247,39 @@ pub struct ViewDecl {
     pub root: String,
     pub all_globals: bool,
     pub globals: Vec<String>,
+}
+
+/// One `output("json", framing = "json", schema_from = Report)` declaration.
+pub struct OutputDecl {
+    pub name: String,
+    /// Written as the spec spells it — `text`, `json`, `jsonl` — and checked here so a
+    /// typo is a compile error rather than something usage-lib rejects later.
+    pub framing: String,
+    pub help: Option<String>,
+    pub default: bool,
+    pub hide: bool,
+    /// A boolean flag whose presence picks this output.
+    pub select: Option<String>,
+    /// The schema, however it was spelled. All three lower to one generated function.
+    pub schema: Option<SchemaSource>,
+}
+
+/// Where an output's JSON Schema comes from.
+pub enum SchemaSource {
+    /// `schema = "{…}"`, written out.
+    Literal(String),
+    /// `schema_from = Report` — `schemars::schema_for!` on a type in the adopter's crate.
+    /// The derive emits the path and links nothing, the way it already does for
+    /// `usage_config`.
+    Type(syn::Type),
+    /// `schema_fn = crate::schemas::report`, the adopter's own `fn() -> String`.
+    Function(syn::Path),
+}
+
+/// One `exit_code(1, "a check failed")` declaration.
+pub struct ExitCodeDecl {
+    pub code: i64,
+    pub help: String,
 }
 
 /// One field, resolved to the thing it declares.
@@ -288,6 +332,12 @@ pub struct Field {
     /// the explicit portable spelling emitted in static metadata.
     pub default_value_t: Option<proc_macro2::TokenStream>,
     pub help_heading: Option<String>,
+    /// `#[usage(select)]`: this flag's value picks among the command's outputs.
+    ///
+    /// The ergonomic half of the struct-level `select = "--format"` — it reads where the
+    /// flag is declared and needs no string to keep in step with it. Both spellings set
+    /// the same [`Cli::select`], so the emitted spec is identical either way.
+    pub select: bool,
     /// Explicit placement within its help section.
     pub display_order: Option<usize>,
     /// What supplying this flag does to the world, when it says.
@@ -766,6 +816,11 @@ impl Cli {
             mount: None,
             groups: Vec::new(),
             views: Vec::new(),
+            outputs: Vec::new(),
+            select: None,
+            exit_codes: Vec::new(),
+            validate_with: None,
+            try_into: None,
             fields: Vec::new(),
         };
 
@@ -1000,6 +1055,36 @@ impl Cli {
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
                     "example" => cli.examples.push(example_decl(&meta)?),
+                    "output" => {
+                        let output = output_decl(&meta)?;
+                        if cli.outputs.iter().any(|o| o.name == output.name) {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                format!("an output named `{}` is already declared", output.name),
+                            ));
+                        }
+                        cli.outputs.push(output);
+                    }
+                    "exit_code" => {
+                        let exit_code = exit_code_decl(&meta)?;
+                        if cli.exit_codes.iter().any(|e| e.code == exit_code.code) {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                format!("exit code {} is already declared", exit_code.code),
+                            ));
+                        }
+                        cli.exit_codes.push(exit_code);
+                    }
+                    "select" => cli.select = Some(string_value(&meta)?),
+                    "validate_with" => {
+                        let value = &meta.require_name_value()?.value;
+                        cli.validate_with =
+                            Some(syn::parse2(quote::ToTokens::to_token_stream(value))?);
+                    }
+                    "try_into" => {
+                        let value = &meta.require_name_value()?.value;
+                        cli.try_into = Some(syn::parse2(quote::ToTokens::to_token_stream(value))?);
+                    }
                     "view" => {
                         let view = view_decl(&meta)?;
                         if cli.views.iter().any(|declared| declared.id == view.id) {
@@ -1037,9 +1122,8 @@ impl Cli {
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `term_width`, `max_term_width`, \
-                                 `subcommand_value_name`, `restart_token`, `mount`, `example`, `run`, `run_with`, `run_async`, `run_async_with` and \
-                                 `group` and `view` here, and the description comes from the doc \
-                                 comment"
+                                 `subcommand_value_name`, `restart_token`, `mount`, `example`, `select`, `output`, `exit_code`, `run`, `run_with`, `run_async`, `run_async_with`, \
+                                 `group`, `view`, `validate_with`, and `try_into` here, and the description comes from the doc comment"
                             ),
                         ));
                     }
@@ -1100,6 +1184,60 @@ impl Cli {
                 cli.rename_all_env,
                 cli.subcommand_negates_reqs,
             )?);
+        }
+        // `#[usage(select)]` on a field is the same declaration as `select = "--format"` on
+        // the struct, said where the flag is rather than as a string that has to be kept in
+        // step with it. Resolved here, once the fields exist, because the selector is the
+        // flag's spelling and only a parsed field knows that.
+        let selecting: Vec<&Field> = cli.fields.iter().filter(|f| f.select).collect();
+        if selecting.len() > 1 {
+            return Err(syn::Error::new_spanned(
+                &selecting[1].ident,
+                "two fields carry `select`; only one flag can pick among the outputs",
+            ));
+        }
+        if let Some(field) = selecting.first() {
+            if cli.select.is_some() {
+                return Err(syn::Error::new_spanned(
+                    &field.ident,
+                    "this field carries `select` and the struct already declares \
+                     `select = \"…\"`; keep one of them",
+                ));
+            }
+            let Some(selector) = (field.takes_value() && matches!(field.kind, Kind::Flag { .. }))
+                .then(|| Cli::selector_for_field(field))
+                .flatten()
+            else {
+                return Err(syn::Error::new_spanned(
+                    &field.ident,
+                    "`select` belongs on a flag that takes a value, and this field is not one",
+                ));
+            };
+            cli.select = Some(selector);
+        }
+        // The selecting flag has to be declared on this struct. usage-lib, reading a spec,
+        // can narrow an inherited global by copying it into the command — two commands
+        // under one `--format` rarely write the same things. A derive cannot: a subcommand
+        // struct has no view of its parent's fields. Rather than emit a spec that usage-lib
+        // would then narrow — leaving `Cli::to_kdl()` and a re-serialized spec disagreeing —
+        // say so here, where the fix is one `flatten` or one field away.
+        if let Some(select) = cli.select.clone() {
+            if cli.field_for_selector(&select).is_none() {
+                return Err(syn::Error::new_spanned(
+                    &input.ident,
+                    format!(
+                        "`select = \"{select}\"` names no flag on this type. The flag that \
+                         picks among a command's outputs must be declared alongside them — \
+                         add the field here, or `flatten` the struct that has it"
+                    ),
+                ));
+            }
+            if cli.outputs.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    &input.ident,
+                    format!("`select = \"{select}\"` has no `output(…)` to pick among"),
+                ));
+            }
         }
         if let Some(heading) = &cli.next_help_heading {
             for field in &mut cli.fields {
@@ -1269,6 +1407,18 @@ impl Cli {
                     ident,
                     "`no_binary_name` belongs on the root, where `#[derive(Cli)]` is: it \
                      selects the input contract of the whole CLI's clap-shaped parser",
+                ));
+            }
+            if self.try_into.is_some() {
+                return Err(self.misplaced(
+                    ident,
+                    "`try_into` belongs on the root, where `#[derive(Cli)]` generates the `parse_into_*` entry points",
+                ));
+            }
+            if self.validate_with.is_some() {
+                return Err(self.misplaced(
+                    ident,
+                    "`validate_with` belongs on the root, where `#[derive(Cli)]` owns the complete parsed value and its transactional update entry points",
                 ));
             }
             if !self.views.is_empty() {
@@ -1869,6 +2019,7 @@ impl Field {
             default: Vec::new(),
             default_value_t: None,
             help_heading: None,
+            select: false,
             display_order: None,
             value_name: None,
             value_names: Vec::new(),
@@ -2016,6 +2167,7 @@ impl Field {
             default: Vec::new(),
             default_value_t: None,
             help_heading: None,
+            select: false,
             display_order: None,
             value_name: None,
             value_names: Vec::new(),
@@ -2167,6 +2319,7 @@ impl Field {
             default: Vec::new(),
             default_value_t: None,
             help_heading: None,
+            select: false,
             display_order: None,
             value_name: None,
             value_names: Vec::new(),
@@ -2296,6 +2449,7 @@ impl Field {
             default: Vec::new(),
             default_value_t: None,
             help_heading: None,
+            select: false,
             display_order: None,
             value_name: None,
             value_names: Vec::new(),
@@ -2400,6 +2554,7 @@ impl Field {
         let mut default: Vec<String> = Vec::new();
         let mut default_value_t = None;
         let mut help_heading = None;
+        let mut select = false;
         let mut display_order = None;
         let mut effect = None;
         let mut value_name = None;
@@ -2426,6 +2581,7 @@ impl Field {
         let mut validate_error: Option<String> = None;
         let mut complete: Option<syn::Path> = None;
         let mut complete_type: Option<String> = None;
+        let mut completion_extensions: Vec<String> = Vec::new();
         let mut value_enum = false;
         let mut var_min: Option<usize> = None;
         let mut var_max: Option<usize> = None;
@@ -2497,6 +2653,7 @@ impl Field {
                     },
                     "negate" => negate = Some(strip_dashes(&string_value(&meta)?)),
                     "global" => global = flag_value(&meta)?,
+                    "select" => select = flag_value(&meta)?,
                     // Two different things, deliberately spelled the way a spec
                     // spells them: `var` is a flag that may be repeated, `variadic`
                     // is one occurrence that keeps taking values.
@@ -2554,6 +2711,35 @@ impl Field {
                         complete = Some(path.path.clone());
                     }
                     "value_hint" => complete_type = Some(value_hint(&meta)?),
+                    "extensions" => {
+                        let Meta::List(list) = &meta else {
+                            return Err(syn::Error::new_spanned(
+                                meta.path(),
+                                "`extensions` takes a list, as in `extensions(\"toml\", \"yaml\")`",
+                            ));
+                        };
+                        completion_extensions = list
+                            .parse_args_with(
+                                syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+                            )?
+                            .into_iter()
+                            .map(|lit| lit.value().trim_start_matches('.').to_string())
+                            .collect();
+                        if completion_extensions.is_empty()
+                            || completion_extensions.iter().any(|extension| {
+                                extension.is_empty()
+                                    || !extension.chars().all(|c| {
+                                        c.is_ascii_alphanumeric()
+                                            || matches!(c, '.' | '_' | '+' | '-')
+                                    })
+                            })
+                        {
+                            return Err(syn::Error::new_spanned(
+                                meta.path(),
+                                "`extensions` needs one or more filename extensions without paths",
+                            ));
+                        }
+                    }
                     "choices" => {
                         let Meta::List(list) = &meta else {
                             return Err(syn::Error::new_spanned(
@@ -2718,7 +2904,7 @@ impl Field {
                                  `value_terminator`, `require_equals`, `bool_value`, \
                                  `default_missing`, `default_if`, \
                                  `required_if`, \
-                                 `required_unless`, `required_unless_all`, `help_heading`, `display_order`, `value_name`, `value_names`, `num_args`, \
+                                 `required_unless`, `required_unless_all`, `help_heading`, `select`, `display_order`, `value_name`, `value_names`, `num_args`, \
                                  `verbatim_doc_comment`, \
                                  `visible_alias`, `visible_aliases`, `required`, \
                                  `double_dash`, and `skip`"
@@ -2978,6 +3164,19 @@ impl Field {
                 span,
                 "`validate_error` needs a `validate` expression to report for",
             ));
+        }
+        if !completion_extensions.is_empty() {
+            match complete_type.as_deref() {
+                Some("path") => {
+                    complete_type = Some(format!("path:{}", completion_extensions.join(",")));
+                }
+                _ => {
+                    return Err(syn::Error::new(
+                        span,
+                        "`extensions` needs `value_hint = usage::ValueHint::FilePath` or `AnyPath`",
+                    ));
+                }
+            }
         }
         if complete_type.is_some() && matches!(shape, Shape::Bool | Shape::Count) {
             return Err(syn::Error::new(
@@ -3625,6 +3824,7 @@ impl Field {
             default,
             default_value_t,
             help_heading,
+            select,
             display_order,
             effect,
             value_name,
@@ -3932,11 +4132,22 @@ pub(crate) fn string_value(meta: &Meta) -> syn::Result<String> {
 ///
 /// The same closed vocabulary `usage_argv::help::SECTIONS` renders and the KDL parser accepts,
 /// repeated rather than imported: a proc-macro crate cannot depend on the crate its output calls
-/// into, and the list is six words. What keeps the copies together is
+/// into. What keeps the copies together is
 /// `conformance/tests/help_template.rs`, which renders a page from a template naming every one of
 /// them — a section this copy had lost would refuse that fixture at compile time, and one it had
 /// gained would render as literal braces.
-const HELP_SECTIONS: [&str; 6] = ["about", "usage", "commands", "args", "flags", "after_help"];
+const HELP_SECTIONS: [&str; 10] = [
+    "about",
+    "usage",
+    "commands",
+    "args",
+    "flags",
+    "grouped_args",
+    "ungrouped_args",
+    "grouped_flags",
+    "ungrouped_flags",
+    "after_help",
+];
 
 /// Whether every `{{…}}` in a template names a section.
 fn check_help_template(template: &str) -> Result<(), String> {
@@ -4186,6 +4397,132 @@ fn view_decl(meta: &Meta) -> syn::Result<ViewDecl> {
     })
 }
 
+/// `output("json", framing = "json", help = "…", default, schema_from = Report)`
+///
+/// The leading string is the token a user types; `framing` is the wire format a consumer
+/// reads. They are separate on purpose — see `lib/src/spec/output.rs`.
+fn output_decl(meta: &Meta) -> syn::Result<OutputDecl> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "an output is declared as `output(\"json\", framing = \"json\")`",
+        ));
+    };
+    list.parse_args_with(|input: syn::parse::ParseStream| {
+        let name: syn::LitStr = input.parse()?;
+        let mut output = OutputDecl {
+            name: name.value(),
+            framing: "text".to_string(),
+            help: None,
+            default: false,
+            hide: false,
+            select: None,
+            schema: None,
+        };
+        while !input.is_empty() {
+            input.parse::<syn::Token![,]>()?;
+            if input.is_empty() {
+                break;
+            }
+            let property: syn::Ident = input.parse()?;
+            let property_name = property.to_string();
+            // `default` and `hide` are bare words, the way `globals` is on a view.
+            if !input.peek(syn::Token![=]) {
+                match property_name.as_str() {
+                    "default" => {
+                        output.default = true;
+                        continue;
+                    }
+                    "hide" => {
+                        output.hide = true;
+                        continue;
+                    }
+                    other => {
+                        return Err(syn::Error::new_spanned(
+                            property,
+                            format!("`{other}` takes a value"),
+                        ));
+                    }
+                }
+            }
+            input.parse::<syn::Token![=]>()?;
+            match property_name.as_str() {
+                // A type, not a string: this is the one that lowers to a schemars call.
+                "schema_from" => output.schema = Some(SchemaSource::Type(input.parse()?)),
+                "schema_fn" => output.schema = Some(SchemaSource::Function(input.parse()?)),
+                _ => {
+                    let value: syn::LitStr = input.parse()?;
+                    match property_name.as_str() {
+                        "framing" => {
+                            let framing = value.value();
+                            if !matches!(framing.as_str(), "text" | "json" | "jsonl") {
+                                return Err(syn::Error::new_spanned(
+                                    &value,
+                                    format!(
+                                        "unsupported framing `{framing}`, expected one of: \
+                                         text, json, jsonl"
+                                    ),
+                                ));
+                            }
+                            output.framing = framing;
+                        }
+                        "help" => output.help = Some(value.value()),
+                        "select" => output.select = Some(value.value()),
+                        "schema" => output.schema = Some(SchemaSource::Literal(value.value())),
+                        other => {
+                            return Err(syn::Error::new_spanned(
+                                property,
+                                format!(
+                                    "unknown output property `{other}`; an output takes \
+                                     `framing`, `help`, `select`, `schema`, `schema_from`, \
+                                     `schema_fn`, and bare `default` and `hide`"
+                                ),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        if output.name.is_empty() {
+            return Err(syn::Error::new_spanned(name, "an output needs a name"));
+        }
+        Ok(output)
+    })
+}
+
+/// `exit_code(1, "a check failed")`
+fn exit_code_decl(meta: &Meta) -> syn::Result<ExitCodeDecl> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "an exit code is declared as `exit_code(1, \"a check failed\")`",
+        ));
+    };
+    list.parse_args_with(|input: syn::parse::ParseStream| {
+        let code: syn::LitInt = input.parse()?;
+        let value = code.base10_parse::<i64>()?;
+        // The same range usage-lib enforces: a POSIX shell reports the low byte, so a
+        // wider code documents something nobody can observe.
+        if !(0..=255).contains(&value) {
+            return Err(syn::Error::new_spanned(
+                &code,
+                format!("exit code {value} is outside 0-255"),
+            ));
+        }
+        input.parse::<syn::Token![,]>()?;
+        let help: syn::LitStr = input.parse()?;
+        if help.value().is_empty() {
+            return Err(syn::Error::new_spanned(
+                &help,
+                "an exit code needs a description",
+            ));
+        }
+        Ok(ExitCodeDecl {
+            code: value,
+            help: help.value(),
+        })
+    })
+}
 fn selectors(meta: &Meta) -> syn::Result<Vec<String>> {
     let found: Vec<String> = match meta {
         Meta::List(list) => {
@@ -5777,6 +6114,12 @@ pub struct ArgGroupMember {
     pub help: Option<String>,
     pub long_help: Option<String>,
     pub hide: bool,
+    /// A value carried by this member, for variants such as `Migrate(Source)`.
+    pub value_ty: Option<syn::Type>,
+    /// The placeholder shown for [`Self::value_ty`].
+    pub value_name: Option<String>,
+    /// Bind the payload through its `ValueEnum` declaration rather than `FromStr`.
+    pub value_enum: bool,
     pub cfg_attrs: Vec<syn::Attribute>,
 }
 
@@ -5825,14 +6168,19 @@ impl ArgGroup {
 
         let mut variants: Vec<ArgGroupMember> = Vec::new();
         for variant in &data.variants {
-            if !matches!(variant.fields, Fields::Unit) {
-                return Err(syn::Error::new_spanned(
-                    &variant.fields,
-                    "a group member is a switch, so each variant is a bare name: a member \
-                     taking a value stays a hand-written `conflicts` set, where the values \
-                     have somewhere to land",
-                ));
-            }
+            let value_ty = match &variant.fields {
+                Fields::Unit => None,
+                Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                    Some(fields.unnamed[0].ty.clone())
+                }
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        &variant.fields,
+                        "an argument-group member is either a switch or one value-taking flag: \
+                         use a unit variant or a tuple variant with exactly one field",
+                    ));
+                }
+            };
             let cfg_attrs = cfg_gate_attrs(&variant.attrs)?;
             let (doc_help, doc_long_help) = doc_comment(&variant.attrs, false)?;
             let mut member = ArgGroupMember {
@@ -5842,6 +6190,9 @@ impl ArgGroup {
                 help: doc_help,
                 long_help: doc_long_help,
                 hide: false,
+                value_ty,
+                value_name: None,
+                value_enum: false,
                 cfg_attrs,
             };
             for attr in attrs(&variant.attrs) {
@@ -5856,6 +6207,16 @@ impl ArgGroup {
                         "help" => member.help = Some(string_value(&meta)?),
                         "long_help" => member.long_help = Some(string_value(&meta)?),
                         "hide" => member.hide = flag_value(&meta)?,
+                        "value_name" => member.value_name = Some(string_value(&meta)?),
+                        "value_enum" => {
+                            if !matches!(meta, Meta::Path(_)) {
+                                return Err(syn::Error::new_spanned(
+                                    path,
+                                    "`value_enum` takes no value",
+                                ));
+                            }
+                            member.value_enum = true;
+                        }
                         "default" | "default_value" | "default_value_t" => {
                             return Err(syn::Error::new_spanned(
                                 path,
@@ -5869,8 +6230,8 @@ impl ArgGroup {
                                 path,
                                 format!(
                                     "unknown option `{other}` on a group member; a variant \
-                                     takes `long`, `name`, `short`, `help`, `long_help`, or \
-                                     `hide` here"
+                                     takes `long`, `name`, `short`, `help`, `long_help`, \
+                                     `hide`, `value_name`, or `value_enum` here"
                                 ),
                             ));
                         }
@@ -5882,6 +6243,15 @@ impl ArgGroup {
                     &variant.ident,
                     "a member with no long form would answer to nothing",
                 ));
+            }
+            if member.value_ty.is_none() && (member.value_name.is_some() || member.value_enum) {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "`value_name` and `value_enum` need a tuple variant that carries one value",
+                ));
+            }
+            if member.value_ty.is_some() && member.value_name.is_none() {
+                member.value_name = Some(shout(&member.name));
             }
             if let Some(short) = member.short.filter(|short| !short.is_ascii()) {
                 return Err(syn::Error::new_spanned(
@@ -6477,6 +6847,182 @@ mod tests {
                 double_dash: DoubleDash::Required
             }
         ));
+    }
+
+    #[test]
+    fn an_output_separates_the_name_a_user_types_from_the_format_a_consumer_reads() {
+        let parsed = cli(r#"
+            #[usage(
+                output("human", default, help = "A table"),
+                output("ndjson", framing = "jsonl"),
+                select = "--format"
+            )]
+            struct Ex {
+                #[usage(long)]
+                format: Option<String>,
+            }
+        "#)
+        .expect("should parse");
+        assert_eq!(parsed.outputs.len(), 2);
+        assert_eq!(parsed.outputs[0].framing, "text");
+        assert!(parsed.outputs[0].default);
+        assert_eq!(parsed.outputs[0].help.as_deref(), Some("A table"));
+        // aube's spelling, hk's contract.
+        assert_eq!(parsed.outputs[1].name, "ndjson");
+        assert_eq!(parsed.outputs[1].framing, "jsonl");
+        assert_eq!(parsed.select.as_deref(), Some("--format"));
+    }
+
+    #[test]
+    fn a_field_can_carry_the_select_instead_of_the_struct() {
+        let parsed = cli(r#"
+            #[usage(output("json", framing = "json"))]
+            struct Ex {
+                #[usage(long, select)]
+                format: Option<String>,
+            }
+        "#)
+        .expect("should parse");
+        assert_eq!(parsed.select.as_deref(), Some("--format"));
+    }
+
+    #[test]
+    fn a_field_selector_requires_a_value_taking_flag() {
+        for field in [
+            "#[usage(select)] format: String,",
+            "#[usage(long, select)] format: bool,",
+        ] {
+            let err = rejection(&format!(
+                r#"
+                #[usage(output("json", framing = "json"))]
+                struct Ex {{ {field} }}
+                "#
+            ));
+            assert!(err.contains("flag that takes a value"), "{err}");
+        }
+    }
+
+    #[test]
+    fn a_select_must_name_a_flag_on_this_type() {
+        // usage-lib can narrow an inherited global; a derive has no view of its parent.
+        let err = rejection(
+            r#"
+            #[usage(output("json", framing = "json"), select = "--format")]
+            struct Ex {
+                #[usage(long)]
+                other: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("names no flag on this type"), "{err}");
+        assert!(err.contains("flatten"), "{err}");
+    }
+
+    #[test]
+    fn a_select_needs_something_to_pick_among() {
+        let err = rejection(
+            r#"
+            #[usage(select = "--format")]
+            struct Ex {
+                #[usage(long)]
+                format: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("no `output(…)` to pick among"), "{err}");
+    }
+
+    #[test]
+    fn two_fields_cannot_both_select() {
+        let err = rejection(
+            r#"
+            #[usage(output("json", framing = "json"))]
+            struct Ex {
+                #[usage(long, select)]
+                format: Option<String>,
+                #[usage(long, select)]
+                shape: Option<String>,
+            }
+        "#,
+        );
+        assert!(err.contains("two fields carry `select`"), "{err}");
+    }
+
+    #[test]
+    fn an_unknown_framing_is_a_compile_error() {
+        let err = rejection(
+            r#"
+            #[usage(output("x", framing = "protobuf"))]
+            struct Ex {
+                #[usage(long)]
+                a: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("expected one of: text, json, jsonl"), "{err}");
+    }
+
+    #[test]
+    fn an_unknown_output_property_lists_the_real_ones() {
+        let err = rejection(
+            r#"
+            #[usage(output("json", shape = "wide"))]
+            struct Ex {
+                #[usage(long)]
+                a: bool,
+            }
+        "#,
+        );
+        assert!(err.contains("unknown output property `shape`"), "{err}");
+        assert!(err.contains("`schema_from`"), "{err}");
+    }
+
+    #[test]
+    fn exit_codes_are_declared_with_a_description_and_fit_in_a_byte() {
+        let parsed = cli(r#"
+            #[usage(exit_code(0, "ok"), exit_code(1, "a check failed"))]
+            struct Ex {
+                #[usage(long)]
+                a: bool,
+            }
+        "#)
+        .expect("should parse");
+        assert_eq!(parsed.exit_codes.len(), 2);
+        assert_eq!(parsed.exit_codes[1].code, 1);
+        assert_eq!(parsed.exit_codes[1].help, "a check failed");
+
+        assert!(rejection(
+            r#"
+            #[usage(exit_code(256, "nope"))]
+            struct Ex { #[usage(long)] a: bool }
+        "#
+        )
+        .contains("outside 0-255"));
+        assert!(rejection(
+            r#"
+            #[usage(exit_code(1, ""))]
+            struct Ex { #[usage(long)] a: bool }
+        "#
+        )
+        .contains("needs a description"));
+    }
+
+    #[test]
+    fn a_repeated_output_or_exit_code_is_a_mistake() {
+        assert!(rejection(
+            r#"
+            #[usage(output("json"), output("json", framing = "json"))]
+            struct Ex { #[usage(long)] a: bool }
+        "#
+        )
+        .contains("an output named `json` is already declared"));
+        assert!(rejection(
+            r#"
+            #[usage(exit_code(1, "a"), exit_code(1, "b"))]
+            struct Ex { #[usage(long)] a: bool }
+        "#
+        )
+        .contains("exit code 1 is already declared"));
     }
 
     #[test]
@@ -7476,11 +8022,23 @@ mod tests {
     }
 
     #[test]
-    fn an_arg_group_member_is_a_switch_and_holds_nothing() {
-        let err = group_rejection("enum Format { Json, Wrapped(String) }");
-        assert!(err.contains("bare name"), "unhelpful: {err}");
-        // And the message says where a valued member belongs, which is the useful half.
-        assert!(err.contains("conflicts"), "unhelpful: {err}");
+    fn an_arg_group_member_may_hold_one_value() {
+        let group = arg_group(
+            r#"
+            enum Mode {
+                Write,
+                #[usage(value_name = "SOURCE", value_enum)]
+                Migrate(Source),
+            }
+        "#,
+        )
+        .expect("one tuple field is a value-taking flag");
+        assert!(group.variants[0].value_ty.is_none());
+        assert_eq!(group.variants[1].value_name.as_deref(), Some("SOURCE"));
+        assert!(group.variants[1].value_enum);
+
+        let err = group_rejection("enum Format { Json, Pair(String, String) }");
+        assert!(err.contains("exactly one field"), "unhelpful: {err}");
     }
 
     #[test]

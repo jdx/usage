@@ -124,6 +124,7 @@ export default defineConfig({
               { text: "flag", link: "/spec/reference/flag" },
               { text: "flagset", link: "/spec/reference/flagset" },
               { text: "group", link: "/spec/reference/group" },
+              { text: "output", link: "/spec/reference/output" },
               // { text: 'env', link: '/spec/reference/env' },
               { text: "config", link: "/spec/reference/config" }
             ]

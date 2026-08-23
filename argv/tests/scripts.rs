@@ -14,8 +14,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+#[cfg(unix)]
+use std::process::Stdio;
 use usage_argv::complete::Shell;
 use usage_argv::script::script;
+#[cfg(unix)]
+use usage_argv::script::script_for;
 
 /// A directory of this test's own, with the generated script and a stand-in `ex` binary in it.
 struct Fixture {
@@ -47,6 +51,8 @@ impl Fixture {
         // Files for the path cases to find, and a directory among them so `dirs` can differ.
         fs::write(dir.join("alpha.txt"), "").expect("a file");
         fs::write(dir.join("beta.txt"), "").expect("another");
+        fs::write(dir.join("manifest.toml"), "").expect("a filtered file");
+        fs::write(dir.join("settings.yaml"), "").expect("another filtered file");
         fs::create_dir(dir.join("gamma")).expect("a directory");
 
         Self { dir }
@@ -200,6 +206,66 @@ fn every_script_is_valid_in_its_own_shell() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn elvish_offers_what_the_binary_answered() {
+    use std::io::Write;
+
+    // Elvish's noninteractive compiler does not define the interactive `edit:` namespace, so
+    // loading this as an RC file in a real pseudoterminal is both the syntax and behavior check.
+    if !available("elvish") || !available("script") {
+        println!("elvish or the script PTY driver is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "elvish-candidates",
+        Shell::Elvish,
+        "install\tInstall a package\tINSTALL\n",
+    );
+    let mut rc = fs::read_to_string(fixture.dir.join("script")).expect("reading the Elvish RC");
+    rc.push_str(&script_for("ex", "ex-alias", Shell::Elvish));
+    fs::write(fixture.dir.join("script"), rc).expect("writing both Elvish completers");
+    let rc = fixture.dir.join("script");
+    let command = format!("elvish -rc {}", shell_quote(&rc.to_string_lossy()));
+    let mut child = Command::new("script")
+        .args(["-qfc", &command, "/dev/null"])
+        .current_dir(&fixture.dir)
+        .env(
+            "PATH",
+            format!(
+                "{}:{}",
+                fixture.dir.display(),
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        )
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("starting Elvish in a pseudoterminal");
+    let mut stdin = child.stdin.take().expect("PTY stdin");
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    stdin.write_all(b"ex i\t").expect("requesting completion");
+    stdin.flush().expect("flushing completion request");
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    stdin.write_all(b"\x03").expect("cancelling the input line");
+    stdin.flush().expect("flushing cancellation");
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    stdin.write_all(b"\x04").expect("exiting Elvish");
+    let out = child.wait_with_output().expect("waiting for Elvish");
+    assert!(
+        out.status.success(),
+        "Elvish failed:\n{}\n{}",
+        String::from_utf8_lossy(&out.stderr),
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("nstall") && !stdout.contains("no candidates"),
+        "candidate was not displayed: {stdout:?}"
+    );
+}
+
 #[test]
 fn bash_offers_what_the_binary_answered() {
     if !available("bash") {
@@ -276,6 +342,38 @@ printf '%s\n' "${COMPREPLY[@]}"
     );
     let offered: Vec<&str> = out.lines().filter(|l| !l.is_empty()).collect();
     assert_eq!(offered, ["gamma"], "only the directory");
+}
+
+#[test]
+fn bash_filters_files_by_the_extensions_the_binary_declared() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "bash-extensions",
+        Shell::Bash,
+        "\u{1}extensions\ttoml\tyaml\n",
+    );
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex '
+COMP_POINT=3
+COMP_WORDS=(ex '')
+COMP_CWORD=1
+_usage_complete_ex
+printf '%s\n' "${COMPREPLY[@]}"
+"#,
+    );
+    let offered: Vec<&str> = out.lines().filter(|line| !line.is_empty()).collect();
+    assert!(offered.contains(&"manifest.toml"), "{offered:?}");
+    assert!(offered.contains(&"settings.yaml"), "{offered:?}");
+    assert!(
+        offered.contains(&"gamma"),
+        "directories remain traversable: {offered:?}"
+    );
+    assert!(!offered.contains(&"alpha.txt"), "{offered:?}");
 }
 
 #[test]
@@ -427,6 +525,24 @@ fn zsh_hands_paths_to_files_and_forces_a_menu_when_a_value_needs_quoting() {
         &format!("{ZSH_STUBS}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_ex\n"),
     );
     assert!(out.contains("_files:-/"), "{out}");
+}
+
+#[test]
+fn zsh_passes_extension_filters_to_its_native_file_completer() {
+    if !available("zsh") {
+        println!("zsh is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "zsh-extensions",
+        Shell::Zsh,
+        "\u{1}extensions\ttoml\tyaml\n",
+    );
+    let out = fixture.run(
+        "zsh",
+        &format!("{ZSH_STUBS}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_ex\n"),
+    );
+    assert!(out.contains("_files:-g *.(toml|yaml)"), "{out}");
 }
 
 #[test]
