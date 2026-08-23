@@ -993,10 +993,7 @@ pub async fn complete_with<'a>(
 
     let mut answer = complete(spec, split);
     answer.candidates.extend(dynamic);
-    answer.candidates.sort();
-    answer
-        .candidates
-        .dedup_by(|left, right| left.value == right.value);
+    sort_and_dedup_candidates(&mut answer.candidates);
     // Even an empty callback suppresses the cwd fallback, but a field that
     // explicitly declares files or directories keeps that shell completion.
     answer.files = declared_files_at_cursor(spec, split, &position);
@@ -1032,12 +1029,37 @@ async fn complete_named_with<'a>(
         candidates.append(&mut dynamic);
     }
     candidates.retain(|candidate| candidate.value.starts_with(&split.prefix));
-    candidates.sort();
-    candidates.dedup_by(|left, right| left.value == right.value);
+    sort_and_dedup_candidates(&mut candidates);
     Completions {
         candidates,
         files: None,
     }
+}
+
+/// Sort candidates by insertion value and merge presentation metadata from duplicates.
+///
+/// Static metadata and a runtime overlay can legitimately offer the same value. Keeping the
+/// first candidate after derived sorting would prefer `None` over `Some`, discarding the richer
+/// display label or description.
+fn sort_and_dedup_candidates(candidates: &mut Vec<Candidate<'_>>) {
+    candidates.sort();
+    let mut deduped: Vec<Candidate<'_>> = Vec::with_capacity(candidates.len());
+    for mut candidate in candidates.drain(..) {
+        if let Some(existing) = deduped
+            .last_mut()
+            .filter(|existing| existing.value == candidate.value)
+        {
+            if existing.display.is_none() {
+                existing.display = candidate.display.take();
+            }
+            if existing.description.is_none() {
+                existing.description = candidate.description.take();
+            }
+        } else {
+            deduped.push(candidate);
+        }
+    }
+    *candidates = deduped;
 }
 
 fn overlay_for_name<'o>(
@@ -2265,12 +2287,18 @@ mod tests {
         })
     }
 
+    fn labeled_ruby(_ctx: &CompleteCtx<'_>) -> Vec<Candidate<'static>> {
+        vec![Candidate::new("ruby").displayed("Ruby runtime")]
+    }
+
     static RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
         [CompletionOverlay::asynchronous(
             "use",
             "tool",
             runtime_tools,
         )];
+    static LABELED_COMPLETIONS: [CompletionOverlay<'static>; 1] =
+        [CompletionOverlay::sync("install", "tool", labeled_ruby)];
     static GLOBAL_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
         [CompletionOverlay::async_any("tool", runtime_tools)];
     static FILE_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
@@ -2543,6 +2571,37 @@ mod tests {
         let unrelated = at_end("mise plugins ");
         let answer = run_ready(complete_with(&SPEC, &unrelated, &RUNTIME_COMPLETIONS));
         assert_eq!(answer.candidates[0].value, "ls");
+    }
+
+    #[test]
+    fn cursor_completion_keeps_presentation_metadata_from_duplicate_values() {
+        let answer = run_ready(complete_with(
+            &SPEC,
+            &at_end("mise install r"),
+            &LABELED_COMPLETIONS,
+        ));
+        assert_eq!(answer.candidates.len(), 1, "{answer:?}");
+        assert_eq!(answer.candidates[0].value, "ruby");
+        assert_eq!(
+            answer.candidates[0].display.as_deref(),
+            Some("Ruby runtime")
+        );
+    }
+
+    #[test]
+    fn named_completion_keeps_presentation_metadata_from_duplicate_values() {
+        let answer = run_ready(complete_named_with(
+            &SPEC,
+            &at_end("mise install r"),
+            &LABELED_COMPLETIONS,
+            "tool",
+        ));
+        assert_eq!(answer.candidates.len(), 1, "{answer:?}");
+        assert_eq!(answer.candidates[0].value, "ruby");
+        assert_eq!(
+            answer.candidates[0].display.as_deref(),
+            Some("Ruby runtime")
+        );
     }
 
     /// The position at the cursor of a line, which is what a completion asks about.
