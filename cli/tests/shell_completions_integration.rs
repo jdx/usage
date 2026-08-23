@@ -101,7 +101,11 @@ fn skip_if_shell_missing(shell: &str) -> bool {
     if shell_can_run_a_script(shell) {
         return false;
     }
-    if env::var("CI").is_ok_and(|v| !v.is_empty()) {
+    // Unix only. The workflow installs zsh and fish for the Linux job alone, so a shell missing
+    // there is a configuration bug and refusing to skip is what catches it. Nothing installs them
+    // on Windows, where their absence is the expected state rather than a mistake — mise draws the
+    // same line, installing no POSIX shells on its Windows runners at all.
+    if cfg!(unix) && env::var("CI").is_ok_and(|v| !v.is_empty()) {
         panic!("shell `{shell}` cannot run a script but CI is set — refusing to skip");
     }
     eprintln!(
@@ -178,7 +182,11 @@ fn bash_completion_or_skip() -> Option<PathBuf> {
     if let Some(path) = system_bash_completion() {
         return Some(path);
     }
-    if env::var("CI").is_ok_and(|v| !v.is_empty()) {
+    // Unix only, for the same reason as `skip_if_shell_missing` and a stronger one: there is no
+    // bash-completion to install on Windows. Git for Windows does not ship the library, and usage
+    // stopped carrying its own copy in 6.0 (#1176) — so unlike a missing zsh, this is not a thing
+    // a runner could be configured to have.
+    if cfg!(unix) && env::var("CI").is_ok_and(|v| !v.is_empty()) {
         panic!(
             "no usable bash-completion but CI is set — refusing to skip. Tried: {:?}",
             bash_completion_candidates()
