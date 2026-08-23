@@ -199,7 +199,9 @@ pub(crate) fn output_methods(
     spec: &Spec,
     package_name: &str,
 ) -> Vec<OutputMethod> {
-    let outputs = crate::spec::output::effective_outputs(spec, std::slice::from_ref(cmd));
+    let chain = command_chain(spec, cmd);
+    let outputs = crate::spec::output::effective_outputs_ref(spec, chain.iter().copied());
+    let select = crate::spec::output::effective_select_ref(spec, &chain);
     let machine: Vec<_> = outputs
         .iter()
         .filter(|o| o.framing != Framing::Text)
@@ -208,7 +210,7 @@ pub(crate) fn output_methods(
     machine
         .iter()
         .filter_map(|output| {
-            let selector = output.select_argv(cmd)?;
+            let selector = output.select_argv_with(select.as_deref())?;
             let framing = output.framing.as_str();
             // Several outputs can share a framing — a CLI with both `json` and
             // `json-compact`. The default one keeps the plain name and the rest are
@@ -271,7 +273,28 @@ pub(crate) fn shouty(value: &str) -> String {
 
 /// The exit codes a generated client should document, folded from the spec's.
 pub(crate) fn exit_codes_for(cmd: &SpecCommand, spec: &Spec) -> Vec<crate::SpecExitCode> {
-    crate::spec::exit_code::effective_exit_codes(spec, std::slice::from_ref(cmd))
+    let chain = command_chain(spec, cmd);
+    crate::spec::exit_code::effective_exit_codes_ref(spec, chain.iter().copied())
+}
+
+/// Commands from the first subcommand through `cmd`, recovered from its stamped path.
+///
+/// SDK renderers recurse with only the current command, while outputs and exit codes inherit
+/// through every ancestor. Looking up the chain here keeps those renderers from silently
+/// skipping declarations on an intermediate command.
+fn command_chain<'a>(spec: &'a Spec, cmd: &'a SpecCommand) -> Vec<&'a SpecCommand> {
+    let mut current = &spec.cmd;
+    let mut chain = Vec::with_capacity(cmd.full_cmd.len());
+    for name in &cmd.full_cmd {
+        let Some(next) = current.subcommands.get(name) else {
+            // A programmatically constructed command may not belong to `spec`. Preserve the
+            // old root-plus-command behavior in that case; parsed specs always take the path.
+            return vec![cmd];
+        };
+        chain.push(next);
+        current = next;
+    }
+    chain
 }
 
 // ---------------------------------------------------------------------------
@@ -582,5 +605,42 @@ mod tests {
         let mut imports = Vec::new();
         collect_type_imports_recursive(&spec.cmd, "app", &choice_types, &spec, &mut imports);
         assert!(imports.iter().any(|i| i.contains("Choice")));
+    }
+
+    #[test]
+    fn nested_commands_inherit_outputs_and_exit_codes_through_the_full_path() {
+        let spec: crate::Spec = r#"
+            bin "app"
+            exit_code 130 "interrupted"
+            cmd "report" {
+                flag "--format <FORMAT>" global=#true
+                output "json" framing="json"
+                select "--format"
+                exit_code 2 "report failed"
+                cmd "watch" {
+                    output "jsonl" framing="jsonl"
+                    exit_code 3 "stream failed"
+                }
+            }
+        "#
+        .parse()
+        .unwrap();
+        let watch = &spec.cmd.subcommands["report"].subcommands["watch"];
+
+        let methods = output_methods(watch, &spec, "app");
+        assert_eq!(
+            methods
+                .iter()
+                .map(|method| method.framing)
+                .collect::<Vec<_>>(),
+            [Framing::Json, Framing::Jsonl]
+        );
+        assert_eq!(
+            exit_codes_for(watch, &spec)
+                .iter()
+                .map(|code| code.code)
+                .collect::<Vec<_>>(),
+            [130, 2, 3]
+        );
     }
 }

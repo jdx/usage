@@ -25,14 +25,15 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use usage::{Spec, SpecArg, SpecCommand, SpecFlag};
+use usage::{Selector, Spec, SpecArg, SpecCommand, SpecFlag, SpecOutput};
 
 use crate::cli::generate;
 
 /// What the client is told before it sees any command. The three effect values
 /// are the reason to point an agent at this, so they are spelled out here
 /// rather than left to be inferred from a field name.
-const INSTRUCTIONS: &str = "Describes a CLI from its usage spec. Every command, flag and \
+const INSTRUCTIONS: &str = "Describes a CLI from its usage spec, including declared stdout \
+formats, JSON Schemas, and exit statuses. Every command, flag and \
 argument may carry an `effect`: `read` only inspects state, `write` changes it, \
 `destructive` removes something that is work to get back. The effect of an invocation is \
 the highest of the command's and those of the flags and arguments given. A missing effect \
@@ -231,6 +232,10 @@ fn flags_for(chain: &[&SpecCommand]) -> Vec<Value> {
 
 fn describe(spec: &Spec, chain: &[&SpecCommand]) -> Value {
     let cmd = chain.last().expect("chain is never empty");
+    let owned_chain = chain.iter().map(|cmd| (*cmd).clone()).collect::<Vec<_>>();
+    let outputs = usage::effective_outputs(spec, &owned_chain);
+    let select = usage::effective_select(spec, &owned_chain);
+    let exit_codes = usage::effective_exit_codes(spec, &owned_chain);
     json!({
         // The path without the binary, which is what `list_commands` emits and
         // what this tool takes back. Prefixing the bin here made the two ends
@@ -246,7 +251,47 @@ fn describe(spec: &Spec, chain: &[&SpecCommand]) -> Value {
         "effect": cmd.effect.map(|e| e.as_str()),
         "args": cmd.args.iter().map(describe_arg).collect::<Vec<_>>(),
         "flags": flags_for(chain),
+        "outputs": outputs.iter().map(|output| describe_output(output, cmd, select.as_deref())).collect::<Vec<_>>(),
+        "exit_codes": exit_codes.iter().map(|exit_code| json!({
+            "code": exit_code.code,
+            "help": exit_code.help,
+        })).collect::<Vec<_>>(),
         "subcommands": cmd.subcommands.keys().collect::<Vec<_>>(),
+    })
+}
+
+fn describe_output(output: &SpecOutput, cmd: &SpecCommand, select: Option<&str>) -> Value {
+    let schema = output.schema.as_ref().map(|schema| {
+        serde_json::from_str(schema).unwrap_or_else(|_| Value::String(schema.clone()))
+    });
+    let selector = output
+        .select_argv(cmd)
+        .or_else(|| {
+            select.map(|flag| Selector::Value {
+                flag: flag.to_string(),
+                value: output.name.clone(),
+            })
+        })
+        .map(|selector| match selector {
+            Selector::Value { flag, value } => json!({
+                "kind": "value",
+                "flag": flag,
+                "value": value,
+            }),
+            Selector::Present { flag } => json!({
+                "kind": "present",
+                "flag": flag,
+            }),
+        });
+    json!({
+        "name": output.name,
+        "framing": output.framing.as_str(),
+        "help": output.help,
+        "default": output.default,
+        "selector": selector,
+        // A valid JSON Schema is structured data. An invalid one remains the raw string so
+        // one bad declaration does not make the command impossible to inspect.
+        "schema": schema,
     })
 }
 
@@ -285,6 +330,7 @@ mod tests {
     const SPEC: &str = r#"
 name "pitchfork"
 bin "pitchfork"
+exit_code 130 "interrupted"
 flag "-v --verbose" global=#true help="Verbose logging"
 flag "-y --yes" global=#true effect="write" help="Skip confirmation"
 flag "--not-global" help="Root only"
@@ -292,6 +338,16 @@ cmd "logs" effect="read" help="Displays logs" {
     alias "l"
     flag "-c --clear" effect="destructive" help="Delete logs"
     flag "-t --tail" help="Follow"
+    flag "--format <FORMAT>" help="Output format"
+    output "text" default=#true help="Human-readable logs"
+    output "json" framing="json" help="One log report" {
+        schema "{\"type\":\"object\"}"
+    }
+    output "jsonl" framing="jsonl" help="Streaming logs" {
+        schema "not valid json"
+    }
+    select "--format"
+    exit_code 1 "logs unavailable"
 }
 cmd "daemons" help="Manage daemons" {
     flag "-y --yes" help="Shadows the global one"
@@ -377,6 +433,36 @@ cmd "start" help="Runs a daemon"
         // A flag with no effect must not inherit the command's.
         let tail = flags.iter().find(|f| f["name"] == "tail").unwrap();
         assert!(tail["effect"].is_null());
+    }
+
+    #[test]
+    fn describe_reports_output_schemas_selectors_and_exit_codes() {
+        let spec = spec();
+        let out = described(&spec, "logs");
+        let outputs = out["outputs"].as_array().unwrap();
+        let json = outputs
+            .iter()
+            .find(|output| output["name"] == "json")
+            .unwrap();
+        assert_eq!(json["framing"], "json");
+        assert_eq!(json["selector"]["kind"], "value");
+        assert_eq!(json["selector"]["flag"], "--format");
+        assert_eq!(json["selector"]["value"], "json");
+        assert_eq!(json["schema"]["type"], "object");
+
+        let jsonl = outputs
+            .iter()
+            .find(|output| output["name"] == "jsonl")
+            .unwrap();
+        assert_eq!(jsonl["schema"], "not valid json");
+
+        let codes = out["exit_codes"].as_array().unwrap();
+        assert!(codes
+            .iter()
+            .any(|code| { code["code"] == 130 && code["help"] == "interrupted" }));
+        assert!(codes
+            .iter()
+            .any(|code| { code["code"] == 1 && code["help"] == "logs unavailable" }));
     }
 
     #[test]

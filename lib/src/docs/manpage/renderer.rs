@@ -78,6 +78,10 @@ impl ManpageRenderer {
             }
         }
 
+        // EXIT STATUS section, which a man page conventionally carries and this renderer
+        // had no way to fill until a spec could say what a code means.
+        self.render_exit_status(&mut roff);
+
         // CONFIGURATION section
         self.render_configuration(&mut roff);
 
@@ -98,6 +102,23 @@ impl ManpageRenderer {
         }
 
         Ok(roff.to_roff())
+    }
+
+    /// The root's exit codes, which are the CLI-wide ones.
+    ///
+    /// Per-command codes appear in that command's own section, beside its options, the way
+    /// everything else per-command does. This is the table a reader looks for at the bottom
+    /// of a page.
+    fn render_exit_status(&self, roff: &mut Roff) {
+        if self.spec.cmd.exit_codes.is_empty() {
+            return;
+        }
+        roff.control("SH", ["EXIT STATUS"]);
+        for exit_code in &self.spec.cmd.exit_codes {
+            roff.control("TP", [] as [&str; 0]);
+            roff.text([bold(exit_code.code.to_string())]);
+            roff.text([roman(exit_code.help.as_str())]);
+        }
     }
 
     /// The settings, where a man page conventionally describes them: after the commands and
@@ -483,8 +504,12 @@ impl ManpageRenderer {
                 .iter()
                 .any(|a| a.help.is_some() || a.help_long.is_some());
             let has_examples = !subcmd.examples.is_empty();
+            // Without these two, a command that declares only what it writes gets no
+            // section at all — and those are exactly the commands a reader came for.
+            let has_outputs = !subcmd.outputs.is_empty();
+            let has_exit_codes = !subcmd.exit_codes.is_empty();
 
-            if has_flags || has_documented_args || has_examples {
+            if has_flags || has_documented_args || has_examples || has_outputs || has_exit_codes {
                 // Section header for this subcommand
                 roff.control("SH", [full_name.to_uppercase().as_str()]);
 
@@ -528,6 +553,51 @@ impl ManpageRenderer {
                     roff.control("PP", [] as [&str; 0]);
                     for arg in &subcmd.args {
                         self.render_arg(roff, arg);
+                    }
+                }
+
+                // What it writes, and how to ask for it.
+                //
+                // Deliberately not the schema body: roff treats a leading `.` or `'` as a
+                // control character, so an unescaped JSON Schema is a formatting hazard
+                // rather than merely noise — and unreadable in a terminal either way.
+                if has_outputs {
+                    roff.text([bold("Output:")]);
+                    roff.control("PP", [] as [&str; 0]);
+                    for output in &subcmd.outputs {
+                        roff.control("TP", [] as [&str; 0]);
+                        let mut label = output.name.clone();
+                        if output.default {
+                            label.push_str(" (default)");
+                        }
+                        roff.text([bold(label)]);
+                        let mut described = format!("{} output", output.framing);
+                        if output.streaming {
+                            described.push_str(", one document per line as it arrives");
+                        }
+                        if let Some(select) = &output.select {
+                            described.push_str(&format!("; selected with {select}"));
+                        }
+                        if let Some(help) = &output.help {
+                            described.push_str(&format!(". {help}"));
+                        }
+                        if output.schema.is_some() {
+                            described.push_str(
+                                ". A JSON Schema is declared; see the generated markdown or \
+                                 `usage generate json`",
+                            );
+                        }
+                        roff.text([roman(described)]);
+                    }
+                }
+
+                if has_exit_codes {
+                    roff.text([bold("Exit status:")]);
+                    roff.control("PP", [] as [&str; 0]);
+                    for exit_code in &subcmd.exit_codes {
+                        roff.control("TP", [] as [&str; 0]);
+                        roff.text([bold(exit_code.code.to_string())]);
+                        roff.text([roman(exit_code.help.as_str())]);
                     }
                 }
 
@@ -885,5 +955,67 @@ config {
 
         // Should prefer help_long over help
         assert!(output.contains("Long detailed help"));
+    }
+
+    #[test]
+    fn a_page_carries_an_exit_status_section_and_what_each_command_writes() {
+        let spec: crate::Spec = r#"
+name "ex"
+bin "ex"
+exit_code 0 "success"
+exit_code 130 "interrupted"
+cmd "check" help="Check the project" {
+    flag "--format <FMT>" help="Output format"
+    output "human" default=#true help="A table"
+    output "json" framing="json" help="One report object" {
+        schema "{\"type\": \"object\"}"
+    }
+    output "jsonl" framing="jsonl"
+    select "--format"
+    exit_code 1 "a check failed"
+}
+"#
+        .parse()
+        .unwrap();
+        let page = ManpageRenderer::new(spec).render().unwrap();
+
+        // The section a man page conventionally has, which this renderer could not fill
+        // before a spec could say what a code means.
+        assert!(page.contains(r#".SH "EXIT STATUS""#), "{page}");
+        assert!(page.contains("interrupted"), "{page}");
+
+        // Per-command, with the CLI-wide codes folded in beside its own.
+        assert!(page.contains(r"\fBOutput:\fR"), "{page}");
+        assert!(page.contains(r"\fBExit status:\fR"), "{page}");
+        assert!(page.contains("a check failed"), "{page}");
+        assert!(
+            page.contains("one document per line as it arrives"),
+            "{page}"
+        );
+
+        // A schema is announced, never inlined: roff reads a leading `.` as a control
+        // character, so an unescaped JSON Schema is a formatting hazard.
+        assert!(page.contains("A JSON Schema is declared"), "{page}");
+        assert!(!page.contains(r#""type": "object""#), "{page}");
+    }
+
+    #[test]
+    fn a_command_with_only_outputs_still_gets_a_section() {
+        // The gating condition used to require flags, documented args or examples, so a
+        // command whose whole documentation is what it writes rendered nothing at all.
+        let spec: crate::Spec = r#"
+name "ex"
+bin "ex"
+cmd "dump" help="Dump state" {
+    flag "--json"
+    output "text" default=#true
+    output "json" framing="json" select="--json"
+}
+"#
+        .parse()
+        .unwrap();
+        let page = ManpageRenderer::new(spec).render().unwrap();
+        assert!(page.contains(r#".SH "EX DUMP""#), "{page}");
+        assert!(page.contains("selected with \\-\\-json"), "{page}");
     }
 }

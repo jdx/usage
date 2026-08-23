@@ -86,6 +86,46 @@
 {%- endif %}
 {%- endfor %}
 
+{%- if cmd.outputs %}
+
+{{ "#" | repeat(count=header_level) }}# Output
+
+{%- for output in cmd.outputs %}
+
+{{ "#" | repeat(count=header_level) }}## `{{ output.name }}`{% if output.default %} (default){% endif %}
+{%- if output.select %}
+
+- **Select**: `{{ output.select }}`
+{%- endif %}
+- **Framing**: `{{ output.framing }}`{% if output.streaming %} — one document per line, read as it arrives{% endif %}
+{%- if output.help %}
+
+{{ output.help }}
+{%- endif %}
+{%- if output.schema %}
+
+<details><summary>Schema</summary>
+
+```json
+{{ output.schema }}
+```
+
+</details>
+{%- endif %}
+{%- endfor %}
+{%- endif %}
+
+{%- if cmd.exit_codes %}
+
+{{ "#" | repeat(count=header_level) }}# Exit Status
+
+| Code | Meaning |
+| ---- | ------- |
+{%- for exit_code in cmd.exit_codes %}
+| `{{ exit_code.code }}` | {{ exit_code.help }} |
+{%- endfor %}
+{%- endif %}
+
 {%- if cmd.examples %}
 
 {{ "#" | repeat(count=header_level) }}# Examples

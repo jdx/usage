@@ -66,6 +66,7 @@ enum Commands {
 
 #[derive(Cli)]
 #[usage(name = "ex", bin = "ex", exit_code(130, "interrupted"))]
+#[allow(dead_code)]
 struct Ex {
     #[usage(subcommand)]
     command: Commands,

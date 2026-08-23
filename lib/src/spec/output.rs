@@ -202,14 +202,18 @@ impl SpecOutput {
 
     /// How this output is asked for, given the command it belongs to.
     ///
-    /// [`None`] when nothing selects it — a declared output a caller has no way to
-    /// reach, which `usage lint` reports as `output-not-selectable`.
+    /// [`None`] when no flag selects it. This is valid for an always-produced output;
+    /// generated per-output SDK methods require a selector and therefore omit it.
     pub fn select_argv(&self, cmd: &SpecCommand) -> Option<Selector> {
+        self.select_argv_with(cmd.select.as_deref())
+    }
+
+    pub(crate) fn select_argv_with(&self, command_select: Option<&str>) -> Option<Selector> {
         if let Some(flag) = &self.select {
             return Some(Selector::Present { flag: flag.clone() });
         }
-        cmd.select.as_ref().map(|flag| Selector::Value {
-            flag: flag.clone(),
+        command_select.map(|flag| Selector::Value {
+            flag: flag.to_string(),
             value: self.name.clone(),
         })
     }
@@ -299,6 +303,14 @@ impl From<&SpecOutput> for KdlNode {
 /// would write the root's outputs into every command block on re-emission, which is a
 /// spec nobody wrote.
 pub fn effective_outputs(spec: &Spec, path: &[SpecCommand]) -> Vec<SpecOutput> {
+    effective_outputs_ref(spec, path.iter())
+}
+
+/// Reference-based form used by tree walkers that already hold the command chain.
+pub(crate) fn effective_outputs_ref<'a>(
+    spec: &Spec,
+    path: impl IntoIterator<Item = &'a SpecCommand>,
+) -> Vec<SpecOutput> {
     let mut out: Vec<SpecOutput> = spec.outputs.clone();
     for cmd in path {
         for output in &cmd.outputs {
@@ -310,6 +322,24 @@ pub fn effective_outputs(spec: &Spec, path: &[SpecCommand]) -> Vec<SpecOutput> {
     }
     out.retain(|o| !o.hide);
     out
+}
+
+/// The value-taking selector in effect for a command, if it reaches that command.
+pub fn effective_select(spec: &Spec, path: &[SpecCommand]) -> Option<String> {
+    let refs = path.iter().collect::<Vec<_>>();
+    effective_select_ref(spec, &refs)
+}
+
+/// Reference-based form used by tree walkers that already hold the command chain.
+pub(crate) fn effective_select_ref(spec: &Spec, path: &[&SpecCommand]) -> Option<String> {
+    let mut select = spec.select.clone();
+    for cmd in path {
+        if let Some(own) = &cmd.select {
+            select = Some(own.clone());
+        }
+    }
+    let selected = path.last().copied().unwrap_or(&spec.cmd);
+    select.filter(|name| selected.flags.iter().any(|flag| flag_named(flag, name)))
 }
 
 /// The flag a command's `select` names, and whether it was found locally.

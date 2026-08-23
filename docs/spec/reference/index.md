@@ -39,6 +39,11 @@ include file="./my_overrides.usage.kdl" // include another spec, will be merged 
 
 // a reusable set of flags, pulled into a command with `use` (see ./flagset.md)
 flagset "common" { flag "-v --verbose" }
+
+// CLI-wide stdout formats and exit statuses (see ./output.md)
+output "json" framing="json"
+exit_code 0 "success"
+exit_code 1 "error"
 ```
 
 ## Help variants
