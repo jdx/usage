@@ -476,13 +476,22 @@ Register-ArgumentCompleter -Native -CommandName '{name}' -ScriptBlock {{
             $extensions = @($entry -split "`t" | Select-Object -Skip 1 | ForEach-Object {{ $_.TrimStart('.') }})
             continue
         }}
-        $parts = $entry -split "`t", 3
+        $parts = $entry -split "`t", 4
         $value = $parts[0]
         $description = if ($parts.Count -gt 1 -and $parts[1]) {{ $parts[1] }} else {{ $value }}
         $display = if ($parts.Count -gt 2 -and $parts[2]) {{ $parts[2] }} else {{ $value }}
+        $kind = if ($parts.Count -gt 3) {{
+            switch ($parts[3]) {{
+                'command' {{ 'Command' }}
+                'flag' {{ 'ParameterName' }}
+                'file' {{ 'ProviderItem' }}
+                'directory' {{ 'ProviderContainer' }}
+                default {{ 'ParameterValue' }}
+            }}
+        }} else {{ 'ParameterValue' }}
         $results.Add(
             [System.Management.Automation.CompletionResult]::new(
-                $value, $display, 'ParameterValue', $description
+                $value, $display, $kind, $description
             )
         )
     }}
