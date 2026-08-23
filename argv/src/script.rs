@@ -98,12 +98,13 @@ pub fn script_for(bin: &str, name: &str, shell: Shell) -> String {
 fn elvish(bin: &str, name: &str) -> String {
     let head = header(bin, Shell::Elvish, "#");
     format!(
-        r#"{head}use str
+        r#"{head}use os
+use str
 
 var usage-command = (external '{bin}')
 
 set edit:completion:arg-completer[{name}] = {{|@words|
-    var lines = [($usage-command __complete_word__ --shell elvish --words $@words 2>/dev/null | from-lines)]
+    var lines = [($usage-command __complete_word__ --shell elvish --words $@words 2>$os:dev-null | from-lines)]
     for line $lines {{
         if (eq $line "\x01files") {{
             edit:complete-filename $@words
@@ -665,6 +666,8 @@ mod tests {
         );
         assert!(out.contains("| from-lines)"), "{out}");
         assert!(!out.contains("| to-lines)"), "{out}");
+        assert!(out.contains("2>$os:dev-null"), "{out}");
+        assert!(!out.contains("/dev/null"), "{out}");
         assert!(out.contains("var parts = [(str:split"), "{out}");
         assert!(out.contains("edit:complete-sudo sudo $words[-1]"), "{out}");
     }
