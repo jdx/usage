@@ -296,6 +296,7 @@ impl Style {
 fn styled_inline(text: &str, parent: Option<&str>) -> String {
     let mut out = String::with_capacity(text.len());
     let mut at = 0;
+    let mut allow_run_remainder = false;
     while at < text.len() {
         let rest = &text[at..];
 
@@ -307,6 +308,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             if matches!(escaped, '*' | '_' | '~' | '`' | '\\') {
                 out.push(escaped);
                 at += 1 + escaped.len_utf8();
+                allow_run_remainder = false;
                 continue;
             }
         }
@@ -328,7 +330,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             let previous = text[..at].chars().next_back();
             // Do not reinterpret part of a delimiter run when the longer form was rejected.
             // In particular, neither underscore in `word__word__` may become an italic opener.
-            if previous == Some(marker)
+            if (previous == Some(marker) && !allow_run_remainder)
                 || (delimiter.len() == 1 && rest[delimiter.len()..].starts_with(marker))
             {
                 return None;
@@ -341,7 +343,7 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             Some((delimiter, open, close, recurse, content_start, end, after))
         });
 
-        if let Some((_, open, close, recurse, content_start, end, after)) = span {
+        if let Some((delimiter, open, close, recurse, content_start, end, after)) = span {
             out.push_str("\u{1b}[");
             out.push_str(open);
             out.push('m');
@@ -358,6 +360,9 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
                 out.push_str(parent);
                 out.push('m');
             }
+            let marker = delimiter.chars().next().expect("a delimiter has a marker");
+            allow_run_remainder =
+                text[after..].starts_with(marker) && text[..after].ends_with(marker);
             at = after;
             continue;
         }
@@ -365,16 +370,17 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         let ch = rest.chars().next().expect("at is on a character boundary");
         out.push(ch);
         at += ch.len_utf8();
+        allow_run_remainder = false;
     }
     out
 }
 
-/// Find a span's close while stepping over valid spans of the other width.
+/// Find a span's close while stepping over valid spans of another width.
 ///
-/// A one-marker italic span may contain a two-marker bold span and vice versa. Combined closing
-/// runs such as the final `***` in `*italic and **bold***` are shared: two markers close bold and
-/// the last closes italic. `reserve` tells a nested search how many markers its parent still
-/// needs from such a run.
+/// Italic, bold, and combined spans may nest within one another. Combined closing runs such as
+/// the final `***` in `*italic and **bold***` are shared: two markers close bold and the last
+/// closes italic. `reserve` tells a nested search how many markers its parent still needs from
+/// such a run.
 fn closing_delimiter(
     text: &str,
     content_start: usize,
@@ -384,11 +390,6 @@ fn closing_delimiter(
 ) -> Option<(usize, usize)> {
     let marker = delimiter.chars().next()?;
     let width = delimiter.len();
-    let nested_width = match (width, marker) {
-        (1, '*' | '_') => 2,
-        (2, '*' | '_') => 1,
-        _ => 0,
-    };
     let mut search_at = content_start;
 
     while let Some(found) = text[search_at..].find(marker) {
@@ -412,7 +413,11 @@ fn closing_delimiter(
             continue;
         }
 
-        if run_len == nested_width {
+        let nested_width = match (run_len, marker) {
+            (1..=3, '*' | '_') if run_len != width => run_len,
+            _ => 0,
+        };
+        if nested_width != 0 {
             let nested = &text[run_start..run_start + nested_width];
             if let Some((_, after)) =
                 closing_delimiter(text, run_start + nested_width, nested, marker == '_', width)
@@ -3560,6 +3565,30 @@ mod style_tests {
         assert_eq!(
             styled_inline("___combined___", None),
             "\u{1b}[1;3mcombined\u{1b}[22;23m"
+        );
+    }
+
+    #[test]
+    fn combined_emphasis_can_nest_in_single_emphasis() {
+        assert_eq!(
+            styled_inline("*italic ***combined*** tail*", None),
+            "\u{1b}[3mitalic \u{1b}[1;3mcombined\u{1b}[22;23m\u{1b}[3m tail\u{1b}[23m"
+        );
+        assert_eq!(
+            styled_inline("**bold ***combined*** tail**", None),
+            "\u{1b}[1mbold \u{1b}[1;3mcombined\u{1b}[22;23m\u{1b}[1m tail\u{1b}[22m"
+        );
+    }
+
+    #[test]
+    fn a_closing_run_remainder_can_open_an_adjacent_span() {
+        assert_eq!(
+            styled_inline("*italic***bold**", None),
+            "\u{1b}[3mitalic\u{1b}[23m\u{1b}[1mbold\u{1b}[22m"
+        );
+        assert_eq!(
+            styled_inline("**bold***italic*", None),
+            "\u{1b}[1mbold\u{1b}[22m\u{1b}[3mitalic\u{1b}[23m"
         );
     }
 
