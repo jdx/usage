@@ -312,6 +312,8 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         }
 
         let span = [
+            ("***", "1;3", "22;23", false, true),
+            ("___", "1;3", "22;23", true, true),
             ("**", "1", "22", false, true),
             ("__", "1", "22", true, true),
             ("~~", "9", "29", false, true),
@@ -3546,6 +3548,18 @@ mod style_tests {
         assert_eq!(
             styled_inline("**bold \\***", None),
             "\u{1b}[1mbold *\u{1b}[22m"
+        );
+    }
+
+    #[test]
+    fn a_shared_delimiter_run_is_bold_and_italic() {
+        assert_eq!(
+            styled_inline("***combined***", None),
+            "\u{1b}[1;3mcombined\u{1b}[22;23m"
+        );
+        assert_eq!(
+            styled_inline("___combined___", None),
+            "\u{1b}[1;3mcombined\u{1b}[22;23m"
         );
     }
 
