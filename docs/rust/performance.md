@@ -15,7 +15,7 @@ measurements subtract startup from two runs of the same binary.
 | --------- | -----------: | -------: | --------: | ---------------------------: |
 | usage     |        7,377 |        — |    0.7 µs |                            0 |
 | clap      |        6.31M |     855x |    544 µs |                        6,560 |
-| bpaf      |        21.9M |   2,957x |   1.61 ms |                            — |
+| bpaf      |        21.9M |   2,957x |  1,610 µs |                            — |
 
 clap and bpaf construct and validate a parser at runtime before reading a
 single word, so their floor is hundreds of microseconds. usage reads tables the
