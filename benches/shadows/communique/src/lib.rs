@@ -41,9 +41,6 @@ pub struct GenerateArgs {
     /// Write output to a file instead of stdout
     #[usage(long = "output", short = 'o', effect = "write", value_name = "OUTPUT")]
     pub output: ::std::option::Option<::std::string::String>,
-    /// Print help
-    #[usage(long = "help", short = 'h')]
-    pub help: bool,
     /// Git tag to generate release notes for
     #[usage(arg, name = "TAG")]
     pub tag: ::std::string::String,
@@ -59,30 +56,19 @@ pub struct InitArgs {
     /// Overwrite existing config file
     #[usage(long = "force", effect = "destructive")]
     pub force: bool,
-    /// Print help
-    #[usage(long = "help", short = 'h')]
-    pub help: bool,
 }
 
 /// Show the companies sponsoring communique and the jdx.dev open source tools
 #[derive(Args)]
 #[usage(effect = "read")]
-pub struct SponsorsArgs {
-    /// Print help
-    #[usage(long = "help", short = 'h')]
-    pub help: bool,
-}
+pub struct SponsorsArgs {}
 
 /// Generates a usage spec for the CLI
 ///
 /// https://usage.jdx.dev
 #[derive(Args)]
 #[usage(effect = "read")]
-pub struct UsageArgs {
-    /// Print help
-    #[usage(long = "help", short = 'h')]
-    pub help: bool,
-}
+pub struct UsageArgs {}
 
 /// Editorialized release notes powered by AI
 #[derive(Cli)]
@@ -102,12 +88,6 @@ pub struct Cli {
     /// Path to config file (default: communique.toml in repo root)
     #[usage(long = "config", short = 'c', global, value_name = "CONFIG")]
     pub config: ::std::option::Option<::std::string::String>,
-    /// Print help
-    #[usage(long = "help", short = 'h')]
-    pub help: bool,
-    /// Print version
-    #[usage(long = "version", short = 'V')]
-    pub version: bool,
     #[usage(subcommand)]
     pub command: Commands,
 }
