@@ -32,9 +32,9 @@ const idPrefix = computed(() => `bench-${props.lang}`);
 // runner, and genuinely one *cold* parse — `parse-n` is differenced against the
 // same binary parsing nothing.
 const rustRows = [
-  { name: "usage-rs", value: 194, label: "190 ns", us: true },
+  { name: "usage-rs", value: 194, label: "0.19 µs", us: true },
   { name: "clap", value: 479605, label: "480 µs", note: "~2,500× more", us: false },
-  { name: "bpaf", value: 1597028, label: "1.6 ms", note: "~8,200× more", us: false },
+  { name: "bpaf", value: 1597028, label: "1,600 µs", note: "~8,200× more", us: false },
 ];
 
 // Go figures from go/README.md are whole-process wall time and subtract the
