@@ -122,6 +122,33 @@ fn available(program: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Whether a program can check a script this test would hand it, so a shell that cannot is
+/// skipped rather than failing the suite.
+///
+/// Not `--version`. On Windows the executable search order puts the system directory ahead of
+/// `PATH`, and installing WSL puts `bash.exe` there — a launcher that answers `--version`
+/// perfectly well and then cannot open the file it is given, which is how this test came to
+/// fail rather than skip. The precondition is the whole invocation, so that is what gets tried:
+/// the same program and flags, on a script known to be valid.
+fn can_check_a_script(program: &str, args: &[&str]) -> bool {
+    let dir = std::env::temp_dir().join(format!(
+        "usage_argv_shell_probe_{}_{program}",
+        std::process::id()
+    ));
+    if fs::create_dir_all(&dir).is_err() {
+        return false;
+    }
+    let probe = dir.join("probe");
+    let usable = fs::write(&probe, "echo ok\n").is_ok()
+        && Command::new(program)
+            .args(args)
+            .arg(&probe)
+            .output()
+            .is_ok_and(|out| out.status.success());
+    let _ = fs::remove_dir_all(&dir);
+    usable
+}
+
 #[test]
 fn every_script_is_valid_in_its_own_shell() {
     // A syntax error in generated text is the failure mode that reaches a user as a broken
@@ -134,7 +161,7 @@ fn every_script_is_valid_in_its_own_shell() {
 
     let mut ran = 0;
     for (shell, program, args) in checks {
-        if !available(program) {
+        if !can_check_a_script(program, args) {
             continue;
         }
         let fixture = Fixture::new(&format!("syntax-{program}"), *shell, "");
@@ -152,10 +179,19 @@ fn every_script_is_valid_in_its_own_shell() {
         ran += 1;
     }
     // Named rather than silently skipped: a test that checks nothing should say so.
-    assert!(
-        ran > 0,
-        "no shell was available to check a script against — bash, zsh and fish were all missing"
-    );
+    //
+    // Unix only. CI installs zsh and fish for the Linux job, so none of the three being usable
+    // there is a configuration bug worth stopping for. Nothing installs them on Windows, and a
+    // bare `bash` is the WSL launcher that cannot open the file it is handed — so having no
+    // shell to check against is the expected state there rather than a fault.
+    if cfg!(unix) {
+        assert!(
+            ran > 0,
+            "no shell was available to check a script against — bash, zsh and fish were all missing"
+        );
+    } else if ran == 0 {
+        println!("no shell here could check a script; this verified nothing");
+    }
     if ran < checks.len() {
         println!(
             "checked {ran} of {} shells; the rest are not installed",
