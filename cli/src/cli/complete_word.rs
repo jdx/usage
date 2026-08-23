@@ -658,6 +658,7 @@ impl CompleteWord {
         filter: impl Fn(&Path) -> bool,
     ) -> Vec<String> {
         trace!("complete_path: {ctoken}");
+        let separator = rendered_separator(ctoken);
         let path = PathBuf::from(ctoken);
         let exact = if path.is_absolute() {
             path.clone()
@@ -702,9 +703,9 @@ impl CompleteWord {
                     .strip_prefix(base)
                     .unwrap_or(&p)
                     .to_string_lossy()
-                    .to_string();
+                    .replace(std::path::MAIN_SEPARATOR, separator);
                 if is_dir {
-                    s.push('/');
+                    s.push_str(separator);
                 }
                 s
             })
@@ -784,6 +785,27 @@ impl usage_rs::Run for CompleteWord {
         }
 
         Ok(())
+    }
+}
+
+/// The separator to render a completion with: the one already in the token.
+///
+/// `read_dir` hands back the platform's, so on Windows a token typed with `/` came back as
+/// `target\debug\incremental/` — the segments in one spelling and the trailing marker in another,
+/// which is neither what was typed nor a path the shell will match against what follows. A
+/// completion is finishing a word a person is in the middle of typing, so their spelling is the
+/// one to continue.
+///
+/// A backslash counts as a separator on Windows only: on Unix it is an ordinary character in a
+/// filename, and a file called `a\b` must not be read as two components.
+///
+/// `/` when the token has neither, which is what the trailing marker has always used and what
+/// every POSIX shell wants.
+fn rendered_separator(ctoken: &str) -> &'static str {
+    if cfg!(windows) && ctoken.contains('\\') && !ctoken.contains('/') {
+        "\\"
+    } else {
+        "/"
     }
 }
 
@@ -1020,7 +1042,38 @@ fn zsh_shell_quote(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{command_name_starts_with, render_completer_run};
+    use super::{command_name_starts_with, render_completer_run, rendered_separator};
+
+    #[test]
+    fn a_slash_in_the_token_is_kept() {
+        // Every platform: `/` is a separator on all of them, and what was typed comes back.
+        assert_eq!(rendered_separator("target/de"), "/");
+        assert_eq!(rendered_separator("/abs/path"), "/");
+    }
+
+    #[test]
+    fn a_token_with_no_separator_yet_gets_a_slash() {
+        // Which is what the trailing directory marker has always used.
+        assert_eq!(rendered_separator(""), "/");
+        assert_eq!(rendered_separator("target"), "/");
+    }
+
+    #[test]
+    fn a_backslash_is_a_separator_only_on_windows() {
+        // On Unix `a\b` is one filename, and reading the backslash as a separator would render a
+        // completion nothing matches. `cfg!` rather than `#[cfg]` so both arms are type-checked
+        // wherever this is compiled.
+        let expected = if cfg!(windows) { "\\" } else { "/" };
+        assert_eq!(rendered_separator(r"target\de"), expected);
+        assert_eq!(rendered_separator(r"C:\Users\me"), expected);
+    }
+
+    #[test]
+    fn a_mixed_token_settles_on_the_slash() {
+        // Deterministic rather than clever: one of them has to win, and `/` works in both the
+        // shells that reach here on Windows and everywhere else.
+        assert_eq!(rendered_separator(r"target\de/inc"), "/");
+    }
 
     #[test]
     fn windows_command_prefixes_ignore_ascii_case() {
