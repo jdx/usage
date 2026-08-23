@@ -170,6 +170,7 @@ does have one stable portable spelling.
 | Attribute                        | Effect                                                                  |
 | -------------------------------- | ----------------------------------------------------------------------- |
 | `help = "…"` / `long_help = "…"` | Help text (doc comments are usually nicer)                              |
+| `note = "…"` / `warning = "…"`   | Semantic blocks in long help and generated Markdown                    |
 | `value_name = "…"`               | The placeholder shown in help (`--file <PATH>`)                         |
 | `value_names = ["A", "B"]`       | Distinct placeholders for a fixed multi-value field                     |
 | `help_heading = "…"`             | Group the entry under a heading in help output                          |
@@ -188,6 +189,10 @@ does have one stable portable spelling.
 | `setting = "key"`                  | Bind to a config setting ([Configuration](/rust/configuration))                         |
 
 The rest of this section expands the entries that need more than a table row.
+
+`note` and `warning` keep callouts structured instead of embedding terminal- or
+site-specific markup in help text. Long terminal help labels them `Note:` and
+`Warning:`; generated Markdown uses portable blockquotes with the same labels.
 
 ### Skipped fields
 

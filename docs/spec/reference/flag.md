@@ -117,8 +117,13 @@ flag "--file <file>" {
     more
     text
     """#
+  note "Paths are resolved relative to the working directory."
+  warning "An existing file will be replaced."
 }
 ```
+
+`note` and `warning` are semantic callouts. Long terminal help renders labeled
+indented blocks, while generated Markdown renders portable labeled blockquotes.
 
 ## `deprecated`
 
@@ -358,6 +363,7 @@ and not passed to mounts.
 ```kdl
 flag "--output <path>" help="Output path" {
   help_md "Write the result to **this path**."
+  warning "An existing file will be replaced."
   effect "write"
 }
 ```

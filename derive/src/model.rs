@@ -313,6 +313,8 @@ pub struct Field {
     pub value_enum: bool,
     pub help: Option<String>,
     pub long_help: Option<String>,
+    /// Structured notes and warnings, in declaration order.
+    pub admonitions: Vec<AdmonitionDecl>,
     /// Why this flag is deprecated, plus optional release milestones.
     pub deprecated: Option<String>,
     pub deprecated_warn_at: Option<String>,
@@ -472,6 +474,17 @@ pub struct Field {
     pub repeatable: bool,
     pub action: ArgAction,
     pub span: Span,
+}
+
+#[derive(Clone, Copy)]
+pub enum AdmonitionKind {
+    Note,
+    Warning,
+}
+
+pub struct AdmonitionDecl {
+    pub kind: AdmonitionKind,
+    pub text: String,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -2027,6 +2040,7 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            admonitions: Vec::new(),
             deprecated: None,
             deprecated_warn_at: None,
             deprecated_remove_at: None,
@@ -2178,6 +2192,7 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            admonitions: Vec::new(),
             deprecated: None,
             deprecated_warn_at: None,
             deprecated_remove_at: None,
@@ -2333,6 +2348,7 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            admonitions: Vec::new(),
             deprecated: None,
             deprecated_warn_at: None,
             deprecated_remove_at: None,
@@ -2466,6 +2482,7 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            admonitions: Vec::new(),
             deprecated: None,
             deprecated_warn_at: None,
             deprecated_remove_at: None,
@@ -2597,6 +2614,7 @@ impl Field {
         let mut required_collection = false;
         let mut help_attr: Option<String> = None;
         let mut long_help_attr: Option<String> = None;
+        let mut admonitions = Vec::new();
         let mut deprecated = None;
         let mut deprecated_warn_at = None;
         let mut deprecated_remove_at = None;
@@ -2909,6 +2927,14 @@ impl Field {
                     // help whose breaks are meant literally has to be given directly.
                     "help" => help_attr = Some(string_value(&meta)?),
                     "long_help" => long_help_attr = Some(string_value(&meta)?),
+                    "note" => admonitions.push(AdmonitionDecl {
+                        kind: AdmonitionKind::Note,
+                        text: string_value(&meta)?,
+                    }),
+                    "warning" => admonitions.push(AdmonitionDecl {
+                        kind: AdmonitionKind::Warning,
+                        text: string_value(&meta)?,
+                    }),
                     "deprecated" => deprecated = Some(string_value(&meta)?),
                     "deprecated_warn_at" => deprecated_warn_at = Some(string_value(&meta)?),
                     "deprecated_remove_at" => deprecated_remove_at = Some(string_value(&meta)?),
@@ -2952,7 +2978,7 @@ impl Field {
                                  `default_missing`, `default_if`, \
                                  `required_if`, \
                                  `required_unless`, `required_unless_all`, `help_heading`, `surface`, `available_if`, `select`, `display_order`, `value_name`, `value_names`, `num_args`, \
-                                 `verbatim_doc_comment`, \
+                                 `verbatim_doc_comment`, `note`, `warning`, \
                                  `visible_alias`, `visible_aliases`, `required`, \
                                  `double_dash`, and `skip`"
                             ),
@@ -3895,6 +3921,7 @@ impl Field {
             optional_value_type,
             help,
             long_help,
+            admonitions,
             deprecated,
             deprecated_warn_at,
             deprecated_remove_at,

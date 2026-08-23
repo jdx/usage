@@ -1,3 +1,4 @@
+pub mod admonition;
 pub mod arg;
 pub mod builder;
 pub mod choices;

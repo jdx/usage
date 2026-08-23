@@ -33,8 +33,8 @@
 use crate::spec::cmd::SpecExample;
 use crate::spec::effect::SpecCommandEffect;
 use crate::{
-    spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand, SpecDefaultIf, SpecFlag,
-    SpecRequiredIfEq, SpecRequiresIf,
+    spec::arg::SpecDoubleDashChoices, SpecAdmonition, SpecArg, SpecChoices, SpecCommand,
+    SpecDefaultIf, SpecFlag, SpecRequiredIfEq, SpecRequiresIf,
 };
 
 /// Builder for SpecFlag
@@ -121,6 +121,18 @@ impl SpecFlagBuilder {
     /// Set markdown help text
     pub fn help_md(mut self, text: impl Into<String>) -> Self {
         self.inner.help_md = Some(text.into());
+        self
+    }
+
+    /// Add a semantic note rendered in help and generated documentation.
+    pub fn note(mut self, text: impl Into<String>) -> Self {
+        self.inner.admonitions.push(SpecAdmonition::note(text));
+        self
+    }
+
+    /// Add a semantic warning rendered in help and generated documentation.
+    pub fn warning(mut self, text: impl Into<String>) -> Self {
+        self.inner.admonitions.push(SpecAdmonition::warning(text));
         self
     }
 
@@ -587,6 +599,18 @@ impl SpecArgBuilder {
     /// Set markdown help text
     pub fn help_md(mut self, text: impl Into<String>) -> Self {
         self.inner.help_md = Some(text.into());
+        self
+    }
+
+    /// Add a semantic note rendered in help and generated documentation.
+    pub fn note(mut self, text: impl Into<String>) -> Self {
+        self.inner.admonitions.push(SpecAdmonition::note(text));
+        self
+    }
+
+    /// Add a semantic warning rendered in help and generated documentation.
+    pub fn warning(mut self, text: impl Into<String>) -> Self {
+        self.inner.admonitions.push(SpecAdmonition::warning(text));
         self
     }
 

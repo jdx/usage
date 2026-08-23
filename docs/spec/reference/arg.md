@@ -107,12 +107,15 @@ environment variable wins over `default`.
 ```kdl
 arg "<output>" help="Output path" {
   help_md "Write the result to **this path**."
+  note "Relative paths use the working directory."
+  warning "An existing file will be replaced."
   effect "write"
 }
 ```
 
 Without `help_md`, generated Markdown falls back to `long_help` and then
-`help`. An `effect` raises the selected command's declared effect when this
+`help`. `note` and `warning` render as labeled blocks in long terminal help and
+as portable blockquotes in generated Markdown. An `effect` raises the selected command's declared effect when this
 positional is supplied; see [command effects](/spec/#command-effects).
 
 ## Using Variadic Args in Bash

@@ -980,6 +980,20 @@ pub struct FlattenGroup<'a> {
     pub help_heading: Option<&'a str>,
 }
 
+/// The significance of an explanatory block attached to an argument.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdmonitionKind {
+    Note,
+    Warning,
+}
+
+/// Structured explanatory text that each renderer adapts to its output format.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AdmonitionMeta<'a> {
+    pub kind: AdmonitionKind,
+    pub text: &'a str,
+}
+
 /// What a flag knows about itself beyond how it parses.
 #[derive(Debug, Clone, Copy)]
 pub struct FlagMeta<'a> {
@@ -994,6 +1008,8 @@ pub struct FlagMeta<'a> {
     pub help: Option<&'a str>,
     /// Long help, shown by `--help`.
     pub long_help: Option<&'a str>,
+    /// Notes and warnings shown after the extended help text.
+    pub admonitions: &'a [AdmonitionMeta<'a>],
     /// Why this flag is deprecated, plus optional release milestones.
     pub deprecated: Option<&'a str>,
     pub deprecated_warn_at: Option<&'a str>,
@@ -1111,6 +1127,7 @@ impl FlagMeta<'_> {
         hidden_longs: &[],
         help: None,
         long_help: None,
+        admonitions: &[],
         deprecated: None,
         deprecated_warn_at: None,
         deprecated_remove_at: None,
@@ -1197,6 +1214,8 @@ pub struct ArgMeta<'a> {
     pub value_names: &'a [&'a str],
     pub help: Option<&'a str>,
     pub long_help: Option<&'a str>,
+    /// Notes and warnings shown after the extended help text.
+    pub admonitions: &'a [AdmonitionMeta<'a>],
     pub env: Option<&'a str>,
     pub env_fallback: &'a [&'a str],
     pub deprecated_env: &'a [&'a str],
@@ -1260,6 +1279,7 @@ impl ArgMeta<'_> {
         value_names: &[],
         help: None,
         long_help: None,
+        admonitions: &[],
         env: None,
         env_fallback: &[],
         deprecated_env: &[],
@@ -2390,6 +2410,7 @@ fn write_flag(
     write_single_list(out, "required_unless_all", meta.required_unless_all)?;
 
     let has_children = meta.long_help.is_some()
+        || !meta.admonitions.is_empty()
         || !meta.hidden_shorts.is_empty()
         || !meta.hidden_longs.is_empty()
         || meta.flag.takes_value
@@ -2418,6 +2439,14 @@ fn write_flag(
     if let Some(long_help) = meta.long_help {
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
+    }
+    for admonition in meta.admonitions {
+        indent(out, inner)?;
+        let kind = match admonition.kind {
+            AdmonitionKind::Note => "note",
+            AdmonitionKind::Warning => "warning",
+        };
+        writeln!(out, "{kind} {}", quoted(admonition.text))?;
     }
     if !meta.hidden_shorts.is_empty() || !meta.hidden_longs.is_empty() {
         indent(out, inner)?;
@@ -2685,6 +2714,7 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     write_single_list(out, "required_unless_all", meta.required_unless_all)?;
 
     let has_children = meta.long_help.is_some()
+        || !meta.admonitions.is_empty()
         || !meta.choices.is_empty()
         || !meta.accepted_choices.is_empty()
         || !meta.choice_details.is_empty()
@@ -2709,6 +2739,14 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if let Some(long_help) = meta.long_help {
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
+    }
+    for admonition in meta.admonitions {
+        indent(out, inner)?;
+        let kind = match admonition.kind {
+            AdmonitionKind::Note => "note",
+            AdmonitionKind::Warning => "warning",
+        };
+        writeln!(out, "{kind} {}", quoted(admonition.text))?;
     }
     if meta.conflicts.len() > 1 {
         indent(out, inner)?;

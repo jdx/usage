@@ -10,7 +10,7 @@ use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
-use crate::{string, SpecChoices};
+use crate::{string, SpecAdmonition, SpecAdmonitionKind, SpecChoices};
 #[cfg(feature = "clap")]
 use crate::{SpecChoice, SpecChoiceAlias};
 
@@ -71,6 +71,9 @@ pub struct SpecArg {
     /// Markdown-formatted help text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
+    /// Structured notes and warnings, in presentation order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub admonitions: Vec<SpecAdmonition>,
     /// First line of help text (auto-generated)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_first_line: Option<String>,
@@ -329,6 +332,12 @@ impl SpecArg {
                 "long_help" => arg.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_long" => arg.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_md" => arg.help_md = Some(child.arg(0)?.ensure_string()?),
+                "note" => arg
+                    .admonitions
+                    .push(SpecAdmonition::note(child.arg(0)?.ensure_string()?)),
+                "warning" => arg
+                    .admonitions
+                    .push(SpecAdmonition::warning(child.arg(0)?.ensure_string()?)),
                 "required" => arg.required = child.arg(0)?.ensure_bool()?,
                 "var" => arg.var = child.arg(0)?.ensure_bool()?,
                 "var_min" => arg.var_min = child.arg(0)?.ensure_usize().map(Some)?,
@@ -504,6 +513,16 @@ impl From<&SpecArg> for KdlNode {
         }
         if let Some(desc) = &arg.help_md {
             node.push(string_entry(Some("help_md"), desc));
+        }
+        for admonition in &arg.admonitions {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let name = match admonition.kind {
+                SpecAdmonitionKind::Note => "note",
+                SpecAdmonitionKind::Warning => "warning",
+            };
+            let mut block = KdlNode::new(name);
+            block.push(string_entry(None, &admonition.text));
+            children.nodes_mut().push(block);
         }
         if !arg.required {
             node.push(KdlEntry::new_prop("required", false));
@@ -996,6 +1015,7 @@ impl From<&clap::Arg> for SpecArg {
             help,
             help_long,
             help_md: None,
+            admonitions: Vec::new(),
             help_first_line,
             var,
             var_max: None,

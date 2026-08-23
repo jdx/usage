@@ -291,6 +291,8 @@
 //! | `default_fn = function` | compute one typed default at parse time without claiming a concrete portable value |
 //! | `default_note = "x"` | describe a `default_fn` in help; the note is prose, not a value |
 //! | `help_heading = "x"` | the section to list this under in help output |
+//! | `note = "x"` | a semantic note shown in long help and generated documentation |
+//! | `warning = "x"` | a semantic warning shown in long help and generated documentation |
 //! | `display_order = n` | explicit help order; positional parsing still follows declaration order |
 //! | `verbatim_doc_comment` | preserve line breaks and whitespace in the doc comment instead of flowing its first paragraph |
 //! | `hide` | keep it out of help and completions |

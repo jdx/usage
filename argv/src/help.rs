@@ -19,7 +19,9 @@
 
 use core::fmt::Write as _;
 
-use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
+use crate::spec::{
+    AdmonitionKind, AdmonitionMeta, ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta,
+};
 use crate::Command;
 use crate::DoubleDash;
 
@@ -1919,6 +1921,7 @@ fn long_sections(
                 width,
                 meta.next_line_help,
             );
+            admonitions(out, a.admonitions);
             long_annotations(
                 out,
                 if a.hide_possible_values {
@@ -1959,6 +1962,7 @@ fn long_sections(
                 width,
                 meta.next_line_help,
             );
+            admonitions(out, f.admonitions);
             long_annotations(
                 out,
                 if f.hide_possible_values {
@@ -1988,6 +1992,7 @@ fn long_sections(
         |out, (f, usage)| {
             let text = f.long_help.or(f.help);
             entry(out, usage, text, flag_col, width, meta.next_line_help);
+            admonitions(out, f.admonitions);
             long_annotations(
                 out,
                 if f.hide_possible_values {
@@ -2163,6 +2168,16 @@ fn long_annotations(
     environment_notes(out, env_fallback, deprecated_env, 4);
     if !default.is_empty() {
         let _ = writeln!(out, "    (default: {})", default.join(", "));
+    }
+}
+
+fn admonitions(out: &mut String, blocks: &[AdmonitionMeta<'_>]) {
+    for block in blocks {
+        let label = match block.kind {
+            AdmonitionKind::Note => "Note",
+            AdmonitionKind::Warning => "Warning",
+        };
+        write_indented(out, &format!("{label}: {}", block.text), 4);
     }
 }
 
