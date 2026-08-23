@@ -4612,6 +4612,7 @@ fn partial_struct(cli: &Cli) -> TokenStream {
     // declared default has to be in place before parsing begins and nested state has
     // its own starting values.
     quote! {
+        #[expect(clippy::pub_underscore_fields)]
         pub struct Partial {
             pub __usage_view: ::std::option::Option<
                 &'static usage_argv::spec::ViewMeta<'static>,
