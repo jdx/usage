@@ -382,9 +382,9 @@ fn closing_delimiter(
 ) -> Option<(usize, usize)> {
     let marker = delimiter.chars().next()?;
     let width = delimiter.len();
-    let nested_width = match width {
-        1 => 2,
-        2 if matches!(marker, '*' | '_') => 1,
+    let nested_width = match (width, marker) {
+        (1, '*' | '_') => 2,
+        (2, '*' | '_') => 1,
         _ => 0,
     };
     let mut search_at = content_start;
