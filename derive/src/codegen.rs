@@ -4719,18 +4719,7 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
                     ::std::result::Result::Ok(__usage_os) => #build(__usage_os),
                     ::std::result::Result::Err(__usage_bytes) => {
                         return ::std::result::Result::Err(
-                            usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                                usage_argv::InvalidValue {
-                                    name: #name,
-                                    value: ::std::string::String::from_utf8_lossy(
-                                        &__usage_bytes,
-                                    )
-                                    .into_owned(),
-                                    reason: ::std::string::ToString::to_string(
-                                        &"this platform cannot hold these bytes in a path",
-                                    ),
-                                },
-                            )),
+                            usage_argv::invalid_os_value(#name, __usage_bytes),
                         );
                     }
                 }
@@ -4809,16 +4798,7 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
                 ::std::result::Result::Ok(text) => text,
                 ::std::result::Result::Err(bad) => {
                     return ::std::result::Result::Err(
-                        usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                            usage_argv::InvalidValue {
-                                name: #name,
-                                value: ::std::string::String::from_utf8_lossy(
-                                    bad.as_bytes(),
-                                )
-                                .into_owned(),
-                                reason: ::std::string::ToString::to_string(&bad.utf8_error()),
-                            },
-                        )),
+                        usage_argv::invalid_utf8_value(#name, bad),
                     );
                 }
             }
@@ -4830,15 +4810,7 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
                     ::std::option::Option::Some(parsed) => parsed,
                     ::std::option::Option::None => {
                         return ::std::result::Result::Err(
-                            usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                                usage_argv::InvalidValue {
-                                    name: #name,
-                                    value: __usage_text,
-                                    reason: ::std::string::String::from(
-                                        "not one of the declared values",
-                                    ),
-                                },
-                            )),
+                            usage_argv::invalid_choice_value(#name, __usage_text),
                         );
                     }
                 }
@@ -4853,13 +4825,7 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
                 ::std::result::Result::Ok(parsed) => parsed,
                 ::std::result::Result::Err(reason) => {
                     return ::std::result::Result::Err(
-                        usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                            usage_argv::InvalidValue {
-                                name: #name,
-                                value: __usage_text,
-                                reason: ::std::string::ToString::to_string(&reason),
-                            },
-                        )),
+                        usage_argv::invalid_parsed_value(#name, __usage_text, &reason),
                     );
                 }
             }
