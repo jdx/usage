@@ -43,6 +43,20 @@ An output also accepts `help`, `default=#true`, and `hide=#true`. At most one ef
 may be the default. `schema` is carried verbatim, so it can use any JSON Schema draft and can
 contain references that another tool resolves.
 
+For a schema kept next to the spec, name its file instead of embedding it:
+
+```kdl
+output "json" framing="json" {
+  schema file="report.schema.json"
+}
+```
+
+A relative path is resolved from the KDL file containing the declaration, including when that
+file is included by another spec. Usage loads the file into the same schema field consumers
+already read and adds it to `Spec::sources`, so generated output is self-contained and build
+scripts know to rerun when the JSON file changes. Inline schemas remain useful for specs parsed
+from strings, where a relative file has no directory to resolve against.
+
 ## Selecting an output
 
 For a value-taking flag, declare one `select` on the command:

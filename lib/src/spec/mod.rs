@@ -64,11 +64,11 @@ pub struct Spec {
     /// entries only record where they came from.
     #[serde(skip)]
     pub flagsets: IndexMap<String, SpecFlagSet>,
-    /// Every file this spec was read from: its own path, then each `include`, recursively.
+    /// Every file this spec was read from: its own path, each `include`, and external output
+    /// schema files, recursively.
     ///
     /// What a build script has to watch. A generator that watches only the file it was pointed at
-    /// rebuilds nothing when an included file changes — and `include` is how a CLI with many
-    /// settings keeps them in a file of their own, so that is the file most likely to be edited.
+    /// rebuilds nothing when an included KDL or JSON schema changes.
     ///
     /// Not serialized: it is where the spec came from rather than part of what it says, and `usage g
     /// json` describes the latter.
@@ -729,6 +729,7 @@ impl Spec {
         // add a flag to a command and the usage strings are computed from the flag list.
         flagset::expand(ctx, &mut schema.cmd, &mut schema.flagsets)?;
         output::resolve_selectors(&mut schema)?;
+        schema.sources.extend(ctx.sources());
         set_subcommand_ancestors(&mut schema.cmd, &[]);
         Ok(schema)
     }

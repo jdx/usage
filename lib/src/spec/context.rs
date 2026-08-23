@@ -1,11 +1,13 @@
 use crate::error::UsageErr;
 use miette::{NamedSource, SourceSpan};
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default)]
 pub struct ParsingContext {
     pub(crate) file: PathBuf,
     pub(crate) spec: String,
+    sources: RefCell<Vec<PathBuf>>,
 }
 
 impl ParsingContext {
@@ -13,12 +15,24 @@ impl ParsingContext {
         Self {
             file: file.to_path_buf(),
             spec: spec.to_string(),
+            sources: RefCell::new(Vec::new()),
         }
     }
 
     pub(crate) fn build_err(&self, msg: String, span: SourceSpan) -> UsageErr {
         let source = NamedSource::new(self.file.to_string_lossy(), self.spec.clone());
         UsageErr::InvalidInput(msg, span, source)
+    }
+
+    pub(crate) fn record_source(&self, file: PathBuf) {
+        let mut sources = self.sources.borrow_mut();
+        if !sources.contains(&file) {
+            sources.push(file);
+        }
+    }
+
+    pub(crate) fn sources(&self) -> Vec<PathBuf> {
+        self.sources.borrow().clone()
     }
 }
 

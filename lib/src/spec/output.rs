@@ -49,6 +49,7 @@
 //! them instead of rewriting, so a spec that has been through it round-trips unchanged.
 
 use std::collections::BTreeSet;
+use std::path::Path;
 
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
@@ -237,7 +238,7 @@ impl SpecOutput {
                 // A schema is the one field long enough to want its own line, and long
                 // text already spells itself this way: `long_help`, `help_md` and the
                 // before/after help blocks are all child nodes for the same reason.
-                "schema" => output.schema = Some(child.arg(0)?.ensure_string()?),
+                "schema" => parse_schema(ctx, &child, &mut output)?,
                 "help" => output.help = Some(child.arg(0)?.ensure_string()?),
                 k => bail_parse!(
                     ctx,
@@ -251,6 +252,44 @@ impl SpecOutput {
         }
         Ok(output)
     }
+}
+
+fn parse_schema(ctx: &ParsingContext, node: &NodeHelper, output: &mut SpecOutput) -> Result<()> {
+    if let Some(file) = node.get("file") {
+        node.ensure_arg_len(0..=0)?;
+        for (key, value) in node.props() {
+            if key != "file" {
+                bail_parse!(ctx, value.entry.span(), "unsupported schema key {key}");
+            }
+        }
+        let declared = file.ensure_string()?;
+        let path = Path::new(&declared);
+        let path = if path.is_relative() {
+            ctx.file
+                .parent()
+                .filter(|_| !ctx.file.as_os_str().is_empty())
+                .ok_or_else(|| {
+                    ctx.build_err(
+                        "relative schema files require a source file".into(),
+                        node.span(),
+                    )
+                })?
+                .join(path)
+        } else {
+            path.to_path_buf()
+        };
+        output.schema = Some(
+            std::fs::read_to_string(&path).map_err(|err| UsageErr::FileError(err, path.clone()))?,
+        );
+        ctx.record_source(path);
+    } else {
+        node.ensure_arg_len(1..=1)?;
+        if let Some((key, value)) = node.props().into_iter().next() {
+            bail_parse!(ctx, value.entry.span(), "unsupported schema key {key}");
+        }
+        output.schema = Some(node.arg(0)?.ensure_string()?);
+    }
+    Ok(())
 }
 
 fn parse_framing(ctx: &ParsingContext, raw: String, entry: &KdlEntry) -> Result<Framing> {
@@ -886,5 +925,60 @@ cmd "ls" {
             again.cmd.subcommands["ls"].outputs[0].schema.as_deref(),
             Some(schema.as_str())
         );
+    }
+
+    #[test]
+    fn an_external_schema_is_relative_to_the_kdl_that_declares_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let shared = dir.path().join("shared");
+        std::fs::create_dir(&shared).unwrap();
+        let root = dir.path().join("root.usage.kdl");
+        let included = shared.join("outputs.usage.kdl");
+        let schema_file = shared.join("report.schema.json");
+        let schema = "{\n  \"type\": \"object\"\n}\n";
+        std::fs::write(&schema_file, schema).unwrap();
+        std::fs::write(
+            &included,
+            "output \"json\" framing=\"json\" { schema file=\"report.schema.json\" }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &root,
+            "name \"ex\"\ninclude file=\"shared/outputs.usage.kdl\"\n",
+        )
+        .unwrap();
+
+        let spec = Spec::parse_file(&root).unwrap();
+        assert_eq!(spec.outputs[0].schema.as_deref(), Some(schema));
+        assert!(spec.sources.contains(&schema_file));
+
+        // Re-emission embeds what was loaded, just as it expands an include, so the result
+        // does not depend on the original adjacent file.
+        let emitted = spec.to_string();
+        assert!(!emitted.contains("report.schema.json"));
+        assert_eq!(parse(&emitted).outputs[0].schema.as_deref(), Some(schema));
+    }
+
+    #[test]
+    fn a_relative_schema_needs_a_source_file() {
+        let err = error("name \"ex\"\noutput \"json\" { schema file=\"report.schema.json\" }\n");
+        assert_eq!(err, "relative schema files require a source file");
+    }
+
+    #[test]
+    fn an_unreadable_schema_names_its_resolved_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("root.usage.kdl");
+        let missing = dir.path().join("missing.schema.json");
+        std::fs::write(
+            &root,
+            "name \"ex\"\noutput \"json\" { schema file=\"missing.schema.json\" }\n",
+        )
+        .unwrap();
+
+        match Spec::parse_file(&root).unwrap_err() {
+            UsageErr::FileError(_, file) => assert_eq!(file, missing),
+            err => panic!("unexpected error: {err:?}"),
+        }
     }
 }
