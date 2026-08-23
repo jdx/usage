@@ -723,6 +723,10 @@ fn outputs_and_exit_codes_survive() {
     );
     assert!(install.outputs[0].default);
     assert_eq!(
+        install.outputs[1].media_type.as_deref(),
+        Some("application/json")
+    );
+    assert_eq!(
         install.outputs[1].schema.as_deref(),
         Some("{\n  \"type\": \"object\"\n}"),
         "a schema with newlines should come back as it went out"

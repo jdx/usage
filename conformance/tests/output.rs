@@ -117,6 +117,14 @@ fn a_name_and_a_framing_are_different_things() {
     assert!(check.outputs[2].framing.is_streaming());
     assert!(check.outputs[4].hide);
     assert_eq!(
+        check.outputs[1].media_type.as_deref(),
+        Some("application/json")
+    );
+    assert_eq!(
+        check.outputs[2].media_type.as_deref(),
+        Some("application/x-ndjson")
+    );
+    assert_eq!(
         check.outputs[3].media_type.as_deref(),
         Some("application/xml")
     );
