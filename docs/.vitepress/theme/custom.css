@@ -654,11 +654,19 @@
 }
 
 .usage-bench-value {
-  flex: 0 0 8.5rem;
+  flex: 0 0 12rem;
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  column-gap: 0.45rem;
+  min-width: 0;
   font-family: var(--vp-font-family-mono);
   font-size: 0.75rem;
   color: rgba(245, 240, 255, 0.85);
   white-space: nowrap;
+}
+
+.usage-bench-measure {
+  text-align: right;
 }
 
 .usage-bench-value em {
