@@ -2164,6 +2164,18 @@ fn write_group(out: &mut String, group: &GroupMeta<'_>, depth: usize) -> core::f
 /// order — outputs, then `select`, then exit codes — has to match what usage-lib's writer
 /// produces or `canonical_kdl` fails.
 fn write_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
+    write_own_outputs(out, meta, depth)?;
+    // A flattened `Args` type contributes to the command it is mounted on. Its flags and
+    // groups are already composed into the parent's metadata tables; command-level output
+    // metadata has to follow the same seam or a selector declared beside those flags simply
+    // disappears from the emitted spec.
+    for group in meta.flatten_groups {
+        write_outputs(out, group.meta, depth)?;
+    }
+    Ok(())
+}
+
+fn write_own_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
     for output in meta.outputs {
         indent(out, depth)?;
         write!(out, "output {}", quoted(output.name))?;
