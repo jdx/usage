@@ -1907,6 +1907,8 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             let mut cursor = ::std::option::Option::None;
             let mut candidates_for: ::std::option::Option<::std::string::String> =
                 ::std::option::Option::None;
+            let mut words: ::std::option::Option<::std::vec::Vec<::std::string::String>> =
+                ::std::option::Option::None;
             let mut rest = argv[1..].iter();
             while let ::std::option::Option::Some(arg) = rest.next() {
                 match arg.to_str().unwrap_or_default() {
@@ -1938,6 +1940,14 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                     "--candidates" => {
                         candidates_for = rest.next().map(|v| v.to_string_lossy().into_owned());
                     }
+                    // Elvish already hands its completer losslessly split words. Keeping them as
+                    // argv avoids re-quoting text just so the shared line splitter can undo it.
+                    "--words" => {
+                        words = ::std::option::Option::Some(
+                            rest.map(|word| word.to_string_lossy().into_owned()).collect(),
+                        );
+                        break;
+                    }
                     // Anything else is a shell passing something this version does not know
                     // about. Ignored rather than refused: a completion that errors out is a
                     // shell that beeps at every keystroke.
@@ -1946,8 +1956,20 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             }
             // No cursor means the end of the line, which is where a shell puts it when it has
             // no way to say — nushell, whose completer only ever sees the words.
-            let cursor = cursor.unwrap_or(line.len());
-            let mut split = usage_argv::complete::split(&line, cursor, shell);
+            let mut split = match words {
+                ::std::option::Option::Some(mut words) => {
+                    if words.is_empty() {
+                        words.push(::std::string::String::new());
+                    }
+                    let cword = words.len() - 1;
+                    let prefix = words[cword].clone();
+                    usage_argv::complete::Split { words, cword, prefix }
+                }
+                ::std::option::Option::None => {
+                    let cursor = cursor.unwrap_or(line.len());
+                    usage_argv::complete::split(&line, cursor, shell)
+                }
+            };
             let __usage_selected_view = split.words.first().and_then(|__usage_program| {
                 usage_argv::spec::view_for_program(
                     Self::spec(),

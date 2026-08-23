@@ -74,8 +74,9 @@ impl Drop for Fixture {
     }
 }
 
-const SHELLS: [Shell; 5] = [
+const SHELLS: [Shell; 6] = [
     Shell::Bash,
+    Shell::Elvish,
     Shell::Zsh,
     Shell::Fish,
     Shell::Nu,

@@ -730,6 +730,7 @@ impl Request {
         let mut line = String::new();
         let mut cursor = None;
         let mut candidates_for = None;
+        let mut words: Option<Vec<String>> = None;
         let mut rest = argv[1..].iter();
         while let Some(arg) = rest.next() {
             match arg.to_str().unwrap_or_default() {
@@ -754,13 +755,37 @@ impl Request {
                 "--candidates" => {
                     candidates_for = rest.next().map(|v| v.to_string_lossy().into_owned());
                 }
+                "--words" => {
+                    words = Some(
+                        rest.map(|word| word.to_string_lossy().into_owned())
+                            .collect(),
+                    );
+                    break;
+                }
                 _ => {}
             }
         }
-        let cursor = cursor.unwrap_or(line.len());
+        let split = match words {
+            Some(mut words) => {
+                if words.is_empty() {
+                    words.push(String::new());
+                }
+                let cword = words.len() - 1;
+                let prefix = words[cword].clone();
+                Split {
+                    words,
+                    cword,
+                    prefix,
+                }
+            }
+            None => {
+                let cursor = cursor.unwrap_or(line.len());
+                split(&line, cursor, shell)
+            }
+        };
         Some(Self {
             shell,
-            split: split(&line, cursor, shell),
+            split,
             candidates_for,
         })
     }
@@ -828,6 +853,15 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
                     CandidateKind::File => "file",
                     CandidateKind::Directory => "directory",
                 });
+            }
+            Shell::Elvish => {
+                out.push_str(&candidate.value);
+                out.push('\t');
+                out.push_str(description);
+                out.push('\t');
+                out.push_str(&one_line(
+                    candidate.display.as_deref().unwrap_or(&candidate.value),
+                ));
             }
             Shell::Fish | Shell::Nu => {
                 out.push_str(&candidate.value);
@@ -1781,7 +1815,8 @@ fn arg_meta<'a>(meta: &'a CommandMeta<'a>, arg: &Arg<'_>) -> Option<&'a ArgMeta<
 
 /// Which shell's quoting rules a line follows.
 ///
-/// Only two rule sets, not five: bash, zsh, fish and nushell all follow the POSIX shape
+/// Most shells follow the POSIX word shape, while PowerShell and Elvish need their own
+/// lossless argv handling and output protocols.
 /// closely enough that a completion request cannot tell them apart, while PowerShell escapes
 /// with a backtick and doubles a quote to escape it. The distinction is kept per *shell*
 /// rather than per rule set so that a shell whose rules turn out to differ can be given its
@@ -1790,6 +1825,7 @@ fn arg_meta<'a>(meta: &'a CommandMeta<'a>, arg: &Arg<'_>) -> Option<&'a ArgMeta<
 #[non_exhaustive]
 pub enum Shell {
     Bash,
+    Elvish,
     Zsh,
     Fish,
     Nu,
@@ -1801,6 +1837,7 @@ impl Shell {
     pub fn as_str(self) -> &'static str {
         match self {
             Shell::Bash => "bash",
+            Shell::Elvish => "elvish",
             Shell::Zsh => "zsh",
             Shell::Fish => "fish",
             Shell::Nu => "nu",
@@ -1812,6 +1849,7 @@ impl Shell {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "bash" => Some(Shell::Bash),
+            "elvish" => Some(Shell::Elvish),
             "zsh" => Some(Shell::Zsh),
             "fish" => Some(Shell::Fish),
             "nu" | "nushell" => Some(Shell::Nu),
@@ -3681,6 +3719,12 @@ mod tests {
         // fish and nu take a description after a tab.
         assert_eq!(render(&answer, Shell::Fish), "plugins\tManage plugins\n");
 
+        // Elvish receives insertion, description, and presentation separately.
+        assert_eq!(
+            render(&answer, Shell::Elvish),
+            "plugins\tManage plugins\tplugins\n"
+        );
+
         // PowerShell also receives its separately selectable display text.
         assert_eq!(
             render(&answer, Shell::PowerShell),
@@ -3692,6 +3736,24 @@ mod tests {
             render(&answer, Shell::Zsh),
             "plugins\tManage plugins\tplugins\n"
         );
+    }
+
+    #[test]
+    fn a_shell_that_already_split_words_can_send_them_losslessly() {
+        let argv = [
+            OsString::from("__complete_word__"),
+            OsString::from("--shell"),
+            OsString::from("elvish"),
+            OsString::from("--words"),
+            OsString::from("mise"),
+            OsString::from("run"),
+            OsString::from("two words"),
+        ];
+        let request = Request::parse(&argv).expect("a completion request");
+        assert_eq!(request.shell, Shell::Elvish);
+        assert_eq!(request.split.words, ["mise", "run", "two words"]);
+        assert_eq!(request.split.cword, 2);
+        assert_eq!(request.split.prefix, "two words");
     }
 
     #[test]

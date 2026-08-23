@@ -87,11 +87,66 @@ pub fn script_for(bin: &str, name: &str, shell: Shell) -> String {
     );
     match shell {
         Shell::Bash => bash(bin, name),
+        Shell::Elvish => elvish(bin, name),
         Shell::Zsh => zsh(bin, name),
         Shell::Fish => fish(bin, name),
         Shell::Nu => nu(bin, name, &nu_ident(name)),
         Shell::PowerShell => powershell(bin, name),
     }
+}
+
+fn elvish(bin: &str, name: &str) -> String {
+    let head = header(bin, Shell::Elvish, "#");
+    format!(
+        r#"{head}use os
+use str
+
+set edit:completion:arg-completer[{name}] = {{|@words|
+    var usage-command = (external '{bin}')
+    var lines = [($usage-command __complete_word__ --shell elvish --words $@words 2>$os:dev-null | from-lines)]
+    for line $lines {{
+        if (eq $line "\x01files") {{
+            edit:complete-filename $@words
+            continue
+        }}
+        if (eq $line "\x01dirs") {{
+            edit:complete-dirname $@words
+            continue
+        }}
+        if (eq $line "\x01executables") {{
+            edit:complete-filename $@words
+            continue
+        }}
+        if (str:has-prefix $line "\x01extensions\t") {{
+            # Elvish's native filename completer owns quoting and directory traversal. It does
+            # not expose an extension-filter option, so this target degrades to native paths.
+            edit:complete-filename $@words
+            continue
+        }}
+        if (eq $line "\x01commands") {{
+            # complete-sudo's first argument is a command position, so this asks Elvish for
+            # external commands without recursively invoking this argument completer.
+            edit:complete-sudo sudo $words[-1]
+            continue
+        }}
+        if (eq $line '') {{
+            continue
+        }}
+
+        var parts = [(str:split "\t" $line)]
+        var value = $parts[0]
+        var display = $value
+        if (> (count $parts) 2) {{
+            set display = $parts[2]
+        }}
+        if (and (> (count $parts) 1) (not-eq $parts[1] '')) {{
+            set display = (str:join '  -- ' [$display $parts[1]])
+        }}
+        edit:complex-candidate $value &display=$display
+    }}
+}}
+"#,
+    )
 }
 
 /// A nushell identifier for a binary's name, one name to one identifier.
@@ -552,6 +607,7 @@ mod tests {
     fn every_script_names_the_binary_and_the_hidden_command() {
         for shell in [
             Shell::Bash,
+            Shell::Elvish,
             Shell::Zsh,
             Shell::Fish,
             Shell::Nu,
@@ -575,6 +631,11 @@ mod tests {
                 "complete -F _usage_complete_m 'm'",
                 "command 'mise'",
             ),
+            (
+                Shell::Elvish,
+                "arg-completer[m]",
+                "var usage-command = (external 'mise')",
+            ),
             (Shell::Zsh, "#compdef m", "command 'mise'"),
             (Shell::Fish, "complete -c 'm'", "command 'mise'"),
             (Shell::Nu, r#"== "m""#, "^mise __complete_word__"),
@@ -593,6 +654,23 @@ mod tests {
                 assert!(!out.contains("`_mise`"), "{out}");
             }
         }
+    }
+
+    #[test]
+    fn elvish_keeps_candidates_as_values_through_its_protocol() {
+        let out = script("mise", Shell::Elvish);
+        assert!(
+            out.contains(
+                "arg-completer[mise] = {|@words|\n    var usage-command = (external 'mise')"
+            ),
+            "{out}"
+        );
+        assert!(out.contains("| from-lines)"), "{out}");
+        assert!(!out.contains("| to-lines)"), "{out}");
+        assert!(out.contains("2>$os:dev-null"), "{out}");
+        assert!(!out.contains("/dev/null"), "{out}");
+        assert!(out.contains("var parts = [(str:split"), "{out}");
+        assert!(out.contains("edit:complete-sudo sudo $words[-1]"), "{out}");
     }
 
     /// zsh reads `#compdef` on the *first* line and nowhere else.
@@ -672,10 +750,16 @@ mod tests {
     #[test]
     fn two_names_that_are_not_identifiers_do_not_become_one() {
         // `foo-bar` and `foo+bar` are two binaries. Flattening both to `foo_bar` meant that with
-        // two scripts loaded, completing one ran the other's completer — so bash, zsh and fish
-        // take the name verbatim (all three accept these characters in a function name) and
+        // two scripts loaded, completing one ran the other's completer — so bash, Elvish, zsh and
+        // fish take the name verbatim (all accept these characters in this position) and
         // nushell, which cannot, escapes rather than flattens.
-        for shell in [Shell::Bash, Shell::Zsh, Shell::Fish, Shell::Nu] {
+        for shell in [
+            Shell::Bash,
+            Shell::Elvish,
+            Shell::Zsh,
+            Shell::Fish,
+            Shell::Nu,
+        ] {
             let dash = script("foo-bar", shell);
             let plus = script("foo+bar", shell);
             assert_ne!(dash, plus, "{shell:?} generated the same script for both");
