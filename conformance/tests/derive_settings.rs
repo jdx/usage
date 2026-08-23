@@ -12,7 +12,7 @@
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-use usage_config::{resolve, Const, Layers, PropMeta, Registry, Ty, Value, WarningKind};
+use usage_config::{resolve, Const, Layers, PropMeta, Registry, Ty, Value};
 use usage_derive::Cli;
 
 /// A tool with settings
@@ -177,6 +177,7 @@ fn a_value_that_is_not_text_is_reported_rather_than_rendered() {
     // still held the real bytes, and the command line's answer is the one that outranks every file
     // on the machine.
     use std::os::unix::ffi::OsStrExt;
+    use usage_config::WarningKind;
 
     let bytes = OsStr::from_bytes(b"/etc/co\xffnfig");
     let argv = [OsStr::new("--config"), bytes];

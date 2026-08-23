@@ -1332,6 +1332,11 @@ struct StrictFlatten {
 
 #[derive(ValueEnum)]
 #[usage(ignore_case)]
+// `PowerShell` ends with the enum name, which `clippy::enum_variant_names` reads as a prefix
+// worth hoisting. It is the shell's actual name, and the lint only fires on Windows, where the
+// variant exists at all — a rename to satisfy it would leave the enum spelling something no
+// user types.
+#[allow(clippy::enum_variant_names)]
 enum Shell {
     #[usage(
         aliases(["bourne-again", "bash-shell"]),
