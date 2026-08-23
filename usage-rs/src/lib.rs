@@ -62,6 +62,8 @@ pub use usage_derive::{ArgGroup, Args, Cli, Subcommands, ValueEnum};
 pub use usage_test as test;
 #[cfg(feature = "validation")]
 pub use usage_validation as validation;
+#[cfg(feature = "response-files")]
+pub mod response;
 
 #[cfg(all(test, feature = "spec"))]
 mod tests {
