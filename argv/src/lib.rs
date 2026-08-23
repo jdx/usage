@@ -1363,7 +1363,25 @@ pub fn invalid_os_value<'t, 'v>(name: &'t str, bytes: Vec<u8>) -> Error<'t, 'v> 
 /// one loop in the binary rather than one per field. Converts element by
 /// element rather than with `collect` so the error can carry the value that
 /// failed rather than only that one did.
+///
+/// The empty case is answered here rather than in the shared loop, and this is
+/// what keeps sharing the loop free: a command at mise's scale declares dozens
+/// of collecting fields and a command line names one or two of them, so most of
+/// these calls have nothing to convert. Testing that at the field costs a branch;
+/// reaching the loop to learn it costs the call.
+#[inline]
 pub fn utf8_values<'t, 'v>(
+    values: Vec<Vec<u8>>,
+    name: &'t str,
+) -> Result<Vec<String>, Error<'t, 'v>> {
+    if values.is_empty() {
+        return Ok(Vec::new());
+    }
+    utf8_values_given(values, name)
+}
+
+#[inline(never)]
+fn utf8_values_given<'t, 'v>(
     values: Vec<Vec<u8>>,
     name: &'t str,
 ) -> Result<Vec<String>, Error<'t, 'v>> {
@@ -1380,8 +1398,25 @@ pub fn utf8_values<'t, 'v>(
 /// Convert every repeated value of one field through
 /// [`FromStr`](std::str::FromStr), reporting `name` for the first that fails.
 ///
-/// Monomorphized once per target type rather than expanded once per field.
+/// Monomorphized once per target type rather than expanded once per field, and
+/// the empty case is answered at the field for the reason [`utf8_values`] gives.
+#[inline]
 pub fn parsed_values<'t, 'v, T>(
+    values: Vec<Vec<u8>>,
+    name: &'t str,
+) -> Result<Vec<T>, Error<'t, 'v>>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    if values.is_empty() {
+        return Ok(Vec::new());
+    }
+    parsed_values_given(values, name)
+}
+
+#[inline(never)]
+fn parsed_values_given<'t, 'v, T>(
     values: Vec<Vec<u8>>,
     name: &'t str,
 ) -> Result<Vec<T>, Error<'t, 'v>>
@@ -1408,8 +1443,21 @@ where
 ///
 /// `T` is what the field collects — [`PathBuf`](std::path::PathBuf) or
 /// [`OsString`] — so one body serves both. The same platform note as
-/// [`os_string_from_bytes`] applies: lossless on Unix, partial on Windows.
+/// [`os_string_from_bytes`] applies: lossless on Unix, partial on Windows. The
+/// empty case is answered at the field for the reason [`utf8_values`] gives.
+#[inline]
 pub fn os_values<'t, 'v, T: From<OsString>>(
+    values: Vec<Vec<u8>>,
+    name: &'t str,
+) -> Result<Vec<T>, Error<'t, 'v>> {
+    if values.is_empty() {
+        return Ok(Vec::new());
+    }
+    os_values_given(values, name)
+}
+
+#[inline(never)]
+fn os_values_given<'t, 'v, T: From<OsString>>(
     values: Vec<Vec<u8>>,
     name: &'t str,
 ) -> Result<Vec<T>, Error<'t, 'v>> {

@@ -2950,8 +2950,21 @@ pub trait ValueEnum: Sized {
 /// for the first word that is not one of the declared values.
 ///
 /// The shared body of what a generated `build` does per collecting enum field —
-/// monomorphized once per enum type rather than expanded once per field.
+/// monomorphized once per enum type rather than expanded once per field. The
+/// empty case is answered at the field for the reason [`crate::utf8_values`] gives.
+#[inline]
 pub fn choice_values<'t, 'v, T: ValueEnum>(
+    values: Vec<Vec<u8>>,
+    name: &'t str,
+) -> Result<Vec<T>, crate::Error<'t, 'v>> {
+    if values.is_empty() {
+        return Ok(Vec::new());
+    }
+    choice_values_given(values, name)
+}
+
+#[inline(never)]
+fn choice_values_given<'t, 'v, T: ValueEnum>(
     values: Vec<Vec<u8>>,
     name: &'t str,
 ) -> Result<Vec<T>, crate::Error<'t, 'v>> {
