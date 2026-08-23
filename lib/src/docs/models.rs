@@ -854,30 +854,15 @@ fn reference_usage(flag: &crate::SpecFlag) -> String {
     usage
 }
 
-/// Additional visible spellings for generated reference documentation.
-fn reference_aliases(flag: &crate::SpecFlag) -> Vec<String> {
-    flag.short
-        .iter()
-        .filter(|short| !flag.hidden_short_aliases.contains(short))
-        .skip(1)
-        .map(|short| format!("-{short}"))
-        .chain(
-            flag.long
-                .iter()
-                .filter(|long| !flag.hidden_aliases.contains(long))
-                .skip(1)
-                .map(|long| format!("--{long}")),
-        )
-        .collect()
-}
-
 impl From<&crate::SpecFlag> for SpecFlag {
     fn from(flag: &crate::SpecFlag) -> Self {
         Self {
             name: flag.name.clone(),
             effect: flag.effect,
             usage: reference_usage(flag),
-            aliases: reference_aliases(flag),
+            // Interactive help intentionally keeps aliases out of its aligned flag table.
+            // Markdown fills these from the already-filtered spelling lists in `render_md`.
+            aliases: Vec::new(),
             display_usage: column_usage(flag),
             help: said(&flag.help),
             help_long: flag.help_long.clone(),
@@ -1061,6 +1046,13 @@ impl SpecFlag {
                 self.help_md = Some(renderer.replace_code_fences(h));
             }
         }
+        self.aliases = self
+            .short
+            .iter()
+            .skip(1)
+            .map(|short| format!("-{short}"))
+            .chain(self.long.iter().skip(1).map(|long| format!("--{long}")))
+            .collect();
     }
 }
 
