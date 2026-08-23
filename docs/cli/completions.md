@@ -114,9 +114,9 @@ usage g completion powershell mycli -f ./mycli.usage.kdl > ./mycli.ps1
 mycli --<TAB>
 ```
 
-The supported 6.x targets are bash, zsh, fish, PowerShell, and Nushell. The
-first four are the clap-compatibility set; Nushell is a usage extension. Elvish
-is not a 6.0 target.
+Spec-based generation with `usage g completion` supports bash, zsh, fish,
+PowerShell, and Nushell. Elvish is not among them — though the
+[Rust framework](/rust/completions)'s runtime completions do support it.
 
 ::: info
 Usage CLI is a runtime dependency for the generated completion scripts. Your users

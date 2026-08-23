@@ -10,7 +10,7 @@ first-class environment and config-file resolution, advanced shell completions, 
 validation, negation flags, typed argument groups, categorized subcommands, and more.
 
 In the mise-scale benchmark it parses hundreds of times faster than clap, with no third-party
-runtime crates and a 1.6 MB stripped binary versus clap's 3.1 MB. See the
+runtime crates and a 1.3 MB stripped binary versus clap's 3.1 MB. See the
 [performance results](/rust/performance) and [clap migration guide](/rust/migrating-from-clap).
 
 The same declaration also becomes a portable [usage spec](/spec/) that the binary can print.
@@ -68,13 +68,13 @@ derive's compiler, which runs at build time ([comparison with clap](/rust/migrat
 `usage-rs` is a facade. Applications should depend on it alone. The split underneath stays
 available for low-level adopters that want a thinner surface:
 
-| Crate          | Role                                                                                   |
-| -------------- | -------------------------------------------------------------------------------------- |
-| `usage-rs`     | The one package an application depends on; re-exports the whole runtime                |
-| `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`, `ArgGroup`               |
-| `usage-argv`   | The zero-allocation, zero-dependency runtime the derive emits code against             |
-| `usage-test`   | Test helpers: what a command line parses to, what a page says, what a shell is offered |
-| `usage-config` | Layered settings resolution with provenance ([Configuration](/rust/configuration))     |
+| Crate          | Role                                                                                                                 |
+| -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `usage-rs`     | The one package an application depends on; re-exports the whole runtime                                              |
+| `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`, `ArgGroup`, and `Config` (behind the `config` feature) |
+| `usage-argv`   | The zero-allocation, zero-dependency runtime the derive emits code against                                           |
+| `usage-test`   | Test helpers: what a command line parses to, what a page says, what a shell is offered                               |
+| `usage-config` | Layered settings resolution with provenance ([Configuration](/rust/configuration))                                   |
 
 ### Cargo features
 
@@ -97,7 +97,7 @@ available for low-level adopters that want a thinner surface:
 pub fn parse() -> Self;
 
 // parse the given argv; hand errors (including help/version requests) back to you
-pub fn parse_from<'v>(argv: &'v [&'v OsStr]) -> Result<Self, usage::Error<'static, 'v>>;
+pub fn parse_from<'v>(argv: &[&'v OsStr]) -> Result<Self, usage::Error<'static, 'v>>;
 
 // the static parse tables and spec metadata
 pub fn command() -> &'static usage::Command<'static>;

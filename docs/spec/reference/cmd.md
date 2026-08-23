@@ -162,170 +162,6 @@ completion offering a command that running would hand to the default subcommand
 instead is worse than not offering it. So a root mount under a `default_subcommand`
 contributes nothing anywhere until it asks to outrank it.
 
-### Unknown flags
-
-A flag-like token that names no flag becomes a word, offered to the positionals like
-any other — because a spec often parses a command line whose flags belong to
-something else. A command that owns all of its flags can refuse them instead:
-
-```kdl
-unknown_flags "error"               // for the whole CLI
-cmd "exec" unknown_flags="value"    // except here, which forwards a command line
-```
-
-The nearest command that states a preference wins, then the spec, then `value`.
-Unlike [`effect`](#effect), this is inherited: it describes how a command line is
-read rather than what a command does. See
-[the argv grammar](../argv.md#unrecognized-flags) for the reasoning and the cost.
-
-### External subcommands
-
-An unmatched word that names no subcommand can be forwarded as an external
-command plus the rest of argv. This is clap's `allow_external_subcommands`, not
-`unknown_flags=value`: known subcommands still win, a `default_subcommand` still
-catches first, and a flag-like token on the parent is still an unknown flag.
-
-```kdl
-unknown_flags "error"
-external_subcommand #true            // the whole CLI
-cmd "exec" external_subcommand=#true // or one command
-```
-
-`ex git --help` forwards `git --help`. `ex --wat` is still an error. Once the
-unmatched word is taken, remaining tokens — including `--help` — are not parsed
-as this command's flags.
-
-See [the argv grammar](../argv.md#external-subcommands).
-
-### Require an argument or show help
-
-`arg_required_else_help` makes a bare invocation request the command's short help:
-
-```kdl
-arg_required_else_help #true             // for the whole CLI
-cmd "run" arg_required_else_help=#true // or one command
-```
-
-The policy observes argv belonging to the selected command. A global flag before a
-subcommand does not count as that subcommand's argument, and values supplied later by an
-environment variable or default do not suppress help.
-
-### Control built-in help and version entry points
-
-Each synthesized entry can be removed independently:
-
-```kdl
-disable_help_flag #true
-disable_help_subcommand #true
-disable_version_flag #true
-```
-
-The same properties are accepted on a `cmd` node. A declared flag can then relocate the
-behavior with `action="help"`, `help_short`, `help_long`, `help_all`, or `version`; its ordinary `help`
-text is what the help page displays.
-
-### Let a subcommand satisfy parent requirements
-
-`subcommand_negates_reqs` makes required arguments, flags, groups, and conditional
-requirements on a parent optional when a child is selected:
-
-```kdl
-subcommand_negates_reqs #true
-arg "<input>"
-cmd "inspect"
-```
-
-`ex inspect` is valid, while bare `ex` still requires `input`. Conflicts continue to apply,
-and the selected child must still satisfy its own requirements.
-
-### Make parent arguments conflict with subcommands
-
-`args_conflicts_with_subcommands` makes arguments on a command and its child
-subcommands mutually exclusive. Once that command binds a flag or positional, a
-later child name is rejected; arguments after a selected child belong to the
-child as usual:
-
-```kdl
-args_conflicts_with_subcommands #true
-```
-
-### Prefer a known subcommand to a variadic value
-
-`subcommand_precedence_over_arg` lets a known child name end a variadic flag
-or positional that would otherwise consume it.
-
-```kdl
-subcommand_precedence_over_arg #true
-```
-
-### Allow a missing optional positional
-
-`allow_missing_positional` lets a later required positional claim the last
-available word while an earlier optional positional remains empty. Without the
-opt-in, positional binding remains strictly left to right.
-
-```kdl
-allow_missing_positional #true
-arg "[optional]"
-arg "<required>"
-```
-
-### Preserve delimiters in trailing values
-
-`dont_delimit_trailing_values` keeps a positional token whole after `--`, or once a
-`double_dash="automatic"` positional begins. The same argument still applies its
-`delimiter` before that boundary:
-
-```kdl
-dont_delimit_trailing_values #true
-arg "<values>..." delimiter=","
-```
-
-`ex a,b -- c,d` binds `a`, `b`, and `c,d`. The policy is inherited by
-subcommands, matching clap's command-wide setting.
-
-### Repeated scalar flags
-
-Later occurrences of a single-valued flag replace earlier ones by default. Set
-`args_override_self` to false on commands that require strict duplicate checking:
-
-```kdl
-args_override_self #false
-cmd "publish" args_override_self=#false
-```
-
-Repeatable, variadic, and count flags continue collecting or counting regardless of this setting.
-
-### Restart argument parsing
-
-`restart_token` lets one command line contain several invocations of the same
-command. Encountering the token clears the positional cursor, pending flag
-value, and `--` separator state before parsing the next invocation:
-
-```kdl
-cmd "run" restart_token=":::" {
-  arg "<task>"
-  flag "--jobs <N>"
-}
-```
-
-`mycli run lint ::: test` parses `lint` and then restarts at `test`. The parser
-retains the last invocation's scalar bindings. This is a command-only property;
-it is not accepted as a top-level node.
-
-### Command-local completions
-
-A `complete` child applies only while parsing that command. It has the same
-`run`, `type`, and `descriptions` properties as a
-[top-level completer](./complete.md):
-
-```kdl
-cmd "deploy" {
-  arg "<environment>"
-  complete "environment" run="mycli environments"
-}
-```
-
 ### Global flags and mounted commands
 
 A mounted command describes a different program, so the flags of the commands it is mounted under
@@ -353,3 +189,167 @@ cmd "task1" {
 `dev stage prod` rather than the global's `<ENV>` value. Global flags are still recognized _before_
 the mounted command (`mycli --env prod run task1`), where they also propagate to the mount command
 itself.
+
+## Unknown flags
+
+A flag-like token that names no flag becomes a word, offered to the positionals like
+any other — because a spec often parses a command line whose flags belong to
+something else. A command that owns all of its flags can refuse them instead:
+
+```kdl
+unknown_flags "error"               // for the whole CLI
+cmd "exec" unknown_flags="value"    // except here, which forwards a command line
+```
+
+The nearest command that states a preference wins, then the spec, then `value`.
+Unlike [`effect`](/spec/#command-effects), this is inherited: it describes how a command line is
+read rather than what a command does. See
+[the argv grammar](../argv.md#unrecognized-flags) for the reasoning and the cost.
+
+## External subcommands
+
+An unmatched word that names no subcommand can be forwarded as an external
+command plus the rest of argv. This is clap's `allow_external_subcommands`, not
+`unknown_flags=value`: known subcommands still win, a `default_subcommand` still
+catches first, and a flag-like token on the parent is still an unknown flag.
+
+```kdl
+unknown_flags "error"
+external_subcommand #true            // the whole CLI
+cmd "exec" external_subcommand=#true // or one command
+```
+
+`ex git --help` forwards `git --help`. `ex --wat` is still an error. Once the
+unmatched word is taken, remaining tokens — including `--help` — are not parsed
+as this command's flags.
+
+See [the argv grammar](../argv.md#external-subcommands).
+
+## Require an argument or show help
+
+`arg_required_else_help` makes a bare invocation request the command's short help:
+
+```kdl
+arg_required_else_help #true             // for the whole CLI
+cmd "run" arg_required_else_help=#true // or one command
+```
+
+The policy observes argv belonging to the selected command. A global flag before a
+subcommand does not count as that subcommand's argument, and values supplied later by an
+environment variable or default do not suppress help.
+
+## Control built-in help and version entry points
+
+Each synthesized entry can be removed independently:
+
+```kdl
+disable_help_flag #true
+disable_help_subcommand #true
+disable_version_flag #true
+```
+
+The same properties are accepted on a `cmd` node. A declared flag can then relocate the
+behavior with `action="help"`, `help_short`, `help_long`, `help_all`, or `version`; its ordinary `help`
+text is what the help page displays.
+
+## Let a subcommand satisfy parent requirements
+
+`subcommand_negates_reqs` makes required arguments, flags, groups, and conditional
+requirements on a parent optional when a child is selected:
+
+```kdl
+subcommand_negates_reqs #true
+arg "<input>"
+cmd "inspect"
+```
+
+`ex inspect` is valid, while bare `ex` still requires `input`. Conflicts continue to apply,
+and the selected child must still satisfy its own requirements.
+
+## Make parent arguments conflict with subcommands
+
+`args_conflicts_with_subcommands` makes arguments on a command and its child
+subcommands mutually exclusive. Once that command binds a flag or positional, a
+later child name is rejected; arguments after a selected child belong to the
+child as usual:
+
+```kdl
+args_conflicts_with_subcommands #true
+```
+
+## Prefer a known subcommand to a variadic value
+
+`subcommand_precedence_over_arg` lets a known child name end a variadic flag
+or positional that would otherwise consume it.
+
+```kdl
+subcommand_precedence_over_arg #true
+```
+
+## Allow a missing optional positional
+
+`allow_missing_positional` lets a later required positional claim the last
+available word while an earlier optional positional remains empty. Without the
+opt-in, positional binding remains strictly left to right.
+
+```kdl
+allow_missing_positional #true
+arg "[optional]"
+arg "<required>"
+```
+
+## Preserve delimiters in trailing values
+
+`dont_delimit_trailing_values` keeps a positional token whole after `--`, or once a
+`double_dash="automatic"` positional begins. The same argument still applies its
+`delimiter` before that boundary:
+
+```kdl
+dont_delimit_trailing_values #true
+arg "<values>..." delimiter=","
+```
+
+`ex a,b -- c,d` binds `a`, `b`, and `c,d`. The policy is inherited by
+subcommands, matching clap's command-wide setting.
+
+## Repeated scalar flags
+
+Later occurrences of a single-valued flag replace earlier ones by default. Set
+`args_override_self` to false on commands that require strict duplicate checking:
+
+```kdl
+args_override_self #false
+cmd "publish" args_override_self=#false
+```
+
+Repeatable, variadic, and count flags continue collecting or counting regardless of this setting.
+
+## Restart argument parsing
+
+`restart_token` lets one command line contain several invocations of the same
+command. Encountering the token clears the positional cursor, pending flag
+value, and `--` separator state before parsing the next invocation:
+
+```kdl
+cmd "run" restart_token=":::" {
+  arg "<task>"
+  flag "--jobs <N>"
+}
+```
+
+`mycli run lint ::: test` parses `lint` and then restarts at `test`. The parser
+retains the last invocation's scalar bindings. This is a command-only property;
+it is not accepted as a top-level node.
+
+## Command-local completions
+
+A `complete` child applies only while parsing that command. It has the same
+`run`, `type`, and `descriptions` properties as a
+[top-level completer](./complete.md):
+
+```kdl
+cmd "deploy" {
+  arg "<environment>"
+  complete "environment" run="mycli environments"
+}
+```

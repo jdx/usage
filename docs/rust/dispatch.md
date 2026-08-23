@@ -341,7 +341,9 @@ enum Commands {
 
 `run_with` passes `(argv, ctx)`; `run_async` awaits the function. If the first command is not
 a reliable `Output` source — or the catch-all is the first variant — name the type with
-`output = miette::Result<()>`.
+`output = miette::Result<()>`. This `output =` is the dispatch return type, unrelated to
+`#[usage(output(...))]`, which declares what a command
+[writes to stdout](/rust/args-and-flags#outputs-and-exit-codes).
 
 ## What it says in the spec
 

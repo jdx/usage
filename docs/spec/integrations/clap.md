@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-clap_usage = "6"
+clap_usage = "5"
 ```
 
 ## Quick Start
@@ -63,13 +63,16 @@ if matches.get_flag("usage-spec") {
 }
 ```
 
-Then pipe the output to `usage`:
+Then pipe the output to `usage`, passing `-f -` to read the spec from stdin:
 
 ```bash
-mycli --usage-spec | usage generate completion bash
-mycli --usage-spec | usage generate md --out-file docs.md
-mycli --usage-spec | usage generate manpage --out-file mycli.1
+mycli --usage-spec | usage generate completion bash mycli -f -
+mycli --usage-spec | usage generate md -f - --out-file docs.md
+mycli --usage-spec | usage generate manpage -f - --out-file mycli.1
 ```
+
+For completions, `--usage-cmd 'mycli --usage-spec'` can replace the pipe and
+`-f -`, letting the completion script fetch a fresh spec itself at runtime.
 
 ## What a generated spec cannot carry
 

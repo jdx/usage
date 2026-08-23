@@ -21,15 +21,23 @@ Append a comma-separated extension list to `path:` or `file:` to keep directory 
 offering only matching files. Extensions omit the leading dot; for example,
 `type="path:toml,yaml"` offers directories plus `.toml` and `.yaml` files.
 
-| type            | completes                                                            |
-| --------------- | -------------------------------------------------------------------- |
-| `file`, `path`  | files and directories, relative to the working directory             |
-| `dir`           | directories only                                                     |
-| `executable`    | executable paths                                                     |
-| `command`       | commands known to the shell, including names found on `PATH`         |
-| `command_args`  | a command for the first value, then ordinary argument paths          |
-| `config_keys`   | the settings this spec's [`config`](./config.md) block declares      |
-| `config_values` | the values accepted by the setting named earlier on the command line |
+| type                   | completes                                                                              |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `file`, `path`         | files and directories, relative to the working directory                               |
+| `dir`                  | directories only                                                                       |
+| `executable`           | executable paths                                                                       |
+| `command`              | commands known to the shell, including names found on `PATH`                           |
+| `command_args`         | a command for the first value, then ordinary argument paths                            |
+| `config_keys`          | the settings this spec's [`config`](./config.md) block declares                        |
+| `config_values`        | the values accepted by the setting named earlier on the command line                   |
+| `username`             | user names, from the environment and `/etc/passwd`                                     |
+| `hostname`             | host names, from the environment and `/etc/hosts`                                      |
+| `none`, `url`, `email` | nothing — the value has no completable candidates, and the file fallback is suppressed |
+| `unknown`              | nothing, but the shell's normal fallback stays available                               |
+
+The types below `config_values` exist mostly so specs generated from clap can carry
+its `ValueHint`s. `username` and `hostname` offer real candidates; `none`, `url`,
+`email`, and `unknown` are hint passthroughs with no candidates of their own.
 
 An arg or flag with no completer of its own falls back to `file` unless its declared
 `choices` say otherwise, so `type="file"` is only worth writing to be explicit.
@@ -126,7 +134,7 @@ complete "module" run="ls modules"
 complete "controller" run="ls modules/{{ words[PREV] | shell_quote }}/controllers"
 ```
 
-Example of using multiple words (one, two, three) for the completions of the forth argument:
+Example of using multiple words (one, two, three) for the completions of the fourth argument:
 
 ```kdl
 arg "<one>"

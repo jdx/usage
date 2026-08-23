@@ -25,16 +25,16 @@ respond to every PR with detailed context. A rejection may be brief.
 
 ## Code Style
 
-All of these repos use [hk](https://hk.jdx.dev) for linting and formatting.
-Run the checks before opening a PR:
+Linting and formatting run through mise tasks. Run the checks before opening a
+PR:
 
 ```sh
-hk check --all
-hk fix --all
+mise run lint
+mise run lint-fix
 ```
 
-Some repos also expose wrapper tasks such as `mise run lint` and
-`mise run lint-fix`; prefer those when they exist.
+`mise run ci` runs the full CI check. (Some of my other repos use
+[hk](https://hk.jdx.dev) for this instead — check each repo for its own tasks.)
 
 ## Commit and PR Titles
 

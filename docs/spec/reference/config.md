@@ -88,6 +88,7 @@ files, so a setting a repository must not be able to change can say so.
 | property                                     | meaning                                                                                                      |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `type`                                       | the type, see [below](#types). Defaults to `string`                                                          |
+| `env`                                        | an environment variable that sets it — the child node form below takes several                               |
 | `default`                                    | the value when nothing supplies one — a typed KDL value: `4`, `#true`, `"x"`                                 |
 | `optional`                                   | explicitly permit or require absence; otherwise inferred from the type and default                           |
 | `default_note`                               | what to print instead of the default, when the real one needs explaining                                     |

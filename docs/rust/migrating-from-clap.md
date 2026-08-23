@@ -30,7 +30,7 @@ that need a decision.
 - **Prefix inference.** Intentionally unsupported. Long flags and subcommands must be spelled
   with their full name or a declared alias.
 - **Help templates and styles.** clap templates and style palettes don't port as-is. Rewrite
-  them against usage's six [help sections](/rust/help#laying-a-page-out); usage chooses terminal
+  them against usage's ten [help sections](/rust/help#laying-a-page-out); usage chooses terminal
   styles automatically.
 
 If you're migrating from a `clap::Command` value rather than from the Rust declaration,
@@ -150,6 +150,13 @@ confirmation. The ones with a nuance worth knowing:
   in-progress variadic value owner.
 - `allow_missing_positional` leaves earlier optional fields empty when only enough words remain
   for later required positionals.
+- `no_binary_name` keeps clap's meaning for `try_parse_from`: every supplied word is an
+  argument, with no argv0 to strip.
+- `dont_delimit_trailing_values` stops `delimiter` splitting once parsing crosses the trailing
+  boundary.
+- `term_width` and `max_term_width` fix or cap the width help pages wrap to.
+- Field-level `trailing_var_arg` is accepted as clap's spelling for a final greedy positional;
+  it lowers to `double_dash = "automatic"`.
 - The granular help-visibility options — `hide_default_value`, `hide_env`, `hide_env_values`,
   `hide_possible_values`, `hide_short_help`, `hide_long_help` — change presentation only, never
   defaults, environment fallback, or accepted values.
@@ -279,13 +286,13 @@ weakening them.
 clap tests usually include argv0; usage makes the choice explicit rather than guessing. Pick the
 entry point that matches what you're handing it:
 
-| Need                                       | Entry point                         |
-| ------------------------------------------ | ----------------------------------- |
-| process argv, including help/version exits | `Cli::parse()`                      |
-| words after argv0                          | `Cli::parse_from(&[&OsStr])`        |
-| full argv with argv0, returning errors     | `Cli::parse_from_argv(&[OsString])` |
-| clap-shaped call sites                     | `Cli::try_parse_from(iter)`         |
-| merging into a value you already have      | `cli.try_update_from(&[&OsStr])`    |
+| Need                                       | Entry point                       |
+| ------------------------------------------ | --------------------------------- |
+| process argv, including help/version exits | `Cli::parse()`                    |
+| words after argv0                          | `Cli::parse_from(&[&OsStr])`      |
+| full argv with argv0, returning errors     | `Cli::parse_from_argv(&[&OsStr])` |
+| clap-shaped call sites                     | `Cli::try_parse_from(&[&OsStr])`  |
+| merging into a value you already have      | `cli.try_update_from(&[&OsStr])`  |
 
 `parse_from` is the allocation-free primitive; `parse_from_argv` additionally applies multicall
 basename routing. An embedder that must intercept the built-ins handles `usage::Error::Help` and
