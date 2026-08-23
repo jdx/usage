@@ -1,11 +1,13 @@
 use crate::error::UsageErr;
 use miette::{NamedSource, SourceSpan};
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 #[derive(Debug, Default)]
 pub struct ParsingContext {
     pub(crate) file: PathBuf,
     pub(crate) spec: String,
+    sources: OnceLock<Mutex<Vec<PathBuf>>>,
 }
 
 impl ParsingContext {
@@ -13,12 +15,36 @@ impl ParsingContext {
         Self {
             file: file.to_path_buf(),
             spec: spec.to_string(),
+            sources: OnceLock::new(),
         }
     }
 
     pub(crate) fn build_err(&self, msg: String, span: SourceSpan) -> UsageErr {
         let source = NamedSource::new(self.file.to_string_lossy(), self.spec.clone());
         UsageErr::InvalidInput(msg, span, source)
+    }
+
+    pub(crate) fn record_source(&self, file: PathBuf) {
+        let mut sources = self
+            .sources
+            .get_or_init(|| Mutex::new(Vec::new()))
+            .lock()
+            .expect("source paths lock is not poisoned");
+        if !sources.contains(&file) {
+            sources.push(file);
+        }
+    }
+
+    pub(crate) fn sources(&self) -> Vec<PathBuf> {
+        self.sources
+            .get()
+            .map(|sources| {
+                sources
+                    .lock()
+                    .expect("source paths lock is not poisoned")
+                    .clone()
+            })
+            .unwrap_or_default()
     }
 }
 

@@ -6,11 +6,13 @@ use crate::sh::sh;
 use crate::spec::builder::SpecCommandBuilder;
 use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
+use crate::spec::exit_code::SpecExitCode;
 use crate::spec::flagset::SpecUse;
 use crate::spec::group::SpecGroup;
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
 use crate::spec::mount::SpecMount;
+use crate::spec::output::SpecOutput;
 use crate::spec::unknown_flags::UnknownFlags;
 use crate::{Spec, SpecArg, SpecComplete, SpecFlag};
 use indexmap::IndexMap;
@@ -206,6 +208,21 @@ pub struct SpecCommand {
     pub after_help_md: Option<String>,
     /// Usage examples for this command
     pub examples: Vec<SpecExample>,
+    /// What this command writes, and how a consumer should read it.
+    ///
+    /// Folded with the spec's CLI-wide outputs on read rather than here — see
+    /// [`effective_outputs`](crate::spec::output::effective_outputs).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub outputs: Vec<SpecOutput>,
+    /// The flag whose *value* picks among [`Self::outputs`], e.g. `--format`.
+    ///
+    /// The other spelling — a boolean flag picking one output — lives on the output
+    /// itself, because that is where it is scoped.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub select: Option<String>,
+    /// What this command's exit statuses mean.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub exit_codes: Vec<SpecExitCode>,
     /// Custom completers for arguments
     #[serde(skip_serializing_if = "IndexMap::is_empty")]
     pub complete: IndexMap<String, SpecComplete>,
@@ -271,6 +288,9 @@ impl Default for SpecCommand {
             after_help_long: None,
             after_help_md: None,
             examples: vec![],
+            outputs: vec![],
+            select: None,
+            exit_codes: vec![],
             subcommand_lookup: OnceLock::new(),
             complete: IndexMap::new(),
         }
@@ -480,6 +500,11 @@ impl SpecCommand {
                         }
                     }
                     cmd.examples.push(example);
+                }
+                "output" => cmd.outputs.push(SpecOutput::parse(ctx, &child)?),
+                "exit_code" => cmd.exit_codes.push(SpecExitCode::parse(ctx, &child)?),
+                "select" => {
+                    cmd.select = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
                 }
                 "help" => {
                     cmd.help = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?);
@@ -706,6 +731,9 @@ impl SpecCommand {
             aliases,
             hidden_aliases,
             examples,
+            outputs,
+            select,
+            exit_codes,
             hide,
             help_heading,
             display_order,
@@ -809,6 +837,18 @@ impl SpecCommand {
         }
         if !examples.is_empty() {
             self.examples = examples;
+        }
+        // Outputs describe what the *mounted* program writes, so they move with the flags
+        // rather than being folded into what was here — the same reason groups follow the
+        // flags they name.
+        if flags_replaced || !outputs.is_empty() {
+            self.outputs = outputs;
+        }
+        if flags_replaced || select.is_some() {
+            self.select = select;
+        }
+        if !exit_codes.is_empty() {
+            self.exit_codes = exit_codes;
         }
         self.hide = hide;
         if help_heading.is_some() {
@@ -1009,6 +1049,9 @@ impl From<&SpecCommand> for KdlNode {
             subcommands,
             complete,
             examples,
+            outputs,
+            select,
+            exit_codes,
             // Resolved while the spec was read: whatever a `use` named is among `flags`
             // by now, so emitting the request too would declare those flags twice.
             uses: _,
@@ -1206,6 +1249,22 @@ impl From<&SpecCommand> for KdlNode {
         for example in examples {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(example.into());
+        }
+        // Outputs before the flag that picks among them, so a reader meets the things
+        // being chosen before the rule for choosing — the same order groups follow.
+        for output in outputs {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(output.into());
+        }
+        if let Some(select) = select {
+            let mut select_node = KdlNode::new("select");
+            select_node.push(string_entry(None, select));
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(select_node);
+        }
+        for exit_code in exit_codes {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(exit_code.into());
         }
         for complete in complete.values() {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
@@ -1584,6 +1643,19 @@ mod merge_tests {
         cmd.merge(contradicting);
         assert_eq!(cmd.deprecated.as_deref(), Some("gone in v3"));
     }
+
+    #[test]
+    fn mounted_flags_replace_outputs_and_their_selector() {
+        let mut mounting = uninstall(
+            r#"cmd "uninstall" { flag "--format <FORMAT>"; output "json" framing="json"; select "--format" }"#,
+        );
+        let mounted = uninstall(r#"cmd "uninstall" { flag "--quiet" }"#);
+
+        mounting.merge(mounted);
+
+        assert!(mounting.outputs.is_empty());
+        assert!(mounting.select.is_none());
+    }
 }
 
 #[cfg(test)]
@@ -1625,9 +1697,17 @@ cmd "install" help="Install a package" subcommand_required=#false {
     arg "[dest]" effect="write"
     flag "-f --force" help="Overwrite"
     flag "--purge" effect="destructive" overrides="-f" required_unless="--keep"
+    flag "--format <FMT>" help="Output format"
     complete "pkg" run="mycli list --available" descriptions=#true
     example "mycli install foo" header="Install foo" help="Installs foo" lang="sh"
     example "mycli install bar"
+    output "human" default=#true help="A progress log"
+    output "json" framing="json" help="One report object" {
+        schema "{\n  \"type\": \"object\"\n}"
+    }
+    select "--format"
+    exit_code 0 "installed"
+    exit_code 1 "the package was not found"
     cmd "from" help="Install from a source" {
         arg "<src>"
     }
@@ -1676,6 +1756,9 @@ cmd "hidden" hide=#true
             "mounts",
             "aliases",
             "hidden_aliases",
+            "outputs",
+            "select",
+            "exit_codes",
         ] {
             let populated = match key {
                 // These sit on other commands in the fixture.

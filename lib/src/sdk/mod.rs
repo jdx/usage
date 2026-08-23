@@ -6,7 +6,8 @@ use heck::AsPascalCase;
 use indexmap::IndexMap;
 
 use crate::spec::cmd::SpecCommand;
-use crate::Spec;
+use crate::spec::output::Selector;
+use crate::{Framing, Spec};
 
 pub mod python;
 pub mod typescript;
@@ -158,6 +159,161 @@ pub(crate) fn command_type_name(cmd: &SpecCommand, package_name: &str) -> String
     }
 }
 
+/// A command type name qualified by its full path, for declarations emitted at module scope.
+pub(crate) fn command_path_type_name(cmd: &SpecCommand, package_name: &str) -> String {
+    if cmd.full_cmd.is_empty() {
+        command_type_name(cmd, package_name)
+    } else {
+        cmd.full_cmd
+            .iter()
+            .map(|part| AsPascalCase(part).to_string())
+            .collect()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Declared outputs, as generated client methods
+// ---------------------------------------------------------------------------
+
+/// One extra method on a generated command class, for one declared output.
+///
+/// `exec()` is never changed: a caller who wants raw text keeps getting it. What framing
+/// buys is a method whose *shape* matches the wire format, because `json` is read to the
+/// end and parsed once while `jsonl` arrives a line at a time and may never finish. Those
+/// are different signatures, not different parse calls.
+pub(crate) struct OutputMethod {
+    /// Appended to `exec`, so `exec_jsonl` / `execJsonl`.
+    pub suffix: String,
+    pub framing: Framing,
+    /// The words that pick this output, ready to append to an argv.
+    pub select: Vec<String>,
+    /// The selecting flag's property name on the flags bag, so a caller-supplied value of
+    /// it can be left out rather than duplicated on the command line.
+    pub omit: Option<String>,
+    /// The generated type alias a parsed value flows through.
+    pub type_alias: String,
+    /// The generated constant holding the schema, and the schema itself, where one was
+    /// declared.
+    pub schema_const: Option<String>,
+    pub schema: Option<String>,
+    pub help: Option<String>,
+}
+
+/// The methods a command's declared outputs earn it.
+///
+/// Named after the **framing**, not the output's own token. That is the whole point of the
+/// split: hk spells its line-delimited output `jsonl` and aube spells the identical format
+/// `ndjson`, so `exec_ndjson()` for one and `exec_jsonl()` for the other would put the
+/// per-CLI spelling back into every caller. The token goes into the argv this builds; the
+/// caller never types it.
+pub(crate) fn output_methods(
+    cmd: &SpecCommand,
+    spec: &Spec,
+    package_name: &str,
+) -> Vec<OutputMethod> {
+    let chain = command_chain(spec, cmd);
+    let outputs = crate::spec::output::effective_outputs_ref(spec, chain.iter().copied());
+    let select = crate::spec::output::effective_select_ref(spec, &chain);
+    let machine: Vec<_> = outputs
+        .iter()
+        .filter(|o| o.framing != Framing::Text)
+        .collect();
+    let type_prefix = command_type_name(cmd, package_name);
+    machine
+        .iter()
+        .filter_map(|output| {
+            let selector = output.select_argv_with(select.as_deref())?;
+            let framing = output.framing.as_str();
+            // Several outputs can share a framing — a CLI with both `json` and
+            // `json-compact`. The default one keeps the plain name and the rest are
+            // suffixed, so the common call stays short and none of them collide.
+            let shares = machine
+                .iter()
+                .filter(|o| o.framing == output.framing)
+                .count()
+                > 1;
+            let suffix = if shares && !output.default {
+                format!("{framing}_{}", output.name.replace(['-', '.', ' '], "_"))
+            } else {
+                framing.to_string()
+            };
+            Some(OutputMethod {
+                type_alias: format!("{type_prefix}{}Output", AsPascalCase(&output.name)),
+                schema_const: output
+                    .schema
+                    .as_ref()
+                    .map(|_| format!("{}_{}_SCHEMA", shouty(&type_prefix), shouty(&output.name))),
+                schema: output.schema.clone(),
+                omit: match &selector {
+                    Selector::Value { flag, .. } => Some(flag.trim_start_matches('-').to_string()),
+                    Selector::Present { .. } => None,
+                },
+                select: selector.argv(),
+                suffix,
+                framing: output.framing,
+                help: output.help.clone(),
+            })
+        })
+        .collect()
+}
+
+/// Whether a flag answers to a selector spelling, dashes or not.
+pub(crate) fn flag_names(flag: &crate::SpecFlag, selector: &str) -> bool {
+    let bare = selector.trim_start_matches('-');
+    flag.long.iter().any(|l| l == bare)
+        || flag.short.iter().any(|s| s.to_string() == bare)
+        || flag.name == bare
+}
+
+/// SHOUTY_SNAKE, for the generated constant names.
+pub(crate) fn shouty(value: &str) -> String {
+    let separated = value
+        .chars()
+        .flat_map(|c| {
+            if c.is_uppercase() {
+                vec!['_', c]
+            } else if c == '-' || c == '.' || c == ' ' {
+                vec!['_']
+            } else {
+                vec![c.to_ascii_uppercase()]
+            }
+        })
+        .collect::<String>()
+        .trim_start_matches('_')
+        .to_string();
+    separated
+        .split('_')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("_")
+}
+
+/// The exit codes a generated client should document, folded from the spec's.
+pub(crate) fn exit_codes_for(cmd: &SpecCommand, spec: &Spec) -> Vec<crate::SpecExitCode> {
+    let chain = command_chain(spec, cmd);
+    crate::spec::exit_code::effective_exit_codes_ref(spec, chain.iter().copied())
+}
+
+/// Commands from the first subcommand through `cmd`, recovered from its stamped path.
+///
+/// SDK renderers recurse with only the current command, while outputs and exit codes inherit
+/// through every ancestor. Looking up the chain here keeps those renderers from silently
+/// skipping declarations on an intermediate command.
+fn command_chain<'a>(spec: &'a Spec, cmd: &'a SpecCommand) -> Vec<&'a SpecCommand> {
+    let mut current = &spec.cmd;
+    let mut chain = Vec::with_capacity(cmd.full_cmd.len());
+    for name in &cmd.full_cmd {
+        let Some(next) = current.subcommands.get(name) else {
+            // A programmatically constructed command may not belong to `spec`. Preserve the
+            // old root-plus-command behavior in that case; parsed specs always take the path.
+            return vec![cmd];
+        };
+        chain.push(next);
+        current = next;
+    }
+    chain
+}
+
 // ---------------------------------------------------------------------------
 // Choice type collection with collision detection
 // ---------------------------------------------------------------------------
@@ -298,9 +454,10 @@ pub(crate) fn collect_type_imports(
     cmd: &SpecCommand,
     package_name: &str,
     choice_types: &ChoiceTypeMap,
+    spec: &Spec,
 ) -> Vec<String> {
     let mut imports = Vec::new();
-    collect_type_imports_recursive(cmd, package_name, choice_types, &mut imports);
+    collect_type_imports_recursive(cmd, package_name, choice_types, spec, &mut imports);
     imports.sort();
     imports.dedup();
     imports
@@ -310,6 +467,7 @@ fn collect_type_imports_recursive(
     cmd: &SpecCommand,
     package_name: &str,
     choice_types: &ChoiceTypeMap,
+    spec: &Spec,
     imports: &mut Vec<String>,
 ) {
     if cmd.hide {
@@ -346,8 +504,14 @@ fn collect_type_imports_recursive(
         }
     }
 
+    // The alias a parsed output flows through, so a generated signature never names
+    // `unknown` directly and the follow-up that fills it in touches no call site.
+    for output in output_methods(cmd, spec, package_name) {
+        imports.push(output.type_alias);
+    }
+
     for subcmd in cmd.subcommands.values() {
-        collect_type_imports_recursive(subcmd, package_name, choice_types, imports);
+        collect_type_imports_recursive(subcmd, package_name, choice_types, spec, imports);
     }
 }
 
@@ -371,6 +535,11 @@ mod tests {
         assert!(cmd.name.is_empty());
         let result = command_type_name(&cmd, "mypackage");
         assert_eq!(result, "Mypackage");
+    }
+
+    #[test]
+    fn shouty_collapses_every_separator_run() {
+        assert_eq!(shouty("a---b...c"), "A_B_C");
     }
 
     #[test]
@@ -456,7 +625,44 @@ mod tests {
         .unwrap();
         let choice_types = collect_choice_types(&spec.cmd);
         let mut imports = Vec::new();
-        collect_type_imports_recursive(&spec.cmd, "app", &choice_types, &mut imports);
+        collect_type_imports_recursive(&spec.cmd, "app", &choice_types, &spec, &mut imports);
         assert!(imports.iter().any(|i| i.contains("Choice")));
+    }
+
+    #[test]
+    fn nested_commands_inherit_outputs_and_exit_codes_through_the_full_path() {
+        let spec: crate::Spec = r#"
+            bin "app"
+            exit_code 130 "interrupted"
+            cmd "report" {
+                flag "--format <FORMAT>" global=#true
+                output "json" framing="json"
+                select "--format"
+                exit_code 2 "report failed"
+                cmd "watch" {
+                    output "jsonl" framing="jsonl"
+                    exit_code 3 "stream failed"
+                }
+            }
+        "#
+        .parse()
+        .unwrap();
+        let watch = &spec.cmd.subcommands["report"].subcommands["watch"];
+
+        let methods = output_methods(watch, &spec, "app");
+        assert_eq!(
+            methods
+                .iter()
+                .map(|method| method.framing)
+                .collect::<Vec<_>>(),
+            [Framing::Json, Framing::Jsonl]
+        );
+        assert_eq!(
+            exit_codes_for(watch, &spec)
+                .iter()
+                .map(|code| code.code)
+                .collect::<Vec<_>>(),
+            [130, 2, 3]
+        );
     }
 }

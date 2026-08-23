@@ -542,6 +542,63 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
             Dialect::Clap | Dialect::Argh | Dialect::Bpaf => run.skipped.note(what),
         }
     }
+    // Lists, so they need a loop rather than a row in the table above.
+    match dialect {
+        Dialect::Usage => {
+            for output in &cmd.outputs {
+                let mut props = vec![format!("{:?}", output.name)];
+                if output.framing != usage::Framing::Text {
+                    props.push(format!("framing = {:?}", output.framing.as_str()));
+                }
+                if let Some(help) = &output.help {
+                    props.push(format!("help = {help:?}"));
+                }
+                if output.default {
+                    props.push("default".into());
+                }
+                if output.hide {
+                    props.push("hide".into());
+                }
+                if let Some(select) = &output.select {
+                    props.push(format!("select = {select:?}"));
+                }
+                if let Some(schema) = &output.schema {
+                    props.push(format!("schema = {schema:?}"));
+                }
+                usage_opts.push(format!("output({})", props.join(", ")));
+            }
+            for exit_code in &cmd.exit_codes {
+                usage_opts.push(format!(
+                    "exit_code({}, {:?})",
+                    exit_code.code, exit_code.help
+                ));
+            }
+            // Only where the flag it names is on this command: the derive refuses a
+            // selector it cannot see, and a shadow that does not compile is worse than one
+            // that says what it dropped.
+            if let Some(select) = &cmd.select {
+                let local = cmd.flags.iter().any(|f| {
+                    let bare = select.trim_start_matches('-');
+                    f.long.iter().any(|l| l == bare)
+                        || f.short.iter().any(|s| s.to_string() == bare)
+                });
+                if local {
+                    usage_opts.push(format!("select = {select:?}"));
+                } else {
+                    run.skipped
+                        .note("a `select` naming a flag declared further up");
+                }
+            }
+        }
+        Dialect::Clap | Dialect::Argh | Dialect::Bpaf => {
+            if !cmd.outputs.is_empty() {
+                run.skipped.note("`output` on a command");
+            }
+            if !cmd.exit_codes.is_empty() {
+                run.skipped.note("`exit_code` on a command");
+            }
+        }
+    }
     // The root cannot carry one: the spec writer and the derive both refuse it, so
     // emitting it here would be a shadow that does not compile.
     if is_root && cmd.effect.is_some() {
@@ -2302,6 +2359,60 @@ mod tests {
         );
         assert!(out.contains(r#"env = "EX_FILE""#), "{out}");
         assert!(out.contains(r#"help_heading = "Input""#), "{out}");
+    }
+
+    #[test]
+    fn the_usage_shadow_carries_command_result_declarations() {
+        let spec = r#"
+name "ex"
+bin "ex"
+cmd "report" {
+    flag "--json"
+    output "json" framing="json" help="A report" default=#true hide=#true select="--json" {
+        schema "{\"type\":\"object\"}"
+    }
+    exit_code 2 "report failed"
+}
+"#;
+        let (out, skipped) = rendered_as(spec, Dialect::Usage);
+        for declaration in [
+            r#"output("json""#,
+            r#"framing = "json""#,
+            r#"help = "A report""#,
+            "default",
+            "hide",
+            r#"select = "--json""#,
+            r#"schema = "{\"type\":\"object\"}""#,
+            r#"exit_code(2, "report failed")"#,
+        ] {
+            assert!(out.contains(declaration), "missing {declaration}: {out}");
+        }
+        assert!(skipped.counts.is_empty(), "{:?}", skipped.counts);
+    }
+
+    #[test]
+    fn the_usage_shadow_reports_a_selector_whose_flag_is_only_above_it() {
+        let mut spec: Spec = r#"
+name "ex"
+bin "ex"
+flag "--format <FORMAT>" global=#true
+cmd "report" {
+    output "json" framing="json"
+    select "--format"
+}
+"#
+        .parse()
+        .unwrap();
+        // Selector resolution normally materializes a narrowed copy. Removing it models
+        // the declaration shape the shadow guard exists to handle.
+        spec.cmd.subcommands["report"].flags.clear();
+        let (_, skipped) = render(&spec, Path::new("probe.usage.kdl"), Dialect::Usage);
+        assert_eq!(
+            skipped
+                .counts
+                .get("a `select` naming a flag declared further up"),
+            Some(&1)
+        );
     }
 
     #[test]

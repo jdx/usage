@@ -130,6 +130,13 @@ pub enum UsageErr {
     #[error("Invalid spec view: {0}")]
     InvalidView(String),
 
+    /// A command's `output`/`select` declarations do not agree with each other, or with
+    /// the flags around them. Spanless like [`UsageErr::InvalidView`], because selection
+    /// is resolved once the whole document is read — a `select` may name a flag declared
+    /// on an ancestor, so the node spans are long gone by the time it can be checked.
+    #[error("Invalid output declaration: {0}")]
+    InvalidOutput(String),
+
     #[error("Invalid value for {name}: {value}: {reason}")]
     InvalidValue {
         name: String,

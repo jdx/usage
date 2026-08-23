@@ -50,6 +50,10 @@ pub struct SpecCommand {
     pub deprecated_warn_at: Option<String>,
     pub deprecated_remove_at: Option<String>,
     pub effect: Option<SpecCommandEffect>,
+    /// What this command writes, with the CLI-wide declarations already folded in.
+    pub outputs: Vec<SpecOutput>,
+    /// What its exit statuses mean, likewise folded.
+    pub exit_codes: Vec<SpecExitCode>,
     pub hide: bool,
     pub help_heading: Option<String>,
     pub display_order: Option<usize>,
@@ -405,6 +409,51 @@ fn group_by_heading<T: Clone>(
     groups
 }
 
+/// One declared output, as a page renders it.
+///
+/// `framing` and `select` are strings rather than the spec's types because a Tera template
+/// compares them, and `select` is pre-joined into the words a reader would type.
+#[derive(Debug, Default, Serialize, Clone)]
+pub struct SpecOutput {
+    pub name: String,
+    pub framing: String,
+    pub streaming: bool,
+    pub default: bool,
+    pub help: Option<String>,
+    pub select: Option<String>,
+    pub schema: Option<String>,
+}
+
+impl SpecOutput {
+    fn from(output: &crate::SpecOutput, cmd: &crate::SpecCommand) -> Self {
+        Self {
+            name: output.name.clone(),
+            framing: output.framing.as_str().to_string(),
+            streaming: output.framing.is_streaming(),
+            default: output.default,
+            help: output.help.clone(),
+            select: output.select_argv(cmd).map(|s| s.argv().join(" ")),
+            schema: output.schema.clone(),
+        }
+    }
+}
+
+/// One documented exit status.
+#[derive(Debug, Default, Serialize, Clone)]
+pub struct SpecExitCode {
+    pub code: i64,
+    pub help: String,
+}
+
+impl From<&crate::SpecExitCode> for SpecExitCode {
+    fn from(exit_code: &crate::SpecExitCode) -> Self {
+        Self {
+            code: exit_code.code,
+            help: exit_code.help.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Default, Serialize, Clone)]
 pub struct SpecExample {
     pub code: String,
@@ -449,8 +498,40 @@ pub struct SpecArg {
     pub usage_col_width: usize,
 }
 
+/// Push the spec's CLI-wide outputs and exit codes down onto every command.
+///
+/// Done here, once, rather than in each renderer: the markdown page and the man page read
+/// the same docs model, so folding in one place is what stops them disagreeing about what a
+/// command writes. Same argument the `said()` normalisation makes further down.
+///
+/// Safe to do on the way into the docs model because nothing here is ever written back out
+/// as a spec — the reason `parse.rs` folds on read instead.
+fn fold_outputs(
+    spec: &crate::Spec,
+    cmd: &mut crate::SpecCommand,
+    path: &mut Vec<crate::SpecCommand>,
+) {
+    // The inheritance helpers only read declarations on each ancestor. Move the subtree
+    // aside while cloning so descendants are not copied once for every level above them.
+    let subcommands = std::mem::take(&mut cmd.subcommands);
+    path.push(cmd.clone());
+    cmd.subcommands = subcommands;
+    cmd.outputs = crate::effective_outputs(spec, path);
+    cmd.select = crate::effective_select(spec, path);
+    cmd.exit_codes = crate::effective_exit_codes(spec, path);
+    for sub in cmd.subcommands.values_mut() {
+        fold_outputs(spec, sub, path);
+    }
+    path.pop();
+}
+
 impl From<crate::Spec> for Spec {
     fn from(spec: crate::Spec) -> Self {
+        let spec = {
+            let mut folded = spec.clone();
+            fold_outputs(&spec, &mut folded.cmd, &mut Vec::new());
+            folded
+        };
         Self {
             name: spec.name,
             bin: spec.bin,
@@ -625,6 +706,12 @@ impl From<&crate::SpecCommand> for SpecCommand {
             // Presentational output does not describe relationships between flags, the
             // way it already does not describe `conflicts`.
             groups: _,
+            // Read below, after the destructure, because both want the command itself in
+            // order to resolve how an output is selected. Folded with the spec's CLI-wide
+            // declarations before this ever runs — see `fold_outputs`.
+            outputs: _,
+            select: _,
+            exit_codes: _,
         } = cmd;
 
         let rendered_subcommands: IndexMap<String, SpecCommand> = subcommands
@@ -704,6 +791,12 @@ impl From<&crate::SpecCommand> for SpecCommand {
             deprecated_warn_at: deprecated_warn_at.clone(),
             deprecated_remove_at: deprecated_remove_at.clone(),
             effect: *effect,
+            outputs: cmd
+                .outputs
+                .iter()
+                .map(|output| SpecOutput::from(output, cmd))
+                .collect(),
+            exit_codes: cmd.exit_codes.iter().map(SpecExitCode::from).collect(),
             hide: *hide,
             help_heading: help_heading.clone(),
             display_order: *display_order,

@@ -33,7 +33,6 @@ help_template #"""
 {{commands}}
 """#
 default_subcommand run
-example "ex a.txt" header=Basic help="the simplest thing"
 flag "-j --jobs" help="how many jobs, and a quote: \"" global=#true help_heading=Performance env=EX_JOBS default="4" {
     long_help #"""
 More about jobs.
@@ -66,6 +65,9 @@ flag --paths {
     arg <path>
 }
 arg "[file]" help="the file" help_heading=Input env=EX_FILE default=a.txt
+example "ex a.txt" header=Basic help="the simplest thing"
+exit_code 0 success
+exit_code 130 interrupted
 cmd install help="install a tool" effect=write {
     alias i
     alias add hide=#true
@@ -76,7 +78,21 @@ Takes a while.
 """#
     example "ex install node@20" help="install a specific version"
     flag "-f --force" help="overwrite an existing install"
+    flag --format {
+        arg <format>
+    }
     arg <tool> help="the tool to install"
+    output human help="a progress log" default=#true
+    output json framing=json {
+        schema #"""
+{
+  "type": "object"
+}
+"""#
+    }
+    output jsonl framing=jsonl
+    select "--format"
+    exit_code 3 "the tool was not found"
 }
 cmd settings help="manage settings" {
     cmd set help="set a value" {

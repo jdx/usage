@@ -24,10 +24,13 @@
 //! turned up a rule the two implementations disagree about that nothing had recorded.
 
 use usage::spec::cmd::SpecExample;
-use usage::{Spec, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
+use usage::{
+    Framing, Spec, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecExitCode, SpecFlag,
+    SpecGroup, SpecOutput,
+};
 use usage_argv::spec::{
-    ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf, Effect, Example, FlagMeta,
-    GroupMeta, RequiredIfEq, RequiresIf,
+    ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf, Effect, Example, ExitCodeMeta,
+    FlagMeta, Framing as ArgvFraming, GroupMeta, OutputMeta, RequiredIfEq, RequiresIf,
 };
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
@@ -169,6 +172,9 @@ pub fn build(
         after_help: opt(&cmd.after_help),
         after_long_help: opt(&cmd.after_help_long),
         examples: examples(&cmd.examples),
+        outputs: outputs(&cmd.outputs),
+        select: opt(&cmd.select),
+        exit_codes: exit_codes(&cmd.exit_codes),
         groups: groups(&cmd.groups),
         flags: Box::leak(flag_metas.into_boxed_slice()),
         args: Box::leak(arg_metas.into_boxed_slice()),
@@ -227,6 +233,13 @@ pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
         after_help: root.meta.after_help.or(opt(&spec.after_help)),
         after_long_help: root.meta.after_long_help.or(opt(&spec.after_help_long)),
         examples: Box::leak(root_examples.into_boxed_slice()),
+        // The root's own declarations, not a concatenation the way examples are: a spec's
+        // `output` block and its root command's are the same node in the same place, so
+        // `Spec::parse` puts them on the spec and the root `CommandMeta` is where argv
+        // writes them from.
+        outputs: outputs(&spec.outputs),
+        select: opt(&spec.select),
+        exit_codes: exit_codes(&spec.exit_codes),
         ..*root.meta
     }));
     Box::leak(Box::new(usage_argv::spec::Spec {
@@ -728,6 +741,45 @@ fn groups(list: &[SpecGroup]) -> &'static [GroupMeta<'static>] {
                 ),
                 required: g.required,
                 multiple: g.multiple,
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+/// The command's outputs, as usage-argv's cold model of them.
+///
+/// The schema goes into `schema` rather than `schema_fn`: this direction starts from a
+/// `String` that already exists, and a function pointer cannot be manufactured from one at
+/// runtime. `schema_fn` is the derive's half, where the schema is a call on a Rust type.
+fn outputs(list: &[SpecOutput]) -> &'static [OutputMeta<'static>] {
+    Box::leak(
+        list.iter()
+            .map(|o| OutputMeta {
+                name: leak(&o.name),
+                framing: match o.framing {
+                    Framing::Text => ArgvFraming::Text,
+                    Framing::Json => ArgvFraming::Json,
+                    Framing::Jsonl => ArgvFraming::Jsonl,
+                },
+                help: opt(&o.help),
+                default: o.default,
+                hide: o.hide,
+                select: opt(&o.select),
+                schema: opt(&o.schema),
+                schema_fn: None,
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn exit_codes(list: &[SpecExitCode]) -> &'static [ExitCodeMeta<'static>] {
+    Box::leak(
+        list.iter()
+            .map(|e| ExitCodeMeta {
+                code: e.code,
+                help: leak(&e.help),
             })
             .collect::<Vec<_>>()
             .into_boxed_slice(),

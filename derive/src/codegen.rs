@@ -18,8 +18,8 @@ use quote::{format_ident, quote};
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
     rendered_path, to_kebab, type_name, ArgGroup, ArgGroupMember, Cli, ConditionalDefault,
-    Dispatch, DoubleDash, ExampleDecl, Field, Kind, Shape, Subcommands, ValueEnum, Variant,
-    ViewDecl,
+    Dispatch, DoubleDash, ExampleDecl, Field, Kind, SchemaSource, Shape, Subcommands, ValueEnum,
+    Variant, ViewDecl,
 };
 
 /// Construct the user's command type after its generated partial has been checked.
@@ -99,6 +99,23 @@ fn derive_path() -> TokenStream {
     }
 }
 
+/// The schema library, as the adopter depended on it.
+///
+/// Emitted only where a `schema_from = T` was written, so a CLI that never asks for one
+/// needs no such dependency. This crate does not have one either: it writes the path and
+/// the adopter's compile resolves it, the same arrangement `usage_config` already has.
+fn schemars_path() -> TokenStream {
+    match crate_name("schemars") {
+        Ok(FoundCrate::Itself) => quote!(::schemars),
+        Ok(FoundCrate::Name(name)) => {
+            let schemars = format_ident!("{}", name.replace('-', "_"));
+            quote!(::#schemars)
+        }
+        // Keeps the useful "use of undeclared crate" error pointing at the attribute.
+        _ => quote!(::schemars),
+    }
+}
+
 /// The cold expression evaluator, resolved independently of the binding runtime.
 fn validation_path() -> TokenStream {
     match crate_name("usage-validation") {
@@ -169,6 +186,12 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let help_template = option_str(cli.help_template.as_deref());
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
+    let OutputTokens {
+        decls: output_schema_decls,
+        outputs,
+        select,
+        exit_codes,
+    } = output_tokens(cli);
     // A bare `T` subcommand field says the command cannot run alone; an `Option<T>` says it
     // can. The parser already refuses the invocation from the type — this is so the emitted
     // spec says it too, since help, docs and completions read that rather than the type.
@@ -867,8 +890,13 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
             #group_meta_decl
 
+            #(#output_schema_decls)*
+
             pub static ROOT_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &ROOT,
+                outputs: #outputs,
+                select: #select,
+                exit_codes: #exit_codes,
                 about: #about,
                 long_about: #long_about,
                 deprecated: #deprecated,
@@ -2420,7 +2448,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     // nothing about whether its value is.
     let value_optional = field.value_optional;
     let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
-        choices_tokens(field);
+        choices_tokens(cli, field);
     let allow_unknown_choices = field.allow_unknown_choices;
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
@@ -2627,7 +2655,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     let required =
         (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
     let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
-        choices_tokens(field);
+        choices_tokens(cli, field);
     let allow_unknown_choices = field.allow_unknown_choices;
     let validate = option_str(field.validate.as_deref());
     let validate_error = option_str(field.validate_error.as_deref());
@@ -2690,6 +2718,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
 
 /// A field's declared choices, as the metadata holds them.
 fn choices_tokens(
+    cli: &Cli,
     field: &Field,
 ) -> (
     TokenStream,
@@ -2709,6 +2738,40 @@ fn choices_tokens(
             quote!(<#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE),
         );
     }
+    // The flag that picks among the outputs accepts exactly their names, so it gets them
+    // without the author writing the list twice. usage-lib fills the same list in when it
+    // parses a spec, and `output.rs`'s byte-identity test is what holds the two together.
+    if let Some(outputs) = selector_choices(cli, field) {
+        let values: Vec<&str> = outputs
+            .iter()
+            .filter(|o| !o.hide)
+            .map(|o| o.name.as_str())
+            .collect();
+        let details: Vec<TokenStream> = outputs
+            .iter()
+            .filter(|o| !o.hide && o.help.is_some())
+            .map(|o| {
+                let value = &o.name;
+                let help = o.help.as_deref().expect("filtered");
+                quote! {
+                    usage_argv::spec::ChoiceMeta {
+                        value: #value,
+                        help: ::std::option::Option::Some(#help),
+                        hide: false,
+                        aliases: &[],
+                    }
+                }
+            })
+            .collect();
+        let choices = quote!(&[#(#values),*]);
+        return (
+            choices.clone(),
+            choices,
+            quote!(&[]),
+            quote!(&[#(#details),*]),
+            quote!(false),
+        );
+    }
     let choices = &field.choices;
     let choices = quote!(&[#(#choices),*]);
     (
@@ -2718,6 +2781,25 @@ fn choices_tokens(
         quote!(&[]),
         quote!(false),
     )
+}
+
+/// The outputs this field selects among, if it is the one doing the selecting.
+///
+/// [`None`] when the field is not the selector, or when it already declares choices of its
+/// own — a hand-written list carries aliases and per-value help that a list of output names
+/// does not, so it wins and usage-lib checks the two agree rather than replacing either.
+fn selector_choices<'a>(cli: &'a Cli, field: &Field) -> Option<&'a [crate::model::OutputDecl]> {
+    let select = cli.select.as_deref()?;
+    if cli.outputs.is_empty() || !field.choices.is_empty() {
+        return None;
+    }
+    let selected = Cli::selector_for_field(field).is_some_and(|s| s == select);
+    // Also matches when `select = "-f"` names the short spelling of a field whose long is
+    // what `selector_for_field` returns.
+    let by_field = cli
+        .field_for_selector(select)
+        .is_some_and(|f| f.ident == field.ident);
+    (selected || by_field).then_some(cli.outputs.as_slice())
 }
 
 /// A field's declared bounds, as the metadata holds them.
@@ -3708,6 +3790,100 @@ fn examples_table(examples: &[ExampleDecl]) -> TokenStream {
         }
     });
     quote!(&[#(#entries),*])
+}
+
+/// What a command's `output`, `select` and `exit_code` declarations become in its
+/// `CommandMeta`, plus the schema functions those refer to.
+///
+/// Shared by the root and the per-`Args` emission because the three fields are identical
+/// on both; only where they are spliced differs.
+struct OutputTokens {
+    /// `fn` items, declared beside the metas because a `static` cannot call anything.
+    decls: Vec<TokenStream>,
+    outputs: TokenStream,
+    select: TokenStream,
+    exit_codes: TokenStream,
+}
+
+fn output_tokens(cli: &Cli) -> OutputTokens {
+    let mut decls = Vec::new();
+    let outputs: Vec<TokenStream> = cli
+        .outputs
+        .iter()
+        .enumerate()
+        .map(|(i, output)| {
+            let name = &output.name;
+            let framing = match output.framing.as_str() {
+                "json" => quote!(usage_argv::spec::Framing::Json),
+                "jsonl" => quote!(usage_argv::spec::Framing::Jsonl),
+                _ => quote!(usage_argv::spec::Framing::Text),
+            };
+            let help = option_str(output.help.as_deref());
+            let default = output.default;
+            let hide = output.hide;
+            let select = option_str(output.select.as_deref());
+            // A schema is a `fn` pointer rather than a string because `schema_for!` is a
+            // call and this initializes a `static`. The literal spelling goes through the
+            // same pointer so every consumer reads one field.
+            let schema_fn = match &output.schema {
+                None => quote!(::std::option::Option::None),
+                Some(SchemaSource::Function(path)) => {
+                    quote!(::std::option::Option::Some(#path))
+                }
+                Some(source) => {
+                    let wrapper = format_ident!("__usage_output_schema_{i}");
+                    let body = match source {
+                        SchemaSource::Literal(text) => {
+                            quote!(::std::string::ToString::to_string(#text))
+                        }
+                        SchemaSource::Type(ty) => {
+                            let schemars = schemars_path();
+                            // Compact rather than pretty: the emitted KDL is compared to
+                            // usage-lib's byte for byte, and a value with no newline in it
+                            // cannot disagree about how newlines are written.
+                            quote!(::std::string::ToString::to_string(
+                                &#schemars::schema_for!(#ty)
+                            ))
+                        }
+                        SchemaSource::Function(_) => unreachable!("handled above"),
+                    };
+                    decls.push(quote! {
+                        fn #wrapper() -> ::std::string::String { #body }
+                    });
+                    quote!(::std::option::Option::Some(#wrapper))
+                }
+            };
+            quote! {
+                usage_argv::spec::OutputMeta {
+                    name: #name,
+                    framing: #framing,
+                    help: #help,
+                    default: #default,
+                    hide: #hide,
+                    select: #select,
+                    schema: ::std::option::Option::None,
+                    schema_fn: #schema_fn,
+                }
+            }
+        })
+        .collect();
+    let exit_codes: Vec<TokenStream> = cli
+        .exit_codes
+        .iter()
+        .map(|exit_code| {
+            let code = exit_code.code;
+            let help = &exit_code.help;
+            quote! {
+                usage_argv::spec::ExitCodeMeta { code: #code, help: #help }
+            }
+        })
+        .collect();
+    OutputTokens {
+        decls,
+        outputs: quote!(&[#(#outputs),*]),
+        select: option_str(cli.select.as_deref()),
+        exit_codes: quote!(&[#(#exit_codes),*]),
+    }
 }
 
 fn option_expr(value: Option<&TokenStream>) -> TokenStream {
@@ -5698,6 +5874,12 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let command_key = key_ident("COMMAND", None);
     let restart_token = option_str(cli.restart_token.as_deref());
     let mount = option_str(cli.mount.as_deref());
+    let OutputTokens {
+        decls: output_schema_decls,
+        outputs,
+        select,
+        exit_codes,
+    } = output_tokens(cli);
     // A bare `T` subcommand field says the command cannot run alone; an `Option<T>` says it
     // can. The parser already refuses the invocation from the type — this is so the emitted
     // spec says it too, since help, docs and completions read that rather than the type.
@@ -5985,8 +6167,13 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
             #group_meta_decl
 
+            #(#output_schema_decls)*
+
             pub static COMMAND_META: usage_argv::spec::CommandMeta = usage_argv::spec::CommandMeta {
                 cmd: &COMMAND,
+                outputs: #outputs,
+                select: #select,
+                exit_codes: #exit_codes,
                 effect: #effect,
                 about: #about,
                 long_about: #long_about,

@@ -1,4 +1,4 @@
-use heck::AsPascalCase;
+use heck::{AsLowerCamelCase, AsPascalCase};
 
 use crate::sdk::{
     collect_choice_types, collect_type_imports, escape_jsdoc, escape_ts_string, generated_header,
@@ -6,7 +6,7 @@ use crate::sdk::{
 };
 use crate::spec::arg::SpecDoubleDashChoices;
 use crate::spec::cmd::SpecCommand;
-use crate::{Spec, SpecArg, SpecFlag};
+use crate::{Framing, Spec, SpecArg, SpecFlag};
 
 use super::types::{flag_property_name, sanitize_ident};
 
@@ -14,11 +14,21 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
     let mut w = CodeWriter::new();
 
     w.line(&generated_header("//", source_file));
-    w.line("import { CliRunner, CliResult } from \"./runtime\";");
+    // The streaming classes only where something declares an output, so a client that has
+    // none imports exactly what it did before.
+    let mut runtime_imports = vec!["CliRunner", "CliResult"];
+    if any_outputs(&spec.cmd, spec, package_name) {
+        runtime_imports.push("CliJsonResult");
+        runtime_imports.push("CliStream");
+    }
+    w.line(&format!(
+        "import {{ {} }} from \"./runtime\";",
+        runtime_imports.join(", ")
+    ));
 
     // collect all type imports needed
     let choice_types = collect_choice_types(&spec.cmd);
-    let type_imports = collect_type_imports(&spec.cmd, package_name, &choice_types);
+    let type_imports = collect_type_imports(&spec.cmd, package_name, &choice_types, spec);
     let has_global_flags = spec.cmd.flags.iter().any(|f| f.global && !f.hide);
     if has_global_flags {
         let mut all_imports = type_imports;
@@ -55,6 +65,8 @@ pub fn render(spec: &Spec, package_name: &str, source_file: &Option<String>) -> 
         true,
         &global_flags,
         &spec.bin,
+        spec,
+        package_name,
         &mut w,
     );
 
@@ -69,12 +81,15 @@ fn subcmd_path(cmd: &SpecCommand) -> String {
         .join(", ")
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_class(
     cmd: &SpecCommand,
     class_name: &str,
     is_root: bool,
     global_flags: &[&SpecFlag],
     bin_name: &str,
+    spec: &Spec,
+    package_name: &str,
     w: &mut CodeWriter,
 ) {
     let visible_subcmds: Vec<_> = cmd.subcommands.iter().filter(|(_, c)| !c.hide).collect();
@@ -211,25 +226,25 @@ fn render_class(
             code = example.code
         ));
     }
-    if !exec_doc.is_empty() {
-        let exec_doc: Vec<String> = exec_doc.iter().map(|s| escape_jsdoc(s)).collect();
-        if exec_doc.len() == 1 && !exec_doc[0].contains('\n') {
-            w.line(&format!("/** {} */", exec_doc[0]));
-        } else {
-            w.line("/**");
-            for part in &exec_doc {
-                for line in part.split('\n') {
-                    w.line(&format!(" * {line}"));
-                }
-            }
-            w.line(" */");
-        }
+    let outputs = crate::sdk::output_methods(cmd, spec, package_name);
+    // A command with declared outputs builds its argv in a helper, so `exec` and each
+    // per-output method share one copy of the assembly. A command without one keeps the
+    // body inline under `exec`, which is why no existing client regenerates.
+    let building = !outputs.is_empty();
+    if !building {
+        render_jsdoc(w, &exec_doc);
     }
-
+    let omit_param = if building { ", omit?: string" } else { "" };
     if has_args || has_flags {
-        w.line(&format!(
-            "async exec({args_param}{flags_param}): Promise<CliResult> {{"
-        ));
+        if building {
+            w.line(&format!(
+                "private cmdArgsFor({args_param}{flags_param}{omit_param}): string[] {{"
+            ));
+        } else {
+            w.line(&format!(
+                "async exec({args_param}{flags_param}): Promise<CliResult> {{"
+            ));
+        }
         w.indent();
 
         // build command args
@@ -288,7 +303,14 @@ fn render_class(
         }
 
         // add flags
-        if has_flags {
+        if building {
+            if has_flags {
+                w.line("const flagArgs = this.buildFlagArgs(flags, omit);");
+                w.line("return [...cmdArgs, ...flagArgs];");
+            } else {
+                w.line("return cmdArgs;");
+            }
+        } else if has_flags {
             w.line("const flagArgs = this.buildFlagArgs(flags);");
             w.line("return this.runner.run([...cmdArgs, ...flagArgs]);");
         } else {
@@ -302,18 +324,37 @@ fn render_class(
         if has_flags {
             w.line("");
             w.line(&format!(
-                "private buildFlagArgs(flags?: {flags_type}): string[] {{"
+                "private buildFlagArgs(flags?: {flags_type}{omit_param}): string[] {{"
             ));
             w.indent();
             w.line("const result: string[] = [];");
             w.line("if (!flags) return result;");
 
+            let omit = outputs.iter().find_map(|o| o.omit.clone());
+            let render = |flag: &SpecFlag, w: &mut CodeWriter| {
+                // The selecting flag is left out when a method already picked the output,
+                // so a caller-supplied `format` cannot land on the line twice
+                // contradicting it.
+                if omit
+                    .as_deref()
+                    .is_some_and(|name| crate::sdk::flag_names(flag, name))
+                {
+                    let prop = flag_property_name(flag);
+                    w.line(&format!("if (omit !== \"{prop}\") {{"));
+                    w.indent();
+                    render_flag_build(flag, w);
+                    w.dedent();
+                    w.line("}");
+                } else {
+                    render_flag_build(flag, w);
+                }
+            };
             for flag in global_flags {
-                render_flag_build(flag, w);
+                render(flag, w);
             }
             for flag in &visible_flags {
                 if !global_flags.iter().any(|gf| gf.name == flag.name) {
-                    render_flag_build(flag, w);
+                    render(flag, w);
                 }
             }
 
@@ -321,6 +362,14 @@ fn render_class(
             w.dedent();
             w.line("}");
         }
+    } else if building {
+        w.line("private cmdArgsFor(omit?: string): string[] {");
+        w.indent();
+        let path = subcmd_path(cmd);
+        w.line("void omit;");
+        w.line(&format!("return [{path}];"));
+        w.dedent();
+        w.line("}");
     } else {
         // no args/flags: provide a simple exec
         w.line("async exec(): Promise<CliResult> {");
@@ -331,6 +380,100 @@ fn render_class(
         w.line("}");
     }
 
+    // `exec` and one method per declared output, all thin delegates over `cmdArgsFor`.
+    if building {
+        let call = match (has_args, has_flags) {
+            (true, true) => "args, flags",
+            (true, false) => "args",
+            (false, true) => "flags",
+            (false, false) => "",
+        };
+        let params = format!("{args_param}{flags_param}");
+        let comma = if call.is_empty() { "" } else { ", " };
+
+        w.line("");
+        render_jsdoc(w, &exec_doc);
+        w.line(&format!("async exec({params}): Promise<CliResult> {{"));
+        w.indent();
+        w.line(&format!("return this.runner.run(this.cmdArgsFor({call}));"));
+        w.dedent();
+        w.line("}");
+
+        for output in &outputs {
+            w.line("");
+            let mut doc = Vec::new();
+            if let Some(help) = &output.help {
+                doc.push(help.clone());
+            }
+            doc.push(format!(
+                "Selected with `{}`; any value of it in `flags` is ignored.",
+                output.select.join(" ")
+            ));
+            if output.framing == Framing::Jsonl {
+                doc.push(
+                    "One object per line, as they arrive: `for await` it rather than \
+                     collecting, and `close()` it if you stop early."
+                        .to_string(),
+                );
+            }
+            let doc: Vec<String> = doc.iter().map(|s| escape_jsdoc(s)).collect();
+            w.line("/**");
+            for part in &doc {
+                for line in part.split('\n') {
+                    w.line(&format!(" * {line}"));
+                }
+            }
+            w.line(" */");
+
+            let omit = output
+                .omit
+                .as_deref()
+                .and_then(|name| {
+                    global_flags
+                        .iter()
+                        .copied()
+                        .chain(visible_flags.iter().copied())
+                        .find(|f| crate::sdk::flag_names(f, name))
+                        .map(flag_property_name)
+                })
+                .unwrap_or_default();
+            let selector = output
+                .select
+                .iter()
+                .map(|word| format!("\"{}\"", escape_ts_string(word)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let alias = &output.type_alias;
+            let method = AsLowerCamelCase(format!("exec_{}", output.suffix)).to_string();
+            match output.framing {
+                Framing::Jsonl => {
+                    w.line(&format!("{method}({params}): CliStream<{alias}> {{"));
+                    w.indent();
+                    w.line(&format!(
+                        "const cmdArgs = this.cmdArgsFor({call}{comma}\"{omit}\");"
+                    ));
+                    w.line(&format!("cmdArgs.push({selector});"));
+                    w.line(&format!("return this.runner.runJsonl<{alias}>(cmdArgs);"));
+                    w.dedent();
+                    w.line("}");
+                }
+                _ => {
+                    w.line(&format!(
+                        "async {method}({params}): Promise<CliJsonResult<{alias}>> {{"
+                    ));
+                    w.indent();
+                    w.line(&format!(
+                        "const cmdArgs = this.cmdArgsFor({call}{comma}\"{omit}\");"
+                    ));
+                    w.line(&format!("cmdArgs.push({selector});"));
+                    w.line(&format!("return this.runner.runJson<{alias}>(cmdArgs);"));
+                    w.dedent();
+                    w.line("}");
+                }
+            }
+        }
+    }
+
     w.dedent();
     w.line("}");
 
@@ -338,7 +481,16 @@ fn render_class(
     for (name, subcmd) in &visible_subcmds {
         w.line("");
         let sub_class = AsPascalCase(name).to_string();
-        render_class(subcmd, &sub_class, false, global_flags, bin_name, w);
+        render_class(
+            subcmd,
+            &sub_class,
+            false,
+            global_flags,
+            bin_name,
+            spec,
+            package_name,
+            w,
+        );
     }
 }
 
@@ -389,4 +541,29 @@ fn render_flag_build(flag: &SpecFlag, w: &mut CodeWriter) {
             ));
         }
     }
+}
+
+fn render_jsdoc(w: &mut CodeWriter, doc: &[String]) {
+    let doc: Vec<String> = doc.iter().map(|s| escape_jsdoc(s)).collect();
+    if doc.len() == 1 && !doc[0].contains('\n') {
+        w.line(&format!("/** {} */", doc[0]));
+    } else if !doc.is_empty() {
+        w.line("/**");
+        for part in &doc {
+            for line in part.split('\n') {
+                w.line(&format!(" * {line}"));
+            }
+        }
+        w.line(" */");
+    }
+}
+
+/// Whether anything in the tree declares an output, so the client knows which runtime
+/// classes to import.
+fn any_outputs(cmd: &SpecCommand, spec: &Spec, package_name: &str) -> bool {
+    !crate::sdk::output_methods(cmd, spec, package_name).is_empty()
+        || cmd
+            .subcommands
+            .values()
+            .any(|sub| any_outputs(sub, spec, package_name))
 }
