@@ -362,7 +362,12 @@ impl CompleteWord {
         {
             let extensions = encoded
                 .split(',')
-                .map(|extension| extension.trim_start_matches('.').to_ascii_lowercase())
+                .map(|extension| {
+                    extension
+                        .trim()
+                        .trim_start_matches('.')
+                        .to_ascii_lowercase()
+                })
                 .filter(|extension| !extension.is_empty())
                 .collect::<Vec<_>>();
             if !extensions.is_empty() {

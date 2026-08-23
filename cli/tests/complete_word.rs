@@ -686,7 +686,7 @@ fn complete_word_normalizes_leading_dots_and_matches_compound_extensions() {
 name "mycli"
 bin "mycli"
 arg "<FILE>"
-complete "file" type="path:.tar.gz,toml"
+complete "file" type="path:.tar.gz, toml,."
 "#;
     Command::new(cargo::cargo_bin!("usage"))
         .current_dir(&dir)

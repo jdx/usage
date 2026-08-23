@@ -783,8 +783,9 @@ fn declared_files(type_: &str, next_arg_values: u32) -> Option<Files> {
     {
         let extensions = extensions
             .split(',')
+            .map(|extension| extension.trim().trim_start_matches('.'))
             .filter(|extension| !extension.is_empty())
-            .map(|extension| extension.trim_start_matches('.').to_string())
+            .map(str::to_string)
             .collect::<Vec<_>>();
         if !extensions.is_empty() {
             return Some(Files::Extensions(extensions));
@@ -3176,7 +3177,7 @@ mod tests {
     #[test]
     fn extension_types_preserve_the_filter_for_the_shell() {
         assert_eq!(
-            declared_files("path:toml,.yaml", 0),
+            declared_files("path:toml, .yaml,.", 0),
             Some(Files::Extensions(vec![
                 "toml".to_string(),
                 "yaml".to_string()
