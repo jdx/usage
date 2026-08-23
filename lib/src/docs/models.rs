@@ -117,6 +117,7 @@ pub struct SpecFlag {
     pub name: String,
     pub effect: Option<crate::spec::effect::SpecCommandEffect>,
     pub usage: String,
+    pub aliases: Vec<String>,
     pub display_usage: String,
     pub help: Option<String>,
     pub help_long: Option<String>,
@@ -811,20 +812,19 @@ fn column_usage(flag: &crate::SpecFlag) -> String {
     format!("{short:<SHORT_COL$}{after}")
 }
 
-/// Every visible spelling for generated reference documentation.
-///
-/// Interactive help keeps the compact first short/long pair in its aligned
-/// column, while a reference page should document aliases users can type.
+/// The canonical visible spelling for generated reference documentation.
 fn reference_usage(flag: &crate::SpecFlag) -> String {
     let mut forms: Vec<String> = flag
         .short
         .iter()
         .filter(|short| !flag.hidden_short_aliases.contains(short))
+        .take(1)
         .map(|short| format!("-{short}"))
         .chain(
             flag.long
                 .iter()
                 .filter(|long| !flag.hidden_aliases.contains(long))
+                .take(1)
                 .map(|long| format!("--{long}")),
         )
         .collect();
@@ -854,12 +854,30 @@ fn reference_usage(flag: &crate::SpecFlag) -> String {
     usage
 }
 
+/// Additional visible spellings for generated reference documentation.
+fn reference_aliases(flag: &crate::SpecFlag) -> Vec<String> {
+    flag.short
+        .iter()
+        .filter(|short| !flag.hidden_short_aliases.contains(short))
+        .skip(1)
+        .map(|short| format!("-{short}"))
+        .chain(
+            flag.long
+                .iter()
+                .filter(|long| !flag.hidden_aliases.contains(long))
+                .skip(1)
+                .map(|long| format!("--{long}")),
+        )
+        .collect()
+}
+
 impl From<&crate::SpecFlag> for SpecFlag {
     fn from(flag: &crate::SpecFlag) -> Self {
         Self {
             name: flag.name.clone(),
             effect: flag.effect,
             usage: reference_usage(flag),
+            aliases: reference_aliases(flag),
             display_usage: column_usage(flag),
             help: said(&flag.help),
             help_long: flag.help_long.clone(),
