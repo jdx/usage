@@ -253,3 +253,23 @@ jobs:
           for crate in ${{ matrix.crates }}; do
             cargo +${{ matrix.version }} check --locked -p "$crate" --all-features
           done
+
+  # Single fan-in gate, so branch protection can require one stable check
+  # instead of an enumerated list that goes stale when jobs are added or renamed.
+  final:
+    permissions: {}
+    needs:
+      - test
+      - msrv
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    # Run on success or upstream failure but skip when the workflow is cancelled
+    # — `always()` would override `cancel-in-progress` and waste a runner.
+    if: ${{ !cancelled() }}
+    steps:
+      - name: Check job results
+        if: |
+          needs.test.result != 'success' ||
+          needs.msrv.result != 'success'
+        run: exit 1
+      - run: echo "All CI jobs completed successfully"
