@@ -10,6 +10,4 @@ Show the companies sponsoring usage and the jdx.dev open source tools
 
 ## Flags
 
-### `-h --help`
-
-Print help
+- **`-h --help`** — Print help

@@ -10,28 +10,12 @@ Generate a JSON Schema for a CLI's config file from its usage spec
 
 ## Flags
 
-### `-f --file <FILE>`
+- **`-f --file <FILE>`** — A usage spec taken in as a file, use "-" to read from stdin
+- **`--out-file <OUT_FILE>`** — Write the schema here instead of to stdout
 
-A usage spec taken in as a file, use "-" to read from stdin
+  **Effect:** modifies state
 
-### `--out-file <OUT_FILE>`
-
-**Effect**: modifies state
-
-Write the schema here instead of to stdout
-
-### `--spec <SPEC>`
-
-raw string spec input
-
-### `--title <TITLE>`
-
-The schema's title, shown by editors
-
-### `--url <URL>`
-
-Where the schema is published, for its `$id`
-
-### `-h --help`
-
-Print help
+- **`--spec <SPEC>`** — raw string spec input
+- **`--title <TITLE>`** — The schema's title, shown by editors
+- **`--url <URL>`** — Where the schema is published, for its `$id`
+- **`-h --help`** — Print help

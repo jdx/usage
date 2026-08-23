@@ -10,20 +10,10 @@ Generate Fig completion spec for Amazon Q / Fig
 
 ## Flags
 
-### `-f --file <FILE>`
+- **`-f --file <FILE>`** — A usage spec taken in as a file, use "-" to read from stdin
+- **`--out-file <OUT_FILE>`** — File path where the generated Fig spec will be saved, or "-" for stdout
 
-A usage spec taken in as a file, use "-" to read from stdin
+  **Effect:** modifies state
 
-### `--out-file <OUT_FILE>`
-
-**Effect**: modifies state
-
-File path where the generated Fig spec will be saved, or "-" for stdout
-
-### `--spec <SPEC>`
-
-Raw string spec input
-
-### `-h --help`
-
-Print help
+- **`--spec <SPEC>`** — Raw string spec input
+- **`-h --help`** — Print help

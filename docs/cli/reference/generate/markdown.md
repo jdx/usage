@@ -11,46 +11,19 @@ Generate markdown documentation from usage specs
 
 ## Flags
 
-### `-f --file <FILE>`
+- **`-f --file <FILE>`** — A usage spec taken in as a file, use "-" to read from stdin
+- **`--view <VIEW>`** — Render one spec-declared executable view
+- **`-m --multi`** — Render each subcommand as a separate markdown file
+- **`--html-encode`** — Escape HTML in markdown
+- **`--out-dir <OUT_DIR>`** — Output markdown files to this directory (required when using --multi)
 
-A usage spec taken in as a file, use "-" to read from stdin
+  **Effect:** modifies state
 
-### `--view <VIEW>`
+- **`--out-file <OUT_FILE>`** — Output file path for single-file markdown generation, or "-" for stdout (default)
 
-Render one spec-declared executable view
+  **Effect:** modifies state
 
-### `-m --multi`
-
-Render each subcommand as a separate markdown file
-
-### `--html-encode`
-
-Escape HTML in markdown
-
-### `--out-dir <OUT_DIR>`
-
-**Effect**: modifies state
-
-Output markdown files to this directory (required when using --multi)
-
-### `--out-file <OUT_FILE>`
-
-**Effect**: modifies state
-
-Output file path for single-file markdown generation, or "-" for stdout (default)
-
-### `--replace-pre-with-code-fences`
-
-Replace `<pre>` tags with markdown code fences
-
-### `--url-prefix <URL_PREFIX>`
-
-Prefix to add to all URLs
-
-### `--template… <TEMPLATE>`
-
-Override a Tera template with NAME=PATH
-
-### `-h --help`
-
-Print help
+- **`--replace-pre-with-code-fences`** — Replace `<pre>` tags with markdown code fences
+- **`--url-prefix <URL_PREFIX>`** — Prefix to add to all URLs
+- **`--template… <TEMPLATE>`** — Override a Tera template with NAME=PATH
+- **`-h --help`** — Print help

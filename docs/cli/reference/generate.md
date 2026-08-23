@@ -11,9 +11,7 @@ Generate completions, documentation, and other artifacts from usage specs
 
 ## Flags
 
-### `-h --help`
-
-Print help
+- **`-h --help`** — Print help
 
 ## Subcommands
 
