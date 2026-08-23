@@ -82,3 +82,17 @@ fn annotations_do_not_change_parsing_or_help_visibility() {
         .expect("root help");
     assert!(help.contains("doctor"), "{help}");
 }
+
+#[test]
+fn root_annotations_with_kdl_sensitive_strings_round_trip() {
+    let mut spec: LibSpec = SurfaceDemo::to_kdl().parse().expect("generated spec");
+    spec.cmd.surface = Some("-private".into());
+    spec.cmd.available_if = vec!["feature\u{1b}[0m".into()];
+
+    let written = spec.to_string();
+    let reparsed: LibSpec = written
+        .parse()
+        .unwrap_or_else(|error| panic!("written spec does not parse: {error}\n{written}"));
+    assert_eq!(reparsed.cmd.surface, spec.cmd.surface);
+    assert_eq!(reparsed.cmd.available_if, spec.cmd.available_if);
+}

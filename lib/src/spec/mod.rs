@@ -1115,13 +1115,13 @@ impl Display for Spec {
         }
         if let Some(surface) = &self.cmd.surface {
             let mut node = KdlNode::new("surface");
-            node.push(surface.clone());
+            node.push(string_entry(None, surface));
             nodes.push(node);
         }
         if !self.cmd.available_if.is_empty() {
             let mut node = KdlNode::new("available_if");
             for condition in &self.cmd.available_if {
-                node.push(condition.clone());
+                node.push(string_entry(None, condition));
             }
             nodes.push(node);
         }
