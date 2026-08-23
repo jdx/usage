@@ -1756,7 +1756,7 @@
     "sources": {},
     "files": []
   },
-  "version": "6.1.0",
+  "version": "6.1.1",
   "usage": "Usage: usage <COMMAND>\n       usage --completions <COMPLETIONS>\n       usage --usage-spec",
   "complete": {},
   "source_code_link_template": "{%- set path = path | replace(from='-', to='_') -%}\n{%- if cmd.subcommands | length > 0 -%}\n{%- set path = path ~ \"/mod.rs\" -%}\n{%- elif path in [\"bash\", \"fish\", \"powershell\", \"zsh\"] -%}\n{%- set path = \"shell.rs\" -%}\n{%- else -%}\n{%- set path = path ~ \".rs\" -%}\n{%- endif -%}\nhttps://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}",

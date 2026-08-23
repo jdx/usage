@@ -1,5 +1,25 @@
 # Changelog
 
+## [6.1.1](https://github.com/jdx/usage/compare/v6.1.0..v6.1.1) - 2026-08-23
+
+### 🐛 Bug Fixes
+
+- **(argv)** simplify generated completion headers by [@jdx](https://github.com/jdx) in [#1226](https://github.com/jdx/usage/pull/1226)
+- **(argv)** plan for the target platform, not the host by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#1233](https://github.com/jdx/usage/pull/1233)
+- **(complete)** keep the path separator the caller typed by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#1230](https://github.com/jdx/usage/pull/1230)
+- **(config)** report config paths without the verbatim prefix by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#1232](https://github.com/jdx/usage/pull/1232)
+- **(docs)** separate visible flag aliases by [@jdx](https://github.com/jdx) in [#1228](https://github.com/jdx/usage/pull/1228)
+- **(test)** compile the platform-conditional fixtures warning-free on windows by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#1234](https://github.com/jdx/usage/pull/1234)
+
+### ⚡ Performance
+
+- **(derive)** outline invalid-value error construction from generated builds by [@jdx](https://github.com/jdx) in [#1235](https://github.com/jdx/usage/pull/1235)
+- **(derive)** share the repeated-value collection loop across fields by [@jdx](https://github.com/jdx) in [#1236](https://github.com/jdx/usage/pull/1236)
+
+### 🧪 Testing
+
+- **(windows)** let the suite run where zsh, fish and bash-completion are not by [@JamBalaya56562](https://github.com/JamBalaya56562) in [#1229](https://github.com/jdx/usage/pull/1229)
+
 ## [6.1.0](https://github.com/jdx/usage/compare/v6.0.0..v6.1.0) - 2026-08-22
 
 ### 🚀 Features
