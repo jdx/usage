@@ -185,3 +185,21 @@ with `Candidate::new(value)` or `Candidate::described(value, description)`; shel
 descriptions show them, shells that don't get the value alone. Chain `.displayed(label)` when a
 short insertion needs a more explanatory presentation; zsh and PowerShell keep that label
 separate from the text inserted into the command line, while other shells display the value.
+
+## Tracing an answer
+
+Completion decisions are available as structured diagnostic data. This uses the same split,
+parser walk, and completion tables as the runtime request:
+
+```rust
+let line = "ex build --out ";
+let split = usage::complete::split(line, line.len(), usage::complete::Shell::Zsh);
+let trace = usage::complete::trace(Ex::spec(), &split);
+
+assert_eq!(trace.awaiting_value, Some("out"));
+eprintln!("{trace}");
+```
+
+The trace includes the shell-split words and prefix, selected command path, cursor owner, flag and
+separator state, candidates, and native shell fallback. Applications can expose its `Display`
+form from a diagnostic command or render the public fields themselves.

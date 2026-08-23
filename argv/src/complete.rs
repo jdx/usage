@@ -363,6 +363,27 @@ pub enum Files {
     Extensions(Vec<String>),
 }
 
+impl core::fmt::Display for Files {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Any => f.write_str("paths"),
+            Self::Dirs => f.write_str("directories"),
+            Self::ExecutablePaths => f.write_str("executable paths"),
+            Self::Commands => f.write_str("commands"),
+            Self::Extensions(extensions) => {
+                f.write_str("paths with extensions ")?;
+                for (index, extension) in extensions.iter().enumerate() {
+                    if index > 0 {
+                        f.write_str(", ")?;
+                    }
+                    write!(f, ".{extension}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 /// Everything a shell needs to answer one Tab.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Completions<'a> {
@@ -370,6 +391,102 @@ pub struct Completions<'a> {
     pub candidates: Vec<Candidate<'a>>,
     /// Paths the shell should add, if the position admits them.
     pub files: Option<Files>,
+}
+
+/// An inspectable account of how a partial line reached its completion answer.
+///
+/// This is deliberately data rather than log output: a CLI can print it in a hidden diagnostic
+/// command, a test can assert on one field, and another frontend can render it differently.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompletionTrace<'a> {
+    pub words: Vec<String>,
+    pub cword: usize,
+    pub prefix: String,
+    pub command_path: Vec<&'a str>,
+    pub flags_possible: bool,
+    pub awaiting_value: Option<&'a str>,
+    pub next_arg: Option<&'a str>,
+    pub separator_seen: bool,
+    pub help_topic: bool,
+    pub candidates: Vec<Candidate<'a>>,
+    pub files: Option<Files>,
+}
+
+impl core::fmt::Display for CompletionTrace<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, "words: {:?}", self.words)?;
+        writeln!(
+            f,
+            "cursor: word {} with prefix {:?}",
+            self.cword, self.prefix
+        )?;
+        writeln!(f, "command: {}", self.command_path.join(" "))?;
+        let position = if let Some(flag) = self.awaiting_value {
+            format!("value of {flag}")
+        } else if let Some(arg) = self.next_arg {
+            format!("argument {arg}")
+        } else if self.help_topic {
+            "help topic".to_string()
+        } else {
+            "command or flag".to_string()
+        };
+        writeln!(f, "position: {position}")?;
+        writeln!(f, "flags possible: {}", self.flags_possible)?;
+        writeln!(f, "separator seen: {}", self.separator_seen)?;
+        let candidates = self
+            .candidates
+            .iter()
+            .map(|candidate| candidate.value.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        writeln!(f, "candidates: {candidates}")?;
+        match &self.files {
+            Some(files) => writeln!(f, "shell fallback: {files}"),
+            None => writeln!(f, "shell fallback: none"),
+        }
+    }
+}
+
+/// Explain a completion answer using the same parser walk and tables that produced it.
+pub fn trace<'a>(spec: &'a Spec<'a>, split: &Split) -> CompletionTrace<'a> {
+    let position = walk(spec.root.cmd, split.argv());
+    let answer = complete(spec, split);
+    trace_from(split, position, answer)
+}
+
+/// Explain a completion answer through one executable view.
+pub fn trace_view<'a>(
+    spec: &'a Spec<'a>,
+    split: &Split,
+    view: &'a crate::spec::ViewMeta<'a>,
+) -> CompletionTrace<'a> {
+    let position = walk_view(spec.root.cmd, split.argv(), view);
+    let answer = complete_view(spec, split, view);
+    trace_from(split, position, answer)
+}
+
+fn trace_from<'a>(
+    split: &Split,
+    position: Position<'a>,
+    answer: Completions<'a>,
+) -> CompletionTrace<'a> {
+    CompletionTrace {
+        words: split.words.clone(),
+        cword: split.cword,
+        prefix: split.prefix.clone(),
+        command_path: position
+            .path
+            .iter()
+            .map(|(command, _)| command.name)
+            .collect(),
+        flags_possible: position.flags_possible,
+        awaiting_value: position.awaiting_value.map(|flag| flag.name),
+        next_arg: position.next_arg.map(|arg| arg.name),
+        separator_seen: position.separator_seen,
+        help_topic: position.help_topic,
+        candidates: answer.candidates,
+        files: answer.files,
+    }
 }
 
 /// A completion future supplied by an embedding CLI.
@@ -3191,6 +3308,18 @@ mod tests {
             render(&answer, Shell::Bash),
             "\u{1}extensions\ttoml\tyaml\n"
         );
+    }
+
+    #[test]
+    fn a_trace_exposes_the_parser_decision_behind_an_answer() {
+        let trace = trace(&SPEC, &at_end("mise use --jobs "));
+        assert_eq!(trace.command_path, ["mise", "use"]);
+        assert_eq!(trace.awaiting_value, Some("jobs"));
+        assert_eq!(trace.next_arg, Some("TOOL"));
+        assert_eq!(trace.files, None);
+        let rendered = trace.to_string();
+        assert!(rendered.contains("position: value of jobs"), "{rendered}");
+        assert!(rendered.contains("shell fallback: none"), "{rendered}");
     }
 
     #[test]
