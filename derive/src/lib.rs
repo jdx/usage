@@ -296,6 +296,7 @@
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |
 //! | `arg_group` | the flags come from the field's type, which derives [`ArgGroup`]; at most one may be given |
 //! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
+//! | `extensions("toml", "yaml")` | limit a file-path hint to these extensions while retaining directories |
 //! | `arg` | force a field to be positional |
 //! | `value_name = "NAME"` | a positional name, or the placeholder for a flag value |
 //! | `choices("a", "b")` | accepted values; typed conversion still uses the field type's `FromStr` |

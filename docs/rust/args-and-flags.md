@@ -146,6 +146,7 @@ The tables below cover the attributes most CLIs need.
 | ---------------------------------- | --------------------------------------------------------------------------------------- |
 | `complete = my_fn`                 | Custom completion function ([Completions](/rust/completions))                           |
 | `value_hint = ValueHint::FilePath` | Ask the shell for path completion (see below)                                           |
+| `extensions("toml", "yaml")`       | Limit a `FilePath` or `AnyPath` hint to these filename extensions                       |
 | `effect = "…"`                     | `"read"`, `"write"`, or `"destructive"` — see [command effects](/spec/#command-effects) |
 | `setting = "key"`                  | Bind to a config setting ([Configuration](/rust/configuration))                         |
 

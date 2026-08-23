@@ -349,7 +349,7 @@ pub fn completers_on(meta: &CommandMeta<'_>) -> Vec<String> {
 /// This is a deliberate divergence from usage-lib, which reads the directory itself and returns
 /// the names. The conformance comparison holds the two equivalent rather than equal: where the
 /// reference answers with a listing, this answers with the marker.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Files {
     /// Anything: files, directories, whatever the shell shows for a path.
     Any,
@@ -359,6 +359,8 @@ pub enum Files {
     ExecutablePaths,
     /// Command names, including entries from the shell's command table and `PATH`.
     Commands,
+    /// Files with one of these extensions, plus directories for continued traversal.
+    Extensions(Vec<String>),
 }
 
 /// Everything a shell needs to answer one Tab.
@@ -677,7 +679,7 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
         out.push('\n');
     }
 
-    match answer.files {
+    match &answer.files {
         Some(Files::Any) => {
             out.push_str(FILES_MARKER);
             out.push('\n');
@@ -692,6 +694,14 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
         }
         Some(Files::Commands) => {
             out.push_str(COMMANDS_MARKER);
+            out.push('\n');
+        }
+        Some(Files::Extensions(extensions)) => {
+            out.push_str("\u{1}extensions");
+            for extension in extensions {
+                out.push('\t');
+                out.push_str(extension);
+            }
             out.push('\n');
         }
         None => {}
@@ -767,6 +777,20 @@ fn files_for(name: &str) -> Option<Files> {
 }
 
 fn declared_files(type_: &str, next_arg_values: u32) -> Option<Files> {
+    if let Some(extensions) = type_
+        .strip_prefix("path:")
+        .or_else(|| type_.strip_prefix("file:"))
+    {
+        let extensions = extensions
+            .split(',')
+            .map(|extension| extension.trim().trim_start_matches('.'))
+            .filter(|extension| !extension.is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if !extensions.is_empty() {
+            return Some(Files::Extensions(extensions));
+        }
+    }
     if type_.eq_ignore_ascii_case("command_args") {
         return Some(if next_arg_values == 0 {
             Files::Commands
@@ -3148,6 +3172,25 @@ mod tests {
         assert_eq!(offered("mise edit "), ["mise.local.toml", "mise.toml"]);
         // And a flag's value is named by its placeholder, not by the flag.
         assert_eq!(answer("mise edit --into ").files, Some(Files::Dirs));
+    }
+
+    #[test]
+    fn extension_types_preserve_the_filter_for_the_shell() {
+        assert_eq!(
+            declared_files("path:toml, .yaml,.", 0),
+            Some(Files::Extensions(vec![
+                "toml".to_string(),
+                "yaml".to_string()
+            ]))
+        );
+        let answer = Completions {
+            candidates: Vec::new(),
+            files: declared_files("path:toml,yaml", 0),
+        };
+        assert_eq!(
+            render(&answer, Shell::Bash),
+            "\u{1}extensions\ttoml\tyaml\n"
+        );
     }
 
     #[test]

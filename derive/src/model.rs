@@ -2426,6 +2426,7 @@ impl Field {
         let mut validate_error: Option<String> = None;
         let mut complete: Option<syn::Path> = None;
         let mut complete_type: Option<String> = None;
+        let mut completion_extensions: Vec<String> = Vec::new();
         let mut value_enum = false;
         let mut var_min: Option<usize> = None;
         let mut var_max: Option<usize> = None;
@@ -2554,6 +2555,35 @@ impl Field {
                         complete = Some(path.path.clone());
                     }
                     "value_hint" => complete_type = Some(value_hint(&meta)?),
+                    "extensions" => {
+                        let Meta::List(list) = &meta else {
+                            return Err(syn::Error::new_spanned(
+                                meta.path(),
+                                "`extensions` takes a list, as in `extensions(\"toml\", \"yaml\")`",
+                            ));
+                        };
+                        completion_extensions = list
+                            .parse_args_with(
+                                syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated,
+                            )?
+                            .into_iter()
+                            .map(|lit| lit.value().trim_start_matches('.').to_string())
+                            .collect();
+                        if completion_extensions.is_empty()
+                            || completion_extensions.iter().any(|extension| {
+                                extension.is_empty()
+                                    || !extension.chars().all(|c| {
+                                        c.is_ascii_alphanumeric()
+                                            || matches!(c, '.' | '_' | '+' | '-')
+                                    })
+                            })
+                        {
+                            return Err(syn::Error::new_spanned(
+                                meta.path(),
+                                "`extensions` needs one or more filename extensions without paths",
+                            ));
+                        }
+                    }
                     "choices" => {
                         let Meta::List(list) = &meta else {
                             return Err(syn::Error::new_spanned(
@@ -2978,6 +3008,19 @@ impl Field {
                 span,
                 "`validate_error` needs a `validate` expression to report for",
             ));
+        }
+        if !completion_extensions.is_empty() {
+            match complete_type.as_deref() {
+                Some("path") => {
+                    complete_type = Some(format!("path:{}", completion_extensions.join(",")));
+                }
+                _ => {
+                    return Err(syn::Error::new(
+                        span,
+                        "`extensions` needs `value_hint = usage::ValueHint::FilePath` or `AnyPath`",
+                    ));
+                }
+            }
         }
         if complete_type.is_some() && matches!(shape, Shape::Bool | Shape::Count) {
             return Err(syn::Error::new(
