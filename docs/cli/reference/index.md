@@ -20,6 +20,14 @@ Outputs completions for the specified shell for completing the `usage` CLI itsel
 
 Outputs a `usage.kdl` spec for this CLI itself
 
+### `-h --help`
+
+Print help
+
+### `-V --version`
+
+Print version
+
 ## Subcommands
 
 - [`usage bash [-h] [--help] <SCRIPT> [ARGS]…`](/cli/reference/bash.md)

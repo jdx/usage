@@ -153,6 +153,11 @@ const completionSpec: Fig.Spec = {
             suggestions: ["bash", "fish", "nu", "powershell", "zsh"],
           },
         },
+        {
+          name: ["-h", "--help"],
+          description: "Print help",
+          isRepeatable: false,
+        },
       ],
       args: {
         name: "words",
@@ -183,6 +188,11 @@ const completionSpec: Fig.Spec = {
         {
           name: "--exit-zero",
           description: "Exit 0 even when there are breaking changes",
+          isRepeatable: false,
+        },
+        {
+          name: ["-h", "--help"],
+          description: "Print help",
           isRepeatable: false,
         },
       ],
@@ -281,6 +291,11 @@ const completionSpec: Fig.Spec = {
             name: "env",
           },
         },
+        {
+          name: ["-h", "--help"],
+          description: "Print help",
+          isRepeatable: false,
+        },
       ],
       args: {
         name: "argv",
@@ -376,6 +391,11 @@ const completionSpec: Fig.Spec = {
                 name: "usage_cmd",
               },
             },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
+            },
           ],
           args: [
             {
@@ -402,6 +422,11 @@ const completionSpec: Fig.Spec = {
               args: {
                 name: "usage_bin",
               },
+            },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
             },
           ],
           args: {
@@ -441,6 +466,11 @@ const completionSpec: Fig.Spec = {
               args: {
                 name: "spec",
               },
+            },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
             },
           ],
         },
@@ -485,6 +515,11 @@ const completionSpec: Fig.Spec = {
                 name: "spec",
               },
             },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
+            },
           ],
         },
         {
@@ -516,6 +551,11 @@ const completionSpec: Fig.Spec = {
               args: {
                 name: "view",
               },
+            },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
             },
           ],
         },
@@ -567,6 +607,11 @@ const completionSpec: Fig.Spec = {
                 name: "url",
               },
             },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
+            },
           ],
         },
         {
@@ -607,6 +652,11 @@ const completionSpec: Fig.Spec = {
               args: {
                 name: "section",
               },
+            },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
             },
           ],
         },
@@ -675,6 +725,11 @@ const completionSpec: Fig.Spec = {
                 name: "url_prefix",
               },
             },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
+            },
           ],
         },
         {
@@ -724,7 +779,19 @@ const completionSpec: Fig.Spec = {
                 name: "spec",
               },
             },
+            {
+              name: ["-h", "--help"],
+              description: "Print help",
+              isRepeatable: false,
+            },
           ],
+        },
+      ],
+      options: [
+        {
+          name: ["-h", "--help"],
+          description: "Print help",
+          isRepeatable: false,
         },
       ],
     },
@@ -750,6 +817,11 @@ const completionSpec: Fig.Spec = {
           name: "--sorted",
           description:
             "Also check that subcommands and flags are declared in sorted order",
+          isRepeatable: false,
+        },
+        {
+          name: ["-h", "--help"],
+          description: "Print help",
           isRepeatable: false,
         },
       ],
@@ -779,6 +851,11 @@ const completionSpec: Fig.Spec = {
           args: {
             name: "spec",
           },
+        },
+        {
+          name: ["-h", "--help"],
+          description: "Print help",
+          isRepeatable: false,
         },
       ],
     },
@@ -813,6 +890,13 @@ const completionSpec: Fig.Spec = {
       name: "sponsors",
       description:
         "Show the companies sponsoring usage and the jdx.dev open source tools",
+      options: [
+        {
+          name: ["-h", "--help"],
+          description: "Print help",
+          isRepeatable: false,
+        },
+      ],
     },
     {
       name: "zsh",
@@ -855,6 +939,16 @@ const completionSpec: Fig.Spec = {
     {
       name: "--usage-spec",
       description: "Outputs a `usage.kdl` spec for this CLI itself",
+      isRepeatable: false,
+    },
+    {
+      name: ["-h", "--help"],
+      description: "Print help",
+      isRepeatable: false,
+    },
+    {
+      name: ["-V", "--version"],
+      description: "Print version",
       isRepeatable: false,
     },
   ],

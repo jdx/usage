@@ -34,3 +34,7 @@ You may need to set this if you have a different bin named "usage"
 **Default:** `usage`
 
 **Environment Variable:** `JDX_USAGE_BIN`
+
+### `-h --help`
+
+Print help

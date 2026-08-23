@@ -31,6 +31,8 @@ flag --completions help="Outputs completions for the specified shell for complet
     arg <COMPLETIONS>
 }
 flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
+flag "-h --help" help="Print help" action=help builtin=#true
+flag "-V --version" help="Print version" action=version builtin=#true
 cmd bash help="Execute a shell script using bash" unknown_flags=value {
     long_help #"""
 Execute a shell script with the specified shell
@@ -71,6 +73,7 @@ This is used internally by shell completion scripts to provide intelligent compl
             choices bash fish nu powershell zsh
         }
     }
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg "[WORDS]..." help="User's input from the command line"
 }
 cmd diff help="Compare two usage specs and report what changed about the interface" effect=read {
@@ -100,6 +103,7 @@ every release does not get left switched on.
     }
     flag "-b --breaking" help="Report only breaking changes"
     flag --exit-zero help="Exit 0 even when there are breaking changes"
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg <OLD> help="The spec as it was, typically the released one, use \"-\" to read from stdin"
     arg <NEW> help="The spec as it is now, use \"-\" to read from stdin"
     complete old type=path
@@ -146,6 +150,7 @@ Given at all, these are the *whole* environment: an explanation pasted into a bu
 """#
         arg <ENV>
     }
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg "[ARGV]..." help="The command line to explain, starting with the program name" double_dash=automatic {
         long_help #"""
 The command line to explain, starting with the program name
@@ -177,6 +182,7 @@ Anything `usage` does not recognise is a value rather than a mistake, which is w
 }
 cmd generate help="Generate completions, documentation, and other artifacts from usage specs" effect=read subcommand_required=#true {
     alias g
+    flag "-h --help" help="Print help" action=help builtin=#true
     cmd completion help="Generate shell completion scripts for bash, fish, nu, powershell, or zsh" effect=read {
         alias c
         alias complete hide=#true
@@ -206,6 +212,7 @@ You may need to set this if you have a different bin named "usage"
         flag --usage-cmd help="A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"" required_unless=--file {
             arg <USAGE_CMD>
         }
+        flag "-h --help" help="Print help" action=help builtin=#true
         arg <SHELL> help="Shell to generate completions for" {
             choices bash fish nu powershell zsh
         }
@@ -228,6 +235,7 @@ You may need to set this if you have a different bin named "usage"
 """#
             arg <USAGE_BIN>
         }
+        flag "-h --help" help="Print help" action=help builtin=#true
         arg <SHELL> help="Shell to generate the init script for" {
             choices bash fish zsh
         }
@@ -242,6 +250,7 @@ You may need to set this if you have a different bin named "usage"
         flag --spec help="Raw string spec input" overrides=--file required_unless=--file {
             arg <SPEC>
         }
+        flag "-h --help" help="Print help" action=help builtin=#true
         complete out_file type=path
     }
     cmd go help="Generate Go parse tables from a usage spec" effect=read {
@@ -264,6 +273,7 @@ The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a
         flag --spec help="Raw string spec input" overrides=--file required_unless=--file {
             arg <SPEC>
         }
+        flag "-h --help" help="Print help" action=help builtin=#true
         complete out_file type=path
     }
     cmd json help="Outputs a usage spec in json format" effect=read {
@@ -276,6 +286,7 @@ The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a
         flag --view help="Render one spec-declared executable view" {
             arg <VIEW>
         }
+        flag "-h --help" help="Print help" action=help builtin=#true
     }
     cmd json-schema help="Generate a JSON Schema for a CLI's config file from its usage spec" effect=read {
         flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
@@ -293,6 +304,7 @@ The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a
         flag --url help="Where the schema is published, for its `$id`" {
             arg <URL>
         }
+        flag "-h --help" help="Print help" action=help builtin=#true
         complete out_file type=path
     }
     cmd manpage help="Generate a manpage from a usage spec" effect=read {
@@ -314,6 +326,7 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
 """#
             arg <SECTION>
         }
+        flag "-h --help" help="Print help" action=help builtin=#true
         complete out_file type=path
     }
     cmd markdown help="Generate markdown documentation from usage specs" effect=read {
@@ -336,6 +349,7 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
         flag --url-prefix help="Prefix to add to all URLs" {
             arg <URL_PREFIX>
         }
+        flag "-h --help" help="Print help" action=help builtin=#true
         complete out_dir type=dir
         complete out_file type=path
     }
@@ -357,6 +371,7 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
         flag --spec help="Raw string spec input" overrides=--file required_unless=--file {
             arg <SPEC>
         }
+        flag "-h --help" help="Print help" action=help builtin=#true
     }
 }
 cmd lint help="Lint a usage spec file for common issues" effect=read {
@@ -376,6 +391,7 @@ Also check that subcommands and flags are declared in sorted order
 Off by default: declaration order is a house convention rather than a correctness question, so a spec that keeps a different order is not wrong. Pair it with --warnings-as-errors to hold the order in CI.
 """#
     }
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg <FILE> help="A usage spec file to lint, use \"-\" to read from stdin"
 }
 cmd mcp help="Serve a usage spec over the Model Context Protocol" effect=read {
@@ -392,6 +408,7 @@ clients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.
     flag "-s --spec" help="Raw string spec input" overrides=--file required_unless=--file {
         arg <SPEC>
     }
+    flag "-h --help" help="Print help" action=help builtin=#true
 }
 cmd powershell help="Execute a shell script using PowerShell" unknown_flags=value {
     long_help #"""
@@ -413,6 +430,7 @@ Anything `usage` does not recognise is a value rather than a mistake, which is w
     }
 }
 cmd sponsors help="Show the companies sponsoring usage and the jdx.dev open source tools" effect=read {
+    flag "-h --help" help="Print help" action=help builtin=#true
 }
 cmd zsh help="Execute a shell script using zsh" unknown_flags=value {
     long_help #"""

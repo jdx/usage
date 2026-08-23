@@ -9,6 +9,12 @@
 
 Generate completions, documentation, and other artifacts from usage specs
 
+## Flags
+
+### `-h --help`
+
+Print help
+
 ## Subcommands
 
 - [`usage generate completion [FLAGS] <SHELL> <BIN>`](/cli/reference/generate/completion.md)

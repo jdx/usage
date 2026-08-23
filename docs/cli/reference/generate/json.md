@@ -21,3 +21,7 @@ raw string spec input
 ### `--view <VIEW>`
 
 Render one spec-declared executable view
+
+### `-h --help`
+
+Print help

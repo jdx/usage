@@ -21,3 +21,7 @@ Usage spec file (not "-": stdin is the MCP transport)
 ### `-s --spec <SPEC>`
 
 Raw string spec input
+
+### `-h --help`
+
+Print help
