@@ -18,27 +18,39 @@ import "strings"
 //	about       BeforeHelp, the version banner, and the description
 //	usage       the Usage: synopsis, however many lines it takes
 //	commands    the subcommand list, or the flattened bodies under FlattenHelp
-//	args        every argument group, each under its heading
-//	flags       this command's flag groups, then the globals it inherits
-//	after_help  examples, AfterHelp, and the author/license footer on a long page
+//	args             every argument group, each under its heading
+//	flags            this command's flag groups, then the globals it inherits
+//	grouped_args     arguments with a declared help heading
+//	ungrouped_args   arguments under the default Arguments heading
+//	grouped_flags    flags with a declared help heading
+//	ungrouped_flags  flags under Flags, plus inherited global flags
+//	after_help       examples, AfterHelp, and the author/license footer on a long page
 //
 // An array rather than a slice, so the vocabulary cannot grow or shrink the way
 // a package-level slice can. The names themselves are still assignable; nothing
 // in this package writes them.
-var HelpSections = [...]string{"about", "usage", "commands", "args", "flags", "after_help"}
+var HelpSections = [...]string{
+	"about", "usage", "commands", "args", "flags",
+	"grouped_args", "ungrouped_args", "grouped_flags", "ungrouped_flags",
+	"after_help",
+}
 
 // helpSections is a page under construction, cut at the boundaries a template may
 // reorder. `flattened` is not a section an author can name: it is the other half of
 // `commands`, since FlattenHelp replaces a command list with the subcommands' own
 // bodies, and only one of the two is ever written.
 type helpSections struct {
-	about     strings.Builder
-	usage     strings.Builder
-	commands  strings.Builder
-	args      strings.Builder
-	flags     strings.Builder
-	flattened strings.Builder
-	afterHelp strings.Builder
+	about          strings.Builder
+	usage          strings.Builder
+	commands       strings.Builder
+	args           strings.Builder
+	flags          strings.Builder
+	groupedArgs    strings.Builder
+	ungroupedArgs  strings.Builder
+	groupedFlags   strings.Builder
+	ungroupedFlags strings.Builder
+	flattened      strings.Builder
+	afterHelp      strings.Builder
 }
 
 // concatenated is the default page: every section in the order it was written.
@@ -78,6 +90,14 @@ func (s *helpSections) named(name string) (string, bool) {
 		return strings.TrimSpace(s.args.String()), true
 	case "flags":
 		return strings.TrimSpace(s.flags.String()), true
+	case "grouped_args":
+		return strings.TrimSpace(s.groupedArgs.String()), true
+	case "ungrouped_args":
+		return strings.TrimSpace(s.ungroupedArgs.String()), true
+	case "grouped_flags":
+		return strings.TrimSpace(s.groupedFlags.String()), true
+	case "ungrouped_flags":
+		return strings.TrimSpace(s.ungroupedFlags.String()), true
 	case "after_help":
 		return strings.TrimSpace(s.afterHelp.String()), true
 	}
