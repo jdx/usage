@@ -71,6 +71,27 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     }
     lay_out(&mut inherited, width, col);
 
+    let arg_has_ungrouped = docs_cmd
+        .arg_groups
+        .iter()
+        .any(|group| group.heading.is_none());
+    let arg_has_grouped = docs_cmd
+        .arg_groups
+        .iter()
+        .any(|group| group.heading.is_some());
+    let flag_has_ungrouped = docs_cmd
+        .flag_groups
+        .iter()
+        .any(|group| group.heading.is_none());
+    let flag_has_grouped = docs_cmd
+        .flag_groups
+        .iter()
+        .any(|group| group.heading.is_some());
+    ctx.insert("arg_has_ungrouped", &arg_has_ungrouped);
+    ctx.insert("arg_has_grouped", &arg_has_grouped);
+    ctx.insert("flag_has_ungrouped", &flag_has_ungrouped);
+    ctx.insert("flag_has_grouped", &flag_has_grouped);
+
     // Inserted after the layout, not before: the template reads the widths, and a `cmd` put
     // into the context first would carry the ones computed before the two lists were joined.
     ctx.insert("cmd", &docs_cmd);
@@ -78,6 +99,9 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     for (name, mark) in MARKS {
         ctx.insert(name, &mark);
     }
+    ctx.insert("mark_grouped_args", &MARK_GROUPED_ARGS);
+    ctx.insert("mark_grouped_flags", &MARK_GROUPED_FLAGS);
+    ctx.insert("mark_global_flags", &MARK_GLOBAL_FLAGS);
     let template = if long {
         "spec_template_long.tera"
     } else {
@@ -114,6 +138,9 @@ const MARKS: [(&str, &str); 6] = [
     ("mark_flattened", "\u{1}flattened\u{1}"),
     ("mark_after_help", "\u{1}after_help\u{1}"),
 ];
+const MARK_GROUPED_ARGS: &str = "\u{1}grouped_args\u{1}";
+const MARK_GROUPED_FLAGS: &str = "\u{1}grouped_flags\u{1}";
+const MARK_GLOBAL_FLAGS: &str = "\u{1}global_flags\u{1}";
 
 /// A rendered page cut into the sections a `help_template` may reorder.
 ///
@@ -124,8 +151,12 @@ struct Sections<'a> {
     about: &'a str,
     usage: &'a str,
     commands: &'a str,
-    args: &'a str,
-    flags: &'a str,
+    args: String,
+    flags: String,
+    grouped_args: &'a str,
+    ungrouped_args: &'a str,
+    grouped_flags: &'a str,
+    ungrouped_flags: String,
     flattened: &'a str,
     after_help: &'a str,
 }
@@ -147,12 +178,25 @@ impl<'a> Sections<'a> {
             }
         }
         parts.push(rest);
+        let (ungrouped_args, grouped_args) = parts[3]
+            .split_once(MARK_GROUPED_ARGS)
+            .unwrap_or((parts[3], ""));
+        let (own_flags, global_flags) = parts[4]
+            .split_once(MARK_GLOBAL_FLAGS)
+            .unwrap_or((parts[4], ""));
+        let (own_ungrouped_flags, grouped_flags) = own_flags
+            .split_once(MARK_GROUPED_FLAGS)
+            .unwrap_or((own_flags, ""));
         Self {
             about: parts[0],
             usage: parts[1],
             commands: parts[2],
-            args: parts[3],
-            flags: parts[4],
+            args: format!("{ungrouped_args}{grouped_args}"),
+            flags: format!("{own_ungrouped_flags}{grouped_flags}{global_flags}"),
+            grouped_args,
+            ungrouped_args,
+            grouped_flags,
+            ungrouped_flags: format!("{own_ungrouped_flags}{global_flags}"),
             flattened: parts[5],
             after_help: parts[6],
         }
@@ -164,8 +208,8 @@ impl<'a> Sections<'a> {
             self.about,
             self.usage,
             self.commands,
-            self.args,
-            self.flags,
+            self.args.as_str(),
+            self.flags.as_str(),
             self.flattened,
             self.after_help,
         ]
@@ -190,6 +234,10 @@ impl<'a> Sections<'a> {
             }
             "args" => self.args.trim().to_string(),
             "flags" => self.flags.trim().to_string(),
+            "grouped_args" => self.grouped_args.trim().to_string(),
+            "ungrouped_args" => self.ungrouped_args.trim().to_string(),
+            "grouped_flags" => self.grouped_flags.trim().to_string(),
+            "ungrouped_flags" => self.ungrouped_flags.trim().to_string(),
             "after_help" => self.after_help.trim().to_string(),
             _ => return None,
         })

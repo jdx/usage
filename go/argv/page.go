@@ -135,7 +135,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			argCol = n
 		}
 	}
-	groupsSection(&sections.args, "Arguments", len(args),
+	groupsSection(&sections.args, &sections.ungroupedArgs, &sections.groupedArgs, "Arguments", len(args),
 		func(i int) string { return headingOf(help, args[i].Key) },
 		func(w *strings.Builder, i int) {
 			a := args[i]
@@ -208,7 +208,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		}
 		annotations(w, h, true)
 	}
-	groupsSection(&sections.flags, "Flags", len(own),
+	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Flags", len(own),
 		func(i int) string {
 			if own[i].supplied != "" {
 				return ""
@@ -219,7 +219,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	// After the command's own, and under a heading that says where they came
 	// from: a global belongs to the program, not to this command, and a reader
 	// should be able to see that.
-	groupsSection(&sections.flags, "Global flags", len(inherited),
+	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Global flags", len(inherited),
 		func(int) string { return "" },
 		func(w *strings.Builder, i int) { entry(w, inherited[i]) })
 	if meta != nil && meta.FlattenHelp {
@@ -412,7 +412,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 
 // groupsSection writes one section per heading, unheaded first, in the order the
 // headings first appear.
-func groupsSection(out *strings.Builder, defaultTitle string, n int,
+func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string, n int,
 	headingOf func(int) string, writeItem func(*strings.Builder, int)) {
 
 	if n == 0 {
@@ -433,15 +433,22 @@ func groupsSection(out *strings.Builder, defaultTitle string, n int,
 	})
 
 	for _, heading := range headings {
+		var section strings.Builder
 		title := heading
 		if title == "" {
 			title = defaultTitle
 		}
-		out.WriteString("\n" + title + ":\n")
+		section.WriteString("\n" + title + ":\n")
 		for i := 0; i < n; i++ {
 			if headingOf(i) == heading {
-				writeItem(out, i)
+				writeItem(&section, i)
 			}
+		}
+		out.WriteString(section.String())
+		if heading == "" && ungrouped != nil {
+			ungrouped.WriteString(section.String())
+		} else if heading != "" && grouped != nil {
+			grouped.WriteString(section.String())
 		}
 	}
 }

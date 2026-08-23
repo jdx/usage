@@ -3932,11 +3932,22 @@ pub(crate) fn string_value(meta: &Meta) -> syn::Result<String> {
 ///
 /// The same closed vocabulary `usage_argv::help::SECTIONS` renders and the KDL parser accepts,
 /// repeated rather than imported: a proc-macro crate cannot depend on the crate its output calls
-/// into, and the list is six words. What keeps the copies together is
+/// into. What keeps the copies together is
 /// `conformance/tests/help_template.rs`, which renders a page from a template naming every one of
 /// them — a section this copy had lost would refuse that fixture at compile time, and one it had
 /// gained would render as literal braces.
-const HELP_SECTIONS: [&str; 6] = ["about", "usage", "commands", "args", "flags", "after_help"];
+const HELP_SECTIONS: [&str; 10] = [
+    "about",
+    "usage",
+    "commands",
+    "args",
+    "flags",
+    "grouped_args",
+    "ungrouped_args",
+    "grouped_flags",
+    "ungrouped_flags",
+    "after_help",
+];
 
 /// Whether every `{{…}}` in a template names a section.
 fn check_help_template(template: &str) -> Result<(), String> {

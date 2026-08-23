@@ -55,7 +55,7 @@ otherwise generated from its flags, arguments, and subcommands.
 
 ## Laying out help
 
-`help_template` controls the order of the six pre-rendered sections in every
+`help_template` controls the order of the ten pre-rendered sections in every
 help page:
 
 ```kdl
@@ -63,8 +63,12 @@ help_template "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}\n
 ```
 
 The supported placeholders are `about`, `usage`, `commands`, `args`, `flags`,
-and `after_help`. A placeholder outside that closed vocabulary is rejected
-when the spec is parsed. A template may omit a section or add literal text.
+`grouped_args`, `ungrouped_args`, `grouped_flags`, `ungrouped_flags`, and
+`after_help`. `args` and `flags` contain their complete sections for backwards
+compatibility; the grouped and ungrouped forms expose the same content in smaller
+pieces when a port needs to interleave it. Ungrouped flags include inherited global
+flags. A placeholder outside that closed vocabulary is rejected when the spec is
+parsed. A template may omit a section or add literal text.
 
 ## Root command policy
 

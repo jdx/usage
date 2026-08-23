@@ -137,7 +137,9 @@ help_template "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{{commands}}"
 ```
 
 A template is placed on the root and lays out every page in the CLI, subcommands included. It
-holds six named sections and nothing else:
+holds ten named sections and nothing else. `args` and `flags` retain the complete sections used by
+existing templates; their grouped and ungrouped variants expose the same content in smaller pieces
+when a port needs to interleave them:
 
 | section          | what it covers                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------ |
@@ -146,6 +148,10 @@ holds six named sections and nothing else:
 | `{{commands}}`   | the subcommand list — or, under `flatten_help`, the subcommands' own bodies          |
 | `{{args}}`       | every argument group, each under its heading                                         |
 | `{{flags}}`      | this command's flag groups, then the global flags it inherits                        |
+| `{{grouped_args}}` | arguments with a declared help heading                                             |
+| `{{ungrouped_args}}` | arguments under the default `Arguments` heading                                  |
+| `{{grouped_flags}}` | flags with a declared help heading                                                |
+| `{{ungrouped_flags}}` | flags under `Flags`, plus inherited global flags                                 |
 | `{{after_help}}` | the Examples section, `after_help`, and the author and licence a long page ends with |
 
 Reorder them, leave them out, or put text of your own around them. Two rules make that
@@ -163,6 +169,15 @@ predictable:
 
 The template applies to the terminal help page. Markdown, manpages, and JSON keep their own
 structure.
+
+For example, a CLI migrating from a renderer that put named option groups before positionals and
+ordinary options after them can preserve that order without recreating help text itself:
+
+```rust
+#[usage(
+    help_template = "{{grouped_flags}}\n\n{{ungrouped_args}}\n\n{{ungrouped_flags}}"
+)]
+```
 
 #### Coming from clap
 

@@ -45,8 +45,23 @@ const INLINE_LIMIT: usize = 2;
 /// | `commands`     | the subcommand list, or the flattened bodies under `flatten_help`     |
 /// | `args`         | every argument group, each under its heading                          |
 /// | `flags`        | this command's flag groups, then the globals it inherits             |
+/// | `grouped_args` | arguments with a declared help heading                               |
+/// | `ungrouped_args` | arguments under the default `Arguments` heading                    |
+/// | `grouped_flags` | flags with a declared help heading                                  |
+/// | `ungrouped_flags` | flags under `Flags`, plus inherited global flags                   |
 /// | `after_help`   | examples, `after_help`, and the author/license footer on a long page  |
-pub const SECTIONS: [&str; 6] = ["about", "usage", "commands", "args", "flags", "after_help"];
+pub const SECTIONS: [&str; 10] = [
+    "about",
+    "usage",
+    "commands",
+    "args",
+    "flags",
+    "grouped_args",
+    "ungrouped_args",
+    "grouped_flags",
+    "ungrouped_flags",
+    "after_help",
+];
 
 /// The first placeholder in a template that names no section, if there is one.
 ///
@@ -91,6 +106,10 @@ struct Sections {
     commands: String,
     args: String,
     flags: String,
+    grouped_args: String,
+    ungrouped_args: String,
+    grouped_flags: String,
+    ungrouped_flags: String,
     flattened: String,
     after_help: String,
 }
@@ -136,6 +155,10 @@ impl Sections {
             }
             "args" => self.args.trim().to_string(),
             "flags" => self.flags.trim().to_string(),
+            "grouped_args" => self.grouped_args.trim().to_string(),
+            "ungrouped_args" => self.ungrouped_args.trim().to_string(),
+            "grouped_flags" => self.grouped_flags.trim().to_string(),
+            "ungrouped_flags" => self.ungrouped_flags.trim().to_string(),
             "after_help" => self.after_help.trim().to_string(),
             _ => return None,
         })
@@ -1118,8 +1141,10 @@ fn short_help_with(
         .map(|a| arg_usage(a).chars().count())
         .max()
         .unwrap_or(0);
-    groups_section(
+    split_groups_section(
         &mut sections.args,
+        &mut sections.ungrouped_args,
+        &mut sections.grouped_args,
         "Arguments",
         args.iter().copied(),
         |a| a.help_heading,
@@ -1221,8 +1246,10 @@ fn short_help_with(
             deprecation.as_deref(),
         );
     };
-    groups_section(
+    split_groups_section(
         &mut sections.flags,
+        &mut sections.ungrouped_flags,
+        &mut sections.grouped_flags,
         "Flags",
         own.iter().copied(),
         |f| flag_help_heading(meta, f),
@@ -1231,8 +1258,10 @@ fn short_help_with(
     // After the command's own, and under a heading that says where they came from: `--config`
     // belongs to the program, not to this command, and a reader should be able to see that.
     // The text is precomputed, since a spelling a descendant claimed is left out of it.
-    groups_section(
+    split_groups_section(
         &mut sections.flags,
+        &mut sections.ungrouped_flags,
+        &mut sections.grouped_flags,
         "Global flags",
         inherited.iter(),
         |_| None,
@@ -1527,9 +1556,12 @@ fn flatten_site_heading<'a>(
     None
 }
 
-/// One section per heading, unheaded first, in the order the headings first appear.
-fn groups_section<'m, T: 'm>(
+/// One section per heading, unheaded first, while also keeping the named and default groups
+/// available to a template.
+fn split_groups_section<'m, T: 'm>(
     out: &mut String,
+    ungrouped: &mut String,
+    grouped: &mut String,
     default_title: &str,
     items: impl Iterator<Item = &'m T> + Clone,
     heading_of: impl Fn(&T) -> Option<&str>,
@@ -1547,9 +1579,15 @@ fn groups_section<'m, T: 'm>(
     headings.sort_by_key(|h| h.is_some());
 
     for heading in headings {
-        let _ = writeln!(out, "\n{}:", heading.unwrap_or(default_title));
+        let mut section = String::new();
+        let _ = writeln!(section, "\n{}:", heading.unwrap_or(default_title));
         for item in items.clone().filter(|i| heading_of(i) == heading) {
-            write_item(out, item);
+            write_item(&mut section, item);
+        }
+        out.push_str(&section);
+        match heading {
+            Some(_) => grouped.push_str(&section),
+            None => ungrouped.push_str(&section),
         }
     }
 }
@@ -1839,8 +1877,10 @@ fn long_help_with(
         .map(|a| arg_usage(a).chars().count())
         .max()
         .unwrap_or(0);
-    groups_section(
+    split_groups_section(
         &mut sections.args,
+        &mut sections.ungrouped_args,
+        &mut sections.grouped_args,
         "Arguments",
         args.iter().copied(),
         |a| a.help_heading,
@@ -1877,8 +1917,10 @@ fn long_help_with(
         .chain(inherited.iter().map(|(_, u)| u.chars().count()))
         .max()
         .unwrap_or(0);
-    groups_section(
+    split_groups_section(
         &mut sections.flags,
+        &mut sections.ungrouped_flags,
+        &mut sections.grouped_flags,
         "Flags",
         own.iter().copied(),
         |f| flag_help_heading(meta, f),
@@ -1911,8 +1953,10 @@ fn long_help_with(
     // belongs to the program, not to this command, and a reader should be able to see that.
     // Not grouped by `help_heading` — an ancestor's headings describe that command's page, and
     // borrowing them here would put a section title on flags that are only visiting.
-    groups_section(
+    split_groups_section(
         &mut sections.flags,
+        &mut sections.ungrouped_flags,
+        &mut sections.grouped_flags,
         "Global flags",
         inherited.iter(),
         |_| None,
