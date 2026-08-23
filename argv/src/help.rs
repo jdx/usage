@@ -272,6 +272,181 @@ impl Style {
     fn literal(self, text: &str) -> String {
         self.wrap("36", text)
     }
+
+    /// Render the small Markdown vocabulary accepted in help prose.
+    ///
+    /// Plain output deliberately keeps the source spelling: generated artifacts and pipes
+    /// remain byte-for-byte compatible, while a terminal can turn the same familiar syntax
+    /// into presentation. This is inline prose, not a Markdown document — lists, headings and
+    /// links belong to the help page's existing structure.
+    fn inline(self, text: &str) -> String {
+        if !self.coloured {
+            return text.to_string();
+        }
+        styled_inline(text, None)
+    }
+}
+
+/// Markdown-like emphasis in author-written help.
+///
+/// Kept deliberately small and dependency-free: help is cold-path code, but the renderer is a
+/// foundational crate and pulling a document parser into every adopter for four inline spans
+/// would be disproportionate. Delimiters must close on the same line; an unmatched delimiter
+/// is ordinary text.
+fn styled_inline(text: &str, parent: Option<&str>) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut at = 0;
+    let mut allow_run_remainder = false;
+    while at < text.len() {
+        let rest = &text[at..];
+
+        // Markdown escapes are useful in prose that genuinely means `*`, `_`, `~`, or `` ` ``.
+        if let Some(escaped) = rest
+            .strip_prefix('\\')
+            .and_then(|after| after.chars().next())
+        {
+            if matches!(escaped, '*' | '_' | '~' | '`' | '\\') {
+                out.push(escaped);
+                at += 1 + escaped.len_utf8();
+                allow_run_remainder = false;
+                continue;
+            }
+        }
+
+        let span = [
+            ("***", "1;3", "22;23", false, true),
+            ("___", "1;3", "22;23", true, true),
+            ("**", "1", "22", false, true),
+            ("__", "1", "22", true, true),
+            ("~~", "9", "29", false, true),
+            ("*", "3", "23", false, true),
+            ("_", "3", "23", true, true),
+            ("`", "36", "39", false, false),
+        ]
+        .into_iter()
+        .find_map(|(delimiter, open, close, word_boundary, recurse)| {
+            rest.strip_prefix(delimiter)?;
+            let marker = delimiter.chars().next().expect("a delimiter has a marker");
+            let previous = text[..at].chars().next_back();
+            // Do not reinterpret part of a delimiter run when the longer form was rejected.
+            // In particular, neither underscore in `word__word__` may become an italic opener.
+            if (previous == Some(marker) && !allow_run_remainder)
+                || (delimiter.len() == 1 && rest[delimiter.len()..].starts_with(marker))
+            {
+                return None;
+            }
+            if word_boundary && previous.is_some_and(char::is_alphanumeric) {
+                return None;
+            }
+            let content_start = at + delimiter.len();
+            let (end, after) = closing_delimiter(text, content_start, delimiter, word_boundary, 0)?;
+            Some((delimiter, open, close, recurse, content_start, end, after))
+        });
+
+        if let Some((delimiter, open, close, recurse, content_start, end, after)) = span {
+            out.push_str("\u{1b}[");
+            out.push_str(open);
+            out.push('m');
+            if recurse {
+                out.push_str(&styled_inline(&text[content_start..end], Some(open)));
+            } else {
+                out.push_str(&text[content_start..end]);
+            }
+            out.push_str("\u{1b}[");
+            out.push_str(close);
+            out.push('m');
+            if let Some(parent) = parent {
+                out.push_str("\u{1b}[");
+                out.push_str(parent);
+                out.push('m');
+            }
+            let marker = delimiter.chars().next().expect("a delimiter has a marker");
+            allow_run_remainder =
+                text[after..].starts_with(marker) && text[..after].ends_with(marker);
+            at = after;
+            continue;
+        }
+
+        let ch = rest.chars().next().expect("at is on a character boundary");
+        out.push(ch);
+        at += ch.len_utf8();
+        allow_run_remainder = false;
+    }
+    out
+}
+
+/// Find a span's close while stepping over valid spans of another width.
+///
+/// Italic, bold, and combined spans may nest within one another. Combined closing runs such as
+/// the final `***` in `*italic and **bold***` are shared: two markers close bold and the last
+/// closes italic. `reserve` tells a nested search how many markers its parent still needs from
+/// such a run.
+fn closing_delimiter(
+    text: &str,
+    content_start: usize,
+    delimiter: &str,
+    word_boundary: bool,
+    reserve: usize,
+) -> Option<(usize, usize)> {
+    let marker = delimiter.chars().next()?;
+    let width = delimiter.len();
+    let mut search_at = content_start;
+
+    while let Some(found) = text[search_at..].find(marker) {
+        let run_start = search_at + found;
+        let run_len = text[run_start..]
+            .chars()
+            .take_while(|ch| *ch == marker)
+            .count();
+        let run_end = run_start + run_len;
+        let escaped = text[..run_start]
+            .chars()
+            .rev()
+            .take_while(|ch| *ch == '\\')
+            .count()
+            % 2
+            == 1;
+        if escaped {
+            // A backslash escapes one marker, not its whole run. The rest may still close the
+            // span: `*italic \**` is an escaped literal star followed by the italic close.
+            search_at = run_start + marker.len_utf8();
+            continue;
+        }
+
+        let nested_width = match (run_len, marker) {
+            (1..=3, '*' | '_') if run_len != width => run_len,
+            _ => 0,
+        };
+        if nested_width != 0 {
+            let nested = &text[run_start..run_start + nested_width];
+            if let Some((_, after)) =
+                closing_delimiter(text, run_start + nested_width, nested, marker == '_', width)
+            {
+                search_at = after;
+                continue;
+            }
+        }
+
+        if run_len >= width {
+            let after = run_start + width;
+            let left_in_run = run_end - after;
+            let leaves_parent_close = left_in_run == 0 || left_in_run >= reserve;
+            let boundary_ok = !word_boundary
+                || !text[after..]
+                    .chars()
+                    .next()
+                    .is_some_and(char::is_alphanumeric);
+            if run_start > content_start
+                && !text[content_start..run_start].trim().is_empty()
+                && leaves_parent_close
+                && boundary_ok
+            {
+                return Some((run_start, after));
+            }
+        }
+        search_at = run_end;
+    }
+    None
 }
 
 fn styled_flag_usage(usage: &str, style: Style) -> String {
@@ -446,7 +621,16 @@ fn styled_help(
                         .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
                 })
             });
-            out.push_str(styled.as_deref().unwrap_or(body));
+            // Examples are shell source, where paired backticks are command substitution rather
+            // than prose markup. Every other non-structural line may contain author emphasis;
+            // option and argument spellings are harmless because intraword underscores do not
+            // open spans and unmatched shell globs remain literal.
+            let body = styled.as_deref().unwrap_or(body);
+            if body.trim_start().starts_with("$ ") {
+                out.push_str(body);
+            } else {
+                out.push_str(&style.inline(body));
+            }
         }
         out.push_str(newline);
     }
@@ -2966,7 +3150,7 @@ mod style_tests {
     use super::{
         commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
         inline_environment_notes, long_help, render_view_at_styled, styled_flag_usage, styled_help,
-        Shown, Style,
+        styled_inline, Shown, Style,
     };
     use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
     use crate::{ArgAction, Command, Flag};
@@ -3306,6 +3490,105 @@ mod style_tests {
         assert_eq!(
             styled_flag_usage("--color[=WHEN]", Style::COLOURED),
             "\u{1b}[36m--color\u{1b}[0m[=WHEN]"
+        );
+    }
+
+    #[test]
+    fn coloured_help_renders_inline_markdown_emphasis() {
+        let page = "Use **force** for *all* files, _including_hidden_, `--literally`, and ~~never~~ this.\n  --dry_run  Keep snake_case and an unmatched * glob\n\nExamples:\n    $ echo `date`\n";
+        let coloured = styled_help(page, Style::COLOURED, &[], &[], &[]);
+
+        assert!(
+            coloured.contains("\u{1b}[1mforce\u{1b}[22m"),
+            "{coloured:?}"
+        );
+        assert!(coloured.contains("\u{1b}[3mall\u{1b}[23m"), "{coloured:?}");
+        assert!(
+            coloured.contains("\u{1b}[3mincluding_hidden\u{1b}[23m"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains("\u{1b}[36m--literally\u{1b}[39m"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains("\u{1b}[9mnever\u{1b}[29m"),
+            "{coloured:?}"
+        );
+        assert!(coloured.contains("--dry_run  Keep snake_case and an unmatched * glob"));
+        assert!(coloured.contains("    $ echo `date`"));
+        assert!(!coloured.contains("**force**"));
+    }
+
+    #[test]
+    fn inline_emphasis_nests_and_can_be_escaped() {
+        assert_eq!(
+            styled_inline("**bold and *italic*** plus \\*literal\\*", None),
+            "\u{1b}[1mbold and \u{1b}[3mitalic\u{1b}[23m\u{1b}[1m\u{1b}[22m plus *literal*"
+        );
+        assert_eq!(
+            styled_inline("*italic and **bold***", None),
+            "\u{1b}[3mitalic and \u{1b}[1mbold\u{1b}[22m\u{1b}[3m\u{1b}[23m"
+        );
+        assert_eq!(
+            styled_inline("_italic and __bold___", None),
+            "\u{1b}[3mitalic and \u{1b}[1mbold\u{1b}[22m\u{1b}[3m\u{1b}[23m"
+        );
+    }
+
+    #[test]
+    fn intraword_underscore_runs_remain_literal() {
+        assert_eq!(
+            styled_inline("foo__bar__ foo___bar___ baz_qux", None),
+            "foo__bar__ foo___bar___ baz_qux"
+        );
+    }
+
+    #[test]
+    fn an_escape_skips_one_closing_marker() {
+        assert_eq!(
+            styled_inline("*italic \\**", None),
+            "\u{1b}[3mitalic *\u{1b}[23m"
+        );
+        assert_eq!(
+            styled_inline("**bold \\***", None),
+            "\u{1b}[1mbold *\u{1b}[22m"
+        );
+    }
+
+    #[test]
+    fn a_shared_delimiter_run_is_bold_and_italic() {
+        assert_eq!(
+            styled_inline("***combined***", None),
+            "\u{1b}[1;3mcombined\u{1b}[22;23m"
+        );
+        assert_eq!(
+            styled_inline("___combined___", None),
+            "\u{1b}[1;3mcombined\u{1b}[22;23m"
+        );
+    }
+
+    #[test]
+    fn combined_emphasis_can_nest_in_single_emphasis() {
+        assert_eq!(
+            styled_inline("*italic ***combined*** tail*", None),
+            "\u{1b}[3mitalic \u{1b}[1;3mcombined\u{1b}[22;23m\u{1b}[3m tail\u{1b}[23m"
+        );
+        assert_eq!(
+            styled_inline("**bold ***combined*** tail**", None),
+            "\u{1b}[1mbold \u{1b}[1;3mcombined\u{1b}[22;23m\u{1b}[1m tail\u{1b}[22m"
+        );
+    }
+
+    #[test]
+    fn a_closing_run_remainder_can_open_an_adjacent_span() {
+        assert_eq!(
+            styled_inline("*italic***bold**", None),
+            "\u{1b}[3mitalic\u{1b}[23m\u{1b}[1mbold\u{1b}[22m"
+        );
+        assert_eq!(
+            styled_inline("**bold***italic*", None),
+            "\u{1b}[1mbold\u{1b}[22m\u{1b}[3mitalic\u{1b}[23m"
         );
     }
 
