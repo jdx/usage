@@ -677,6 +677,18 @@ pub fn report(spec: &Spec<'_>, argv: &[&std::ffi::OsStr], error: &Error<'_, '_>)
     }
 }
 
+fn view_argv<'a>(
+    argv: &'a [&'a std::ffi::OsStr],
+    view: &'a ViewMeta<'_>,
+) -> (Vec<&'a std::ffi::OsStr>, usize) {
+    let words = argv.get(1..).unwrap_or_default();
+    let root_depth = view.root.split_ascii_whitespace().count();
+    let mut rewritten = Vec::with_capacity(words.len() + root_depth);
+    rewritten.extend(view.root.split_ascii_whitespace().map(std::ffi::OsStr::new));
+    rewritten.extend_from_slice(words);
+    (rewritten, root_depth)
+}
+
 /// Describe a parse outcome through a spec-declared executable view.
 ///
 /// `argv` is the original full argv, including the view executable as argv0. Locations address
@@ -687,11 +699,7 @@ pub fn report_view<'a>(
     error: &Error<'_, '_>,
     view: &'a ViewMeta<'a>,
 ) -> Report {
-    let words = argv.get(1..).unwrap_or_default();
-    let root_depth = view.root.split_ascii_whitespace().count();
-    let mut rewritten = Vec::with_capacity(words.len() + root_depth);
-    rewritten.extend(view.root.split_ascii_whitespace().map(std::ffi::OsStr::new));
-    rewritten.extend_from_slice(words);
+    let (rewritten, root_depth) = view_argv(argv, view);
     let location = location(spec, &rewritten, error, Some(view)).and_then(|span| {
         (span.index >= root_depth).then_some(ArgvSpan {
             index: span.index - root_depth + 1,
@@ -765,11 +773,7 @@ pub fn render_view<'a>(
     style: Style,
     view: &'a ViewMeta<'a>,
 ) -> String {
-    let words = argv.get(1..).unwrap_or_default();
-    let mut rewritten =
-        Vec::with_capacity(words.len() + view.root.split_ascii_whitespace().count());
-    rewritten.extend(view.root.split_ascii_whitespace().map(std::ffi::OsStr::new));
-    rewritten.extend_from_slice(words);
+    let (rewritten, _) = view_argv(argv, view);
     render_inner(spec, &rewritten, error, style, Some(view))
 }
 
@@ -1396,6 +1400,7 @@ mod tests {
         let owned = [
             std::ffi::OsString::from("use"),
             std::ffi::OsString::from("--jobs"),
+            std::ffi::OsString::from("4"),
             std::ffi::OsString::from("--jobs"),
         ];
         let argv = owned
@@ -1406,7 +1411,7 @@ mod tests {
         assert_eq!(
             report(&SPEC, &argv, &error).location,
             Some(ArgvSpan {
-                index: 1,
+                index: 3,
                 start: 0,
                 end: 6,
             })
