@@ -252,6 +252,9 @@ impl<'a> App<'a> {
     }
 
     /// The answer to a parsed request, before it is written the way a shell reads it.
+    ///
+    /// For a caller holding a [`Split`] rather than a shell's argv, build the request with
+    /// [`CompletionRequest::for_split`].
     pub async fn complete_request(self, request: &CompletionRequest) -> Completions<'static> {
         let host = self.catalog.host_app();
         let split = host.effective_split(&request.split);
@@ -273,14 +276,6 @@ impl<'a> App<'a> {
             },
             Some(index) => self.complete_plugin(&position, index, &split),
         }
-    }
-
-    /// Complete an already split command line without rendering a shell protocol.
-    pub fn complete(self, split: &Split) -> Completions<'static> {
-        // Overlays may be async; this half is for callers that registered none, so polling a
-        // future that never suspends is enough to get at the answer.
-        let request = CompletionRequest::for_split(split.clone());
-        pollster(self.complete_request(&request))
     }
 
     /// Add the runtime commands catalogued beneath the command the cursor is at.
@@ -411,23 +406,7 @@ fn own(answer: Completions<'_>) -> Completions<'static> {
     }
 }
 
-/// Drive a future that never suspends.
-///
-/// Everything here is synchronous; the async signature exists because a host's *registered*
-/// completers may not be, and this half of the surface is for callers that registered none.
-fn pollster<T>(future: impl std::future::Future<Output = T>) -> T {
-    use std::pin::pin;
-    use std::task::{Context, Poll, Waker};
-    let mut future = pin!(future);
-    match future
-        .as_mut()
-        .poll(&mut Context::from_waker(Waker::noop()))
-    {
-        Poll::Ready(value) => value,
-        Poll::Pending => unreachable!("a completion with no registered callbacks cannot suspend"),
-    }
-}
-
+/// The command a space-separated path names, static or runtime alike.
 fn find_command<'a>(spec: &'a Spec, path: &str) -> Option<&'a usage_parser::SpecCommand> {
     let mut command = &spec.cmd;
     for component in path.split_ascii_whitespace() {
