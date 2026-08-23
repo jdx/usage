@@ -112,15 +112,66 @@ else:
 sys.exit(1)
 "#;
 
+#[cfg(windows)]
+const FAKE_CLI_RS: &str = r##"
+use std::env;
+use std::io::{self, Write};
+
+fn main() {
+    let args: Vec<String> = env::args().skip(1).collect();
+    let format = args
+        .iter()
+        .position(|arg| arg == "--format")
+        .and_then(|i| args.get(i + 1))
+        .map(String::as_str)
+        .or_else(|| args.iter().any(|arg| arg == "--json").then_some("json"))
+        .unwrap_or("human");
+
+    for _ in 0..200 {
+        eprintln!("noise {}", "x".repeat(200));
+    }
+    match format {
+        "jsonl" => {
+            for i in 0..5 {
+                println!(r#"{{"n": {i}}}"#);
+                io::stdout().flush().unwrap();
+            }
+        }
+        "json" => println!(r#"{{"ok": false}}"#),
+        _ => println!("2 checks failed"),
+    }
+    std::process::exit(1);
+}
+"##;
+
 fn write_fake_cli(dir: &Path) -> std::path::PathBuf {
-    let path = dir.join("fakecli");
-    fs::write(&path, FAKE_CLI).unwrap();
-    #[cfg(unix)]
+    #[cfg(windows)]
+    {
+        let source = dir.join("fakecli.rs");
+        let path = dir.join("fakecli.exe");
+        fs::write(&source, FAKE_CLI_RS).unwrap();
+        let compiled = Command::new("rustc")
+            .arg(&source)
+            .arg("-o")
+            .arg(&path)
+            .output()
+            .expect("Failed to compile the Windows fake CLI");
+        assert!(
+            compiled.status.success(),
+            "Failed to compile the Windows fake CLI:\n{}",
+            String::from_utf8_lossy(&compiled.stderr)
+        );
+        path
+    }
+    #[cfg(not(windows))]
     {
         use std::os::unix::fs::PermissionsExt;
+
+        let path = dir.join("fakecli");
+        fs::write(&path, FAKE_CLI).unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+        path
     }
-    path
 }
 
 fn write_sdk_to_dir(output: &SdkOutput, dir: &Path) {
