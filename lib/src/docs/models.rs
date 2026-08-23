@@ -424,6 +424,7 @@ fn group_by_heading<T: Clone>(
 #[derive(Debug, Default, Serialize, Clone)]
 pub struct SpecOutput {
     pub name: String,
+    pub media_type: Option<String>,
     pub framing: String,
     pub streaming: bool,
     pub default: bool,
@@ -436,6 +437,7 @@ impl SpecOutput {
     fn from(output: &crate::SpecOutput, cmd: &crate::SpecCommand) -> Self {
         Self {
             name: output.name.clone(),
+            media_type: output.media_type.clone(),
             framing: output.framing.as_str().to_string(),
             streaming: output.framing.is_streaming(),
             default: output.default,

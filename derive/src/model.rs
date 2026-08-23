@@ -253,9 +253,11 @@ pub struct ViewDecl {
     pub globals: Vec<String>,
 }
 
-/// One `output("json", framing = "json", schema_from = Report)` declaration.
+/// One `output("json", media_type = "application/json", framing = "json")` declaration.
 pub struct OutputDecl {
     pub name: String,
+    /// An IANA media type such as `application/json` or `application/xml`.
+    pub media_type: Option<String>,
     /// Written as the spec spells it — `text`, `json`, `jsonl` — and checked here so a
     /// typo is a compile error rather than something usage-lib rejects later.
     pub framing: String,
@@ -4481,10 +4483,11 @@ fn view_decl(meta: &Meta) -> syn::Result<ViewDecl> {
     })
 }
 
-/// `output("json", framing = "json", help = "…", default, schema_from = Report)`
+/// `output("json", media_type = "application/json", framing = "json", help = "…")`
 ///
-/// The leading string is the token a user types; `framing` is the wire format a consumer
-/// reads. They are separate on purpose — see `lib/src/spec/output.rs`.
+/// The leading string is the token a user types; `media_type` identifies the content and
+/// `framing` describes the stream. They are separate on purpose — see
+/// `lib/src/spec/output.rs`.
 fn output_decl(meta: &Meta) -> syn::Result<OutputDecl> {
     let Meta::List(list) = meta else {
         return Err(syn::Error::new_spanned(
@@ -4496,6 +4499,7 @@ fn output_decl(meta: &Meta) -> syn::Result<OutputDecl> {
         let name: syn::LitStr = input.parse()?;
         let mut output = OutputDecl {
             name: name.value(),
+            media_type: None,
             framing: "text".to_string(),
             help: None,
             default: false,
@@ -4550,6 +4554,7 @@ fn output_decl(meta: &Meta) -> syn::Result<OutputDecl> {
                             }
                             output.framing = framing;
                         }
+                        "media_type" => output.media_type = Some(value.value()),
                         "help" => output.help = Some(value.value()),
                         "select" => output.select = Some(value.value()),
                         "schema" => output.schema = Some(SchemaSource::Literal(value.value())),
@@ -4558,7 +4563,7 @@ fn output_decl(meta: &Meta) -> syn::Result<OutputDecl> {
                                 property,
                                 format!(
                                     "unknown output property `{other}`; an output takes \
-                                     `framing`, `help`, `select`, `schema`, `schema_from`, \
+                                     `media_type`, `framing`, `help`, `select`, `schema`, `schema_from`, \
                                      `schema_fn`, and bare `default` and `hide`"
                                 ),
                             ));
@@ -6950,7 +6955,7 @@ mod tests {
         let parsed = cli(r#"
             #[usage(
                 output("human", default, help = "A table"),
-                output("ndjson", framing = "jsonl"),
+                output("ndjson", media_type = "application/x-ndjson", framing = "jsonl"),
                 select = "--format"
             )]
             struct Ex {
@@ -6965,6 +6970,10 @@ mod tests {
         assert_eq!(parsed.outputs[0].help.as_deref(), Some("A table"));
         // aube's spelling, hk's contract.
         assert_eq!(parsed.outputs[1].name, "ndjson");
+        assert_eq!(
+            parsed.outputs[1].media_type.as_deref(),
+            Some("application/x-ndjson")
+        );
         assert_eq!(parsed.outputs[1].framing, "jsonl");
         assert_eq!(parsed.select.as_deref(), Some("--format"));
     }

@@ -83,7 +83,7 @@ Takes a while.
     }
     arg <tool> help="the tool to install"
     output human help="a progress log" default=#true
-    output json framing=json {
+    output json media_type="application/json" framing=json {
         schema #"""
 {
   "type": "object"

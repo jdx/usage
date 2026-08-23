@@ -199,6 +199,7 @@ static INSTALL_META: CommandMeta = CommandMeta {
         },
         OutputMeta {
             name: "json",
+            media_type: Some("application/json"),
             framing: Framing::Json,
             schema: Some("{\n  \"type\": \"object\"\n}"),
             ..OutputMeta::EMPTY

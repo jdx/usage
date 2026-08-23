@@ -8,7 +8,7 @@ cmd "check" {
   flag "--format <FORMAT>" help="Output format"
 
   output "human" default=#true help="Human-readable report"
-  output "json" framing="json" help="One report object" {
+  output "json" media_type="application/json" framing="json" help="One report object" {
     schema #"""
     {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -19,6 +19,7 @@ cmd "check" {
     """#
   }
   output "jsonl" framing="jsonl" help="One event per line"
+  output "checkstyle" media_type="application/xml" help="Checkstyle report"
   select "--format"
 
   exit_code 0 "all checks passed"
@@ -26,8 +27,9 @@ cmd "check" {
 }
 ```
 
-`output`'s first argument is the value a user types. `framing` is the wire contract a
-consumer reads:
+`output`'s first argument is the value a user types. `media_type` identifies the content
+using an IANA media type such as `application/json` or `application/xml`. `framing` is the
+stream contract a consumer reads:
 
 | Framing | Meaning                                            |
 | ------- | -------------------------------------------------- |
@@ -35,13 +37,16 @@ consumer reads:
 | `json`  | One JSON document, read to end of stream           |
 | `jsonl` | One JSON document per line, consumed incrementally |
 
-The name and framing are deliberately separate. An output named `ndjson` can declare
+The name, media type, and framing are deliberately separate. XML can use the default `text`
+framing because it is one document read to end of stream, while JSON Lines uses `jsonl`
+framing because it contains independently consumable records. An output named `ndjson` can declare
 `framing="jsonl"`, allowing consumers to treat equivalent formats alike without knowing each
 CLI's spelling.
 
-An output also accepts `help`, `default=#true`, and `hide=#true`. At most one effective output
-may be the default. `schema` is carried verbatim, so it can use any JSON Schema draft and can
-contain references that another tool resolves.
+An output also accepts `help`, `default=#true`, and `hide=#true`. The media type is optional and
+is not inferred from either the output name or framing. At most one effective output may be the
+default. `schema` is carried verbatim, so it can use any JSON Schema draft and can contain
+references that another tool resolves.
 
 For a schema kept next to the spec, name its file instead of embedding it:
 
@@ -109,7 +114,8 @@ Typed Rust declarations use the same vocabulary:
 #[derive(usage::Args)]
 #[usage(
     output("human", default, help = "Human-readable report"),
-    output("json", framing = "json", schema_from = Report),
+    output("json", media_type = "application/json", framing = "json", schema_from = Report),
+    output("checkstyle", media_type = "application/xml"),
     exit_code(0, "all checks passed"),
     exit_code(1, "a check failed"),
 )]

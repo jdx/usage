@@ -3934,6 +3934,7 @@ fn output_tokens(cli: &Cli) -> OutputTokens {
         .enumerate()
         .map(|(i, output)| {
             let name = &output.name;
+            let media_type = option_str(output.media_type.as_deref());
             let framing = match output.framing.as_str() {
                 "json" => quote!(usage_argv::spec::Framing::Json),
                 "jsonl" => quote!(usage_argv::spec::Framing::Jsonl),
@@ -3977,6 +3978,7 @@ fn output_tokens(cli: &Cli) -> OutputTokens {
             quote! {
                 usage_argv::spec::OutputMeta {
                     name: #name,
+                    media_type: #media_type,
                     framing: #framing,
                     help: #help,
                     default: #default,

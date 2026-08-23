@@ -365,7 +365,8 @@ SDKs:
 #[derive(usage::Args)]
 #[usage(
     output("human", default, help = "A human-readable report"),
-    output("json", framing = "json", schema_from = Report),
+    output("json", media_type = "application/json", framing = "json", schema_from = Report),
+    output("checkstyle", media_type = "application/xml"),
     exit_code(0, "all checks passed"),
     exit_code(1, "a check failed"),
 )]
@@ -379,8 +380,9 @@ struct Check {
 `select` on a value-taking flag names it as the selector, and its choices are filled from the
 output names. A boolean flag that picks one output is named from the output instead —
 `output("json", framing = "json", select = "--json")` — and `select = "--format"` as a
-container attribute is the same thing spelled the way the KDL node is. An output also takes
-`hide`, and a schema comes from `schema = "…"`, `schema_from = Type` (via `schemars`), or
+container attribute is the same thing spelled the way the KDL node is. `media_type` identifies
+the content independently of `text`/`json`/`jsonl` stream framing. An output also takes `hide`,
+and a schema comes from `schema = "…"`, `schema_from = Type` (via `schemars`), or
 `schema_fn = path` where the function returns a `String`. Declared on the root `#[derive(Cli)]`
 struct, outputs and exit codes apply CLI-wide, and a command can refine what it inherits. The
 full model — framings, schema files, inheritance — is on the
