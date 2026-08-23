@@ -4,7 +4,7 @@
 
 **Usage**: `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
 
-**Version**: 6.1.0
+**Version**: 6.1.1
 
 **Repository**: https://github.com/jdx/usage
 
