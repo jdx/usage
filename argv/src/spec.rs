@@ -2946,6 +2946,42 @@ pub trait ValueEnum: Sized {
     fn from_choice(value: &str) -> Option<Self>;
 }
 
+/// Convert every repeated value of one [`ValueEnum`] field, reporting `name`
+/// for the first word that is not one of the declared values.
+///
+/// The shared body of what a generated `build` does per collecting enum field —
+/// monomorphized once per enum type rather than expanded once per field. The
+/// empty case is answered at the field for the reason [`crate::utf8_values`] gives.
+#[inline]
+pub fn choice_values<'t, 'v, T: ValueEnum>(
+    values: Vec<Vec<u8>>,
+    name: &'t str,
+) -> Result<Vec<T>, crate::Error<'t, 'v>> {
+    if values.is_empty() {
+        return Ok(Vec::new());
+    }
+    choice_values_given(values, name)
+}
+
+#[inline(never)]
+fn choice_values_given<'t, 'v, T: ValueEnum>(
+    values: Vec<Vec<u8>>,
+    name: &'t str,
+) -> Result<Vec<T>, crate::Error<'t, 'v>> {
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        let text = match String::from_utf8(value) {
+            Ok(text) => text,
+            Err(bad) => return Err(crate::invalid_utf8_value(name, bad)),
+        };
+        match T::from_choice(&text) {
+            Some(parsed) => out.push(parsed),
+            None => return Err(crate::invalid_choice_value(name, text)),
+        }
+    }
+    Ok(out)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChoiceMeta<'a> {
     pub value: &'a str,

@@ -4763,15 +4763,11 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
                 })
             }
             Shape::Many => {
-                let value = converted(quote!(__usage_value));
-                let collected = quote! {{
-                    let mut __usage_values =
-                        ::std::vec::Vec::with_capacity(partial.#ident.len());
-                    for __usage_value in partial.#ident {
-                        __usage_values.push(#value);
-                    }
-                    __usage_values
-                }};
+                // One shared loop in the runtime rather than one per field — the
+                // collecting fields were most of what a large `build` still held.
+                let collected = quote! {
+                    usage_argv::os_values(partial.#ident, #name)?
+                };
                 if field.optional_collection {
                     let given = format_ident!("__given_{}", ident);
                     let defaulted = !field.default.is_empty();
@@ -4864,21 +4860,16 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
             })
         }
         Shape::Many => {
-            let one = converted(quote!(__usage_value));
-            // Built by hand rather than with `collect`, so the error can carry the value
-            // that failed rather than only that one did.
-            // A `Vec<String>` is moved whole. Rebuilding it element by element allocated a
-            // second `Vec` to hold what the first already held, which is one allocation per
-            // collecting field — and mise's commands collect a lot.
-            // Built by hand rather than with `collect`, so the error can carry the value
-            // that failed rather than only that one did.
-            let collected = quote! {{
-                let mut __usage_values = ::std::vec::Vec::with_capacity(partial.#ident.len());
-                for __usage_value in partial.#ident {
-                    __usage_values.push(#one);
-                }
-                __usage_values
-            }};
+            // One shared loop in the runtime rather than one per field — the collecting
+            // fields were most of what a large `build` still held. Each helper converts
+            // element by element so the error carries the value that failed.
+            let collected = if field.value_enum {
+                quote!(usage_argv::spec::choice_values::<#ty>(partial.#ident, #name)?)
+            } else if is_std_string {
+                quote!(usage_argv::utf8_values(partial.#ident, #name)?)
+            } else {
+                quote!(usage_argv::parsed_values::<#ty>(partial.#ident, #name)?)
+            };
             if field.optional_collection {
                 let given = format_ident!("__given_{}", ident);
                 // A declared default is a value, so a field that has one is never `None`. It
