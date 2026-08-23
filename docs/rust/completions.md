@@ -101,7 +101,7 @@ Where each shell keeps a user's own scripts, and whether it finds one without be
 | Shell      | Directory                                                                                     | Loads by itself            |
 | ---------- | --------------------------------------------------------------------------------------------- | -------------------------- |
 | bash       | `$BASH_COMPLETION_USER_DIR/completions`, else `$XDG_DATA_HOME/bash-completion/completions`    | yes, via bash-completion   |
-| Elvish     | `$XDG_CONFIG_HOME/elvish/completions`                                                     | no — needs sourcing        |
+| Elvish     | `$XDG_CONFIG_HOME/elvish/completions`                                                         | no — needs sourcing        |
 | fish       | `$XDG_CONFIG_HOME/fish/completions`                                                           | yes                        |
 | nushell    | `$NU_VENDOR_AUTOLOAD_DIR`, else the nushell config directory                                  | only in a vendor directory |
 | zsh        | `$XDG_DATA_HOME/zsh/site-functions`, as `_<name>`                                             | no — needs `fpath+=`       |
