@@ -17,7 +17,7 @@
 //! Where the two disagree the difference is recorded, in the same spirit as the parser's
 //! corpus: usage-lib is the reference, and a divergence is a decision rather than an accident.
 
-use core::fmt::Write as _;
+use core::{cmp::Ordering, fmt::Write as _};
 
 use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
 use crate::Command;
@@ -390,7 +390,7 @@ fn help_structure(
 
     let mut flag_usages: Vec<String> = own.iter().map(|flag| column_usage(flag)).collect();
     flag_usages.extend(inherited.into_iter().map(|(_, usage)| usage));
-    flag_usages.sort_by_key(|usage| core::cmp::Reverse(usage.len()));
+    stable_insertion_sort_by(&mut flag_usages, |a, b| b.len().cmp(&a.len()));
 
     let mut synopsis = String::new();
     usage_section(&mut synopsis, spec, path, meta);
@@ -503,12 +503,15 @@ fn usage_line_with_subcommands(
     // what a user is invited to type.
     let flags: usize = meta.flags.iter().filter(|f| !f.hide).count();
     if flags > 0 {
-        let required = meta.flags.iter().any(|f| !f.hide && flag_demanded(f));
+        let required = meta
+            .flags
+            .iter()
+            .any(|f| !f.hide && flag_demanded_in(meta, f));
         if flags <= INLINE_LIMIT {
             for flag in meta.flags.iter().filter(|f| !f.hide) {
                 // A required flag is angled, like a required argument: the brackets are what
                 // say whether leaving it out is allowed.
-                let (open, close) = if flag_demanded(flag) {
+                let (open, close) = if flag_demanded_in(meta, flag) {
                     ('<', '>')
                 } else {
                     ('[', ']')
@@ -555,7 +558,7 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
         }
     }
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    visible.sort_by_key(|sub| sub.cmd.name);
+    stable_insertion_sort_by(&mut visible, |a, b| a.cmd.name.cmp(b.cmd.name));
     if meta.flatten_help && !visible.is_empty() {
         let mut lines = Vec::new();
         if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
@@ -784,6 +787,40 @@ fn append_flag_value(
 /// the parser fills when it is left out.
 fn flag_demanded(meta: &FlagMeta<'_>) -> bool {
     meta.required && meta.default.is_empty()
+}
+
+/// Whether a flag is required directly or is the only visible member of a required group.
+///
+/// An executable view can omit all but one member of a host group. The remaining flag then
+/// carries the group's requirement in its synopsis without changing the immutable metadata.
+fn flag_demanded_in(command: &CommandMeta<'_>, flag: &FlagMeta<'_>) -> bool {
+    flag_demanded(flag)
+        || command.groups.iter().any(|group| {
+            if !group.required {
+                return false;
+            }
+            let mut members = group.members.iter().filter_map(|selector| {
+                command
+                    .flags
+                    .iter()
+                    .find(|candidate| flag_matches_selector(candidate, selector))
+            });
+            members
+                .next()
+                .is_some_and(|member| core::ptr::eq(member.flag, flag.flag))
+                && members.next().is_none()
+        })
+}
+
+fn flag_matches_selector(flag: &FlagMeta<'_>, selector: &str) -> bool {
+    selector
+        .strip_prefix("--")
+        .is_some_and(|long| flag.flag.longs.contains(&long))
+        || selector
+            .strip_prefix('-')
+            .filter(|short| short.len() == 1)
+            .and_then(|short| short.as_bytes().first().copied())
+            .is_some_and(|short| flag.flag.shorts.contains(&short))
 }
 
 /// Whether an argument must be given, which is not quite what `required` says.
@@ -1087,7 +1124,7 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
             (usage_line(&sub_path, sub), *sub)
         })
         .collect();
-    lines.sort_by(|a, b| {
+    stable_insertion_sort_by(&mut lines, |a, b| {
         a.1.display_order
             .unwrap_or(999)
             .cmp(&b.1.display_order.unwrap_or(999))
@@ -1360,7 +1397,7 @@ fn groups_section<'m, T: 'm>(
             headings.push(heading);
         }
     }
-    headings.sort_by_key(|h| h.is_some());
+    unheaded_first(&mut headings);
 
     for heading in headings {
         let _ = writeln!(out, "\n{}:", heading.unwrap_or(default_title));
@@ -1371,34 +1408,62 @@ fn groups_section<'m, T: 'm>(
 }
 
 fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>]) {
-    items.sort_by_key(|item| {
-        item.display_order.unwrap_or_else(|| {
-            declared
-                .iter()
-                .position(|candidate| core::ptr::eq(candidate, *item))
-                .unwrap_or(usize::MAX)
-        })
+    stable_insertion_sort_by(items, |a, b| {
+        let item = *a;
+        let position = declared
+            .iter()
+            .position(|candidate| core::ptr::eq(candidate, item))
+            .unwrap_or(usize::MAX);
+        let a = (item.display_order.unwrap_or(position), position);
+        let item = *b;
+        let position = declared
+            .iter()
+            .position(|candidate| core::ptr::eq(candidate, item))
+            .unwrap_or(usize::MAX);
+        a.cmp(&(item.display_order.unwrap_or(position), position))
     });
 }
 
 fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a>]) {
-    items.sort_by_key(|item| {
-        item.display_order.unwrap_or_else(|| {
-            declared
-                .iter()
-                .position(|candidate| core::ptr::eq(candidate, *item))
-                .unwrap_or(usize::MAX)
-        })
+    stable_insertion_sort_by(items, |a, b| {
+        let item = *a;
+        let position = declared
+            .iter()
+            .position(|candidate| core::ptr::eq(candidate, item))
+            .unwrap_or(usize::MAX);
+        let a = (item.display_order.unwrap_or(position), position);
+        let item = *b;
+        let position = declared
+            .iter()
+            .position(|candidate| core::ptr::eq(candidate, item))
+            .unwrap_or(usize::MAX);
+        a.cmp(&(item.display_order.unwrap_or(position), position))
     });
 }
 
 fn order_commands(items: &mut Vec<&&CommandMeta<'_>>) {
-    items.sort_by(|a, b| {
+    stable_insertion_sort_by(items, |a, b| {
         a.display_order
             .unwrap_or(999)
             .cmp(&b.display_order.unwrap_or(999))
             .then_with(|| a.cmd.name.cmp(b.cmd.name))
     });
+}
+
+fn unheaded_first(headings: &mut [Option<&str>]) {
+    if let Some(index) = headings.iter().position(Option::is_none) {
+        headings[..=index].rotate_right(1);
+    }
+}
+
+fn stable_insertion_sort_by<T>(items: &mut [T], mut compare: impl FnMut(&T, &T) -> Ordering) {
+    for index in 1..items.len() {
+        let mut position = index;
+        while position > 0 && compare(&items[position], &items[position - 1]).is_lt() {
+            items.swap(position, position - 1);
+            position -= 1;
+        }
+    }
 }
 
 fn command_help_section<'a>(sub: &'a CommandMeta<'a>, default_title: &str) -> Option<&'a str> {
@@ -1991,7 +2056,7 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
             (usage_line(&sub_path, sub), *sub)
         })
         .collect();
-    lines.sort_by(|a, b| {
+    stable_insertion_sort_by(&mut lines, |a, b| {
         a.1.display_order
             .unwrap_or(999)
             .cmp(&b.1.display_order.unwrap_or(999))
@@ -2411,13 +2476,17 @@ fn own_and_global<'a>(
         .iter()
         .map(|(flag, _)| *flag as *const _)
         .collect();
-    inherited.sort_by_key(|(flag, _)| {
-        flag.display_order.unwrap_or_else(|| {
-            inherited_positions
-                .iter()
-                .position(|candidate| core::ptr::eq(*candidate, *flag as *const _))
-                .unwrap_or(usize::MAX)
-        })
+    stable_insertion_sort_by(&mut inherited, |a, b| {
+        let position = inherited_positions
+            .iter()
+            .position(|candidate| core::ptr::eq(*candidate, a.0 as *const _))
+            .unwrap_or(usize::MAX);
+        let a = (a.0.display_order.unwrap_or(position), position);
+        let position = inherited_positions
+            .iter()
+            .position(|candidate| core::ptr::eq(*candidate, b.0 as *const _))
+            .unwrap_or(usize::MAX);
+        a.cmp(&(b.0.display_order.unwrap_or(position), position))
     });
 
     // Last in the command's own section, which is where clap has them: they carry no
@@ -2868,18 +2937,8 @@ pub(crate) fn view_root_fields<'a>(
     promoted: &CommandMeta<'a>,
     view: &ViewMeta<'a>,
 ) -> (Vec<FlagMeta<'a>>, Vec<crate::spec::GroupMeta<'a>>) {
-    let mut flags = view_root_flags(spec, promoted, view);
+    let flags = view_root_flags(spec, promoted, view);
     let carried = flags.len().saturating_sub(promoted.flags.len());
-    let matches = |flag: &FlagMeta<'_>, selector: &str| {
-        selector
-            .strip_prefix("--")
-            .is_some_and(|long| flag.flag.longs.contains(&long))
-            || selector
-                .strip_prefix('-')
-                .filter(|short| short.len() == 1)
-                .and_then(|short| short.as_bytes().first().copied())
-                .is_some_and(|short| flag.flag.shorts.contains(&short))
-    };
     let mut groups = Vec::new();
     for group in spec.root.groups {
         let members: Vec<usize> = group
@@ -2888,11 +2947,11 @@ pub(crate) fn view_root_fields<'a>(
             .filter_map(|selector| {
                 flags[..carried]
                     .iter()
-                    .position(|flag| matches(flag, selector))
+                    .position(|flag| flag_matches_selector(flag, selector))
             })
             .collect();
         match members.as_slice() {
-            [only] if group.required => flags[*only].required = true,
+            [_] if group.required => groups.push(*group),
             [_, _, ..] => {
                 // Help and diagnostics only need the relationship and its requiredness; the
                 // parser continues to enforce the canonical group. Retaining the original
@@ -2937,7 +2996,10 @@ fn recursive_help<'a>(
 
         let current = *chain.last().expect("a recursive page has a command");
         let mut children: Vec<_> = current.subcommands.iter().filter(|cmd| !cmd.hide).collect();
-        children.sort_by_key(|cmd| (cmd.display_order.unwrap_or(999), cmd.cmd.name));
+        stable_insertion_sort_by(&mut children, |a, b| {
+            (a.display_order.unwrap_or(999), a.cmd.name)
+                .cmp(&(b.display_order.unwrap_or(999), b.cmd.name))
+        });
         for child in children {
             path.push(child.cmd.name);
             chain.push(child);
@@ -2968,7 +3030,9 @@ mod style_tests {
         inline_environment_notes, long_help, render_view_at_styled, styled_flag_usage, styled_help,
         Shown, Style,
     };
-    use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
+    use crate::spec::{
+        CommandMeta, FlagMeta, FlagMetaBehavior, FlagMetaExtra, FlagMetaRules, Spec, ViewMeta,
+    };
     use crate::{ArgAction, Command, Flag};
 
     #[test]
@@ -2981,8 +3045,11 @@ mod style_tests {
         };
         let meta = FlagMeta {
             flag: &flag,
-            value_name: Some("WHEN"),
-            value_optional: true,
+            behavior: &FlagMetaBehavior {
+                value_name: Some("WHEN"),
+                value_optional: true,
+                ..FlagMetaBehavior::EMPTY
+            },
             ..FlagMeta::EMPTY
         };
 
@@ -3045,8 +3112,16 @@ mod style_tests {
         let flag_meta = FlagMeta {
             flag: &flag,
             help: Some("Use the old mode"),
-            deprecated: Some("use --new"),
-            ..FlagMeta::EMPTY
+            behavior: &FlagMetaBehavior {
+                extra: &FlagMetaExtra {
+                    rules: &FlagMetaRules {
+                        deprecated: Some("use --new"),
+                        ..FlagMetaRules::EMPTY
+                    },
+                    ..FlagMetaExtra::EMPTY
+                },
+                ..FlagMetaBehavior::EMPTY
+            },
         };
         let sub_cmd = Command {
             name: "run",
@@ -3089,7 +3164,16 @@ mod style_tests {
         let flags = [
             FlagMeta {
                 flag: &old,
-                deprecated: Some("use --new"),
+                behavior: &FlagMetaBehavior {
+                    extra: &FlagMetaExtra {
+                        rules: &FlagMetaRules {
+                            deprecated: Some("use --new"),
+                            ..FlagMetaRules::EMPTY
+                        },
+                        ..FlagMetaExtra::EMPTY
+                    },
+                    ..FlagMetaBehavior::EMPTY
+                },
                 ..FlagMeta::EMPTY
             },
             FlagMeta {
@@ -3130,9 +3214,18 @@ mod style_tests {
         };
         let meta = FlagMeta {
             flag: &flag,
-            hide_env: true,
-            env_fallback: &["OLD_TOKEN"],
-            deprecated_env: &["LEGACY_TOKEN"],
+            behavior: &FlagMetaBehavior {
+                extra: &FlagMetaExtra {
+                    rules: &FlagMetaRules {
+                        hide_env: true,
+                        env_fallback: &["OLD_TOKEN"],
+                        deprecated_env: &["LEGACY_TOKEN"],
+                        ..FlagMetaRules::EMPTY
+                    },
+                    ..FlagMetaExtra::EMPTY
+                },
+                ..FlagMetaBehavior::EMPTY
+            },
             ..FlagMeta::EMPTY
         };
         let mut page = String::new();

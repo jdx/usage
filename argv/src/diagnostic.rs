@@ -236,7 +236,21 @@ fn nearest<'a>(typed: &str, candidates: impl Iterator<Item = &'a str>) -> Vec<&'
         .map(|candidate| (jaro(typed, candidate), candidate))
         .filter(|(score, _)| *score > 0.7)
         .collect();
-    scored.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1)));
+    // Error suggestions are a small cold-path list. Insertion sort keeps its stable order
+    // without instantiating the much larger general-purpose slice sorter for this tuple.
+    for index in 1..scored.len() {
+        let mut position = index;
+        while position > 0
+            && scored[position]
+                .0
+                .total_cmp(&scored[position - 1].0)
+                .then_with(|| scored[position].1.cmp(scored[position - 1].1))
+                .is_lt()
+        {
+            scored.swap(position, position - 1);
+            position -= 1;
+        }
+    }
     scored.dedup_by(|a, b| a.1 == b.1);
     scored.into_iter().map(|(_, candidate)| candidate).collect()
 }
@@ -863,7 +877,7 @@ fn render_inner<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::spec::{ArgMeta, FlagMeta};
+    use crate::spec::{ArgMeta, FlagMeta, FlagMetaBehavior};
     use crate::{Arg, Flag};
 
     static FORCE: Flag = Flag {
@@ -946,8 +960,10 @@ mod tests {
             FlagMeta {
                 flag: &JOBS,
                 help: Some("How many"),
-                value_name: Some("JOBS"),
-                ..FlagMeta::EMPTY
+                behavior: &FlagMetaBehavior {
+                    value_name: Some("JOBS"),
+                    ..FlagMetaBehavior::EMPTY
+                },
             },
         ],
         args: &[
@@ -1036,7 +1052,10 @@ mod tests {
             cmd: &ROOT,
             flags: &[FlagMeta {
                 flag: &FILE,
-                value_name: Some("PATH"),
+                behavior: &FlagMetaBehavior {
+                    value_name: Some("PATH"),
+                    ..FlagMetaBehavior::EMPTY
+                },
                 ..FlagMeta::EMPTY
             }],
             ..CommandMeta::EMPTY

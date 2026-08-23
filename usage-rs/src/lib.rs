@@ -22,6 +22,9 @@
 //! usage = { package = "usage-rs", version = "6", features = ["validation"] }
 //! ```
 //!
+//! During a staged clap migration, `clap-coexistence` lets both derive systems share a type.
+//! It ignores clap helper attributes and still reads the grammar only from `#[usage(...)]`.
+//!
 //! ```
 //! use usage_rs as usage;
 //! # #[cfg(feature = "spec")]

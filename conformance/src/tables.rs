@@ -27,7 +27,7 @@ use usage::spec::cmd::SpecExample;
 use usage::{Spec, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecFlag, SpecGroup};
 use usage_argv::spec::{
     ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf, Effect, Example, FlagMeta,
-    GroupMeta, RequiredIfEq, RequiresIf,
+    FlagMetaBehavior, FlagMetaExtra, FlagMetaRules, GroupMeta, RequiredIfEq, RequiresIf,
 };
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
@@ -358,45 +358,23 @@ fn flag_meta(
 ) -> FlagMeta<'static> {
     let arg = f.arg.as_ref();
     let choices = arg.and_then(|a| a.choices.as_ref());
-    FlagMeta {
-        flag: table,
+    let rules = Box::leak(Box::new(FlagMetaRules {
         hidden_shorts: bytes(&f.hidden_short_aliases),
         hidden_longs: strs(&f.hidden_aliases),
-        help: opt(&f.help),
-        long_help: opt(&f.help_long),
         deprecated: opt(&f.deprecated),
         deprecated_warn_at: opt(&f.deprecated_warn_at),
         deprecated_remove_at: opt(&f.deprecated_remove_at),
-        value_name: arg.map(|a| leak(&a.name)),
-        value_names: arg.map_or(&[], |a| strs(&a.value_names)),
-        // The value's own bracket bit, which is not the flag's — usage-lib renders a flag from
-        // two independent `required` bits and a spec can write either without the other. Folded
-        // with the value's own default the way usage-lib folds a positional's, so
-        // `arg "<n>" default="4"` inside a flag reads as optional; a default declared on the
-        // *flag* is a different statement and stays in `default` below.
-        value_optional: arg.is_some_and(|a| !a.required || !a.default.is_empty()),
-        env: opt(&f.env),
         env_fallback: strs(&f.env_fallback),
         deprecated_env: strs(&f.deprecated_env),
-        default: strs(&f.default),
-        accepted_choices: accepted_choices(choices),
-        choices: visible_choices(choices),
-        choice_aliases: choice_aliases(choices),
-        choice_details: choice_details(choices),
-        ignore_case: choices.is_some_and(|c| c.ignore_case),
         allow_unknown_choices: choices.is_some_and(|c| !c.strict),
         validate: arg.and_then(|a| a.validate.as_deref()).map(leak),
         validate_error: arg.and_then(|a| a.validate_error.as_deref()).map(leak),
-        required: f.required,
-        hide: f.hide,
         hide_default_value: f.hide_default_value,
         hide_env: f.hide_env,
         hide_env_values: f.hide_env_values,
         hide_possible_values: f.hide_possible_values,
         hide_short_help: f.hide_short_help,
         hide_long_help: f.hide_long_help,
-        count: f.count,
-        repeatable: f.var,
         // The separator as declared, a `char`: the metadata is the cold model and says what
         // the spec said, where the binding table beside it holds the byte binding counts by.
         delimiter: arg.and_then(|a| a.delimiter),
@@ -452,11 +430,44 @@ fn flag_meta(
         ),
         required_unless: strs(&f.required_unless),
         required_unless_all: strs(&f.required_unless_all),
+        effect: f.effect.map(effect),
+    }));
+    let extra = Box::leak(Box::new(FlagMetaExtra {
+        long_help: opt(&f.help_long),
+        value_names: arg.map_or(&[], |a| strs(&a.value_names)),
+        env: opt(&f.env),
+        default: strs(&f.default),
+        accepted_choices: accepted_choices(choices),
+        choices: visible_choices(choices),
+        choice_aliases: choice_aliases(choices),
+        choice_details: choice_details(choices),
+        ignore_case: choices.is_some_and(|c| c.ignore_case),
         help_heading: opt(&f.help_heading),
         display_order: f.display_order,
-        effect: f.effect.map(effect),
         complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
         complete: NO_COMPLETER,
+        rules,
+    }));
+    let behavior = Box::leak(Box::new(FlagMetaBehavior {
+        value_name: arg.map(|a| leak(&a.name)),
+        // The value's own bracket bit, which is not the flag's — usage-lib renders a flag from
+        // two independent `required` bits and a spec can write either without the other. Folded
+        // with the value's own default the way usage-lib folds a positional's, so
+        // `arg "<n>" default="4"` inside a flag reads as optional; a default declared on the
+        // *flag* is a different statement and stays in `default` below.
+        value_optional: arg.is_some_and(|a| !a.required || !a.default.is_empty()),
+        required: f.required,
+        hide: f.hide,
+        count: f.count,
+        repeatable: f.var,
+        extra,
+        ..FlagMetaBehavior::EMPTY
+    }));
+    FlagMeta {
+        flag: table,
+        help: opt(&f.help),
+        behavior,
+        ..FlagMeta::EMPTY
     }
 }
 

@@ -13,6 +13,11 @@ license = { workspace = true }
 [lib]
 proc-macro = true
 
+[features]
+# Ignore clap helper attributes when the same types derive both parser frameworks.
+# usage still reads only `#[usage(...)]`; this feature does not interpret clap metadata.
+clap-coexistence = []
+
 [package.metadata.release]
 shared-version = true
 release = true

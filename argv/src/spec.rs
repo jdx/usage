@@ -935,27 +935,47 @@ pub struct FlattenGroup<'a> {
 #[derive(Debug, Clone, Copy)]
 pub struct FlagMeta<'a> {
     pub flag: &'a Flag<'a>,
-    /// Explicit placement within its help section.
-    pub display_order: Option<usize>,
-    /// Short forms accepted by the parser but omitted from help and completion.
-    pub hidden_shorts: &'a [u8],
-    /// Long forms accepted by the parser but omitted from help and completion.
-    pub hidden_longs: &'a [&'a str],
     /// Short help, shown by `-h`.
     pub help: Option<&'a str>,
-    /// Long help, shown by `--help`.
-    pub long_help: Option<&'a str>,
-    /// Why this flag is deprecated, plus optional release milestones.
-    pub deprecated: Option<&'a str>,
-    pub deprecated_warn_at: Option<&'a str>,
-    pub deprecated_remove_at: Option<&'a str>,
+    /// Value and behavior metadata that is absent from Boolean flags.
+    pub behavior: &'a FlagMetaBehavior<'a>,
+}
+
+/// Value and behavior metadata that is absent from Boolean flags.
+///
+/// Keeping this behind a reference lets ordinary Boolean flags share one empty value
+/// instead of carrying a value placeholder, six booleans, and another reference in every
+/// generated table entry.
+#[derive(Debug, Clone, Copy)]
+pub struct FlagMetaBehavior<'a> {
     /// The placeholder for the flag's value, such as `n` in `--jobs <n>`.
     pub value_name: Option<&'a str>,
+    pub required: bool,
+    /// Whether the flag's value may be left off, as in `--bump` or `--bump 5`.
+    pub value_optional: bool,
+    pub hide: bool,
+    /// Whether repetition is counted rather than collected, as in `-vvv`.
+    pub count: bool,
+    /// Whether the flag may be given more than once. Distinct from
+    /// [`Flag::variadic`], which is one occurrence taking several values.
+    pub repeatable: bool,
+    /// Metadata that is absent from most flags.
+    pub extra: &'a FlagMetaExtra<'a>,
+}
+
+/// Uncommon flag metadata.
+///
+/// Keeping this behind a reference lets ordinary flags share one empty value instead of
+/// carrying pointer-sized empty slices and options in every generated table entry.
+#[derive(Debug, Clone, Copy)]
+pub struct FlagMetaExtra<'a> {
+    /// Explicit placement within its help section.
+    pub display_order: Option<usize>,
+    /// Long help, shown by `--help`.
+    pub long_help: Option<&'a str>,
     /// Ordered placeholders for one fixed-arity occurrence.
     pub value_names: &'a [&'a str],
     pub env: Option<&'a str>,
-    pub env_fallback: &'a [&'a str],
-    pub deprecated_env: &'a [&'a str],
     pub default: &'a [&'a str],
     /// Canonical choices plus aliases accepted by the value type.
     pub accepted_choices: &'a [&'a str],
@@ -965,29 +985,6 @@ pub struct FlagMeta<'a> {
     /// Per-canonical presentation metadata used when emitting a lossless spec.
     pub choice_details: &'a [ChoiceMeta<'a>],
     pub ignore_case: bool,
-    /// Accept values outside `choices` while retaining the list for help and completion.
-    pub allow_unknown_choices: bool,
-    /// Portable expr expression evaluated for each raw value.
-    pub validate: Option<&'a str>,
-    /// Message reported when validation returns false.
-    pub validate_error: Option<&'a str>,
-    pub required: bool,
-    /// Whether the flag's value may be left off, as in `--bump` or `--bump 5`.
-    ///
-    /// Help only, and deliberately: usage-lib's parser refuses a bare `--bump` exactly as it
-    /// refuses a bare `--port`, so this changes no binding — it changes the brackets, `[BUMP]`
-    /// rather than `<BUMP>`, which is what a spec's `arg "[BUMP]" required=#false` says. In
-    /// [`FlagMeta`] and not in [`Flag`] for that reason: a parse never reads it.
-    pub value_optional: bool,
-    pub hide: bool,
-    pub hide_default_value: bool,
-    pub hide_env: bool,
-    pub hide_env_values: bool,
-    pub hide_possible_values: bool,
-    pub hide_short_help: bool,
-    pub hide_long_help: bool,
-    /// Whether repetition is counted rather than collected, as in `-vvv`.
-    pub count: bool,
     /// What answers for this flag's value when a shell asks.
     ///
     /// The Rust counterpart of a spec's `run=`: it is written into the emitted KDL as a command
@@ -996,9 +993,41 @@ pub struct FlagMeta<'a> {
     pub complete: Option<Completer>,
     /// A built-in completion class such as `path` or `dir`.
     pub complete_type: Option<&'a str>,
-    /// Whether the flag may be given more than once. Distinct from
-    /// [`Flag::variadic`], which is one occurrence taking several values.
-    pub repeatable: bool,
+    /// Heading to list this flag under in help output. Presentational: it groups
+    /// a long flag list into sections and changes nothing about parsing.
+    pub help_heading: Option<&'a str>,
+    /// Rules and compatibility metadata that is absent from most value flags.
+    pub rules: &'a FlagMetaRules<'a>,
+}
+
+/// Uncommon rules and compatibility metadata for a flag.
+///
+/// This is separate from [`FlagMetaExtra`] so a flag with a default, choices, or long help
+/// does not also carry every relationship and compatibility field.
+#[derive(Debug, Clone, Copy)]
+pub struct FlagMetaRules<'a> {
+    /// Short forms accepted by the parser but omitted from help and completion.
+    pub hidden_shorts: &'a [u8],
+    /// Long forms accepted by the parser but omitted from help and completion.
+    pub hidden_longs: &'a [&'a str],
+    /// Why this flag is deprecated, plus optional release milestones.
+    pub deprecated: Option<&'a str>,
+    pub deprecated_warn_at: Option<&'a str>,
+    pub deprecated_remove_at: Option<&'a str>,
+    pub env_fallback: &'a [&'a str],
+    pub deprecated_env: &'a [&'a str],
+    /// Accept values outside `choices` while retaining the list for help and completion.
+    pub allow_unknown_choices: bool,
+    /// Portable expr expression evaluated for each raw value.
+    pub validate: Option<&'a str>,
+    /// Message reported when validation returns false.
+    pub validate_error: Option<&'a str>,
+    pub hide_default_value: bool,
+    pub hide_env: bool,
+    pub hide_env_values: bool,
+    pub hide_possible_values: bool,
+    pub hide_short_help: bool,
+    pub hide_long_help: bool,
     pub var_min: Option<usize>,
     pub var_max: Option<usize>,
     /// Bounds on values consumed by one occurrence, distinct from the
@@ -1041,51 +1070,94 @@ pub struct FlagMeta<'a> {
     pub required_unless: &'a [&'a str],
     /// All selectors must be present to make this unnecessary.
     pub required_unless_all: &'a [&'a str],
-    /// Heading to list this flag under in help output. Presentational: it groups
-    /// a long flag list into sections and changes nothing about parsing.
-    pub help_heading: Option<&'a str>,
     pub effect: Option<Effect>,
 }
 
 impl FlagMeta<'_> {
     /// Metadata for a flag with nothing declared, for struct update syntax.
     pub const EMPTY: FlagMeta<'static> = FlagMeta {
+        flag: &Flag::BOOL,
+        help: None,
+        behavior: &FlagMetaBehavior::EMPTY,
+    };
+}
+
+impl FlagMetaBehavior<'_> {
+    /// Value and behavior metadata with no declared values.
+    pub const EMPTY: FlagMetaBehavior<'static> = FlagMetaBehavior {
+        value_name: None,
+        required: false,
+        value_optional: false,
+        hide: false,
+        count: false,
+        repeatable: false,
+        extra: &FlagMetaExtra::EMPTY,
+    };
+}
+
+impl<'a> core::ops::Deref for FlagMeta<'a> {
+    type Target = FlagMetaBehavior<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        self.behavior
+    }
+}
+
+impl<'a> core::ops::Deref for FlagMetaBehavior<'a> {
+    type Target = FlagMetaExtra<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        self.extra
+    }
+}
+
+impl FlagMetaExtra<'_> {
+    /// Uncommon metadata with no declared values.
+    pub const EMPTY: FlagMetaExtra<'static> = FlagMetaExtra {
         complete: None,
         complete_type: None,
-        flag: &Flag::BOOL,
         display_order: None,
-        hidden_shorts: &[],
-        hidden_longs: &[],
-        help: None,
         long_help: None,
-        deprecated: None,
-        deprecated_warn_at: None,
-        deprecated_remove_at: None,
-        value_name: None,
         value_names: &[],
         env: None,
-        env_fallback: &[],
-        deprecated_env: &[],
         default: &[],
         accepted_choices: &[],
         choices: &[],
         choice_aliases: &[],
         choice_details: &[],
         ignore_case: false,
+        help_heading: None,
+        rules: &FlagMetaRules::EMPTY,
+    };
+}
+
+impl<'a> core::ops::Deref for FlagMetaExtra<'a> {
+    type Target = FlagMetaRules<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        self.rules
+    }
+}
+
+impl FlagMetaRules<'_> {
+    /// Uncommon rules and compatibility metadata with no declared values.
+    pub const EMPTY: FlagMetaRules<'static> = FlagMetaRules {
+        hidden_shorts: &[],
+        hidden_longs: &[],
+        deprecated: None,
+        deprecated_warn_at: None,
+        deprecated_remove_at: None,
+        env_fallback: &[],
+        deprecated_env: &[],
         allow_unknown_choices: false,
         validate: None,
         validate_error: None,
-        required: false,
-        value_optional: false,
-        hide: false,
         hide_default_value: false,
         hide_env: false,
         hide_env_values: false,
         hide_possible_values: false,
         hide_short_help: false,
         hide_long_help: false,
-        count: false,
-        repeatable: false,
         var_min: None,
         var_max: None,
         value_var_min: None,
@@ -1102,7 +1174,6 @@ impl FlagMeta<'_> {
         required_if_eq_all: &[],
         required_unless: &[],
         required_unless_all: &[],
-        help_heading: None,
         effect: None,
     };
 }
@@ -1633,6 +1704,7 @@ impl<'a> Flagsets<'a> {
 /// per-command overlays a view applies, and which flagsets exist. Passing them one by one had
 /// `write_command` and `write_body` at eight parameters each, most of them pass-through.
 struct Writing<'a, 'o> {
+    #[cfg_attr(not(feature = "complete"), allow(dead_code))]
     bin: &'a str,
     overlays: &'o [CommandOverlay<'o>],
     sets: Flagsets<'a>,
@@ -4303,11 +4375,28 @@ mod tests {
         assert_eq!(
             flag_forms(&FlagMeta {
                 flag: &F,
-                hidden_shorts: b"w",
-                hidden_longs: &["workers"],
+                behavior: &FlagMetaBehavior {
+                    extra: &FlagMetaExtra {
+                        rules: &FlagMetaRules {
+                            hidden_shorts: b"w",
+                            hidden_longs: &["workers"],
+                            ..FlagMetaRules::EMPTY
+                        },
+                        ..FlagMetaExtra::EMPTY
+                    },
+                    ..FlagMetaBehavior::EMPTY
+                },
                 ..FlagMeta::EMPTY
             }),
             "-j --jobs"
+        );
+    }
+
+    #[test]
+    fn ordinary_flag_metadata_stays_compact() {
+        assert!(
+            core::mem::size_of::<FlagMeta<'static>>() <= 4 * core::mem::size_of::<usize>(),
+            "ordinary Boolean flags must not carry value metadata inline"
         );
     }
 

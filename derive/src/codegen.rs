@@ -1118,6 +1118,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 root: &ROOT_META,
             };
 
+            #[allow(clippy::disallowed_macros)]
             impl #ident {
                 /// The parse tables for this CLI.
                 ///
@@ -2358,6 +2359,9 @@ fn completer_tokens(
 
 fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStream {
     let name = format_ident!("FLAG_META_{i}");
+    let behavior_name = format_ident!("FLAG_META_BEHAVIOR_{i}");
+    let extra_name = format_ident!("FLAG_META_EXTRA_{i}");
+    let rules_name = format_ident!("FLAG_META_RULES_{i}");
     let table = format_ident!("FLAG_{i}");
     let help = option_str(field.help.as_deref());
     let long_help = option_str(field.long_help.as_deref());
@@ -2487,63 +2491,165 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
         .effect
         .clone()
         .unwrap_or_else(|| quote!(::core::option::Option::None));
+    let has_rules = field.deprecated.is_some()
+        || field.deprecated_warn_at.is_some()
+        || field.deprecated_remove_at.is_some()
+        || !field.env_fallback.is_empty()
+        || !field.deprecated_env.is_empty()
+        || field.allow_unknown_choices
+        || field.validate.is_some()
+        || field.validate_error.is_some()
+        || field.hide_default_value
+        || field.hide_env
+        || field.hide_env_values
+        || field.hide_possible_values
+        || field.hide_short_help
+        || field.hide_long_help
+        || field.var_min.is_some()
+        || field.var_max.is_some()
+        || field.value_var_min.is_some()
+        || field.value_var_max.is_some()
+        || !field.overrides.is_empty()
+        || !field.conflicts.is_empty()
+        || field.delimiter.is_some()
+        || field.exclusive
+        || !field.requires.is_empty()
+        || !field.requires_if.is_empty()
+        || !field.default_if.is_empty()
+        || !field.required_if.is_empty()
+        || !field.required_if_eq.is_empty()
+        || !field.required_if_eq_all.is_empty()
+        || !field.required_unless.is_empty()
+        || !field.required_unless_all.is_empty()
+        || field.effect.is_some()
+        || !hidden_longs.is_empty();
+    let (rules_decl, rules) = if has_rules {
+        (
+            quote! {
+                pub static #rules_name: usage_argv::spec::FlagMetaRules =
+                    usage_argv::spec::FlagMetaRules {
+                        effect: #effect,
+                        deprecated: #deprecated,
+                        deprecated_warn_at: #deprecated_warn_at,
+                        deprecated_remove_at: #deprecated_remove_at,
+                        env_fallback: &[#(#env_fallback),*],
+                        deprecated_env: &[#(#deprecated_env),*],
+                        hide_default_value: #hide_default_value,
+                        hide_env: #hide_env,
+                        hide_env_values: #hide_env_values,
+                        hide_possible_values: #hide_possible_values,
+                        hide_short_help: #hide_short_help,
+                        hide_long_help: #hide_long_help,
+                        hidden_shorts: &[],
+                        hidden_longs: &[#(#hidden_longs),*],
+                        allow_unknown_choices: #allow_unknown_choices,
+                        validate: #validate,
+                        validate_error: #validate_error,
+                        var_min: #var_min,
+                        var_max: #var_max,
+                        value_var_min: #value_var_min,
+                        value_var_max: #value_var_max,
+                        overrides: &[#(#overrides),*],
+                        conflicts: &[#(#conflicts),*],
+                        requires: &[#(#requires),*],
+                        requires_if: &[#(#requires_if),*],
+                        default_if: &[#(#default_if),*],
+                        exclusive: #exclusive,
+                        delimiter: #delimiter,
+                        required_if: &[#(#required_if),*],
+                        required_if_eq: &[#(#required_if_eq),*],
+                        required_if_eq_all: &[#(#required_if_eq_all),*],
+                        required_unless: &[#(#required_unless),*],
+                        required_unless_all: &[#(#required_unless_all),*],
+                    };
+            },
+            quote!(&#rules_name),
+        )
+    } else {
+        (
+            TokenStream::new(),
+            quote!(&usage_argv::spec::FlagMetaRules::EMPTY),
+        )
+    };
+    let has_extra = field.display_order.is_some()
+        || field.long_help.is_some()
+        || !field.value_names.is_empty()
+        || field.env.is_some()
+        || !field.default.is_empty()
+        || field.value_enum
+        || !field.choices.is_empty()
+        || field.complete.is_some()
+        || field.complete_type.is_some()
+        || field.help_heading.is_some()
+        || has_rules;
+    let (extra_decl, extra) = if has_extra {
+        (
+            quote! {
+                pub static #extra_name: usage_argv::spec::FlagMetaExtra =
+                    usage_argv::spec::FlagMetaExtra {
+                        complete: #completer,
+                        complete_type: #complete_type,
+                        display_order: #display_order,
+                        long_help: #long_help,
+                        env: #env,
+                        default: #default,
+                        help_heading: #help_heading,
+                        value_names: &[#(#value_names),*],
+                        accepted_choices: #accepted_choices,
+                        choices: #choices,
+                        choice_aliases: #choice_aliases,
+                        choice_details: #choice_details,
+                        ignore_case: #ignore_case,
+                        rules: #rules,
+                    };
+            },
+            quote!(&#extra_name),
+        )
+    } else {
+        (
+            TokenStream::new(),
+            quote!(&usage_argv::spec::FlagMetaExtra::EMPTY),
+        )
+    };
+    let has_behavior = field.value_name.is_some()
+        || required
+        || value_optional
+        || hide
+        || count
+        || repeatable
+        || has_extra;
+    let (behavior_decl, behavior) = if has_behavior {
+        (
+            quote! {
+                pub static #behavior_name: usage_argv::spec::FlagMetaBehavior =
+                    usage_argv::spec::FlagMetaBehavior {
+                        value_name: #value_name,
+                        hide: #hide,
+                        count: #count,
+                        repeatable: #repeatable,
+                        required: #required,
+                        value_optional: #value_optional,
+                        extra: #extra,
+                        ..usage_argv::spec::FlagMetaBehavior::EMPTY
+                    };
+            },
+            quote!(&#behavior_name),
+        )
+    } else {
+        (
+            TokenStream::new(),
+            quote!(&usage_argv::spec::FlagMetaBehavior::EMPTY),
+        )
+    };
     quote! {
         #completer_decl
+        #rules_decl
+        #extra_decl
+        #behavior_decl
         pub static #name: usage_argv::spec::FlagMeta = usage_argv::spec::FlagMeta {
-            effect: #effect,
-            complete: #completer,
-            complete_type: #complete_type,
             flag: &#table,
-            display_order: #display_order,
             help: #help,
-            long_help: #long_help,
-            deprecated: #deprecated,
-            deprecated_warn_at: #deprecated_warn_at,
-            deprecated_remove_at: #deprecated_remove_at,
-            env: #env,
-            env_fallback: &[#(#env_fallback),*],
-            deprecated_env: &[#(#deprecated_env),*],
-            default: #default,
-            help_heading: #help_heading,
-            value_name: #value_name,
-            value_names: &[#(#value_names),*],
-            hide: #hide,
-            hide_default_value: #hide_default_value,
-            hide_env: #hide_env,
-            hide_env_values: #hide_env_values,
-            hide_possible_values: #hide_possible_values,
-            hide_short_help: #hide_short_help,
-            hide_long_help: #hide_long_help,
-            count: #count,
-            repeatable: #repeatable,
-            hidden_shorts: &[],
-            hidden_longs: &[#(#hidden_longs),*],
-            required: #required,
-            value_optional: #value_optional,
-            accepted_choices: #accepted_choices,
-            choices: #choices,
-            choice_aliases: #choice_aliases,
-            choice_details: #choice_details,
-            ignore_case: #ignore_case,
-            allow_unknown_choices: #allow_unknown_choices,
-            validate: #validate,
-            validate_error: #validate_error,
-            var_min: #var_min,
-            var_max: #var_max,
-            value_var_min: #value_var_min,
-            value_var_max: #value_var_max,
-            overrides: &[#(#overrides),*],
-            conflicts: &[#(#conflicts),*],
-            requires: &[#(#requires),*],
-            requires_if: &[#(#requires_if),*],
-            default_if: &[#(#default_if),*],
-            exclusive: #exclusive,
-            delimiter: #delimiter,
-            required_if: &[#(#required_if),*],
-            required_if_eq: &[#(#required_if_eq),*],
-            required_if_eq_all: &[#(#required_if_eq_all),*],
-            required_unless: &[#(#required_unless),*],
-            required_unless_all: &[#(#required_unless_all),*],
+            behavior: #behavior,
             ..usage_argv::spec::FlagMeta::EMPTY
         };
     }
@@ -4224,6 +4330,7 @@ fn partial_struct(cli: &Cli) -> TokenStream {
     // declared default has to be in place before parsing begins and nested state has
     // its own starting values.
     quote! {
+        #[allow(clippy::pub_underscore_fields)]
         pub struct Partial {
             pub __usage_view: ::std::option::Option<
                 &'static usage_argv::spec::ViewMeta<'static>,
@@ -6346,6 +6453,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
 
 /// The enum a `subcommand` field holds: its variants' tables, and the trait a
 /// parent uses to route events into them.
+#[cfg(not(feature = "clap-coexistence"))]
 fn rewrite_inline_arg_meta(meta: &mut syn::Meta) {
     if matches!(meta, syn::Meta::Path(path) if path.is_ident("arg")) {
         *meta = syn::parse_quote!(usage(arg));
@@ -6378,9 +6486,14 @@ fn rewrite_inline_arg_meta(meta: &mut syn::Meta) {
 
 fn inline_field_meta(meta: &syn::Meta) -> Option<syn::Meta> {
     if meta.path().is_ident("arg") {
-        let mut meta = meta.clone();
-        rewrite_inline_arg_meta(&mut meta);
-        return Some(meta);
+        #[cfg(feature = "clap-coexistence")]
+        return None;
+        #[cfg(not(feature = "clap-coexistence"))]
+        {
+            let mut meta = meta.clone();
+            rewrite_inline_arg_meta(&mut meta);
+            return Some(meta);
+        }
     }
     if meta.path().is_ident("usage") || meta.path().is_ident("doc") || meta.path().is_ident("cfg") {
         return Some(meta.clone());
@@ -9762,13 +9875,33 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let help = option_str(member.help.as_deref());
         let long_help = option_str(member.long_help.as_deref());
         let hide = member.hide;
+        let extra = if member.long_help.is_some() {
+            quote! {
+                &usage_argv::spec::FlagMetaExtra {
+                    long_help: #long_help,
+                    ..usage_argv::spec::FlagMetaExtra::EMPTY
+                }
+            }
+        } else {
+            quote!(&usage_argv::spec::FlagMetaExtra::EMPTY)
+        };
+        let behavior = if member.long_help.is_some() || hide {
+            quote! {
+                &usage_argv::spec::FlagMetaBehavior {
+                    hide: #hide,
+                    extra: #extra,
+                    ..usage_argv::spec::FlagMetaBehavior::EMPTY
+                }
+            }
+        } else {
+            quote!(&usage_argv::spec::FlagMetaBehavior::EMPTY)
+        };
         quote! {
             #(#cfg)*
             usage_argv::spec::FlagMeta {
                 flag: &#table,
                 help: #help,
-                long_help: #long_help,
-                hide: #hide,
+                behavior: #behavior,
                 ..usage_argv::spec::FlagMeta::EMPTY
             }
         }

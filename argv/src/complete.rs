@@ -560,14 +560,17 @@ impl<'a> SpecView<'a> {
     }
 }
 
-struct Request {
-    shell: Shell,
-    split: Split,
-    candidates_for: Option<String>,
+/// A parsed hidden completion protocol request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Request {
+    pub shell: Shell,
+    pub split: Split,
+    pub candidates_for: Option<String>,
 }
 
 impl Request {
-    fn parse(argv: &[OsString]) -> Option<Self> {
+    /// Parse `__complete_word__` arguments. Returns `None` for a normal command.
+    pub fn parse(argv: &[OsString]) -> Option<Self> {
         if argv.first()?.to_str()? != "__complete_word__" {
             return None;
         }
@@ -1813,6 +1816,7 @@ fn floor_char_boundary(s: &str, index: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::spec::{FlagMetaBehavior, FlagMetaExtra};
     use std::task::{Context, Poll, Waker};
 
     fn run_ready<F: Future>(future: F) -> F::Output {
@@ -1823,6 +1827,30 @@ mod tests {
             Poll::Ready(output) => output,
             Poll::Pending => panic!("test completion unexpectedly needed an executor wakeup"),
         }
+    }
+
+    #[test]
+    fn public_request_parser_recognizes_only_the_hidden_completion_protocol() {
+        assert!(Request::parse(&[OsString::from("run")]).is_none());
+
+        let request = Request::parse(&[
+            OsString::from("__complete_word__"),
+            OsString::from("--shell"),
+            OsString::from("zsh"),
+            OsString::from("--line"),
+            OsString::from("vp run bu"),
+            OsString::from("--cursor"),
+            OsString::from("9"),
+            OsString::from("--candidates"),
+            OsString::from("task"),
+        ])
+        .expect("completion protocol request");
+
+        assert_eq!(request.shell, Shell::Zsh);
+        assert_eq!(request.candidates_for.as_deref(), Some("task"));
+        assert_eq!(request.split.words, ["vp", "run", "bu"]);
+        assert_eq!(request.split.cword, 2);
+        assert_eq!(request.split.prefix, "bu");
     }
 
     /// A small tree with the shapes that make a cursor's position non-obvious: a global flag,
@@ -2001,14 +2029,19 @@ mod tests {
         flags: &[FlagMeta {
             flag: &JOBS,
             help: Some("How many at once"),
-            choices: &["1", "2", "4"],
-            choice_details: &[crate::spec::ChoiceMeta {
-                value: "2",
-                help: Some("Two workers"),
-                hide: false,
-                aliases: &[],
-            }],
-            ..FlagMeta::EMPTY
+            behavior: &FlagMetaBehavior {
+                extra: &FlagMetaExtra {
+                    choices: &["1", "2", "4"],
+                    choice_details: &[crate::spec::ChoiceMeta {
+                        value: "2",
+                        help: Some("Two workers"),
+                        hide: false,
+                        aliases: &[],
+                    }],
+                    ..FlagMetaExtra::EMPTY
+                },
+                ..FlagMetaBehavior::EMPTY
+            },
         }],
         args: &[ArgMeta {
             arg: &TOOL,
@@ -2067,14 +2100,24 @@ mod tests {
             FlagMeta {
                 flag: &ONLY,
                 help: Some("Just this one"),
-                complete: Some(tools),
-                ..FlagMeta::EMPTY
+                behavior: &FlagMetaBehavior {
+                    extra: &FlagMetaExtra {
+                        complete: Some(tools),
+                        ..FlagMetaExtra::EMPTY
+                    },
+                    ..FlagMetaBehavior::EMPTY
+                },
             },
             FlagMeta {
                 flag: &SOURCE,
                 help: Some("Where from"),
-                complete: Some(sources),
-                ..FlagMeta::EMPTY
+                behavior: &FlagMetaBehavior {
+                    extra: &FlagMetaExtra {
+                        complete: Some(sources),
+                        ..FlagMetaExtra::EMPTY
+                    },
+                    ..FlagMetaBehavior::EMPTY
+                },
             },
         ],
         args: &[ArgMeta {
@@ -2110,8 +2153,10 @@ mod tests {
         flags: &[FlagMeta {
             flag: &FROM,
             help: Some("Read from"),
-            value_name: Some("FILE"),
-            ..FlagMeta::EMPTY
+            behavior: &FlagMetaBehavior {
+                value_name: Some("FILE"),
+                ..FlagMetaBehavior::EMPTY
+            },
         }],
         args: &[ArgMeta {
             arg: &PIPED,
@@ -2126,8 +2171,10 @@ mod tests {
         flags: &[FlagMeta {
             flag: &INTO,
             help: Some("Where to write it"),
-            value_name: Some("DIR"),
-            ..FlagMeta::EMPTY
+            behavior: &FlagMetaBehavior {
+                value_name: Some("DIR"),
+                ..FlagMetaBehavior::EMPTY
+            },
         }],
         args: &[ArgMeta {
             arg: &FILE,

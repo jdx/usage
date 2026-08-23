@@ -68,6 +68,16 @@ clap_derive itself. The opt-in `validation` feature is the exception; it adds `e
 Rename every helper attribute when replacing the derive. usage rejects clap's helper namespaces
 and points the compile error to `#[usage(...)]`.
 
+For a staged migration, enable `clap-coexistence` while the same type derives both frameworks:
+
+```toml
+usage = { package = "usage-rs", version = "6", features = ["clap-coexistence"] }
+```
+
+This feature ignores `#[command]`, `#[arg]`, `#[value]`, and `#[group]` attributes. It does not
+translate them. Add the equivalent `#[usage(...)]` attributes, compare both parsers, and remove
+the feature with the clap derives.
+
 ```rust
 use usage::{Cli, Subcommands};
 

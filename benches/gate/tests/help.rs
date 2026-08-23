@@ -265,7 +265,15 @@ fn the_text_around_a_page_is_rendered_where_the_reference_puts_it() {
         flags: &[usage_argv::spec::FlagMeta {
             flag: &DEEP,
             help: Some("Dig"),
-            long_help: Some("Dig deeper.\n\n    indented\n    \nand a line of only spaces above"),
+            behavior: &usage_argv::spec::FlagMetaBehavior {
+                extra: &usage_argv::spec::FlagMetaExtra {
+                    long_help: Some(
+                        "Dig deeper.\n\n    indented\n    \nand a line of only spaces above",
+                    ),
+                    ..usage_argv::spec::FlagMetaExtra::EMPTY
+                },
+                ..usage_argv::spec::FlagMetaBehavior::EMPTY
+            },
             ..usage_argv::spec::FlagMeta::EMPTY
         }],
         examples: &[usage_argv::spec::Example {

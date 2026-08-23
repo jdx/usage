@@ -3839,6 +3839,12 @@ pub(crate) fn attrs(attrs: &[Attribute]) -> impl Iterator<Item = &Attribute> {
     attrs.iter().filter(|a| a.path().is_ident("usage"))
 }
 
+#[cfg(feature = "clap-coexistence")]
+fn reject_legacy_attrs(_input: &DeriveInput) -> syn::Result<()> {
+    Ok(())
+}
+
+#[cfg(not(feature = "clap-coexistence"))]
 fn reject_legacy_attrs(input: &DeriveInput) -> syn::Result<()> {
     let mut error: Option<syn::Error> = None;
     let mut inspect = |attrs: &[Attribute]| {
@@ -5999,6 +6005,7 @@ mod tests {
         assert!(err.contains("#[usage(flatten)]"), "unhelpful: {err}");
     }
 
+    #[cfg(not(feature = "clap-coexistence"))]
     #[test]
     fn clap_attribute_names_are_rejected_at_every_location() {
         for name in ["arg", "command", "value", "group"] {
@@ -6023,6 +6030,7 @@ mod tests {
         }
     }
 
+    #[cfg(not(feature = "clap-coexistence"))]
     #[test]
     fn every_declaration_derive_rejects_legacy_namespaces() {
         let input: DeriveInput = syn::parse_str(
@@ -6075,6 +6083,70 @@ mod tests {
             Err(error) => error.into_compile_error().to_string(),
         };
         assert!(group_err.contains("`#[arg(...)]`"), "{group_err}");
+    }
+
+    #[cfg(feature = "clap-coexistence")]
+    #[test]
+    fn clap_attributes_can_coexist_without_defining_the_usage_grammar() {
+        let parsed = cli(r#"
+            #[command(name = "clap-name")]
+            #[usage(name = "usage-name")]
+            struct Ex {
+                #[arg(long = "clap-value")]
+                #[usage(long = "usage-value")]
+                value: bool,
+            }
+        "#)
+        .expect("clap helper attributes are ignored in coexistence mode");
+
+        assert_eq!(parsed.name, "usage-name");
+        let Kind::Flag { longs, .. } = &parsed.fields[0].kind else {
+            panic!("the usage attribute must define a flag");
+        };
+        assert_eq!(longs, &["usage-value"]);
+
+        let subcommands: DeriveInput = syn::parse_str(
+            r#"
+            enum Commands {
+                #[command(name = "clap-run")]
+                #[usage(name = "usage-run")]
+                Run {
+                    #[arg(long)]
+                    #[usage(long)]
+                    fast: bool,
+                },
+            }
+        "#,
+        )
+        .expect("valid Rust");
+        Subcommands::from_input(&subcommands)
+            .expect("subcommand and inline field clap attributes can coexist");
+
+        let values: DeriveInput = syn::parse_str(
+            r#"
+            #[value(rename_all = "snake_case")]
+            enum Mode {
+                #[value(name = "clap-fast")]
+                #[usage(name = "usage-fast")]
+                Fast,
+            }
+        "#,
+        )
+        .expect("valid Rust");
+        ValueEnum::from_input(&values).expect("value attributes can coexist");
+
+        let group: DeriveInput = syn::parse_str(
+            r#"
+            enum Format {
+                #[arg(long = "clap-json")]
+                #[usage(name = "usage-json")]
+                Json,
+                Yaml,
+            }
+        "#,
+        )
+        .expect("valid Rust");
+        ArgGroup::from_input(&group).expect("argument-group attributes can coexist");
     }
 
     #[test]

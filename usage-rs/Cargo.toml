@@ -24,6 +24,7 @@ usage-config = { workspace = true, optional = true }
 # `usage-argv` directly (no defaults).
 default = ["spec", "help", "diagnostics"]
 spec = ["usage-argv/spec", "dep:usage-derive"]
+clap-coexistence = ["usage-derive/clap-coexistence"]
 help = ["spec"]
 completions = ["spec", "usage-argv/complete", "usage-test?/completions"]
 # Kept as a spelling close to the runtime feature for low-level adopters.

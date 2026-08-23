@@ -84,6 +84,7 @@ available for low-level adopters that want a thinner surface:
 | `help`        |   ✅    | `-h` / `--help` page rendering                                                                           |
 | `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`                                                         |
 | `completions` |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)    |
+| `clap-coexistence` |     | Ignore clap helper attributes while both derive systems share a type during a staged migration          |
 | `validation`  |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions)) |
 | `test`        |         | `usage::test`: command output, parse, and help assertions (completion assertions want `completions` too) |
 | `config`      |         | The `usage::Config` derive and the resolver as `usage::config` ([Configuration](/rust/configuration))    |

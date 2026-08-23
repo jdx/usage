@@ -12,7 +12,10 @@
 //! than as a diff nobody reads.
 
 use usage::Spec as LibSpec;
-use usage_argv::spec::{ArgMeta, CommandMeta, Effect, Example, FlagMeta, Spec};
+use usage_argv::spec::{
+    ArgMeta, CommandMeta, Effect, Example, FlagMeta, FlagMetaBehavior, FlagMetaExtra,
+    FlagMetaRules, Spec,
+};
 use usage_argv::{Arg, Command, DoubleDash, Flag};
 
 static JOBS: Flag = Flag {
@@ -237,43 +240,76 @@ static ROOT_META: CommandMeta = CommandMeta {
         FlagMeta {
             flag: &JOBS,
             help: Some(r#"how many jobs, and a quote: ""#),
-            long_help: Some("More about jobs.\nOn two lines."),
-            value_name: Some("n"),
-            env: Some("EX_JOBS"),
-            default: &["4"],
-            help_heading: Some("Performance"),
+            behavior: &FlagMetaBehavior {
+                value_name: Some("n"),
+                extra: &FlagMetaExtra {
+                    long_help: Some("More about jobs.\nOn two lines."),
+                    env: Some("EX_JOBS"),
+                    default: &["4"],
+                    help_heading: Some("Performance"),
+                    ..FlagMetaExtra::EMPTY
+                },
+                ..FlagMetaBehavior::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
         FlagMeta {
             flag: &COLOR,
             help: Some("colorize output"),
-            default: &["true"],
+            behavior: &FlagMetaBehavior {
+                extra: &FlagMetaExtra {
+                    default: &["true"],
+                    ..FlagMetaExtra::EMPTY
+                },
+                ..FlagMetaBehavior::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
         FlagMeta {
             flag: &VERBOSE,
-            count: true,
-            hide: true,
+            behavior: &FlagMetaBehavior {
+                count: true,
+                hide: true,
+                ..FlagMetaBehavior::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
         FlagMeta {
             flag: &INCLUDE,
             help: Some("patterns to include"),
-            value_name: Some("pattern"),
-            repeatable: true,
-            var_min: Some(1),
-            var_max: Some(5),
-            overrides: &["--exclude"],
-            // One target, which the writer puts on the node as a property.
-            required_if: &["--verbose"],
+            behavior: &FlagMetaBehavior {
+                value_name: Some("pattern"),
+                repeatable: true,
+                extra: &FlagMetaExtra {
+                    rules: &FlagMetaRules {
+                        var_min: Some(1),
+                        var_max: Some(5),
+                        overrides: &["--exclude"],
+                        // One target, which the writer puts on the node as a property.
+                        required_if: &["--verbose"],
+                        ..FlagMetaRules::EMPTY
+                    },
+                    ..FlagMetaExtra::EMPTY
+                },
+                ..FlagMetaBehavior::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
         FlagMeta {
             flag: &SHELL,
-            required: true,
-            // Two of them, which cannot be written as repeated properties.
-            required_unless: &["--jobs", "--color"],
-            choices: &["bash", "zsh", "fish"],
+            behavior: &FlagMetaBehavior {
+                required: true,
+                extra: &FlagMetaExtra {
+                    // Two of them, which cannot be written as repeated properties.
+                    choices: &["bash", "zsh", "fish"],
+                    rules: &FlagMetaRules {
+                        required_unless: &["--jobs", "--color"],
+                        ..FlagMetaRules::EMPTY
+                    },
+                    ..FlagMetaExtra::EMPTY
+                },
+                ..FlagMetaBehavior::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
         // A flag that destroys something: the effect belongs on the flag, not
@@ -281,22 +317,40 @@ static ROOT_META: CommandMeta = CommandMeta {
         FlagMeta {
             flag: &PRUNE,
             help: Some("delete anything unused"),
-            // A control character, which KDL will not take literally. Help text
-            // really does contain these: ANSI-colored help has an escape in it.
-            long_help: Some("Deletes things.\u{1b}[0m Carefully."),
-            effect: Some(Effect::Destructive),
-            overrides: &["--keep", "--dry-run"],
-            conflicts: &["--force"],
+            behavior: &FlagMetaBehavior {
+                extra: &FlagMetaExtra {
+                    // A control character, which KDL will not take literally. Help text
+                    // really does contain these: ANSI-colored help has an escape in it.
+                    long_help: Some("Deletes things.\u{1b}[0m Carefully."),
+                    rules: &FlagMetaRules {
+                        effect: Some(Effect::Destructive),
+                        overrides: &["--keep", "--dry-run"],
+                        conflicts: &["--force"],
+                        ..FlagMetaRules::EMPTY
+                    },
+                    ..FlagMetaExtra::EMPTY
+                },
+                ..FlagMetaBehavior::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
         // More than one default, which cannot be written as a property. Neither can
         // more than one conflict or condition, so they go in the same child block.
         FlagMeta {
             flag: &PATHS,
-            value_name: Some("path"),
-            default: &["/usr/bin", "/usr/local/bin"],
-            conflicts: &["--include", "--prune"],
-            required_if: &["--force", "--prune"],
+            behavior: &FlagMetaBehavior {
+                value_name: Some("path"),
+                extra: &FlagMetaExtra {
+                    default: &["/usr/bin", "/usr/local/bin"],
+                    rules: &FlagMetaRules {
+                        conflicts: &["--include", "--prune"],
+                        required_if: &["--force", "--prune"],
+                        ..FlagMetaRules::EMPTY
+                    },
+                    ..FlagMetaExtra::EMPTY
+                },
+                ..FlagMetaBehavior::EMPTY
+            },
             ..FlagMeta::EMPTY
         },
     ],
@@ -1121,8 +1175,14 @@ fn two_fields_on_one_command_can_mean_different_things_by_one_name() {
         cmd: &CMD,
         flags: &[FlagMeta {
             flag: &SOURCE,
-            value_name: Some("TOOL"),
-            complete: Some(remote_tools),
+            behavior: &FlagMetaBehavior {
+                value_name: Some("TOOL"),
+                extra: &FlagMetaExtra {
+                    complete: Some(remote_tools),
+                    ..FlagMetaExtra::EMPTY
+                },
+                ..FlagMetaBehavior::EMPTY
+            },
             ..FlagMeta::EMPTY
         }],
         args: &[ArgMeta {

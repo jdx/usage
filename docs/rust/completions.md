@@ -48,6 +48,11 @@ The installed script calls your binary back at completion time with a hidden
 any parsing, so it never appears in your grammar, help, or spec. `parse()` intercepts it
 automatically; with `parse_from`, call `completion_request` first and print whatever it returns.
 
+A composite CLI can parse the protocol without asking one spec to answer it. Use
+`usage::complete::Request::parse` to get the shell, split command line, and optional named
+candidate request. Merge candidates from the selected command grammars, then pass the result to
+`usage::complete::render`. Normal command arguments return `None`.
+
 A typical way to expose the scripts:
 
 ```rust
