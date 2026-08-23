@@ -17,7 +17,9 @@ use std::process::Command;
 #[cfg(unix)]
 use std::process::Stdio;
 use usage_argv::complete::Shell;
-use usage_argv::script::{script, script_for};
+use usage_argv::script::script;
+#[cfg(unix)]
+use usage_argv::script::script_for;
 
 /// A directory of this test's own, with the generated script and a stand-in `ex` binary in it.
 struct Fixture {
