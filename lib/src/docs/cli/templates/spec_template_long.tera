@@ -78,9 +78,11 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
     {{ help | indent(width=4) }}
 {%- endif %}
 {%- endif %}
+{%- if arg.admonitions %}
 {%- for admonition in arg.admonitions %}
     {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
+{%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
     [possible values: {{ arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
@@ -126,10 +128,12 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
     {{ help | indent(width=4) }}
 {%- endif %}
 {%- endif %}
+{%- if flag.admonitions %}
 {%- for admonition in flag.admonitions %}
     {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
-{%- if flag.arg %}
+{%- endif %}
+{%- if flag.arg and flag.arg.admonitions %}
 {%- for admonition in flag.arg.admonitions %}
     {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
@@ -181,10 +185,12 @@ Global flags:
     {{ help | indent(width=4) }}
 {%- endif %}
 {%- endif %}
+{%- if flag.admonitions %}
 {%- for admonition in flag.admonitions %}
     {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
-{%- if flag.arg %}
+{%- endif %}
+{%- if flag.arg and flag.arg.admonitions %}
 {%- for admonition in flag.arg.admonitions %}
     {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
@@ -236,9 +242,11 @@ Global flags:
 {%- else %}
   {{ arg.usage | trim }}
 {%- endif %}
+{%- if arg.admonitions %}
 {%- for admonition in arg.admonitions %}
     {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
+{%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
     [possible values: {{ arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
@@ -268,10 +276,12 @@ Global flags:
 {%- else %}
   {{ flag.display_usage }}
 {%- endif %}
+{%- if flag.admonitions %}
 {%- for admonition in flag.admonitions %}
     {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
-{%- if flag.arg %}
+{%- endif %}
+{%- if flag.arg and flag.arg.admonitions %}
 {%- for admonition in flag.arg.admonitions %}
     {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}

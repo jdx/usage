@@ -132,6 +132,7 @@ pub struct SpecFlag {
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_md: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub admonitions: Vec<SpecAdmonition>,
     pub help_first_line: Option<String>,
     pub short: Vec<char>,
@@ -481,6 +482,7 @@ pub struct SpecArg {
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_md: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub admonitions: Vec<SpecAdmonition>,
     pub help_first_line: Option<String>,
     pub required: bool,
