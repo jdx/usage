@@ -143,7 +143,35 @@ The field's type says whether the group is required, exactly as it does everywhe
 given. There is no default variant, so that distinction is the only spelling of required-ness a
 group has.
 
-Nothing new reaches the spec. The enum lowers to the same `group` node
+A group whose occurrences form an ordered instruction stream declares `multiple` and is held by
+`Vec<T>`. Every member may repeat, and variants from different members remain interleaved exactly
+as they appeared in argv:
+
+```rust
+#[derive(ArgGroup)]
+#[usage(name = "lint-filter", multiple)]
+enum LintFilter {
+    #[usage(short = 'A')]
+    Allow(String),
+    #[usage(short = 'W')]
+    Warn(String),
+    #[usage(short = 'D')]
+    Deny(String),
+}
+
+#[derive(Cli)]
+struct Lint {
+    #[usage(arg_group)]
+    filters: Vec<LintFilter>,
+}
+```
+
+Parsing `-D all -A no-debugger` produces
+`vec![LintFilter::Deny("all"), LintFilter::Allow("no-debugger")]`. This differs from three
+independent `Vec<String>` fields, which preserve order within each flag but lose their order
+relative to one another.
+
+The enum lowers to the same `group` node
 (`group format --json --yaml --plain`), so `--json --yaml` is the same
 `ConflictingFlags` a hand-written group produces, a required group with none of its members
 given is the same `MissingGroup`, and help, docs and completions list the member flags without

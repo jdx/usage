@@ -298,7 +298,7 @@
 //! | `double_dash = "…"` | how a positional relates to `--`: `optional` (the default), `required` (fillable only after one), `preserve` (the `--` is a value), `automatic` (filling it ends flag parsing, so a wrapper forwards) |
 //! | `complete = my_fn` | a function that answers for this value when a shell asks |
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |
-//! | `arg_group` | the flags come from the field's type, which derives [`ArgGroup`]; at most one may be given |
+//! | `arg_group` | the flags come from the field's type, which derives [`ArgGroup`]; `Vec<T>` preserves a `multiple` group's occurrence order |
 //! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
 //! | `extensions("toml", "yaml")` | limit a file-path hint to these extensions while retaining directories |
 //! | `arg` | force a field to be positional |
@@ -542,11 +542,11 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Compile an enum into a set of flags at most one of which may be given.
+/// Compile an enum into a set of related flags.
 ///
-/// clap's most-requested derive ergonomic (clap#2621): mutually exclusive flags as enum
-/// variants, so the code that reads them matches on a type rather than on which of several
-/// `bool`s is set. Each variant is one switch, named by its own name in kebab-case:
+/// Exclusive or ordered flags as enum variants, so the code that reads them matches on a type
+/// rather than on which of several fields is set. Each variant is one switch, named by its own
+/// name in kebab-case:
 ///
 /// ```ignore
 /// #[derive(usage::ArgGroup)]
@@ -584,6 +584,9 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
 /// [`Error::MissingGroup`](usage_argv::Error::MissingGroup). A tuple variant with one field is a
 /// value-taking member such as `Migrate(Source)`; `value_name` and `value_enum` describe that
 /// payload exactly as they do on an ordinary flag.
+///
+/// `#[usage(multiple)]` changes the group into an ordered instruction stream. Hold it as
+/// `Vec<Mode>` and every occurrence is returned in argv order, including interleaved variants.
 ///
 /// A variant's doc comment becomes its help. `help = "..."`, `long_help = "..."`, `hide`, and
 /// `short = 'x'` are the rest of what a member has; `cfg` and `cfg_attr` are copied to the
