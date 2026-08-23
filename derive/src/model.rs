@@ -327,6 +327,8 @@ pub struct Field {
     /// A typed Rust default evaluated when parsing starts. `default` remains
     /// the explicit portable spelling emitted in static metadata.
     pub default_value_t: Option<proc_macro2::TokenStream>,
+    /// A runtime-only function that computes one typed default.
+    pub default_fn: Option<syn::Path>,
     pub help_heading: Option<String>,
     /// `#[usage(select)]`: this flag's value picks among the command's outputs.
     ///
@@ -1921,6 +1923,10 @@ fn dup(span: Span, first: Span, message: &str) -> syn::Error {
 }
 
 impl Field {
+    pub fn has_default(&self) -> bool {
+        !self.default.is_empty() || self.default_fn.is_some()
+    }
+
     /// A field marked `#[usage(skip)]`, if this is one.
     ///
     /// The field is not an argument, and is filled from `Default` when the struct is built.
@@ -1991,6 +1997,7 @@ impl Field {
             setting: None,
             default: Vec::new(),
             default_value_t: None,
+            default_fn: None,
             help_heading: None,
             select: false,
             display_order: None,
@@ -2139,6 +2146,7 @@ impl Field {
             setting: None,
             default: Vec::new(),
             default_value_t: None,
+            default_fn: None,
             help_heading: None,
             select: false,
             display_order: None,
@@ -2291,6 +2299,7 @@ impl Field {
             setting: None,
             default: Vec::new(),
             default_value_t: None,
+            default_fn: None,
             help_heading: None,
             select: false,
             display_order: None,
@@ -2421,6 +2430,7 @@ impl Field {
             setting: None,
             default: Vec::new(),
             default_value_t: None,
+            default_fn: None,
             help_heading: None,
             select: false,
             display_order: None,
@@ -2526,6 +2536,8 @@ impl Field {
         let mut setting = None;
         let mut default: Vec<String> = Vec::new();
         let mut default_value_t = None;
+        let mut default_fn = None;
+        let mut default_note = None;
         let mut help_heading = None;
         let mut select = false;
         let mut display_order = None;
@@ -2817,6 +2829,17 @@ impl Field {
                             }
                         });
                     }
+                    "default_fn" => {
+                        let value = &meta.require_name_value()?.value;
+                        let Expr::Path(path) = value else {
+                            return Err(syn::Error::new_spanned(
+                                value,
+                                "`default_fn` takes a function, as in `default_fn = default_format`",
+                            ));
+                        };
+                        default_fn = Some(path.path.clone());
+                    }
+                    "default_note" => default_note = Some(string_value(&meta)?),
                     "help_heading" => help_heading = Some(string_value(&meta)?),
                     "display_order" => display_order = Some(int_value(&meta)?),
                     "effect" => effect = Some(effect_value(&meta)?),
@@ -2869,7 +2892,7 @@ impl Field {
                                  `short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `action`, `hide`, `hide_default_value`, `hide_env`, `hide_env_values`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, \
                                  `hide_possible_values`, `hide_short_help`, `hide_long_help`, \
-                                 `arg`, `env`, `env_fallback`, `deprecated_env`, `default`, `default_value_t`, `choices`, `validate`, \
+                                 `arg`, `env`, `env_fallback`, `deprecated_env`, `default`, `default_value_t`, `default_fn`, `default_note`, `choices`, `validate`, \
                                  `validate_error`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
@@ -3077,6 +3100,26 @@ impl Field {
                     "`default_value_t` is for one value-taking field; switches, counts, and collections declare their portable defaults directly",
                 ));
             }
+        }
+        if default_fn.is_some() {
+            if !default.is_empty() || default_value_t.is_some() {
+                return Err(syn::Error::new(
+                    span,
+                    "`default_fn` computes the runtime default and cannot be combined with `default` or `default_value_t`",
+                ));
+            }
+            if matches!(shape, Shape::Bool | Shape::Count | Shape::Many) {
+                return Err(syn::Error::new(
+                    span,
+                    "`default_fn` is for one value-taking field; switches, counts, and collections use static defaults",
+                ));
+            }
+        }
+        if default_note.is_some() && default_fn.is_none() {
+            return Err(syn::Error::new(
+                span,
+                "`default_note` describes a runtime-computed default, so it requires `default_fn`",
+            ));
         }
         for value in &default {
             match shape {
@@ -3363,7 +3406,20 @@ impl Field {
         // Declared text wins over the comment, which is the point of declaring it. A comment's
         // first paragraph is read the way Rust reads one — line breaks inside it become spaces —
         // so help whose breaks are deliberate has to be given directly.
-        let (help, long_help) = (help_attr.or(help), long_help_attr.or(long_help));
+        let (mut help, mut long_help) = (help_attr.or(help), long_help_attr.or(long_help));
+        if let Some(note) = default_note.as_deref().filter(|_| !hide_default_value) {
+            let annotation = format!("(default: {note})");
+            help = Some(match help {
+                Some(help) if !help.trim().is_empty() => format!("{help} {annotation}"),
+                _ => annotation.clone(),
+            });
+            long_help = Some(match long_help {
+                Some(long_help) if !long_help.trim().is_empty() => {
+                    format!("{long_help} {annotation}")
+                }
+                _ => annotation,
+            });
+        }
 
         // A flag is named after the form it answers to, not after the Rust field holding it.
         // usage-lib derives the name the same way, so the two agree about what a flag is
@@ -3796,6 +3852,7 @@ impl Field {
             setting,
             default,
             default_value_t,
+            default_fn,
             help_heading,
             select,
             display_order,

@@ -96,8 +96,37 @@ The tables below cover the attributes most CLIs need.
 | `env_fallback("A", "B")`       | Try additional environment variables in declaration order                        |
 | `deprecated_env("OLD_X")`      | Try deprecated aliases last, and report the one that supplied a value            |
 | `default = "…"`                | Fall back to this value (repeatable for `Vec` fields)                            |
+| `default_fn = function`        | Compute one typed Rust default at parse time without emitting a concrete value   |
+| `default_note = "…"`           | Describe a `default_fn` in help without pretending the note is its value         |
 | `default_missing = "…"`        | Value when the flag is given with none (`--color` vs `--color=never`)            |
 | `default_if("--json", "true")` | Default when another flag is given (two args = present, three = equals)          |
+
+Use `default_fn` when the answer depends on the current platform, environment, or another runtime
+fact. The function returns the field's value type and is called for each parse:
+
+```rust
+use std::io::IsTerminal as _;
+
+fn default_format() -> OutputFormat {
+    if std::io::stdout().is_terminal() {
+        OutputFormat::Pretty
+    } else {
+        OutputFormat::Json
+    }
+}
+
+#[usage(
+    long,
+    default_fn = default_format,
+    default_note = "pretty on a terminal, JSON otherwise"
+)]
+format: OutputFormat,
+```
+
+The emitted portable spec marks the field optional and carries the note as help prose, but emits
+no `default`: another consumer cannot reproduce a Rust function and should not be told a guessed
+value. Use `default_value_t = EXPR` beside `default = "literal"` when the computed Rust expression
+does have one stable portable spelling.
 
 **Parsing behavior** — how tokens on the line are read:
 
