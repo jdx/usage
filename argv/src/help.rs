@@ -2361,6 +2361,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 width,
                 meta.next_line_help,
             );
+            admonitions(out, arg.admonitions);
             long_annotations(
                 out,
                 if arg.hide_possible_values {
@@ -2391,6 +2392,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 width,
                 meta.next_line_help,
             );
+            admonitions(out, flag.admonitions);
             long_annotations(
                 out,
                 if flag.hide_possible_values {

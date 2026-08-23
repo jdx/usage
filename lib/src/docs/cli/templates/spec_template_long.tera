@@ -79,7 +79,7 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- endif %}
 {%- endif %}
 {%- for admonition in arg.admonitions %}
-    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | replace(from="\n", to="\n    ") }}
+    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
     [possible values: {{ arg.choices.choices | join(sep=", ") }}]
@@ -127,8 +127,13 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- endif %}
 {%- endif %}
 {%- for admonition in flag.admonitions %}
-    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | replace(from="\n", to="\n    ") }}
+    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
+{%- if flag.arg %}
+{%- for admonition in flag.arg.admonitions %}
+    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
+{%- endfor %}
+{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
@@ -177,8 +182,13 @@ Global flags:
 {%- endif %}
 {%- endif %}
 {%- for admonition in flag.admonitions %}
-    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | replace(from="\n", to="\n    ") }}
+    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
+{%- if flag.arg %}
+{%- for admonition in flag.arg.admonitions %}
+    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
+{%- endfor %}
+{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
@@ -227,7 +237,7 @@ Global flags:
   {{ arg.usage | trim }}
 {%- endif %}
 {%- for admonition in arg.admonitions %}
-    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | replace(from="\n", to="\n    ") }}
+    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
     [possible values: {{ arg.choices.choices | join(sep=", ") }}]
@@ -259,8 +269,13 @@ Global flags:
   {{ flag.display_usage }}
 {%- endif %}
 {%- for admonition in flag.admonitions %}
-    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | replace(from="\n", to="\n    ") }}
+    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
 {%- endfor %}
+{%- if flag.arg %}
+{%- for admonition in flag.arg.admonitions %}
+    {% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}: {{ admonition.text | indent(width=4) }}
+{%- endfor %}
+{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
