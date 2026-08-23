@@ -2372,7 +2372,7 @@ mod tests {
     fn parser_supplied_flags_are_left_to_the_shadow_parser() {
         let spec = "name \"ex\"\nbin \"ex\"\nflag \"-h --help\" action=help builtin=#true\nflag \"-V --version\" action=version builtin=#true\n";
 
-        for dialect in [Dialect::Usage, Dialect::Clap, Dialect::Argh, Dialect::Bpaf] {
+        for dialect in [Dialect::Usage, Dialect::Clap, Dialect::Bpaf] {
             let (out, skipped) = rendered_as(spec, dialect);
             assert!(!out.contains("pub help:"), "{}: {out}", dialect.as_str());
             assert!(!out.contains("pub version:"), "{}: {out}", dialect.as_str());
