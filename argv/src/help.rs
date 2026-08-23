@@ -1077,6 +1077,18 @@ fn short_help_with(
     chain: &[&CommandMeta<'_>],
     inherit_version_actions: bool,
 ) -> String {
+    assemble(
+        spec,
+        &short_sections(spec, path, chain, inherit_version_actions),
+    )
+}
+
+fn short_sections(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    inherit_version_actions: bool,
+) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
     let own: Vec<_> = own
@@ -1275,7 +1287,7 @@ fn short_help_with(
         let _ = writeln!(sections.after_help, "\n{after}");
     }
 
-    assemble(spec, &sections)
+    sections
 }
 
 /// The list of subcommands, and the `help` command every CLI with subcommands has.
@@ -1809,6 +1821,18 @@ fn long_help_with(
     chain: &[&CommandMeta<'_>],
     inherit_version_actions: bool,
 ) -> String {
+    assemble(
+        spec,
+        &long_sections(spec, path, chain, inherit_version_actions),
+    )
+}
+
+fn long_sections(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    inherit_version_actions: bool,
+) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
     let own: Vec<_> = own
@@ -2027,7 +2051,7 @@ fn long_help_with(
         }
     }
 
-    assemble(spec, &sections)
+    sections
 }
 
 /// Write text with every line indented, leaving blank lines blank.
@@ -2681,6 +2705,142 @@ fn own_and_global<'a>(
     }
     own.extend(supplied_entries(here.cmd, &claimed));
     (own, inherited)
+}
+
+/// A named section of one command's help page.
+///
+/// `id` is a deterministic, command-local spelling suitable for `tool help <id>` and completion;
+/// `title` is the heading users see. Topics include the ordinary Commands, Arguments, Flags,
+/// and Global flags sections plus every declared `help_heading` group that has visible entries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Topic {
+    pub id: String,
+    pub title: String,
+}
+
+fn topic_id(title: &str) -> String {
+    let mut out = String::new();
+    let mut separator = false;
+    for ch in title.chars() {
+        if ch.is_alphanumeric() {
+            if separator && !out.is_empty() {
+                out.push('-');
+            }
+            out.extend(ch.to_lowercase());
+            separator = false;
+        } else {
+            separator = true;
+        }
+    }
+    if out.is_empty() {
+        "topic".to_string()
+    } else {
+        out
+    }
+}
+
+fn topic_blocks(sections: &Sections) -> Vec<(String, String)> {
+    let mut topics: Vec<(String, String)> = Vec::new();
+    for section in [&sections.commands, &sections.args, &sections.flags] {
+        let mut title: Option<&str> = None;
+        let mut block = String::new();
+        let finish =
+            |title: Option<&str>, block: &mut String, topics: &mut Vec<(String, String)>| {
+                let Some(title) = title else {
+                    block.clear();
+                    return;
+                };
+                let text = block.trim().to_string();
+                if text.is_empty() {
+                    block.clear();
+                    return;
+                }
+                if let Some((_, existing)) = topics.iter_mut().find(|(known, _)| known == title) {
+                    let continuation = text
+                        .split_once('\n')
+                        .map_or(text.as_str(), |(_, body)| body);
+                    if !existing.is_empty() {
+                        existing.push_str("\n\n");
+                    }
+                    existing.push_str(continuation);
+                } else {
+                    topics.push((title.to_string(), text));
+                }
+                block.clear();
+            };
+        for line in section.lines() {
+            let heading = (!line.starts_with(char::is_whitespace))
+                .then(|| line.strip_suffix(':'))
+                .flatten();
+            if let Some(heading) = heading {
+                finish(title, &mut block, &mut topics);
+                title = Some(heading);
+            }
+            if title.is_some() {
+                if !block.is_empty() {
+                    block.push('\n');
+                }
+                block.push_str(line);
+            }
+        }
+        finish(title, &mut block, &mut topics);
+    }
+    topics
+}
+
+fn topics_with_blocks(
+    spec: &Spec<'_>,
+    cmd: &Command<'_>,
+    long: bool,
+) -> Option<Vec<(Topic, String)>> {
+    let (path, chain) = find(spec, cmd)?;
+    let sections = if long {
+        long_sections(spec, &path, &chain, false)
+    } else {
+        short_sections(spec, &path, &chain, false)
+    };
+    let mut used = Vec::<String>::new();
+    Some(
+        topic_blocks(&sections)
+            .into_iter()
+            .map(|(title, block)| {
+                let base = topic_id(&title);
+                let mut id = base.clone();
+                let mut suffix = 2;
+                while used.contains(&id) {
+                    id = format!("{base}-{suffix}");
+                    suffix += 1;
+                }
+                used.push(id.clone());
+                (Topic { id, title }, block)
+            })
+            .collect(),
+    )
+}
+
+/// List the addressable topics on one command's short or long help page.
+pub fn topics(spec: &Spec<'_>, cmd: &Command<'_>, long: bool) -> Option<Vec<Topic>> {
+    Some(
+        topics_with_blocks(spec, cmd, long)?
+            .into_iter()
+            .map(|(topic, _)| topic)
+            .collect(),
+    )
+}
+
+/// Render one addressable help topic by its [`Topic::id`] or visible title.
+///
+/// The result contains the heading and its visible entries, independent of the page's
+/// `help_template`. This makes a topic suitable for `tool help configuration`, an editor panel,
+/// or an interactive picker without making the group a fake subcommand.
+pub fn render_topic(spec: &Spec<'_>, cmd: &Command<'_>, topic: &str, long: bool) -> Option<String> {
+    topics_with_blocks(spec, cmd, long)?
+        .into_iter()
+        .find(|(known, _)| known.id == topic || known.title.eq_ignore_ascii_case(topic))
+        .map(|(_, mut block)| {
+            block.push('\n');
+            block
+        })
 }
 
 /// The page a help request asks for, ready to print.

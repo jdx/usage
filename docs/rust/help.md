@@ -219,6 +219,35 @@ than pasted. The sections map like this:
 clap keeps its `get_help_template` getter private, so `clap_usage` cannot recover a template from
 a `clap::Command` — a template is one of the settings to carry across by hand when migrating.
 
+### Addressing one help topic
+
+Named help groups are available independently of the complete page. This is useful for a
+`tool help configuration` command, an editor panel, an interactive picker, or completion without
+modeling a presentation group as a fake subcommand:
+
+```rust
+let topics = usage::help::topics(Cli::spec(), Cli::command(), true)
+    .expect("this command belongs to the spec");
+
+for topic in topics {
+    println!("{}\t{}", topic.id, topic.title);
+}
+
+if let Some(text) = usage::help::render_topic(
+    Cli::spec(),
+    Cli::command(),
+    "configuration",
+    true,
+) {
+    print!("{text}");
+}
+```
+
+Each visible `help_heading` becomes a topic. Ordinary Commands, Arguments, Flags, and Global flags
+sections are topics too. IDs are command-local lowercase slugs; `render_topic` also accepts the
+visible title case-insensitively. If an argument group and flag group share one heading, the topic
+combines both blocks in their normal help order. Hidden entries never create or enter a topic.
+
 ## Version
 
 Declaring `version` (or bare `version`, which reads `CARGO_PKG_VERSION`) gives the root command
