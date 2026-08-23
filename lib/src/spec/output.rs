@@ -351,7 +351,9 @@ pub fn effective_outputs_ref<'a>(
     path: impl IntoIterator<Item = &'a SpecCommand>,
 ) -> Vec<SpecOutput> {
     let mut out: Vec<SpecOutput> = spec.outputs.clone();
+    let mut selected = &spec.cmd;
     for cmd in path {
+        selected = cmd;
         for output in &cmd.outputs {
             match out.iter_mut().find(|o| o.name == output.name) {
                 Some(existing) => *existing = output.clone(),
@@ -360,6 +362,15 @@ pub fn effective_outputs_ref<'a>(
         }
     }
     out.retain(|o| !o.hide);
+    for output in &mut out {
+        if output
+            .select
+            .as_deref()
+            .is_some_and(|name| !selected.flags.iter().any(|flag| flag_named(flag, name)))
+        {
+            output.select = None;
+        }
+    }
     out
 }
 
@@ -415,7 +426,13 @@ fn flag_named(flag: &SpecFlag, name: &str) -> bool {
 pub(crate) fn resolve_selectors(spec: &mut Spec) -> Result<()> {
     let root_outputs = spec.outputs.clone();
     let root_select = spec.select.clone();
-    resolve_cmd(&mut spec.cmd, &[], &root_outputs, root_select.as_deref())
+    resolve_cmd(
+        &mut spec.cmd,
+        &[],
+        &root_outputs,
+        root_select.as_deref(),
+        true,
+    )
 }
 
 fn resolve_cmd(
@@ -423,6 +440,7 @@ fn resolve_cmd(
     inherited_flags: &[SpecFlag],
     inherited_outputs: &[SpecOutput],
     inherited_select: Option<&str>,
+    is_root: bool,
 ) -> Result<()> {
     // What this command actually offers, and how it is asked for, both inherited unless
     // it says otherwise.
@@ -460,10 +478,15 @@ fn resolve_cmd(
             materialize(cmd, inherited_flags, name, &outputs)?;
         }
     }
-    check_boolean_selectors(cmd, inherited_flags, &outputs, &cmd.outputs)?;
+    let local_outputs = if is_root {
+        inherited_outputs
+    } else {
+        &cmd.outputs
+    };
+    check_boolean_selectors(cmd, inherited_flags, &outputs, local_outputs)?;
 
     for sub in cmd.subcommands.values_mut() {
-        resolve_cmd(sub, &available, &outputs, select.as_deref())?;
+        resolve_cmd(sub, &available, &outputs, select.as_deref(), false)?;
     }
     Ok(())
 }
@@ -831,7 +854,26 @@ output "json" framing="json" select="--json"
 cmd "nested"
 "#,
         );
-        assert!(spec.cmd.subcommands.contains_key("nested"));
+        let nested = spec.cmd.subcommands["nested"].clone();
+        let outputs = effective_outputs(&spec, &[nested]);
+        assert_eq!(
+            outputs
+                .iter()
+                .find(|output| output.name == "json")
+                .and_then(|output| output.select.as_deref()),
+            None
+        );
+    }
+
+    #[test]
+    fn a_root_boolean_selector_still_has_to_name_a_flag() {
+        let err = error(
+            r#"
+name "ex"
+output "json" framing="json" select="--json"
+"#,
+        );
+        assert!(err.contains("names no flag here or above it"), "{err}");
     }
 
     #[test]
