@@ -51,6 +51,27 @@ arm and before command dispatch. There is no hidden callback lifecycle: the
 embedding application owns the order explicitly, and `parse()` remains the
 convenience entry point for CLIs that want immediate print-and-exit behavior.
 
+### Embedding without exiting
+
+An N-API module, WASM host, editor integration, or test runner cannot let a library terminate
+its process. `embedded::outcome` turns the same process boundary into a value:
+
+```rust
+match usage::embedded::outcome(Ex::spec(), Ex::command(), &argv, Ex::parse_from) {
+    usage::embedded::Outcome::Parsed(cli) => run(cli),
+    usage::embedded::Outcome::Exit(exit) => {
+        // Send `exit.text` to stdout or stderr according to `exit.stderr`, then return
+        // `exit.code` to the host instead of calling `std::process::exit`.
+        host.respond(exit)
+    }
+}
+```
+
+The outcome renders requested help and version responses as stdout status 0, and automatic help
+or a parse failure as stderr status 2. It uses the portable binary name and version from the spec;
+a CLI whose identity is computed at runtime handles `Error::Version` itself so it can substitute
+that runtime value.
+
 ### Deprecation warnings
 
 A `deprecated` flag or command, or a value that arrived through a `deprecated_env` alias, is
