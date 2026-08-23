@@ -6087,6 +6087,12 @@ pub struct ArgGroupMember {
     pub help: Option<String>,
     pub long_help: Option<String>,
     pub hide: bool,
+    /// A value carried by this member, for variants such as `Migrate(Source)`.
+    pub value_ty: Option<syn::Type>,
+    /// The placeholder shown for [`Self::value_ty`].
+    pub value_name: Option<String>,
+    /// Bind the payload through its `ValueEnum` declaration rather than `FromStr`.
+    pub value_enum: bool,
     pub cfg_attrs: Vec<syn::Attribute>,
 }
 
@@ -6135,14 +6141,19 @@ impl ArgGroup {
 
         let mut variants: Vec<ArgGroupMember> = Vec::new();
         for variant in &data.variants {
-            if !matches!(variant.fields, Fields::Unit) {
-                return Err(syn::Error::new_spanned(
-                    &variant.fields,
-                    "a group member is a switch, so each variant is a bare name: a member \
-                     taking a value stays a hand-written `conflicts` set, where the values \
-                     have somewhere to land",
-                ));
-            }
+            let value_ty = match &variant.fields {
+                Fields::Unit => None,
+                Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                    Some(fields.unnamed[0].ty.clone())
+                }
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        &variant.fields,
+                        "an argument-group member is either a switch or one value-taking flag: \
+                         use a unit variant or a tuple variant with exactly one field",
+                    ));
+                }
+            };
             let cfg_attrs = cfg_gate_attrs(&variant.attrs)?;
             let (doc_help, doc_long_help) = doc_comment(&variant.attrs, false)?;
             let mut member = ArgGroupMember {
@@ -6152,6 +6163,9 @@ impl ArgGroup {
                 help: doc_help,
                 long_help: doc_long_help,
                 hide: false,
+                value_ty,
+                value_name: None,
+                value_enum: false,
                 cfg_attrs,
             };
             for attr in attrs(&variant.attrs) {
@@ -6166,6 +6180,16 @@ impl ArgGroup {
                         "help" => member.help = Some(string_value(&meta)?),
                         "long_help" => member.long_help = Some(string_value(&meta)?),
                         "hide" => member.hide = flag_value(&meta)?,
+                        "value_name" => member.value_name = Some(string_value(&meta)?),
+                        "value_enum" => {
+                            if !matches!(meta, Meta::Path(_)) {
+                                return Err(syn::Error::new_spanned(
+                                    path,
+                                    "`value_enum` takes no value",
+                                ));
+                            }
+                            member.value_enum = true;
+                        }
                         "default" | "default_value" | "default_value_t" => {
                             return Err(syn::Error::new_spanned(
                                 path,
@@ -6179,8 +6203,8 @@ impl ArgGroup {
                                 path,
                                 format!(
                                     "unknown option `{other}` on a group member; a variant \
-                                     takes `long`, `name`, `short`, `help`, `long_help`, or \
-                                     `hide` here"
+                                     takes `long`, `name`, `short`, `help`, `long_help`, \
+                                     `hide`, `value_name`, or `value_enum` here"
                                 ),
                             ));
                         }
@@ -6192,6 +6216,15 @@ impl ArgGroup {
                     &variant.ident,
                     "a member with no long form would answer to nothing",
                 ));
+            }
+            if member.value_ty.is_none() && (member.value_name.is_some() || member.value_enum) {
+                return Err(syn::Error::new_spanned(
+                    &variant.ident,
+                    "`value_name` and `value_enum` need a tuple variant that carries one value",
+                ));
+            }
+            if member.value_ty.is_some() && member.value_name.is_none() {
+                member.value_name = Some(shout(&member.name));
             }
             if let Some(short) = member.short.filter(|short| !short.is_ascii()) {
                 return Err(syn::Error::new_spanned(
@@ -7962,11 +7995,23 @@ mod tests {
     }
 
     #[test]
-    fn an_arg_group_member_is_a_switch_and_holds_nothing() {
-        let err = group_rejection("enum Format { Json, Wrapped(String) }");
-        assert!(err.contains("bare name"), "unhelpful: {err}");
-        // And the message says where a valued member belongs, which is the useful half.
-        assert!(err.contains("conflicts"), "unhelpful: {err}");
+    fn an_arg_group_member_may_hold_one_value() {
+        let group = arg_group(
+            r#"
+            enum Mode {
+                Write,
+                #[usage(value_name = "SOURCE", value_enum)]
+                Migrate(Source),
+            }
+        "#,
+        )
+        .expect("one tuple field is a value-taking flag");
+        assert!(group.variants[0].value_ty.is_none());
+        assert_eq!(group.variants[1].value_name.as_deref(), Some("SOURCE"));
+        assert!(group.variants[1].value_enum);
+
+        let err = group_rejection("enum Format { Json, Pair(String, String) }");
+        assert!(err.contains("exactly one field"), "unhelpful: {err}");
     }
 
     #[test]
