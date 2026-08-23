@@ -182,6 +182,65 @@ value and `var_min`/`var_max` count values, not words — `--tags a,b,c,d` with 
 The field must be a `Vec`, and the delimiter must be a single ASCII character; both are enforced
 at compile time. Emitted KDL: `flag "--tags <tag>" var=#true delimiter=","`.
 
+## Cross-field validation and typed finalization
+
+Use `validate_with` for an invariant that needs a fully typed command rather than one field's
+text. It works on `Cli` and nested `Args`, after field conversion and environment/default
+resolution on every parse path:
+
+```rust
+use usage::{Cli, ValidationError};
+
+#[derive(Cli)]
+#[usage(bin = "copy", validate_with = validate_copy)]
+struct CopyArgs {
+    #[usage(long)]
+    source: std::path::PathBuf,
+    #[usage(long)]
+    destination: std::path::PathBuf,
+}
+
+fn validate_copy(args: &CopyArgs) -> Result<(), ValidationError> {
+    if args.source == args.destination {
+        return Err(ValidationError::field("--destination")
+            .value(args.destination.display().to_string())
+            .reason("must differ from --source"));
+    }
+    Ok(())
+}
+```
+
+The error is returned as the ordinary `Error::InvalidValue`, so renderers and embedding code do
+not need a second diagnostic path.
+
+For applications that keep their parser declaration separate from the type passed to the rest of
+the program, `try_into` generates finalizing parse entry points:
+
+```rust
+#[derive(Cli)]
+#[usage(bin = "copy", try_into = CopyCommand)]
+struct CopyArgs { /* flags and arguments */ }
+
+struct CopyCommand(CopyArgs);
+
+impl TryFrom<CopyArgs> for CopyCommand {
+    type Error = usage::ValidationError;
+
+    fn try_from(args: CopyArgs) -> Result<Self, Self::Error> {
+        // Resolve modes, normalize paths, or establish richer invariants here.
+        Ok(Self(args))
+    }
+}
+
+fn main() {
+    let command: CopyCommand = CopyArgs::parse_into();
+}
+```
+
+`parse_into_from`, `parse_into_from_with_warnings`, `parse_into_from_argv`, and
+`try_parse_into_from` are the returning-error counterparts. The original `parse_*` methods remain
+available when a caller wants the declaration type itself.
+
 ## Portable expressions
 
 For a rule that must survive KDL emission — and that clap would have expressed with a

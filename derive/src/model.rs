@@ -225,6 +225,10 @@ pub struct Cli {
     pub select: Option<String>,
     /// What this command's exit statuses mean.
     pub exit_codes: Vec<ExitCodeDecl>,
+    /// A command-wide invariant checked after every field has been converted.
+    pub validate_with: Option<syn::Path>,
+    /// An application type built from this parser type by the generated `parse_into_*` APIs.
+    pub try_into: Option<syn::Type>,
     pub fields: Vec<Field>,
 }
 
@@ -815,6 +819,8 @@ impl Cli {
             outputs: Vec::new(),
             select: None,
             exit_codes: Vec::new(),
+            validate_with: None,
+            try_into: None,
             fields: Vec::new(),
         };
 
@@ -1070,6 +1076,15 @@ impl Cli {
                         cli.exit_codes.push(exit_code);
                     }
                     "select" => cli.select = Some(string_value(&meta)?),
+                    "validate_with" => {
+                        let value = &meta.require_name_value()?.value;
+                        cli.validate_with =
+                            Some(syn::parse2(quote::ToTokens::to_token_stream(value))?);
+                    }
+                    "try_into" => {
+                        let value = &meta.require_name_value()?.value;
+                        cli.try_into = Some(syn::parse2(quote::ToTokens::to_token_stream(value))?);
+                    }
                     "view" => {
                         let view = view_decl(&meta)?;
                         if cli.views.iter().any(|declared| declared.id == view.id) {
@@ -1108,7 +1123,7 @@ impl Cli {
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount`, `example`, `select`, `output`, `exit_code`, `run`, `run_with`, `run_async`, `run_async_with`, \
-                                 `group` and `view` here, and the description comes from the doc comment"
+                                 `group`, `view`, `validate_with`, and `try_into` here, and the description comes from the doc comment"
                             ),
                         ));
                     }
@@ -1392,6 +1407,12 @@ impl Cli {
                     ident,
                     "`no_binary_name` belongs on the root, where `#[derive(Cli)]` is: it \
                      selects the input contract of the whole CLI's clap-shaped parser",
+                ));
+            }
+            if self.try_into.is_some() {
+                return Err(self.misplaced(
+                    ident,
+                    "`try_into` belongs on the root, where `#[derive(Cli)]` generates the `parse_into_*` entry points",
                 ));
             }
             if !self.views.is_empty() {

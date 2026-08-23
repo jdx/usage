@@ -50,6 +50,19 @@ fn built_value(cli: &Cli, sub_build: &TokenStream, fields: &[TokenStream]) -> To
     }
 }
 
+/// Apply a root command's cross-field validation after every typed field exists.
+fn validated_value(cli: &Cli, built: &TokenStream) -> TokenStream {
+    let Some(validate_with) = &cli.validate_with else {
+        return built.clone();
+    };
+    quote! {{
+        let __usage_built = #built;
+        #validate_with(&__usage_built)
+            .map_err(usage_argv::ValidationError::into_parse_error)?;
+        __usage_built
+    }}
+}
+
 /// The runtime as the adopter depended on it.
 ///
 /// A direct `usage-argv` dependency wins when both forms are present: a low-level adopter may
@@ -413,7 +426,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
             .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
             .map(|field| field_final(field, None))
             .collect();
-        let built = built_value(cli, &sub_build, &field_finals);
+        let built = validated_value(cli, &built_value(cli, &sub_build, &field_finals));
         quote! {
             /// Parse a command line, and the settings it gave values for.
             ///
@@ -488,7 +501,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
         .map(|field| field_final(field, None))
         .collect();
-    let built = built_value(cli, &sub_build, &field_finals);
+    let built = validated_value(cli, &built_value(cli, &sub_build, &field_finals));
     let built_for_view = if cli.views.is_empty() {
         built.clone()
     } else {
@@ -513,8 +526,79 @@ pub fn emit(cli: &Cli) -> TokenStream {
         } else {
             &sub_default_view_build
         };
-        built_value(cli, view_sub_build, &view_field_finals)
+        validated_value(cli, &built_value(cli, view_sub_build, &view_field_finals))
     };
+
+    let parse_into = cli.try_into.as_ref().map(|target| {
+        quote! {
+            /// Parse a command line and finalize the parser type into the application's domain type.
+            pub fn parse_into_from<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<#target, usage_argv::Error<'static, 'v>> {
+                Self::parse_from(argv).and_then(Self::__usage_finalize)
+            }
+
+            /// [`Self::parse_into_from`], collecting the deprecations it used.
+            pub fn parse_into_from_with_warnings<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+                warnings: &mut ::std::vec::Vec<usage_argv::warn::Warning<'static>>,
+            ) -> ::std::result::Result<#target, usage_argv::Error<'static, 'v>> {
+                Self::parse_from_with_warnings(argv, warnings).and_then(Self::__usage_finalize)
+            }
+
+            /// Parse a full argv, including the program name, and finalize it.
+            pub fn parse_into_from_argv<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<#target, usage_argv::Error<'static, 'v>> {
+                Self::parse_from_argv(argv).and_then(Self::__usage_finalize)
+            }
+
+            /// Parse using clap's argv convention and finalize it.
+            pub fn try_parse_into_from<'v>(
+                argv: &[&'v ::std::ffi::OsStr],
+            ) -> ::std::result::Result<#target, usage_argv::Error<'static, 'v>> {
+                Self::try_parse_from(argv).and_then(Self::__usage_finalize)
+            }
+
+            #[doc(hidden)]
+            fn __usage_finalize<'v>(
+                parsed: Self,
+            ) -> ::std::result::Result<#target, usage_argv::Error<'static, 'v>> {
+                <#target as ::std::convert::TryFrom<Self>>::try_from(parsed)
+                    .map_err(usage_argv::ValidationError::into_parse_error)
+            }
+
+        /// Parse the process's arguments and finalize them into the domain type.
+        pub fn parse_into() -> #target {
+            #completion_intercept
+            #parse_preamble
+            let mut __usage_warnings = ::std::vec::Vec::new();
+            let __usage_result = Self::__usage_parse_from_argv(
+                &__usage_all_refs,
+                ::std::option::Option::Some(&mut __usage_warnings),
+            ).and_then(Self::__usage_finalize);
+            match __usage_result {
+                ::std::result::Result::Ok(finalized) => {
+                    if !__usage_warnings.is_empty() {
+                        ::std::eprint!(
+                            "{}",
+                            usage_argv::render_warnings(&__usage_warnings),
+                        );
+                    }
+                    finalized
+                }
+                ::std::result::Result::Err(error) => {
+                    Self::__usage_exit_on_error(
+                        error,
+                        &__usage_all_refs,
+                        &__usage_argv,
+                        __usage_selected_view,
+                    )
+                }
+            }
+            }
+        }
+    });
 
     // The process entry with a settings layer beside it, for a CLI that binds settings and
     // resolves them at startup — the fleet's `main` shape. Same help, version, and error
@@ -1210,6 +1294,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
 
                 #settings_binding_forward
                 #settings_parse
+                #parse_into
 
                 /// Parse a command line, excluding the program name.
                 pub fn parse_from<'v>(
@@ -5996,7 +6081,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
         .map(|field| field_final(field, None))
         .collect();
-    let built = built_value(cli, &sub_build, &field_finals);
+    let built = validated_value(cli, &built_value(cli, &sub_build, &field_finals));
     let view_omitter = quote!(__UsageOmitter);
     let view_field_finals: Vec<_> = cli
         .fields
@@ -6004,7 +6089,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .filter(|f| !matches!(f.kind, Kind::Subcommand { .. }))
         .map(|field| field_final(field, Some(&view_omitter)))
         .collect();
-    let built_for_view = built_value(cli, &sub_view_build, &view_field_finals);
+    let built_for_view =
+        validated_value(cli, &built_value(cli, &sub_view_build, &view_field_finals));
     let view_bounds: Vec<_> = cli
         .fields
         .iter()
