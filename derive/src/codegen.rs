@@ -491,6 +491,30 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let apply = apply_fn(cli);
     let post = post_binding(cli);
     let (completion, completion_intercept) = completion_fns(cli);
+    let embedded_spec_request = cli.spec_endpoint.then(|| {
+        quote! {
+            if let ::std::option::Option::Some(__usage_answer) =
+                Self::spec_request(&__usage_refs)
+            {
+                return usage_argv::embedded::Outcome::Exit(usage_argv::embedded::Exit {
+                    text: __usage_answer,
+                    stderr: false,
+                    code: 0,
+                });
+            }
+        }
+    });
+    let embedded_completion_request = cli.completion.then(|| {
+        quote! {
+            if let ::std::option::Option::Some(__usage_answer) = Self::completion_request(argv) {
+                return usage_argv::embedded::Outcome::Exit(usage_argv::embedded::Exit {
+                    text: __usage_answer,
+                    stderr: false,
+                    code: 0,
+                });
+            }
+        }
+    });
     let spec_extra = spec_extra_append(cli);
     // `field: local` rather than the shorthand, because the locals are prefixed:
     // a field called `text` or `parser` would otherwise collide with something the
@@ -1311,6 +1335,27 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 }
 
                 #spec_endpoint
+
+                /// Answer the complete usage control protocol without printing or exiting.
+                ///
+                /// Input excludes the program name, like [`Self::parse_from`]. Spec and
+                /// completion requests become successful stdout responses; ordinary argv is
+                /// parsed, with help, version, and failures represented by the same outcome.
+                pub fn embedded_outcome(
+                    argv: &[::std::ffi::OsString],
+                ) -> usage_argv::embedded::Outcome<Self> {
+                    let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
+                        argv.iter().map(|arg| arg.as_os_str()).collect();
+                    #embedded_spec_request
+                    #embedded_completion_request
+                    #effective_spec
+                    usage_argv::embedded::outcome(
+                        __usage_spec,
+                        Self::command(),
+                        &__usage_refs,
+                        Self::parse_from,
+                    )
+                }
 
                 #settings_binding_forward
                 #settings_parse
