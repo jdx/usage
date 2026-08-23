@@ -588,7 +588,7 @@ fn help_structure(
 
     let mut flag_usages: Vec<String> = own.iter().map(|flag| column_usage(flag)).collect();
     flag_usages.extend(inherited.into_iter().map(|(_, usage)| usage));
-    flag_usages.sort_by_key(|usage| core::cmp::Reverse(usage.len()));
+    flag_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
 
     let mut synopsis = String::new();
     usage_section(&mut synopsis, spec, path, meta);
@@ -762,7 +762,7 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
         }
     }
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    visible.sort_by_key(|sub| sub.cmd.name);
+    visible.sort_unstable_by_key(|sub| sub.cmd.name);
     if meta.flatten_help && !visible.is_empty() {
         let mut lines = Vec::new();
         if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
@@ -1312,7 +1312,7 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
             (usage_line(&sub_path, sub), *sub)
         })
         .collect();
-    lines.sort_by(|a, b| {
+    lines.sort_unstable_by(|a, b| {
         a.1.display_order
             .unwrap_or(999)
             .cmp(&b.1.display_order.unwrap_or(999))
@@ -1588,7 +1588,10 @@ fn split_groups_section<'m, T: 'm>(
             headings.push(heading);
         }
     }
-    headings.sort_by_key(|h| h.is_some());
+    if let Some(index) = headings.iter().position(Option::is_none) {
+        let unheaded = headings.remove(index);
+        headings.insert(0, unheaded);
+    }
 
     for heading in headings {
         let mut section = String::new();
@@ -1605,29 +1608,27 @@ fn split_groups_section<'m, T: 'm>(
 }
 
 fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>]) {
-    items.sort_by_key(|item| {
-        item.display_order.unwrap_or_else(|| {
-            declared
-                .iter()
-                .position(|candidate| core::ptr::eq(candidate, *item))
-                .unwrap_or(usize::MAX)
-        })
+    items.sort_unstable_by_key(|item| {
+        let position = declared
+            .iter()
+            .position(|candidate| core::ptr::eq(candidate, *item))
+            .unwrap_or(usize::MAX);
+        (item.display_order.unwrap_or(position), position)
     });
 }
 
 fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a>]) {
-    items.sort_by_key(|item| {
-        item.display_order.unwrap_or_else(|| {
-            declared
-                .iter()
-                .position(|candidate| core::ptr::eq(candidate, *item))
-                .unwrap_or(usize::MAX)
-        })
+    items.sort_unstable_by_key(|item| {
+        let position = declared
+            .iter()
+            .position(|candidate| core::ptr::eq(candidate, *item))
+            .unwrap_or(usize::MAX);
+        (item.display_order.unwrap_or(position), position)
     });
 }
 
 fn order_commands(items: &mut Vec<&&CommandMeta<'_>>) {
-    items.sort_by(|a, b| {
+    items.sort_unstable_by(|a, b| {
         a.display_order
             .unwrap_or(999)
             .cmp(&b.display_order.unwrap_or(999))
@@ -2243,7 +2244,7 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
             (usage_line(&sub_path, sub), *sub)
         })
         .collect();
-    lines.sort_by(|a, b| {
+    lines.sort_unstable_by(|a, b| {
         a.1.display_order
             .unwrap_or(999)
             .cmp(&b.1.display_order.unwrap_or(999))
@@ -2663,13 +2664,12 @@ fn own_and_global<'a>(
         .iter()
         .map(|(flag, _)| *flag as *const _)
         .collect();
-    inherited.sort_by_key(|(flag, _)| {
-        flag.display_order.unwrap_or_else(|| {
-            inherited_positions
-                .iter()
-                .position(|candidate| core::ptr::eq(*candidate, *flag as *const _))
-                .unwrap_or(usize::MAX)
-        })
+    inherited.sort_unstable_by_key(|(flag, _)| {
+        let position = inherited_positions
+            .iter()
+            .position(|candidate| core::ptr::eq(*candidate, *flag as *const _))
+            .unwrap_or(usize::MAX);
+        (flag.display_order.unwrap_or(position), position)
     });
 
     // Last in the command's own section, which is where clap has them: they carry no
@@ -3326,7 +3326,7 @@ fn recursive_help<'a>(
 
         let current = *chain.last().expect("a recursive page has a command");
         let mut children: Vec<_> = current.subcommands.iter().filter(|cmd| !cmd.hide).collect();
-        children.sort_by_key(|cmd| (cmd.display_order.unwrap_or(999), cmd.cmd.name));
+        children.sort_unstable_by_key(|cmd| (cmd.display_order.unwrap_or(999), cmd.cmd.name));
         for child in children {
             path.push(child.cmd.name);
             chain.push(child);

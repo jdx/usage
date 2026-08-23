@@ -312,7 +312,7 @@ fn nearest<'a>(typed: &str, candidates: impl Iterator<Item = &'a str>) -> Vec<&'
         .map(|candidate| (jaro(typed, candidate), candidate))
         .filter(|(score, _)| *score > 0.7)
         .collect();
-    scored.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1)));
+    scored.sort_unstable_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1)));
     scored.dedup_by(|a, b| a.1 == b.1);
     scored.into_iter().map(|(_, candidate)| candidate).collect()
 }

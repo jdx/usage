@@ -333,7 +333,7 @@ pub fn completers_on(meta: &CommandMeta<'_>) -> Vec<String> {
             );
         }
     }
-    out.sort();
+    out.sort_unstable();
     out.dedup();
     out
 }
@@ -1261,7 +1261,7 @@ async fn complete_named_with<'a>(
 /// first candidate after derived sorting would prefer `None` over `Some`, discarding the richer
 /// display label or description.
 fn sort_and_dedup_candidates(candidates: &mut Vec<Candidate<'_>>) {
-    candidates.sort();
+    candidates.sort_unstable();
     let mut deduped: Vec<Candidate<'_>> = Vec::with_capacity(candidates.len());
     for mut candidate in candidates.drain(..) {
         if let Some(existing) = deduped
