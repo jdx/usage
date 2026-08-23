@@ -1210,7 +1210,9 @@ Write to the local config instead of the global config
 
 Print the config change without writing it
 
-#### `-p --path --file <PATH>`
+#### `-p --path <PATH>`
+
+**Aliases:** `--file`
 
 Write to this config file or directory
 
@@ -1243,7 +1245,9 @@ Write to the local config instead of the global config
 
 Print the config change without writing it
 
-#### `-p --path --file <PATH>`
+#### `-p --path <PATH>`
+
+**Aliases:** `--file`
 
 Write to this config file or directory
 
@@ -1288,7 +1292,9 @@ Import every linked formula, including dependencies
 
 Print the config change without writing config
 
-#### `-p --path --file <PATH>`
+#### `-p --path <PATH>`
+
+**Aliases:** `--file`
 
 Write to this config file or directory
 
@@ -1435,7 +1441,9 @@ local one
 
 Print the commands that would run without writing config or installing
 
-#### `-p --path --file <PATH>`
+#### `-p --path <PATH>`
+
+**Aliases:** `--file`
 
 Write to this config file or directory
 
@@ -2044,7 +2052,9 @@ The path of the config to display
 
 ### Flags
 
-#### `-f --file --path <FILE>`
+#### `-f --file <FILE>`
+
+**Aliases:** `--path`
 
 The path to the mise.toml file to read
 
@@ -2105,7 +2115,9 @@ The value to set the key to (optional if provided as KEY=VALUE)
 
 ### Flags
 
-#### `-f --file --path <FILE>`
+#### `-f --file <FILE>`
+
+**Aliases:** `--path`
 
 The path to the mise.toml file to edit
 
@@ -5164,7 +5176,9 @@ Can be used multiple times. Requires --age-encrypt.
 
 Can be used multiple times. Requires --age-encrypt.
 
-#### `--file --path <FILE>`
+#### `--file <FILE>`
+
+**Aliases:** `--path`
 
 The TOML file to update
 
@@ -6723,7 +6737,9 @@ e.g.: NODE_ENV
 
 ### Flags
 
-#### `-f --file --path <FILE>`
+#### `-f --file <FILE>`
+
+**Aliases:** `--path`
 
 Specify a file to use instead of `mise.toml`
 
@@ -6794,7 +6810,9 @@ Create/modify an environment-specific config file like .mise.<env>.toml
 
 Use the global config file (`~/.config/mise/config.toml`) instead of the local one
 
-#### `-p --path --file <PATH>`
+#### `-p --path <PATH>`
+
+**Aliases:** `--file`
 
 Specify a path to a config file or directory
 
