@@ -404,7 +404,9 @@ fn closing_delimiter(
             % 2
             == 1;
         if escaped {
-            search_at = run_end;
+            // A backslash escapes one marker, not its whole run. The rest may still close the
+            // span: `*italic \**` is an escaped literal star followed by the italic close.
+            search_at = run_start + marker.len_utf8();
             continue;
         }
 
@@ -3532,6 +3534,18 @@ mod style_tests {
         assert_eq!(
             styled_inline("foo__bar__ baz_qux", None),
             "foo__bar__ baz_qux"
+        );
+    }
+
+    #[test]
+    fn an_escape_skips_one_closing_marker() {
+        assert_eq!(
+            styled_inline("*italic \\**", None),
+            "\u{1b}[3mitalic *\u{1b}[23m"
+        );
+        assert_eq!(
+            styled_inline("**bold \\***", None),
+            "\u{1b}[1mbold *\u{1b}[22m"
         );
     }
 
