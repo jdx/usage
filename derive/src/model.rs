@@ -3413,12 +3413,13 @@ impl Field {
                 Some(help) if !help.trim().is_empty() => format!("{help} {annotation}"),
                 _ => annotation.clone(),
             });
-            long_help = Some(match long_help {
-                Some(long_help) if !long_help.trim().is_empty() => {
-                    format!("{long_help} {annotation}")
-                }
-                _ => annotation,
-            });
+            if let Some(detail) = long_help.as_mut() {
+                *detail = if detail.trim().is_empty() {
+                    annotation
+                } else {
+                    format!("{detail} {annotation}")
+                };
+            }
         }
 
         // A flag is named after the form it answers to, not after the Rust field holding it.

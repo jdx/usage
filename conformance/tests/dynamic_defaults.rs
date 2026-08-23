@@ -39,6 +39,13 @@ fn portable_metadata_describes_but_does_not_invent_the_runtime_value() {
         typed.help,
         Some("Port to listen on (default: selected at runtime)")
     );
+    assert!(typed.long_help.is_none());
+    let long = usage_argv::help::render(Serve::spec(), Serve::command(), true)
+        .expect("the root help page");
+    assert!(
+        long.contains("Port to listen on (default: selected at runtime)"),
+        "{long}"
+    );
 
     let kdl = Serve::to_kdl();
     assert!(!kdl.contains("default="), "{kdl}");
