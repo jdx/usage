@@ -63,13 +63,16 @@ for bpaf. If your CLI is large, changes frequently, and build turnaround matters
 more than sub-millisecond parser startup, clap or bpaf is likely a better fit.
 See [compile-time measurements and methodology](/rust/performance#compile-time).
 
-The compiled framework also assumes that the command tree is known at compile
-time and declared with derives. It is not a good fit for a codebase that avoids
-procedural macros, constructs commands from runtime configuration or plugins, or
-publishes a parser that downstream crates can extend. Those projects can still
-use `usage-lib` to build or interpret a usage spec at runtime, and can keep the
-same documentation and completion tooling, but they do not get usage-rs's typed
-result or static-table parse path.
+The compiled framework also assumes that its typed command tree is known at
+compile time and declared with derives. An `external_subcommand` can forward an
+unknown command to a plugin, and a `mount` can discover dynamic commands for
+completion, so a plugin-based application is not automatically a bad fit. There
+is no API, however, to inject runtime commands into the derived parse tables. A
+codebase that avoids procedural macros, needs dynamic commands to participate in
+the same typed parser, or publishes a parser that downstream crates can extend
+should use another parser or `usage-lib`. The latter can build and interpret a
+usage spec at runtime, retaining the documentation and completion tooling, but
+does not provide usage-rs's typed result or static-table parse path.
 
 Finally, usage-rs is not a drop-in clap compatibility layer. A project built
 around `ArgMatches`, `CommandFactory`, runtime command builders, custom typed
