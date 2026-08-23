@@ -1075,4 +1075,23 @@ mod tests {
         assert!(client.contains("double_dash=automatic"));
         insta::assert_snapshot!(client);
     }
+
+    #[test]
+    fn structured_output_keeps_exec_jsdoc_on_exec() {
+        let spec: Spec = r##"
+            bin "reporter"
+            usage "reporter [--json]"
+            flag "--json"
+            output "text" default=#true
+            output "json" framing="json" select="--json"
+        "##
+        .parse()
+        .unwrap();
+        let output = super::super::super::generate(&spec, &make_opts());
+        let client = get_file(&output, "client.ts");
+        let helper = client.find("private cmdArgsFor").unwrap();
+        let doc = client.find("/** [--json] */").unwrap();
+        let exec = client.find("async exec").unwrap();
+        assert!(helper < doc && doc < exec, "{client}");
+    }
 }

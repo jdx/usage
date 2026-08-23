@@ -25,6 +25,7 @@ use usage_derive::{Args, Cli, Subcommands};
         schema = "{\n  \"type\": \"object\"\n}"
     ),
     output("jsonl", framing = "jsonl", help = "One event per line"),
+    output("legacy", hide),
     exit_code(0, "all checks passed"),
     exit_code(1, "a check failed")
 )]
@@ -72,6 +73,14 @@ struct Ex {
     command: Commands,
 }
 
+#[derive(Cli)]
+#[usage(name = "root-order", output("json"))]
+#[allow(dead_code)]
+struct RootOrder {
+    #[usage(long)]
+    verbose: bool,
+}
+
 fn parsed() -> LibSpec {
     let kdl = Ex::to_kdl();
     kdl.parse()
@@ -89,10 +98,16 @@ fn a_name_and_a_framing_are_different_things() {
         .collect();
     assert_eq!(
         declared,
-        vec![("human", "text"), ("json", "json"), ("jsonl", "jsonl")]
+        vec![
+            ("human", "text"),
+            ("json", "json"),
+            ("jsonl", "jsonl"),
+            ("legacy", "text"),
+        ]
     );
     assert!(check.outputs[0].default);
     assert!(check.outputs[2].framing.is_streaming());
+    assert!(check.outputs[3].hide);
 }
 
 #[test]
@@ -176,4 +191,12 @@ fn the_derives_kdl_is_what_usage_lib_would_write() {
     let direct = Ex::to_kdl();
     let parsed: LibSpec = direct.parse().unwrap();
     assert_eq!(direct, parsed.to_string());
+}
+
+#[test]
+fn root_outputs_follow_root_flags_in_both_writers() {
+    let direct = RootOrder::to_kdl();
+    let parsed: LibSpec = direct.parse().unwrap();
+    assert_eq!(direct, parsed.to_string());
+    assert!(direct.find("flag --verbose") < direct.find("output json"));
 }

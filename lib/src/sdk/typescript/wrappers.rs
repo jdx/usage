@@ -226,26 +226,14 @@ fn render_class(
             code = example.code
         ));
     }
-    if !exec_doc.is_empty() {
-        let exec_doc: Vec<String> = exec_doc.iter().map(|s| escape_jsdoc(s)).collect();
-        if exec_doc.len() == 1 && !exec_doc[0].contains('\n') {
-            w.line(&format!("/** {} */", exec_doc[0]));
-        } else {
-            w.line("/**");
-            for part in &exec_doc {
-                for line in part.split('\n') {
-                    w.line(&format!(" * {line}"));
-                }
-            }
-            w.line(" */");
-        }
-    }
-
     let outputs = crate::sdk::output_methods(cmd, spec, package_name);
     // A command with declared outputs builds its argv in a helper, so `exec` and each
     // per-output method share one copy of the assembly. A command without one keeps the
     // body inline under `exec`, which is why no existing client regenerates.
     let building = !outputs.is_empty();
+    if !building {
+        render_jsdoc(w, &exec_doc);
+    }
     let omit_param = if building { ", omit?: string" } else { "" };
     if has_args || has_flags {
         if building {
@@ -404,6 +392,7 @@ fn render_class(
         let comma = if call.is_empty() { "" } else { ", " };
 
         w.line("");
+        render_jsdoc(w, &exec_doc);
         w.line(&format!("async exec({params}): Promise<CliResult> {{"));
         w.indent();
         w.line(&format!("return this.runner.run(this.cmdArgsFor({call}));"));
@@ -550,6 +539,21 @@ fn render_flag_build(flag: &SpecFlag, w: &mut CodeWriter) {
                 escape_ts_string(negate)
             ));
         }
+    }
+}
+
+fn render_jsdoc(w: &mut CodeWriter, doc: &[String]) {
+    let doc: Vec<String> = doc.iter().map(|s| escape_jsdoc(s)).collect();
+    if doc.len() == 1 && !doc[0].contains('\n') {
+        w.line(&format!("/** {} */", doc[0]));
+    } else if !doc.is_empty() {
+        w.line("/**");
+        for part in &doc {
+            for line in part.split('\n') {
+                w.line(&format!(" * {line}"));
+            }
+        }
+        w.line(" */");
     }
 }
 

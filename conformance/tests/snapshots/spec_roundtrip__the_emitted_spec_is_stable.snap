@@ -33,9 +33,6 @@ help_template #"""
 {{commands}}
 """#
 default_subcommand run
-example "ex a.txt" header=Basic help="the simplest thing"
-exit_code 0 success
-exit_code 130 interrupted
 flag "-j --jobs" help="how many jobs, and a quote: \"" global=#true help_heading=Performance env=EX_JOBS default="4" {
     long_help #"""
 More about jobs.
@@ -68,6 +65,9 @@ flag --paths {
     arg <path>
 }
 arg "[file]" help="the file" help_heading=Input env=EX_FILE default=a.txt
+example "ex a.txt" header=Basic help="the simplest thing"
+exit_code 0 success
+exit_code 130 interrupted
 cmd install help="install a tool" effect=write {
     alias i
     alias add hide=#true

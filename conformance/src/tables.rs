@@ -764,6 +764,7 @@ fn outputs(list: &[SpecOutput]) -> &'static [OutputMeta<'static>] {
                 },
                 help: opt(&o.help),
                 default: o.default,
+                hide: o.hide,
                 select: opt(&o.select),
                 schema: opt(&o.schema),
                 schema_fn: None,

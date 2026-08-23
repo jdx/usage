@@ -2720,10 +2720,14 @@ fn choices_tokens(
     // without the author writing the list twice. usage-lib fills the same list in when it
     // parses a spec, and `output.rs`'s byte-identity test is what holds the two together.
     if let Some(outputs) = selector_choices(cli, field) {
-        let values: Vec<&str> = outputs.iter().map(|o| o.name.as_str()).collect();
+        let values: Vec<&str> = outputs
+            .iter()
+            .filter(|o| !o.hide)
+            .map(|o| o.name.as_str())
+            .collect();
         let details: Vec<TokenStream> = outputs
             .iter()
-            .filter(|o| o.help.is_some())
+            .filter(|o| !o.hide && o.help.is_some())
             .map(|o| {
                 let value = &o.name;
                 let help = o.help.as_deref().expect("filtered");
@@ -3794,6 +3798,7 @@ fn output_tokens(cli: &Cli) -> OutputTokens {
             };
             let help = option_str(output.help.as_deref());
             let default = output.default;
+            let hide = output.hide;
             let select = option_str(output.select.as_deref());
             // A schema is a `fn` pointer rather than a string because `schema_for!` is a
             // call and this initializes a `static`. The literal spelling goes through the
@@ -3832,6 +3837,7 @@ fn output_tokens(cli: &Cli) -> OutputTokens {
                     framing: #framing,
                     help: #help,
                     default: #default,
+                    hide: #hide,
                     select: #select,
                     schema: ::std::option::Option::None,
                     schema_fn: #schema_fn,

@@ -1293,6 +1293,8 @@ pub struct OutputMeta<'a> {
     pub help: Option<&'a str>,
     /// What the command writes when nothing selects otherwise.
     pub default: bool,
+    /// Remove an inherited output of the same name.
+    pub hide: bool,
     /// A boolean flag whose presence picks this output, for the `--json` spelling.
     pub select: Option<&'a str>,
     /// A JSON Schema written into the table as text.
@@ -1315,6 +1317,7 @@ impl OutputMeta<'_> {
         framing: Framing::Text,
         help: None,
         default: false,
+        hide: false,
         select: None,
         schema: None,
         schema_fn: None,
@@ -1590,10 +1593,6 @@ impl Spec<'_> {
             "the root command cannot carry an effect, hide, a restart token, or \
              aliases: the spec accepts those only inside a `cmd` block"
         );
-        for example in self.root.examples {
-            write_example(out, example, 0)?;
-        }
-        write_outputs(out, self.root, 0)?;
         // Before the flags, since that is where the first `use` of one appears. Which sets
         // there are is a property of the whole tree, so it is settled before anything is
         // written rather than discovered command by command.
@@ -1609,7 +1608,7 @@ impl Spec<'_> {
         }
         // Nothing above the root, so what it does not state is the default.
         let mut path = Vec::new();
-        write_body(out, self.root, 0, UnknownFlags::Value, &w, &mut path)
+        write_body(out, self.root, 0, UnknownFlags::Value, &w, &mut path, true)
     }
 }
 
@@ -1811,6 +1810,7 @@ fn write_body<'a>(
     inherited_unknown_flags: UnknownFlags,
     w: &Writing<'_, '_>,
     path: &mut Vec<&'a str>,
+    root: bool,
 ) -> core::fmt::Result {
     // The effective setting for everything inside, which is this command's if it stated one
     // and otherwise whatever it inherited.
@@ -1848,6 +1848,12 @@ fn write_body<'a>(
     // rule about them — the order usage-lib writes, so a round trip reads the same way.
     for group in meta.groups {
         write_group(out, group, depth)?;
+    }
+    if root {
+        for example in meta.examples {
+            write_example(out, example, depth)?;
+        }
+        write_outputs(out, meta, depth)?;
     }
     #[cfg(feature = "complete")]
     write_completers(out, meta, w.bin, depth)?;
@@ -2057,7 +2063,7 @@ fn write_command<'a>(
     for example in meta.examples {
         write_example(out, example, inner)?;
     }
-    write_body(out, meta, inner, effective_unknown_flags, w, path)?;
+    write_body(out, meta, inner, effective_unknown_flags, w, path, false)?;
     // After the body, because usage-lib's writer puts these after the flags, args and
     // subcommands, and `canonical_kdl` compares the two documents byte for byte.
     write_outputs(out, meta, inner)?;
@@ -2101,6 +2107,9 @@ fn write_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core
         }
         if output.default {
             out.push_str(" default=#true");
+        }
+        if output.hide {
+            out.push_str(" hide=#true");
         }
         if let Some(select) = output.select {
             write!(out, " select={}", quoted(select))?;
@@ -4323,6 +4332,7 @@ mod tests {
             UnknownFlags::Value,
             &w,
             &mut Vec::new(),
+            false,
         )
         .unwrap();
 
