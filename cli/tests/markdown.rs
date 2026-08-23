@@ -269,10 +269,10 @@ fn markdown_template_files_override_named_renderer_templates() {
     let mut cmd = usage_cmd();
     cmd.args(["generate", "markdown", "-f"])
         .arg(&spec)
-        .arg("--spec-template")
-        .arg(&spec_template)
-        .arg("--flag-template")
-        .arg(&flag_template)
+        .arg("--template")
+        .arg(format!("spec={}", spec_template.display()))
+        .arg("--template")
+        .arg(format!("flag={}", flag_template.display()))
         .args(["--out-file", "-"]);
 
     let output = cmd.output().unwrap();

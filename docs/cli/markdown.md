@@ -31,7 +31,7 @@ single-file document can keep the built-in command template:
 
 ```sh
 $ usage g markdown -f ./mycli.usage.kdl \
-    --spec-template ./templates/spec.md.tera \
+    --template spec=./templates/spec.md.tera \
     --out-file ./docs/cli.md
 ```
 
@@ -42,10 +42,9 @@ $ usage g markdown -f ./mycli.usage.kdl \
 {% include "cmd_template.md.tera" %}
 ```
 
-The available options are `--spec-template`, `--index-template`, `--command-template`,
-`--argument-template`, `--flag-template`, and `--config-template`. Options can be combined;
-templates that are not named keep their built-in definitions and remain available through
-Tera's `include`.
+The available names are `spec`, `index`, `command`, `argument`, `flag`, and `config`. Repeat
+`--template` to replace more than one. Templates that are not named keep their built-in
+definitions and remain available through Tera's `include`.
 
 ## Custom templates from Rust
 

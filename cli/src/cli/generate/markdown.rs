@@ -53,29 +53,9 @@ pub struct Markdown {
     #[usage(long)]
     url_prefix: Option<String>,
 
-    /// Tera template file for the complete single-file document
-    #[usage(long, value_hint = usage_rs::ValueHint::FilePath)]
-    spec_template: Option<PathBuf>,
-
-    /// Tera template file for the multi-file landing page
-    #[usage(long, value_hint = usage_rs::ValueHint::FilePath)]
-    index_template: Option<PathBuf>,
-
-    /// Tera template file for each command
-    #[usage(long, value_hint = usage_rs::ValueHint::FilePath)]
-    command_template: Option<PathBuf>,
-
-    /// Tera template file for each positional argument
-    #[usage(long, value_hint = usage_rs::ValueHint::FilePath)]
-    argument_template: Option<PathBuf>,
-
-    /// Tera template file for each flag
-    #[usage(long, value_hint = usage_rs::ValueHint::FilePath)]
-    flag_template: Option<PathBuf>,
-
-    /// Tera template file for the configuration reference
-    #[usage(long, value_hint = usage_rs::ValueHint::FilePath)]
-    config_template: Option<PathBuf>,
+    /// Override a Tera template with NAME=PATH
+    #[usage(long)]
+    template: Vec<String>,
 }
 
 impl usage_rs::Run for Markdown {
@@ -101,19 +81,25 @@ impl usage_rs::Run for Markdown {
         let mut ctx = MarkdownRenderer::new(spec.clone())
             .with_html_encode(self.html_encode)
             .with_replace_pre_with_code_fences(self.replace_pre_with_code_fences);
-        for (template, path) in [
-            (MarkdownTemplate::Spec, self.spec_template.as_ref()),
-            (MarkdownTemplate::Index, self.index_template.as_ref()),
-            (MarkdownTemplate::Command, self.command_template.as_ref()),
-            (MarkdownTemplate::Argument, self.argument_template.as_ref()),
-            (MarkdownTemplate::Flag, self.flag_template.as_ref()),
-            (MarkdownTemplate::Config, self.config_template.as_ref()),
-        ] {
-            if let Some(path) = path {
-                let source = std::fs::read_to_string(path)
-                    .map_err(|err| UsageErr::FileError(err, path.clone()))?;
-                ctx = ctx.with_template(template, source);
-            }
+        for value in &self.template {
+            let Some((name, path)) = value.split_once('=') else {
+                miette::bail!("invalid template `{value}`; expected NAME=PATH");
+            };
+            let template = match name {
+                "spec" => MarkdownTemplate::Spec,
+                "index" => MarkdownTemplate::Index,
+                "command" => MarkdownTemplate::Command,
+                "argument" => MarkdownTemplate::Argument,
+                "flag" => MarkdownTemplate::Flag,
+                "config" => MarkdownTemplate::Config,
+                _ => miette::bail!(
+                    "unknown template `{name}`; expected spec, index, command, argument, flag, or config"
+                ),
+            };
+            let path = PathBuf::from(path);
+            let source = std::fs::read_to_string(&path)
+                .map_err(|err| UsageErr::FileError(err, path.clone()))?;
+            ctx = ctx.with_template(template, source);
         }
         if let Some(url_prefix) = &self.url_prefix {
             ctx = ctx.with_url_prefix(url_prefix);
