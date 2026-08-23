@@ -9994,7 +9994,21 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
         let selectors = member_selectors(member);
-        let matches = if member.value_ty.is_some() {
+        let matches = if member.value_enum {
+            let ty = member
+                .value_ty
+                .as_ref()
+                .expect("value_enum members were checked to carry a value");
+            quote! {
+                partial.#given.as_deref().is_some_and(|given| {
+                    if <#ty as usage_argv::spec::ValueEnum>::IGNORE_CASE {
+                        given.eq_ignore_ascii_case(value)
+                    } else {
+                        given == value
+                    }
+                })
+            }
+        } else if member.value_ty.is_some() {
             quote!(partial.#given.as_deref().is_some_and(|given| given == value))
         } else {
             // Switch presence is the value. Wrap like an ordinary bool flag so a missing

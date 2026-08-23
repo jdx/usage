@@ -64,11 +64,13 @@ enum Mode {
 struct ValuedGroup {
     #[usage(arg_group)]
     mode: Option<Mode>,
+    #[usage(long, required_if_eq("--migrate", "biome"))]
+    confirm: bool,
 }
 
 #[test]
 fn a_group_member_can_carry_a_typed_value() {
-    let a = argv(["--migrate", "BIOME"]);
+    let a = argv(["--migrate", "BIOME", "--confirm"]);
     assert_eq!(
         ValuedGroup::parse_from(&a)
             .expect("value-enum payload")
@@ -87,6 +89,15 @@ fn a_group_member_can_carry_a_typed_value() {
         ValuedGroup::parse_from(&a),
         Err(Error::InvalidValue(error)) if error.name == "migrate"
     ));
+}
+
+#[test]
+fn case_insensitive_group_values_match_relationships_the_same_way_they_parse() {
+    let a = argv(["--migrate", "BIOME"]);
+    assert!(ValuedGroup::parse_from(&a).is_err());
+
+    let a = argv(["--migrate", "BIOME", "--confirm"]);
+    assert!(ValuedGroup::parse_from(&a).is_ok());
 }
 
 #[test]
@@ -116,6 +127,7 @@ fn a_value_carrying_group_member_reaches_help_and_the_spec() {
 fn update_reports_an_invalid_group_payload_without_changing_the_value() {
     let mut parsed = ValuedGroup {
         mode: Some(Mode::Write),
+        confirm: false,
     };
     let a = argv(["--migrate", "unknown"]);
     assert!(matches!(
