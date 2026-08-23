@@ -81,10 +81,73 @@ struct RootOrder {
     verbose: bool,
 }
 
+#[derive(Args)]
+#[usage(
+    output("human", default),
+    output("json", framing = "json"),
+    exit_code(2, "invalid output selection")
+)]
+struct SharedOutput {
+    #[usage(long, select)]
+    format: Option<String>,
+}
+
+#[derive(Args)]
+struct NestedOutput {
+    #[usage(flatten)]
+    output: SharedOutput,
+}
+
+#[derive(Cli)]
+#[usage(name = "flattened-output", exit_code(130, "interrupted"))]
+#[allow(dead_code)]
+struct FlattenedOutput {
+    #[usage(flatten)]
+    output: NestedOutput,
+}
+
 fn parsed() -> LibSpec {
     let kdl = Ex::to_kdl();
     kdl.parse()
         .unwrap_or_else(|e| panic!("usage-lib could not parse the emitted spec: {e}\n\n{kdl}"))
+}
+
+#[test]
+fn flattened_args_contribute_command_output_metadata() {
+    let kdl = FlattenedOutput::to_kdl();
+    let spec: LibSpec = kdl
+        .parse()
+        .unwrap_or_else(|e| panic!("usage-lib could not parse the emitted spec: {e}\n\n{kdl}"));
+    assert!(kdl.find("output human") < kdl.find("select \"--format\""));
+    assert!(kdl.find("select \"--format\"") < kdl.find("exit_code 130"));
+
+    assert_eq!(spec.outputs.len(), 2, "{kdl}");
+    assert_eq!(spec.outputs[0].name, "human");
+    assert_eq!(spec.outputs[1].name, "json");
+    assert_eq!(spec.select.as_deref(), Some("--format"));
+    assert_eq!(
+        spec.exit_codes
+            .iter()
+            .find(|exit| exit.code == 2)
+            .map(|exit| exit.help.as_str()),
+        Some("invalid output selection")
+    );
+    assert_eq!(spec.exit_codes[0].code, 130);
+
+    let format = spec
+        .cmd
+        .flags
+        .iter()
+        .find(|flag| flag.name == "format")
+        .unwrap();
+    assert_eq!(
+        format
+            .arg
+            .as_ref()
+            .and_then(|arg| arg.choices.as_ref())
+            .map(|choices| choices.values()),
+        Some(vec!["human".into(), "json".into()])
+    );
 }
 
 #[test]
