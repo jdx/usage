@@ -152,6 +152,18 @@ impl CompleteWord {
         let parsed = usage::parse::parse_partial(spec, &words)?;
         debug!("parsed cmd: {}", parsed.cmd.full_cmd.join(" "));
 
+        // Past an `external_subcommand` catch-all the cursor is inside another program's line.
+        // The command that declared the catch-all still has subcommands, flags and an unfilled
+        // positional to offer, and every one of them would describe the wrong CLI — so would
+        // the working directory, which claims paths belong somewhere only that program knows.
+        // Whoever knows what the external name means answers from there; this spec does not.
+        if parsed.external.is_some() {
+            return Ok(CandidateAnswer {
+                candidates: vec![],
+                files: false,
+            });
+        }
+
         // Check if previous token was a restart_token - if so, complete from first arg
         let prev_token = if cword > 0 {
             self.words.get(cword - 1).map(|s| s.as_str())

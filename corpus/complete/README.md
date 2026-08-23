@@ -61,6 +61,20 @@ test of the machine it runs on, so it states the _kind_ instead:
 which asserts that the implementation defers to the shell's own file completion rather than
 offering words of its own. What the filesystem then contains is not the corpus's business.
 
+## Vectors that expect nothing
+
+An empty expectation is almost always a spec that did not say what its author thought, so the
+corpus refuses one unless the vector says the silence is deliberate:
+
+```jsonc
+"expect": { "nothing": true }
+```
+
+The case that needs it is [`03-external-boundary.json`](03-external-boundary.json): past an
+`external_subcommand` catch-all the words belong to a program the spec does not describe, and
+offering the catch-all's own subcommands, flags or the working directory would answer about the
+wrong CLI. Offering nothing is the claim, path fallback included.
+
 ## Keeping it honest
 
 Every vector carries a `reference` label, defaulting to `agrees`, saying whether `usage-cli` —
