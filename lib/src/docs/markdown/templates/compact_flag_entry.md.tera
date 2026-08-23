@@ -1,4 +1,4 @@
-- **`{{ flag.usage }}`**{% if flag.help_md %} — {{ flag.help_md | escape_md | indent_md }}{% endif %}
+- **`{{ flag.usage }}`**{% if flag.help_md %} — {{ flag.help_md | escape_md_indented }}{% endif %}
 {%- if flag.aliases %}
 
   **Aliases:** {% for alias in flag.aliases %}`{{ alias }}`{% if not loop.last %}, {% endif %}{% endfor %}

@@ -117,20 +117,9 @@ pub(crate) static TERA: LazyLock<Tera> = LazyLock::new(|| {
         },
     );
     tera.register_filter(
-        "indent_md",
-        |value: &tera::Value, _: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
-            let value = value.as_str().unwrap();
-            Ok(value
-                .split('\n')
-                .enumerate()
-                .map(|(index, line)| {
-                    if index == 0 || line.is_empty() {
-                        line.to_string()
-                    } else {
-                        format!("  {line}")
-                    }
-                })
-                .join("\n"))
+        "escape_md_indented",
+        |value: &tera::Value, _: tera::Kwargs, _: &tera::State| -> tera::TeraResult<tera::Value> {
+            Ok(value.clone())
         },
     );
     tera.register_function(
@@ -171,13 +160,13 @@ pub(crate) static TERA: LazyLock<Tera> = LazyLock::new(|| {
 
     #[rustfmt::skip]
     tera.add_raw_templates([
-        ("arg_template.md.tera", include_str!("templates/arg_template.md.tera")),
-        ("cmd_template.md.tera", include_str!("templates/cmd_template.md.tera")),
+        ("arg_template.md.tera", include_str!("templates/compact_arg_entry.md.tera")),
+        ("cmd_template.md.tera", include_str!("templates/compact_cmd_template.md.tera")),
         (
             "config_template.md.tera",
             include_str!("templates/config_template.md.tera"),
         ),
-        ("flag_template.md.tera", include_str!("templates/flag_template.md.tera")),
+        ("flag_template.md.tera", include_str!("templates/compact_flag_entry.md.tera")),
         ("spec_template.md.tera", include_str!("templates/spec_template.md.tera")),
         ("index_template.md.tera", include_str!("templates/index_template.md.tera")),
     ]).unwrap();
@@ -185,20 +174,24 @@ pub(crate) static TERA: LazyLock<Tera> = LazyLock::new(|| {
     tera
 });
 
-/// Replace the command template and add the two entry partials that its compact lists use.
-pub(crate) fn install_compact(tera: &mut Tera) -> Result<(), tera::Error> {
+/// Precompile the detailed overrides once. The default template set above stays compact so the
+/// common path does not parse two themes before it can render its first page.
+pub(crate) static DETAILED_TERA: LazyLock<Tera> = LazyLock::new(|| {
+    let mut tera = TERA.clone();
     tera.add_raw_templates([
         (
-            "compact_arg_entry.md.tera",
-            include_str!("templates/compact_arg_entry.md.tera"),
+            "arg_template.md.tera",
+            include_str!("templates/arg_template.md.tera"),
         ),
         (
-            "compact_flag_entry.md.tera",
-            include_str!("templates/compact_flag_entry.md.tera"),
+            "flag_template.md.tera",
+            include_str!("templates/flag_template.md.tera"),
         ),
         (
             "cmd_template.md.tera",
-            include_str!("templates/compact_cmd_template.md.tera"),
+            include_str!("templates/cmd_template.md.tera"),
         ),
     ])
-}
+    .unwrap();
+    tera
+});

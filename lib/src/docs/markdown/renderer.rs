@@ -55,7 +55,7 @@ static SGR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\x1b\[[0-?]*[ -/]*[@
 /// A backtick span, or a bare `<` outside one.
 static CODE_SPAN_OR_LT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(`[^`]*`)|(<)").unwrap());
 
-fn escape_md(value: &str, html_encode: bool) -> String {
+fn escape_md_with_indent(value: &str, html_encode: bool, indent: bool) -> String {
     let mut in_fenced_code_block = false;
     // Help text is allowed to contain terminal styling. clap-era applications commonly build
     // their examples with `color_print::cstr!`, which embeds SGR sequences even when color is
@@ -65,42 +65,52 @@ fn escape_md(value: &str, html_encode: bool) -> String {
 
     value
         .lines()
-        .map(|line| {
-            if !html_encode {
-                return line.to_string();
-            }
-            // Indented code is handled before fence state. This is safe because
-            // `replace_code_fences` always emits closing fences at column zero.
-            if line.starts_with("    ") {
-                return line.to_string();
-            }
-            if in_fenced_code_block {
-                if line.trim_end() == "```" {
-                    in_fenced_code_block = false;
-                }
-                return line.to_string();
-            }
-            // Support the conventional fence shape emitted by `replace_code_fences`
-            // without attempting to parse the full Markdown specification.
-            if line
-                .strip_prefix("```")
-                .is_some_and(|suffix| !suffix.starts_with('`'))
-            {
-                in_fenced_code_block = true;
-                return line.to_string();
-            }
-            // replace '<' with '&lt;' but not inside code blocks
-            CODE_SPAN_OR_LT
-                .replace_all(line, |caps: &regex::Captures| {
-                    if caps.get(1).is_some() {
-                        caps.get(1).unwrap().as_str().to_string()
-                    } else {
-                        "&lt;".to_string()
+        .enumerate()
+        .map(|(index, line)| {
+            let line = if !html_encode {
+                line.to_string()
+            } else {
+                // Indented code is handled before fence state. This is safe because
+                // `replace_code_fences` always emits closing fences at column zero.
+                if line.starts_with("    ") {
+                    line.to_string()
+                } else if in_fenced_code_block {
+                    if line.trim_end() == "```" {
+                        in_fenced_code_block = false;
                     }
-                })
-                .to_string()
+                    line.to_string()
+                // Support the conventional fence shape emitted by `replace_code_fences`
+                // without attempting to parse the full Markdown specification.
+                } else if line
+                    .strip_prefix("```")
+                    .is_some_and(|suffix| !suffix.starts_with('`'))
+                {
+                    in_fenced_code_block = true;
+                    line.to_string()
+                } else {
+                    // replace '<' with '&lt;' but not inside code blocks
+                    CODE_SPAN_OR_LT
+                        .replace_all(line, |caps: &regex::Captures| {
+                            if caps.get(1).is_some() {
+                                caps.get(1).unwrap().as_str().to_string()
+                            } else {
+                                "&lt;".to_string()
+                            }
+                        })
+                        .to_string()
+                }
+            };
+            if indent && index > 0 && !line.is_empty() {
+                format!("  {line}")
+            } else {
+                line
+            }
         })
         .join("\n")
+}
+
+fn escape_md(value: &str, html_encode: bool) -> String {
+    escape_md_with_indent(value, html_encode, false)
 }
 
 #[derive(Debug, Clone)]
@@ -244,11 +254,10 @@ impl MarkdownRenderer {
         template_name: &str,
         enrich: impl FnOnce(&mut tera::Context),
     ) -> Result<String, UsageErr> {
-        let mut tera = TERA.clone();
-
-        if self.theme == MarkdownTheme::Compact {
-            crate::docs::markdown::tera::install_compact(&mut tera)?;
-        }
+        let mut tera = match self.theme {
+            MarkdownTheme::Compact => TERA.clone(),
+            MarkdownTheme::Detailed => crate::docs::markdown::tera::DETAILED_TERA.clone(),
+        };
 
         for (template, source) in &self.templates {
             tera.add_raw_template(template.name(), source)?;
@@ -264,6 +273,16 @@ impl MarkdownRenderer {
                 let value = value.as_str().unwrap();
                 let value = escape_md(value, html_encode);
                 Ok(value)
+            },
+        );
+        tera.register_filter(
+            "escape_md_indented",
+            move |value: &tera::Value,
+                  _: tera::Kwargs,
+                  _: &tera::State|
+                  -> tera::TeraResult<String> {
+                let value = value.as_str().unwrap();
+                Ok(escape_md_with_indent(value, html_encode, true))
             },
         );
 
@@ -406,5 +425,20 @@ mod tests {
             .unwrap();
 
         assert!(page.contains("### `--force`"), "{page}");
+    }
+
+    #[test]
+    fn entry_template_overrides_apply_to_the_compact_theme() {
+        let spec = "bin \"ex\"\narg \"<file>\"\nflag \"--force\"\n"
+            .parse()
+            .unwrap();
+        let page = MarkdownRenderer::new(spec)
+            .with_template(MarkdownTemplate::Argument, "argument: {{ arg.usage }}")
+            .with_template(MarkdownTemplate::Flag, "flag: {{ flag.usage }}")
+            .render_spec()
+            .unwrap();
+
+        assert!(page.contains("argument: <file>"), "{page}");
+        assert!(page.contains("flag: --force"), "{page}");
     }
 }

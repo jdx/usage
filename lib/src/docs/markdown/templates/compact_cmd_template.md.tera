@@ -32,7 +32,7 @@
 
 {{ "#" | repeat(count=header_level) }}# {{ arg_group.heading | default(value="Arguments") }}
 {% for arg in visible %}
-{%- include "compact_arg_entry.md.tera" %}
+{%- include "arg_template.md.tera" %}
 {%- endfor %}
 {%- endif %}
 {%- endfor %}
@@ -44,7 +44,7 @@
 
 {{ "#" | repeat(count=header_level) }}# {{ flag_group.heading | default(value="Global Flags") }}
 {% for flag in group_globals %}
-{%- include "compact_flag_entry.md.tera" %}
+{%- include "flag_template.md.tera" %}
 {%- endfor %}
 {%- endif %}
 {%- endfor %}
@@ -59,7 +59,7 @@
 
 {{ "#" | repeat(count=header_level) }}# {{ flag_group.heading | default(value="Flags") }}
 {% for flag in group_flags %}
-{%- include "compact_flag_entry.md.tera" %}
+{%- include "flag_template.md.tera" %}
 {%- endfor %}
 {%- endif %}
 {%- endfor %}
