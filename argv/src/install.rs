@@ -259,6 +259,7 @@ fn file_name(shell: Shell, name: &str) -> String {
     match shell {
         // bash-completion loads `<cmd>` on demand, by the command's exact name.
         Shell::Bash => name.to_string(),
+        Shell::Elvish => format!("{name}.elv"),
         // `compinit` autoloads `_<cmd>` and calls the function the file is named after, which is
         // what the generated script's tail is written for.
         Shell::Zsh => format!("_{name}"),
@@ -351,6 +352,19 @@ fn sources(shell: Shell, platform: Platform) -> &'static [Source] {
         Source::var("USERPROFILE", &[".config", "fish", "completions"]),
     ];
 
+    const ELVISH: &[Source] = &[
+        Source::var("XDG_CONFIG_HOME", &["elvish", "completions"]),
+        Source::var("HOME", &[".config", "elvish", "completions"]),
+    ];
+    const ELVISH_WINDOWS: &[Source] = &[
+        Source::var("XDG_CONFIG_HOME", &["elvish", "completions"]),
+        Source::var("APPDATA", &["elvish", "completions"]),
+        Source::var(
+            "USERPROFILE",
+            &["AppData", "Roaming", "elvish", "completions"],
+        ),
+    ];
+
     // A vendor autoload directory is the only place nushell reads a completion from without being
     // told to, and the only way to know where one is, is to be told. Everything after it is a plain
     // file plus a reported `source` line, which is true on every nushell that has ever shipped.
@@ -395,6 +409,8 @@ fn sources(shell: Shell, platform: Platform) -> &'static [Source] {
     match (shell, platform) {
         (Shell::Bash, Windows) => BASH_WINDOWS,
         (Shell::Bash, Linux | MacOs) => BASH,
+        (Shell::Elvish, Windows) => ELVISH_WINDOWS,
+        (Shell::Elvish, Linux | MacOs) => ELVISH,
         (Shell::Zsh, Windows) => ZSH_WINDOWS,
         (Shell::Zsh, Linux | MacOs) => ZSH,
         (Shell::Fish, Windows) => FISH_WINDOWS,
@@ -518,6 +534,17 @@ fn is_absolute(value: &OsStr, platform: Platform) -> bool {
 fn loading(shell: Shell, resolved_from: &'static str, dir: &Path, path: &Path) -> Loading {
     match shell {
         Shell::Bash | Shell::Fish => Loading::Automatic,
+        Shell::Elvish => Loading::Manual {
+            line: format!("source {}", quote(shell, &path.display().to_string())),
+            file: dir
+                .parent()
+                .unwrap_or(dir)
+                .join("rc.elv")
+                .display()
+                .to_string(),
+            why: "Elvish argument completers are registered by evaluating configuration, so its \
+                  rc.elv must source the generated file.",
+        },
         Shell::Zsh => Loading::Manual {
             line: format!(
                 "fpath+=({})\nautoload -Uz compinit && compinit",
@@ -564,7 +591,7 @@ fn note(shell: Shell, resolved_from: &'static str) -> Option<&'static str> {
             "a config.nu that assigns $env.config wholesale after autoload replaces the completer \
              this script chained onto.",
         ),
-        Shell::Zsh | Shell::Fish | Shell::Nu | Shell::PowerShell => None,
+        Shell::Elvish | Shell::Zsh | Shell::Fish | Shell::Nu | Shell::PowerShell => None,
     }
 }
 
@@ -876,8 +903,9 @@ mod tests {
         described(platform, &[("HOME", "/home/u")])
     }
 
-    const SHELLS: [Shell; 5] = [
+    const SHELLS: [Shell; 6] = [
         Shell::Bash,
+        Shell::Elvish,
         Shell::Zsh,
         Shell::Fish,
         Shell::Nu,
@@ -974,6 +1002,20 @@ mod tests {
             target.path,
             Path::new("/home/u/.config/fish/completions/ex.fish")
         );
+    }
+
+    #[test]
+    fn elvish_reports_the_rc_line_that_registers_its_completer() {
+        let target = plan("ex", Shell::Elvish, &home(Platform::Linux)).unwrap();
+        assert_eq!(
+            target.path,
+            PathBuf::from("/home/u/.config/elvish/completions/ex.elv")
+        );
+        let Loading::Manual { line, file, .. } = target.loading else {
+            panic!("Elvish needs its rc file to source the generated script");
+        };
+        assert_eq!(line, "source '/home/u/.config/elvish/completions/ex.elv'");
+        assert_eq!(file, "/home/u/.config/elvish/rc.elv");
     }
 
     #[test]

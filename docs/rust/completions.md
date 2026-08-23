@@ -35,11 +35,9 @@ pub fn install_completion_for_alias(alias, shell, env, on_foreign) -> Result<Ins
 pub fn completion_request(argv: &[OsString]) -> Option<String>;
 ```
 
-`Shell` covers `Bash`, `Zsh`, `Fish`, `Nu`, and `PowerShell`.
+`Shell` covers `Bash`, `Elvish`, `Zsh`, `Fish`, `Nu`, and `PowerShell`.
 
-For clap parity, bash, fish, PowerShell, and zsh are the covered set. Nushell is an additional
-usage-native target. Elvish is not supported, so a clap application that currently publishes an
-Elvish script must keep that generator or defer the migration of that artifact.
+This covers clap's native shell set and adds a usage-native Nushell target.
 
 ## How it works
 
@@ -103,6 +101,7 @@ Where each shell keeps a user's own scripts, and whether it finds one without be
 | Shell      | Directory                                                                                     | Loads by itself            |
 | ---------- | --------------------------------------------------------------------------------------------- | -------------------------- |
 | bash       | `$BASH_COMPLETION_USER_DIR/completions`, else `$XDG_DATA_HOME/bash-completion/completions`    | yes, via bash-completion   |
+| Elvish     | `$XDG_CONFIG_HOME/elvish/completions`                                                     | no — needs sourcing        |
 | fish       | `$XDG_CONFIG_HOME/fish/completions`                                                           | yes                        |
 | nushell    | `$NU_VENDOR_AUTOLOAD_DIR`, else the nushell config directory                                  | only in a vendor directory |
 | zsh        | `$XDG_DATA_HOME/zsh/site-functions`, as `_<name>`                                             | no — needs `fpath+=`       |

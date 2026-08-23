@@ -157,6 +157,7 @@ fn every_script_is_valid_in_its_own_shell() {
     // prompt, so it is worth checking even where the shell cannot be driven any further.
     let checks: &[(Shell, &str, &[&str])] = &[
         (Shell::Bash, "bash", &["-n"]),
+        (Shell::Elvish, "elvish", &["-compileonly"]),
         (Shell::Zsh, "zsh", &["-n"]),
         (Shell::Fish, "fish", &["--no-execute"]),
     ];

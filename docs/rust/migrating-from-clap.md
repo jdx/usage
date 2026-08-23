@@ -18,7 +18,6 @@ Check these before starting a migration:
 | Some relationships through `flatten` or on positionals are not available at binding time.     | Keep a post-parse check for the cases described under [Subcommands and shared arguments](#subcommands-and-shared-arguments).    |
 | Prefix inference is intentionally unsupported.                                                | Long flags and subcommands must use a full name or declared alias.                                                              |
 | clap help templates and style palettes are not portable as-is.                                | Rewrite templates using usage's six [help sections](/rust/help#laying-a-page-out); usage chooses terminal styles automatically. |
-| Completion generation does not target Elvish.                                                 | Keep `clap_complete` or another generator for that artifact.                                                                    |
 
 If a migration begins from a `clap::Command` rather than the Rust declaration,
 `clap_usage::spec_with_report` detects recoverable losses. It cannot report state for which clap
