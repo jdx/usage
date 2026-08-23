@@ -23,3 +23,25 @@ docs
 ├── index.md
 └── update.md
 ```
+
+## Custom templates from Rust
+
+`MarkdownRenderer` bundles a complete set of Tera templates. A Rust caller can replace one
+member without copying the rest:
+
+```rust
+use usage::docs::markdown::{MarkdownRenderer, MarkdownTemplate};
+
+let spec: usage::Spec = std::fs::read_to_string("mycli.usage.kdl")?.parse()?;
+let markdown = MarkdownRenderer::new(spec)
+    .with_template(
+        MarkdownTemplate::Spec,
+        "# {{ spec.bin }} reference\n{% set cmd = spec.cmd %}\n{% include \"cmd_template.md.tera\" %}",
+    )
+    .render_spec()?;
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+The selectable members are `Spec`, `Index`, `Command`, `Argument`, `Flag`, and `Config`.
+Templates that are not replaced remain available through Tera's `include`; syntax and include
+errors are returned when the page is rendered.
