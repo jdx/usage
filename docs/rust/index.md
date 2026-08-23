@@ -53,6 +53,30 @@ whole comment becomes the long help shown by `--help`.
 
 <UsageBenches lang="rust" embedded />
 
+## When usage-rs is not a good fit
+
+usage-rs optimizes parser startup by compiling the command tree into static
+tables, and that makes the application slower to compile. In the mise-scale
+fixture, rebuilding the CLI crate with dependencies already built took about
+10.2 seconds with usage-rs, compared with 3.6 seconds for clap and 1.6 seconds
+for bpaf. If your CLI is large, changes frequently, and build turnaround matters
+more than sub-millisecond parser startup, clap or bpaf is likely a better fit.
+See [compile-time measurements and methodology](/rust/performance#compile-time).
+
+The compiled framework also assumes that the command tree is known at compile
+time and declared with derives. It is not a good fit for a codebase that avoids
+procedural macros, constructs commands from runtime configuration or plugins, or
+publishes a parser that downstream crates can extend. Those projects can still
+use `usage-lib` to build or interpret a usage spec at runtime, and can keep the
+same documentation and completion tooling, but they do not get usage-rs's typed
+result or static-table parse path.
+
+Finally, usage-rs is not a drop-in clap compatibility layer. A project built
+around `ArgMatches`, `CommandFactory`, runtime command builders, custom typed
+parser callbacks, prefix inference, custom help styling, or Elvish completions
+should either keep clap at that boundary or audit the migration tradeoffs first.
+See [the clap compatibility gaps](/rust/migrating-from-clap#compatibility-gaps).
+
 ## Installation
 
 One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:

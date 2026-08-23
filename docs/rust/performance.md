@@ -7,7 +7,7 @@ completions is not constructed on a successful parse.
 ## Mise-scale result
 
 The gate uses generated shadows of the same checked-in mise spec: 211 commands,
-711 flags, 128 positional arguments, and four command levels. A third binary
+722 flags, 129 positional arguments, and four command levels. A third binary
 does the same startup work without parsing, so instruction and wall-time
 measurements subtract startup from two runs of the same binary.
 
@@ -44,6 +44,21 @@ does only the work the argv asks for:
 The result scales with the command path and values that were typed, rather than
 with the whole CLI.
 
+## Compile time
+
+That runtime speed moves work into compilation. On the same mise-scale generated
+shadows, a debug rebuild of only the CLI crate, with each framework's dependencies
+already built, took a median 10.2 seconds with usage-rs, 3.6 seconds with clap, and
+1.6 seconds with bpaf over three runs. In a separate isolated clean-build pass,
+the same ordering held at about 15, 6, and 4 seconds respectively. These
+measurements used rustc 1.97.1 on x86_64 Linux.
+
+The absolute times are specific to this unusually large command tree and the
+benchmark host, but the tradeoff is not: usage-rs is doing substantially more
+work at compile time. A project with a large CLI declaration and a tight edit-build
+loop may be better served by clap or bpaf, especially when parser startup is not a
+meaningful part of its runtime.
+
 ## What clap's number includes
 
 For this generated command tree, clap's approximately 544 µs consists of about
@@ -57,14 +72,21 @@ usage is about 34x faster in this measurement.
 The gate's parse-only binaries — each linking its framework's mise-scale
 shadow, built by the same workspace release build, stripped:
 
-| Framework | Stripped binary |
-| --------- | --------------: |
-| usage     |          1.3 MB |
-| bpaf      |          2.5 MB |
-| clap      |          3.1 MB |
+| Framework                   |     Bytes | Decimal MB |
+| --------------------------- | --------: | ---------: |
+| argh                        | 1,010,392 |     1.0 MB |
+| usage, argh vocabulary      | 1,189,312 |     1.2 MB |
+| usage, clap vocabulary      | 1,311,096 |     1.3 MB |
+| usage, full spec vocabulary | 1,319,424 |     1.3 MB |
+| bpaf                        | 2,493,936 |     2.5 MB |
+| clap                        | 3,102,696 |     3.1 MB |
 
-The ordering matches the dependency story: usage links no third-party crates,
-clap links eight. For what the spec endpoint itself weighs, see
+The common-vocabulary usage shadows drop exactly the properties their comparison generator
+drops and disable the spec endpoint neither framework has. The argh version also shortens every
+description the same way and uses the same unboxed command enums. That leaves each pair operating
+over the same expressible CLI instead of charging usage for richer metadata. The full usage
+shadow remains the conformance fixture. On common vocabulary, usage is 58% smaller than clap
+and 18% larger than argh. For what the spec endpoint itself weighs, see
 [Spec output](/rust/spec#the-endpoint) — 65 KB on a small CLI, and
 `#[usage(spec_endpoint = false)]` removes it.
 
@@ -89,7 +111,8 @@ Two profile settings any CLI can apply cut further, independent of usage:
 - `tak` runs the release binaries repeatedly and reports the difference between
   the no-parse and parse paths.
 - Every shadow is generated from the same spec, and each intentionally drops
-  what its framework cannot express.
+  what its framework cannot express. `parse-n-usage-argh` and `parse-n-usage-clap` apply the
+  comparison framework's exact drop set to usage for common-vocabulary binary-size comparisons.
 - Binary sizes are the gate's `parse-n*` binaries from a full workspace release
   build, stripped, against rustc 1.97.1 on x86_64-unknown-linux-gnu. The
   workspace build matters: cargo unifies features, so clap gets the features

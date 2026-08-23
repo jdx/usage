@@ -7899,18 +7899,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                                 }
                                 ::std::result::Result::Err(__usage_bad) => {
                                     return ::std::result::Result::Err(
-                                        usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                                            usage_argv::InvalidValue {
-                                                name: #name,
-                                                value: ::std::string::String::from_utf8_lossy(
-                                                    __usage_bad.as_bytes(),
-                                                )
-                                                .into_owned(),
-                                                reason: ::std::string::ToString::to_string(
-                                                    &__usage_bad.utf8_error(),
-                                                ),
-                                            },
-                                        )),
+                                        usage_argv::invalid_utf8_value(#name, __usage_bad),
                                     );
                                 }
                             }

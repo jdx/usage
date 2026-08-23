@@ -14,6 +14,8 @@ clap = { version = "4", features = ["derive", "env"] }
 shadow-mise = { path = "../shadows/mise" }
 shadow-mise-clap = { path = "../shadows/mise-clap" }
 shadow-mise-argh = { path = "../shadows/mise-argh" }
+shadow-mise-usage-argh = { path = "../shadows/mise-usage-argh" }
+shadow-mise-usage-clap = { path = "../shadows/mise-usage-clap" }
 shadow-mise-bpaf = { path = "../shadows/mise-bpaf" }
 argh = "0.1"
 bpaf = { version = "0.9", features = ["derive"] }
