@@ -98,13 +98,12 @@ pub fn script_for(bin: &str, name: &str, shell: Shell) -> String {
 fn elvish(bin: &str, name: &str) -> String {
     let head = header(bin, Shell::Elvish, "#");
     format!(
-        r#"{head}use edit
-use str
+        r#"{head}use str
 
-var usage-command = '{bin}'
+var usage-command = (external '{bin}')
 
 set edit:completion:arg-completer[{name}] = {{|@words|
-    var lines = [($usage-command __complete_word__ --shell elvish --words $@words 2>/dev/null | to-lines)]
+    var lines = [($usage-command __complete_word__ --shell elvish --words $@words 2>/dev/null | from-lines)]
     for line $lines {{
         if (eq $line "\x01files") {{
             edit:complete-filename $@words
@@ -124,11 +123,17 @@ set edit:completion:arg-completer[{name}] = {{|@words|
             edit:complete-filename $@words
             continue
         }}
-        if (or (eq $line "\x01commands") (eq $line '')) {{
+        if (eq $line "\x01commands") {{
+            # complete-sudo's first argument is a command position, so this asks Elvish for
+            # external commands without recursively invoking this argument completer.
+            edit:complete-sudo sudo $words[-1]
+            continue
+        }}
+        if (eq $line '') {{
             continue
         }}
 
-        var parts = (str:split "\t" $line)
+        var parts = [(str:split "\t" $line)]
         var value = $parts[0]
         var display = $value
         if (> (count $parts) 2) {{
@@ -629,7 +634,7 @@ mod tests {
             (
                 Shell::Elvish,
                 "arg-completer[m]",
-                "var usage-command = 'mise'",
+                "var usage-command = (external 'mise')",
             ),
             (Shell::Zsh, "#compdef m", "command 'mise'"),
             (Shell::Fish, "complete -c 'm'", "command 'mise'"),
@@ -649,6 +654,19 @@ mod tests {
                 assert!(!out.contains("`_mise`"), "{out}");
             }
         }
+    }
+
+    #[test]
+    fn elvish_keeps_candidates_as_values_through_its_protocol() {
+        let out = script("mise", Shell::Elvish);
+        assert!(
+            out.contains("var usage-command = (external 'mise')"),
+            "{out}"
+        );
+        assert!(out.contains("| from-lines)"), "{out}");
+        assert!(!out.contains("| to-lines)"), "{out}");
+        assert!(out.contains("var parts = [(str:split"), "{out}");
+        assert!(out.contains("edit:complete-sudo sudo $words[-1]"), "{out}");
     }
 
     /// zsh reads `#compdef` on the *first* line and nowhere else.

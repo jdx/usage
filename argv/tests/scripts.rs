@@ -14,6 +14,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+#[cfg(unix)]
+use std::process::Stdio;
 use usage_argv::complete::Shell;
 use usage_argv::script::script;
 
@@ -157,7 +159,6 @@ fn every_script_is_valid_in_its_own_shell() {
     // prompt, so it is worth checking even where the shell cannot be driven any further.
     let checks: &[(Shell, &str, &[&str])] = &[
         (Shell::Bash, "bash", &["-n"]),
-        (Shell::Elvish, "elvish", &["-compileonly"]),
         (Shell::Zsh, "zsh", &["-n"]),
         (Shell::Fish, "fish", &["--no-execute"]),
     ];
@@ -201,6 +202,63 @@ fn every_script_is_valid_in_its_own_shell() {
             checks.len()
         );
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn elvish_offers_what_the_binary_answered() {
+    use std::io::Write;
+
+    // Elvish's noninteractive compiler does not define the interactive `edit:` namespace, so
+    // loading this as an RC file in a real pseudoterminal is both the syntax and behavior check.
+    if !available("elvish") || !available("script") {
+        println!("elvish or the script PTY driver is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "elvish-candidates",
+        Shell::Elvish,
+        "install\tInstall a package\tINSTALL\n",
+    );
+    let rc = fixture.dir.join("script");
+    let command = format!("elvish -rc {}", shell_quote(&rc.to_string_lossy()));
+    let mut child = Command::new("script")
+        .args(["-qfc", &command, "/dev/null"])
+        .current_dir(&fixture.dir)
+        .env(
+            "PATH",
+            format!(
+                "{}:{}",
+                fixture.dir.display(),
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        )
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("starting Elvish in a pseudoterminal");
+    let mut stdin = child.stdin.take().expect("PTY stdin");
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    stdin.write_all(b"ex i\t").expect("requesting completion");
+    stdin.flush().expect("flushing completion request");
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    stdin.write_all(b"\x03").expect("cancelling the input line");
+    stdin.flush().expect("flushing cancellation");
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    stdin.write_all(b"\x04").expect("exiting Elvish");
+    let out = child.wait_with_output().expect("waiting for Elvish");
+    assert!(
+        out.status.success(),
+        "Elvish failed:\n{}\n{}",
+        String::from_utf8_lossy(&out.stderr),
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("nstall") && !stdout.contains("no candidates"),
+        "candidate was not displayed: {stdout:?}"
+    );
 }
 
 #[test]

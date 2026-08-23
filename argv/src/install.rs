@@ -599,11 +599,12 @@ fn note(shell: Shell, resolved_from: &'static str) -> Option<&'static str> {
 ///
 /// Single quotes rather than double: a single-quoted string has nothing left to expand, so a `$` or
 /// a space in a home directory cannot change what the line means. The escape differs — POSIX shells
-/// and nushell end the string, add an escaped quote and start again; PowerShell doubles its own —
-/// and the two agree on every path containing no quote at all, which is almost all of them.
+/// and nushell end the string, add an escaped quote and start again; Elvish and PowerShell double
+/// their own — and the two forms agree on every path containing no quote at all, which is almost
+/// all of them.
 fn quote(shell: Shell, text: &str) -> String {
     match shell {
-        Shell::PowerShell => format!("'{}'", text.replace('\'', "''")),
+        Shell::Elvish | Shell::PowerShell => format!("'{}'", text.replace('\'', "''")),
         _ => format!("'{}'", text.replace('\'', "'\\''")),
     }
 }
@@ -1016,6 +1017,7 @@ mod tests {
         };
         assert_eq!(line, "source '/home/u/.config/elvish/completions/ex.elv'");
         assert_eq!(file, "/home/u/.config/elvish/rc.elv");
+        assert_eq!(quote(Shell::Elvish, "a'b"), "'a''b'");
     }
 
     #[test]
