@@ -9133,8 +9133,13 @@ fn post_binding(cli: &Cli) -> TokenStream {
         };
         let active = view_field_active(f);
         let standing_only = unless_standing_only(f);
+        let given = format_ident!("__given_{}", ident);
         Some(quote! {
-            if #active #standing_only {
+            // Choices validate lexical input. A typed computed default is already a value of
+            // the field's type; its `Display` form exists only so the partial can carry it to
+            // the final conversion and need not itself be one of the advertised CLI words.
+            // Environment values mark the field given, so they still take this path.
+            if #active && partial.#given #standing_only {
                 if partial.#invalid {
                     return ::std::result::Result::Err(
                         usage_argv::Error::InvalidChoice {
