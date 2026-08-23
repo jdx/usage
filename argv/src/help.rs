@@ -322,50 +322,21 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         .into_iter()
         .find_map(|(delimiter, open, close, word_boundary, recurse)| {
             rest.strip_prefix(delimiter)?;
-            if word_boundary
-                && text[..at]
-                    .chars()
-                    .next_back()
-                    .is_some_and(char::is_alphanumeric)
+            let marker = delimiter.chars().next().expect("a delimiter has a marker");
+            let previous = text[..at].chars().next_back();
+            // Do not reinterpret part of a delimiter run when the longer form was rejected.
+            // In particular, neither underscore in `word__word__` may become an italic opener.
+            if delimiter.len() == 1
+                && (previous == Some(marker) || rest[delimiter.len()..].starts_with(marker))
             {
                 return None;
             }
-            let content_start = at + delimiter.len();
-            let mut search_at = content_start;
-            while let Some(found) = text[search_at..].find(delimiter) {
-                let mut end = search_at + found;
-                // In `**bold and *italic***`, the first star in the closing run belongs to
-                // the inner emphasis. Taking the first two would close bold early and leave
-                // the last star to open a new span.
-                if delimiter == "**"
-                    && text[end..].starts_with("***")
-                    && text[content_start..end].matches('*').count() % 2 == 1
-                {
-                    end += 1;
-                }
-                let after = end + delimiter.len();
-                let escaped = text[..end]
-                    .chars()
-                    .rev()
-                    .take_while(|ch| *ch == '\\')
-                    .count()
-                    % 2
-                    == 1;
-                let boundary_ok = !word_boundary
-                    || !text[after..]
-                        .chars()
-                        .next()
-                        .is_some_and(char::is_alphanumeric);
-                if !escaped
-                    && end > content_start
-                    && !text[content_start..end].trim().is_empty()
-                    && boundary_ok
-                {
-                    return Some((delimiter, open, close, recurse, content_start, end, after));
-                }
-                search_at = after;
+            if word_boundary && previous.is_some_and(char::is_alphanumeric) {
+                return None;
             }
-            None
+            let content_start = at + delimiter.len();
+            let (end, after) = closing_delimiter(text, content_start, delimiter, word_boundary, 0)?;
+            Some((delimiter, open, close, recurse, content_start, end, after))
         });
 
         if let Some((_, open, close, recurse, content_start, end, after)) = span {
@@ -394,6 +365,79 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
         at += ch.len_utf8();
     }
     out
+}
+
+/// Find a span's close while stepping over valid spans of the other width.
+///
+/// A one-marker italic span may contain a two-marker bold span and vice versa. Combined closing
+/// runs such as the final `***` in `*italic and **bold***` are shared: two markers close bold and
+/// the last closes italic. `reserve` tells a nested search how many markers its parent still
+/// needs from such a run.
+fn closing_delimiter(
+    text: &str,
+    content_start: usize,
+    delimiter: &str,
+    word_boundary: bool,
+    reserve: usize,
+) -> Option<(usize, usize)> {
+    let marker = delimiter.chars().next()?;
+    let width = delimiter.len();
+    let nested_width = match width {
+        1 => 2,
+        2 if matches!(marker, '*' | '_') => 1,
+        _ => 0,
+    };
+    let mut search_at = content_start;
+
+    while let Some(found) = text[search_at..].find(marker) {
+        let run_start = search_at + found;
+        let run_len = text[run_start..]
+            .chars()
+            .take_while(|ch| *ch == marker)
+            .count();
+        let run_end = run_start + run_len;
+        let escaped = text[..run_start]
+            .chars()
+            .rev()
+            .take_while(|ch| *ch == '\\')
+            .count()
+            % 2
+            == 1;
+        if escaped {
+            search_at = run_end;
+            continue;
+        }
+
+        if run_len == nested_width {
+            let nested = &text[run_start..run_start + nested_width];
+            if let Some((_, after)) =
+                closing_delimiter(text, run_start + nested_width, nested, marker == '_', width)
+            {
+                search_at = after;
+                continue;
+            }
+        }
+
+        if run_len >= width {
+            let after = run_start + width;
+            let left_in_run = run_end - after;
+            let leaves_parent_close = left_in_run == 0 || left_in_run >= reserve;
+            let boundary_ok = !word_boundary
+                || !text[after..]
+                    .chars()
+                    .next()
+                    .is_some_and(char::is_alphanumeric);
+            if run_start > content_start
+                && !text[content_start..run_start].trim().is_empty()
+                && leaves_parent_close
+                && boundary_ok
+            {
+                return Some((run_start, after));
+            }
+        }
+        search_at = run_end;
+    }
+    None
 }
 
 fn styled_flag_usage(usage: &str, style: Style) -> String {
@@ -3472,6 +3516,22 @@ mod style_tests {
         assert_eq!(
             styled_inline("**bold and *italic*** plus \\*literal\\*", None),
             "\u{1b}[1mbold and \u{1b}[3mitalic\u{1b}[23m\u{1b}[1m\u{1b}[22m plus *literal*"
+        );
+        assert_eq!(
+            styled_inline("*italic and **bold***", None),
+            "\u{1b}[3mitalic and \u{1b}[1mbold\u{1b}[22m\u{1b}[3m\u{1b}[23m"
+        );
+        assert_eq!(
+            styled_inline("_italic and __bold___", None),
+            "\u{1b}[3mitalic and \u{1b}[1mbold\u{1b}[22m\u{1b}[3m\u{1b}[23m"
+        );
+    }
+
+    #[test]
+    fn intraword_underscore_runs_remain_literal() {
+        assert_eq!(
+            styled_inline("foo__bar__ baz_qux", None),
+            "foo__bar__ baz_qux"
         );
     }
 
