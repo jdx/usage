@@ -260,6 +260,7 @@ jobs:
     permissions: {}
     needs:
       - test
+      - test-windows
       - msrv
     runs-on: ubuntu-latest
     timeout-minutes: 1
@@ -270,6 +271,7 @@ jobs:
       - name: Check job results
         if: |
           needs.test.result != 'success' ||
+          needs.test-windows.result != 'success' ||
           needs.msrv.result != 'success'
         run: exit 1
       - run: echo "All CI jobs completed successfully"
