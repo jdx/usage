@@ -100,6 +100,22 @@ full rule, including what a default does not count as, is in
 The rendered output matches what usage-lib renders from the same spec — the two renderers are
 held to identical output over mise's 211 command pages in CI.
 
+### Formatting help text
+
+Help prose accepts a small inline Markdown vocabulary when it is printed to a styled terminal:
+
+| source                   | terminal style |
+| ------------------------ | -------------- |
+| `**bold**` / `__bold__`  | bold           |
+| `*italic*` / `_italic_`  | italic         |
+| `` `literal` ``          | code/literal   |
+| `~~obsolete~~`           | strikethrough  |
+
+The forms can be nested, and a backslash escapes a delimiter (`\*literal\*`). Formatting is
+terminal-aware: `parse()` emits ANSI styling only on a terminal (or with `CLICOLOR_FORCE`), and
+honours `NO_COLOR`. Plain renderers, generated artifacts, and piped help keep the source spelling.
+Shell lines in declared examples are left verbatim, so backticks remain command substitutions.
+
 ### Laying a page out
 
 The words above change what a page _says_. `help_template` changes the order it says it in:
