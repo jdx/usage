@@ -75,6 +75,8 @@ enum LintFilter {
 struct OrderedFilters {
     #[usage(arg_group)]
     filters: Vec<LintFilter>,
+    #[usage(long, overrides = "--allow")]
+    all: bool,
 }
 
 #[test]
@@ -103,6 +105,27 @@ fn a_multiple_argument_group_preserves_cross_flag_order() {
     assert!(
         kdl.contains("group lint-filter --allow --warn --deny multiple=#true"),
         "{kdl}"
+    );
+}
+
+#[test]
+fn overriding_a_multiple_group_member_removes_its_ordered_occurrences() {
+    let a = argv([
+        "-A",
+        "dead-code",
+        "-Wstyle",
+        "--allow=unused",
+        "--all",
+        "-Dwarnings",
+    ]);
+    let parsed = OrderedFilters::parse_from(&a).expect("overridden filters");
+    assert!(parsed.all);
+    assert_eq!(
+        parsed.filters,
+        vec![
+            LintFilter::Warn("style".into()),
+            LintFilter::Deny("warnings".into()),
+        ]
     );
 }
 

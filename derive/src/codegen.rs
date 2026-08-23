@@ -10570,6 +10570,8 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         // selector is known to this type, so a parent that short-circuits on the
         // first true does not fall through to "unresolved" when the member was
         // simply not given. Clearing is what happens when it *was* given.
+        let clear_ordered =
+            multiple.then(|| quote!(partial.ordered.retain(|(__usage_at, _)| *__usage_at != #i);));
         let clear = if member.value_ty.is_some() {
             quote!(partial.#given = ::std::option::Option::None;)
         } else {
@@ -10578,6 +10580,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
+                #clear_ordered
                 #clear
                 return true;
             }
