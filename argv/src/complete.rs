@@ -1001,8 +1001,10 @@ fn declared_files_at_cursor(
     split: &Split,
     position: &Position<'_>,
 ) -> Option<Files> {
+    let attached = attached_long_value(position, &split.prefix);
     if split.cword == 0
         || (position.awaiting_value.is_none()
+            && attached.is_none()
             && position.flags_possible
             && split.prefix.starts_with('-'))
     {
@@ -1018,12 +1020,16 @@ fn declared_files_at_cursor(
             .or_else(|| default_subcommand_arg(spec, split, position).map(|(_, field)| field.arg))
     };
     if position.awaiting_value.is_none()
+        && attached.is_none()
         && at_cursor.is_some_and(|arg| arg.double_dash == crate::DoubleDash::Required)
         && !position.separator_seen
     {
         return None;
     }
-    let (name, complete_type) = if let Some(flag) = position.awaiting_value {
+    let value_flag = position
+        .awaiting_value
+        .or_else(|| attached.map(|(flag, _, _)| flag));
+    let (name, complete_type) = if let Some(flag) = value_flag {
         let meta = flag_meta(spec.root, flag);
         (
             meta.and_then(|m| m.value_name).or(Some(flag.name)),
@@ -1154,7 +1160,7 @@ fn complete_inner<'a>(
     // different position that happens to have an unfilled positional behind it, and a rule about
     // the positional has nothing to say about the flag: `ex --from ⌶` takes a path whatever the
     // argument after it needs.
-    let needs_separator = position.awaiting_value.is_none()
+    let needs_separator = value_flag.is_none()
         && at_cursor.is_some_and(|arg| arg.double_dash == crate::DoubleDash::Required)
         && !position.separator_seen;
 
@@ -2601,6 +2607,12 @@ mod tests {
             "path",
             runtime_tools,
         )];
+    static FROM_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
+        [CompletionOverlay::asynchronous(
+            "pipe",
+            "FILE",
+            runtime_tools,
+        )];
     static PLUGIN_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
         [CompletionOverlay::asynchronous(
             "plugins",
@@ -2693,6 +2705,20 @@ mod tests {
             "{after_separator:?}"
         );
         assert_eq!(after_separator.files, Some(Files::Any));
+
+        let attached_file = run_ready(complete_with(
+            &SPEC,
+            &at_end("mise pipe --from="),
+            &FROM_RUNTIME_COMPLETIONS,
+        ));
+        assert!(
+            attached_file
+                .candidates
+                .iter()
+                .any(|candidate| candidate.value == "--from=uby"),
+            "{attached_file:?}"
+        );
+        assert_eq!(attached_file.files, Some(Files::Any));
 
         let flag = run_ready(complete_with(
             &SPEC,
@@ -3712,6 +3738,7 @@ mod tests {
         // And a flag waiting for its value is a different position that happens to have that
         // argument behind it: `--from ⌶` takes a path whatever the positional after it needs.
         assert_eq!(answer("mise pipe --from ").files, Some(Files::Any));
+        assert_eq!(answer("mise pipe --from=").files, Some(Files::Any));
     }
 
     #[test]
