@@ -59,7 +59,7 @@ shadow, built by the same workspace release build, stripped:
 
 | Framework | Stripped binary |
 | --------- | --------------: |
-| usage     |          1.6 MB |
+| usage     |          1.3 MB |
 | bpaf      |          2.5 MB |
 | clap      |          3.1 MB |
 
@@ -67,6 +67,20 @@ The ordering matches the dependency story: usage links no third-party crates,
 clap links eight. For what the spec endpoint itself weighs, see
 [Spec output](/rust/spec#the-endpoint) — 65 KB on a small CLI, and
 `#[usage(spec_endpoint = false)]` removes it.
+
+### Where the size lives, and what removes it
+
+The runtime crate itself compiles to about 16 KB; nearly all of the parser's
+footprint is the per-command binding code the derive generates, plus the static
+tables it reads (about 150 KB at mise scale). Size therefore tracks how many
+commands and fields a CLI declares, not which usage features it turns on.
+
+Two profile settings any CLI can apply cut further, independent of usage:
+
+- `strip = true` removes symbols and debug info — the tables above already
+  assume it.
+- `panic = "abort"` removes unwinding landing pads and the backtrace machinery
+  std otherwise links. On the mise-scale binary this is another 84 KB (−6%).
 
 ## Method and limits
 
