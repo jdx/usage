@@ -2346,6 +2346,8 @@ name = "usage-rs"
 version = "6.1.1"
 dependencies = [
  "serde",
+ "shell-words",
+ "tempfile",
  "usage-argv",
  "usage-config",
  "usage-derive",

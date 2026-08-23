@@ -16,6 +16,7 @@ usage-derive = { workspace = true, optional = true }
 usage-test = { workspace = true, optional = true }
 usage-validation = { workspace = true, optional = true }
 usage-config = { workspace = true, optional = true }
+shell-words = { version = "1", optional = true }
 
 [features]
 # Applications get a usable CLI out of the box: parse tables, help, and
@@ -35,6 +36,8 @@ validation = ["dep:usage-validation"]
 test = ["spec", "help", "dep:usage-test"]
 # Settings: the `usage::Config` derive, and the resolver as `usage::config`.
 config = ["spec", "dep:usage-config"]
+# Explicit, cold-path expansion of @response files before parsing.
+response-files = ["dep:shell-words"]
 
 [package.metadata.release]
 shared-version = true
@@ -42,4 +45,5 @@ release = true
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
+tempfile = "3"
 usage-parser = { package = "usage-lib", path = "../lib" }

@@ -78,15 +78,16 @@ available for low-level adopters that want a thinner surface:
 
 ### Cargo features
 
-| Feature       | Default | What it enables                                                                                          |
-| ------------- | :-----: | -------------------------------------------------------------------------------------------------------- |
-| `spec`        |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                          |
-| `help`        |   ✅    | `-h` / `--help` page rendering                                                                           |
-| `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`                                                         |
-| `completions` |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)    |
-| `validation`  |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions)) |
-| `test`        |         | `usage::test`: command output, parse, and help assertions (completion assertions want `completions` too) |
-| `config`      |         | The `usage::Config` derive and the resolver as `usage::config` ([Configuration](/rust/configuration))    |
+| Feature          | Default | What it enables                                                                                          |
+| ---------------- | :-----: | -------------------------------------------------------------------------------------------------------- |
+| `spec`           |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                          |
+| `help`           |   ✅    | `-h` / `--help` page rendering                                                                           |
+| `diagnostics`    |   ✅    | clap-shaped error messages from `render_failure`                                                         |
+| `completions`    |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)    |
+| `validation`     |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions)) |
+| `test`           |         | `usage::test`: command output, parse, and help assertions (completion assertions want `completions` too) |
+| `config`         |         | The `usage::Config` derive and the resolver as `usage::config` ([Configuration](/rust/configuration))    |
+| `response-files` |         | Explicit `@file` argument expansion as `usage::response` ([Response files](/rust/response-files))        |
 
 ## Parse entry points
 
@@ -150,6 +151,7 @@ how to opt out of the endpoint.
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
 - [Completions](/rust/completions) — static scripts and runtime completion
 - [Configuration](/rust/configuration) — settings declared in code: `usage::Config` and layered resolution
+- [Response files](/rust/response-files) — opt-in, nested `@file` argument expansion
 - [Testing](/rust/testing) — run commands or assert directly on parsing, help, and completions
 - [Spec output](/rust/spec) — the emitted KDL and usage-cli integration
 - [Migrating from clap](/rust/migrating-from-clap) — mechanical rewrites and intentional API breaks
