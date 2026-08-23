@@ -5956,6 +5956,9 @@ impl ArgGroup {
                     "`value_name` and `value_enum` need a tuple variant that carries one value",
                 ));
             }
+            if member.value_ty.is_some() && member.value_name.is_none() {
+                member.value_name = Some(shout(&member.name));
+            }
             if let Some(short) = member.short.filter(|short| !short.is_ascii()) {
                 return Err(syn::Error::new_spanned(
                     &variant.ident,

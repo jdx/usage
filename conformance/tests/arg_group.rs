@@ -56,7 +56,6 @@ enum Mode {
     #[usage(value_name = "SOURCE", value_enum)]
     Migrate(MigrationSource),
     /// Read source from standard input as this path.
-    #[usage(value_name = "PATH")]
     StdinFilepath(std::path::PathBuf),
 }
 
@@ -96,7 +95,7 @@ fn a_value_carrying_group_member_reaches_help_and_the_spec() {
         help::render(ValuedGroup::spec(), ValuedGroup::spec().root.cmd, false).expect("a page");
     assert!(help.contains("--migrate <SOURCE>"), "{help}");
     assert!(help.contains("[prettier, biome]"), "{help}");
-    assert!(help.contains("--stdin-filepath <PATH>"), "{help}");
+    assert!(help.contains("--stdin-filepath <STDIN_FILEPATH>"), "{help}");
 
     let kdl = ValuedGroup::to_kdl();
     assert!(
@@ -111,6 +110,19 @@ fn a_value_carrying_group_member_reaches_help_and_the_spec() {
         kdl.contains("group mode --write --check --migrate --stdin-filepath"),
         "{kdl}"
     );
+}
+
+#[test]
+fn update_reports_an_invalid_group_payload_without_changing_the_value() {
+    let mut parsed = ValuedGroup {
+        mode: Some(Mode::Write),
+    };
+    let a = argv(["--migrate", "unknown"]);
+    assert!(matches!(
+        parsed.try_update_from(&a),
+        Err(Error::InvalidValue(error)) if error.name == "migrate"
+    ));
+    assert_eq!(parsed.mode, Some(Mode::Write));
 }
 
 /// A CLI whose format is optional and whose source is not.

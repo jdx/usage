@@ -4965,7 +4965,7 @@ fn merge_fn(cli: &Cli) -> TokenStream {
                 };
                 Some(quote! {
                     if let ::std::option::Option::Some(__usage_member) =
-                        #group::build(&partial.#field_ident)
+                        #group::try_build(&partial.#field_ident)?
                     {
                         __usage_standing.#field_ident = #selected;
                     }
