@@ -177,9 +177,10 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
                   :style="{ width: width(row.value, rustMax) }"
                 ></span>
               </span>
-              <span class="usage-bench-value"
-                >{{ row.label }}<em v-if="row.note"> · {{ row.note }}</em></span
-              >
+              <span class="usage-bench-value">
+                <span class="usage-bench-measure">{{ row.label }}</span>
+                <em v-if="row.note">· {{ row.note }}</em>
+              </span>
             </span>
           </div>
         </div>
@@ -238,9 +239,10 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
                   :style="{ width: width(row.value, goMax) }"
                 ></span>
               </span>
-              <span class="usage-bench-value"
-                >{{ row.label }}<em v-if="row.note"> · {{ row.note }}</em></span
-              >
+              <span class="usage-bench-value">
+                <span class="usage-bench-measure">{{ row.label }}</span>
+                <em v-if="row.note">· {{ row.note }}</em>
+              </span>
             </span>
           </div>
         </div>
