@@ -1291,6 +1291,71 @@ pub fn os_string_from_bytes(value: Vec<u8>) -> Result<OsString, Vec<u8>> {
     }
 }
 
+/// One [`Error::InvalidValue`], built out of line.
+///
+/// Cold and never inlined on purpose: this is the failure path of every value
+/// conversion in every generated `build`, and inlining it there is what made
+/// those functions large.
+#[cold]
+#[inline(never)]
+pub(crate) fn invalid_value_error<'t, 'v>(
+    name: &'t str,
+    value: String,
+    reason: String,
+) -> Error<'t, 'v> {
+    Error::InvalidValue(Box::new(InvalidValue {
+        name,
+        value,
+        reason,
+    }))
+}
+
+/// One [`Error::InvalidValue`] for a word that was not UTF-8.
+///
+/// The error half of what a generated `build` does per text field: the check stays
+/// inline at the field, and this — the lossy rendering and the allocations — lives
+/// here once instead of once per field.
+#[cold]
+#[inline(never)]
+pub fn invalid_utf8_value<'t, 'v>(name: &'t str, bad: std::string::FromUtf8Error) -> Error<'t, 'v> {
+    invalid_value_error(
+        name,
+        String::from_utf8_lossy(bad.as_bytes()).into_owned(),
+        bad.utf8_error().to_string(),
+    )
+}
+
+/// One [`Error::InvalidValue`] for a value whose type would not build from it.
+///
+/// Takes the reason as `&dyn Display` so one copy serves every `FromStr` error type.
+#[cold]
+#[inline(never)]
+pub fn invalid_parsed_value<'t, 'v>(
+    name: &'t str,
+    value: String,
+    reason: &dyn std::fmt::Display,
+) -> Error<'t, 'v> {
+    invalid_value_error(name, value, reason.to_string())
+}
+
+/// One [`Error::InvalidValue`] for a word that is not one of a value enum's choices.
+#[cold]
+#[inline(never)]
+pub fn invalid_choice_value<'t, 'v>(name: &'t str, value: String) -> Error<'t, 'v> {
+    invalid_value_error(name, value, String::from("not one of the declared values"))
+}
+
+/// One [`Error::InvalidValue`] for bytes the platform cannot hold in a path.
+#[cold]
+#[inline(never)]
+pub fn invalid_os_value<'t, 'v>(name: &'t str, bytes: Vec<u8>) -> Error<'t, 'v> {
+    invalid_value_error(
+        name,
+        String::from_utf8_lossy(&bytes).into_owned(),
+        "this platform cannot hold these bytes in a path".to_string(),
+    )
+}
+
 /// A single-pass parse over `argv`.
 ///
 /// Created with [`Parser::new`] and driven with [`Parser::next_event`].
