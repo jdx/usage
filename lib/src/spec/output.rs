@@ -819,7 +819,7 @@ cmd "stream" {
 "#,
         );
         let stream = spec.cmd.subcommands["stream"].clone();
-        let names: Vec<String> = effective_outputs(&spec, &[stream.clone()])
+        let names: Vec<String> = effective_outputs(&spec, std::slice::from_ref(&stream))
             .into_iter()
             .map(|o| o.name)
             .collect();

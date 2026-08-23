@@ -1041,6 +1041,16 @@ fn render_flag_build_py(flag: &SpecFlag, w: &mut CodeWriter) {
     }
 }
 
+/// Whether anything in the tree declares an output, so the generated imports carry only
+/// what is used.
+fn any_outputs(cmd: &SpecCommand, spec: &Spec, package_name: &str) -> bool {
+    !crate::sdk::output_methods(cmd, spec, package_name).is_empty()
+        || cmd
+            .subcommands
+            .values()
+            .any(|sub| any_outputs(sub, spec, package_name))
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -1807,14 +1817,4 @@ mod tests {
         assert!(client.contains("double_dash=automatic"));
         insta::assert_snapshot!(client);
     }
-}
-
-/// Whether anything in the tree declares an output, so the generated imports carry only
-/// what is used.
-fn any_outputs(cmd: &SpecCommand, spec: &Spec, package_name: &str) -> bool {
-    !crate::sdk::output_methods(cmd, spec, package_name).is_empty()
-        || cmd
-            .subcommands
-            .values()
-            .any(|sub| any_outputs(sub, spec, package_name))
 }
