@@ -487,6 +487,14 @@ impl Spec {
                 "long_about" => schema.about_long = Some(node.arg(0)?.ensure_string()?),
                 "about_long" => schema.about_long = Some(node.arg(0)?.ensure_string()?),
                 "about_md" => schema.about_md = Some(node.arg(0)?.ensure_string()?),
+                "surface" => schema.cmd.surface = Some(node.arg(0)?.ensure_string()?),
+                "available_if" => {
+                    schema.cmd.available_if = node
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|entry| entry.ensure_string())
+                        .collect::<Result<Vec<_>, _>>()?;
+                }
                 "license" => schema.license = Some(node.arg(0)?.ensure_string()?),
                 "before_help" => schema.before_help = Some(node.arg(0)?.ensure_string()?),
                 "after_help" => schema.after_help = Some(node.arg(0)?.ensure_string()?),
@@ -1103,6 +1111,18 @@ impl Display for Spec {
         if let Some(message) = &self.cmd.deprecated {
             let mut node = KdlNode::new("deprecated");
             node.push(string_entry(None, message));
+            nodes.push(node);
+        }
+        if let Some(surface) = &self.cmd.surface {
+            let mut node = KdlNode::new("surface");
+            node.push(string_entry(None, surface));
+            nodes.push(node);
+        }
+        if !self.cmd.available_if.is_empty() {
+            let mut node = KdlNode::new("available_if");
+            for condition in &self.cmd.available_if {
+                node.push(string_entry(None, condition));
+            }
             nodes.push(node);
         }
         if let Some(at) = &self.cmd.deprecated_warn_at {

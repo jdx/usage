@@ -72,6 +72,13 @@ The tables below cover the attributes most CLIs need.
 | `global`                 | Usable on any subcommand below this one                         |
 | `required`               | Explicit required-ness (for `Vec` fields)                       |
 | `skip`                   | Not an argument; filled from `Default` when the struct is built |
+| `surface = "…"`          | Descriptive audience or compatibility surface metadata          |
+| `available_if("…", …)`   | Descriptive availability conditions; does not gate parsing      |
+
+The metadata attributes also work on the root `Cli`, an `Args` command struct, and a
+`Subcommands` variant. Their values are intentionally project-defined: `public`, `automation`,
+and `internal` are common surfaces, while `unix`, `debug-build`, or `feature=json` are typical
+availability conditions. Use `hide` or an application-level check when behavior should change.
 
 **Values and cardinality** — what a field accepts and how many:
 

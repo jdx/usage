@@ -302,6 +302,12 @@ pub struct SpecFlag {
     /// it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_heading: Option<String>,
+    /// Named audience or contract surface this flag belongs to. Metadata only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub surface: Option<String>,
+    /// Descriptive conditions under which this flag is available.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub available_if: Vec<String>,
     /// Explicit placement within its help section.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_order: Option<usize>,
@@ -412,6 +418,8 @@ impl SpecFlag {
                 "env_fallback" => flag.env_fallback = vec![v.ensure_string()?],
                 "deprecated_env" => flag.deprecated_env = vec![v.ensure_string()?],
                 "help_heading" => flag.help_heading = v.ensure_string().map(Some)?,
+                "surface" => flag.surface = v.ensure_string().map(Some)?,
+                "available_if" => flag.available_if = vec![v.ensure_string()?],
                 "display_order" => flag.display_order = v.ensure_usize().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported flag key {k}"),
             }
@@ -567,6 +575,14 @@ impl SpecFlag {
                 }
                 "help_heading" => {
                     flag.help_heading = child.arg(0)?.ensure_string().map(Some)?;
+                }
+                "surface" => flag.surface = child.arg(0)?.ensure_string().map(Some)?,
+                "available_if" => {
+                    flag.available_if = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|entry| entry.ensure_string())
+                        .collect::<Result<_>>()?;
                 }
                 "display_order" => {
                     flag.display_order = child.arg(0)?.ensure_usize().map(Some)?;
@@ -1095,6 +1111,10 @@ impl From<&SpecFlag> for KdlNode {
         if let Some(help_heading) = &flag.help_heading {
             node.push(string_entry(Some("help_heading"), help_heading));
         }
+        if let Some(surface) = &flag.surface {
+            node.push(string_entry(Some("surface"), surface));
+        }
+        serialize_flag_list(&mut node, "available_if", &flag.available_if);
         if let Some(order) = flag.display_order {
             node.push(KdlEntry::new_prop("display_order", order as i128));
         }
@@ -1480,6 +1500,8 @@ impl From<&clap::Arg> for SpecFlag {
             env_fallback: vec![],
             deprecated_env: vec![],
             help_heading: c.get_help_heading().map(|s| s.to_string()),
+            surface: None,
+            available_if: Vec::new(),
             display_order: Some(c.get_display_order()),
         };
         if c.is_allow_hyphen_values_set() {

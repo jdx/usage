@@ -270,6 +270,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let deprecated = option_str(cli.deprecated.as_deref());
     let deprecated_warn_at = option_str(cli.deprecated_warn_at.as_deref());
     let deprecated_remove_at = option_str(cli.deprecated_remove_at.as_deref());
+    let surface = option_str(cli.surface.as_deref());
+    let available_if = &cli.available_if;
 
     // The same wiring a nested command uses: the root differs only in how it is
     // entered, so it does not get its own copy.
@@ -1002,6 +1004,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 deprecated: #deprecated,
                 deprecated_warn_at: #deprecated_warn_at,
                 deprecated_remove_at: #deprecated_remove_at,
+                surface: #surface,
+                available_if: &[#(#available_if),*],
                 restart_token: #restart_token,
                 subcommand_required: #subcommand_required,
                 subcommand_help_heading: #subcommand_help_heading,
@@ -2524,6 +2528,8 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let env_fallback = &field.env_fallback;
     let deprecated_env = &field.deprecated_env;
     let help_heading = option_str(field.help_heading.as_deref());
+    let surface = option_str(field.surface.as_deref());
+    let available_if = &field.available_if;
     let display_order = option_usize(field.display_order);
     let deprecated = option_str(field.deprecated.as_deref());
     let deprecated_warn_at = option_str(field.deprecated_warn_at.as_deref());
@@ -2664,6 +2670,8 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             deprecated_env: &[#(#deprecated_env),*],
             default: #default,
             help_heading: #help_heading,
+            surface: #surface,
+            available_if: &[#(#available_if),*],
             value_name: #value_name,
             value_names: &[#(#value_names),*],
             hide: #hide,
@@ -2717,6 +2725,8 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     let env_fallback = &field.env_fallback;
     let deprecated_env = &field.deprecated_env;
     let help_heading = option_str(field.help_heading.as_deref());
+    let surface = option_str(field.surface.as_deref());
+    let available_if = &field.available_if;
     let display_order = option_usize(field.display_order);
     let complete_type = option_str(field.complete_type.as_deref());
     let value_names = &field.value_names;
@@ -2794,6 +2804,8 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
             deprecated_env: &[#(#deprecated_env),*],
             default: #default,
             help_heading: #help_heading,
+            surface: #surface,
+            available_if: &[#(#available_if),*],
             hide: #hide,
             hide_default_value: #hide_default_value,
             hide_env: #hide_env,
@@ -6092,6 +6104,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let deprecated = option_str(cli.deprecated.as_deref());
     let deprecated_warn_at = option_str(cli.deprecated_warn_at.as_deref());
     let deprecated_remove_at = option_str(cli.deprecated_remove_at.as_deref());
+    let surface = option_str(cli.surface.as_deref());
+    let available_if = &cli.available_if;
     let partial = partial_struct(cli);
     let argument_lookup = argument_lookup_functions(cli);
     let deprecations = deprecations_fn(cli);
@@ -6307,6 +6321,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 deprecated: #deprecated,
                 deprecated_warn_at: #deprecated_warn_at,
                 deprecated_remove_at: #deprecated_remove_at,
+                surface: #surface,
+                available_if: &[#(#available_if),*],
                 hidden_aliases: &[#(#hidden_aliases),*],
                 hide: #hide,
                 restart_token: #restart_token,
@@ -7531,6 +7547,17 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             // the variant, which is where the command itself is declared.
             let hide = v.hide;
             let help_heading = option_str(v.help_heading.as_deref());
+            let surface = v
+                .surface
+                .as_deref()
+                .map(|surface| option_str(Some(surface)))
+                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.surface));
+            let available_if = if v.available_if.is_empty() {
+                quote!(<#ty as usage_argv::spec::CommandArgs>::META.available_if)
+            } else {
+                let conditions = &v.available_if;
+                quote!(&[#(#conditions),*])
+            };
             let display_order = option_usize(v.display_order);
             quote! {
                 const #hidden_groups: &[&[&str]] = &[
@@ -7554,6 +7581,8 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         examples: #examples,
                         hide: #hide || <#ty as usage_argv::spec::CommandArgs>::META.hide,
                         help_heading: #help_heading,
+                        surface: #surface,
+                        available_if: #available_if,
                         display_order: #display_order,
                         hidden_aliases: &#hidden_name,
                         ..*<#ty as usage_argv::spec::CommandArgs>::META

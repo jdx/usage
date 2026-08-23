@@ -121,6 +121,10 @@ pub struct Cli {
     pub hidden_aliases: Vec<String>,
     /// Whether a command using this argument struct is omitted from help and completions.
     pub hide: bool,
+    /// Named audience or compatibility surface for this command.
+    pub surface: Option<String>,
+    /// Descriptive availability conditions for this command.
+    pub available_if: Vec<String>,
     /// Default casing for inferred flag and positional names.
     rename_all: Option<CasingStyle>,
     /// Default casing for environment names inferred by bare `env`.
@@ -334,6 +338,10 @@ pub struct Field {
     /// A runtime-only function that computes one typed default.
     pub default_fn: Option<syn::Path>,
     pub help_heading: Option<String>,
+    /// Named audience or compatibility surface for this field.
+    pub surface: Option<String>,
+    /// Descriptive availability conditions for this field.
+    pub available_if: Vec<String>,
     /// `#[usage(select)]`: this flag's value picks among the command's outputs.
     ///
     /// The ergonomic half of the struct-level `select = "--format"` — it reads where the
@@ -766,6 +774,8 @@ impl Cli {
             aliases: Vec::new(),
             hidden_aliases: Vec::new(),
             hide: false,
+            surface: None,
+            available_if: Vec::new(),
             rename_all: None,
             rename_all_env: CasingStyle::ScreamingSnake,
             attr_span: input
@@ -906,6 +916,8 @@ impl Cli {
                     }
                     "alias_hidden" => cli.hidden_aliases.extend(selectors(&meta)?),
                     "hide" => cli.hide = flag_value(&meta)?,
+                    "surface" => cli.surface = Some(string_value(&meta)?),
+                    "available_if" => cli.available_if.extend(selectors(&meta)?),
                     "min_usage_version" => cli.min_usage_version = Some(string_value(&meta)?),
                     "usage" => cli.usage = Some(string_value(&meta)?),
                     "version" => {
@@ -1121,7 +1133,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `surface`, `available_if`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount`, `example`, `select`, `output`, `exit_code`, `run`, `run_with`, `run_async`, `run_async_with`, \
@@ -2026,6 +2038,8 @@ impl Field {
             default_value_t: None,
             default_fn: None,
             help_heading: None,
+            surface: None,
+            available_if: Vec::new(),
             select: false,
             display_order: None,
             value_name: None,
@@ -2175,6 +2189,8 @@ impl Field {
             default_value_t: None,
             default_fn: None,
             help_heading: None,
+            surface: None,
+            available_if: Vec::new(),
             select: false,
             display_order: None,
             value_name: None,
@@ -2328,6 +2344,8 @@ impl Field {
             default_value_t: None,
             default_fn: None,
             help_heading: None,
+            surface: None,
+            available_if: Vec::new(),
             select: false,
             display_order: None,
             value_name: None,
@@ -2459,6 +2477,8 @@ impl Field {
             default_value_t: None,
             default_fn: None,
             help_heading: None,
+            surface: None,
+            available_if: Vec::new(),
             select: false,
             display_order: None,
             value_name: None,
@@ -2566,6 +2586,8 @@ impl Field {
         let mut default_fn = None;
         let mut default_note = None;
         let mut help_heading = None;
+        let mut surface = None;
+        let mut available_if = Vec::new();
         let mut select = false;
         let mut display_order = None;
         let mut effect = None;
@@ -2868,6 +2890,8 @@ impl Field {
                     }
                     "default_note" => default_note = Some(string_value(&meta)?),
                     "help_heading" => help_heading = Some(string_value(&meta)?),
+                    "surface" => surface = Some(string_value(&meta)?),
+                    "available_if" => available_if.extend(selectors(&meta)?),
                     "display_order" => display_order = Some(int_value(&meta)?),
                     "effect" => effect = Some(effect_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
@@ -2927,7 +2951,7 @@ impl Field {
                                  `value_terminator`, `require_equals`, `bool_value`, \
                                  `default_missing`, `default_if`, \
                                  `required_if`, \
-                                 `required_unless`, `required_unless_all`, `help_heading`, `select`, `display_order`, `value_name`, `value_names`, `num_args`, \
+                                 `required_unless`, `required_unless_all`, `help_heading`, `surface`, `available_if`, `select`, `display_order`, `value_name`, `value_names`, `num_args`, \
                                  `verbatim_doc_comment`, \
                                  `visible_alias`, `visible_aliases`, `required`, \
                                  `double_dash`, and `skip`"
@@ -3882,6 +3906,8 @@ impl Field {
             default_value_t,
             default_fn,
             help_heading,
+            surface,
+            available_if,
             select,
             display_order,
             effect,
@@ -5243,6 +5269,10 @@ pub struct Variant {
     pub ident: syn::Ident,
     /// Help section this command appears under in its parent's command list.
     pub help_heading: Option<String>,
+    /// Named audience or compatibility surface for this command.
+    pub surface: Option<String>,
+    /// Descriptive availability conditions for this command.
+    pub available_if: Vec<String>,
     /// Explicit placement within the parent's command section.
     pub display_order: Option<usize>,
     /// Whether the command is kept out of help and completions.
@@ -5535,6 +5565,8 @@ impl Variant {
         let mut effect = None;
         let mut hide = false;
         let mut help_heading = None;
+        let mut surface = None;
+        let mut available_if = Vec::new();
         let mut display_order = None;
         let mut external = false;
         let mut help_attr: Option<proc_macro2::TokenStream> = None;
@@ -5561,6 +5593,8 @@ impl Variant {
                     "alias_hidden" => hidden_aliases.extend(selectors(&meta)?),
                     "hide" => hide = flag_value(&meta)?,
                     "help_heading" => help_heading = Some(string_value(&meta)?),
+                    "surface" => surface = Some(string_value(&meta)?),
+                    "available_if" => available_if.extend(selectors(&meta)?),
                     "display_order" => display_order = Some(int_value(&meta)?),
                     "external_subcommand" => external = flag_value(&meta)?,
                     "effect" => {
@@ -5600,7 +5634,7 @@ impl Variant {
                             path,
                             format!(
                                 "unknown option `{other}` on a variant; a subcommand \
-                                 variant takes `name`, `alias`, `alias_hidden`, `help_heading`, `display_order`, \
+                                 variant takes `name`, `alias`, `alias_hidden`, `help_heading`, `surface`, `available_if`, `display_order`, \
                                  `external_subcommand`, `help`, `long_help`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `before_help`, \
                                  `before_long_help`, `after_help`, `after_long_help`, `example`, `verbatim_doc_comment`, \
                                  `run`, `run_async`, and `no_ctx` here, \
@@ -5708,6 +5742,8 @@ impl Variant {
                 ident: variant.ident.clone(),
                 hide: false,
                 help_heading: None,
+                surface: None,
+                available_if: Vec::new(),
                 name,
                 effect: None,
                 display_order: None,
@@ -5779,6 +5815,8 @@ impl Variant {
         Ok(Variant {
             ident: variant.ident.clone(),
             help_heading,
+            surface,
+            available_if,
             display_order,
             hide,
             name,
