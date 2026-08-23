@@ -328,8 +328,8 @@ fn styled_inline(text: &str, parent: Option<&str>) -> String {
             let previous = text[..at].chars().next_back();
             // Do not reinterpret part of a delimiter run when the longer form was rejected.
             // In particular, neither underscore in `word__word__` may become an italic opener.
-            if delimiter.len() == 1
-                && (previous == Some(marker) || rest[delimiter.len()..].starts_with(marker))
+            if previous == Some(marker)
+                || (delimiter.len() == 1 && rest[delimiter.len()..].starts_with(marker))
             {
                 return None;
             }
@@ -3534,8 +3534,8 @@ mod style_tests {
     #[test]
     fn intraword_underscore_runs_remain_literal() {
         assert_eq!(
-            styled_inline("foo__bar__ baz_qux", None),
-            "foo__bar__ baz_qux"
+            styled_inline("foo__bar__ foo___bar___ baz_qux", None),
+            "foo__bar__ foo___bar___ baz_qux"
         );
     }
 
