@@ -53,32 +53,8 @@ whole comment becomes the long help shown by `--help`.
 
 <UsageBenches lang="rust" embedded />
 
-## When usage-rs is not a good fit
-
-usage-rs optimizes parser startup by compiling the command tree into static
-tables, and that makes the application slower to compile. In the mise-scale
-fixture, rebuilding the CLI crate with dependencies already built took about
-10.2 seconds with usage-rs, compared with 3.6 seconds for clap and 1.6 seconds
-for bpaf. If your CLI is large, changes frequently, and build turnaround matters
-more than sub-millisecond parser startup, clap or bpaf is likely a better fit.
-See [compile-time measurements and methodology](/rust/performance#compile-time).
-
-The compiled framework also assumes that its typed command tree is known at
-compile time and declared with derives. An `external_subcommand` can forward an
-unknown command to a plugin, and a `mount` can discover dynamic commands for
-completion, so a plugin-based application is not automatically a bad fit. There
-is no API, however, to inject runtime commands into the derived parse tables. A
-codebase that avoids procedural macros, needs dynamic commands to participate in
-the same typed parser, or publishes a parser that downstream crates can extend
-should use another parser or `usage-lib`. The latter can build and interpret a
-usage spec at runtime, retaining the documentation and completion tooling, but
-does not provide usage-rs's typed result or static-table parse path.
-
-Finally, usage-rs is not a drop-in clap compatibility layer. A project built
-around `ArgMatches`, `CommandFactory`, runtime command builders, custom typed
-parser callbacks, prefix inference, custom help styling, or Elvish completions
-should either keep clap at that boundary or audit the migration tradeoffs first.
-See [the clap compatibility gaps](/rust/migrating-from-clap#compatibility-gaps).
+That speed moves work into compilation, so expect usage-rs to compile more slowly than
+simpler derive parsers, especially for large command trees ([measurements](/rust/performance#compile-time)).
 
 ## Installation
 
