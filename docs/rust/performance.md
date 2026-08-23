@@ -30,7 +30,7 @@ does only the work the argv asks for:
 
 - It reads argv once, borrowing each value from its `OsStr` instead of copying it.
 - A flag lookup scans the current command's flags and inherited globals, not all
-  711 flags in the CLI. Once found, a generated integer key selects the
+  722 flags in the CLI. Once found, a generated integer key selects the
   destination field without another string lookup.
 - The parser's command stack is a fixed-size array. A bare parse never reaches
   the heap; an owned value such as `String` accounts for one allocation only
@@ -74,19 +74,16 @@ shadow, built by the same workspace release build, stripped:
 
 | Framework                   |     Bytes | Decimal MB |
 | --------------------------- | --------: | ---------: |
-| argh                        | 1,010,392 |     1.0 MB |
-| usage, argh vocabulary      | 1,189,312 |     1.2 MB |
 | usage, clap vocabulary      | 1,311,096 |     1.3 MB |
 | usage, full spec vocabulary | 1,319,424 |     1.3 MB |
 | bpaf                        | 2,493,936 |     2.5 MB |
 | clap                        | 3,102,696 |     3.1 MB |
 
-The common-vocabulary usage shadows drop exactly the properties their comparison generator
-drops and disable the spec endpoint neither framework has. The argh version also shortens every
-description the same way and uses the same unboxed command enums. That leaves each pair operating
+The common-vocabulary usage shadow drops exactly the properties the clap generator
+drops and disables the spec endpoint clap does not have. That leaves both parsers operating
 over the same expressible CLI instead of charging usage for richer metadata. The full usage
-shadow remains the conformance fixture. On common vocabulary, usage is 58% smaller than clap
-and 18% larger than argh. For what the spec endpoint itself weighs, see
+shadow remains the conformance fixture. On common vocabulary, usage is 58% smaller than clap.
+For what the spec endpoint itself weighs, see
 [Spec output](/rust/spec#the-endpoint) — 65 KB on a small CLI, and
 `#[usage(spec_endpoint = false)]` removes it.
 
@@ -111,8 +108,8 @@ Two profile settings any CLI can apply cut further, independent of usage:
 - `tak` runs the release binaries repeatedly and reports the difference between
   the no-parse and parse paths.
 - Every shadow is generated from the same spec, and each intentionally drops
-  what its framework cannot express. `parse-n-usage-argh` and `parse-n-usage-clap` apply the
-  comparison framework's exact drop set to usage for common-vocabulary binary-size comparisons.
+  what its framework cannot express. `parse-n-usage-clap` applies clap's exact drop set to
+  usage for a common-vocabulary binary-size comparison.
 - Binary sizes are the gate's `parse-n*` binaries from a full workspace release
   build, stripped, against rustc 1.97.1 on x86_64-unknown-linux-gnu. The
   workspace build matters: cargo unifies features, so clap gets the features
