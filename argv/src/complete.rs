@@ -491,7 +491,12 @@ fn trace_from<'a>(
             .map(std::ffi::OsStr::new)
             .collect::<Vec<_>>();
         let route = match view {
-            Some(view) => crate::help::route_to_view(spec.root.cmd, &argv, position.cmd, view),
+            Some(view) => {
+                let mut view_argv = Vec::with_capacity(argv.len() + 1);
+                view_argv.push(std::ffi::OsStr::new(view.bin));
+                view_argv.extend_from_slice(&argv);
+                crate::help::route_to_view(spec.root.cmd, &view_argv, position.cmd, view)
+            }
             None => crate::help::route_to(spec.root.cmd, &argv, position.cmd),
         };
         route
@@ -3371,6 +3376,12 @@ mod tests {
 
     #[test]
     fn a_help_trace_keeps_the_typed_route_to_a_shared_command() {
+        static CONFIG: Flag = Flag {
+            name: "config",
+            longs: &["config"],
+            global: true,
+            ..Flag::VALUE
+        };
         static SHARED: Command = Command {
             name: "shared",
             ..Command::EMPTY
@@ -3387,6 +3398,7 @@ mod tests {
         };
         static ROOT: Command = Command {
             name: "ex",
+            flags: &[&CONFIG],
             subcommands: &[&LEFT, &RIGHT],
             ..Command::EMPTY
         };
@@ -3406,6 +3418,10 @@ mod tests {
         };
         static ROOT_META: CommandMeta = CommandMeta {
             cmd: &ROOT,
+            flags: &[FlagMeta {
+                flag: &CONFIG,
+                ..FlagMeta::EMPTY
+            }],
             subcommands: &[&LEFT_META, &RIGHT_META],
             ..CommandMeta::EMPTY
         };
@@ -3415,8 +3431,24 @@ mod tests {
             root: &ROOT_META,
             ..Spec::EMPTY
         };
+        static RIGHT_VIEW: crate::spec::ViewMeta = crate::spec::ViewMeta {
+            id: "right",
+            name: "right",
+            bin: "right",
+            root: "right",
+            all_globals: true,
+            globals: &[],
+        };
 
         let trace = trace(&SHARED_SPEC, &at_end("ex help right shared "));
+        assert!(trace.help_topic);
+        assert_eq!(trace.command_path, ["ex", "right", "shared"]);
+
+        let trace = trace_view(
+            &SHARED_SPEC,
+            &at_end("right --config alpha help shared "),
+            &RIGHT_VIEW,
+        );
         assert!(trace.help_topic);
         assert_eq!(trace.command_path, ["ex", "right", "shared"]);
     }
