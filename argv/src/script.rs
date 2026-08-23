@@ -426,12 +426,13 @@ Register-ArgumentCompleter -Native -CommandName '{name}' -ScriptBlock {{
         if ($entry -eq ($marker + 'dirs')) {{ $files = 'dirs'; continue }}
         if ($entry -eq ($marker + 'executables')) {{ $files = 'executables'; continue }}
         if ($entry -eq ($marker + 'commands')) {{ $files = 'commands'; continue }}
-        $parts = $entry -split "`t", 2
+        $parts = $entry -split "`t", 3
         $value = $parts[0]
         $description = if ($parts.Count -gt 1 -and $parts[1]) {{ $parts[1] }} else {{ $value }}
+        $display = if ($parts.Count -gt 2 -and $parts[2]) {{ $parts[2] }} else {{ $value }}
         $results.Add(
             [System.Management.Automation.CompletionResult]::new(
-                $value, $value, 'ParameterValue', $description
+                $value, $display, 'ParameterValue', $description
             )
         )
     }}

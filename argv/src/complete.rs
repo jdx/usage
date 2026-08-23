@@ -628,9 +628,9 @@ pub const COMMANDS_MARKER: &str = "\u{1}commands";
 /// Write an answer the way `shell` reads it.
 ///
 /// One line per candidate, in the shape the shell's own completion machinery expects — which is
-/// where the five differ. bash reads values only; fish, nu and PowerShell take a description
-/// after a tab; zsh takes a third field, the text to insert, because what it displays and what
-/// it types are not always the same string.
+/// where the five differ. bash reads values only; fish and nu take a description after a tab;
+/// PowerShell takes value, description and display text; zsh takes display text, description and
+/// the quoted text to insert.
 ///
 /// A trailing [`FILES_MARKER`] says the generated script should hand the position to the
 /// shell's own path completion afterwards.
@@ -649,13 +649,24 @@ pub fn render(answer: &Completions<'_>, shell: Shell) -> String {
             Shell::Zsh => {
                 // Display, then description, then what to type: a candidate containing a space
                 // or a quote has to reach the command line intact.
-                out.push_str(&candidate.value);
+                out.push_str(&one_line(
+                    candidate.display.as_deref().unwrap_or(&candidate.value),
+                ));
                 out.push('\t');
                 out.push_str(description);
                 out.push('\t');
                 out.push_str(&zsh_quote(&candidate.value));
             }
-            Shell::Fish | Shell::Nu | Shell::PowerShell => {
+            Shell::PowerShell => {
+                out.push_str(&candidate.value);
+                out.push('\t');
+                out.push_str(description);
+                out.push('\t');
+                out.push_str(&one_line(
+                    candidate.display.as_deref().unwrap_or(&candidate.value),
+                ));
+            }
+            Shell::Fish | Shell::Nu => {
                 out.push_str(&candidate.value);
                 if described {
                     out.push('\t');
@@ -982,10 +993,7 @@ pub async fn complete_with<'a>(
 
     let mut answer = complete(spec, split);
     answer.candidates.extend(dynamic);
-    answer.candidates.sort();
-    answer
-        .candidates
-        .dedup_by(|left, right| left.value == right.value);
+    sort_and_dedup_candidates(&mut answer.candidates);
     // Even an empty callback suppresses the cwd fallback, but a field that
     // explicitly declares files or directories keeps that shell completion.
     answer.files = declared_files_at_cursor(spec, split, &position);
@@ -1021,12 +1029,37 @@ async fn complete_named_with<'a>(
         candidates.append(&mut dynamic);
     }
     candidates.retain(|candidate| candidate.value.starts_with(&split.prefix));
-    candidates.sort();
-    candidates.dedup_by(|left, right| left.value == right.value);
+    sort_and_dedup_candidates(&mut candidates);
     Completions {
         candidates,
         files: None,
     }
+}
+
+/// Sort candidates by insertion value and merge presentation metadata from duplicates.
+///
+/// Static metadata and a runtime overlay can legitimately offer the same value. Keeping the
+/// first candidate after derived sorting would prefer `None` over `Some`, discarding the richer
+/// display label or description.
+fn sort_and_dedup_candidates(candidates: &mut Vec<Candidate<'_>>) {
+    candidates.sort();
+    let mut deduped: Vec<Candidate<'_>> = Vec::with_capacity(candidates.len());
+    for mut candidate in candidates.drain(..) {
+        if let Some(existing) = deduped
+            .last_mut()
+            .filter(|existing| existing.value == candidate.value)
+        {
+            if existing.display.is_none() {
+                existing.display = candidate.display.take();
+            }
+            if existing.description.is_none() {
+                existing.description = candidate.description.take();
+            }
+        } else {
+            deduped.push(candidate);
+        }
+    }
+    *candidates = deduped;
 }
 
 fn overlay_for_name<'o>(
@@ -1264,8 +1297,7 @@ fn candidates_inner<'a>(
         found
     };
 
-    out.sort();
-    out.dedup_by(|a, b| a.value == b.value);
+    sort_and_dedup_candidates(&mut out);
     out
 }
 
@@ -1303,6 +1335,7 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
             if name.starts_with(token) {
                 out.push(Candidate {
                     value: (*name).to_string(),
+                    display: None,
                     description: deprecated_description(
                         sub.about,
                         sub.deprecated,
@@ -1340,6 +1373,7 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             if value.starts_with(token) {
                 out.push(Candidate {
                     value,
+                    display: None,
                     description: description.clone(),
                 });
             }
@@ -1354,6 +1388,7 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
             if value.starts_with(token) {
                 out.push(Candidate {
                     value,
+                    display: None,
                     description: description.clone(),
                 });
             }
@@ -1386,6 +1421,7 @@ fn short_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> 
             if asked_about {
                 out.push(Candidate {
                     value: format!("-{}", short as char),
+                    display: None,
                     description: meta.and_then(|m| {
                         deprecated_description(
                             m.help,
@@ -1443,6 +1479,7 @@ fn positional<'a>(
         if token.is_empty() {
             return vec![Candidate {
                 value: "--".to_string(),
+                display: None,
                 description: None,
             }];
         }
@@ -1519,6 +1556,7 @@ fn choices<'a>(
         .filter(|c| c.starts_with(token))
         .map(|c| Candidate {
             value: (*c).to_string(),
+            display: None,
             description: details
                 .iter()
                 .find(|detail| {
@@ -2030,6 +2068,7 @@ mod tests {
             Candidate::described("node", "JavaScript"),
             Candidate::described("python", "Snakes"),
             Candidate::new("ruby"),
+            Candidate::new("ruby").displayed("Ruby runtime"),
         ]
     }
 
@@ -2248,12 +2287,18 @@ mod tests {
         })
     }
 
+    fn labeled_ruby(_ctx: &CompleteCtx<'_>) -> Vec<Candidate<'static>> {
+        vec![Candidate::new("ruby").displayed("Ruby runtime")]
+    }
+
     static RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
         [CompletionOverlay::asynchronous(
             "use",
             "tool",
             runtime_tools,
         )];
+    static LABELED_COMPLETIONS: [CompletionOverlay<'static>; 1] =
+        [CompletionOverlay::sync("install", "tool", labeled_ruby)];
     static GLOBAL_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
         [CompletionOverlay::async_any("tool", runtime_tools)];
     static FILE_RUNTIME_COMPLETIONS: [CompletionOverlay<'static>; 1] =
@@ -2526,6 +2571,37 @@ mod tests {
         let unrelated = at_end("mise plugins ");
         let answer = run_ready(complete_with(&SPEC, &unrelated, &RUNTIME_COMPLETIONS));
         assert_eq!(answer.candidates[0].value, "ls");
+    }
+
+    #[test]
+    fn cursor_completion_keeps_presentation_metadata_from_duplicate_values() {
+        let answer = run_ready(complete_with(
+            &SPEC,
+            &at_end("mise install r"),
+            &LABELED_COMPLETIONS,
+        ));
+        assert_eq!(answer.candidates.len(), 1, "{answer:?}");
+        assert_eq!(answer.candidates[0].value, "ruby");
+        assert_eq!(
+            answer.candidates[0].display.as_deref(),
+            Some("Ruby runtime")
+        );
+    }
+
+    #[test]
+    fn named_completion_keeps_presentation_metadata_from_duplicate_values() {
+        let answer = run_ready(complete_named_with(
+            &SPEC,
+            &at_end("mise install r"),
+            &LABELED_COMPLETIONS,
+            "tool",
+        ));
+        assert_eq!(answer.candidates.len(), 1, "{answer:?}");
+        assert_eq!(answer.candidates[0].value, "ruby");
+        assert_eq!(
+            answer.candidates[0].display.as_deref(),
+            Some("Ruby runtime")
+        );
     }
 
     /// The position at the cursor of a line, which is what a completion asks about.
@@ -3277,13 +3353,38 @@ mod tests {
         // bash shows values and nothing else.
         assert_eq!(render(&answer, Shell::Bash), "plugins\n");
 
-        // fish, nu and PowerShell take a description after a tab.
+        // fish and nu take a description after a tab.
         assert_eq!(render(&answer, Shell::Fish), "plugins\tManage plugins\n");
+
+        // PowerShell also receives its separately selectable display text.
+        assert_eq!(
+            render(&answer, Shell::PowerShell),
+            "plugins\tManage plugins\tplugins\n"
+        );
 
         // zsh takes a third field: what to type, which is not always what is shown.
         assert_eq!(
             render(&answer, Shell::Zsh),
             "plugins\tManage plugins\tplugins\n"
+        );
+    }
+
+    #[test]
+    fn display_text_does_not_change_what_the_shell_inserts() {
+        let answer = Completions {
+            candidates: vec![Candidate::described("iad", "US East").displayed("IAD · Virginia")],
+            files: None,
+        };
+
+        assert_eq!(render(&answer, Shell::Bash), "iad\n");
+        assert_eq!(render(&answer, Shell::Fish), "iad\tUS East\n");
+        assert_eq!(
+            render(&answer, Shell::PowerShell),
+            "iad\tUS East\tIAD · Virginia\n"
+        );
+        assert_eq!(
+            render(&answer, Shell::Zsh),
+            "IAD · Virginia\tUS East\tiad\n"
         );
     }
 
@@ -3392,6 +3493,10 @@ mod tests {
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].value, "node");
         assert_eq!(found[0].description.as_deref(), Some("JavaScript"));
+
+        let ruby = candidates(&SPEC, &at_end("mise install ru"));
+        assert_eq!(ruby.len(), 1, "{ruby:?}");
+        assert_eq!(ruby[0].display.as_deref(), Some("Ruby runtime"));
 
         // For a flag's value as well as an argument's.
         assert_eq!(offered("mise install --only "), ["node"]);
