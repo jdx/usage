@@ -45,13 +45,23 @@ trap 'rm -rf "$work"' EXIT
 bin=$work/parse-n
 (cd "$root/go" && go build -o "$work/" ./internal/bench/parse-n ./internal/bench/bind-n)
 
-# Each harness prints 1 when the parse reached a subcommand. Anything else means the numbers
-# below would be describing a rejected command line, which is cheap for the wrong reason.
-# shellcheck disable=SC2086 # the argv is several words on purpose
-if [ "$(PARSE_N=1 "$bin" $ARGV)" != "1" ]; then
-  echo "the harness did not reach a subcommand, so there is nothing worth measuring" >&2
-  exit 1
-fi
+# Every harness prints 1 when the parse reached a subcommand, and none of them is measured
+# until it has: a rejected command line is cheap to parse, so a row taken without asking
+# would be reporting the cost of failing early — the exact thing this protocol exists to
+# catch. Asked per binary rather than once, because they are separate programs.
+reaches() {
+  # shellcheck disable=SC2086 # the argv is several words on purpose
+  [ "$(PARSE_N=1 "$1" $ARGV 2>/dev/null)" = "1" ]
+}
+
+# The two usage-go rows are this script's whole reason to exist, so a failure in either is
+# fatal rather than a cell that says why.
+for harness in parse-n bind-n; do
+  if ! reaches "$work/$harness"; then
+    echo "$harness did not reach a subcommand, so there is nothing worth measuring" >&2
+    exit 1
+  fi
+done
 
 # The other three frameworks live in `benches/go`, the one module in the repository that
 # depends on them — and its build is allowed to fail, since it needs those modules fetched
@@ -291,6 +301,10 @@ fi
     path=$work/$binary
     if [ ! -x "$path" ]; then
       printf '| %s | not measured — %s | | |\n' "$label" "$shadows_why"
+      continue
+    fi
+    if ! reaches "$path"; then
+      printf '| %s | not measured — the shadow did not reach a subcommand | | |\n' "$label"
       continue
     fi
     instr="not measured"

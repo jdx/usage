@@ -49,7 +49,9 @@ var words = []string{"use", "-g", "node@20"}
 const rounds = 4000
 
 // sink keeps a parse from being optimized away. Go has no `black_box`, and a compiler
-// that can see the result is unused is within its rights to skip producing it.
+// that can see the result is unused is within its rights to skip producing it. A store to
+// a package-level variable is a side effect it has to perform, and `main` reads the last
+// one before exiting, so the parse is observed as well as performed.
 var sink bool
 
 type stats struct {
@@ -159,6 +161,13 @@ func main() {
 	}
 	for _, r := range rows {
 		s := sweep(r.rounds, r.iters, r.f)
+		// The last parse this row made, read after it was timed: the guard above proves each
+		// parser can reach a subcommand once, and this proves the millions in between were
+		// the same parse rather than a cheap failure the timing loop never looked at.
+		if !sink {
+			fmt.Fprintf(os.Stderr, "sweep: %s stopped reaching a subcommand mid-round\n", r.label)
+			os.Exit(1)
+		}
 		if *tsv {
 			fmt.Printf("%s\t%.0f\t%.0f\t%.0f\t%.0f\n", r.label, s.min, s.p01, s.p10, s.median)
 			continue

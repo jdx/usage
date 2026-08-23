@@ -99,6 +99,12 @@ serializes every thread onto one core, and a Go runtime with more than one to sc
 spends the wait spinning, so unpinned counts pick up instructions proportional to wall
 time — twenty cobra resolves read 56M on one run and 5,002M on the next.
 
+The binary column is each row's harness — `go/internal/bench/parse-n` and `bind-n` for
+the two usage-go rows, `benches/go/cmd/parse-n-cobra` and its siblings for the other
+three — built with a plain `go build`, no `-ldflags` and nothing stripped. A harness is a
+`main` that parses N times and prints whether it arrived, so what the column compares is
+what each framework drags in, plus a few lines.
+
 The wall column is the fastest of 200 whole processes, and the floor is reported beside
 it rather than subtracted from it. The floor and the row under it are one binary asked
 for nought parses and for one, and they differ by less than a process launch varies: a
@@ -112,8 +118,9 @@ and no parser wins that back.
 Three things are worth reading off these two tables honestly. The win over cobra is
 real and it is a factor of eighteen, but on the clock a user feels it is 0.46 ms of a
 1.6 ms process. The framework that gives Go the ergonomics people actually want —
-kong's struct tags — costs 24x cobra to do it, because reflection is the only way to
-get them without a build step; generated tables are how to have both. And usage-go's
+kong's struct tags — costs 27x cobra to do it on the clock, and 24x by instruction
+count, because reflection is the only way to get them without a build step; generated
+tables are how to have both. And usage-go's
 typed front door costs about eighty times its own binder on the clock, and sixty-three
 times by instruction count, most of it in two maps the generated `Parse` allocates per
 call: the binder is as fast as this repository claims, and the layer above it has not
@@ -131,7 +138,8 @@ initialized data and zero instructions.
 **A parse allocates nothing.** The parser holds its state, its ancestor chain and
 its error inline; a bound value is a slice of the argv string rather than a copy.
 `TestParseAllocatesNothing` measures this with `testing.AllocsPerRun`, on the
-failure paths as well as the success ones. A mise-sized binding runs in 57 ns.
+failure paths as well as the success ones. `argv`'s own `BenchmarkParse` binds a
+four-flag fixture in 57 ns.
 
 **Binding stays separate from judging.** The parser answers one question — which
 token becomes which flag or argument — and reports each occurrence as an event.
@@ -195,9 +203,9 @@ if cli.Run != nil {
 required flag or a value outside its choices comes back rather than reaching your
 code, and `env` and `default` values reach the fields.
 
-Fields are `string`, `bool` and `[]string`, because that is what a spec knows: it
-says what a value is _called_ and never what type it is. Turning `"8"` into an
-`int` is what the conversions above are for.
+Fields are `string`, `bool`, `[]string`, and `int` for a `count` flag — which is what a
+spec knows, since it says what a value is _called_ and never what type it is. Turning
+`--jobs 8`'s `"8"` into an `int` is what the conversions above are for.
 
 **Three tables, and you pay for the ones you use.** Go's linker drops an
 unreferenced package-level table entirely, so the split is enforced by the linker
@@ -209,6 +217,12 @@ rather than by a feature flag:
 | applies the post-binding rules | `+ Meta`            |           5.18 MB |
 | prints help                    | `+ HelpText`        |           5.77 MB |
 | takes the typed front door     | `+ Meta`, `+ Parse` |           6.68 MB |
+
+Four `main` packages over `internal/shadow/mise`, each referencing one more table than
+the last and each built with a plain `go build` — the same toolchain and flags as the
+harnesses above, so the two tables' megabytes are comparable. They are throwaways rather
+than checked in: what is being measured is which table the linker keeps, and a reference
+is all it takes to make it keep one.
 
 None of them has an init function. That is what Rust gets from putting the cold
 half behind a feature flag, except nobody has to remember the flag — which is also
@@ -342,11 +356,21 @@ The same tables are generated a second time into
 process has to live in the module that depends on the other three, and Go's `internal`
 rule means that module cannot import this copy however the two are laid out.
 
+Three binder numbers appear in this file, from three harnesses, so the labels matter.
+**73 ns** is the canonical one: the sweep's minimum for `mise use -g node@20`, which
+every ratio above uses and `mise run perf:go` reprints. 110 ns is this package's
+`BenchmarkParse` on that same argv — `go test -bench` reports a mean over one long run
+where the sweep reports a minimum over short ones, and on the machine that took the
+73 ns that benchmark reads about 80 ns, so read the two as one measurement taken two
+ways on two machines rather than as a change. 57 ns is `argv`'s own `BenchmarkParse`,
+which binds a four-flag fixture rather than mise's spec.
+
 ## What is missing
 
-- **Typed fields.** `Parse` fills a struct, but with the three types a spec knows.
-  The conversions in [typed values](#typed-values) exist and generated code does not
-  call them, so `--jobs 8` reaches your program as `"8"`.
+- **Typed fields.** `Parse` fills a struct, but only with the types a spec knows —
+  `string`, `bool`, `[]string`, and `int` for a `count`. The conversions in
+  [typed values](#typed-values) exist and generated code does not call them, so
+  `--jobs 8` reaches your program as `"8"`.
 - **A front door as fast as the binder.** `Parse` costs about eighty times the bind
   it wraps, most of it in two maps it allocates per call to collect what arrived
   before the post-binding rules judge it. Nothing about that is inherent — a spec's
