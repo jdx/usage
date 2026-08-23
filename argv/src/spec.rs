@@ -1361,6 +1361,8 @@ impl Framing {
 pub struct OutputMeta<'a> {
     /// The token a user types for it.
     pub name: &'a str,
+    /// The media type of the bytes, independent of their stream framing.
+    pub media_type: Option<&'a str>,
     pub framing: Framing,
     pub help: Option<&'a str>,
     /// What the command writes when nothing selects otherwise.
@@ -1386,6 +1388,7 @@ impl OutputMeta<'_> {
     /// A named output with nothing else said about it, for struct-update syntax.
     pub const EMPTY: OutputMeta<'static> = OutputMeta {
         name: "",
+        media_type: None,
         framing: Framing::Text,
         help: None,
         default: false,
@@ -2199,6 +2202,9 @@ fn write_output_decls(out: &mut String, meta: &CommandMeta<'_>, depth: usize) ->
     for output in meta.outputs {
         indent(out, depth)?;
         write!(out, "output {}", quoted(output.name))?;
+        if let Some(media_type) = output.media_type {
+            write!(out, " media_type={}", quoted(media_type))?;
+        }
         if output.framing != Framing::Text {
             write!(out, " framing={}", quoted(output.framing.as_str()))?;
         }

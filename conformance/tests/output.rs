@@ -20,11 +20,18 @@ use usage_derive::{Args, Cli, Subcommands};
     output("human", default, help = "A human-readable report"),
     output(
         "json",
+        media_type = "application/json",
         framing = "json",
         help = "One report object",
         schema = "{\n  \"type\": \"object\"\n}"
     ),
-    output("jsonl", framing = "jsonl", help = "One event per line"),
+    output(
+        "jsonl",
+        media_type = "application/x-ndjson",
+        framing = "jsonl",
+        help = "One event per line"
+    ),
+    output("checkstyle", media_type = "application/xml"),
     output("legacy", hide),
     exit_code(0, "all checks passed"),
     exit_code(1, "a check failed")
@@ -165,12 +172,42 @@ fn a_name_and_a_framing_are_different_things() {
             ("human", "text"),
             ("json", "json"),
             ("jsonl", "jsonl"),
+            ("checkstyle", "text"),
             ("legacy", "text"),
         ]
     );
     assert!(check.outputs[0].default);
     assert!(check.outputs[2].framing.is_streaming());
-    assert!(check.outputs[3].hide);
+    assert!(check.outputs[4].hide);
+    assert_eq!(
+        check.outputs[1].media_type.as_deref(),
+        Some("application/json")
+    );
+    assert_eq!(
+        check.outputs[2].media_type.as_deref(),
+        Some("application/x-ndjson")
+    );
+    assert_eq!(
+        check.outputs[3].media_type.as_deref(),
+        Some("application/xml")
+    );
+}
+
+#[test]
+fn a_media_type_without_a_selector_starts_a_markdown_list() {
+    let spec: LibSpec = r#"
+name "ex"
+output "xml" media_type="application/xml"
+"#
+    .parse()
+    .expect("standalone output spec");
+    let markdown = usage::docs::markdown::MarkdownRenderer::new(spec.clone())
+        .render_cmd(&spec.cmd)
+        .expect("markdown page");
+    assert!(
+        markdown.contains("`xml`\n\n- **Media type**: `application/xml`"),
+        "{markdown}"
+    );
 }
 
 #[test]
@@ -202,7 +239,12 @@ fn a_field_level_select_names_its_own_flag() {
             .as_ref()
             .and_then(|a| a.choices.as_ref())
             .map(|c| c.values()),
-        Some(vec!["human".into(), "json".into(), "jsonl".into()])
+        Some(vec![
+            "human".into(),
+            "json".into(),
+            "jsonl".into(),
+            "checkstyle".into(),
+        ])
     );
 }
 

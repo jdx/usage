@@ -199,6 +199,7 @@ static INSTALL_META: CommandMeta = CommandMeta {
         },
         OutputMeta {
             name: "json",
+            media_type: Some("application/json"),
             framing: Framing::Json,
             schema: Some("{\n  \"type\": \"object\"\n}"),
             ..OutputMeta::EMPTY
@@ -721,6 +722,10 @@ fn outputs_and_exit_codes_survive() {
         vec![("human", "text"), ("json", "json"), ("jsonl", "jsonl")]
     );
     assert!(install.outputs[0].default);
+    assert_eq!(
+        install.outputs[1].media_type.as_deref(),
+        Some("application/json")
+    );
     assert_eq!(
         install.outputs[1].schema.as_deref(),
         Some("{\n  \"type\": \"object\"\n}"),

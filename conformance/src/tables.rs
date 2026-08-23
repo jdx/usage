@@ -781,6 +781,7 @@ fn outputs(list: &[SpecOutput]) -> &'static [OutputMeta<'static>] {
         list.iter()
             .map(|o| OutputMeta {
                 name: leak(&o.name),
+                media_type: opt(&o.media_type),
                 framing: match o.framing {
                     Framing::Text => ArgvFraming::Text,
                     Framing::Json => ArgvFraming::Json,

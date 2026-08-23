@@ -96,6 +96,12 @@
 {%- if output.select %}
 
 - **Select**: `{{ output.select }}`
+{%- if output.media_type %}
+- **Media type**: `{{ output.media_type }}`
+{%- endif %}
+{%- elif output.media_type %}
+
+- **Media type**: `{{ output.media_type }}`
 {%- endif %}
 - **Framing**: `{{ output.framing }}`{% if output.streaming %} — one document per line, read as it arrives{% endif %}
 {%- if output.help %}
