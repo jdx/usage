@@ -56,6 +56,8 @@ pub struct SpecCommand {
     pub exit_codes: Vec<SpecExitCode>,
     pub hide: bool,
     pub help_heading: Option<String>,
+    pub surface: Option<String>,
+    pub available_if: Vec<String>,
     pub display_order: Option<usize>,
     pub subcommand_required: bool,
     pub subcommand_help_heading: Option<String>,
@@ -99,6 +101,8 @@ pub struct HelpCommand {
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_heading: Option<String>,
+    pub surface: Option<String>,
+    pub available_if: Vec<String>,
 }
 
 impl From<&SpecCommand> for HelpCommand {
@@ -112,6 +116,8 @@ impl From<&SpecCommand> for HelpCommand {
             help: cmd.help.clone(),
             help_long: cmd.help_long.clone(),
             help_heading: cmd.help_heading.clone(),
+            surface: cmd.surface.clone(),
+            available_if: cmd.available_if.clone(),
         }
     }
 }
@@ -152,6 +158,8 @@ pub struct SpecFlag {
     pub env_fallback: Vec<String>,
     pub deprecated_env: Vec<String>,
     pub help_heading: Option<String>,
+    pub surface: Option<String>,
+    pub available_if: Vec<String>,
     pub display_order: Option<usize>,
     pub rendered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -490,6 +498,8 @@ pub struct SpecArg {
     pub env_fallback: Vec<String>,
     pub deprecated_env: Vec<String>,
     pub help_heading: Option<String>,
+    pub surface: Option<String>,
+    pub available_if: Vec<String>,
     pub display_order: Option<usize>,
     pub rendered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -656,6 +666,8 @@ impl From<&crate::SpecCommand> for SpecCommand {
             effect,
             hide,
             help_heading,
+            surface,
+            available_if,
             display_order,
             subcommand_required,
             subcommand_help_heading,
@@ -799,6 +811,8 @@ impl From<&crate::SpecCommand> for SpecCommand {
             exit_codes: cmd.exit_codes.iter().map(SpecExitCode::from).collect(),
             hide: *hide,
             help_heading: help_heading.clone(),
+            surface: surface.clone(),
+            available_if: available_if.clone(),
             display_order: *display_order,
             subcommand_required: *subcommand_required,
             subcommand_help_heading: subcommand_help_heading.clone(),
@@ -996,6 +1010,8 @@ impl From<&crate::SpecFlag> for SpecFlag {
             env_fallback: flag.env_fallback.clone(),
             deprecated_env: flag.deprecated_env.clone(),
             help_heading: flag.help_heading.clone(),
+            surface: flag.surface.clone(),
+            available_if: flag.available_if.clone(),
             display_order: flag.display_order,
             rendered: false,
             help_rendered: None,
@@ -1045,6 +1061,8 @@ impl From<&crate::SpecArg> for SpecArg {
             env_fallback: arg.env_fallback.clone(),
             deprecated_env: arg.deprecated_env.clone(),
             help_heading: arg.help_heading.clone(),
+            surface: arg.surface.clone(),
+            available_if: arg.available_if.clone(),
             display_order: arg.display_order,
             rendered: false,
             help_rendered: None,

@@ -124,6 +124,18 @@ impl SpecFlagBuilder {
         self
     }
 
+    /// Label the audience or compatibility surface this flag belongs to.
+    pub fn surface(mut self, surface: impl Into<String>) -> Self {
+        self.inner.surface = Some(surface.into());
+        self
+    }
+
+    /// Add a descriptive availability condition.
+    pub fn available_if(mut self, condition: impl Into<String>) -> Self {
+        self.inner.available_if.push(condition.into());
+        self
+    }
+
     /// Set as variadic (can be specified multiple times)
     pub fn var(mut self, is_var: bool) -> Self {
         self.inner.var = is_var;
@@ -501,6 +513,18 @@ impl SpecArgBuilder {
         Self::default()
     }
 
+    /// Label the audience or compatibility surface this argument belongs to.
+    pub fn surface(mut self, surface: impl Into<String>) -> Self {
+        self.inner.surface = Some(surface.into());
+        self
+    }
+
+    /// Add a descriptive availability condition.
+    pub fn available_if(mut self, condition: impl Into<String>) -> Self {
+        self.inner.available_if.push(condition.into());
+        self
+    }
+
     /// Set the argument name
     pub fn name(mut self, name: impl Into<String>) -> Self {
         self.inner.name = name.into();
@@ -780,6 +804,17 @@ pub struct SpecCommandBuilder {
 }
 
 impl SpecCommandBuilder {
+    /// Label the audience or compatibility surface this command belongs to.
+    pub fn surface(mut self, surface: impl Into<String>) -> Self {
+        self.inner.surface = Some(surface.into());
+        self
+    }
+
+    /// Add a descriptive availability condition.
+    pub fn available_if(mut self, condition: impl Into<String>) -> Self {
+        self.inner.available_if.push(condition.into());
+        self
+    }
     /// Create a new SpecCommandBuilder
     pub fn new() -> Self {
         Self::default()

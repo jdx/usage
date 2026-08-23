@@ -154,6 +154,8 @@ pub fn build(
         hide: cmd.hide,
         display_order: cmd.display_order,
         help_heading: opt(&cmd.help_heading),
+        surface: opt(&cmd.surface),
+        available_if: strs(&cmd.available_if),
         effect: cmd.effect.map(effect),
         // A command carries at most one mount in the tables; a spec may list several, and the
         // first is the one the tables can hold.
@@ -466,6 +468,8 @@ fn flag_meta(
         required_unless: strs(&f.required_unless),
         required_unless_all: strs(&f.required_unless_all),
         help_heading: opt(&f.help_heading),
+        surface: opt(&f.surface),
+        available_if: strs(&f.available_if),
         display_order: f.display_order,
         effect: f.effect.map(effect),
         complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
@@ -534,6 +538,8 @@ fn arg_meta(
         var_min: a.var_min,
         var_max: a.var_max,
         help_heading: opt(&a.help_heading),
+        surface: opt(&a.surface),
+        available_if: strs(&a.available_if),
         complete_type: complete_type(completers, &a.name, None),
         complete: NO_COMPLETER,
     }

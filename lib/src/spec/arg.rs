@@ -174,6 +174,16 @@ pub struct SpecArg {
     /// like the flag field of the same name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_heading: Option<String>,
+    /// Named audience or contract surface this argument belongs to.
+    ///
+    /// Metadata only: parsers and help renderers do not filter on this value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub surface: Option<String>,
+    /// Conditions under which this argument is available, in declaration order.
+    ///
+    /// These are descriptive labels for docs, schema consumers, and compatibility tools.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub available_if: Vec<String>,
     /// Explicit placement within its help section.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_order: Option<usize>,
@@ -262,6 +272,8 @@ impl SpecArg {
                 "validate" => arg.validate = v.ensure_string().map(Some)?,
                 "validate_error" => arg.validate_error = v.ensure_string().map(Some)?,
                 "help_heading" => arg.help_heading = v.ensure_string().map(Some)?,
+                "surface" => arg.surface = v.ensure_string().map(Some)?,
+                "available_if" => arg.available_if = vec![v.ensure_string()?],
                 "display_order" => arg.display_order = v.ensure_usize().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported arg key {k}"),
             }
@@ -294,6 +306,8 @@ impl SpecArg {
                 "help_heading" => {
                     arg.help_heading = child.arg(0)?.ensure_string().map(Some)?;
                 }
+                "surface" => arg.surface = child.arg(0)?.ensure_string().map(Some)?,
+                "available_if" => arg.available_if = string_args(&child)?,
                 "display_order" => {
                     arg.display_order = child.arg(0)?.ensure_usize().map(Some)?;
                 }
@@ -589,6 +603,10 @@ impl From<&SpecArg> for KdlNode {
         if let Some(help_heading) = &arg.help_heading {
             node.push(string_entry(Some("help_heading"), help_heading));
         }
+        if let Some(surface) = &arg.surface {
+            node.push(string_entry(Some("surface"), surface));
+        }
+        serialize_selector_list(&mut node, "available_if", &arg.available_if);
         if let Some(order) = arg.display_order {
             node.push(KdlEntry::new_prop("display_order", order as i128));
         }
@@ -1010,6 +1028,8 @@ impl From<&clap::Arg> for SpecArg {
             env_fallback: Vec::new(),
             deprecated_env: Vec::new(),
             help_heading: arg.get_help_heading().map(|s| s.to_string()),
+            surface: None,
+            available_if: Vec::new(),
             display_order: Some(arg.get_display_order()),
         };
         arg.choices = choices;

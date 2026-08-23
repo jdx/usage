@@ -15,6 +15,7 @@ cmd "config" flatten_help=#true // expand visible subcommands into this page
 cmd "config" display_order=10 // present before commands with a greater order
 cmd "config" help_heading="Configuration" // group under this heading in its parent's help
 cmd "config" term_width=100 max_term_width=120
+cmd "config" surface="public" available_if="supported-platform"
 
 // these are shown under -h
 cmd "config" before_help="shown before the command"
@@ -59,6 +60,10 @@ zero disables that cap.
 
 Markdown documentation prefers the `*_md` form, then long help, then short
 help. Flags and arguments also accept `help_md`.
+
+`surface` and `available_if` are descriptive contract metadata shared with flags and arguments.
+Several conditions use an `available_if "first" "second"` child node. They are emitted to JSON
+and documentation models without hiding or disabling the command.
 
 Commands can also declare their stdout formats, JSON Schemas, and exit statuses. See
 [Command outputs and exit codes](./output.md).

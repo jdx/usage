@@ -835,6 +835,10 @@ pub struct CommandMeta<'a> {
     pub hide: bool,
     /// Help section this command appears under in its parent's command list.
     pub help_heading: Option<&'a str>,
+    /// Named audience or compatibility surface this command belongs to.
+    pub surface: Option<&'a str>,
+    /// Descriptive availability conditions; they do not affect parsing.
+    pub available_if: &'a [&'a str],
     /// Explicit placement within the parent's command section.
     pub display_order: Option<usize>,
     /// What running this does to the world, for a caller deciding whether to
@@ -921,6 +925,8 @@ impl CommandMeta<'_> {
         hidden_aliases: &[],
         hide: false,
         help_heading: None,
+        surface: None,
+        available_if: &[],
         display_order: None,
         effect: None,
         mount: None,
@@ -1087,6 +1093,10 @@ pub struct FlagMeta<'a> {
     /// Heading to list this flag under in help output. Presentational: it groups
     /// a long flag list into sections and changes nothing about parsing.
     pub help_heading: Option<&'a str>,
+    /// Named audience or compatibility surface this flag belongs to.
+    pub surface: Option<&'a str>,
+    /// Descriptive availability conditions; they do not affect parsing.
+    pub available_if: &'a [&'a str],
     pub effect: Option<Effect>,
 }
 
@@ -1146,6 +1156,8 @@ impl FlagMeta<'_> {
         required_unless: &[],
         required_unless_all: &[],
         help_heading: None,
+        surface: None,
+        available_if: &[],
         effect: None,
     };
 }
@@ -1228,6 +1240,10 @@ pub struct ArgMeta<'a> {
     pub delimiter: Option<char>,
     /// Heading to list this argument under in help output.
     pub help_heading: Option<&'a str>,
+    /// Named audience or compatibility surface this argument belongs to.
+    pub surface: Option<&'a str>,
+    /// Descriptive availability conditions; they do not affect parsing.
+    pub available_if: &'a [&'a str],
     /// What answers for this argument when a shell asks. See [`FlagMeta::complete`].
     pub complete: Option<Completer>,
     /// A built-in completion class such as `path` or `dir`.
@@ -1275,6 +1291,8 @@ impl ArgMeta<'_> {
         var_max: None,
         delimiter: None,
         help_heading: None,
+        surface: None,
+        available_if: &[],
     };
 }
 
@@ -1576,6 +1594,17 @@ impl Spec<'_> {
         }
         if self.root.flatten_help {
             writeln!(out, "flatten_help #true")?;
+        }
+        if let Some(surface) = self.root.surface {
+            prop(out, "surface", surface)?;
+        }
+        if !self.root.available_if.is_empty() {
+            indent(out, 0)?;
+            write!(out, "available_if")?;
+            for condition in self.root.available_if {
+                write!(out, " {}", quoted(condition))?;
+            }
+            out.push('\n');
         }
         if let Some(width) = self.root.term_width {
             writeln!(out, "term_width {width}")?;
@@ -1975,6 +2004,10 @@ fn write_command<'a>(
     if let Some(heading) = meta.help_heading {
         write!(out, " help_heading={}", quoted(heading))?;
     }
+    if let Some(surface) = meta.surface {
+        write!(out, " surface={}", quoted(surface))?;
+    }
+    write_single_list(out, "available_if", meta.available_if)?;
     let effect = w
         .overlays
         .iter()
@@ -2065,6 +2098,7 @@ fn write_command<'a>(
     out.push_str(" {\n");
 
     let inner = depth + 1;
+    write_many_list(out, "available_if", meta.available_if, inner)?;
     for alias in meta.cmd.aliases {
         indent(out, inner)?;
         write!(out, "alias {}", quoted(alias))?;
@@ -2297,6 +2331,10 @@ fn write_flag(
     if let Some(heading) = meta.help_heading.or(inherited_heading) {
         write!(out, " help_heading={}", quoted(heading))?;
     }
+    if let Some(surface) = meta.surface {
+        write!(out, " surface={}", quoted(surface))?;
+    }
+    write_single_list(out, "available_if", meta.available_if)?;
     if let Some(order) = meta.display_order {
         write!(out, " display_order={order}")?;
     }
@@ -2369,6 +2407,7 @@ fn write_flag(
         || meta.required_unless_all.len() > 1
         || meta.env_fallback.len() > 1
         || meta.deprecated_env.len() > 1;
+    let has_children = has_children || meta.available_if.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -2449,6 +2488,7 @@ fn write_flag(
     write_many_list(out, "required_unless_all", meta.required_unless_all, inner)?;
     write_many_list(out, "env_fallback", meta.env_fallback, inner)?;
     write_many_list(out, "deprecated_env", meta.deprecated_env, inner)?;
+    write_many_list(out, "available_if", meta.available_if, inner)?;
     if meta.flag.takes_value {
         indent(out, inner)?;
         let exact = exact_arity(meta.value_var_min, meta.value_var_max);
@@ -2618,6 +2658,10 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if let Some(heading) = meta.help_heading {
         write!(out, " help_heading={}", quoted(heading))?;
     }
+    if let Some(surface) = meta.surface {
+        write!(out, " surface={}", quoted(surface))?;
+    }
+    write_single_list(out, "available_if", meta.available_if)?;
     if let Some(order) = meta.display_order {
         write!(out, " display_order={order}")?;
     }
@@ -2654,6 +2698,7 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         || meta.required_unless_all.len() > 1
         || meta.env_fallback.len() > 1
         || meta.deprecated_env.len() > 1;
+    let has_children = has_children || meta.available_if.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -2701,6 +2746,7 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     write_many_list(out, "required_unless_all", meta.required_unless_all, inner)?;
     write_many_list(out, "env_fallback", meta.env_fallback, inner)?;
     write_many_list(out, "deprecated_env", meta.deprecated_env, inner)?;
+    write_many_list(out, "available_if", meta.available_if, inner)?;
     write_many_defaults(out, meta.default, inner)?;
     write_choices(
         out,
