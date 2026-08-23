@@ -33,7 +33,7 @@ pub mod complete;
 pub mod spec;
 pub use error::Result;
 
-#[cfg(feature = "docs")]
+#[cfg(any(feature = "docs", feature = "cli-help"))]
 pub mod docs;
 pub mod go;
 pub mod help_template;

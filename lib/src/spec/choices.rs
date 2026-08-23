@@ -283,8 +283,8 @@ impl SpecChoices {
     }
 
     /// The choices as a help page lists them: visible values only, and no details.
-    // Only `docs` renders help, and without it this is dead code that `-D warnings` fails on.
-    #[cfg(feature = "docs")]
+    // Only `cli-help` renders help, and without it this is dead code under `-D warnings`.
+    #[cfg(feature = "cli-help")]
     pub(crate) fn for_help(&self) -> Self {
         let mut choices = self.clone();
         choices.choices = self.visible_declared();

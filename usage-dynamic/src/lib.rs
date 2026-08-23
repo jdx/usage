@@ -1,14 +1,17 @@
 //! Opt-in runtime command catalogs for a derive-generated usage-rs host.
 //!
 //! Applications discover and cache plugin specs themselves, then attach them below a static
-//! command that declares an external-subcommand variant. The catalog adds summaries to host
-//! help and command-name completion while generic parsing stays isolated in `usage-lib`.
+//! command that declares an external-subcommand variant. The catalog builds a separate merged
+//! tree for navigable help and deep completion while generic parsing stays in `usage-lib` and
+//! the derive-generated parse tables remain unchanged.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
 use std::fmt;
 
-use usage_argv::spec::{CommandMeta, RuntimeCommand, SpecView};
+use usage_argv::complete::{self, Completions, Files, Shell, Split};
+use usage_argv::spec::{Candidate, CandidateKind, CommandMeta, SpecView};
 use usage_parser::error::UsageErr;
 use usage_parser::Parser;
 
@@ -20,6 +23,8 @@ pub use usage_parser::Spec;
 pub struct Catalog<'a> {
     host: SpecView<'a>,
     entries: Vec<Entry>,
+    merged: Spec,
+    completion: Spec,
 }
 
 #[derive(Debug)]
@@ -28,6 +33,12 @@ struct Entry {
     name: String,
     aliases: Vec<String>,
     spec: Spec,
+}
+
+/// Cold-path help and completion over the fully merged runtime tree.
+#[derive(Debug, Clone, Copy)]
+pub struct App<'a> {
+    catalog: &'a Catalog<'a>,
 }
 
 /// A catalog under construction.
@@ -46,27 +57,9 @@ impl<'a> Catalog<'a> {
         }
     }
 
-    /// The host presentation view, including dynamic command summaries.
-    pub fn app(&self) -> SpecView<'a> {
-        self.host
-            .clone()
-            .runtime_commands(self.entries.iter().map(|entry| {
-                let cmd = &entry.spec.cmd;
-                RuntimeCommand {
-                    parent: entry.parent.clone(),
-                    name: entry.name.clone(),
-                    aliases: cmd.aliases.clone(),
-                    hidden_aliases: cmd.hidden_aliases.clone(),
-                    about: cmd.help.clone().or_else(|| entry.spec.about.clone()),
-                    long_about: cmd
-                        .help_long
-                        .clone()
-                        .or_else(|| entry.spec.about_long.clone()),
-                    help_heading: cmd.help_heading.clone(),
-                    hide: cmd.hide,
-                    display_order: cmd.display_order,
-                }
-            }))
+    /// Cold-path help, completion, and spec access over the fully merged command tree.
+    pub fn app(&self) -> App<'_> {
+        App { catalog: self }
     }
 
     /// Parse argv captured by an existing external-subcommand variant.
@@ -132,6 +125,246 @@ impl<'a> Catalog<'a> {
     }
 }
 
+impl App<'_> {
+    /// The fully merged portable spec used for dynamic help and completion.
+    pub fn spec(&self) -> &Spec {
+        &self.catalog.merged
+    }
+
+    /// Render help for a static or dynamic command path. The empty path is the root.
+    pub fn help(self, path: &str, long: bool) -> Option<String> {
+        let command = find_command(&self.catalog.merged, path)?;
+        Some(usage_parser::docs::cli::render_help(
+            &self.catalog.merged,
+            command,
+            long,
+        ))
+    }
+
+    /// Use this merged tree to answer the usage-rs completion protocol.
+    pub const fn completion_app(self) -> Self {
+        self
+    }
+
+    /// Complete an already split command line without rendering a shell protocol.
+    pub fn complete(self, split: &Split) -> Result<Completions<'static>, Error> {
+        complete_merged(&self.catalog.completion, split)
+    }
+
+    /// Answer a hidden `__complete_word__` invocation, or return `None` for ordinary argv.
+    pub async fn completion_request(self, argv: &[OsString]) -> Option<String> {
+        let request = CompletionRequest::parse(argv)?;
+        let answer = self.complete(&request.split).ok()?;
+        Some(complete::render(&answer, request.shell))
+    }
+}
+
+fn find_command<'a>(spec: &'a Spec, path: &str) -> Option<&'a usage_parser::SpecCommand> {
+    let mut command = &spec.cmd;
+    for component in path.split_ascii_whitespace() {
+        command = command.find_subcommand(component)?;
+    }
+    Some(command)
+}
+
+fn complete_merged(spec: &Spec, split: &Split) -> Result<Completions<'static>, Error> {
+    let words: Vec<String> = split.words.iter().take(split.cword).cloned().collect();
+    let parsed = usage_parser::parse::parse_partial(spec, &words)
+        .map_err(|error| Error::Parse(error.to_string()))?;
+    let prefix = &split.prefix;
+    let flags_possible = !parsed.double_dash_seen;
+    let mut candidates = Vec::new();
+    let mut files = None;
+    let mut declared_completion = false;
+
+    if let Some(flag) = parsed.flag_awaiting_value.first() {
+        if let Some(arg) = &flag.arg {
+            candidates.extend(choice_candidates(arg, prefix));
+            declared_completion = completion_for(spec, &parsed.cmd, &arg.name).is_some();
+            files = completion_files(spec, &parsed.cmd, &arg.name);
+        }
+    } else if flags_possible && prefix.starts_with('-') {
+        for (form, flag) in parsed.completion_flags() {
+            if flag.hide || !form.starts_with(prefix) || hidden_flag_form(&form, &flag) {
+                continue;
+            }
+            candidates.push(Candidate {
+                value: form,
+                kind: CandidateKind::Flag,
+                display: None,
+                description: flag.help.clone().map(Cow::Owned),
+            });
+        }
+    } else {
+        if let Some(arg) = parsed.next_arg.as_deref() {
+            candidates.extend(choice_candidates(arg, prefix));
+            declared_completion = completion_for(spec, &parsed.cmd, &arg.name).is_some();
+            files = completion_files(spec, &parsed.cmd, &arg.name);
+        }
+        for command in parsed
+            .cmd
+            .subcommands
+            .values()
+            .filter(|command| !command.hide)
+        {
+            for name in std::iter::once(&command.name).chain(&command.aliases) {
+                if name.starts_with(prefix) {
+                    candidates.push(Candidate {
+                        value: name.clone(),
+                        kind: CandidateKind::Command,
+                        display: None,
+                        description: command.help.clone().map(Cow::Owned),
+                    });
+                }
+            }
+        }
+    }
+    candidates.sort_unstable();
+    candidates.dedup_by(|a, b| a.value == b.value);
+    if candidates.is_empty() && files.is_none() && !declared_completion && !prefix.starts_with('-')
+    {
+        files = Some(Files::Any);
+    }
+    Ok(Completions { candidates, files })
+}
+
+fn choice_candidates(arg: &usage_parser::SpecArg, prefix: &str) -> Vec<Candidate<'static>> {
+    let Some(choices) = &arg.choices else {
+        return Vec::new();
+    };
+    let details: HashMap<_, _> = choices
+        .details
+        .iter()
+        .map(|choice| (choice.value.as_str(), choice))
+        .collect();
+    let mut candidates = Vec::new();
+    for value in &choices.choices {
+        let detail = details.get(value.as_str()).copied();
+        if detail.is_some_and(|choice| choice.hide) {
+            continue;
+        }
+        for form in std::iter::once(value.as_str()).chain(
+            detail
+                .into_iter()
+                .flat_map(|choice| &choice.aliases)
+                .filter(|alias| !alias.hide)
+                .map(|alias| alias.value.as_str()),
+        ) {
+            if form.starts_with(prefix) {
+                candidates.push(Candidate {
+                    value: form.to_owned(),
+                    kind: CandidateKind::Value,
+                    display: None,
+                    description: detail
+                        .and_then(|choice| choice.help.clone())
+                        .map(Cow::Owned),
+                });
+            }
+        }
+    }
+    candidates
+}
+
+fn hidden_flag_form(form: &str, flag: &usage_parser::SpecFlag) -> bool {
+    form.strip_prefix("--")
+        .is_some_and(|long| flag.hidden_aliases.iter().any(|hidden| hidden == long))
+        || form
+            .strip_prefix('-')
+            .filter(|short| short.len() == 1)
+            .and_then(|short| short.chars().next())
+            .is_some_and(|short| flag.hidden_short_aliases.contains(&short))
+}
+
+fn completion_files(spec: &Spec, command: &usage_parser::SpecCommand, name: &str) -> Option<Files> {
+    let completion = completion_for(spec, command, name)?;
+    let type_ = completion.type_.as_deref()?;
+    let (kind, filter) = type_
+        .split_once(':')
+        .map_or((type_, None), |(kind, filter)| (kind, Some(filter)));
+    match kind {
+        "path" | "file" => match filter {
+            Some(filter) => Some(Files::Extensions(
+                filter
+                    .split(',')
+                    .map(|extension| extension.trim_start_matches('.').to_owned())
+                    .collect(),
+            )),
+            None => Some(Files::Any),
+        },
+        "dir" | "directory" => Some(Files::Dirs),
+        "executable" | "executable_path" => Some(Files::ExecutablePaths),
+        "command" => Some(Files::Commands),
+        _ => None,
+    }
+}
+
+fn completion_for<'a>(
+    spec: &'a Spec,
+    command: &'a usage_parser::SpecCommand,
+    name: &str,
+) -> Option<&'a usage_parser::SpecComplete> {
+    command
+        .complete
+        .get(name)
+        .or_else(|| spec.complete.get(name))
+}
+
+struct CompletionRequest {
+    shell: Shell,
+    split: Split,
+}
+
+impl CompletionRequest {
+    fn parse(argv: &[OsString]) -> Option<Self> {
+        if argv.first()?.to_str()? != "__complete_word__" {
+            return None;
+        }
+        let mut shell = Shell::Bash;
+        let mut line = String::new();
+        let mut cursor = None;
+        let mut words: Option<Vec<String>> = None;
+        let mut rest = argv[1..].iter();
+        while let Some(arg) = rest.next() {
+            match arg.to_str().unwrap_or_default() {
+                "--shell" => {
+                    shell = rest
+                        .next()
+                        .and_then(|name| Shell::from_name(&name.to_string_lossy()))
+                        .unwrap_or(shell);
+                }
+                "--line" => {
+                    line = rest.next()?.to_string_lossy().into_owned();
+                }
+                "--cursor" => {
+                    cursor = rest.next()?.to_str()?.parse().ok();
+                }
+                "--words" => {
+                    words = Some(
+                        rest.map(|word| word.to_string_lossy().into_owned())
+                            .collect(),
+                    );
+                    break;
+                }
+                _ => {}
+            }
+        }
+        let split = if let Some(mut words) = words {
+            if words.is_empty() {
+                words.push(String::new());
+            }
+            let cword = words.len() - 1;
+            Split {
+                prefix: words[cword].clone(),
+                words,
+                cword,
+            }
+        } else {
+            complete::split(&line, cursor.unwrap_or(line.len()), shell)
+        };
+        Some(Self { shell, split })
+    }
+}
+
 impl<'a> Builder<'a> {
     /// Attach a supplied plugin spec beneath the static root.
     pub fn root(mut self, spec: Spec) -> Self {
@@ -151,6 +384,12 @@ impl<'a> Builder<'a> {
     /// Validate all parents and namespaces and finish the catalog.
     pub fn build(self) -> Result<Catalog<'a>, Error> {
         let host = self.host.spec();
+        let mut merged: Spec = self
+            .host
+            .clone()
+            .to_kdl()
+            .parse()
+            .map_err(|error: UsageErr| Error::HostSpec(error.to_string()))?;
         let mut entries = Vec::with_capacity(self.pending.len());
         let mut claimed: HashMap<String, HashSet<String>> = HashMap::new();
         for (requested_parent, spec) in self.pending {
@@ -167,7 +406,12 @@ impl<'a> Builder<'a> {
             if name.is_empty() {
                 return Err(Error::EmptyName);
             }
-            let aliases = spec.cmd.aliases.clone();
+            let mut aliases = spec.cmd.aliases.clone();
+            for alias in &spec.cmd.hidden_aliases {
+                if !aliases.contains(alias) {
+                    aliases.push(alias.clone());
+                }
+            }
             let mut forms = Vec::with_capacity(1 + aliases.len());
             forms.push(name.clone());
             forms.extend(aliases.iter().cloned());
@@ -178,6 +422,7 @@ impl<'a> Builder<'a> {
             for command in parent_meta.subcommands {
                 static_forms.insert(command.cmd.name);
                 static_forms.extend(command.cmd.aliases.iter().copied());
+                static_forms.extend(command.hidden_aliases.iter().copied());
             }
             if !parent_meta.cmd.disable_help_subcommand {
                 static_forms.insert("help");
@@ -191,6 +436,7 @@ impl<'a> Builder<'a> {
                     });
                 }
             }
+            insert_plugin(&mut merged, &parent, &name, &spec)?;
             entries.push(Entry {
                 parent,
                 name,
@@ -198,11 +444,49 @@ impl<'a> Builder<'a> {
                 spec,
             });
         }
+        // Re-reading recalculates every `full_cmd`, usage line, and command lookup cache after
+        // insertion. This is cold construction work and keeps the merged tree internally
+        // indistinguishable from a spec that declared the commands in KDL.
+        merged = merged
+            .to_string()
+            .parse()
+            .map_err(|error: UsageErr| Error::HostSpec(error.to_string()))?;
+        let mut completion = merged.clone();
+        clear_mounts(&mut completion.cmd);
         Ok(Catalog {
             host: self.host,
             entries,
+            merged,
+            completion,
         })
     }
+}
+
+fn insert_plugin(merged: &mut Spec, parent: &str, name: &str, plugin: &Spec) -> Result<(), Error> {
+    let mut command = plugin.cmd.clone();
+    command.name = name.to_owned();
+    command.help = command.help.or_else(|| plugin.about.clone());
+    command.help_long = command.help_long.or_else(|| plugin.about_long.clone());
+    command.before_help = command.before_help.or_else(|| plugin.before_help.clone());
+    command.before_help_long = command
+        .before_help_long
+        .or_else(|| plugin.before_help_long.clone());
+    command.after_help = command.after_help.or_else(|| plugin.after_help.clone());
+    command.after_help_long = command
+        .after_help_long
+        .or_else(|| plugin.after_help_long.clone());
+    for (key, complete) in &plugin.complete {
+        command.complete.insert(key.clone(), complete.clone());
+    }
+    let mut current = &mut merged.cmd;
+    for component in parent.split_ascii_whitespace() {
+        current = current
+            .subcommands
+            .get_mut(component)
+            .ok_or_else(|| Error::MissingParent(parent.to_owned()))?;
+    }
+    current.subcommands.insert(name.to_owned(), command);
+    Ok(())
 }
 
 fn canonical_parent(root: &CommandMeta<'_>, requested: &str) -> Result<String, Error> {
@@ -235,6 +519,13 @@ fn reject_mounts(command: &usage_parser::SpecCommand) -> Result<(), Error> {
         reject_mounts(child)?;
     }
     Ok(())
+}
+
+fn clear_mounts(command: &mut usage_parser::SpecCommand) {
+    command.mounts.clear();
+    for child in command.subcommands.values_mut() {
+        clear_mounts(child);
+    }
 }
 
 /// The result of parsing a catalogued external command.
@@ -274,6 +565,7 @@ pub struct Version {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
+    HostSpec(String),
     MissingParent(String),
     ParentNotExternal(String),
     EmptyName,
@@ -287,6 +579,7 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::HostSpec(error) => write!(f, "could not construct merged host spec: {error}"),
             Self::MissingParent(parent) => write!(f, "static parent `{parent}` does not exist"),
             Self::ParentNotExternal(parent) => {
                 write!(

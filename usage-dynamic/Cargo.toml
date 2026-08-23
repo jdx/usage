@@ -12,7 +12,7 @@ license = { workspace = true }
 
 [dependencies]
 usage-argv = { workspace = true, features = ["spec", "complete"] }
-usage-parser = { package = "usage-lib", path = "../lib", version = "6.1.1", default-features = false }
+usage-parser = { package = "usage-lib", path = "../lib", version = "6.1.1", default-features = false, features = ["cli-help"] }
 
 [package.metadata.release]
 shared-version = true

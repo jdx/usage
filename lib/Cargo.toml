@@ -45,7 +45,9 @@ usage-validation = { workspace = true, optional = true }
 
 [features]
 default = ["docs"]
-docs = ["tera", "roff"]
+# CLI help is useful to lightweight consumers that do not generate Markdown or manpages.
+cli-help = ["tera"]
+docs = ["cli-help", "roff"]
 validation = ["dep:usage-validation"]
 unstable_choices_env = []
 

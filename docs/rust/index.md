@@ -151,7 +151,7 @@ how to opt out of the endpoint.
 - [Args and flags](/rust/args-and-flags) — field types, attributes, env vars, defaults
 - [Updating values](/rust/update-from) — merge another command line into an existing value
 - [Subcommands](/rust/subcommands) — command enums, nesting, `flatten`, value enums
-- [Dynamic commands](/rust/dynamic-commands) — add runtime-discovered plugin summaries and generic parsing
+- [Dynamic commands](/rust/dynamic-commands) — merge runtime-discovered plugins into help and completion
 - [Dispatch](/rust/dispatch) — `Run`, `RunWith`, the async pair, and the generated `match`
 - [Validation](/rust/validation) — choices, groups, `exclusive`, `delimiter`, conflicts, portable `validate`
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it

@@ -75,13 +75,16 @@ version "2.4"
 unknown_flags "error"
 flag "--color <WHEN>" env="USAGE_DYNAMIC_TEST_COLOR" default="always"
 arg "[path]"
+cmd "check" help="Check formatting" {
+    flag "--fix" help="Apply fixes"
+}
 "#,
     );
     formatter.about = Some("Format a project".into());
     formatter.about_long = Some("Format a project using its configured style.".into());
     formatter.cmd.help_heading = Some("Installed plugins".into());
     formatter.cmd.display_order = Some(2);
-    formatter.cmd.aliases = vec!["fmt".into(), "oldfmt".into()];
+    formatter.cmd.aliases = vec!["fmt".into()];
     formatter.cmd.hidden_aliases = vec!["oldfmt".into()];
     let mut audit = plugin("audit", "");
     audit.about = Some("Audit a project".into());
@@ -98,13 +101,19 @@ arg "[path]"
 fn root_summaries_appear_in_help_and_completion() {
     let mut spec = plugin("doctor", "");
     spec.about = Some("Inspect plugin health".into());
+    let static_kdl = RootHost::app().to_kdl();
     let catalog = Catalog::builder(RootHost::app())
         .root(spec)
         .build()
         .unwrap();
-    assert_eq!(RootHost::app().to_kdl(), catalog.app().to_kdl());
+    assert_eq!(static_kdl, RootHost::app().to_kdl());
     let help = catalog.app().help("", false).unwrap();
     assert!(help.contains("doctor  Inspect plugin health"), "{help}");
+    assert!(catalog
+        .app()
+        .help("doctor", false)
+        .unwrap()
+        .contains("Inspect plugin health"));
 
     let argv = [
         OsString::from("__complete_word__"),
@@ -117,33 +126,58 @@ fn root_summaries_appear_in_help_and_completion() {
         answer.lines().any(|line| line.starts_with("doctor")),
         "{answer}"
     );
+    let RootCommand::External(argv) = RootHost::parse_from(&[OsStr::new("doctor")])
+        .unwrap()
+        .command
+    else {
+        panic!("expected top-level external command")
+    };
+    let argv: Vec<OsString> = argv.into_iter().map(OsString::from).collect();
+    assert!(matches!(
+        catalog.parse_external("", &argv).unwrap(),
+        Some(Outcome::Parsed(_))
+    ));
 }
 
 #[test]
 fn nested_help_merges_summaries_aliases_headings_and_ordering() {
-    let app = catalog().app();
+    let catalog = catalog();
+    let app = catalog.app();
     for long in [false, true] {
         let help = app.help("plugins", long).unwrap();
         assert!(help.contains("Installed plugins:"), "{help}");
-        assert!(help.contains("plugins formatter [aliases: fmt]"), "{help}");
+        assert!(help.contains("plugins formatter"), "{help}");
+        assert!(help.contains("[aliases: fmt]"), "{help}");
         assert!(!help.contains("oldfmt"), "{help}");
         assert!(
             help.find("plugins audit").unwrap() < help.find("plugins formatter").unwrap(),
             "{help}"
         );
     }
+    let plugin_help = app.help("plugins formatter", false).unwrap();
+    assert!(plugin_help.contains("--color"), "{plugin_help}");
+    assert!(plugin_help.contains("formatter check"), "{plugin_help}");
+    let nested_help = app.help("plugins fmt check", false).unwrap();
+    assert!(nested_help.contains("--fix"), "{nested_help}");
 }
 
 #[test]
 fn command_completion_offers_visible_names_and_delegates_after_selection() {
-    let app = catalog().app().completion_app();
+    let catalog = catalog();
+    let app = catalog.app().completion_app();
+    let parsed = usage_parser::parse::parse_partial(
+        app.spec(),
+        &["host".into(), "plugins".into(), "formatter".into()],
+    )
+    .unwrap();
+    assert_eq!(parsed.cmd.name, "formatter", "{:?}", parsed.cmds);
     let request = |words: &[&str]| {
         let mut argv = vec![
             OsString::from("__complete_word__"),
             OsString::from("--words"),
         ];
         argv.extend(words.iter().map(OsString::from));
-        block_on(app.clone().completion_request(&argv)).unwrap()
+        block_on(app.completion_request(&argv)).unwrap()
     };
     let answer = request(&["host", "plugins", ""]);
     assert!(
@@ -155,7 +189,16 @@ fn command_completion_offers_visible_names_and_delegates_after_selection() {
         "{answer}"
     );
     assert!(!answer.contains("oldfmt"), "{answer}");
-    assert_eq!(request(&["host", "plugins", "formatter", ""]), "");
+    let flags = request(&["host", "plugins", "formatter", "--"]);
+    assert!(
+        flags.lines().any(|line| line.starts_with("--color")),
+        "{flags}"
+    );
+    let nested = request(&["host", "plugins", "formatter", "ch"]);
+    assert!(
+        nested.lines().any(|line| line.starts_with("check")),
+        "{nested}"
+    );
 }
 
 #[test]
