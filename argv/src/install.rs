@@ -247,7 +247,7 @@ pub fn plan_for(bin: &str, name: &str, shell: Shell, env: &Env) -> Result<Plan, 
     Ok(Plan {
         shell,
         name: name.to_string(),
-        loading: loading(shell, resolved_from, &dir, &path),
+        loading: loading(shell, resolved_from, &dir, &path, env.platform()),
         note: note(shell, resolved_from),
         path,
         resolved_from,
@@ -531,15 +531,18 @@ fn is_absolute(value: &OsStr, platform: Platform) -> bool {
 /// separator, so on a Unix host a plan made for Windows — `C:\…\_ex`, one component to a parser
 /// that does not read `\` as a separator — has an empty parent, and zsh was told to add nothing
 /// at all to its `$fpath`. The caller already holds the directory it built.
-fn loading(shell: Shell, resolved_from: &'static str, dir: &Path, path: &Path) -> Loading {
+fn loading(
+    shell: Shell,
+    resolved_from: &'static str,
+    dir: &Path,
+    path: &Path,
+    platform: Platform,
+) -> Loading {
     match shell {
         Shell::Bash | Shell::Fish => Loading::Automatic,
         Shell::Elvish => Loading::Manual {
             line: format!("source {}", quote(shell, &path.display().to_string())),
-            file: dir
-                .parent()
-                .unwrap_or(dir)
-                .join("rc.elv")
+            file: join_for(dir.parent().unwrap_or(dir), "rc.elv", platform)
                 .display()
                 .to_string(),
             why: "Elvish argument completers are registered by evaluating configuration, so its \
