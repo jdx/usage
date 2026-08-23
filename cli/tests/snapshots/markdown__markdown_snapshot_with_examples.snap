@@ -17,20 +17,11 @@ A demo CLI with examples
 Deploy your application
 
 ### Flags
+- **`-e --environment <env>`** — Target environment
 
-#### `-e --environment <env>`
+  **Choices:** `dev`, `staging`, `prod`
+- **`-f --force`** — Force deployment
 
-Target environment
-
-**Choices:**
-
-- `dev`
-- `staging`
-- `prod`
-
-#### `-f --force`
-
-Force deployment
 
 ### Examples
 
@@ -63,14 +54,9 @@ Manage configuration
 Set a configuration value
 
 ### Arguments
+- **`<key>`** — Configuration key
+- **`<value>`** — Configuration value
 
-#### `<key>`
-
-Configuration key
-
-#### `<value>`
-
-Configuration value
 
 ### Examples
 

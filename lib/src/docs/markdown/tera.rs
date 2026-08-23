@@ -116,6 +116,23 @@ pub(crate) static TERA: LazyLock<Tera> = LazyLock::new(|| {
             Ok(value.clone())
         },
     );
+    tera.register_filter(
+        "indent_md",
+        |value: &tera::Value, _: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
+            let value = value.as_str().unwrap();
+            Ok(value
+                .split('\n')
+                .enumerate()
+                .map(|(index, line)| {
+                    if index == 0 || line.is_empty() {
+                        line.to_string()
+                    } else {
+                        format!("  {line}")
+                    }
+                })
+                .join("\n"))
+        },
+    );
     tera.register_function(
         "source_code_link",
         move |args: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
@@ -167,3 +184,21 @@ pub(crate) static TERA: LazyLock<Tera> = LazyLock::new(|| {
 
     tera
 });
+
+/// Replace the command template and add the two entry partials that its compact lists use.
+pub(crate) fn install_compact(tera: &mut Tera) -> Result<(), tera::Error> {
+    tera.add_raw_templates([
+        (
+            "compact_arg_entry.md.tera",
+            include_str!("templates/compact_arg_entry.md.tera"),
+        ),
+        (
+            "compact_flag_entry.md.tera",
+            include_str!("templates/compact_flag_entry.md.tera"),
+        ),
+        (
+            "cmd_template.md.tera",
+            include_str!("templates/compact_cmd_template.md.tera"),
+        ),
+    ])
+}

@@ -39,90 +39,62 @@ mod tests {
         let ctx = MarkdownRenderer::new(SPEC_KITCHEN_SINK.clone())
             .with_multi(true)
             .with_replace_pre_with_code_fences(true);
-        assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @r"
+        assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @"
         # `mycli`
 
         - **Usage**: `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
 
         ## Arguments
+        - **`<arg1>`** — arg1 description
+        - **`[arg2]`** — arg2 description
 
-        ### `<arg1>`
+          **Choices:** `choice1`, `choice2`, `choice3`
 
-        arg1 description
+          **Default:** `default value`
+        - **`<arg3>`** — arg3 long description
+        - **`<argrest>…`**
+        - **`[with-default]`**
 
-        ### `[arg2]`
+          **Default:** `default value`
 
-        arg2 description
-
-        **Choices:**
-
-        - `choice1`
-        - `choice2`
-        - `choice3`
-
-        **Default:** `default value`
-
-        ### `<arg3>`
-
-        arg3 long description
-
-        ### `<argrest>…`
-
-        ### `[with-default]`
-
-        **Default:** `default value`
 
         ## Flags
+        - **`--flag1`** — flag1 description
+        - **`--flag2`** — flag2 long description
 
-        ### `--flag1`
+          includes a code block:
 
-        flag1 description
+          ```
+          $ echo hello world
+          hello world
 
-        ### `--flag2`
+          more code
+          ```
 
-        flag2 long description
+          Examples:
 
-        includes a code block:
+          ```
+          # run with no arguments to use the interactive selector
+          $ mise use
 
-        ```
-        $ echo hello world
-        hello world
+          # set the current version of node to 20.x in mise.toml of current directory
+          # will write the fuzzy version (e.g.: 20)
+          ```
 
-        more code
-        ```
+          some docs
 
-        Examples:
+          ```
+          $ echo hello world
+          hello world
+          ```
+        - **`--flag3`** — flag3 description
+        - **`--with-default`**
 
-        ```
-        # run with no arguments to use the interactive selector
-        $ mise use
+          **Default:** `default value`
+        - **`--shell <shell>`**
 
-        # set the current version of node to 20.x in mise.toml of current directory
-        # will write the fuzzy version (e.g.: 20)
-        ```
+          **Choices:** `bash`, `zsh`, `fish`
 
-        some docs
-
-        ```
-        $ echo hello world
-        hello world
-        ```
-
-        ### `--flag3`
-
-        flag3 description
-
-        ### `--with-default`
-
-        **Default:** `default value`
-
-        ### `--shell <shell>`
-
-        **Choices:**
-
-        - `bash`
-        - `zsh`
-        - `fish`
 
         ## Subcommands
 
@@ -205,28 +177,19 @@ arg "<mode>" help="How to run" help_heading="Behaviour"
         - **Usage**: `mycli [--verbose] [--filter <pattern>] <file> <mode>`
 
         ## Arguments
+        - **`<file>`** — The file
 
-        ### `<file>`
-
-        The file
 
         ## Behaviour
+        - **`<mode>`** — How to run
 
-        ### `<mode>`
-
-        How to run
 
         ## Flags
+        - **`--verbose`** — Verbose output
 
-        ### `--verbose`
-
-        Verbose output
 
         ## Filtering
-
-        ### `--filter <pattern>`
-
-        Only matching
+        - **`--filter <pattern>`** — Only matching
         ");
     }
 
@@ -251,22 +214,16 @@ cmd "sub" help="a subcommand"
         - **Usage**: `mycli [FLAGS] <SUBCOMMAND>`
 
         ## Global Flags
+        - **`--verbose`** — Verbose output
 
-        ### `--verbose`
-
-        Verbose output
 
         ## Filtering
+        - **`--filter <pattern>`** — Only matching
 
-        ### `--filter <pattern>`
-
-        Only matching
 
         ## Flags
+        - **`--local-one`** — Not global
 
-        ### `--local-one`
-
-        Not global
 
         ## Subcommands
 
@@ -284,13 +241,13 @@ flag "-t -f --tail --follow" help="Follow output"
         .unwrap();
         let ctx = MarkdownRenderer::new(spec.clone()).with_multi(true);
         let rendered = ctx.render_cmd(&spec.cmd).unwrap();
-        assert!(rendered.contains("### `-t --tail`"), "{rendered}");
+        assert!(rendered.contains("- **`-t --tail`**"), "{rendered}");
         assert!(
             rendered.contains("**Aliases:** `-f`, `--follow`"),
             "{rendered}"
         );
         assert!(
-            !rendered.contains("### `-t -f --tail --follow`"),
+            !rendered.contains("**`-t -f --tail --follow`**"),
             "{rendered}"
         );
     }
@@ -327,9 +284,9 @@ cmd "version" help="Show the version"
         // section — but the CLI-wide exit codes still reach it, because those are the
         // program's, not the command's.
         assert!(rendered.contains("## Output"), "{rendered}");
-        assert!(rendered.contains("### `human` (default)"), "{rendered}");
+        assert!(rendered.contains("- **`human`** (default)"), "{rendered}");
         assert!(
-            rendered.contains("- **Select**: `--format jsonl`"),
+            rendered.contains("**Select:** `--format jsonl`"),
             "{rendered}"
         );
         assert!(

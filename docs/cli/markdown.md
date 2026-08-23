@@ -67,3 +67,17 @@ let markdown = MarkdownRenderer::new(spec)
 The selectable members are `Spec`, `Index`, `Command`, `Argument`, `Flag`, and `Config`.
 Templates that are not replaced remain available through Tera's `include`; syntax and include
 errors are returned when the page is rendered.
+
+Generated references use `MarkdownTheme::Compact`: arguments and flags are grouped into dense
+lists that remain easy to scan on a large page. To give each entry its own addressable heading,
+select the detailed theme:
+
+```rust
+use usage::docs::markdown::{MarkdownRenderer, MarkdownTheme};
+
+# let spec: usage::Spec = "bin \"mycli\"".parse()?;
+let markdown = MarkdownRenderer::new(spec)
+    .with_theme(MarkdownTheme::Detailed)
+    .render_spec()?;
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
