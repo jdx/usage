@@ -352,7 +352,9 @@ pub fn effective_outputs_ref<'a>(
 ) -> Vec<SpecOutput> {
     let mut out: Vec<SpecOutput> = spec.outputs.clone();
     let mut selected = &spec.cmd;
+    let mut inherited_globals = Vec::new();
     for cmd in path {
+        inherited_globals.extend(selected.flags.iter().filter(|flag| flag.global));
         selected = cmd;
         for output in &cmd.outputs {
             match out.iter_mut().find(|o| o.name == output.name) {
@@ -363,11 +365,10 @@ pub fn effective_outputs_ref<'a>(
     }
     out.retain(|o| !o.hide);
     for output in &mut out {
-        if output
-            .select
-            .as_deref()
-            .is_some_and(|name| !selected.flags.iter().any(|flag| flag_named(flag, name)))
-        {
+        if output.select.as_deref().is_some_and(|name| {
+            !selected.flags.iter().any(|flag| flag_named(flag, name))
+                && !inherited_globals.iter().any(|flag| flag_named(flag, name))
+        }) {
             output.select = None;
         }
     }
@@ -862,6 +863,31 @@ cmd "nested"
                 .find(|output| output.name == "json")
                 .and_then(|output| output.select.as_deref()),
             None
+        );
+    }
+
+    #[test]
+    fn an_inherited_boolean_selector_reaches_nested_commands_with_its_global_flag() {
+        let spec = parse(
+            r#"
+name "ex"
+flag "--json" global=#true
+output "text" default=#true
+output "json" framing="json" select="--json"
+cmd "outer" {
+    cmd "inner"
+}
+"#,
+        );
+        let outer = &spec.cmd.subcommands["outer"];
+        let inner = &outer.subcommands["inner"];
+        let outputs = effective_outputs_ref(&spec, [outer, inner]);
+        assert_eq!(
+            outputs
+                .iter()
+                .find(|output| output.name == "json")
+                .and_then(|output| output.select.as_deref()),
+            Some("--json")
         );
     }
 
