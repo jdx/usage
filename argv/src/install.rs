@@ -77,6 +77,20 @@ impl Platform {
     pub const fn is_windows(self) -> bool {
         matches!(self, Platform::Windows)
     }
+
+    /// The separator this platform puts between path components.
+    ///
+    /// For the same reason [`is_absolute`] takes a platform: `Path::join` uses the *host's*
+    /// separator, so a plan made on Windows for a Linux machine came out as
+    /// `/home/u\.local\share\zsh\site-functions` — half of it in each spelling, and a `$fpath`
+    /// entry no zsh would resolve. Everything here answers for the platform being planned for,
+    /// which is not always the one doing the planning.
+    pub const fn separator(self) -> char {
+        match self {
+            Platform::Windows => '\\',
+            Platform::Linux | Platform::MacOs => '/',
+        }
+    }
 }
 
 /// The environment a plan is resolved against: some variables, and a platform.
@@ -229,7 +243,7 @@ pub fn plan_for(bin: &str, name: &str, shell: Shell, env: &Env) -> Result<Plan, 
     }
 
     let (dir, resolved_from) = base_dir(shell, env)?;
-    let path = dir.join(file_name(shell, name));
+    let path = join_for(&dir, &file_name(shell, name), env.platform());
     Ok(Plan {
         shell,
         name: name.to_string(),
@@ -408,8 +422,12 @@ fn base_dir(shell: Shell, env: &Env) -> Result<(PathBuf, &'static str), Error> {
         if !is_absolute(base, env.platform()) {
             continue;
         }
+        // Not `PathBuf::extend`, which joins with the host's separator. See
+        // [`Platform::separator`].
         let mut dir = PathBuf::from(base);
-        dir.extend(source.under.iter());
+        for part in source.under.iter() {
+            dir = join_for(&dir, part, env.platform());
+        }
         return Ok((dir, source.var));
     }
     Err(Error::NoBaseDir {
@@ -444,6 +462,25 @@ fn first_entry(value: &OsStr, list: bool, platform: Platform) -> Option<&OsStr> 
 
 /// Whether a value names a directory from the root, by the rules of the platform being planned for.
 ///
+/// `base` and `part`, joined the way `platform` spells a path.
+///
+/// `Path::join` uses the host's separator, which is the same mistake [`is_absolute`] exists to
+/// avoid: a plan is made *for* a platform, not on one. On a Windows host a Linux plan came out
+/// as `/home/u\.local\share\zsh\site-functions`, which no zsh resolves.
+///
+/// A separator already at the end of `base` is not doubled — a `HOME` of `/home/u/` is as
+/// ordinary as one without.
+fn join_for(base: &Path, part: &str, platform: Platform) -> PathBuf {
+    let separator = platform.separator();
+    let base = base.to_string_lossy();
+    let trimmed = base.trim_end_matches(['/', '\\']);
+    // Nothing left means `base` was the root itself, whose separator is the whole of it.
+    if trimmed.is_empty() {
+        return PathBuf::from(format!("{base}{part}"));
+    }
+    PathBuf::from(format!("{trimmed}{separator}{part}"))
+}
+
 /// `Path::is_absolute` answers for the host, which is the wrong question twice over: a Windows path
 /// is not absolute on Linux, and a `/etc`-style path is not absolute on Windows.
 fn is_absolute(value: &OsStr, platform: Platform) -> bool {
@@ -1006,8 +1043,15 @@ mod tests {
             &[("APPDATA", r"C:\Users\u\AppData\Roaming")],
         );
         let target = plan("ex", Shell::Nu, &windows).unwrap();
+        // Spelled the way a Windows plan is spelled. `Path::ends_with` matches whole components,
+        // and off Windows a `\` is not a separator but an ordinary character — so the slashes
+        // this used to carry only matched while the host's separator was leaking into a plan
+        // made for somewhere else.
         assert!(
-            target.path.ends_with("nushell/completions/ex.nu"),
+            target
+                .path
+                .to_string_lossy()
+                .ends_with(r"nushell\completions\ex.nu"),
             "{target:?}"
         );
         assert_eq!(target.resolved_from, "APPDATA");
@@ -1074,6 +1118,33 @@ mod tests {
     }
 
     #[test]
+    fn a_join_uses_the_planned_platforms_separator_not_the_hosts() {
+        // The bug this replaced: on a Windows host, a Linux plan came out half in each spelling.
+        assert_eq!(
+            join_for(Path::new("/home/u"), ".local", Platform::Linux),
+            PathBuf::from("/home/u/.local")
+        );
+        assert_eq!(
+            join_for(Path::new(r"C:\Users\u"), "AppData", Platform::Windows),
+            PathBuf::from(r"C:\Users\u\AppData")
+        );
+    }
+
+    #[test]
+    fn a_join_does_not_double_a_separator_already_there() {
+        // A `HOME` with a trailing slash is as ordinary as one without.
+        assert_eq!(
+            join_for(Path::new("/home/u/"), ".local", Platform::Linux),
+            PathBuf::from("/home/u/.local")
+        );
+        // And a root is nothing but its separator, so there is none to trim.
+        assert_eq!(
+            join_for(Path::new("/"), "etc", Platform::Linux),
+            PathBuf::from("/etc")
+        );
+    }
+
+    #[test]
     fn a_windows_path_is_absolute_where_a_unix_one_is_not_and_the_reverse() {
         // `Path::is_absolute` answers for the host. Both directions matter: a plan for Windows made
         // on Linux must accept `C:\`, and a plan for Linux must not accept it.
@@ -1112,7 +1183,13 @@ mod tests {
         );
         let target = plan("ex", Shell::Zsh, &relative).unwrap();
         assert_eq!(target.resolved_from, "HOME");
-        assert!(target.path.is_absolute(), "{:?}", target.path);
+        // The crate's own, not `Path::is_absolute` — this plan is for Linux, and asking the host
+        // would call `/home/u/...` relative on the machine these tests run on.
+        assert!(
+            is_absolute(target.path.as_os_str(), Platform::Linux),
+            "{:?}",
+            target.path
+        );
     }
 
     #[test]
