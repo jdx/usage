@@ -12,10 +12,8 @@
 //! The root only. clap propagates it to subcommands only when asked (`propagate_version`), and
 //! a subcommand that declares its own `-V` keeps it.
 //!
-//! Supplied by the parser and *not* listed in help, exactly as `--help` is: a spec does not
-//! declare either, so listing one would make the rendered page disagree with the spec it came
-//! from. That is this crate's existing answer for `--help` and there is no reason for the two
-//! to differ.
+//! Supplied by the parser and emitted as explicit action flags in generated specs, so metadata
+//! consumers see the same public surface as terminal help and parsing.
 
 use std::ffi::OsStr;
 
@@ -193,18 +191,22 @@ fn a_declared_long_wins_too() {
 }
 
 #[test]
-fn the_flag_is_listed_but_still_not_declared() {
-    // Listed, because a reader looking for the version should find it where they are looking.
-    // Not *declared*: the parser supplies it, and a spec claiming otherwise would have every
-    // reader inventing a flag its CLI never wrote.
+fn built_in_flags_are_listed_and_emitted() {
+    // Listed because a reader looking for these entry points should find them.
     let page = usage_argv::help::render(Versioned::spec(), Versioned::spec().root.cmd, true)
         .expect("a page");
     assert!(page.contains("-V, --version"), "{page}");
     assert!(page.contains("Print version"), "{page}");
 
     let kdl = Versioned::to_kdl();
-    assert!(!kdl.contains("--version"), "{kdl}");
-    // But the version itself is declared, which is what the flag answers with.
+    assert!(
+        kdl.contains(r#"flag "-h --help" help="Print help" action=help builtin=#true"#),
+        "{kdl}"
+    );
+    assert!(
+        kdl.contains(r#"flag "-V --version" help="Print version" action=version builtin=#true"#),
+        "{kdl}"
+    );
     assert!(kdl.contains(r#"version "1.2.3""#), "{kdl}");
 }
 

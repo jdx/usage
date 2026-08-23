@@ -31,3 +31,7 @@ The schema's title, shown by editors
 ### `--url <URL>`
 
 Where the schema is published, for its `$id`
+
+### `-h --help`
+
+Print help

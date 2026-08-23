@@ -998,6 +998,11 @@ pub struct AdmonitionMeta<'a> {
 #[derive(Debug, Clone, Copy)]
 pub struct FlagMeta<'a> {
     pub flag: &'a Flag<'a>,
+    /// A parser-supplied public entry point materialized in an exported spec.
+    ///
+    /// It belongs in flag listings and completions, but not in the command synopsis where the
+    /// runtime's implicit help and version flags have never appeared.
+    pub builtin: bool,
     /// Explicit placement within its help section.
     pub display_order: Option<usize>,
     /// Short forms accepted by the parser but omitted from help and completion.
@@ -1122,6 +1127,7 @@ impl FlagMeta<'_> {
         complete: None,
         complete_type: None,
         flag: &Flag::BOOL,
+        builtin: false,
         display_order: None,
         hidden_shorts: &[],
         hidden_longs: &[],
@@ -1694,7 +1700,7 @@ impl Spec<'_> {
         }
         // Nothing above the root, so what it does not state is the default.
         let mut path = Vec::new();
-        write_body(out, self.root, 0, UnknownFlags::Value, &w, &mut path, true)
+        write_body(out, self.root, 0, UnknownFlags::Value, &w, &mut path, &[])
     }
 }
 
@@ -1896,7 +1902,7 @@ fn write_body<'a>(
     inherited_unknown_flags: UnknownFlags,
     w: &Writing<'_, '_>,
     path: &mut Vec<&'a str>,
-    root: bool,
+    inherited_globals: &[&FlagMeta<'a>],
 ) -> core::fmt::Result {
     // The effective setting for everything inside, which is this command's if it stated one
     // and otherwise whatever it inherited.
@@ -1919,6 +1925,22 @@ fn write_body<'a>(
         "every subcommand in the parse table needs metadata"
     );
     write_flag_layout(out, meta, depth, &w.sets)?;
+    let mut claimed = Vec::new();
+    for flag in inherited_globals.iter().copied().chain(meta.flags) {
+        claimed.extend(flag.flag.longs.iter().map(|long| format!("--{long}")));
+        claimed.extend(
+            flag.flag
+                .shorts
+                .iter()
+                .map(|short| format!("-{}", *short as char)),
+        );
+        if let Some(negate) = flag.flag.negate {
+            claimed.push(format!("--{negate}"));
+        }
+    }
+    for supplied in crate::help::supplied_entries(meta.cmd, &claimed) {
+        write_flag(out, supplied, depth, None)?;
+    }
     for (i, arg) in meta.args.iter().enumerate() {
         debug_assert!(
             meta.cmd
@@ -1935,7 +1957,7 @@ fn write_body<'a>(
     for group in meta.groups {
         write_group(out, group, depth)?;
     }
-    if root {
+    if depth == 0 {
         for example in meta.examples {
             write_example(out, example, depth)?;
         }
@@ -1943,8 +1965,18 @@ fn write_body<'a>(
     }
     #[cfg(feature = "complete")]
     write_completers(out, meta, w.bin, depth)?;
+    let mut child_globals = inherited_globals.to_vec();
+    child_globals.extend(meta.flags.iter().filter(|flag| flag.flag.global));
     for sub in meta.subcommands {
-        write_command(out, sub, depth, enclosing_unknown_flags, w, path)?;
+        write_command(
+            out,
+            sub,
+            depth,
+            enclosing_unknown_flags,
+            w,
+            path,
+            &child_globals,
+        )?;
     }
     Ok(())
 }
@@ -2005,6 +2037,7 @@ fn write_command<'a>(
     inherited_unknown_flags: UnknownFlags,
     w: &Writing<'_, '_>,
     path: &mut Vec<&'a str>,
+    inherited_globals: &[&FlagMeta<'a>],
 ) -> core::fmt::Result {
     path.push(meta.cmd.name);
     indent(out, depth)?;
@@ -2154,7 +2187,15 @@ fn write_command<'a>(
     for example in meta.examples {
         write_example(out, example, inner)?;
     }
-    write_body(out, meta, inner, effective_unknown_flags, w, path, false)?;
+    write_body(
+        out,
+        meta,
+        inner,
+        effective_unknown_flags,
+        w,
+        path,
+        inherited_globals,
+    )?;
     // After the body, because usage-lib's writer puts these after the flags, args and
     // subcommands, and `canonical_kdl` compares the two documents byte for byte.
     write_outputs(out, meta, inner)?;
@@ -2368,6 +2409,9 @@ fn write_flag(
                 crate::ArgAction::Version => "version",
             })
         )?;
+    }
+    if meta.builtin {
+        out.push_str(" builtin=#true");
     }
     if meta.repeatable {
         out.push_str(" var=#true");
@@ -4508,7 +4552,7 @@ mod tests {
             UnknownFlags::Value,
             &w,
             &mut Vec::new(),
-            false,
+            &[],
         )
         .unwrap();
 

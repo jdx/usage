@@ -129,6 +129,10 @@ survives one.
 
 Three ways to say what a value can be:
 
+Value choices and custom completers work for both detached values (`--format j`) and attached
+long values (`--format=j`). Attached candidates retain the flag prefix because shells replace
+the whole word, so the latter completes to a word such as `--format=json`.
+
 ```rust
 // a fixed set of words
 #[usage(long, choices("json", "table"))]

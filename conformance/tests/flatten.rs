@@ -145,6 +145,7 @@ fn the_spec_says_the_flags_are_shared() {
     let mut flags: Vec<&str> = config
         .flags
         .iter()
+        .filter(|flag| !flag.builtin)
         .flat_map(|f| f.long.iter().map(|l| l.as_str()))
         .collect();
     flags.sort_unstable();

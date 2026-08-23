@@ -31,3 +31,7 @@ Go package clause for the generated file (defaults to the spec's bin name)
 ### `--spec <SPEC>`
 
 Raw string spec input
+
+### `-h --help`
+
+Print help

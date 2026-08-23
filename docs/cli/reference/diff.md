@@ -51,3 +51,7 @@ Report only breaking changes
 ### `--exit-zero`
 
 Exit 0 even when there are breaking changes
+
+### `-h --help`
+
+Print help

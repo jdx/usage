@@ -7,18 +7,23 @@ bin ex
 about "A tool with commands inside commands"
 subcommand_required #true
 flag "-v --verbose" help="Say more" global=#true
+flag "-h --help" help="Print help" action=help builtin=#true
 cmd settings help="Manage settings" subcommand_required=#true {
     flag --file help="Which settings file" {
         arg <FILE>
     }
+    flag "-h --help" help="Print help" action=help builtin=#true
     cmd set help="Set a value" {
+        flag "-h --help" help="Print help" action=help builtin=#true
         arg <KEY> help="Which setting"
         arg <VALUE> help="The value"
     }
     cmd ls help="Show every value" {
         flag --json help="As JSON"
+        flag "-h --help" help="Print help" action=help builtin=#true
     }
 }
 cmd install help="Install a tool" {
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg <TOOL> help="What to install"
 }

@@ -119,7 +119,7 @@ fn it_reaches_the_spec_like_any_other_command() {
     let sponsors = spec.cmd.subcommands.get("sponsors").expect("sponsors");
     assert_eq!(sponsors.help.as_deref(), Some("Show who pays for this"));
     // Nothing of its own, which is the point — and it still declares itself.
-    assert!(sponsors.flags.is_empty());
+    assert!(sponsors.flags.iter().all(|flag| flag.builtin));
     assert!(sponsors.args.is_empty());
 }
 

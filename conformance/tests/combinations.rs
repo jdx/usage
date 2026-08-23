@@ -134,4 +134,14 @@ fn help_and_version_collisions_only_replace_the_claimed_spellings() {
         BuiltinCollisions::parse_from(&argv(["--version"])),
         Err(Error::Version { .. })
     ));
+
+    let kdl = BuiltinCollisions::to_kdl();
+    assert!(
+        kdl.contains("flag -h help=\"Print help\" action=help builtin=#true"),
+        "{kdl}"
+    );
+    assert!(
+        kdl.contains("flag --version help=\"Print version\" action=version builtin=#true"),
+        "{kdl}"
+    );
 }

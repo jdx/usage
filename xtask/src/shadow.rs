@@ -689,6 +689,13 @@ fn emit_command(out: &mut String, cmd: &SpecCommand, ty: &Type, is_root: bool, r
         .flags
         .iter()
         .filter_map(|flag| {
+            // Exported specs materialize parser-supplied help and version entries so docs and
+            // completion generators can see them. A generated parser must leave those entries
+            // to its framework again; emitting ordinary fields would duplicate the built-ins
+            // and, for usage, incorrectly put them back into command synopses.
+            if flag.builtin {
+                return None;
+            }
             let long = flag
                 .long
                 .iter()
@@ -2163,6 +2170,23 @@ mod tests {
         );
         assert!(out.contains(r#"env = "EX_FILE""#), "{out}");
         assert!(out.contains(r#"help_heading = "Input""#), "{out}");
+    }
+
+    #[test]
+    fn parser_supplied_flags_are_left_to_the_shadow_parser() {
+        let spec = "name \"ex\"\nbin \"ex\"\nflag \"-h --help\" action=help builtin=#true\nflag \"-V --version\" action=version builtin=#true\n";
+
+        for dialect in [Dialect::Usage, Dialect::Clap, Dialect::Bpaf] {
+            let (out, skipped) = rendered_as(spec, dialect);
+            assert!(!out.contains("pub help:"), "{}: {out}", dialect.as_str());
+            assert!(!out.contains("pub version:"), "{}: {out}", dialect.as_str());
+            assert!(
+                skipped.counts.is_empty(),
+                "{}: {:?}",
+                dialect.as_str(),
+                skipped.counts
+            );
+        }
     }
 
     #[test]

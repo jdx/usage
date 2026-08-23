@@ -7,13 +7,17 @@ bin ex
 version "1.0"
 about "A tool that does things"
 flag "-v --verbose" help="Say more" global=#true
+flag "-h --help" help="Print help" action=help builtin=#true
+flag "-V --version" help="Print version" action=version builtin=#true
 cmd install help="Install a tool" {
     flag "-f --force" help="Overwrite an existing install"
     flag "-j --jobs" help="How many at once" default="4" {
         arg <JOBS>
     }
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg "[TOOLS]..." help="What to install"
 }
 cmd run help="Run a task" {
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg <TASK> help="The task to run"
 }

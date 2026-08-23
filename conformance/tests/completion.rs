@@ -60,6 +60,23 @@ fn ask(shell: &str, line: &str) -> String {
 }
 
 #[derive(Cli)]
+#[usage(bin = "attached", completion)]
+#[allow(dead_code)]
+struct Attached {
+    /// Output format.
+    #[usage(long, choices("json", "jsonl", "xml"))]
+    format: Option<String>,
+}
+
+fn ask_attached(shell: &str, line: &str) -> String {
+    let argv: Vec<OsString> = ["__complete_word__", "--shell", shell, "--line", line]
+        .iter()
+        .map(OsString::from)
+        .collect();
+    Attached::completion_request(&argv).expect("this is a completion request")
+}
+
+#[derive(Cli)]
 #[usage(bin = "hinted", completion)]
 struct Hinted {
     /// A file to read
@@ -155,6 +172,22 @@ fn each_shell_gets_the_shape_it_reads() {
     assert_eq!(ask("fish", "ex ins"), "install\tInstall a tool\n");
     assert_eq!(ask("zsh", "ex ins"), "install\tInstall a tool\tinstall\n");
     assert_eq!(ask("bash", "ex ins"), "install\n");
+}
+
+#[test]
+fn attached_long_values_complete_as_whole_shell_words() {
+    assert_eq!(
+        ask_attached("bash", "attached --format=j"),
+        "--format=json\n--format=jsonl\n"
+    );
+    assert_eq!(
+        ask_attached("fish", "attached --format=x"),
+        "--format=xml\n"
+    );
+    assert_eq!(
+        ask_attached("zsh", "attached --format=x"),
+        "--format=xml\t\t--format=xml\n"
+    );
 }
 
 #[test]

@@ -34,3 +34,7 @@ Override the package/module name (defaults to spec bin name)
 ### `--spec <SPEC>`
 
 Raw string spec input
+
+### `-h --help`
+
+Print help

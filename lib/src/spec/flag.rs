@@ -317,6 +317,9 @@ pub struct SpecFlag {
     /// Whether this flag binds a value or requests help/version output.
     #[serde(skip_serializing_if = "is_set_action")]
     pub action: SpecFlagAction,
+    /// Whether this is a parser-supplied entry materialized by a generated spec.
+    #[serde(skip_serializing_if = "is_false")]
+    pub builtin: bool,
 }
 
 fn is_set_action(action: &SpecFlagAction) -> bool {
@@ -382,6 +385,7 @@ impl SpecFlag {
                     };
                     flag.action = action;
                 }
+                "builtin" => flag.builtin = v.ensure_bool()?,
                 "allow_hyphen_values" => allow_hyphen_values = v.ensure_bool()?,
                 "allow_negative_numbers" => allow_negative_numbers = v.ensure_bool()?,
                 "value_terminator" => value_terminator = Some(v.ensure_string()?),
@@ -526,6 +530,7 @@ impl SpecFlag {
                     };
                     flag.action = action;
                 }
+                "builtin" => flag.builtin = child.arg(0)?.ensure_bool()?,
                 "allow_hyphen_values" => {
                     allow_hyphen_values = child.arg(0)?.ensure_bool()?;
                 }
@@ -1040,6 +1045,9 @@ impl From<&SpecFlag> for KdlNode {
         if flag.action != SpecFlagAction::Set {
             node.push(string_entry(Some("action"), flag.action.as_str()));
         }
+        if flag.builtin {
+            node.push(KdlEntry::new_prop("builtin", true));
+        }
         if flag.allow_hyphen_values() {
             node.push(KdlEntry::new_prop("allow_hyphen_values", true));
         }
@@ -1507,6 +1515,7 @@ impl From<&clap::Arg> for SpecFlag {
                 clap::ArgAction::Version => SpecFlagAction::Version,
                 _ => SpecFlagAction::Set,
             },
+            builtin: false,
             default,
             deprecated: None,
             negate,
