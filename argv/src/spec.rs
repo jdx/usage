@@ -3254,7 +3254,7 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
         .any(|choice| *choice == value || ignore_case && choice.eq_ignore_ascii_case(value))
 }
 
-/// An enum whose variants are one command's mutually exclusive flags.
+/// An enum whose variants are one command's related flags.
 ///
 /// What a CLI spells `--json` or `--yaml` and holds as a `Mode`, rather than as one `bool` per
 /// member plus a `match` over which of them is set. Nothing new reaches the spec: the enum
@@ -3264,7 +3264,8 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
 /// A field holding one says `#[usage(arg_group)]`. `Option<Mode>` is a group that may be left
 /// alone and a bare `Mode` is one that has to be given, which is how the rest of the derive
 /// reads required-ness from a type. There is no default variant, so required-ness has exactly
-/// one spelling.
+/// one spelling. A group declared `multiple` is held by `Vec<Mode>` and retains every member in
+/// command-line order.
 pub trait ArgGroup: Sized {
     /// What the group is called, in the emitted spec and in a failed check.
     const NAME: &'static str;
@@ -3277,6 +3278,8 @@ pub trait ArgGroup: Sized {
     const FLAG_METAS: &'static [FlagMeta<'static>];
     /// The selectors naming [`FLAGS`](Self::FLAGS), for [`GroupMeta::members`].
     const MEMBERS: &'static [&'static str];
+    /// Whether every member occurrence is retained rather than enforcing exclusivity.
+    const MULTIPLE: bool = false;
 
     /// Which members have been given so far. Partly-filled by construction, since a parse
     /// can stop early.
@@ -3320,6 +3323,17 @@ pub trait ArgGroup: Sized {
     /// [`Self::Partial`] until this step, just as an ordinary command field does.
     fn try_build(partial: &Self::Partial) -> Result<Option<Self>, crate::Error<'static, 'static>> {
         Ok(Self::build(partial))
+    }
+
+    /// Build every selected member in command-line order for a multiple group.
+    ///
+    /// The default keeps hand-written exclusive groups source-compatible and gives a useful
+    /// single-element answer when they are held by a collection accidentally; derived multiple
+    /// groups override it with their ordered occurrence log.
+    fn try_build_many(
+        partial: &Self::Partial,
+    ) -> Result<Vec<Self>, crate::Error<'static, 'static>> {
+        Ok(Self::try_build(partial)?.into_iter().collect())
     }
 
     /// Find a member by any selector it accepts.

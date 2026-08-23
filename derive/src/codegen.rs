@@ -3476,6 +3476,7 @@ fn standing_presence(field: &Field) -> Option<TokenStream> {
     let ident = &field.ident;
     match &field.kind {
         Kind::Skip | Kind::Flatten { .. } => None,
+        Kind::ArgGroup { multiple: true, .. } => Some(quote!(!__usage_s.#ident.is_empty())),
         Kind::ArgGroup { optional, .. } | Kind::Subcommand { optional, .. } => Some(if *optional {
             quote!(__usage_s.#ident.is_some())
         } else {
@@ -3520,13 +3521,18 @@ fn standing_locals(cli: &Cli) -> TokenStream {
             },
             // The nested value itself, so a parent can ask which member stands — a bool
             // would answer required-ness and nothing about `--json` vs `--yaml`.
+            Kind::ArgGroup { multiple: true, .. } => quote! {
+                let #name = __usage_standing.map(|__usage_s| &__usage_s.#ident);
+            },
             Kind::ArgGroup { optional: true, .. } | Kind::Subcommand { optional: true, .. } => {
                 quote! {
                     let #name = __usage_standing.and_then(|__usage_s| __usage_s.#ident.as_ref());
                 }
             }
             Kind::ArgGroup {
-                optional: false, ..
+                optional: false,
+                multiple: false,
+                ..
             }
             | Kind::Subcommand {
                 optional: false, ..
@@ -4951,8 +4957,16 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
     // means. `check` has already reported both a second member and a required group with none,
     // so this arm is reached only for a group that was satisfied — the error stays for the
     // case where a caller drives `build` without it, rather than being an `unreachable!`.
-    if let Kind::ArgGroup { ty, optional } = &field.kind {
+    if let Kind::ArgGroup {
+        ty,
+        optional,
+        multiple,
+    } = &field.kind
+    {
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
+        if *multiple {
+            return quote!(#group::try_build_many(&partial.#ident)?);
+        }
         return if *optional {
             quote!(#group::try_build(&partial.#ident)?)
         } else {
@@ -5253,8 +5267,20 @@ fn merge_fn(cli: &Cli) -> TokenStream {
                 )?;
             }),
             // A group with no member given is this argv saying nothing about the group.
-            Kind::ArgGroup { ty, optional } => {
+            Kind::ArgGroup {
+                ty,
+                optional,
+                multiple,
+            } => {
                 let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
+                if *multiple {
+                    return Some(quote! {
+                        if #group::any_given(&partial.#field_ident).is_some() {
+                            __usage_standing.#field_ident =
+                                #group::try_build_many(&partial.#field_ident)?;
+                        }
+                    });
+                }
                 let selected = if *optional {
                     quote!(::std::option::Option::Some(__usage_member))
                 } else {
@@ -8381,13 +8407,17 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
         })
         .collect();
     // Read from the enum rather than copied out of it: the members are its variants, and the
-    // field's type is the only thing that says whether one of them is needed. `multiple` is
-    // false because exclusivity is what an argument group is for.
+    // field's type says whether one or many results are built.
     for (at, field) in cli.fields.iter().enumerate() {
-        let Kind::ArgGroup { ty, optional } = &field.kind else {
+        let Kind::ArgGroup {
+            ty,
+            optional,
+            multiple,
+        } = &field.kind
+        else {
             continue;
         };
-        let required = !optional;
+        let required = !optional && !multiple;
         entries.push((
             at,
             quote! {
@@ -8395,7 +8425,13 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
                     name: <#ty as usage_argv::spec::ArgGroup>::NAME,
                     members: <#ty as usage_argv::spec::ArgGroup>::MEMBERS,
                     required: #required,
-                    multiple: false,
+                    multiple: {
+                        assert!(
+                            <#ty as usage_argv::spec::ArgGroup>::MULTIPLE == #multiple,
+                            "an ArgGroup marked multiple must be held by Vec<T>, and Vec<T> needs #[usage(multiple)] on the ArgGroup"
+                        );
+                        #multiple
+                    },
                 }
             },
         ));
@@ -8867,17 +8903,17 @@ fn deprecations_fn(cli: &Cli) -> TokenStream {
 /// replaces the standing variant, so relationships must not keep reading the old one.
 fn argument_state_standing(cli: &Cli) -> TokenStream {
     let overlays = cli.fields.iter().filter_map(|field| {
-        let Kind::ArgGroup { ty, .. } = &field.kind else {
+        let Kind::ArgGroup { ty, multiple, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
         let standing = standing_ident(field);
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
-        Some(quote! {
-            if #group::any_given(&partial.#ident).is_none() {
-                if let ::std::option::Option::Some(__usage_s) = #standing {
+        let read_standing = if *multiple {
+            quote! {
+                for __usage_member in __usage_s {
                     if let ::std::option::Option::Some(__usage_standing_state) =
-                        #group::standing_state(__usage_s, selector)
+                        #group::standing_state(__usage_member, selector)
                     {
                         if __usage_standing_state.given {
                             return ::std::option::Option::Some(__usage_standing_state);
@@ -8885,25 +8921,55 @@ fn argument_state_standing(cli: &Cli) -> TokenStream {
                     }
                 }
             }
+        } else {
+            quote! {
+                if let ::std::option::Option::Some(__usage_standing_state) =
+                    #group::standing_state(__usage_s, selector)
+                {
+                    if __usage_standing_state.given {
+                        return ::std::option::Option::Some(__usage_standing_state);
+                    }
+                }
+            }
+        };
+        Some(quote! {
+            if #group::any_given(&partial.#ident).is_none() {
+                if let ::std::option::Option::Some(__usage_s) = #standing {
+                    #read_standing
+                }
+            }
         })
     });
     let match_overlays = cli.fields.iter().filter_map(|field| {
-        let Kind::ArgGroup { ty, .. } = &field.kind else {
+        let Kind::ArgGroup { ty, multiple, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
         let standing = standing_ident(field);
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
+        let read_standing = if *multiple {
+            quote! {
+                for __usage_member in __usage_s {
+                    if #group::standing_matches(__usage_member, selector, value)
+                        == ::std::option::Option::Some(true)
+                    {
+                        return ::std::option::Option::Some(true);
+                    }
+                }
+            }
+        } else {
+            quote! {
+                if #group::standing_matches(__usage_s, selector, value)
+                    == ::std::option::Option::Some(true)
+                {
+                    return ::std::option::Option::Some(true);
+                }
+            }
+        };
         Some(quote! {
             if #group::any_given(&partial.#ident).is_none() {
                 if let ::std::option::Option::Some(__usage_s) = #standing {
-                    if let ::std::option::Option::Some(__usage_standing_match) =
-                        #group::standing_matches(__usage_s, selector, value)
-                    {
-                        if __usage_standing_match {
-                            return ::std::option::Option::Some(true);
-                        }
-                    }
+                    #read_standing
                 }
             }
         })
@@ -9744,24 +9810,31 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // read, so it answers them and this command reports them — in the same two phases, so a
     // conflict here still comes before an unsatisfied group anywhere on the command.
     for field in &cli.fields {
-        let Kind::ArgGroup { ty, optional } = &field.kind else {
+        let Kind::ArgGroup {
+            ty,
+            optional,
+            multiple,
+        } = &field.kind
+        else {
             continue;
         };
         let ident = &field.ident;
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
-        group_exclusivity_checks.push(quote! {
-            if let ::std::option::Option::Some((__usage_earlier, __usage_later)) =
-                #group::conflict(&partial.#ident)
-            {
-                return ::std::result::Result::Err(
-                    usage_argv::Error::ConflictingFlags {
-                        name: __usage_later,
-                        other: __usage_earlier,
-                    },
-                );
-            }
-        });
-        if *optional {
+        if !multiple {
+            group_exclusivity_checks.push(quote! {
+                if let ::std::option::Option::Some((__usage_earlier, __usage_later)) =
+                    #group::conflict(&partial.#ident)
+                {
+                    return ::std::result::Result::Err(
+                        usage_argv::Error::ConflictingFlags {
+                            name: __usage_later,
+                            other: __usage_earlier,
+                        },
+                    );
+                }
+            });
+        }
+        if *optional || *multiple {
             continue;
         }
         // A bare `T` has nowhere to put "no member", which is the whole declaration — the
@@ -10043,6 +10116,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
     let ident = &group.ident;
     let runtime = runtime_path();
     let name = &group.name;
+    let multiple = group.multiple;
 
     // Minted from this declaration and the module it sits in, like a command's: two argument
     // groups in different modules cannot hand a parse the same key, and the arm that claims an
@@ -10114,6 +10188,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 help: #help,
                 long_help: #long_help,
                 hide: #hide,
+                repeatable: #multiple,
                 value_name: #value_name,
                 accepted_choices: #accepted_choices,
                 choices: #choices,
@@ -10130,6 +10205,9 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         quote!(#(#cfg)* #selector)
     });
 
+    let ordered_field = multiple.then(|| {
+        quote!(pub ordered: ::std::vec::Vec<(usize, ::std::option::Option<::std::vec::Vec<u8>>)> ,)
+    });
     let partial_fields = group.variants.iter().enumerate().map(|(i, member)| {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
@@ -10144,6 +10222,15 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let key = key_ident("FLAG", Some(i));
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
+        let record = if multiple {
+            if member.value_ty.is_some() {
+                quote!(partial.ordered.push((#i, value.map(<[u8]>::to_vec)));)
+            } else {
+                quote!(partial.ordered.push((#i, ::std::option::Option::None));)
+            }
+        } else {
+            quote!()
+        };
         let assign = if member.value_ty.is_some() {
             quote! {
                 if let ::std::option::Option::Some(value) = value {
@@ -10156,6 +10243,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         quote! {
             #(#cfg)*
             #key if ::core::ptr::eq(*flag, &#table) => {
+                #record
                 #assign
                 true
             }
@@ -10179,25 +10267,33 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
     });
     // The first two given, in declaration order, which is the pair the user has to choose
     // between — and the same pair a hand-written group's pairwise check reports.
-    let conflict_arms = group.variants.iter().enumerate().map(|(i, member)| {
-        let given = format_ident!("given_{i}");
-        let cfg = &member.cfg_attrs;
-        let name = &member.name;
-        let is_given = if member.value_ty.is_some() {
-            quote!(partial.#given.is_some())
-        } else {
-            quote!(partial.#given)
-        };
-        quote! {
-            #(#cfg)*
-            if #is_given {
-                if let ::std::option::Option::Some(__usage_earlier) = __usage_first {
-                    return ::std::option::Option::Some((__usage_earlier, #name));
-                }
-                __usage_first = ::std::option::Option::Some(#name);
+    let conflict_arms: Vec<_> = group
+        .variants
+        .iter()
+        .enumerate()
+        .filter_map(|(i, member)| {
+            if multiple {
+                return None;
             }
-        }
-    });
+            let given = format_ident!("given_{i}");
+            let cfg = &member.cfg_attrs;
+            let name = &member.name;
+            let is_given = if member.value_ty.is_some() {
+                quote!(partial.#given.is_some())
+            } else {
+                quote!(partial.#given)
+            };
+            Some(quote! {
+                #(#cfg)*
+                if #is_given {
+                    if let ::std::option::Option::Some(__usage_earlier) = __usage_first {
+                        return ::std::option::Option::Some((__usage_earlier, #name));
+                    }
+                    __usage_first = ::std::option::Option::Some(#name);
+                }
+            })
+        })
+        .collect();
     let build_arms = group.variants.iter().enumerate().map(|(i, member)| {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
@@ -10279,6 +10375,84 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 return ::std::result::Result::Ok(
                     ::std::option::Option::Some(Self::#variant(__usage_value)),
                 );
+            }
+        }
+    });
+    let build_many_arms = group.variants.iter().enumerate().map(|(i, member)| {
+        let cfg = &member.cfg_attrs;
+        let variant = &member.ident;
+        let Some(ty) = &member.value_ty else {
+            return quote! {
+                #(#cfg)*
+                #i => Self::#variant,
+            };
+        };
+        let name = &member.name;
+        let rendered = rendered_path(ty);
+        let converted = match rendered.as_str() {
+            "PathBuf" | "std::path::PathBuf" | "::std::path::PathBuf" => quote! {
+                match usage_argv::os_string_from_bytes(__usage_value) {
+                    ::std::result::Result::Ok(value) => ::std::path::PathBuf::from(value),
+                    ::std::result::Result::Err(bytes) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_os_value(#name, bytes),
+                        );
+                    }
+                }
+            },
+            "OsString" | "std::ffi::OsString" | "::std::ffi::OsString" => quote! {
+                match usage_argv::os_string_from_bytes(__usage_value) {
+                    ::std::result::Result::Ok(value) => value,
+                    ::std::result::Result::Err(bytes) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_os_value(#name, bytes),
+                        );
+                    }
+                }
+            },
+            _ if member.value_enum => quote! {{
+                let __usage_text = match ::std::string::String::from_utf8(__usage_value) {
+                    ::std::result::Result::Ok(text) => text,
+                    ::std::result::Result::Err(bad) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_utf8_value(#name, bad),
+                        );
+                    }
+                };
+                match <#ty as usage_argv::spec::ValueEnum>::from_choice(&__usage_text) {
+                    ::std::option::Option::Some(value) => value,
+                    ::std::option::Option::None => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_choice_value(#name, __usage_text),
+                        );
+                    }
+                }
+            }},
+            _ => quote! {{
+                let __usage_text = match ::std::string::String::from_utf8(__usage_value) {
+                    ::std::result::Result::Ok(text) => text,
+                    ::std::result::Result::Err(bad) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_utf8_value(#name, bad),
+                        );
+                    }
+                };
+                match ::std::str::FromStr::from_str(&__usage_text) {
+                    ::std::result::Result::Ok(value) => value,
+                    ::std::result::Result::Err(reason) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_parsed_value(#name, __usage_text, &reason),
+                        );
+                    }
+                }
+            }},
+        };
+        quote! {
+            #(#cfg)*
+            #i => {
+                let __usage_value = __usage_value.clone().unwrap_or_default();
+                let __usage_value: #ty = #converted;
+                Self::#variant(__usage_value)
             }
         }
     });
@@ -10421,6 +10595,26 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
             }
         }
     });
+    let build_many_impl = multiple.then(|| {
+        quote! {
+            fn try_build_many(
+                partial: &Self::Partial,
+            ) -> ::std::result::Result<
+                ::std::vec::Vec<Self>,
+                usage_argv::Error<'static, 'static>,
+            > {
+                let mut __usage_members = ::std::vec::Vec::with_capacity(partial.ordered.len());
+                for (__usage_at, __usage_value) in &partial.ordered {
+                    let __usage_member = match *__usage_at {
+                        #(#build_many_arms)*
+                        _ => continue,
+                    };
+                    __usage_members.push(__usage_member);
+                }
+                ::std::result::Result::Ok(__usage_members)
+            }
+        }
+    });
 
     quote! {
         #[doc(hidden)]
@@ -10441,6 +10635,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
 
             #[derive(Default)]
             pub struct Partial {
+                #ordered_field
                 #(#partial_fields)*
             }
 
@@ -10450,6 +10645,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 const FLAG_METAS: &'static [usage_argv::spec::FlagMeta<'static>] =
                     &[#(#flag_metas),*];
                 const MEMBERS: &'static [&'static str] = &[#(#members),*];
+                const MULTIPLE: bool = #multiple;
 
                 type Partial = Partial;
 
@@ -10497,6 +10693,8 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                     #(#build_arms)*
                     ::std::result::Result::Ok(::std::option::Option::None)
                 }
+
+                #build_many_impl
 
                 fn argument_state(
                     partial: &Self::Partial,

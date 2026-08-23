@@ -664,17 +664,19 @@ pub enum Kind {
         /// `next_help_heading` on the flatten site.
         help_heading: Option<String>,
     },
-    /// Holds the enum whose variants are one group of this command's exclusive flags.
+    /// Holds the enum whose variants are one group of this command's related flags.
     ///
     /// The type is carried rather than resolved, as for a flatten: the derive cannot see the
     /// enum's variants, so the switches, their metadata, and the state that collects them all
     /// arrive through [`ArgGroup`](usage_argv::spec::ArgGroup).
     ArgGroup {
-        /// The enum's type with any `Option` stripped, which is what names the trait.
+        /// The enum's type with any `Option` or `Vec` stripped, which names the trait.
         ty: syn::Type,
         /// Whether the field is `Option<T>`, and so may be left alone. A bare `T` says one
         /// member has to be given, which is reported once the last token has been read.
         optional: bool,
+        /// Whether every occurrence is collected, in command-line order, into a `Vec<T>`.
+        multiple: bool,
     },
     /// A field that is not an argument at all, filled from `Default`.
     ///
@@ -2292,14 +2294,17 @@ impl Field {
         // like `Option<crate::fmt::Format>` keeps the inner type intact; `type_name` would
         // collapse it to `Format` and put a name that is not in scope into the generated
         // tables.
-        let (ty, optional) = match peel(&field.ty, "Option") {
-            Some(inner) => (inner, true),
-            None => (field.ty.clone(), false),
+        let (ty, optional, multiple) = match peel(&field.ty, "Option") {
+            Some(inner) => (inner, true, false),
+            None => match peel(&field.ty, "Vec") {
+                Some(inner) => (inner, false, true),
+                None => (field.ty.clone(), false, false),
+            },
         };
 
         // Anything wrapped around the enum is refused here, where the field is, rather than
         // left to the unsatisfied trait bound the generated code would report: a group
-        // resolves to at most one member, so there is nothing for a container to hold.
+        // resolves to one optional value or one ordered collection.
         let inner = type_name(&ty);
         if let Some(container) = ["Vec", "Option", "Box"]
             .into_iter()
@@ -2308,9 +2313,8 @@ impl Field {
             return Err(syn::Error::new_spanned(
                 &field.ty,
                 format!(
-                    "`arg_group` holds its enum as `Mode` for a required group or \
-                     `Option<Mode>` for an optional one: a group resolves to at most one \
-                     member, so there is nothing for `{container}` to hold"
+                    "`arg_group` holds its enum as `Mode`, `Option<Mode>`, or `Vec<Mode>`: \
+                     nested `{container}` wrappers cannot represent a group's result"
                 ),
             ));
         }
@@ -2320,7 +2324,11 @@ impl Field {
             ty: field.ty.clone(),
             name: to_kebab(&ident.to_string()),
             value_optional: false,
-            kind: Kind::ArgGroup { ty, optional },
+            kind: Kind::ArgGroup {
+                ty,
+                optional,
+                multiple,
+            },
             // Each member carries its own, as a flattened group's flags do: the field holds
             // no flag of its own to describe.
             effect: None,
@@ -6190,7 +6198,7 @@ impl ValueEnum {
     }
 }
 
-/// An enum whose variants are one group of a command's exclusive flags.
+/// An enum whose variants are one group of a command's related flags.
 pub struct ArgGroup {
     pub ident: syn::Ident,
     /// What the group is called in the emitted spec: the type's name in kebab-case,
@@ -6198,6 +6206,8 @@ pub struct ArgGroup {
     pub name: String,
     /// What this type's keys are derived from. See [`Cli::fingerprint`].
     pub fingerprint: String,
+    /// Whether members may be repeated and combined, preserving their occurrence order.
+    pub multiple: bool,
     /// Each variant, and the switch it answers to.
     pub variants: Vec<ArgGroupMember>,
 }
@@ -6225,8 +6235,7 @@ impl ArgGroup {
         let Data::Enum(data) = &input.data else {
             return Err(syn::Error::new_spanned(
                 &input.ident,
-                "usage::ArgGroup describes a set of flags at most one of which may be given, \
-                 so it needs an enum",
+                "usage::ArgGroup describes a related set of flags, so it needs an enum",
             ));
         };
         if !input.generics.params.is_empty() {
@@ -6238,17 +6247,19 @@ impl ArgGroup {
         }
 
         let mut name = to_kebab(&input.ident.unraw().to_string());
+        let mut multiple = false;
         for attr in attrs(&input.attrs) {
             for meta in nested(attr)? {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
                     "name" => name = string_value(&meta)?,
+                    "multiple" => multiple = flag_value(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!(
                                 "unknown arg-group option `{other}`; the enum takes `name` \
-                                 here, and everything else belongs on a variant"
+                                 or `multiple` here, and everything else belongs on a variant"
                             ),
                         ))
                     }
@@ -6428,6 +6439,7 @@ impl ArgGroup {
             ident: input.ident.clone(),
             name,
             fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
+            multiple,
             variants,
         })
     }
@@ -8251,7 +8263,7 @@ mod tests {
             optional,
             "`Option<Format>` is a group that may be left alone"
         );
-        let Kind::ArgGroup { optional, ty } = &parsed.fields[1].kind else {
+        let Kind::ArgGroup { optional, ty, .. } = &parsed.fields[1].kind else {
             panic!("expected an argument group");
         };
         assert!(!optional, "a bare `Source` is a group that has to be given");
@@ -8266,7 +8278,7 @@ mod tests {
             }
         "#)
         .expect("should compile");
-        let Kind::ArgGroup { ty, optional } = &parsed.fields[0].kind else {
+        let Kind::ArgGroup { ty, optional, .. } = &parsed.fields[0].kind else {
             panic!("expected an argument group");
         };
         assert!(optional);
@@ -8275,9 +8287,25 @@ mod tests {
             "crate :: fmt :: Format"
         );
 
-        // And nothing wrapped around it, which the field says rather than the trait bound the
-        // generated code would otherwise fail.
-        for ty in ["Vec<Format>", "Option<Option<Format>>", "Box<Format>"] {
+        let parsed = cli(r#"
+            struct Ex {
+                #[usage(arg_group)]
+                filters: Vec<Filter>,
+            }
+        "#)
+        .expect("an ordered group is a collection");
+        let Kind::ArgGroup { ty, multiple, .. } = &parsed.fields[0].kind else {
+            panic!("expected an argument group");
+        };
+        assert!(multiple);
+        assert_eq!(super::type_name(ty), "Filter");
+
+        // Nested wrappers cannot describe one of the three supported result shapes.
+        for ty in [
+            "Option<Option<Format>>",
+            "Option<Vec<Format>>",
+            "Box<Format>",
+        ] {
             let err = rejection(&format!(
                 r#"
                 struct Ex {{
@@ -8286,7 +8314,7 @@ mod tests {
                 }}
             "#
             ));
-            assert!(err.contains("at most one member"), "unhelpful: {err}");
+            assert!(err.contains("cannot represent"), "unhelpful: {err}");
         }
     }
 
