@@ -1356,6 +1356,73 @@ pub fn invalid_os_value<'t, 'v>(name: &'t str, bytes: Vec<u8>) -> Error<'t, 'v> 
     )
 }
 
+/// Convert every repeated value of one text field, reporting `name` for the
+/// first that is not UTF-8.
+///
+/// The shared body of what a generated `build` does per collecting text field:
+/// one loop in the binary rather than one per field. Converts element by
+/// element rather than with `collect` so the error can carry the value that
+/// failed rather than only that one did.
+pub fn utf8_values<'t, 'v>(
+    values: Vec<Vec<u8>>,
+    name: &'t str,
+) -> Result<Vec<String>, Error<'t, 'v>> {
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        match String::from_utf8(value) {
+            Ok(text) => out.push(text),
+            Err(bad) => return Err(invalid_utf8_value(name, bad)),
+        }
+    }
+    Ok(out)
+}
+
+/// Convert every repeated value of one field through
+/// [`FromStr`](std::str::FromStr), reporting `name` for the first that fails.
+///
+/// Monomorphized once per target type rather than expanded once per field.
+pub fn parsed_values<'t, 'v, T>(
+    values: Vec<Vec<u8>>,
+    name: &'t str,
+) -> Result<Vec<T>, Error<'t, 'v>>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        let text = match String::from_utf8(value) {
+            Ok(text) => text,
+            Err(bad) => return Err(invalid_utf8_value(name, bad)),
+        };
+        match text.parse() {
+            Ok(parsed) => out.push(parsed),
+            Err(reason) => return Err(invalid_parsed_value(name, text, &reason)),
+        }
+    }
+    Ok(out)
+}
+
+/// Convert every repeated value of one path-like field, reporting `name` for
+/// the first the platform cannot hold.
+///
+/// `T` is what the field collects — [`PathBuf`](std::path::PathBuf) or
+/// [`OsString`] — so one body serves both. The same platform note as
+/// [`os_string_from_bytes`] applies: lossless on Unix, partial on Windows.
+pub fn os_values<'t, 'v, T: From<OsString>>(
+    values: Vec<Vec<u8>>,
+    name: &'t str,
+) -> Result<Vec<T>, Error<'t, 'v>> {
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        match os_string_from_bytes(value) {
+            Ok(os) => out.push(T::from(os)),
+            Err(bytes) => return Err(invalid_os_value(name, bytes)),
+        }
+    }
+    Ok(out)
+}
+
 /// A single-pass parse over `argv`.
 ///
 /// Created with [`Parser::new`] and driven with [`Parser::next_event`].
