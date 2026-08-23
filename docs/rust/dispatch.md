@@ -118,8 +118,7 @@ naming it.
 
 The generated implementation is generic over the context, so `RunWith<&Config>`,
 `RunWith<&mut App>` and `RunWith<Arc<Ctx>>` are all ordinary implementations rather than shapes
-this crate has to anticipate. An enum may say both `run` and `run_with`, which is what a CLI
-part-way through adopting a context needs.
+this crate has to anticipate.
 
 Two traits rather than one with a defaulted context, because otherwise the noise lands on the
 wrong side: a hundred commands that need nothing shared would each carry `fn run(self, _: ())`.

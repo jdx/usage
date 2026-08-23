@@ -203,12 +203,23 @@ that narrows further than the setting does — a `uint` setting held as a `u16` 
 
 ## The spec carries the settings
 
-A root deriving [`Cli`](/rust/args-and-flags) names its settings type, and its emitted spec
-carries the `config` block — so docs, JSON schema, and the reserved `config_keys` /
-`config_values` completers read declarations made in Rust exactly as they read ones made in
-KDL:
+The struct is the only declaration. `Settings::spec_kdl()` renders it as the spec's
+`config { source …; file …; prop … }` block, and a root deriving [`Cli`](/rust/args-and-flags)
+puts that block in its emitted spec by naming the type — so docs, the JSON schema, and the
+reserved `config_keys` / `config_values` completers read settings declared in Rust exactly as
+they read ones written in KDL:
 
 ```rust
+#[derive(usage::Config)]
+#[usage(source(kind = "git", name = "git config", doc_hint = "git config `{key}`"))]
+#[usage(file(path = "/etc/ex.toml", scope = "system"))]
+#[usage(file(path = "ex.toml", findup))]
+struct Settings {
+    #[usage(env = "EX_JOBS", default = 4, help_heading = "Performance", writes_to = "git",
+            x("ex.restart_required", true))]
+    jobs: u64,
+}
+
 #[derive(usage::Cli)]
 #[usage(bin = "ex", config = Settings)]
 struct Ex {
@@ -223,26 +234,6 @@ documented one. The adopter's whole drift test is one line:
 
 ```rust
 assert_eq!(Settings::SETTINGS_REGISTRY.drift(Ex::SETTINGS_BINDINGS), Vec::<String>::new());
-```
-
-## The spec block
-
-The struct is the only declaration. `Settings::spec_kdl()` renders it as the spec's
-`config { source …; file …; prop … }` block, and `#[usage(config = Settings)]` on the `Cli`
-root puts that block in the emitted spec — so docs, the JSON schema, and the `config_keys` /
-`config_values` completers read settings declared in Rust exactly as they read ones written
-in KDL.
-
-```rust
-#[derive(usage::Config)]
-#[usage(source(kind = "git", name = "git config", doc_hint = "git config `{key}`"))]
-#[usage(file(path = "/etc/ex.toml", scope = "system"))]
-#[usage(file(path = "ex.toml", findup))]
-struct Settings {
-    #[usage(env = "EX_JOBS", default = 4, help_heading = "Performance", writes_to = "git",
-            x("ex.restart_required", true))]
-    jobs: u64,
-}
 ```
 
 There is no second, KDL-first backend to choose between: a `build.rs` that generated the

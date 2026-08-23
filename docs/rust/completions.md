@@ -35,9 +35,8 @@ pub fn install_completion_for_alias(alias, shell, env, on_foreign) -> Result<Ins
 pub fn completion_request(argv: &[OsString]) -> Option<String>;
 ```
 
-`Shell` covers `Bash`, `Elvish`, `Zsh`, `Fish`, `Nu`, and `PowerShell`.
-
-This covers clap's native shell set and adds a usage-native Nushell target.
+`Shell` covers `Bash`, `Elvish`, `Zsh`, `Fish`, `Nu`, and `PowerShell` — clap's native shell
+set plus a usage-native Nushell target.
 
 ## How it works
 

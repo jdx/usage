@@ -14,8 +14,8 @@ runtime crates and a 1.3 MB stripped binary versus clap's 3.1 MB. See the
 [performance results](/rust/performance) and [clap migration guide](/rust/migrating-from-clap).
 
 The same declaration also becomes a portable [usage spec](/spec/) that the binary can print.
-`usage-cli` turns it into documentation, manpages, and completions—the same toolchain used across
-jdx's CLIs.
+`usage-cli` turns it into documentation, manpages, and completions — the same toolchain used
+across jdx's CLIs.
 
 ```rust
 use usage::Cli;

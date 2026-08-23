@@ -151,6 +151,14 @@ The tables below cover the attributes most CLIs need.
 | `effect = "…"`                     | `"read"`, `"write"`, or `"destructive"` — see [command effects](/spec/#command-effects) |
 | `setting = "key"`                  | Bind to a config setting ([Configuration](/rust/configuration))                         |
 
+The rest of this section expands the entries that need more than a table row.
+
+### Skipped fields
+
+`#[usage(skip)]` keeps a field on the struct for computed state without adding it to the spec,
+parse tables, or help. Combining it with `long`, `arg`, or any other field option is a compile
+error. The type has to implement `Default`.
+
 ### Suggested values without strict validation
 
 Use `choices_strict = false` when the declared choices should drive help and
@@ -164,27 +172,7 @@ backend: Option<String>,
 The portable form is `choices strict=#false core git`. Strict validation remains
 the default.
 
-`#[usage(skip)]` keeps a field on the struct for computed state without adding it to the spec,
-parse tables, or help. Combining it with `long`, `arg`, or any other field option is a compile
-error. The type has to implement `Default`.
-
-`value_hint` accepts `Unknown`, `Other`, `FilePath`, `AnyPath`, `DirPath`, `ExecutablePath`,
-`CommandName`, `CommandString`, `CommandWithArguments`, `Username`, `Hostname`, `Url`, and
-`EmailAddress`. `CommandWithArguments` is for wrapper CLIs and must be a positional `Vec` with
-`double_dash = "automatic"`: its first value completes from the shell's commands, while later
-values fall back to ordinary argument paths. `Other`, URL, and email values suppress filename
-fallback without pretending there is a finite list.
-
-`#[usage(allow_hyphen_values)]` makes `--args -destroy` bind `-destroy` instead of reading `-d`
-as a short. The flag has to take a value; a positional that needs the same thing already has
-`double_dash = "automatic"`. In KDL:
-`flag "--args <ARGS>" allow_hyphen_values=#true`.
-
-`#[usage(allow_negative_numbers)]` makes `--jobs -1` bind `-1`, while `--jobs --force` still
-leaves a flag-like token for normal parsing.
-
-`#[usage(value_terminator = ";")]` ends a `Vec` without storing the terminator.
-It works on variadic flags and positionals and emits `value_terminator=";"` in KDL.
+### Multiple values
 
 Fixed multi-value fields declare their cardinality and placeholders together:
 
@@ -201,6 +189,19 @@ while flag-level bounds count how many times a repeatable flag appears. A range
 such as `num_args = 1..=3` sets the corresponding nested bounds; distinct
 `value_names` require an exact bound matching their count.
 
+`#[usage(value_terminator = ";")]` ends a `Vec` without storing the terminator.
+It works on variadic flags and positionals and emits `value_terminator=";"` in KDL.
+
+### Parsing behavior
+
+`#[usage(allow_hyphen_values)]` makes `--args -destroy` bind `-destroy` instead of reading `-d`
+as a short. The flag has to take a value; a positional that needs the same thing already has
+`double_dash = "automatic"`. In KDL:
+`flag "--args <ARGS>" allow_hyphen_values=#true`.
+
+`#[usage(allow_negative_numbers)]` makes `--jobs -1` bind `-1`, while `--jobs --force` still
+leaves a flag-like token for normal parsing.
+
 `#[usage(require_equals)]` makes `--inspect=9229` bind while `--inspect 9229` is a missing
 value. The flag has to take a value. In KDL:
 `flag "--inspect <PORT>" require_equals=#true`.
@@ -209,6 +210,8 @@ value. The flag has to take a value. In KDL:
 `--color`, `--color=true`, and `--color=false` bind true, true, and false. A
 detached `--color false` never consumes `false`; it remains a positional. The
 portable form is `flag "--color" bool_value=#true`.
+
+### Optional values and conditional defaults
 
 With `#[usage(default_missing = "always")]`, `--color` binds `always`, `--color=never` binds
 `never`, and an absent flag stays `None`. The flag has to take a value. Help shows the value as
@@ -232,6 +235,8 @@ flag "--bin-names" {
 }
 ```
 
+### Argument relations
+
 Argument relations (`conflicts`, `requires`, `required_if`, `required_if_eq`, `required_unless`) name
 their target the way the KDL spec does — `"--long"` or `"-s"`, one value or a list:
 
@@ -243,6 +248,15 @@ stdin: bool,
 Naming a flag or positional that doesn't exist on the command is a **compile error**, not a
 runtime surprise. Conflicts, requires, and conditional requiredness may name flags or
 positionals; `overrides` and some `requires_if` forms stay flag-only.
+
+### Completion hints
+
+`value_hint` accepts `Unknown`, `Other`, `FilePath`, `AnyPath`, `DirPath`, `ExecutablePath`,
+`CommandName`, `CommandString`, `CommandWithArguments`, `Username`, `Hostname`, `Url`, and
+`EmailAddress`. `CommandWithArguments` is for wrapper CLIs and must be a positional `Vec` with
+`double_dash = "automatic"`: its first value completes from the shell's commands, while later
+values fall back to ordinary argument paths. `Other`, URL, and email values suppress filename
+fallback without pretending there is a finite list.
 
 ## Resolution order
 
