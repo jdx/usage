@@ -51,6 +51,8 @@ use usage_argv::Error;
 
 pub use usage_argv::help::Page;
 
+pub mod contract;
+
 #[cfg(feature = "completions")]
 pub use usage_argv::complete::{Completions, Files, Shell};
 

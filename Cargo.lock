@@ -2358,6 +2358,9 @@ dependencies = [
 name = "usage-test"
 version = "6.1.1"
 dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
  "usage-argv",
 ]
 

@@ -40,6 +40,40 @@ The test must be under `tests/`. Cargo provides the compiled path as
 `target/` lives. The raw `stdout` and `stderr` byte vectors remain available for commands that
 intentionally write non-UTF-8 data.
 
+## Recording a migration contract
+
+When replacing a parser or an entire CLI implementation, record the old binary's observable
+behavior and replay the same cases against the new binary:
+
+```rust
+use usage::test::contract::{Case, Contract};
+
+let cases = [
+    Case::new("short help", ["-h"]),
+    Case::new("invalid format", ["--format", "wat"]),
+    Case::new("stdin input", ["--stdin"]).stdin(b"hello\n".to_vec()),
+];
+
+// Run intentionally when establishing or updating the checked-in fixture.
+Contract::record("target/debug/old-cli", cases)?.save("tests/cli-contract.json")?;
+
+// Keep this in the candidate CLI's integration tests.
+Contract::load("tests/cli-contract.json")?
+    .replay(env!("CARGO_BIN_EXE_new-cli"))?
+    .assert_match();
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+The versioned JSON fixture stores each case's argv, environment overrides and removals, optional
+stdin and working directory, then the exact exit status, stdout, and stderr. UTF-8 streams remain
+readable strings; non-UTF-8 streams use byte arrays. Replay runs every case and reports all changed
+surfaces together, so a migration can distinguish intended help changes from accidental exit-code
+or diagnostic regressions.
+
+The process inherits the test's environment unless a case overrides or removes a variable. Keep
+inputs deterministic: timestamps, random temporary paths, network responses, and inherited locale
+should be pinned by the test when they affect output.
+
 ## What a command line does
 
 `outcome` gives back what `parse()` would have _done_, as a value: a struct, a page, a version,

@@ -10,10 +10,12 @@ repository = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 
-# A test harness may have dependencies where the runtime may not, and still has none:
-# everything here is the cold half of usage-argv, asked a question instead of printed.
+# A test harness may have dependencies where the runtime may not. serde is used only for
+# portable black-box migration contracts; everything else is the cold half of usage-argv.
 [dependencies]
 usage-argv = { workspace = true, features = ["spec"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [features]
 # Asking what a CLI would offer for a half-typed line. Off by default, so a CLI that only
@@ -23,3 +25,6 @@ completions = ["usage-argv/complete"]
 [package.metadata.release]
 shared-version = true
 release = true
+
+[dev-dependencies]
+tempfile = "3"
