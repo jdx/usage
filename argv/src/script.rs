@@ -473,7 +473,7 @@ Register-ArgumentCompleter -Native -CommandName '{name}' -ScriptBlock {{
         if ($entry -eq ($marker + 'commands')) {{ $files = 'commands'; continue }}
         if ($entry.StartsWith($marker + "extensions`t")) {{
             $files = 'extensions'
-            $extensions = @($entry -split "`t" | Select-Object -Skip 1)
+            $extensions = @($entry -split "`t" | Select-Object -Skip 1 | ForEach-Object {{ $_.TrimStart('.') }})
             continue
         }}
         $parts = $entry -split "`t", 3
@@ -513,7 +513,15 @@ Register-ArgumentCompleter -Native -CommandName '{name}' -ScriptBlock {{
             }}
             if ($files -eq 'extensions' -and $path.ResultType -ne 'ProviderContainer') {{
                 $candidatePath = $path.CompletionText.Trim([char[]]@([char]39, [char]34))
-                if ($extensions -notcontains [System.IO.Path]::GetExtension($candidatePath).TrimStart('.')) {{
+                $candidateName = [System.IO.Path]::GetFileName($candidatePath)
+                $matchesExtension = $false
+                foreach ($extension in $extensions) {{
+                    if ($candidateName.EndsWith('.' + $extension, [System.StringComparison]::OrdinalIgnoreCase)) {{
+                        $matchesExtension = $true
+                        break
+                    }}
+                }}
+                if (-not $matchesExtension) {{
                     continue
                 }}
             }}

@@ -673,6 +673,34 @@ fn complete_word_filters_declared_file_extensions() {
 }
 
 #[test]
+fn complete_word_normalizes_leading_dots_and_matches_compound_extensions() {
+    let dir =
+        std::env::temp_dir().join(format!("usage_compound_extensions_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("archive.tar.gz"), "").unwrap();
+    fs::write(dir.join("archive.gz"), "").unwrap();
+    fs::write(dir.join("config.toml"), "").unwrap();
+
+    let spec = r#"
+name "mycli"
+bin "mycli"
+arg "<FILE>"
+complete "file" type="path:.tar.gz,toml"
+"#;
+    Command::new(cargo::cargo_bin!("usage"))
+        .current_dir(&dir)
+        .args(["cw", "--shell", "fish", "--spec", spec, "--", "mycli", ""])
+        .assert()
+        .success()
+        .stdout(contains("archive.tar.gz\n"))
+        .stdout(contains("config.toml\n"))
+        .stdout(predicates::str::contains("archive.gz\n").not());
+
+    fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn complete_word_command_args_starts_with_executables() {
     let usage = cargo::cargo_bin!("usage");
     let executable = usage.file_name().unwrap().to_string_lossy().into_owned();

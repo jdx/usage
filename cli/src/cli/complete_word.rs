@@ -362,17 +362,22 @@ impl CompleteWord {
         {
             let extensions = encoded
                 .split(',')
+                .map(|extension| extension.trim_start_matches('.').to_ascii_lowercase())
                 .filter(|extension| !extension.is_empty())
                 .collect::<Vec<_>>();
             if !extensions.is_empty() {
                 let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
                 let paths = self.complete_path(&cwd, ctoken, |path| {
                     path.is_dir()
-                        || path.extension().is_some_and(|extension| {
-                            extensions.iter().any(|wanted| {
-                                extension.to_string_lossy().eq_ignore_ascii_case(wanted)
+                        || path
+                            .file_name()
+                            .and_then(|name| name.to_str())
+                            .is_some_and(|name| {
+                                let name = name.to_ascii_lowercase();
+                                extensions
+                                    .iter()
+                                    .any(|wanted| name.ends_with(&format!(".{wanted}")))
                             })
-                        })
                 });
                 return (
                     paths
