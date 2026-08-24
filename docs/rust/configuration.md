@@ -71,12 +71,12 @@ exactly as they do for flags.
 Struct-level attributes declare the `config` block around those settings. They are
 documentation for resolvers the CLI already owns, not extra runtime layers:
 
-| Attribute                                                                   | Effect                                                                                                       |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `prefix = "task"`                                                           | Prefix every field's key in this struct                                                                      |
-| `source(kind = "git", name = "git config", doc_hint = "…", set_hint = "…")` | A custom source kind's display metadata. Repeatable; kinds are written in sorted order                       |
-| `file(path = "ex.toml", findup, scope = "project", format = "toml")`        | A config file in the documented precedence chain. Repeatable; **declaration order is precedence**, last wins |
-| `file(path = "ex/config.toml", xdg, format = "toml")`                       | User and system XDG config locations; expands into their standard precedence in the emitted spec             |
+| Attribute                                                                   | Effect                                                                                                           |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `prefix = "task"`                                                           | Prefix every field's key in this struct                                                                          |
+| `source(kind = "git", name = "git config", doc_hint = "…", set_hint = "…")` | A custom source kind's display metadata. Repeatable; kinds are written in sorted order                           |
+| `file(path = "ex.toml", findup, scope = "project", format = "toml")`        | A config file in the documented precedence chain. Repeatable; **declaration order is precedence**, last wins     |
+| `file(path = "ex/config.toml", xdg = "config", format = "toml")`            | XDG config, data, state, cache, or runtime locations; expands into their standard precedence in the emitted spec |
 
 `source` and `file` belong to the struct they are written on. Flattening another `Config`
 type splices its _settings_, not its source/file declarations — a nested group that also
@@ -154,12 +154,12 @@ struct. The CLI names the layers it has — that stays its own business — and 
 decides what every value means:
 
 ```rust
-use usage::config::{resolve, EnvLayer, FileLayer, FileScope, Layers};
+use usage::config::{resolve, EnvLayer, FileLayer, FileScope, Layers, XdgBase};
 
 let (cli, cli_layer) = Ex::parse_from_with_settings(&argv)?;
 let env = EnvLayer::from_process();
 // FileLayer needs a format feature on usage-config (`toml`, `json`, or `yaml`).
-let user_and_system = FileLayer::xdg("ex/config.toml");
+let user_and_system = FileLayer::xdg(XdgBase::Config, "ex/config.toml");
 let project = FileLayer::find_up("ex.toml", &cwd, None, FileScope::Project);
 let resolved = resolve(
     Settings::SETTINGS_REGISTRY,
@@ -175,10 +175,11 @@ for warning in usage::config::explain::warnings(&resolved) {
 }
 ```
 
-Pair `#[usage(file(path = "ex/config.toml", xdg))]` on the derived settings struct with
-`FileLayer::xdg("ex/config.toml")` at runtime. The derive expands the declaration to the
-system and user paths in the emitted spec, while `FileLayer::xdg` reads the process's XDG
-config locations in their standard precedence:
+Pair `#[usage(file(path = "ex/config.toml", xdg = "config"))]` on the derived settings
+struct with `FileLayer::xdg(XdgBase::Config, "ex/config.toml")` at runtime. The base may
+instead be `data`, `state`, `cache`, or `runtime`. The derive expands the declaration into
+the corresponding paths in the emitted spec, while `FileLayer::xdg` reads the process's XDG
+locations in their standard precedence. For the config base:
 the user file under `XDG_CONFIG_HOME` wins over files under `XDG_CONFIG_DIRS`, and the first
 directory in `XDG_CONFIG_DIRS` wins over later ones. Unset variables fall back to
 `$HOME/.config` and `/etc/xdg`.

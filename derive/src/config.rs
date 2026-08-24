@@ -98,7 +98,7 @@ struct Source {
 struct File {
     path: String,
     findup: bool,
-    xdg: bool,
+    xdg: Option<XdgBase>,
     scope: FileScope,
     format: Option<String>,
 }
@@ -108,6 +108,15 @@ enum FileScope {
     Project,
     Global,
     System,
+}
+
+#[derive(Clone, Copy)]
+enum XdgBase {
+    Config,
+    Data,
+    State,
+    Cache,
+    Runtime,
 }
 
 enum Field {
@@ -495,8 +504,7 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
     let mut path = None;
     let mut findup = false;
     let mut saw_findup = false;
-    let mut xdg = false;
-    let mut saw_xdg = false;
+    let mut xdg = None;
     let mut scope = FileScope::Project;
     let mut saw_scope = false;
     let mut format = None;
@@ -516,11 +524,26 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
                 saw_findup = true;
             }
             "xdg" => {
-                if saw_xdg {
+                if xdg.is_some() {
                     return Err(syn::Error::new_spanned(&item, "`xdg` is given twice"));
                 }
-                xdg = flag_value(&item)?;
-                saw_xdg = true;
+                let value = string_value(&item)?;
+                xdg = Some(match value.as_str() {
+                    "config" => XdgBase::Config,
+                    "data" => XdgBase::Data,
+                    "state" => XdgBase::State,
+                    "cache" => XdgBase::Cache,
+                    "runtime" => XdgBase::Runtime,
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            &item,
+                            format!(
+                                "`{value}` is not an XDG base; use `config`, `data`, `state`, \
+                                 `cache`, or `runtime`"
+                            ),
+                        ))
+                    }
+                });
             }
             "scope" => {
                 if saw_scope {
@@ -568,14 +591,14 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
             "a config file path cannot be empty",
         ));
     }
-    if xdg && (saw_findup || saw_scope) {
+    if xdg.is_some() && (saw_findup || saw_scope) {
         return Err(syn::Error::new_spanned(
             meta,
-            "an XDG config file decides its own user and system scopes; do not combine `xdg` \
-             with `findup` or `scope`",
+            "an XDG file's base decides its scope; do not combine `xdg` with `findup` or \
+             `scope`",
         ));
     }
-    if xdg && std::path::Path::new(&path).is_absolute() {
+    if xdg.is_some() && std::path::Path::new(&path).is_absolute() {
         return Err(syn::Error::new_spanned(
             meta,
             "an XDG config file path must be relative to the XDG config directories",
@@ -1443,23 +1466,32 @@ pub fn emit(config: &Config) -> TokenStream {
     let files = config.files.iter().flat_map(|file| {
         let path = &file.path;
         let format = option_str(&file.format);
-        if file.xdg {
-            let system = format!("$XDG_CONFIG_DIRS/{path}");
-            let global = format!("$XDG_CONFIG_HOME/{path}");
-            vec![
-                quote!(#cfg::SpecFile {
+        if let Some(base) = file.xdg {
+            let (dirs, home) = match base {
+                XdgBase::Config => (Some("$XDG_CONFIG_DIRS"), "$XDG_CONFIG_HOME"),
+                XdgBase::Data => (Some("$XDG_DATA_DIRS"), "$XDG_DATA_HOME"),
+                XdgBase::State => (None, "$XDG_STATE_HOME"),
+                XdgBase::Cache => (None, "$XDG_CACHE_HOME"),
+                XdgBase::Runtime => (None, "$XDG_RUNTIME_DIR"),
+            };
+            let global = format!("{home}/{path}");
+            let mut expanded = Vec::new();
+            if let Some(dirs) = dirs {
+                let system = format!("{dirs}/{path}");
+                expanded.push(quote!(#cfg::SpecFile {
                     path: #system,
                     findup: false,
                     scope: #cfg::FileScope::System,
                     format: #format,
-                }),
-                quote!(#cfg::SpecFile {
-                    path: #global,
-                    findup: false,
-                    scope: #cfg::FileScope::Global,
-                    format: #format,
-                }),
-            ]
+                }));
+            }
+            expanded.push(quote!(#cfg::SpecFile {
+                path: #global,
+                findup: false,
+                scope: #cfg::FileScope::Global,
+                format: #format,
+            }));
+            expanded
         } else {
             let findup = file.findup;
             let scope = match file.scope {
@@ -2386,7 +2418,7 @@ mod tests {
             r#"
             #[usage(source(kind = "git", name = "git config"))]
             #[usage(file(path = "ex.toml", findup, scope = "project"))]
-            #[usage(file(path = "ex/config.toml", xdg, format = "toml"))]
+            #[usage(file(path = "ex/config.toml", xdg = "config", format = "toml"))]
             struct Settings {
                 jobs: u64,
             }
@@ -2438,8 +2470,8 @@ mod tests {
         assert!(err.contains("not a config file scope"), "unhelpful: {err}");
 
         for declaration in [
-            r#"file(path = "ex/config.toml", xdg, findup)"#,
-            r#"file(path = "ex/config.toml", xdg, scope = "global")"#,
+            r#"file(path = "ex/config.toml", xdg = "config", findup)"#,
+            r#"file(path = "ex/config.toml", xdg = "cache", scope = "global")"#,
         ] {
             let err = rejection(&format!(
                 r#"
@@ -2449,11 +2481,18 @@ mod tests {
                 }}
                 "#
             ));
-            assert!(
-                err.contains("decides its own user and system scopes"),
-                "{err}"
-            );
+            assert!(err.contains("base decides its scope"), "{err}");
         }
+
+        let err = rejection(
+            r#"
+            #[usage(file(path = "ex/value", xdg = "local"))]
+            struct Settings {
+                jobs: u64,
+            }
+            "#,
+        );
+        assert!(err.contains("not an XDG base"), "{err}");
 
         let err = rejection(
             r#"
