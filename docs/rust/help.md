@@ -68,6 +68,13 @@ or a parse failure as stderr status 2. It uses the portable binary name and vers
 a CLI whose identity is computed at runtime handles `Error::Version` itself so it can substitute
 that runtime value.
 
+A derived CLI does not need to assemble that call. `Ex::embedded_outcome(&argv)` answers the whole
+control protocol — the spec and completion endpoints as well as help, version, and failures — and
+a CLI declaring [`try_into`](/rust/validation#cross-field-validation-and-typed-finalization) has
+`Ex::embedded_outcome_into(&argv)`, which returns `Outcome<Domain>` with a rejected conversion
+rendered as the same failure response a parse error produces. A host that finalizes some other way
+can convert a parsed value in place with `Outcome::map`.
+
 ### Deprecation warnings
 
 A `deprecated` flag or command, or a value that arrived through a `deprecated_env` alias, is
