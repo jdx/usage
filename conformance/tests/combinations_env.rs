@@ -143,9 +143,18 @@ fn ordered_environment_names_use_first_set_value() {
             .expect("root page");
     let fallback_notes = " [env fallback: USAGE_ENV_FALLBACK_A] [env fallback: USAGE_ENV_FALLBACK_B] [deprecated env: USAGE_ENV_DEPRECATED]";
     let ordered_notes = format!("{fallback_notes} (default: fallback)");
-    assert!(typed_help.contains(&ordered_notes), "{typed_help}");
+    // Read with the layout collapsed: the narrow page wraps, so a run of notes this long is
+    // split across lines. What is under test is that they arrive in this order, not where the
+    // break falls.
+    assert!(
+        flattened(&typed_help).contains(&ordered_notes),
+        "{typed_help}"
+    );
     let reference_help = usage::docs::cli::render_help(&spec, &spec.cmd, false);
-    assert!(reference_help.contains(&ordered_notes), "{reference_help}");
+    assert!(
+        flattened(&reference_help).contains(&ordered_notes),
+        "{reference_help}"
+    );
 
     unsafe { std::env::remove_var("USAGE_ENV_DEPRECATED") };
 }
@@ -200,9 +209,18 @@ fn positional_environment_names_round_trip_and_use_first_set_value() {
     .expect("root page");
     let fallback_notes = " [env fallback: USAGE_ARG_ENV_FALLBACK_A] [env fallback: USAGE_ARG_ENV_FALLBACK_B] [deprecated env: USAGE_ARG_ENV_DEPRECATED]";
     let ordered_notes = format!("{fallback_notes} (default: fallback)");
-    assert!(typed_help.contains(&ordered_notes), "{typed_help}");
+    // Read with the layout collapsed: the narrow page wraps, so a run of notes this long is
+    // split across lines. What is under test is that they arrive in this order, not where the
+    // break falls.
+    assert!(
+        flattened(&typed_help).contains(&ordered_notes),
+        "{typed_help}"
+    );
     let reference_help = usage::docs::cli::render_help(&spec, &spec.cmd, false);
-    assert!(reference_help.contains(&ordered_notes), "{reference_help}");
+    assert!(
+        flattened(&reference_help).contains(&ordered_notes),
+        "{reference_help}"
+    );
 
     for name in [
         "USAGE_ARG_ENV_FALLBACK_A",
@@ -227,4 +245,10 @@ fn flattened_next_line_help_indents_environment_notes() {
     ] {
         assert!(page.contains(note), "{page}");
     }
+}
+
+/// A page with its wrapping taken back out, for a test about what it says rather than how it
+/// is laid out.
+fn flattened(page: &str) -> String {
+    page.split_whitespace().collect::<Vec<_>>().join(" ")
 }

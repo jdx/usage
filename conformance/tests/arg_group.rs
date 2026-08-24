@@ -174,9 +174,16 @@ fn case_insensitive_group_values_match_relationships_the_same_way_they_parse() {
 fn a_value_carrying_group_member_reaches_help_and_the_spec() {
     let help =
         help::render(ValuedGroup::spec(), ValuedGroup::spec().root.cmd, false).expect("a page");
-    assert!(help.contains("--migrate <SOURCE>"), "{help}");
-    assert!(help.contains("[prettier, biome]"), "{help}");
-    assert!(help.contains("--stdin-filepath <STDIN_FILEPATH>"), "{help}");
+    // The narrow page wraps, so an annotation can be split across two lines. What this test is
+    // about is that the choices reach the page at all, so it reads the page with the layout
+    // collapsed rather than pinning where the break happens to fall.
+    let flattened = help.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(flattened.contains("--migrate <SOURCE>"), "{help}");
+    assert!(flattened.contains("[prettier, biome]"), "{help}");
+    assert!(
+        flattened.contains("--stdin-filepath <STDIN_FILEPATH>"),
+        "{help}"
+    );
 
     let kdl = ValuedGroup::to_kdl();
     assert!(

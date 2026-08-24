@@ -53,9 +53,10 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {{ group.heading | default(value="Arguments") }}:
 {%- for arg in group.items %}
-  {% if arg.help %}{% if cmd.next_line_help %}{{ arg.usage | trim }}
-    {{ arg.help | indent(width=4) }}{% else %}{{ arg.usage | trim | ljust(width=arg.usage_col_width) }}  {{ arg.help }}{% endif %}{% else %}{{ arg.usage | trim }}{% endif %}
 {%- if cmd.next_line_help %}
+  {{ arg.usage | trim }}
+{%- if arg.help %}
+    {{ arg.help | indent(width=4) }}{% endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
     [possible values: {{ arg.choices.choices | join(sep=", ") }}]{%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
@@ -67,12 +68,13 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
     [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
 {%- if not arg.hide_default_value and arg.default %}
     (default: {{ arg.default | join(sep=", ") }}){%- endif %}
+{%- elif arg.help_rendered %}
+  {{ arg.usage | trim | ljust(width=arg.usage_col_width) }}  {{ arg.help_rendered }}
+{%- elif arg.row %}
+  {{ arg.usage | trim }}
+    {{ arg.row | indent(width=4) }}
 {%- else %}
-{%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %} [{{ arg.choices.choices | join(sep=", ") }}]{%- endif %}
-{%- if not arg.hide_possible_values and arg.choices and arg.choices.env %} [choices env: {{ arg.choices.env }}]{%- endif %}
-{%- if not arg.hide_env and arg.env %} [env: {{ arg.env }}]{%- endif %}
-{%- if not arg.hide_env %}{% for env in arg.env_fallback %} [env fallback: {{ env }}]{%- endfor %}{% for env in arg.deprecated_env %} [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
-{%- if not arg.hide_default_value and arg.default %} (default: {{ arg.default | join(sep=", ") }}){%- endif %}
+  {{ arg.usage | trim }}
 {%- endif %}
 {%- endfor %}
 {%- endfor %}{% if arg_has_ungrouped and not arg_has_grouped %}{{ mark_grouped_args }}{% endif %}{{ mark_flags }}{% if not flag_has_ungrouped %}{{ mark_grouped_flags }}{% endif %}
@@ -82,9 +84,10 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {{ group.heading | default(value="Flags") }}:
 {%- for flag in group.items %}
-  {% if flag.help %}{% if cmd.next_line_help %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
-    {{ flag.help | indent(width=4) }}{% else %}{{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help }}{% endif %}{% else %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}{% endif %}
 {%- if cmd.next_line_help %}
+  {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+{%- if flag.help %}
+    {{ flag.help | indent(width=4) }}{% endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
@@ -96,15 +99,16 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
     [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
     (default: {{ flag.default | join(sep=", ") }}){%- endif %}
+{%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
+    [deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]{%- endif %}
+{%- elif flag.help_rendered %}
+  {{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help_rendered }}
+{%- elif flag.row %}
+  {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+    {{ flag.row | indent(width=4) }}
 {%- else %}
-{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %} [{{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
-{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %} [choices env: {{ flag.arg.choices.env }}]{%- endif %}
-{%- if not flag.hide_env and flag.env %} [env: {{ flag.env }}]{%- endif %}
-{%- if not flag.hide_env %}{% for env in flag.env_fallback %} [env fallback: {{ env }}]{%- endfor %}{% for env in flag.deprecated_env %} [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
-{%- if not flag.hide_default_value and flag.default %} (default: {{ flag.default | join(sep=", ") }}){%- endif %}
+  {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- endif %}
-{%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}{% if cmd.next_line_help %}
-    {% else %} {% endif %}[deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]{%- endif %}
 {%- endfor %}
 {%- endfor %}{% if flag_has_ungrouped and not flag_has_grouped %}{{ mark_grouped_flags }}{% endif %}{{ mark_global_flags }}
 
@@ -112,9 +116,10 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 Global flags:
 {%- for flag in global_flags %}
-  {% if flag.help %}{% if cmd.next_line_help %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
-    {{ flag.help | indent(width=4) }}{% else %}{{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help }}{% endif %}{% else %}{{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}{% endif %}
 {%- if cmd.next_line_help %}
+  {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+{%- if flag.help %}
+    {{ flag.help | indent(width=4) }}{% endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
     [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
@@ -126,15 +131,16 @@ Global flags:
     [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
     (default: {{ flag.default | join(sep=", ") }}){%- endif %}
+{%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
+    [deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]{%- endif %}
+{%- elif flag.help_rendered %}
+  {{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help_rendered }}
+{%- elif flag.row %}
+  {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+    {{ flag.row | indent(width=4) }}
 {%- else %}
-{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %} [{{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
-{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %} [choices env: {{ flag.arg.choices.env }}]{%- endif %}
-{%- if not flag.hide_env and flag.env %} [env: {{ flag.env }}]{%- endif %}
-{%- if not flag.hide_env %}{% for env in flag.env_fallback %} [env fallback: {{ env }}]{%- endfor %}{% for env in flag.deprecated_env %} [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
-{%- if not flag.hide_default_value and flag.default %} (default: {{ flag.default | join(sep=", ") }}){%- endif %}
+  {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- endif %}
-{%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}{% if cmd.next_line_help %}
-    {% else %} {% endif %}[deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]{%- endif %}
 {%- endfor %}
 {%- endif %}{{ mark_flattened }}
 
