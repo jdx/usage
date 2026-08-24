@@ -802,6 +802,80 @@ echo "COMPLETION_TEST_DONE"
     let _ = fs::remove_dir_all(&temp_dir);
 }
 
+/// Regression test for https://github.com/jdx/usage/issues/1298.
+///
+/// Zsh's `CURRENT` is one-based while `complete-word --cword` is zero-based.
+/// The generated completion must forward the converted index so completing a
+/// word in the middle of the command line does not target the final word.
+#[test]
+fn test_zsh_completion_forwards_midline_cursor() {
+    if skip_if_shell_missing("zsh") {
+        return;
+    }
+
+    let usage_bin = build_usage_binary();
+    let temp_dir = env::temp_dir().join(format!("usage_zsh_midline_test_{}", std::process::id()));
+    fs::create_dir_all(&temp_dir).unwrap();
+
+    let spec = r#"
+bin "testcli"
+flag "--foo"
+arg "<value>"
+"#;
+    let spec_file = temp_dir.join("testcli.kdl");
+    fs::write(&spec_file, spec).unwrap();
+
+    let generated = Command::new(&usage_bin)
+        .args(["generate", "completion", "zsh", "testcli", "-f"])
+        .arg(spec_file.to_str().unwrap())
+        .output()
+        .expect("Failed to generate zsh completion");
+    let completion_file = temp_dir.join("_testcli");
+    fs::write(&completion_file, &generated.stdout).unwrap();
+
+    let test_script = format!(
+        r#"#!/usr/bin/env zsh
+set -e
+export PATH="{usage_dir}:$PATH"
+export XDG_CACHE_HOME="{tmp}"
+
+autoload -U compinit
+compinit -u
+source {completion}
+
+compadd() {{
+    print -r -- "[compadd:inserts] ${{inserts[*]}}"
+}}
+
+words=(testcli --f trailing)
+CURRENT=2
+_testcli
+"#,
+        usage_dir = path_var_entry("zsh", usage_bin.parent().unwrap()),
+        tmp = sh_path(&temp_dir),
+        completion = sh_path(&completion_file),
+    );
+    let script_file = temp_dir.join("test.zsh");
+    fs::write(&script_file, test_script).unwrap();
+
+    let result = script_command("zsh", &script_file)
+        .output()
+        .expect("Failed to run zsh test");
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        result.status.success(),
+        "zsh completion script exited non-zero ({}).\nstdout:\n{stdout}\nstderr:\n{stderr}",
+        result.status
+    );
+    assert!(
+        stdout.contains("[compadd:inserts] --foo"),
+        "expected `--foo` for mid-line `--f`, got: {stdout}"
+    );
+
+    let _ = fs::remove_dir_all(&temp_dir);
+}
+
 /// Regression test for https://github.com/jdx/usage/issues/634
 ///
 /// `usage complete-word --shell zsh` emits two tab-separated columns per

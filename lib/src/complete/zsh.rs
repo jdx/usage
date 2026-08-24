@@ -153,7 +153,11 @@ fi"#
         String::new()
     };
 
-    let completion_loop = render_completion_loop(usage_bin, "  ", r#"-f "$spec_file""#);
+    let completion_loop = render_completion_loop(
+        usage_bin,
+        "  ",
+        r#"-f "$spec_file" --cword=$((CURRENT - 1))"#,
+    );
 
     out.push(format!(
         r#"
