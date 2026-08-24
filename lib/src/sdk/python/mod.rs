@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use heck::AsPascalCase;
+use crate::case::{AsPascalCase, AsSnakeCase};
 
 use crate::sdk::{
     collect_choice_types, collect_type_imports, command_type_name, escape_py_docstring,
@@ -525,7 +525,7 @@ fn config_prop_type(prop: &SpecConfigProp) -> String {
 fn flag_property_name_py(flag: &SpecFlag) -> String {
     // Python uses snake_case for attributes
     if let Some(long) = flag.long.first() {
-        return sanitize_py_ident(&heck::AsSnakeCase(long).to_string());
+        return sanitize_py_ident(&AsSnakeCase(long).to_string());
     }
     if let Some(short) = flag.short.first() {
         return short.to_string();
@@ -534,7 +534,7 @@ fn flag_property_name_py(flag: &SpecFlag) -> String {
 }
 
 fn sanitize_py_ident(name: &str) -> String {
-    let snake = heck::AsSnakeCase(name).to_string();
+    let snake = AsSnakeCase(name).to_string();
     match snake.as_str() {
         "async" | "await" | "nonlocal" | "class" | "def" | "return" | "import" | "from"
         | "global" | "lambda" | "pass" | "raise" | "with" | "yield" | "del" | "try" | "except"

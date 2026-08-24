@@ -2,6 +2,10 @@ use crate::kdl;
 use crate::miette::{NamedSource, SourceSpan};
 use thiserror::Error;
 
+#[derive(Debug, Error)]
+#[error("invalid enum value `{0}`")]
+pub struct EnumParseError(pub String);
+
 /// Everything that can go wrong reading a spec or a command line against one.
 ///
 /// `#[non_exhaustive]`, so a caller matching on it needs a `_` arm. That is the point:
@@ -66,7 +70,7 @@ pub enum UsageErr {
     IO(#[from] std::io::Error),
 
     #[error(transparent)]
-    Strum(#[from] strum::ParseError),
+    Strum(#[from] EnumParseError),
 
     #[error(transparent)]
     FromUtf8Error(#[from] std::string::FromUtf8Error),

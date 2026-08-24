@@ -8,7 +8,7 @@ macro_rules! tests {
         #[test]
         fn $name() {
             let spec: Spec = $spec.parse().unwrap();
-            let mut args = shell_words::split($args).unwrap();
+            let mut args = usage::shell_words::split($args).unwrap();
             args.insert(0, "test".to_string());
             match parse(&spec, &args) {
                 Ok(env) => assert_str_eq!(format!("{:?}", env.as_env()).trim(), $expected.trim()),

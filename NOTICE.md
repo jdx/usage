@@ -20,6 +20,21 @@ does not contain miette's implementation.
 Both projects are distributed under the Apache License, Version 2.0. Usage takes
 them under that license, reproduced in `third-party/LICENSE-APACHE-2.0`.
 
+## heck and shell-words
+
+`lib/src/case.rs` is a focused adaptation of the word-boundary algorithm from
+[heck 0.5.0](https://github.com/withoutboats/heck/tree/0.5.0). It retains only the
+snake_case, lowerCamelCase, and PascalCase conversions used by Usage.
+
+`lib/src/shell_words.rs` is a focused adaptation of
+[shell-words 1.1.1](https://github.com/tmiasko/shell-words/tree/1.1.1). It retains the
+POSIX word splitting and quoting needed for mounted commands and parser output.
+shell-words is copyright 2018 Tomasz Miąsko.
+
+Both projects are distributed under the terms of either the MIT License or the Apache
+License, Version 2.0. Usage takes the adapted code under the Apache License, reproduced
+in `lib/third-party/LICENSE-APACHE-2.0`.
+
 ## clap
 
 Usage's design owes a great deal to [clap](https://github.com/clap-rs/clap). No

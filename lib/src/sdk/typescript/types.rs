@@ -1,4 +1,4 @@
-use heck::AsPascalCase;
+use crate::case::{AsLowerCamelCase, AsPascalCase};
 
 use crate::spec::cmd::SpecCommand;
 use crate::spec::config::SpecConfigProp;
@@ -377,7 +377,7 @@ fn config_prop_type(prop: &SpecConfigProp) -> String {
 
 pub(crate) fn flag_property_name(flag: &SpecFlag) -> String {
     if let Some(long) = flag.long.first() {
-        return sanitize_ident(&heck::AsLowerCamelCase(long).to_string());
+        return sanitize_ident(&AsLowerCamelCase(long).to_string());
     }
     if let Some(short) = flag.short.first() {
         return short.to_string();
@@ -386,7 +386,7 @@ pub(crate) fn flag_property_name(flag: &SpecFlag) -> String {
 }
 
 pub(crate) fn sanitize_ident(name: &str) -> String {
-    let camel = heck::AsLowerCamelCase(name).to_string();
+    let camel = AsLowerCamelCase(name).to_string();
     match camel.as_str() {
         "function" | "class" | "const" | "let" | "var" | "type" | "interface" | "new"
         | "delete" | "return" | "export" | "import" | "default" | "in" | "instanceof" | "exec"

@@ -1,4 +1,4 @@
-use heck::ToSnakeCase;
+use crate::case::ToSnakeCase;
 
 use crate::complete::CompleteOptions;
 

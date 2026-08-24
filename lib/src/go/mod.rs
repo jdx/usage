@@ -35,7 +35,7 @@ mod structs;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 
-use heck::AsPascalCase;
+use crate::case::AsPascalCase;
 
 use crate::spec::unknown_flags::UnknownFlags;
 use crate::{

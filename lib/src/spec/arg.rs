@@ -22,8 +22,7 @@ pub struct SpecRequiredIfEq {
     pub value: String,
 }
 
-#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq, strum::EnumString, strum::Display)]
-#[strum(serialize_all = "snake_case")]
+#[derive(Debug, Default, Clone, Serialize, PartialEq, Eq)]
 pub enum SpecDoubleDashChoices {
     /// Once an arg is entered, behave as if "--" was passed
     Automatic,
@@ -35,6 +34,13 @@ pub enum SpecDoubleDashChoices {
     /// Preserve "--" tokens as values (only for variadic args)
     Preserve,
 }
+
+impl_string_enum!(SpecDoubleDashChoices {
+    SpecDoubleDashChoices::Automatic => "automatic",
+    SpecDoubleDashChoices::Optional => "optional",
+    SpecDoubleDashChoices::Required => "required",
+    SpecDoubleDashChoices::Preserve => "preserve",
+});
 
 /// A positional argument specification.
 ///

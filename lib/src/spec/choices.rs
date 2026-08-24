@@ -384,7 +384,7 @@ arg "<color>" {
             spec.cmd.args[0].choices.as_ref().unwrap().details
         );
         assert!(choices.ignore_case);
-        #[cfg(feature = "docs")]
+        #[cfg(feature = "markdown")]
         assert_eq!(choices.for_help().choices, vec!["always", "yes"]);
     }
 
