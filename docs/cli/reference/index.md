@@ -2,13 +2,13 @@
 
 # `usage`
 
-**Usage**: `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
+**Usage:** `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
 
-**Version**: 6.1.1
+**Version:** 6.1.1
 
-**Repository**: https://github.com/jdx/usage
+**Repository:** https://github.com/jdx/usage
 
-- **Usage**: `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
+- **Usage:** `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
 
 ## Flags
 

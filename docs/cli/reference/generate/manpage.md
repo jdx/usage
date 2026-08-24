@@ -2,10 +2,10 @@
 
 # `usage generate manpage`
 
-- **Usage**: `usage generate manpage <FLAGS>`
-- **Aliases**: `man`
-- **Effect**: read-only
-- **Source code**: [`cli/src/cli/generate/manpage.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/manpage.rs)
+- **Usage:** `usage generate manpage <FLAGS>`
+- **Aliases:** `man`
+- **Effect:** read-only
+- **Source code:** [`cli/src/cli/generate/manpage.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/manpage.rs)
 
 Generate a manpage from a usage spec
 

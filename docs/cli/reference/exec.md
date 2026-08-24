@@ -2,9 +2,9 @@
 
 # `usage exec`
 
-- **Usage**: `usage exec [-h] [--help] <ARGS>…`
-- **Aliases**: `x`
-- **Source code**: [`cli/src/cli/exec.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/exec.rs)
+- **Usage:** `usage exec [-h] [--help] <ARGS>…`
+- **Aliases:** `x`
+- **Source code:** [`cli/src/cli/exec.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/exec.rs)
 
 Execute a script, parsing args and exposing them as environment variables
 

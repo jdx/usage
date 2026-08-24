@@ -2,10 +2,10 @@
 
 # `usage mcp`
 
-- **Usage**: `usage mcp [-f --file <FILE>] [-s --spec <SPEC>]`
-- **Aliases**: `mcp-server`
-- **Effect**: read-only
-- **Source code**: [`cli/src/cli/mcp.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/mcp.rs)
+- **Usage:** `usage mcp [-f --file <FILE>] [-s --spec <SPEC>]`
+- **Aliases:** `mcp-server`
+- **Effect:** read-only
+- **Source code:** [`cli/src/cli/mcp.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/mcp.rs)
 
 Serve a usage spec over the Model Context Protocol
 

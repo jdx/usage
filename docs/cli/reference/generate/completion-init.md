@@ -2,10 +2,10 @@
 
 # `usage generate completion-init`
 
-- **Usage**: `usage generate completion-init [--usage-bin <USAGE_BIN>] <SHELL>`
-- **Aliases**: `ci`
-- **Effect**: read-only
-- **Source code**: [`cli/src/cli/generate/completion_init.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/completion_init.rs)
+- **Usage:** `usage generate completion-init [--usage-bin <USAGE_BIN>] <SHELL>`
+- **Aliases:** `ci`
+- **Effect:** read-only
+- **Source code:** [`cli/src/cli/generate/completion_init.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/completion_init.rs)
 
 Generate a shell init script that auto-completes any usage shebang script on $PATH
 

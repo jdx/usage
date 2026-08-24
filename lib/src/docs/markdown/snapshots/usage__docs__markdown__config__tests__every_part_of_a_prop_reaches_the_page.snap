@@ -12,10 +12,10 @@ Read from, in ascending precedence — the last one that names a setting wins:
 
 ## `exclude`
 
-- **type**: `list<string>`
-- **default**: `target, node_modules`
-- **merged**: values from every source are combined
-- **set with**: `HK_EXCLUDE`
+- **Type:** `list<string>`
+- **Default:** `target, node_modules`
+- **Merged:** values from every source are combined
+- **Set with:** `HK_EXCLUDE`
 
 Patterns to skip
 
@@ -29,7 +29,7 @@ Old
 
 ## `stash`
 
-- **type**: `string`
+- **Type:** `string`
 
 How to stash
 
@@ -40,8 +40,8 @@ How to stash
 
 ## `trusted`
 
-- **type**: `bool`
-- **scope**: only from your own configuration, never from a project file
+- **Type:** `bool`
+- **Scope:** only from your own configuration, never from a project file
 
 Trust the config
 
@@ -49,10 +49,10 @@ Trust the config
 
 ### `jobs`
 
-- **type**: `uint`
-- **default**: 0 = auto-detect
-- **since**: 1.0.0
-- **set with**: `--jobs`, `-j`, `HK_JOBS` (or `HK_JOB`), git config `hk.jobs`
+- **Type:** `uint`
+- **Default:** 0 = auto-detect
+- **Since:** 1.0.0
+- **Set with:** `--jobs`, `-j`, `HK_JOBS` (or `HK_JOB`), git config `hk.jobs`
 
 Number of parallel jobs
 

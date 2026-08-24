@@ -29,7 +29,7 @@ impl MarkdownRenderer {
 
 #[cfg(test)]
 mod tests {
-    use crate::docs::markdown::renderer::MarkdownRenderer;
+    use crate::docs::markdown::renderer::{MarkdownRenderer, MarkdownTheme};
     use crate::test::SPEC_KITCHEN_SINK;
     use crate::Spec;
     use insta::assert_snapshot;
@@ -42,7 +42,7 @@ mod tests {
         assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @"
         # `mycli`
 
-        - **Usage**: `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
+        - **Usage:** `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
 
         ## Arguments
         - **`<arg1>`** — arg1 description
@@ -56,7 +56,6 @@ mod tests {
         - **`[with-default]`**
 
           **Default:** `default value`
-
 
         ## Flags
         - **`--flag1`** — flag1 description
@@ -95,7 +94,6 @@ mod tests {
 
           **Choices:** `bash`, `zsh`, `fish`
 
-
         ## Subcommands
 
         - [`mycli plugin <SUBCOMMAND>`](/plugin.md)
@@ -125,31 +123,31 @@ cmd "version" help="Show the version"
 
         // Every effect value must render its own label, and a command without
         // one must not render the line at all.
-        assert_snapshot!(rendered, @r"
+        assert_snapshot!(rendered, @"
         # `mise ls`
 
-        - **Usage**: `mise ls`
-        - **Effect**: read-only
+        - **Usage:** `mise ls`
+        - **Effect:** read-only
 
         List installed tools
 
         # `mise use`
 
-        - **Usage**: `mise use`
-        - **Effect**: modifies state
+        - **Usage:** `mise use`
+        - **Effect:** modifies state
 
         Install a tool
 
         # `mise uninstall`
 
-        - **Usage**: `mise uninstall`
-        - **Effect**: destructive — may delete or irreversibly overwrite
+        - **Usage:** `mise uninstall`
+        - **Effect:** destructive — may delete or irreversibly overwrite
 
         Remove a tool
 
         # `mise version`
 
-        - **Usage**: `mise version`
+        - **Usage:** `mise version`
 
         Show the version
         ");
@@ -174,19 +172,16 @@ arg "<mode>" help="How to run" help_heading="Behaviour"
         assert_snapshot!(ctx.render_cmd(&spec.cmd).unwrap(), @"
         # `mycli`
 
-        - **Usage**: `mycli [--verbose] [--filter <pattern>] <file> <mode>`
+        - **Usage:** `mycli [--verbose] [--filter <pattern>] <file> <mode>`
 
         ## Arguments
         - **`<file>`** — The file
 
-
         ## Behaviour
         - **`<mode>`** — How to run
 
-
         ## Flags
         - **`--verbose`** — Verbose output
-
 
         ## Filtering
         - **`--filter <pattern>`** — Only matching
@@ -211,19 +206,16 @@ cmd "sub" help="a subcommand"
         assert_snapshot!(ctx.render_cmd(&spec.cmd).unwrap(), @"
         # `mycli`
 
-        - **Usage**: `mycli [FLAGS] <SUBCOMMAND>`
+        - **Usage:** `mycli [FLAGS] <SUBCOMMAND>`
 
         ## Global Flags
         - **`--verbose`** — Verbose output
 
-
         ## Filtering
         - **`--filter <pattern>`** — Only matching
 
-
         ## Flags
         - **`--local-one`** — Not global
-
 
         ## Subcommands
 
@@ -281,9 +273,9 @@ cmd "version" help="Show the version"
 
         // `check` shows what it writes, how to ask for it, and the CLI-wide codes folded
         // together with its own. `version` declares no outputs, so it renders no Output
-        // section — but the CLI-wide exit codes still reach it, because those are the
+        // Formats section — but the CLI-wide exit codes still reach it, because those are the
         // program's, not the command's.
-        assert!(rendered.contains("## Output"), "{rendered}");
+        assert!(rendered.contains("## Output Formats"), "{rendered}");
         assert!(rendered.contains("- **`human`** (default)"), "{rendered}");
         assert!(
             rendered.contains("**Select:** `--format jsonl`"),
@@ -300,7 +292,7 @@ cmd "version" help="Show the version"
         );
 
         let version = ctx.render_cmd(&spec.cmd.subcommands["version"]).unwrap();
-        assert!(!version.contains("## Output"), "{version}");
+        assert!(!version.contains("## Output Formats"), "{version}");
         assert!(version.contains("| `0` | success |"), "{version}");
     }
 
@@ -315,7 +307,46 @@ cmd "ls" help="List things"
         .unwrap();
         let ctx = MarkdownRenderer::new(spec.clone()).with_multi(true);
         let rendered = ctx.render_cmd(&spec.cmd.subcommands["ls"]).unwrap();
-        assert!(!rendered.contains("## Output"), "{rendered}");
+        assert!(!rendered.contains("## Output Formats"), "{rendered}");
         assert!(!rendered.contains("## Exit Status"), "{rendered}");
+    }
+
+    #[test]
+    fn compact_output_formats_collapse_only_long_catalogs() {
+        let short: Spec = r#"
+name "short"
+output "text"
+output "json" framing="json"
+        "#
+        .parse()
+        .unwrap();
+        let short = MarkdownRenderer::new(short).render_spec().unwrap();
+        assert!(short.contains("## Output Formats"), "{short}");
+        assert!(!short.contains("<details>"), "{short}");
+
+        let long: Spec = r#"
+name "long"
+output "text"
+output "json" framing="json"
+output "jsonl" framing="jsonl"
+output "xml"
+output "yaml"
+output "csv"
+        "#
+        .parse()
+        .unwrap();
+        let compact = MarkdownRenderer::new(long.clone()).render_spec().unwrap();
+        assert!(
+            compact.contains("<summary>6 available formats</summary>"),
+            "{compact}"
+        );
+        assert!(compact.contains("- **`csv`**"), "{compact}");
+
+        let detailed = MarkdownRenderer::new(long)
+            .with_theme(MarkdownTheme::Detailed)
+            .render_spec()
+            .unwrap();
+        assert!(detailed.contains("## Output Formats"), "{detailed}");
+        assert!(!detailed.contains("<details>"), "{detailed}");
     }
 }

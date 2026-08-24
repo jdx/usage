@@ -2,9 +2,9 @@
 
 # `usage explain`
 
-- **Usage**: `usage explain [FLAGS] [ARGV]…`
-- **Effect**: read-only
-- **Source code**: [`cli/src/cli/explain.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/explain.rs)
+- **Usage:** `usage explain [FLAGS] [ARGV]…`
+- **Effect:** read-only
+- **Source code:** [`cli/src/cli/explain.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/explain.rs)
 
 Explain what a command line binds to
 

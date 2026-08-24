@@ -8,18 +8,18 @@
 {{ cmd.before_help_md | escape_md }}
 {%- endif %}
 
-- **Usage**: `{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`
+- **Usage:** `{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`
 {%- if cmd.deprecated or cmd.deprecated_warn_at or cmd.deprecated_remove_at %}
-- **Deprecated**:{% if cmd.deprecated %} {{ cmd.deprecated }}{% if cmd.deprecated_warn_at or cmd.deprecated_remove_at %};{% endif %}{% endif %}{% if cmd.deprecated_warn_at %} Warns at {{ cmd.deprecated_warn_at }}.{% endif %}{% if cmd.deprecated_remove_at %} Removed at {{ cmd.deprecated_remove_at }}.{% endif %}
+- **Deprecated:**{% if cmd.deprecated %} {{ cmd.deprecated }}{% if cmd.deprecated_warn_at or cmd.deprecated_remove_at %};{% endif %}{% endif %}{% if cmd.deprecated_warn_at %} Warns at {{ cmd.deprecated_warn_at }}.{% endif %}{% if cmd.deprecated_remove_at %} Removed at {{ cmd.deprecated_remove_at }}.{% endif %}
 {%- endif %}
 {%- if cmd.aliases %}
-- **Aliases**: `{{ cmd.aliases | join(sep="`, `") }}`
+- **Aliases:** `{{ cmd.aliases | join(sep="`, `") }}`
 {%- endif %}
 {%- if cmd.effect %}
-- **Effect**: {% if cmd.effect == "read" %}read-only{% elif cmd.effect == "destructive" %}destructive — may delete or irreversibly overwrite{% else %}modifies state{% endif %}
+- **Effect:** {% if cmd.effect == "read" %}read-only{% elif cmd.effect == "destructive" %}destructive — may delete or irreversibly overwrite{% else %}modifies state{% endif %}
 {%- endif %}
 {%- if source_code_link %}
-- **Source code**: {{ source_code_link }}
+- **Source code:** {{ source_code_link }}
 {%- endif %}
 
 {%- if cmd.help_md %}
@@ -88,22 +88,22 @@
 
 {%- if cmd.outputs %}
 
-{{ "#" | repeat(count=header_level) }}# Output
+{{ "#" | repeat(count=header_level) }}# Output Formats
 
 {%- for output in cmd.outputs %}
 
 {{ "#" | repeat(count=header_level) }}## `{{ output.name }}`{% if output.default %} (default){% endif %}
 {%- if output.select %}
 
-- **Select**: `{{ output.select }}`
+- **Select:** `{{ output.select }}`
 {%- if output.media_type %}
-- **Media type**: `{{ output.media_type }}`
+- **Media type:** `{{ output.media_type }}`
 {%- endif %}
 {%- elif output.media_type %}
 
-- **Media type**: `{{ output.media_type }}`
+- **Media type:** `{{ output.media_type }}`
 {%- endif %}
-- **Framing**: `{{ output.framing }}`{% if output.streaming %} — one document per line, read as it arrives{% endif %}
+- **Framing:** `{{ output.framing }}`{% if output.streaming %} — one document per line, read as it arrives{% endif %}
 {%- if output.help %}
 
 {{ output.help }}

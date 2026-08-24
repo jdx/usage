@@ -2,8 +2,8 @@
 
 # `usage zsh`
 
-- **Usage**: `usage zsh [-h] [--help] <SCRIPT> [ARGS]…`
-- **Source code**: [`cli/src/cli/shell.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/shell.rs)
+- **Usage:** `usage zsh [-h] [--help] <SCRIPT> [ARGS]…`
+- **Source code:** [`cli/src/cli/shell.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/shell.rs)
 
 Execute a shell script with the specified shell
 
