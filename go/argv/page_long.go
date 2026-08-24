@@ -234,7 +234,7 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 			writeWrapped(out, trimEnd(about), 0)
 		}
 		if label := deprecationLabel(h); label != "" {
-			out.WriteString(label + "\n")
+			writeWrapped(out, label, 0)
 		}
 
 		args := visibleArgs(sub, help, true)

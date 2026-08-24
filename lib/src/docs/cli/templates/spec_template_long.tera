@@ -242,7 +242,7 @@ Global flags:
 {{ sub.full_cmd | join(sep=" ") }}:
 {%- set about = sub.help_long | default(value=sub.help | default(value='')) %}
 {%- if about %}
-{{ about | trim }}
+{{ about | trim | terminal_wrap(width=terminal_width) }}
 {%- endif %}
 {%- if sub.deprecated or sub.deprecated_warn_at or sub.deprecated_remove_at %}
 {{ sub | terminal_deprecation(width=terminal_width) }}
@@ -268,18 +268,21 @@ Global flags:
 {%- endfor %}
 {%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
-    [possible values: {{ arg.choices.choices | join(sep=", ") }}]
+{{ arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}
+{%- endif %}
+{%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
+{{ arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}
 {%- endif %}
 {%- if not arg.hide_env and arg.env %}
-    [env: {{ arg.env }}]
+{{ arg.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}
 {%- endif %}
 {%- if not arg.hide_env %}{% for env in arg.env_fallback %}
-    [env fallback: {{ env }}]
+{{ env | terminal_annotation(label="[env fallback: ", suffix="]", indent="    ", width=terminal_width) }}
 {%- endfor %}{% for env in arg.deprecated_env %}
-    [deprecated env: {{ env }}]
+{{ env | terminal_annotation(label="[deprecated env: ", suffix="]", indent="    ", width=terminal_width) }}
 {%- endfor %}{%- endif %}
 {%- if not arg.hide_default_value and arg.default %}
-    (default: {{ arg.default | join(sep=", ") }})
+{{ arg.default | terminal_annotation(label="(default: ", suffix=")", indent="    ", width=terminal_width) }}
 {%- endif %}
 {%- endfor %}
 {%- endfor %}
@@ -309,18 +312,21 @@ Global flags:
 {%- endfor %}
 {%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
-    [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
+{{ flag.arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}
+{%- endif %}
+{%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
+{{ flag.arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}
 {%- endif %}
 {%- if not flag.hide_env and flag.env %}
-    [env: {{ flag.env }}]
+{{ flag.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}
 {%- endif %}
 {%- if not flag.hide_env %}{% for env in flag.env_fallback %}
-    [env fallback: {{ env }}]
+{{ env | terminal_annotation(label="[env fallback: ", suffix="]", indent="    ", width=terminal_width) }}
 {%- endfor %}{% for env in flag.deprecated_env %}
-    [deprecated env: {{ env }}]
+{{ env | terminal_annotation(label="[deprecated env: ", suffix="]", indent="    ", width=terminal_width) }}
 {%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
-    (default: {{ flag.default | join(sep=", ") }})
+{{ flag.default | terminal_annotation(label="(default: ", suffix=")", indent="    ", width=terminal_width) }}
 {%- endif %}
 {%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
 {{ flag | terminal_deprecation(indent="    ", width=terminal_width) }}

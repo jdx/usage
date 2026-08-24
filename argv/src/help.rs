@@ -1273,7 +1273,7 @@ fn short_sections(
         write_wrapped_indented(out, about.trim_end(), width, 0);
         out.push('\n');
     }
-    command_deprecation(out, meta, 0);
+    command_deprecation(out, meta, 0, width);
     usage_section(&mut sections.usage, spec, path, meta);
 
     // The path without the binary: it is the sort key the reference orders the list by, even
@@ -1631,9 +1631,9 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
         sub_path.push(sub.cmd.name);
         let _ = writeln!(out, "\n{}:", sub_path.join(" "));
         if let Some(about) = sub.about.filter(|about| !about.trim().is_empty()) {
-            let _ = writeln!(out, "{}", about.trim_end());
+            write_wrapped_indented(out, about.trim_end(), width, 0);
         }
-        command_deprecation(out, sub, 0);
+        command_deprecation(out, sub, 0, width);
 
         let mut args: Vec<_> = sub
             .args
@@ -2222,7 +2222,7 @@ fn long_sections(
         write_wrapped_indented(out, about.trim_end(), width, 0);
         out.push('\n');
     }
-    command_deprecation(out, meta, 0);
+    command_deprecation(out, meta, 0, width);
     usage_section(&mut sections.usage, spec, path, meta);
 
     if !meta.flatten_help {
@@ -2777,13 +2777,13 @@ fn deprecation_label(
     Some(format!("[deprecated: {}]", parts.join("; ")))
 }
 
-fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize) {
+fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, width: usize) {
     if let Some(label) = deprecation_label(
         meta.deprecated,
         meta.deprecated_warn_at,
         meta.deprecated_remove_at,
     ) {
-        let _ = writeln!(out, "{}{label}", " ".repeat(indent));
+        write_wrapped_indented(out, &label, width, indent);
     }
 }
 
@@ -2822,9 +2822,9 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
             .or(sub.about)
             .filter(|about| !about.trim().is_empty())
         {
-            let _ = writeln!(out, "{}", about.trim_end());
+            write_wrapped_indented(out, about.trim_end(), width, 0);
         }
-        command_deprecation(out, sub, 0);
+        command_deprecation(out, sub, 0, width);
 
         let mut args: Vec<_> = sub
             .args

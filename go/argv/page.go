@@ -159,7 +159,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			if nextLineHelp {
 				w.WriteString("  " + usage + "\n")
 				if text := helpText(h); text != "" {
-					writeIndented(w, text, 4)
+					writeWrapped(w, text, 4)
 				}
 				longAnnotations(w, h, true, blockIndent)
 				return
@@ -192,7 +192,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			if nextLineHelp {
 				w.WriteString("  " + f.usage + "\n")
 				if text := f.suppliedHelp; text != "" {
-					writeIndented(w, text, 4)
+					writeWrapped(w, text, 4)
 				}
 				return
 			}
@@ -202,7 +202,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		if nextLineHelp {
 			w.WriteString("  " + f.usage + "\n")
 			if text := metaField(h, func(x *Help) string { return x.Short }); text != "" {
-				writeIndented(w, text, 4)
+				writeWrapped(w, text, 4)
 			}
 			longAnnotations(w, h, true, blockIndent)
 			return
@@ -387,10 +387,10 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 		subPath := append(append([]string{}, path...), sub.Name)
 		out.WriteString("\n" + strings.Join(subPath, " ") + ":\n")
 		if text := metaField(h, func(x *Help) string { return x.Short }); strings.TrimSpace(text) != "" {
-			out.WriteString(trimEnd(text) + "\n")
+			writeWrapped(out, trimEnd(text), 0)
 		}
 		if label := deprecationLabel(h); label != "" {
-			out.WriteString(label + "\n")
+			writeWrapped(out, label, 0)
 		}
 
 		args := visibleArgs(sub, help, false)
@@ -478,7 +478,7 @@ func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string
 		section.WriteString("\n" + title + ":\n")
 		if heading != "" && proseOf != nil {
 			if prose := proseOf(heading); prose != "" {
-				writeIndented(&section, prose, 2)
+				writeWrapped(&section, prose, 2)
 				section.WriteString("\n")
 			}
 		}
