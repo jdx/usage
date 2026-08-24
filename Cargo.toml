@@ -42,20 +42,20 @@ license = "MIT"
 [workspace.dependencies]
 clap_usage = { path = "./clap_usage", version = "5.0.0" }
 usage-cli = { path = "./cli" }
-usage-argv = { path = "./argv", version = "6.3.0" }
-usage-config = { path = "./config", version = "6.3.0" }
-usage-derive = { path = "./derive", version = "6.3.0" }
+usage-argv = { path = "./argv", version = "6.4.0" }
+usage-config = { path = "./config", version = "6.4.0" }
+usage-derive = { path = "./derive", version = "6.4.0" }
 # No features, and defaults off. A feature named here is inherited by every member that writes
 # `workspace = true` and inlines into their published manifests — so `clap` and `validation`
 # reached members that use neither, one of them an adopter's build script. Defaults
 # are off rather than absent because cargo *ignores* a member's `default-features = false` unless
 # the workspace declaration sets it too, and warns that it may become a hard error. Members name
 # what they need, `docs` included.
-usage-lib = { path = "./lib", version = "6.3.0", default-features = false }
-usage-rs = { path = "./usage-rs", version = "6.3.0" }
-usage-dynamic = { path = "./usage-dynamic", version = "6.3.0" }
-usage-test = { path = "./test", version = "6.3.0" }
-usage-validation = { path = "./validation", version = "6.3.0" }
+usage-lib = { path = "./lib", version = "6.4.0", default-features = false }
+usage-rs = { path = "./usage-rs", version = "6.4.0" }
+usage-dynamic = { path = "./usage-dynamic", version = "6.4.0" }
+usage-test = { path = "./test", version = "6.4.0" }
+usage-validation = { path = "./validation", version = "6.4.0" }
 
 [workspace.metadata.release]
 allow-branch = ["main"]
