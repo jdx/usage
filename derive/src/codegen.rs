@@ -910,6 +910,33 @@ pub fn emit(cli: &Cli) -> TokenStream {
         }
     };
 
+    // The embedded counterpart to `parse_into_from`. It cannot live in the `parse_into` block
+    // above, which is built before the runtime identity `effective_spec` depends on.
+    let embedded_outcome_into = cli.try_into.as_ref().map(|target| {
+        quote! {
+            /// [`Self::embedded_outcome`], finalized into the application's domain type.
+            ///
+            /// Spec and completion requests, help, versions and failures behave exactly as
+            /// they do there, and a `TryFrom` finalization error becomes the same failure
+            /// response a parse error does.
+            pub fn embedded_outcome_into(
+                argv: &[::std::ffi::OsString],
+            ) -> usage_argv::embedded::Outcome<#target> {
+                let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
+                    argv.iter().map(|arg| arg.as_os_str()).collect();
+                #embedded_spec_request
+                #embedded_completion_request
+                #effective_spec
+                usage_argv::embedded::outcome(
+                    __usage_spec,
+                    Self::command(),
+                    &__usage_refs,
+                    Self::parse_into_from,
+                )
+            }
+        }
+    });
+
     // One renderer for every help request. Which page a request becomes — and whether it is the
     // route the words took or a fallback by address — is decided once, in usage-argv, rather
     // than three times here in code nobody reads until it is wrong. It is also what lets a test
@@ -1368,6 +1395,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                         Self::parse_from,
                     )
                 }
+
+                #embedded_outcome_into
 
                 #settings_binding_forward
                 #settings_parse

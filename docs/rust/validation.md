@@ -282,7 +282,8 @@ fn main() {
 ```
 
 `parse_into_from`, `parse_into_from_with_warnings`, `parse_into_from_argv`, and
-`try_parse_into_from` are the returning-error counterparts. The original `parse_*` methods remain
+`try_parse_into_from` are the returning-error counterparts, and `embedded_outcome_into` is the
+[embedded](/rust/help#embedding-without-exiting) one. The original `parse_*` methods remain
 available when a caller wants the declaration type itself.
 
 ## Portable expressions

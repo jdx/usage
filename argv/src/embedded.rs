@@ -49,6 +49,14 @@ impl<T> Outcome<T> {
             Self::Exit(exit) => Some(exit),
         }
     }
+
+    /// The same outcome over a converted value, for a host that finalizes what it parsed.
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Outcome<U> {
+        match self {
+            Self::Parsed(parsed) => Outcome::Parsed(f(parsed)),
+            Self::Exit(exit) => Outcome::Exit(exit),
+        }
+    }
 }
 
 /// Parse one command line without printing or ending the host process.
@@ -179,6 +187,26 @@ mod tests {
     fn a_parsed_value_is_returned_to_the_host() {
         let got = outcome_with_styles(&SPEC, &ROOT, &[], |_| Ok(7), Style::PLAIN, Style::PLAIN);
         assert_eq!(got.parsed(), Some(7));
+    }
+
+    #[test]
+    fn a_mapped_outcome_converts_only_a_parsed_value() {
+        let parsed = outcome_with_styles(&SPEC, &ROOT, &[], |_| Ok(7), Style::PLAIN, Style::PLAIN);
+        assert_eq!(parsed.map(|value| value * 2).parsed(), Some(14));
+
+        let failure = outcome_with_styles(
+            &SPEC,
+            &ROOT,
+            &[],
+            failed::<i32>(Error::Version { long: false }),
+            Style::PLAIN,
+            Style::PLAIN,
+        );
+        let mapped = failure.map(|value| value.to_string());
+        assert_eq!(
+            mapped.exit().map(|exit| exit.text.as_str()),
+            Some("ex 1.2.3\n")
+        );
     }
 
     #[test]
