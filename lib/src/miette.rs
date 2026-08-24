@@ -75,6 +75,31 @@ impl<S> NamedSource<S> {
     }
 }
 
+#[cfg(feature = "miette")]
+impl ::miette::SourceCode for NamedSource<String> {
+    fn read_span<'a>(
+        &'a self,
+        span: &::miette::SourceSpan,
+        context_lines_before: usize,
+        context_lines_after: usize,
+    ) -> std::result::Result<Box<dyn ::miette::SpanContents<'a> + 'a>, ::miette::MietteError> {
+        let contents = ::miette::SourceCode::read_span(
+            &self.source,
+            span,
+            context_lines_before,
+            context_lines_after,
+        )?;
+        Ok(Box::new(::miette::MietteSpanContents::new_named(
+            self.name.clone(),
+            contents.data(),
+            *contents.span(),
+            contents.line(),
+            contents.column(),
+            contents.line_count(),
+        )))
+    }
+}
+
 #[derive(Debug)]
 pub struct MietteError(String);
 
@@ -233,6 +258,29 @@ mod tests {
         assert!(rendered.contains("╰── not quoted string"), "{rendered}");
         assert!(
             rendered.contains("help: You can make a string multi-line"),
+            "{rendered}"
+        );
+    }
+
+    #[cfg(feature = "miette")]
+    #[test]
+    fn a_kdl_syntax_error_works_with_a_miette_reporter() {
+        let source = "name broken\nflag --output {\n  arg \"unterminated\n}\n";
+        let error = source.parse::<Spec>().unwrap_err();
+        let mut rendered = String::new();
+
+        ::miette::NarratableReportHandler::new()
+            .render_report(&mut rendered, &error)
+            .unwrap();
+
+        assert!(
+            rendered.contains("Unexpected newline in single-line quoted string"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("line 3, columns 7 to 19"), "{rendered}");
+        assert!(rendered.contains("not quoted string"), "{rendered}");
+        assert!(
+            rendered.contains("You can make a string multi-line"),
             "{rendered}"
         );
     }

@@ -35,6 +35,19 @@ impl Display for KdlError {
 
 impl Error for KdlError {}
 
+#[cfg(feature = "miette")]
+impl ::miette::Diagnostic for KdlError {
+    fn related<'a>(
+        &'a self,
+    ) -> Option<Box<dyn Iterator<Item = &'a dyn ::miette::Diagnostic> + 'a>> {
+        Some(Box::new(
+            self.diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic as &dyn ::miette::Diagnostic),
+        ))
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
 pub enum Severity {
     #[default]
@@ -60,3 +73,32 @@ impl Display for KdlDiagnostic {
 }
 
 impl Error for KdlDiagnostic {}
+
+#[cfg(feature = "miette")]
+impl ::miette::Diagnostic for KdlDiagnostic {
+    fn severity(&self) -> Option<::miette::Severity> {
+        Some(match self.severity {
+            Severity::Error => ::miette::Severity::Error,
+            Severity::Warning => ::miette::Severity::Warning,
+            Severity::Advice => ::miette::Severity::Advice,
+        })
+    }
+
+    fn help<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
+        self.help
+            .as_ref()
+            .map(|help| Box::new(help) as Box<dyn Display>)
+    }
+
+    fn source_code(&self) -> Option<&dyn ::miette::SourceCode> {
+        Some(&self.input)
+    }
+
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = ::miette::LabeledSpan> + '_>> {
+        let label = ::miette::LabeledSpan::at(
+            self.span.offset()..self.span.offset() + self.span.len(),
+            self.label.as_deref().unwrap_or("here"),
+        );
+        Some(Box::new(std::iter::once(label)))
+    }
+}

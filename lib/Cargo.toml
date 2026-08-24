@@ -28,6 +28,7 @@ heck = "0.5"
 indexmap = { version = "2", features = ["serde"] }
 itertools = "0.15"
 log = "0.4"
+miette = { version = "7", default-features = false, optional = true }
 num-traits = "0.2"
 regex = "1"
 roff = { version = "1.0", optional = true }
@@ -49,6 +50,8 @@ default = ["docs"]
 # CLI help is useful to lightweight consumers that do not generate Markdown or manpages.
 cli-help = ["tera"]
 docs = ["cli-help", "roff"]
+# Let applications that already use miette pass usage errors directly to their reporter.
+miette = ["dep:miette"]
 validation = ["dep:usage-validation"]
 unstable_choices_env = []
 

@@ -8,6 +8,9 @@ use thiserror::Error;
 /// this enum grows every time the spec learns to say something new — `MissingGroup`
 /// arrived with groups, `ArgRequiresDoubleDash` with `double_dash` — and without this
 /// each one is a major release for everyone downstream.
+///
+/// With the `miette` feature enabled, this implements `miette::Diagnostic` so applications can
+/// pass it directly to their existing miette reporter. The feature is disabled by default.
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum UsageErr {
@@ -162,6 +165,41 @@ impl UsageErr {
             } => crate::miette::render_source(&self.to_string(), "", input, *span, reason, None),
             Self::KdlError(error) => error.render(),
             _ => self.to_string(),
+        }
+    }
+}
+
+#[cfg(feature = "miette")]
+impl ::miette::Diagnostic for UsageErr {
+    fn source_code(&self) -> Option<&dyn ::miette::SourceCode> {
+        match self {
+            Self::InvalidInput(_, _, source) => Some(source),
+            Self::InvalidFlag { input, .. } => Some(input),
+            _ => None,
+        }
+    }
+
+    fn labels(&self) -> Option<Box<dyn Iterator<Item = ::miette::LabeledSpan> + '_>> {
+        let (span, label) = match self {
+            Self::InvalidInput(message, span, _) => (*span, message.as_str()),
+            Self::InvalidFlag { reason, span, .. } => (*span, reason.as_str()),
+            _ => return None,
+        };
+        let label = ::miette::LabeledSpan::at(span.offset()..span.offset() + span.len(), label);
+        Some(Box::new(std::iter::once(label)))
+    }
+
+    fn related<'a>(
+        &'a self,
+    ) -> Option<Box<dyn Iterator<Item = &'a dyn ::miette::Diagnostic> + 'a>> {
+        match self {
+            Self::KdlError(error) => Some(Box::new(
+                error
+                    .diagnostics
+                    .iter()
+                    .map(|diagnostic| diagnostic as &dyn ::miette::Diagnostic),
+            )),
+            _ => None,
         }
     }
 }
