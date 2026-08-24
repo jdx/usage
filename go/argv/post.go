@@ -311,6 +311,40 @@ func explicitRelationshipValues(m *Meta, values []string, source Source, negated
 	return values
 }
 
+// CheckDisplaced judges the words an entry was typed, and nothing else about it.
+//
+// It is the half of [Check] that still applies to a flag which lost an
+// `overrides`. Such a flag is out of the running for `required`, for `env` and
+// `default`, and for the rules that read one entry to judge another — but
+// `overrides` settles which of a pair is *in effect*, not whether the word the
+// loser was handed was ever one it accepts. `--log-level=v --trace` is refused
+// for that reason, and usage-lib and the Rust derives agree; the corpus pins it
+// as `overrides-do-not-erase-an-invalid-choice`.
+//
+// Pass the values the command line supplied, before any `env` or `default`
+// fallback: a loser is not filled from either, so there is nothing else to judge.
+func CheckDisplaced(m *Meta, values []string) *Error {
+	if m == nil {
+		return nil
+	}
+	accepted := m.AcceptedChoices
+	if len(accepted) == 0 {
+		accepted = m.Choices
+	}
+	if len(accepted) == 0 || m.AllowUnknownChoices {
+		return nil
+	}
+	// Every value, not just the first: a variadic can be given a good value
+	// and a bad one, and so can a repeatable flag across occurrences.
+	for _, v := range values {
+		if !containsChoice(accepted, v, m.IgnoreCase) {
+			return &Error{Code: CodeInvalidChoice, Name: m.Name,
+				Spelling: m.Spelling, Choices: m.Choices}
+		}
+	}
+	return nil
+}
+
 // Check applies the rules that judge what ended up bound.
 //
 // `values` is the result of [Fill], and `occurrences` is how many times a
@@ -341,19 +375,8 @@ func Check(m *Meta, values []string, occurrences int) *Error {
 		return &Error{Code: code, Name: m.Name, Spelling: m.Spelling}
 	}
 
-	accepted := m.AcceptedChoices
-	if len(accepted) == 0 {
-		accepted = m.Choices
-	}
-	if len(accepted) > 0 && !m.AllowUnknownChoices {
-		// Every value, not just the first: a variadic can be given a good value
-		// and a bad one, and so can a repeatable flag across occurrences.
-		for _, v := range values {
-			if !containsChoice(accepted, v, m.IgnoreCase) {
-				return &Error{Code: CodeInvalidChoice, Name: m.Name,
-					Spelling: m.Spelling, Choices: m.Choices}
-			}
-		}
+	if err := CheckDisplaced(m, values); err != nil {
+		return err
 	}
 
 	if m.Validate != "" {

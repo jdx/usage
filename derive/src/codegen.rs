@@ -9305,19 +9305,27 @@ fn post_binding(cli: &Cli) -> TokenStream {
         let standing_only = unless_standing_only(f);
         let given = format_ident!("__given_{}", ident);
         Some(quote! {
+            // Asked outside the `given` guard below, because a flag that lost an `overrides`
+            // is no longer given and its value has gone back to its default — so the loop has
+            // nothing left to look at, and without this the word would go unreported.
+            // `overrides` settles which of two flags is in effect; it does not make a word
+            // that was never one of the choices into one. usage-lib and clap both refuse
+            // `--log-level=v --trace` for that reason, and mise's spec is where the
+            // divergence showed up. A repeat of the *same* flag clears this ledger itself,
+            // so what reaches here is a word nothing later replaced.
+            if #active && partial.#invalid {
+                return ::std::result::Result::Err(
+                    usage_argv::Error::InvalidChoice {
+                        name: #name,
+                        choices: #choices,
+                    },
+                );
+            }
             // Choices validate lexical input. A typed computed default is already a value of
             // the field's type; its `Display` form exists only so the partial can carry it to
             // the final conversion and need not itself be one of the advertised CLI words.
             // Environment values mark the field given, so they still take this path.
             if #active && partial.#given #standing_only {
-                if partial.#invalid {
-                    return ::std::result::Result::Err(
-                        usage_argv::Error::InvalidChoice {
-                            name: #name,
-                            choices: #choices,
-                        },
-                    );
-                }
                 for value in #values {
                     // Compared as text, since a choice is a word.
                 //

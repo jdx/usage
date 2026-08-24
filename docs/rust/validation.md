@@ -39,7 +39,10 @@ max_retries: Option<u32>,
 
 `overrides` is the quiet sibling of `conflicts`: a later occurrence of one flag discards an
 earlier occurrence of the other instead of erroring — useful for `--json` / `--yaml` pairs where
-the last one typed should win.
+the last one typed should win. What it discards is the value, not the fact that a word was
+typed: a value outside the loser's `choices` is still an `InvalidChoice`, since `overrides`
+answers which flag is in effect and not whether the word was one that flag accepts. Only a
+later occurrence of the same flag replaces its value.
 
 ## Groups
 

@@ -441,6 +441,12 @@ struct Ovr {
     /// Everything
     #[usage(long)]
     all: bool,
+    /// How much to log
+    #[usage(long, choices("debug", "info"), overrides = "--trace")]
+    level: Option<String>,
+    /// Log everything
+    #[usage(long)]
+    trace: bool,
 }
 
 #[test]
@@ -456,6 +462,43 @@ fn the_last_of_two_overriding_flags_wins() {
     let ovr = Ovr::parse_from(&a).expect("should parse");
     assert_eq!(ovr.file.as_deref(), Some("f"));
     assert!(!ovr.stdin, "displaced by the flag that came after it");
+}
+
+/// The corpus's `overrides-do-not-erase-an-invalid-choice`.
+///
+/// Found by the differential proptest over mise's spec, where
+/// `mise --log-level=v --trace` was accepted here and refused by usage-lib and by clap.
+/// The pair is settled by `overrides`; whether `v` is a word the flag accepts is not.
+#[test]
+fn an_override_does_not_erase_an_invalid_choice() {
+    let a = argv(["--level", "v", "--trace"]);
+    assert!(
+        matches!(
+            Ovr::parse_from(&a),
+            Err(usage_argv::Error::InvalidChoice { name: "level", .. })
+        ),
+        "the displaced flag's word was still never one of the choices"
+    );
+
+    // The other way round, where the flag carrying the bad word is the one that won.
+    let a = argv(["--trace", "--level", "v"]);
+    assert!(matches!(
+        Ovr::parse_from(&a),
+        Err(usage_argv::Error::InvalidChoice { name: "level", .. })
+    ));
+
+    // A word that *is* one of the choices is displaced in silence, as before.
+    let a = argv(["--level", "info", "--trace"]);
+    let ovr = Ovr::parse_from(&a).expect("should parse");
+    assert!(ovr.trace);
+    assert_eq!(ovr.level, None, "displaced by the flag that came after it");
+
+    // And a later occurrence of the flag itself *is* a correction: only that replaces the
+    // word, which is the rule `the_last_scalar_choice_controls_validation` pins.
+    let a = argv(["--level", "v", "--level", "info", "--trace"]);
+    let ovr = Ovr::parse_from(&a).expect("the second occurrence replaced the bad word");
+    assert!(ovr.trace);
+    assert_eq!(ovr.level, None);
 }
 
 #[test]

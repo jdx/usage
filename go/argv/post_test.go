@@ -174,6 +174,31 @@ func TestCheckRichChoices(t *testing.T) {
 	}
 }
 
+// The corpus's `overrides-do-not-erase-an-invalid-choice`.
+//
+// A flag that lost an `overrides` holds nothing, so every other rule in [Check]
+// has nothing to judge — but `overrides` settles which of a pair is in effect,
+// not whether the word the loser was handed was one it accepts.
+func TestCheckDisplacedJudgesOnlyTheWords(t *testing.T) {
+	meta := &Meta{Name: "log-level", Spelling: "--log-level",
+		Choices: []string{"debug", "info"}, Required: true}
+
+	if err := CheckDisplaced(meta, []string{"v"}); err == nil || err.Code != CodeInvalidChoice {
+		t.Fatalf("a word outside the choices survives the displacement: %+v", err)
+	}
+	if err := CheckDisplaced(meta, []string{"info"}); err != nil {
+		t.Fatalf("a word among the choices is displaced in silence: %v", err)
+	}
+	// The half that does *not* survive: a loser is not missing, it is out of the
+	// running. Reporting it would undo the last-one-wins the user asked for.
+	if err := CheckDisplaced(meta, nil); err != nil {
+		t.Fatalf("a loser that was never typed has nothing to answer for: %v", err)
+	}
+	if err := CheckDisplaced(nil, []string{"v"}); err != nil {
+		t.Fatalf("an unknown entry declares no choices: %v", err)
+	}
+}
+
 func TestCheckPortableValidation(t *testing.T) {
 	meta := &Meta{
 		Name:          "port",
