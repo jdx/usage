@@ -76,7 +76,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	}
 
 	if meta == nil || !meta.FlattenHelp {
-		commandsSection(&sections.commands, path[min(1, len(path)):], cmd, help)
+		commandsSection(&sections.commands, path[min(1, len(path)):], cmd, help, true)
 	}
 
 	// One column width per section, over its visible entries — separately, so a
@@ -90,6 +90,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	}
 	groupsSection(&sections.args, &sections.ungroupedArgs, &sections.groupedArgs, "Arguments", len(args),
 		func(i int) string { return headingOf(help, args[i].Key) },
+		headingProse(meta),
 		func(w *strings.Builder, i int) {
 			h := help.Lookup(args[i].Key)
 			entry(w, argUsage(args[i], h), firstOf(metaField(h, func(x *Help) string { return x.Long }),
@@ -126,12 +127,14 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 			}
 			return headingOf(help, own[i].key)
 		},
+		headingProse(meta),
 		func(w *strings.Builder, i int) { writeFlag(w, own[i]) })
 	// Not grouped by heading: an ancestor's headings describe that command's page,
 	// and borrowing them here would put a section title on flags that are only
 	// visiting.
 	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Global flags", len(inherited),
 		func(int) string { return "" },
+		nil,
 		func(w *strings.Builder, i int) { writeFlag(w, inherited[i]) })
 	if meta != nil && meta.FlattenHelp {
 		flatCommandsLong(&sections.flattened, path[min(1, len(path)):], cmd, help, nextLineHelp)
@@ -323,6 +326,22 @@ func longAnnotations(out *strings.Builder, h *Help, withDefault bool) {
 // an indented empty line is trailing whitespace, which the reference does not
 // emit. Indenting them instead differs on every page, which is how this was
 // settled rather than by reading the template.
+// headingProse is the prose a command declares for one of its section titles.
+// Nil where it declares none, so a caller pays nothing for the common case.
+func headingProse(meta *Help) func(string) string {
+	if meta == nil || len(meta.Headings) == 0 {
+		return nil
+	}
+	return func(title string) string {
+		for _, heading := range meta.Headings {
+			if heading.Title == title {
+				return heading.Help
+			}
+		}
+		return ""
+	}
+}
+
 func writeIndented(out *strings.Builder, text string, by int) {
 	prefix := strings.Repeat(" ", by)
 	for i, line := range strings.Split(text, "\n") {

@@ -102,6 +102,8 @@ type Help struct {
 	SubcommandRequired    bool
 	// Examples are worked invocations, printed last.
 	Examples []Example
+	// Headings is prose for the sections this command's entries build, by title.
+	Headings []Heading
 }
 
 // HelpTable is the cold help table, indexed by key: entry `Key` sits at

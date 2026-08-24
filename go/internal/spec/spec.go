@@ -106,6 +106,7 @@ type Cmd struct {
 	BeforeHelpLong              string      `json:"before_help_long"`
 	AfterHelpLong               string      `json:"after_help_long"`
 	Examples                    []Example   `json:"examples"`
+	Headings                    []Heading   `json:"headings"`
 	Aliases                     []string    `json:"aliases"`
 	HiddenAliases               []string    `json:"hidden_aliases"`
 	Subcommands                 Subcommands `json:"subcommands"`
@@ -395,6 +396,12 @@ type Example struct {
 	Header string `json:"header"`
 	Code   string `json:"code"`
 	Help   string `json:"help"`
+}
+
+// Heading is prose introducing one help section, named by the heading it opens.
+type Heading struct {
+	Title string `json:"title"`
+	Help  string `json:"help"`
 }
 
 // Choices is the declared set of values, which the lowering nests one level.
@@ -698,6 +705,10 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	for _, e := range c.Examples {
 		examples = append(examples, argv.Example{Header: e.Header, Code: e.Code, Help: e.Help})
 	}
+	headings := make([]argv.Heading, 0, len(c.Headings))
+	for _, h := range c.Headings {
+		headings = append(headings, argv.Heading{Title: h.Title, Help: h.Help})
+	}
 	commandHelp := argv.Help{
 		Hide:    c.Hide,
 		Heading: c.HelpHeading,
@@ -725,6 +736,7 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 		FlattenHelp:           c.FlattenHelp,
 		SubcommandRequired:    c.SubcommandRequired,
 		Examples:              examples,
+		Headings:              headings,
 	}
 	if c.DisplayOrder != nil {
 		commandHelp.DisplayOrder = *c.DisplayOrder
