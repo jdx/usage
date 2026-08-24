@@ -43,7 +43,7 @@ struct TaskSettings {
     set_hint = "git config {key} {value}"
 ))]
 #[usage(file(path = "/etc/ex.toml", scope = "system", format = "toml"))]
-#[usage(file(path = "ex/config.toml", xdg = "config", format = "toml"))]
+#[usage(file(path = "ex/config.toml", xdg = "config"))]
 #[usage(file(path = "ex.toml", findup))]
 struct Settings {
     /// How many jobs to run at once
