@@ -1128,6 +1128,25 @@ fn command_help(e: &Emitted) -> String {
             .join(", ");
         fields.push(format!("Examples: []argv.Example{{{items}}}"));
     }
+    // The prose introducing each help section. Lowered from a spec it travels with the
+    // rest of the help metadata, and a generated CLI that dropped it printed the heading
+    // with nothing under it while every other reader of the same spec showed the text.
+    if !e.cmd.headings.is_empty() {
+        let items = e
+            .cmd
+            .headings
+            .iter()
+            .map(|heading| {
+                format!(
+                    "{{Title: {}, Help: {}}}",
+                    go_string(&heading.title),
+                    go_string(&heading.help)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        fields.push(format!("Headings: []argv.Heading{{{items}}}"));
+    }
     format!("{{{}}}", fields.join(", "))
 }
 
@@ -1944,6 +1963,31 @@ cmd "run" help="Run it" {
         assert!(
             run.contains(r#"{Code: "ex run"}"#),
             "an example with no header emits no header: {run}"
+        );
+    }
+
+    /// A section's prose reaches the tables.
+    ///
+    /// It is lowered from a spec the same way, so the two producers only agree
+    /// if the emitter writes it too — and mise declares no `heading`, so the
+    /// producer comparison over its spec cannot see this either.
+    #[test]
+    fn heading_prose_reaches_the_tables() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+cmd "run" help="Run it" {
+    heading "Filters" help="Filters accumulate from left to right."
+    flag "--allow <NAME>" help="Allow it" help_heading="Filters"
+}
+"#);
+        let run = out
+            .lines()
+            .find(|l| l.contains("Headings: []argv.Heading"))
+            .expect("the command's headings are emitted");
+        assert!(
+            run.contains(r#"{Title: "Filters", Help: "Filters accumulate from left to right."}"#),
+            "both fields are emitted: {run}"
         );
     }
 

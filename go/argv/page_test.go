@@ -420,3 +420,63 @@ func TestAllHelpWalksVisibleDescendants(t *testing.T) {
 		t.Fatalf("explicit display order followed unordered commands:\n%s", page)
 	}
 }
+
+func TestHeadingProse(t *testing.T) {
+	root := &Command{
+		Name: "ex",
+		Key:  1,
+		Flags: []*Flag{
+			{Name: "allow", Longs: []string{"allow"}, Shorts: []byte{'A'}, Key: 2},
+			{Name: "quiet", Longs: []string{"quiet"}, Key: 3},
+		},
+	}
+	help := HelpTable{
+		{Key: 1, Headings: []Heading{
+			{Title: "Filters", Help: "Filters accumulate from left to right.\nFor example: `-A no-debugger`."},
+			{Title: "Flags", Help: "Should not appear: the default title is not a declared heading."},
+		}},
+		{Key: 2, Short: "allow a rule", Heading: "Filters"},
+		{Key: 3, Short: "say less"},
+	}
+
+	long := LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	want := "\nFilters:\n  Filters accumulate from left to right.\n  For example: `-A no-debugger`.\n\n"
+	if !strings.Contains(long, want) {
+		t.Fatalf("prose does not introduce its section:\n%s", long)
+	}
+	// Within the section, not the usage line above it: the prose opens the block and the
+	// entries still follow.
+	section := long[strings.Index(long, "\nFilters:\n"):]
+	if i, j := strings.Index(section, "For example"), strings.Index(section, "--allow"); j < i {
+		t.Fatalf("prose replaced the section instead of introducing it:\n%s", long)
+	}
+	// The default title names the entries that asked for no section, and it is not one
+	// title — the same flags read as `Flags` here and as `Global Flags` elsewhere.
+	if strings.Contains(long, "Should not appear") {
+		t.Fatalf("an undeclared default title took prose:\n%s", long)
+	}
+
+	// A summary stays a summary, as it does for admonitions.
+	short := ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	if strings.Contains(short, "accumulate from left to right") {
+		t.Fatalf("prose reached the short page:\n%s", short)
+	}
+}
+
+func TestSubcommandHeadingProse(t *testing.T) {
+	compile := &Command{Name: "compile", Key: 2}
+	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{compile}}
+	help := HelpTable{
+		{Key: 1, Headings: []Heading{{Title: "Build Commands", Help: "These write to the target directory."}}},
+		{Key: 2, Short: "compile it", Heading: "Build Commands"},
+	}
+
+	long := LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	if !strings.Contains(long, "\nBuild Commands:\n  These write to the target directory.\n\n") {
+		t.Fatalf("a subcommand heading took no prose:\n%s", long)
+	}
+	short := ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	if strings.Contains(short, "These write to") {
+		t.Fatalf("prose reached the short page:\n%s", short)
+	}
+}

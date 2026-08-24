@@ -49,6 +49,14 @@ type HelpSpec struct {
 	HelpTemplate string
 }
 
+// Heading is prose introducing one help section, printed between the heading
+// and its entries. Keyed by title, because a section is assembled from
+// everything that names it rather than owned by any one entry.
+type Heading struct {
+	Title string
+	Help  string
+}
+
 // Example is one worked invocation, as a page prints it.
 type Example struct {
 	Header string
@@ -124,7 +132,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	// usage-lib prints the whole path from the root rather than the child's own
 	// name.
 	if meta == nil || !meta.FlattenHelp {
-		commandsSection(&sections.commands, path[min(1, len(path)):], cmd, help)
+		commandsSection(&sections.commands, path[min(1, len(path)):], cmd, help, false)
 	}
 
 	args := visibleArgs(cmd, help, false)
@@ -137,6 +145,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	}
 	groupsSection(&sections.args, &sections.ungroupedArgs, &sections.groupedArgs, "Arguments", len(args),
 		func(i int) string { return headingOf(help, args[i].Key) },
+		nil,
 		func(w *strings.Builder, i int) {
 			a := args[i]
 			h := help.Lookup(a.Key)
@@ -200,12 +209,14 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			}
 			return headingOf(help, own[i].key)
 		},
+		nil,
 		func(w *strings.Builder, i int) { flagEntry(w, own[i]) })
 	// After the command's own, and under a heading that says where they came
 	// from: a global belongs to the program, not to this command, and a reader
 	// should be able to see that.
 	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Global flags", len(inherited),
 		func(int) string { return "" },
+		nil,
 		func(w *strings.Builder, i int) { flagEntry(w, inherited[i]) })
 	if meta != nil && meta.FlattenHelp {
 		flatCommandsShort(&sections.flattened, path[min(1, len(path)):], cmd, help, nextLineHelp)
@@ -237,7 +248,7 @@ const (
 // command takes belongs to that command's own page. Both pages read the same summary: a
 // parent's list says what each child is *for*, and what a child does at length belongs on
 // the child's own page rather than repeated in every ancestor's.
-func commandsSection(out *strings.Builder, path []string, cmd *Command, help HelpTable) {
+func commandsSection(out *strings.Builder, path []string, cmd *Command, help HelpTable, long bool) {
 	type line struct {
 		usage string
 		sub   *Command
@@ -302,6 +313,16 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 			title = heading
 		}
 		out.WriteString("\n" + title + ":\n")
+		// A `help_heading` on a subcommand builds a section like a flag's does, so it
+		// takes prose on the same terms: the long page only, and only once declared.
+		if long && section != "" {
+			if proseOf := headingProse(help.Lookup(cmd.Key)); proseOf != nil {
+				if prose := proseOf(section); prose != "" {
+					writeIndented(out, prose, 2)
+					out.WriteString("\n")
+				}
+			}
+		}
 		for _, l := range lines {
 			itemSection := headingOf(help, l.sub.Key)
 			if itemSection == heading {
@@ -424,8 +445,11 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 
 // groupsSection writes one section per heading, unheaded first, in the order the
 // headings first appear.
+// proseOf, where a caller supplies one, is the prose introducing a section. Only a
+// declared heading takes it: the default title names the entries that asked for no
+// section, and the same entries appear under a different default per renderer.
 func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string, n int,
-	headingOf func(int) string, writeItem func(*strings.Builder, int)) {
+	headingOf func(int) string, proseOf func(string) string, writeItem func(*strings.Builder, int)) {
 
 	if n == 0 {
 		return
@@ -451,6 +475,12 @@ func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string
 			title = defaultTitle
 		}
 		section.WriteString("\n" + title + ":\n")
+		if heading != "" && proseOf != nil {
+			if prose := proseOf(heading); prose != "" {
+				writeIndented(&section, prose, 2)
+				section.WriteString("\n")
+			}
+		}
 		for i := 0; i < n; i++ {
 			if headingOf(i) == heading {
 				writeItem(&section, i)
