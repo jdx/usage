@@ -318,7 +318,7 @@ fn a_flattened_structs_group_is_enforced_and_emitted() {
     // spec would describe a CLI without a rule the CLI enforces.
     let kdl = Flattened::to_kdl();
     assert!(
-        kdl.contains("group output --json --yaml required=#true"),
+        kdl.contains("group output \"--json\" \"--yaml\" required=#true"),
         "{kdl}"
     );
     let spec: LibSpec = kdl.parse().expect("the emitted spec should parse");

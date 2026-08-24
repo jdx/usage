@@ -841,10 +841,10 @@ fn a_group_that_is_not_required_may_be_left_alone() {
 fn a_group_reaches_the_emitted_spec_and_usage_lib_agrees() {
     let kdl = Grp::to_kdl();
     assert!(
-        kdl.contains("group input --file --url --stdin required=#true"),
+        kdl.contains("group input \"--file\" \"--url\" \"--stdin\" required=#true"),
         "{kdl}"
     );
-    assert!(kdl.contains("group format --json --yaml"), "{kdl}");
+    assert!(kdl.contains("group format \"--json\" \"--yaml\""), "{kdl}");
 
     // The reference implementation reads what the derive wrote, and enforces the same
     // rule — which is the point of the spec being the definition rather than a summary.

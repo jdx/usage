@@ -103,7 +103,7 @@ fn a_multiple_argument_group_preserves_cross_flag_order() {
 
     let kdl = OrderedFilters::to_kdl();
     assert!(
-        kdl.contains("group lint-filter --allow --warn --deny multiple=#true"),
+        kdl.contains("group lint-filter \"--allow\" \"--warn\" \"--deny\" multiple=#true"),
         "{kdl}"
     );
 }
@@ -195,7 +195,7 @@ fn a_value_carrying_group_member_reaches_help_and_the_spec() {
         "{kdl}"
     );
     assert!(
-        kdl.contains("group mode --write --check --migrate --stdin-filepath"),
+        kdl.contains("group mode \"--write\" \"--check\" \"--migrate\" \"--stdin-filepath\""),
         "{kdl}"
     );
 }
@@ -325,9 +325,12 @@ fn the_group_reaches_the_emitted_spec_and_usage_lib_agrees() {
     ] {
         assert!(kdl.contains(flag), "{flag} missing from:\n{kdl}");
     }
-    assert!(kdl.contains("group format --json --yaml --plain"), "{kdl}");
     assert!(
-        kdl.contains("group source --stdin --clipboard required=#true"),
+        kdl.contains("group format \"--json\" \"--yaml\" \"--plain\""),
+        "{kdl}"
+    );
+    assert!(
+        kdl.contains("group source \"--stdin\" \"--clipboard\" required=#true"),
         "{kdl}"
     );
 
@@ -411,7 +414,10 @@ fn a_group_works_on_a_subcommand_beside_a_flattened_one() {
     // The subcommand's flags are joined in the order the fields were written: the flattened
     // struct's, then the group's, then this command's own positional.
     let kdl = Nested::to_kdl();
-    assert!(kdl.contains("group format --json --yaml --plain"), "{kdl}");
+    assert!(
+        kdl.contains("group format \"--json\" \"--yaml\" \"--plain\""),
+        "{kdl}"
+    );
 }
 
 /// A sibling flag that names a group member — the relationship lookup Bugbot caught as missing.
