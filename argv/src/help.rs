@@ -795,7 +795,7 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
 
 /// How one flag appears in the usage line: `-f --force`, plus its value if it takes one.
 fn flag_usage(meta: &FlagMeta<'_>) -> String {
-    flag_usage_masked(meta, &Shown::all(meta))
+    flag_usage_masked(meta, &Shown::all(meta), true)
 }
 
 /// The spellings of one flag that a page should offer.
@@ -878,7 +878,7 @@ impl<'a> Shown<'a> {
 /// A descendant may take one of an ancestor's two spellings — its own `-v` beside the root's
 /// `-v, --verbose` — and the parser still accepts the other, so the page has to offer the other
 /// and not the one that now means something else.
-fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
+fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown, show_repeatable: bool) -> String {
     let flag = meta.flag;
     let mut out = String::new();
 
@@ -921,7 +921,7 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
 
     // A repeatable flag, which is the spec's `var=#true` — not one occurrence taking several
     // values, which is the value's own business below.
-    if meta.repeatable {
+    if show_repeatable && meta.repeatable {
         out.push('…');
     }
     if flag.takes_value {
@@ -1863,7 +1863,10 @@ pub(crate) fn flag_spelling(meta: &FlagMeta<'_>) -> String {
 }
 
 fn display_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
-    let usage = flag_usage_masked(meta, show);
+    // Repetition is useful in the formal usage grammar, but an ellipsis immediately after a
+    // flag spelling looks like terminal truncation in the aligned help table. clap and most
+    // other CLIs list the ordinary spelling here and leave repeatability to the description.
+    let usage = flag_usage_masked(meta, show, false);
     match meta.flag.negate.filter(|_| show.negate) {
         // A flag whose only spelling is its negation has nothing before it: the name prefix
         // would repeat the spelling, so `flag_usage_masked` writes nothing and the negation

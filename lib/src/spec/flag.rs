@@ -867,6 +867,14 @@ impl SpecFlag {
     }
 
     pub fn usage(&self) -> String {
+        self.usage_with_repeatable(true)
+    }
+
+    pub(crate) fn usage_without_repeatable(&self) -> String {
+        self.usage_with_repeatable(false)
+    }
+
+    fn usage_with_repeatable(&self, show_repeatable: bool) -> String {
         let mut parts = vec![];
         let name = get_name_from_short_and_long(&self.short, &self.long).unwrap_or_default();
         // A flag whose only spelling is its negation — clap's `SetFalse`, tak's
@@ -890,7 +898,7 @@ impl SpecFlag {
             parts.push(format!("--{long}"));
         }
         let mut out = parts.join(" ");
-        if self.var {
+        if show_repeatable && self.var {
             out = format!("{out}…");
         }
         if let Some(arg) = &self.arg {

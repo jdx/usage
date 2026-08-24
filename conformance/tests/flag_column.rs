@@ -37,6 +37,27 @@ struct Ex {
     /// Its description is long enough to need wrapping at any sane width
     #[usage(long)]
     describe: bool,
+    /// A repeatable value
+    #[usage(long)]
+    tag: Vec<String>,
+    /// Repeatable verbosity
+    #[usage(long, count)]
+    verbose: u8,
+}
+
+#[test]
+fn repeatable_flags_do_not_look_truncated_in_the_help_table() {
+    for long in [false, true] {
+        let compiled = page(long);
+        assert!(compiled.contains("--tag <TAG>"), "long={long}: {compiled}");
+        assert!(compiled.contains("--verbose"), "long={long}: {compiled}");
+        assert!(!compiled.contains("--tag…"), "long={long}: {compiled}");
+        assert!(!compiled.contains("--verbose…"), "long={long}: {compiled}");
+
+        let spec: usage::Spec = Ex::to_kdl().parse().expect("generated spec");
+        let reference = usage::docs::cli::render_help(&spec, &spec.cmd, long);
+        assert_eq!(reference, compiled);
+    }
 }
 
 fn page(long: bool) -> String {

@@ -990,7 +990,11 @@ const SHORT_COL: usize = 4;
 /// The twin of `column_usage` in `usage-argv`'s `help` module; the two must agree, and the gate
 /// over mise's spec is what says they do.
 fn column_usage(flag: &crate::SpecFlag) -> String {
-    let usage = flag.usage.trim();
+    // `var` marks repeatable occurrences in the formal usage grammar. In an interactive help
+    // row its ellipsis looks like the terminal truncated the flag name, so keep the ordinary
+    // spelling here. A variadic value's trailing ellipsis is separate and remains visible.
+    let column_usage = flag.usage_without_repeatable();
+    let usage = column_usage.trim();
     let rest = match flag.negate.as_deref().map(str::trim) {
         // `SpecFlag::usage` already writes the negation for a flag that has no other
         // spelling — clap's `SetFalse`, tak's `--no-credit` — and appending it again rendered
