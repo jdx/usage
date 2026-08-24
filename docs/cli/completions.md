@@ -1,5 +1,12 @@
 # Generating Completion Scripts
 
+::: tip Building with usage-rs or usage-go?
+Both frameworks generate and answer completions from the tables compiled into your binary, so
+there is no spec file to ship and no `usage` runtime dependency for your users. See
+[Rust completions](/rust/completions) and [Go completions](/go/completions). This page covers
+generating scripts with the `usage` CLI from a `.usage.kdl` spec or a `usage`-shebang script.
+:::
+
 ## Auto-completion for shebang scripts (bash)
 
 If you have shell scripts that use the `usage` shebang
