@@ -100,6 +100,21 @@
           "An example"
         ]
       }
+    },
+    {
+      "id": "template-styles-span-lines-and-empty-sections",
+      "doc": "Style delimiters may stand on their own lines, may wrap a section that renders empty, and may be escaped with a doubled dollar sign; none of those structural lines remains in plain help.",
+      "spec": "name \"ex\"\nbin \"ex\"\nhelp_template \"{$heading}\\nCUSTOM HELP\\n{/$}\\n\\n{$dim}\\n{{args}}\\n{/$}\\n\\n{{usage}}\\n\\n{$$heading} is literal\"\n",
+      "expect": {
+        "usage": "ex",
+        "short_help": [
+          "CUSTOM HELP",
+          "",
+          "Usage: ex",
+          "",
+          "{$heading} is literal"
+        ]
+      }
     }
   ]
 }

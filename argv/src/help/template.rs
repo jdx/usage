@@ -7,6 +7,33 @@
 const MARK: char = '\u{2}';
 const END: char = '\u{3}';
 
+/// The styles accepted in a help template.
+pub const STYLES: [&str; 23] = [
+    "heading",
+    "option",
+    "metavar",
+    "black",
+    "red",
+    "green",
+    "yellow",
+    "blue",
+    "magenta",
+    "cyan",
+    "white",
+    "bright-black",
+    "bright-red",
+    "bright-green",
+    "bright-yellow",
+    "bright-blue",
+    "bright-magenta",
+    "bright-cyan",
+    "bright-white",
+    "bold",
+    "dim",
+    "italic",
+    "underline",
+];
+
 #[derive(Clone, Copy, Default)]
 struct AnsiStyle {
     foreground: Option<u8>,
@@ -17,7 +44,10 @@ struct AnsiStyle {
 }
 
 impl AnsiStyle {
-    fn apply(mut self, specification: &str) -> Self {
+    fn apply(mut self, specification: &str) -> Option<Self> {
+        if specification.is_empty() {
+            return None;
+        }
         for fragment in specification.split('+') {
             match fragment {
                 "heading" => {
@@ -52,10 +82,10 @@ impl AnsiStyle {
                 "dim" => self.dim = true,
                 "italic" => self.italic = true,
                 "underline" => self.underline = true,
-                _ => unreachable!("templates are validated where they are authored"),
+                _ => return None,
             }
         }
-        self
+        Some(self)
     }
 
     fn write(self, out: &mut String) {
@@ -90,7 +120,10 @@ pub(super) fn semantic(specification: &str, text: &str, coloured: bool) -> Strin
         return text.to_string();
     }
     let mut out = String::with_capacity(text.len() + 16);
-    AnsiStyle::default().apply(specification).write(&mut out);
+    AnsiStyle::default()
+        .apply(specification)
+        .unwrap_or_default()
+        .write(&mut out);
     out.push_str(text);
     AnsiStyle::default().write(&mut out);
     out
@@ -100,54 +133,33 @@ pub(super) fn semantic(specification: &str, text: &str, coloured: bool) -> Strin
 pub(super) fn check(template: &str) -> Result<(), &'static str> {
     let mut rest = template;
     let mut depth = 0usize;
-    while let Some((at, opening)) = next_style_tag(rest) {
+    while let Some((at, event)) = next_style_event(rest) {
         let tag = &rest[at..];
-        if opening {
-            let Some(end) = tag.find('}') else {
-                return Err("a `{$` with no `}` after it");
-            };
-            let specification = &tag[2..end];
-            if specification.is_empty() {
-                return Err("an empty style tag `{$}`");
+        match event {
+            Event::EscapeOpen => rest = &tag[3..],
+            Event::EscapeClose => rest = &tag[5..],
+            Event::Open => {
+                let Some(end) = tag.find('}') else {
+                    return Err("a `{$` with no `}` after it");
+                };
+                let specification = &tag[2..end];
+                if specification.is_empty() {
+                    return Err("an empty style tag `{$}`");
+                }
+                if AnsiStyle::default().apply(specification).is_none() {
+                    return Err("an unknown help-template style");
+                }
+                depth += 1;
+                rest = &tag[end + 1..];
             }
-            if specification.split('+').any(|fragment| {
-                !matches!(
-                    fragment,
-                    "heading"
-                        | "option"
-                        | "metavar"
-                        | "black"
-                        | "red"
-                        | "green"
-                        | "yellow"
-                        | "blue"
-                        | "magenta"
-                        | "cyan"
-                        | "white"
-                        | "bright-black"
-                        | "bright-red"
-                        | "bright-green"
-                        | "bright-yellow"
-                        | "bright-blue"
-                        | "bright-magenta"
-                        | "bright-cyan"
-                        | "bright-white"
-                        | "bold"
-                        | "dim"
-                        | "italic"
-                        | "underline"
-                )
-            }) {
-                return Err("an unknown help-template style");
+            Event::Close => {
+                if depth == 0 {
+                    return Err("a `{/$}` with no open style tag");
+                }
+                depth -= 1;
+                rest = &tag[4..];
             }
-            depth += 1;
-            rest = &tag[end + 1..];
-        } else {
-            if depth == 0 {
-                return Err("a `{/$}` with no open style tag");
-            }
-            depth -= 1;
-            rest = &tag[4..];
+            Event::Placeholder => rest = &tag[2..],
         }
     }
     if depth == 0 {
@@ -163,12 +175,14 @@ pub(super) fn substitute(
     coloured: bool,
     mut section: impl FnMut(&str) -> Option<String>,
 ) -> String {
+    if check(template).is_err() {
+        return substitute_sections_only(template, section);
+    }
     let mut marked = String::with_capacity(template.len());
     let mut rest = template;
     loop {
         let placeholder = rest.find("{{").map(|at| (at, Event::Placeholder));
-        let style = next_style_tag(rest)
-            .map(|(at, opening)| (at, if opening { Event::Open } else { Event::Close }));
+        let style = next_style_event(rest);
         let Some((at, event)) = earliest(placeholder, style) else {
             push_escaped(&mut marked, rest);
             break;
@@ -189,7 +203,10 @@ pub(super) fn substitute(
                 rest = &after[end + 2..];
             }
             Event::Open => {
-                let end = rest.find('}').expect("a validated style tag closes");
+                let Some(end) = rest.find('}') else {
+                    push_escaped(&mut marked, rest);
+                    break;
+                };
                 marked.push(MARK);
                 marked.push('+');
                 marked.push_str(&rest[2..end]);
@@ -202,6 +219,14 @@ pub(super) fn substitute(
                 marked.push(END);
                 rest = &rest[4..];
             }
+            Event::EscapeOpen => {
+                push_escaped(&mut marked, "{$");
+                rest = &rest[3..];
+            }
+            Event::EscapeClose => {
+                push_escaped(&mut marked, "{/$}");
+                rest = &rest[5..];
+            }
         }
     }
     render_marked(&collapse_blank_runs(&marked), coloured)
@@ -212,6 +237,8 @@ enum Event {
     Placeholder,
     Open,
     Close,
+    EscapeOpen,
+    EscapeClose,
 }
 
 fn earliest(left: Option<(usize, Event)>, right: Option<(usize, Event)>) -> Option<(usize, Event)> {
@@ -221,23 +248,25 @@ fn earliest(left: Option<(usize, Event)>, right: Option<(usize, Event)>) -> Opti
     }
 }
 
-fn next_style_tag(text: &str) -> Option<(usize, bool)> {
-    let open = text.find("{$").map(|at| (at, true));
-    let close = text.find("{/$}").map(|at| (at, false));
-    earliest_style(open, close)
-}
-
-fn earliest_style(
-    left: Option<(usize, bool)>,
-    right: Option<(usize, bool)>,
-) -> Option<(usize, bool)> {
-    match (left, right) {
-        (Some(left), Some(right)) => Some(if left.0 <= right.0 { left } else { right }),
-        (left, right) => left.or(right),
-    }
+fn next_style_event(text: &str) -> Option<(usize, Event)> {
+    [
+        ("{$$", Event::EscapeOpen),
+        ("{/$$}", Event::EscapeClose),
+        ("{$", Event::Open),
+        ("{/$}", Event::Close),
+    ]
+    .into_iter()
+    .enumerate()
+    .filter_map(|(priority, (token, event))| text.find(token).map(|at| ((at, priority), event)))
+    .min_by_key(|(position, _)| *position)
+    .map(|((at, _), event)| (at, event))
 }
 
 fn push_escaped(out: &mut String, text: &str) {
+    if !text.contains(MARK) {
+        out.push_str(text);
+        return;
+    }
     for ch in text.chars() {
         out.push(ch);
         if ch == MARK {
@@ -249,12 +278,14 @@ fn push_escaped(out: &mut String, text: &str) {
 fn collapse_blank_runs(page: &str) -> String {
     let mut out = String::with_capacity(page.len());
     let mut blank = false;
+    let mut wrote_visible = false;
     for line in page.split('\n') {
-        if visible(line).trim().is_empty() {
-            blank = !out.is_empty();
+        if visible_is_blank(line) {
+            push_markers(&mut out, line);
+            blank = wrote_visible;
             continue;
         }
-        if !out.is_empty() {
+        if wrote_visible {
             out.push('\n');
             if blank {
                 out.push('\n');
@@ -262,28 +293,39 @@ fn collapse_blank_runs(page: &str) -> String {
         }
         blank = false;
         out.push_str(line);
+        wrote_visible = true;
     }
     out
 }
 
-fn visible(line: &str) -> String {
-    let mut out = String::with_capacity(line.len());
+fn visible_is_blank(line: &str) -> bool {
     let mut rest = line;
     while let Some(at) = rest.find(MARK) {
-        out.push_str(&rest[..at]);
+        if !rest[..at].trim().is_empty() {
+            return false;
+        }
         let after = &rest[at + MARK.len_utf8()..];
         if after.starts_with(MARK) {
-            out.push(MARK);
-            rest = &after[MARK.len_utf8()..];
+            return false;
         } else if let Some(end) = after.find(END) {
             rest = &after[end + END.len_utf8()..];
         } else {
-            out.push(MARK);
-            rest = after;
+            return false;
         }
     }
-    out.push_str(rest);
-    out
+    rest.trim().is_empty()
+}
+
+fn push_markers(out: &mut String, line: &str) {
+    let mut rest = line;
+    while let Some(at) = rest.find(MARK) {
+        let marker = &rest[at..];
+        let Some(end) = marker.find(END) else {
+            return;
+        };
+        out.push_str(&marker[..=end]);
+        rest = &marker[end + END.len_utf8()..];
+    }
 }
 
 fn render_marked(marked: &str, coloured: bool) -> String {
@@ -291,26 +333,42 @@ fn render_marked(marked: &str, coloured: bool) -> String {
     let mut stack = vec![AnsiStyle::default()];
     let mut rest = marked;
     while let Some(at) = rest.find(MARK) {
-        push_content(&mut out, &rest[..at], coloured, *stack.last().unwrap());
+        push_content(
+            &mut out,
+            &rest[..at],
+            coloured,
+            stack.last().copied().unwrap_or_default(),
+        );
         let after = &rest[at + MARK.len_utf8()..];
         if after.starts_with(MARK) {
             out.push(MARK);
             rest = &after[MARK.len_utf8()..];
             continue;
         }
-        let end = after.find(END).expect("the marker encoder always closes");
+        let Some(end) = after.find(END) else {
+            out.push(MARK);
+            out.push_str(after);
+            break;
+        };
         let marker = &after[..end];
         if let Some(specification) = marker.strip_prefix('+') {
-            let next = stack.last().copied().unwrap().apply(specification);
+            let next = stack
+                .last()
+                .copied()
+                .unwrap_or_default()
+                .apply(specification)
+                .unwrap_or_default();
             stack.push(next);
             if coloured {
                 next.write(&mut out);
             }
         } else {
-            stack.pop();
+            if stack.len() > 1 {
+                stack.pop();
+            }
             if coloured {
                 AnsiStyle::default().write(&mut out);
-                let parent = *stack.last().expect("validated tags balance");
+                let parent = stack.last().copied().unwrap_or_default();
                 if parent.foreground.is_some()
                     || parent.bold
                     || parent.dim
@@ -323,7 +381,55 @@ fn render_marked(marked: &str, coloured: bool) -> String {
         }
         rest = &after[end + END.len_utf8()..];
     }
-    push_content(&mut out, rest, coloured, *stack.last().unwrap());
+    push_content(
+        &mut out,
+        rest,
+        coloured,
+        stack.last().copied().unwrap_or_default(),
+    );
+    out
+}
+
+fn substitute_sections_only(
+    template: &str,
+    mut section: impl FnMut(&str) -> Option<String>,
+) -> String {
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(at) = rest.find("{{") {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + 2..];
+        let Some(end) = after.find("}}") else {
+            out.push_str(&rest[at..]);
+            return collapse_plain_blank_runs(&out);
+        };
+        match section(after[..end].trim()) {
+            Some(text) => out.push_str(&text),
+            None => out.push_str(&rest[at..at + 2 + end + 2]),
+        }
+        rest = &after[end + 2..];
+    }
+    out.push_str(rest);
+    collapse_plain_blank_runs(&out)
+}
+
+fn collapse_plain_blank_runs(page: &str) -> String {
+    let mut out = String::with_capacity(page.len());
+    let mut blank = false;
+    for line in page.split('\n') {
+        if line.trim().is_empty() {
+            blank = !out.is_empty();
+            continue;
+        }
+        if !out.is_empty() {
+            out.push('\n');
+            if blank {
+                out.push('\n');
+            }
+        }
+        blank = false;
+        out.push_str(line);
+    }
     out
 }
 
@@ -425,5 +531,42 @@ mod tests {
         assert!(check("{$orange}no{/$}").is_err());
         assert!(check("{$red}no").is_err());
         assert!(check("no{/$}").is_err());
+    }
+
+    #[test]
+    fn tags_on_lines_of_their_own_keep_a_balanced_style_stack() {
+        let template = "{$heading}\nMY TOOL\n{/$}\n\n{{usage}}";
+        assert_eq!(
+            substitute(template, false, |_| Some("Usage: ex".to_string())),
+            "MY TOOL\n\nUsage: ex"
+        );
+        assert_eq!(
+            substitute(template, true, |_| Some("Usage: ex".to_string())),
+            "\u{1b}[1;33mMY TOOL\u{1b}[0m\n\nUsage: ex"
+        );
+
+        assert_eq!(
+            substitute("{$dim}fine print\n{/$}", true, |_| None),
+            "\u{1b}[2mfine print\u{1b}[0m"
+        );
+        assert_eq!(
+            substitute("before\n{$red}\nafter\n{/$}", false, |_| None),
+            "before\n\nafter"
+        );
+    }
+
+    #[test]
+    fn malformed_markup_is_literal_and_escaped_tags_can_be_documented() {
+        assert_eq!(
+            substitute("before {$red and {{usage}}", true, |_| {
+                Some("Usage: ex".to_string())
+            }),
+            "before {$red and Usage: ex"
+        );
+        assert_eq!(
+            substitute("{$$heading}literal{/$$}", true, |_| None),
+            "{$heading}literal{/$}"
+        );
+        assert!(check("{$$heading}literal{/$$}").is_ok());
     }
 }

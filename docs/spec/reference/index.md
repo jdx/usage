@@ -104,7 +104,8 @@ Styles may be combined with `+`. The semantic styles are `heading`, `option`, an
 `metavar`; the physical styles are the eight ANSI colour names, their `bright-`
 variants, `bold`, `dim`, `italic`, and `underline`. Plain and generated help removes
 the tags. Tags in substituted descriptions are ordinary prose rather than template
-markup.
+markup. Double the dollar sign to write a delimiter literally: `{$$heading}` renders
+`{$heading}`, and `{/$$}` renders `{/$}`.
 
 ## Root command policy
 

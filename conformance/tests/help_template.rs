@@ -183,6 +183,15 @@ struct EverySection {
     command: Option<LaidOutCommands>,
 }
 
+/// Every style in `corpus/help-template-styles.txt`, kept in one literal so the derive's
+/// compile-time validator must accept the same complete vocabulary as the runtime renderers.
+#[derive(Cli)]
+#[usage(
+    bin = "every-style",
+    help_template = "{$heading}heading{/$} {$option}option{/$} {$metavar}metavar{/$} {$black}black{/$} {$red}red{/$} {$green}green{/$} {$yellow}yellow{/$} {$blue}blue{/$} {$magenta}magenta{/$} {$cyan}cyan{/$} {$white}white{/$} {$bright-black}bright-black{/$} {$bright-red}bright-red{/$} {$bright-green}bright-green{/$} {$bright-yellow}bright-yellow{/$} {$bright-blue}bright-blue{/$} {$bright-magenta}bright-magenta{/$} {$bright-cyan}bright-cyan{/$} {$bright-white}bright-white{/$} {$bold}bold{/$} {$dim}dim{/$} {$italic}italic{/$} {$underline}underline{/$}"
+)]
+struct EveryStyle {}
+
 #[test]
 fn every_section_the_vocabulary_holds_can_be_placed() {
     let spec = EverySection::spec();
@@ -228,6 +237,33 @@ fn the_two_rust_vocabularies_are_the_same_words() {
         usage_argv::help::SECTIONS,
         "the reference and the compiled renderer name different sections"
     );
+
+    let canonical: Vec<String> = include_str!("../../corpus/help-template-styles.txt")
+        .lines()
+        .map(str::to_string)
+        .collect();
+    assert_eq!(canonical, usage::help_template::STYLES);
+    assert_eq!(canonical, usage_argv::help::STYLES);
+
+    let spec = EveryStyle::spec();
+    let portable: LibSpec = spec
+        .to_kdl()
+        .parse()
+        .expect("the reference validator accepts every derive style");
+    assert_eq!(portable.help_template.as_deref(), spec.help_template);
+    let coloured = usage_argv::help::render_styled(
+        spec,
+        spec.root.cmd,
+        false,
+        usage_argv::help::Style::COLOURED,
+    )
+    .expect("every style renders");
+    for style in &canonical {
+        assert!(
+            coloured.contains(style),
+            "{style} did not render: {coloured:?}"
+        );
+    }
 }
 
 /// A ported CLI that needs headed flags before its positional arguments, with the ordinary

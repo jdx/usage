@@ -35,6 +35,15 @@ var HelpSections = [...]string{
 	"after_help",
 }
 
+// HelpStyles is the closed style vocabulary accepted by HelpTemplate.
+var HelpStyles = [...]string{
+	"heading", "option", "metavar",
+	"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+	"bright-black", "bright-red", "bright-green", "bright-yellow", "bright-blue",
+	"bright-magenta", "bright-cyan", "bright-white",
+	"bold", "dim", "italic", "underline",
+}
+
 // helpSections is a page under construction, cut at the boundaries a template may
 // reorder. `flattened` is not a section an author can name: it is the other half of
 // `commands`, since FlattenHelp replaces a command list with the subcommands' own
@@ -126,6 +135,9 @@ func (s *helpSections) assemble(template string) string {
 // A section that came out empty leaves no gap behind: see collapseBlankRuns, whose
 // rule is what lets one template serve a whole CLI.
 func substituteSections(template string, s *helpSections) string {
+	if !validStyleMarkup(template) {
+		return substituteSectionsOnly(template, s)
+	}
 	var out strings.Builder
 	rest := template
 	for {
@@ -157,10 +169,103 @@ func substituteSections(template string, s *helpSections) string {
 				return collapseBlankRuns(out.String())
 			}
 			rest = rest[end+1:]
-		default:
+		case "close":
 			rest = rest[4:]
+		case "escape-open":
+			out.WriteString("{$")
+			rest = rest[3:]
+		default:
+			out.WriteString("{/$}")
+			rest = rest[5:]
 		}
 	}
+}
+
+func substituteSectionsOnly(template string, s *helpSections) string {
+	var out strings.Builder
+	rest := template
+	for {
+		at := strings.Index(rest, "{{")
+		if at < 0 {
+			out.WriteString(rest)
+			return collapseBlankRuns(out.String())
+		}
+		out.WriteString(rest[:at])
+		after := rest[at+2:]
+		end := strings.Index(after, "}}")
+		if end < 0 {
+			out.WriteString(rest[at:])
+			return collapseBlankRuns(out.String())
+		}
+		if text, ok := s.named(strings.TrimSpace(after[:end])); ok {
+			out.WriteString(text)
+		} else {
+			out.WriteString(rest[at : at+2+end+2])
+		}
+		rest = after[end+2:]
+	}
+}
+
+func validStyleMarkup(template string) bool {
+	rest := template
+	depth := 0
+	for {
+		at, kind := nextStyleToken(rest)
+		if at < 0 {
+			return depth == 0
+		}
+		tag := rest[at:]
+		switch kind {
+		case "escape-open":
+			rest = tag[3:]
+		case "escape-close":
+			rest = tag[5:]
+		case "open":
+			end := strings.IndexByte(tag, '}')
+			if end < 0 || end == 2 {
+				return false
+			}
+			for _, style := range strings.Split(tag[2:end], "+") {
+				known := false
+				for _, candidate := range HelpStyles {
+					if style == candidate {
+						known = true
+						break
+					}
+				}
+				if !known {
+					return false
+				}
+			}
+			depth++
+			rest = tag[end+1:]
+		default:
+			if depth == 0 {
+				return false
+			}
+			depth--
+			rest = tag[4:]
+		}
+	}
+}
+
+func nextStyleToken(template string) (int, string) {
+	at, kind := -1, ""
+	for _, token := range []struct {
+		text string
+		kind string
+	}{
+		{"{$$", "escape-open"},
+		{"{/$$}", "escape-close"},
+		{"{$", "open"},
+		{"{/$}", "close"},
+	} {
+		found := strings.Index(template, token.text)
+		if found >= 0 && (at < 0 || found < at) {
+			at, kind = found, token.kind
+		}
+	}
+	return at, kind
 }
 
 func nextTemplateToken(template string) (int, string) {
@@ -169,6 +274,8 @@ func nextTemplateToken(template string) (int, string) {
 		text string
 		kind string
 	}{
+		{"{$$", "escape-open"},
+		{"{/$$}", "escape-close"},
 		{"{{", "section"},
 		{"{$", "open"},
 		{"{/$}", "close"},

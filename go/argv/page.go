@@ -46,7 +46,8 @@ type HelpSpec struct {
 	// `{{after_help}}`, which an author may reorder, omit or wrap. Empty means the
 	// default order, which is what every page in the fleet is compared against.
 	// Runtime colour tags such as `{$heading}...{/$}` are removed because this
-	// renderer produces the portable plain page.
+	// renderer produces the portable plain page. A doubled dollar sign escapes a
+	// delimiter: `{$$heading}` is literal `{$heading}` and `{/$$}` is literal `{/$}`.
 	// See [HelpSections].
 	HelpTemplate string
 }

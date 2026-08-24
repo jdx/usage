@@ -1,6 +1,8 @@
 package argv
 
 import (
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -20,6 +22,17 @@ func helpKeyed(entries ...Help) HelpTable {
 		table[e.Key-1] = e
 	}
 	return table
+}
+
+func TestHelpStyleVocabularyMatchesTheSharedCorpus(t *testing.T) {
+	data, err := os.ReadFile("../../corpus/help-template-styles.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical := strings.Fields(string(data))
+	if !reflect.DeepEqual(canonical, HelpStyles[:]) {
+		t.Fatalf("Go styles differ from the shared vocabulary:\n got: %v\nwant: %v", HelpStyles, canonical)
+	}
 }
 
 // Does a HelpTemplate lay a page out the way the other two implementations do?
@@ -215,6 +228,19 @@ func TestATemplateGathersALongPagesTrailingSections(t *testing.T) {
 	}
 }
 
+func TestTemplateStylesSpanLinesAndEmptySections(t *testing.T) {
+	// corpus/render/04-help-template.json#template-styles-span-lines-and-empty-sections
+	root := &Command{Name: "ex", Key: 1}
+	spec := HelpSpec{
+		Name: "ex", Bin: "ex",
+		HelpTemplate: "{$heading}\nCUSTOM HELP\n{/$}\n\n{$dim}\n{{args}}\n{/$}\n\n{{usage}}\n\n{$$heading} is literal",
+	}
+	want := "CUSTOM HELP\n\nUsage: ex\n\n{$heading} is literal\n"
+	if got := ShortHelp(spec, []string{"ex"}, []*Command{root}, HelpTable{}); got != want {
+		t.Fatalf("page differs\n got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestAPageWithoutATemplateIsUnchanged(t *testing.T) {
 	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
 	file := &Arg{Key: 3, Name: "file", Required: true}
@@ -272,6 +298,23 @@ func TestAPlainGoPageStripsTemplateColourMarkupOnly(t *testing.T) {
 	got := ShortHelp(spec, []string{"ex"}, []*Command{root}, HelpTable{})
 	if !strings.HasPrefix(got, "Custom help\n\nLiteral {$red} prose\n\nUsage: ex") {
 		t.Fatalf("template markup was not stripped independently of section prose:\n%s", got)
+	}
+}
+
+func TestAPlainGoPageKeepsEscapedAndMalformedStyleMarkupLiteral(t *testing.T) {
+	root := &Command{Name: "ex", Key: 1}
+	sections := helpSections{}
+	sections.usage.WriteString("Usage: ex")
+
+	got := substituteSections("{$$heading}literal{/$$}\n\n{{usage}}", &sections)
+	if got != "{$heading}literal{/$}\n\nUsage: ex" {
+		t.Fatalf("escaped style tags changed:\n%s", got)
+	}
+
+	spec := HelpSpec{Name: "ex", Bin: "ex", HelpTemplate: "before {$red and {{usage}}"}
+	got = ShortHelp(spec, []string{"ex"}, []*Command{root}, HelpTable{})
+	if !strings.HasPrefix(got, "before {$red and Usage: ex") {
+		t.Fatalf("malformed style markup did not pass through:\n%s", got)
 	}
 }
 

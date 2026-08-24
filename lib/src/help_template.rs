@@ -36,6 +36,33 @@ pub const SECTIONS: [&str; 10] = [
     "after_help",
 ];
 
+/// The styles a template may apply to its own text or to a rendered section.
+pub const STYLES: [&str; 23] = [
+    "heading",
+    "option",
+    "metavar",
+    "black",
+    "red",
+    "green",
+    "yellow",
+    "blue",
+    "magenta",
+    "cyan",
+    "white",
+    "bright-black",
+    "bright-red",
+    "bright-green",
+    "bright-yellow",
+    "bright-blue",
+    "bright-magenta",
+    "bright-cyan",
+    "bright-white",
+    "bold",
+    "dim",
+    "italic",
+    "underline",
+];
+
 /// Whether a template is one an author wrote, rather than an empty or whitespace-only
 /// string that should render as the default page.
 ///
@@ -86,13 +113,15 @@ pub fn check(template: &str) -> Result<(), String> {
 /// most have no examples — so a template is written with the separators a full page wants and
 /// the empty sections are what [`collapse_blank_runs`] then takes back out.
 pub fn substitute(template: &str, section: impl Fn(&str) -> Option<String>) -> String {
+    if check_styles(template).is_err() {
+        return substitute_sections_only(template, section);
+    }
     let mut out = String::with_capacity(template.len());
     let mut rest = template;
     loop {
         let placeholder = rest.find("{{").map(|at| (at, 0));
-        let opening = rest.find("{$").map(|at| (at, 1));
-        let closing = rest.find("{/$}").map(|at| (at, 2));
-        let Some((at, kind)) = [placeholder, opening, closing]
+        let style = next_style_event(rest).map(|(at, event)| (at, event as u8 + 1));
+        let Some((at, kind)) = [placeholder, style]
             .into_iter()
             .flatten()
             .min_by_key(|(at, _)| *at)
@@ -116,12 +145,21 @@ pub fn substitute(template: &str, section: impl Fn(&str) -> Option<String>) -> S
                 rest = &after[end + 2..];
             }
             1 => {
-                let end = rest
-                    .find('}')
-                    .expect("templates are checked before rendering");
+                let Some(end) = rest.find('}') else {
+                    out.push_str(rest);
+                    break;
+                };
                 rest = &rest[end + 1..];
             }
-            _ => rest = &rest[4..],
+            2 => rest = &rest[4..],
+            3 => {
+                out.push_str("{$");
+                rest = &rest[3..];
+            }
+            _ => {
+                out.push_str("{/$}");
+                rest = &rest[5..];
+            }
         }
     }
     collapse_blank_runs(&out)
@@ -130,65 +168,38 @@ pub fn substitute(template: &str, section: impl Fn(&str) -> Option<String>) -> S
 fn check_styles(template: &str) -> Result<(), String> {
     let mut rest = template;
     let mut depth = 0usize;
-    while let Some((at, opening)) = {
-        let opening = rest.find("{$").map(|at| (at, true));
-        let closing = rest.find("{/$}").map(|at| (at, false));
-        match (opening, closing) {
-            (Some(left), Some(right)) => Some(if left.0 <= right.0 { left } else { right }),
-            (left, right) => left.or(right),
-        }
-    } {
+    while let Some((at, event)) = next_style_event(rest) {
         let tag = &rest[at..];
-        if opening {
-            let Some(end) = tag.find('}') else {
-                return Err("help_template has a `{$` with no `}` after it".to_string());
-            };
-            let specification = &tag[2..end];
-            let unknown = specification.split('+').find(|fragment| {
-                !matches!(
-                    *fragment,
-                    "heading"
-                        | "option"
-                        | "metavar"
-                        | "black"
-                        | "red"
-                        | "green"
-                        | "yellow"
-                        | "blue"
-                        | "magenta"
-                        | "cyan"
-                        | "white"
-                        | "bright-black"
-                        | "bright-red"
-                        | "bright-green"
-                        | "bright-yellow"
-                        | "bright-blue"
-                        | "bright-magenta"
-                        | "bright-cyan"
-                        | "bright-white"
-                        | "bold"
-                        | "dim"
-                        | "italic"
-                        | "underline"
-                )
-            });
-            if let Some(unknown) = unknown {
-                return Err(format!(
-                    "help_template names no style \"{unknown}\"; use heading, option, metavar, \
-                     an ANSI colour, bright-<colour>, bold, dim, italic or underline"
-                ));
+        match event {
+            StyleEvent::EscapeOpen => rest = &tag[3..],
+            StyleEvent::EscapeClose => rest = &tag[5..],
+            StyleEvent::Open => {
+                let Some(end) = tag.find('}') else {
+                    return Err("help_template has a `{$` with no `}` after it".to_string());
+                };
+                let specification = &tag[2..end];
+                if specification.is_empty() {
+                    return Err("help_template has an empty style tag `{$}`".to_string());
+                }
+                if let Some(unknown) = specification
+                    .split('+')
+                    .find(|fragment| !STYLES.contains(fragment))
+                {
+                    return Err(format!(
+                        "help_template names no style \"{unknown}\"; use {}",
+                        STYLES.join(", ")
+                    ));
+                }
+                depth += 1;
+                rest = &tag[end + 1..];
             }
-            if specification.is_empty() {
-                return Err("help_template has an empty style tag `{$}`".to_string());
+            StyleEvent::Close => {
+                if depth == 0 {
+                    return Err("help_template has a `{/$}` with no open style tag".to_string());
+                }
+                depth -= 1;
+                rest = &tag[4..];
             }
-            depth += 1;
-            rest = &tag[end + 1..];
-        } else {
-            if depth == 0 {
-                return Err("help_template has a `{/$}` with no open style tag".to_string());
-            }
-            depth -= 1;
-            rest = &tag[4..];
         }
     }
     if depth == 0 {
@@ -196,6 +207,48 @@ fn check_styles(template: &str) -> Result<(), String> {
     } else {
         Err("help_template has a style tag with no `{/$}` after it".to_string())
     }
+}
+
+#[derive(Clone, Copy)]
+enum StyleEvent {
+    Open = 0,
+    Close = 1,
+    EscapeOpen = 2,
+    EscapeClose = 3,
+}
+
+fn next_style_event(template: &str) -> Option<(usize, StyleEvent)> {
+    [
+        ("{$$", StyleEvent::EscapeOpen),
+        ("{/$$}", StyleEvent::EscapeClose),
+        ("{$", StyleEvent::Open),
+        ("{/$}", StyleEvent::Close),
+    ]
+    .into_iter()
+    .enumerate()
+    .filter_map(|(priority, (token, event))| template.find(token).map(|at| ((at, priority), event)))
+    .min_by_key(|(position, _)| *position)
+    .map(|((at, _), event)| (at, event))
+}
+
+fn substitute_sections_only(template: &str, section: impl Fn(&str) -> Option<String>) -> String {
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(at) = rest.find("{{") {
+        out.push_str(&rest[..at]);
+        let after = &rest[at + 2..];
+        let Some(end) = after.find("}}") else {
+            out.push_str(&rest[at..]);
+            return collapse_blank_runs(&out);
+        };
+        match section(after[..end].trim()) {
+            Some(text) => out.push_str(&text),
+            None => out.push_str(&rest[at..at + 2 + end + 2]),
+        }
+        rest = &after[end + 2..];
+    }
+    out.push_str(rest);
+    collapse_blank_runs(&out)
 }
 
 /// A page's runs of blank lines, each reduced to a single blank line.
@@ -276,6 +329,21 @@ mod tests {
             Some("Literal {$red} prose".to_string())
         });
         assert_eq!(filled, "Custom\nLiteral {$red} prose");
+
+        assert!(check("{$$heading}literal{/$$}").is_ok());
+        assert_eq!(
+            substitute("{$$heading}literal{/$$}", |_| None),
+            "{$heading}literal{/$}"
+        );
+        assert_eq!(
+            substitute("before {$red and {{usage}}", |_| {
+                Some("Usage: ex".to_string())
+            }),
+            "before {$red and Usage: ex"
+        );
+        assert!(check("{$}")
+            .expect_err("an empty tag is invalid")
+            .contains("empty style tag"));
     }
 
     #[test]

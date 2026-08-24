@@ -202,9 +202,9 @@ predictable:
   full page wants, and most commands are missing most sections — a command with no arguments
   renders the template above with its commands directly below its flags rather than pushed down
   the page. The flip side is that a template cannot open a gap wider than one blank line.
-- **The vocabulary is closed.** A placeholder or style naming anything else is refused: at compile time by
-  the derive, and when the spec is read by usage-lib. Sections are handed to the template already
-  rendered, so markup in a description is never reinterpreted as part of the template.
+- **The vocabulary is closed.** A placeholder or style naming anything else is refused: at compile
+  time by the derive, and when the spec is read by usage-lib. Sections are handed to the template
+  already rendered, so markup in a description is never reinterpreted as part of the template.
 
 Template-authored text and whole sections may be styled with runtime, bunt-like tags:
 
@@ -219,7 +219,8 @@ as in `{$bold+bright-blue}`. `heading`, `option`, and `metavar` use usage's sema
 physical vocabulary contains `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, and
 `white`; each `bright-` variant; and `bold`, `dim`, `italic`, and `underline`. Terminal output
 renders the ANSI styles. Plain output and generated Go pages remove the tags while retaining their
-contents.
+contents. Double the dollar sign to write either delimiter literally: `{$$heading}` renders
+`{$heading}`, and `{/$$}` renders `{/$}`.
 
 The template applies to the terminal help page. Markdown, manpages, and JSON keep their own
 structure.

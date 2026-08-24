@@ -4289,6 +4289,32 @@ const HELP_SECTIONS: [&str; 10] = [
     "after_help",
 ];
 
+const HELP_STYLES: [&str; 23] = [
+    "heading",
+    "option",
+    "metavar",
+    "black",
+    "red",
+    "green",
+    "yellow",
+    "blue",
+    "magenta",
+    "cyan",
+    "white",
+    "bright-black",
+    "bright-red",
+    "bright-green",
+    "bright-yellow",
+    "bright-blue",
+    "bright-magenta",
+    "bright-cyan",
+    "bright-white",
+    "bold",
+    "dim",
+    "italic",
+    "underline",
+];
+
 /// Whether every `{{…}}` in a template names a section.
 fn check_help_template(template: &str) -> Result<(), String> {
     check_help_template_styles(template)?;
@@ -4318,65 +4344,38 @@ fn check_help_template(template: &str) -> Result<(), String> {
 fn check_help_template_styles(template: &str) -> Result<(), String> {
     let mut rest = template;
     let mut depth = 0usize;
-    while let Some((at, opening)) = {
-        let opening = rest.find("{$").map(|at| (at, true));
-        let closing = rest.find("{/$}").map(|at| (at, false));
-        match (opening, closing) {
-            (Some(left), Some(right)) => Some(if left.0 <= right.0 { left } else { right }),
-            (left, right) => left.or(right),
-        }
-    } {
+    while let Some((at, event)) = next_help_style_event(rest) {
         let tag = &rest[at..];
-        if opening {
-            let Some(end) = tag.find('}') else {
-                return Err("`help_template` has a `{$` with no `}` after it".to_string());
-            };
-            let specification = &tag[2..end];
-            let unknown = specification.split('+').find(|fragment| {
-                !matches!(
-                    *fragment,
-                    "heading"
-                        | "option"
-                        | "metavar"
-                        | "black"
-                        | "red"
-                        | "green"
-                        | "yellow"
-                        | "blue"
-                        | "magenta"
-                        | "cyan"
-                        | "white"
-                        | "bright-black"
-                        | "bright-red"
-                        | "bright-green"
-                        | "bright-yellow"
-                        | "bright-blue"
-                        | "bright-magenta"
-                        | "bright-cyan"
-                        | "bright-white"
-                        | "bold"
-                        | "dim"
-                        | "italic"
-                        | "underline"
-                )
-            });
-            if let Some(unknown) = unknown {
-                return Err(format!(
-                    "`help_template` names no style `{unknown}`; use heading, option, metavar, \
-                     an ANSI colour, bright-<colour>, bold, dim, italic or underline"
-                ));
+        match event {
+            HelpStyleEvent::EscapeOpen => rest = &tag[3..],
+            HelpStyleEvent::EscapeClose => rest = &tag[5..],
+            HelpStyleEvent::Open => {
+                let Some(end) = tag.find('}') else {
+                    return Err("`help_template` has a `{$` with no `}` after it".to_string());
+                };
+                let specification = &tag[2..end];
+                if specification.is_empty() {
+                    return Err("`help_template` has an empty style tag `{$}`".to_string());
+                }
+                if let Some(unknown) = specification
+                    .split('+')
+                    .find(|fragment| !HELP_STYLES.contains(fragment))
+                {
+                    return Err(format!(
+                        "`help_template` names no style `{unknown}`; use {}",
+                        HELP_STYLES.join(", ")
+                    ));
+                }
+                depth += 1;
+                rest = &tag[end + 1..];
             }
-            if specification.is_empty() {
-                return Err("`help_template` has an empty style tag `{$}`".to_string());
+            HelpStyleEvent::Close => {
+                if depth == 0 {
+                    return Err("`help_template` has a `{/$}` with no open style tag".to_string());
+                }
+                depth -= 1;
+                rest = &tag[4..];
             }
-            depth += 1;
-            rest = &tag[end + 1..];
-        } else {
-            if depth == 0 {
-                return Err("`help_template` has a `{/$}` with no open style tag".to_string());
-            }
-            depth -= 1;
-            rest = &tag[4..];
         }
     }
     if depth == 0 {
@@ -4384,6 +4383,28 @@ fn check_help_template_styles(template: &str) -> Result<(), String> {
     } else {
         Err("`help_template` has a style tag with no `{/$}` after it".to_string())
     }
+}
+
+#[derive(Clone, Copy)]
+enum HelpStyleEvent {
+    Open,
+    Close,
+    EscapeOpen,
+    EscapeClose,
+}
+
+fn next_help_style_event(template: &str) -> Option<(usize, HelpStyleEvent)> {
+    [
+        ("{$$", HelpStyleEvent::EscapeOpen),
+        ("{/$$}", HelpStyleEvent::EscapeClose),
+        ("{$", HelpStyleEvent::Open),
+        ("{/$}", HelpStyleEvent::Close),
+    ]
+    .into_iter()
+    .enumerate()
+    .filter_map(|(priority, (token, event))| template.find(token).map(|at| ((at, priority), event)))
+    .min_by_key(|(position, _)| *position)
+    .map(|((at, _), event)| (at, event))
 }
 
 /// A Rust expression whose result must be usable as `&'static str` in the
@@ -6790,6 +6811,13 @@ mod tests {
         assert!(
             rejection(r#"#[usage(help_template = "{$red}no")] struct Root {}"#).contains("`{/$}`"),
         );
+        assert!(
+            rejection(r#"#[usage(help_template = "{$}no")] struct Root {}"#)
+                .contains("empty style tag"),
+        );
+
+        cli(r#"#[usage(help_template = "{$$heading}literal{/$$}")] struct Root {}"#)
+            .expect("doubled dollar signs escape style delimiters");
 
         let parsed = cli(r#"#[usage(help_template = "{{ about }}\n{{usage}}")] struct Root {}"#)
             .expect("the vocabulary, with or without spaces");
