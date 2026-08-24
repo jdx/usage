@@ -40,7 +40,7 @@ _mycli() {
     descs+=("${parts[2]}")
     inserts+=("${parts[3]}")
     [[ "${parts[3]}" == "'"* ]] && needs_menu=1
-  done < <(command usage complete-word --shell zsh -f "$spec_file" -- "${(Q)words[@]}")
+  done < <(command usage complete-word --shell zsh -f "$spec_file" --cword=$((CURRENT - 1)) -- "${(Q)words[@]}")
   (( needs_menu )) && compstate[insert]=menu
   if (( ${#inserts[@]} )); then
     local -a _usage_display=()
