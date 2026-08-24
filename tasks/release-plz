@@ -61,18 +61,17 @@ fi
 # is satisfied; catch it up if it is behind. usage-argv rides the shared version
 # and depends on nothing, so the same catch-up applies to it.
 #
-# usage-config and usage-validation shipped in-tree at the tagged version, while
-# usage-dynamic was added afterward with that shared version. Publish all three
-# here so the next shared release can depend on them. Do not catch up usage-test /
-# usage-rs at the already-tagged version:
+# usage-config and usage-validation shipped in-tree at the tagged version but were
+# never published — publish them here so the next `usage-rs` release can depend on
+# them. Do not catch up usage-test / usage-rs / usage-dynamic at the already-tagged
+# version:
 # crates.io usage-argv at that version has no features, while in-tree manifests
-# require `usage-argv/complete`. Those crates debut on the next version bump
+# require its `complete` and `spec` features. Those crates debut on the next version bump
 # (first branch above), which republishes argv with the features they need.
 publish_crate_if_needed usage-argv
 publish_crate_if_needed usage-derive
 publish_crate_if_needed usage-config
 publish_crate_if_needed usage-validation
-publish_crate_if_needed usage-dynamic
 publish_crate_if_needed clap_usage
 
 # Anchor the range before filtering paths. A release tag may point at a commit that only
