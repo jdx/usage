@@ -1,5 +1,4 @@
 use serde::Serialize;
-use strum::{Display as StrumDisplay, EnumString};
 
 /// What running a command does to the world.
 ///
@@ -28,10 +27,7 @@ use strum::{Display as StrumDisplay, EnumString};
 /// Ordered least to most dangerous, so `Ord` gives the combining rule: the
 /// effect of an invocation is the maximum of the command's effect and the
 /// effect of every flag and argument actually supplied.
-#[derive(
-    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, EnumString, StrumDisplay, Serialize,
-)]
-#[strum(serialize_all = "snake_case")]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpecCommandEffect {
     /// Only inspects state. Running it twice is the same as running it once,
@@ -44,6 +40,12 @@ pub enum SpecCommandEffect {
     /// prompt.
     Destructive,
 }
+
+impl_string_enum!(SpecCommandEffect {
+    SpecCommandEffect::Read => "read",
+    SpecCommandEffect::Write => "write",
+    SpecCommandEffect::Destructive => "destructive",
+});
 
 impl SpecCommandEffect {
     pub fn as_str(&self) -> &'static str {

@@ -242,19 +242,7 @@ pub struct SpecConfigFile {
 }
 
 /// Which class of file a location belongs to.
-#[derive(
-    Debug,
-    Default,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    strum::Display,
-    strum::EnumString,
-    strum::VariantNames,
-    Serialize,
-)]
-#[strum(serialize_all = "snake_case")]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpecConfigFileScope {
     /// Somewhere a repository can carry — the least trusted.
@@ -266,20 +254,14 @@ pub enum SpecConfigFileScope {
     System,
 }
 
+impl_string_enum!(SpecConfigFileScope {
+    SpecConfigFileScope::Project => "project",
+    SpecConfigFileScope::Global => "global",
+    SpecConfigFileScope::System => "system",
+});
+
 /// How values for one property combine across sources.
-#[derive(
-    Debug,
-    Default,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    strum::Display,
-    strum::EnumString,
-    strum::VariantNames,
-    Serialize,
-)]
-#[strum(serialize_all = "snake_case")]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpecConfigMerge {
     /// The highest-precedence source wins outright.
@@ -291,20 +273,14 @@ pub enum SpecConfigMerge {
     Deep,
 }
 
+impl_string_enum!(SpecConfigMerge {
+    SpecConfigMerge::Replace => "replace",
+    SpecConfigMerge::Union => "union",
+    SpecConfigMerge::Deep => "deep",
+});
+
 /// Which sources a property may be read from.
-#[derive(
-    Debug,
-    Default,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    strum::Display,
-    strum::EnumString,
-    strum::VariantNames,
-    Serialize,
-)]
-#[strum(serialize_all = "snake_case")]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpecConfigScope {
     /// Any declared source.
@@ -318,6 +294,12 @@ pub enum SpecConfigScope {
     /// Never from a file: the environment or the command line only.
     Env,
 }
+
+impl_string_enum!(SpecConfigScope {
+    SpecConfigScope::Any => "any",
+    SpecConfigScope::Global => "global",
+    SpecConfigScope::Env => "env",
+});
 
 /// One of a property's allowed values.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -915,7 +897,7 @@ fn parse_enum<T>(
     value: &ParseEntry<'_>,
 ) -> Result<T, UsageErr>
 where
-    T: std::str::FromStr + strum::VariantNames,
+    T: std::str::FromStr + crate::enum_value::StringEnum,
 {
     let text = value.ensure_string()?;
     text.parse().map_err(|_| {

@@ -36,7 +36,7 @@ pub fn generate(spec: &Spec, opts: &SdkOptions) -> SdkOutput {
 }
 
 fn render_index(package_name: &str) -> String {
-    let class_name = heck::AsPascalCase(package_name).to_string();
+    let class_name = crate::case::AsPascalCase(package_name).to_string();
     format!(
         "export {{ {class_name} }} from \"./client\";\n\
          export {{ CliResult, CliJsonResult, CliStream, CliError }} from \"./runtime\";\n\

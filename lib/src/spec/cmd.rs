@@ -1045,14 +1045,14 @@ impl SpecCommand {
                 // Parse the mount command into tokens, insert global flags after the first token
                 // e.g., "mise tasks ls" becomes "mise --cd dir2 tasks ls"
                 // Handles quoted arguments correctly: "cmd 'arg with spaces'" stays correct
-                let mut tokens = shell_words::split(&mount.run)
+                let mut tokens = crate::shell_words::split(&mount.run)
                     .expect("mount command should be valid shell syntax");
                 if !tokens.is_empty() {
                     // Insert global flags after the first token (the command name)
                     tokens.splice(1..1, global_flag_args.iter().cloned());
                 }
                 // Join tokens back into a properly quoted command string
-                shell_words::join(tokens)
+                crate::shell_words::join(tokens)
             };
             let output = match injected {
                 Some(outputs) => outputs

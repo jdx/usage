@@ -1,4 +1,4 @@
-use heck::{AsLowerCamelCase, AsPascalCase};
+use crate::case::{AsLowerCamelCase, AsPascalCase};
 
 use crate::sdk::{
     collect_choice_types, collect_type_imports, escape_jsdoc, escape_ts_string, generated_header,

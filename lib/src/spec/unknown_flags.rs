@@ -1,5 +1,4 @@
 use serde::Serialize;
-use strum::{Display as StrumDisplay, EnumString};
 
 /// What to do with a token that looks like a flag but names no declared flag.
 ///
@@ -21,8 +20,7 @@ use strum::{Display as StrumDisplay, EnumString};
 /// instead of an error, and whether it does depends on whether a positional is
 /// free to take it. A CLI that owns all of its flags — as opposed to forwarding
 /// them — should say [`UnknownFlags::Error`] and get the stricter reading.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, EnumString, StrumDisplay, Serialize)]
-#[strum(serialize_all = "snake_case")]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UnknownFlags {
     /// Offer the token to the positional arguments, like any other word. If none
@@ -35,6 +33,11 @@ pub enum UnknownFlags {
     /// dash.
     Error,
 }
+
+impl_string_enum!(UnknownFlags {
+    UnknownFlags::Value => "value",
+    UnknownFlags::Error => "error",
+});
 
 impl UnknownFlags {
     pub fn as_str(&self) -> &'static str {

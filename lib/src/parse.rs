@@ -1,12 +1,10 @@
 use crate::miette::{self, bail};
-use heck::ToSnakeCase;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use log::trace;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
-use strum::EnumTryAs;
 
 #[cfg(feature = "cli-help")]
 use crate::docs;
@@ -465,12 +463,98 @@ impl ParseOutput {
     }
 }
 
-#[derive(Debug, EnumTryAs, Clone)]
+#[derive(Debug, Clone)]
 pub enum ParseValue {
     Bool(bool),
     String(String),
     MultiBool(Vec<bool>),
     MultiString(Vec<String>),
+}
+
+impl ParseValue {
+    pub fn try_as_bool(self) -> Option<bool> {
+        match self {
+            Self::Bool(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub const fn try_as_bool_ref(&self) -> Option<&bool> {
+        match self {
+            Self::Bool(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_bool_mut(&mut self) -> Option<&mut bool> {
+        match self {
+            Self::Bool(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_string(self) -> Option<String> {
+        match self {
+            Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub const fn try_as_string_ref(&self) -> Option<&String> {
+        match self {
+            Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_string_mut(&mut self) -> Option<&mut String> {
+        match self {
+            Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_multi_bool(self) -> Option<Vec<bool>> {
+        match self {
+            Self::MultiBool(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub const fn try_as_multi_bool_ref(&self) -> Option<&Vec<bool>> {
+        match self {
+            Self::MultiBool(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_multi_bool_mut(&mut self) -> Option<&mut Vec<bool>> {
+        match self {
+            Self::MultiBool(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_multi_string(self) -> Option<Vec<String>> {
+        match self {
+            Self::MultiString(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub const fn try_as_multi_string_ref(&self) -> Option<&Vec<String>> {
+        match self {
+            Self::MultiString(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_multi_string_mut(&mut self) -> Option<&mut Vec<String>> {
+        match self {
+            Self::MultiString(value) => Some(value),
+            _ => None,
+        }
+    }
 }
 
 /// The deprecated declarations argv itself named: the commands it descended through, and the
@@ -3973,17 +4057,17 @@ impl ParseOutput {
     pub fn as_env(&self) -> BTreeMap<String, String> {
         let mut env = BTreeMap::new();
         for (flag, val) in &self.flags {
-            let key = format!("usage_{}", flag.name.to_snake_case());
+            let key = format!("usage_{}", crate::case::snake(&flag.name));
             let val = match val {
                 ParseValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
                 ParseValue::String(s) => s.clone(),
                 ParseValue::MultiBool(b) => b.iter().filter(|b| **b).count().to_string(),
-                ParseValue::MultiString(s) => shell_words::join(s),
+                ParseValue::MultiString(s) => crate::shell_words::join(s),
             };
             env.insert(key, val);
         }
         for (arg, val) in &self.args {
-            let key = format!("usage_{}", arg.name.to_snake_case());
+            let key = format!("usage_{}", crate::case::snake(&arg.name));
             env.insert(key, val.to_string());
         }
         env
@@ -3996,7 +4080,7 @@ impl Display for ParseValue {
             ParseValue::Bool(b) => write!(f, "{b}"),
             ParseValue::String(s) => write!(f, "{s}"),
             ParseValue::MultiBool(b) => write!(f, "{}", b.iter().join(" ")),
-            ParseValue::MultiString(s) => write!(f, "{}", shell_words::join(s)),
+            ParseValue::MultiString(s) => write!(f, "{}", crate::shell_words::join(s)),
         }
     }
 }
@@ -8822,7 +8906,7 @@ cmd "ls"
         let spec: Spec = r#"arg "[other_args]" var=#true"#.parse().unwrap();
 
         // Single unknown --flag=value: must not produce a stray "3" positional.
-        // as_env() shell-joins via shell_words::join, so "=" gets quoted.
+        // as_env() shell-joins values, so "=" gets quoted.
         let input: Vec<String> = vec!["test", "--option=3"]
             .into_iter()
             .map(String::from)

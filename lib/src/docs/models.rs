@@ -1,4 +1,4 @@
-#[cfg(feature = "docs")]
+#[cfg(feature = "markdown")]
 use crate::docs::markdown::MarkdownRenderer;
 use crate::spec::cmd::SpecHeading;
 use crate::spec::effect::SpecCommandEffect;
@@ -268,7 +268,7 @@ pub struct SpecConfigChoice {
 }
 
 impl SpecConfig {
-    #[cfg(feature = "docs")]
+    #[cfg(feature = "markdown")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -284,14 +284,14 @@ impl SpecConfig {
         }
     }
 
-    #[cfg(feature = "docs")]
+    #[cfg(any(feature = "markdown", feature = "manpage"))]
     pub fn is_empty(&self) -> bool {
         self.props.is_empty() && self.files.is_empty()
     }
 }
 
 impl SpecConfigProp {
-    #[cfg(feature = "docs")]
+    #[cfg(feature = "markdown")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1183,7 +1183,7 @@ impl From<&crate::SpecArg> for SpecArg {
 }
 
 impl Spec {
-    #[cfg(feature = "docs")]
+    #[cfg(feature = "markdown")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1201,7 +1201,7 @@ impl Spec {
 }
 
 impl SpecCommand {
-    #[cfg(feature = "docs")]
+    #[cfg(any(feature = "markdown", feature = "manpage"))]
     pub fn all_subcommands(&self) -> Vec<&SpecCommand> {
         let mut cmds = vec![];
         for cmd in self.subcommands.values() {
@@ -1211,7 +1211,7 @@ impl SpecCommand {
         cmds
     }
 
-    #[cfg(feature = "docs")]
+    #[cfg(feature = "markdown")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1253,7 +1253,7 @@ impl SpecCommand {
     /// Rebuild the grouped views from `flags` and `args`.
     ///
     /// Anything that mutates either list has to call this, or the groups go stale.
-    #[cfg(feature = "docs")]
+    #[cfg(feature = "markdown")]
     fn regroup(&mut self) {
         self.flag_groups = group_by_heading(&self.flags, |f| f.help_heading.as_deref());
         self.arg_groups = group_by_heading(&self.args, |a| a.help_heading.as_deref());
@@ -1264,7 +1264,7 @@ impl SpecCommand {
 }
 
 impl SpecFlag {
-    #[cfg(feature = "docs")]
+    #[cfg(feature = "markdown")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1286,7 +1286,7 @@ impl SpecFlag {
 }
 
 impl SpecArg {
-    #[cfg(feature = "docs")]
+    #[cfg(feature = "markdown")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1301,7 +1301,7 @@ impl SpecArg {
 }
 
 impl SpecExample {
-    #[cfg(feature = "docs")]
+    #[cfg(feature = "markdown")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;

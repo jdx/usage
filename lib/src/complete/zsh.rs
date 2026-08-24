@@ -1,5 +1,5 @@
+use crate::case::ToSnakeCase;
 use crate::complete::CompleteOptions;
-use heck::ToSnakeCase;
 
 /// The completion loop that both `complete_zsh` (per-bin script) and
 /// `complete_zsh_init` (shebang-fallback handler) need to emit.

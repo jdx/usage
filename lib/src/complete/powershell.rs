@@ -1,5 +1,5 @@
+use crate::case::ToSnakeCase;
 use crate::complete::CompleteOptions;
-use heck::ToSnakeCase;
 
 pub fn complete_powershell(opts: &CompleteOptions) -> String {
     let usage_bin = &opts.usage_bin;

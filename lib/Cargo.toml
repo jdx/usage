@@ -24,7 +24,6 @@ name = "usage"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "env", "string"], optional = true }
-heck = "0.5"
 indexmap = { version = "2", features = ["serde"] }
 itertools = "0.15"
 log = "0.4"
@@ -34,11 +33,9 @@ regex = "1"
 roff = { version = "1.0", optional = true }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
-shell-words = "1"
-strum = { version = "0.28", features = ["derive"] }
 tera = { version = "2", optional = true }
 thiserror = "2"
-unicode-width = "0.1"
+unicode-width = "0.2"
 # `unstable-recover` is explicitly semver-exempt, so pin the parser version we test.
 winnow = { version = "=0.7.15", features = ["alloc", "unstable-recover"] }
 # No `xx`: three helpers (a lazy-regex macro, `file::read_to_string`, `check_status`) were
@@ -51,7 +48,11 @@ usage-validation = { workspace = true, optional = true }
 default = ["docs"]
 # CLI help is useful to lightweight consumers that do not generate Markdown or manpages.
 cli-help = ["tera"]
-docs = ["cli-help", "roff"]
+markdown = ["cli-help"]
+manpage = ["cli-help", "dep:roff"]
+docs = ["markdown", "manpage", "roff"]
+# Compatibility alias for callers that enabled the implicit optional-dependency feature.
+roff = ["manpage"]
 # Let applications that already use miette pass usage errors directly to their reporter.
 miette = ["dep:miette"]
 validation = ["dep:usage-validation"]
@@ -63,7 +64,6 @@ ctor = "1"
 insta = "1"
 pretty_assertions = "1"
 serde_json = "1"
-shell-words = "1"
 tempfile = "3"
 
 [[bench]]

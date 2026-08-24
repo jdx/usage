@@ -2,7 +2,7 @@ use std::fmt;
 
 use std::path::PathBuf;
 
-use heck::AsPascalCase;
+use crate::case::AsPascalCase;
 use indexmap::IndexMap;
 
 use crate::spec::cmd::SpecCommand;

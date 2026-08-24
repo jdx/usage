@@ -55,7 +55,6 @@ use std::path::Path;
 
 use crate::kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
-use strum::{Display as StrumDisplay, EnumString};
 
 use crate::error::{Result, UsageErr};
 use crate::spec::choices::{SpecChoice, SpecChoices};
@@ -77,10 +76,7 @@ fn invalid(msg: String) -> UsageErr {
 /// decides a consumer's *shape*: [`Framing::Json`] is read to EOF and parsed once, so a
 /// generated client returns a value; [`Framing::Jsonl`] arrives a line at a time and may
 /// never end, so a generated client has to return an iterator and must not buffer.
-#[derive(
-    Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, EnumString, StrumDisplay, Serialize,
-)]
-#[strum(serialize_all = "snake_case")]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Framing {
     /// Human-readable text. Nothing may be assumed about its structure, and it is the
@@ -93,6 +89,12 @@ pub enum Framing {
     /// `ndjson` is the same thing under another name.
     Jsonl,
 }
+
+impl_string_enum!(Framing {
+    Framing::Text => "text",
+    Framing::Json => "json",
+    Framing::Jsonl => "jsonl",
+});
 
 impl Framing {
     pub fn as_str(&self) -> &'static str {
