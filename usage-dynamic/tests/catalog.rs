@@ -299,6 +299,16 @@ fn canonical_alias_unknown_help_version_and_invalid_argv_are_typed() {
         .parse_external("plugins", &[OsString::from("missing")])
         .unwrap()
         .is_none());
+    // A hidden alias dispatches like any other spelling; hiding is a help/completion property.
+    let hidden = catalog
+        .parse_external("plugins", &[OsString::from("oldfmt")])
+        .unwrap()
+        .unwrap();
+    let Outcome::Parsed(hidden) = hidden else {
+        panic!("expected parsed")
+    };
+    assert_eq!(hidden.name, "formatter");
+    assert_eq!(hidden.invoked_as, "oldfmt");
     let help = catalog
         .parse_external(
             "plugins",

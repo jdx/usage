@@ -18,6 +18,8 @@ are not modified, and normal parsing stays exactly as fast.
 [dependencies]
 usage = { package = "usage-rs", version = "6", features = ["completions"] }
 usage-dynamic = "6"
+# Any executor works; the example below uses futures' to answer completion requests.
+futures = "0.3"
 ```
 
 The `completions` feature is only needed for the completion half; help and parsing work
@@ -242,8 +244,9 @@ alias its spec declares.
 | `None`                   | No catalogued command matches that name.                                                                                                                           |
 
 `None` is not an error: do whatever the application did with unknown commands before it had
-plugins. Handle `Err(Error::NonUtf8)` the same way — the spec model is UTF-8 strings, but the
-captured `OsString`s are intact, so raw dispatch still works.
+plugins. Handle `Err(usage_dynamic::Error::NonUtf8)` the same way — the spec model is UTF-8
+strings, but the captured `OsString`s are intact, so raw dispatch still works. (This `Error` is
+the catalog's own type, not the parser's `usage::Error` from the example.)
 
 ## Help and completion
 
