@@ -100,6 +100,16 @@ fn the_page_a_compiled_parser_prints_is_the_one_the_reference_renders() {
         coloured.contains("\u{1b}[1;36mSee the docs for more.\u{1b}[0m"),
         "{coloured:?}"
     );
+    assert_eq!(
+        coloured,
+        usage::docs::cli::render_help_styled(
+            &lib,
+            &lib.cmd,
+            false,
+            usage::docs::cli::Style::COLOURED,
+        ),
+        "the reference and compiled terminal renderers should apply identical styles"
+    );
 
     // The sections themselves are untouched by the reordering — a template moves a page's parts
     // and does not rewrite them.
@@ -258,6 +268,15 @@ fn the_two_rust_vocabularies_are_the_same_words() {
         usage_argv::help::Style::COLOURED,
     )
     .expect("every style renders");
+    assert_eq!(
+        coloured,
+        usage::docs::cli::render_help_styled(
+            &portable,
+            &portable.cmd,
+            false,
+            usage::docs::cli::Style::COLOURED,
+        )
+    );
     for style in &canonical {
         assert!(
             coloured.contains(style),

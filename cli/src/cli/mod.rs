@@ -131,13 +131,22 @@ impl Cli {
             Ok(cli) => cli,
             // Not failures: someone asked a question, and the answer goes to stdout.
             Err(usage_rs::Error::Help { cmd, long }) => {
-                if let Some(page) = usage_rs::help::render(Self::spec(), cmd, long) {
+                if let Some(page) = usage_rs::help::render_styled(
+                    Self::spec(),
+                    cmd,
+                    long,
+                    usage_rs::help::Style::auto(),
+                ) {
                     print!("{page}");
                 }
                 return Ok(());
             }
             Err(usage_rs::Error::HelpAll { cmd }) => {
-                if let Some(page) = usage_rs::help::render_all(Self::spec(), cmd) {
+                if let Some(page) = usage_rs::help::render_all_styled(
+                    Self::spec(),
+                    cmd,
+                    usage_rs::help::Style::auto(),
+                ) {
                     print!("{page}");
                 }
                 return Ok(());

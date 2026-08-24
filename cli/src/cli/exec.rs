@@ -35,7 +35,15 @@ pub struct Exec {
 impl Exec {
     pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> usage::miette::Result<()> {
         let parsed = usage::parse::parse_partial(spec, args)?;
-        println!("{}", usage::docs::cli::render_help(spec, &parsed.cmd, long));
+        print!(
+            "{}",
+            usage::docs::cli::render_help_styled(
+                spec,
+                &parsed.cmd,
+                long,
+                usage::docs::cli::Style::auto(),
+            )
+        );
         Ok(())
     }
 }

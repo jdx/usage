@@ -222,6 +222,10 @@ renders the ANSI styles. Plain output and generated Go pages remove the tags whi
 contents. Double the dollar sign to write either delimiter literally: `{$$heading}` renders
 `{$heading}`, and `{/$$}` renders `{/$}`.
 
+The reference renderer keeps `usage::docs::cli::render_help` plain for generated artifacts and
+snapshots. A process printing a dynamically parsed spec should call `render_help_styled` with
+`usage::docs::cli::Style::auto()`; this is the path used by `usage bash` and `usage exec`.
+
 The template applies to the terminal help page. Markdown, manpages, and JSON keep their own
 structure.
 
