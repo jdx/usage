@@ -13,6 +13,7 @@
 //! whose files are pkl or `.npmrc` writes its own layer against [`Layer`] and takes nothing it
 //! does not use.
 
+use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf, Prefix};
 
 use crate::layer::{Layer, LayerCtx, LayerError, LayerOutput};
@@ -34,6 +35,48 @@ pub enum Format {
     Json,
     #[cfg(feature = "yaml")]
     Yaml,
+}
+
+/// Which XDG base directory a file lives under.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum XdgBase {
+    /// `XDG_CONFIG_HOME` and `XDG_CONFIG_DIRS`.
+    Config,
+    /// `XDG_DATA_HOME` and `XDG_DATA_DIRS`.
+    Data,
+    /// `XDG_STATE_HOME`.
+    State,
+    /// `XDG_CACHE_HOME`.
+    Cache,
+    /// `XDG_RUNTIME_DIR`, which has no fallback.
+    Runtime,
+}
+
+#[derive(Default)]
+struct XdgEnv {
+    home: Option<OsString>,
+    config_home: Option<OsString>,
+    config_dirs: Option<OsString>,
+    data_home: Option<OsString>,
+    data_dirs: Option<OsString>,
+    state_home: Option<OsString>,
+    cache_home: Option<OsString>,
+    runtime_dir: Option<OsString>,
+}
+
+impl XdgEnv {
+    fn from_process() -> Self {
+        Self {
+            home: std::env::var_os("HOME"),
+            config_home: std::env::var_os("XDG_CONFIG_HOME"),
+            config_dirs: std::env::var_os("XDG_CONFIG_DIRS"),
+            data_home: std::env::var_os("XDG_DATA_HOME"),
+            data_dirs: std::env::var_os("XDG_DATA_DIRS"),
+            state_home: std::env::var_os("XDG_STATE_HOME"),
+            cache_home: std::env::var_os("XDG_CACHE_HOME"),
+            runtime_dir: std::env::var_os("XDG_RUNTIME_DIR"),
+        }
+    }
 }
 
 impl Format {
@@ -64,7 +107,7 @@ impl Format {
 /// accident, and that is the check a `scope="global"` setting exists for.
 pub struct FileLayer {
     paths: Vec<PathBuf>,
-    scope: FileScope,
+    scopes: Vec<FileScope>,
     format: Option<Format>,
     prefix: Option<String>,
     preprocess: Option<Preprocess>,
@@ -75,7 +118,75 @@ impl FileLayer {
     pub fn at(path: impl Into<PathBuf>, scope: FileScope) -> Self {
         Self {
             paths: vec![path.into()],
-            scope,
+            scopes: vec![scope],
+            format: None,
+            prefix: None,
+            preprocess: None,
+        }
+    }
+
+    /// A file under an XDG base directory.
+    ///
+    /// `path` is relative to the chosen base, for example `"ex/config.toml"`. Config and
+    /// data files include their system search directories and are read in ascending
+    /// precedence, with the user file last. State and cache use their standard
+    /// `$HOME/.local/state` and `$HOME/.cache` fallbacks; the runtime directory has no
+    /// fallback. Relative paths in XDG variables are invalid and are ignored.
+    ///
+    /// This constructor reads the process environment. Use [`FileLayer::at`] when the
+    /// application has already resolved or overridden its config directory.
+    pub fn xdg(base: XdgBase, path: impl AsRef<Path>) -> Self {
+        let path = path.as_ref();
+        assert!(
+            is_xdg_relative(path),
+            "an XDG path must be relative to its base and cannot traverse a parent"
+        );
+        Self::xdg_from(base, path, XdgEnv::from_process())
+    }
+
+    fn xdg_from(base: XdgBase, path: &Path, env: XdgEnv) -> Self {
+        let mut paths = Vec::new();
+        let mut scopes = Vec::new();
+
+        let system_dirs: Vec<PathBuf> = match base {
+            XdgBase::Config => xdg_dirs(env.config_dirs, &["/etc/xdg"]),
+            XdgBase::Data => xdg_dirs(env.data_dirs, &["/usr/local/share", "/usr/share"]),
+            XdgBase::State | XdgBase::Cache | XdgBase::Runtime => Vec::new(),
+        };
+        // XDG *_DIRS are highest-precedence first, while one FileLayer is merged in the order
+        // stored. Reverse them so the first directory gets the last word.
+        for dir in system_dirs.into_iter().rev() {
+            paths.push(dir.join(path));
+            scopes.push(FileScope::System);
+        }
+
+        let (user, fallback) = match base {
+            XdgBase::Config => (env.config_home, Some(Path::new(".config"))),
+            XdgBase::Data => (env.data_home, Some(Path::new(".local/share"))),
+            XdgBase::State => (env.state_home, Some(Path::new(".local/state"))),
+            XdgBase::Cache => (env.cache_home, Some(Path::new(".cache"))),
+            XdgBase::Runtime => (env.runtime_dir, None),
+        };
+        let user_dir = match user.filter(|value| !value.is_empty()) {
+            Some(value) => {
+                let dir = PathBuf::from(value);
+                dir.is_absolute().then_some(dir)
+            }
+            None => env
+                .home
+                .map(PathBuf::from)
+                .filter(|dir| dir.is_absolute())
+                .zip(fallback)
+                .map(|(dir, suffix)| dir.join(suffix)),
+        };
+        if let Some(dir) = user_dir {
+            paths.push(dir.join(path));
+            scopes.push(FileScope::Global);
+        }
+
+        Self {
+            paths,
+            scopes,
             format: None,
             prefix: None,
             preprocess: None,
@@ -124,9 +235,10 @@ impl FileLayer {
             dir = current.parent();
         }
         found.reverse();
+        let found_len = found.len();
         Self {
             paths: found,
-            scope,
+            scopes: vec![scope; found_len],
             format: None,
             prefix: None,
             preprocess: None,
@@ -167,7 +279,13 @@ impl FileLayer {
         &self.paths
     }
 
-    fn read(&self, path: &Path, ctx: &LayerCtx, out: &mut LayerOutput) -> Result<(), LayerError> {
+    fn read(
+        &self,
+        path: &Path,
+        scope: FileScope,
+        ctx: &LayerCtx,
+        out: &mut LayerOutput,
+    ) -> Result<(), LayerError> {
         // Absent is the normal case, not a failure: a find-up chain is mostly directories with
         // no config file in them. *Only* absent, though — a file that is there and cannot be
         // read is the case this module's own doc calls an error, and `read_to_string` also
@@ -231,7 +349,7 @@ impl FileLayer {
                 }
             })?;
         for (key, found) in flat {
-            let origin = Origin::file(format!("{}#{key}", path.display()), self.scope);
+            let origin = Origin::file(format!("{}#{key}", path.display()), scope);
             match found {
                 // Through `entry_for_key`, which is what makes an unknown key a warning,
                 // follows a rename while remembering the name that was written, and reads the
@@ -262,11 +380,45 @@ impl Layer for FileLayer {
 
     fn load(&self, ctx: &LayerCtx) -> Result<LayerOutput, LayerError> {
         let mut out = LayerOutput::new();
-        for path in &self.paths {
-            self.read(path, ctx, &mut out)?;
+        for (path, scope) in self.paths.iter().zip(self.scopes.iter().copied()) {
+            self.read(path, scope, ctx, &mut out)?;
         }
         Ok(out)
     }
+}
+
+fn xdg_dirs(value: Option<OsString>, defaults: &[&str]) -> Vec<PathBuf> {
+    match value.filter(|value| !value.is_empty()) {
+        Some(value) => std::env::split_paths(&value)
+            .filter(|dir| dir.is_absolute())
+            .collect(),
+        None => defaults.iter().map(PathBuf::from).collect(),
+    }
+}
+
+/// Whether a path stays beneath an XDG base on both Unix and Windows.
+///
+/// The host's [`Component`]s catch its native absolute and parent forms. The text checks catch
+/// Windows forms while cross-compiling or testing on Unix, where a backslash and drive prefix
+/// would otherwise be ordinary filename characters.
+fn is_xdg_relative(path: &Path) -> bool {
+    if path.as_os_str().is_empty()
+        || path.components().any(|component| {
+            matches!(
+                component,
+                Component::Prefix(_) | Component::RootDir | Component::ParentDir
+            )
+        })
+    {
+        return false;
+    }
+    let Some(text) = path.to_str() else {
+        return true;
+    };
+    let bytes = text.as_bytes();
+    let windows_prefix = text.starts_with('\\')
+        || (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':');
+    !windows_prefix && !text.split(['/', '\\']).any(|part| part == "..")
 }
 
 /// What one key in a file turned out to hold.
@@ -918,6 +1070,138 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn xdg_paths_are_relative_under_unix_and_windows_rules() {
+        for path in ["ex/config.toml", "ex/./config.toml", "config.toml"] {
+            assert!(is_xdg_relative(Path::new(path)), "{path}");
+        }
+        for path in [
+            "",
+            "/tmp/config.toml",
+            "../config.toml",
+            "ex/../../config.toml",
+            r"\Windows\config.toml",
+            r"C:\config.toml",
+            r"C:config.toml",
+            r"..\config.toml",
+            r"ex\..\config.toml",
+        ] {
+            assert!(!is_xdg_relative(Path::new(path)), "{path}");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "an XDG path must be relative")]
+    fn the_public_xdg_constructor_rejects_an_escaping_path() {
+        let _ = FileLayer::xdg(XdgBase::Config, "../config.toml");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn xdg_paths_put_the_user_above_system_directories() {
+        let layer = FileLayer::xdg_from(
+            XdgBase::Config,
+            Path::new("ex/config.toml"),
+            XdgEnv {
+                config_home: Some(OsString::from("/home/user/config")),
+                config_dirs: Some(OsString::from("/etc/xdg:/opt/xdg")),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            layer.paths(),
+            &[
+                PathBuf::from("/opt/xdg/ex/config.toml"),
+                PathBuf::from("/etc/xdg/ex/config.toml"),
+                PathBuf::from("/home/user/config/ex/config.toml"),
+            ]
+        );
+        assert_eq!(
+            layer.scopes,
+            [FileScope::System, FileScope::System, FileScope::Global]
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn xdg_paths_use_the_spec_defaults() {
+        let layer = FileLayer::xdg_from(
+            XdgBase::Config,
+            Path::new("ex/config.toml"),
+            XdgEnv {
+                home: Some(OsString::from("/home/user")),
+                config_home: Some(OsString::new()),
+                config_dirs: Some(OsString::new()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            layer.paths(),
+            &[
+                PathBuf::from("/etc/xdg/ex/config.toml"),
+                PathBuf::from("/home/user/.config/ex/config.toml"),
+            ]
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn xdg_paths_ignore_relative_environment_values() {
+        let layer = FileLayer::xdg_from(
+            XdgBase::Config,
+            Path::new("ex/config.toml"),
+            XdgEnv {
+                home: Some(OsString::from("/home/user")),
+                config_home: Some(OsString::from("relative/user")),
+                config_dirs: Some(OsString::from("relative:/etc/ex:also-relative")),
+                ..Default::default()
+            },
+        );
+        assert_eq!(layer.paths(), &[PathBuf::from("/etc/ex/ex/config.toml")]);
+        assert_eq!(layer.scopes, [FileScope::System]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn each_xdg_base_uses_its_own_home_and_fallback() {
+        let env = || XdgEnv {
+            home: Some(OsString::from("/home/user")),
+            ..Default::default()
+        };
+        let path = Path::new("ex/value");
+        assert_eq!(
+            FileLayer::xdg_from(XdgBase::Data, path, env()).paths(),
+            &[
+                PathBuf::from("/usr/share/ex/value"),
+                PathBuf::from("/usr/local/share/ex/value"),
+                PathBuf::from("/home/user/.local/share/ex/value"),
+            ]
+        );
+        assert_eq!(
+            FileLayer::xdg_from(XdgBase::State, path, env()).paths(),
+            &[PathBuf::from("/home/user/.local/state/ex/value")]
+        );
+        assert_eq!(
+            FileLayer::xdg_from(XdgBase::Cache, path, env()).paths(),
+            &[PathBuf::from("/home/user/.cache/ex/value")]
+        );
+        assert!(FileLayer::xdg_from(XdgBase::Runtime, path, env())
+            .paths()
+            .is_empty());
+        assert_eq!(
+            FileLayer::xdg_from(
+                XdgBase::Runtime,
+                path,
+                XdgEnv {
+                    runtime_dir: Some(OsString::from("/run/user/1000")),
+                    ..Default::default()
+                }
+            )
+            .paths(),
+            &[PathBuf::from("/run/user/1000/ex/value")]
+        );
     }
 
     #[cfg(feature = "toml")]

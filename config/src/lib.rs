@@ -77,7 +77,7 @@ pub use cli::CliLayer;
 pub use env::EnvLayer;
 pub use explain::explain;
 #[cfg(any(feature = "toml", feature = "json", feature = "yaml"))]
-pub use files::{FileLayer, Format};
+pub use files::{FileLayer, Format, XdgBase};
 pub use layer::{Entry, Layer, LayerCtx, LayerError, LayerOutput, Warning, WarningKind};
 pub use props::{concat_prop_specs, concat_props, Props};
 pub use read::{Fold, FromValue, ReadError, ReadErrorKind, ReadErrors};
