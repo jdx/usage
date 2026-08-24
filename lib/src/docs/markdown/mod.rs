@@ -6,4 +6,4 @@ mod renderer;
 mod spec;
 mod tera;
 
-pub use renderer::MarkdownRenderer;
+pub use renderer::{MarkdownRenderer, MarkdownTemplate};

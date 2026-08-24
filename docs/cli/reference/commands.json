@@ -1420,6 +1420,24 @@
                 }
               },
               {
+                "name": "template",
+                "usage": "--template… <TEMPLATE>",
+                "help": "Override a Tera template with NAME=PATH",
+                "help_first_line": "Override a Tera template with NAME=PATH",
+                "short": [],
+                "long": ["template"],
+                "var": true,
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "TEMPLATE",
+                  "usage": "<TEMPLATE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
                 "name": "help",
                 "usage": "-h --help",
                 "help": "Print help",

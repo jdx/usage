@@ -349,6 +349,9 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
         flag --url-prefix help="Prefix to add to all URLs" {
             arg <URL_PREFIX>
         }
+        flag --template help="Override a Tera template with NAME=PATH" var=#true {
+            arg <TEMPLATE>
+        }
         flag "-h --help" help="Print help" action=help builtin=#true
         complete out_dir type=dir
         complete out_file type=path

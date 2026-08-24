@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use super::{parse_file_or_stdin, select_view, write_or_stdout};
-use usage::docs::markdown::MarkdownRenderer;
+use usage::docs::markdown::{MarkdownRenderer, MarkdownTemplate};
+use usage::error::UsageErr;
 use usage_rs::Args;
 
 /// Generate markdown documentation from usage specs
@@ -51,6 +52,10 @@ pub struct Markdown {
     /// Prefix to add to all URLs
     #[usage(long)]
     url_prefix: Option<String>,
+
+    /// Override a Tera template with NAME=PATH
+    #[usage(long)]
+    template: Vec<String>,
 }
 
 impl usage_rs::Run for Markdown {
@@ -76,6 +81,26 @@ impl usage_rs::Run for Markdown {
         let mut ctx = MarkdownRenderer::new(spec.clone())
             .with_html_encode(self.html_encode)
             .with_replace_pre_with_code_fences(self.replace_pre_with_code_fences);
+        for value in &self.template {
+            let Some((name, path)) = value.split_once('=') else {
+                miette::bail!("invalid template `{value}`; expected NAME=PATH");
+            };
+            let template = match name {
+                "spec" => MarkdownTemplate::Spec,
+                "index" => MarkdownTemplate::Index,
+                "command" => MarkdownTemplate::Command,
+                "argument" => MarkdownTemplate::Argument,
+                "flag" => MarkdownTemplate::Flag,
+                "config" => MarkdownTemplate::Config,
+                _ => miette::bail!(
+                    "unknown template `{name}`; expected spec, index, command, argument, flag, or config"
+                ),
+            };
+            let path = PathBuf::from(path);
+            let source = std::fs::read_to_string(&path)
+                .map_err(|err| UsageErr::FileError(err, path.clone()))?;
+            ctx = ctx.with_template(template, source);
+        }
         if let Some(url_prefix) = &self.url_prefix {
             ctx = ctx.with_url_prefix(url_prefix);
         }
