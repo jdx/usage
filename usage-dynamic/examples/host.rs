@@ -1,9 +1,9 @@
 //! A plugin-aware host, end to end.
 //!
 //! This is the example `docs/rust/dynamic-commands.md` shows, kept here so it compiles. The
-//! shape it demonstrates: parse first, against the static tables alone, so a built-in command
-//! runs without any plugin being discovered, loaded, or parsed. Plugins load only on the paths
-//! that need them — the catch-all, help, and completion.
+//! shape it demonstrates: parse against the static tables first, so built-in commands run
+//! without loading any plugin. Plugins load only on the paths that need them — the catch-all,
+//! help, and completion.
 
 use std::ffi::{OsStr, OsString};
 use usage_dynamic::{Catalog, Outcome, ParseOutput, Spec};
@@ -25,7 +25,7 @@ enum Commands {
     External(Vec<OsString>),
 }
 
-/// Discovery is the application's: scan a directory, read a lockfile, whatever fits.
+/// How plugins are found is up to the application: a directory scan, a lockfile, a registry.
 fn plugin_catalog() -> Catalog<'static> {
     let mut builder = Catalog::builder(Ex::app());
     for spec in discover_plugin_specs() {
@@ -44,9 +44,8 @@ fn fallback(_words: &[OsString]) {}
 fn main() {
     let argv: Vec<OsString> = std::env::args_os().skip(1).collect();
 
-    // A completion request is not a command anybody runs, so it is recognized before the
-    // parse. It is also interactive: loading plugins here is affordable, and it is what puts
-    // their names in the answer.
+    // Completion requests are recognized before the parse. They are interactive, so loading
+    // plugins here is affordable — and it is what puts plugin names in the answer.
     if let Some(request) = CompletionRequest::parse(&argv) {
         let catalog = plugin_catalog();
         let answer = futures::executor::block_on(catalog.app().unwrap().complete_request(&request));
@@ -56,13 +55,12 @@ fn main() {
 
     let words: Vec<&OsStr> = argv.iter().map(OsString::as_os_str).collect();
     match Ex::parse_from(&words) {
-        // A built-in command runs with no plugin loaded. This is the hot path, and nothing on
-        // it knows plugins exist.
+        // Built-in commands run without loading any plugin.
         Ok(Ex {
             command: Commands::Build,
         }) => build(),
 
-        // The catch-all fired: now, and only now, load plugins.
+        // The words named something the static tables don't know. Load plugins now.
         Ok(Ex {
             command: Commands::External(captured),
         }) => {
@@ -71,15 +69,14 @@ fn main() {
                 Ok(Some(Outcome::Parsed(parsed))) => run_plugin(&parsed.name, &parsed.output),
                 Ok(Some(Outcome::Help(help))) => print!("{}", help.page),
                 Ok(Some(Outcome::Version(version))) => println!("{}", version.version),
-                // A name no loaded plugin answers to, or argv the spec model cannot
-                // represent. The words are untouched either way: handle them however this
-                // application handled unrecognized commands before it had plugins.
+                // No loaded plugin matches, or the argv is not UTF-8. The captured words are
+                // untouched — handle them like any unknown command.
                 _ => fallback(&captured),
             }
         }
 
-        // Help is a cold path too. Render it through the catalog so plugins appear on the
-        // page; `usage::help::find` turns the command the parser stopped at into the path
+        // Render help through the catalog so plugin commands appear on the page.
+        // `usage::help::find` converts the command the parser stopped at into the path
         // `help` takes.
         Err(Error::Help { cmd, long }) => {
             let catalog = plugin_catalog();
