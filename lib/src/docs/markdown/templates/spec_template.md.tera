@@ -4,13 +4,13 @@
 {{- "#" | repeat(count=header_level) }} `{{ (spec.bin ~ " " ~ full_cmd) | trim }}`
 
 {%- if spec.version %}
-- **version**: {{ spec.version }}{% endif %}
+- **Version:** {{ spec.version }}{% endif %}
 {%- if spec.author %}
-- **author**: {{ spec.author }}{% endif %}
+- **Author:** {{ spec.author }}{% endif %}
 {%- if spec.license %}
-- **license**: {{ spec.license }}{% endif %}
+- **License:** {{ spec.license }}{% endif %}
 {%- if spec.repository %}
-- **repository**: {{ spec.repository }}{% endif %}
+- **Repository:** {{ spec.repository }}{% endif %}
 
 {%- if about %}
 

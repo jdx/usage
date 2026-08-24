@@ -31,30 +31,30 @@ Read from, in ascending precedence — the last one that names a setting wins:
 {%- if prop.type_ or prop.default or prop.aliases or prop.optional is not none or prop.merge or prop.scope == "global" or prop.scope == "env" or prop.since or prop.sources %}
 {% endif %}
 {%- if prop.type_ %}
-- **type**: `{{ prop.type_ }}`
+- **Type:** `{{ prop.type_ }}`
 {%- endif %}
 {%- if prop.aliases %}
-- **aliases**: {% for alias in prop.aliases %}`{{ alias }}`{% if not loop.last %}, {% endif %}{% endfor %}
+- **Aliases:** {% for alias in prop.aliases %}`{{ alias }}`{% if not loop.last %}, {% endif %}{% endfor %}
 {%- endif %}
 {%- if prop.optional is not none %}
-- **optional**: {{ prop.optional }}
+- **Optional:** {{ prop.optional }}
 {%- endif %}
 {%- if prop.default %}
-- **default**: {% if prop.default_note %}{{ prop.default_note }}{% else %}`{{ prop.default }}`{% endif %}
+- **Default:** {% if prop.default_note %}{{ prop.default_note }}{% else %}`{{ prop.default }}`{% endif %}
 {%- endif %}
 {%- if prop.merge %}
-- **merged**: {% if prop.merge == "union" %}values from every source are combined{% else %}maps are merged key by key{% endif %}
+- **Merged:** {% if prop.merge == "union" %}values from every source are combined{% else %}maps are merged key by key{% endif %}
 {%- endif %}
 {%- if prop.scope == "global" %}
-- **scope**: only from your own configuration, never from a project file
+- **Scope:** only from your own configuration, never from a project file
 {%- elif prop.scope == "env" %}
-- **scope**: only from the environment or the command line
+- **Scope:** only from the environment or the command line
 {%- endif %}
 {%- if prop.since %}
-- **since**: {{ prop.since }}
+- **Since:** {{ prop.since }}
 {%- endif %}
 {%- if prop.sources %}
-- **set with**: {% for source in prop.sources %}{{ source }}{% if not loop.last %}, {% endif %}{% endfor %}
+- **Set with:** {% for source in prop.sources %}{{ source }}{% if not loop.last %}, {% endif %}{% endfor %}
 {%- endif %}
 {%- if prop.help_md %}
 

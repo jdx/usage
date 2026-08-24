@@ -4,7 +4,7 @@
 {%- endif %}
 {%- if flag.effect %}
 
-**Effect**: {% if flag.effect == "read" %}read-only{% elif flag.effect == "destructive" %}destructive — may delete or irreversibly overwrite{% else %}modifies state{% endif %}
+**Effect:** {% if flag.effect == "read" %}read-only{% elif flag.effect == "destructive" %}destructive — may delete or irreversibly overwrite{% else %}modifies state{% endif %}
 {%- endif %}
 {%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
 

@@ -46,4 +46,4 @@
 {%- if flag.deprecated_env | length > 0 %}
 
   **Deprecated Environment Variables:** {% for env in flag.deprecated_env %}`{{ env }}`{% if not loop.last %}, {% endif %}{% endfor %}
-{%- endif %}
+{%- endif -%}

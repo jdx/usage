@@ -3,23 +3,23 @@
 {%- set full_cmd = cmd.full_cmd | join(sep=" ") %}
 {{- "#" | repeat(count=header_level) }} `{{ (spec.bin ~ " " ~ full_cmd) | trim }}`
 
-**Usage**: `{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`
+**Usage:** `{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`
 
 {%- if spec.version %}
 
-**Version**: {{ spec.version }}
+**Version:** {{ spec.version }}
 {%- endif %}
 {%- if spec.author %}
 
-**Author**: {{ spec.author }}
+**Author:** {{ spec.author }}
 {%- endif %}
 {%- if spec.license %}
 
-**License**: {{ spec.license }}
+**License:** {{ spec.license }}
 {%- endif %}
 {%- if spec.repository %}
 
-**Repository**: {{ spec.repository }}
+**Repository:** {{ spec.repository }}
 {%- endif %}
 
 {%- include "cmd_template.md.tera" %}

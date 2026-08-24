@@ -219,7 +219,7 @@ output "xml" media_type="application/xml"
         .render_cmd(&spec.cmd)
         .expect("detailed markdown page");
     assert!(
-        detailed.contains("`xml`\n\n- **Media type**: `application/xml`"),
+        detailed.contains("`xml`\n\n- **Media type:** `application/xml`"),
         "{detailed}"
     );
 }

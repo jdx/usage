@@ -8,11 +8,11 @@ expression: "markdown_stdout(&[\"--out-file\", \"-\"])"
 A demo CLI with examples
 
 
-- **Usage**: `demo <SUBCOMMAND>`
+- **Usage:** `demo <SUBCOMMAND>`
 
 ## `demo deploy`
 
-- **Usage**: `demo deploy [-e --environment <env>] [-f --force]`
+- **Usage:** `demo deploy [-e --environment <env>] [-f --force]`
 
 Deploy your application
 
@@ -21,7 +21,6 @@ Deploy your application
 
   **Choices:** `dev`, `staging`, `prod`
 - **`-f --force`** — Force deployment
-
 
 ### Examples
 
@@ -43,20 +42,19 @@ demo deploy -e staging --force
 
 ## `demo config`
 
-- **Usage**: `demo config <SUBCOMMAND>`
+- **Usage:** `demo config <SUBCOMMAND>`
 
 Manage configuration
 
 ## `demo config set`
 
-- **Usage**: `demo config set <key> <value>`
+- **Usage:** `demo config set <key> <value>`
 
 Set a configuration value
 
 ### Arguments
 - **`<key>`** — Configuration key
 - **`<value>`** — Configuration value
-
 
 ### Examples
 

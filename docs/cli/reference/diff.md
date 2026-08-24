@@ -2,9 +2,9 @@
 
 # `usage diff`
 
-- **Usage**: `usage diff [FLAGS] <OLD> <NEW>`
-- **Effect**: read-only
-- **Source code**: [`cli/src/cli/diff.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/diff.rs)
+- **Usage:** `usage diff [FLAGS] <OLD> <NEW>`
+- **Effect:** read-only
+- **Source code:** [`cli/src/cli/diff.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/diff.rs)
 
 Compare two usage specs and report what changed about the interface
 

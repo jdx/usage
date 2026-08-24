@@ -326,7 +326,7 @@ fn test_source_code_links_exist() {
                 .to_string();
             continue;
         }
-        let Some(rest) = line.trim().strip_prefix("- **Source code**: [`") else {
+        let Some(rest) = line.trim().strip_prefix("- **Source code:** [`") else {
             continue;
         };
         let path = rest.split_once("`]").expect("malformed source code link").0;

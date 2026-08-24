@@ -8,18 +8,18 @@
 {{ cmd.before_help_md | escape_md }}
 {%- endif %}
 
-- **Usage**: `{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`
+- **Usage:** `{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`
 {%- if cmd.deprecated or cmd.deprecated_warn_at or cmd.deprecated_remove_at %}
-- **Deprecated**:{% if cmd.deprecated %} {{ cmd.deprecated }}{% if cmd.deprecated_warn_at or cmd.deprecated_remove_at %};{% endif %}{% endif %}{% if cmd.deprecated_warn_at %} Warns at {{ cmd.deprecated_warn_at }}.{% endif %}{% if cmd.deprecated_remove_at %} Removed at {{ cmd.deprecated_remove_at }}.{% endif %}
+- **Deprecated:**{% if cmd.deprecated %} {{ cmd.deprecated }}{% if cmd.deprecated_warn_at or cmd.deprecated_remove_at %};{% endif %}{% endif %}{% if cmd.deprecated_warn_at %} Warns at {{ cmd.deprecated_warn_at }}.{% endif %}{% if cmd.deprecated_remove_at %} Removed at {{ cmd.deprecated_remove_at }}.{% endif %}
 {%- endif %}
 {%- if cmd.aliases %}
-- **Aliases**: `{{ cmd.aliases | join(sep="`, `") }}`
+- **Aliases:** `{{ cmd.aliases | join(sep="`, `") }}`
 {%- endif %}
 {%- if cmd.effect %}
-- **Effect**: {% if cmd.effect == "read" %}read-only{% elif cmd.effect == "destructive" %}destructive — may delete or irreversibly overwrite{% else %}modifies state{% endif %}
+- **Effect:** {% if cmd.effect == "read" %}read-only{% elif cmd.effect == "destructive" %}destructive — may delete or irreversibly overwrite{% else %}modifies state{% endif %}
 {%- endif %}
 {%- if source_code_link %}
-- **Source code**: {{ source_code_link }}
+- **Source code:** {{ source_code_link }}
 {%- endif %}
 {%- if cmd.help_md %}
 
@@ -32,7 +32,8 @@
 
 {{ "#" | repeat(count=header_level) }}# {{ arg_group.heading | default(value="Arguments") }}
 {% for arg in visible %}
-{%- include "arg_template.md.tera" %}
+{%- include "arg_template.md.tera" -%}
+{%- if not loop.last %}{{ "\n" }}{% endif %}
 {%- endfor %}
 {%- endif %}
 {%- endfor %}
@@ -44,7 +45,8 @@
 
 {{ "#" | repeat(count=header_level) }}# {{ flag_group.heading | default(value="Global Flags") }}
 {% for flag in group_globals %}
-{%- include "flag_template.md.tera" %}
+{%- include "flag_template.md.tera" -%}
+{%- if not loop.last %}{{ "\n" }}{% endif %}
 {%- endfor %}
 {%- endif %}
 {%- endfor %}
@@ -59,14 +61,22 @@
 
 {{ "#" | repeat(count=header_level) }}# {{ flag_group.heading | default(value="Flags") }}
 {% for flag in group_flags %}
-{%- include "flag_template.md.tera" %}
+{%- include "flag_template.md.tera" -%}
+{%- if not loop.last %}{{ "\n" }}{% endif %}
 {%- endfor %}
 {%- endif %}
 {%- endfor %}
 
 {%- if cmd.outputs %}
 
-{{ "#" | repeat(count=header_level) }}# Output
+{{ "#" | repeat(count=header_level) }}# Output Formats
+{%- set collapse_outputs = cmd.outputs | length > 5 %}
+{%- if collapse_outputs %}
+
+<details>
+<summary>{{ cmd.outputs | length }} available formats</summary>
+
+{%- endif %}
 {% for output in cmd.outputs %}
 - **`{{ output.name }}`**{% if output.default %} (default){% endif %}{% if output.help %} — {{ output.help }}{% endif %}
 
@@ -86,6 +96,10 @@
   </details>
 {%- endif %}
 {%- endfor %}
+{%- if collapse_outputs %}
+
+</details>
+{%- endif %}
 {%- endif %}
 
 {%- if cmd.exit_codes %}

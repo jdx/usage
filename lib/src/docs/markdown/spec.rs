@@ -45,7 +45,7 @@ mod tests {
         assert_snapshot!(ctx.render_spec().unwrap(), @"
         # `mycli`
 
-        - **Usage**: `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
+        - **Usage:** `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
 
         ## Arguments
         - **`<arg1>`** — arg1 description
@@ -59,7 +59,6 @@ mod tests {
         - **`[with-default]`**
 
           **Default:** `default value`
-
 
         ## Flags
         - **`--flag1`** — flag1 description
@@ -92,23 +91,21 @@ mod tests {
 
           **Choices:** `bash`, `zsh`, `fish`
 
-
         ## `mycli plugin`
 
-        - **Usage**: `mycli plugin <SUBCOMMAND>`
-        - **Source code**: [`src/cli/plugin.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugin.rs)
+        - **Usage:** `mycli plugin <SUBCOMMAND>`
+        - **Source code:** [`src/cli/plugin.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugin.rs)
 
         ## `mycli plugin install`
 
-        - **Usage**: `mycli plugin install [FLAGS] <plugin> <version>`
-        - **Source code**: [`src/cli/plugin/install.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugin/install.rs)
+        - **Usage:** `mycli plugin install [FLAGS] <plugin> <version>`
+        - **Source code:** [`src/cli/plugin/install.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugin/install.rs)
 
         install a plugin
 
         ### Arguments
         - **`<plugin>`**
         - **`<version>`**
-
 
         ### Flags
         - **`-g --global`**
@@ -131,15 +128,15 @@ mod tests {
         let output = MarkdownRenderer::new(spec).render_spec().unwrap();
 
         assert!(
-            output.contains("**author**: Example Maintainers"),
+            output.contains("**Author:** Example Maintainers"),
             "{output}"
         );
         assert!(
-            output.contains("**license**: MIT OR Apache-2.0"),
+            output.contains("**License:** MIT OR Apache-2.0"),
             "{output}"
         );
         assert!(
-            output.contains("**repository**: https://example.com/tool"),
+            output.contains("**Repository:** https://example.com/tool"),
             "{output}"
         );
     }

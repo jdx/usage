@@ -2,10 +2,10 @@
 
 # `usage generate`
 
-- **Usage**: `usage generate <SUBCOMMAND>`
-- **Aliases**: `g`
-- **Effect**: read-only
-- **Source code**: [`cli/src/cli/generate/mod.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/mod.rs)
+- **Usage:** `usage generate <SUBCOMMAND>`
+- **Aliases:** `g`
+- **Effect:** read-only
+- **Source code:** [`cli/src/cli/generate/mod.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/mod.rs)
 
 Generate completions, documentation, and other artifacts from usage specs
 

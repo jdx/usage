@@ -2,9 +2,9 @@
 
 # `usage generate json-schema`
 
-- **Usage**: `usage generate json-schema [FLAGS]`
-- **Effect**: read-only
-- **Source code**: [`cli/src/cli/generate/json_schema.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/json_schema.rs)
+- **Usage:** `usage generate json-schema [FLAGS]`
+- **Effect:** read-only
+- **Source code:** [`cli/src/cli/generate/json_schema.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/json_schema.rs)
 
 Generate a JSON Schema for a CLI's config file from its usage spec
 

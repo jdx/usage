@@ -2,9 +2,9 @@
 
 # `usage generate go`
 
-- **Usage**: `usage generate go [FLAGS]`
-- **Effect**: read-only
-- **Source code**: [`cli/src/cli/generate/go.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/go.rs)
+- **Usage:** `usage generate go [FLAGS]`
+- **Effect:** read-only
+- **Source code:** [`cli/src/cli/generate/go.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/go.rs)
 
 Generate Go parse tables from a usage spec
 

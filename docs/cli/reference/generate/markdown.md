@@ -2,10 +2,10 @@
 
 # `usage generate markdown`
 
-- **Usage**: `usage generate markdown <FLAGS>`
-- **Aliases**: `md`
-- **Effect**: read-only
-- **Source code**: [`cli/src/cli/generate/markdown.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/markdown.rs)
+- **Usage:** `usage generate markdown <FLAGS>`
+- **Aliases:** `md`
+- **Effect:** read-only
+- **Source code:** [`cli/src/cli/generate/markdown.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/markdown.rs)
 
 Generate markdown documentation from usage specs
 

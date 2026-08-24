@@ -55,10 +55,10 @@ config {
 "#,
         );
         assert!(
-            page.contains("**aliases**: `parallelism`, `threads`"),
+            page.contains("**Aliases:** `parallelism`, `threads`"),
             "{page}"
         );
-        assert!(page.contains("**optional**: false"), "{page}");
+        assert!(page.contains("**Optional:** false"), "{page}");
     }
 
     #[test]
@@ -78,11 +78,11 @@ config {
 "##,
         );
         assert!(
-            page.contains("## `untyped`\n\n- **default**: `1`"),
+            page.contains("## `untyped`\n\n- **Default:** `1`"),
             "the list item is against the heading:\n{page:?}"
         );
         assert!(
-            page.contains(":::\n\n- **default**: `2`"),
+            page.contains(":::\n\n- **Default:** `2`"),
             "the list item is against the admonition:\n{page:?}"
         );
     }

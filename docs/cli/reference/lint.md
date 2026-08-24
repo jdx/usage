@@ -2,9 +2,9 @@
 
 # `usage lint`
 
-- **Usage**: `usage lint [FLAGS] <FILE>`
-- **Effect**: read-only
-- **Source code**: [`cli/src/cli/lint.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/lint.rs)
+- **Usage:** `usage lint [FLAGS] <FILE>`
+- **Effect:** read-only
+- **Source code:** [`cli/src/cli/lint.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/lint.rs)
 
 Lint a usage spec file for common issues
 
