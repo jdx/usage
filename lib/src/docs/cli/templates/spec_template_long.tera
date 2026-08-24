@@ -91,21 +91,21 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- endfor %}
 {%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
-    [possible values: {{ arg.choices.choices | join(sep=", ") }}]
+{{ arg.ann_indent }}[possible values: {{ arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
-    [choices env: {{ arg.choices.env }}]
+{{ arg.ann_indent }}[choices env: {{ arg.choices.env }}]
 {%- endif %}
 {%- if not arg.hide_env and arg.env %}
-    [env: {{ arg.env }}]
+{{ arg.ann_indent }}[env: {{ arg.env }}]
 {%- endif %}
 {%- if not arg.hide_env %}{% for env in arg.env_fallback %}
-    [env fallback: {{ env }}]
+{{ arg.ann_indent }}[env fallback: {{ env }}]
 {%- endfor %}{% for env in arg.deprecated_env %}
-    [deprecated env: {{ env }}]
+{{ arg.ann_indent }}[deprecated env: {{ env }}]
 {%- endfor %}{%- endif %}
 {%- if not arg.hide_default_value and arg.default %}
-    (default: {{ arg.default | join(sep=", ") }})
+{{ arg.ann_indent }}(default: {{ arg.default | join(sep=", ") }})
 {%- endif %}
 {%- endfor %}
 {%- endfor %}{% if arg_has_ungrouped and not arg_has_grouped %}{{ mark_grouped_args }}{% endif %}{{ mark_flags }}{% if not flag_has_ungrouped %}{{ mark_grouped_flags }}{% endif %}
@@ -149,24 +149,24 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- endfor %}
 {%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
-    [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
+{{ flag.ann_indent }}[possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
-    [choices env: {{ flag.arg.choices.env }}]
+{{ flag.ann_indent }}[choices env: {{ flag.arg.choices.env }}]
 {%- endif %}
 {%- if not flag.hide_env and flag.env %}
-    [env: {{ flag.env }}]
+{{ flag.ann_indent }}[env: {{ flag.env }}]
 {%- endif %}
 {%- if not flag.hide_env %}{% for env in flag.env_fallback %}
-    [env fallback: {{ env }}]
+{{ flag.ann_indent }}[env fallback: {{ env }}]
 {%- endfor %}{% for env in flag.deprecated_env %}
-    [deprecated env: {{ env }}]
+{{ flag.ann_indent }}[deprecated env: {{ env }}]
 {%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
-    (default: {{ flag.default | join(sep=", ") }})
+{{ flag.ann_indent }}(default: {{ flag.default | join(sep=", ") }})
 {%- endif %}
 {%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
-    [deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]
+{{ flag.ann_indent }}[deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]
 {%- endif %}
 {%- endfor %}
 {%- endfor %}{% if flag_has_ungrouped and not flag_has_grouped %}{{ mark_grouped_flags }}{% endif %}{{ mark_global_flags }}
@@ -206,24 +206,24 @@ Global flags:
 {%- endfor %}
 {%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
-    [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
+{{ flag.ann_indent }}[possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]
 {%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
-    [choices env: {{ flag.arg.choices.env }}]
+{{ flag.ann_indent }}[choices env: {{ flag.arg.choices.env }}]
 {%- endif %}
 {%- if not flag.hide_env and flag.env %}
-    [env: {{ flag.env }}]
+{{ flag.ann_indent }}[env: {{ flag.env }}]
 {%- endif %}
 {%- if not flag.hide_env %}{% for env in flag.env_fallback %}
-    [env fallback: {{ env }}]
+{{ flag.ann_indent }}[env fallback: {{ env }}]
 {%- endfor %}{% for env in flag.deprecated_env %}
-    [deprecated env: {{ env }}]
+{{ flag.ann_indent }}[deprecated env: {{ env }}]
 {%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
-    (default: {{ flag.default | join(sep=", ") }})
+{{ flag.ann_indent }}(default: {{ flag.default | join(sep=", ") }})
 {%- endif %}
 {%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
-    [deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]
+{{ flag.ann_indent }}[deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]
 {%- endif %}
 {%- endfor %}
 {%- endif %}{{ mark_flattened }}

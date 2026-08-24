@@ -67,10 +67,16 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
             .chain(inherited.iter())
             .map(|f| f.display_usage.as_str()),
     );
+    let flag_column = Column {
+        width,
+        col,
+        long,
+        next_line: cmd.next_line_help,
+    };
     for group in &mut docs_cmd.flag_groups {
-        lay_out(&mut group.items, width, col, long);
+        lay_out(&mut group.items, flag_column);
     }
-    lay_out(&mut inherited, width, col, long);
+    lay_out(&mut inherited, flag_column);
 
     // The arguments get their own column, laid out here for the page being rendered rather than
     // taken from the model's — which is the long page's, and would put a long description in the
@@ -78,7 +84,15 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     let arg_col =
         crate::docs::layout::max_usage_width(docs_cmd.args.iter().map(|a| a.usage.as_str()));
     for group in &mut docs_cmd.arg_groups {
-        lay_out_args(&mut group.items, width, arg_col, long);
+        lay_out_args(
+            &mut group.items,
+            Column {
+                width,
+                col: arg_col,
+                long,
+                next_line: cmd.next_line_help,
+            },
+        );
     }
 
     // The command list, laid out the way the flag list is: one column for the whole page, the
@@ -368,15 +382,10 @@ fn supplied_flags(
 /// command's own flags and the ones it inherits. The width is not only padding — a wrapped
 /// description is indented to sit under itself — so it cannot be decided per section and then
 /// shared.
-fn lay_out(
-    flags: &mut [crate::docs::models::SpecFlag],
-    terminal_width: usize,
-    col: usize,
-    long: bool,
-) {
+fn lay_out(flags: &mut [crate::docs::models::SpecFlag], column: Column) {
     for flag in flags {
-        flag.usage_col_width = col;
-        let text = if long {
+        flag.usage_col_width = column.col;
+        let text = if column.long {
             flag.help_long
                 .as_deref()
                 .or(flag.help.as_deref())
@@ -386,11 +395,11 @@ fn lay_out(
         };
         wrap_into(
             text,
-            terminal_width,
-            col,
+            column,
             &mut flag.row,
             &mut flag.help_rendered,
             &mut flag.help_is_multiline,
+            &mut flag.ann_indent,
         );
     }
 }
@@ -400,15 +409,10 @@ fn lay_out(
 /// `SpecCommand::from` already made one, but it made the long page's — the short page prefers
 /// the short description and carries the annotations in the text — so the page it is actually
 /// rendering gets the last word.
-fn lay_out_args(
-    args: &mut [crate::docs::models::SpecArg],
-    terminal_width: usize,
-    col: usize,
-    long: bool,
-) {
+fn lay_out_args(args: &mut [crate::docs::models::SpecArg], column: Column) {
     for arg in args {
-        arg.usage_col_width = col;
-        let text = if long {
+        arg.usage_col_width = column.col;
+        let text = if column.long {
             arg.help_long
                 .as_deref()
                 .or(arg.help.as_deref())
@@ -418,11 +422,11 @@ fn lay_out_args(
         };
         wrap_into(
             text,
-            terminal_width,
-            col,
+            column,
             &mut arg.row,
             &mut arg.help_rendered,
             &mut arg.help_is_multiline,
+            &mut arg.ann_indent,
         );
     }
 }
@@ -434,18 +438,25 @@ fn lay_out_args(
 /// which is the case the template reads `row` for.
 fn wrap_into(
     text: Option<String>,
-    terminal_width: usize,
-    col: usize,
+    column: Column,
     row: &mut Option<String>,
     help_rendered: &mut Option<String>,
     help_is_multiline: &mut bool,
+    ann_indent: &mut String,
 ) {
     *row = None;
     *help_rendered = None;
     *help_is_multiline = false;
+    // An entry with nothing in the column still has annotations to place, and the column is
+    // where they go: it is the entry's own row that is empty, not the table's.
+    *ann_indent = column.annotation_indent(!column.is_block());
     let Some(text) = text else { return };
     let (rendered, is_multiline) =
-        crate::docs::layout::render_help_text(&text, terminal_width, col);
+        crate::docs::layout::render_help_text(&text, column.width, column.col);
+    // `render_help_text` wraps whatever it is given; whether the page *uses* that is the
+    // template's decision, and on a next-line page it does not. Both have to agree, or the
+    // annotations align to a column the description never entered.
+    *ann_indent = column.annotation_indent(!column.is_block() && !rendered.is_empty());
     if !rendered.is_empty() {
         *help_rendered = Some(rendered);
         *help_is_multiline = is_multiline;
@@ -544,6 +555,45 @@ fn value_annotations(
         parts.push(format!("(default: {})", default.join(", ")));
     }
     parts
+}
+
+/// What a page is fitting its entries to.
+#[derive(Clone, Copy)]
+struct Column {
+    /// The width the page is laid out for.
+    width: usize,
+    /// How wide the usage column is.
+    col: usize,
+    /// The long page, which prefers the long description and gives each annotation a line.
+    long: bool,
+    /// A page that puts every description under its usage rather than beside it.
+    next_line: bool,
+}
+
+/// The indent a page uses when it cannot align to its column.
+const BLOCK_INDENT: usize = 4;
+
+impl Column {
+    /// Whether nothing on this page reaches the column: either because the page puts every
+    /// description underneath, or because the column leaves too little room to say anything.
+    fn is_block(&self) -> bool {
+        self.next_line || self.width.saturating_sub(2 + self.col + 2) < 10
+    }
+
+    /// Where an entry's annotations are indented to.
+    ///
+    /// The description column, when the description reached it — an annotation is a note about
+    /// the same entry and belongs under the text it qualifies, not in the gutter beside a
+    /// column it is ignoring. Where the description is already a block underneath, there is no
+    /// column to align to and the annotations join it there.
+    fn annotation_indent(&self, reached_column: bool) -> String {
+        let indent = if reached_column {
+            2 + self.col + 2
+        } else {
+            BLOCK_INDENT
+        };
+        " ".repeat(indent)
+    }
 }
 
 /// The entry every command list ends with, unless the CLI turned it off.
@@ -1091,9 +1141,9 @@ flag "--debug" help="Debug mode"
 
         Flags:
               --color    Enable color output
-            [env: MYCLI_COLOR]
+                         [env: MYCLI_COLOR]
               --verbose  Verbose output
-            [env: MYCLI_VERBOSE]
+                         [env: MYCLI_VERBOSE]
               --debug    Debug mode
           -h, --help     Print help
         ");
@@ -1128,12 +1178,12 @@ arg "[default]" help="Arg with default value" default="default value"
 
         Arguments:
           <input>    Input file
-            [env: MY_INPUT]
+                     [env: MY_INPUT]
           <output>   Output file
-            [env: MY_OUTPUT]
+                     [env: MY_OUTPUT]
           <extra>    Extra arg without env
           [default]  Arg with default value
-            (default: default value)
+                     (default: default value)
 
         Flags:
           -h, --help  Print help
@@ -1163,7 +1213,7 @@ flag "--verbose" help="Verbose output"
 
         Flags:
               --compress / --no-compress  Compress output
-            (default: true)
+                                          (default: true)
               --verbose                   Verbose output
           -h, --help                      Print help
         ");

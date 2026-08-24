@@ -146,7 +146,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 				if text := helpText(h); text != "" {
 					writeIndented(w, text, 4)
 				}
-				longAnnotations(w, h, true)
+				longAnnotations(w, h, true, blockIndent)
 				return
 			}
 			entry(w, usage, withAnnotations(shortSummary(h), inlineAnnotations(h, true, false)), argCol, false)
@@ -188,7 +188,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			if text := metaField(h, func(x *Help) string { return x.Short }); text != "" {
 				writeIndented(w, text, 4)
 			}
-			longAnnotations(w, h, true)
+			longAnnotations(w, h, true, blockIndent)
 			return
 		}
 		entry(w, f.usage, withAnnotations(shortSummary(h), inlineAnnotations(h, true, true)), flagCol, false)
@@ -387,7 +387,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 				if text := metaField(ah, func(x *Help) string { return x.Short }); text != "" {
 					writeIndented(out, text, 4)
 				}
-				longAnnotations(out, ah, true)
+				longAnnotations(out, ah, true, blockIndent)
 			} else {
 				if text := helpText(ah); text != "" {
 					out.WriteString("  " + pad(usage, argCol) + "  " + text)
@@ -405,7 +405,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 				if text := metaField(fh, func(x *Help) string { return x.Short }); text != "" {
 					writeIndented(out, text, 4)
 				}
-				longAnnotations(out, fh, true)
+				longAnnotations(out, fh, true, blockIndent)
 			} else {
 				if text := helpText(fh); text != "" {
 					out.WriteString("  " + pad(usage, flagCol) + "  " + text)
