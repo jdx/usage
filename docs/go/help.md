@@ -46,9 +46,12 @@ Both pages list a command's children identically: the name, then the summary —
 first line of `long_help` when there is no `help`. A child's full `long_help` appears on the
 child's own page, not repeated in every ancestor's list.
 
-The short page appends `[choices]`, `[env: X]`, and (for arguments) `(default: …)` inline; the
-long page gives each its own line and prefers `long_help` over `help` for the command's own
-description. Examples declared on the root are inherited by commands that declare none.
+The short page appends `[choices]`, `[env: X]`, and (for arguments) `(default: …)` to the
+description, wrapping with it; the long page gives each its own line, indented to the description
+column so the section stays one grid, and prefers `long_help` over `help` for the command's own
+description. Where a description is already a block under its usage — a `next_line_help` page, or
+one whose text has breaks of its own — the annotations join it there. Examples declared on the
+root are inherited by commands that declare none.
 
 One rule is load-bearing: a page only advertises a flag spelling where that flag is the one that
 would _bind_ it. Masking is per spelling — a subcommand redeclaring `--jobs` leaves an inherited

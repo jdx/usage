@@ -26,6 +26,9 @@ use crate::spec::{
 use crate::Command;
 use crate::DoubleDash;
 
+/// The indent a page uses where it cannot align to its column.
+const BLOCK_INDENT: usize = 4;
+
 /// How many flags or arguments are listed individually before collapsing to a placeholder.
 ///
 /// usage-lib's number. Beyond it the line would be longer than it is useful, so it becomes
@@ -1196,6 +1199,7 @@ fn short_sections(
                     if a.hide_env { &[] } else { a.env_fallback },
                     if a.hide_env { &[] } else { a.deprecated_env },
                     if a.hide_default_value { &[] } else { a.default },
+                    BLOCK_INDENT,
                 );
                 return;
             }
@@ -1247,8 +1251,9 @@ fn short_sections(
                 if f.hide_env { &[] } else { f.env_fallback },
                 if f.hide_env { &[] } else { f.deprecated_env },
                 if f.hide_default_value { &[] } else { f.default },
+                BLOCK_INDENT,
             );
-            flag_notes(out, f, 4);
+            flag_notes(out, f, BLOCK_INDENT);
             return;
         }
         let deprecation =
@@ -1527,6 +1532,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                     } else {
                         arg.default
                     },
+                    BLOCK_INDENT,
                 );
                 continue;
             }
@@ -1584,8 +1590,9 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                     } else {
                         flag.default
                     },
+                    BLOCK_INDENT,
                 );
-                flag_notes(out, flag, 4);
+                flag_notes(out, flag, BLOCK_INDENT);
                 continue;
             }
             if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
@@ -2102,7 +2109,7 @@ fn long_sections(
         |title| heading_help(meta, title),
         |out, a| {
             let text = a.long_help.or(a.help);
-            entry(
+            let indent = entry(
                 out,
                 &arg_usage(a),
                 text,
@@ -2122,6 +2129,7 @@ fn long_sections(
                 if a.hide_env { &[] } else { a.env_fallback },
                 if a.hide_env { &[] } else { a.deprecated_env },
                 if a.hide_default_value { &[] } else { a.default },
+                indent,
             );
         },
     );
@@ -2146,7 +2154,7 @@ fn long_sections(
         |title| heading_help(meta, title),
         |out, f| {
             let text = f.long_help.or(f.help);
-            entry(
+            let indent = entry(
                 out,
                 &column_usage(f),
                 text,
@@ -2166,8 +2174,9 @@ fn long_sections(
                 if f.hide_env { &[] } else { f.env_fallback },
                 if f.hide_env { &[] } else { f.deprecated_env },
                 if f.hide_default_value { &[] } else { f.default },
+                indent,
             );
-            flag_notes(out, f, 4);
+            flag_notes(out, f, indent);
         },
     );
     // After the command's own, and under a heading that says where they came from: `--config`
@@ -2186,7 +2195,7 @@ fn long_sections(
         |_| None,
         |out, (f, usage)| {
             let text = f.long_help.or(f.help);
-            entry(out, usage, text, flag_col, width, meta.next_line_help);
+            let indent = entry(out, usage, text, flag_col, width, meta.next_line_help);
             admonitions(out, f.admonitions);
             long_annotations(
                 out,
@@ -2199,8 +2208,9 @@ fn long_sections(
                 if f.hide_env { &[] } else { f.env_fallback },
                 if f.hide_env { &[] } else { f.deprecated_env },
                 if f.hide_default_value { &[] } else { f.default },
+                indent,
             );
-            flag_notes(out, f, 4);
+            flag_notes(out, f, indent);
         },
     );
     if meta.flatten_help {
@@ -2290,20 +2300,24 @@ fn entry(
     col: usize,
     width: usize,
     next_line: bool,
-) {
-    let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
-        let _ = writeln!(out, "  {usage}");
-        return;
-    };
-
+) -> usize {
     // The column layout only works for text that has not been broken already, and only when
     // there is room left for it to say anything.
     let indent = 2 + col + 2;
     let room = width.saturating_sub(indent);
-    if next_line || help.contains('\n') || room < 10 {
+    // Whether anything on this page reaches the column at all.
+    let block = next_line || room < 10;
+    let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
         let _ = writeln!(out, "  {usage}");
-        write_indented(out, help, 4);
-        return;
+        // An entry with nothing in the column still has annotations to place, and the column is
+        // where they go: it is this entry's row that is empty, not the table's.
+        return if block { BLOCK_INDENT } else { indent };
+    };
+
+    if block || help.contains('\n') {
+        let _ = writeln!(out, "  {usage}");
+        write_indented(out, help, BLOCK_INDENT);
+        return BLOCK_INDENT;
     }
 
     // Text that already fits is text `wrap` would hand straight back, so skip it and the two
@@ -2321,7 +2335,7 @@ fn entry(
         out.push_str("  ");
         out.push_str(help);
         out.push('\n');
-        return;
+        return indent;
     }
 
     let lines = wrap(help, room);
@@ -2332,6 +2346,7 @@ fn entry(
     // No blank line after a wrapped entry. The reference's template asks for one, and its
     // whitespace trimming eats it before it reaches the output — so a wrapped entry is followed
     // directly by the next, and matching means matching that.
+    indent
 }
 
 /// Whether [`wrap`] would return this text unchanged as a single line.
@@ -2403,6 +2418,11 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
 }
 
 /// The annotations, each on its own line as the wider layout puts them.
+///
+/// `indent` is where the entry above them ended up: the description column when the
+/// description reached it, and [`BLOCK_INDENT`] when it did not. An annotation is a note about
+/// the same entry, so it belongs under the text it qualifies rather than in the gutter beside a
+/// column it is ignoring.
 fn long_annotations(
     out: &mut String,
     choices: &[&str],
@@ -2410,16 +2430,28 @@ fn long_annotations(
     env_fallback: &[&str],
     deprecated_env: &[&str],
     default: &[&str],
+    indent: usize,
 ) {
+    // Most entries annotate nothing, and this is called for every one of them — so the indent
+    // is not built until there is a line to put it on.
+    if choices.is_empty()
+        && env.is_none()
+        && env_fallback.is_empty()
+        && deprecated_env.is_empty()
+        && default.is_empty()
+    {
+        return;
+    }
+    let pad = " ".repeat(indent);
     if !choices.is_empty() {
-        let _ = writeln!(out, "    [possible values: {}]", choices.join(", "));
+        let _ = writeln!(out, "{pad}[possible values: {}]", choices.join(", "));
     }
     if let Some(env) = env {
-        let _ = writeln!(out, "    [env: {env}]");
+        let _ = writeln!(out, "{pad}[env: {env}]");
     }
-    environment_notes(out, env_fallback, deprecated_env, 4);
+    environment_notes(out, env_fallback, deprecated_env, indent);
     if !default.is_empty() {
-        let _ = writeln!(out, "    (default: {})", default.join(", "));
+        let _ = writeln!(out, "{pad}(default: {})", default.join(", "));
     }
 }
 
@@ -2568,6 +2600,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 } else {
                     arg.default
                 },
+                BLOCK_INDENT,
             );
         }
         for flag in flags {
@@ -2603,8 +2636,9 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 } else {
                     flag.default
                 },
+                BLOCK_INDENT,
             );
-            flag_notes(out, flag, 4);
+            flag_notes(out, flag, BLOCK_INDENT);
         }
         if sub.flatten_help {
             flat_commands_long(out, &sub_path, sub, width);

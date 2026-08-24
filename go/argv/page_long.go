@@ -20,6 +20,9 @@ import (
 // so 80 is what both sides use and what keeps the two comparable.
 const helpWidth = 80
 
+// blockIndent is what a page uses where it cannot align to its column.
+const blockIndent = 4
+
 // LongHelp renders what `--help` prints for the command at the end of `chain`.
 func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
 	if len(chain) == 0 {
@@ -92,9 +95,9 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 		func(i int) string { return headingOf(help, args[i].Key) },
 		func(w *strings.Builder, i int) {
 			h := help.Lookup(args[i].Key)
-			entry(w, argUsage(args[i], h), firstOf(metaField(h, func(x *Help) string { return x.Long }),
+			indent := entry(w, argUsage(args[i], h), firstOf(metaField(h, func(x *Help) string { return x.Long }),
 				metaField(h, func(x *Help) string { return x.Short })), argCol, nextLineHelp)
-			longAnnotations(w, h, true)
+			longAnnotations(w, h, true, indent)
 		})
 
 	own, inherited := ownAndGlobal(chain, help)
@@ -115,9 +118,9 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 			return
 		}
 		h := help.Lookup(f.key)
-		entry(w, f.usage, firstOf(metaField(h, func(x *Help) string { return x.Long }),
+		indent := entry(w, f.usage, firstOf(metaField(h, func(x *Help) string { return x.Long }),
 			metaField(h, func(x *Help) string { return x.Short })), flagCol, nextLineHelp)
-		longAnnotations(w, h, true)
+		longAnnotations(w, h, true, indent)
 	}
 	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Flags", len(own),
 		func(i int) string {
@@ -245,14 +248,14 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 			ah := help.Lookup(a.Key)
 			entry(out, argUsage(a, ah), firstOf(metaField(ah, func(x *Help) string { return x.Long }),
 				metaField(ah, func(x *Help) string { return x.Short })), argCol, nextLine)
-			longAnnotations(out, ah, true)
+			longAnnotations(out, ah, true, blockIndent)
 		}
 		for _, f := range flags {
 			fh := help.Lookup(f.Key)
 			entry(out, columnUsage(f, allShown(f), help), firstOf(
 				metaField(fh, func(x *Help) string { return x.Long }),
 				metaField(fh, func(x *Help) string { return x.Short })), flagCol, nextLine)
-			longAnnotations(out, fh, true)
+			longAnnotations(out, fh, true, blockIndent)
 		}
 		if h != nil && h.FlattenHelp {
 			flatCommandsLong(out, subPath, sub, help, h.NextLineHelp)
@@ -263,12 +266,9 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 
 // entry writes one flag or argument: its help in a column beside it, wrapped — or
 // indented underneath, where the text has line breaks of its own.
-func entry(out *strings.Builder, usage, help string, col int, nextLine bool) {
-	if strings.TrimSpace(help) == "" {
-		out.WriteString("  " + usage + "\n")
-		return
-	}
-
+// entry writes one flag or argument and returns the indent its annotations should take:
+// the description column when the description reached it, and blockIndent when it did not.
+func entry(out *strings.Builder, usage, help string, col int, nextLine bool) int {
 	// The column layout only works for text that has not been broken already, and
 	// only when there is room left for it to say anything.
 	indent := 2 + col + 2
@@ -276,10 +276,22 @@ func entry(out *strings.Builder, usage, help string, col int, nextLine bool) {
 	if room < 0 {
 		room = 0
 	}
-	if nextLine || strings.Contains(help, "\n") || room < 10 {
+	// Whether anything on this page reaches the column at all.
+	block := nextLine || room < 10
+	if strings.TrimSpace(help) == "" {
 		out.WriteString("  " + usage + "\n")
-		writeIndented(out, help, 4)
-		return
+		// An entry with nothing in the column still has annotations to place, and the
+		// column is where they go: it is this entry's row that is empty, not the table's.
+		if block {
+			return blockIndent
+		}
+		return indent
+	}
+
+	if block || strings.Contains(help, "\n") {
+		out.WriteString("  " + usage + "\n")
+		writeIndented(out, help, blockIndent)
+		return blockIndent
 	}
 
 	lines := wrap(help, room)
@@ -289,33 +301,39 @@ func entry(out *strings.Builder, usage, help string, col int, nextLine bool) {
 	}
 	// No blank line after a wrapped entry: the reference's template asks for one
 	// and its whitespace trimming eats it before it reaches the output.
+	return indent
 }
 
 // longAnnotations gives each annotation its own line, which is the room the wide
 // layout has and the short one does not.
-func longAnnotations(out *strings.Builder, h *Help, withDefault bool) {
+// longAnnotations gives each annotation its own line, indented to where the entry above
+// them ended up: the description column when the description reached it, and blockIndent
+// when it did not. An annotation is a note about the same entry, so it belongs under the
+// text it qualifies rather than in the gutter beside a column it is ignoring.
+func longAnnotations(out *strings.Builder, h *Help, withDefault bool, indent int) {
 	if h == nil {
 		return
 	}
+	pad := strings.Repeat(" ", indent)
 	if !h.HidePossibleValues && len(h.Choices) > 0 {
-		out.WriteString("    [possible values: " + strings.Join(h.Choices, ", ") + "]\n")
+		out.WriteString(pad + "[possible values: " + strings.Join(h.Choices, ", ") + "]\n")
 	}
 	if !h.HideEnv && h.Env != "" {
-		out.WriteString("    [env: " + h.Env + "]\n")
+		out.WriteString(pad + "[env: " + h.Env + "]\n")
 	}
 	if !h.HideEnv {
 		for _, env := range h.EnvFallback {
-			out.WriteString("    [env fallback: " + env + "]\n")
+			out.WriteString(pad + "[env fallback: " + env + "]\n")
 		}
 		for _, env := range h.DeprecatedEnv {
-			out.WriteString("    [deprecated env: " + env + "]\n")
+			out.WriteString(pad + "[deprecated env: " + env + "]\n")
 		}
 	}
 	if withDefault && !h.HideDefaultValue && len(h.Default) > 0 {
-		out.WriteString("    (default: " + strings.Join(h.Default, ", ") + ")\n")
+		out.WriteString(pad + "(default: " + strings.Join(h.Default, ", ") + ")\n")
 	}
 	if label := deprecationLabel(h); label != "" {
-		out.WriteString("    " + label + "\n")
+		out.WriteString(pad + label + "\n")
 	}
 }
 

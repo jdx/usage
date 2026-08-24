@@ -186,6 +186,11 @@ pub struct SpecFlag {
     /// The same text unwrapped, for the layout that indents it under the usage instead.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub row: Option<String>,
+    /// The indent this entry's annotations take: the description column, or the block indent
+    /// where the description is already a block. Serialized as the spaces themselves so a
+    /// template writes it rather than working it out.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub ann_indent: String,
     pub help_is_multiline: bool,
     pub usage_col_width: usize,
 }
@@ -555,6 +560,11 @@ pub struct SpecArg {
     /// The same text unwrapped, for the layout that indents it under the usage instead.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub row: Option<String>,
+    /// The indent this entry's annotations take: the description column, or the block indent
+    /// where the description is already a block. Serialized as the spaces themselves so a
+    /// template writes it rather than working it out.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub ann_indent: String,
     pub help_is_multiline: bool,
     pub usage_col_width: usize,
 }
@@ -1087,6 +1097,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
             rendered: false,
             help_rendered: None,
             row: None,
+            ann_indent: String::new(),
             help_is_multiline: false,
             usage_col_width: 0,
         }
@@ -1140,6 +1151,7 @@ impl From<&crate::SpecArg> for SpecArg {
             rendered: false,
             help_rendered: None,
             row: None,
+            ann_indent: String::new(),
             help_is_multiline: false,
             usage_col_width: 0,
         }

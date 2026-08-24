@@ -40,7 +40,7 @@
     },
     {
       "id": "annotations-on-one-line-and-on-their-own",
-      "doc": "Choices, environment and default are bracketed after an entry's help in the short form and each get a line in the long form. The two layouts differ in more than width, which is why both are pinned here.",
+      "doc": "Choices, environment and default are bracketed after an entry's help in the short form and each get a line of their own in the long form, indented to the description column so the section stays one grid. The two layouts differ in more than width, which is why both are pinned here.",
       "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--shell <SHELL>\" help=\"Which shell\" env=\"EX_SHELL\" {\n    arg \"<SHELL>\" default=\"bash\" {\n        choices \"bash\" \"zsh\"\n    }\n}\narg \"[file]\" help=\"Where to write\" default=\"-\"\n",
       "expect": {
         "usage": "ex [--shell [SHELL]] [file]",
@@ -63,12 +63,12 @@
           "",
           "Arguments:",
           "  [file]  Where to write",
-          "    (default: -)",
+          "          (default: -)",
           "",
           "Flags:",
           "      --shell [SHELL]  Which shell",
-          "    [possible values: bash, zsh]",
-          "    [env: EX_SHELL]",
+          "                       [possible values: bash, zsh]",
+          "                       [env: EX_SHELL]",
           "  -h, --help           Print help"
         ]
       }
