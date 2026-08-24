@@ -4,18 +4,24 @@
 Used by some of jdx's CLIs, but point releases may break.
 :::
 
-`usage-rs` is a fast, typed framework for building complete command-line applications in Rust.
+`usage-rs` is a CLI framework for Rust applications, and the reference implementation of the
+[usage spec](/spec/). It is fully featured — more of what a real CLI needs than clap offers —
+and its parser is up to thousands of times faster.
+
 Declare commands, flags, arguments, and settings with familiar structs and enums, and get
 first-class environment and config-file resolution, advanced shell completions, portable
-validation, negation flags, typed argument groups, categorized subcommands, and more.
+validation, negation flags, typed argument groups, categorized subcommands, and more. The derive
+accepts most clap spellings, so a migration is largely mechanical.
 
-In the mise-scale benchmark it parses hundreds of times faster than clap, with no third-party
-runtime crates and a 1.3 MB stripped binary versus clap's 3.1 MB. See the
-[performance results](/rust/performance) and [clap migration guide](/rust/migrating-from-clap).
+The speed comes from where the work happens: the derive lays the command tree out as static
+tables while your application compiles, so a parse never builds and validates a parser the way
+clap and bpaf do on every run. At mise scale that is 855x fewer instructions than clap and
+2,957x fewer than bpaf, in a 1.3 MB stripped binary against clap's 3.1 MB, with no third-party
+crates linked into your binary. See the [performance results](/rust/performance) and
+[clap migration guide](/rust/migrating-from-clap).
 
-The same declaration also becomes a portable [usage spec](/spec/) that the binary can print.
-`usage-cli` turns it into documentation, manpages, and completions — the same toolchain used
-across jdx's CLIs.
+The same declaration also becomes a portable spec that the binary can print. `usage-cli` turns
+it into documentation, manpages, and completions — the same toolchain used across jdx's CLIs.
 
 ```rust
 use usage::Cli;
