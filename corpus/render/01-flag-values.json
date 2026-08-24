@@ -60,10 +60,10 @@
     },
     {
       "id": "flag-repeatable-with-optional-value",
-      "doc": "A repeatable flag's own ellipsis follows the spellings, before the value — so a repeatable flag taking an optional value shows both.",
+      "doc": "A repeatable flag uses its ordinary spelling in output; repeatability remains structural metadata rather than a presentation suffix.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--jobs [n]\" var=#true required=#true help=\"How many\"\n",
       "expect": {
-        "usage": "ex <--jobs… [n]>"
+        "usage": "ex <--jobs [n]>"
       }
     },
     {

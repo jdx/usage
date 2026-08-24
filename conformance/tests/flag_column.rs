@@ -65,6 +65,13 @@ fn repeatable_flags_have_ordinary_spellings_in_every_rendered_format() {
         assert!(!compiled.contains('…'), "long={long}: {compiled}");
 
         let spec: usage::Spec = Repeatable::to_kdl().parse().expect("generated spec");
+        let allow = spec
+            .cmd
+            .flags
+            .iter()
+            .find(|flag| flag.name == "allow")
+            .expect("generated spec should contain allow");
+        assert!(allow.var, "allow must remain repeatable in generated spec");
         let reference = usage::docs::cli::render_help(&spec, &spec.cmd, long);
         assert_eq!(reference, compiled);
 
