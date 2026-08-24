@@ -37,8 +37,9 @@ type Help struct {
 	// drag the post-binding table in with it — which would undo the whole reason
 	// these are separate.
 	Demanded bool
-	// Repeatable is the spec's `var` on a flag, meaning the flag may be given
-	// again, not that one occurrence takes several values.
+	// Repeatable preserves the spec's `var` on a flag for callers that inspect a
+	// HelpTable. Help renderers deliberately omit repeatability markers because
+	// the flag's ordinary spelling is valid for every occurrence.
 	Repeatable bool
 	// ValueName is what a flag's value is called. Empty for a flag that takes
 	// none.
