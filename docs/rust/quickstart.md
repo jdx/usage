@@ -147,14 +147,9 @@ Greets people, politely
 Usage: greet <SUBCOMMAND>
 
 Commands:
-  completion <--shell <SHELL>>
-    Print a completion script
-
-  hello [NAME]
-    Greet someone
-
-  help
-    Print this message or the help of the given subcommand(s)
+  completion  Print a completion script
+  hello       Greet someone
+  help        Print this message or the help of the given subcommand(s)
 
 Flags:
   -h, --help     Print help

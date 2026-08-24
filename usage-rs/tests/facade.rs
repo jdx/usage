@@ -2448,8 +2448,9 @@ fn explicit_display_order_reaches_help_and_the_portable_spec() {
         flags.find("--first").unwrap() < flags.find("--second").unwrap(),
         "{page}"
     );
+    let commands = page.split_once("\nCommands:\n").unwrap().1;
     assert!(
-        page.find("first  Shown first.").unwrap() < page.find("second  Shown second.").unwrap(),
+        commands.find("  first ").unwrap() < commands.find("  second ").unwrap(),
         "{page}"
     );
     let child = &spec.root.subcommands[0];

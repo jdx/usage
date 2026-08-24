@@ -72,6 +72,40 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     }
     lay_out(&mut inherited, width, col);
 
+    // The command list, laid out the way the flag list is: one column for the whole page, the
+    // name in it, and everything else — summary, aliases, deprecation — trailing as text that
+    // wraps under itself. Both pages get the same rows, so `--help` no longer reprints every
+    // child's long help on its parent's page.
+    let help_row = {
+        let show_help_row = !docs_cmd.subcommands.is_empty()
+            && !docs_cmd.flatten_help
+            && !cmd.disable_help_subcommand;
+        let cmd_col = crate::docs::layout::max_usage_width(
+            docs_cmd
+                .subcommand_groups
+                .iter()
+                .flat_map(|g| g.items.iter())
+                .map(|c| c.name.as_str())
+                .chain(show_help_row.then_some(HELP_SUBCOMMAND)),
+        );
+        for group in &mut docs_cmd.subcommand_groups {
+            lay_out_commands(&mut group.items, width, cmd_col);
+        }
+        // Rendered here rather than in the template because it is a row like any other: it
+        // sits in the same column and wraps by the same rule, and neither is something a
+        // template should be working out.
+        show_help_row.then(|| {
+            render_row(
+                HELP_SUBCOMMAND,
+                HELP_SUBCOMMAND_SUMMARY,
+                width,
+                cmd_col,
+                cmd.next_line_help,
+            )
+        })
+    };
+    ctx.insert("help_row", &help_row);
+
     let arg_has_ungrouped = docs_cmd
         .arg_groups
         .iter()
@@ -341,6 +375,112 @@ fn lay_out(flags: &mut [crate::docs::models::SpecFlag], terminal_width: usize, c
             }
         }
     }
+}
+
+/// The entry every command list ends with, unless the CLI turned it off.
+const HELP_SUBCOMMAND: &str = "help";
+const HELP_SUBCOMMAND_SUMMARY: &str = "Print this message or the help of the given subcommand(s)";
+
+/// Fit a list of subcommand summaries to the page's command column.
+///
+/// `lay_out`'s counterpart for the command list: the same column, the same wrapping, the same
+/// "an empty rendering means use the block layout" signal to the template.
+fn lay_out_commands(
+    commands: &mut [crate::docs::models::HelpCommand],
+    terminal_width: usize,
+    col: usize,
+) {
+    for command in commands {
+        command.usage_col_width = col;
+        command.row = command_row(command);
+        command.help_rendered = None;
+        command.help_is_multiline = false;
+        if let Some(row) = command.row.as_deref() {
+            let (rendered, is_multiline) =
+                crate::docs::layout::render_help_text(row, terminal_width, col);
+            if !rendered.is_empty() {
+                command.help_rendered = Some(rendered);
+                command.help_is_multiline = is_multiline;
+            }
+        }
+    }
+}
+
+/// Everything that follows a command's name in its parent's list, as one string.
+///
+/// The name alone occupies the column, so the summaries line up down the page and the syntax a
+/// command takes belongs to that command's own page. What qualifies the command rather than
+/// describing it — the names it also answers to, that it is going away — trails the summary,
+/// where it wraps with the text instead of pushing it out of the column.
+fn command_row(cmd: &crate::docs::models::HelpCommand) -> Option<String> {
+    let mut parts = Vec::new();
+    // A command that wrote only `help_long` still has a summary: its first line. Both pages
+    // read the same one, so `-h` never says less about a command than `--help` does.
+    let summary = summarize(cmd.help.as_deref()).or_else(|| {
+        summarize(
+            cmd.help_long
+                .as_deref()
+                .and_then(|help| help.lines().next()),
+        )
+    });
+    if let Some(summary) = summary {
+        parts.push(summary.to_string());
+    }
+    if !cmd.aliases.is_empty() {
+        parts.push(format!("[aliases: {}]", cmd.aliases.join(", ")));
+    }
+    if let Some(label) = deprecation_label(
+        cmd.deprecated.as_deref(),
+        cmd.deprecated_warn_at.as_deref(),
+        cmd.deprecated_remove_at.as_deref(),
+    ) {
+        parts.push(label);
+    }
+    (!parts.is_empty()).then(|| parts.join(" "))
+}
+
+/// A description reduced to what a list can show, or nothing if it says nothing.
+fn summarize(text: Option<&str>) -> Option<&str> {
+    text.map(str::trim_end).filter(|text| !text.is_empty())
+}
+
+/// How a page says something is going away, in the one place both lists read it from.
+fn deprecation_label(
+    message: Option<&str>,
+    warn_at: Option<&str>,
+    remove_at: Option<&str>,
+) -> Option<String> {
+    if message.is_none() && warn_at.is_none() && remove_at.is_none() {
+        return None;
+    }
+    let mut parts = Vec::new();
+    if let Some(message) = message {
+        parts.push(message.to_string());
+    }
+    if let Some(at) = warn_at {
+        parts.push(format!("warns at {at}"));
+    }
+    if let Some(at) = remove_at {
+        parts.push(format!("removed at {at}"));
+    }
+    Some(format!("[deprecated: {}]", parts.join("; ")))
+}
+
+/// One command row, ready to print — the form the synthetic `help` entry takes.
+fn render_row(
+    name: &str,
+    row: &str,
+    terminal_width: usize,
+    col: usize,
+    next_line_help: bool,
+) -> String {
+    if !next_line_help {
+        let (rendered, _) = crate::docs::layout::render_help_text(row, terminal_width, col);
+        if !rendered.is_empty() {
+            return format!("  {name:<col$}  {rendered}");
+        }
+    }
+    format!("  {name}\n    {row}")
 }
 
 /// The flags a command inherits, as its page should list them.
@@ -962,11 +1102,8 @@ cmd "run" help="Run it"
           -V, --version  Print version
 
         Commands:
-          run
-            Run it
-
-          help
-            Print this message or the help of the given subcommand(s)
+          run   Run it
+          help  Print this message or the help of the given subcommand(s)
 
         Read the docs.
 
@@ -1207,8 +1344,9 @@ cmd "new-cmd" help="Do something better"
 
         Commands:
           new-cmd  Do something better
-          old-cmd [deprecated: use new-cmd instead; warns at 6.2; removed at 7.0]  Do something
-          help  Print this message or the help of the given subcommand(s)
+          old-cmd  Do something [deprecated: use new-cmd instead; warns at 6.2; removed
+                   at 7.0]
+          help     Print this message or the help of the given subcommand(s)
 
         Flags:
               --old   Old switch [deprecated: use --new; warns at 6.1; removed at 7.0]
@@ -1227,7 +1365,7 @@ cmd "old-cmd" help="Do something" deprecated_warn_at="6.2"
 
         let page = render_help(&spec, &spec.cmd, false);
         assert!(
-            page.contains("old-cmd [deprecated: warns at 6.2]"),
+            page.contains("old-cmd  Do something [deprecated: warns at 6.2]"),
             "{page}"
         );
         assert!(page.contains("[deprecated: removed at 7.0]"), "{page}");

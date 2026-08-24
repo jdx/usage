@@ -29,6 +29,10 @@ enum Commands {
 }
 
 /// A tool whose help is worth asking for
+///
+/// The long form has this paragraph and the short form does not, which is what gives the two
+/// pages something to differ by — the command list no longer does, since a parent says the same
+/// thing about a child on either page.
 #[derive(Cli)]
 #[usage(bin = "ex")]
 struct Ex {
@@ -443,7 +447,9 @@ fn the_page_advertises_exactly_where_the_word_works() {
     let spec = Deep::spec();
     let root_page = usage_argv::help::short_help(spec, &["deep"], &[spec.root]);
     assert!(
-        root_page.contains("\n  help  Print this message"),
+        root_page
+            .lines()
+            .any(|line| line.starts_with("  help") && line.contains("Print this message")),
         "{root_page}"
     );
 

@@ -36,6 +36,7 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- endif %}{{ mark_commands }}
 
 {%- if cmd.subcommands and not cmd.flatten_help %}
+{%- set next_line_help = cmd.next_line_help %}
 {%- for group in cmd.subcommand_groups %}
 
 {{ group.heading | default(value=cmd.subcommand_help_heading | default(value="Commands")) }}:
@@ -43,17 +44,17 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
   {{ group.help | indent(width=2) }}
 {% endif %}
 {%- for cmd in group.items %}
-  {{ cmd.usage | trim }}
-{%- if cmd.deprecated or cmd.deprecated_warn_at or cmd.deprecated_remove_at %} [deprecated:{% if cmd.deprecated %} {{ cmd.deprecated }}{% endif %}{% if cmd.deprecated_warn_at %}{% if cmd.deprecated %};{% endif %} warns at {{ cmd.deprecated_warn_at }}{% endif %}{% if cmd.deprecated_remove_at %}{% if cmd.deprecated or cmd.deprecated_warn_at %};{% endif %} removed at {{ cmd.deprecated_remove_at }}{% endif %}]{%- endif %}
-{%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
-{%- set help = cmd.help_long | default(value=cmd.help | default(value='')) %}
-{%- if help %}
-    {{ help | indent(width=4) }}
+{%- if cmd.help_rendered and not next_line_help %}
+  {{ cmd.name | ljust(width=cmd.usage_col_width) }}  {{ cmd.help_rendered }}
+{%- elif cmd.row %}
+  {{ cmd.name }}
+    {{ cmd.row | indent(width=4) }}
+{%- else %}
+  {{ cmd.name }}
 {%- endif %}
-{% endfor %}
-{%- if not group.heading and show_help_subcommand %}
-  help
-    Print this message or the help of the given subcommand(s)
+{%- endfor %}
+{%- if not group.heading and help_row %}
+{{ help_row }}
 {%- endif %}
 {%- endfor %}
 {%- endif %}{{ mark_args }}{% if not arg_has_ungrouped %}{{ mark_grouped_args }}{% endif %}

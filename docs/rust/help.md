@@ -9,6 +9,11 @@ declares its own `--help`, your declaration wins for that spelling.
 `-h` renders the short page, `--help` the long page: the first paragraph of each doc comment
 versus the whole comment, `long_help` over `help`, `long_about` over `about`.
 
+That preference is about the page's own subject. A command's _list_ of children reads the same on
+both pages — each child's name in one column, then its summary — because a parent says what each
+child is for, and what a child does at length belongs on the child's own page rather than
+repeated in every ancestor's list. A child with only a `long_help` contributes its first line.
+
 With `parse()`, help is handled for you — printed to stdout, exit `0`. With `parse_from`, a help
 request comes back as an _error_, because a parse that stopped to print help has not produced a
 value (clap models it the same way):

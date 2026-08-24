@@ -1,10 +1,10 @@
 //! A description that ends in a newline should not add a blank line to the page.
 //!
 //! clap's `long_about` often ends with one — a `///` block whose last line is empty, or an
-//! examples section written with a trailing break — and it reaches the spec verbatim. Both
-//! renderers write their own blank line after a description, so one already in the text doubled
-//! it: a stray blank in the middle of `Commands:`, and a second gap under the program's own
-//! description.
+//! examples section written with a trailing break — and it reaches the spec verbatim. Wherever
+//! a renderer writes its own blank line after a description, one already in the text doubled it:
+//! a stray blank in the middle of `Commands:` back when that list printed long descriptions, and
+//! a second gap under the program's own description, which it still would.
 //!
 //! Found on pitchfork's `daemons add` and mise's `plugins ls-remote`, which is why the fix is in
 //! both renderers rather than one — trimming either side alone traded one CLI's divergence for
@@ -103,13 +103,17 @@ fn the_commands_still_parse() {
 }
 
 #[test]
-fn the_entries_still_have_one_blank_between_them() {
-    // Trimming must not run the entries together: the separator is written by the renderer and
-    // stays whether or not the text ended in a break.
+fn the_entries_sit_on_consecutive_lines() {
+    // The long page lists commands the way the short one does — one line each, in one column,
+    // with no separator between them — so a description ending in a break has nowhere to leave
+    // a blank behind, and the entries must not gain one either.
     let page = help::render(Ex::spec(), Ex::command(), true).expect("a page");
     let commands = page
         .split_once("Commands:\n")
         .expect("a commands section")
         .1;
-    assert!(commands.contains("\n\n  two"), "{commands:?}");
+    assert!(
+        commands.starts_with("  one   Short one\n  two   Short two\n"),
+        "{commands:?}"
+    );
 }

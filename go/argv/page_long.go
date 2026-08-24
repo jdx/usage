@@ -1,7 +1,6 @@
 package argv
 
 import (
-	"slices"
 	"sort"
 	"strings"
 )
@@ -77,7 +76,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	}
 
 	if meta == nil || !meta.FlattenHelp {
-		longCommandsSection(&sections.commands, path[min(1, len(path)):], cmd, help)
+		commandsSection(&sections.commands, path[min(1, len(path)):], cmd, help)
 	}
 
 	// One column width per section, over its visible entries — separately, so a
@@ -208,83 +207,6 @@ func AllHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) str
 
 // longCommandsSection lists the subcommands, each description on its own indented
 // line rather than beside the name.
-func longCommandsSection(out *strings.Builder, path []string, cmd *Command, help HelpTable) {
-	type line struct {
-		usage string
-		sub   *Command
-	}
-	var lines []line
-	for _, sub := range cmd.Subcommands {
-		if h := help.Lookup(sub.Key); h != nil && h.Hide {
-			continue
-		}
-		subPath := append(append([]string{}, path...), sub.Name)
-		lines = append(lines, line{UsageLine(subPath, sub, help), sub})
-	}
-	if len(lines) == 0 {
-		return
-	}
-	heading := "Commands"
-	if h := help.Lookup(cmd.Key); h != nil && h.SubcommandHelpHeading != "" {
-		heading = h.SubcommandHelpHeading
-	}
-	sort.SliceStable(lines, func(i, j int) bool {
-		left, right := helpOrder(help, lines[i].sub.Key, 999), helpOrder(help, lines[j].sub.Key, 999)
-		if left != right {
-			return left < right
-		}
-		return lines[i].usage < lines[j].usage
-	})
-
-	headings := []string{""}
-	for _, l := range lines {
-		if h := headingOf(help, l.sub.Key); h == heading {
-			continue
-		} else if h != "" && !slices.Contains(headings, h) {
-			headings = append(headings, h)
-		}
-	}
-	for _, section := range headings {
-		title := section
-		if title == "" {
-			title = heading
-		}
-		out.WriteString("\n" + title + ":\n")
-		for _, l := range lines {
-			itemSection := headingOf(help, l.sub.Key)
-			if itemSection == heading {
-				itemSection = ""
-			}
-			if itemSection != section {
-				continue
-			}
-			out.WriteString("  " + l.usage)
-			h := help.Lookup(l.sub.Key)
-			if h != nil && len(h.VisibleAliases) > 0 {
-				out.WriteString(" [aliases: " + strings.Join(h.VisibleAliases, ", ") + "]")
-			}
-			out.WriteString("\n")
-			if h != nil {
-				// Trailing whitespace trimmed: the blank line after each entry is
-				// written below, and a description that happens to end in a newline
-				// added a second one — a stray blank in the middle of the list.
-				if about := trimEnd(firstOf(h.Long, h.Short)); about != "" {
-					writeIndented(out, about, 4)
-				}
-				if label := deprecationLabel(h); label != "" {
-					writeIndented(out, label, 4)
-				}
-			}
-			// A blank line between entries, which the wider layout can afford and
-			// which keeps a multi-line description from running into the next name.
-			out.WriteString("\n")
-		}
-		if section == "" && !cmd.DisableHelpSubcommand {
-			out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
-		}
-	}
-}
-
 func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool) {
 	visible := append([]*Command{}, cmd.Subcommands...)
 	orderCommands(visible, help)

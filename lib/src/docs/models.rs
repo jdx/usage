@@ -97,6 +97,8 @@ pub struct SpecCommand {
 /// ancestor merely to put one level of command summaries in presentation order.
 #[derive(Debug, Serialize, Clone)]
 pub struct HelpCommand {
+    /// The word a reader would type here — the leaf name, not the path that reached it.
+    pub name: String,
     pub usage: String,
     pub deprecated: Option<String>,
     pub deprecated_warn_at: Option<String>,
@@ -107,11 +109,18 @@ pub struct HelpCommand {
     pub help_heading: Option<String>,
     pub surface: Option<String>,
     pub available_if: Vec<String>,
+    /// Everything that follows the name, as one string: summary, aliases, deprecation.
+    /// Composed once the page's column is known — see `lay_out_commands`.
+    pub row: Option<String>,
+    pub usage_col_width: usize,
+    pub help_rendered: Option<String>,
+    pub help_is_multiline: bool,
 }
 
 impl From<&SpecCommand> for HelpCommand {
     fn from(cmd: &SpecCommand) -> Self {
         Self {
+            name: cmd.name.clone(),
             usage: cmd.usage.clone(),
             deprecated: cmd.deprecated.clone(),
             deprecated_warn_at: cmd.deprecated_warn_at.clone(),
@@ -122,6 +131,10 @@ impl From<&SpecCommand> for HelpCommand {
             help_heading: cmd.help_heading.clone(),
             surface: cmd.surface.clone(),
             available_if: cmd.available_if.clone(),
+            row: None,
+            usage_col_width: 0,
+            help_rendered: None,
+            help_is_multiline: false,
         }
     }
 }

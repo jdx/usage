@@ -33,15 +33,17 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 
 {{ group.heading | default(value=cmd.subcommand_help_heading | default(value="Commands")) }}:
 {%- for cmd in group.items %}
-  {{ cmd.usage | trim }}
-{%- if cmd.deprecated or cmd.deprecated_warn_at or cmd.deprecated_remove_at %} [deprecated:{% if cmd.deprecated %} {{ cmd.deprecated }}{% endif %}{% if cmd.deprecated_warn_at %}{% if cmd.deprecated %};{% endif %} warns at {{ cmd.deprecated_warn_at }}{% endif %}{% if cmd.deprecated_remove_at %}{% if cmd.deprecated or cmd.deprecated_warn_at %};{% endif %} removed at {{ cmd.deprecated_remove_at }}{% endif %}]{%- endif %}
-{%- if cmd.aliases %} [aliases: {{ cmd.aliases | join(sep=", ") }}]{% endif %}
-{%- if cmd.help %}{% if next_line_help %}
-    {{ cmd.help | indent(width=4) }}{% else %}  {{ cmd.help }}{% endif %}{%- endif %}
+{%- if cmd.help_rendered and not next_line_help %}
+  {{ cmd.name | ljust(width=cmd.usage_col_width) }}  {{ cmd.help_rendered }}
+{%- elif cmd.row %}
+  {{ cmd.name }}
+    {{ cmd.row | indent(width=4) }}
+{%- else %}
+  {{ cmd.name }}
+{%- endif %}
 {%- endfor %}
-{%- if not group.heading and show_help_subcommand %}
-{% if next_line_help %}  help
-    Print this message or the help of the given subcommand(s){% else %}  help  Print this message or the help of the given subcommand(s){% endif %}
+{%- if not group.heading and help_row %}
+{{ help_row }}
 {%- endif %}
 {%- endfor %}
 {%- endif %}{{ mark_args }}{% if not arg_has_ungrouped %}{{ mark_grouped_args }}{% endif %}

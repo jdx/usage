@@ -36,14 +36,19 @@ Global flags:
 
 The output is not merely similar to the reference implementation's — all 211 of mise's usage
 lines, `-h` pages, and `--help` pages are compared **byte for byte** against usage-lib's
-rendering in CI. Layout details you get for free: sections in canonical order, commands sorted
-with `[aliases: …]` shown for visible aliases, `help_heading` groups (first-seen order, unheaded
-entries first), a 4-column short-flag gutter, required entries in angle brackets, `[env: X]` and
-default annotations, and the long page wrapped at a fixed 80 columns.
+rendering in CI. Layout details you get for free: sections in canonical order, commands listed by
+name in one column per page with `[aliases: …]` after the summary for visible aliases,
+`help_heading` groups (first-seen order, unheaded entries first), a 4-column short-flag gutter,
+required entries in angle brackets, `[env: X]` and default annotations, and both pages wrapped at
+a fixed 80 columns.
+
+Both pages list a command's children identically: the name, then the summary — `help`, or the
+first line of `long_help` when there is no `help`. A child's full `long_help` appears on the
+child's own page, not repeated in every ancestor's list.
 
 The short page appends `[choices]`, `[env: X]`, and (for arguments) `(default: …)` inline; the
-long page gives each its own line and prefers `long_help` over `help`. Examples declared on the
-root are inherited by commands that declare none.
+long page gives each its own line and prefers `long_help` over `help` for the command's own
+description. Examples declared on the root are inherited by commands that declare none.
 
 One rule is load-bearing: a page only advertises a flag spelling where that flag is the one that
 would _bind_ it. Masking is per spelling — a subcommand redeclaring `--jobs` leaves an inherited
