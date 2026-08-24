@@ -6,6 +6,9 @@ pub fn get_terminal_width() -> usize {
         .unwrap_or(80)
 }
 
+/// Minimum useful room for prose beside an entry wider than the shared usage column.
+pub const MIN_INLINE_HELP_WIDTH: usize = 30;
+
 /// Resolve a command's help width using clap-compatible precedence.
 pub fn help_width(term_width: Option<usize>, max_term_width: Option<usize>) -> usize {
     if let Some(width) = term_width {
@@ -56,22 +59,41 @@ pub fn wrap_text(text: &str, width: usize) -> Vec<String> {
 
     let mut lines = Vec::new();
 
-    // Handle explicit newlines in the input
+    // Keep explicit line boundaries. Indented lines are preformatted; list items get a
+    // hanging indent while ordinary prose is folded at word boundaries.
     for paragraph in text.split('\n') {
         if paragraph.is_empty() {
             lines.push(String::new());
             continue;
         }
 
+        if paragraph.starts_with("    ") || paragraph.starts_with('\t') {
+            lines.push(paragraph.to_string());
+            continue;
+        }
+
+        let trimmed = paragraph.trim();
+        let leading_trimmed = paragraph.trim_start_matches(' ');
+        let (prefix, body) = match list_prefix(leading_trimmed) {
+            Some((marker, body)) => (
+                &paragraph[..paragraph.len() - leading_trimmed.len() + marker.len()],
+                body,
+            ),
+            None => ("", trimmed),
+        };
+        let body_width = width.saturating_sub(visible_width(prefix));
+        let mut line_prefix = prefix.to_string();
+
         let mut current_line = String::new();
         let mut current_width = 0;
 
-        for word in paragraph.split_whitespace() {
+        for word in body.split_whitespace() {
             let word_width = visible_width(word);
 
             // If adding this word would exceed width, start a new line
-            if current_width > 0 && current_width + 1 + word_width > width {
-                lines.push(current_line);
+            if current_width > 0 && current_width + 1 + word_width > body_width {
+                lines.push(format!("{line_prefix}{current_line}"));
+                line_prefix = " ".repeat(visible_width(prefix));
                 current_line = String::new();
                 current_width = 0;
             }
@@ -87,7 +109,7 @@ pub fn wrap_text(text: &str, width: usize) -> Vec<String> {
         }
 
         if !current_line.is_empty() {
-            lines.push(current_line);
+            lines.push(format!("{line_prefix}{current_line}"));
         }
     }
 
@@ -99,6 +121,19 @@ pub fn wrap_text(text: &str, width: usize) -> Vec<String> {
     }
 }
 
+fn list_prefix(line: &str) -> Option<(&str, &str)> {
+    for marker in ["* ", "- ", "+ "] {
+        if let Some(body) = line.strip_prefix(marker) {
+            return Some((marker, body));
+        }
+    }
+    let digits = line.bytes().take_while(u8::is_ascii_digit).count();
+    if digits > 0 && line.as_bytes().get(digits..digits + 2) == Some(b". ") {
+        return Some(line.split_at(digits + 2));
+    }
+    None
+}
+
 /// Render help text with proper alignment and wrapping
 /// Returns (rendered_text, is_multiline)
 pub fn render_help_text(
@@ -106,28 +141,45 @@ pub fn render_help_text(
     terminal_width: usize,
     usage_col_width: usize,
 ) -> (String, bool) {
-    // If help contains explicit newlines, use block layout (legacy behavior)
-    if help.contains('\n') {
-        // Return None for inline rendering - template will use block layout
-        return (String::new(), false);
-    }
-
     // Format: "  <usage>PADDING  help text"
     let indent = 2;
     let gap = 2;
     let first_line_prefix_width = indent + usage_col_width + gap;
-    let continuation_indent = first_line_prefix_width;
+    render_help_text_at(
+        help,
+        terminal_width,
+        first_line_prefix_width,
+        first_line_prefix_width,
+    )
+}
 
+/// Render help whose opening line and continuations begin in different columns.
+pub fn render_help_text_at(
+    help: &str,
+    terminal_width: usize,
+    first_line_prefix_width: usize,
+    continuation_indent: usize,
+) -> (String, bool) {
     let available_width = terminal_width.saturating_sub(first_line_prefix_width);
+    let continuation_width = terminal_width.saturating_sub(continuation_indent);
 
     // Minimum readable width
-    if available_width < 10 {
+    if available_width < 10 || continuation_width < 10 {
         // Terminal too narrow, use block layout
         return (String::new(), false);
     }
 
-    // Wrap text to available width
-    let wrapped_lines = wrap_text(help, available_width);
+    let mut wrapped_lines = Vec::new();
+    for (index, line) in help.split('\n').enumerate() {
+        wrapped_lines.extend(wrap_text(
+            line,
+            if index == 0 {
+                available_width
+            } else {
+                continuation_width
+            },
+        ));
+    }
 
     if wrapped_lines.is_empty() || (wrapped_lines.len() == 1 && wrapped_lines[0].is_empty()) {
         return (String::new(), false);
@@ -139,8 +191,10 @@ pub fn render_help_text(
     let mut result = wrapped_lines[0].clone();
     for line in &wrapped_lines[1..] {
         result.push('\n');
-        result.push_str(&" ".repeat(continuation_indent));
-        result.push_str(line);
+        if !line.is_empty() {
+            result.push_str(&" ".repeat(continuation_indent));
+            result.push_str(line);
+        }
     }
 
     (result, is_multiline)
@@ -148,7 +202,38 @@ pub fn render_help_text(
 
 /// Wrap text for the four-space block beneath an entry that overflowed its usage column.
 pub fn render_block_text(help: &str, terminal_width: usize) -> String {
-    wrap_text(help, terminal_width.saturating_sub(4)).join("\n")
+    render_indented_text(help, terminal_width, 4)
+}
+
+/// Wrap text that a caller will indent by `indent` columns.
+pub fn render_indented_text(help: &str, terminal_width: usize, indent: usize) -> String {
+    wrap_text(help, terminal_width.saturating_sub(indent)).join("\n")
+}
+
+/// Render labelled prose with continuations hanging below the text after the label.
+pub fn render_labelled_text(
+    label: &str,
+    text: &str,
+    terminal_width: usize,
+    indent: usize,
+) -> String {
+    let prefix = format!("{label}: ");
+    let lines = wrap_text(
+        text,
+        terminal_width.saturating_sub(indent + visible_width(&prefix)),
+    );
+    let Some((first, rest)) = lines.split_first() else {
+        return format!("{label}:");
+    };
+    let mut out = format!("{prefix}{first}");
+    for line in rest {
+        out.push('\n');
+        if !line.is_empty() {
+            out.push_str(&" ".repeat(visible_width(&prefix)));
+            out.push_str(line);
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -227,10 +312,25 @@ mod tests {
 
     #[test]
     fn test_render_help_text_with_newlines() {
-        // Help with explicit newlines should use block layout (returns empty)
         let help = "Line one\nLine two";
         let (rendered, is_multiline) = render_help_text(help, 80, 20);
-        assert_eq!(rendered, "");
-        assert!(!is_multiline);
+        assert_eq!(rendered, "Line one\n                        Line two");
+        assert!(is_multiline);
+    }
+
+    #[test]
+    fn list_items_wrap_with_a_hanging_indent_and_code_is_preserved() {
+        assert_eq!(
+            wrap_text("* alpha beta gamma delta", 14),
+            ["* alpha beta", "  gamma delta"]
+        );
+        assert_eq!(
+            wrap_text("  - a nested item with enough words to wrap", 24),
+            ["  - a nested item with", "    enough words to wrap"]
+        );
+        assert_eq!(
+            wrap_text("    $ ex --a-deliberately-long-example", 10),
+            ["    $ ex --a-deliberately-long-example"]
+        );
     }
 }

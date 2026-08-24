@@ -92,7 +92,8 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		before = meta.BeforeHelp
 	}
 	if before != "" {
-		out.WriteString(before + "\n\n")
+		writeWrapped(out, before, 0)
+		out.WriteString("\n")
 	}
 
 	// The program, then what it is for — on the program's own page. A
@@ -117,10 +118,12 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	// under a description belongs to the renderer, so one already in the text is a
 	// second one.
 	if about := trimEnd(about); about != "" {
-		out.WriteString(about + "\n\n")
+		writeWrapped(out, about, 0)
+		out.WriteString("\n")
 	}
 	if label := deprecationLabel(meta); label != "" {
-		out.WriteString(label + "\n\n")
+		writeWrapped(out, label, 0)
+		out.WriteString("\n")
 	}
 
 	for i, line := range usageLines(path, cmd, help) {
@@ -157,7 +160,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			if nextLineHelp {
 				w.WriteString("  " + usage + "\n")
 				if text := helpText(h); text != "" {
-					writeIndented(w, text, 4)
+					writeWrapped(w, text, 4)
 				}
 				longAnnotations(w, h, true, blockIndent)
 				return
@@ -190,7 +193,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			if nextLineHelp {
 				w.WriteString("  " + f.usage + "\n")
 				if text := f.suppliedHelp; text != "" {
-					writeIndented(w, text, 4)
+					writeWrapped(w, text, 4)
 				}
 				return
 			}
@@ -200,7 +203,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		if nextLineHelp {
 			w.WriteString("  " + f.usage + "\n")
 			if text := metaField(h, func(x *Help) string { return x.Short }); text != "" {
-				writeIndented(w, text, 4)
+				writeWrapped(w, text, 4)
 			}
 			longAnnotations(w, h, true, blockIndent)
 			return
@@ -234,7 +237,8 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		after = meta.AfterHelp
 	}
 	if after != "" {
-		sections.afterHelp.WriteString("\n" + after + "\n")
+		sections.afterHelp.WriteString("\n")
+		writeWrapped(&sections.afterHelp, after, 0)
 	}
 
 	return sections.assemble(spec.HelpTemplate)
@@ -324,7 +328,7 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 		if long && section != "" {
 			if proseOf := headingProse(help.Lookup(cmd.Key)); proseOf != nil {
 				if prose := proseOf(section); prose != "" {
-					writeIndented(out, prose, 2)
+					writeWrapped(out, prose, 2)
 					out.WriteString("\n")
 				}
 			}
@@ -384,10 +388,10 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 		subPath := append(append([]string{}, path...), sub.Name)
 		out.WriteString("\n" + strings.Join(subPath, " ") + ":\n")
 		if text := metaField(h, func(x *Help) string { return x.Short }); strings.TrimSpace(text) != "" {
-			out.WriteString(trimEnd(text) + "\n")
+			writeWrapped(out, trimEnd(text), 0)
 		}
 		if label := deprecationLabel(h); label != "" {
-			out.WriteString(label + "\n")
+			writeWrapped(out, label, 0)
 		}
 
 		args := visibleArgs(sub, help, false)
@@ -414,7 +418,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 			if nextLine {
 				out.WriteString("  " + usage + "\n")
 				if text := metaField(ah, func(x *Help) string { return x.Short }); text != "" {
-					writeIndented(out, text, 4)
+					writeWrapped(out, text, 4)
 				}
 				longAnnotations(out, ah, true, blockIndent)
 			} else {
@@ -427,7 +431,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 			if nextLine {
 				out.WriteString("  " + usage + "\n")
 				if text := metaField(fh, func(x *Help) string { return x.Short }); text != "" {
-					writeIndented(out, text, 4)
+					writeWrapped(out, text, 4)
 				}
 				longAnnotations(out, fh, true, blockIndent)
 			} else {
@@ -475,7 +479,7 @@ func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string
 		section.WriteString("\n" + title + ":\n")
 		if heading != "" && proseOf != nil {
 			if prose := proseOf(heading); prose != "" {
-				writeIndented(&section, prose, 2)
+				writeWrapped(&section, prose, 2)
 				section.WriteString("\n")
 			}
 		}

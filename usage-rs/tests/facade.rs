@@ -2525,10 +2525,11 @@ fn typed_help_width_reaches_help_and_the_portable_spec() {
     assert_eq!(spec.root.max_term_width, Some(20));
     let page = usage::argv::help::long_help(spec, &["sized-help"], &[spec.root]);
     assert!(
-        page.contains("    A description long enough to\n")
-            && page.contains("    wrap at the command's declared\n")
-            && page.contains("    help width.\n"),
-        "fixed width should wrap an overflowing entry below its usage: {page}"
+        page.contains("                A description long\n")
+            && page.contains("                enough to wrap at\n")
+            && page.contains("                the command's\n")
+            && page.contains("                declared help width.\n"),
+        "fixed width should wrap an overflowing entry at the description column: {page}"
     );
 
     let kdl = SizedHelp::to_kdl();

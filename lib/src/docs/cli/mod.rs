@@ -51,6 +51,7 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
                     crate::docs::models::Group {
                         heading: None,
                         help: None,
+                        help_rendered: None,
                         items: supplied,
                     },
                 ),
@@ -59,6 +60,10 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     }
 
     let width = crate::docs::layout::help_width(cmd.term_width, cmd.max_term_width);
+    ctx.insert("terminal_width", &width);
+    lay_out_group_help(&mut docs_cmd.subcommand_groups, width);
+    lay_out_group_help(&mut docs_cmd.arg_groups, width);
+    lay_out_group_help(&mut docs_cmd.flag_groups, width);
     let col = crate::docs::layout::usage_column_width(
         docs_cmd
             .flag_groups
@@ -120,7 +125,7 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
             width,
         );
         for group in &mut docs_cmd.subcommand_groups {
-            lay_out_commands(&mut group.items, width, cmd_col);
+            lay_out_commands(&mut group.items, width, cmd_col, cmd.next_line_help);
         }
         // Rendered here rather than in the template because it is a row like any other: it
         // sits in the same column and wraps by the same rule, and neither is something a
@@ -394,12 +399,14 @@ fn lay_out(flags: &mut [crate::docs::models::SpecFlag], column: Column) {
     for flag in flags {
         flag.usage_col_width = column.col;
         flag.help_is_block =
-            column.is_block(crate::docs::layout::visible_width(&flag.display_usage));
+            !column.can_inline(crate::docs::layout::visible_width(&flag.display_usage));
         let text = if column.long {
             flag.help_long
                 .as_deref()
                 .or(flag.help.as_deref())
                 .map(str::to_string)
+        } else if column.next_line {
+            flag.help.clone()
         } else {
             with_annotations(flag.help.as_deref(), flag_annotations(flag))
         };
@@ -423,12 +430,14 @@ fn lay_out(flags: &mut [crate::docs::models::SpecFlag], column: Column) {
 fn lay_out_args(args: &mut [crate::docs::models::SpecArg], column: Column) {
     for arg in args {
         arg.usage_col_width = column.col;
-        arg.help_is_block = column.is_block(crate::docs::layout::visible_width(&arg.usage));
+        arg.help_is_block = !column.can_inline(crate::docs::layout::visible_width(&arg.usage));
         let text = if column.long {
             arg.help_long
                 .as_deref()
                 .or(arg.help.as_deref())
                 .map(str::to_string)
+        } else if column.next_line {
+            arg.help.clone()
         } else {
             with_annotations(arg.help.as_deref(), arg_annotations(arg))
         };
@@ -446,6 +455,8 @@ fn lay_out_args(args: &mut [crate::docs::models::SpecArg], column: Column) {
 
 fn lay_out_flattened(commands: &mut [crate::docs::models::SpecCommand], width: usize, long: bool) {
     for command in commands {
+        lay_out_group_help(&mut command.arg_groups, width);
+        lay_out_group_help(&mut command.flag_groups, width);
         let arg_col = crate::docs::layout::usage_column_width(
             command
                 .arg_groups
@@ -484,6 +495,15 @@ fn lay_out_flattened(commands: &mut [crate::docs::models::SpecCommand], width: u
     }
 }
 
+fn lay_out_group_help<T>(groups: &mut [crate::docs::models::Group<T>], width: usize) {
+    for group in groups {
+        group.help_rendered = group
+            .help
+            .as_deref()
+            .map(|help| crate::docs::layout::render_indented_text(help, width, 2));
+    }
+}
+
 /// Fit one entry's text to the column, and say which layout it wants.
 ///
 /// `row` is the text as composed and `help_rendered` the same text wrapped; an empty wrapping
@@ -503,20 +523,24 @@ fn wrap_into(
     *help_is_multiline = false;
     // An entry with nothing in the column still has annotations to place, and the column is
     // where they go: it is the entry's own row that is empty, not the table's.
-    *ann_indent = column.annotation_indent(!column.is_block(usage_width));
+    *ann_indent = column.annotation_indent(column.can_inline(usage_width));
     let Some(text) = text else { return };
-    if column.is_block(usage_width) {
-        *row = Some(
-            if column.usage_overflows(usage_width) && !text.contains('\n') {
-                crate::docs::layout::render_block_text(&text, column.width)
-            } else {
-                text
-            },
-        );
+    if !column.can_inline(usage_width) {
+        let indent = column.block_indent();
+        *row = Some(indent_text(
+            &crate::docs::layout::render_indented_text(&text, column.width, indent),
+            indent,
+        ));
         return;
     }
-    let (rendered, is_multiline) =
-        crate::docs::layout::render_help_text(&text, column.width, column.col);
+    let first_indent = column.inline_help_start(usage_width);
+    let continuation_indent = column.description_indent();
+    let (rendered, is_multiline) = crate::docs::layout::render_help_text_at(
+        &text,
+        column.width,
+        first_indent,
+        continuation_indent,
+    );
     // `render_help_text` wraps whatever it is given; whether the page *uses* that is the
     // template's decision, and on a next-line page it does not. Both have to agree, or the
     // annotations align to a column the description never entered.
@@ -526,6 +550,20 @@ fn wrap_into(
         *help_is_multiline = is_multiline;
     }
     *row = Some(text);
+}
+
+fn indent_text(text: &str, indent: usize) -> String {
+    let pad = " ".repeat(indent);
+    text.lines()
+        .map(|line| {
+            if line.is_empty() {
+                String::new()
+            } else {
+                format!("{pad}{line}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// A short entry's description with its annotations joined on.
@@ -642,12 +680,31 @@ impl Column {
         !self.next_line && usage_width > self.col
     }
 
-    /// Whether this entry stays out of the column: because the page puts every description
-    /// underneath, its usage exceeds the capped column, or too little room remains for help.
-    fn is_block(&self, usage_width: usize) -> bool {
-        self.next_line
-            || self.usage_overflows(usage_width)
-            || self.width.saturating_sub(2 + self.col + 2) < 10
+    fn description_indent(&self) -> usize {
+        2 + self.col + 2
+    }
+
+    fn inline_help_start(&self, usage_width: usize) -> usize {
+        if self.usage_overflows(usage_width) {
+            2 + usage_width + 2
+        } else {
+            self.description_indent()
+        }
+    }
+
+    /// Keep an outlier inline only when its spelling leaves a useful amount of prose.
+    fn can_inline(&self, usage_width: usize) -> bool {
+        if self.next_line {
+            return false;
+        }
+        let minimum = if self.usage_overflows(usage_width) {
+            crate::docs::layout::MIN_INLINE_HELP_WIDTH
+        } else {
+            10
+        };
+        self.width
+            .saturating_sub(self.inline_help_start(usage_width))
+            >= minimum
     }
 
     /// Where an entry's annotations are indented to.
@@ -658,11 +715,22 @@ impl Column {
     /// column to align to and the annotations join it there.
     fn annotation_indent(&self, reached_column: bool) -> String {
         let indent = if reached_column {
-            2 + self.col + 2
+            self.description_indent()
         } else {
-            BLOCK_INDENT
+            self.block_indent()
         };
         " ".repeat(indent)
+    }
+
+    /// Prefer the normal description column for a stacked entry whenever it still leaves a
+    /// useful line. Exceptionally narrow pages retain the compact four-space fallback.
+    fn block_indent(&self) -> usize {
+        let description = self.description_indent();
+        if !self.next_line && self.width.saturating_sub(description) >= 10 {
+            description
+        } else {
+            BLOCK_INDENT
+        }
     }
 }
 
@@ -678,24 +746,38 @@ fn lay_out_commands(
     commands: &mut [crate::docs::models::HelpCommand],
     terminal_width: usize,
     col: usize,
+    next_line: bool,
 ) {
+    let column = Column {
+        width: terminal_width,
+        col,
+        long: false,
+        next_line,
+    };
     for command in commands {
         command.usage_col_width = col;
         command.row = command_row(command);
         command.help_rendered = None;
         command.help_is_multiline = false;
-        if crate::docs::layout::visible_width(&command.name) > col {
-            if let Some(row) = command.row.as_mut().filter(|row| !row.contains('\n')) {
-                *row = crate::docs::layout::render_block_text(row, terminal_width);
-            }
-            continue;
-        }
+        let usage_width = crate::docs::layout::visible_width(&command.name);
         if let Some(row) = command.row.as_deref() {
-            let (rendered, is_multiline) =
-                crate::docs::layout::render_help_text(row, terminal_width, col);
-            if !rendered.is_empty() {
-                command.help_rendered = Some(rendered);
-                command.help_is_multiline = is_multiline;
+            if column.can_inline(usage_width) {
+                let (rendered, is_multiline) = crate::docs::layout::render_help_text_at(
+                    row,
+                    terminal_width,
+                    column.inline_help_start(usage_width),
+                    column.description_indent(),
+                );
+                if !rendered.is_empty() {
+                    command.help_rendered = Some(rendered);
+                    command.help_is_multiline = is_multiline;
+                }
+            } else if let Some(row) = command.row.as_mut() {
+                let indent = column.block_indent();
+                *row = indent_text(
+                    &crate::docs::layout::render_indented_text(row, terminal_width, indent),
+                    indent,
+                );
             }
         }
     }
@@ -977,6 +1059,78 @@ static TERA: LazyLock<Tera> = LazyLock::new(|| {
             } else {
                 Ok(value.clone())
             }
+        },
+    );
+    tera.register_filter(
+        "terminal_wrap",
+        |value: &tera::Value, args: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
+            let value = value.as_str().unwrap_or("");
+            let width = args.get::<u64>("width")?.unwrap_or(80) as usize;
+            let indent = args.get::<u64>("indent")?.unwrap_or(0) as usize;
+            Ok(crate::docs::layout::render_indented_text(
+                value, width, indent,
+            ))
+        },
+    );
+    tera.register_filter(
+        "terminal_label",
+        |value: &tera::Value, args: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
+            let value = value.as_str().unwrap_or("");
+            let label = args.must_get::<String>("label")?;
+            let width = args.get::<u64>("width")?.unwrap_or(80) as usize;
+            let indent = args.get::<u64>("indent")?.unwrap_or(0) as usize;
+            Ok(crate::docs::layout::render_labelled_text(
+                &label, value, width, indent,
+            ))
+        },
+    );
+    tera.register_filter(
+        "terminal_annotation",
+        |value: &tera::Value, args: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
+            let body = if let Some(values) = value.as_array() {
+                values
+                    .iter()
+                    .filter_map(tera::Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            } else {
+                value.as_str().unwrap_or("").to_string()
+            };
+            let label = args.get::<String>("label")?.unwrap_or_default();
+            let suffix = args.get::<String>("suffix")?.unwrap_or_default();
+            let indent = args
+                .get::<String>("indent")?
+                .unwrap_or_default()
+                .chars()
+                .count();
+            let width = args.get::<u64>("width")?.unwrap_or(80) as usize;
+            let rendered = crate::docs::layout::render_indented_text(
+                &format!("{label}{body}{suffix}"),
+                width,
+                indent,
+            );
+            Ok(indent_text(&rendered, indent))
+        },
+    );
+    tera.register_filter(
+        "terminal_deprecation",
+        |value: &tera::Value, args: tera::Kwargs, _: &tera::State| -> tera::TeraResult<String> {
+            let field = |name| value.get_from_path(name).and_then(tera::Value::as_str);
+            let Some(label) = deprecation_label(
+                field("deprecated"),
+                field("deprecated_warn_at"),
+                field("deprecated_remove_at"),
+            ) else {
+                return Ok(String::new());
+            };
+            let indent = args
+                .get::<String>("indent")?
+                .unwrap_or_default()
+                .chars()
+                .count();
+            let width = args.get::<u64>("width")?.unwrap_or(80) as usize;
+            let rendered = crate::docs::layout::render_indented_text(&label, width, indent);
+            Ok(indent_text(&rendered, indent))
         },
     );
 

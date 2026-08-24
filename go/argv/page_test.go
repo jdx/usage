@@ -5,6 +5,20 @@ import (
 	"testing"
 )
 
+func TestNestedListsKeepTheirHangingIndent(t *testing.T) {
+	got := wrap("  - a nested item with enough words to wrap", 24)
+	want := []string{"  - a nested item with", "    enough words to wrap"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("nested bullet lost its indentation: got %q, want %q", got, want)
+	}
+
+	got = wrap("  1. a numbered item with enough words to wrap", 24)
+	want = []string{"  1. a numbered item", "     with enough words", "     to wrap"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("nested numbered item lost its indentation: got %q, want %q", got, want)
+	}
+}
+
 // Examples declared once at the root appear on a page that declares none.
 //
 // The same fallback `BeforeHelp` and `AfterHelp` get. mise declares no root
@@ -371,7 +385,15 @@ func TestALongFlagOnlyMovesItsOwnHelpBelow(t *testing.T) {
 		if !strings.Contains(page, "      --short                     ordinary help") {
 			t.Fatalf("the ordinary row did not retain a readable description column:\n%s", page)
 		}
-		if !strings.Contains(page, "      --this-flag-name-is-far-beyond-the-column-cap\n    alpha beta") {
+		lines := strings.Split(page, "\n")
+		var stacked bool
+		for i, line := range lines[:len(lines)-1] {
+			if strings.HasPrefix(strings.TrimSpace(line), "--this-flag-name-is-far-beyond-the-column-cap") {
+				stacked = strings.TrimSpace(lines[i+1]) == "alpha beta"
+				break
+			}
+		}
+		if !stacked {
 			t.Fatalf("the overflowing row did not move its help below:\n%s", page)
 		}
 	}

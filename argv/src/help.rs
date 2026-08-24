@@ -31,6 +31,7 @@ pub use template::STYLES;
 
 /// The indent a page uses where it cannot align to its column.
 const BLOCK_INDENT: usize = 4;
+const MIN_INLINE_HELP_WIDTH: usize = 30;
 
 /// How many flags or arguments are listed individually before collapsing to a placeholder.
 ///
@@ -1247,7 +1248,8 @@ fn short_sections(
     // Text the command puts above everything else, and below it. The short form has only the
     // one pair; the long form prefers the long variants.
     if let Some(before) = meta.before_help.or(spec.root.before_help) {
-        let _ = writeln!(out, "{before}\n");
+        write_wrapped_indented(out, before, width, 0);
+        out.push('\n');
     }
 
     // The program, then what it is for — on the program's own page. A subcommand's page says
@@ -1268,9 +1270,10 @@ fn short_sections(
     if let Some(about) = about {
         // Trimmed for the same reason the entries below are: the blank line after the
         // description is written here, so one already in the text doubles it.
-        let _ = writeln!(out, "{}\n", about.trim_end());
+        write_wrapped_indented(out, about.trim_end(), width, 0);
+        out.push('\n');
     }
-    command_deprecation(out, meta, 0);
+    command_deprecation(out, meta, 0, width);
     usage_section(&mut sections.usage, spec, path, meta);
 
     // The path without the binary: it is the sort key the reference orders the list by, even
@@ -1308,6 +1311,7 @@ fn short_sections(
             grouped: &mut sections.grouped_args,
         },
         "Arguments",
+        width,
         args.iter().copied(),
         |a| a.help_heading,
         // Section prose belongs to the long page, like an entry's admonitions.
@@ -1317,7 +1321,7 @@ fn short_sections(
             if meta.next_line_help {
                 let _ = writeln!(out, "  {usage}");
                 if let Some(help) = a.help.filter(|h| !h.trim().is_empty()) {
-                    write_indented(out, help, 4);
+                    write_wrapped_block(out, help, width);
                 }
                 long_annotations(
                     out,
@@ -1330,7 +1334,10 @@ fn short_sections(
                     if a.hide_env { &[] } else { a.env_fallback },
                     if a.hide_env { &[] } else { a.deprecated_env },
                     if a.hide_default_value { &[] } else { a.default },
-                    BLOCK_INDENT,
+                    AnnotationLayout {
+                        indent: BLOCK_INDENT,
+                        width,
+                    },
                 );
                 return;
             }
@@ -1370,7 +1377,7 @@ fn short_sections(
         if meta.next_line_help {
             let _ = writeln!(out, "  {usage}");
             if let Some(help) = f.help.filter(|h| !h.trim().is_empty()) {
-                write_indented(out, help, 4);
+                write_wrapped_block(out, help, width);
             }
             long_annotations(
                 out,
@@ -1383,9 +1390,12 @@ fn short_sections(
                 if f.hide_env { &[] } else { f.env_fallback },
                 if f.hide_env { &[] } else { f.deprecated_env },
                 if f.hide_default_value { &[] } else { f.default },
-                BLOCK_INDENT,
+                AnnotationLayout {
+                    indent: BLOCK_INDENT,
+                    width,
+                },
             );
-            flag_notes(out, f, BLOCK_INDENT);
+            flag_notes(out, f, BLOCK_INDENT, width);
             return;
         }
         let deprecation =
@@ -1418,6 +1428,7 @@ fn short_sections(
             grouped: &mut sections.grouped_flags,
         },
         "Flags",
+        width,
         own.iter().copied(),
         |f| flag_help_heading(meta, f),
         |_| None,
@@ -1433,6 +1444,7 @@ fn short_sections(
             grouped: &mut sections.grouped_flags,
         },
         "Global flags",
+        width,
         inherited.iter(),
         |_| None,
         |_| None,
@@ -1448,7 +1460,8 @@ fn short_sections(
     }
     examples_section(&mut sections.after_help, spec, meta);
     if let Some(after) = meta.after_help.or(spec.root.after_help) {
-        let _ = writeln!(sections.after_help, "\n{after}");
+        sections.after_help.push('\n');
+        write_wrapped_indented(&mut sections.after_help, after, width, 0);
     }
 
     sections
@@ -1526,7 +1539,7 @@ fn commands_section(
         // prose on the same terms: the long page only, and only once declared.
         if long {
             if let Some(prose) = heading.and_then(|title| heading_help(meta, title)) {
-                write_indented(out, prose, 2);
+                write_wrapped_indented(out, prose, width, 2);
                 out.push('\n');
             }
         }
@@ -1618,9 +1631,9 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
         sub_path.push(sub.cmd.name);
         let _ = writeln!(out, "\n{}:", sub_path.join(" "));
         if let Some(about) = sub.about.filter(|about| !about.trim().is_empty()) {
-            let _ = writeln!(out, "{}", about.trim_end());
+            write_wrapped_indented(out, about.trim_end(), width, 0);
         }
-        command_deprecation(out, sub, 0);
+        command_deprecation(out, sub, 0, width);
 
         let mut args: Vec<_> = sub
             .args
@@ -1651,7 +1664,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
             if meta.next_line_help {
                 let _ = writeln!(out, "  {usage}");
                 if let Some(help) = arg.help.filter(|help| !help.trim().is_empty()) {
-                    write_indented(out, help, BLOCK_INDENT);
+                    write_wrapped_block(out, help, width);
                 }
                 long_annotations(
                     out,
@@ -1672,7 +1685,10 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
                     } else {
                         arg.default
                     },
-                    BLOCK_INDENT,
+                    AnnotationLayout {
+                        indent: BLOCK_INDENT,
+                        width,
+                    },
                 );
                 continue;
             }
@@ -1707,7 +1723,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
             if meta.next_line_help {
                 let _ = writeln!(out, "  {usage}");
                 if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
-                    write_indented(out, help, BLOCK_INDENT);
+                    write_wrapped_block(out, help, width);
                 }
                 long_annotations(
                     out,
@@ -1732,9 +1748,12 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
                     } else {
                         flag.default
                     },
-                    BLOCK_INDENT,
+                    AnnotationLayout {
+                        indent: BLOCK_INDENT,
+                        width,
+                    },
                 );
-                flag_notes(out, flag, BLOCK_INDENT);
+                flag_notes(out, flag, BLOCK_INDENT, width);
                 continue;
             }
             let deprecation = deprecation_label(
@@ -1837,6 +1856,7 @@ struct SectionSink<'s> {
 fn split_groups_section<'m, T: 'm>(
     sink: SectionSink<'_>,
     default_title: &str,
+    width: usize,
     items: impl Iterator<Item = &'m T> + Clone,
     heading_of: impl Fn(&T) -> Option<&str>,
     prose_of: impl Fn(&str) -> Option<&'m str>,
@@ -1869,7 +1889,7 @@ fn split_groups_section<'m, T: 'm>(
         // same unheaded flags render under `Flags` here and under `Global Flags` in a
         // Markdown page, so keying prose to it would mean different things per renderer.
         if let Some(prose) = heading.and_then(&prose_of) {
-            write_indented(&mut section, prose, 2);
+            write_wrapped_indented(&mut section, prose, width, 2);
             section.push('\n');
         }
         for item in items.clone().filter(|i| heading_of(i) == heading) {
@@ -2172,7 +2192,8 @@ fn long_sections(
         .or(spec.root.before_long_help)
         .or(spec.root.before_help)
     {
-        let _ = writeln!(out, "{before}\n");
+        write_wrapped_indented(out, before, width, 0);
+        out.push('\n');
     }
 
     // The banner and the program's own description belong to the program's page. A
@@ -2198,9 +2219,10 @@ fn long_sections(
     if let Some(about) = about {
         // Trimmed for the same reason the entries below are: the blank line after the
         // description is written here, so one already in the text doubles it.
-        let _ = writeln!(out, "{}\n", about.trim_end());
+        write_wrapped_indented(out, about.trim_end(), width, 0);
+        out.push('\n');
     }
-    command_deprecation(out, meta, 0);
+    command_deprecation(out, meta, 0, width);
     usage_section(&mut sections.usage, spec, path, meta);
 
     if !meta.flatten_help {
@@ -2234,6 +2256,7 @@ fn long_sections(
             grouped: &mut sections.grouped_args,
         },
         "Arguments",
+        width,
         args.iter().copied(),
         |a| a.help_heading,
         |title| heading_help(meta, title),
@@ -2247,7 +2270,7 @@ fn long_sections(
                 width,
                 meta.next_line_help,
             );
-            admonitions(out, a.admonitions);
+            admonitions(out, a.admonitions, width);
             long_annotations(
                 out,
                 if a.hide_possible_values {
@@ -2259,7 +2282,7 @@ fn long_sections(
                 if a.hide_env { &[] } else { a.env_fallback },
                 if a.hide_env { &[] } else { a.deprecated_env },
                 if a.hide_default_value { &[] } else { a.default },
-                indent,
+                AnnotationLayout { indent, width },
             );
         },
     );
@@ -2280,6 +2303,7 @@ fn long_sections(
             grouped: &mut sections.grouped_flags,
         },
         "Flags",
+        width,
         own.iter().copied(),
         |f| flag_help_heading(meta, f),
         |title| heading_help(meta, title),
@@ -2293,7 +2317,7 @@ fn long_sections(
                 width,
                 meta.next_line_help,
             );
-            admonitions(out, f.admonitions);
+            admonitions(out, f.admonitions, width);
             long_annotations(
                 out,
                 if f.hide_possible_values {
@@ -2305,9 +2329,9 @@ fn long_sections(
                 if f.hide_env { &[] } else { f.env_fallback },
                 if f.hide_env { &[] } else { f.deprecated_env },
                 if f.hide_default_value { &[] } else { f.default },
-                indent,
+                AnnotationLayout { indent, width },
             );
-            flag_notes(out, f, indent);
+            flag_notes(out, f, indent, width);
         },
     );
     // After the command's own, and under a heading that says where they came from: `--config`
@@ -2321,13 +2345,14 @@ fn long_sections(
             grouped: &mut sections.grouped_flags,
         },
         "Global flags",
+        width,
         inherited.iter(),
         |_| None,
         |_| None,
         |out, (f, usage)| {
             let text = f.long_help.or(f.help);
             let indent = entry(out, usage, text, flag_col, width, meta.next_line_help);
-            admonitions(out, f.admonitions);
+            admonitions(out, f.admonitions, width);
             long_annotations(
                 out,
                 if f.hide_possible_values {
@@ -2339,9 +2364,9 @@ fn long_sections(
                 if f.hide_env { &[] } else { f.env_fallback },
                 if f.hide_env { &[] } else { f.deprecated_env },
                 if f.hide_default_value { &[] } else { f.default },
-                indent,
+                AnnotationLayout { indent, width },
             );
-            flag_notes(out, f, indent);
+            flag_notes(out, f, indent, width);
         },
     );
     if meta.flatten_help {
@@ -2378,7 +2403,8 @@ fn long_sections(
         .or(spec.root.after_long_help)
         .or(spec.root.after_help);
     if let Some(after) = after {
-        let _ = writeln!(out, "\n{after}");
+        out.push('\n');
+        write_wrapped_indented(out, after, width, 0);
     }
     if spec.author.is_some() || spec.license.is_some() {
         // The reference template starts the footer in a new paragraph without trimming the
@@ -2436,26 +2462,51 @@ fn entry(
     // there is room left for it to say anything.
     let indent = 2 + col + 2;
     let room = width.saturating_sub(indent);
-    // A long outlier leaves the shared column to the ordinary entries and uses a block alone.
+    // A long outlier leaves the shared column to ordinary entries, but keeps its own help on
+    // the row when at least a useful line of prose remains.
     let overflow = usage.chars().count() > col;
-    let block = next_line || overflow || room < 10;
+    let inline_start = if overflow {
+        2 + usage.chars().count() + 2
+    } else {
+        indent
+    };
+    let inline_room = width.saturating_sub(inline_start);
+    let can_inline = !next_line
+        && if overflow {
+            inline_room >= MIN_INLINE_HELP_WIDTH
+        } else {
+            room >= 10
+        };
+    let block = !can_inline;
+    let block_indent = if !next_line && width.saturating_sub(indent) >= 10 {
+        indent
+    } else {
+        BLOCK_INDENT
+    };
     let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
         let _ = writeln!(out, "  {usage}");
         // An entry with nothing in the column still has annotations to place, and the column is
         // where they go: it is this entry's row that is empty, not the table's.
-        return if block { BLOCK_INDENT } else { indent };
+        return if block { block_indent } else { indent };
     };
 
-    if overflow && !next_line && !help.contains('\n') {
+    if block {
         let _ = writeln!(out, "  {usage}");
-        write_wrapped_block(out, help, width);
-        return BLOCK_INDENT;
+        write_wrapped_indented(out, help, width, block_indent);
+        return block_indent;
     }
 
-    if block || help.contains('\n') {
-        let _ = writeln!(out, "  {usage}");
-        write_indented(out, help, BLOCK_INDENT);
-        return BLOCK_INDENT;
+    if overflow {
+        let lines = wrap_at(help, inline_room, room);
+        let _ = writeln!(out, "  {usage}  {}", lines[0]);
+        for line in &lines[1..] {
+            if line.is_empty() {
+                out.push('\n');
+            } else {
+                let _ = writeln!(out, "{}{line}", " ".repeat(indent));
+            }
+        }
+        return indent;
     }
 
     // Text that already fits is text `wrap` would hand straight back, so skip it and the two
@@ -2479,7 +2530,11 @@ fn entry(
     let lines = wrap(help, room);
     let _ = writeln!(out, "  {usage:<col$}  {}", lines[0]);
     for line in &lines[1..] {
-        let _ = writeln!(out, "{}{line}", " ".repeat(indent));
+        if line.is_empty() {
+            out.push('\n');
+        } else {
+            let _ = writeln!(out, "{}{line}", " ".repeat(indent));
+        }
     }
     // No blank line after a wrapped entry. The reference's template asks for one, and its
     // whitespace trimming eats it before it reaches the output — so a wrapped entry is followed
@@ -2487,11 +2542,35 @@ fn entry(
     indent
 }
 
+fn wrap_at(text: &str, first_width: usize, continuation_width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (index, line) in text.split('\n').enumerate() {
+        lines.extend(wrap(
+            line,
+            if index == 0 {
+                first_width
+            } else {
+                continuation_width
+            },
+        ));
+    }
+    lines
+}
+
 /// Wrap an overflowing entry's description across the width below its usage.
 fn write_wrapped_block(out: &mut String, help: &str, width: usize) {
-    let room = width.saturating_sub(BLOCK_INDENT);
+    write_wrapped_indented(out, help, width, BLOCK_INDENT);
+}
+
+fn write_wrapped_indented(out: &mut String, help: &str, width: usize, indent: usize) {
+    let room = width.saturating_sub(indent);
+    let pad = " ".repeat(indent);
     for line in wrap(help, room) {
-        let _ = writeln!(out, "{}{}", " ".repeat(BLOCK_INDENT), line);
+        if line.is_empty() {
+            out.push('\n');
+        } else {
+            let _ = writeln!(out, "{pad}{line}");
+        }
     }
 }
 
@@ -2538,12 +2617,29 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
             lines.push(String::new());
             continue;
         }
+        if paragraph.starts_with("    ") || paragraph.starts_with('\t') {
+            lines.push(paragraph.to_string());
+            continue;
+        }
+        let trimmed = paragraph.trim();
+        let leading_trimmed = paragraph.trim_start_matches(' ');
+        let (prefix, body) = match list_prefix(leading_trimmed) {
+            Some((marker, body)) => (
+                &paragraph[..paragraph.len() - leading_trimmed.len() + marker.len()],
+                body,
+            ),
+            None => ("", trimmed),
+        };
+        let body_width = width.saturating_sub(prefix.chars().count());
+        let mut line_prefix = prefix.to_string();
         let mut line = String::new();
         let mut line_width = 0;
-        for word in paragraph.split_whitespace() {
+        for word in body.split_whitespace() {
             let word_width = word.chars().count();
-            if !line.is_empty() && line_width + 1 + word_width > width {
-                lines.push(std::mem::take(&mut line));
+            if !line.is_empty() && line_width + 1 + word_width > body_width {
+                lines.push(format!("{line_prefix}{line}"));
+                line.clear();
+                line_prefix = " ".repeat(prefix.chars().count());
                 line_width = 0;
             }
             if !line.is_empty() {
@@ -2554,13 +2650,26 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
             line_width += word_width;
         }
         if !line.is_empty() {
-            lines.push(line);
+            lines.push(format!("{line_prefix}{line}"));
         }
     }
     if lines.is_empty() {
         lines.push(String::new());
     }
     lines
+}
+
+fn list_prefix(line: &str) -> Option<(&str, &str)> {
+    for marker in ["* ", "- ", "+ "] {
+        if let Some(body) = line.strip_prefix(marker) {
+            return Some((marker, body));
+        }
+    }
+    let digits = line.bytes().take_while(u8::is_ascii_digit).count();
+    if digits > 0 && line.as_bytes().get(digits..digits + 2) == Some(b". ") {
+        return Some(line.split_at(digits + 2));
+    }
+    None
 }
 
 /// The annotations, each on its own line as the wider layout puts them.
@@ -2576,8 +2685,9 @@ fn long_annotations(
     env_fallback: &[&str],
     deprecated_env: &[&str],
     default: &[&str],
-    indent: usize,
+    layout: AnnotationLayout,
 ) {
+    let AnnotationLayout { indent, width } = layout;
     // Most entries annotate nothing, and this is called for every one of them — so the indent
     // is not built until there is a line to put it on.
     if choices.is_empty()
@@ -2588,26 +2698,63 @@ fn long_annotations(
     {
         return;
     }
-    let pad = " ".repeat(indent);
     if !choices.is_empty() {
-        let _ = writeln!(out, "{pad}[possible values: {}]", choices.join(", "));
+        write_wrapped_indented(
+            out,
+            &format!("[possible values: {}]", choices.join(", ")),
+            width,
+            indent,
+        );
     }
     if let Some(env) = env {
-        let _ = writeln!(out, "{pad}[env: {env}]");
+        write_wrapped_indented(out, &format!("[env: {env}]"), width, indent);
     }
-    environment_notes(out, env_fallback, deprecated_env, indent);
+    for env in env_fallback {
+        write_wrapped_indented(out, &format!("[env fallback: {env}]"), width, indent);
+    }
+    for env in deprecated_env {
+        write_wrapped_indented(out, &format!("[deprecated env: {env}]"), width, indent);
+    }
     if !default.is_empty() {
-        let _ = writeln!(out, "{pad}(default: {})", default.join(", "));
+        write_wrapped_indented(
+            out,
+            &format!("(default: {})", default.join(", ")),
+            width,
+            indent,
+        );
     }
 }
 
-fn admonitions(out: &mut String, blocks: &[AdmonitionMeta<'_>]) {
+#[derive(Clone, Copy)]
+struct AnnotationLayout {
+    indent: usize,
+    width: usize,
+}
+
+fn admonitions(out: &mut String, blocks: &[AdmonitionMeta<'_>], width: usize) {
     for block in blocks {
         let label = match block.kind {
             AdmonitionKind::Note => "Note",
             AdmonitionKind::Warning => "Warning",
         };
-        write_indented(out, &format!("{label}: {}", block.text), 4);
+        write_labelled(out, label, block.text, width, 4);
+    }
+}
+
+fn write_labelled(out: &mut String, label: &str, text: &str, width: usize, indent: usize) {
+    let prefix = format!("{label}: ");
+    let continuation = indent + prefix.chars().count();
+    let lines = wrap(text, width.saturating_sub(continuation));
+    let pad = " ".repeat(indent);
+    let continuation_pad = " ".repeat(continuation);
+    for (index, line) in lines.iter().enumerate() {
+        if index == 0 {
+            let _ = writeln!(out, "{pad}{prefix}{line}");
+        } else if line.is_empty() {
+            out.push('\n');
+        } else {
+            let _ = writeln!(out, "{continuation_pad}{line}");
+        }
     }
 }
 
@@ -2637,13 +2784,13 @@ fn deprecation_label(
     Some(format!("[deprecated: {}]", parts.join("; ")))
 }
 
-fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize) {
+fn command_deprecation(out: &mut String, meta: &CommandMeta<'_>, indent: usize, width: usize) {
     if let Some(label) = deprecation_label(
         meta.deprecated,
         meta.deprecated_warn_at,
         meta.deprecated_remove_at,
     ) {
-        let _ = writeln!(out, "{}{label}", " ".repeat(indent));
+        write_wrapped_indented(out, &label, width, indent);
     }
 }
 
@@ -2660,22 +2807,13 @@ fn inline_environment_notes(hide: bool, fallbacks: &[&str], deprecated: &[&str])
     (!notes.is_empty()).then(|| notes.join(" "))
 }
 
-fn environment_notes(out: &mut String, fallbacks: &[&str], deprecated: &[&str], indent: usize) {
-    for env in fallbacks {
-        let _ = writeln!(out, "{}[env fallback: {env}]", " ".repeat(indent));
-    }
-    for env in deprecated {
-        let _ = writeln!(out, "{}[deprecated env: {env}]", " ".repeat(indent));
-    }
-}
-
-fn flag_notes(out: &mut String, meta: &FlagMeta<'_>, indent: usize) {
+fn flag_notes(out: &mut String, meta: &FlagMeta<'_>, indent: usize, width: usize) {
     if let Some(label) = deprecation_label(
         meta.deprecated,
         meta.deprecated_warn_at,
         meta.deprecated_remove_at,
     ) {
-        let _ = writeln!(out, "{}{label}", " ".repeat(indent));
+        write_wrapped_indented(out, &label, width, indent);
     }
 }
 
@@ -2691,9 +2829,9 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
             .or(sub.about)
             .filter(|about| !about.trim().is_empty())
         {
-            let _ = writeln!(out, "{}", about.trim_end());
+            write_wrapped_indented(out, about.trim_end(), width, 0);
         }
-        command_deprecation(out, sub, 0);
+        command_deprecation(out, sub, 0, width);
 
         let mut args: Vec<_> = sub
             .args
@@ -2728,7 +2866,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 width,
                 meta.next_line_help,
             );
-            admonitions(out, arg.admonitions);
+            admonitions(out, arg.admonitions, width);
             long_annotations(
                 out,
                 if arg.hide_possible_values {
@@ -2748,7 +2886,10 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 } else {
                     arg.default
                 },
-                BLOCK_INDENT,
+                AnnotationLayout {
+                    indent: BLOCK_INDENT,
+                    width,
+                },
             );
         }
         for flag in flags {
@@ -2760,7 +2901,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 width,
                 meta.next_line_help,
             );
-            admonitions(out, flag.admonitions);
+            admonitions(out, flag.admonitions, width);
             long_annotations(
                 out,
                 if flag.hide_possible_values {
@@ -2784,9 +2925,12 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 } else {
                     flag.default
                 },
-                BLOCK_INDENT,
+                AnnotationLayout {
+                    indent: BLOCK_INDENT,
+                    width,
+                },
             );
-            flag_notes(out, flag, BLOCK_INDENT);
+            flag_notes(out, flag, BLOCK_INDENT, width);
         }
         if sub.flatten_help {
             flat_commands_long(out, &sub_path, sub, width);
@@ -3728,10 +3872,26 @@ mod style_tests {
     use super::{
         commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
         inline_environment_notes, long_help, render_styled, render_view_at_styled,
-        styled_flag_usage, styled_help, styled_inline, Shown, Style,
+        styled_flag_usage, styled_help, styled_inline, wrap, Shown, Style,
     };
     use crate::spec::{ArgMeta, CommandMeta, FlagMeta, Spec, ViewMeta};
     use crate::{Arg, ArgAction, Command, Flag};
+
+    #[test]
+    fn nested_lists_keep_their_hanging_indent() {
+        assert_eq!(
+            wrap("  - a nested item with enough words to wrap", 24),
+            ["  - a nested item with", "    enough words to wrap"]
+        );
+        assert_eq!(
+            wrap("  1. a numbered item with enough words to wrap", 24),
+            [
+                "  1. a numbered item",
+                "     with enough words",
+                "     to wrap"
+            ]
+        );
+    }
 
     #[test]
     fn optional_equals_values_put_the_equals_inside_the_brackets() {
@@ -3899,7 +4059,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        flag_notes(&mut page, &meta, 4);
+        flag_notes(&mut page, &meta, 4, 80);
 
         assert!(page.is_empty());
 
