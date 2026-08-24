@@ -295,11 +295,15 @@ impl Style {
     }
 
     fn heading(self, text: &str) -> String {
-        self.wrap("1;4;32", text)
+        self.wrap("1;33", text)
     }
 
     fn literal(self, text: &str) -> String {
-        self.wrap("36", text)
+        self.wrap("1;32", text)
+    }
+
+    fn metavar(self, text: &str) -> String {
+        self.wrap("1;35", text)
     }
 
     /// Render the small Markdown vocabulary accepted in help prose.
@@ -480,31 +484,76 @@ fn closing_delimiter(
 
 fn styled_flag_usage(usage: &str, style: Style) -> String {
     let mut out = String::with_capacity(usage.len());
-    let mut rest = usage;
-    while let Some(start) = rest.find('-') {
-        let previous_allows = start == 0
-            || rest[..start]
-                .chars()
-                .next_back()
-                .is_some_and(|c| c.is_whitespace() || matches!(c, ',' | ':' | '[' | '<'));
-        if !previous_allows {
-            out.push_str(&rest[..=start]);
-            rest = &rest[start + 1..];
+    let mut at = 0;
+    while at < usage.len() {
+        let rest = &usage[at..];
+        let previous = usage[..at].chars().next_back();
+
+        if rest.starts_with('-')
+            && previous.is_none_or(|c| c.is_whitespace() || matches!(c, ',' | ':' | '[' | '<'))
+        {
+            let end = rest
+                .char_indices()
+                .skip(1)
+                .find_map(|(i, c)| {
+                    (c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '<' | '>'))
+                        .then_some(i)
+                })
+                .unwrap_or(rest.len());
+            out.push_str(&style.literal(&rest[..end]));
+            at += end;
             continue;
         }
-        let end = rest[start..]
-            .char_indices()
-            .skip(1)
-            .find_map(|(i, c)| {
-                (c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '>')).then_some(i)
-            })
-            .unwrap_or(rest.len() - start)
-            + start;
-        out.push_str(&rest[..start]);
-        out.push_str(&style.literal(&rest[start..end]));
-        rest = &rest[end..];
+
+        if rest.starts_with('<') {
+            if let Some(end) = rest.find('>') {
+                let end = end + 1;
+                out.push_str(&style.metavar(&rest[..end]));
+                at += end;
+                continue;
+            }
+        }
+
+        if let Some(value) = rest.strip_prefix("[=") {
+            if let Some(end) = value.find(']') {
+                out.push_str("[=");
+                out.push_str(&style.metavar(&value[..end]));
+                out.push(']');
+                at += end + 3;
+                continue;
+            }
+        }
+
+        if let Some(value) = rest.strip_prefix('=') {
+            out.push('=');
+            at += 1;
+            if !value.starts_with('<') {
+                let end = value
+                    .find(|c: char| c.is_whitespace() || matches!(c, ',' | ']' | '>'))
+                    .unwrap_or(value.len());
+                if end > 0 {
+                    out.push_str(&style.metavar(&value[..end]));
+                    at += end;
+                }
+            }
+            continue;
+        }
+
+        if rest.starts_with(char::is_uppercase)
+            && previous.is_none_or(|c| c.is_whitespace() || matches!(c, '=' | '[' | '<'))
+        {
+            let end = rest
+                .find(|c: char| !(c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_'))
+                .unwrap_or(rest.len());
+            out.push_str(&style.metavar(&rest[..end]));
+            at += end;
+            continue;
+        }
+
+        let ch = rest.chars().next().expect("at is on a character boundary");
+        out.push(ch);
+        at += ch.len_utf8();
     }
-    out.push_str(rest);
     out
 }
 
@@ -514,7 +563,7 @@ fn help_structure(
     chain: &[&CommandMeta<'_>],
     long: bool,
     inherit_version_actions: bool,
-) -> (Vec<String>, Vec<String>, Vec<String>) {
+) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
     let meta = *chain.last().expect("a page is always about some command");
     let mut headings = Vec::new();
     if !page_examples(spec, meta).is_empty() {
@@ -556,6 +605,8 @@ fn help_structure(
             .filter_map(|arg| arg.help_heading)
             .map(str::to_string),
     );
+    let mut arg_usages: Vec<String> = args.iter().map(|arg| arg_usage(arg)).collect();
+    arg_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
 
     let visible_flag = |flag: &&FlagMeta<'_>| {
         !flag.hide
@@ -599,7 +650,7 @@ fn help_structure(
     let mut synopsis = String::new();
     usage_section(&mut synopsis, spec, path, meta);
     let synopsis = synopsis.lines().map(str::to_string).collect();
-    (headings, flag_usages, synopsis)
+    (headings, flag_usages, arg_usages, synopsis)
 }
 
 fn flat_help_headings(path: &[&str], meta: &CommandMeta<'_>, headings: &mut Vec<String>) {
@@ -620,6 +671,7 @@ fn styled_help(
     style: Style,
     headings: &[String],
     flag_usages: &[String],
+    arg_usages: &[String],
     synopsis: &[String],
 ) -> String {
     if !style.coloured {
@@ -633,9 +685,9 @@ fn styled_help(
         if synopsis.iter().any(|known| known == body) && body.starts_with("Usage:") {
             let usage = body.strip_prefix("Usage:").unwrap_or_default();
             out.push_str(&style.heading("Usage:"));
-            out.push_str(&style.literal(usage));
+            out.push_str(&styled_flag_usage(usage, style));
         } else if synopsis.iter().any(|known| known == body) {
-            out.push_str(&style.literal(body));
+            out.push_str(&styled_flag_usage(body, style));
         } else if body
             .strip_suffix(':')
             .is_some_and(|heading| headings.iter().any(|known| known == heading))
@@ -643,12 +695,24 @@ fn styled_help(
             out.push_str(&style.heading(body));
         } else {
             let styled = body.strip_prefix("  ").and_then(|entry| {
-                flag_usages.iter().find_map(|usage| {
-                    entry
-                        .strip_prefix(usage)
-                        .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
-                        .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
-                })
+                flag_usages
+                    .iter()
+                    .find_map(|usage| {
+                        entry
+                            .strip_prefix(usage)
+                            .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
+                            .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
+                    })
+                    .or_else(|| {
+                        arg_usages.iter().find_map(|usage| {
+                            entry
+                                .strip_prefix(usage)
+                                .filter(|rest| {
+                                    rest.is_empty() || rest.starts_with(char::is_whitespace)
+                                })
+                                .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
+                        })
+                    })
             });
             // Examples are shell source, where paired backticks are command substitution rather
             // than prose markup. Every other non-structural line may contain author emphasis;
@@ -3149,12 +3213,14 @@ pub fn render_styled(
     } else {
         short_help(spec, &path, &chain)
     };
-    let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long, false);
+    let (headings, flag_usages, arg_usages, synopsis) =
+        help_structure(spec, &path, &chain, long, false);
     Some(styled_help(
         &page,
         style,
         &headings,
         &flag_usages,
+        &arg_usages,
         &synopsis,
     ))
 }
@@ -3298,12 +3364,14 @@ pub fn render_at_styled(
     } else {
         short_help(spec, &path, &chain)
     };
-    let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long, false);
+    let (headings, flag_usages, arg_usages, synopsis) =
+        help_structure(spec, &path, &chain, long, false);
     Some(styled_help(
         &page,
         style,
         &headings,
         &flag_usages,
+        &arg_usages,
         &synopsis,
     ))
 }
@@ -3361,12 +3429,14 @@ pub fn render_view_at_styled(
     } else {
         short_help_with(&viewed, &path, &chain, true)
     };
-    let (headings, flag_usages, synopsis) = help_structure(&viewed, &path, &chain, long, true);
+    let (headings, flag_usages, arg_usages, synopsis) =
+        help_structure(&viewed, &path, &chain, long, true);
     Some(styled_help(
         &page,
         style,
         &headings,
         &flag_usages,
+        &arg_usages,
         &synopsis,
     ))
 }
@@ -3594,13 +3664,14 @@ fn recursive_help<'a>(
             out.push('\n');
         }
         let page = long_help_with(spec, path, chain, inherit_version_actions);
-        let (headings, flag_usages, synopsis) =
+        let (headings, flag_usages, arg_usages, synopsis) =
             help_structure(spec, path, chain, true, inherit_version_actions);
         out.push_str(&styled_help(
             &page,
             style,
             &headings,
             &flag_usages,
+            &arg_usages,
             &synopsis,
         ));
 
@@ -3941,26 +4012,42 @@ mod style_tests {
 
     #[test]
     fn coloured_help_styles_structure_without_changing_plain_text() {
-        let page = "A summary ending in:\nUsage: prose is not a synopsis\nExamples:\n\nUsage: ex [OPTIONS]\n       ex --all\n\nOptions:\n  -f, --force  Force it\n    [possible values: --auto]\n    (default: -1)\n";
-        let headings = vec!["Options".to_string()];
+        let page = "A summary ending in:\nUsage: prose is not a synopsis\nExamples:\n\nUsage: ex [OPTIONS]\n       ex --all\n\nArguments:\n  <FILE>  Read this file\n\nOptions:\n  -f, --force  Force it\n    [possible values: --auto]\n    (default: -1)\n";
+        let headings = vec!["Arguments".to_string(), "Options".to_string()];
         let usages = vec!["-f, --force".to_string()];
+        let arg_usages = vec!["<FILE>".to_string()];
         let synopsis = vec![
             "Usage: ex [OPTIONS]".to_string(),
             "       ex --all".to_string(),
         ];
         assert_eq!(
-            styled_help(page, Style::PLAIN, &headings, &usages, &synopsis),
+            styled_help(
+                page,
+                Style::PLAIN,
+                &headings,
+                &usages,
+                &arg_usages,
+                &synopsis
+            ),
             page
         );
 
-        let coloured = styled_help(page, Style::COLOURED, &headings, &usages, &synopsis);
-        assert!(coloured.contains("\u{1b}[1;4;32mUsage:\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[1;4;32mOptions:\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[36m-f\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[36m--force\u{1b}[0m"));
+        let coloured = styled_help(
+            page,
+            Style::COLOURED,
+            &headings,
+            &usages,
+            &arg_usages,
+            &synopsis,
+        );
+        assert!(coloured.contains("\u{1b}[1;33mUsage:\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[1;33mOptions:\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[1;32m-f\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[1;32m--force\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[1;35m<FILE>\u{1b}[0m"));
         assert!(coloured.contains("A summary ending in:\nUsage: prose is not a synopsis"));
         assert!(coloured.contains("Usage: prose is not a synopsis\nExamples:"));
-        assert!(coloured.contains("\u{1b}[36m       ex --all\u{1b}[0m"));
+        assert!(coloured.contains("ex \u{1b}[1;32m--all\u{1b}[0m"));
         assert!(coloured.contains("[possible values: --auto]"));
         assert!(coloured.contains("(default: -1)"));
         assert_eq!(strip_ansi(&coloured), page);
@@ -3970,18 +4057,18 @@ mod style_tests {
     fn equals_separates_a_coloured_flag_from_its_value() {
         assert_eq!(
             styled_flag_usage("--output=<FILE>", Style::COLOURED),
-            "\u{1b}[36m--output\u{1b}[0m=<FILE>"
+            "\u{1b}[1;32m--output\u{1b}[0m=\u{1b}[1;35m<FILE>\u{1b}[0m"
         );
         assert_eq!(
             styled_flag_usage("--color[=WHEN]", Style::COLOURED),
-            "\u{1b}[36m--color\u{1b}[0m[=WHEN]"
+            "\u{1b}[1;32m--color\u{1b}[0m[=\u{1b}[1;35mWHEN\u{1b}[0m]"
         );
     }
 
     #[test]
     fn coloured_help_renders_inline_markdown_emphasis() {
         let page = "Use **force** for *all* files, _including_hidden_, `--literally`, and ~~never~~ this.\n  --dry_run  Keep snake_case and an unmatched * glob\n\nExamples:\n    $ echo `date`\n";
-        let coloured = styled_help(page, Style::COLOURED, &[], &[], &[]);
+        let coloured = styled_help(page, Style::COLOURED, &[], &[], &[], &[]);
 
         assert!(
             coloured.contains("\u{1b}[1mforce\u{1b}[22m"),

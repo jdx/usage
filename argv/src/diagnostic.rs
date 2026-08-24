@@ -1536,7 +1536,7 @@ mod tests {
 
         let coloured = render(&SPEC, &[], &Error::MissingSubcommand, Style::COLOURED);
         assert!(
-            coloured.contains("\u{1b}[1;4;32mCommands:\u{1b}[0m"),
+            coloured.contains("\u{1b}[1;33mCommands:\u{1b}[0m"),
             "{coloured}"
         );
     }
