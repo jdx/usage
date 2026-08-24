@@ -147,6 +147,7 @@ impl AnsiStyle {
     }
 }
 
+#[cfg(feature = "cli-help")]
 pub(crate) fn semantic(specification: &str, text: &str, coloured: bool) -> String {
     if !coloured {
         return text.to_string();
