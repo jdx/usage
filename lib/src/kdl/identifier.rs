@@ -84,43 +84,11 @@ impl KdlIdentifier {
         self.repr = None;
     }
 
-    /// Parses a string into a entry.
-    ///
-    /// If the `v1-fallback` feature is enabled, this method will first try to
-    /// parse the string as a KDL v2 entry, and, if that fails, it will try
-    /// to parse again as a KDL v1 entry. If both fail, only the v2 parse
-    /// errors will be returned.
+    /// Parses a KDL v2 string into an identifier.
     pub fn parse(s: &str) -> Result<Self, KdlError> {
-        #[cfg(not(feature = "v1-fallback"))]
-        {
-            v2_parser::try_parse(v2_parser::identifier, s)
-        }
-        #[cfg(feature = "v1-fallback")]
-        {
-            v2_parser::try_parse(v2_parser::identifier, s)
-                .or_else(|e| KdlIdentifier::parse_v1(s).map_err(|_| e))
-        }
-    }
-
-    /// Parses a KDL v1 string into an entry.
-    #[cfg(feature = "v1")]
-    pub fn parse_v1(s: &str) -> Result<Self, KdlError> {
-        let ret: Result<kdlv1::KdlIdentifier, kdlv1::KdlError> = s.parse();
-        ret.map(|x| x.into()).map_err(|e| e.into())
+        v2_parser::try_parse(v2_parser::identifier, s)
     }
 }
-
-#[cfg(feature = "v1")]
-impl From<kdlv1::KdlIdentifier> for KdlIdentifier {
-    fn from(value: kdlv1::KdlIdentifier) -> Self {
-        Self {
-            value: value.value().into(),
-            repr: value.repr().map(|x| x.into()),
-            span: (value.span().offset(), value.span().len()).into(),
-        }
-    }
-}
-
 impl Display for KdlIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(repr) = &self.repr {
@@ -162,57 +130,5 @@ impl FromStr for KdlIdentifier {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::parse(s)
-    }
-}
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-mod test {
-    use super::*;
-
-    #[test]
-    fn parsing() -> miette::Result<()> {
-        let plain = "foo";
-        assert_eq!(
-            plain.parse::<KdlIdentifier>()?,
-            KdlIdentifier {
-                value: plain.to_string(),
-                repr: Some(plain.to_string()),
-                span: SourceSpan::from(0..3),
-            }
-        );
-
-        let quoted = r#""foo\"bar""#;
-        assert_eq!(
-            quoted.parse::<KdlIdentifier>()?,
-            KdlIdentifier {
-                value: "foo\"bar".to_string(),
-                repr: Some(quoted.to_string()),
-                span: SourceSpan::from(0..0),
-            }
-        );
-
-        let invalid = "123";
-        assert!(invalid.parse::<KdlIdentifier>().is_err());
-
-        let invalid = "   space   ";
-        assert!(invalid.parse::<KdlIdentifier>().is_err());
-
-        let invalid = "\"x";
-        assert!(invalid.parse::<KdlIdentifier>().is_err());
-
-        Ok(())
-    }
-
-    #[test]
-    fn formatting() {
-        let plain = KdlIdentifier::from("foo");
-        assert_eq!(format!("{plain}"), "foo");
-
-        let quoted = KdlIdentifier::from("foo\"bar");
-        assert_eq!(format!("{quoted}"), r#""foo\"bar""#);
-
-        let mut custom_repr = KdlIdentifier::from("foo");
-        custom_repr.set_repr(r#""foo/bar""#.to_string());
-        assert_eq!(format!("{custom_repr}"), r#""foo/bar""#);
     }
 }

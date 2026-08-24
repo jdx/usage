@@ -59,7 +59,7 @@ pub enum UsageErr {
     #[error("{0}")]
     Version(String),
 
-    #[error("Invalid usage config")]
+    #[error("Invalid usage config: {0}")]
     Miette(#[from] crate::miette::MietteError),
 
     #[error(transparent)]

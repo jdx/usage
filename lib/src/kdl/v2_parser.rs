@@ -252,26 +252,24 @@ where
     err = E::from_recoverable_error(&token_start, &err_start, i, err);
     Err(err)
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-fn new_input(s: &str) -> Input<'_> {
-    Recoverable::new(LocatingSlice::new(s))
-}
-
 /// `document := bom? nodes`
 pub(crate) fn document(input: &mut Input<'_>) -> PResult<KdlDocument> {
-    let bom = opt(bom.take()).parse_next(input)?;
+    let leading_bom = opt(bom.take()).parse_next(input)?;
     let mut doc = nodes.parse_next(input)?;
-    let badend = resume_after_cut(
-        cut_err(eof).context(cx().lbl("EOF").msg("Expected end of document")),
-        any.void(),
-    )
-    .parse_next(input)?
-    .is_none();
-    if badend {
-        document.parse_next(input)?;
+    loop {
+        let badend = resume_after_cut(
+            cut_err(eof).context(cx().lbl("EOF").msg("Expected end of document")),
+            any.void(),
+        )
+        .parse_next(input)?
+        .is_none();
+        if !badend {
+            break;
+        }
+        opt(bom).void().parse_next(input)?;
+        nodes.void().parse_next(input)?;
     }
-    if let Some(bom) = bom {
+    if let Some(bom) = leading_bom {
         if let Some(fmt) = doc.format_mut() {
             fmt.leading = format!("{bom}{}", fmt.leading);
         }
@@ -436,55 +434,6 @@ fn base_node(input: &mut Input<'_>) -> PResult<KdlNode> {
         span: span_from_checkpoint(input, &_start),
     })
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn test_node() {
-    assert_eq!(
-        node.parse(new_input("foo")).unwrap(),
-        KdlNode {
-            ty: None,
-            name: KdlIdentifier {
-                value: "foo".into(),
-                repr: Some("foo".into()),
-                span: (0..3).into()
-            },
-            entries: vec![],
-            children: None,
-            format: Some(Default::default()),
-            span: (0..7).into()
-        }
-    );
-
-    assert_eq!(
-        node.parse(new_input("foo bar")).unwrap(),
-        KdlNode {
-            ty: None,
-            name: KdlIdentifier {
-                value: "foo".into(),
-                repr: Some("foo".into()),
-                span: (0..3).into()
-            },
-            entries: vec![KdlEntry {
-                ty: None,
-                value: "bar".into(),
-                name: None,
-                format: Some(KdlEntryFormat {
-                    value_repr: "bar".into(),
-                    leading: " ".into(),
-                    ..Default::default()
-                }),
-                span: SourceSpan::new(3.into(), 4)
-            }],
-            children: None,
-            format: Some(KdlNodeFormat {
-                ..Default::default()
-            }),
-            span: (0..8).into()
-        }
-    );
-}
-
 pub(crate) fn padded_node(input: &mut Input<'_>) -> PResult<KdlNode> {
     let ((mut node, _terminator, trailing), _span) = (
         node,
@@ -596,96 +545,6 @@ fn slashdashed_entries(input: &mut Input<'_>) -> PResult<()> {
         .parse_next(input)?;
     Ok(())
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn entry_test() {
-    assert_eq!(
-        node_entry.parse(new_input("foo=bar")).unwrap(),
-        Some(KdlEntry {
-            ty: None,
-            value: KdlValue::String("bar".into()),
-            name: Some("foo".parse().unwrap()),
-            format: Some(KdlEntryFormat {
-                value_repr: "bar".into(),
-                ..Default::default()
-            }),
-            span: (0..7).into()
-        })
-    );
-
-    assert_eq!(
-        node_entry.parse(new_input("foo")).unwrap(),
-        Some(KdlEntry {
-            ty: None,
-            value: KdlValue::String("foo".into()),
-            name: None,
-            format: Some(KdlEntryFormat {
-                value_repr: "foo".into(),
-                ..Default::default()
-            }),
-            span: (0..3).into()
-        })
-    );
-
-    assert_eq!(
-        node_entry.parse(new_input("/-foo bar")).unwrap(),
-        Some(KdlEntry {
-            ty: None,
-            value: KdlValue::String("bar".into()),
-            name: None,
-            format: Some(KdlEntryFormat {
-                value_repr: "bar".into(),
-                leading: "/-foo ".into(),
-                ..Default::default()
-            }),
-            span: (6..9).into()
-        })
-    );
-
-    assert_eq!(
-        node_entry.parse(new_input("/- foo=1 bar = 2")).unwrap(),
-        Some(KdlEntry {
-            ty: None,
-            value: 2.into(),
-            name: Some(KdlIdentifier {
-                value: "bar".into(),
-                repr: Some("bar".into()),
-                span: (9..12).into(),
-            }),
-            format: Some(KdlEntryFormat {
-                value_repr: "2".into(),
-                leading: "/- foo=1 ".into(),
-                after_key: " ".into(),
-                after_eq: " ".into(),
-                ..Default::default()
-            }),
-            span: (9..16).into()
-        })
-    );
-
-    assert_eq!(
-        node_entry.parse(new_input("/- \nfoo = 1 bar = 2")).unwrap(),
-        Some(KdlEntry {
-            ty: None,
-            value: 2.into(),
-            name: Some(KdlIdentifier {
-                value: "bar".into(),
-                repr: Some("bar".into()),
-                span: (12..16).into(),
-            }),
-            format: Some(KdlEntryFormat {
-                value_repr: "2".into(),
-                leading: "/- \nfoo = 1 ".into(),
-                after_key: " ".into(),
-                after_eq: " ".into(),
-                ..Default::default()
-            }),
-            span: (12..18).into()
-        })
-    );
-}
-
 fn before_node_children(input: &mut Input<'_>) -> PResult<()> {
     alt((
         (
@@ -705,14 +564,6 @@ fn before_node_children(input: &mut Input<'_>) -> PResult<()> {
     node_space0.parse_next(input)?;
     Ok(())
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn before_node_children_test() {
-    assert!(before_node_children.parse(new_input(" /- { }")).is_ok());
-    assert!(before_node_children.parse(new_input(" /- { bar }")).is_ok());
-}
-
 fn slashdashed_children(input: &mut Input<'_>) -> PResult<()> {
     node_space0.parse_next(input)?;
     trace(
@@ -726,14 +577,6 @@ fn slashdashed_children(input: &mut Input<'_>) -> PResult<()> {
     .map(|()| ())
     .parse_next(input)
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn around_children_test() {
-    assert!(slashdashed_children.parse(new_input("/- { }")).is_ok());
-    assert!(slashdashed_children.parse(new_input("/- { bar }")).is_ok());
-}
-
 /// `node-children := '{' nodes final-node? '}'`
 fn node_children(input: &mut Input<'_>) -> PResult<KdlDocument> {
     let _before_open = input.checkpoint();
@@ -1362,161 +1205,6 @@ fn raw_string_badval(input: &mut Input<'_>) -> PResult<()> {
     .map(|(v, _)| v)
     .parse_next(input)
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-mod string_tests {
-    use super::*;
-
-    #[test]
-    fn identifier_string() {
-        assert_eq!(
-            string.parse(new_input("foo")).unwrap(),
-            Some(KdlValue::String("foo".into()))
-        );
-        assert_eq!(
-            string.parse(new_input(",")).unwrap(),
-            Some(KdlValue::String(",".into()))
-        );
-    }
-
-    #[test]
-    fn single_line_quoted_string() {
-        assert_eq!(
-            string.parse(new_input("\"foo\"")).unwrap(),
-            Some(KdlValue::String("foo".into()))
-        );
-        assert_eq!(
-            string.parse(new_input("\"foo\\u{0a}\"")).unwrap(),
-            Some(KdlValue::String("foo\u{0a}".into()))
-        );
-        assert_eq!(
-            string.parse(new_input("\"\\u{10FFFF}\"")).unwrap(),
-            Some(KdlValue::String("\u{10ffff}".into()))
-        );
-    }
-
-    #[test]
-    fn multiline_quoted_string() {
-        assert_eq!(
-            string
-                .parse(new_input("\"\"\"\nfoo\nbar\nbaz\n\"\"\""))
-                .unwrap(),
-            Some(KdlValue::String("foo\nbar\nbaz".into()))
-        );
-        assert_eq!(
-            string
-                .parse(new_input("\"\"\"\n  foo\n    bar\n  baz\n  \"\"\""))
-                .unwrap(),
-            Some(KdlValue::String("foo\n  bar\nbaz".into()))
-        );
-        assert_eq!(
-            string
-                .parse(new_input("\"\"\"\nfoo\r\nbar\nbaz\n\"\"\""))
-                .unwrap(),
-            Some(KdlValue::String("foo\nbar\nbaz".into()))
-        );
-        assert_eq!(
-            string
-                .parse(new_input("\"\"\"\n  foo\n    bar\n   baz\n  \"\"\""))
-                .unwrap(),
-            Some(KdlValue::String("foo\n  bar\n baz".into()))
-        );
-        assert_eq!(
-            string
-                .parse(new_input(
-                    "\"\"\"\n  \\     foo\n    \\  bar\n   \\ baz\n  \"\"\""
-                ))
-                .unwrap(),
-            Some(KdlValue::String("foo\n  bar\n baz".into()))
-        );
-        assert_eq!(
-            string
-                .parse(new_input("\"\"\"\n\n    string\t\n    \"\"\""))
-                .unwrap(),
-            Some(KdlValue::String("\nstring\t".into())),
-            "Empty line without any indentation"
-        );
-        assert_eq!(
-            string
-                .parse(new_input("\"\"\"\n 	 \\\n          \n 	 \"\"\""))
-                .unwrap(),
-            Some(KdlValue::String("".into())),
-            "Escaped whitespace with proper prefix"
-        );
-        assert_eq!(
-            string.parse(new_input("\"\"\"\n\\\"\"\"\n\"\"\"")).unwrap(),
-            Some(KdlValue::String("\"\"\"".into()))
-        );
-
-        assert!(string
-            .parse(new_input("\"\"\"\nfoo\n  bar\n  baz\n  \"\"\""))
-            .is_err());
-    }
-
-    #[test]
-    fn raw_string() {
-        assert_eq!(
-            string.parse(new_input("#\"foo\"#")).unwrap(),
-            Some(KdlValue::String("foo".into()))
-        );
-        assert!(string.parse(new_input("#\"\"\"#")).is_err());
-    }
-
-    #[test]
-    fn multiline_raw_string() {
-        assert_eq!(
-            string
-                .parse(new_input("#\"\"\"\nfoo\nbar\nbaz\n\"\"\"#"))
-                .unwrap(),
-            Some(KdlValue::String("foo\nbar\nbaz".into()))
-        );
-        assert_eq!(
-            string
-                .parse(new_input("#\"\"\"\nfoo\r\nbar\nbaz\n\"\"\"#"))
-                .unwrap(),
-            Some(KdlValue::String("foo\nbar\nbaz".into()))
-        );
-        assert_eq!(
-            string
-                .parse(new_input("##\"\"\"\n  foo\n    bar\n  baz\n  \"\"\"##"))
-                .unwrap(),
-            Some(KdlValue::String("foo\n  bar\nbaz".into()))
-        );
-        assert_eq!(
-            string
-                .parse(new_input("#\"\"\"\n  foo\n    \\nbar\n   baz\n  \"\"\"#"))
-                .unwrap(),
-            Some(KdlValue::String("foo\n  \\nbar\n baz".into()))
-        );
-        assert!(string
-            .parse(new_input("#\"\"\"\nfoo\n  bar\n  baz\n  \"\"\"#"))
-            .is_err());
-
-        assert!(string.parse(new_input("#\"\nfoo\nbar\nbaz\n\"#")).is_err());
-        assert!(string.parse(new_input("\"\nfoo\nbar\nbaz\n\"")).is_err());
-    }
-
-    #[test]
-    fn ident() {
-        assert_eq!(
-            identifier.parse(new_input("foo")).unwrap(),
-            KdlIdentifier {
-                value: "foo".into(),
-                repr: Some("foo".into()),
-                span: (0..3).into()
-            }
-        );
-        assert_eq!(
-            identifier.parse(new_input("+.")).unwrap(),
-            KdlIdentifier {
-                value: "+.".into(),
-                repr: Some("+.".into()),
-                span: (0..1).into()
-            }
-        )
-    }
-}
-
 /// ```text
 /// keyword := '#true' | '#false' | '#null'
 /// keyword-number := '#inf' | '#-inf' | '#nan'
@@ -1581,14 +1269,6 @@ fn escline(input: &mut Input<'_>) -> PResult<()> {
     alt((single_line_comment, newline, eof.void())).parse_next(input)?;
     wss.parse_next(input)
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn escline_test() {
-    let node = node.parse(new_input("foo bar\\\n   baz")).unwrap();
-    assert_eq!(node.entries().len(), 2);
-}
-
 pub(crate) static NEWLINES: [&str; 8] = [
     "\u{000D}\u{000A}",
     "\u{000D}",
@@ -1654,35 +1334,20 @@ fn multi_line_comment(input: &mut Input<'_>) -> PResult<()> {
 
 /// `commented-block := '*/' | (multi-line-comment | '*' | '/' | [^*/]+) commented-block`
 fn commented_block(input: &mut Input<'_>) -> PResult<()> {
-    alt((
-        "*/".void(),
-        preceded(
-            alt((
-                multi_line_comment,
-                "*".void(),
-                "/".void(),
-                repeat(1.., none_of(['*', '/'])).map(|()| ()),
-            )),
-            commented_block,
-        ),
-    ))
-    .parse_next(input)
+    loop {
+        let closing: PResult<()> = "*/".void().parse_next(input);
+        if closing.is_ok() {
+            return Ok(());
+        }
+        alt((
+            multi_line_comment,
+            "*".void(),
+            "/".void(),
+            repeat(1.., none_of(['*', '/'])).map(|()| ()),
+        ))
+        .parse_next(input)?;
+    }
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn multi_line_comment_test() {
-    assert!(multi_line_comment.parse(new_input("/* foo */")).is_ok());
-    assert!(multi_line_comment.parse(new_input("/**/")).is_ok());
-    assert!(multi_line_comment.parse(new_input("/*\nfoo\n*/")).is_ok());
-    assert!(multi_line_comment.parse(new_input("/*\nfoo*/")).is_ok());
-    assert!(multi_line_comment.parse(new_input("/*foo\n*/")).is_ok());
-    assert!(multi_line_comment.parse(new_input("/* foo\n*/")).is_ok());
-    assert!(multi_line_comment
-        .parse(new_input("/* /*bar*/ foo\n*/"))
-        .is_ok());
-}
-
 /// slashdash := '/-' (node-space | line-space)*
 fn slashdash(input: &mut Input<'_>) -> PResult<()> {
     (
@@ -1692,28 +1357,6 @@ fn slashdash(input: &mut Input<'_>) -> PResult<()> {
         .void()
         .parse_next(input)
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn slashdash_tests() {
-    assert!(document.parse(new_input("/- foo bar")).is_ok());
-    assert!(document.parse(new_input("/- foo bar;")).is_ok());
-    assert!(document.parse(new_input("/-n 1;")).is_ok());
-    assert!(node.parse(new_input("/- foo\nbar baz")).is_ok());
-    assert!(node_entry.parse(new_input("/-commented tada")).is_ok());
-    assert!(node.parse(new_input("foo /- { }")).is_ok());
-    assert!(node.parse(new_input("foo /- { bar }")).is_ok());
-    assert!(node
-        .parse(new_input("/- foo bar\nnode /-1 2 { x }"))
-        .is_ok());
-    assert!(node
-        .parse(new_input("/- foo bar\nnode 2 /-3 { x }"))
-        .is_ok());
-    assert!(node
-        .parse(new_input("/- foo bar\nnode /-1 2 /-3 { x }"))
-        .is_ok());
-}
-
 /// `number := keyword-number | hex | octal | binary | decimal`
 fn number(input: &mut Input<'_>) -> PResult<KdlValue> {
     alt((float_value, integer_value)).parse_next(input)
@@ -1763,37 +1406,6 @@ fn float<T: ParseFloat>(input: &mut Input<'_>) -> PResult<T> {
         .context(cx().lbl("float"))
         .parse_next(input)
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn float_test() {
-    use winnow::token::take;
-
-    assert_eq!(
-        float_value.parse(new_input("12_34.56")).unwrap(),
-        KdlValue::Float(1234.56)
-    );
-    assert_eq!(
-        float_value.parse(new_input("1234_.56")).unwrap(),
-        KdlValue::Float(1234.56)
-    );
-    assert_eq!(
-        (float_value, take(1usize))
-            .parse(new_input("1234.56 "))
-            .unwrap(),
-        (KdlValue::Float(1234.56), " ")
-    );
-    assert!(float_value.parse(new_input("_1234.56")).is_err());
-    assert!(float_value.parse(new_input("1234a.56")).is_err());
-    assert_eq!(
-        value
-            .parse(new_input("2.5"))
-            .unwrap()
-            .map(|x| x.value().clone()),
-        Some(KdlValue::Float(2.5))
-    );
-}
-
 fn integer_value(input: &mut Input<'_>) -> PResult<KdlValue> {
     alt((
         (hex, value_terminator_check).context(cx().lbl("hexadecimal number")),
@@ -1818,16 +1430,6 @@ fn decimal<T: FromStrRadix + MaybeNegatable>(input: &mut Input<'_>) -> PResult<T
         })
         .parse_next(input)
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn decimal_test() {
-    assert_eq!(decimal::<i128>.parse(new_input("12_34")).unwrap(), 1234);
-    assert_eq!(decimal::<i128>.parse(new_input("1234_")).unwrap(), 1234);
-    assert!(decimal::<i128>.parse(new_input("_1234")).is_err());
-    assert!(decimal::<i128>.parse(new_input("1234a")).is_err());
-}
-
 /// `integer := digit (digit | '_')*`
 fn udecimal<T: FromStrRadix>(input: &mut Input<'_>) -> PResult<T> {
     (
@@ -1872,33 +1474,6 @@ fn uhex<T: FromStrRadix>(input: &mut Input<'_>) -> PResult<T> {
     .context(cx().lbl("hexadecimal"))
     .parse_next(input)
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn test_hex() {
-    assert_eq!(
-        hex::<i128>.parse(new_input("0xdead_beef123")).unwrap(),
-        0xdeadbeef123
-    );
-    assert_eq!(
-        hex::<i128>.parse(new_input("0xDeAd_BeEf123")).unwrap(),
-        0xdeadbeef123
-    );
-    assert_eq!(
-        hex::<i128>.parse(new_input("0xdeadbeef123_")).unwrap(),
-        0xdeadbeef123
-    );
-    assert!(
-        hex::<i128>
-            .parse(new_input("0xABCDEF0123456789abcdef0123456789"))
-            .is_err(),
-        "i128 overflow"
-    );
-    assert!(hex::<i128>.parse(new_input("0x_deadbeef123")).is_err());
-
-    assert!(hex::<i128>.parse(new_input("0xbeefg1")).is_err());
-}
-
 /// `octal := sign? '0o' [0-7] [0-7_]*`
 fn octal<T: FromStrRadix + MaybeNegatable>(input: &mut Input<'_>) -> PResult<T> {
     let positive = signum.parse_next(input)?;
@@ -1928,16 +1503,6 @@ fn uoctal<T: FromStrRadix>(input: &mut Input<'_>) -> PResult<T> {
     .context(cx().lbl("octal"))
     .parse_next(input)
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn test_octal() {
-    assert_eq!(octal::<i128>.parse(new_input("0o12_34")).unwrap(), 0o1234);
-    assert_eq!(octal::<i128>.parse(new_input("0o1234_")).unwrap(), 0o1234);
-    assert!(octal::<i128>.parse(new_input("0o_12_34")).is_err());
-    assert!(octal::<i128>.parse(new_input("0o89")).is_err());
-}
-
 /// `binary := sign? '0b' ('0' | '1') ('0' | '1' | '_')*`
 fn binary<T: FromStrRadix + MaybeNegatable>(input: &mut Input<'_>) -> PResult<T> {
     let positive = signum.parse_next(input)?;
@@ -1964,24 +1529,6 @@ fn ubinary<T: FromStrRadix>(input: &mut Input<'_>) -> PResult<T> {
     .context(cx().lbl("binary"))
     .parse_next(input)
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn test_binary() {
-    use winnow::token::take;
-
-    assert_eq!(binary::<i128>.parse(new_input("0b10_01")).unwrap(), 0b1001);
-    assert_eq!(binary::<i128>.parse(new_input("0b1001_")).unwrap(), 0b1001);
-    assert!(binary::<i128>.parse(new_input("0b_10_01")).is_err());
-    assert_eq!(
-        (binary::<i128>, take(4usize))
-            .parse(new_input("0b12389"))
-            .unwrap(),
-        (1, "2389")
-    );
-    assert!(binary::<i128>.parse(new_input("123")).is_err());
-}
-
 fn signum(input: &mut Input<'_>) -> PResult<bool> {
     let sign = opt(alt(('+', '-'))).parse_next(input)?;
     let mult = if let Some(sign) = sign {
@@ -2060,472 +1607,19 @@ impl ParseFloat for f64 {
 impl_negatable_signed!(i8, i16, i32, i64, i128, isize);
 impl_negatable_unsigned!(u8, u16, u32, u64, u128, usize);
 
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-mod failure_tests {
-    use miette::Severity;
-
-    use crate::kdl::{KdlDiagnostic, KdlDocument, KdlError};
-    use std::sync::Arc;
+#[cfg(test)]
+mod regression_tests {
+    use crate::kdl::KdlDocument;
 
     #[test]
-    fn bad_node_name_test() -> miette::Result<()> {
-        let input = Arc::new("foo { bar; { baz; }; }".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        // super::_print_diagnostic(res);
-        // return Ok(());
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (11..12).into(),
-                        message: Some("Found child block instead of node name".into()),
-                        label: Some("not node name".into()),
-                        help: Some("Did you forget to add the node name itself? Or perhaps terminated the node before its child block?".into()),
-                        severity: Severity::Error
-                    }
-                ]
-            ))
-        );
-        let input = Arc::new("no/de 1 {\n    1 2 foo\n    bad#\n}".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        // super::_print_diagnostic(res);
-        // return Ok(());
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (0..5).into(),
-                        message: Some("Expected identifier string".into()),
-                        label: Some("not identifier string".into()),
-                        help: Some("A valid value was partially parsed, but was not followed by a value terminator. Did you want a space here?".into()),
-                        severity: Severity::Error
-                    },
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (0..5).into(),
-                        message: Some("Found invalid node name".into()),
-                        label: Some("not node name".into()),
-                        help: Some("This can be any string type, including a quoted, raw, or multiline string, as well as a plain identifier string.".into()),
-                        severity: Severity::Error
-                    },
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (14..15).into(),
-                        message: Some("Found invalid node name".into()),
-                        label: Some("not node name".into()),
-                        help: Some("This can be any string type, including a quoted, raw, or multiline string, as well as a plain identifier string.".into()),
-                        severity: Severity::Error
-                    },
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (26..30).into(),
-                        message: Some("Expected identifier string".into()),
-                        label: Some("not identifier string".into()),
-                        help: Some("A valid value was partially parsed, but was not followed by a value terminator. Did you want a space here?".into()),
-                        severity: Severity::Error
-                    },
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (26..30).into(),
-                        message: Some("Found invalid node name".into()),
-                        label: Some("not node name".into()),
-                        help: Some("This can be any string type, including a quoted, raw, or multiline string, as well as a plain identifier string.".into()),
-                        severity: Severity::Error
-                    }
-                ]
-            ))
-        );
-        Ok(())
+    fn long_invalid_document_recovery_does_not_recurse() {
+        let source = "}".repeat(20_000);
+        assert!(source.parse::<KdlDocument>().is_err());
     }
 
     #[test]
-    fn bad_entry_number_test() -> miette::Result<()> {
-        let input = Arc::new("node 1asdf 2".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        // super::_print_diagnostic(res);
-        // return Ok(());
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (5..10).into(),
-                    message: Some("Expected integer".into()),
-                    label: Some("not integer".into()),
-                    severity: miette::Severity::Error,
-                    help: Some("A valid value was partially parsed, but was not followed by a value terminator. Did you want a space here?".into()),
-                }]
-            ))
-        );
-
-        let input = Arc::new("node 0x1asdf 2".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (5..12).into(),
-                    message: Some("Expected hexadecimal number".into()),
-                    label: Some("not hexadecimal number".into()),
-                    severity: miette::Severity::Error,
-                    help: Some("A valid value was partially parsed, but was not followed by a value terminator. Did you want a space here?".into()),
-                }]
-            ))
-        );
-
-        let input = Arc::new("node 0o1asdf 2".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (5..12).into(),
-                    message: Some("Expected octal number".into()),
-                    label: Some("not octal number".into()),
-                    severity: miette::Severity::Error,
-                    help: Some("A valid value was partially parsed, but was not followed by a value terminator. Did you want a space here?".into()),
-                }]
-            ))
-        );
-
-        let input = Arc::new("node 0b1asdf 2".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (5..12).into(),
-                    message: Some("Expected binary number".into()),
-                    label: Some("not binary number".into()),
-                    severity: miette::Severity::Error,
-                    help: Some("A valid value was partially parsed, but was not followed by a value terminator. Did you want a space here?".into()),
-                }]
-            ))
-        );
-
-        let input = Arc::new("node 1.0asdf 2".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (5..12).into(),
-                    message: Some("Expected float".into()),
-                    label: Some("not float".into()),
-                    severity: miette::Severity::Error,
-                    help: Some("A valid value was partially parsed, but was not followed by a value terminator. Did you want a space here?".into()),
-                }]
-            ))
-        );
-
-        let input = Arc::new("node 1.asdf 2".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (5..11).into(),
-                    message: Some("Non-digit character found after the '.' of a float".into()),
-                    label: Some("not float".into()),
-                    severity: miette::Severity::Error,
-                    help: None,
-                }]
-            ))
-        );
-
-        let input = Arc::new("node 1.0easdf 2".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (5..13).into(),
-                    message: Some(
-                        "Non-digit character found in the exponent part of a float".into()
-                    ),
-                    label: Some("not float".into()),
-                    severity: miette::Severity::Error,
-                    help: Some(
-                        "Floats with exponent parts should look like '2.0e123', or '43.3E-4'."
-                            .into()
-                    ),
-                }]
-            ))
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn bad_string_test() -> miette::Result<()> {
-        let input = Arc::new("node \" 1".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (5..8).into(),
-                    severity: miette::Severity::Error,
-                    message: Some("Expected quoted string".into()),
-                    label: Some("not quoted string".into()),
-                    help: None,
-                }]
-            ))
-        );
-
-        let input = Arc::new("node \"foo\"1".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        // if let Err(e) = res {
-        //     println!("{:?}", miette::Report::from(e));
-        // }
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (5..11).into(),
-                    severity: miette::Severity::Error,
-                    message: Some("Expected quoted string".into()),
-                    label: Some("not quoted string".into()),
-                    help: Some("A valid value was partially parsed, but was not followed by a value terminator. Did you want a space here?".into()),
-                }]
-            ))
-        );
-
-        let input = Arc::new("node \"\nlet's do multiline!\"".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (5..6).into(),
-                        message: Some("Unexpected newline in single-line quoted string".into()),
-                        label: Some("not quoted string".into()),
-                        help: Some("You can make a string multi-line by wrapping it in '\"\"\"', with a newline immediately after the opening quotes.".into()),
-                        severity: Severity::Error
-                    },
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (16..27).into(),
-                        message: Some("Expected identifier string".into()),
-                        label: Some("not identifier string".into()),
-                        help: Some("A valid value was partially parsed, but was not followed by a value terminator. Did you want a space here?".into()),
-                        severity: Severity::Error
-                    }
-                ]
-            ))
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn bad_child_test() -> miette::Result<()> {
-        let input = Arc::new("node {".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        // _print_diagnostic(res);
-        // return Ok(());
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (5..6).into(),
-                    severity: miette::Severity::Error,
-                    message: Some("No closing '}' for child block".into()),
-                    label: Some("not closed".into()),
-                    help: None,
-                }]
-            ))
-        );
-
-        let input = Arc::new("node {}}".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        // _print_diagnostic(res);
-        // return Ok(());
-        // println!("{res:#?}");
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![KdlDiagnostic {
-                    input: input.clone(),
-                    span: (7..8).into(),
-                    message: Some("Expected end of document".into()),
-                    label: Some("not EOF".into(),),
-                    help: None,
-                    severity: miette::Severity::Error,
-                }]
-            ))
-        );
-
-        let input = Arc::new("node }{".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        // _print_diagnostic(res);
-        // return Ok(());
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (5..6).into(),
-                        message: Some(
-                            "Expected end of document".into()
-                        ),
-                        label: Some(
-                            "not EOF".into()
-                        ),
-                        help: None,
-                        severity: Severity::Error,
-                    },
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (6..7).into(),
-                        message: Some(
-                            "Found child block instead of node name".into(),
-                        ),
-                        label: Some(
-                            "not node name".into(),
-                        ),
-                        help: Some(
-                            "Did you forget to add the node name itself? Or perhaps terminated the node before its child block?".into(),
-                        ),
-                        severity: Severity::Error,
-                    },
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (6..7).into(),
-                        message: Some(
-                            "No closing '}' for child block".into(),
-                        ),
-                        label: Some(
-                            "not closed".into(),
-                        ),
-                        help: None,
-                        severity: Severity::Error,
-                    },
-                ]
-            ))
-        );
-
-        let input = Arc::new("node {\n".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        // _print_diagnostic(res);
-        // return Ok(());
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (5..6).into(),
-                        message: Some("No closing '}' for child block".into()),
-                        label: Some("not closed".into()),
-                        help: None,
-                        severity: Severity::Error,
-                    },
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (6..7).into(),
-                        message: Some("Closing '}' was not found after nodes".into()),
-                        label: Some("not closed".into()),
-                        help: None,
-                        severity: Severity::Error,
-                    },
-                ]
-            ))
-        );
-
-        let input = Arc::new("node {\nnode2{{}}".to_string());
-        let res: Result<KdlDocument, KdlError> = KdlDocument::parse_v2(&input);
-        // _print_diagnostic(res);
-        // return Ok(());
-        println!("{res:#?}");
-        assert_eq!(
-            res,
-            Err(mkfail(
-                input.clone(),
-                vec![
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (13..14).into(),
-                        message: Some(
-                            "Found child block instead of node name".into()
-                        ),
-                        label: Some(
-                            "not node name".into()
-                        ),
-                        help: Some(
-                            "Did you forget to add the node name itself? Or perhaps terminated the node before its child block?".into()
-                        ),
-                        severity: Severity::Error,
-                    },
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (5..6).into(),
-                        message: Some(
-                            "No closing '}' for child block".into(),
-                        ),
-                        label: Some(
-                            "not closed".into(),
-                        ),
-                        help: None,
-                        severity: Severity::Error,
-                    },
-                    KdlDiagnostic {
-                        input: input.clone(),
-                        span: (6..16).into(),
-                        message: Some(
-                            "Closing '}' was not found after nodes".into()
-                        ),
-                        label: Some(
-                            "not closed".into()
-                        ),
-                        help: None,
-                        severity: Severity::Error,
-                    },
-               ]
-            ))
-        );
-
-        Ok(())
-    }
-
-    fn mkfail(input: Arc<String>, diagnostics: Vec<KdlDiagnostic>) -> KdlError {
-        KdlError { input, diagnostics }
-    }
-}
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-fn _print_diagnostic<T>(res: Result<T, KdlError>) {
-    if let Err(e) = res {
-        println!("{:?}", miette::Report::from(e));
+    fn long_multiline_comment_does_not_recurse_per_character() {
+        let source = format!("/*{}x*/", "*".repeat(20_000));
+        assert!(source.parse::<KdlDocument>().is_ok());
     }
 }

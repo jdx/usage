@@ -184,7 +184,7 @@ pub(crate) fn render_source(
     label: &str,
     help: Option<&str>,
 ) -> String {
-    let offset = span.offset().min(source.len());
+    let offset = source.floor_char_boundary(span.offset().min(source.len()));
     let line_start = source[..offset].rfind('\n').map_or(0, |at| at + 1);
     let line_end = source[offset..]
         .find('\n')
@@ -192,11 +192,9 @@ pub(crate) fn render_source(
     let line = &source[line_start..line_end];
     let line_no = source[..line_start].bytes().filter(|b| *b == b'\n').count() + 1;
     let column = source[line_start..offset].chars().count();
-    let marked = source[offset..line_end]
-        .chars()
-        .take(span.len().max(1))
-        .count()
-        .max(1);
+    let requested_end = offset.saturating_add(span.len()).min(line_end);
+    let span_end = source.ceil_char_boundary(requested_end).min(line_end);
+    let marked = source[offset..span_end].chars().count().max(1);
     let width = line_no.to_string().len();
     let location = if source_name.is_empty() {
         String::new()
@@ -204,7 +202,7 @@ pub(crate) fn render_source(
         format!("[{source_name}:{}:{}]", line_no, column + 1)
     };
     let mut out = format!(
-        "  × {title}\n   ╭─{location}\n {line_no:>width$} │ {line}\n   · {blank:column$}{mark:─<marked$}┬\n   · {blank:indent$}╰── {label}\n   ╰────",
+        "  × {title}\n {blank:width$} ╭─{location}\n {line_no:>width$} │ {line}\n {blank:width$} · {blank:column$}{mark:─<marked$}┬\n {blank:width$} · {blank:indent$}╰── {label}\n {blank:width$} ╰────",
         blank = "",
         mark = "",
         width = width,
@@ -241,7 +239,8 @@ pub use crate::__usage_miette as miette;
 
 #[cfg(test)]
 mod tests {
-    use super::Error;
+    use super::{render_source, Error, MietteError, SourceSpan};
+    use crate::error::UsageErr;
     use crate::Spec;
 
     #[test]
@@ -260,6 +259,43 @@ mod tests {
             rendered.contains("help: You can make a string multi-line"),
             "{rendered}"
         );
+    }
+
+    #[test]
+    fn source_renderer_aligns_wide_gutters_and_utf8_spans() {
+        let source = format!("{}éx", "x\n".repeat(9));
+        let offset = source.find('é').unwrap();
+        let rendered = render_source(
+            "bad value",
+            "",
+            &source,
+            SourceSpan::from(offset..offset + 'é'.len_utf8()),
+            "invalid",
+            None,
+        );
+
+        assert!(rendered.contains(" 10 │ éx\n    · ─┬"), "{rendered}");
+
+        // Robustness for spans supplied by callers rather than the parser: a byte offset in the
+        // middle of a code point is normalized instead of panicking.
+        let rendered = render_source(
+            "bad value",
+            "",
+            &source,
+            SourceSpan::new((offset + 1).into(), 1),
+            "invalid",
+            None,
+        );
+        assert!(rendered.contains(" 10 │ éx\n    · ─┬"), "{rendered}");
+    }
+
+    #[test]
+    fn plain_errors_keep_their_underlying_message() {
+        let error = UsageErr::from(MietteError::new("specific detail"));
+        assert_eq!(error.to_string(), "Invalid usage config: specific detail");
+
+        let error = "name \"unterminated\n".parse::<Spec>().unwrap_err();
+        assert!(error.to_string().contains("Unexpected newline"), "{error}");
     }
 
     #[cfg(feature = "miette")]

@@ -2,9 +2,7 @@
 //!
 //! This is a trimmed copy of kdl-rs 6.7.1: serde, queries, KDL v1 fallback, and the miette
 //! integration are omitted. The parser and formatting-preserving document types remain intact.
-//! See `NOTICE.md` and `third-party/kdl-LICENSE-APACHE` for attribution and license terms.
-
-#![allow(unexpected_cfgs)]
+//! See `NOTICE.md` and `lib/third-party/LICENSE-APACHE-2.0` for attribution and license terms.
 
 pub use document::*;
 pub use entry::*;

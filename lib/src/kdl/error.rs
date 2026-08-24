@@ -29,7 +29,15 @@ impl KdlError {
 
 impl Display for KdlError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Failed to parse KDL document")
+        f.write_str("Failed to parse KDL document")?;
+        if let Some(message) = self
+            .diagnostics
+            .first()
+            .and_then(|diagnostic| diagnostic.message.as_deref())
+        {
+            write!(f, ": {message}")?;
+        }
+        Ok(())
     }
 }
 

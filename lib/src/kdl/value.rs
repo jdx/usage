@@ -168,14 +168,6 @@ pub(crate) fn is_plain_ident(ident: &str) -> bool {
         && ident != "false"
         && ident != "null"
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-#[test]
-fn plain_ident_test() {
-    assert!(is_plain_ident("foo123,bar"));
-    assert!(is_plain_ident("foo123~!@$%^&*.:'|?+<>,"));
-}
-
 impl KdlValue {
     fn write_string(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let string = self.as_string().unwrap();
@@ -239,45 +231,5 @@ where
             Some(value) => value.into(),
             None => Self::Null,
         }
-    }
-}
-
-#[cfg(feature = "v1")]
-impl From<kdlv1::KdlValue> for KdlValue {
-    fn from(value: kdlv1::KdlValue) -> Self {
-        match value {
-            kdlv1::KdlValue::RawString(s) => Self::String(s),
-            kdlv1::KdlValue::String(s) => Self::String(s),
-            kdlv1::KdlValue::Base2(i) => Self::Integer(i.into()),
-            kdlv1::KdlValue::Base8(i) => Self::Integer(i.into()),
-            kdlv1::KdlValue::Base10(i) => Self::Integer(i.into()),
-            kdlv1::KdlValue::Base10Float(f) => Self::Float(f),
-            kdlv1::KdlValue::Base16(i) => Self::Integer(i.into()),
-            kdlv1::KdlValue::Bool(b) => Self::Bool(b),
-            kdlv1::KdlValue::Null => Self::Null,
-        }
-    }
-}
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-mod test {
-    use super::*;
-
-    #[test]
-    fn formatting() {
-        let string = KdlValue::String("foo\n".into());
-        assert_eq!(format!("{string}"), r#""foo\n""#);
-
-        let integer = KdlValue::Integer(1234567890);
-        assert_eq!(format!("{integer}"), "1234567890");
-
-        let float = KdlValue::Float(1234567890.12345);
-        assert_eq!(format!("{float}"), "1234567890.12345");
-
-        let boolean = KdlValue::Bool(true);
-        assert_eq!(format!("{boolean}"), "#true");
-
-        let null = KdlValue::Null;
-        assert_eq!(format!("{null}"), "#null");
     }
 }

@@ -38,7 +38,7 @@ shell-words = "1"
 strum = { version = "0.28", features = ["derive"] }
 tera = { version = "2", optional = true }
 thiserror = "2"
-winnow = { version = "0.7", features = ["alloc", "unstable-recover"] }
+winnow = { version = ">=0.7.15, <0.8", features = ["alloc", "unstable-recover"] }
 # No `xx`: three helpers (a lazy-regex macro, `file::read_to_string`, `check_status`) were
 # worth 21 crates in every dependent's tree — duct, homedir, nix, rand and their libc
 # subtrees — including one that ran in an adopter's build script.

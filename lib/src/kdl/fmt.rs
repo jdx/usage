@@ -149,27 +149,3 @@ pub(crate) fn autoformat_trailing(decor: &mut String, no_comments: bool) {
     }
     *decor = result;
 }
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-mod test {
-    use super::*;
-
-    #[test]
-    fn builder() -> miette::Result<()> {
-        let built = FormatConfig::builder()
-            .indent_level(12)
-            .indent(" \t")
-            .no_comments(true)
-            .build();
-        assert!(matches!(
-            built,
-            FormatConfig {
-                indent_level: 12,
-                indent: " \t",
-                no_comments: true,
-                entry_autoformate_keep: false,
-            }
-        ));
-        Ok(())
-    }
-}

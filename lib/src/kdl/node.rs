@@ -324,31 +324,10 @@ impl KdlNode {
         }
     }
 
-    /// Parses a string into a node.
-    ///
-    /// If the `v1-fallback` feature is enabled, this method will first try to
-    /// parse the string as a KDL v2 node, and, if that fails, it will try
-    /// to parse again as a KDL v1 node. If both fail, only the v2 parse
-    /// errors will be returned.
+    /// Parses a KDL v2 string into a node.
     pub fn parse(s: &str) -> Result<Self, KdlError> {
-        #[cfg(not(feature = "v1-fallback"))]
-        {
-            v2_parser::try_parse(v2_parser::padded_node, s)
-        }
-        #[cfg(feature = "v1-fallback")]
-        {
-            v2_parser::try_parse(v2_parser::padded_node, s)
-                .or_else(|e| KdlNode::parse_v1(s).map_err(|_| e))
-        }
+        v2_parser::try_parse(v2_parser::padded_node, s)
     }
-
-    /// Parses a KDL v1 string into a document.
-    #[cfg(feature = "v1")]
-    pub fn parse_v1(s: &str) -> Result<Self, KdlError> {
-        let ret: Result<kdlv1::KdlNode, kdlv1::KdlError> = s.parse();
-        ret.map(|x| x.into()).map_err(|e| e.into())
-    }
-
     /// Makes sure this node is in v2 format.
     pub fn ensure_v2(&mut self) {
         self.ty = self.ty.take().map(|ty| ty.value().into());
@@ -362,75 +341,7 @@ impl KdlNode {
             doc
         });
     }
-
-    /// Makes sure this node is in v1 format.
-    #[cfg(feature = "v1")]
-    pub fn ensure_v1(&mut self) {
-        self.ty = self.ty.take().map(|ty| {
-            let v1_name: kdlv1::KdlIdentifier = ty.value().into();
-            v1_name.into()
-        });
-        let v1_name: kdlv1::KdlIdentifier = self.name.value().into();
-        self.name = v1_name.into();
-        for entry in self.iter_mut() {
-            entry.ensure_v1();
-        }
-        self.children = self.children.take().map(|mut children| {
-            children.ensure_v1();
-            children
-        });
-    }
 }
-
-#[cfg(feature = "v1")]
-impl From<kdlv1::KdlNode> for KdlNode {
-    fn from(value: kdlv1::KdlNode) -> Self {
-        let terminator = value
-            .trailing()
-            .map(|t| if t.contains(';') { ";" } else { "\n" })
-            .unwrap_or("\n");
-        let trailing = value.trailing().map(|t| {
-            if t.contains(';') {
-                t.replace(';', "")
-            } else {
-                let t = t.replace("\r\n", "\n");
-                let t = t
-                    .chars()
-                    .map(|c| {
-                        if v2_parser::NEWLINES.iter().any(|nl| nl.contains(c)) {
-                            '\n'
-                        } else {
-                            c
-                        }
-                    })
-                    .collect::<String>();
-                if terminator == ";" {
-                    t
-                } else {
-                    t.replacen('\n', "", 1)
-                }
-            }
-        });
-        KdlNode {
-            ty: value.ty().map(|x| x.clone().into()),
-            name: value.name().clone().into(),
-            entries: value.entries().iter().map(|x| x.clone().into()).collect(),
-            children: value.children().map(|x| x.clone().into()),
-            format: Some(KdlNodeFormat {
-                leading: value.leading().unwrap_or("").into(),
-                before_ty_name: "".into(),
-                after_ty_name: "".into(),
-                after_ty: "".into(),
-                before_children: value.before_children().unwrap_or("").into(),
-                before_terminator: "".into(),
-                terminator: terminator.into(),
-                trailing: trailing.unwrap_or_else(|| "".into()),
-            }),
-            span: SourceSpan::new(value.span().offset().into(), value.span().len()),
-        }
-    }
-}
-
 // Query language
 // impl KdlNode {
 // /// Queries this Node according to the KQL
@@ -891,125 +802,4 @@ pub struct KdlNodeFormat {
     pub terminator: String,
     /// Whitespace and comments following the node itself, after the terminator.
     pub trailing: String,
-}
-
-#[cfg(all(test, feature = "kdl-upstream-tests"))]
-mod test {
-    use super::*;
-
-    #[test]
-    fn canonical_clear_fmt() -> miette::Result<()> {
-        let mut left_node: KdlNode = r#"node /-"commented" param_name=103.000 {
-            // This is a nested node
-            nested 1 2 3
-        }"#
-        .parse()?;
-        let mut right_node: KdlNode = "node param_name=103.0 { nested 1 2 3; }".parse()?;
-        assert_ne!(left_node, right_node);
-        left_node.clear_format_recursive();
-        right_node.clear_format_recursive();
-        assert_eq!(left_node.to_string(), right_node.to_string());
-        Ok(())
-    }
-
-    #[test]
-    fn parsing() -> miette::Result<()> {
-        let node: KdlNode = "\n\t  (\"ty\")\"node\" 0xDEADbeef;\n".parse()?;
-        assert_eq!(node.ty(), Some(&"\"ty\"".parse()?));
-        assert_eq!(node.name(), &"\"node\"".parse()?);
-        assert_eq!(node.entry(0), Some(&" 0xDEADbeef".parse()?));
-        assert_eq!(
-            node.format(),
-            Some(&KdlNodeFormat {
-                leading: "\n\t  ".into(),
-                before_terminator: "".into(),
-                terminator: ";".into(),
-                trailing: "\n".into(),
-                before_ty_name: "".into(),
-                after_ty_name: "".into(),
-                after_ty: "".into(),
-                before_children: "".into(),
-            })
-        );
-
-        let node: KdlNode = r#"node test {
-    link "blah" anything=self
-}
-"#
-        .parse::<KdlNode>()?;
-        assert_eq!(node.entry(0), Some(&" test".parse()?));
-        assert_eq!(node.children().unwrap().nodes().len(), 1);
-
-        Ok(())
-    }
-
-    #[test]
-    fn indexing() {
-        let mut node = KdlNode::new("foo");
-        node.push("bar");
-        node["foo"] = 1.into();
-
-        assert_eq!(node[0], "bar".into());
-        assert_eq!(node["foo"], 1.into());
-
-        node[0] = false.into();
-        node["foo"] = KdlValue::Null;
-
-        assert_eq!(node[0], false.into());
-        assert_eq!(node["foo"], KdlValue::Null);
-
-        node.entries_mut().push(KdlEntry::new_prop("x", 1));
-        node.entries_mut().push(KdlEntry::new_prop("x", 2));
-        assert_eq!(&node["x"], &2.into())
-    }
-
-    #[test]
-    fn insertion() {
-        let mut node = KdlNode::new("foo");
-        node.push("pos0");
-        node.insert("keyword", 6.0);
-        node.push("pos1");
-        assert_eq!(node.entries().len(), 3);
-
-        node.insert(0, "inserted0");
-        node.insert(2, "inserted1");
-        assert_eq!(node.entries().len(), 5);
-        assert_eq!(node[0], "inserted0".into());
-        assert_eq!(node[1], "pos0".into());
-        assert_eq!(node[2], "inserted1".into());
-        assert_eq!(node[3], "pos1".into());
-    }
-
-    #[test]
-    fn removal() {
-        let mut node = KdlNode::new("foo");
-        node.push("pos0");
-        node.insert("keyword", 6.0);
-        node.push("pos1");
-        assert_eq!(node.entries().len(), 3);
-
-        node.remove(1);
-        assert_eq!(node.entries().len(), 2, "index removal should succeed");
-        assert!(
-            node.get("keyword").is_some(),
-            "keyword property should not be removed by index removal"
-        );
-        node.remove("not an existing keyword");
-        assert_eq!(node.entries().len(), 2, "key removal should not succeed");
-        node.remove("keyword");
-        assert_eq!(node.entries().len(), 1, "key removal should succeed");
-        node.remove(0);
-        assert_eq!(node.entries().len(), 0, "index removal should suceed");
-    }
-
-    #[test]
-    #[should_panic(expected = "removal index (is 0) should be < number of index entries (is 0)")]
-    fn remove_panic() {
-        let mut node = KdlNode::new("foo");
-        node.push("pos0");
-        node.insert("keyword", 6.0);
-        node.remove(0);
-        assert_eq!(node.entries().len(), 1, "key removal should succeed");
-        node.remove(0); // should panic here
-    }
 }
