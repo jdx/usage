@@ -1,8 +1,10 @@
 # Parser performance
 
-usage's compiled Rust parser is designed so ordinary argv parsing reads static
-tables and writes directly into the result. Cold metadata for help, specs, and
-completions is not constructed on a successful parse.
+`usage-rs` has the fastest argument parser of the Rust frameworks measured here:
+at mise scale it parses in 0.7 µs, 855x fewer instructions than clap and 2,957x
+fewer than bpaf. The derive lays the command tree out as static tables while
+your application compiles, so a parse reads what the compiler already built
+instead of constructing and validating a parser on every run.
 
 ## Mise-scale result
 
