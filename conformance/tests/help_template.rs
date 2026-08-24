@@ -23,7 +23,7 @@ use usage_derive::{Args, Cli, Subcommands};
 #[usage(
     bin = "laid-out",
     about = "An example",
-    help_template = "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\nSee the docs for more."
+    help_template = "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{$bold+cyan}See the docs for more.{/$}"
 )]
 struct LaidOut {
     /// Do it anyway
@@ -58,7 +58,9 @@ fn a_template_declared_on_a_rust_type_reaches_the_tables() {
     let spec = LaidOut::spec();
     assert_eq!(
         spec.help_template,
-        Some("{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\nSee the docs for more.")
+        Some(
+            "{{about}}\n\n{{usage}}\n\n{{flags}}\n\n{{args}}\n\n{$bold+cyan}See the docs for more.{/$}"
+        )
     );
 }
 
@@ -85,6 +87,18 @@ fn the_page_a_compiled_parser_prints_is_the_one_the_reference_renders() {
     assert!(
         page.trim_end().ends_with("See the docs for more."),
         "{page}"
+    );
+
+    let coloured = usage_argv::help::render_styled(
+        spec,
+        spec.root.cmd,
+        false,
+        usage_argv::help::Style::COLOURED,
+    )
+    .expect("the root page");
+    assert!(
+        coloured.contains("\u{1b}[1;36mSee the docs for more.\u{1b}[0m"),
+        "{coloured:?}"
     );
 
     // The sections themselves are untouched by the reordering — a template moves a page's parts
@@ -169,6 +183,15 @@ struct EverySection {
     command: Option<LaidOutCommands>,
 }
 
+/// Every style in `corpus/help-template-styles.txt`, kept in one literal so the derive's
+/// compile-time validator must accept the same complete vocabulary as the runtime renderers.
+#[derive(Cli)]
+#[usage(
+    bin = "every-style",
+    help_template = "{$heading}heading{/$} {$option}option{/$} {$metavar}metavar{/$} {$black}black{/$} {$red}red{/$} {$green}green{/$} {$yellow}yellow{/$} {$blue}blue{/$} {$magenta}magenta{/$} {$cyan}cyan{/$} {$white}white{/$} {$bright-black}bright-black{/$} {$bright-red}bright-red{/$} {$bright-green}bright-green{/$} {$bright-yellow}bright-yellow{/$} {$bright-blue}bright-blue{/$} {$bright-magenta}bright-magenta{/$} {$bright-cyan}bright-cyan{/$} {$bright-white}bright-white{/$} {$bold}bold{/$} {$dim}dim{/$} {$italic}italic{/$} {$underline}underline{/$}"
+)]
+struct EveryStyle {}
+
 #[test]
 fn every_section_the_vocabulary_holds_can_be_placed() {
     let spec = EverySection::spec();
@@ -214,6 +237,33 @@ fn the_two_rust_vocabularies_are_the_same_words() {
         usage_argv::help::SECTIONS,
         "the reference and the compiled renderer name different sections"
     );
+
+    let canonical: Vec<String> = include_str!("../../corpus/help-template-styles.txt")
+        .lines()
+        .map(str::to_string)
+        .collect();
+    assert_eq!(canonical, usage::help_template::STYLES);
+    assert_eq!(canonical, usage_argv::help::STYLES);
+
+    let spec = EveryStyle::spec();
+    let portable: LibSpec = spec
+        .to_kdl()
+        .parse()
+        .expect("the reference validator accepts every derive style");
+    assert_eq!(portable.help_template.as_deref(), spec.help_template);
+    let coloured = usage_argv::help::render_styled(
+        spec,
+        spec.root.cmd,
+        false,
+        usage_argv::help::Style::COLOURED,
+    )
+    .expect("every style renders");
+    for style in &canonical {
+        assert!(
+            coloured.contains(style),
+            "{style} did not render: {coloured:?}"
+        );
+    }
 }
 
 /// A ported CLI that needs headed flags before its positional arguments, with the ordinary
@@ -286,6 +336,14 @@ fn a_template_naming_no_section_is_refused_where_the_spec_is_read() {
     assert!(message.contains("options"), "{message}");
     // And says what to write instead, since a ported clap template is what hits this.
     assert!(message.contains("flags"), "{message}");
+
+    let err = "bin \"ex\"\nhelp_template \"{$orange}no{/$}\"\n"
+        .parse::<LibSpec>()
+        .expect_err("orange is not a supported style");
+    let usage::error::UsageErr::InvalidInput(message, ..) = err else {
+        panic!("a template style is refused as invalid input, not as {err:?}")
+    };
+    assert!(message.contains("orange"), "{message}");
 }
 
 #[test]

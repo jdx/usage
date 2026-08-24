@@ -26,6 +26,9 @@ use crate::spec::{
 use crate::Command;
 use crate::DoubleDash;
 
+mod template;
+pub use template::STYLES;
+
 /// The indent a page uses where it cannot align to its column.
 const BLOCK_INDENT: usize = 4;
 
@@ -39,8 +42,8 @@ const INLINE_LIMIT: usize = 2;
 ///
 /// A closed vocabulary on purpose. The alternative — handing a template the metadata tree and
 /// letting it lay a page out — makes this renderer's internals public API and asks every
-/// implementation of the spec to agree on a template language's semantics rather than on where
-/// a section starts and ends.
+/// implementation of the spec to expose its help model. Implementations agree only on these
+/// boundaries and the small colour-tag vocabulary, not on the metadata behind a section.
 ///
 /// What each one holds:
 ///
@@ -84,6 +87,7 @@ pub const SECTIONS: [&str; 10] = [
 /// assert!(unsupported_section("{{usage").is_err());
 /// ```
 pub fn unsupported_section(template: &str) -> Result<Option<&str>, &'static str> {
+    template::check(template)?;
     let mut rest = template;
     while let Some(at) = rest.find("{{") {
         let after = &rest[at + 2..];
@@ -180,51 +184,9 @@ impl Sections {
     ///
     /// A section that came out empty leaves no gap behind, which is what lets one template
     /// serve a whole CLI: see `usage::help_template::collapse_blank_runs`, whose rule this is.
-    fn substituted(&self, template: &str) -> String {
-        let mut out = String::with_capacity(template.len());
-        let mut rest = template;
-        while let Some(at) = rest.find("{{") {
-            out.push_str(&rest[..at]);
-            let after = &rest[at + 2..];
-            let Some(end) = after.find("}}") else {
-                out.push_str(&rest[at..]);
-                return collapse_blank_runs(&out);
-            };
-            match self.named(after[..end].trim()) {
-                Some(text) => out.push_str(&text),
-                None => out.push_str(&rest[at..at + 2 + end + 2]),
-            }
-            rest = &after[end + 2..];
-        }
-        out.push_str(rest);
-        collapse_blank_runs(&out)
+    fn substituted(&self, template: &str, style: Style) -> String {
+        template::substitute(template, style.coloured, |name| self.named(name))
     }
-}
-
-/// A page's runs of blank lines, each reduced to a single blank line.
-///
-/// The twin of `usage::help_template::collapse_blank_runs`, and the reason a template can name a
-/// section a given command does not have. A whitespace-only line counts as blank, since that is
-/// what an empty placeholder on an indented line leaves; a section's own indentation does not,
-/// since that is the page.
-fn collapse_blank_runs(page: &str) -> String {
-    let mut out = String::with_capacity(page.len());
-    let mut blank = false;
-    for line in page.split('\n') {
-        if line.trim().is_empty() {
-            blank = !out.is_empty();
-            continue;
-        }
-        if !out.is_empty() {
-            out.push('\n');
-            if blank {
-                out.push('\n');
-            }
-        }
-        blank = false;
-        out.push_str(line);
-    }
-    out
 }
 
 /// The finished page: laid out by the spec's template where it has one, and trimmed.
@@ -232,12 +194,12 @@ fn collapse_blank_runs(page: &str) -> String {
 /// usage-lib trims the whole document and puts back one newline, which is what keeps the blank
 /// lines between sections from becoming trailing ones. That applies to a template's output too:
 /// a page ends in exactly one newline however it was assembled.
-fn assemble(spec: &Spec<'_>, sections: &Sections) -> String {
+fn assemble(spec: &Spec<'_>, sections: &Sections, style: Style) -> String {
     let page = match spec
         .help_template
         .filter(|template| !template.trim().is_empty())
     {
-        Some(template) => sections.substituted(template),
+        Some(template) => sections.substituted(template, style),
         None => sections.concatenated(),
     };
     let trimmed = page.trim();
@@ -286,20 +248,16 @@ impl Style {
         }
     }
 
-    fn wrap(self, code: &str, text: &str) -> String {
-        if self.coloured {
-            format!("\u{1b}[{code}m{text}\u{1b}[0m")
-        } else {
-            text.to_string()
-        }
-    }
-
     fn heading(self, text: &str) -> String {
-        self.wrap("1;4;32", text)
+        template::semantic("heading", text, self.coloured)
     }
 
     fn literal(self, text: &str) -> String {
-        self.wrap("36", text)
+        template::semantic("option", text, self.coloured)
+    }
+
+    fn metavar(self, text: &str) -> String {
+        template::semantic("metavar", text, self.coloured)
     }
 
     /// Render the small Markdown vocabulary accepted in help prose.
@@ -480,31 +438,100 @@ fn closing_delimiter(
 
 fn styled_flag_usage(usage: &str, style: Style) -> String {
     let mut out = String::with_capacity(usage.len());
-    let mut rest = usage;
-    while let Some(start) = rest.find('-') {
-        let previous_allows = start == 0
-            || rest[..start]
-                .chars()
-                .next_back()
-                .is_some_and(|c| c.is_whitespace() || matches!(c, ',' | ':' | '[' | '<'));
-        if !previous_allows {
-            out.push_str(&rest[..=start]);
-            rest = &rest[start + 1..];
+    let mut at = 0;
+    while at < usage.len() {
+        let rest = &usage[at..];
+        let previous = usage[..at].chars().next_back();
+
+        if rest.starts_with('-')
+            && previous.is_none_or(|c| c.is_whitespace() || matches!(c, ',' | ':' | '[' | '<'))
+        {
+            let end = rest
+                .char_indices()
+                .skip(1)
+                .find_map(|(i, c)| {
+                    (c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '<' | '>'))
+                        .then_some(i)
+                })
+                .unwrap_or(rest.len());
+            out.push_str(&style.literal(&rest[..end]));
+            at += end;
             continue;
         }
-        let end = rest[start..]
-            .char_indices()
-            .skip(1)
-            .find_map(|(i, c)| {
-                (c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '>')).then_some(i)
-            })
-            .unwrap_or(rest.len() - start)
-            + start;
-        out.push_str(&rest[..start]);
-        out.push_str(&style.literal(&rest[start..end]));
-        rest = &rest[end..];
+
+        // Required flags use angle brackets too (`<--force>`), but only the wrapper is a
+        // delimiter: the option inside keeps its semantic colour.
+        if rest.starts_with("<-") {
+            out.push('<');
+            at += 1;
+            continue;
+        }
+
+        if rest.starts_with('<') {
+            if let Some(end) = rest.find('>') {
+                let end = end + 1;
+                out.push_str(&style.metavar(&rest[..end]));
+                at += end;
+                continue;
+            }
+        }
+
+        if let Some(value) = rest.strip_prefix("[=") {
+            if let Some(end) = value.find(']') {
+                out.push_str("[=");
+                out.push_str(&style.metavar(&value[..end]));
+                out.push(']');
+                at += end + 3;
+                continue;
+            }
+        }
+
+        if let Some(value) = rest.strip_prefix('=') {
+            out.push('=');
+            at += 1;
+            if !value.starts_with('<') {
+                let end = value
+                    .find(|c: char| c.is_whitespace() || matches!(c, ',' | ']' | '>'))
+                    .unwrap_or(value.len());
+                if end > 0 {
+                    out.push_str(&style.metavar(&value[..end]));
+                    at += end;
+                }
+            }
+            continue;
+        }
+
+        if previous == Some('[') && !rest.starts_with('-') {
+            let end = rest.find(']').unwrap_or(rest.len());
+            if end > 0 {
+                out.push_str(&style.metavar(&rest[..end]));
+                at += end;
+                continue;
+            }
+        }
+
+        if rest.starts_with(|c: char| c.is_ascii_uppercase())
+            && previous.is_none_or(|c| c.is_whitespace() || matches!(c, '=' | '[' | '<'))
+        {
+            let end = rest
+                .find(|c: char| {
+                    !(c.is_ascii_uppercase() || c.is_ascii_digit() || matches!(c, '_' | '-' | '@'))
+                })
+                .unwrap_or(rest.len());
+            let boundary = rest[end..].chars().next();
+            if boundary.is_none_or(|c| {
+                c.is_whitespace() || matches!(c, ',' | '=' | '[' | ']' | '<' | '>' | '.')
+            }) {
+                out.push_str(&style.metavar(&rest[..end]));
+                at += end;
+                continue;
+            }
+        }
+
+        let ch = rest.chars().next().expect("at is on a character boundary");
+        out.push(ch);
+        at += ch.len_utf8();
     }
-    out.push_str(rest);
     out
 }
 
@@ -514,7 +541,7 @@ fn help_structure(
     chain: &[&CommandMeta<'_>],
     long: bool,
     inherit_version_actions: bool,
-) -> (Vec<String>, Vec<String>, Vec<String>) {
+) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
     let meta = *chain.last().expect("a page is always about some command");
     let mut headings = Vec::new();
     if !page_examples(spec, meta).is_empty() {
@@ -556,6 +583,7 @@ fn help_structure(
             .filter_map(|arg| arg.help_heading)
             .map(str::to_string),
     );
+    let mut arg_usages: Vec<String> = args.iter().map(|arg| arg_usage(arg)).collect();
 
     let visible_flag = |flag: &&FlagMeta<'_>| {
         !flag.hide
@@ -594,12 +622,58 @@ fn help_structure(
 
     let mut flag_usages: Vec<String> = own.iter().map(|flag| column_usage(flag)).collect();
     flag_usages.extend(inherited.into_iter().map(|(_, usage)| usage));
+    if meta.flatten_help {
+        flat_help_usages(meta, long, &mut flag_usages, &mut arg_usages);
+    }
+    arg_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
     flag_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
 
     let mut synopsis = String::new();
     usage_section(&mut synopsis, spec, path, meta);
     let synopsis = synopsis.lines().map(str::to_string).collect();
-    (headings, flag_usages, synopsis)
+    (headings, flag_usages, arg_usages, synopsis)
+}
+
+fn flat_help_usages(
+    meta: &CommandMeta<'_>,
+    long: bool,
+    flag_usages: &mut Vec<String>,
+    arg_usages: &mut Vec<String>,
+) {
+    let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
+    order_commands(&mut visible);
+    for sub in visible {
+        arg_usages.extend(
+            sub.args
+                .iter()
+                .filter(|arg| {
+                    !arg.hide
+                        && if long {
+                            !arg.hide_long_help
+                        } else {
+                            !arg.hide_short_help
+                        }
+                })
+                .map(arg_usage),
+        );
+        flag_usages.extend(
+            sub.flags
+                .iter()
+                .filter(|flag| {
+                    !flag.flag.global
+                        && !flag.hide
+                        && if long {
+                            !flag.hide_long_help
+                        } else {
+                            !flag.hide_short_help
+                        }
+                })
+                .map(column_usage),
+        );
+        if sub.flatten_help {
+            flat_help_usages(sub, long, flag_usages, arg_usages);
+        }
+    }
 }
 
 fn flat_help_headings(path: &[&str], meta: &CommandMeta<'_>, headings: &mut Vec<String>) {
@@ -620,6 +694,7 @@ fn styled_help(
     style: Style,
     headings: &[String],
     flag_usages: &[String],
+    arg_usages: &[String],
     synopsis: &[String],
 ) -> String {
     if !style.coloured {
@@ -633,9 +708,9 @@ fn styled_help(
         if synopsis.iter().any(|known| known == body) && body.starts_with("Usage:") {
             let usage = body.strip_prefix("Usage:").unwrap_or_default();
             out.push_str(&style.heading("Usage:"));
-            out.push_str(&style.literal(usage));
+            out.push_str(&styled_flag_usage(usage, style));
         } else if synopsis.iter().any(|known| known == body) {
-            out.push_str(&style.literal(body));
+            out.push_str(&styled_flag_usage(body, style));
         } else if body
             .strip_suffix(':')
             .is_some_and(|heading| headings.iter().any(|known| known == heading))
@@ -643,12 +718,24 @@ fn styled_help(
             out.push_str(&style.heading(body));
         } else {
             let styled = body.strip_prefix("  ").and_then(|entry| {
-                flag_usages.iter().find_map(|usage| {
-                    entry
-                        .strip_prefix(usage)
-                        .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
-                        .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
-                })
+                flag_usages
+                    .iter()
+                    .find_map(|usage| {
+                        entry
+                            .strip_prefix(usage)
+                            .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
+                            .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
+                    })
+                    .or_else(|| {
+                        arg_usages.iter().find_map(|usage| {
+                            entry
+                                .strip_prefix(usage)
+                                .filter(|rest| {
+                                    rest.is_empty() || rest.starts_with(char::is_whitespace)
+                                })
+                                .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
+                        })
+                    })
             });
             // Examples are shell source, where paired backticks are command substitution rather
             // than prose markup. Every other non-structural line may contain author emphasis;
@@ -664,6 +751,53 @@ fn styled_help(
         out.push_str(newline);
     }
     out
+}
+
+fn assembled_help(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    long: bool,
+    style: Style,
+    inherit_version_actions: bool,
+) -> String {
+    let sections = if long {
+        long_sections(spec, path, chain, inherit_version_actions)
+    } else {
+        short_sections(spec, path, chain, inherit_version_actions)
+    };
+    let (headings, flag_usages, arg_usages, synopsis) =
+        help_structure(spec, path, chain, long, inherit_version_actions);
+    let page = match spec
+        .help_template
+        .filter(|template| !template.trim().is_empty())
+    {
+        Some(template) => template::substitute(template, style.coloured, |name| {
+            sections.named(name).map(|part| {
+                styled_help(
+                    &part,
+                    style,
+                    &headings,
+                    &flag_usages,
+                    &arg_usages,
+                    &synopsis,
+                )
+            })
+        }),
+        None => styled_help(
+            &sections.concatenated(),
+            style,
+            &headings,
+            &flag_usages,
+            &arg_usages,
+            &synopsis,
+        ),
+    };
+    let trimmed = page.trim();
+    let mut done = String::with_capacity(trimmed.len() + 1);
+    done.push_str(trimmed);
+    done.push('\n');
+    done
 }
 
 /// The `Usage:` line's body, without the `Usage: ` prefix.
@@ -1084,6 +1218,7 @@ fn short_help_with(
     assemble(
         spec,
         &short_sections(spec, path, chain, inherit_version_actions),
+        Style::PLAIN,
     )
 }
 
@@ -2007,6 +2142,7 @@ fn long_help_with(
     assemble(
         spec,
         &long_sections(spec, path, chain, inherit_version_actions),
+        Style::PLAIN,
     )
 }
 
@@ -3139,19 +3275,7 @@ pub fn render_styled(
     style: Style,
 ) -> Option<String> {
     let (path, chain) = find(spec, cmd)?;
-    let page = if long {
-        long_help(spec, &path, &chain)
-    } else {
-        short_help(spec, &path, &chain)
-    };
-    let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long, false);
-    Some(styled_help(
-        &page,
-        style,
-        &headings,
-        &flag_usages,
-        &synopsis,
-    ))
+    Some(assembled_help(spec, &path, &chain, long, style, false))
 }
 
 /// Long help for a command and every visible descendant, in depth-first order.
@@ -3288,19 +3412,7 @@ pub fn render_at_styled(
     style: Style,
 ) -> Option<String> {
     let (path, chain) = route_context(spec, route)?;
-    let page = if long {
-        long_help(spec, &path, &chain)
-    } else {
-        short_help(spec, &path, &chain)
-    };
-    let (headings, flag_usages, synopsis) = help_structure(spec, &path, &chain, long, false);
-    Some(styled_help(
-        &page,
-        style,
-        &headings,
-        &flag_usages,
-        &synopsis,
-    ))
+    Some(assembled_help(spec, &path, &chain, long, style, false))
 }
 
 /// Render help through a spec-declared executable view.
@@ -3351,19 +3463,7 @@ pub fn render_view_at_styled(
         root: &root,
         ..*spec
     };
-    let page = if long {
-        long_help_with(&viewed, &path, &chain, true)
-    } else {
-        short_help_with(&viewed, &path, &chain, true)
-    };
-    let (headings, flag_usages, synopsis) = help_structure(&viewed, &path, &chain, long, true);
-    Some(styled_help(
-        &page,
-        style,
-        &headings,
-        &flag_usages,
-        &synopsis,
-    ))
+    Some(assembled_help(&viewed, &path, &chain, long, style, true))
 }
 
 /// Recursive long help for a command reached by a known route.
@@ -3588,15 +3688,13 @@ fn recursive_help<'a>(
         if !out.is_empty() {
             out.push('\n');
         }
-        let page = long_help_with(spec, path, chain, inherit_version_actions);
-        let (headings, flag_usages, synopsis) =
-            help_structure(spec, path, chain, true, inherit_version_actions);
-        out.push_str(&styled_help(
-            &page,
+        out.push_str(&assembled_help(
+            spec,
+            path,
+            chain,
+            true,
             style,
-            &headings,
-            &flag_usages,
-            &synopsis,
+            inherit_version_actions,
         ));
 
         let current = *chain.last().expect("a recursive page has a command");
@@ -3629,11 +3727,11 @@ fn recursive_help<'a>(
 mod style_tests {
     use super::{
         commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
-        inline_environment_notes, long_help, render_view_at_styled, styled_flag_usage, styled_help,
-        styled_inline, Shown, Style,
+        inline_environment_notes, long_help, render_styled, render_view_at_styled,
+        styled_flag_usage, styled_help, styled_inline, Shown, Style,
     };
-    use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
-    use crate::{ArgAction, Command, Flag};
+    use crate::spec::{ArgMeta, CommandMeta, FlagMeta, Spec, ViewMeta};
+    use crate::{Arg, ArgAction, Command, Flag};
 
     #[test]
     fn optional_equals_values_put_the_equals_inside_the_brackets() {
@@ -3936,47 +4034,185 @@ mod style_tests {
 
     #[test]
     fn coloured_help_styles_structure_without_changing_plain_text() {
-        let page = "A summary ending in:\nUsage: prose is not a synopsis\nExamples:\n\nUsage: ex [OPTIONS]\n       ex --all\n\nOptions:\n  -f, --force  Force it\n    [possible values: --auto]\n    (default: -1)\n";
-        let headings = vec!["Options".to_string()];
+        let page = "A summary ending in:\nUsage: prose is not a synopsis\nExamples:\n\nUsage: ex [OPTIONS]\n       ex --all\n\nArguments:\n  <FILE>  Read this file\n\nOptions:\n  -f, --force  Force it\n    [possible values: --auto]\n    (default: -1)\n";
+        let headings = vec!["Arguments".to_string(), "Options".to_string()];
         let usages = vec!["-f, --force".to_string()];
+        let arg_usages = vec!["<FILE>".to_string()];
         let synopsis = vec![
             "Usage: ex [OPTIONS]".to_string(),
             "       ex --all".to_string(),
         ];
         assert_eq!(
-            styled_help(page, Style::PLAIN, &headings, &usages, &synopsis),
+            styled_help(
+                page,
+                Style::PLAIN,
+                &headings,
+                &usages,
+                &arg_usages,
+                &synopsis
+            ),
             page
         );
 
-        let coloured = styled_help(page, Style::COLOURED, &headings, &usages, &synopsis);
-        assert!(coloured.contains("\u{1b}[1;4;32mUsage:\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[1;4;32mOptions:\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[36m-f\u{1b}[0m"));
-        assert!(coloured.contains("\u{1b}[36m--force\u{1b}[0m"));
+        let coloured = styled_help(
+            page,
+            Style::COLOURED,
+            &headings,
+            &usages,
+            &arg_usages,
+            &synopsis,
+        );
+        assert!(coloured.contains("\u{1b}[1;33mUsage:\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[1;33mOptions:\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[1;32m-f\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[1;32m--force\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[1;35m<FILE>\u{1b}[0m"));
         assert!(coloured.contains("A summary ending in:\nUsage: prose is not a synopsis"));
         assert!(coloured.contains("Usage: prose is not a synopsis\nExamples:"));
-        assert!(coloured.contains("\u{1b}[36m       ex --all\u{1b}[0m"));
+        assert!(coloured.contains("ex \u{1b}[1;32m--all\u{1b}[0m"));
         assert!(coloured.contains("[possible values: --auto]"));
         assert!(coloured.contains("(default: -1)"));
         assert_eq!(strip_ansi(&coloured), page);
     }
 
     #[test]
+    fn a_help_template_can_style_its_own_text_without_styling_plain_output() {
+        let force = Flag {
+            name: "force",
+            longs: &["force"],
+            ..Flag::BOOL
+        };
+        let command = Command {
+            name: "ex",
+            flags: &[&force],
+            ..Command::EMPTY
+        };
+        let root = CommandMeta {
+            cmd: &command,
+            flags: &[FlagMeta {
+                flag: &force,
+                help: Some("Do it anyway"),
+                ..FlagMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            help_template: Some("{$heading}CUSTOM HELP{/$}\n\n{{usage}}\n\n{$cyan}{{flags}}{/$}"),
+            root: &root,
+            ..Spec::EMPTY
+        };
+
+        let plain = render_styled(&spec, &command, false, Style::PLAIN).expect("root page");
+        assert!(plain.starts_with("CUSTOM HELP\n\nUsage: ex"), "{plain}");
+        assert!(!plain.contains("{$"), "{plain}");
+
+        let coloured = render_styled(&spec, &command, false, Style::COLOURED).expect("root page");
+        assert!(coloured.starts_with("\u{1b}[1;33mCUSTOM HELP\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[36m\u{1b}[1;33mFlags:"));
+        assert_eq!(strip_ansi(&coloured), plain);
+
+        let malformed = Spec {
+            name: "ex",
+            help_template: Some("before {$red and {{usage}}"),
+            root: &root,
+            ..Spec::EMPTY
+        };
+        let page = render_styled(&malformed, &command, false, Style::COLOURED)
+            .expect("a programmatic malformed template remains renderable");
+        assert!(page.starts_with("before {$red and \u{1b}[1;33mUsage:"));
+    }
+
+    #[test]
     fn equals_separates_a_coloured_flag_from_its_value() {
         assert_eq!(
             styled_flag_usage("--output=<FILE>", Style::COLOURED),
-            "\u{1b}[36m--output\u{1b}[0m=<FILE>"
+            "\u{1b}[1;32m--output\u{1b}[0m=\u{1b}[1;35m<FILE>\u{1b}[0m"
         );
         assert_eq!(
             styled_flag_usage("--color[=WHEN]", Style::COLOURED),
-            "\u{1b}[36m--color\u{1b}[0m[=WHEN]"
+            "\u{1b}[1;32m--color\u{1b}[0m[=\u{1b}[1;35mWHEN\u{1b}[0m]"
         );
+        assert_eq!(
+            styled_flag_usage("<--output <OUTPUT>>", Style::COLOURED),
+            "<\u{1b}[1;32m--output\u{1b}[0m \u{1b}[1;35m<OUTPUT>\u{1b}[0m>"
+        );
+    }
+
+    #[test]
+    fn metavar_scanning_handles_lowercase_capitalized_and_unicode_words() {
+        assert_eq!(
+            styled_flag_usage("ex [file]", Style::COLOURED),
+            "ex [\u{1b}[1;35mfile\u{1b}[0m]"
+        );
+        assert_eq!(
+            styled_flag_usage("ex Add [ÜBERSICHT]", Style::COLOURED),
+            "ex Add [\u{1b}[1;35mÜBERSICHT\u{1b}[0m]"
+        );
+        assert_eq!(
+            styled_flag_usage("ex TOOL@VERSION", Style::COLOURED),
+            "ex \u{1b}[1;35mTOOL@VERSION\u{1b}[0m"
+        );
+    }
+
+    #[test]
+    fn flattened_descendant_rows_receive_argument_and_flag_styles() {
+        let file = Arg {
+            name: "file",
+            ..Arg::REQUIRED
+        };
+        let force = Flag {
+            name: "force",
+            longs: &["force"],
+            ..Flag::BOOL
+        };
+        let run = Command {
+            name: "run",
+            args: &[&file],
+            flags: &[&force],
+            ..Command::EMPTY
+        };
+        let root_command = Command {
+            name: "ex",
+            subcommands: &[&run],
+            ..Command::EMPTY
+        };
+        let run_meta = CommandMeta {
+            cmd: &run,
+            args: &[ArgMeta {
+                arg: &file,
+                help: Some("A file"),
+                required: false,
+                ..ArgMeta::EMPTY
+            }],
+            flags: &[FlagMeta {
+                flag: &force,
+                help: Some("Force it"),
+                ..FlagMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        let root_meta = CommandMeta {
+            cmd: &root_command,
+            flatten_help: true,
+            subcommands: &[&run_meta],
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            root: &root_meta,
+            ..Spec::EMPTY
+        };
+
+        let page = render_styled(&spec, &root_command, false, Style::COLOURED).expect("root help");
+        assert!(page.contains("[\u{1b}[1;35mfile\u{1b}[0m]"), "{page:?}");
+        assert!(page.contains("\u{1b}[1;32m--force\u{1b}[0m"), "{page:?}");
     }
 
     #[test]
     fn coloured_help_renders_inline_markdown_emphasis() {
         let page = "Use **force** for *all* files, _including_hidden_, `--literally`, and ~~never~~ this.\n  --dry_run  Keep snake_case and an unmatched * glob\n\nExamples:\n    $ echo `date`\n";
-        let coloured = styled_help(page, Style::COLOURED, &[], &[], &[]);
+        let coloured = styled_help(page, Style::COLOURED, &[], &[], &[], &[]);
 
         assert!(
             coloured.contains("\u{1b}[1mforce\u{1b}[22m"),

@@ -3,8 +3,8 @@
 //! A spec can say what order its help sections come in — `help_template "{{about}}{{usage}}…"`
 //! — and nothing more than that. The template holds a closed vocabulary of *pre-rendered*
 //! sections rather than the metadata behind them, which is what lets an interpreter, a compiled
-//! parser and a generated Go program agree: they agree on where each section starts and ends,
-//! not on a template language's semantics.
+//! parser and a generated Go program agree: they agree on where each section starts and ends and
+//! on a small colour-tag vocabulary, not on the metadata behind a section.
 //!
 //! The twins of this module are `usage_argv::help`'s `SECTIONS` and `Sections`, and Go's
 //! `helpSections`. `conformance/tests/render.rs` is what says the three still agree.
@@ -36,6 +36,33 @@ pub const SECTIONS: [&str; 10] = [
     "after_help",
 ];
 
+/// The styles a template may apply to its own text or to a rendered section.
+pub const STYLES: [&str; 23] = [
+    "heading",
+    "option",
+    "metavar",
+    "black",
+    "red",
+    "green",
+    "yellow",
+    "blue",
+    "magenta",
+    "cyan",
+    "white",
+    "bright-black",
+    "bright-red",
+    "bright-green",
+    "bright-yellow",
+    "bright-blue",
+    "bright-magenta",
+    "bright-cyan",
+    "bright-white",
+    "bold",
+    "dim",
+    "italic",
+    "underline",
+];
+
 /// Whether a template is one an author wrote, rather than an empty or whitespace-only
 /// string that should render as the default page.
 ///
@@ -53,6 +80,7 @@ pub fn is_set(template: &str) -> bool {
 /// placeholders whose spellings differ, because a template being ported is where this is most
 /// likely to be read.
 pub fn check(template: &str) -> Result<(), String> {
+    check_styles(template)?;
     let mut rest = template;
     while let Some(at) = rest.find("{{") {
         let after = &rest[at + 2..];
@@ -85,6 +113,125 @@ pub fn check(template: &str) -> Result<(), String> {
 /// most have no examples — so a template is written with the separators a full page wants and
 /// the empty sections are what [`collapse_blank_runs`] then takes back out.
 pub fn substitute(template: &str, section: impl Fn(&str) -> Option<String>) -> String {
+    if check_styles(template).is_err() {
+        return substitute_sections_only(template, section);
+    }
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    loop {
+        let placeholder = rest.find("{{").map(|at| (at, 0));
+        let style = next_style_event(rest).map(|(at, event)| (at, event as u8 + 1));
+        let Some((at, kind)) = [placeholder, style]
+            .into_iter()
+            .flatten()
+            .min_by_key(|(at, _)| *at)
+        else {
+            out.push_str(rest);
+            break;
+        };
+        out.push_str(&rest[..at]);
+        rest = &rest[at..];
+        match kind {
+            0 => {
+                let after = &rest[2..];
+                let Some(end) = after.find("}}") else {
+                    out.push_str(rest);
+                    break;
+                };
+                match section(after[..end].trim()) {
+                    Some(text) => out.push_str(&text),
+                    None => out.push_str(&rest[..2 + end + 2]),
+                }
+                rest = &after[end + 2..];
+            }
+            1 => {
+                let Some(end) = rest.find('}') else {
+                    out.push_str(rest);
+                    break;
+                };
+                rest = &rest[end + 1..];
+            }
+            2 => rest = &rest[4..],
+            3 => {
+                out.push_str("{$");
+                rest = &rest[3..];
+            }
+            _ => {
+                out.push_str("{/$}");
+                rest = &rest[5..];
+            }
+        }
+    }
+    collapse_blank_runs(&out)
+}
+
+fn check_styles(template: &str) -> Result<(), String> {
+    let mut rest = template;
+    let mut depth = 0usize;
+    while let Some((at, event)) = next_style_event(rest) {
+        let tag = &rest[at..];
+        match event {
+            StyleEvent::EscapeOpen => rest = &tag[3..],
+            StyleEvent::EscapeClose => rest = &tag[5..],
+            StyleEvent::Open => {
+                let Some(end) = tag.find('}') else {
+                    return Err("help_template has a `{$` with no `}` after it".to_string());
+                };
+                let specification = &tag[2..end];
+                if specification.is_empty() {
+                    return Err("help_template has an empty style tag `{$}`".to_string());
+                }
+                if let Some(unknown) = specification
+                    .split('+')
+                    .find(|fragment| !STYLES.contains(fragment))
+                {
+                    return Err(format!(
+                        "help_template names no style \"{unknown}\"; use {}",
+                        STYLES.join(", ")
+                    ));
+                }
+                depth += 1;
+                rest = &tag[end + 1..];
+            }
+            StyleEvent::Close => {
+                if depth == 0 {
+                    return Err("help_template has a `{/$}` with no open style tag".to_string());
+                }
+                depth -= 1;
+                rest = &tag[4..];
+            }
+        }
+    }
+    if depth == 0 {
+        Ok(())
+    } else {
+        Err("help_template has a style tag with no `{/$}` after it".to_string())
+    }
+}
+
+#[derive(Clone, Copy)]
+enum StyleEvent {
+    Open = 0,
+    Close = 1,
+    EscapeOpen = 2,
+    EscapeClose = 3,
+}
+
+fn next_style_event(template: &str) -> Option<(usize, StyleEvent)> {
+    [
+        ("{$$", StyleEvent::EscapeOpen),
+        ("{/$$}", StyleEvent::EscapeClose),
+        ("{$", StyleEvent::Open),
+        ("{/$}", StyleEvent::Close),
+    ]
+    .into_iter()
+    .enumerate()
+    .filter_map(|(priority, (token, event))| template.find(token).map(|at| ((at, priority), event)))
+    .min_by_key(|(position, _)| *position)
+    .map(|((at, _), event)| (at, event))
+}
+
+fn substitute_sections_only(template: &str, section: impl Fn(&str) -> Option<String>) -> String {
     let mut out = String::with_capacity(template.len());
     let mut rest = template;
     while let Some(at) = rest.find("{{") {
@@ -169,6 +316,34 @@ mod tests {
             (name == "usage").then(|| "Usage: ex".to_string())
         });
         assert_eq!(filled, "[Usage: ex]{{ nope }}");
+    }
+
+    #[test]
+    fn colour_markup_is_checked_and_removed_from_plain_pages() {
+        assert!(check("{$heading}Usage:{/$} {{usage}}").is_ok());
+        assert!(check("{$orange}no{/$}").is_err());
+        assert!(check("{$red}unclosed").is_err());
+        assert!(check("orphan{/$}").is_err());
+
+        let filled = substitute("{$heading}Custom{/$}\n{{about}}", |_| {
+            Some("Literal {$red} prose".to_string())
+        });
+        assert_eq!(filled, "Custom\nLiteral {$red} prose");
+
+        assert!(check("{$$heading}literal{/$$}").is_ok());
+        assert_eq!(
+            substitute("{$$heading}literal{/$$}", |_| None),
+            "{$heading}literal{/$}"
+        );
+        assert_eq!(
+            substitute("before {$red and {{usage}}", |_| {
+                Some("Usage: ex".to_string())
+            }),
+            "before {$red and Usage: ex"
+        );
+        assert!(check("{$}")
+            .expect_err("an empty tag is invalid")
+            .contains("empty style tag"));
     }
 
     #[test]
