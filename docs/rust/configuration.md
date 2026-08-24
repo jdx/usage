@@ -76,6 +76,7 @@ documentation for resolvers the CLI already owns, not extra runtime layers:
 | `prefix = "task"`                                                           | Prefix every field's key in this struct                                                                      |
 | `source(kind = "git", name = "git config", doc_hint = "…", set_hint = "…")` | A custom source kind's display metadata. Repeatable; kinds are written in sorted order                       |
 | `file(path = "ex.toml", findup, scope = "project", format = "toml")`        | A config file in the documented precedence chain. Repeatable; **declaration order is precedence**, last wins |
+| `file(path = "ex/config.toml", xdg, format = "toml")`                       | User and system XDG config locations; expands into their standard precedence in the emitted spec             |
 
 `source` and `file` belong to the struct they are written on. Flattening another `Config`
 type splices its _settings_, not its source/file declarations — a nested group that also
@@ -158,16 +159,29 @@ use usage::config::{resolve, EnvLayer, FileLayer, FileScope, Layers};
 let (cli, cli_layer) = Ex::parse_from_with_settings(&argv)?;
 let env = EnvLayer::from_process();
 // FileLayer needs a format feature on usage-config (`toml`, `json`, or `yaml`).
+let user_and_system = FileLayer::xdg("ex/config.toml");
 let project = FileLayer::find_up("ex.toml", &cwd, None, FileScope::Project);
 let resolved = resolve(
     Settings::SETTINGS_REGISTRY,
-    Layers::new().then(&cli_layer).then(&env).then(&project),
+    Layers::new()
+        .then(&cli_layer)
+        .then(&env)
+        .then(&project)
+        .then(&user_and_system),
 )?;
 let settings = Settings::read(&resolved)?;
 for warning in usage::config::explain::warnings(&resolved) {
     eprintln!("{warning}");
 }
 ```
+
+Pair `#[usage(file(path = "ex/config.toml", xdg))]` on the derived settings struct with
+`FileLayer::xdg("ex/config.toml")` at runtime. The derive expands the declaration to the
+system and user paths in the emitted spec, while `FileLayer::xdg` reads the process's XDG
+config locations in their standard precedence:
+the user file under `XDG_CONFIG_HOME` wins over files under `XDG_CONFIG_DIRS`, and the first
+directory in `XDG_CONFIG_DIRS` wins over later ones. Unset variables fall back to
+`$HOME/.config` and `/etc/xdg`.
 
 `read` visits every field before returning, so the error is the whole list of what is wrong
 rather than the first thing found. Provenance is the merge's own output: `explain`, `list`,

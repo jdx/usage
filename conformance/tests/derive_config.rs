@@ -43,6 +43,7 @@ struct TaskSettings {
     set_hint = "git config {key} {value}"
 ))]
 #[usage(file(path = "/etc/ex.toml", scope = "system", format = "toml"))]
+#[usage(file(path = "ex/config.toml", xdg, format = "toml"))]
 #[usage(file(path = "ex.toml", findup))]
 struct Settings {
     /// How many jobs to run at once
@@ -289,10 +290,23 @@ fn the_emitted_config_block_is_the_spec_grammar() {
             .iter()
             .map(|file| file.path.as_str())
             .collect::<Vec<_>>(),
-        vec!["/etc/ex.toml", "ex.toml"],
+        vec![
+            "/etc/ex.toml",
+            "$XDG_CONFIG_DIRS/ex/config.toml",
+            "$XDG_CONFIG_HOME/ex/config.toml",
+            "ex.toml"
+        ],
         "file declaration order is precedence"
     );
-    assert!(spec.config.files[1].findup);
+    assert_eq!(
+        spec.config.files[1].scope,
+        usage::spec::config::SpecConfigFileScope::System
+    );
+    assert_eq!(
+        spec.config.files[2].scope,
+        usage::spec::config::SpecConfigFileScope::Global
+    );
+    assert!(spec.config.files[3].findup);
     assert!(
         !spec
             .config

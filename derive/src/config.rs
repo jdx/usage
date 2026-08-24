@@ -98,6 +98,7 @@ struct Source {
 struct File {
     path: String,
     findup: bool,
+    xdg: bool,
     scope: FileScope,
     format: Option<String>,
 }
@@ -494,6 +495,8 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
     let mut path = None;
     let mut findup = false;
     let mut saw_findup = false;
+    let mut xdg = false;
+    let mut saw_xdg = false;
     let mut scope = FileScope::Project;
     let mut saw_scope = false;
     let mut format = None;
@@ -511,6 +514,13 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
                 }
                 findup = flag_value(&item)?;
                 saw_findup = true;
+            }
+            "xdg" => {
+                if saw_xdg {
+                    return Err(syn::Error::new_spanned(&item, "`xdg` is given twice"));
+                }
+                xdg = flag_value(&item)?;
+                saw_xdg = true;
             }
             "scope" => {
                 if saw_scope {
@@ -544,7 +554,7 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
                     item.path(),
                     format!(
                         "a config file does not understand `{other}`; use `path`, `findup`, \
-                         `scope`, or `format`"
+                         `xdg`, `scope`, or `format`"
                     ),
                 ))
             }
@@ -558,9 +568,23 @@ fn file_decl(meta: &Meta) -> syn::Result<File> {
             "a config file path cannot be empty",
         ));
     }
+    if xdg && (saw_findup || saw_scope) {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "an XDG config file decides its own user and system scopes; do not combine `xdg` \
+             with `findup` or `scope`",
+        ));
+    }
+    if xdg && std::path::Path::new(&path).is_absolute() {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "an XDG config file path must be relative to the XDG config directories",
+        ));
+    }
     Ok(File {
         path,
         findup,
+        xdg,
         scope,
         format,
     })
@@ -1416,21 +1440,40 @@ pub fn emit(config: &Config) -> TokenStream {
             set_hint: #set_hint,
         })
     });
-    let files = config.files.iter().map(|file| {
+    let files = config.files.iter().flat_map(|file| {
         let path = &file.path;
-        let findup = file.findup;
-        let scope = match file.scope {
-            FileScope::Project => quote!(#cfg::FileScope::Project),
-            FileScope::Global => quote!(#cfg::FileScope::Global),
-            FileScope::System => quote!(#cfg::FileScope::System),
-        };
         let format = option_str(&file.format);
-        quote!(#cfg::SpecFile {
-            path: #path,
-            findup: #findup,
-            scope: #scope,
-            format: #format,
-        })
+        if file.xdg {
+            let system = format!("$XDG_CONFIG_DIRS/{path}");
+            let global = format!("$XDG_CONFIG_HOME/{path}");
+            vec![
+                quote!(#cfg::SpecFile {
+                    path: #system,
+                    findup: false,
+                    scope: #cfg::FileScope::System,
+                    format: #format,
+                }),
+                quote!(#cfg::SpecFile {
+                    path: #global,
+                    findup: false,
+                    scope: #cfg::FileScope::Global,
+                    format: #format,
+                }),
+            ]
+        } else {
+            let findup = file.findup;
+            let scope = match file.scope {
+                FileScope::Project => quote!(#cfg::FileScope::Project),
+                FileScope::Global => quote!(#cfg::FileScope::Global),
+                FileScope::System => quote!(#cfg::FileScope::System),
+            };
+            vec![quote!(#cfg::SpecFile {
+                path: #path,
+                findup: #findup,
+                scope: #scope,
+                format: #format,
+            })]
+        }
     });
 
     // Reads in declaration order, advancing a cursor: one id per own prop, a group's length
@@ -2343,6 +2386,7 @@ mod tests {
             r#"
             #[usage(source(kind = "git", name = "git config"))]
             #[usage(file(path = "ex.toml", findup, scope = "project"))]
+            #[usage(file(path = "ex/config.toml", xdg, format = "toml"))]
             struct Settings {
                 jobs: u64,
             }
@@ -2392,6 +2436,24 @@ mod tests {
         "#,
         );
         assert!(err.contains("not a config file scope"), "unhelpful: {err}");
+
+        for declaration in [
+            r#"file(path = "ex/config.toml", xdg, findup)"#,
+            r#"file(path = "ex/config.toml", xdg, scope = "global")"#,
+        ] {
+            let err = rejection(&format!(
+                r#"
+                #[usage({declaration})]
+                struct Settings {{
+                    jobs: u64,
+                }}
+                "#
+            ));
+            assert!(
+                err.contains("decides its own user and system scopes"),
+                "{err}"
+            );
+        }
 
         let err = rejection(
             r#"

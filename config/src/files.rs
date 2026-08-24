@@ -13,6 +13,7 @@
 //! whose files are pkl or `.npmrc` writes its own layer against [`Layer`] and takes nothing it
 //! does not use.
 
+use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf, Prefix};
 
 use crate::layer::{Layer, LayerCtx, LayerError, LayerOutput};
@@ -64,7 +65,7 @@ impl Format {
 /// accident, and that is the check a `scope="global"` setting exists for.
 pub struct FileLayer {
     paths: Vec<PathBuf>,
-    scope: FileScope,
+    scopes: Vec<FileScope>,
     format: Option<Format>,
     prefix: Option<String>,
     preprocess: Option<Preprocess>,
@@ -75,7 +76,73 @@ impl FileLayer {
     pub fn at(path: impl Into<PathBuf>, scope: FileScope) -> Self {
         Self {
             paths: vec![path.into()],
-            scope,
+            scopes: vec![scope],
+            format: None,
+            prefix: None,
+            preprocess: None,
+        }
+    }
+
+    /// An XDG config file, including the user and system search paths.
+    ///
+    /// `path` is relative to each XDG config directory, for example
+    /// `"ex/config.toml"`. Files are read in ascending precedence: the directories in
+    /// `XDG_CONFIG_DIRS` (whose first entry wins) followed by `XDG_CONFIG_HOME`. When the
+    /// variables are unset or empty, the XDG defaults of `/etc/xdg` and
+    /// `$HOME/.config` are used. Relative paths in XDG variables are invalid according to
+    /// the specification and are ignored.
+    ///
+    /// This constructor reads the process environment. Use [`FileLayer::at`] when the
+    /// application has already resolved or overridden its config directory.
+    pub fn xdg(path: impl AsRef<Path>) -> Self {
+        Self::xdg_from(
+            path.as_ref(),
+            std::env::var_os("XDG_CONFIG_HOME"),
+            std::env::var_os("HOME"),
+            std::env::var_os("XDG_CONFIG_DIRS"),
+        )
+    }
+
+    fn xdg_from(
+        path: &Path,
+        config_home: Option<OsString>,
+        home: Option<OsString>,
+        config_dirs: Option<OsString>,
+    ) -> Self {
+        let mut paths = Vec::new();
+        let mut scopes = Vec::new();
+
+        let system_dirs: Vec<PathBuf> = match config_dirs.filter(|value| !value.is_empty()) {
+            Some(value) => std::env::split_paths(&value)
+                .filter(|dir| dir.is_absolute())
+                .collect(),
+            None => vec![PathBuf::from("/etc/xdg")],
+        };
+        // XDG_CONFIG_DIRS is highest-precedence first, while one FileLayer is merged in the
+        // order stored. Reverse it so the first directory gets the last word.
+        for dir in system_dirs.into_iter().rev() {
+            paths.push(dir.join(path));
+            scopes.push(FileScope::System);
+        }
+
+        let user_dir = match config_home.filter(|value| !value.is_empty()) {
+            Some(value) => {
+                let dir = PathBuf::from(value);
+                dir.is_absolute().then_some(dir)
+            }
+            None => home
+                .map(PathBuf::from)
+                .filter(|dir| dir.is_absolute())
+                .map(|dir| dir.join(".config")),
+        };
+        if let Some(dir) = user_dir {
+            paths.push(dir.join(path));
+            scopes.push(FileScope::Global);
+        }
+
+        Self {
+            paths,
+            scopes,
             format: None,
             prefix: None,
             preprocess: None,
@@ -124,9 +191,10 @@ impl FileLayer {
             dir = current.parent();
         }
         found.reverse();
+        let found_len = found.len();
         Self {
             paths: found,
-            scope,
+            scopes: vec![scope; found_len],
             format: None,
             prefix: None,
             preprocess: None,
@@ -167,7 +235,13 @@ impl FileLayer {
         &self.paths
     }
 
-    fn read(&self, path: &Path, ctx: &LayerCtx, out: &mut LayerOutput) -> Result<(), LayerError> {
+    fn read(
+        &self,
+        path: &Path,
+        scope: FileScope,
+        ctx: &LayerCtx,
+        out: &mut LayerOutput,
+    ) -> Result<(), LayerError> {
         // Absent is the normal case, not a failure: a find-up chain is mostly directories with
         // no config file in them. *Only* absent, though — a file that is there and cannot be
         // read is the case this module's own doc calls an error, and `read_to_string` also
@@ -231,7 +305,7 @@ impl FileLayer {
                 }
             })?;
         for (key, found) in flat {
-            let origin = Origin::file(format!("{}#{key}", path.display()), self.scope);
+            let origin = Origin::file(format!("{}#{key}", path.display()), scope);
             match found {
                 // Through `entry_for_key`, which is what makes an unknown key a warning,
                 // follows a rename while remembering the name that was written, and reads the
@@ -262,8 +336,8 @@ impl Layer for FileLayer {
 
     fn load(&self, ctx: &LayerCtx) -> Result<LayerOutput, LayerError> {
         let mut out = LayerOutput::new();
-        for path in &self.paths {
-            self.read(path, ctx, &mut out)?;
+        for (path, scope) in self.paths.iter().zip(self.scopes.iter().copied()) {
+            self.read(path, scope, ctx, &mut out)?;
         }
         Ok(out)
     }
@@ -918,6 +992,60 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn xdg_paths_put_the_user_above_system_directories() {
+        let layer = FileLayer::xdg_from(
+            Path::new("ex/config.toml"),
+            Some(OsString::from("/home/user/config")),
+            Some(OsString::from("/ignored")),
+            Some(OsString::from("/etc/xdg:/opt/xdg")),
+        );
+        assert_eq!(
+            layer.paths(),
+            &[
+                PathBuf::from("/opt/xdg/ex/config.toml"),
+                PathBuf::from("/etc/xdg/ex/config.toml"),
+                PathBuf::from("/home/user/config/ex/config.toml"),
+            ]
+        );
+        assert_eq!(
+            layer.scopes,
+            [FileScope::System, FileScope::System, FileScope::Global]
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn xdg_paths_use_the_spec_defaults() {
+        let layer = FileLayer::xdg_from(
+            Path::new("ex/config.toml"),
+            Some(OsString::new()),
+            Some(OsString::from("/home/user")),
+            Some(OsString::new()),
+        );
+        assert_eq!(
+            layer.paths(),
+            &[
+                PathBuf::from("/etc/xdg/ex/config.toml"),
+                PathBuf::from("/home/user/.config/ex/config.toml"),
+            ]
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn xdg_paths_ignore_relative_environment_values() {
+        let layer = FileLayer::xdg_from(
+            Path::new("ex/config.toml"),
+            Some(OsString::from("relative/user")),
+            Some(OsString::from("/home/user")),
+            Some(OsString::from("relative:/etc/ex:also-relative")),
+        );
+        assert_eq!(layer.paths(), &[PathBuf::from("/etc/ex/ex/config.toml")]);
+        assert_eq!(layer.scopes, [FileScope::System]);
     }
 
     #[cfg(feature = "toml")]
