@@ -59,6 +59,9 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if group.heading and arg_has_ungrouped and loop.index0 == 1 %}{{ mark_grouped_args }}{% endif %}
 
 {{ group.heading | default(value="Arguments") }}:
+{%- if group.help %}
+  {{ group.help | indent(width=2) }}
+{% endif %}
 {%- for arg in group.items %}
 {%- if cmd.next_line_help %}
   {{ arg.usage | trim }}
@@ -107,6 +110,9 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if group.heading and flag_has_ungrouped and loop.index0 == 1 %}{{ mark_grouped_flags }}{% endif %}
 
 {{ group.heading | default(value="Flags") }}:
+{%- if group.help %}
+  {{ group.help | indent(width=2) }}
+{% endif %}
 {%- for flag in group.items %}
 {%- if cmd.next_line_help %}
   {{ flag.display_usage }}

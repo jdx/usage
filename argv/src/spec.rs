@@ -887,6 +887,8 @@ pub struct CommandMeta<'a> {
     pub after_help: Option<&'a str>,
     pub after_long_help: Option<&'a str>,
     pub examples: &'a [Example<'a>],
+    /// Prose for this command's help sections, by heading title.
+    pub headings: &'a [HeadingMeta<'a>],
     /// What this command writes, and how a consumer should read it.
     pub outputs: &'a [OutputMeta<'a>],
     /// The flag whose value picks among [`Self::outputs`], e.g. `--format`.
@@ -944,6 +946,7 @@ impl CommandMeta<'_> {
         after_help: None,
         after_long_help: None,
         examples: &[],
+        headings: &[],
         outputs: &[],
         select: None,
         exit_codes: &[],
@@ -1328,6 +1331,17 @@ pub struct Example<'a> {
     pub code: &'a str,
     pub header: Option<&'a str>,
     pub help: Option<&'a str>,
+}
+
+/// Prose introducing one help section.
+///
+/// Keyed by the heading's title rather than attached to a flag, because a section is
+/// assembled from whatever names it — a field's `help_heading`, a flatten site's
+/// `next_help_heading` — and the text describes the section, not any one entry in it.
+#[derive(Debug, Clone, Copy)]
+pub struct HeadingMeta<'a> {
+    pub title: &'a str,
+    pub help: &'a str,
 }
 
 /// The wire format of what a command writes to stdout.
@@ -1958,6 +1972,7 @@ fn write_body<'a>(
         write_group(out, group, depth)?;
     }
     if depth == 0 {
+        write_headings(out, meta, depth)?;
         for example in meta.examples {
             write_example(out, example, depth)?;
         }
@@ -2184,6 +2199,7 @@ fn write_command<'a>(
         indent(out, inner)?;
         writeln!(out, "mount run={}", quoted(mount))?;
     }
+    write_headings(out, meta, inner)?;
     for example in meta.examples {
         write_example(out, example, inner)?;
     }
@@ -2303,6 +2319,49 @@ fn write_exit_codes(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> c
         write_exit_codes(out, group.meta, depth)?;
     }
     Ok(())
+}
+
+/// Section prose for one command: its own, then whatever its flattened types declared for
+/// sections they contributed, first title winning so the emitted spec says what help renders.
+fn write_headings(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
+    let mut written: Vec<&str> = Vec::new();
+    collect_headings(&mut written, meta);
+    let mut seen: Vec<&str> = Vec::new();
+    for title in written {
+        if seen.contains(&title) {
+            continue;
+        }
+        seen.push(title);
+        let Some(help) = heading_help_of(meta, title) else {
+            continue;
+        };
+        indent(out, depth)?;
+        writeln!(out, "heading {} help={}", quoted(title), quoted(help))?;
+    }
+    Ok(())
+}
+
+fn collect_headings<'a>(titles: &mut Vec<&'a str>, meta: &CommandMeta<'a>) {
+    for heading in meta.headings {
+        titles.push(heading.title);
+    }
+    for group in meta.flatten_groups {
+        collect_headings(titles, group.meta);
+    }
+}
+
+fn heading_help_of<'a>(meta: &CommandMeta<'a>, title: &str) -> Option<&'a str> {
+    if let Some(help) = meta
+        .headings
+        .iter()
+        .find(|heading| heading.title == title)
+        .map(|heading| heading.help)
+    {
+        return Some(help);
+    }
+    meta.flatten_groups
+        .iter()
+        .find_map(|group| heading_help_of(group.meta, title))
 }
 
 fn write_example(out: &mut String, example: &Example<'_>, depth: usize) -> core::fmt::Result {

@@ -1159,12 +1159,16 @@ fn short_sections(
         .max()
         .unwrap_or(0);
     split_groups_section(
-        &mut sections.args,
-        &mut sections.ungrouped_args,
-        &mut sections.grouped_args,
+        SectionSink {
+            page: &mut sections.args,
+            ungrouped: &mut sections.ungrouped_args,
+            grouped: &mut sections.grouped_args,
+        },
         "Arguments",
         args.iter().copied(),
         |a| a.help_heading,
+        // Section prose belongs to the long page, like an entry's admonitions.
+        |_| None,
         |out, a| {
             let usage = arg_usage(a);
             if meta.next_line_help {
@@ -1264,23 +1268,29 @@ fn short_sections(
         );
     };
     split_groups_section(
-        &mut sections.flags,
-        &mut sections.ungrouped_flags,
-        &mut sections.grouped_flags,
+        SectionSink {
+            page: &mut sections.flags,
+            ungrouped: &mut sections.ungrouped_flags,
+            grouped: &mut sections.grouped_flags,
+        },
         "Flags",
         own.iter().copied(),
         |f| flag_help_heading(meta, f),
+        |_| None,
         |out, f| short_entry(out, f, column_usage(f)),
     );
     // After the command's own, and under a heading that says where they came from: `--config`
     // belongs to the program, not to this command, and a reader should be able to see that.
     // The text is precomputed, since a spelling a descendant claimed is left out of it.
     split_groups_section(
-        &mut sections.flags,
-        &mut sections.ungrouped_flags,
-        &mut sections.grouped_flags,
+        SectionSink {
+            page: &mut sections.flags,
+            ungrouped: &mut sections.ungrouped_flags,
+            grouped: &mut sections.grouped_flags,
+        },
         "Global flags",
         inherited.iter(),
+        |_| None,
         |_| None,
         |out, (f, usage)| short_entry(out, f, usage.clone()),
     );
@@ -1573,15 +1583,42 @@ fn flatten_site_heading<'a>(
     None
 }
 
+/// The prose introducing a section, from this command's own declarations or from a
+/// flattened type that declared the text where it declared the group.
+fn heading_help<'a>(meta: &'a CommandMeta<'a>, title: &str) -> Option<&'a str> {
+    if let Some(found) = meta
+        .headings
+        .iter()
+        .find(|heading| heading.title == title)
+        .map(|heading| heading.help)
+    {
+        return Some(found);
+    }
+    // The host's own declaration wins; only then does a flattened type get to speak for
+    // the section it contributed.
+    meta.flatten_groups
+        .iter()
+        .find_map(|group| heading_help(group.meta, title))
+}
+
+/// Where a rendered section goes: the page, plus the two partitions a template can name.
+///
+/// One value rather than three parameters, because the three always travel together — a
+/// section written to the page but not to its partition is a bug, not a configuration.
+struct SectionSink<'s> {
+    page: &'s mut String,
+    ungrouped: &'s mut String,
+    grouped: &'s mut String,
+}
+
 /// One section per heading, unheaded first, while also keeping the named and default groups
 /// available to a template.
 fn split_groups_section<'m, T: 'm>(
-    out: &mut String,
-    ungrouped: &mut String,
-    grouped: &mut String,
+    sink: SectionSink<'_>,
     default_title: &str,
     items: impl Iterator<Item = &'m T> + Clone,
     heading_of: impl Fn(&T) -> Option<&str>,
+    prose_of: impl Fn(&str) -> Option<&'m str>,
     mut write_item: impl FnMut(&mut String, &T),
 ) {
     // Headings in first-seen order, with the unheaded group before them. Collected rather
@@ -1600,14 +1637,22 @@ fn split_groups_section<'m, T: 'm>(
 
     for heading in headings {
         let mut section = String::new();
-        let _ = writeln!(section, "\n{}:", heading.unwrap_or(default_title));
+        let title = heading.unwrap_or(default_title);
+        let _ = writeln!(section, "\n{title}:");
+        // Between the heading and its entries, where a reader looking at the section is
+        // already looking. Written verbatim like an admonition rather than rewrapped, so
+        // an author's own line breaks survive and the reference renderer can match it.
+        if let Some(prose) = prose_of(title) {
+            write_indented(&mut section, prose, 2);
+            section.push('\n');
+        }
         for item in items.clone().filter(|i| heading_of(i) == heading) {
             write_item(&mut section, item);
         }
-        out.push_str(&section);
+        sink.page.push_str(&section);
         match heading {
-            Some(_) => grouped.push_str(&section),
-            None => ungrouped.push_str(&section),
+            Some(_) => sink.grouped.push_str(&section),
+            None => sink.ungrouped.push_str(&section),
         }
     }
 }
@@ -1908,12 +1953,15 @@ fn long_sections(
         .max()
         .unwrap_or(0);
     split_groups_section(
-        &mut sections.args,
-        &mut sections.ungrouped_args,
-        &mut sections.grouped_args,
+        SectionSink {
+            page: &mut sections.args,
+            ungrouped: &mut sections.ungrouped_args,
+            grouped: &mut sections.grouped_args,
+        },
         "Arguments",
         args.iter().copied(),
         |a| a.help_heading,
+        |title| heading_help(meta, title),
         |out, a| {
             let text = a.long_help.or(a.help);
             entry(
@@ -1949,12 +1997,15 @@ fn long_sections(
         .max()
         .unwrap_or(0);
     split_groups_section(
-        &mut sections.flags,
-        &mut sections.ungrouped_flags,
-        &mut sections.grouped_flags,
+        SectionSink {
+            page: &mut sections.flags,
+            ungrouped: &mut sections.ungrouped_flags,
+            grouped: &mut sections.grouped_flags,
+        },
         "Flags",
         own.iter().copied(),
         |f| flag_help_heading(meta, f),
+        |title| heading_help(meta, title),
         |out, f| {
             let text = f.long_help.or(f.help);
             entry(
@@ -1986,11 +2037,14 @@ fn long_sections(
     // Not grouped by `help_heading` — an ancestor's headings describe that command's page, and
     // borrowing them here would put a section title on flags that are only visiting.
     split_groups_section(
-        &mut sections.flags,
-        &mut sections.ungrouped_flags,
-        &mut sections.grouped_flags,
+        SectionSink {
+            page: &mut sections.flags,
+            ungrouped: &mut sections.ungrouped_flags,
+            grouped: &mut sections.grouped_flags,
+        },
         "Global flags",
         inherited.iter(),
+        |_| None,
         |_| None,
         |out, (f, usage)| {
             let text = f.long_help.or(f.help);

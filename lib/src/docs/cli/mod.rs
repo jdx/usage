@@ -50,6 +50,7 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
                     0,
                     crate::docs::models::Group {
                         heading: None,
+                        help: None,
                         items: supplied,
                     },
                 ),

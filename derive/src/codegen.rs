@@ -18,8 +18,8 @@ use quote::{format_ident, quote};
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
     rendered_path, to_kebab, type_name, AdmonitionKind, ArgGroup, ArgGroupMember, Cli,
-    ConditionalDefault, Dispatch, DoubleDash, ExampleDecl, Field, Kind, SchemaSource, Shape,
-    Subcommands, ValueEnum, Variant, ViewDecl,
+    ConditionalDefault, Dispatch, DoubleDash, ExampleDecl, Field, HeadingDecl, Kind, SchemaSource,
+    Shape, Subcommands, ValueEnum, Variant, ViewDecl,
 };
 
 fn admonitions(field: &Field) -> TokenStream {
@@ -235,6 +235,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let after_help = option_expr(cli.after_help.as_ref());
     let after_long_help = option_expr(cli.after_long_help.as_ref());
     let examples = examples_table(&cli.examples);
+    let headings = headings_table(&cli.headings);
     let root_key = key_ident("COMMAND", None);
     let keys = key_consts(&cli.fingerprint, flags.len(), args.len());
     let flag_tables = flags.iter().enumerate().map(|(i, f)| flag_table(i, f));
@@ -1084,6 +1085,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 after_help: #after_help,
                 after_long_help: #after_long_help,
                 examples: #examples,
+                headings: #headings,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 groups: #group_meta_table_ref,
@@ -4009,6 +4011,24 @@ fn examples_table(examples: &[ExampleDecl]) -> TokenStream {
     quote!(&[#(#entries),*])
 }
 
+/// The `headings` slice for a command's metadata.
+///
+/// Cold like the examples beside it: a section's prose is read when a page is rendered or a
+/// spec written, never by a parse.
+fn headings_table(headings: &[HeadingDecl]) -> TokenStream {
+    let entries = headings.iter().map(|heading| {
+        let title = &heading.title;
+        let help = &heading.help;
+        quote! {
+            usage_argv::spec::HeadingMeta {
+                title: #title,
+                help: #help,
+            }
+        }
+    });
+    quote!(&[#(#entries),*])
+}
+
 /// What a command's `output`, `select` and `exit_code` declarations become in its
 /// `CommandMeta`, plus the schema functions those refer to.
 ///
@@ -6173,6 +6193,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let after_help = option_expr(cli.after_help.as_ref());
     let after_long_help = option_expr(cli.after_long_help.as_ref());
     let examples = examples_table(&cli.examples);
+    let headings = headings_table(&cli.headings);
 
     let flags: Vec<&Field> = cli
         .fields
@@ -6459,6 +6480,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 after_help: #after_help,
                 after_long_help: #after_long_help,
                 examples: #examples,
+                headings: #headings,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
                 groups: #group_meta_table_ref,

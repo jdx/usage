@@ -60,7 +60,8 @@
         "name": "bash",
         "aliases": [],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "headings": []
       },
       "complete-word": {
         "full_cmd": ["complete-word"],
@@ -174,7 +175,8 @@
         "name": "complete-word",
         "aliases": ["cw"],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "headings": []
       },
       "diff": {
         "full_cmd": ["diff"],
@@ -274,6 +276,7 @@
         "aliases": [],
         "hidden_aliases": [],
         "examples": [],
+        "headings": [],
         "complete": {
           "old": {
             "name": "old",
@@ -349,7 +352,8 @@
         "name": "exec",
         "aliases": ["x"],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "headings": []
       },
       "explain": {
         "full_cmd": ["explain"],
@@ -494,6 +498,7 @@
         "aliases": [],
         "hidden_aliases": [],
         "examples": [],
+        "headings": [],
         "complete": {
           "argv": {
             "name": "argv",
@@ -560,7 +565,8 @@
         "name": "fish",
         "aliases": [],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "headings": []
       },
       "generate": {
         "full_cmd": ["generate"],
@@ -713,7 +719,8 @@
             "name": "completion",
             "aliases": ["c"],
             "hidden_aliases": ["complete", "completions"],
-            "examples": []
+            "examples": [],
+            "headings": []
           },
           "completion-init": {
             "full_cmd": ["generate", "completion-init"],
@@ -777,7 +784,8 @@
             "name": "completion-init",
             "aliases": ["ci"],
             "hidden_aliases": ["init", "completions-init"],
-            "examples": []
+            "examples": [],
+            "headings": []
           },
           "fig": {
             "full_cmd": ["generate", "fig"],
@@ -862,6 +870,7 @@
             "aliases": [],
             "hidden_aliases": [],
             "examples": [],
+            "headings": [],
             "complete": {
               "out_file": {
                 "name": "out_file",
@@ -970,6 +979,7 @@
             "aliases": [],
             "hidden_aliases": [],
             "examples": [],
+            "headings": [],
             "complete": {
               "out_file": {
                 "name": "out_file",
@@ -1058,7 +1068,8 @@
             "name": "json",
             "aliases": [],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "headings": []
           },
           "json-schema": {
             "full_cmd": ["generate", "json-schema"],
@@ -1177,6 +1188,7 @@
             "aliases": [],
             "hidden_aliases": [],
             "examples": [],
+            "headings": [],
             "complete": {
               "out_file": {
                 "name": "out_file",
@@ -1285,6 +1297,7 @@
             "aliases": ["man"],
             "hidden_aliases": [],
             "examples": [],
+            "headings": [],
             "complete": {
               "out_file": {
                 "name": "out_file",
@@ -1460,6 +1473,7 @@
             "aliases": ["md"],
             "hidden_aliases": [],
             "examples": [],
+            "headings": [],
             "complete": {
               "out_dir": {
                 "name": "out_dir",
@@ -1591,7 +1605,8 @@
             "name": "sdk",
             "aliases": [],
             "hidden_aliases": [],
-            "examples": []
+            "examples": [],
+            "headings": []
           }
         },
         "args": [],
@@ -1619,7 +1634,8 @@
         "name": "generate",
         "aliases": ["g"],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "headings": []
       },
       "lint": {
         "full_cmd": ["lint"],
@@ -1709,7 +1725,8 @@
         "name": "lint",
         "aliases": [],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "headings": []
       },
       "mcp": {
         "full_cmd": ["mcp"],
@@ -1776,7 +1793,8 @@
         "name": "mcp",
         "aliases": ["mcp-server"],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "headings": []
       },
       "powershell": {
         "full_cmd": ["powershell"],
@@ -1833,7 +1851,8 @@
         "name": "powershell",
         "aliases": [],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "headings": []
       },
       "sponsors": {
         "full_cmd": ["sponsors"],
@@ -1863,7 +1882,8 @@
         "name": "sponsors",
         "aliases": [],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "headings": []
       },
       "zsh": {
         "full_cmd": ["zsh"],
@@ -1920,7 +1940,8 @@
         "name": "zsh",
         "aliases": [],
         "hidden_aliases": [],
-        "examples": []
+        "examples": [],
+        "headings": []
       }
     },
     "args": [],
@@ -1985,7 +2006,8 @@
     "name": "usage",
     "aliases": [],
     "hidden_aliases": [],
-    "examples": []
+    "examples": [],
+    "headings": []
   },
   "config": {
     "props": {},

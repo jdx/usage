@@ -31,6 +31,10 @@
 {%- if visible %}
 
 {{ "#" | repeat(count=header_level) }}# {{ arg_group.heading | default(value="Arguments") }}
+{%- if arg_group.help %}
+
+{{ arg_group.help }}
+{%- endif %}
 {% for arg in visible %}
 {%- include "arg_template.md.tera" -%}
 {%- if not loop.last %}{{ "\n" }}{% endif %}
@@ -60,6 +64,10 @@
 {%- if group_flags %}
 
 {{ "#" | repeat(count=header_level) }}# {{ flag_group.heading | default(value="Flags") }}
+{%- if flag_group.help %}
+
+{{ flag_group.help }}
+{%- endif %}
 {% for flag in group_flags %}
 {%- include "flag_template.md.tera" -%}
 {%- if not loop.last %}{{ "\n" }}{% endif %}

@@ -339,6 +339,40 @@
       "reference": {
         "diverges": "usage-lib's help renderer ignores a declared `usage` and writes the generated line; its manpage renderer honours it (`lib/src/docs/manpage/renderer.rs`). usage-argv honours it on the root page, which is what #965 added it for. The fleet gate cannot see this even though six of its seven CLIs declare one, because `xtask gen-shadow` does not carry the node into the shadow it generates — so each shadow's `Spec::usage` is `None` and both sides render the generated line. Recorded rather than fixed here because it is the reference that needs changing, not the expectation."
       }
+    },
+    {
+      "id": "heading-prose",
+      "doc": "Prose declared for a heading introduces its section on the long page, between the heading and its entries, and is absent from the short page the way an admonition is.",
+      "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nheading \"Ignore Files\" help=\"Patterns are matched the way `.gitignore` matches them.\"\nflag \"--ignore-path <PATH>\" help=\"Ignore file to read\" help_heading=\"Ignore Files\"\nflag \"--force\" help=\"Do it anyway\"\n",
+      "expect": {
+        "usage": "ex [--ignore-path <PATH>] [--force]",
+        "long_help": [
+          "An example",
+          "",
+          "Usage: ex [--ignore-path <PATH>] [--force]",
+          "",
+          "Flags:",
+          "      --force               Do it anyway",
+          "  -h, --help                Print help",
+          "",
+          "Ignore Files:",
+          "  Patterns are matched the way `.gitignore` matches them.",
+          "",
+          "      --ignore-path <PATH>  Ignore file to read"
+        ],
+        "short_help": [
+          "An example",
+          "",
+          "Usage: ex [--ignore-path <PATH>] [--force]",
+          "",
+          "Flags:",
+          "      --force               Do it anyway",
+          "  -h, --help                Print help",
+          "",
+          "Ignore Files:",
+          "      --ignore-path <PATH>  Ignore file to read"
+        ]
+      }
     }
   ]
 }

@@ -52,7 +52,18 @@ cmd "list" {
     ]
   """# header="JSON output"
 }
+
+cmd "lint" {
+  // Prose for one help section, named by the heading it introduces.
+  heading "Ignore Files" help="Patterns are matched the way `.gitignore` matches them."
+  flag "--ignore-path <PATH>" help="Ignore file to read" help_heading="Ignore Files"
+}
 ```
+
+A `heading` node gives prose to the section a `help_heading` creates. It is rendered on the
+long help page between the heading and its entries, and under the corresponding heading in
+generated Markdown and manpages; short help omits it. A title naming no section renders
+nowhere.
 
 `term_width` fixes the width used to wrap help; zero disables wrapping.
 `max_term_width` caps a detected terminal width when `term_width` is unset;
