@@ -62,8 +62,9 @@ cmd "lint" {
 
 A `heading` node gives prose to the section a `help_heading` creates. It is rendered on the
 long help page between the heading and its entries, and under the corresponding heading in
-generated Markdown and manpages; short help omits it. A title naming no section renders
-nowhere.
+generated Markdown and manpages; short help omits it. A title naming no declared section
+renders nowhere — including the default `Flags` and `Arguments` titles, which name the
+entries that asked for no section of their own.
 
 `term_width` fixes the width used to wrap help; zero disables wrapping.
 `max_term_width` caps a detected terminal width when `term_width` is unset;

@@ -1972,10 +1972,10 @@ fn write_body<'a>(
         write_group(out, group, depth)?;
     }
     if depth == 0 {
-        write_headings(out, meta, depth)?;
         for example in meta.examples {
             write_example(out, example, depth)?;
         }
+        write_headings(out, meta, depth)?;
         write_outputs(out, meta, depth)?;
     }
     #[cfg(feature = "complete")]
@@ -2199,10 +2199,6 @@ fn write_command<'a>(
         indent(out, inner)?;
         writeln!(out, "mount run={}", quoted(mount))?;
     }
-    write_headings(out, meta, inner)?;
-    for example in meta.examples {
-        write_example(out, example, inner)?;
-    }
     write_body(
         out,
         meta,
@@ -2214,6 +2210,10 @@ fn write_command<'a>(
     )?;
     // After the body, because usage-lib's writer puts these after the flags, args and
     // subcommands, and `canonical_kdl` compares the two documents byte for byte.
+    for example in meta.examples {
+        write_example(out, example, inner)?;
+    }
+    write_headings(out, meta, inner)?;
     write_outputs(out, meta, inner)?;
 
     indent(out, depth)?;

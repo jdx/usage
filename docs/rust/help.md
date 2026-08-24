@@ -120,8 +120,10 @@ full rule, including what a default does not count as, is in
   the section rather than any one entry in it. Declared on an `Args` type, it speaks for the
   section that type contributes; a heading the host also declares prose for keeps the host's.
   Like an admonition, it is absent from the short page, and it reaches the emitted spec, so
-  generated Markdown and manpages carry it too. This is bpaf's `group_help`; clap has no
-  equivalent.
+  generated Markdown and manpages carry it too. Only a declared heading takes prose: the
+  default `Flags` and `Arguments` sections hold the entries that never asked for one, and the
+  same entries appear under a different default title per renderer, so a title matching one of
+  those renders nowhere. This is bpaf's `group_help`; clap has no equivalent.
 - `display_order = n` on a field or subcommand controls its position within a help section
   without changing positional parsing order.
 - `next_line_help` on a command puts every argument, flag, and subcommand description beneath

@@ -8,7 +8,9 @@ use usage_derive::{Args, Cli, Subcommands};
     name = "canonical",
     bin = "canonical",
     version = "1.2.3",
-    unknown_flags = "error"
+    unknown_flags = "error",
+    example("canonical run build", header = "Run a task"),
+    heading("Output Options", help = "Formats are stable across releases.")
 )]
 struct Ex {
     /// Number of jobs to run.
@@ -16,7 +18,7 @@ struct Ex {
     jobs: usize,
 
     /// Select the output format.
-    #[usage(long, choices("human", "json"))]
+    #[usage(long, choices("human", "json"), help_heading = "Output Options")]
     format: Option<String>,
 
     #[usage(subcommand)]
@@ -30,9 +32,16 @@ enum Commands {
 }
 
 #[derive(Args)]
+#[usage(
+    example("canonical run build", header = "Build"),
+    heading(
+        "Task Options",
+        help = "A task name is resolved against the config file."
+    )
+)]
 struct Run {
     /// Configuration file.
-    #[usage(long)]
+    #[usage(long, help_heading = "Task Options")]
     config: Option<String>,
 
     /// Task name.

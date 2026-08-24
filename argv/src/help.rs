@@ -1642,7 +1642,12 @@ fn split_groups_section<'m, T: 'm>(
         // Between the heading and its entries, where a reader looking at the section is
         // already looking. Written verbatim like an admonition rather than rewrapped, so
         // an author's own line breaks survive and the reference renderer can match it.
-        if let Some(prose) = prose_of(title) {
+        //
+        // Only a declared heading takes prose. The default title names the group that
+        // exists because entries did not ask for a section, and it is not one title: the
+        // same unheaded flags render under `Flags` here and under `Global Flags` in a
+        // Markdown page, so keying prose to it would mean different things per renderer.
+        if let Some(prose) = heading.and_then(&prose_of) {
             write_indented(&mut section, prose, 2);
             section.push('\n');
         }

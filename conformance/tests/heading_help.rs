@@ -138,6 +138,39 @@ fn section_prose_reaches_generated_markdown() {
     );
 }
 
+/// Prose named for a default section title, which is not a declared heading.
+#[derive(Cli)]
+#[usage(
+    bin = "dflt",
+    heading("Flags", help = "Should not appear on any page.")
+)]
+#[allow(dead_code)]
+struct DefaultTitled {
+    /// Do it anyway.
+    #[usage(long)]
+    force: bool,
+}
+
+#[test]
+fn only_a_declared_heading_takes_prose() {
+    let long = help::render(DefaultTitled::spec(), DefaultTitled::spec().root.cmd, true)
+        .expect("long help");
+    assert!(long.contains("Flags:"), "{long}");
+    assert!(!long.contains("Should not appear"), "{long}");
+
+    // The unheaded group is the one that exists because nothing asked for a section, and
+    // it renders under a different default title per page, so keying prose to it would
+    // mean different things in each renderer. Both must agree that it takes none.
+    let spec: usage::Spec = DefaultTitled::to_kdl().parse().expect("generated spec");
+    let reference = usage::docs::cli::render_help(&spec, &spec.cmd, true);
+    assert_eq!(reference, long);
+
+    let markdown = MarkdownRenderer::new(spec.clone())
+        .render_cmd(&spec.cmd)
+        .expect("markdown page");
+    assert!(!markdown.contains("Should not appear"), "{markdown}");
+}
+
 #[test]
 fn a_flattened_type_speaks_for_the_section_it_contributes() {
     let long =
