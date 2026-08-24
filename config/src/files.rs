@@ -136,7 +136,12 @@ impl FileLayer {
     /// This constructor reads the process environment. Use [`FileLayer::at`] when the
     /// application has already resolved or overridden its config directory.
     pub fn xdg(base: XdgBase, path: impl AsRef<Path>) -> Self {
-        Self::xdg_from(base, path.as_ref(), XdgEnv::from_process())
+        let path = path.as_ref();
+        assert!(
+            is_xdg_relative(path),
+            "an XDG path must be relative to its base and cannot traverse a parent"
+        );
+        Self::xdg_from(base, path, XdgEnv::from_process())
     }
 
     fn xdg_from(base: XdgBase, path: &Path, env: XdgEnv) -> Self {
@@ -389,6 +394,31 @@ fn xdg_dirs(value: Option<OsString>, defaults: &[&str]) -> Vec<PathBuf> {
             .collect(),
         None => defaults.iter().map(PathBuf::from).collect(),
     }
+}
+
+/// Whether a path stays beneath an XDG base on both Unix and Windows.
+///
+/// The host's [`Component`]s catch its native absolute and parent forms. The text checks catch
+/// Windows forms while cross-compiling or testing on Unix, where a backslash and drive prefix
+/// would otherwise be ordinary filename characters.
+fn is_xdg_relative(path: &Path) -> bool {
+    if path.as_os_str().is_empty()
+        || path.components().any(|component| {
+            matches!(
+                component,
+                Component::Prefix(_) | Component::RootDir | Component::ParentDir
+            )
+        })
+    {
+        return false;
+    }
+    let Some(text) = path.to_str() else {
+        return true;
+    };
+    let bytes = text.as_bytes();
+    let windows_prefix = text.starts_with('\\')
+        || (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':');
+    !windows_prefix && !text.split(['/', '\\']).any(|part| part == "..")
 }
 
 /// What one key in a file turned out to hold.
@@ -1040,6 +1070,32 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn xdg_paths_are_relative_under_unix_and_windows_rules() {
+        for path in ["ex/config.toml", "ex/./config.toml", "config.toml"] {
+            assert!(is_xdg_relative(Path::new(path)), "{path}");
+        }
+        for path in [
+            "",
+            "/tmp/config.toml",
+            "../config.toml",
+            "ex/../../config.toml",
+            r"\Windows\config.toml",
+            r"C:\config.toml",
+            r"C:config.toml",
+            r"..\config.toml",
+            r"ex\..\config.toml",
+        ] {
+            assert!(!is_xdg_relative(Path::new(path)), "{path}");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "an XDG path must be relative")]
+    fn the_public_xdg_constructor_rejects_an_escaping_path() {
+        let _ = FileLayer::xdg(XdgBase::Config, "../config.toml");
     }
 
     #[cfg(unix)]
