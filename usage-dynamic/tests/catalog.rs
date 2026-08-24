@@ -208,17 +208,17 @@ fn nested_help_merges_summaries_aliases_headings_and_ordering() {
     for long in [false, true] {
         let help = app.help("plugins", long).unwrap();
         assert!(help.contains("Installed plugins:"), "{help}");
-        assert!(help.contains("plugins formatter"), "{help}");
+        assert!(help.contains("  formatter  Format a project"), "{help}");
         assert!(help.contains("[aliases: fmt]"), "{help}");
         assert!(!help.contains("oldfmt"), "{help}");
         assert!(
-            help.find("plugins audit").unwrap() < help.find("plugins formatter").unwrap(),
+            help.find("  audit").unwrap() < help.find("  formatter").unwrap(),
             "{help}"
         );
     }
     let plugin_help = app.help("plugins formatter", false).unwrap();
     assert!(plugin_help.contains("--color"), "{plugin_help}");
-    assert!(plugin_help.contains("formatter check"), "{plugin_help}");
+    assert!(plugin_help.contains("\n  check"), "{plugin_help}");
     let nested_help = app.help("plugins fmt check", false).unwrap();
     assert!(nested_help.contains("--fix"), "{nested_help}");
 }

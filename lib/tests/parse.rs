@@ -171,7 +171,7 @@ cmd_help_short:
     expected=r#"Usage: <SUBCOMMAND>
 
 Commands:
-  cmd  shorthelp
+  cmd   shorthelp
   help  Print this message or the help of the given subcommand(s)
 
 Flags:
@@ -184,13 +184,8 @@ cmd_help_long:
     expected=r#"Usage: <SUBCOMMAND>
 
 Commands:
-  cmd
-    help
-    fooo
-    bar
-
-  help
-    Print this message or the help of the given subcommand(s)
+  cmd   shorthelp
+  help  Print this message or the help of the given subcommand(s)
 
 Flags:
   -h, --help  Print help
@@ -204,8 +199,8 @@ subcommand_help_short:
     expected=r#"Usage: plugins <SUBCOMMAND>
 
 Commands:
-  plugins install  shorthelp
-  help  Print this message or the help of the given subcommand(s)
+  install  shorthelp
+  help     Print this message or the help of the given subcommand(s)
 
 Flags:
   -h, --help  Print help

@@ -241,6 +241,17 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 
 // commandsSection lists the subcommands, and the `help` command every CLI with
 // subcommands has.
+// helpSubcommand is the entry every command list ends with, unless the CLI turned it off.
+const (
+	helpSubcommand        = "help"
+	helpSubcommandSummary = "Print this message or the help of the given subcommand(s)"
+)
+
+// commandsSection writes the command list, which is identical on both pages. The name
+// alone occupies the column, so the summaries line up down the page and the syntax a
+// command takes belongs to that command's own page. Both pages read the same summary: a
+// parent's list says what each child is *for*, and what a child does at length belongs on
+// the child's own page rather than repeated in every ancestor's.
 func commandsSection(out *strings.Builder, path []string, cmd *Command, help HelpTable) {
 	type line struct {
 		usage string
@@ -269,6 +280,8 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 		}
 		nextLineHelp = h.NextLineHelp
 	}
+	// Sorted by the rendered usage, which is how usage-lib sorts them. That is all the
+	// usage is used for now: the row shows the name.
 	sort.SliceStable(lines, func(i, j int) bool {
 		left, right := helpOrder(help, lines[i].sub.Key, 999), helpOrder(help, lines[j].sub.Key, 999)
 		if left != right {
@@ -276,6 +289,19 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 		}
 		return lines[i].usage < lines[j].usage
 	})
+
+	// One column for the page, not for the section: a CLI that groups its commands reads
+	// as one table with rules through it, which is what the flag list already does.
+	showHelp := !cmd.DisableHelpSubcommand
+	col := 0
+	if showHelp {
+		col = len([]rune(helpSubcommand))
+	}
+	for _, l := range lines {
+		if n := len([]rune(l.sub.Name)); n > col {
+			col = n
+		}
+	}
 
 	headings := []string{""}
 	for _, l := range lines {
@@ -299,39 +325,40 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 			if itemSection != section {
 				continue
 			}
-			out.WriteString("  " + l.usage)
-			if h := help.Lookup(l.sub.Key); h != nil {
-				// Visible aliases only: a hidden alias works and is not advertised,
-				// which is the whole of the distinction.
-				if len(h.VisibleAliases) > 0 {
-					out.WriteString(" [aliases: " + strings.Join(h.VisibleAliases, ", ") + "]")
-				}
-				if nextLineHelp {
-					out.WriteString("\n")
-					if strings.TrimSpace(h.Short) != "" {
-						writeIndented(out, trimEnd(h.Short), 4)
-					}
-					if label := deprecationLabel(h); label != "" {
-						writeIndented(out, label, 4)
-					}
-					continue
-				}
-				if text := helpText(h); text != "" {
-					// The row owns its terminating newline. Trim the description in both
-					// layouts, as usage-lib does before selecting a layout.
-					out.WriteString("  " + trimEnd(text))
-				}
-			}
-			out.WriteString("\n")
+			entry(out, l.sub.Name, commandRow(help.Lookup(l.sub.Key)), col, nextLineHelp)
 		}
-		if section == "" && !cmd.DisableHelpSubcommand {
-			if nextLineHelp {
-				out.WriteString("  help\n    Print this message or the help of the given subcommand(s)\n")
-			} else {
-				out.WriteString("  help  Print this message or the help of the given subcommand(s)\n")
-			}
+		if section == "" && showHelp {
+			entry(out, helpSubcommand, helpSubcommandSummary, col, nextLineHelp)
 		}
 	}
+}
+
+// commandRow is everything that follows a command's name in its parent's list, as one
+// string. Aliases and deprecation trail the summary rather than sitting beside the name,
+// so they wrap with the text instead of pushing every description out of the column.
+func commandRow(h *Help) string {
+	if h == nil {
+		return ""
+	}
+	parts := []string{}
+	// A command that wrote only a long description still has a summary: its first line.
+	// Both pages read the same one, so `-h` never says less than `--help` does.
+	summary := trimEnd(h.Short)
+	if summary == "" {
+		summary = trimEnd(strings.SplitN(h.Long, "\n", 2)[0])
+	}
+	if summary != "" {
+		parts = append(parts, summary)
+	}
+	// Visible aliases only: a hidden alias works and is not advertised, which is the
+	// whole of the distinction.
+	if len(h.VisibleAliases) > 0 {
+		parts = append(parts, "[aliases: "+strings.Join(h.VisibleAliases, ", ")+"]")
+	}
+	if label := deprecationLabel(h); label != "" {
+		parts = append(parts, label)
+	}
+	return strings.Join(parts, " ")
 }
 
 func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help HelpTable, nextLine bool) {

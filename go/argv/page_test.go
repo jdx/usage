@@ -169,8 +169,10 @@ func TestCommandDeprecationAppearsInListingsAndFlattenedHelp(t *testing.T) {
 
 	help[0].NextLineHelp = true
 	nextLinePage := ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
-	if !strings.Contains(nextLinePage, "old\n    old command\n    [deprecated: warns at 6.1]") {
-		t.Fatalf("next-line command listing glued deprecation to its description:\n%s", nextLinePage)
+	// In a command list the label trails the summary rather than taking a line of its own,
+	// in either layout: it wraps with the text instead of pushing it out of the column.
+	if !strings.Contains(nextLinePage, "old\n    old command [deprecated: warns at 6.1]") {
+		t.Fatalf("next-line command listing misplaced the deprecation:\n%s", nextLinePage)
 	}
 	help[0].NextLineHelp = false
 

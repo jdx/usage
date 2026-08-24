@@ -1136,11 +1136,16 @@ fn short_sections(
     command_deprecation(out, meta, 0);
     usage_section(&mut sections.usage, spec, path, meta);
 
-    // The path without the binary, which is what a listed subcommand shows: usage-lib prints
-    // `tool-alias get <TOOL>` under `mise tool-alias`, the whole path from the root rather
-    // than the child's own name.
+    // The path without the binary: it is the sort key the reference orders the list by, even
+    // now that the row itself shows the child's own name.
     if !meta.flatten_help {
-        commands_section(&mut sections.commands, &path[1.min(path.len())..], meta);
+        commands_section(
+            &mut sections.commands,
+            &path[1.min(path.len())..],
+            meta,
+            terminal_width(meta),
+            false,
+        );
     }
 
     // The short page lines its columns up too. It did not: every description began directly
@@ -1306,7 +1311,23 @@ fn short_sections(
 }
 
 /// The list of subcommands, and the `help` command every CLI with subcommands has.
-fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
+/// The entry every command list ends with, unless the CLI turned it off.
+const HELP_SUBCOMMAND: &str = "help";
+const HELP_SUBCOMMAND_SUMMARY: &str = "Print this message or the help of the given subcommand(s)";
+
+/// The command list, identical on both pages.
+///
+/// The name alone occupies the column, so the summaries line up down the page and the syntax a
+/// command takes belongs to that command's own page. Both pages read the same summary: a
+/// parent's list says what each child is *for*, and what a child does at length belongs on the
+/// child's own page rather than repeated in every ancestor's.
+fn commands_section(
+    out: &mut String,
+    path: &[&str],
+    meta: &CommandMeta<'_>,
+    width: usize,
+    long: bool,
+) {
     let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
     order_commands(&mut visible);
     // Nothing visible, no section — `mise direnv` and `mise dotfiles` have subcommands and
@@ -1318,7 +1339,8 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
     }
     // Sorted by the rendered usage rather than by name, as usage-lib sorts them — for a
     // command with no flags or arguments the two agree, and where they differ this is the
-    // order a reader sees in the reference.
+    // order a reader sees in the reference. The usage is the sort key and nothing else now:
+    // the row shows the name.
     let mut lines: Vec<(String, &&CommandMeta<'_>)> = visible
         .iter()
         .map(|sub| {
@@ -1334,6 +1356,16 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
             .then_with(|| a.0.cmp(&b.0))
     });
 
+    // One column for the page, not for the section: a CLI that groups its commands reads as one
+    // table with rules through it, which is what the flag list already does.
+    let show_help = !meta.cmd.disable_help_subcommand;
+    let col = lines
+        .iter()
+        .map(|(_, sub)| sub.cmd.name.chars().count())
+        .chain(show_help.then(|| HELP_SUBCOMMAND.chars().count()))
+        .max()
+        .unwrap_or(0);
+
     let default_title = meta.subcommand_help_heading.unwrap_or("Commands");
     let mut headings = vec![None];
     for (_, sub) in &lines {
@@ -1345,56 +1377,73 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
     for heading in headings {
         let title = heading.unwrap_or(default_title);
         let _ = writeln!(out, "\n{title}:");
-        for (usage, sub) in lines
+        // A `help_heading` on a subcommand builds a section like a flag's does, so it takes
+        // prose on the same terms: the long page only, and only once declared.
+        if long {
+            if let Some(prose) = heading.and_then(|title| heading_help(meta, title)) {
+                write_indented(out, prose, 2);
+                out.push('\n');
+            }
+        }
+        for (_, sub) in lines
             .iter()
             .filter(|(_, sub)| command_help_section(sub, default_title) == heading)
         {
-            let _ = write!(out, "  {usage}");
-            // Visible aliases only: a hidden alias works and is not advertised, which is the
-            // whole of the distinction.
-            let visible_aliases: Vec<&str> = sub
-                .cmd
-                .aliases
-                .iter()
-                .copied()
-                .filter(|a| !sub.hidden_aliases.contains(a))
-                .collect();
-            if !visible_aliases.is_empty() {
-                let _ = write!(out, " [aliases: {}]", visible_aliases.join(", "));
-            }
-            if let Some(about) = sub.about {
-                if meta.next_line_help {
-                    out.push('\n');
-                    write_indented(out, about.trim_end(), 4);
-                    continue;
-                }
-                // The row writes its own newline below. Trim trailing whitespace in both
-                // layouts, as usage-lib does before choosing a layout.
-                let _ = write!(out, "  {}", about.trim_end());
-            }
-            if let Some(label) = deprecation_label(
-                sub.deprecated,
-                sub.deprecated_warn_at,
-                sub.deprecated_remove_at,
-            ) {
-                let _ = write!(out, "  {label}");
-            }
-            out.push('\n');
+            entry(
+                out,
+                sub.cmd.name,
+                command_row(sub).as_deref(),
+                col,
+                width,
+                meta.next_line_help,
+            );
         }
-        if heading.is_none() && !meta.cmd.disable_help_subcommand {
-            if meta.next_line_help {
-                let _ = writeln!(
-                    out,
-                    "  help\n    Print this message or the help of the given subcommand(s)"
-                );
-            } else {
-                let _ = writeln!(
-                    out,
-                    "  help  Print this message or the help of the given subcommand(s)"
-                );
-            }
+        if heading.is_none() && show_help {
+            entry(
+                out,
+                HELP_SUBCOMMAND,
+                Some(HELP_SUBCOMMAND_SUMMARY),
+                col,
+                width,
+                meta.next_line_help,
+            );
         }
     }
+}
+
+/// Everything that follows a command's name in its parent's list, as one string.
+///
+/// Aliases and deprecation trail the summary rather than sitting beside the name, so they wrap
+/// with the text instead of pushing every description out of the column.
+fn command_row(sub: &CommandMeta<'_>) -> Option<String> {
+    let mut parts: Vec<String> = Vec::new();
+    // A command that wrote only a long description still has a summary: its first line. Both
+    // pages read the same one, so `-h` never says less about a command than `--help` does.
+    let summary = summarize(sub.about)
+        .or_else(|| summarize(sub.long_about.and_then(|about| about.lines().next())));
+    if let Some(summary) = summary {
+        parts.push(summary.to_string());
+    }
+    // Visible aliases only: a hidden alias works and is not advertised, which is the whole of
+    // the distinction.
+    let visible_aliases: Vec<&str> = sub
+        .cmd
+        .aliases
+        .iter()
+        .copied()
+        .filter(|a| !sub.hidden_aliases.contains(a))
+        .collect();
+    if !visible_aliases.is_empty() {
+        parts.push(format!("[aliases: {}]", visible_aliases.join(", ")));
+    }
+    if let Some(label) = deprecation_label(
+        sub.deprecated,
+        sub.deprecated_warn_at,
+        sub.deprecated_remove_at,
+    ) {
+        parts.push(label);
+    }
+    (!parts.is_empty()).then(|| parts.join(" "))
 }
 
 fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
@@ -1941,7 +1990,13 @@ fn long_sections(
     usage_section(&mut sections.usage, spec, path, meta);
 
     if !meta.flatten_help {
-        long_commands_section(&mut sections.commands, &path[1.min(path.len())..], meta);
+        commands_section(
+            &mut sections.commands,
+            &path[1.min(path.len())..],
+            meta,
+            width,
+            true,
+        );
     }
 
     // One column width per section, over its visible entries — the same two the reference
@@ -2243,6 +2298,11 @@ fn admonitions(out: &mut String, blocks: &[AdmonitionMeta<'_>]) {
     }
 }
 
+/// A description reduced to what a list can show, or nothing if it says nothing.
+fn summarize(text: Option<&str>) -> Option<&str> {
+    text.map(str::trim_end).filter(|text| !text.is_empty())
+}
+
 fn deprecation_label(
     message: Option<&str>,
     warn_at: Option<&str>,
@@ -2303,82 +2363,6 @@ fn flag_notes(out: &mut String, meta: &FlagMeta<'_>, indent: usize) {
         meta.deprecated_remove_at,
     ) {
         let _ = writeln!(out, "{}{label}", " ".repeat(indent));
-    }
-}
-
-/// The commands list, with each command's help beneath its usage.
-fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
-    let mut visible: Vec<&&CommandMeta<'_>> = meta.subcommands.iter().filter(|c| !c.hide).collect();
-    order_commands(&mut visible);
-    if visible.is_empty() {
-        return;
-    }
-    let mut lines: Vec<(String, &&CommandMeta<'_>)> = visible
-        .iter()
-        .map(|sub| {
-            let mut sub_path: Vec<&str> = path.to_vec();
-            sub_path.push(sub.cmd.name);
-            (usage_line(&sub_path, sub), *sub)
-        })
-        .collect();
-    lines.sort_unstable_by(|a, b| {
-        a.1.display_order
-            .unwrap_or(999)
-            .cmp(&b.1.display_order.unwrap_or(999))
-            .then_with(|| a.0.cmp(&b.0))
-    });
-
-    let default_title = meta.subcommand_help_heading.unwrap_or("Commands");
-    let mut headings = vec![None];
-    for (_, sub) in &lines {
-        let heading = command_help_section(sub, default_title);
-        if !headings.contains(&heading) {
-            headings.push(heading);
-        }
-    }
-    for heading in headings {
-        let title = heading.unwrap_or(default_title);
-        let _ = writeln!(out, "\n{title}:");
-        // A `help_heading` on a subcommand builds a section like a flag's does, so it takes
-        // prose on the same terms: the long page only, and only once declared.
-        if let Some(prose) = heading.and_then(|title| heading_help(meta, title)) {
-            write_indented(out, prose, 2);
-            out.push('\n');
-        }
-        for (usage, sub) in lines
-            .iter()
-            .filter(|(_, sub)| command_help_section(sub, default_title) == heading)
-        {
-            let _ = write!(out, "  {usage}");
-            let visible_aliases: Vec<&str> = sub
-                .cmd
-                .aliases
-                .iter()
-                .copied()
-                .filter(|a| !sub.hidden_aliases.contains(a))
-                .collect();
-            if !visible_aliases.is_empty() {
-                let _ = write!(out, " [aliases: {}]", visible_aliases.join(", "));
-            }
-            out.push('\n');
-            if let Some(about) = sub.long_about.or(sub.about) {
-                // Trailing whitespace trimmed: the blank line after each entry is written below, and
-                // a description that happens to end in a newline — which clap's `long_about` often
-                // does, reaching the spec verbatim — added a second one and left a stray blank in
-                // the middle of the list.
-                write_indented(out, about.trim_end(), 4);
-            }
-            command_deprecation(out, sub, 4);
-            // A blank line between entries, which the wider layout can afford and which keeps a
-            // multi-line description from running into the next command's name.
-            out.push('\n');
-        }
-        if heading.is_none() && !meta.cmd.disable_help_subcommand {
-            let _ = writeln!(
-                out,
-                "  help\n    Print this message or the help of the given subcommand(s)"
-            );
-        }
     }
 }
 
@@ -3665,10 +3649,10 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        commands_section(&mut page, &[], &root_meta);
+        commands_section(&mut page, &[], &root_meta, 80, false);
 
-        assert!(page.contains("  run  run it\n  help"));
-        assert!(!page.contains("  run  run it\n\n  help"));
+        assert!(page.contains("  run   run it\n  help"));
+        assert!(!page.contains("  run   run it\n\n  help"));
     }
 
     #[test]

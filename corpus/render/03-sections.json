@@ -120,7 +120,7 @@
     },
     {
       "id": "commands-list-with-aliases",
-      "doc": "Subcommands are listed by their rendered usage with visible aliases beside them; a hidden alias works and is not advertised. Note the supplied `help` entry, which is written flush rather than into the column the declared commands share — the reference's behaviour, pinned here so that fixing it is a decision rather than an accident.",
+      "doc": "Subcommands are listed by name in one column, with the summary after it and the aliases after that; a hidden alias works and is not advertised. The supplied `help` entry sits in the same column as the declared commands, because it is a row like any other.",
       "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\ncmd \"install\" help=\"Install a tool\" {\n    alias \"i\"\n    alias \"add\" hide=#true\n    arg \"<TOOL>\"\n}\ncmd \"remove\" help=\"Remove a tool\" hide=#true\n",
       "expect": {
         "usage": "ex <SUBCOMMAND>",
@@ -130,8 +130,8 @@
           "Usage: ex <SUBCOMMAND>",
           "",
           "Commands:",
-          "  install <TOOL> [aliases: i]  Install a tool",
-          "  help  Print this message or the help of the given subcommand(s)",
+          "  install  Install a tool [aliases: i]",
+          "  help     Print this message or the help of the given subcommand(s)",
           "",
           "Flags:",
           "  -h, --help  Print help"
@@ -204,7 +204,7 @@
           "Usage: ex [--shown] [shown] <SUBCOMMAND>",
           "",
           "Commands:",
-          "  go  Go",
+          "  go    Go",
           "  help  Print this message or the help of the given subcommand(s)",
           "",
           "Arguments:",
