@@ -42,7 +42,7 @@ class Build:
         self._runner = runner
 
     def exec(self, args: BuildArgs, flags: Optional[BuildFlags] = None) -> CliResult:
-        """build [-j --jobs… <n>] [--release] <target> <-- output>"""
+        """build [-j --jobs <n>] [--release] <target> <-- output>"""
         cmd_args: list[str] = ["build"]
         if args.target is not None: cmd_args.append(str(args.target))
         cmd_args.append("--")

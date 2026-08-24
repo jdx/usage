@@ -29,7 +29,7 @@ command line does not parse: the report succeeded, and that is the case worth a 
   **Default:** `text`
 
 - **`--view <VIEW>`** — A spec-declared executable view to explain
-- **`-e --env… <ENV>`** — Environment to explain against, as KEY=VALUE, repeatable
+- **`-e --env <ENV>`** — Environment to explain against, as KEY=VALUE, repeatable
 
   Given at all, these are the _whole_ environment: an explanation pasted into a bug report has to mean the same thing on the machine that reads it. Omitted, the process environment is used, which is what an execution would see.
 

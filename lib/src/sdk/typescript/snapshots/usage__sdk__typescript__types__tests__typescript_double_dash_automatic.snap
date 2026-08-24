@@ -15,7 +15,7 @@ export class Runner {
     this.runner = new CliRunner(binPath ?? "runner");
     this.run = new Run(this.runner);
   }
-  /** [--verbose…] <input> <extra>… <SUBCOMMAND> */
+  /** [--verbose] <input> <extra>… <SUBCOMMAND> */
   async exec(args: RunnerArgs, flags?: RunnerFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     if (args.input !== undefined) { cmdArgs.push(String(args.input)); }

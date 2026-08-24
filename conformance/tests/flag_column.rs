@@ -15,6 +15,7 @@
 //! there is a long form to line up with. `-j <JOBS>` has none, so it does not pad; that is
 //! clap's behaviour and not an oversight in it.
 
+use usage::docs::markdown::MarkdownRenderer;
 use usage_argv::help;
 use usage_derive::Cli;
 
@@ -37,6 +38,49 @@ struct Ex {
     /// Its description is long enough to need wrapping at any sane width
     #[usage(long)]
     describe: bool,
+}
+
+#[derive(Cli)]
+#[usage(bin = "repeat")]
+#[allow(dead_code)]
+struct Repeatable {
+    /// A repeatable value
+    #[usage(short = 'A', long, value_name = "NAME")]
+    allow: Vec<String>,
+    /// Repeatable verbosity
+    #[usage(long, count)]
+    verbose: u8,
+}
+
+#[test]
+fn repeatable_flags_have_ordinary_spellings_in_every_rendered_format() {
+    for long in [false, true] {
+        let compiled =
+            help::render(Repeatable::spec(), Repeatable::spec().root.cmd, long).expect("a page");
+        assert!(
+            compiled.contains("-A, --allow <NAME>"),
+            "long={long}: {compiled}"
+        );
+        assert!(compiled.contains("--verbose"), "long={long}: {compiled}");
+        assert!(!compiled.contains('…'), "long={long}: {compiled}");
+
+        let spec: usage::Spec = Repeatable::to_kdl().parse().expect("generated spec");
+        let allow = spec
+            .cmd
+            .flags
+            .iter()
+            .find(|flag| flag.name == "allow")
+            .expect("generated spec should contain allow");
+        assert!(allow.var, "allow must remain repeatable in generated spec");
+        let reference = usage::docs::cli::render_help(&spec, &spec.cmd, long);
+        assert_eq!(reference, compiled);
+
+        let markdown = MarkdownRenderer::new(spec.clone())
+            .render_cmd(&spec.cmd)
+            .expect("markdown page");
+        assert!(markdown.contains("-A --allow <NAME>"), "{markdown}");
+        assert!(!markdown.contains('…'), "{markdown}");
+    }
 }
 
 fn page(long: bool) -> String {

@@ -14,7 +14,7 @@ class Runner:
         self.run = Run(self._runner)
 
     def exec(self, args: RunnerArgs, flags: Optional[RunnerFlags] = None) -> CliResult:
-        """[--verbose…] <input> <extra>… <SUBCOMMAND>"""
+        """[--verbose] <input> <extra>… <SUBCOMMAND>"""
         cmd_args: list[str] = []
         if args._input is not None: cmd_args.append(str(args._input))
         if args.extra is not None: cmd_args.extend(args.extra)

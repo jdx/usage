@@ -1051,9 +1051,6 @@ fn reference_usage(flag: &crate::SpecFlag) -> String {
         forms.insert(0, format!("{}:", flag.name));
     }
     let mut usage = forms.join(" ");
-    if flag.var {
-        usage.push('…');
-    }
     if let Some(arg) = &flag.arg {
         let arg_usage = arg.usage();
         if flag.require_equals && (flag.value_optional || !arg.required) {

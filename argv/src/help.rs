@@ -887,8 +887,8 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     // spec does not.
     //
     // Judged on the forms this page is *showing*. mise's root has a global `-E --env`; a
-    // descendant that claims `--env` leaves `-E` inherited, and `-E… <ENV>` alone gives a
-    // reader nothing to connect it to the `--env` they saw elsewhere. `env: -E… <ENV>` does.
+    // descendant that claims `--env` leaves `-E` inherited, and `-E <ENV>` alone gives a
+    // reader nothing to connect it to the `--env` they saw elsewhere. `env: -E <ENV>` does.
     let long = show.long;
     let short = show.short.as_ref();
     let implied = long.or_else(|| short.map(|_| ""));
@@ -919,11 +919,6 @@ fn flag_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
         let _ = write!(out, "--{long}");
     }
 
-    // A repeatable flag, which is the spec's `var=#true` — not one occurrence taking several
-    // values, which is the value's own business below.
-    if meta.repeatable {
-        out.push('…');
-    }
     if flag.takes_value {
         // Angled where the value must be given, squared where it need not — the same brackets
         // an argument uses, and for the same reason. pitchfork's `--bump` is the fleet's case.

@@ -52,7 +52,7 @@ export class Build {
     this.runner = runner;
   }
   /**
-   * build [-j --jobs… <n>] [--release] <target> <-- output>
+   * build [-j --jobs <n>] [--release] <target> <-- output>
    * @example Build in release mode
    * ```bash
    * mytool build --release target
