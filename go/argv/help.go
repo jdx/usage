@@ -37,8 +37,8 @@ type Help struct {
 	// drag the post-binding table in with it — which would undo the whole reason
 	// these are separate.
 	Demanded bool
-	// Repeatable is the spec's `var` on a flag: the `…` in `--tag… <t>`, meaning
-	// the flag may be given again, not that one occurrence takes several values.
+	// Repeatable is the spec's `var` on a flag, meaning the flag may be given
+	// again, not that one occurrence takes several values.
 	Repeatable bool
 	// ValueName is what a flag's value is called. Empty for a flag that takes
 	// none.
@@ -279,11 +279,6 @@ func flagUsageShown(f *Flag, show shown, h *Help) string {
 		out.WriteString("--" + long)
 	}
 
-	// A repeatable flag, which is the spec's `var` — not one occurrence taking
-	// several values, which is the value's own business below.
-	if h != nil && h.Repeatable {
-		out.WriteString("…")
-	}
 	if f.TakesValue {
 		name := f.Name
 		if h != nil && h.ValueName != "" {

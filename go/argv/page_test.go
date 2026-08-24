@@ -69,6 +69,24 @@ func TestHiddenFlagAliasesStayOutOfHelp(t *testing.T) {
 	}
 }
 
+func TestRepeatableFlagUsesOrdinarySpelling(t *testing.T) {
+	flag := &Flag{Key: 2, Name: "allow", Longs: []string{"allow"}, Shorts: []byte{'A'}, TakesValue: true}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{flag}}
+	help := HelpTable{{Key: 1}, {Key: 2, Repeatable: true, ValueName: "NAME", ValueDemanded: true}}
+
+	for _, page := range []string{
+		ShortHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+		LongHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+	} {
+		if !strings.Contains(page, "-A, --allow <NAME>") {
+			t.Errorf("repeatable flag should use ordinary spelling:\n%s", page)
+		}
+		if strings.Contains(page, "--allow…") {
+			t.Errorf("repeatability marker should be omitted:\n%s", page)
+		}
+	}
+}
+
 func TestFixedArityHelpKeepsDistinctValueNames(t *testing.T) {
 	flag := &Flag{Key: 2, Name: "range", Longs: []string{"range"}, TakesValue: true, Variadic: true}
 	arg := &Arg{Key: 3, Name: "PAIR", Var: true}
