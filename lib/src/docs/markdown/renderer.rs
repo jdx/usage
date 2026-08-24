@@ -27,6 +27,16 @@ pub enum MarkdownTemplate {
     Config,
 }
 
+/// The built-in presentation used for generated Markdown.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum MarkdownTheme {
+    /// Dense grouped lists intended for scanning a large command reference.
+    #[default]
+    Compact,
+    /// Give every argument and flag its own addressable heading and detail block.
+    Detailed,
+}
+
 impl MarkdownTemplate {
     fn name(self) -> &'static str {
         match self {
@@ -45,7 +55,7 @@ static SGR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\x1b\[[0-?]*[ -/]*[@
 /// A backtick span, or a bare `<` outside one.
 static CODE_SPAN_OR_LT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(`[^`]*`)|(<)").unwrap());
 
-fn escape_md(value: &str, html_encode: bool) -> String {
+fn escape_md_with_indent(value: &str, html_encode: bool, indent: bool) -> String {
     let mut in_fenced_code_block = false;
     // Help text is allowed to contain terminal styling. clap-era applications commonly build
     // their examples with `color_print::cstr!`, which embeds SGR sequences even when color is
@@ -55,42 +65,52 @@ fn escape_md(value: &str, html_encode: bool) -> String {
 
     value
         .lines()
-        .map(|line| {
-            if !html_encode {
-                return line.to_string();
-            }
-            // Indented code is handled before fence state. This is safe because
-            // `replace_code_fences` always emits closing fences at column zero.
-            if line.starts_with("    ") {
-                return line.to_string();
-            }
-            if in_fenced_code_block {
-                if line.trim_end() == "```" {
-                    in_fenced_code_block = false;
-                }
-                return line.to_string();
-            }
-            // Support the conventional fence shape emitted by `replace_code_fences`
-            // without attempting to parse the full Markdown specification.
-            if line
-                .strip_prefix("```")
-                .is_some_and(|suffix| !suffix.starts_with('`'))
-            {
-                in_fenced_code_block = true;
-                return line.to_string();
-            }
-            // replace '<' with '&lt;' but not inside code blocks
-            CODE_SPAN_OR_LT
-                .replace_all(line, |caps: &regex::Captures| {
-                    if caps.get(1).is_some() {
-                        caps.get(1).unwrap().as_str().to_string()
-                    } else {
-                        "&lt;".to_string()
+        .enumerate()
+        .map(|(index, line)| {
+            let line = if !html_encode {
+                line.to_string()
+            } else {
+                // Indented code is handled before fence state. This is safe because
+                // `replace_code_fences` always emits closing fences at column zero.
+                if line.starts_with("    ") {
+                    line.to_string()
+                } else if in_fenced_code_block {
+                    if line.trim_end() == "```" {
+                        in_fenced_code_block = false;
                     }
-                })
-                .to_string()
+                    line.to_string()
+                // Support the conventional fence shape emitted by `replace_code_fences`
+                // without attempting to parse the full Markdown specification.
+                } else if line
+                    .strip_prefix("```")
+                    .is_some_and(|suffix| !suffix.starts_with('`'))
+                {
+                    in_fenced_code_block = true;
+                    line.to_string()
+                } else {
+                    // replace '<' with '&lt;' but not inside code blocks
+                    CODE_SPAN_OR_LT
+                        .replace_all(line, |caps: &regex::Captures| {
+                            if caps.get(1).is_some() {
+                                caps.get(1).unwrap().as_str().to_string()
+                            } else {
+                                "&lt;".to_string()
+                            }
+                        })
+                        .to_string()
+                }
+            };
+            if indent && index > 0 && !line.is_empty() {
+                format!("  {line}")
+            } else {
+                line
+            }
         })
         .join("\n")
+}
+
+fn escape_md(value: &str, html_encode: bool) -> String {
+    escape_md_with_indent(value, html_encode, false)
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +130,7 @@ pub struct MarkdownRenderer {
     url_prefix: Option<String>,
     html_encode: bool,
     replace_pre_with_code_fences: bool,
+    theme: MarkdownTheme,
     templates: Vec<(MarkdownTemplate, String)>,
 }
 
@@ -123,6 +144,7 @@ impl MarkdownRenderer {
             url_prefix: None,
             html_encode: true,
             replace_pre_with_code_fences: false,
+            theme: MarkdownTheme::default(),
             templates: Vec::new(),
         };
         let mut spec = renderer.spec.clone();
@@ -186,6 +208,12 @@ impl MarkdownRenderer {
         self
     }
 
+    /// Select a built-in Markdown presentation.
+    pub fn with_theme(mut self, theme: MarkdownTheme) -> Self {
+        self.theme = theme;
+        self
+    }
+
     /// Replace one built-in Markdown template.
     ///
     /// Templates use [Tera](https://keats.github.io/tera/). A replacement may include any of the
@@ -226,7 +254,10 @@ impl MarkdownRenderer {
         template_name: &str,
         enrich: impl FnOnce(&mut tera::Context),
     ) -> Result<String, UsageErr> {
-        let mut tera = TERA.clone();
+        let mut tera = match self.theme {
+            MarkdownTheme::Compact => TERA.clone(),
+            MarkdownTheme::Detailed => crate::docs::markdown::tera::DETAILED_TERA.clone(),
+        };
 
         for (template, source) in &self.templates {
             tera.add_raw_template(template.name(), source)?;
@@ -242,6 +273,16 @@ impl MarkdownRenderer {
                 let value = value.as_str().unwrap();
                 let value = escape_md(value, html_encode);
                 Ok(value)
+            },
+        );
+        tera.register_filter(
+            "escape_md_indented",
+            move |value: &tera::Value,
+                  _: tera::Kwargs,
+                  _: &tera::State|
+                  -> tera::TeraResult<String> {
+                let value = value.as_str().unwrap();
+                Ok(escape_md_with_indent(value, html_encode, true))
             },
         );
 
@@ -347,7 +388,7 @@ mod tests {
             .unwrap();
 
         assert!(page.starts_with("# Custom ex\n"), "{page}");
-        assert!(page.contains("### `--force`"), "{page}");
+        assert!(page.contains("- **`--force`**"), "{page}");
     }
 
     #[test]
@@ -371,5 +412,33 @@ mod tests {
             .unwrap_err();
 
         assert!(err.to_string().contains("template"), "{err}");
+    }
+
+    #[test]
+    fn the_detailed_theme_keeps_addressable_entry_headings() {
+        let spec = "bin \"ex\"\nflag \"--force\" help=\"Do it anyway\"\n"
+            .parse()
+            .unwrap();
+        let page = MarkdownRenderer::new(spec)
+            .with_theme(super::MarkdownTheme::Detailed)
+            .render_spec()
+            .unwrap();
+
+        assert!(page.contains("### `--force`"), "{page}");
+    }
+
+    #[test]
+    fn entry_template_overrides_apply_to_the_compact_theme() {
+        let spec = "bin \"ex\"\narg \"<file>\"\nflag \"--force\"\n"
+            .parse()
+            .unwrap();
+        let page = MarkdownRenderer::new(spec)
+            .with_template(MarkdownTemplate::Argument, "argument: {{ arg.usage }}")
+            .with_template(MarkdownTemplate::Flag, "flag: {{ flag.usage }}")
+            .render_spec()
+            .unwrap();
+
+        assert!(page.contains("argument: <file>"), "{page}");
+        assert!(page.contains("flag: --force"), "{page}");
     }
 }

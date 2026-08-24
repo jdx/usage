@@ -10,24 +10,11 @@ Execute a script, parsing args and exposing them as environment variables
 
 ## Arguments
 
-### `<COMMAND>`
-
-command to execute after parsing usage spec
-
-### `<BIN>`
-
-path to script to execute
-
-### `[ARGS]…`
-
-arguments to pass to script
+- **`<COMMAND>`** — command to execute after parsing usage spec
+- **`<BIN>`** — path to script to execute
+- **`[ARGS]…`** — arguments to pass to script
 
 ## Flags
 
-### `-h`
-
-Show help
-
-### `--help`
-
-Show help
+- **`-h`** — Show help
+- **`--help`** — Show help

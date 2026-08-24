@@ -1,4 +1,4 @@
-use usage::docs::markdown::MarkdownRenderer;
+use usage::docs::markdown::{MarkdownRenderer, MarkdownTheme};
 use usage_argv::help;
 use usage_derive::{Args, Cli, Subcommands};
 
@@ -85,16 +85,29 @@ fn semantic_blocks_adapt_to_terminal_help_and_markdown() {
         "{portable_terminal}"
     );
 
-    let markdown = MarkdownRenderer::new(spec.clone())
+    let compact = MarkdownRenderer::new(spec.clone())
         .render_cmd(&spec.cmd)
         .expect("markdown page");
     assert!(
-        markdown.contains("> **Note:** Only changes import resolution."),
-        "{markdown}"
+        compact.contains("  > **Note:** Only changes import resolution."),
+        "{compact}"
     );
     assert!(
-        markdown.contains("> **Warning:** Type-aware linting discovers its own configuration."),
-        "{markdown}"
+        compact.contains("  > **Warning:** Type-aware linting discovers its own configuration."),
+        "{compact}"
+    );
+
+    let detailed = MarkdownRenderer::new(spec.clone())
+        .with_theme(MarkdownTheme::Detailed)
+        .render_cmd(&spec.cmd)
+        .expect("detailed markdown page");
+    assert!(
+        detailed.contains("> **Note:** Only changes import resolution."),
+        "{detailed}"
+    );
+    assert!(
+        detailed.contains("> **Warning:** Type-aware linting discovers its own configuration."),
+        "{detailed}"
     );
 }
 
@@ -139,11 +152,20 @@ fn semantic_blocks_survive_flattened_and_nested_value_layouts() {
         "{portable_terminal:?}"
     );
 
-    let markdown = MarkdownRenderer::new(spec.clone())
+    let compact = MarkdownRenderer::new(spec.clone())
         .render_cmd(&spec.cmd)
         .expect("markdown page");
     assert!(
-        markdown.contains("> **Note:** Nested value first.\n> \n> Nested value last."),
-        "{markdown:?}"
+        compact.contains("  > **Note:** Nested value first.\n  > \n  > Nested value last."),
+        "{compact:?}"
+    );
+
+    let detailed = MarkdownRenderer::new(spec.clone())
+        .with_theme(MarkdownTheme::Detailed)
+        .render_cmd(&spec.cmd)
+        .expect("detailed markdown page");
+    assert!(
+        detailed.contains("> **Note:** Nested value first.\n> \n> Nested value last."),
+        "{detailed:?}"
     );
 }

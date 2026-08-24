@@ -13,36 +13,17 @@ This is used internally by shell completion scripts to provide intelligent compl
 
 ## Arguments
 
-### `[WORDS]…`
-
-User's input from the command line
+- **`[WORDS]…`** — User's input from the command line
 
 ## Flags
 
-### `-f --file <FILE>`
+- **`-f --file <FILE>`** — Usage spec file or script with usage shebang, use "-" to read from stdin
+- **`-s --spec <SPEC>`** — Raw string spec input
+- **`--cword <CWORD>`** — Current word index
+- **`--shell <SHELL>`**
 
-Usage spec file or script with usage shebang, use "-" to read from stdin
+  **Choices:** `bash`, `fish`, `nu`, `powershell`, `zsh`
 
-### `-s --spec <SPEC>`
+  **Default:** `bash`
 
-Raw string spec input
-
-### `--cword <CWORD>`
-
-Current word index
-
-### `--shell <SHELL>`
-
-**Choices:**
-
-- `bash`
-- `fish`
-- `nu`
-- `powershell`
-- `zsh`
-
-**Default:** `bash`
-
-### `-h --help`
-
-Print help
+- **`-h --help`** — Print help

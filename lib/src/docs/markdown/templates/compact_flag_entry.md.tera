@@ -1,0 +1,49 @@
+- **`{{ flag.usage }}`**{% if flag.help_md %} — {{ flag.help_md | escape_md_indented }}{% endif %}
+{%- if flag.admonitions %}
+{%- for admonition in flag.admonitions %}
+
+  > **{% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}:** {{ admonition.text | escape_md | replace(from="\n", to="\n  > ") }}
+{%- endfor %}
+{%- endif %}
+{%- if flag.arg and flag.arg.admonitions %}
+{%- for admonition in flag.arg.admonitions %}
+
+  > **{% if admonition.kind == "warning" %}Warning{% else %}Note{% endif %}:** {{ admonition.text | escape_md | replace(from="\n", to="\n  > ") }}
+{%- endfor %}
+{%- endif %}
+{%- if flag.aliases %}
+
+  **Aliases:** {% for alias in flag.aliases %}`{{ alias }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif %}
+{%- if flag.effect %}
+
+  **Effect:** {% if flag.effect == "read" %}read-only{% elif flag.effect == "destructive" %}destructive — may delete or irreversibly overwrite{% else %}modifies state{% endif %}
+{%- endif %}
+{%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
+
+  **Deprecated:**{% if flag.deprecated %} {{ flag.deprecated }}{% if flag.deprecated_warn_at or flag.deprecated_remove_at %};{% endif %}{% endif %}{% if flag.deprecated_warn_at %} Warns at {{ flag.deprecated_warn_at }}.{% endif %}{% if flag.deprecated_remove_at %} Removed at {{ flag.deprecated_remove_at }}.{% endif %}
+{%- endif %}
+{%- if flag.arg.choices and flag.arg.choices.choices %}
+
+  **Choices:** {% for choice in flag.arg.choices.choices %}`{{ choice }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif %}
+{%- if flag.arg.choices and flag.arg.choices.env %}
+
+  **Choices Environment Variable:** `{{ flag.arg.choices.env }}`
+{%- endif %}
+{%- if flag.default | length > 0 %}
+
+  **Default:** {% for value in flag.default %}`{{ value }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif %}
+{%- if flag.env %}
+
+  **Environment Variable:** `{{ flag.env }}`
+{%- endif %}
+{%- if flag.env_fallback | length > 0 %}
+
+  **Environment Fallbacks:** {% for env in flag.env_fallback %}`{{ env }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif %}
+{%- if flag.deprecated_env | length > 0 %}
+
+  **Deprecated Environment Variables:** {% for env in flag.deprecated_env %}`{{ env }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endif %}

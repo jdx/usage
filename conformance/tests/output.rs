@@ -11,7 +11,10 @@
 //! - selection is resolved on the way through, so the flag that picks an output arrives at
 //!   usage-lib already knowing which values it accepts.
 
-use usage::Spec as LibSpec;
+use usage::{
+    docs::markdown::{MarkdownRenderer, MarkdownTheme},
+    Spec as LibSpec,
+};
 use usage_derive::{Args, Cli, Subcommands};
 
 /// Check the project
@@ -194,19 +197,30 @@ fn a_name_and_a_framing_are_different_things() {
 }
 
 #[test]
-fn a_media_type_without_a_selector_starts_a_markdown_list() {
+fn a_media_type_without_a_selector_renders_in_both_markdown_themes() {
     let spec: LibSpec = r#"
 name "ex"
 output "xml" media_type="application/xml"
 "#
     .parse()
     .expect("standalone output spec");
-    let markdown = usage::docs::markdown::MarkdownRenderer::new(spec.clone())
+    let compact = MarkdownRenderer::new(spec.clone())
         .render_cmd(&spec.cmd)
         .expect("markdown page");
     assert!(
-        markdown.contains("`xml`\n\n- **Media type**: `application/xml`"),
-        "{markdown}"
+        compact.contains(
+            "- **`xml`**\n\n  **Framing:** `text`\n\n  **Media type:** `application/xml`"
+        ),
+        "{compact}"
+    );
+
+    let detailed = MarkdownRenderer::new(spec.clone())
+        .with_theme(MarkdownTheme::Detailed)
+        .render_cmd(&spec.cmd)
+        .expect("detailed markdown page");
+    assert!(
+        detailed.contains("`xml`\n\n- **Media type**: `application/xml`"),
+        "{detailed}"
     );
 }
 
