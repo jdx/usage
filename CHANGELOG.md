@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.3.0](https://github.com/jdx/usage/compare/v6.2.0..v6.3.0) - 2026-08-24
+
+### 🚀 Features
+
+- **(spec)** render heading prose in the Go help renderer by [@jdx](https://github.com/jdx) in [#1290](https://github.com/jdx/usage/pull/1290)
+
+### 🐛 Bug Fixes
+
+- **(cli)** keep long entries from widening help columns by [@jdx](https://github.com/jdx) in [#1293](https://github.com/jdx/usage/pull/1293)
+- **(cli)** omit repeatability markers from output by [@jdx](https://github.com/jdx) in [#1295](https://github.com/jdx/usage/pull/1295)
+
 ## [6.2.0](https://github.com/jdx/usage/compare/v6.1.1..v6.2.0) - 2026-08-24
 
 ### 🚀 Features
