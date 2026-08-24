@@ -354,7 +354,14 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 	for key, b := range got {
 		order[key] = b.at
 	}
+	// Kept even though the binding is dropped: a loser is not judged on what it
+	// *holds* — it holds nothing — but the words it was typed are still its own,
+	// and `choices` is asked about them below.
+	displaced := map[uint64][]string{}
 	for key := range argv.ApplyOverrides(meta, order) {
+		if b := got[key]; b != nil {
+			displaced[key] = b.values
+		}
 		delete(got, key)
 		lost[key] = true
 	}
@@ -397,20 +404,29 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 		return r
 	}
 
+	// Every entry the command declares, in declaration order, losers included.
+	// `scope` is what has a final state to compare and fill; this is the order the
+	// per-entry pass reports failures in, and a loser has one question left to
+	// answer even though it has no state.
+	var ordered []uint64
+
 	for _, cmd := range path {
 		for _, f := range cmd.Flags {
+			ordered = append(ordered, f.Key)
 			// A flag that lost an override is out of the running rather than
-			// merely absent: it is not filled from `env` or `default`, and it is
-			// not judged either. A `required` loser reported as missing would undo
-			// the last-one-wins the user asked for by typing the other flag, and
-			// usage-lib skips overridden flags in the requirement pass for exactly
-			// that reason.
+			// merely absent: it is not filled from `env` or `default`, and the
+			// rules that judge what it *holds* do not apply. A `required` loser
+			// reported as missing would undo the last-one-wins the user asked for
+			// by typing the other flag, and usage-lib skips overridden flags in the
+			// requirement pass for exactly that reason. Its `choices` are still
+			// asked about the words it was typed — see [argv.CheckDisplaced].
 			if lost[f.Key] {
 				continue
 			}
 			fill(f.Key, f.TakesValue).flag = f
 		}
 		for _, a := range cmd.Args {
+			ordered = append(ordered, a.Key)
 			fill(a.Key, true).arg = a
 		}
 	}
@@ -432,7 +448,16 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 	}
 
 	// What one entry ended up with, judged on its own.
-	for _, key := range scope {
+	for _, key := range ordered {
+		if lost[key] {
+			// Nothing to end up with, so only the words it was typed are left to
+			// judge. In declaration order with the rest, so which failure a line
+			// with more than one fault reports does not depend on who won a pair.
+			if err := argv.CheckDisplaced(meta.Lookup(key), displaced[key]); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		r := final[key]
 		occurrences := r.occurrences
 		if r.arg != nil {

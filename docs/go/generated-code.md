@@ -111,7 +111,9 @@ command's struct is filled with no caller involvement.
 
 Three things `Parse` deliberately does **not** do:
 
-- **`overrides` is not applied.** If your spec uses it, call `argv.ApplyOverrides` yourself.
+- **`overrides` is not applied.** If your spec uses it, call `argv.ApplyOverrides` yourself,
+  then `argv.CheckDisplaced` on each key it reports: losing a pair unsets a flag, it does not
+  unsay the word the flag was given.
 - **Help and version are not printed** — they come back as `*argv.Error` with `CodeHelp` /
   `CodeVersion` for you to render ([Help and errors](/go/help)).
 - **No chain comes back with an error.** The renderers want the command chain; recover it with

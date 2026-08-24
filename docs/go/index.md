@@ -148,7 +148,9 @@ Worth knowing before you commit:
 
 - **`overrides` is not enforced by generated `Parse`.** `conflicts`, `required_if`, and
   `required_unless` are; a spec relying on last-one-wins `overrides` semantics needs to call
-  `argv.ApplyOverrides` itself.
+  `argv.ApplyOverrides` itself, and `argv.CheckDisplaced` on each key it reports — a flag that
+  lost is out of the running for `required`, `env`, and `default`, but the word it was typed is
+  still judged against its `choices`.
 - **Fields are `string`, `bool`, `[]string`, or `int` (for counts).** A spec says what a value is
   called, never what type it is — convert with [`argv.Int`, `argv.Duration`, etc.](/go/binding#typed-values)
 - **`complete` run-scripts, `config` nodes, `group`, `value_hint`, and `mount` are not carried
