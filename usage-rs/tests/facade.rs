@@ -1903,7 +1903,7 @@ fn positional_relationships_parse_and_emit_losslessly() {
         !kdl.contains("arg \"[VALUE]\" conflicts="),
         "several positional conflicts belong only in the child node: {kdl}"
     );
-    assert!(kdl.contains("group input --from-file VALUE"), "{kdl}");
+    assert!(kdl.contains("group input \"--from-file\" VALUE"), "{kdl}");
 }
 
 #[test]
@@ -2424,7 +2424,7 @@ fn native_groups_and_required_flags_survive_flattening() {
     assert!(FlattenedGroupCli::parse_from(&[OsStr::new("--left"), OsStr::new("--right")]).is_err());
     let kdl = FlattenedGroupCli::to_kdl();
     assert!(
-        kdl.contains("group choice --left --right required=#true"),
+        kdl.contains("group choice \"--left\" \"--right\" required=#true"),
         "{kdl}"
     );
     assert!(matches!(

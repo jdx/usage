@@ -1548,6 +1548,20 @@ impl Spec<'_> {
         if let Some(at) = self.root.deprecated_remove_at {
             prop(out, "deprecated_remove_at", at)?;
         }
+        // The text around the page. The root's nodes are written here rather than by
+        // `write_body`, so these had to be repeated — and were not, which left a root's
+        // preamble out of the spec that docs, manpages and completions read. Written in
+        // usage-lib's order, and where usage-lib writes them, so the two documents match.
+        for (node, text) in [
+            ("before_help", self.root.before_help),
+            ("after_help", self.root.after_help),
+            ("before_long_help", self.root.before_long_help),
+            ("after_long_help", self.root.after_long_help),
+        ] {
+            if let Some(text) = text {
+                prop(out, node, text)?;
+            }
+        }
         if let Some(usage) = self.usage {
             prop(out, "usage", usage)?;
         }
@@ -1661,19 +1675,6 @@ impl Spec<'_> {
         // usage CLI, another shell's generator, a doc page — gets a `run=` that works, and this
         // binary answers it without a second program in the way.
 
-        // The text around the page. The root's nodes are written here rather than by
-        // `write_body`, so these had to be repeated — and were not, which left a root's
-        // preamble out of the spec that docs, manpages and completions read.
-        for (node, text) in [
-            ("before_help", self.root.before_help),
-            ("before_long_help", self.root.before_long_help),
-            ("after_help", self.root.after_help),
-            ("after_long_help", self.root.after_long_help),
-        ] {
-            if let Some(text) = text {
-                prop(out, node, text)?;
-            }
-        }
         // The root's own nodes sit at the top level rather than inside a `cmd`
         // block, so they are written here instead of by write_command.
         //
@@ -2057,6 +2058,10 @@ fn write_command<'a>(
     path.push(meta.cmd.name);
     indent(out, depth)?;
     write!(out, "cmd {}", quoted(meta.cmd.name))?;
+    // Before `help`, because usage-lib's writer has it there.
+    if let Some(heading) = meta.help_heading {
+        write!(out, " help_heading={}", quoted(heading))?;
+    }
     if let Some(help) = meta.about {
         write!(out, " help={}", quoted(help))?;
     }
@@ -2071,9 +2076,6 @@ fn write_command<'a>(
     }
     if meta.hide {
         out.push_str(" hide=#true");
-    }
-    if let Some(heading) = meta.help_heading {
-        write!(out, " help_heading={}", quoted(heading))?;
     }
     if let Some(surface) = meta.surface {
         write!(out, " surface={}", quoted(surface))?;
@@ -2224,9 +2226,11 @@ fn write_command<'a>(
 
 fn write_group(out: &mut String, group: &GroupMeta<'_>, depth: usize) -> core::fmt::Result {
     indent(out, depth)?;
-    write!(out, "group {}", quoted(group.name))?;
+    // Node arguments, so a member spelled `--allow` has to be quoted: usage-lib quotes it
+    // for the same reason, and the two documents are compared byte for byte.
+    write!(out, "group {}", quoted_arg(group.name))?;
     for member in group.members {
-        write!(out, " {}", quoted(member))?;
+        write!(out, " {}", quoted_arg(member))?;
     }
     if group.required {
         out.push_str(" required=#true");
