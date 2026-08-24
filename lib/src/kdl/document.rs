@@ -243,7 +243,7 @@ impl KdlDocument {
     }
 
     /// Formats the document according to `config`.
-    pub fn autoformat_config(&mut self, config: &FormatConfig<'_>) {
+    pub(crate) fn autoformat_config(&mut self, config: &FormatConfig<'_>) {
         if let Some(KdlDocumentFormat { leading, .. }) = (*self).format_mut() {
             crate::kdl::fmt::autoformat_leading(leading, config);
         }
@@ -260,94 +260,9 @@ impl KdlDocument {
         };
     }
 
-    // TODO(@zkat): These should all be moved into the query module itself,
-    // instead of being methods on the models
-    //
-    // /// Queries this Document's children according to the KQL query language,
-    // /// returning an iterator over all matching nodes.
-    // ///
-    // /// # NOTE
-    // ///
-    // /// Any query selectors that try to select the toplevel `scope()` will
-    // /// fail to match when using this method, since there's no [`KdlNode`] to
-    // /// return in this case.
-    // pub fn query_all(
-    //     &self,
-    //     query: impl IntoKdlQuery,
-    // ) -> Result<KdlQueryIterator<'_>, KdlDiagnostic> {
-    //     let parsed = query.into_query()?;
-    //     Ok(KdlQueryIterator::new(None, Some(self), parsed))
-    // }
-
-    // /// Queries this Document's children according to the KQL query language,
-    // /// returning the first match, if any.
-    // ///
-    // /// # NOTE
-    // ///
-    // /// Any query selectors that try to select the toplevel `scope()` will
-    // /// fail to match when using this method, since there's no [`KdlNode`] to
-    // /// return in this case.
-    // pub fn query(&self, query: impl IntoKdlQuery) -> Result<Option<&KdlNode>, KdlDiagnostic> {
-    //     let mut iter = self.query_all(query)?;
-    //     Ok(iter.next())
-    // }
-
-    // /// Queries this Document's children according to the KQL query language,
-    // /// picking the first match, and calling `.get(key)` on it, if the query
-    // /// succeeded.
-    // ///
-    // /// # NOTE
-    // ///
-    // /// Any query selectors that try to select the toplevel `scope()` will
-    // /// fail to match when using this method, since there's no [`KdlNode`] to
-    // /// return in this case.
-    // pub fn query_get(
-    //     &self,
-    //     query: impl IntoKdlQuery,
-    //     key: impl Into<NodeKey>,
-    // ) -> Result<Option<&KdlValue>, KdlDiagnostic> {
-    //     Ok(self.query(query)?.and_then(|node| node.get(key)))
-    // }
-
-    // /// Queries this Document's children according to the KQL query language,
-    // /// returning an iterator over all matching nodes, returning the requested
-    // /// field from each of those nodes and filtering out nodes that don't have
-    // /// it.
-    // ///
-    // /// # NOTE
-    // ///
-    // /// Any query selectors that try to select the toplevel `scope()` will
-    // /// fail to match when using this method, since there's no [`KdlNode`] to
-    // /// return in this case.
-    // pub fn query_get_all(
-    //     &self,
-    //     query: impl IntoKdlQuery,
-    //     key: impl Into<NodeKey>,
-    // ) -> Result<impl Iterator<Item = &KdlValue>, KdlDiagnostic> {
-    //     let key: NodeKey = key.into();
-    //     Ok(self
-    //         .query_all(query)?
-    //         .filter_map(move |node| node.get(key.clone())))
-    // }
-
     /// Parses a KDL v2 string into a document.
     pub fn parse(s: &str) -> Result<Self, KdlError> {
-        Self::parse_v2(s)
-    }
-
-    /// Parses a KDL v2 string into a document.
-    pub fn parse_v2(s: &str) -> Result<Self, KdlError> {
         crate::kdl::v2_parser::try_parse(crate::kdl::v2_parser::document, s)
-    }
-
-    /// Makes sure this document is in v2 format.
-    pub fn ensure_v2(&mut self) {
-        // No need to touch KdlDocumentFormat, probably. In the longer term,
-        // we'll want to make sure to parse out whitespace and comments and make
-        // sure they're actually compliant, but this is good enough for now.
-        for node in self.nodes_mut().iter_mut() {
-            node.ensure_v2();
-        }
     }
 }
 

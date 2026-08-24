@@ -50,7 +50,7 @@ pub struct Completion {
 }
 
 impl usage_rs::Run for Completion {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
         // TODO: refactor this
@@ -95,11 +95,11 @@ impl Completion {
     ///
     /// The resolver is the one a compiled binary uses to install its own script, so the location is
     /// decided in one place regardless of which side is asking.
-    fn install(&self, script: &str) -> miette::Result<()> {
+    fn install(&self, script: &str) -> usage::miette::Result<()> {
         use usage_rs::install::{self, OnForeign, Wrote};
 
         let shell = usage_rs::complete::Shell::from_name(&self.shell)
-            .ok_or_else(|| miette::miette!("{} has no completion script", self.shell))?;
+            .ok_or_else(|| usage::miette::miette!("{} has no completion script", self.shell))?;
         // Described from this process rather than reached for inside the resolver, which is what
         // lets a test point the same code path at a directory of its own.
         let env = install::Env::from_process();
@@ -143,7 +143,7 @@ impl Completion {
 /// The chain is walked rather than formatted away: `Display` on an install error names the step and
 /// the path, and keeps the operating system's own words — "permission denied", "not a directory" —
 /// on `source()`. A report built from `Display` alone drops exactly the half a user acts on.
-fn as_diagnostic(err: usage_rs::install::Error) -> miette::Report {
+fn as_diagnostic(err: usage_rs::install::Error) -> usage::miette::Report {
     let mut message = err.to_string();
     let mut cause = std::error::Error::source(&err);
     while let Some(next) = cause {
@@ -151,9 +151,9 @@ fn as_diagnostic(err: usage_rs::install::Error) -> miette::Report {
         cause = next.source();
     }
     match &err {
-        usage_rs::install::Error::Foreign { .. } => miette::miette!(
+        usage_rs::install::Error::Foreign { .. } => usage::miette::miette!(
             "{message}\n\nPass --force to replace it, or redirect the script yourself."
         ),
-        _ => miette::miette!("{message}"),
+        _ => usage::miette::miette!("{message}"),
     }
 }

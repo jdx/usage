@@ -147,8 +147,16 @@ pub enum UsageErr {
 pub type Result<T> = std::result::Result<T, UsageErr>;
 
 impl UsageErr {
-    pub(crate) fn render(&self) -> String {
+    fn code_name(&self) -> Option<&'static str> {
         match self {
+            Self::FileError(..) => Some("usage::file"),
+            Self::ShellError(..) => Some("usage::shell"),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn render(&self) -> String {
+        let rendered = match self {
             Self::InvalidInput(message, span, source) => crate::miette::render_source(
                 "Invalid usage config",
                 source.name(),
@@ -165,12 +173,22 @@ impl UsageErr {
             } => crate::miette::render_source(&self.to_string(), "", input, *span, reason, None),
             Self::KdlError(error) => error.render(),
             _ => self.to_string(),
+        };
+        if let Some(code) = self.code_name() {
+            format!("  {code}\n\n{rendered}")
+        } else {
+            rendered
         }
     }
 }
 
 #[cfg(feature = "miette")]
 impl ::miette::Diagnostic for UsageErr {
+    fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        self.code_name()
+            .map(|code| Box::new(code) as Box<dyn std::fmt::Display>)
+    }
+
     fn source_code(&self) -> Option<&dyn ::miette::SourceCode> {
         match self {
             Self::InvalidInput(_, _, source) => Some(source),
@@ -218,4 +236,30 @@ macro_rules! bail_parse {
         let err = $ctx.build_err(msg, span);
         return std::result::Result::Err(err);
     }};
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UsageErr;
+
+    #[test]
+    fn native_renderer_preserves_diagnostic_codes() {
+        let file = UsageErr::FileError(
+            std::io::Error::new(std::io::ErrorKind::NotFound, "missing"),
+            "missing.kdl".into(),
+        );
+        assert!(file.render().contains("usage::file"));
+        assert!(UsageErr::ShellError("failed".into())
+            .render()
+            .contains("usage::shell"));
+    }
+
+    #[cfg(feature = "miette")]
+    #[test]
+    fn miette_interop_preserves_diagnostic_codes() {
+        use miette::Diagnostic;
+
+        let error = UsageErr::ShellError("failed".into());
+        assert_eq!(error.code().unwrap().to_string(), "usage::shell");
+    }
 }

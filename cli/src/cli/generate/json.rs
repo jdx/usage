@@ -1,7 +1,7 @@
 use crate::cli::generate;
-use crate::Result;
-use miette::IntoDiagnostic;
 use std::path::PathBuf;
+use usage::miette::IntoDiagnostic;
+use usage::miette::Result;
 
 /// Outputs a usage spec in json format
 #[derive(usage_rs::Args)]

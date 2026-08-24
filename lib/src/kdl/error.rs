@@ -5,17 +5,23 @@ use crate::miette::SourceSpan;
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct KdlError {
     pub input: Arc<String>,
+    pub(crate) source_name: String,
     pub diagnostics: Vec<KdlDiagnostic>,
 }
 
 impl KdlError {
+    pub(crate) fn with_source_name(mut self, source_name: impl Into<String>) -> Self {
+        self.source_name = source_name.into();
+        self
+    }
+
     pub(crate) fn render(&self) -> String {
         self.diagnostics
             .iter()
             .map(|diagnostic| {
                 crate::miette::render_source(
                     diagnostic.message.as_deref().unwrap_or("Unexpected error"),
-                    "",
+                    &self.source_name,
                     &diagnostic.input,
                     diagnostic.span,
                     diagnostic.label.as_deref().unwrap_or("here"),

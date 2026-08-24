@@ -37,7 +37,7 @@ pub struct Manpage {
 }
 
 impl usage_rs::Run for Manpage {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
         let spec = select_view(parse_file_or_stdin(&self.file)?, self.view.as_deref())?;

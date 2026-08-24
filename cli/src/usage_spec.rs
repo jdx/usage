@@ -1,5 +1,5 @@
 use crate::cli::Cli;
-use miette::Result;
+use usage::miette::Result;
 
 pub(crate) fn generate() -> Result<()> {
     // The declaration *is* the spec: the same tables that parsed the command line print it,
@@ -19,7 +19,7 @@ pub(crate) fn complete(shell: &str) -> Result<()> {
         "fish" => print!("{}", include_str!("../assets/completions/usage.fish")),
         "zsh" => print!("{}", include_str!("../assets/completions/_usage")),
         _ => {
-            miette::bail!("unsupported shell: {}", shell);
+            usage::miette::bail!("unsupported shell: {}", shell);
         }
     };
 

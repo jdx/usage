@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use miette::IntoDiagnostic;
+use usage::miette::IntoDiagnostic;
 
 use crate::cli::generate;
 use crate::schema::{config_schema, SchemaOptions};
-use crate::Result;
+use usage::miette::Result;
 
 /// Generate a JSON Schema for a CLI's config file from its usage spec
 #[derive(usage_rs::Args)]
@@ -57,7 +57,7 @@ impl usage_rs::Run for JsonSchema {
             .and_then(serde_json::Value::as_object)
             .is_none_or(serde_json::Map::is_empty)
         {
-            miette::bail!(
+            usage::miette::bail!(
                 "this spec declares nothing a config file can hold, so there is no schema to write"
             );
         }

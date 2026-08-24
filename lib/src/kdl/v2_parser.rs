@@ -44,6 +44,7 @@ pub(crate) fn failure_from_errs(errs: Vec<ErrMode<KdlParseError>>, input: &str) 
     let src = Arc::new(String::from(input));
     KdlError {
         input: src.clone(),
+        source_name: String::new(),
         diagnostics: errs
             .into_iter()
             // The parser is only called with &str so this should never panic.
@@ -1609,7 +1610,7 @@ impl_negatable_unsigned!(u8, u16, u32, u64, u128, usize);
 
 #[cfg(test)]
 mod regression_tests {
-    use crate::kdl::KdlDocument;
+    use crate::kdl::{KdlDocument, KdlValue};
 
     #[test]
     fn long_invalid_document_recovery_does_not_recurse() {
@@ -1621,5 +1622,55 @@ mod regression_tests {
     fn long_multiline_comment_does_not_recurse_per_character() {
         let source = format!("/*{}x*/", "*".repeat(20_000));
         assert!(source.parse::<KdlDocument>().is_ok());
+    }
+
+    // Representative cases retained from kdl-rs 6.7.1's Apache-2.0 parser tests. These cover
+    // the constructs usage specs depend on without restoring the unused upstream API surface.
+    #[test]
+    fn multiline_strings_are_dedented_and_newlines_are_normalized() {
+        let source = "node \"\"\"\r\n  foo\r\n    bar\n  baz\r  \"\"\"";
+        let document = source.parse::<KdlDocument>().unwrap();
+        assert_eq!(
+            document.get("node").unwrap().get(0),
+            Some(&KdlValue::String("foo\n  bar\nbaz".into()))
+        );
+    }
+
+    #[test]
+    fn raw_strings_and_escapes_keep_their_values() {
+        let document = r##"raw #"quotes \ stay literal"#
+escaped "line\n\u{1f642}"
+"##
+        .parse::<KdlDocument>()
+        .unwrap();
+        assert_eq!(
+            document.get("raw").unwrap().get(0),
+            Some(&KdlValue::String("quotes \\ stay literal".into()))
+        );
+        assert_eq!(
+            document.get("escaped").unwrap().get(0),
+            Some(&KdlValue::String("line\n🙂".into()))
+        );
+    }
+
+    #[test]
+    fn hexadecimal_octal_and_binary_numbers_parse() {
+        let document = "numbers 0x10 0o10 0b10\n".parse::<KdlDocument>().unwrap();
+        let numbers = document.get("numbers").unwrap();
+        assert_eq!(numbers.get(0), Some(&KdlValue::Integer(16)));
+        assert_eq!(numbers.get(1), Some(&KdlValue::Integer(8)));
+        assert_eq!(numbers.get(2), Some(&KdlValue::Integer(2)));
+    }
+
+    #[test]
+    fn invalid_number_diagnostic_keeps_its_exact_span() {
+        let error = "node 0x1asdf 2".parse::<KdlDocument>().unwrap_err();
+        let diagnostic = error
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.message.as_deref() == Some("Expected hexadecimal number"))
+            .unwrap();
+        assert_eq!(diagnostic.span, (5..12).into());
+        assert_eq!(diagnostic.label.as_deref(), Some("not hexadecimal number"));
     }
 }

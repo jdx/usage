@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 
-use miette::Result;
+use usage::miette::Result;
 use usage_rs::{Cli as DeriveCli, Subcommands};
 
 pub mod complete_word;

@@ -474,9 +474,9 @@ impl Spec {
         input: &str,
         resolve_outputs: bool,
     ) -> Result<Spec, UsageErr> {
-        let kdl: KdlDocument = input
-            .parse()
-            .map_err(|err: kdl::KdlError| UsageErr::KdlError(err))?;
+        let kdl: KdlDocument = input.parse().map_err(|err: kdl::KdlError| {
+            UsageErr::KdlError(err.with_source_name(ctx.file.to_string_lossy()))
+        })?;
         let mut schema = Self {
             ..Default::default()
         };
@@ -1296,7 +1296,7 @@ impl Display for Spec {
         if !self.config.is_empty() {
             nodes.push((&self.config).into());
         }
-        doc.autoformat_config(&kdl::FormatConfigBuilder::new().build());
+        doc.autoformat_config(&kdl::FormatConfig::default());
         write!(f, "{doc}")
     }
 }

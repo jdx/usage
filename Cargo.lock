@@ -2127,6 +2127,7 @@ dependencies = [
  "tempfile",
  "tera",
  "thiserror",
+ "unicode-width",
  "usage-validation",
  "winnow 0.7.15",
 ]

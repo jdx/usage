@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use itertools::Itertools;
-use miette::IntoDiagnostic;
+use usage::miette::IntoDiagnostic;
 use usage_rs::Args;
 
 use usage::Spec;
@@ -62,7 +62,7 @@ macro_rules! shell_command {
         }
 
         impl usage_rs::Run for $ty {
-            type Output = miette::Result<()>;
+            type Output = usage::miette::Result<()>;
 
             fn run(mut self) -> Self::Output {
                 self.shell.run($program)
@@ -81,7 +81,7 @@ shell_command!(
 shell_command!(Zsh, "zsh", "Execute a shell script using zsh");
 
 impl Shell {
-    pub fn run(&mut self, shell: &str) -> miette::Result<()> {
+    pub fn run(&mut self, shell: &str) -> usage::miette::Result<()> {
         let spec = Spec::parse_file(&self.script)?;
         let mut args = self.args.clone();
         args.insert(0, spec.bin.clone());
@@ -106,10 +106,9 @@ impl Shell {
         cmd.stdin(Stdio::inherit());
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
-        let script_path = self
-            .script
-            .to_str()
-            .ok_or_else(|| miette::miette!("Invalid file path: {}", self.script.display()))?;
+        let script_path = self.script.to_str().ok_or_else(|| {
+            usage::miette::miette!("Invalid file path: {}", self.script.display())
+        })?;
         let args = std::iter::once(script_path.to_string())
             .chain(self.args.clone())
             .collect_vec();
@@ -122,8 +121,10 @@ impl Shell {
         // variable the user actually set — the legacy `USAGE_SHELL_*` is still read, so assuming
         // the current spelling would send them to one they never touched.
         let mut child = cmd.spawn().map_err(|err| match &overridden {
-            Some((key, _)) => miette::miette!("failed to run `{program}` (from ${key}): {err}"),
-            None => miette::miette!("failed to run `{program}`: {err}"),
+            Some((key, _)) => {
+                usage::miette::miette!("failed to run `{program}` (from ${key}): {err}")
+            }
+            None => usage::miette::miette!("failed to run `{program}`: {err}"),
         })?;
         let result = child.wait().into_diagnostic()?;
 
@@ -140,7 +141,7 @@ impl Shell {
         Ok(())
     }
 
-    pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> miette::Result<()> {
+    pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> usage::miette::Result<()> {
         let parsed = usage::parse::parse_partial(spec, args)?;
         println!("{}", usage::docs::cli::render_help(spec, &parsed.cmd, long));
         Ok(())

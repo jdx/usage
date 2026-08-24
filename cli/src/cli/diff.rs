@@ -118,11 +118,11 @@ impl std::fmt::Display for SpecChange {
 }
 
 impl usage_rs::Run for Diff {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
         if self.old.as_os_str() == "-" && self.new.as_os_str() == "-" {
-            miette::bail!("only one of the two specs can be read from stdin");
+            usage::miette::bail!("only one of the two specs can be read from stdin");
         }
         let old = parse_file_or_stdin(&self.old)?;
         let new = parse_file_or_stdin(&self.new)?;
@@ -168,9 +168,9 @@ impl Diff {
         );
     }
 
-    fn print_json(&self, changes: &[SpecChange]) -> miette::Result<()> {
+    fn print_json(&self, changes: &[SpecChange]) -> usage::miette::Result<()> {
         let json = serde_json::to_string_pretty(changes)
-            .map_err(|e| miette::miette!("Failed to serialize changes: {}", e))?;
+            .map_err(|e| usage::miette::miette!("Failed to serialize changes: {}", e))?;
         println!("{json}");
         Ok(())
     }

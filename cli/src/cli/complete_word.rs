@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use itertools::Itertools;
-use miette::IntoDiagnostic;
 use regex::Regex;
 use std::sync::LazyLock;
+use usage::miette::IntoDiagnostic;
 use usage_rs::Args;
 
 use usage::parse::{ParseOutput, ParseValue};
@@ -93,7 +93,7 @@ pub fn candidates(
     words: &[String],
     cword: usize,
     shell: &str,
-) -> miette::Result<Vec<(String, String)>> {
+) -> usage::miette::Result<Vec<(String, String)>> {
     Ok(answer(spec, words, cword, shell)?.candidates)
 }
 
@@ -116,7 +116,7 @@ pub fn answer(
     words: &[String],
     cword: usize,
     shell: &str,
-) -> miette::Result<CandidateAnswer> {
+) -> usage::miette::Result<CandidateAnswer> {
     CompleteWord {
         words: words.to_vec(),
         file: None,
@@ -128,11 +128,11 @@ pub fn answer(
 }
 
 impl CompleteWord {
-    pub fn complete_word(&self, spec: &Spec) -> miette::Result<Vec<(String, String)>> {
+    pub fn complete_word(&self, spec: &Spec) -> usage::miette::Result<Vec<(String, String)>> {
         Ok(self.complete_word_answer(spec)?.candidates)
     }
 
-    fn complete_word_answer(&self, spec: &Spec) -> miette::Result<CandidateAnswer> {
+    fn complete_word_answer(&self, spec: &Spec) -> usage::miette::Result<CandidateAnswer> {
         let cword = self.cword.unwrap_or(self.words.len().max(1) - 1);
         let ctoken = self.words.get(cword).cloned().unwrap_or_default();
         let words: Vec<_> = self.words.iter().take(cword).cloned().collect();
@@ -602,7 +602,7 @@ impl CompleteWord {
         arg: &SpecArg,
         ctoken: &str,
         double_dash_seen: bool,
-    ) -> miette::Result<(Vec<(String, String)>, bool)> {
+    ) -> usage::miette::Result<(Vec<(String, String)>, bool)> {
         if arg.double_dash == SpecDoubleDashChoices::Required && !double_dash_seen {
             // No filename is valid here either, so the fallback stays off.
             let separator = ctoken.is_empty().then(|| ("--".to_string(), String::new()));
@@ -618,7 +618,7 @@ impl CompleteWord {
         cmd: &SpecCommand,
         arg: &SpecArg,
         ctoken: &str,
-    ) -> miette::Result<(Vec<(String, String)>, bool)> {
+    ) -> usage::miette::Result<(Vec<(String, String)>, bool)> {
         static EMPTY_COMPL: LazyLock<SpecComplete> = LazyLock::new(SpecComplete::default);
 
         trace!("complete_arg: {arg} {ctoken}");
@@ -806,7 +806,7 @@ impl CompleteWord {
 }
 
 impl usage_rs::Run for CompleteWord {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
@@ -840,7 +840,7 @@ impl usage_rs::Run for CompleteWord {
                     println!("{c}\t{description}\t{insert}")
                 }
                 _ => {
-                    miette::bail!("unsupported shell: {}", shell);
+                    usage::miette::bail!("unsupported shell: {}", shell);
                 }
             }
         }

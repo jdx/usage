@@ -16,8 +16,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use itertools::Itertools;
-use miette::Result;
 use usage::error::UsageErr;
+use usage::miette::Result;
 use usage::parse::{ParseOutput, Parser, TokenRole, ValueOrigin};
 use usage::{Spec, SpecArg, SpecFlag};
 
@@ -91,8 +91,9 @@ impl usage_rs::Run for Explain {
             OutputFormat::Text => print!("{}", explanation.render()),
             OutputFormat::Json => println!(
                 "{}",
-                serde_json::to_string_pretty(&explanation)
-                    .map_err(|e| miette::miette!("failed to serialize the explanation: {e}"))?
+                serde_json::to_string_pretty(&explanation).map_err(|e| usage::miette::miette!(
+                    "failed to serialize the explanation: {e}"
+                ))?
             ),
         }
         Ok(())
@@ -111,7 +112,7 @@ impl Explain {
             let (key, value) = entry
                 .split_once('=')
                 .filter(|(key, _)| !key.is_empty())
-                .ok_or_else(|| miette::miette!("--env wants KEY=VALUE, got `{entry}`"))?;
+                .ok_or_else(|| usage::miette::miette!("--env wants KEY=VALUE, got `{entry}`"))?;
             env.insert(key.to_string(), value.to_string());
         }
         Ok(Some(env))
@@ -140,7 +141,7 @@ pub fn explain(spec: &Spec, argv: &[String], env: Option<HashMap<String, String>
             None => parser,
         }
     };
-    let needs_a_mount = |err: &miette::Error| {
+    let needs_a_mount = |err: &usage::miette::Error| {
         matches!(
             err.downcast_ref::<UsageErr>(),
             Some(UsageErr::MissingMountOutput(_))

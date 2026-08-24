@@ -10,7 +10,7 @@
 pub struct Sponsors;
 
 impl usage_rs::Run for Sponsors {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
         println!(

@@ -59,7 +59,7 @@ pub struct Markdown {
 }
 
 impl usage_rs::Run for Markdown {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
         // The banner belongs to every generated document, so build it in one place rather
@@ -72,7 +72,7 @@ impl usage_rs::Run for Markdown {
         };
         // File-only, deliberately: every path this receives is a join onto `--out-dir`, so a
         // `-` meaning stdout cannot turn up here.
-        let write = |path: &PathBuf, md: &str| -> miette::Result<()> {
+        let write = |path: &PathBuf, md: &str| -> usage::miette::Result<()> {
             eprintln!("writing to {}", path.display());
             super::write_file(path, render(md))?;
             Ok(())
@@ -83,7 +83,7 @@ impl usage_rs::Run for Markdown {
             .with_replace_pre_with_code_fences(self.replace_pre_with_code_fences);
         for value in &self.template {
             let Some((name, path)) = value.split_once('=') else {
-                miette::bail!("invalid template `{value}`; expected NAME=PATH");
+                usage::miette::bail!("invalid template `{value}`; expected NAME=PATH");
             };
             let template = match name {
                 "spec" => MarkdownTemplate::Spec,
@@ -92,7 +92,7 @@ impl usage_rs::Run for Markdown {
                 "argument" => MarkdownTemplate::Argument,
                 "flag" => MarkdownTemplate::Flag,
                 "config" => MarkdownTemplate::Config,
-                _ => miette::bail!(
+                _ => usage::miette::bail!(
                     "unknown template `{name}`; expected spec, index, command, argument, flag, or config"
                 ),
             };
@@ -115,7 +115,7 @@ impl usage_rs::Run for Markdown {
             // losing a page for everybody who does not.
             if !ctx.render_config()?.trim().is_empty() {
                 if let Some(cmd) = ctx.config_page_collision() {
-                    miette::bail!(
+                    usage::miette::bail!(
                         "the `{cmd}` command's page and the settings page would both be written \
                          to {}; rename the command, or hide it, to generate both",
                         ctx.config_page()

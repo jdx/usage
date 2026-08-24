@@ -35,7 +35,7 @@ pub struct Sdk {
 }
 
 impl usage_rs::Run for Sdk {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
@@ -44,7 +44,7 @@ impl usage_rs::Run for Sdk {
             "typescript" => SdkLanguage::TypeScript,
             "python" => SdkLanguage::Python,
             other => {
-                return Err(miette::miette!("unsupported language: {other}"));
+                return Err(usage::miette::miette!("unsupported language: {other}"));
             }
         };
 
@@ -59,7 +59,7 @@ impl usage_rs::Run for Sdk {
         let output = usage::sdk::generate(&spec, &opts);
 
         std::fs::create_dir_all(&self.output)
-            .map_err(|e| miette::miette!("failed to create output directory: {e}"))?;
+            .map_err(|e| usage::miette::miette!("failed to create output directory: {e}"))?;
 
         for file in &output.files {
             let path = self.output.join(&file.path);

@@ -16,7 +16,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use miette::{bail, IntoDiagnostic, Result};
 use rmcp::{
     handler::server::{tool::ToolRouter, wrapper::Parameters, ServerHandler},
     model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerInfo},
@@ -25,6 +24,7 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use usage::miette::{bail, IntoDiagnostic, Result};
 use usage::{Selector, Spec, SpecArg, SpecCommand, SpecFlag, SpecOutput};
 
 use crate::cli::generate;

@@ -6,6 +6,7 @@
 
 use std::error::Error as StdError;
 use std::fmt::{Debug, Display, Formatter};
+use unicode_width::UnicodeWidthChar;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct SourceOffset(usize);
@@ -143,10 +144,22 @@ impl Display for Error {
 
 impl Debug for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let Some(error) = self.downcast_ref::<crate::error::UsageErr>() {
-            return f.write_str(&error.render());
+        let mut rendered = if let Some(error) = self.downcast_ref::<crate::error::UsageErr>() {
+            error.render()
+        } else {
+            self.to_string()
+        };
+        let mut source = self.0.source();
+        if source.is_some() {
+            rendered.push_str("\n\nCaused by:");
         }
-        Display::fmt(self, f)
+        let mut index = 1;
+        while let Some(cause) = source {
+            rendered.push_str(&format!("\n  {index}: {cause}"));
+            source = cause.source();
+            index += 1;
+        }
+        f.write_str(&rendered)
     }
 }
 
@@ -185,19 +198,21 @@ pub(crate) fn render_source(
     help: Option<&str>,
 ) -> String {
     let offset = source.floor_char_boundary(span.offset().min(source.len()));
-    let line_start = source[..offset].rfind('\n').map_or(0, |at| at + 1);
-    let line_end = source[offset..]
-        .find('\n')
-        .map_or(source.len(), |at| offset + at);
-    let line = &source[line_start..line_end];
-    let line_no = source[..line_start].bytes().filter(|b| *b == b'\n').count() + 1;
-    let column = source[line_start..offset].chars().count();
+    let lines = line_ranges(source);
+    let line_index = lines
+        .iter()
+        .rposition(|(start, _)| *start <= offset)
+        .unwrap_or(0);
+    let (line_start, line_end) = lines[line_index];
+    let line = expand_tabs(&source[line_start..line_end], 4);
+    let line_no = line_index + 1;
+    let column = display_width(&source[line_start..offset], 0, 4);
     let requested_end = offset.saturating_add(span.len()).min(line_end);
     let span_end = source.ceil_char_boundary(requested_end).min(line_end);
-    let marked = source[offset..span_end].chars().count().max(1);
+    let marked = display_width(&source[offset..span_end], column, 4).max(1);
     let width = line_no.to_string().len();
     let location = if source_name.is_empty() {
-        String::new()
+        format!("[{}:{}]", line_no, column + 1)
     } else {
         format!("[{source_name}:{}:{}]", line_no, column + 1)
     };
@@ -213,6 +228,56 @@ pub(crate) fn render_source(
     if let Some(help) = help {
         out.push_str("\n  help: ");
         out.push_str(help);
+    }
+    out
+}
+
+fn line_ranges(source: &str) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let mut start = 0;
+    let mut chars = source.char_indices().peekable();
+    while let Some((at, ch)) = chars.next() {
+        let is_newline = matches!(
+            ch,
+            '\r' | '\n' | '\u{0085}' | '\u{000B}' | '\u{000C}' | '\u{2028}' | '\u{2029}'
+        );
+        if !is_newline {
+            continue;
+        }
+        ranges.push((start, at));
+        if ch == '\r' && chars.peek().is_some_and(|(_, next)| *next == '\n') {
+            chars.next();
+        }
+        start = chars.peek().map_or(source.len(), |(at, _)| *at);
+    }
+    ranges.push((start, source.len()));
+    ranges
+}
+
+fn display_width(value: &str, starting_column: usize, tab_width: usize) -> usize {
+    let mut column = starting_column;
+    for ch in value.chars() {
+        if ch == '\t' {
+            column += tab_width - (column % tab_width);
+        } else {
+            column += ch.width().unwrap_or(0);
+        }
+    }
+    column - starting_column
+}
+
+fn expand_tabs(value: &str, tab_width: usize) -> String {
+    let mut out = String::with_capacity(value.len());
+    let mut column = 0;
+    for ch in value.chars() {
+        if ch == '\t' {
+            let spaces = tab_width - (column % tab_width);
+            out.extend(std::iter::repeat_n(' ', spaces));
+            column += spaces;
+        } else {
+            out.push(ch);
+            column += ch.width().unwrap_or(0);
+        }
     }
     out
 }
@@ -242,6 +307,7 @@ mod tests {
     use super::{render_source, Error, MietteError, SourceSpan};
     use crate::error::UsageErr;
     use crate::Spec;
+    use std::path::Path;
 
     #[test]
     fn a_kdl_syntax_error_keeps_its_source_label_and_help() {
@@ -287,6 +353,75 @@ mod tests {
             None,
         );
         assert!(rendered.contains(" 10 │ éx\n    · ─┬"), "{rendered}");
+    }
+
+    #[test]
+    fn source_renderer_handles_every_kdl_newline() {
+        for newline in [
+            "\r\n", "\r", "\n", "\u{0085}", "\u{000B}", "\u{000C}", "\u{2028}", "\u{2029}",
+        ] {
+            let source = format!("first{newline}bad");
+            let offset = source.find("bad").unwrap();
+            let rendered = render_source(
+                "bad value",
+                "spec.kdl",
+                &source,
+                SourceSpan::from(offset..offset + 3),
+                "invalid",
+                None,
+            );
+
+            assert!(
+                rendered.contains("[spec.kdl:2:1]"),
+                "{newline:?}: {rendered:?}"
+            );
+            assert!(rendered.contains("2 │ bad"), "{newline:?}: {rendered:?}");
+        }
+    }
+
+    #[test]
+    fn source_renderer_aligns_tabs_and_wide_characters() {
+        let source = "\t界bad";
+        let offset = source.find("bad").unwrap();
+        let rendered = render_source(
+            "bad value",
+            "",
+            source,
+            SourceSpan::from(offset..offset + 3),
+            "invalid",
+            None,
+        );
+
+        assert!(rendered.contains("1 │     界bad"), "{rendered}");
+        assert!(rendered.contains("  ·       ───┬"), "{rendered}");
+        assert!(rendered.contains("[1:7]"), "{rendered}");
+    }
+
+    #[test]
+    fn kdl_file_errors_include_the_filename_and_location() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("broken.usage.kdl");
+        std::fs::write(&path, "name \"ok\"\narg \"unterminated\n").unwrap();
+
+        let error = Spec::parse_file(Path::new(&path)).unwrap_err();
+        let rendered = format!("{:?}", Error::from(error));
+        assert!(
+            rendered.contains(&format!("[{}:2:5]", path.display())),
+            "{rendered}"
+        );
+    }
+
+    #[test]
+    fn reports_include_error_source_chains() {
+        #[derive(Debug, thiserror::Error)]
+        #[error("outer failure")]
+        struct Outer(#[source] MietteError);
+
+        let rendered = format!("{:?}", Error::new(Outer(MietteError::new("root cause"))));
+        assert!(
+            rendered.contains("outer failure\n\nCaused by:\n  1: root cause"),
+            "{rendered}"
+        );
     }
 
     #[test]
