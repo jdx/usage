@@ -2621,8 +2621,15 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
             lines.push(paragraph.to_string());
             continue;
         }
-        let paragraph = paragraph.trim();
-        let (prefix, body) = list_prefix(paragraph).unwrap_or(("", paragraph));
+        let trimmed = paragraph.trim();
+        let leading_trimmed = paragraph.trim_start_matches(' ');
+        let (prefix, body) = match list_prefix(leading_trimmed) {
+            Some((marker, body)) => (
+                &paragraph[..paragraph.len() - leading_trimmed.len() + marker.len()],
+                body,
+            ),
+            None => ("", trimmed),
+        };
         let body_width = width.saturating_sub(prefix.chars().count());
         let mut line_prefix = prefix.to_string();
         let mut line = String::new();
@@ -3865,10 +3872,26 @@ mod style_tests {
     use super::{
         commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
         inline_environment_notes, long_help, render_styled, render_view_at_styled,
-        styled_flag_usage, styled_help, styled_inline, Shown, Style,
+        styled_flag_usage, styled_help, styled_inline, wrap, Shown, Style,
     };
     use crate::spec::{ArgMeta, CommandMeta, FlagMeta, Spec, ViewMeta};
     use crate::{Arg, ArgAction, Command, Flag};
+
+    #[test]
+    fn nested_lists_keep_their_hanging_indent() {
+        assert_eq!(
+            wrap("  - a nested item with enough words to wrap", 24),
+            ["  - a nested item with", "    enough words to wrap"]
+        );
+        assert_eq!(
+            wrap("  1. a numbered item with enough words to wrap", 24),
+            [
+                "  1. a numbered item",
+                "     with enough words",
+                "     to wrap"
+            ]
+        );
+    }
 
     #[test]
     fn optional_equals_values_put_the_equals_inside_the_brackets() {

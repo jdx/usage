@@ -72,8 +72,15 @@ pub fn wrap_text(text: &str, width: usize) -> Vec<String> {
             continue;
         }
 
-        let paragraph = paragraph.trim();
-        let (prefix, body) = list_prefix(paragraph).unwrap_or(("", paragraph));
+        let trimmed = paragraph.trim();
+        let leading_trimmed = paragraph.trim_start_matches(' ');
+        let (prefix, body) = match list_prefix(leading_trimmed) {
+            Some((marker, body)) => (
+                &paragraph[..paragraph.len() - leading_trimmed.len() + marker.len()],
+                body,
+            ),
+            None => ("", trimmed),
+        };
         let body_width = width.saturating_sub(visible_width(prefix));
         let mut line_prefix = prefix.to_string();
 
@@ -316,6 +323,10 @@ mod tests {
         assert_eq!(
             wrap_text("* alpha beta gamma delta", 14),
             ["* alpha beta", "  gamma delta"]
+        );
+        assert_eq!(
+            wrap_text("  - a nested item with enough words to wrap", 24),
+            ["  - a nested item with", "    enough words to wrap"]
         );
         assert_eq!(
             wrap_text("    $ ex --a-deliberately-long-example", 10),

@@ -5,6 +5,20 @@ import (
 	"testing"
 )
 
+func TestNestedListsKeepTheirHangingIndent(t *testing.T) {
+	got := wrap("  - a nested item with enough words to wrap", 24)
+	want := []string{"  - a nested item with", "    enough words to wrap"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("nested bullet lost its indentation: got %q, want %q", got, want)
+	}
+
+	got = wrap("  1. a numbered item with enough words to wrap", 24)
+	want = []string{"  1. a numbered item", "     with enough words", "     to wrap"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("nested numbered item lost its indentation: got %q, want %q", got, want)
+	}
+}
+
 // Examples declared once at the root appear on a page that declares none.
 //
 // The same fallback `BeforeHelp` and `AfterHelp` get. mise declares no root

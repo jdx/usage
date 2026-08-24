@@ -149,7 +149,7 @@ Global flags:
 
 {{ sub.full_cmd | join(sep=" ") }}:
 {%- if sub.help %}
-{{ sub.help | trim | terminal_wrap(width=terminal_width) }}
+{{ sub.help | terminal_wrap(width=terminal_width) }}
 {%- endif %}
 {%- if sub.deprecated or sub.deprecated_warn_at or sub.deprecated_remove_at %}
 {{ sub | terminal_deprecation(width=terminal_width) }}

@@ -122,7 +122,8 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		out.WriteString("\n")
 	}
 	if label := deprecationLabel(meta); label != "" {
-		out.WriteString(label + "\n\n")
+		writeWrapped(out, label, 0)
+		out.WriteString("\n")
 	}
 
 	for i, line := range usageLines(path, cmd, help) {

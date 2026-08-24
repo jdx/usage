@@ -70,7 +70,8 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 		out.WriteString("\n")
 	}
 	if label := deprecationLabel(meta); label != "" {
-		out.WriteString(label + "\n\n")
+		writeWrapped(out, label, 0)
+		out.WriteString("\n")
 	}
 
 	for i, line := range usageLines(path, cmd, help) {
@@ -396,10 +397,6 @@ func longAnnotations(out *strings.Builder, h *Help, withDefault bool, indent int
 	}
 }
 
-// writeIndented writes text with every line indented, leaving blank lines blank —
-// an indented empty line is trailing whitespace, which the reference does not
-// emit. Indenting them instead differs on every page, which is how this was
-// settled rather than by reading the template.
 // headingProse is the prose a command declares for one of its section titles.
 // Nil where it declares none, so a caller pays nothing for the common case.
 func headingProse(meta *Help) func(string) string {
@@ -413,22 +410,6 @@ func headingProse(meta *Help) func(string) string {
 			}
 		}
 		return ""
-	}
-}
-
-func writeIndented(out *strings.Builder, text string, by int) {
-	prefix := strings.Repeat(" ", by)
-	for i, line := range strings.Split(text, "\n") {
-		// The first line carries the indent whatever it holds, and later blank
-		// lines do not. mise has a command whose description *begins* with an
-		// empty line, and the reference prints four spaces there and nothing on
-		// the blank lines below it — a template indenting where it starts writing
-		// rather than trimming each line.
-		if line == "" && i > 0 {
-			out.WriteString("\n")
-			continue
-		}
-		out.WriteString(prefix + line + "\n")
 	}
 }
 
@@ -455,8 +436,13 @@ func wrap(text string, width int) []string {
 			lines = append(lines, paragraph)
 			continue
 		}
-		paragraph = strings.TrimSpace(paragraph)
-		prefix, body := listPrefix(paragraph)
+		trimmed := strings.TrimSpace(paragraph)
+		prefix, body := listPrefix(strings.TrimLeft(paragraph, " "))
+		if prefix != "" {
+			prefix = paragraph[:len(paragraph)-len(strings.TrimLeft(paragraph, " "))] + prefix
+		} else {
+			body = trimmed
+		}
 		bodyWidth := width - runeLen(prefix)
 		if bodyWidth < 0 {
 			bodyWidth = 0
