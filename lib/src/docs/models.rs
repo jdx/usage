@@ -837,6 +837,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
         let mut arg_groups = group_by_heading(&args, |a| a.help_heading.as_deref());
         attach_heading_help(&mut flag_groups, &headings);
         attach_heading_help(&mut arg_groups, &headings);
+        attach_heading_help(&mut subcommand_groups, &headings);
 
         Self {
             full_cmd: full_cmd.clone(),
@@ -1201,6 +1202,7 @@ impl SpecCommand {
         self.arg_groups = group_by_heading(&self.args, |a| a.help_heading.as_deref());
         attach_heading_help(&mut self.flag_groups, &self.headings);
         attach_heading_help(&mut self.arg_groups, &self.headings);
+        attach_heading_help(&mut self.subcommand_groups, &self.headings);
     }
 }
 

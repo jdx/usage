@@ -60,7 +60,8 @@ cmd "lint" {
 }
 ```
 
-A `heading` node gives prose to the section a `help_heading` creates. It is rendered on the
+A `heading` node gives prose to the section a `help_heading` creates, on a flag, a positional,
+or a subcommand. It is rendered on the
 long help page between the heading and its entries, and under the corresponding heading in
 generated Markdown and manpages; short help omits it. A title naming no declared section
 renders nowhere — including the default `Flags` and `Arguments` titles, which name the

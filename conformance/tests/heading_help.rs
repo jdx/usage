@@ -1,6 +1,6 @@
 use usage::docs::markdown::{MarkdownRenderer, MarkdownTheme};
 use usage_argv::help;
-use usage_derive::{Args, Cli};
+use usage_derive::{Args, Cli, Subcommands};
 
 const FILTERS: &str = "Filters accumulate from left to right on the command line.\n\
 For example: `-D correctness -A no-debugger`.";
@@ -182,4 +182,84 @@ fn a_flattened_type_speaks_for_the_section_it_contributes() {
 
     let kdl = FlattenedCli::to_kdl();
     assert!(kdl.contains("heading Output"), "{kdl}");
+}
+
+/// One heading naming both an argument and a flag, which builds a block in each section.
+#[derive(Cli)]
+#[usage(
+    bin = "shared",
+    heading("Selection", help = "Patterns are matched against the path.")
+)]
+#[allow(dead_code)]
+struct Shared {
+    /// Pattern to match.
+    #[usage(long, help_heading = "Selection")]
+    pattern: Option<String>,
+
+    /// Path to search.
+    #[usage(help_heading = "Selection")]
+    target: Option<String>,
+}
+
+#[test]
+fn a_shared_heading_introduces_its_topic_once() {
+    // The page renders the heading once per section, each block introducing itself, and both
+    // renderers agree on that.
+    let long = help::render(Shared::spec(), Shared::spec().root.cmd, true).expect("long help");
+    assert_eq!(long.matches("Patterns are matched").count(), 2, "{long}");
+    let spec: usage::Spec = Shared::to_kdl().parse().expect("generated spec");
+    assert_eq!(usage::docs::cli::render_help(&spec, &spec.cmd, true), long);
+
+    // The topic is the one block that heading addresses, so it says it once.
+    let topic =
+        usage_argv::help::render_topic(Shared::spec(), Shared::command(), "selection", true)
+            .expect("the heading is a topic");
+    assert_eq!(topic.matches("Patterns are matched").count(), 1, "{topic}");
+    assert!(
+        topic.contains("--pattern") && topic.contains("[TARGET]"),
+        "{topic}"
+    );
+}
+
+/// Prose for a section built by a `help_heading` on a subcommand.
+#[derive(Cli)]
+#[usage(
+    bin = "subs",
+    heading("Build Commands", help = "These write to the target directory.")
+)]
+#[allow(dead_code)]
+struct Subs {
+    #[usage(subcommand)]
+    command: Cmds,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum Cmds {
+    /// Compile the project.
+    #[usage(help_heading = "Build Commands")]
+    Compile(NoArgs),
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct NoArgs {}
+
+#[test]
+fn a_subcommand_heading_takes_prose_like_any_other() {
+    let long = help::render(Subs::spec(), Subs::spec().root.cmd, true).expect("long help");
+    assert!(
+        long.contains("Build Commands:\n  These write to the target directory.\n"),
+        "{long}"
+    );
+    let build = long.find("Build Commands:").expect("the heading");
+    let compile = long.find("compile").expect("the command it introduces");
+    assert!(build < compile, "{long}");
+
+    let spec: usage::Spec = Subs::to_kdl().parse().expect("generated spec");
+    assert_eq!(usage::docs::cli::render_help(&spec, &spec.cmd, true), long);
+
+    // A summary stays a summary.
+    let short = help::render(Subs::spec(), Subs::spec().root.cmd, false).expect("short help");
+    assert!(!short.contains("These write to"), "{short}");
 }

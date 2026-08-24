@@ -2339,6 +2339,12 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
     for heading in headings {
         let title = heading.unwrap_or(default_title);
         let _ = writeln!(out, "\n{title}:");
+        // A `help_heading` on a subcommand builds a section like a flag's does, so it takes
+        // prose on the same terms: the long page only, and only once declared.
+        if let Some(prose) = heading.and_then(|title| heading_help(meta, title)) {
+            write_indented(out, prose, 2);
+            out.push('\n');
+        }
         for (usage, sub) in lines
             .iter()
             .filter(|(_, sub)| command_help_section(sub, default_title) == heading)
@@ -2829,7 +2835,10 @@ fn topic_id(title: &str) -> String {
     }
 }
 
-fn topic_blocks(sections: &Sections) -> Vec<(String, String)> {
+fn topic_blocks<'m>(
+    sections: &Sections,
+    prose_of: impl Fn(&str) -> Option<&'m str>,
+) -> Vec<(String, String)> {
     let mut topics: Vec<(String, String)> = Vec::new();
     for section in [&sections.commands, &sections.args, &sections.flags] {
         let mut title: Option<&str> = None;
@@ -2850,6 +2859,17 @@ fn topic_blocks(sections: &Sections) -> Vec<(String, String)> {
                     return;
                 }
                 if let Some((_, existing)) = topics.iter_mut().find(|(known, _)| known == title) {
+                    // One heading can build a block in more than one section — args and flags
+                    // both naming it — and each block introduces itself with the prose. Merged
+                    // into the single topic that heading addresses, it must say it once.
+                    let mut body = body;
+                    if let Some(prose) = prose_of(title) {
+                        let mut introduction = String::new();
+                        write_indented(&mut introduction, prose, 2);
+                        if let Some(rest) = body.strip_prefix(introduction.trim_end_matches('\n')) {
+                            body = rest.trim_start_matches('\n');
+                        }
+                    }
                     if !existing.is_empty() {
                         existing.push_str("\n\n");
                     }
@@ -2892,7 +2912,7 @@ fn topics_with_blocks(
     };
     let mut used = Vec::<String>::new();
     Some(
-        topic_blocks(&sections)
+        topic_blocks(&sections, |title| heading_help(chain.last()?, title))
             .into_iter()
             .map(|(title, block)| {
                 let base = topic_id(&title);

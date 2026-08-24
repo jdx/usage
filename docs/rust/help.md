@@ -114,7 +114,8 @@ full rule, including what a default does not count as, is in
   `usage lint` can all read it — the last of those checks that it still parses.
 - `help_heading` on a field or subcommand variant groups it under a heading.
 - `heading("Ignore Files", help = "…")` on a command gives one of those headings a paragraph,
-  rendered on the long page between the heading and its entries. The prose is keyed by title
+  rendered on the long page between the heading and its entries, whether the section was built
+  by flags, positionals, or subcommands. The prose is keyed by title
   rather than attached to a field, because a section is assembled from everything that names
   it — a field's `help_heading`, a flatten site's `next_help_heading` — and the text describes
   the section rather than any one entry in it. Declared on an `Args` type, it speaks for the
