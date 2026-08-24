@@ -251,6 +251,44 @@ fn test_markdown_out_file_dash_writes_no_file() {
 }
 
 #[test]
+fn markdown_template_files_override_named_renderer_templates() {
+    let dir = std::env::temp_dir().join(format!("usage_md_templates_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let spec = dir.join("custom.usage.kdl");
+    let spec_template = dir.join("spec.md.tera");
+    let flag_template = dir.join("flag.md.tera");
+    fs::write(&spec, "bin \"custom\"\nflag \"--force\"\n").unwrap();
+    fs::write(
+        &spec_template,
+        "CUSTOM {{ spec.bin }}\n{% set cmd = spec.cmd %}{% include \"cmd_template.md.tera\" %}",
+    )
+    .unwrap();
+    fs::write(&flag_template, "CUSTOM FLAG {{ flag.usage }}").unwrap();
+
+    let mut cmd = usage_cmd();
+    cmd.args(["generate", "markdown", "-f"])
+        .arg(&spec)
+        .arg("--template")
+        .arg(format!("spec={}", spec_template.display()))
+        .arg("--template")
+        .arg(format!("flag={}", flag_template.display()))
+        .args(["--out-file", "-"]);
+
+    let output = cmd.output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("CUSTOM custom"), "{stdout}");
+    assert!(stdout.contains("CUSTOM FLAG --force"), "{stdout}");
+
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn test_source_code_links_exist() {
     // A command's path is not its file's path: `complete-word` lives in `complete_word.rs`,
     // `generate` in `generate/mod.rs`, and `bash` in `shell.rs`, which it shares with the

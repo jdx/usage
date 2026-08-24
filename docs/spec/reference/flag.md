@@ -27,6 +27,7 @@ flag "--assist" action="help_short" help="Show concise help"
 flag "--manual" action="help_long" help="Show full help"
 flag "--help-all" action="help_all" help="Show help for every command"
 flag "--release" action="version" help="Print version"
+flag "-h --help" action="help" builtin=#true // parser-supplied, materialized by a generator
 
 flag "--include <pattern>" var=#true            // flag can be repeated (--include a --include b)
 flag "--include... <pattern>"                   // same as above, ellipsis on flag
@@ -95,6 +96,8 @@ flag "--port <port>" {
 
 flag "--env <env>" {
   choices env="DEPLOY_ENVS" // values from $DEPLOY_ENVS, split on commas and/or whitespace
+  // note: `choices env=` requires the `unstable_choices_env` cargo feature of
+  // usage-lib; the usage CLI enables it, but library consumers must opt in
 }
 
 // argv wins, then APP_TOKEN, then the fallbacks from left to right, then the
@@ -115,8 +118,13 @@ flag "--file <file>" {
     more
     text
     """#
+  note "Paths are resolved relative to the working directory."
+  warning "An existing file will be replaced."
 }
 ```
+
+`note` and `warning` are semantic callouts. Long terminal help renders labeled
+indented blocks, while generated Markdown renders portable labeled blockquotes.
 
 ## `deprecated`
 
@@ -356,6 +364,7 @@ and not passed to mounts.
 ```kdl
 flag "--output <path>" help="Output path" {
   help_md "Write the result to **this path**."
+  warning "An existing file will be replaced."
   effect "write"
 }
 ```

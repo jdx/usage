@@ -29,8 +29,9 @@ use usage::{
     SpecGroup, SpecOutput,
 };
 use usage_argv::spec::{
-    ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf, Effect, Example, ExitCodeMeta,
-    FlagMeta, Framing as ArgvFraming, GroupMeta, OutputMeta, RequiredIfEq, RequiresIf,
+    AdmonitionKind, AdmonitionMeta, ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf,
+    Effect, Example, ExitCodeMeta, FlagMeta, Framing as ArgvFraming, GroupMeta, OutputMeta,
+    RequiredIfEq, RequiresIf,
 };
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
@@ -154,6 +155,8 @@ pub fn build(
         hide: cmd.hide,
         display_order: cmd.display_order,
         help_heading: opt(&cmd.help_heading),
+        surface: opt(&cmd.surface),
+        available_if: strs(&cmd.available_if),
         effect: cmd.effect.map(effect),
         // A command carries at most one mount in the tables; a spec may list several, and the
         // first is the one the tables can hold.
@@ -373,10 +376,12 @@ fn flag_meta(
     let choices = arg.and_then(|a| a.choices.as_ref());
     FlagMeta {
         flag: table,
+        builtin: f.builtin,
         hidden_shorts: bytes(&f.hidden_short_aliases),
         hidden_longs: strs(&f.hidden_aliases),
         help: opt(&f.help),
         long_help: opt(&f.help_long),
+        admonitions: admonitions(&f.admonitions),
         deprecated: opt(&f.deprecated),
         deprecated_warn_at: opt(&f.deprecated_warn_at),
         deprecated_remove_at: opt(&f.deprecated_remove_at),
@@ -466,6 +471,8 @@ fn flag_meta(
         required_unless: strs(&f.required_unless),
         required_unless_all: strs(&f.required_unless_all),
         help_heading: opt(&f.help_heading),
+        surface: opt(&f.surface),
+        available_if: strs(&f.available_if),
         display_order: f.display_order,
         effect: f.effect.map(effect),
         complete_type: complete_type(completers, &f.name, arg.map(|a| a.name.as_str())),
@@ -484,6 +491,7 @@ fn arg_meta(
         value_names: strs(&a.value_names),
         help: opt(&a.help),
         long_help: opt(&a.help_long),
+        admonitions: admonitions(&a.admonitions),
         env: opt(&a.env),
         env_fallback: strs(&a.env_fallback),
         deprecated_env: strs(&a.deprecated_env),
@@ -534,6 +542,8 @@ fn arg_meta(
         var_min: a.var_min,
         var_max: a.var_max,
         help_heading: opt(&a.help_heading),
+        surface: opt(&a.surface),
+        available_if: strs(&a.available_if),
         complete_type: complete_type(completers, &a.name, None),
         complete: NO_COMPLETER,
     }
@@ -602,6 +612,21 @@ fn strs(list: &[String]) -> &'static [&'static str] {
     Box::leak(
         list.iter()
             .map(|s| leak(s))
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn admonitions(list: &[usage::SpecAdmonition]) -> &'static [AdmonitionMeta<'static>] {
+    Box::leak(
+        list.iter()
+            .map(|block| AdmonitionMeta {
+                kind: match block.kind {
+                    usage::SpecAdmonitionKind::Note => AdmonitionKind::Note,
+                    usage::SpecAdmonitionKind::Warning => AdmonitionKind::Warning,
+                },
+                text: leak(&block.text),
+            })
             .collect::<Vec<_>>()
             .into_boxed_slice(),
     )
@@ -757,6 +782,7 @@ fn outputs(list: &[SpecOutput]) -> &'static [OutputMeta<'static>] {
         list.iter()
             .map(|o| OutputMeta {
                 name: leak(&o.name),
+                media_type: opt(&o.media_type),
                 framing: match o.framing {
                     Framing::Text => ArgvFraming::Text,
                     Framing::Json => ArgvFraming::Json,

@@ -121,6 +121,10 @@ pub struct Cli {
     pub hidden_aliases: Vec<String>,
     /// Whether a command using this argument struct is omitted from help and completions.
     pub hide: bool,
+    /// Named audience or compatibility surface for this command.
+    pub surface: Option<String>,
+    /// Descriptive availability conditions for this command.
+    pub available_if: Vec<String>,
     /// Default casing for inferred flag and positional names.
     rename_all: Option<CasingStyle>,
     /// Default casing for environment names inferred by bare `env`.
@@ -249,9 +253,11 @@ pub struct ViewDecl {
     pub globals: Vec<String>,
 }
 
-/// One `output("json", framing = "json", schema_from = Report)` declaration.
+/// One `output("json", media_type = "application/json", framing = "json")` declaration.
 pub struct OutputDecl {
     pub name: String,
+    /// An IANA media type such as `application/json` or `application/xml`.
+    pub media_type: Option<String>,
     /// Written as the spec spells it — `text`, `json`, `jsonl` — and checked here so a
     /// typo is a compile error rather than something usage-lib rejects later.
     pub framing: String,
@@ -309,6 +315,8 @@ pub struct Field {
     pub value_enum: bool,
     pub help: Option<String>,
     pub long_help: Option<String>,
+    /// Structured notes and warnings, in declaration order.
+    pub admonitions: Vec<AdmonitionDecl>,
     /// Why this flag is deprecated, plus optional release milestones.
     pub deprecated: Option<String>,
     pub deprecated_warn_at: Option<String>,
@@ -331,7 +339,13 @@ pub struct Field {
     /// A typed Rust default evaluated when parsing starts. `default` remains
     /// the explicit portable spelling emitted in static metadata.
     pub default_value_t: Option<proc_macro2::TokenStream>,
+    /// A runtime-only function that computes one typed default.
+    pub default_fn: Option<syn::Path>,
     pub help_heading: Option<String>,
+    /// Named audience or compatibility surface for this field.
+    pub surface: Option<String>,
+    /// Descriptive availability conditions for this field.
+    pub available_if: Vec<String>,
     /// `#[usage(select)]`: this flag's value picks among the command's outputs.
     ///
     /// The ergonomic half of the struct-level `select = "--format"` — it reads where the
@@ -462,6 +476,17 @@ pub struct Field {
     pub repeatable: bool,
     pub action: ArgAction,
     pub span: Span,
+}
+
+#[derive(Clone, Copy)]
+pub enum AdmonitionKind {
+    Note,
+    Warning,
+}
+
+pub struct AdmonitionDecl {
+    pub kind: AdmonitionKind,
+    pub text: String,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -654,17 +679,19 @@ pub enum Kind {
         /// `next_help_heading` on the flatten site.
         help_heading: Option<String>,
     },
-    /// Holds the enum whose variants are one group of this command's exclusive flags.
+    /// Holds the enum whose variants are one group of this command's related flags.
     ///
     /// The type is carried rather than resolved, as for a flatten: the derive cannot see the
     /// enum's variants, so the switches, their metadata, and the state that collects them all
     /// arrive through [`ArgGroup`](usage_argv::spec::ArgGroup).
     ArgGroup {
-        /// The enum's type with any `Option` stripped, which is what names the trait.
+        /// The enum's type with any `Option` or `Vec` stripped, which names the trait.
         ty: syn::Type,
         /// Whether the field is `Option<T>`, and so may be left alone. A bare `T` says one
         /// member has to be given, which is reported once the last token has been read.
         optional: bool,
+        /// Whether every occurrence is collected, in command-line order, into a `Vec<T>`.
+        multiple: bool,
     },
     /// A field that is not an argument at all, filled from `Default`.
     ///
@@ -764,6 +791,8 @@ impl Cli {
             aliases: Vec::new(),
             hidden_aliases: Vec::new(),
             hide: false,
+            surface: None,
+            available_if: Vec::new(),
             rename_all: None,
             rename_all_env: CasingStyle::ScreamingSnake,
             attr_span: input
@@ -904,6 +933,8 @@ impl Cli {
                     }
                     "alias_hidden" => cli.hidden_aliases.extend(selectors(&meta)?),
                     "hide" => cli.hide = flag_value(&meta)?,
+                    "surface" => cli.surface = Some(string_value(&meta)?),
+                    "available_if" => cli.available_if.extend(selectors(&meta)?),
                     "min_usage_version" => cli.min_usage_version = Some(string_value(&meta)?),
                     "usage" => cli.usage = Some(string_value(&meta)?),
                     "version" => {
@@ -1119,7 +1150,7 @@ impl Cli {
                             path,
                             format!(
                                 "unknown option `{other}` on a struct; usage::Cli takes \
-                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
+                                 `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `surface`, `available_if`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `term_width`, `max_term_width`, \
                                  `subcommand_value_name`, `restart_token`, `mount`, `example`, `select`, `output`, `exit_code`, `run`, `run_with`, `run_async`, `run_async_with`, \
@@ -1948,6 +1979,10 @@ fn dup(span: Span, first: Span, message: &str) -> syn::Error {
 }
 
 impl Field {
+    pub fn has_default(&self) -> bool {
+        !self.default.is_empty() || self.default_fn.is_some()
+    }
+
     /// A field marked `#[usage(skip)]`, if this is one.
     ///
     /// The field is not an argument, and is filled from `Default` when the struct is built.
@@ -2009,6 +2044,7 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            admonitions: Vec::new(),
             deprecated: None,
             deprecated_warn_at: None,
             deprecated_remove_at: None,
@@ -2018,7 +2054,10 @@ impl Field {
             setting: None,
             default: Vec::new(),
             default_value_t: None,
+            default_fn: None,
             help_heading: None,
+            surface: None,
+            available_if: Vec::new(),
             select: false,
             display_order: None,
             value_name: None,
@@ -2157,6 +2196,7 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            admonitions: Vec::new(),
             deprecated: None,
             deprecated_warn_at: None,
             deprecated_remove_at: None,
@@ -2166,7 +2206,10 @@ impl Field {
             setting: None,
             default: Vec::new(),
             default_value_t: None,
+            default_fn: None,
             help_heading: None,
+            surface: None,
+            available_if: Vec::new(),
             select: false,
             display_order: None,
             value_name: None,
@@ -2268,14 +2311,17 @@ impl Field {
         // like `Option<crate::fmt::Format>` keeps the inner type intact; `type_name` would
         // collapse it to `Format` and put a name that is not in scope into the generated
         // tables.
-        let (ty, optional) = match peel(&field.ty, "Option") {
-            Some(inner) => (inner, true),
-            None => (field.ty.clone(), false),
+        let (ty, optional, multiple) = match peel(&field.ty, "Option") {
+            Some(inner) => (inner, true, false),
+            None => match peel(&field.ty, "Vec") {
+                Some(inner) => (inner, false, true),
+                None => (field.ty.clone(), false, false),
+            },
         };
 
         // Anything wrapped around the enum is refused here, where the field is, rather than
         // left to the unsatisfied trait bound the generated code would report: a group
-        // resolves to at most one member, so there is nothing for a container to hold.
+        // resolves to one optional value or one ordered collection.
         let inner = type_name(&ty);
         if let Some(container) = ["Vec", "Option", "Box"]
             .into_iter()
@@ -2284,9 +2330,8 @@ impl Field {
             return Err(syn::Error::new_spanned(
                 &field.ty,
                 format!(
-                    "`arg_group` holds its enum as `Mode` for a required group or \
-                     `Option<Mode>` for an optional one: a group resolves to at most one \
-                     member, so there is nothing for `{container}` to hold"
+                    "`arg_group` holds its enum as `Mode`, `Option<Mode>`, or `Vec<Mode>`: \
+                     nested `{container}` wrappers cannot represent a group's result"
                 ),
             ));
         }
@@ -2296,7 +2341,11 @@ impl Field {
             ty: field.ty.clone(),
             name: to_kebab(&ident.to_string()),
             value_optional: false,
-            kind: Kind::ArgGroup { ty, optional },
+            kind: Kind::ArgGroup {
+                ty,
+                optional,
+                multiple,
+            },
             // Each member carries its own, as a flattened group's flags do: the field holds
             // no flag of its own to describe.
             effect: None,
@@ -2309,6 +2358,7 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            admonitions: Vec::new(),
             deprecated: None,
             deprecated_warn_at: None,
             deprecated_remove_at: None,
@@ -2318,7 +2368,10 @@ impl Field {
             setting: None,
             default: Vec::new(),
             default_value_t: None,
+            default_fn: None,
             help_heading: None,
+            surface: None,
+            available_if: Vec::new(),
             select: false,
             display_order: None,
             value_name: None,
@@ -2439,6 +2492,7 @@ impl Field {
             optional_value_type: false,
             help: None,
             long_help: None,
+            admonitions: Vec::new(),
             deprecated: None,
             deprecated_warn_at: None,
             deprecated_remove_at: None,
@@ -2448,7 +2502,10 @@ impl Field {
             setting: None,
             default: Vec::new(),
             default_value_t: None,
+            default_fn: None,
             help_heading: None,
+            surface: None,
+            available_if: Vec::new(),
             select: false,
             display_order: None,
             value_name: None,
@@ -2553,7 +2610,11 @@ impl Field {
         let mut setting = None;
         let mut default: Vec<String> = Vec::new();
         let mut default_value_t = None;
+        let mut default_fn = None;
+        let mut default_note = None;
         let mut help_heading = None;
+        let mut surface = None;
+        let mut available_if = Vec::new();
         let mut select = false;
         let mut display_order = None;
         let mut effect = None;
@@ -2563,6 +2624,7 @@ impl Field {
         let mut required_collection = false;
         let mut help_attr: Option<String> = None;
         let mut long_help_attr: Option<String> = None;
+        let mut admonitions = Vec::new();
         let mut deprecated = None;
         let mut deprecated_warn_at = None;
         let mut deprecated_remove_at = None;
@@ -2844,7 +2906,20 @@ impl Field {
                             }
                         });
                     }
+                    "default_fn" => {
+                        let value = &meta.require_name_value()?.value;
+                        let Expr::Path(path) = value else {
+                            return Err(syn::Error::new_spanned(
+                                value,
+                                "`default_fn` takes a function, as in `default_fn = default_format`",
+                            ));
+                        };
+                        default_fn = Some(path.path.clone());
+                    }
+                    "default_note" => default_note = Some(string_value(&meta)?),
                     "help_heading" => help_heading = Some(string_value(&meta)?),
+                    "surface" => surface = Some(string_value(&meta)?),
+                    "available_if" => available_if.extend(selectors(&meta)?),
                     "display_order" => display_order = Some(int_value(&meta)?),
                     "effect" => effect = Some(effect_value(&meta)?),
                     "value_name" => value_name = Some(string_value(&meta)?),
@@ -2862,6 +2937,14 @@ impl Field {
                     // help whose breaks are meant literally has to be given directly.
                     "help" => help_attr = Some(string_value(&meta)?),
                     "long_help" => long_help_attr = Some(string_value(&meta)?),
+                    "note" => admonitions.push(AdmonitionDecl {
+                        kind: AdmonitionKind::Note,
+                        text: string_value(&meta)?,
+                    }),
+                    "warning" => admonitions.push(AdmonitionDecl {
+                        kind: AdmonitionKind::Warning,
+                        text: string_value(&meta)?,
+                    }),
                     "deprecated" => deprecated = Some(string_value(&meta)?),
                     "deprecated_warn_at" => deprecated_warn_at = Some(string_value(&meta)?),
                     "deprecated_remove_at" => deprecated_remove_at = Some(string_value(&meta)?),
@@ -2896,7 +2979,7 @@ impl Field {
                                  `short`, `negate`, `global`, `var`, `variadic`, \
                                  `count`, `action`, `hide`, `hide_default_value`, `hide_env`, `hide_env_values`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, \
                                  `hide_possible_values`, `hide_short_help`, `hide_long_help`, \
-                                 `arg`, `env`, `env_fallback`, `deprecated_env`, `default`, `default_value_t`, `choices`, `validate`, \
+                                 `arg`, `env`, `env_fallback`, `deprecated_env`, `default`, `default_value_t`, `default_fn`, `default_note`, `choices`, `validate`, \
                                  `validate_error`, \
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
@@ -2904,8 +2987,8 @@ impl Field {
                                  `value_terminator`, `require_equals`, `bool_value`, \
                                  `default_missing`, `default_if`, \
                                  `required_if`, \
-                                 `required_unless`, `required_unless_all`, `help_heading`, `select`, `display_order`, `value_name`, `value_names`, `num_args`, \
-                                 `verbatim_doc_comment`, \
+                                 `required_unless`, `required_unless_all`, `help_heading`, `surface`, `available_if`, `select`, `display_order`, `value_name`, `value_names`, `num_args`, \
+                                 `verbatim_doc_comment`, `note`, `warning`, \
                                  `visible_alias`, `visible_aliases`, `required`, \
                                  `double_dash`, and `skip`"
                             ),
@@ -3104,6 +3187,26 @@ impl Field {
                     "`default_value_t` is for one value-taking field; switches, counts, and collections declare their portable defaults directly",
                 ));
             }
+        }
+        if default_fn.is_some() {
+            if !default.is_empty() || default_value_t.is_some() {
+                return Err(syn::Error::new(
+                    span,
+                    "`default_fn` computes the runtime default and cannot be combined with `default` or `default_value_t`",
+                ));
+            }
+            if matches!(shape, Shape::Bool | Shape::Count | Shape::Many) {
+                return Err(syn::Error::new(
+                    span,
+                    "`default_fn` is for one value-taking field; switches, counts, and collections use static defaults",
+                ));
+            }
+        }
+        if default_note.is_some() && default_fn.is_none() {
+            return Err(syn::Error::new(
+                span,
+                "`default_note` describes a runtime-computed default, so it requires `default_fn`",
+            ));
         }
         for value in &default {
             match shape {
@@ -3390,7 +3493,21 @@ impl Field {
         // Declared text wins over the comment, which is the point of declaring it. A comment's
         // first paragraph is read the way Rust reads one — line breaks inside it become spaces —
         // so help whose breaks are deliberate has to be given directly.
-        let (help, long_help) = (help_attr.or(help), long_help_attr.or(long_help));
+        let (mut help, mut long_help) = (help_attr.or(help), long_help_attr.or(long_help));
+        if let Some(note) = default_note.as_deref().filter(|_| !hide_default_value) {
+            let annotation = format!("(default: {note})");
+            help = Some(match help {
+                Some(help) if !help.trim().is_empty() => format!("{help} {annotation}"),
+                _ => annotation.clone(),
+            });
+            if let Some(detail) = long_help.as_mut() {
+                *detail = if detail.trim().is_empty() {
+                    annotation
+                } else {
+                    format!("{detail} {annotation}")
+                };
+            }
+        }
 
         // A flag is named after the form it answers to, not after the Rust field holding it.
         // usage-lib derives the name the same way, so the two agree about what a flag is
@@ -3814,6 +3931,7 @@ impl Field {
             optional_value_type,
             help,
             long_help,
+            admonitions,
             deprecated,
             deprecated_warn_at,
             deprecated_remove_at,
@@ -3823,7 +3941,10 @@ impl Field {
             setting,
             default,
             default_value_t,
+            default_fn,
             help_heading,
+            surface,
+            available_if,
             select,
             display_order,
             effect,
@@ -4397,10 +4518,11 @@ fn view_decl(meta: &Meta) -> syn::Result<ViewDecl> {
     })
 }
 
-/// `output("json", framing = "json", help = "…", default, schema_from = Report)`
+/// `output("json", media_type = "application/json", framing = "json", help = "…")`
 ///
-/// The leading string is the token a user types; `framing` is the wire format a consumer
-/// reads. They are separate on purpose — see `lib/src/spec/output.rs`.
+/// The leading string is the token a user types; `media_type` identifies the content and
+/// `framing` describes the stream. They are separate on purpose — see
+/// `lib/src/spec/output.rs`.
 fn output_decl(meta: &Meta) -> syn::Result<OutputDecl> {
     let Meta::List(list) = meta else {
         return Err(syn::Error::new_spanned(
@@ -4412,6 +4534,7 @@ fn output_decl(meta: &Meta) -> syn::Result<OutputDecl> {
         let name: syn::LitStr = input.parse()?;
         let mut output = OutputDecl {
             name: name.value(),
+            media_type: None,
             framing: "text".to_string(),
             help: None,
             default: false,
@@ -4466,6 +4589,7 @@ fn output_decl(meta: &Meta) -> syn::Result<OutputDecl> {
                             }
                             output.framing = framing;
                         }
+                        "media_type" => output.media_type = Some(value.value()),
                         "help" => output.help = Some(value.value()),
                         "select" => output.select = Some(value.value()),
                         "schema" => output.schema = Some(SchemaSource::Literal(value.value())),
@@ -4474,7 +4598,7 @@ fn output_decl(meta: &Meta) -> syn::Result<OutputDecl> {
                                 property,
                                 format!(
                                     "unknown output property `{other}`; an output takes \
-                                     `framing`, `help`, `select`, `schema`, `schema_from`, \
+                                     `media_type`, `framing`, `help`, `select`, `schema`, `schema_from`, \
                                      `schema_fn`, and bare `default` and `hide`"
                                 ),
                             ));
@@ -5185,6 +5309,10 @@ pub struct Variant {
     pub ident: syn::Ident,
     /// Help section this command appears under in its parent's command list.
     pub help_heading: Option<String>,
+    /// Named audience or compatibility surface for this command.
+    pub surface: Option<String>,
+    /// Descriptive availability conditions for this command.
+    pub available_if: Vec<String>,
     /// Explicit placement within the parent's command section.
     pub display_order: Option<usize>,
     /// Whether the command is kept out of help and completions.
@@ -5477,6 +5605,8 @@ impl Variant {
         let mut effect = None;
         let mut hide = false;
         let mut help_heading = None;
+        let mut surface = None;
+        let mut available_if = Vec::new();
         let mut display_order = None;
         let mut external = false;
         let mut help_attr: Option<proc_macro2::TokenStream> = None;
@@ -5503,6 +5633,8 @@ impl Variant {
                     "alias_hidden" => hidden_aliases.extend(selectors(&meta)?),
                     "hide" => hide = flag_value(&meta)?,
                     "help_heading" => help_heading = Some(string_value(&meta)?),
+                    "surface" => surface = Some(string_value(&meta)?),
+                    "available_if" => available_if.extend(selectors(&meta)?),
                     "display_order" => display_order = Some(int_value(&meta)?),
                     "external_subcommand" => external = flag_value(&meta)?,
                     "effect" => {
@@ -5542,7 +5674,7 @@ impl Variant {
                             path,
                             format!(
                                 "unknown option `{other}` on a variant; a subcommand \
-                                 variant takes `name`, `alias`, `alias_hidden`, `help_heading`, `display_order`, \
+                                 variant takes `name`, `alias`, `alias_hidden`, `help_heading`, `surface`, `available_if`, `display_order`, \
                                  `external_subcommand`, `help`, `long_help`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `before_help`, \
                                  `before_long_help`, `after_help`, `after_long_help`, `example`, `verbatim_doc_comment`, \
                                  `run`, `run_async`, and `no_ctx` here, \
@@ -5650,6 +5782,8 @@ impl Variant {
                 ident: variant.ident.clone(),
                 hide: false,
                 help_heading: None,
+                surface: None,
+                available_if: Vec::new(),
                 name,
                 effect: None,
                 display_order: None,
@@ -5721,6 +5855,8 @@ impl Variant {
         Ok(Variant {
             ident: variant.ident.clone(),
             help_heading,
+            surface,
+            available_if,
             display_order,
             hide,
             name,
@@ -6094,7 +6230,7 @@ impl ValueEnum {
     }
 }
 
-/// An enum whose variants are one group of a command's exclusive flags.
+/// An enum whose variants are one group of a command's related flags.
 pub struct ArgGroup {
     pub ident: syn::Ident,
     /// What the group is called in the emitted spec: the type's name in kebab-case,
@@ -6102,6 +6238,8 @@ pub struct ArgGroup {
     pub name: String,
     /// What this type's keys are derived from. See [`Cli::fingerprint`].
     pub fingerprint: String,
+    /// Whether members may be repeated and combined, preserving their occurrence order.
+    pub multiple: bool,
     /// Each variant, and the switch it answers to.
     pub variants: Vec<ArgGroupMember>,
 }
@@ -6129,8 +6267,7 @@ impl ArgGroup {
         let Data::Enum(data) = &input.data else {
             return Err(syn::Error::new_spanned(
                 &input.ident,
-                "usage::ArgGroup describes a set of flags at most one of which may be given, \
-                 so it needs an enum",
+                "usage::ArgGroup describes a related set of flags, so it needs an enum",
             ));
         };
         if !input.generics.params.is_empty() {
@@ -6142,17 +6279,19 @@ impl ArgGroup {
         }
 
         let mut name = to_kebab(&input.ident.unraw().to_string());
+        let mut multiple = false;
         for attr in attrs(&input.attrs) {
             for meta in nested(attr)? {
                 let path = meta.path().clone();
                 match ident_of(&path).as_str() {
                     "name" => name = string_value(&meta)?,
+                    "multiple" => multiple = flag_value(&meta)?,
                     other => {
                         return Err(syn::Error::new_spanned(
                             path,
                             format!(
                                 "unknown arg-group option `{other}`; the enum takes `name` \
-                                 here, and everything else belongs on a variant"
+                                 or `multiple` here, and everything else belongs on a variant"
                             ),
                         ))
                     }
@@ -6332,6 +6471,7 @@ impl ArgGroup {
             ident: input.ident.clone(),
             name,
             fingerprint: quote::ToTokens::to_token_stream(input).to_string(),
+            multiple,
             variants,
         })
     }
@@ -6854,7 +6994,7 @@ mod tests {
         let parsed = cli(r#"
             #[usage(
                 output("human", default, help = "A table"),
-                output("ndjson", framing = "jsonl"),
+                output("ndjson", media_type = "application/x-ndjson", framing = "jsonl"),
                 select = "--format"
             )]
             struct Ex {
@@ -6869,6 +7009,10 @@ mod tests {
         assert_eq!(parsed.outputs[0].help.as_deref(), Some("A table"));
         // aube's spelling, hk's contract.
         assert_eq!(parsed.outputs[1].name, "ndjson");
+        assert_eq!(
+            parsed.outputs[1].media_type.as_deref(),
+            Some("application/x-ndjson")
+        );
         assert_eq!(parsed.outputs[1].framing, "jsonl");
         assert_eq!(parsed.select.as_deref(), Some("--format"));
     }
@@ -8155,7 +8299,7 @@ mod tests {
             optional,
             "`Option<Format>` is a group that may be left alone"
         );
-        let Kind::ArgGroup { optional, ty } = &parsed.fields[1].kind else {
+        let Kind::ArgGroup { optional, ty, .. } = &parsed.fields[1].kind else {
             panic!("expected an argument group");
         };
         assert!(!optional, "a bare `Source` is a group that has to be given");
@@ -8170,7 +8314,7 @@ mod tests {
             }
         "#)
         .expect("should compile");
-        let Kind::ArgGroup { ty, optional } = &parsed.fields[0].kind else {
+        let Kind::ArgGroup { ty, optional, .. } = &parsed.fields[0].kind else {
             panic!("expected an argument group");
         };
         assert!(optional);
@@ -8179,9 +8323,25 @@ mod tests {
             "crate :: fmt :: Format"
         );
 
-        // And nothing wrapped around it, which the field says rather than the trait bound the
-        // generated code would otherwise fail.
-        for ty in ["Vec<Format>", "Option<Option<Format>>", "Box<Format>"] {
+        let parsed = cli(r#"
+            struct Ex {
+                #[usage(arg_group)]
+                filters: Vec<Filter>,
+            }
+        "#)
+        .expect("an ordered group is a collection");
+        let Kind::ArgGroup { ty, multiple, .. } = &parsed.fields[0].kind else {
+            panic!("expected an argument group");
+        };
+        assert!(multiple);
+        assert_eq!(super::type_name(ty), "Filter");
+
+        // Nested wrappers cannot describe one of the three supported result shapes.
+        for ty in [
+            "Option<Option<Format>>",
+            "Option<Vec<Format>>",
+            "Box<Format>",
+        ] {
             let err = rejection(&format!(
                 r#"
                 struct Ex {{
@@ -8190,7 +8350,7 @@ mod tests {
                 }}
             "#
             ));
-            assert!(err.contains("at most one member"), "unhelpful: {err}");
+            assert!(err.contains("cannot represent"), "unhelpful: {err}");
         }
     }
 

@@ -11,24 +11,16 @@ Generate a manpage from a usage spec
 
 ## Flags
 
-### `-f --file <FILE>`
+- **`-f --file <FILE>`** — A usage spec taken in as a file, use "-" to read from stdin
+- **`--view <VIEW>`** — Render one spec-declared executable view
+- **`-o --out-file <OUT_FILE>`** — Output file path, or "-" for stdout (default)
 
-A usage spec taken in as a file, use "-" to read from stdin
+  **Effect:** modifies state
 
-### `--view <VIEW>`
+- **`-s --section <SECTION>`** — Manual section number (default: 1)
 
-Render one spec-declared executable view
+  Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands
 
-### `-o --out-file <OUT_FILE>`
+  **Default:** `1`
 
-**Effect**: modifies state
-
-Output file path, or "-" for stdout (default)
-
-### `-s --section <SECTION>`
-
-Manual section number (default: 1)
-
-Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: System administration commands
-
-**Default:** `1`
+- **`-h --help`** — Print help

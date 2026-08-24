@@ -9,6 +9,8 @@ flag "-q --quiet" help="Suppress progress output" global=#true
 flag "-c --config" help="Path to config file (default: communique.toml in repo root)" global=#true {
     arg <CONFIG>
 }
+flag "-h --help" help="Print help" action=help builtin=#true
+flag "-V --version" help="Print version" action=version builtin=#true
 cmd generate help="Generate release notes for a git tag" effect=read {
     flag --github-release help="Push editorialized notes to the GitHub release" effect=write
     flag --changelog help="Update CHANGELOG.md with the generated changelog entry" effect=write
@@ -32,13 +34,16 @@ cmd generate help="Generate release notes for a git tag" effect=read {
     flag "-o --output" help="Write output to a file instead of stdout" effect=write {
         arg <OUTPUT>
     }
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg <TAG> help="Git tag to generate release notes for"
     arg "[PREV_TAG]" help="Previous tag (auto-detected if omitted)"
 }
 cmd init help="Generate a communique.toml config file in the repo root" effect=write {
     flag --force help="Overwrite existing config file" effect=destructive
+    flag "-h --help" help="Print help" action=help builtin=#true
 }
 cmd sponsors help="Show the companies sponsoring communique and the jdx.dev open source tools" effect=read {
+    flag "-h --help" help="Print help" action=help builtin=#true
 }
 cmd usage help="Generates a usage spec for the CLI" hide=#true effect=read {
     long_help #"""
@@ -46,4 +51,5 @@ Generates a usage spec for the CLI
 
 https://usage.jdx.dev
 """#
+    flag "-h --help" help="Print help" action=help builtin=#true
 }

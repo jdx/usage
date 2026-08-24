@@ -92,6 +92,12 @@ pub struct SpecCommand {
     /// Help section this command appears under in its parent's command list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_heading: Option<String>,
+    /// Named audience or contract surface this command belongs to. Metadata only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub surface: Option<String>,
+    /// Descriptive conditions under which this command is available.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub available_if: Vec<String>,
     /// Explicit placement within its parent's command section.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_order: Option<usize>,
@@ -253,6 +259,8 @@ impl Default for SpecCommand {
             unknown_flags: None,
             hide: false,
             help_heading: None,
+            surface: None,
+            available_if: vec![],
             display_order: None,
             mounted: false,
             flags_from_mount: false,
@@ -407,6 +415,8 @@ impl SpecCommand {
                 "allow_missing_positional" => cmd.allow_missing_positional = v.ensure_bool()?,
                 "hide" => cmd.hide = v.ensure_bool()?,
                 "help_heading" => cmd.help_heading = Some(v.ensure_string()?),
+                "surface" => cmd.surface = Some(v.ensure_string()?),
+                "available_if" => cmd.available_if = vec![v.ensure_string()?],
                 "display_order" => cmd.display_order = Some(v.ensure_usize()?),
                 "unknown_flags" => {
                     let raw = v.ensure_string()?;
@@ -542,6 +552,16 @@ impl SpecCommand {
                 "help_heading" => {
                     cmd.help_heading = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?)
                 }
+                "surface" => {
+                    cmd.surface = Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?)
+                }
+                "available_if" => {
+                    cmd.available_if = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|entry| entry.ensure_string())
+                        .collect::<Result<Vec<_>, _>>()?;
+                }
                 "subcommand_help_heading" => {
                     cmd.subcommand_help_heading =
                         Some(child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?)
@@ -650,16 +670,20 @@ impl SpecCommand {
         self.usage_with_subcommands(true)
     }
 
-    // `docs` only, like `SpecChoices::for_help`: the usage line without the subcommand
+    // `cli-help` only, like `SpecChoices::for_help`: the usage line without the subcommand
     // placeholder is a help-page shape, and nothing else asks for it.
-    #[cfg(feature = "docs")]
+    #[cfg(feature = "cli-help")]
     pub(crate) fn usage_without_subcommands(&self) -> String {
         self.usage_with_subcommands(false)
     }
 
     fn usage_with_subcommands(&self, include_subcommands: bool) -> String {
         let mut usage = self.full_cmd.join(" ");
-        let flags = self.flags.iter().filter(|f| !f.hide).collect_vec();
+        let flags = self
+            .flags
+            .iter()
+            .filter(|f| !f.hide && !f.builtin)
+            .collect_vec();
         let args = self.args.iter().filter(|a| !a.hide).collect_vec();
         if !flags.is_empty() {
             if flags.len() <= 2 {
@@ -703,6 +727,14 @@ impl SpecCommand {
         }
         usage.trim().to_string()
     }
+    /// Forget which subcommands this command was asked for.
+    ///
+    /// `find_subcommand` memoizes names and aliases into a `OnceLock`, so anything that adds or
+    /// removes a subcommand has to say so or the lookup keeps answering for the old set.
+    pub(crate) fn reset_subcommand_lookup(&mut self) {
+        self.subcommand_lookup = OnceLock::new();
+    }
+
     pub(crate) fn merge(&mut self, other: Self) {
         // Merging can add subcommands and aliases, and `find_subcommand` memoizes
         // its lookup into a OnceLock — so the cache has to go, or a name that
@@ -736,6 +768,8 @@ impl SpecCommand {
             exit_codes,
             hide,
             help_heading,
+            surface,
+            available_if,
             display_order,
             subcommand_required,
             subcommand_help_heading,
@@ -853,6 +887,12 @@ impl SpecCommand {
         self.hide = hide;
         if help_heading.is_some() {
             self.help_heading = help_heading;
+        }
+        if surface.is_some() {
+            self.surface = surface;
+        }
+        if !available_if.is_empty() {
+            self.available_if = available_if;
         }
         if display_order.is_some() {
             self.display_order = display_order;
@@ -1006,6 +1046,8 @@ impl From<&SpecCommand> for KdlNode {
             name,
             hide,
             help_heading,
+            surface,
+            available_if,
             display_order,
             subcommand_required,
             subcommand_help_heading,
@@ -1070,6 +1112,17 @@ impl From<&SpecCommand> for KdlNode {
         if let Some(heading) = help_heading {
             node.entries_mut()
                 .push(KdlEntry::new_prop("help_heading", heading.clone()));
+        }
+        if let Some(surface) = surface {
+            node.push(KdlEntry::new_prop("surface", surface.clone()));
+        }
+        if !available_if.is_empty() {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let mut condition = KdlNode::new("available_if");
+            for value in available_if {
+                condition.push(string_entry(None, value));
+            }
+            children.nodes_mut().push(condition);
         }
         if let Some(order) = display_order {
             node.entries_mut()

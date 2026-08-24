@@ -13,24 +13,18 @@ Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab-complet
 
 ## Arguments
 
-### `<SHELL>`
+- **`<SHELL>`** — Shell to generate the init script for
 
-Shell to generate the init script for
-
-**Choices:**
-
-- `bash`
-- `fish`
-- `zsh`
+  **Choices:** `bash`, `fish`, `zsh`
 
 ## Flags
 
-### `--usage-bin <USAGE_BIN>`
+- **`--usage-bin <USAGE_BIN>`** — Override the bin used for calling back to usage-cli
 
-Override the bin used for calling back to usage-cli
+  You may need to set this if you have a different bin named "usage"
 
-You may need to set this if you have a different bin named "usage"
+  **Default:** `usage`
 
-**Default:** `usage`
+  **Environment Variable:** `JDX_USAGE_BIN`
 
-**Environment Variable:** `JDX_USAGE_BIN`
+- **`-h --help`** — Print help

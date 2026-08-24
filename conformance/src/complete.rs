@@ -92,6 +92,14 @@ pub struct Expect {
     /// Whether the order of `candidates` is itself the claim.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub ordered: bool,
+    /// Whether offering *nothing* is the claim.
+    ///
+    /// An empty expectation is almost always a spec that did not say what its author thought,
+    /// so the corpus refuses one by default. Saying this marks the rare case where silence is
+    /// the answer being pinned — past an external boundary, where the words belong to a program
+    /// this spec does not describe — and keeps the guard for everything else.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub nothing: bool,
 }
 
 /// Whether the reference implementation matches a vector's expectation.

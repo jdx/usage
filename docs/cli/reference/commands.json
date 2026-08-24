@@ -150,6 +150,18 @@
               }
             },
             "default": ["bash"]
+          },
+          {
+            "name": "help",
+            "usage": "-h --help",
+            "help": "Print help",
+            "help_first_line": "Print help",
+            "short": ["h"],
+            "long": ["help"],
+            "hide": false,
+            "global": false,
+            "action": "help",
+            "builtin": true
           }
         ],
         "mounts": [],
@@ -237,6 +249,18 @@
             "long": ["exit-zero"],
             "hide": false,
             "global": false
+          },
+          {
+            "name": "help",
+            "usage": "-h --help",
+            "help": "Print help",
+            "help_first_line": "Print help",
+            "short": ["h"],
+            "long": ["help"],
+            "hide": false,
+            "global": false,
+            "action": "help",
+            "builtin": true
           }
         ],
         "mounts": [],
@@ -445,6 +469,18 @@
               "double_dash": "Optional",
               "hide": false
             }
+          },
+          {
+            "name": "help",
+            "usage": "-h --help",
+            "help": "Print help",
+            "help_first_line": "Print help",
+            "short": ["h"],
+            "long": ["help"],
+            "hide": false,
+            "global": false,
+            "action": "help",
+            "builtin": true
           }
         ],
         "mounts": [],
@@ -654,6 +690,18 @@
                   "double_dash": "Optional",
                   "hide": false
                 }
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false,
+                "action": "help",
+                "builtin": true
               }
             ],
             "mounts": [],
@@ -705,6 +753,18 @@
                 },
                 "default": ["usage"],
                 "env": "JDX_USAGE_BIN"
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false,
+                "action": "help",
+                "builtin": true
               }
             ],
             "mounts": [],
@@ -778,6 +838,18 @@
                   "hide": false
                 },
                 "overrides": ["--file"]
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false,
+                "action": "help",
+                "builtin": true
               }
             ],
             "mounts": [],
@@ -873,6 +945,18 @@
                   "hide": false
                 },
                 "overrides": ["--file"]
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false,
+                "action": "help",
+                "builtin": true
               }
             ],
             "mounts": [],
@@ -951,6 +1035,18 @@
                   "double_dash": "Optional",
                   "hide": false
                 }
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false,
+                "action": "help",
+                "builtin": true
               }
             ],
             "mounts": [],
@@ -1057,6 +1153,18 @@
                   "double_dash": "Optional",
                   "hide": false
                 }
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false,
+                "action": "help",
+                "builtin": true
               }
             ],
             "mounts": [],
@@ -1153,6 +1261,18 @@
                   "hide": false
                 },
                 "default": ["1"]
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false,
+                "action": "help",
+                "builtin": true
               }
             ],
             "mounts": [],
@@ -1298,6 +1418,36 @@
                   "double_dash": "Optional",
                   "hide": false
                 }
+              },
+              {
+                "name": "template",
+                "usage": "--template… <TEMPLATE>",
+                "help": "Override a Tera template with NAME=PATH",
+                "help_first_line": "Override a Tera template with NAME=PATH",
+                "short": [],
+                "long": ["template"],
+                "var": true,
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "TEMPLATE",
+                  "usage": "<TEMPLATE>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                }
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false,
+                "action": "help",
+                "builtin": true
               }
             ],
             "mounts": [],
@@ -1418,6 +1568,18 @@
                   "hide": false
                 },
                 "overrides": ["--file"]
+              },
+              {
+                "name": "help",
+                "usage": "-h --help",
+                "help": "Print help",
+                "help_first_line": "Print help",
+                "short": ["h"],
+                "long": ["help"],
+                "hide": false,
+                "global": false,
+                "action": "help",
+                "builtin": true
               }
             ],
             "mounts": [],
@@ -1433,7 +1595,20 @@
           }
         },
         "args": [],
-        "flags": [],
+        "flags": [
+          {
+            "name": "help",
+            "usage": "-h --help",
+            "help": "Print help",
+            "help_first_line": "Print help",
+            "short": ["h"],
+            "long": ["help"],
+            "hide": false,
+            "global": false,
+            "action": "help",
+            "builtin": true
+          }
+        ],
         "mounts": [],
         "effect": "read",
         "unknown_flags": null,
@@ -1511,6 +1686,18 @@
             "long": ["sorted"],
             "hide": false,
             "global": false
+          },
+          {
+            "name": "help",
+            "usage": "-h --help",
+            "help": "Print help",
+            "help_first_line": "Print help",
+            "short": ["h"],
+            "long": ["help"],
+            "hide": false,
+            "global": false,
+            "action": "help",
+            "builtin": true
           }
         ],
         "mounts": [],
@@ -1565,6 +1752,18 @@
               "hide": false
             },
             "overrides": ["--file"]
+          },
+          {
+            "name": "help",
+            "usage": "-h --help",
+            "help": "Print help",
+            "help_first_line": "Print help",
+            "short": ["h"],
+            "long": ["help"],
+            "hide": false,
+            "global": false,
+            "action": "help",
+            "builtin": true
           }
         ],
         "mounts": [],
@@ -1641,7 +1840,20 @@
         "usage": "sponsors",
         "subcommands": {},
         "args": [],
-        "flags": [],
+        "flags": [
+          {
+            "name": "help",
+            "usage": "-h --help",
+            "help": "Print help",
+            "help_first_line": "Print help",
+            "short": ["h"],
+            "long": ["help"],
+            "hide": false,
+            "global": false,
+            "action": "help",
+            "builtin": true
+          }
+        ],
         "mounts": [],
         "effect": "read",
         "unknown_flags": null,
@@ -1739,6 +1951,30 @@
         "long": ["usage-spec"],
         "hide": false,
         "global": false
+      },
+      {
+        "name": "help",
+        "usage": "-h --help",
+        "help": "Print help",
+        "help_first_line": "Print help",
+        "short": ["h"],
+        "long": ["help"],
+        "hide": false,
+        "global": false,
+        "action": "help",
+        "builtin": true
+      },
+      {
+        "name": "version",
+        "usage": "-V --version",
+        "help": "Print version",
+        "help_first_line": "Print version",
+        "short": ["V"],
+        "long": ["version"],
+        "hide": false,
+        "global": false,
+        "action": "version",
+        "builtin": true
       }
     ],
     "mounts": [],

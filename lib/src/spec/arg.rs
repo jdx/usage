@@ -10,7 +10,7 @@ use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
-use crate::{string, SpecChoices};
+use crate::{string, SpecAdmonition, SpecAdmonitionKind, SpecChoices};
 #[cfg(feature = "clap")]
 use crate::{SpecChoice, SpecChoiceAlias};
 
@@ -71,6 +71,9 @@ pub struct SpecArg {
     /// Markdown-formatted help text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
+    /// Structured notes and warnings, in presentation order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub admonitions: Vec<SpecAdmonition>,
     /// First line of help text (auto-generated)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_first_line: Option<String>,
@@ -174,6 +177,16 @@ pub struct SpecArg {
     /// like the flag field of the same name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_heading: Option<String>,
+    /// Named audience or contract surface this argument belongs to.
+    ///
+    /// Metadata only: parsers and help renderers do not filter on this value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub surface: Option<String>,
+    /// Conditions under which this argument is available, in declaration order.
+    ///
+    /// These are descriptive labels for docs, schema consumers, and compatibility tools.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub available_if: Vec<String>,
     /// Explicit placement within its help section.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_order: Option<usize>,
@@ -262,6 +275,8 @@ impl SpecArg {
                 "validate" => arg.validate = v.ensure_string().map(Some)?,
                 "validate_error" => arg.validate_error = v.ensure_string().map(Some)?,
                 "help_heading" => arg.help_heading = v.ensure_string().map(Some)?,
+                "surface" => arg.surface = v.ensure_string().map(Some)?,
+                "available_if" => arg.available_if = vec![v.ensure_string()?],
                 "display_order" => arg.display_order = v.ensure_usize().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported arg key {k}"),
             }
@@ -294,6 +309,8 @@ impl SpecArg {
                 "help_heading" => {
                     arg.help_heading = child.arg(0)?.ensure_string().map(Some)?;
                 }
+                "surface" => arg.surface = child.arg(0)?.ensure_string().map(Some)?,
+                "available_if" => arg.available_if = string_args(&child)?,
                 "display_order" => {
                     arg.display_order = child.arg(0)?.ensure_usize().map(Some)?;
                 }
@@ -315,6 +332,12 @@ impl SpecArg {
                 "long_help" => arg.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_long" => arg.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_md" => arg.help_md = Some(child.arg(0)?.ensure_string()?),
+                "note" => arg
+                    .admonitions
+                    .push(SpecAdmonition::note(child.arg(0)?.ensure_string()?)),
+                "warning" => arg
+                    .admonitions
+                    .push(SpecAdmonition::warning(child.arg(0)?.ensure_string()?)),
                 "required" => arg.required = child.arg(0)?.ensure_bool()?,
                 "var" => arg.var = child.arg(0)?.ensure_bool()?,
                 "var_min" => arg.var_min = child.arg(0)?.ensure_usize().map(Some)?,
@@ -491,6 +514,16 @@ impl From<&SpecArg> for KdlNode {
         if let Some(desc) = &arg.help_md {
             node.push(string_entry(Some("help_md"), desc));
         }
+        for admonition in &arg.admonitions {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let name = match admonition.kind {
+                SpecAdmonitionKind::Note => "note",
+                SpecAdmonitionKind::Warning => "warning",
+            };
+            let mut block = KdlNode::new(name);
+            block.push(string_entry(None, &admonition.text));
+            children.nodes_mut().push(block);
+        }
         if !arg.required {
             node.push(KdlEntry::new_prop("required", false));
         }
@@ -589,6 +622,10 @@ impl From<&SpecArg> for KdlNode {
         if let Some(help_heading) = &arg.help_heading {
             node.push(string_entry(Some("help_heading"), help_heading));
         }
+        if let Some(surface) = &arg.surface {
+            node.push(string_entry(Some("surface"), surface));
+        }
+        serialize_selector_list(&mut node, "available_if", &arg.available_if);
         if let Some(order) = arg.display_order {
             node.push(KdlEntry::new_prop("display_order", order as i128));
         }
@@ -978,6 +1015,7 @@ impl From<&clap::Arg> for SpecArg {
             help,
             help_long,
             help_md: None,
+            admonitions: Vec::new(),
             help_first_line,
             var,
             var_max: None,
@@ -1010,6 +1048,8 @@ impl From<&clap::Arg> for SpecArg {
             env_fallback: Vec::new(),
             deprecated_env: Vec::new(),
             help_heading: arg.get_help_heading().map(|s| s.to_string()),
+            surface: None,
+            available_if: Vec::new(),
             display_order: Some(arg.get_display_order()),
         };
         arg.choices = choices;

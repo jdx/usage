@@ -14,20 +14,12 @@ to properly escape and quote values with spaces in them.
 
 ## Arguments
 
-### `<SCRIPT>`
+- **`<SCRIPT>`**
+- **`[ARGS]…`** — Arguments to pass to script
 
-### `[ARGS]…`
-
-Arguments to pass to script
-
-Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
+  Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 
 ## Flags
 
-### `-h`
-
-Show help
-
-### `--help`
-
-Show help
+- **`-h`** — Show help
+- **`--help`** — Show help

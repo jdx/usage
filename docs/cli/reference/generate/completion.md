@@ -11,56 +11,33 @@ Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 
 ## Arguments
 
-### `<SHELL>`
+- **`<SHELL>`** — Shell to generate completions for
 
-Shell to generate completions for
+  **Choices:** `bash`, `fish`, `nu`, `powershell`, `zsh`
 
-**Choices:**
-
-- `bash`
-- `fish`
-- `nu`
-- `powershell`
-- `zsh`
-
-### `<BIN>`
-
-The CLI which we're generating completions for
+- **`<BIN>`** — The CLI which we're generating completions for
 
 ## Flags
 
-### `--install`
+- **`--install`** — Install the script where this shell looks for it, instead of printing it
 
-**Effect**: modifies state
+  Writes the script file and nothing else: no shell rc file and no PowerShell profile is edited. Where a shell needs a one-time line of its own — zsh's `fpath+=`, PowerShell's dot-source — it is printed for you to add.
 
-Install the script where this shell looks for it, instead of printing it
+  **Effect:** modifies state
 
-Writes the script file and nothing else: no shell rc file and no PowerShell profile is edited. Where a shell needs a one-time line of its own — zsh's `fpath+=`, PowerShell's dot-source — it is printed for you to add.
+- **`--force`** — Replace a file at the target path that usage did not write
 
-### `--force`
+  **Effect:** modifies state
 
-**Effect**: modifies state
+- **`-f --file <FILE>`** — A .usage.kdl spec file to use for generating completions, use "-" to read from stdin
+- **`--cache-key <CACHE_KEY>`** — A cache key to use for storing the results of calling the CLI with --usage-cmd
+- **`--usage-bin <USAGE_BIN>`** — Override the bin used for calling back to usage-cli
 
-Replace a file at the target path that usage did not write
+  You may need to set this if you have a different bin named "usage"
 
-### `-f --file <FILE>`
+  **Default:** `usage`
 
-A .usage.kdl spec file to use for generating completions, use "-" to read from stdin
+  **Environment Variable:** `JDX_USAGE_BIN`
 
-### `--cache-key <CACHE_KEY>`
-
-A cache key to use for storing the results of calling the CLI with --usage-cmd
-
-### `--usage-bin <USAGE_BIN>`
-
-Override the bin used for calling back to usage-cli
-
-You may need to set this if you have a different bin named "usage"
-
-**Default:** `usage`
-
-**Environment Variable:** `JDX_USAGE_BIN`
-
-### `--usage-cmd <USAGE_CMD>`
-
-A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"
+- **`--usage-cmd <USAGE_CMD>`** — A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"
+- **`-h --help`** — Print help

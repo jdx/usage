@@ -46,6 +46,26 @@ exit_code 0 "success"
 exit_code 1 "error"
 ```
 
+## Surface and availability metadata
+
+Commands, arguments, and flags may carry descriptive contract metadata:
+
+```kdl
+surface "public"
+available_if "supported-platform"
+
+cmd "doctor" surface="internal" {
+  available_if "debug-build" "admin-policy"
+  flag "--json" surface="automation" available_if="json-feature"
+}
+```
+
+`surface` is a project-defined audience or compatibility label such as `public`, `advanced`,
+`automation`, or `internal`. `available_if` is an ordered list of project-defined conditions.
+Neither changes parsing, help visibility, or validation: generators, documentation sites, API
+catalogs, and migration tooling decide how to interpret them. Use `hide` for an entry that should
+not be advertised and ordinary validation for a condition that must be enforced at runtime.
+
 ## Help variants
 
 The plain fields (`about`, `before_help`, and `after_help`) are the short-help

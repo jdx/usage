@@ -23,31 +23,17 @@ every release does not get left switched on.
 
 ## Arguments
 
-### `<OLD>`
-
-The spec as it was, typically the released one, use "-" to read from stdin
-
-### `<NEW>`
-
-The spec as it is now, use "-" to read from stdin
+- **`<OLD>`** — The spec as it was, typically the released one, use "-" to read from stdin
+- **`<NEW>`** — The spec as it is now, use "-" to read from stdin
 
 ## Flags
 
-### `-f --format <FORMAT>`
+- **`-f --format <FORMAT>`** — Output format
 
-Output format
+  **Choices:** `text`, `json`
 
-**Choices:**
+  **Default:** `text`
 
-- `text`
-- `json`
-
-**Default:** `text`
-
-### `-b --breaking`
-
-Report only breaking changes
-
-### `--exit-zero`
-
-Exit 0 even when there are breaking changes
+- **`-b --breaking`** — Report only breaking changes
+- **`--exit-zero`** — Exit 0 even when there are breaking changes
+- **`-h --help`** — Print help

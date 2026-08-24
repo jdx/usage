@@ -37,18 +37,25 @@ const rustRows = [
   { name: "bpaf", value: 1597028, label: "1,600 µs", note: "~8,200× more", us: false },
 ];
 
-// Go figures from go/README.md are whole-process wall time and subtract the
-// ~950 µs a do-nothing Go process costs, so they are deliberately approximate.
+// Go figures from go/README.md, taken the same way as the Rust card's and by a harness
+// written to match it: `benches/go/cmd/sweep` runs each parser repeatedly in one process
+// and keeps the fastest of many short rounds. The card used to show whole-process wall
+// time with the Go runtime's ~1 ms startup subtracted, which made every bar a difference
+// between two much larger numbers — and compared usage-go's binder against the other
+// three frameworks' whole job, which was not a like-for-like row.
 //
-// Ratios read the same way as the Rust card's: what each framework costs against
-// usage-go, on the row that costs it. Whole multiples, because every figure here is
-// a difference between two numbers already rounded to two significant figures — a
-// ratio of those does not deserve a decimal place.
+// So this is `Parse`: argv to a filled struct, which is what cobra, urfave and kong each
+// do in one call. What a whole process costs is in go/README.md rather than here, because
+// it is mostly the Go runtime rather than the parser.
+//
+// Values in microseconds. Quoted to two significant figures: across four runs on one
+// machine the minima moved a few percent and the ratios by about 10% — cobra read 18x,
+// 19x and 21x — so the ratios carry a `~`.
 const goRows = [
-  { name: "usage-go", value: 0.15, label: "~150 µs", us: true },
-  { name: "urfave/cli v3", value: 0.75, label: "~750 µs", note: "~5× more", us: false },
-  { name: "cobra", value: 1.05, label: "~1.05 ms", note: "~7× more", us: false },
-  { name: "kong", value: 5.2, label: "~5.2 ms", note: "~35× more", us: false },
+  { name: "usage-go", value: 5.9, label: "5.9 µs", us: true },
+  { name: "cobra", value: 110, label: "110 µs", note: "~18× more", us: false },
+  { name: "urfave/cli v3", value: 200, label: "200 µs", note: "~34× more", us: false },
+  { name: "kong", value: 2970, label: "3.0 ms", note: "~500× more", us: false },
 ];
 
 const rustMax = Math.max(...rustRows.map((r) => r.value));
@@ -126,15 +133,14 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
       What parsing <code>mise use -g node@20</code> costs each framework, against a shadow
       of <a href="https://mise.jdx.dev">mise</a>'s CLI: 211 commands, 711 flags.
       <template v-if="showRust && showGo">
-        The usage, clap, bpaf, and cobra programs are generated from the same checked-in
-        spec; urfave/cli and kong are still hand-measured.
+        Every program on both cards is generated from that one checked-in spec.
       </template>
       <template v-else-if="showRust">
         The usage, clap, and bpaf programs are generated from the same checked-in spec.
       </template>
       <template v-else>
-        usage-go and cobra are generated from the same checked-in spec; urfave/cli and kong
-        are still hand-measured.
+        The usage-go, cobra, urfave/cli and kong programs are generated from the same
+        checked-in spec.
       </template>
     </p>
 
@@ -216,14 +222,17 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
             @mouseenter="clamp"
             @focusin="clamp"
             :aria-describedby="`${idPrefix}-tip-cold`"
-            >startup-adjusted process cost
+            >in-process parse throughput
             <span class="usage-bench-tip" :id="`${idPrefix}-tip-cold`" role="tooltip">
               <strong>How this is measured</strong>
               <span>
-                Whole-process wall time with the ~950 µs startup cost of a do-nothing Go
-                process subtracted. usage-go and cobra have generated mise-scale shadows;
-                urfave/cli and kong are hand-measured and should be read as orders of
-                magnitude. The subtraction makes every bar approximate.
+                The same way as the Rust card, by a harness written to match it: each
+                parser runs repeatedly inside one process and the fastest per-parse time
+                from many short rounds is reported, with the collector run between rounds
+                rather than inside them. Process startup is excluded — a Go process is
+                about a millisecond old before <code>main</code>, which no parser can
+                touch. Whole-process cost, and instructions for one parse:
+                <a href="https://github.com/jdx/usage/blob/main/go/README.md">go/README.md</a>.
               </span>
             </span>
           </span>
@@ -247,10 +256,12 @@ onBeforeUnmount(() => window.removeEventListener("resize", replace));
           </div>
         </div>
         <p class="usage-bench-foot">
-          The measured event parser walks package-level tables already laid out before
-          <code>main</code>: no runtime tree construction, reflection, or heap allocation.
-          Instructions for the same parse: <strong>~1.6k</strong> vs cobra's 3.25M,
-          urfave/cli's 5.6M, kong's 57.9M.
+          usage-go binds against package-level tables the linker laid out before
+          <code>main</code>. cobra and urfave build a command tree per process and kong
+          reflects over a struct, none of which a spec-driven parser has to do.
+          Instructions for the same parse: <strong>123k</strong> vs cobra's 2.8M,
+          urfave/cli's 5.8M, kong's 66.7M — and <strong>1,955</strong> for the binder
+          under usage-go's typed front door.
         </p>
       </div>
     </div>

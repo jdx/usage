@@ -13,7 +13,7 @@ use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::helpers::{string_entry, NodeHelper};
 use crate::spec::is_false;
-use crate::{string, SpecArg, SpecChoices, SpecRequiredIfEq};
+use crate::{string, SpecAdmonition, SpecAdmonitionKind, SpecArg, SpecChoices, SpecRequiredIfEq};
 
 /// A non-binding action performed when a flag is supplied.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -123,6 +123,9 @@ pub struct SpecFlag {
     /// Markdown-formatted help text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_md: Option<String>,
+    /// Structured notes and warnings, in presentation order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub admonitions: Vec<SpecAdmonition>,
     /// First line of help text (auto-generated)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_first_line: Option<String>,
@@ -302,12 +305,21 @@ pub struct SpecFlag {
     /// it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_heading: Option<String>,
+    /// Named audience or contract surface this flag belongs to. Metadata only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub surface: Option<String>,
+    /// Descriptive conditions under which this flag is available.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub available_if: Vec<String>,
     /// Explicit placement within its help section.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_order: Option<usize>,
     /// Whether this flag binds a value or requests help/version output.
     #[serde(skip_serializing_if = "is_set_action")]
     pub action: SpecFlagAction,
+    /// Whether this is a parser-supplied entry materialized by a generated spec.
+    #[serde(skip_serializing_if = "is_false")]
+    pub builtin: bool,
 }
 
 fn is_set_action(action: &SpecFlagAction) -> bool {
@@ -373,6 +385,7 @@ impl SpecFlag {
                     };
                     flag.action = action;
                 }
+                "builtin" => flag.builtin = v.ensure_bool()?,
                 "allow_hyphen_values" => allow_hyphen_values = v.ensure_bool()?,
                 "allow_negative_numbers" => allow_negative_numbers = v.ensure_bool()?,
                 "value_terminator" => value_terminator = Some(v.ensure_string()?),
@@ -412,6 +425,8 @@ impl SpecFlag {
                 "env_fallback" => flag.env_fallback = vec![v.ensure_string()?],
                 "deprecated_env" => flag.deprecated_env = vec![v.ensure_string()?],
                 "help_heading" => flag.help_heading = v.ensure_string().map(Some)?,
+                "surface" => flag.surface = v.ensure_string().map(Some)?,
+                "available_if" => flag.available_if = vec![v.ensure_string()?],
                 "display_order" => flag.display_order = v.ensure_usize().map(Some)?,
                 k => bail_parse!(ctx, v.entry.span(), "unsupported flag key {k}"),
             }
@@ -426,6 +441,12 @@ impl SpecFlag {
                 "long_help" => flag.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_long" => flag.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_md" => flag.help_md = Some(child.arg(0)?.ensure_string()?),
+                "note" => flag
+                    .admonitions
+                    .push(SpecAdmonition::note(child.arg(0)?.ensure_string()?)),
+                "warning" => flag
+                    .admonitions
+                    .push(SpecAdmonition::warning(child.arg(0)?.ensure_string()?)),
                 "required" => flag.required = child.arg(0)?.ensure_bool()?,
                 "required_if" => {
                     flag.required_if = child
@@ -509,6 +530,7 @@ impl SpecFlag {
                     };
                     flag.action = action;
                 }
+                "builtin" => flag.builtin = child.arg(0)?.ensure_bool()?,
                 "allow_hyphen_values" => {
                     allow_hyphen_values = child.arg(0)?.ensure_bool()?;
                 }
@@ -567,6 +589,14 @@ impl SpecFlag {
                 }
                 "help_heading" => {
                     flag.help_heading = child.arg(0)?.ensure_string().map(Some)?;
+                }
+                "surface" => flag.surface = child.arg(0)?.ensure_string().map(Some)?,
+                "available_if" => {
+                    flag.available_if = child
+                        .ensure_arg_len(1..)?
+                        .args()
+                        .map(|entry| entry.ensure_string())
+                        .collect::<Result<_>>()?;
                 }
                 "display_order" => {
                     flag.display_order = child.arg(0)?.ensure_usize().map(Some)?;
@@ -950,6 +980,16 @@ impl From<&SpecFlag> for KdlNode {
             node.push(string_entry(None, desc));
             children.nodes_mut().push(node);
         }
+        for admonition in &flag.admonitions {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            let name = match admonition.kind {
+                SpecAdmonitionKind::Note => "note",
+                SpecAdmonitionKind::Warning => "warning",
+            };
+            let mut block = KdlNode::new(name);
+            block.push(string_entry(None, &admonition.text));
+            children.nodes_mut().push(block);
+        }
         if flag.required {
             node.push(KdlEntry::new_prop("required", true));
         }
@@ -1004,6 +1044,9 @@ impl From<&SpecFlag> for KdlNode {
         }
         if flag.action != SpecFlagAction::Set {
             node.push(string_entry(Some("action"), flag.action.as_str()));
+        }
+        if flag.builtin {
+            node.push(KdlEntry::new_prop("builtin", true));
         }
         if flag.allow_hyphen_values() {
             node.push(KdlEntry::new_prop("allow_hyphen_values", true));
@@ -1095,6 +1138,10 @@ impl From<&SpecFlag> for KdlNode {
         if let Some(help_heading) = &flag.help_heading {
             node.push(string_entry(Some("help_heading"), help_heading));
         }
+        if let Some(surface) = &flag.surface {
+            node.push(string_entry(Some("surface"), surface));
+        }
+        serialize_flag_list(&mut node, "available_if", &flag.available_if);
         if let Some(order) = flag.display_order {
             node.push(KdlEntry::new_prop("display_order", order as i128));
         }
@@ -1446,6 +1493,7 @@ impl From<&clap::Arg> for SpecFlag {
             help,
             help_long,
             help_md: None,
+            admonitions: Vec::new(),
             help_first_line,
             var,
             var_min: None,
@@ -1467,6 +1515,7 @@ impl From<&clap::Arg> for SpecFlag {
                 clap::ArgAction::Version => SpecFlagAction::Version,
                 _ => SpecFlagAction::Set,
             },
+            builtin: false,
             default,
             deprecated: None,
             negate,
@@ -1480,6 +1529,8 @@ impl From<&clap::Arg> for SpecFlag {
             env_fallback: vec![],
             deprecated_env: vec![],
             help_heading: c.get_help_heading().map(|s| s.to_string()),
+            surface: None,
+            available_if: Vec::new(),
             display_order: Some(c.get_display_order()),
         };
         if c.is_allow_hyphen_values_set() {

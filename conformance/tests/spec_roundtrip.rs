@@ -199,6 +199,7 @@ static INSTALL_META: CommandMeta = CommandMeta {
         },
         OutputMeta {
             name: "json",
+            media_type: Some("application/json"),
             framing: Framing::Json,
             schema: Some("{\n  \"type\": \"object\"\n}"),
             ..OutputMeta::EMPTY
@@ -722,6 +723,10 @@ fn outputs_and_exit_codes_survive() {
     );
     assert!(install.outputs[0].default);
     assert_eq!(
+        install.outputs[1].media_type.as_deref(),
+        Some("application/json")
+    );
+    assert_eq!(
         install.outputs[1].schema.as_deref(),
         Some("{\n  \"type\": \"object\"\n}"),
         "a schema with newlines should come back as it went out"
@@ -845,10 +850,16 @@ fn nothing_is_dropped_on_the_way_out() {
     // Counts, so an entry the writer skips entirely shows up here rather than in
     // whichever assertion happened to name it.
     let spec = parsed();
-    assert_eq!(
-        spec.cmd.flags.len(),
-        ROOT.flags.len(),
-        "every declared flag should reach the spec"
+    for declared in ROOT.flags {
+        assert!(
+            spec.cmd.flags.iter().any(|flag| flag.name == declared.name),
+            "declared flag {} should reach the spec",
+            declared.name
+        );
+    }
+    assert!(
+        spec.cmd.flags.iter().any(|flag| flag.name == "help"),
+        "the generated spec should include the parser-supplied help flag"
     );
     assert_eq!(
         spec.cmd.args.len(),

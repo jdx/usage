@@ -12,8 +12,9 @@ The Go framework builds your CLI from a usage spec — but unlike most Go CLI li
 shipped binary never parses the spec. `usage generate go` lowers the KDL into plain Go tables,
 typed structs, and a `Parse` function at build time. The result:
 
-- **Zero dependencies.** The module is `github.com/jdx/usage/go` and imports nothing but the
-  standard library.
+- **One small dependency.** The module is `github.com/jdx/usage/go`; beyond the standard
+  library it imports only [expr](https://github.com/expr-lang/expr), which evaluates a spec's
+  validation expressions.
 - **Zero-allocation routing.** The low-level event parser allocates nothing on success or
   failure — roughly 57–110ns per parse on mise's real 211-command spec. Generated `Parse` adds
   typed binding, defaults, and validation on top.
@@ -30,7 +31,11 @@ The generated package contains plain command and flag tables that the linker lay
 shipped program. The event parser keeps its state and 16-entry command stack inline, borrows
 values from argv, and scans only the flags in scope. Those are the zero-allocation,
 57–110ns measurements. Generated `Parse` does more work to produce the typed result shown
-below, so the zero-allocation claim deliberately does not apply to that higher layer.
+below, so the zero-allocation claim deliberately does not apply to that higher layer — and
+it is `Parse` the chart above measures, at about 5.9µs on mise's spec, because binding to a
+filled struct is the whole of what cobra, urfave/cli and kong each do in one call. The
+[Go README](https://github.com/jdx/usage/blob/main/go/README.md) has both numbers, what a
+whole process costs, and where `Parse` spends its time.
 
 ## Quick start
 
@@ -146,9 +151,9 @@ Worth knowing before you commit:
   `argv.ApplyOverrides` itself.
 - **Fields are `string`, `bool`, `[]string`, or `int` (for counts).** A spec says what a value is
   called, never what type it is — convert with [`argv.Int`, `argv.Duration`, etc.](/go/binding#typed-values)
-- **`complete` scripts, `config` nodes, `group`, `value_hint`, and `mount` are not carried into
-  the generated tables.** Completions know `choices`; config resolution is not implemented.
-- **Completion shell scripts come from the Rust side.** The Go runtime answers completion
-  requests over the same protocol, but you wire up the hidden subcommand yourself — see
-  [Completions](/go/completions).
+- **`complete` run-scripts, `config` nodes, `group`, `value_hint`, and `mount` are not carried
+  into the generated tables.** Completions still offer `choices` and derive file, directory,
+  executable, and command completion from `complete` types and value names — only `run=`
+  shell-out completers are unsupported, since they mean running a subprocess on every Tab. See
+  [Completions](/go/completions). Config resolution is not implemented.
 - Command trees deeper than 16 levels are rejected (`CodeTooDeep`); short flags must be ASCII.

@@ -43,7 +43,6 @@ Contributions welcome! Here are the frameworks we'd like to support next.
 
 | Framework                                                                  | Language |
 | -------------------------------------------------------------------------- | -------- |
-| [argh](https://github.com/google/argh)                                     | Rust     |
 | [zig-clap](https://github.com/Hejsil/zig-clap)                             | Zig      |
 | [optparse-applicative](https://github.com/pcapriotti/optparse-applicative) | Haskell  |
 | [cligen](https://github.com/c-blake/cligen)                                | Nim      |

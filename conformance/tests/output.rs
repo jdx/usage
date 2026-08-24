@@ -11,7 +11,10 @@
 //! - selection is resolved on the way through, so the flag that picks an output arrives at
 //!   usage-lib already knowing which values it accepts.
 
-use usage::Spec as LibSpec;
+use usage::{
+    docs::markdown::{MarkdownRenderer, MarkdownTheme},
+    Spec as LibSpec,
+};
 use usage_derive::{Args, Cli, Subcommands};
 
 /// Check the project
@@ -20,11 +23,18 @@ use usage_derive::{Args, Cli, Subcommands};
     output("human", default, help = "A human-readable report"),
     output(
         "json",
+        media_type = "application/json",
         framing = "json",
         help = "One report object",
         schema = "{\n  \"type\": \"object\"\n}"
     ),
-    output("jsonl", framing = "jsonl", help = "One event per line"),
+    output(
+        "jsonl",
+        media_type = "application/x-ndjson",
+        framing = "jsonl",
+        help = "One event per line"
+    ),
+    output("checkstyle", media_type = "application/xml"),
     output("legacy", hide),
     exit_code(0, "all checks passed"),
     exit_code(1, "a check failed")
@@ -81,10 +91,73 @@ struct RootOrder {
     verbose: bool,
 }
 
+#[derive(Args)]
+#[usage(
+    output("human", default),
+    output("json", framing = "json"),
+    exit_code(2, "invalid output selection")
+)]
+struct SharedOutput {
+    #[usage(long, select)]
+    format: Option<String>,
+}
+
+#[derive(Args)]
+struct NestedOutput {
+    #[usage(flatten)]
+    output: SharedOutput,
+}
+
+#[derive(Cli)]
+#[usage(name = "flattened-output", exit_code(130, "interrupted"))]
+#[allow(dead_code)]
+struct FlattenedOutput {
+    #[usage(flatten)]
+    output: NestedOutput,
+}
+
 fn parsed() -> LibSpec {
     let kdl = Ex::to_kdl();
     kdl.parse()
         .unwrap_or_else(|e| panic!("usage-lib could not parse the emitted spec: {e}\n\n{kdl}"))
+}
+
+#[test]
+fn flattened_args_contribute_command_output_metadata() {
+    let kdl = FlattenedOutput::to_kdl();
+    let spec: LibSpec = kdl
+        .parse()
+        .unwrap_or_else(|e| panic!("usage-lib could not parse the emitted spec: {e}\n\n{kdl}"));
+    assert!(kdl.find("output human") < kdl.find("select \"--format\""));
+    assert!(kdl.find("select \"--format\"") < kdl.find("exit_code 130"));
+
+    assert_eq!(spec.outputs.len(), 2, "{kdl}");
+    assert_eq!(spec.outputs[0].name, "human");
+    assert_eq!(spec.outputs[1].name, "json");
+    assert_eq!(spec.select.as_deref(), Some("--format"));
+    assert_eq!(
+        spec.exit_codes
+            .iter()
+            .find(|exit| exit.code == 2)
+            .map(|exit| exit.help.as_str()),
+        Some("invalid output selection")
+    );
+    assert_eq!(spec.exit_codes[0].code, 130);
+
+    let format = spec
+        .cmd
+        .flags
+        .iter()
+        .find(|flag| flag.name == "format")
+        .unwrap();
+    assert_eq!(
+        format
+            .arg
+            .as_ref()
+            .and_then(|arg| arg.choices.as_ref())
+            .map(|choices| choices.values()),
+        Some(vec!["human".into(), "json".into()])
+    );
 }
 
 #[test]
@@ -102,12 +175,53 @@ fn a_name_and_a_framing_are_different_things() {
             ("human", "text"),
             ("json", "json"),
             ("jsonl", "jsonl"),
+            ("checkstyle", "text"),
             ("legacy", "text"),
         ]
     );
     assert!(check.outputs[0].default);
     assert!(check.outputs[2].framing.is_streaming());
-    assert!(check.outputs[3].hide);
+    assert!(check.outputs[4].hide);
+    assert_eq!(
+        check.outputs[1].media_type.as_deref(),
+        Some("application/json")
+    );
+    assert_eq!(
+        check.outputs[2].media_type.as_deref(),
+        Some("application/x-ndjson")
+    );
+    assert_eq!(
+        check.outputs[3].media_type.as_deref(),
+        Some("application/xml")
+    );
+}
+
+#[test]
+fn a_media_type_without_a_selector_renders_in_both_markdown_themes() {
+    let spec: LibSpec = r#"
+name "ex"
+output "xml" media_type="application/xml"
+"#
+    .parse()
+    .expect("standalone output spec");
+    let compact = MarkdownRenderer::new(spec.clone())
+        .render_cmd(&spec.cmd)
+        .expect("markdown page");
+    assert!(
+        compact.contains(
+            "- **`xml`**\n\n  **Framing:** `text`\n\n  **Media type:** `application/xml`"
+        ),
+        "{compact}"
+    );
+
+    let detailed = MarkdownRenderer::new(spec.clone())
+        .with_theme(MarkdownTheme::Detailed)
+        .render_cmd(&spec.cmd)
+        .expect("detailed markdown page");
+    assert!(
+        detailed.contains("`xml`\n\n- **Media type**: `application/xml`"),
+        "{detailed}"
+    );
 }
 
 #[test]
@@ -139,7 +253,12 @@ fn a_field_level_select_names_its_own_flag() {
             .as_ref()
             .and_then(|a| a.choices.as_ref())
             .map(|c| c.values()),
-        Some(vec!["human".into(), "json".into(), "jsonl".into()])
+        Some(vec![
+            "human".into(),
+            "json".into(),
+            "jsonl".into(),
+            "checkstyle".into(),
+        ])
     );
 }
 

@@ -69,9 +69,14 @@ fn every_vector_says_something() {
             vector.id
         );
         assert!(
-            !vector.expect.candidates.is_empty() || vector.expect.files,
-            "{} [{file}] expects nothing at all — if that is really the claim, say so in `doc` \
-             and relax this check",
+            !vector.expect.candidates.is_empty() || vector.expect.files || vector.expect.nothing,
+            "{} [{file}] expects nothing at all — if that is really the claim, say so with \
+             `\"nothing\": true` and explain it in `doc`",
+            vector.id
+        );
+        assert!(
+            !vector.expect.nothing || (vector.expect.candidates.is_empty() && !vector.expect.files),
+            "{} [{file}] claims to expect nothing while expecting something",
             vector.id
         );
     }

@@ -33,8 +33,8 @@
 use crate::spec::cmd::SpecExample;
 use crate::spec::effect::SpecCommandEffect;
 use crate::{
-    spec::arg::SpecDoubleDashChoices, SpecArg, SpecChoices, SpecCommand, SpecDefaultIf, SpecFlag,
-    SpecRequiredIfEq, SpecRequiresIf,
+    spec::arg::SpecDoubleDashChoices, SpecAdmonition, SpecArg, SpecChoices, SpecCommand,
+    SpecDefaultIf, SpecFlag, SpecRequiredIfEq, SpecRequiresIf,
 };
 
 /// Builder for SpecFlag
@@ -121,6 +121,30 @@ impl SpecFlagBuilder {
     /// Set markdown help text
     pub fn help_md(mut self, text: impl Into<String>) -> Self {
         self.inner.help_md = Some(text.into());
+        self
+    }
+
+    /// Add a semantic note rendered in help and generated documentation.
+    pub fn note(mut self, text: impl Into<String>) -> Self {
+        self.inner.admonitions.push(SpecAdmonition::note(text));
+        self
+    }
+
+    /// Add a semantic warning rendered in help and generated documentation.
+    pub fn warning(mut self, text: impl Into<String>) -> Self {
+        self.inner.admonitions.push(SpecAdmonition::warning(text));
+        self
+    }
+
+    /// Label the audience or compatibility surface this flag belongs to.
+    pub fn surface(mut self, surface: impl Into<String>) -> Self {
+        self.inner.surface = Some(surface.into());
+        self
+    }
+
+    /// Add a descriptive availability condition.
+    pub fn available_if(mut self, condition: impl Into<String>) -> Self {
+        self.inner.available_if.push(condition.into());
         self
     }
 
@@ -501,6 +525,18 @@ impl SpecArgBuilder {
         Self::default()
     }
 
+    /// Label the audience or compatibility surface this argument belongs to.
+    pub fn surface(mut self, surface: impl Into<String>) -> Self {
+        self.inner.surface = Some(surface.into());
+        self
+    }
+
+    /// Add a descriptive availability condition.
+    pub fn available_if(mut self, condition: impl Into<String>) -> Self {
+        self.inner.available_if.push(condition.into());
+        self
+    }
+
     /// Set the argument name
     pub fn name(mut self, name: impl Into<String>) -> Self {
         self.inner.name = name.into();
@@ -563,6 +599,18 @@ impl SpecArgBuilder {
     /// Set markdown help text
     pub fn help_md(mut self, text: impl Into<String>) -> Self {
         self.inner.help_md = Some(text.into());
+        self
+    }
+
+    /// Add a semantic note rendered in help and generated documentation.
+    pub fn note(mut self, text: impl Into<String>) -> Self {
+        self.inner.admonitions.push(SpecAdmonition::note(text));
+        self
+    }
+
+    /// Add a semantic warning rendered in help and generated documentation.
+    pub fn warning(mut self, text: impl Into<String>) -> Self {
+        self.inner.admonitions.push(SpecAdmonition::warning(text));
         self
     }
 
@@ -780,6 +828,17 @@ pub struct SpecCommandBuilder {
 }
 
 impl SpecCommandBuilder {
+    /// Label the audience or compatibility surface this command belongs to.
+    pub fn surface(mut self, surface: impl Into<String>) -> Self {
+        self.inner.surface = Some(surface.into());
+        self
+    }
+
+    /// Add a descriptive availability condition.
+    pub fn available_if(mut self, condition: impl Into<String>) -> Self {
+        self.inner.available_if.push(condition.into());
+        self
+    }
     /// Create a new SpecCommandBuilder
     pub fn new() -> Self {
         Self::default()

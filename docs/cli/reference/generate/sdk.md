@@ -10,27 +10,12 @@ Generate a type-safe SDK from a usage spec
 
 ## Flags
 
-### `-f --file <FILE>`
+- **`-f --file <FILE>`** — A usage spec taken in as a file
+- **`-l --language <LANGUAGE>`** — Target language for the SDK
 
-A usage spec taken in as a file
+  **Choices:** `typescript`, `python`
 
-### `-l --language <LANGUAGE>`
-
-Target language for the SDK
-
-**Choices:**
-
-- `typescript`
-- `python`
-
-### `-o --output <OUTPUT>`
-
-Output directory for generated SDK files
-
-### `-p --package-name <PACKAGE_NAME>`
-
-Override the package/module name (defaults to spec bin name)
-
-### `--spec <SPEC>`
-
-Raw string spec input
+- **`-o --output <OUTPUT>`** — Output directory for generated SDK files
+- **`-p --package-name <PACKAGE_NAME>`** — Override the package/module name (defaults to spec bin name)
+- **`--spec <SPEC>`** — Raw string spec input
+- **`-h --help`** — Print help

@@ -12,13 +12,10 @@
 
 ## Flags
 
-### `--completions <COMPLETIONS>`
-
-Outputs completions for the specified shell for completing the `usage` CLI itself
-
-### `--usage-spec`
-
-Outputs a `usage.kdl` spec for this CLI itself
+- **`--completions <COMPLETIONS>`** — Outputs completions for the specified shell for completing the `usage` CLI itself
+- **`--usage-spec`** — Outputs a `usage.kdl` spec for this CLI itself
+- **`-h --help`** — Print help
+- **`-V --version`** — Print version
 
 ## Subcommands
 

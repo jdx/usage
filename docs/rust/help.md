@@ -39,10 +39,6 @@ binary should print.
 
 `Error` is `#[non_exhaustive]` — always keep a fallback arm.
 
-`version` supplies the concise `-V` response. `long_version` optionally supplies a richer
-`--version` response, falling back to `version` when omitted. Computed expressions use matching
-`version_spec` / `long_version_spec` literals so emitted KDL stays portable.
-
 That match is also the post-parse interception point. An application that must
 run an update notifier, rewrite output, or re-exec before answering help or
 version does that work in the corresponding arm and then renders or returns.
@@ -219,12 +215,43 @@ than pasted. The sections map like this:
 clap keeps its `get_help_template` getter private, so `clap_usage` cannot recover a template from
 a `clap::Command` — a template is one of the settings to carry across by hand when migrating.
 
+### Addressing one help topic
+
+Named help groups are available independently of the complete page. This is useful for a
+`tool help configuration` command, an editor panel, an interactive picker, or completion without
+modeling a presentation group as a fake subcommand:
+
+```rust
+let topics = usage::help::topics(Cli::spec(), Cli::command(), true)
+    .expect("this command belongs to the spec");
+
+for topic in topics {
+    println!("{}\t{}", topic.id, topic.title);
+}
+
+if let Some(text) = usage::help::render_topic(
+    Cli::spec(),
+    Cli::command(),
+    "configuration",
+    true,
+) {
+    print!("{text}");
+}
+```
+
+Each visible `help_heading` becomes a topic. Ordinary Commands, Arguments, Flags, and Global flags
+sections are topics too. IDs are command-local lowercase slugs; `render_topic` also accepts the
+visible title case-insensitively. If an argument group and flag group share one heading, the topic
+combines both blocks in their normal help order. Hidden entries never create or enter a topic.
+
 ## Version
 
 Declaring `version` (or bare `version`, which reads `CARGO_PKG_VERSION`) gives the root command
-`--version` and `-V`, and lists them on its page. If your CLI declares its own `--version` or
-`-V`, your spelling wins, the other still answers, and the page shows whichever is left — where
-clap panics at startup for the same collision.
+`--version` and `-V`, and lists them on its page. `long_version` optionally supplies a richer
+`--version` response, falling back to `version` when omitted; computed expressions use matching
+`version_spec` / `long_version_spec` literals so emitted KDL stays portable. If your CLI declares
+its own `--version` or `-V`, your spelling wins, the other still answers, and the page shows
+whichever is left — where clap panics at startup for the same collision.
 
 `parse()` prints `{bin} {version}` and exits `0`.
 
@@ -251,3 +278,24 @@ Without `diagnostics` (for example after `default-features = false`, or when dep
 `usage-argv` alone), it falls back to the `Debug` form of the error — fine for internal tools,
 not what you want to ship. `parse()` prints the rendered failure to **stderr** and exits **2**,
 clap's status, so scripts that check for it keep working.
+
+### Structured diagnostics
+
+Editors, JSON reporters, NAPI/WASM hosts, and diagnostic frameworks can read the same failure as
+fields instead of scraping its terminal rendering:
+
+```rust
+let error = Ex::parse_from(&argv).unwrap_err();
+let report = usage::diagnostic::report(Ex::spec(), &argv, &error);
+
+assert_eq!(report.code.as_str(), "invalid_value");
+if let Some(location) = report.location {
+    // The argv word and the exact byte range within it.
+    eprintln!("argv[{}], bytes {}..{}", location.index, location.start, location.end);
+}
+```
+
+`Report` also carries the diagnostic's subject and its ordinary plain-text rendering. Locations
+use byte offsets into `OsStr`, so they remain exact for non-UTF-8 argv. A location is intentionally
+absent when no single token is responsible, such as a missing required argument or a conflict
+between two otherwise-valid flags.

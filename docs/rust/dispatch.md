@@ -118,8 +118,7 @@ naming it.
 
 The generated implementation is generic over the context, so `RunWith<&Config>`,
 `RunWith<&mut App>` and `RunWith<Arc<Ctx>>` are all ordinary implementations rather than shapes
-this crate has to anticipate. An enum may say both `run` and `run_with`, which is what a CLI
-part-way through adopting a context needs.
+this crate has to anticipate.
 
 Two traits rather than one with a defaulted context, because otherwise the noise lands on the
 wrong side: a hundred commands that need nothing shared would each carry `fn run(self, _: ())`.
@@ -341,7 +340,9 @@ enum Commands {
 
 `run_with` passes `(argv, ctx)`; `run_async` awaits the function. If the first command is not
 a reliable `Output` source — or the catch-all is the first variant — name the type with
-`output = miette::Result<()>`.
+`output = miette::Result<()>`. This `output =` is the dispatch return type, unrelated to
+`#[usage(output(...))]`, which declares what a command
+[writes to stdout](/rust/args-and-flags#outputs-and-exit-codes).
 
 ## What it says in the spec
 

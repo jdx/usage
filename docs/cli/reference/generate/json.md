@@ -10,14 +10,7 @@ Outputs a usage spec in json format
 
 ## Flags
 
-### `-f --file <FILE>`
-
-A usage spec taken in as a file, use "-" to read from stdin
-
-### `--spec <SPEC>`
-
-raw string spec input
-
-### `--view <VIEW>`
-
-Render one spec-declared executable view
+- **`-f --file <FILE>`** — A usage spec taken in as a file, use "-" to read from stdin
+- **`--spec <SPEC>`** — raw string spec input
+- **`--view <VIEW>`** — Render one spec-declared executable view
+- **`-h --help`** — Print help

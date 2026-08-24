@@ -59,6 +59,76 @@ enum Mode {
     StdinFilepath(std::path::PathBuf),
 }
 
+/// Lint severity overrides, applied from left to right.
+#[derive(ArgGroup, Debug, PartialEq)]
+#[usage(name = "lint-filter", multiple)]
+enum LintFilter {
+    #[usage(short = 'A')]
+    Allow(String),
+    #[usage(short = 'W')]
+    Warn(String),
+    #[usage(short = 'D')]
+    Deny(String),
+}
+
+#[derive(Cli)]
+struct OrderedFilters {
+    #[usage(arg_group)]
+    filters: Vec<LintFilter>,
+    #[usage(long, overrides = "--allow")]
+    all: bool,
+}
+
+#[test]
+fn a_multiple_argument_group_preserves_cross_flag_order() {
+    let a = argv([
+        "-D",
+        "all",
+        "--allow=no-debugger",
+        "-Wstyle",
+        "--deny",
+        "correctness",
+    ]);
+    assert_eq!(
+        OrderedFilters::parse_from(&a)
+            .expect("ordered filters")
+            .filters,
+        vec![
+            LintFilter::Deny("all".into()),
+            LintFilter::Allow("no-debugger".into()),
+            LintFilter::Warn("style".into()),
+            LintFilter::Deny("correctness".into()),
+        ]
+    );
+
+    let kdl = OrderedFilters::to_kdl();
+    assert!(
+        kdl.contains("group lint-filter --allow --warn --deny multiple=#true"),
+        "{kdl}"
+    );
+}
+
+#[test]
+fn overriding_a_multiple_group_member_removes_its_ordered_occurrences() {
+    let a = argv([
+        "-A",
+        "dead-code",
+        "-Wstyle",
+        "--allow=unused",
+        "--all",
+        "-Dwarnings",
+    ]);
+    let parsed = OrderedFilters::parse_from(&a).expect("overridden filters");
+    assert!(parsed.all);
+    assert_eq!(
+        parsed.filters,
+        vec![
+            LintFilter::Warn("style".into()),
+            LintFilter::Deny("warnings".into()),
+        ]
+    );
+}
+
 #[derive(Cli)]
 #[usage(bin = "valued-group")]
 struct ValuedGroup {

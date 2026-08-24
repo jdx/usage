@@ -14,10 +14,6 @@ clients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.
 
 ## Flags
 
-### `-f --file <FILE>`
-
-Usage spec file (not "-": stdin is the MCP transport)
-
-### `-s --spec <SPEC>`
-
-Raw string spec input
+- **`-f --file <FILE>`** — Usage spec file (not "-": stdin is the MCP transport)
+- **`-s --spec <SPEC>`** — Raw string spec input
+- **`-h --help`** — Print help

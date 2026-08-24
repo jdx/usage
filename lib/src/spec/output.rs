@@ -10,16 +10,18 @@
 //! ```kdl
 //! cmd "check" {
 //!     output "human" default=#true help="Human-readable report"
-//!     output "json"  framing="json"  help="One report object"  { schema #"""{…}"""# }
+//!     output "json" media_type="application/json" framing="json" help="One report object" { schema #"""{…}"""# }
+//!     output "xml" media_type="application/xml" help="One XML document"
 //!     output "jsonl" framing="jsonl" help="One event per line" { schema #"""{…}"""# }
 //!     select "--format"
 //! }
 //! ```
 //!
-//! # Name and framing are not the same thing
+//! # Name, media type, and framing are not the same thing
 //!
-//! The positional is the token a *user* types. [`SpecOutput::framing`] is the contract a
-//! *consumer* reads. They are separate because aube spells its line-delimited output
+//! The positional is the token a *user* types, `media_type` identifies the content, and
+//! [`SpecOutput::framing`] says how a *consumer* reads the stream. They are separate because
+//! XML and prose are both read to the end despite having different media types, while aube spells its line-delimited output
 //! `ndjson` and hk spells the identical wire format `jsonl`: a generated SDK that keyed
 //! off the name would offer `exec_ndjson()` for one and `exec_jsonl()` for the other, and
 //! a caller would be back to knowing which CLI they were talking to — the thing this
@@ -143,6 +145,9 @@ impl Selector {
 pub struct SpecOutput {
     /// The token a user types for it, e.g. `human`, `json`, `ndjson`.
     pub name: String,
+    /// The media type of the bytes, independent of their stream framing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_type: Option<String>,
     /// The wire format, which is what a consumer keys off.
     #[serde(skip_serializing_if = "is_text")]
     pub framing: Framing,
@@ -186,6 +191,11 @@ impl SpecOutput {
         self
     }
 
+    pub fn media_type(mut self, media_type: impl Into<String>) -> Self {
+        self.media_type = Some(media_type.into());
+        self
+    }
+
     pub fn help(mut self, help: impl Into<String>) -> Self {
         self.help = Some(help.into());
         self
@@ -224,6 +234,7 @@ impl SpecOutput {
         let mut output = SpecOutput::new(node.arg(0)?.ensure_string()?);
         for (k, v) in node.props() {
             match k {
+                "media_type" => output.media_type = Some(v.ensure_string()?),
                 "framing" => output.framing = parse_framing(ctx, v.ensure_string()?, v.entry)?,
                 "help" => output.help = Some(v.ensure_string()?),
                 "schema" => output.schema = Some(v.ensure_string()?),
@@ -305,6 +316,9 @@ impl From<&SpecOutput> for KdlNode {
     fn from(output: &SpecOutput) -> KdlNode {
         let mut node = KdlNode::new("output");
         node.push(string_entry(None, &output.name));
+        if let Some(media_type) = &output.media_type {
+            node.push(string_entry(Some("media_type"), media_type));
+        }
         if output.framing != Framing::Text {
             node.push(string_entry(Some("framing"), output.framing.as_str()));
         }
@@ -669,6 +683,7 @@ name "ex"
 cmd "ls" {
     output "human" default=#true
     output "ndjson" framing="jsonl"
+    output "checkstyle" media_type="application/xml"
 }
 "#,
         );
@@ -679,6 +694,8 @@ cmd "ls" {
         // reads. aube calls this `ndjson` and hk calls it `jsonl`.
         assert_eq!(ls.outputs[1].name, "ndjson");
         assert!(ls.outputs[1].framing.is_streaming());
+        assert_eq!(ls.outputs[2].framing, Framing::Text);
+        assert_eq!(ls.outputs[2].media_type.as_deref(), Some("application/xml"));
     }
 
     #[test]

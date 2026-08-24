@@ -218,7 +218,9 @@
 //! fields such as `about` and `after_long_help` accept expressions usable as `&'static str`.
 //! A computed `version` additionally declares `version_spec = "..."`, and a typed field
 //! default declares both `default_value_t = EXPR` and `default = "..."`: runtime behavior
-//! evaluates the expression while portable KDL uses the explicit literal.
+//! evaluates the expression while portable KDL uses the explicit literal. A genuinely dynamic
+//! value uses `default_fn = function` instead; an optional `default_note = "..."` reaches help,
+//! while portable KDL deliberately declares no concrete default it could not reproduce.
 //!
 //! A completer is written as
 //!
@@ -236,10 +238,11 @@
 //! script checking for it keeps working. `Cli::parse_from(argv)` hands the error back instead,
 //! for a library embedding a CLI that wants to decide for itself.
 //!
-//! Declaring a `version` or `long_version` also gives the CLI `--version` and `-V`, as clap does — supplied by
-//! the parser rather than listed in the spec, exactly as `--help` is, and yielding to either
-//! spelling the CLI declares for itself. clap refuses that collision by panicking at startup;
-//! here the declaration simply wins and the other spelling still answers.
+//! Declaring a `version` or `long_version` also gives the CLI `--version` and `-V`, as clap does.
+//! The parser supplies version and help entry points, and generated specs materialize their
+//! surviving spellings as `action` flags so metadata consumers see the same interface. Either
+//! spelling yields to a flag the CLI declares for itself. clap refuses that collision by
+//! panicking at startup; here the declaration simply wins and the other spelling still answers.
 //!
 //! On the struct itself: `bin`, `version`, `long_version`, `author`, `license`, `repository`,
 //! `source_code_link_template` — a tera template rendered with the command path as `path`,
@@ -286,7 +289,11 @@
 //! | `env_fallback("OLD_X", "OLDER_X")` | additional environment variables, consulted in declaration order |
 //! | `deprecated_env("LEGACY_X")` | deprecated aliases, consulted after ordinary fallbacks and labeled in help |
 //! | `default = "x"` | the value when the command line does not supply one; a `Vec` may be given several, and starts out holding all of them |
+//! | `default_fn = function` | compute one typed default at parse time without claiming a concrete portable value |
+//! | `default_note = "x"` | describe a `default_fn` in help; the note is prose, not a value |
 //! | `help_heading = "x"` | the section to list this under in help output |
+//! | `note = "x"` | a semantic note shown in long help and generated documentation |
+//! | `warning = "x"` | a semantic warning shown in long help and generated documentation |
 //! | `display_order = n` | explicit help order; positional parsing still follows declaration order |
 //! | `verbatim_doc_comment` | preserve line breaks and whitespace in the doc comment instead of flowing its first paragraph |
 //! | `hide` | keep it out of help and completions |
@@ -294,7 +301,7 @@
 //! | `double_dash = "…"` | how a positional relates to `--`: `optional` (the default), `required` (fillable only after one), `preserve` (the `--` is a value), `automatic` (filling it ends flag parsing, so a wrapper forwards) |
 //! | `complete = my_fn` | a function that answers for this value when a shell asks |
 //! | `value_enum` | the words come from the field's type, which derives [`ValueEnum`] |
-//! | `arg_group` | the flags come from the field's type, which derives [`ArgGroup`]; at most one may be given |
+//! | `arg_group` | the flags come from the field's type, which derives [`ArgGroup`]; `Vec<T>` preserves a `multiple` group's occurrence order |
 //! | `value_hint = usage::ValueHint::FilePath` | ask the shell for paths, executables, or forwarded command argv |
 //! | `extensions("toml", "yaml")` | limit a file-path hint to these extensions while retaining directories |
 //! | `arg` | force a field to be positional |
@@ -538,11 +545,11 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Compile an enum into a set of flags at most one of which may be given.
+/// Compile an enum into a set of related flags.
 ///
-/// clap's most-requested derive ergonomic (clap#2621): mutually exclusive flags as enum
-/// variants, so the code that reads them matches on a type rather than on which of several
-/// `bool`s is set. Each variant is one switch, named by its own name in kebab-case:
+/// Exclusive or ordered flags as enum variants, so the code that reads them matches on a type
+/// rather than on which of several fields is set. Each variant is one switch, named by its own
+/// name in kebab-case:
 ///
 /// ```ignore
 /// #[derive(usage::ArgGroup)]
@@ -580,6 +587,9 @@ pub fn derive_value_enum(input: TokenStream) -> TokenStream {
 /// [`Error::MissingGroup`](usage_argv::Error::MissingGroup). A tuple variant with one field is a
 /// value-taking member such as `Migrate(Source)`; `value_name` and `value_enum` describe that
 /// payload exactly as they do on an ordinary flag.
+///
+/// `#[usage(multiple)]` changes the group into an ordered instruction stream. Hold it as
+/// `Vec<Mode>` and every occurrence is returned in argv order, including interleaved variants.
 ///
 /// A variant's doc comment becomes its help. `help = "..."`, `long_help = "..."`, `hide`, and
 /// `short = 'x'` are the rest of what a member has; `cfg` and `cfg_attr` are copied to the

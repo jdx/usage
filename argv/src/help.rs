@@ -19,7 +19,9 @@
 
 use core::fmt::Write as _;
 
-use crate::spec::{ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
+use crate::spec::{
+    AdmonitionKind, AdmonitionMeta, ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta,
+};
 use crate::Command;
 use crate::DoubleDash;
 
@@ -588,7 +590,7 @@ fn help_structure(
 
     let mut flag_usages: Vec<String> = own.iter().map(|flag| column_usage(flag)).collect();
     flag_usages.extend(inherited.into_iter().map(|(_, usage)| usage));
-    flag_usages.sort_by_key(|usage| core::cmp::Reverse(usage.len()));
+    flag_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
 
     let mut synopsis = String::new();
     usage_section(&mut synopsis, spec, path, meta);
@@ -708,11 +710,14 @@ fn usage_line_with_subcommands(
 
     // Hidden entries are absent from the line as they are from the sections: help describes
     // what a user is invited to type.
-    let flags: usize = meta.flags.iter().filter(|f| !f.hide).count();
+    let flags: usize = meta.flags.iter().filter(|f| !f.hide && !f.builtin).count();
     if flags > 0 {
-        let required = meta.flags.iter().any(|f| !f.hide && flag_demanded(f));
+        let required = meta
+            .flags
+            .iter()
+            .any(|f| !f.hide && !f.builtin && flag_demanded(f));
         if flags <= INLINE_LIMIT {
-            for flag in meta.flags.iter().filter(|f| !f.hide) {
+            for flag in meta.flags.iter().filter(|f| !f.hide && !f.builtin) {
                 // A required flag is angled, like a required argument: the brackets are what
                 // say whether leaving it out is allowed.
                 let (open, close) = if flag_demanded(flag) {
@@ -762,7 +767,7 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
         }
     }
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    visible.sort_by_key(|sub| sub.cmd.name);
+    visible.sort_unstable_by_key(|sub| sub.cmd.name);
     if meta.flatten_help && !visible.is_empty() {
         let mut lines = Vec::new();
         if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
@@ -1077,6 +1082,18 @@ fn short_help_with(
     chain: &[&CommandMeta<'_>],
     inherit_version_actions: bool,
 ) -> String {
+    assemble(
+        spec,
+        &short_sections(spec, path, chain, inherit_version_actions),
+    )
+}
+
+fn short_sections(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    inherit_version_actions: bool,
+) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
     let own: Vec<_> = own
@@ -1275,7 +1292,7 @@ fn short_help_with(
         let _ = writeln!(sections.after_help, "\n{after}");
     }
 
-    assemble(spec, &sections)
+    sections
 }
 
 /// The list of subcommands, and the `help` command every CLI with subcommands has.
@@ -1300,7 +1317,7 @@ fn commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
             (usage_line(&sub_path, sub), *sub)
         })
         .collect();
-    lines.sort_by(|a, b| {
+    lines.sort_unstable_by(|a, b| {
         a.1.display_order
             .unwrap_or(999)
             .cmp(&b.1.display_order.unwrap_or(999))
@@ -1576,7 +1593,10 @@ fn split_groups_section<'m, T: 'm>(
             headings.push(heading);
         }
     }
-    headings.sort_by_key(|h| h.is_some());
+    if let Some(index) = headings.iter().position(Option::is_none) {
+        let unheaded = headings.remove(index);
+        headings.insert(0, unheaded);
+    }
 
     for heading in headings {
         let mut section = String::new();
@@ -1593,29 +1613,27 @@ fn split_groups_section<'m, T: 'm>(
 }
 
 fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>]) {
-    items.sort_by_key(|item| {
-        item.display_order.unwrap_or_else(|| {
-            declared
-                .iter()
-                .position(|candidate| core::ptr::eq(candidate, *item))
-                .unwrap_or(usize::MAX)
-        })
+    items.sort_unstable_by_key(|item| {
+        let position = declared
+            .iter()
+            .position(|candidate| core::ptr::eq(candidate, *item))
+            .unwrap_or(usize::MAX);
+        (item.display_order.unwrap_or(position), position)
     });
 }
 
 fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a>]) {
-    items.sort_by_key(|item| {
-        item.display_order.unwrap_or_else(|| {
-            declared
-                .iter()
-                .position(|candidate| core::ptr::eq(candidate, *item))
-                .unwrap_or(usize::MAX)
-        })
+    items.sort_unstable_by_key(|item| {
+        let position = declared
+            .iter()
+            .position(|candidate| core::ptr::eq(candidate, *item))
+            .unwrap_or(usize::MAX);
+        (item.display_order.unwrap_or(position), position)
     });
 }
 
 fn order_commands(items: &mut Vec<&&CommandMeta<'_>>) {
-    items.sort_by(|a, b| {
+    items.sort_unstable_by(|a, b| {
         a.display_order
             .unwrap_or(999)
             .cmp(&b.display_order.unwrap_or(999))
@@ -1809,6 +1827,18 @@ fn long_help_with(
     chain: &[&CommandMeta<'_>],
     inherit_version_actions: bool,
 ) -> String {
+    assemble(
+        spec,
+        &long_sections(spec, path, chain, inherit_version_actions),
+    )
+}
+
+fn long_sections(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    inherit_version_actions: bool,
+) -> Sections {
     let meta = *chain.last().expect("a page is always about some command");
     let (own, inherited) = own_and_global(chain, inherit_version_actions);
     let own: Vec<_> = own
@@ -1894,6 +1924,7 @@ fn long_help_with(
                 width,
                 meta.next_line_help,
             );
+            admonitions(out, a.admonitions);
             long_annotations(
                 out,
                 if a.hide_possible_values {
@@ -1934,6 +1965,7 @@ fn long_help_with(
                 width,
                 meta.next_line_help,
             );
+            admonitions(out, f.admonitions);
             long_annotations(
                 out,
                 if f.hide_possible_values {
@@ -1963,6 +1995,7 @@ fn long_help_with(
         |out, (f, usage)| {
             let text = f.long_help.or(f.help);
             entry(out, usage, text, flag_col, width, meta.next_line_help);
+            admonitions(out, f.admonitions);
             long_annotations(
                 out,
                 if f.hide_possible_values {
@@ -2027,7 +2060,7 @@ fn long_help_with(
         }
     }
 
-    assemble(spec, &sections)
+    sections
 }
 
 /// Write text with every line indented, leaving blank lines blank.
@@ -2141,6 +2174,16 @@ fn long_annotations(
     }
 }
 
+fn admonitions(out: &mut String, blocks: &[AdmonitionMeta<'_>]) {
+    for block in blocks {
+        let label = match block.kind {
+            AdmonitionKind::Note => "Note",
+            AdmonitionKind::Warning => "Warning",
+        };
+        write_indented(out, &format!("{label}: {}", block.text), 4);
+    }
+}
+
 fn deprecation_label(
     message: Option<&str>,
     warn_at: Option<&str>,
@@ -2219,7 +2262,7 @@ fn long_commands_section(out: &mut String, path: &[&str], meta: &CommandMeta<'_>
             (usage_line(&sub_path, sub), *sub)
         })
         .collect();
-    lines.sort_by(|a, b| {
+    lines.sort_unstable_by(|a, b| {
         a.1.display_order
             .unwrap_or(999)
             .cmp(&b.1.display_order.unwrap_or(999))
@@ -2321,6 +2364,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 width,
                 meta.next_line_help,
             );
+            admonitions(out, arg.admonitions);
             long_annotations(
                 out,
                 if arg.hide_possible_values {
@@ -2351,6 +2395,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
                 width,
                 meta.next_line_help,
             );
+            admonitions(out, flag.admonitions);
             long_annotations(
                 out,
                 if flag.hide_possible_values {
@@ -2393,7 +2438,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
 ///
 /// `None` when the command is not in this spec, which means the two came from different CLIs.
 pub fn find<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     cmd: &Command<'_>,
 ) -> Option<(Vec<&'a str>, Vec<&'a CommandMeta<'a>>)> {
     fn walk<'a>(
@@ -2434,20 +2479,22 @@ pub fn find<'a>(
 /// claimed otherwise would be describing a flag that never binds.
 mod supplied {
     use crate::spec::FlagMeta;
-    use crate::Flag;
+    use crate::{ArgAction, Flag};
 
     macro_rules! entry {
-        ($name:ident, $flag:ident, $key:expr, $label:expr, $longs:expr, $shorts:expr, $help:expr) => {
+        ($name:ident, $flag:ident, $key:expr, $label:expr, $longs:expr, $shorts:expr, $help:expr, $action:expr) => {
             static $flag: Flag<'static> = Flag {
                 key: $key,
                 name: $label,
                 longs: $longs,
                 shorts: $shorts,
+                action: $action,
                 ..Flag::BOOL
             };
             pub static $name: FlagMeta<'static> = FlagMeta {
                 flag: &$flag,
                 help: Some($help),
+                builtin: true,
                 ..FlagMeta::EMPTY
             };
         };
@@ -2460,7 +2507,8 @@ mod supplied {
         "help",
         &["help"],
         b"h",
-        "Print help"
+        "Print help",
+        ArgAction::Help
     );
     entry!(
         HELP_LONG_ONLY,
@@ -2469,7 +2517,8 @@ mod supplied {
         "help",
         &["help"],
         b"",
-        "Print help"
+        "Print help",
+        ArgAction::Help
     );
     // Named `h`, not `help`: the declared name is judged against the forms the entry shows,
     // and a short-only entry called `help` reads as a renamed flag — it printed `help: -h`.
@@ -2480,7 +2529,8 @@ mod supplied {
         "h",
         &[],
         b"h",
-        "Print help"
+        "Print help",
+        ArgAction::Help
     );
     entry!(
         VERSION_BOTH,
@@ -2489,7 +2539,8 @@ mod supplied {
         "version",
         &["version"],
         b"V",
-        "Print version"
+        "Print version",
+        ArgAction::Version
     );
     entry!(
         VERSION_LONG_ONLY,
@@ -2498,7 +2549,8 @@ mod supplied {
         "version",
         &["version"],
         b"",
-        "Print version"
+        "Print version",
+        ArgAction::Version
     );
     entry!(
         VERSION_SHORT_ONLY,
@@ -2507,7 +2559,8 @@ mod supplied {
         "V",
         &[],
         b"V",
-        "Print version"
+        "Print version",
+        ArgAction::Version
     );
 }
 
@@ -2516,7 +2569,10 @@ mod supplied {
 /// `--version` only where the parser actually accepts it: on a command whose table says so,
 /// which the derive sets on the root when a version is declared. A page offering one that the
 /// parser would refuse is worse than a page that stays quiet.
-fn supplied_entries(cmd: &Command<'_>, taken: &[String]) -> Vec<&'static FlagMeta<'static>> {
+pub(crate) fn supplied_entries(
+    cmd: &Command<'_>,
+    taken: &[String],
+) -> Vec<&'static FlagMeta<'static>> {
     // Against the same set every other decision on this page uses, so a spelling claimed by a
     // hidden declaration or by a negation is claimed here too. Offering a `--help` that
     // something else binds is exactly the lie the model exists to prevent.
@@ -2639,13 +2695,12 @@ fn own_and_global<'a>(
         .iter()
         .map(|(flag, _)| *flag as *const _)
         .collect();
-    inherited.sort_by_key(|(flag, _)| {
-        flag.display_order.unwrap_or_else(|| {
-            inherited_positions
-                .iter()
-                .position(|candidate| core::ptr::eq(*candidate, *flag as *const _))
-                .unwrap_or(usize::MAX)
-        })
+    inherited.sort_unstable_by_key(|(flag, _)| {
+        let position = inherited_positions
+            .iter()
+            .position(|candidate| core::ptr::eq(*candidate, *flag as *const _))
+            .unwrap_or(usize::MAX);
+        (flag.display_order.unwrap_or(position), position)
     });
 
     // Last in the command's own section, which is where clap has them: they carry no
@@ -2681,6 +2736,143 @@ fn own_and_global<'a>(
     }
     own.extend(supplied_entries(here.cmd, &claimed));
     (own, inherited)
+}
+
+/// A named section of one command's help page.
+///
+/// `id` is a deterministic, command-local spelling suitable for `tool help <id>` and completion;
+/// `title` is the heading users see. Topics include the ordinary Commands, Arguments, Flags,
+/// and Global flags sections plus every declared `help_heading` group that has visible entries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Topic {
+    pub id: String,
+    pub title: String,
+}
+
+fn topic_id(title: &str) -> String {
+    let mut out = String::new();
+    let mut separator = false;
+    for ch in title.chars() {
+        if ch.is_alphanumeric() {
+            if separator && !out.is_empty() {
+                out.push('-');
+            }
+            out.extend(ch.to_lowercase());
+            separator = false;
+        } else {
+            separator = true;
+        }
+    }
+    if out.is_empty() {
+        "topic".to_string()
+    } else {
+        out
+    }
+}
+
+fn topic_blocks(sections: &Sections) -> Vec<(String, String)> {
+    let mut topics: Vec<(String, String)> = Vec::new();
+    for section in [&sections.commands, &sections.args, &sections.flags] {
+        let mut title: Option<&str> = None;
+        let mut block = String::new();
+        let finish =
+            |title: Option<&str>, block: &mut String, topics: &mut Vec<(String, String)>| {
+                let Some(title) = title else {
+                    block.clear();
+                    return;
+                };
+                let text = block.trim().to_string();
+                let Some((_, body)) = text.split_once('\n') else {
+                    block.clear();
+                    return;
+                };
+                if body.trim().is_empty() {
+                    block.clear();
+                    return;
+                }
+                if let Some((_, existing)) = topics.iter_mut().find(|(known, _)| known == title) {
+                    if !existing.is_empty() {
+                        existing.push_str("\n\n");
+                    }
+                    existing.push_str(body);
+                } else {
+                    topics.push((title.to_string(), text));
+                }
+                block.clear();
+            };
+        for line in section.lines() {
+            let heading = (!line.starts_with(char::is_whitespace))
+                .then(|| line.strip_suffix(':'))
+                .flatten();
+            if let Some(heading) = heading {
+                finish(title, &mut block, &mut topics);
+                title = Some(heading);
+            }
+            if title.is_some() {
+                if !block.is_empty() {
+                    block.push('\n');
+                }
+                block.push_str(line);
+            }
+        }
+        finish(title, &mut block, &mut topics);
+    }
+    topics
+}
+
+fn topics_with_blocks(
+    spec: &Spec<'_>,
+    cmd: &Command<'_>,
+    long: bool,
+) -> Option<Vec<(Topic, String)>> {
+    let (path, chain) = find(spec, cmd)?;
+    let sections = if long {
+        long_sections(spec, &path, &chain, false)
+    } else {
+        short_sections(spec, &path, &chain, false)
+    };
+    let mut used = Vec::<String>::new();
+    Some(
+        topic_blocks(&sections)
+            .into_iter()
+            .map(|(title, block)| {
+                let base = topic_id(&title);
+                let mut id = base.clone();
+                let mut suffix = 2;
+                while used.contains(&id) {
+                    id = format!("{base}-{suffix}");
+                    suffix += 1;
+                }
+                used.push(id.clone());
+                (Topic { id, title }, block)
+            })
+            .collect(),
+    )
+}
+
+/// List the addressable topics on one command's short or long help page.
+pub fn topics(spec: &Spec<'_>, cmd: &Command<'_>, long: bool) -> Option<Vec<Topic>> {
+    Some(
+        topics_with_blocks(spec, cmd, long)?
+            .into_iter()
+            .map(|(topic, _)| topic)
+            .collect(),
+    )
+}
+
+/// Render one addressable help topic by its [`Topic::id`] or visible title.
+///
+/// The result contains the heading and its visible entries, independent of the page's
+/// `help_template`. This makes a topic suitable for `tool help configuration`, an editor panel,
+/// or an interactive picker without making the group a fake subcommand.
+pub fn render_topic(spec: &Spec<'_>, cmd: &Command<'_>, topic: &str, long: bool) -> Option<String> {
+    topics_with_blocks(spec, cmd, long)?
+        .into_iter()
+        .find(|(known, _)| known.id == topic || known.title.eq_ignore_ascii_case(topic))
+        .map(|(_, mut block)| {
+            block.push('\n');
+            block
+        })
 }
 
 /// The page a help request asks for, ready to print.
@@ -3165,7 +3357,7 @@ fn recursive_help<'a>(
 
         let current = *chain.last().expect("a recursive page has a command");
         let mut children: Vec<_> = current.subcommands.iter().filter(|cmd| !cmd.hide).collect();
-        children.sort_by_key(|cmd| (cmd.display_order.unwrap_or(999), cmd.cmd.name));
+        children.sort_unstable_by_key(|cmd| (cmd.display_order.unwrap_or(999), cmd.cmd.name));
         for child in children {
             path.push(child.cmd.name);
             chain.push(child);

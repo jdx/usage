@@ -3,6 +3,7 @@ extern crate insta;
 extern crate log;
 
 pub use crate::parse::{available_flags, parse, Parser};
+pub use crate::spec::admonition::{SpecAdmonition, SpecAdmonitionKind};
 pub use crate::spec::arg::{SpecArg, SpecDoubleDashChoices, SpecRequiredIfEq};
 pub use crate::spec::builder::{SpecArgBuilder, SpecCommandBuilder, SpecFlagBuilder};
 pub use crate::spec::choices::{SpecChoice, SpecChoiceAlias, SpecChoices};
@@ -32,7 +33,7 @@ pub mod complete;
 pub mod spec;
 pub use error::Result;
 
-#[cfg(feature = "docs")]
+#[cfg(any(feature = "docs", feature = "cli-help"))]
 pub mod docs;
 pub mod go;
 pub mod help_template;

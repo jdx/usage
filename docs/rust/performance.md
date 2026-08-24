@@ -7,7 +7,7 @@ completions is not constructed on a successful parse.
 ## Mise-scale result
 
 The gate uses generated shadows of the same checked-in mise spec: 211 commands,
-711 flags, 128 positional arguments, and four command levels. A third binary
+722 flags, 129 positional arguments, and four command levels. A third binary
 does the same startup work without parsing, so instruction and wall-time
 measurements subtract startup from two runs of the same binary.
 
@@ -30,7 +30,7 @@ does only the work the argv asks for:
 
 - It reads argv once, borrowing each value from its `OsStr` instead of copying it.
 - A flag lookup scans the current command's flags and inherited globals, not all
-  711 flags in the CLI. Once found, a generated integer key selects the
+  722 flags in the CLI. Once found, a generated integer key selects the
   destination field without another string lookup.
 - The parser's command stack is a fixed-size array. A bare parse never reaches
   the heap; an owned value such as `String` accounts for one allocation only
@@ -43,6 +43,13 @@ does only the work the argv asks for:
 
 The result scales with the command path and values that were typed, rather than
 with the whole CLI.
+
+## Compile time
+
+Compiling the mise-scale shadow is slower with usage-rs: a debug rebuild took
+10.2 seconds, compared with 3.6 seconds for clap and 1.6 seconds for bpaf. Each
+framework's dependencies were already built; measurements used rustc 1.97.1 on
+x86_64 Linux.
 
 ## What clap's number includes
 
@@ -57,16 +64,11 @@ usage is about 34x faster in this measurement.
 The gate's parse-only binaries — each linking its framework's mise-scale
 shadow, built by the same workspace release build, stripped:
 
-| Framework | Stripped binary |
-| --------- | --------------: |
-| usage     |          1.3 MB |
-| bpaf      |          2.5 MB |
-| clap      |          3.1 MB |
-
-The ordering matches the dependency story: usage links no third-party crates,
-clap links eight. For what the spec endpoint itself weighs, see
-[Spec output](/rust/spec#the-endpoint) — 65 KB on a small CLI, and
-`#[usage(spec_endpoint = false)]` removes it.
+| Framework |     Bytes | Decimal MB |
+| --------- | --------: | ---------: |
+| usage     | 1,319,424 |     1.3 MB |
+| bpaf      | 2,493,936 |     2.5 MB |
+| clap      | 3,102,696 |     3.1 MB |
 
 ### Where the size lives, and what removes it
 
@@ -88,8 +90,8 @@ Two profile settings any CLI can apply cut further, independent of usage:
   benchmark host is much lower than wall-clock timing.
 - `tak` runs the release binaries repeatedly and reports the difference between
   the no-parse and parse paths.
-- Every shadow is generated from the same spec, and each intentionally drops
-  what its framework cannot express.
+- Every shadow is generated from the same spec, and each comparison framework
+  intentionally drops what it cannot express.
 - Binary sizes are the gate's `parse-n*` binaries from a full workspace release
   build, stripped, against rustc 1.97.1 on x86_64-unknown-linux-gnu. The
   workspace build matters: cargo unifies features, so clap gets the features

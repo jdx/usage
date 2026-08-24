@@ -8,7 +8,7 @@ for CLIs. Here are some potential reasons for defining your CLI with a Usage spe
 - Generate autocompletion scripts
 - Generate markdown documentation
 - Generate man pages
-- Generate type-safe SDK client libraries for TypeScript, Python, and Rust
+- Generate type-safe SDK client libraries for TypeScript and Python
 - Use an advanced arg parser in any language
 - Scaffold one spec into different CLI frameworks—even different languages
 - [coming soon] Host your CLI documentation on usage.sh
@@ -43,8 +43,8 @@ arg "[file]" help="The file to read"     // optional positional argument
 And here is an example CLI with nested subcommands:
 
 ```kdl
-flag "-v --verbose" "Enable verbose logging" global=#true count=#true
-flag "-q --quiet" "Enable quiet logging" global=#true
+flag "-v --verbose" help="Enable verbose logging" global=#true count=#true
+flag "-q --quiet" help="Enable quiet logging" global=#true
 flag "-u --user <user>" help="User to run as"
 
 cmd "update" help="Update the CLI"

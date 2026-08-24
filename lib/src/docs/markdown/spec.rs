@@ -42,84 +42,56 @@ mod tests {
     #[test]
     fn test_render_markdown_spec() {
         let ctx = MarkdownRenderer::new(SPEC_KITCHEN_SINK.clone());
-        assert_snapshot!(ctx.render_spec().unwrap(), @r"
+        assert_snapshot!(ctx.render_spec().unwrap(), @"
         # `mycli`
 
         - **Usage**: `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
 
         ## Arguments
+        - **`<arg1>`** — arg1 description
+        - **`[arg2]`** — arg2 description
 
-        ### `<arg1>`
+          **Choices:** `choice1`, `choice2`, `choice3`
 
-        arg1 description
+          **Default:** `default value`
+        - **`<arg3>`** — arg3 long description
+        - **`<argrest>…`**
+        - **`[with-default]`**
 
-        ### `[arg2]`
+          **Default:** `default value`
 
-        arg2 description
-
-        **Choices:**
-
-        - `choice1`
-        - `choice2`
-        - `choice3`
-
-        **Default:** `default value`
-
-        ### `<arg3>`
-
-        arg3 long description
-
-        ### `<argrest>…`
-
-        ### `[with-default]`
-
-        **Default:** `default value`
 
         ## Flags
+        - **`--flag1`** — flag1 description
+        - **`--flag2`** — flag2 long description
 
-        ### `--flag1`
+          includes a code block:
 
-        flag1 description
+              $ echo hello world
+              hello world
 
-        ### `--flag2`
+              more code
 
-        flag2 long description
+          Examples:
 
-        includes a code block:
+              # run with no arguments to use the interactive selector
+              $ mise use
 
-            $ echo hello world
-            hello world
+              # set the current version of node to 20.x in mise.toml of current directory
+              # will write the fuzzy version (e.g.: 20)
 
-            more code
+          some docs
 
-        Examples:
+              $ echo hello world
+              hello world
+        - **`--flag3`** — flag3 description
+        - **`--with-default`**
 
-            # run with no arguments to use the interactive selector
-            $ mise use
+          **Default:** `default value`
+        - **`--shell <shell>`**
 
-            # set the current version of node to 20.x in mise.toml of current directory
-            # will write the fuzzy version (e.g.: 20)
+          **Choices:** `bash`, `zsh`, `fish`
 
-        some docs
-
-            $ echo hello world
-            hello world
-
-        ### `--flag3`
-
-        flag3 description
-
-        ### `--with-default`
-
-        **Default:** `default value`
-
-        ### `--shell <shell>`
-
-        **Choices:**
-
-        - `bash`
-        - `zsh`
-        - `fish`
 
         ## `mycli plugin`
 
@@ -134,18 +106,14 @@ mod tests {
         install a plugin
 
         ### Arguments
+        - **`<plugin>`**
+        - **`<version>`**
 
-        #### `<plugin>`
-
-        #### `<version>`
 
         ### Flags
-
-        #### `-g --global`
-
-        #### `-d --dir <dir>`
-
-        #### `-f --force`
+        - **`-g --global`**
+        - **`-d --dir <dir>`**
+        - **`-f --force`**
         ");
     }
 

@@ -572,6 +572,9 @@ impl ManpageRenderer {
                         }
                         roff.text([bold(label)]);
                         let mut described = format!("{} output", output.framing);
+                        if let Some(media_type) = &output.media_type {
+                            described.push_str(&format!(" with media type {media_type}"));
+                        }
                         if output.streaming {
                             described.push_str(", one document per line as it arrives");
                         }

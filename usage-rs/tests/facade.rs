@@ -3080,10 +3080,20 @@ fn a_struct_flattened_twice_is_written_once_as_a_flagset() {
     // The set stands where the struct did, so help order is still declaration order.
     let spec: usage_parser::Spec = kdl.parse().expect("the emitted set should parse back");
     let build = spec.cmd.subcommands.get("build").expect("build");
-    let flags: Vec<&str> = build.flags.iter().map(|f| f.name.as_str()).collect();
+    let flags: Vec<&str> = build
+        .flags
+        .iter()
+        .filter(|f| !f.builtin)
+        .map(|f| f.name.as_str())
+        .collect();
     assert_eq!(flags, ["release", "verbose", "jobs", "target"], "{kdl}");
     let test = spec.cmd.subcommands.get("test").expect("test");
-    let flags: Vec<&str> = test.flags.iter().map(|f| f.name.as_str()).collect();
+    let flags: Vec<&str> = test
+        .flags
+        .iter()
+        .filter(|f| !f.builtin)
+        .map(|f| f.name.as_str())
+        .collect();
     assert_eq!(flags, ["verbose", "jobs"], "{kdl}");
 
     // Help text and values survive the trip, not just the names: a set that lost them
@@ -3185,7 +3195,12 @@ fn a_struct_that_flattens_another_is_a_set_that_uses_a_set() {
     let spec: usage_parser::Spec = kdl.parse().expect("composed sets should parse back");
     for name in ["one", "two"] {
         let cmd = spec.cmd.subcommands.get(name).expect(name);
-        let flags: Vec<&str> = cmd.flags.iter().map(|f| f.name.as_str()).collect();
+        let flags: Vec<&str> = cmd
+            .flags
+            .iter()
+            .filter(|f| !f.builtin)
+            .map(|f| f.name.as_str())
+            .collect();
         assert_eq!(flags, ["inner", "outer"], "{name}: {kdl}");
     }
 }
@@ -3301,6 +3316,7 @@ fn two_structs_whose_names_end_the_same_way_get_no_set_at_all() {
     assert_eq!(
         one.flags
             .iter()
+            .filter(|f| !f.builtin)
             .map(|f| f.name.as_str())
             .collect::<Vec<_>>(),
         ["left"],
@@ -3310,6 +3326,7 @@ fn two_structs_whose_names_end_the_same_way_get_no_set_at_all() {
     assert_eq!(
         two.flags
             .iter()
+            .filter(|f| !f.builtin)
             .map(|f| f.name.as_str())
             .collect::<Vec<_>>(),
         ["right"],
@@ -3362,6 +3379,7 @@ fn a_collision_does_not_hide_the_one_inside_it() {
     assert_eq!(
         one.flags
             .iter()
+            .filter(|f| !f.builtin)
             .map(|f| f.name.as_str())
             .collect::<Vec<_>>(),
         ["left", "one"],
@@ -3371,6 +3389,7 @@ fn a_collision_does_not_hide_the_one_inside_it() {
     assert_eq!(
         two.flags
             .iter()
+            .filter(|f| !f.builtin)
             .map(|f| f.name.as_str())
             .collect::<Vec<_>>(),
         ["right", "two"],

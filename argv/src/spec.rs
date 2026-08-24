@@ -835,6 +835,10 @@ pub struct CommandMeta<'a> {
     pub hide: bool,
     /// Help section this command appears under in its parent's command list.
     pub help_heading: Option<&'a str>,
+    /// Named audience or compatibility surface this command belongs to.
+    pub surface: Option<&'a str>,
+    /// Descriptive availability conditions; they do not affect parsing.
+    pub available_if: &'a [&'a str],
     /// Explicit placement within the parent's command section.
     pub display_order: Option<usize>,
     /// What running this does to the world, for a caller deciding whether to
@@ -921,6 +925,8 @@ impl CommandMeta<'_> {
         hidden_aliases: &[],
         hide: false,
         help_heading: None,
+        surface: None,
+        available_if: &[],
         display_order: None,
         effect: None,
         mount: None,
@@ -974,10 +980,29 @@ pub struct FlattenGroup<'a> {
     pub help_heading: Option<&'a str>,
 }
 
+/// The significance of an explanatory block attached to an argument.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdmonitionKind {
+    Note,
+    Warning,
+}
+
+/// Structured explanatory text that each renderer adapts to its output format.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AdmonitionMeta<'a> {
+    pub kind: AdmonitionKind,
+    pub text: &'a str,
+}
+
 /// What a flag knows about itself beyond how it parses.
 #[derive(Debug, Clone, Copy)]
 pub struct FlagMeta<'a> {
     pub flag: &'a Flag<'a>,
+    /// A parser-supplied public entry point materialized in an exported spec.
+    ///
+    /// It belongs in flag listings and completions, but not in the command synopsis where the
+    /// runtime's implicit help and version flags have never appeared.
+    pub builtin: bool,
     /// Explicit placement within its help section.
     pub display_order: Option<usize>,
     /// Short forms accepted by the parser but omitted from help and completion.
@@ -988,6 +1013,8 @@ pub struct FlagMeta<'a> {
     pub help: Option<&'a str>,
     /// Long help, shown by `--help`.
     pub long_help: Option<&'a str>,
+    /// Notes and warnings shown after the extended help text.
+    pub admonitions: &'a [AdmonitionMeta<'a>],
     /// Why this flag is deprecated, plus optional release milestones.
     pub deprecated: Option<&'a str>,
     pub deprecated_warn_at: Option<&'a str>,
@@ -1087,6 +1114,10 @@ pub struct FlagMeta<'a> {
     /// Heading to list this flag under in help output. Presentational: it groups
     /// a long flag list into sections and changes nothing about parsing.
     pub help_heading: Option<&'a str>,
+    /// Named audience or compatibility surface this flag belongs to.
+    pub surface: Option<&'a str>,
+    /// Descriptive availability conditions; they do not affect parsing.
+    pub available_if: &'a [&'a str],
     pub effect: Option<Effect>,
 }
 
@@ -1096,11 +1127,13 @@ impl FlagMeta<'_> {
         complete: None,
         complete_type: None,
         flag: &Flag::BOOL,
+        builtin: false,
         display_order: None,
         hidden_shorts: &[],
         hidden_longs: &[],
         help: None,
         long_help: None,
+        admonitions: &[],
         deprecated: None,
         deprecated_warn_at: None,
         deprecated_remove_at: None,
@@ -1146,6 +1179,8 @@ impl FlagMeta<'_> {
         required_unless: &[],
         required_unless_all: &[],
         help_heading: None,
+        surface: None,
+        available_if: &[],
         effect: None,
     };
 }
@@ -1185,6 +1220,8 @@ pub struct ArgMeta<'a> {
     pub value_names: &'a [&'a str],
     pub help: Option<&'a str>,
     pub long_help: Option<&'a str>,
+    /// Notes and warnings shown after the extended help text.
+    pub admonitions: &'a [AdmonitionMeta<'a>],
     pub env: Option<&'a str>,
     pub env_fallback: &'a [&'a str],
     pub deprecated_env: &'a [&'a str],
@@ -1228,6 +1265,10 @@ pub struct ArgMeta<'a> {
     pub delimiter: Option<char>,
     /// Heading to list this argument under in help output.
     pub help_heading: Option<&'a str>,
+    /// Named audience or compatibility surface this argument belongs to.
+    pub surface: Option<&'a str>,
+    /// Descriptive availability conditions; they do not affect parsing.
+    pub available_if: &'a [&'a str],
     /// What answers for this argument when a shell asks. See [`FlagMeta::complete`].
     pub complete: Option<Completer>,
     /// A built-in completion class such as `path` or `dir`.
@@ -1244,6 +1285,7 @@ impl ArgMeta<'_> {
         value_names: &[],
         help: None,
         long_help: None,
+        admonitions: &[],
         env: None,
         env_fallback: &[],
         deprecated_env: &[],
@@ -1275,6 +1317,8 @@ impl ArgMeta<'_> {
         var_max: None,
         delimiter: None,
         help_heading: None,
+        surface: None,
+        available_if: &[],
     };
 }
 
@@ -1323,6 +1367,8 @@ impl Framing {
 pub struct OutputMeta<'a> {
     /// The token a user types for it.
     pub name: &'a str,
+    /// The media type of the bytes, independent of their stream framing.
+    pub media_type: Option<&'a str>,
     pub framing: Framing,
     pub help: Option<&'a str>,
     /// What the command writes when nothing selects otherwise.
@@ -1348,6 +1394,7 @@ impl OutputMeta<'_> {
     /// A named output with nothing else said about it, for struct-update syntax.
     pub const EMPTY: OutputMeta<'static> = OutputMeta {
         name: "",
+        media_type: None,
         framing: Framing::Text,
         help: None,
         default: false,
@@ -1577,6 +1624,17 @@ impl Spec<'_> {
         if self.root.flatten_help {
             writeln!(out, "flatten_help #true")?;
         }
+        if let Some(surface) = self.root.surface {
+            prop(out, "surface", surface)?;
+        }
+        if !self.root.available_if.is_empty() {
+            indent(out, 0)?;
+            write!(out, "available_if")?;
+            for condition in self.root.available_if {
+                write!(out, " {}", quoted(condition))?;
+            }
+            out.push('\n');
+        }
         if let Some(width) = self.root.term_width {
             writeln!(out, "term_width {width}")?;
         }
@@ -1642,7 +1700,7 @@ impl Spec<'_> {
         }
         // Nothing above the root, so what it does not state is the default.
         let mut path = Vec::new();
-        write_body(out, self.root, 0, UnknownFlags::Value, &w, &mut path, true)
+        write_body(out, self.root, 0, UnknownFlags::Value, &w, &mut path, &[])
     }
 }
 
@@ -1844,7 +1902,7 @@ fn write_body<'a>(
     inherited_unknown_flags: UnknownFlags,
     w: &Writing<'_, '_>,
     path: &mut Vec<&'a str>,
-    root: bool,
+    inherited_globals: &[&FlagMeta<'a>],
 ) -> core::fmt::Result {
     // The effective setting for everything inside, which is this command's if it stated one
     // and otherwise whatever it inherited.
@@ -1867,6 +1925,22 @@ fn write_body<'a>(
         "every subcommand in the parse table needs metadata"
     );
     write_flag_layout(out, meta, depth, &w.sets)?;
+    let mut claimed = Vec::new();
+    for flag in inherited_globals.iter().copied().chain(meta.flags) {
+        claimed.extend(flag.flag.longs.iter().map(|long| format!("--{long}")));
+        claimed.extend(
+            flag.flag
+                .shorts
+                .iter()
+                .map(|short| format!("-{}", *short as char)),
+        );
+        if let Some(negate) = flag.flag.negate {
+            claimed.push(format!("--{negate}"));
+        }
+    }
+    for supplied in crate::help::supplied_entries(meta.cmd, &claimed) {
+        write_flag(out, supplied, depth, None)?;
+    }
     for (i, arg) in meta.args.iter().enumerate() {
         debug_assert!(
             meta.cmd
@@ -1883,7 +1957,7 @@ fn write_body<'a>(
     for group in meta.groups {
         write_group(out, group, depth)?;
     }
-    if root {
+    if depth == 0 {
         for example in meta.examples {
             write_example(out, example, depth)?;
         }
@@ -1891,8 +1965,18 @@ fn write_body<'a>(
     }
     #[cfg(feature = "complete")]
     write_completers(out, meta, w.bin, depth)?;
+    let mut child_globals = inherited_globals.to_vec();
+    child_globals.extend(meta.flags.iter().filter(|flag| flag.flag.global));
     for sub in meta.subcommands {
-        write_command(out, sub, depth, enclosing_unknown_flags, w, path)?;
+        write_command(
+            out,
+            sub,
+            depth,
+            enclosing_unknown_flags,
+            w,
+            path,
+            &child_globals,
+        )?;
     }
     Ok(())
 }
@@ -1953,6 +2037,7 @@ fn write_command<'a>(
     inherited_unknown_flags: UnknownFlags,
     w: &Writing<'_, '_>,
     path: &mut Vec<&'a str>,
+    inherited_globals: &[&FlagMeta<'a>],
 ) -> core::fmt::Result {
     path.push(meta.cmd.name);
     indent(out, depth)?;
@@ -1975,6 +2060,10 @@ fn write_command<'a>(
     if let Some(heading) = meta.help_heading {
         write!(out, " help_heading={}", quoted(heading))?;
     }
+    if let Some(surface) = meta.surface {
+        write!(out, " surface={}", quoted(surface))?;
+    }
+    write_single_list(out, "available_if", meta.available_if)?;
     let effect = w
         .overlays
         .iter()
@@ -2065,6 +2154,7 @@ fn write_command<'a>(
     out.push_str(" {\n");
 
     let inner = depth + 1;
+    write_many_list(out, "available_if", meta.available_if, inner)?;
     for alias in meta.cmd.aliases {
         indent(out, inner)?;
         write!(out, "alias {}", quoted(alias))?;
@@ -2097,7 +2187,15 @@ fn write_command<'a>(
     for example in meta.examples {
         write_example(out, example, inner)?;
     }
-    write_body(out, meta, inner, effective_unknown_flags, w, path, false)?;
+    write_body(
+        out,
+        meta,
+        inner,
+        effective_unknown_flags,
+        w,
+        path,
+        inherited_globals,
+    )?;
     // After the body, because usage-lib's writer puts these after the flags, args and
     // subcommands, and `canonical_kdl` compares the two documents byte for byte.
     write_outputs(out, meta, inner)?;
@@ -2130,9 +2228,24 @@ fn write_group(out: &mut String, group: &GroupMeta<'_>, depth: usize) -> core::f
 /// order — outputs, then `select`, then exit codes — has to match what usage-lib's writer
 /// produces or `canonical_kdl` fails.
 fn write_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
+    // A flattened `Args` type contributes to the command it is mounted on. Its flags and
+    // groups are already composed into the parent's metadata tables; command-level output
+    // metadata has to follow the same seam or a selector declared beside those flags simply
+    // disappears from the emitted spec. Each kind gets its own recursive pass so flattening
+    // cannot interleave an exit code before a nested output: the portable writer's canonical
+    // order is every output, then selectors, then exit codes.
+    write_output_decls(out, meta, depth)?;
+    write_selects(out, meta, depth)?;
+    write_exit_codes(out, meta, depth)
+}
+
+fn write_output_decls(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
     for output in meta.outputs {
         indent(out, depth)?;
         write!(out, "output {}", quoted(output.name))?;
+        if let Some(media_type) = output.media_type {
+            write!(out, " media_type={}", quoted(media_type))?;
+        }
         if output.framing != Framing::Text {
             write!(out, " framing={}", quoted(output.framing.as_str()))?;
         }
@@ -2159,10 +2272,24 @@ fn write_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core
             None => out.push('\n'),
         }
     }
+    for group in meta.flatten_groups {
+        write_output_decls(out, group.meta, depth)?;
+    }
+    Ok(())
+}
+
+fn write_selects(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
     if let Some(select) = meta.select {
         indent(out, depth)?;
         writeln!(out, "select {}", quoted_arg(select))?;
     }
+    for group in meta.flatten_groups {
+        write_selects(out, group.meta, depth)?;
+    }
+    Ok(())
+}
+
+fn write_exit_codes(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core::fmt::Result {
     for exit_code in meta.exit_codes {
         indent(out, depth)?;
         writeln!(
@@ -2171,6 +2298,9 @@ fn write_outputs(out: &mut String, meta: &CommandMeta<'_>, depth: usize) -> core
             exit_code.code,
             quoted(exit_code.help)
         )?;
+    }
+    for group in meta.flatten_groups {
+        write_exit_codes(out, group.meta, depth)?;
     }
     Ok(())
 }
@@ -2280,6 +2410,9 @@ fn write_flag(
             })
         )?;
     }
+    if meta.builtin {
+        out.push_str(" builtin=#true");
+    }
     if meta.repeatable {
         out.push_str(" var=#true");
     }
@@ -2297,6 +2430,10 @@ fn write_flag(
     if let Some(heading) = meta.help_heading.or(inherited_heading) {
         write!(out, " help_heading={}", quoted(heading))?;
     }
+    if let Some(surface) = meta.surface {
+        write!(out, " surface={}", quoted(surface))?;
+    }
+    write_single_list(out, "available_if", meta.available_if)?;
     if let Some(order) = meta.display_order {
         write!(out, " display_order={order}")?;
     }
@@ -2352,6 +2489,7 @@ fn write_flag(
     write_single_list(out, "required_unless_all", meta.required_unless_all)?;
 
     let has_children = meta.long_help.is_some()
+        || !meta.admonitions.is_empty()
         || !meta.hidden_shorts.is_empty()
         || !meta.hidden_longs.is_empty()
         || meta.flag.takes_value
@@ -2369,6 +2507,7 @@ fn write_flag(
         || meta.required_unless_all.len() > 1
         || meta.env_fallback.len() > 1
         || meta.deprecated_env.len() > 1;
+    let has_children = has_children || meta.available_if.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -2379,6 +2518,14 @@ fn write_flag(
     if let Some(long_help) = meta.long_help {
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
+    }
+    for admonition in meta.admonitions {
+        indent(out, inner)?;
+        let kind = match admonition.kind {
+            AdmonitionKind::Note => "note",
+            AdmonitionKind::Warning => "warning",
+        };
+        writeln!(out, "{kind} {}", quoted(admonition.text))?;
     }
     if !meta.hidden_shorts.is_empty() || !meta.hidden_longs.is_empty() {
         indent(out, inner)?;
@@ -2449,6 +2596,7 @@ fn write_flag(
     write_many_list(out, "required_unless_all", meta.required_unless_all, inner)?;
     write_many_list(out, "env_fallback", meta.env_fallback, inner)?;
     write_many_list(out, "deprecated_env", meta.deprecated_env, inner)?;
+    write_many_list(out, "available_if", meta.available_if, inner)?;
     if meta.flag.takes_value {
         indent(out, inner)?;
         let exact = exact_arity(meta.value_var_min, meta.value_var_max);
@@ -2618,6 +2766,10 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if let Some(heading) = meta.help_heading {
         write!(out, " help_heading={}", quoted(heading))?;
     }
+    if let Some(surface) = meta.surface {
+        write!(out, " surface={}", quoted(surface))?;
+    }
+    write_single_list(out, "available_if", meta.available_if)?;
     if let Some(order) = meta.display_order {
         write!(out, " display_order={order}")?;
     }
@@ -2641,6 +2793,7 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     write_single_list(out, "required_unless_all", meta.required_unless_all)?;
 
     let has_children = meta.long_help.is_some()
+        || !meta.admonitions.is_empty()
         || !meta.choices.is_empty()
         || !meta.accepted_choices.is_empty()
         || !meta.choice_details.is_empty()
@@ -2654,6 +2807,7 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         || meta.required_unless_all.len() > 1
         || meta.env_fallback.len() > 1
         || meta.deprecated_env.len() > 1;
+    let has_children = has_children || meta.available_if.len() > 1;
     if !has_children {
         out.push('\n');
         return Ok(());
@@ -2664,6 +2818,14 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     if let Some(long_help) = meta.long_help {
         indent(out, inner)?;
         writeln!(out, "long_help {}", quoted(long_help))?;
+    }
+    for admonition in meta.admonitions {
+        indent(out, inner)?;
+        let kind = match admonition.kind {
+            AdmonitionKind::Note => "note",
+            AdmonitionKind::Warning => "warning",
+        };
+        writeln!(out, "{kind} {}", quoted(admonition.text))?;
     }
     if meta.conflicts.len() > 1 {
         indent(out, inner)?;
@@ -2701,6 +2863,7 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
     write_many_list(out, "required_unless_all", meta.required_unless_all, inner)?;
     write_many_list(out, "env_fallback", meta.env_fallback, inner)?;
     write_many_list(out, "deprecated_env", meta.deprecated_env, inner)?;
+    write_many_list(out, "available_if", meta.available_if, inner)?;
     write_many_defaults(out, meta.default, inner)?;
     write_choices(
         out,
@@ -3208,7 +3371,7 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
         .any(|choice| *choice == value || ignore_case && choice.eq_ignore_ascii_case(value))
 }
 
-/// An enum whose variants are one command's mutually exclusive flags.
+/// An enum whose variants are one command's related flags.
 ///
 /// What a CLI spells `--json` or `--yaml` and holds as a `Mode`, rather than as one `bool` per
 /// member plus a `match` over which of them is set. Nothing new reaches the spec: the enum
@@ -3218,7 +3381,8 @@ pub fn choice_matches(choices: &[&str], value: &str, ignore_case: bool) -> bool 
 /// A field holding one says `#[usage(arg_group)]`. `Option<Mode>` is a group that may be left
 /// alone and a bare `Mode` is one that has to be given, which is how the rest of the derive
 /// reads required-ness from a type. There is no default variant, so required-ness has exactly
-/// one spelling.
+/// one spelling. A group declared `multiple` is held by `Vec<Mode>` and retains every member in
+/// command-line order.
 pub trait ArgGroup: Sized {
     /// What the group is called, in the emitted spec and in a failed check.
     const NAME: &'static str;
@@ -3231,6 +3395,8 @@ pub trait ArgGroup: Sized {
     const FLAG_METAS: &'static [FlagMeta<'static>];
     /// The selectors naming [`FLAGS`](Self::FLAGS), for [`GroupMeta::members`].
     const MEMBERS: &'static [&'static str];
+    /// Whether every member occurrence is retained rather than enforcing exclusivity.
+    const MULTIPLE: bool = false;
 
     /// Which members have been given so far. Partly-filled by construction, since a parse
     /// can stop early.
@@ -3274,6 +3440,17 @@ pub trait ArgGroup: Sized {
     /// [`Self::Partial`] until this step, just as an ordinary command field does.
     fn try_build(partial: &Self::Partial) -> Result<Option<Self>, crate::Error<'static, 'static>> {
         Ok(Self::build(partial))
+    }
+
+    /// Build every selected member in command-line order for a multiple group.
+    ///
+    /// The default keeps hand-written exclusive groups source-compatible and gives a useful
+    /// single-element answer when they are held by a collection accidentally; derived multiple
+    /// groups override it with their ordered occurrence log.
+    fn try_build_many(
+        partial: &Self::Partial,
+    ) -> Result<Vec<Self>, crate::Error<'static, 'static>> {
+        Ok(Self::try_build(partial)?.into_iter().collect())
     }
 
     /// Find a member by any selector it accepts.
@@ -4375,7 +4552,7 @@ mod tests {
             UnknownFlags::Value,
             &w,
             &mut Vec::new(),
-            false,
+            &[],
         )
         .unwrap();
 

@@ -15,7 +15,7 @@ use std::path::Path;
 
 use usage::{Spec, SpecArg, SpecChoices, SpecCommand, SpecFlag, SpecGroup};
 
-mod cobra;
+mod go;
 mod help_pages;
 mod shadow;
 
@@ -35,13 +35,14 @@ fn main() {
                     shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Usage)
                 }
                 "clap" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Clap),
-                "argh" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Argh),
                 "bpaf" => shadow::generate(Path::new(spec), Path::new(out), shadow::Dialect::Bpaf),
-                // Go rather than Rust, so it has an emitter of its own.
-                "cobra" => cobra::generate(Path::new(spec), Path::new(out)),
+                // Go rather than Rust, so these have emitters of their own.
+                "cobra" => go::generate(Path::new(spec), Path::new(out), go::Dialect::Cobra),
+                "urfave" => go::generate(Path::new(spec), Path::new(out), go::Dialect::Urfave),
+                "kong" => go::generate(Path::new(spec), Path::new(out), go::Dialect::Kong),
                 other => fail(&format!(
                     "unknown dialect `{other}`; the dialects are \
-                     `usage`, `clap`, `argh`, `bpaf` and `cobra`"
+                     `usage`, `clap`, `bpaf`, `cobra`, `urfave` and `kong`"
                 )),
             },
             _ => {
@@ -56,7 +57,7 @@ fn main() {
         },
         other => fail(&format!(
             "unknown task `{other}`; the tasks are: \
-             gen-shadow <spec.kdl> <out-dir> [usage|clap|argh|bpaf|cobra], \
+             gen-shadow <spec.kdl> <out-dir> [usage|clap|bpaf|cobra|urfave|kong], \
              help-pages <spec.kdl>"
         )),
     }

@@ -1,6 +1,7 @@
+#[cfg(feature = "docs")]
 use crate::docs::markdown::MarkdownRenderer;
 use crate::spec::effect::SpecCommandEffect;
-use crate::SpecChoices;
+use crate::{SpecAdmonition, SpecChoices};
 use indexmap::IndexMap;
 use serde::Serialize;
 
@@ -56,6 +57,8 @@ pub struct SpecCommand {
     pub exit_codes: Vec<SpecExitCode>,
     pub hide: bool,
     pub help_heading: Option<String>,
+    pub surface: Option<String>,
+    pub available_if: Vec<String>,
     pub display_order: Option<usize>,
     pub subcommand_required: bool,
     pub subcommand_help_heading: Option<String>,
@@ -99,6 +102,8 @@ pub struct HelpCommand {
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_heading: Option<String>,
+    pub surface: Option<String>,
+    pub available_if: Vec<String>,
 }
 
 impl From<&SpecCommand> for HelpCommand {
@@ -112,6 +117,8 @@ impl From<&SpecCommand> for HelpCommand {
             help: cmd.help.clone(),
             help_long: cmd.help_long.clone(),
             help_heading: cmd.help_heading.clone(),
+            surface: cmd.surface.clone(),
+            available_if: cmd.available_if.clone(),
         }
     }
 }
@@ -126,6 +133,8 @@ pub struct SpecFlag {
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_md: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub admonitions: Vec<SpecAdmonition>,
     pub help_first_line: Option<String>,
     pub short: Vec<char>,
     pub long: Vec<String>,
@@ -152,6 +161,8 @@ pub struct SpecFlag {
     pub env_fallback: Vec<String>,
     pub deprecated_env: Vec<String>,
     pub help_heading: Option<String>,
+    pub surface: Option<String>,
+    pub available_if: Vec<String>,
     pub display_order: Option<usize>,
     pub rendered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -230,6 +241,7 @@ pub struct SpecConfigChoice {
 }
 
 impl SpecConfig {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -245,12 +257,14 @@ impl SpecConfig {
         }
     }
 
+    #[cfg(feature = "docs")]
     pub fn is_empty(&self) -> bool {
         self.props.is_empty() && self.files.is_empty()
     }
 }
 
 impl SpecConfigProp {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -416,6 +430,7 @@ fn group_by_heading<T: Clone>(
 #[derive(Debug, Default, Serialize, Clone)]
 pub struct SpecOutput {
     pub name: String,
+    pub media_type: Option<String>,
     pub framing: String,
     pub streaming: bool,
     pub default: bool,
@@ -428,6 +443,7 @@ impl SpecOutput {
     fn from(output: &crate::SpecOutput, cmd: &crate::SpecCommand) -> Self {
         Self {
             name: output.name.clone(),
+            media_type: output.media_type.clone(),
             framing: output.framing.as_str().to_string(),
             streaming: output.framing.is_streaming(),
             default: output.default,
@@ -470,6 +486,8 @@ pub struct SpecArg {
     pub help: Option<String>,
     pub help_long: Option<String>,
     pub help_md: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub admonitions: Vec<SpecAdmonition>,
     pub help_first_line: Option<String>,
     pub required: bool,
     pub var: bool,
@@ -490,6 +508,8 @@ pub struct SpecArg {
     pub env_fallback: Vec<String>,
     pub deprecated_env: Vec<String>,
     pub help_heading: Option<String>,
+    pub surface: Option<String>,
+    pub available_if: Vec<String>,
     pub display_order: Option<usize>,
     pub rendered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -527,9 +547,18 @@ fn fold_outputs(
 
 impl From<crate::Spec> for Spec {
     fn from(spec: crate::Spec) -> Self {
+        Self::from(&spec)
+    }
+}
+
+impl From<&crate::Spec> for Spec {
+    fn from(spec: &crate::Spec) -> Self {
+        // One clone, because folding rewrites every command's effective outputs and the
+        // caller's spec is not ours to change. Taking a reference is what keeps this to one:
+        // rendering a help page used to clone at the call site and again right here.
         let spec = {
             let mut folded = spec.clone();
-            fold_outputs(&spec, &mut folded.cmd, &mut Vec::new());
+            fold_outputs(spec, &mut folded.cmd, &mut Vec::new());
             folded
         };
         Self {
@@ -656,6 +685,8 @@ impl From<&crate::SpecCommand> for SpecCommand {
             effect,
             hide,
             help_heading,
+            surface,
+            available_if,
             display_order,
             subcommand_required,
             subcommand_help_heading,
@@ -799,6 +830,8 @@ impl From<&crate::SpecCommand> for SpecCommand {
             exit_codes: cmd.exit_codes.iter().map(SpecExitCode::from).collect(),
             hide: *hide,
             help_heading: help_heading.clone(),
+            surface: surface.clone(),
+            available_if: available_if.clone(),
             display_order: *display_order,
             subcommand_required: *subcommand_required,
             subcommand_help_heading: subcommand_help_heading.clone(),
@@ -960,6 +993,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
             help: said(&flag.help),
             help_long: flag.help_long.clone(),
             help_md: flag.help_md.clone(),
+            admonitions: flag.admonitions.clone(),
             help_first_line: flag.help_first_line.clone(),
             short: flag
                 .short
@@ -996,6 +1030,8 @@ impl From<&crate::SpecFlag> for SpecFlag {
             env_fallback: flag.env_fallback.clone(),
             deprecated_env: flag.deprecated_env.clone(),
             help_heading: flag.help_heading.clone(),
+            surface: flag.surface.clone(),
+            available_if: flag.available_if.clone(),
             display_order: flag.display_order,
             rendered: false,
             help_rendered: None,
@@ -1025,6 +1061,7 @@ impl From<&crate::SpecArg> for SpecArg {
             help: said(&arg.help),
             help_long: arg.help_long.clone(),
             help_md: arg.help_md.clone(),
+            admonitions: arg.admonitions.clone(),
             help_first_line: arg.help_first_line.clone(),
             required: arg.required,
             var: arg.var,
@@ -1045,6 +1082,8 @@ impl From<&crate::SpecArg> for SpecArg {
             env_fallback: arg.env_fallback.clone(),
             deprecated_env: arg.deprecated_env.clone(),
             help_heading: arg.help_heading.clone(),
+            surface: arg.surface.clone(),
+            available_if: arg.available_if.clone(),
             display_order: arg.display_order,
             rendered: false,
             help_rendered: None,
@@ -1055,6 +1094,7 @@ impl From<&crate::SpecArg> for SpecArg {
 }
 
 impl Spec {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1072,6 +1112,7 @@ impl Spec {
 }
 
 impl SpecCommand {
+    #[cfg(feature = "docs")]
     pub fn all_subcommands(&self) -> Vec<&SpecCommand> {
         let mut cmds = vec![];
         for cmd in self.subcommands.values() {
@@ -1081,6 +1122,7 @@ impl SpecCommand {
         cmds
     }
 
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1122,6 +1164,7 @@ impl SpecCommand {
     /// Rebuild the grouped views from `flags` and `args`.
     ///
     /// Anything that mutates either list has to call this, or the groups go stale.
+    #[cfg(feature = "docs")]
     fn regroup(&mut self) {
         self.flag_groups = group_by_heading(&self.flags, |f| f.help_heading.as_deref());
         self.arg_groups = group_by_heading(&self.args, |a| a.help_heading.as_deref());
@@ -1129,6 +1172,7 @@ impl SpecCommand {
 }
 
 impl SpecFlag {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1150,6 +1194,7 @@ impl SpecFlag {
 }
 
 impl SpecArg {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1164,6 +1209,7 @@ impl SpecArg {
 }
 
 impl SpecExample {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;

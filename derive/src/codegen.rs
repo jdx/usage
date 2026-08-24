@@ -17,10 +17,22 @@ use quote::{format_ident, quote};
 
 use crate::crate_name::{crate_name, FoundCrate};
 use crate::model::{
-    rendered_path, to_kebab, type_name, ArgGroup, ArgGroupMember, Cli, ConditionalDefault,
-    Dispatch, DoubleDash, ExampleDecl, Field, Kind, SchemaSource, Shape, Subcommands, ValueEnum,
-    Variant, ViewDecl,
+    rendered_path, to_kebab, type_name, AdmonitionKind, ArgGroup, ArgGroupMember, Cli,
+    ConditionalDefault, Dispatch, DoubleDash, ExampleDecl, Field, Kind, SchemaSource, Shape,
+    Subcommands, ValueEnum, Variant, ViewDecl,
 };
+
+fn admonitions(field: &Field) -> TokenStream {
+    let entries = field.admonitions.iter().map(|admonition| {
+        let text = &admonition.text;
+        let kind = match admonition.kind {
+            AdmonitionKind::Note => quote!(usage_argv::spec::AdmonitionKind::Note),
+            AdmonitionKind::Warning => quote!(usage_argv::spec::AdmonitionKind::Warning),
+        };
+        quote!(usage_argv::spec::AdmonitionMeta { kind: #kind, text: #text })
+    });
+    quote!(&[#(#entries),*])
+}
 
 /// Construct the user's command type after its generated partial has been checked.
 ///
@@ -270,6 +282,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let deprecated = option_str(cli.deprecated.as_deref());
     let deprecated_warn_at = option_str(cli.deprecated_warn_at.as_deref());
     let deprecated_remove_at = option_str(cli.deprecated_remove_at.as_deref());
+    let surface = option_str(cli.surface.as_deref());
+    let available_if = &cli.available_if;
 
     // The same wiring a nested command uses: the root differs only in how it is
     // entered, so it does not get its own copy.
@@ -489,6 +503,30 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let apply = apply_fn(cli);
     let post = post_binding(cli);
     let (completion, completion_intercept) = completion_fns(cli);
+    let embedded_spec_request = cli.spec_endpoint.then(|| {
+        quote! {
+            if let ::std::option::Option::Some(__usage_answer) =
+                Self::spec_request(&__usage_refs)
+            {
+                return usage_argv::embedded::Outcome::Exit(usage_argv::embedded::Exit {
+                    text: __usage_answer,
+                    stderr: false,
+                    code: 0,
+                });
+            }
+        }
+    });
+    let embedded_completion_request = cli.completion.then(|| {
+        quote! {
+            if let ::std::option::Option::Some(__usage_answer) = Self::completion_request(argv) {
+                return usage_argv::embedded::Outcome::Exit(usage_argv::embedded::Exit {
+                    text: __usage_answer,
+                    stderr: false,
+                    code: 0,
+                });
+            }
+        }
+    });
     let spec_extra = spec_extra_append(cli);
     // `field: local` rather than the shorthand, because the locals are prefixed:
     // a field called `text` or `parser` would otherwise collide with something the
@@ -1002,6 +1040,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 deprecated: #deprecated,
                 deprecated_warn_at: #deprecated_warn_at,
                 deprecated_remove_at: #deprecated_remove_at,
+                surface: #surface,
+                available_if: &[#(#available_if),*],
                 restart_token: #restart_token,
                 subcommand_required: #subcommand_required,
                 subcommand_help_heading: #subcommand_help_heading,
@@ -1307,6 +1347,27 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 }
 
                 #spec_endpoint
+
+                /// Answer the complete usage control protocol without printing or exiting.
+                ///
+                /// Input excludes the program name, like [`Self::parse_from`]. Spec and
+                /// completion requests become successful stdout responses; ordinary argv is
+                /// parsed, with help, version, and failures represented by the same outcome.
+                pub fn embedded_outcome(
+                    argv: &[::std::ffi::OsString],
+                ) -> usage_argv::embedded::Outcome<Self> {
+                    let __usage_refs: ::std::vec::Vec<&::std::ffi::OsStr> =
+                        argv.iter().map(|arg| arg.as_os_str()).collect();
+                    #embedded_spec_request
+                    #embedded_completion_request
+                    #effective_spec
+                    usage_argv::embedded::outcome(
+                        __usage_spec,
+                        Self::command(),
+                        &__usage_refs,
+                        Self::parse_from,
+                    )
+                }
 
                 #settings_binding_forward
                 #settings_parse
@@ -2405,7 +2466,7 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     let field_name = &field.name;
     let var = field.shape == Shape::Many;
     let required =
-        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
+        (field.shape == Shape::Required || field.required_collection) && !field.has_default();
     let Kind::Arg { double_dash } = &field.kind else {
         unreachable!("filtered by the caller");
     };
@@ -2520,10 +2581,13 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     let table = format_ident!("FLAG_{i}");
     let help = option_str(field.help.as_deref());
     let long_help = option_str(field.long_help.as_deref());
+    let admonitions = admonitions(field);
     let env = option_str(field.env.as_deref());
     let env_fallback = &field.env_fallback;
     let deprecated_env = &field.deprecated_env;
     let help_heading = option_str(field.help_heading.as_deref());
+    let surface = option_str(field.surface.as_deref());
+    let available_if = &field.available_if;
     let display_order = option_usize(field.display_order);
     let deprecated = option_str(field.deprecated.as_deref());
     let deprecated_warn_at = option_str(field.deprecated_warn_at.as_deref());
@@ -2552,7 +2616,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
     let required =
-        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
+        (field.shape == Shape::Required || field.required_collection) && !field.has_default();
     // Declared, not inferred: `Option<String>` already says the *flag* is optional and says
     // nothing about whether its value is.
     let value_optional = field.value_optional;
@@ -2656,6 +2720,7 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             display_order: #display_order,
             help: #help,
             long_help: #long_help,
+            admonitions: #admonitions,
             deprecated: #deprecated,
             deprecated_warn_at: #deprecated_warn_at,
             deprecated_remove_at: #deprecated_remove_at,
@@ -2664,6 +2729,8 @@ fn flag_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStr
             deprecated_env: &[#(#deprecated_env),*],
             default: #default,
             help_heading: #help_heading,
+            surface: #surface,
+            available_if: &[#(#available_if),*],
             value_name: #value_name,
             value_names: &[#(#value_names),*],
             hide: #hide,
@@ -2713,10 +2780,13 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     let table = format_ident!("ARG_{i}");
     let help = option_str(field.help.as_deref());
     let long_help = option_str(field.long_help.as_deref());
+    let admonitions = admonitions(field);
     let env = option_str(field.env.as_deref());
     let env_fallback = &field.env_fallback;
     let deprecated_env = &field.deprecated_env;
     let help_heading = option_str(field.help_heading.as_deref());
+    let surface = option_str(field.surface.as_deref());
+    let available_if = &field.available_if;
     let display_order = option_usize(field.display_order);
     let complete_type = option_str(field.complete_type.as_deref());
     let value_names = &field.value_names;
@@ -2762,7 +2832,7 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
     // A collecting field's type cannot say whether one value is needed, so `required` may
     // declare it. Every other shape gets its answer from the type.
     let required =
-        (field.shape == Shape::Required || field.required_collection) && field.default.is_empty();
+        (field.shape == Shape::Required || field.required_collection) && !field.has_default();
     let (choices, accepted_choices, choice_aliases, choice_details, ignore_case) =
         choices_tokens(cli, field);
     let allow_unknown_choices = field.allow_unknown_choices;
@@ -2789,11 +2859,14 @@ fn arg_meta(cli: &Cli, i: usize, field: &Field, owner: &syn::Ident) -> TokenStre
             value_names: &[#(#value_names),*],
             help: #help,
             long_help: #long_help,
+            admonitions: #admonitions,
             env: #env,
             env_fallback: &[#(#env_fallback),*],
             deprecated_env: &[#(#deprecated_env),*],
             default: #default,
             help_heading: #help_heading,
+            surface: #surface,
+            available_if: &[#(#available_if),*],
             hide: #hide,
             hide_default_value: #hide_default_value,
             hide_env: #hide_env,
@@ -3464,6 +3537,7 @@ fn standing_presence(field: &Field) -> Option<TokenStream> {
     let ident = &field.ident;
     match &field.kind {
         Kind::Skip | Kind::Flatten { .. } => None,
+        Kind::ArgGroup { multiple: true, .. } => Some(quote!(!__usage_s.#ident.is_empty())),
         Kind::ArgGroup { optional, .. } | Kind::Subcommand { optional, .. } => Some(if *optional {
             quote!(__usage_s.#ident.is_some())
         } else {
@@ -3508,13 +3582,18 @@ fn standing_locals(cli: &Cli) -> TokenStream {
             },
             // The nested value itself, so a parent can ask which member stands — a bool
             // would answer required-ness and nothing about `--json` vs `--yaml`.
+            Kind::ArgGroup { multiple: true, .. } => quote! {
+                let #name = __usage_standing.map(|__usage_s| &__usage_s.#ident);
+            },
             Kind::ArgGroup { optional: true, .. } | Kind::Subcommand { optional: true, .. } => {
                 quote! {
                     let #name = __usage_standing.and_then(|__usage_s| __usage_s.#ident.as_ref());
                 }
             }
             Kind::ArgGroup {
-                optional: false, ..
+                optional: false,
+                multiple: false,
+                ..
             }
             | Kind::Subcommand {
                 optional: false, ..
@@ -3922,6 +4001,7 @@ fn output_tokens(cli: &Cli) -> OutputTokens {
         .enumerate()
         .map(|(i, output)| {
             let name = &output.name;
+            let media_type = option_str(output.media_type.as_deref());
             let framing = match output.framing.as_str() {
                 "json" => quote!(usage_argv::spec::Framing::Json),
                 "jsonl" => quote!(usage_argv::spec::Framing::Jsonl),
@@ -3965,6 +4045,7 @@ fn output_tokens(cli: &Cli) -> OutputTokens {
             quote! {
                 usage_argv::spec::OutputMeta {
                     name: #name,
+                    media_type: #media_type,
                     framing: #framing,
                     help: #help,
                     default: #default,
@@ -4195,7 +4276,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
         // runs after `apply_defaults` during relationship validation, so a predicate
         // that filled the field is still observable even though defaults deliberately
         // do not set `__given_*`.
-        let defaulted = !field.default.is_empty();
+        let defaulted = field.has_default();
         let conditionally_defaulted =
             default_if_would_apply(cli, field, Lookup::Module).unwrap_or_else(|| quote!(false));
         Some(quote! {
@@ -4531,6 +4612,7 @@ fn partial_struct(cli: &Cli) -> TokenStream {
     // declared default has to be in place before parsing begins and nested state has
     // its own starting values.
     quote! {
+        #[expect(clippy::pub_underscore_fields)]
         pub struct Partial {
             pub __usage_view: ::std::option::Option<
                 &'static usage_argv::spec::ViewMeta<'static>,
@@ -4939,8 +5021,16 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
     // means. `check` has already reported both a second member and a required group with none,
     // so this arm is reached only for a group that was satisfied — the error stays for the
     // case where a caller drives `build` without it, rather than being an `unreachable!`.
-    if let Kind::ArgGroup { ty, optional } = &field.kind {
+    if let Kind::ArgGroup {
+        ty,
+        optional,
+        multiple,
+    } = &field.kind
+    {
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
+        if *multiple {
+            return quote!(#group::try_build_many(&partial.#ident)?);
+        }
         return if *optional {
             quote!(#group::try_build(&partial.#ident)?)
         } else {
@@ -5241,8 +5331,20 @@ fn merge_fn(cli: &Cli) -> TokenStream {
                 )?;
             }),
             // A group with no member given is this argv saying nothing about the group.
-            Kind::ArgGroup { ty, optional } => {
+            Kind::ArgGroup {
+                ty,
+                optional,
+                multiple,
+            } => {
                 let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
+                if *multiple {
+                    return Some(quote! {
+                        if #group::any_given(&partial.#field_ident).is_some() {
+                            __usage_standing.#field_ident =
+                                #group::try_build_many(&partial.#field_ident)?;
+                        }
+                    });
+                }
                 let selected = if *optional {
                     quote!(::std::option::Option::Some(__usage_member))
                 } else {
@@ -5362,8 +5464,26 @@ fn reset_to_default(field: &Field) -> TokenStream {
         Shape::Many => quote!(partial.#ident.clear();),
         _ => quote!(partial.#ident = ::std::default::Default::default();),
     };
-    if field.default.is_empty() {
+    if !field.has_default() {
         return cleared;
+    }
+    if let Some(default_fn) = &field.default_fn {
+        let value_ty = field
+            .value_ty
+            .as_ref()
+            .expect("a computed default belongs to a value-taking field");
+        let bytes = quote!({
+            let __usage_default: #value_ty = #default_fn();
+            ::std::string::ToString::to_string(&__usage_default).into_bytes()
+        });
+        return match field.shape {
+            Shape::Optional => quote! {
+                partial.#ident = ::std::option::Option::Some(#bytes);
+            },
+            Shape::Required => quote!(partial.#ident = #bytes;),
+            // The model rejects these shapes before codegen.
+            _ => cleared,
+        };
     }
     if let Some(value) = &field.default_value_t {
         let value_ty = field
@@ -6074,6 +6194,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
     let deprecated = option_str(cli.deprecated.as_deref());
     let deprecated_warn_at = option_str(cli.deprecated_warn_at.as_deref());
     let deprecated_remove_at = option_str(cli.deprecated_remove_at.as_deref());
+    let surface = option_str(cli.surface.as_deref());
+    let available_if = &cli.available_if;
     let partial = partial_struct(cli);
     let argument_lookup = argument_lookup_functions(cli);
     let deprecations = deprecations_fn(cli);
@@ -6289,6 +6411,8 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 deprecated: #deprecated,
                 deprecated_warn_at: #deprecated_warn_at,
                 deprecated_remove_at: #deprecated_remove_at,
+                surface: #surface,
+                available_if: &[#(#available_if),*],
                 hidden_aliases: &[#(#hidden_aliases),*],
                 hide: #hide,
                 restart_token: #restart_token,
@@ -7513,6 +7637,17 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
             // the variant, which is where the command itself is declared.
             let hide = v.hide;
             let help_heading = option_str(v.help_heading.as_deref());
+            let surface = v
+                .surface
+                .as_deref()
+                .map(|surface| option_str(Some(surface)))
+                .unwrap_or_else(|| quote!(<#ty as usage_argv::spec::CommandArgs>::META.surface));
+            let available_if = if v.available_if.is_empty() {
+                quote!(<#ty as usage_argv::spec::CommandArgs>::META.available_if)
+            } else {
+                let conditions = &v.available_if;
+                quote!(&[#(#conditions),*])
+            };
             let display_order = option_usize(v.display_order);
             quote! {
                 const #hidden_groups: &[&[&str]] = &[
@@ -7536,6 +7671,8 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                         examples: #examples,
                         hide: #hide || <#ty as usage_argv::spec::CommandArgs>::META.hide,
                         help_heading: #help_heading,
+                        surface: #surface,
+                        available_if: #available_if,
                         display_order: #display_order,
                         hidden_aliases: &#hidden_name,
                         ..*<#ty as usage_argv::spec::CommandArgs>::META
@@ -7807,18 +7944,7 @@ pub fn emit_subcommands(subs: &Subcommands) -> TokenStream {
                                 }
                                 ::std::result::Result::Err(__usage_bad) => {
                                     return ::std::result::Result::Err(
-                                        usage_argv::Error::InvalidValue(::std::boxed::Box::new(
-                                            usage_argv::InvalidValue {
-                                                name: #name,
-                                                value: ::std::string::String::from_utf8_lossy(
-                                                    __usage_bad.as_bytes(),
-                                                )
-                                                .into_owned(),
-                                                reason: ::std::string::ToString::to_string(
-                                                    &__usage_bad.utf8_error(),
-                                                ),
-                                            },
-                                        )),
+                                        usage_argv::invalid_utf8_value(#name, __usage_bad),
                                     );
                                 }
                             }
@@ -8334,13 +8460,17 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
         })
         .collect();
     // Read from the enum rather than copied out of it: the members are its variants, and the
-    // field's type is the only thing that says whether one of them is needed. `multiple` is
-    // false because exclusivity is what an argument group is for.
+    // field's type says whether one or many results are built.
     for (at, field) in cli.fields.iter().enumerate() {
-        let Kind::ArgGroup { ty, optional } = &field.kind else {
+        let Kind::ArgGroup {
+            ty,
+            optional,
+            multiple,
+        } = &field.kind
+        else {
             continue;
         };
-        let required = !optional;
+        let required = !optional && !multiple;
         entries.push((
             at,
             quote! {
@@ -8348,7 +8478,13 @@ fn group_meta_table(cli: &Cli) -> (TokenStream, TokenStream) {
                     name: <#ty as usage_argv::spec::ArgGroup>::NAME,
                     members: <#ty as usage_argv::spec::ArgGroup>::MEMBERS,
                     required: #required,
-                    multiple: false,
+                    multiple: {
+                        assert!(
+                            <#ty as usage_argv::spec::ArgGroup>::MULTIPLE == #multiple,
+                            "an ArgGroup marked multiple must be held by Vec<T>, and Vec<T> needs #[usage(multiple)] on the ArgGroup"
+                        );
+                        #multiple
+                    },
                 }
             },
         ));
@@ -8426,7 +8562,7 @@ fn declared_defaults(cli: &Cli, filter_view: bool) -> TokenStream {
         if matches!(f.kind, Kind::Subcommand { .. } | Kind::Skip) {
             return None;
         }
-        if f.default.is_empty() && f.default_if.is_empty() {
+        if !f.has_default() && f.default_if.is_empty() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
@@ -8444,7 +8580,7 @@ fn declared_defaults(cli: &Cli, filter_view: bool) -> TokenStream {
                 })
             })
             .collect();
-        if !f.default.is_empty() {
+        if f.has_default() {
             let assign = reset_to_default(f);
             fills.push(quote!(if !__usage_filled {
                 #assign
@@ -8820,17 +8956,17 @@ fn deprecations_fn(cli: &Cli) -> TokenStream {
 /// replaces the standing variant, so relationships must not keep reading the old one.
 fn argument_state_standing(cli: &Cli) -> TokenStream {
     let overlays = cli.fields.iter().filter_map(|field| {
-        let Kind::ArgGroup { ty, .. } = &field.kind else {
+        let Kind::ArgGroup { ty, multiple, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
         let standing = standing_ident(field);
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
-        Some(quote! {
-            if #group::any_given(&partial.#ident).is_none() {
-                if let ::std::option::Option::Some(__usage_s) = #standing {
+        let read_standing = if *multiple {
+            quote! {
+                for __usage_member in __usage_s {
                     if let ::std::option::Option::Some(__usage_standing_state) =
-                        #group::standing_state(__usage_s, selector)
+                        #group::standing_state(__usage_member, selector)
                     {
                         if __usage_standing_state.given {
                             return ::std::option::Option::Some(__usage_standing_state);
@@ -8838,25 +8974,55 @@ fn argument_state_standing(cli: &Cli) -> TokenStream {
                     }
                 }
             }
+        } else {
+            quote! {
+                if let ::std::option::Option::Some(__usage_standing_state) =
+                    #group::standing_state(__usage_s, selector)
+                {
+                    if __usage_standing_state.given {
+                        return ::std::option::Option::Some(__usage_standing_state);
+                    }
+                }
+            }
+        };
+        Some(quote! {
+            if #group::any_given(&partial.#ident).is_none() {
+                if let ::std::option::Option::Some(__usage_s) = #standing {
+                    #read_standing
+                }
+            }
         })
     });
     let match_overlays = cli.fields.iter().filter_map(|field| {
-        let Kind::ArgGroup { ty, .. } = &field.kind else {
+        let Kind::ArgGroup { ty, multiple, .. } = &field.kind else {
             return None;
         };
         let ident = &field.ident;
         let standing = standing_ident(field);
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
+        let read_standing = if *multiple {
+            quote! {
+                for __usage_member in __usage_s {
+                    if #group::standing_matches(__usage_member, selector, value)
+                        == ::std::option::Option::Some(true)
+                    {
+                        return ::std::option::Option::Some(true);
+                    }
+                }
+            }
+        } else {
+            quote! {
+                if #group::standing_matches(__usage_s, selector, value)
+                    == ::std::option::Option::Some(true)
+                {
+                    return ::std::option::Option::Some(true);
+                }
+            }
+        };
         Some(quote! {
             if #group::any_given(&partial.#ident).is_none() {
                 if let ::std::option::Option::Some(__usage_s) = #standing {
-                    if let ::std::option::Option::Some(__usage_standing_match) =
-                        #group::standing_matches(__usage_s, selector, value)
-                    {
-                        if __usage_standing_match {
-                            return ::std::option::Option::Some(true);
-                        }
-                    }
+                    #read_standing
                 }
             }
         })
@@ -9037,7 +9203,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         // meant a `Vec` marked `required` was reported as one-or-more by the spec, the help, the
         // manpage and the completions, and accepted zero values from the CLI that actually ran.
         // One expression cannot disagree with itself.
-        if !(f.shape == Shape::Required || f.required_collection) || !f.default.is_empty() {
+        if !(f.shape == Shape::Required || f.required_collection) || f.has_default() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
@@ -9086,8 +9252,13 @@ fn post_binding(cli: &Cli) -> TokenStream {
         };
         let active = view_field_active(f);
         let standing_only = unless_standing_only(f);
+        let given = format_ident!("__given_{}", ident);
         Some(quote! {
-            if #active #standing_only {
+            // Choices validate lexical input. A typed computed default is already a value of
+            // the field's type; its `Display` form exists only so the partial can carry it to
+            // the final conversion and need not itself be one of the advertised CLI words.
+            // Environment values mark the field given, so they still take this path.
+            if #active && partial.#given #standing_only {
                 if partial.#invalid {
                     return ::std::result::Result::Err(
                         usage_argv::Error::InvalidChoice {
@@ -9319,7 +9490,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
             // can never fail — the same reason plain required-ness skips such a field.
             // Decided at compile time, so the check is not merely always-true at run
             // time, it is not there.
-            if !other.default.is_empty() {
+            if other.has_default() {
                 return quote!();
             }
             let other_given = semantic_given(other);
@@ -9390,7 +9561,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                 };
             }
             let other = other.expect("the local relationship was resolved above");
-            if !other.default.is_empty() {
+            if other.has_default() {
                 return quote!();
             }
             let other_given = semantic_given(other);
@@ -9652,7 +9823,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
                     .zip(&given)
                     .zip(&active)
                     .map(|((field, given), active)| {
-                        if field.default.is_empty() {
+                        if !field.has_default() {
                             quote!((#active) && (#given))
                         } else {
                             quote!(#active)
@@ -9697,24 +9868,31 @@ fn post_binding(cli: &Cli) -> TokenStream {
     // read, so it answers them and this command reports them — in the same two phases, so a
     // conflict here still comes before an unsatisfied group anywhere on the command.
     for field in &cli.fields {
-        let Kind::ArgGroup { ty, optional } = &field.kind else {
+        let Kind::ArgGroup {
+            ty,
+            optional,
+            multiple,
+        } = &field.kind
+        else {
             continue;
         };
         let ident = &field.ident;
         let group = quote!(<#ty as usage_argv::spec::ArgGroup>);
-        group_exclusivity_checks.push(quote! {
-            if let ::std::option::Option::Some((__usage_earlier, __usage_later)) =
-                #group::conflict(&partial.#ident)
-            {
-                return ::std::result::Result::Err(
-                    usage_argv::Error::ConflictingFlags {
-                        name: __usage_later,
-                        other: __usage_earlier,
-                    },
-                );
-            }
-        });
-        if *optional {
+        if !multiple {
+            group_exclusivity_checks.push(quote! {
+                if let ::std::option::Option::Some((__usage_earlier, __usage_later)) =
+                    #group::conflict(&partial.#ident)
+                {
+                    return ::std::result::Result::Err(
+                        usage_argv::Error::ConflictingFlags {
+                            name: __usage_later,
+                            other: __usage_earlier,
+                        },
+                    );
+                }
+            });
+        }
+        if *optional || *multiple {
             continue;
         }
         // A bare `T` has nowhere to put "no member", which is the whole declaration — the
@@ -9748,7 +9926,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         }
         // A field with a default is already filled, so no condition can make it
         // missing. Plain required-ness skips these too, and so does usage-lib.
-        if !f.default.is_empty() {
+        if f.has_default() {
             return None;
         }
         let given = format_ident!("__given_{}", f.ident);
@@ -9996,6 +10174,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
     let ident = &group.ident;
     let runtime = runtime_path();
     let name = &group.name;
+    let multiple = group.multiple;
 
     // Minted from this declaration and the module it sits in, like a command's: two argument
     // groups in different modules cannot hand a parse the same key, and the arm that claims an
@@ -10067,6 +10246,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 help: #help,
                 long_help: #long_help,
                 hide: #hide,
+                repeatable: #multiple,
                 value_name: #value_name,
                 accepted_choices: #accepted_choices,
                 choices: #choices,
@@ -10083,6 +10263,9 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         quote!(#(#cfg)* #selector)
     });
 
+    let ordered_field = multiple.then(|| {
+        quote!(pub ordered: ::std::vec::Vec<(usize, ::std::option::Option<::std::vec::Vec<u8>>)> ,)
+    });
     let partial_fields = group.variants.iter().enumerate().map(|(i, member)| {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
@@ -10097,6 +10280,15 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         let key = key_ident("FLAG", Some(i));
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
+        let record = if multiple {
+            if member.value_ty.is_some() {
+                quote!(partial.ordered.push((#i, value.map(<[u8]>::to_vec)));)
+            } else {
+                quote!(partial.ordered.push((#i, ::std::option::Option::None));)
+            }
+        } else {
+            quote!()
+        };
         let assign = if member.value_ty.is_some() {
             quote! {
                 if let ::std::option::Option::Some(value) = value {
@@ -10109,6 +10301,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         quote! {
             #(#cfg)*
             #key if ::core::ptr::eq(*flag, &#table) => {
+                #record
                 #assign
                 true
             }
@@ -10132,25 +10325,33 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
     });
     // The first two given, in declaration order, which is the pair the user has to choose
     // between — and the same pair a hand-written group's pairwise check reports.
-    let conflict_arms = group.variants.iter().enumerate().map(|(i, member)| {
-        let given = format_ident!("given_{i}");
-        let cfg = &member.cfg_attrs;
-        let name = &member.name;
-        let is_given = if member.value_ty.is_some() {
-            quote!(partial.#given.is_some())
-        } else {
-            quote!(partial.#given)
-        };
-        quote! {
-            #(#cfg)*
-            if #is_given {
-                if let ::std::option::Option::Some(__usage_earlier) = __usage_first {
-                    return ::std::option::Option::Some((__usage_earlier, #name));
-                }
-                __usage_first = ::std::option::Option::Some(#name);
+    let conflict_arms: Vec<_> = group
+        .variants
+        .iter()
+        .enumerate()
+        .filter_map(|(i, member)| {
+            if multiple {
+                return None;
             }
-        }
-    });
+            let given = format_ident!("given_{i}");
+            let cfg = &member.cfg_attrs;
+            let name = &member.name;
+            let is_given = if member.value_ty.is_some() {
+                quote!(partial.#given.is_some())
+            } else {
+                quote!(partial.#given)
+            };
+            Some(quote! {
+                #(#cfg)*
+                if #is_given {
+                    if let ::std::option::Option::Some(__usage_earlier) = __usage_first {
+                        return ::std::option::Option::Some((__usage_earlier, #name));
+                    }
+                    __usage_first = ::std::option::Option::Some(#name);
+                }
+            })
+        })
+        .collect();
     let build_arms = group.variants.iter().enumerate().map(|(i, member)| {
         let given = format_ident!("given_{i}");
         let cfg = &member.cfg_attrs;
@@ -10232,6 +10433,84 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 return ::std::result::Result::Ok(
                     ::std::option::Option::Some(Self::#variant(__usage_value)),
                 );
+            }
+        }
+    });
+    let build_many_arms = group.variants.iter().enumerate().map(|(i, member)| {
+        let cfg = &member.cfg_attrs;
+        let variant = &member.ident;
+        let Some(ty) = &member.value_ty else {
+            return quote! {
+                #(#cfg)*
+                #i => Self::#variant,
+            };
+        };
+        let name = &member.name;
+        let rendered = rendered_path(ty);
+        let converted = match rendered.as_str() {
+            "PathBuf" | "std::path::PathBuf" | "::std::path::PathBuf" => quote! {
+                match usage_argv::os_string_from_bytes(__usage_value) {
+                    ::std::result::Result::Ok(value) => ::std::path::PathBuf::from(value),
+                    ::std::result::Result::Err(bytes) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_os_value(#name, bytes),
+                        );
+                    }
+                }
+            },
+            "OsString" | "std::ffi::OsString" | "::std::ffi::OsString" => quote! {
+                match usage_argv::os_string_from_bytes(__usage_value) {
+                    ::std::result::Result::Ok(value) => value,
+                    ::std::result::Result::Err(bytes) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_os_value(#name, bytes),
+                        );
+                    }
+                }
+            },
+            _ if member.value_enum => quote! {{
+                let __usage_text = match ::std::string::String::from_utf8(__usage_value) {
+                    ::std::result::Result::Ok(text) => text,
+                    ::std::result::Result::Err(bad) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_utf8_value(#name, bad),
+                        );
+                    }
+                };
+                match <#ty as usage_argv::spec::ValueEnum>::from_choice(&__usage_text) {
+                    ::std::option::Option::Some(value) => value,
+                    ::std::option::Option::None => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_choice_value(#name, __usage_text),
+                        );
+                    }
+                }
+            }},
+            _ => quote! {{
+                let __usage_text = match ::std::string::String::from_utf8(__usage_value) {
+                    ::std::result::Result::Ok(text) => text,
+                    ::std::result::Result::Err(bad) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_utf8_value(#name, bad),
+                        );
+                    }
+                };
+                match ::std::str::FromStr::from_str(&__usage_text) {
+                    ::std::result::Result::Ok(value) => value,
+                    ::std::result::Result::Err(reason) => {
+                        return ::std::result::Result::Err(
+                            usage_argv::invalid_parsed_value(#name, __usage_text, &reason),
+                        );
+                    }
+                }
+            }},
+        };
+        quote! {
+            #(#cfg)*
+            #i => {
+                let __usage_value = __usage_value.clone().unwrap_or_default();
+                let __usage_value: #ty = #converted;
+                Self::#variant(__usage_value)
             }
         }
     });
@@ -10349,6 +10628,8 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         // selector is known to this type, so a parent that short-circuits on the
         // first true does not fall through to "unresolved" when the member was
         // simply not given. Clearing is what happens when it *was* given.
+        let clear_ordered =
+            multiple.then(|| quote!(partial.ordered.retain(|(__usage_at, _)| *__usage_at != #i);));
         let clear = if member.value_ty.is_some() {
             quote!(partial.#given = ::std::option::Option::None;)
         } else {
@@ -10357,6 +10638,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
         quote! {
             #(#cfg)*
             #(#selectors)|* => {
+                #clear_ordered
                 #clear
                 return true;
             }
@@ -10371,6 +10653,26 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
             #(#cfg)*
             #key if ::core::ptr::eq(*flag, &#table) => {
                 matches!(selector, #(#selectors)|*)
+            }
+        }
+    });
+    let build_many_impl = multiple.then(|| {
+        quote! {
+            fn try_build_many(
+                partial: &Self::Partial,
+            ) -> ::std::result::Result<
+                ::std::vec::Vec<Self>,
+                usage_argv::Error<'static, 'static>,
+            > {
+                let mut __usage_members = ::std::vec::Vec::with_capacity(partial.ordered.len());
+                for (__usage_at, __usage_value) in &partial.ordered {
+                    let __usage_member = match *__usage_at {
+                        #(#build_many_arms)*
+                        _ => continue,
+                    };
+                    __usage_members.push(__usage_member);
+                }
+                ::std::result::Result::Ok(__usage_members)
             }
         }
     });
@@ -10394,6 +10696,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
 
             #[derive(Default)]
             pub struct Partial {
+                #ordered_field
                 #(#partial_fields)*
             }
 
@@ -10403,6 +10706,7 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                 const FLAG_METAS: &'static [usage_argv::spec::FlagMeta<'static>] =
                     &[#(#flag_metas),*];
                 const MEMBERS: &'static [&'static str] = &[#(#members),*];
+                const MULTIPLE: bool = #multiple;
 
                 type Partial = Partial;
 
@@ -10450,6 +10754,8 @@ pub fn emit_arg_group(group: &ArgGroup) -> TokenStream {
                     #(#build_arms)*
                     ::std::result::Result::Ok(::std::option::Option::None)
                 }
+
+                #build_many_impl
 
                 fn argument_state(
                     partial: &Self::Partial,

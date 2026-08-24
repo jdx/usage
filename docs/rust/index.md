@@ -10,12 +10,12 @@ first-class environment and config-file resolution, advanced shell completions, 
 validation, negation flags, typed argument groups, categorized subcommands, and more.
 
 In the mise-scale benchmark it parses hundreds of times faster than clap, with no third-party
-runtime crates and a 1.6 MB stripped binary versus clap's 3.1 MB. See the
+runtime crates and a 1.3 MB stripped binary versus clap's 3.1 MB. See the
 [performance results](/rust/performance) and [clap migration guide](/rust/migrating-from-clap).
 
 The same declaration also becomes a portable [usage spec](/spec/) that the binary can print.
-`usage-cli` turns it into documentation, manpages, and completions—the same toolchain used across
-jdx's CLIs.
+`usage-cli` turns it into documentation, manpages, and completions — the same toolchain used
+across jdx's CLIs.
 
 ```rust
 use usage::Cli;
@@ -53,6 +53,10 @@ whole comment becomes the long help shown by `--help`.
 
 <UsageBenches lang="rust" embedded />
 
+That speed moves work into compilation. For mise's 211 commands and 722 flags, a debug
+rebuild took about 10 seconds with usage-rs, 4 seconds with clap, and 2 seconds with bpaf
+([measurements](/rust/performance#compile-time)).
+
 ## Installation
 
 One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:
@@ -68,25 +72,27 @@ derive's compiler, which runs at build time ([comparison with clap](/rust/migrat
 `usage-rs` is a facade. Applications should depend on it alone. The split underneath stays
 available for low-level adopters that want a thinner surface:
 
-| Crate          | Role                                                                                   |
-| -------------- | -------------------------------------------------------------------------------------- |
-| `usage-rs`     | The one package an application depends on; re-exports the whole runtime                |
-| `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`, `ArgGroup`               |
-| `usage-argv`   | The zero-allocation, zero-dependency runtime the derive emits code against             |
-| `usage-test`   | Test helpers: what a command line parses to, what a page says, what a shell is offered |
-| `usage-config` | Layered settings resolution with provenance ([Configuration](/rust/configuration))     |
+| Crate           | Role                                                                                                                 |
+| --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `usage-rs`      | The one package an application depends on; re-exports the whole runtime                                              |
+| `usage-derive`  | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`, `ArgGroup`, and `Config` (behind the `config` feature) |
+| `usage-argv`    | The zero-allocation, zero-dependency runtime the derive emits code against                                           |
+| `usage-test`    | Test helpers: what a command line parses to, what a page says, what a shell is offered                               |
+| `usage-config`  | Layered settings resolution with provenance ([Configuration](/rust/configuration))                                   |
+| `usage-dynamic` | Commands discovered at runtime, merged into help and completion ([Dynamic commands](/rust/dynamic-commands))         |
 
 ### Cargo features
 
-| Feature       | Default | What it enables                                                                                          |
-| ------------- | :-----: | -------------------------------------------------------------------------------------------------------- |
-| `spec`        |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                          |
-| `help`        |   ✅    | `-h` / `--help` page rendering                                                                           |
-| `diagnostics` |   ✅    | clap-shaped error messages from `render_failure`                                                         |
-| `completions` |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)    |
-| `validation`  |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions)) |
-| `test`        |         | `usage::test`: command output, parse, and help assertions (completion assertions want `completions` too) |
-| `config`      |         | The `usage::Config` derive and the resolver as `usage::config` ([Configuration](/rust/configuration))    |
+| Feature          | Default | What it enables                                                                                          |
+| ---------------- | :-----: | -------------------------------------------------------------------------------------------------------- |
+| `spec`           |   ✅    | Spec metadata and `to_kdl()`; gates the derives                                                          |
+| `help`           |   ✅    | `-h` / `--help` page rendering                                                                           |
+| `diagnostics`    |   ✅    | clap-shaped error messages from `render_failure`                                                         |
+| `completions`    |         | Shell completion scripts and the runtime completion protocol (`complete` is an alias of this feature)    |
+| `validation`     |         | Portable `validate` / `validate_error` expressions ([Validation](/rust/validation#portable-expressions)) |
+| `test`           |         | `usage::test`: command output, parse, and help assertions (completion assertions want `completions` too) |
+| `config`         |         | The `usage::Config` derive and the resolver as `usage::config` ([Configuration](/rust/configuration))    |
+| `response-files` |         | Explicit `@file` argument expansion as `usage::response` ([Response files](/rust/response-files))        |
 
 ## Parse entry points
 
@@ -97,7 +103,7 @@ available for low-level adopters that want a thinner surface:
 pub fn parse() -> Self;
 
 // parse the given argv; hand errors (including help/version requests) back to you
-pub fn parse_from<'v>(argv: &'v [&'v OsStr]) -> Result<Self, usage::Error<'static, 'v>>;
+pub fn parse_from<'v>(argv: &[&'v OsStr]) -> Result<Self, usage::Error<'static, 'v>>;
 
 // the static parse tables and spec metadata
 pub fn command() -> &'static usage::Command<'static>;
@@ -145,11 +151,13 @@ how to opt out of the endpoint.
 - [Args and flags](/rust/args-and-flags) — field types, attributes, env vars, defaults
 - [Updating values](/rust/update-from) — merge another command line into an existing value
 - [Subcommands](/rust/subcommands) — command enums, nesting, `flatten`, value enums
+- [Dynamic commands](/rust/dynamic-commands) — commands discovered at runtime, in help and completion
 - [Dispatch](/rust/dispatch) — `Run`, `RunWith`, the async pair, and the generated `match`
 - [Validation](/rust/validation) — choices, groups, `exclusive`, `delimiter`, conflicts, portable `validate`
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it
 - [Completions](/rust/completions) — static scripts and runtime completion
 - [Configuration](/rust/configuration) — settings declared in code: `usage::Config` and layered resolution
+- [Response files](/rust/response-files) — opt-in, nested `@file` argument expansion
 - [Testing](/rust/testing) — run commands or assert directly on parsing, help, and completions
 - [Spec output](/rust/spec) — the emitted KDL and usage-cli integration
 - [Migrating from clap](/rust/migrating-from-clap) — mechanical rewrites and intentional API breaks

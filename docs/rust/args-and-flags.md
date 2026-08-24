@@ -35,7 +35,8 @@ has nowhere to put "absent", so `T` means required:
 
 Values are built with `FromStr`, so `PathBuf`, `usize`, `IpAddr`, and your own types all work.
 The `FromStr` error type must implement `Display` (a compile error names the type otherwise);
-a conversion failure at runtime becomes `Error::InvalidValue { name, value, reason }`.
+a conversion failure at runtime becomes `Error::InvalidValue(e)`, whose payload carries the
+argument's name, the offending value, and the reason.
 
 On Unix, `PathBuf` and `OsString` keep non-UTF-8 argv bytes unchanged. `String` fields report
 invalid UTF-8 rather than replacing it. On Windows, values that cannot be converted safely are
@@ -72,6 +73,13 @@ The tables below cover the attributes most CLIs need.
 | `global`                 | Usable on any subcommand below this one                         |
 | `required`               | Explicit required-ness (for `Vec` fields)                       |
 | `skip`                   | Not an argument; filled from `Default` when the struct is built |
+| `surface = "…"`          | Descriptive audience or compatibility surface metadata          |
+| `available_if("…", …)`   | Descriptive availability conditions; does not gate parsing      |
+
+The metadata attributes also work on the root `Cli`, an `Args` command struct, and a
+`Subcommands` variant. Their values are intentionally project-defined: `public`, `automation`,
+and `internal` are common surfaces, while `unix`, `debug-build`, or `feature=json` are typical
+availability conditions. Use `hide` or an application-level check when behavior should change.
 
 **Values and cardinality** — what a field accepts and how many:
 
@@ -96,8 +104,37 @@ The tables below cover the attributes most CLIs need.
 | `env_fallback("A", "B")`       | Try additional environment variables in declaration order                        |
 | `deprecated_env("OLD_X")`      | Try deprecated aliases last, and report the one that supplied a value            |
 | `default = "…"`                | Fall back to this value (repeatable for `Vec` fields)                            |
+| `default_fn = function`        | Compute one typed Rust default at parse time without emitting a concrete value   |
+| `default_note = "…"`           | Describe a `default_fn` in help without pretending the note is its value         |
 | `default_missing = "…"`        | Value when the flag is given with none (`--color` vs `--color=never`)            |
 | `default_if("--json", "true")` | Default when another flag is given (two args = present, three = equals)          |
+
+Use `default_fn` when the answer depends on the current platform, environment, or another runtime
+fact. The function returns the field's value type and is called for each parse:
+
+```rust
+use std::io::IsTerminal as _;
+
+fn default_format() -> OutputFormat {
+    if std::io::stdout().is_terminal() {
+        OutputFormat::Pretty
+    } else {
+        OutputFormat::Json
+    }
+}
+
+#[usage(
+    long,
+    default_fn = default_format,
+    default_note = "pretty on a terminal, JSON otherwise"
+)]
+format: OutputFormat,
+```
+
+The emitted portable spec marks the field optional and carries the note as help prose, but emits
+no `default`: another consumer cannot reproduce a Rust function and should not be told a guessed
+value. Use `default_value_t = EXPR` beside `default = "literal"` when the computed Rust expression
+does have one stable portable spelling.
 
 **Parsing behavior** — how tokens on the line are read:
 
@@ -133,6 +170,7 @@ The tables below cover the attributes most CLIs need.
 | Attribute                        | Effect                                                                  |
 | -------------------------------- | ----------------------------------------------------------------------- |
 | `help = "…"` / `long_help = "…"` | Help text (doc comments are usually nicer)                              |
+| `note = "…"` / `warning = "…"`   | Semantic blocks in long help and generated Markdown                     |
 | `value_name = "…"`               | The placeholder shown in help (`--file <PATH>`)                         |
 | `value_names = ["A", "B"]`       | Distinct placeholders for a fixed multi-value field                     |
 | `help_heading = "…"`             | Group the entry under a heading in help output                          |
@@ -150,6 +188,18 @@ The tables below cover the attributes most CLIs need.
 | `effect = "…"`                     | `"read"`, `"write"`, or `"destructive"` — see [command effects](/spec/#command-effects) |
 | `setting = "key"`                  | Bind to a config setting ([Configuration](/rust/configuration))                         |
 
+The rest of this section expands the entries that need more than a table row.
+
+`note` and `warning` keep callouts structured instead of embedding terminal- or
+site-specific markup in help text. Long terminal help labels them `Note:` and
+`Warning:`; generated Markdown uses portable blockquotes with the same labels.
+
+### Skipped fields
+
+`#[usage(skip)]` keeps a field on the struct for computed state without adding it to the spec,
+parse tables, or help. Combining it with `long`, `arg`, or any other field option is a compile
+error. The type has to implement `Default`.
+
 ### Suggested values without strict validation
 
 Use `choices_strict = false` when the declared choices should drive help and
@@ -163,27 +213,7 @@ backend: Option<String>,
 The portable form is `choices strict=#false core git`. Strict validation remains
 the default.
 
-`#[usage(skip)]` keeps a field on the struct for computed state without adding it to the spec,
-parse tables, or help. Combining it with `long`, `arg`, or any other field option is a compile
-error. The type has to implement `Default`.
-
-`value_hint` accepts `Unknown`, `Other`, `FilePath`, `AnyPath`, `DirPath`, `ExecutablePath`,
-`CommandName`, `CommandString`, `CommandWithArguments`, `Username`, `Hostname`, `Url`, and
-`EmailAddress`. `CommandWithArguments` is for wrapper CLIs and must be a positional `Vec` with
-`double_dash = "automatic"`: its first value completes from the shell's commands, while later
-values fall back to ordinary argument paths. `Other`, URL, and email values suppress filename
-fallback without pretending there is a finite list.
-
-`#[usage(allow_hyphen_values)]` makes `--args -destroy` bind `-destroy` instead of reading `-d`
-as a short. The flag has to take a value; a positional that needs the same thing already has
-`double_dash = "automatic"`. Emitted KDL:
-`flag "--args <ARGS>" allow_hyphen_values=#true`.
-
-`#[usage(allow_negative_numbers)]` makes `--jobs -1` bind `-1`, while `--jobs --force` still
-leaves a flag-like token for normal parsing.
-
-`#[usage(value_terminator = ";")]` ends a `Vec` without storing the terminator.
-It works on variadic flags and positionals and emits `value_terminator=";"` in KDL.
+### Multiple values
 
 Fixed multi-value fields declare their cardinality and placeholders together:
 
@@ -200,8 +230,21 @@ while flag-level bounds count how many times a repeatable flag appears. A range
 such as `num_args = 1..=3` sets the corresponding nested bounds; distinct
 `value_names` require an exact bound matching their count.
 
+`#[usage(value_terminator = ";")]` ends a `Vec` without storing the terminator.
+It works on variadic flags and positionals and emits `value_terminator=";"` in KDL.
+
+### Parsing behavior
+
+`#[usage(allow_hyphen_values)]` makes `--args -destroy` bind `-destroy` instead of reading `-d`
+as a short. The flag has to take a value; a positional that needs the same thing already has
+`double_dash = "automatic"`. In KDL:
+`flag "--args <ARGS>" allow_hyphen_values=#true`.
+
+`#[usage(allow_negative_numbers)]` makes `--jobs -1` bind `-1`, while `--jobs --force` still
+leaves a flag-like token for normal parsing.
+
 `#[usage(require_equals)]` makes `--inspect=9229` bind while `--inspect 9229` is a missing
-value. The flag has to take a value. Emitted KDL:
+value. The flag has to take a value. In KDL:
 `flag "--inspect <PORT>" require_equals=#true`.
 
 `#[usage(bool_value)]` is an opt-in for explicit boolean long-flag values:
@@ -209,9 +252,11 @@ value. The flag has to take a value. Emitted KDL:
 detached `--color false` never consumes `false`; it remains a positional. The
 portable form is `flag "--color" bool_value=#true`.
 
+### Optional values and conditional defaults
+
 With `#[usage(default_missing = "always")]`, `--color` binds `always`, `--color=never` binds
 `never`, and an absent flag stays `None`. The flag has to take a value. Help shows the value as
-optional. Emitted KDL:
+optional. In KDL:
 `flag "--color <WHEN>" default_missing="always"`. Combined with `require_equals`,
 a following word is still refused.
 
@@ -231,6 +276,8 @@ flag "--bin-names" {
 }
 ```
 
+### Argument relations
+
 Argument relations (`conflicts`, `requires`, `required_if`, `required_if_eq`, `required_unless`) name
 their target the way the KDL spec does — `"--long"` or `"-s"`, one value or a list:
 
@@ -242,6 +289,15 @@ stdin: bool,
 Naming a flag or positional that doesn't exist on the command is a **compile error**, not a
 runtime surprise. Conflicts, requires, and conditional requiredness may name flags or
 positionals; `overrides` and some `requires_if` forms stay flag-only.
+
+### Completion hints
+
+`value_hint` accepts `Unknown`, `Other`, `FilePath`, `AnyPath`, `DirPath`, `ExecutablePath`,
+`CommandName`, `CommandString`, `CommandWithArguments`, `Username`, `Hostname`, `Url`, and
+`EmailAddress`. `CommandWithArguments` is for wrapper CLIs and must be a positional `Vec` with
+`double_dash = "automatic"`: its first value completes from the shell's commands, while later
+values fall back to ordinary argument paths. `Other`, URL, and email values suppress filename
+fallback without pretending there is a finite list.
 
 ## Resolution order
 
@@ -302,3 +358,37 @@ On a `#[derive(Args)]` struct (refused on the root):
 | `mount = "…"`           | Mount a subprocess-provided spec for completions ([Spec output](/rust/spec)) |
 | `restart_token = ":::"` | Token that restarts parsing (for wrapper CLIs)                               |
 | `effect = "…"`          | The command's [effect classification](/spec/#command-effects)                |
+
+## Outputs and exit codes
+
+A command can also declare what it writes to stdout and what its exit statuses mean. The
+declarations travel into the spec, generated docs and manpages, `usage mcp`, and generated
+SDKs:
+
+```rust
+/// Check the project
+#[derive(usage::Args)]
+#[usage(
+    output("human", default, help = "A human-readable report"),
+    output("json", media_type = "application/json", framing = "json", schema_from = Report),
+    output("checkstyle", media_type = "application/xml"),
+    exit_code(0, "all checks passed"),
+    exit_code(1, "a check failed"),
+)]
+struct Check {
+    /// Output format
+    #[usage(long, select)]
+    format: Option<String>,
+}
+```
+
+`select` on a value-taking flag names it as the selector, and its choices are filled from the
+output names. A boolean flag that picks one output is named from the output instead —
+`output("json", framing = "json", select = "--json")` — and `select = "--format"` as a
+container attribute is the same thing spelled the way the KDL node is. `media_type` identifies
+the content independently of `text`/`json`/`jsonl` stream framing. An output also takes `hide`,
+and a schema comes from `schema = "…"`, `schema_from = Type` (via `schemars`), or
+`schema_fn = path` where the function returns a `String`. Declared on the root `#[derive(Cli)]`
+struct, outputs and exit codes apply CLI-wide, and a command can refine what it inherits. The
+full model — framings, schema files, inheritance — is on the
+[spec reference](/spec/reference/output).

@@ -1,0 +1,64 @@
+{
+  "section": "external-boundary",
+  "about": "An `external_subcommand` catch-all forwards an unrecognized command word and everything after it to a program the spec does not describe. Past that word the cursor is inside another CLI's line, and this spec knows nothing about it — not its flags, not its arguments, not whether a path belongs there. The declaring command still has subcommands, flags and an unfilled positional to report, which is exactly the trap: every one of them is an answer about the wrong CLI. A host that does know what the external name means answers from its own tables; one that does not offers nothing at all.",
+  "vectors": [
+    {
+      "id": "nothing-past-the-boundary",
+      "doc": "The word after a forwarded command name belongs to that command. Offering the catch-all's own subcommands there — the position's `cmd` is still the declarer — would complete `plugins ls` into a line that runs `myplugin`.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"plugins\" {\n  external_subcommand #true\n  cmd \"ls\" {}\n}\n",
+      "line": "ex plugins myplugin ",
+      "expect": {
+        "candidates": [],
+        "nothing": true
+      }
+    },
+    {
+      "id": "no-path-fallback-past-the-boundary",
+      "doc": "Deferring to the shell's file completion is itself a claim: that a path is what goes here. Only the external program knows that, so the empty answer has to be empty of files too.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"plugins\" {\n  external_subcommand #true\n  cmd \"ls\" {}\n}\n",
+      "line": "ex plugins myplugin ",
+      "expect": {
+        "candidates": [],
+        "nothing": true
+      }
+    },
+    {
+      "id": "no-flags-past-the-boundary",
+      "doc": "The host's flags are not the plugin's. A dash-prefixed word past the boundary is the plugin's business, and offering `--verbose` there advertises a flag that would be forwarded, not bound.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--verbose\"\ncmd \"plugins\" {\n  external_subcommand #true\n  flag \"--quiet\"\n}\n",
+      "line": "ex plugins myplugin --",
+      "expect": {
+        "candidates": [],
+        "nothing": true
+      }
+    },
+    {
+      "id": "the-command-position-itself-is-unaffected",
+      "doc": "The boundary is crossed by a word the walk already passed, not by the one being typed. At the catch-all's own command position the declared subcommands are still the answer — a catch-all means \"and also anything else\", not \"nothing\".",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"plugins\" {\n  external_subcommand #true\n  cmd \"ls\" {}\n}\n",
+      "line": "ex plugins ",
+      "expect": {
+        "candidates": ["ls"]
+      }
+    },
+    {
+      "id": "a-partial-name-is-still-a-command-position",
+      "doc": "A half-typed word could still become a declared subcommand, so it completes as one. Nothing is forwarded until a word is complete enough to not be `ls`.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"plugins\" {\n  external_subcommand #true\n  cmd \"ls\" {}\n}\n",
+      "line": "ex plugins l",
+      "expect": {
+        "candidates": ["ls"]
+      }
+    },
+    {
+      "id": "a-declared-flag-before-the-name-does-not-move-the-boundary",
+      "doc": "A flag of the host's own before the external name binds to the host, and the name after it still forwards. The boundary is where the grammar stopped recognizing words, not where the first dash appeared.",
+      "spec": "name \"ex\"\nbin \"ex\"\ncmd \"plugins\" {\n  external_subcommand #true\n  flag \"--quiet\"\n  cmd \"ls\" {}\n}\n",
+      "line": "ex plugins --quiet myplugin ",
+      "expect": {
+        "candidates": [],
+        "nothing": true
+      }
+    }
+  ]
+}

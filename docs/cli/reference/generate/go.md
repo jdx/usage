@@ -14,20 +14,11 @@ The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a
 
 ## Flags
 
-### `-f --file <FILE>`
+- **`-f --file <FILE>`** — A usage spec taken in as a file, use "-" to read from stdin
+- **`-o --out-file <OUT_FILE>`** — File path where the generated Go source will be saved, or "-" for stdout
 
-A usage spec taken in as a file, use "-" to read from stdin
+  **Effect:** modifies state
 
-### `-o --out-file <OUT_FILE>`
-
-**Effect**: modifies state
-
-File path where the generated Go source will be saved, or "-" for stdout
-
-### `-p --package <PACKAGE>`
-
-Go package clause for the generated file (defaults to the spec's bin name)
-
-### `--spec <SPEC>`
-
-Raw string spec input
+- **`-p --package <PACKAGE>`** — Go package clause for the generated file (defaults to the spec's bin name)
+- **`--spec <SPEC>`** — Raw string spec input
+- **`-h --help`** — Print help

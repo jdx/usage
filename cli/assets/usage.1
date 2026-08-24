@@ -15,6 +15,12 @@ Outputs completions for the specified shell for completing the `usage` CLI itsel
 .TP
 \fB\-\-usage\-spec\fR
 Outputs a `usage.kdl` spec for this CLI itself
+.TP
+\fB\-h, \-\-help\fR
+Print help
+.TP
+\fB\-V, \-\-version\fR
+Print version
 .SH COMMANDS
 .TP
 \fBbash\fR
@@ -151,6 +157,9 @@ Current word index
 .RS
 \fIDefault: \fRbash
 .RE
+.TP
+\fB\-h, \-\-help\fR
+Print help
 \fBArguments:\fR
 .PP
 .TP
@@ -188,6 +197,9 @@ Report only breaking changes
 .TP
 \fB\-\-exit\-zero\fR
 Exit 0 even when there are breaking changes
+.TP
+\fB\-h, \-\-help\fR
+Print help
 \fBArguments:\fR
 .PP
 .TP
@@ -251,6 +263,9 @@ A spec\-declared executable view to explain
 Environment to explain against, as KEY=VALUE, repeatable
 
 Given at all, these are the *whole* environment: an explanation pasted into a bug report has to mean the same thing on the machine that reads it. Omitted, the process environment is used, which is what an execution would see.
+.TP
+\fB\-h, \-\-help\fR
+Print help
 \fBArguments:\fR
 .PP
 .TP
@@ -283,6 +298,16 @@ Show help
 Arguments to pass to script
 
 Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
+.SH "USAGE GENERATE"
+Generate completions, documentation, and other artifacts from usage specs
+.PP
+\fBUsage:\fR usage generate [OPTIONS] <COMMAND>
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE GENERATE COMPLETION"
 Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 .PP
@@ -318,6 +343,9 @@ You may need to set this if you have a different bin named "usage"
 .TP
 \fB\-\-usage\-cmd\fR \fI<USAGE_CMD>\fR
 A command which generates a usage spec e.g.: `mycli \-\-usage` or `mycli completion usage` Defaults to "$bin \-\-usage"
+.TP
+\fB\-h, \-\-help\fR
+Print help
 \fBArguments:\fR
 .PP
 .TP
@@ -346,6 +374,9 @@ You may need to set this if you have a different bin named "usage"
 .RS
 \fIEnvironment: \fR\fBJDX_USAGE_BIN\fR
 .RE
+.TP
+\fB\-h, \-\-help\fR
+Print help
 \fBArguments:\fR
 .PP
 .TP
@@ -367,6 +398,9 @@ File path where the generated Fig spec will be saved, or "\-" for stdout
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
 Raw string spec input
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE GENERATE GO"
 Generate Go parse tables from a usage spec
 
@@ -390,6 +424,9 @@ Go package clause for the generated file (defaults to the spec's bin name)
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
 Raw string spec input
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE GENERATE JSON"
 Outputs a usage spec in json format
 .PP
@@ -406,6 +443,9 @@ raw string spec input
 .TP
 \fB\-\-view\fR \fI<VIEW>\fR
 Render one spec\-declared executable view
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE GENERATE JSON-SCHEMA"
 Generate a JSON Schema for a CLI's config file from its usage spec
 .PP
@@ -428,6 +468,9 @@ The schema's title, shown by editors
 .TP
 \fB\-\-url\fR \fI<URL>\fR
 Where the schema is published, for its `$id`
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE GENERATE MANPAGE"
 Generate a manpage from a usage spec
 .PP
@@ -452,6 +495,9 @@ Common sections: \- 1: User commands \- 5: File formats \- 7: Miscellaneous \- 8
 .RS
 \fIDefault: \fR1
 .RE
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE GENERATE MARKDOWN"
 Generate markdown documentation from usage specs
 .PP
@@ -483,6 +529,12 @@ Replace `<pre>` tags with markdown code fences
 .TP
 \fB\-\-url\-prefix\fR \fI<URL_PREFIX>\fR
 Prefix to add to all URLs
+.TP
+\fB\-\-template\fR \fI<TEMPLATE>\fR
+Override a Tera template with NAME=PATH
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE GENERATE SDK"
 Generate a type\-safe SDK from a usage spec
 .PP
@@ -505,6 +557,9 @@ Override the package/module name (defaults to spec bin name)
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
 Raw string spec input
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE LINT"
 Lint a usage spec file for common issues
 .PP
@@ -526,6 +581,9 @@ Treat warnings as errors
 Also check that subcommands and flags are declared in sorted order
 
 Off by default: declaration order is a house convention rather than a correctness question, so a spec that keeps a different order is not wrong. Pair it with \-\-warnings\-as\-errors to hold the order in CI.
+.TP
+\fB\-h, \-\-help\fR
+Print help
 \fBArguments:\fR
 .PP
 .TP
@@ -547,6 +605,9 @@ Usage spec file (not "\-": stdin is the MCP transport)
 .TP
 \fB\-s, \-\-spec\fR \fI<SPEC>\fR
 Raw string spec input
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE POWERSHELL"
 Execute a shell script with the specified shell
 
@@ -572,6 +633,16 @@ Show help
 Arguments to pass to script
 
 Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
+.SH "USAGE SPONSORS"
+Show the companies sponsoring usage and the jdx.dev open source tools
+.PP
+\fBUsage:\fR usage sponsors [OPTIONS]
+.PP
+\fBOptions:\fR
+.PP
+.TP
+\fB\-h, \-\-help\fR
+Print help
 .SH "USAGE ZSH"
 Execute a shell script with the specified shell
 
