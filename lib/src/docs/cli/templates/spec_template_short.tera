@@ -1,22 +1,22 @@
-{%- if cmd.before_help %}{{ cmd.before_help }}
+{%- if cmd.before_help %}{{ cmd.before_help | terminal_wrap(width=terminal_width) }}
 
-{% elif spec.before_help %}{{ spec.before_help }}
+{% elif spec.before_help %}{{ spec.before_help | terminal_wrap(width=terminal_width) }}
 
 {% endif -%}
 {%- if root %}
 {%- if spec.name and spec.version %}{{ spec.name }} {{ spec.version }}
 {% elif spec.version %}{{ spec.bin }} {{ spec.version }}
 {% endif -%}
-{%- if spec.about %}{{ spec.about }}
+{%- if spec.about %}{{ spec.about | terminal_wrap(width=terminal_width) }}
 
 {% endif -%}
 {%- else -%}
-{%- if cmd.help %}{{ cmd.help }}
+{%- if cmd.help %}{{ cmd.help | terminal_wrap(width=terminal_width) }}
 
 {% endif -%}
 {%- endif -%}
 {%- if cmd.deprecated or cmd.deprecated_warn_at or cmd.deprecated_remove_at %}
-[deprecated:{% if cmd.deprecated %} {{ cmd.deprecated }}{% endif %}{% if cmd.deprecated_warn_at %}{% if cmd.deprecated %};{% endif %} warns at {{ cmd.deprecated_warn_at }}{% endif %}{% if cmd.deprecated_remove_at %}{% if cmd.deprecated or cmd.deprecated_warn_at %};{% endif %} removed at {{ cmd.deprecated_remove_at }}{% endif %}]
+{{ cmd | terminal_deprecation(width=terminal_width) }}
 
 {%- endif -%}{{ mark_usage }}
 {%- if cmd.flatten_help and cmd.flattened_usage %}
@@ -37,7 +37,7 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
   {{ cmd.name | ljust(width=cmd.usage_col_width) }}  {{ cmd.help_rendered }}
 {%- elif cmd.row %}
   {{ cmd.name }}
-    {{ cmd.row | indent(width=4) }}
+{{ cmd.row }}
 {%- else %}
   {{ cmd.name }}
 {%- endif %}
@@ -55,24 +55,24 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- for arg in group.items %}
 {%- if cmd.next_line_help %}
   {{ arg.usage | trim }}
-{%- if arg.help %}
-    {{ arg.help | indent(width=4) }}{% endif %}
+{%- if arg.row %}
+{{ arg.row }}{% endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
-    [possible values: {{ arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{{ arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
-    [choices env: {{ arg.choices.env }}]{%- endif %}
+{{ arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_env and arg.env %}
-    [env: {{ arg.env }}]{%- endif %}
+{{ arg.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_env %}{% for env in arg.env_fallback %}
-    [env fallback: {{ env }}]{%- endfor %}{% for env in arg.deprecated_env %}
-    [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
+{{ env | terminal_annotation(label="[env fallback: ", suffix="]", indent="    ", width=terminal_width) }}{%- endfor %}{% for env in arg.deprecated_env %}
+{{ env | terminal_annotation(label="[deprecated env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endfor %}{%- endif %}
 {%- if not arg.hide_default_value and arg.default %}
-    (default: {{ arg.default | join(sep=", ") }}){%- endif %}
+{{ arg.default | terminal_annotation(label="(default: ", suffix=")", indent="    ", width=terminal_width) }}{%- endif %}
 {%- elif arg.help_rendered %}
   {{ arg.usage | trim | ljust(width=arg.usage_col_width) }}  {{ arg.help_rendered }}
 {%- elif arg.row %}
   {{ arg.usage | trim }}
-    {{ arg.row | indent(width=4) }}
+{{ arg.row }}
 {%- else %}
   {{ arg.usage | trim }}
 {%- endif %}
@@ -86,26 +86,26 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- for flag in group.items %}
 {%- if cmd.next_line_help %}
   {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
-{%- if flag.help %}
-    {{ flag.help | indent(width=4) }}{% endif %}
+{%- if flag.row %}
+{{ flag.row }}{% endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
-    [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{{ flag.arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
-    [choices env: {{ flag.arg.choices.env }}]{%- endif %}
+{{ flag.arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env and flag.env %}
-    [env: {{ flag.env }}]{%- endif %}
+{{ flag.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env %}{% for env in flag.env_fallback %}
-    [env fallback: {{ env }}]{%- endfor %}{% for env in flag.deprecated_env %}
-    [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
+{{ env | terminal_annotation(label="[env fallback: ", suffix="]", indent="    ", width=terminal_width) }}{%- endfor %}{% for env in flag.deprecated_env %}
+{{ env | terminal_annotation(label="[deprecated env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
-    (default: {{ flag.default | join(sep=", ") }}){%- endif %}
+{{ flag.default | terminal_annotation(label="(default: ", suffix=")", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
-    [deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]{%- endif %}
+{{ flag | terminal_deprecation(indent="    ", width=terminal_width) }}{%- endif %}
 {%- elif flag.help_rendered %}
   {{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help_rendered }}
 {%- elif flag.row %}
   {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
-    {{ flag.row | indent(width=4) }}
+{{ flag.row }}
 {%- else %}
   {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- endif %}
@@ -118,26 +118,26 @@ Global flags:
 {%- for flag in global_flags %}
 {%- if cmd.next_line_help %}
   {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
-{%- if flag.help %}
-    {{ flag.help | indent(width=4) }}{% endif %}
+{%- if flag.row %}
+{{ flag.row }}{% endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
-    [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{{ flag.arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
-    [choices env: {{ flag.arg.choices.env }}]{%- endif %}
+{{ flag.arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env and flag.env %}
-    [env: {{ flag.env }}]{%- endif %}
+{{ flag.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env %}{% for env in flag.env_fallback %}
-    [env fallback: {{ env }}]{%- endfor %}{% for env in flag.deprecated_env %}
-    [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
+{{ env | terminal_annotation(label="[env fallback: ", suffix="]", indent="    ", width=terminal_width) }}{%- endfor %}{% for env in flag.deprecated_env %}
+{{ env | terminal_annotation(label="[deprecated env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
-    (default: {{ flag.default | join(sep=", ") }}){%- endif %}
+{{ flag.default | terminal_annotation(label="(default: ", suffix=")", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
-    [deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]{%- endif %}
+{{ flag | terminal_deprecation(indent="    ", width=terminal_width) }}{%- endif %}
 {%- elif flag.help_rendered %}
   {{ flag.display_usage | ljust(width=flag.usage_col_width) }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}  {{ flag.help_rendered }}
 {%- elif flag.row %}
   {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
-    {{ flag.row | indent(width=4) }}
+{{ flag.row }}
 {%- else %}
   {{ flag.display_usage }}{% if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
 {%- endif %}
@@ -149,34 +149,34 @@ Global flags:
 
 {{ sub.full_cmd | join(sep=" ") }}:
 {%- if sub.help %}
-{{ sub.help | trim }}
+{{ sub.help | trim | terminal_wrap(width=terminal_width) }}
 {%- endif %}
 {%- if sub.deprecated or sub.deprecated_warn_at or sub.deprecated_remove_at %}
-[deprecated:{% if sub.deprecated %} {{ sub.deprecated }}{% endif %}{% if sub.deprecated_warn_at %}{% if sub.deprecated %};{% endif %} warns at {{ sub.deprecated_warn_at }}{% endif %}{% if sub.deprecated_remove_at %}{% if sub.deprecated or sub.deprecated_warn_at %};{% endif %} removed at {{ sub.deprecated_remove_at }}{% endif %}]
+{{ sub | terminal_deprecation(width=terminal_width) }}
 {%- endif %}
 {%- for group in sub.arg_groups %}
 {%- for arg in group.items %}
 {%- if sub.flattened_next_line_help %}
   {{ arg.usage | trim }}
-{%- if arg.help %}
-    {{ arg.help | indent(width=4) }}
+{%- if arg.row %}
+{{ arg.row }}
 {%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.choices %}
-    [possible values: {{ arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{{ arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_possible_values and arg.choices and arg.choices.env %}
-    [choices env: {{ arg.choices.env }}]{%- endif %}
+{{ arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_env and arg.env %}
-    [env: {{ arg.env }}]{%- endif %}
+{{ arg.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not arg.hide_env %}{% for env in arg.env_fallback %}
-    [env fallback: {{ env }}]{%- endfor %}{% for env in arg.deprecated_env %}
-    [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
+{{ env | terminal_annotation(label="[env fallback: ", suffix="]", indent="    ", width=terminal_width) }}{%- endfor %}{% for env in arg.deprecated_env %}
+{{ env | terminal_annotation(label="[deprecated env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endfor %}{%- endif %}
 {%- if not arg.hide_default_value and arg.default %}
-    (default: {{ arg.default | join(sep=", ") }}){%- endif %}
+{{ arg.default | terminal_annotation(label="(default: ", suffix=")", indent="    ", width=terminal_width) }}{%- endif %}
 {%- elif arg.help_rendered %}
   {{ arg.usage | trim | ljust(width=arg.usage_col_width) }}  {{ arg.help_rendered }}
 {%- elif arg.row %}
   {{ arg.usage | trim }}
-    {{ arg.row | indent(width=4) }}
+{{ arg.row }}
 {%- else %}
   {{ arg.usage | trim }}
 {%- endif %}
@@ -186,27 +186,27 @@ Global flags:
 {%- for flag in group.items %}
 {%- if sub.flattened_next_line_help %}
   {{ flag.display_usage }}
-{%- if flag.help %}
-    {{ flag.help | indent(width=4) }}
+{%- if flag.row %}
+{{ flag.row }}
 {%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.choices %}
-    [possible values: {{ flag.arg.choices.choices | join(sep=", ") }}]{%- endif %}
+{{ flag.arg.choices.choices | terminal_annotation(label="[possible values: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_possible_values and flag.arg.choices and flag.arg.choices.env %}
-    [choices env: {{ flag.arg.choices.env }}]{%- endif %}
+{{ flag.arg.choices.env | terminal_annotation(label="[choices env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env and flag.env %}
-    [env: {{ flag.env }}]{%- endif %}
+{{ flag.env | terminal_annotation(label="[env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if not flag.hide_env %}{% for env in flag.env_fallback %}
-    [env fallback: {{ env }}]{%- endfor %}{% for env in flag.deprecated_env %}
-    [deprecated env: {{ env }}]{%- endfor %}{%- endif %}
+{{ env | terminal_annotation(label="[env fallback: ", suffix="]", indent="    ", width=terminal_width) }}{%- endfor %}{% for env in flag.deprecated_env %}
+{{ env | terminal_annotation(label="[deprecated env: ", suffix="]", indent="    ", width=terminal_width) }}{%- endfor %}{%- endif %}
 {%- if not flag.hide_default_value and flag.default %}
-    (default: {{ flag.default | join(sep=", ") }}){%- endif %}
+{{ flag.default | terminal_annotation(label="(default: ", suffix=")", indent="    ", width=terminal_width) }}{%- endif %}
 {%- if flag.deprecated or flag.deprecated_warn_at or flag.deprecated_remove_at %}
-    [deprecated:{% if flag.deprecated %} {{ flag.deprecated }}{% endif %}{% if flag.deprecated_warn_at %}{% if flag.deprecated %};{% endif %} warns at {{ flag.deprecated_warn_at }}{% endif %}{% if flag.deprecated_remove_at %}{% if flag.deprecated or flag.deprecated_warn_at %};{% endif %} removed at {{ flag.deprecated_remove_at }}{% endif %}]{%- endif %}
+{{ flag | terminal_deprecation(indent="    ", width=terminal_width) }}{%- endif %}
 {%- elif flag.help_rendered %}
   {{ flag.display_usage | ljust(width=flag.usage_col_width) }}  {{ flag.help_rendered }}
 {%- elif flag.row %}
   {{ flag.display_usage }}
-    {{ flag.row | indent(width=4) }}
+{{ flag.row }}
 {%- else %}
   {{ flag.display_usage }}
 {%- endif %}
@@ -237,8 +237,8 @@ Examples:
 
 {%- if cmd.after_help %}
 
-{{ cmd.after_help }}
+{{ cmd.after_help | terminal_wrap(width=terminal_width) }}
 {%- elif spec.after_help %}
 
-{{ spec.after_help }}
+{{ spec.after_help | terminal_wrap(width=terminal_width) }}
 {%- endif -%}

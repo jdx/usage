@@ -30,6 +30,79 @@ struct CappedColumns {
     threads: Option<usize>,
 }
 
+#[derive(Cli)]
+#[usage(
+    bin = "oxlint-layout",
+    term_width = 80,
+    about = "A fast JavaScript and TypeScript linter with a deliberately long introduction that must wrap cleanly"
+)]
+#[allow(dead_code)]
+struct OxcHelpLayout {
+    /// Do not fail when a supplied pattern matches no files
+    #[usage(long)]
+    no_error_on_unmatched_pattern: bool,
+    /// Disable the TypeScript language service plugin
+    #[usage(long)]
+    disable_typescript_plugin: bool,
+    /// Add a pattern to the ignore list while retaining every previously configured pattern
+    #[usage(long, value_name = "PATTERN")]
+    ignore_pattern: Vec<String>,
+    #[usage(
+        long,
+        value_name = "OPTIONS",
+        help = "Enable debug output for selected subsystems",
+        long_help = "Enable debug output for selected subsystems.\n\n- parser: trace parsed files and recovered syntax\n- resolver: trace module resolution and cache decisions"
+    )]
+    debug: Option<String>,
+    #[usage(
+        long,
+        value_name = "PATH",
+        help = "Use a configuration file",
+        long_help = "Use a configuration file. Configuration discovered from parent directories is merged first.\n\nWarning: explicit files replace project-local defaults.\n\n    oxlint-layout --config ./oxlint.json"
+    )]
+    config: Option<String>,
+}
+
+#[test]
+fn oxc_shaped_help_keeps_useful_prose_inline_and_wraps_the_rest() {
+    let spec = OxcHelpLayout::spec();
+    let portable: LibSpec = OxcHelpLayout::to_kdl().parse().expect("valid spec");
+
+    for long in [false, true] {
+        let page = usage_argv::help::render(spec, spec.root.cmd, long).unwrap();
+        assert_eq!(
+            page,
+            usage::docs::cli::render_help(&portable, &portable.cmd, long)
+        );
+        assert!(page.lines().any(|line| {
+            line.contains("--no-error-on-unmatched-pattern") && line.contains("Do not fail when")
+        }));
+        assert!(page.lines().any(|line| {
+            line.contains("--disable-typescript-plugin") && line.contains("Disable the TypeScript")
+        }));
+        assert!(page.lines().all(|line| !line.ends_with(' ')), "{page}");
+        for line in page.lines() {
+            if !line.trim_start().starts_with("oxlint-layout --config")
+                && !line.starts_with("Usage:")
+            {
+                assert!(
+                    line.chars().count() <= 80,
+                    "line exceeds width: {line:?}\n{page}"
+                );
+            }
+        }
+    }
+
+    let long = usage_argv::help::render(spec, spec.root.cmd, true).unwrap();
+    assert!(long.contains("\n\n"), "{long}");
+    assert!(long.contains("- parser:"), "{long}");
+    assert!(long.contains("- resolver:"), "{long}");
+    assert!(
+        long.contains("    oxlint-layout --config ./oxlint.json"),
+        "{long}"
+    );
+}
+
 #[derive(Args)]
 #[usage(disable_help_flag, term_width = 0)]
 #[allow(dead_code)]
@@ -145,17 +218,30 @@ fn flattened_help_caps_each_nested_commands_columns_too() {
             }),
             "{page}"
         );
-        assert!(
-            page.contains("--report-unused-disable-directives-severity <SEVERITY>\n    Choose the severity for unused directives while keeping every long\n    explanation inside the bounded parent help page"),
-            "{page}"
+        let lines = page.lines().collect::<Vec<_>>();
+        let severity = lines
+            .iter()
+            .position(|line| line.contains("--report-unused-disable-directives-severity"))
+            .expect("severity flag");
+        assert_eq!(
+            lines[severity + 1].trim(),
+            "Choose the severity for unused directives"
         );
-        assert!(
-            page.contains("--an-extraordinarily-long-multiline-option-name\n    Keep this line.\n    And this one."),
-            "{page}"
+        assert_eq!(
+            lines[severity + 2].trim(),
+            "while keeping every long explanation inside"
         );
+        let multiline = lines
+            .iter()
+            .position(|line| line.contains("--an-extraordinarily-long-multiline-option-name"))
+            .expect("multiline flag");
+        assert_eq!(lines[multiline + 1].trim(), "Keep this line.");
+        assert_eq!(lines[multiline + 2].trim(), "And this one.");
         if !long {
             assert!(
-                page.contains("[env: COLUMN_CAP_SEVERITY]") && page.contains("(default: warn)"),
+                page.contains("[env:")
+                    && page.contains("COLUMN_CAP_SEVERITY]")
+                    && page.contains("(default: warn)"),
                 "{page}"
             );
         }
@@ -169,7 +255,7 @@ fn flattened_help_caps_each_nested_commands_columns_too() {
 }
 
 #[test]
-fn a_long_command_name_only_moves_its_own_wrapped_summary_below() {
+fn a_long_command_name_keeps_help_inline_when_useful_room_remains() {
     let spec = CappedCommandColumns::spec();
     let portable: LibSpec = CappedCommandColumns::to_kdl().parse().expect("valid spec");
 
@@ -180,7 +266,7 @@ fn a_long_command_name_only_moves_its_own_wrapped_summary_below() {
             usage::docs::cli::render_help(&portable, &portable.cmd, long)
         );
         assert!(
-            page.contains("an-extraordinarily-long-subcommand-name\n    Explain this unusually named command with enough detail to wrap beneath its\n    name on a bounded help page"),
+            page.contains("an-extraordinarily-long-subcommand-name  Explain this unusually named command\n                                  with enough detail to wrap beneath\n                                  its name on a bounded help page"),
             "{page}"
         );
     }

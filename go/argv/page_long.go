@@ -22,6 +22,7 @@ const helpWidth = 80
 
 // blockIndent is what a page uses where it cannot align to its column.
 const blockIndent = 4
+const minInlineHelpWidth = 30
 
 // LongHelp renders what `--help` prints for the command at the end of `chain`.
 func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) string {
@@ -38,7 +39,8 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 		metaField(meta, func(h *Help) string { return h.BeforeHelp }),
 		spec.BeforeLongHelp, spec.BeforeHelp)
 	if before != "" {
-		out.WriteString(before + "\n\n")
+		writeWrapped(out, before, 0)
+		out.WriteString("\n")
 	}
 
 	// The banner and the program's own description belong to the program's page.
@@ -64,7 +66,8 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	// an examples section written with a trailing newline — and it reaches the spec
 	// verbatim.
 	if about := trimEnd(about); about != "" {
-		out.WriteString(about + "\n\n")
+		writeWrapped(out, about, 0)
+		out.WriteString("\n")
 	}
 	if label := deprecationLabel(meta); label != "" {
 		out.WriteString(label + "\n\n")
@@ -166,7 +169,8 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 		metaField(meta, func(h *Help) string { return h.AfterHelp }),
 		spec.AfterLongHelp, spec.AfterHelp)
 	if after != "" {
-		out.WriteString("\n" + after + "\n")
+		out.WriteString("\n")
+		writeWrapped(out, after, 0)
 	}
 	if spec.Author != "" || spec.License != "" {
 		out.WriteByte('\n')
@@ -227,7 +231,7 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 		out.WriteString("\n" + strings.Join(subPath, " ") + ":\n")
 		if about := firstOf(metaField(h, func(x *Help) string { return x.Long }),
 			metaField(h, func(x *Help) string { return x.Short })); strings.TrimSpace(about) != "" {
-			out.WriteString(trimEnd(about) + "\n")
+			writeWrapped(out, trimEnd(about), 0)
 		}
 		if label := deprecationLabel(h); label != "" {
 			out.WriteString(label + "\n")
@@ -283,42 +287,73 @@ func entry(out *strings.Builder, usage, help string, col int, nextLine bool) int
 	if room < 0 {
 		room = 0
 	}
-	// A long outlier leaves the shared column to the ordinary entries and uses a block alone.
+	// A long outlier leaves the shared column to ordinary entries, but keeps its own help on
+	// the row when at least a useful line of prose remains.
 	overflow := width(usage) > col
-	// Whether anything on this page reaches the column at all.
-	block := nextLine || overflow || room < 10
+	inlineStart := indent
+	if overflow {
+		inlineStart = 2 + width(usage) + 2
+	}
+	inlineRoom := helpWidth - inlineStart
+	canInline := !nextLine && ((overflow && inlineRoom >= minInlineHelpWidth) || (!overflow && room >= 10))
+	block := !canInline
+	stackIndent := blockIndent
+	if !nextLine && helpWidth-indent >= 10 {
+		stackIndent = indent
+	}
 	if strings.TrimSpace(help) == "" {
 		out.WriteString("  " + usage + "\n")
 		// An entry with nothing in the column still has annotations to place, and the
 		// column is where they go: it is this entry's row that is empty, not the table's.
 		if block {
-			return blockIndent
+			return stackIndent
 		}
 		return indent
 	}
 
-	if overflow && !nextLine && !strings.Contains(help, "\n") {
+	if block {
 		out.WriteString("  " + usage + "\n")
-		for _, line := range wrap(help, helpWidth-blockIndent) {
-			out.WriteString(strings.Repeat(" ", blockIndent) + line + "\n")
-		}
-		return blockIndent
+		writeWrapped(out, help, stackIndent)
+		return stackIndent
 	}
 
-	if block || strings.Contains(help, "\n") {
-		out.WriteString("  " + usage + "\n")
-		writeIndented(out, help, blockIndent)
-		return blockIndent
+	if overflow {
+		lines := wrapAt(help, inlineRoom, room)
+		out.WriteString("  " + usage + "  " + lines[0] + "\n")
+		for _, line := range lines[1:] {
+			if line == "" {
+				out.WriteByte('\n')
+			} else {
+				out.WriteString(strings.Repeat(" ", indent) + line + "\n")
+			}
+		}
+		return indent
 	}
 
 	lines := wrap(help, room)
 	out.WriteString("  " + pad(usage, col) + "  " + lines[0] + "\n")
 	for _, line := range lines[1:] {
-		out.WriteString(strings.Repeat(" ", indent) + line + "\n")
+		if line == "" {
+			out.WriteByte('\n')
+		} else {
+			out.WriteString(strings.Repeat(" ", indent) + line + "\n")
+		}
 	}
 	// No blank line after a wrapped entry: the reference's template asks for one
 	// and its whitespace trimming eats it before it reaches the output.
 	return indent
+}
+
+func wrapAt(text string, firstWidth, continuationWidth int) []string {
+	var lines []string
+	for index, line := range strings.Split(text, "\n") {
+		lineWidth := continuationWidth
+		if index == 0 {
+			lineWidth = firstWidth
+		}
+		lines = append(lines, wrap(line, lineWidth)...)
+	}
+	return lines
 }
 
 // usageColumnWidth prevents one long spelling from narrowing every description on the page.
@@ -339,26 +374,25 @@ func longAnnotations(out *strings.Builder, h *Help, withDefault bool, indent int
 	if h == nil {
 		return
 	}
-	pad := strings.Repeat(" ", indent)
 	if !h.HidePossibleValues && len(h.Choices) > 0 {
-		out.WriteString(pad + "[possible values: " + strings.Join(h.Choices, ", ") + "]\n")
+		writeWrapped(out, "[possible values: "+strings.Join(h.Choices, ", ")+"]", indent)
 	}
 	if !h.HideEnv && h.Env != "" {
-		out.WriteString(pad + "[env: " + h.Env + "]\n")
+		writeWrapped(out, "[env: "+h.Env+"]", indent)
 	}
 	if !h.HideEnv {
 		for _, env := range h.EnvFallback {
-			out.WriteString(pad + "[env fallback: " + env + "]\n")
+			writeWrapped(out, "[env fallback: "+env+"]", indent)
 		}
 		for _, env := range h.DeprecatedEnv {
-			out.WriteString(pad + "[deprecated env: " + env + "]\n")
+			writeWrapped(out, "[deprecated env: "+env+"]", indent)
 		}
 	}
 	if withDefault && !h.HideDefaultValue && len(h.Default) > 0 {
-		out.WriteString(pad + "(default: " + strings.Join(h.Default, ", ") + ")\n")
+		writeWrapped(out, "(default: "+strings.Join(h.Default, ", ")+")", indent)
 	}
 	if label := deprecationLabel(h); label != "" {
-		out.WriteString(pad + label + "\n")
+		writeWrapped(out, label, indent)
 	}
 }
 
@@ -398,6 +432,17 @@ func writeIndented(out *strings.Builder, text string, by int) {
 	}
 }
 
+func writeWrapped(out *strings.Builder, text string, by int) {
+	prefix := strings.Repeat(" ", by)
+	for _, line := range wrap(text, helpWidth-by) {
+		if line == "" {
+			out.WriteString("\n")
+		} else {
+			out.WriteString(prefix + line + "\n")
+		}
+	}
+}
+
 // wrap breaks text to a width, preserving the breaks the author already made.
 func wrap(text string, width int) []string {
 	var lines []string
@@ -406,11 +451,23 @@ func wrap(text string, width int) []string {
 			lines = append(lines, "")
 			continue
 		}
+		if strings.HasPrefix(paragraph, "    ") || strings.HasPrefix(paragraph, "\t") {
+			lines = append(lines, paragraph)
+			continue
+		}
+		paragraph = strings.TrimSpace(paragraph)
+		prefix, body := listPrefix(paragraph)
+		bodyWidth := width - runeLen(prefix)
+		if bodyWidth < 0 {
+			bodyWidth = 0
+		}
+		linePrefix := prefix
 		line := ""
-		for _, word := range strings.Fields(paragraph) {
-			if line != "" && runeLen(line)+1+runeLen(word) > width {
-				lines = append(lines, line)
+		for _, word := range strings.Fields(body) {
+			if line != "" && runeLen(line)+1+runeLen(word) > bodyWidth {
+				lines = append(lines, linePrefix+line)
 				line = ""
+				linePrefix = strings.Repeat(" ", runeLen(prefix))
 			}
 			if line != "" {
 				line += " "
@@ -418,13 +475,30 @@ func wrap(text string, width int) []string {
 			line += word
 		}
 		if line != "" {
-			lines = append(lines, line)
+			lines = append(lines, linePrefix+line)
 		}
 	}
 	if len(lines) == 0 {
 		lines = append(lines, "")
 	}
 	return lines
+}
+
+func listPrefix(line string) (string, string) {
+	for _, marker := range []string{"* ", "- ", "+ "} {
+		if strings.HasPrefix(line, marker) {
+			return marker, strings.TrimPrefix(line, marker)
+		}
+	}
+	for i, r := range line {
+		if r < '0' || r > '9' {
+			if i > 0 && strings.HasPrefix(line[i:], ". ") {
+				return line[:i+2], line[i+2:]
+			}
+			break
+		}
+	}
+	return "", line
 }
 
 func runeLen(s string) int { return len([]rune(s)) }

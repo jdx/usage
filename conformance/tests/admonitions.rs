@@ -142,7 +142,7 @@ fn semantic_blocks_survive_flattened_and_nested_value_layouts() {
 
     let portable_terminal = usage::docs::cli::render_help(&spec, &spec.cmd, true);
     assert!(
-        portable_terminal.contains("Note: Nested value first.\n\n    Nested value last."),
+        portable_terminal.contains("Note: Nested value first.\n\n          Nested value last."),
         "{portable_terminal:?}"
     );
     assert!(

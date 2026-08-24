@@ -209,6 +209,9 @@ pub struct Group<T> {
     pub heading: Option<String>,
     /// Prose introducing this section, when the command declared some for the heading.
     pub help: Option<String>,
+    /// Terminal-width rendering of `help`; absent in format-neutral model conversion.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help_rendered: Option<String>,
     pub items: Vec<T>,
 }
 
@@ -443,6 +446,7 @@ fn group_by_heading<T: Clone>(
             None => groups.push(Group {
                 heading,
                 help: None,
+                help_rendered: None,
                 items: vec![item.clone()],
             }),
         }
@@ -645,11 +649,6 @@ impl From<&crate::Spec> for Spec {
 
 impl From<&crate::SpecCommand> for SpecCommand {
     fn from(cmd: &crate::SpecCommand) -> Self {
-        use crate::docs::layout::{
-            help_width, render_block_text, render_help_text, usage_column_width, visible_width,
-        };
-
-        let terminal_width = help_width(cmd.term_width, cmd.max_term_width);
         let flattened_usage = if cmd.flatten_help {
             let mut lines = Vec::new();
             if !cmd.subcommand_required || cmd.args_conflicts_with_subcommands {
@@ -668,45 +667,15 @@ impl From<&crate::SpecCommand> for SpecCommand {
             Vec::new()
         };
 
-        // Calculate layout for args
-        let args_usage_col_width =
-            usage_column_width(cmd.args.iter().map(|a| a.usage.as_str()), terminal_width);
         let mut args: Vec<(usize, SpecArg)> = cmd
             .args
             .iter()
             .enumerate()
-            .map(|(index, arg)| {
-                let mut spec_arg = SpecArg::from(arg);
-
-                // Get help text (prefer help_long over help)
-                let help_text = spec_arg.help_long.as_deref().or(spec_arg.help.as_deref());
-
-                spec_arg.help_is_block = visible_width(&spec_arg.usage) > args_usage_col_width;
-
-                if let Some(help) = help_text {
-                    if spec_arg.help_is_block {
-                        spec_arg.row = Some(render_block_text(help, terminal_width));
-                    } else {
-                        let (rendered, is_multiline) =
-                            render_help_text(help, terminal_width, args_usage_col_width);
-                        // Only set help_rendered if we have content (empty string signals block layout)
-                        if !rendered.is_empty() {
-                            spec_arg.help_rendered = Some(rendered);
-                            spec_arg.help_is_multiline = is_multiline;
-                        } else {
-                            spec_arg.row = Some(help.to_string());
-                        }
-                    }
-                }
-
-                spec_arg.usage_col_width = args_usage_col_width;
-                (index, spec_arg)
-            })
+            .map(|(index, arg)| (index, SpecArg::from(arg)))
             .collect();
         args.sort_by_key(|(_, arg)| arg.display_order.unwrap_or(999));
         let args: Vec<SpecArg> = args.into_iter().map(|(_, arg)| arg).collect();
 
-        // Calculate layout for flags
         let mut flags: Vec<(usize, SpecFlag)> = cmd
             .flags
             .iter()
@@ -715,39 +684,6 @@ impl From<&crate::SpecCommand> for SpecCommand {
             .collect();
         flags.sort_by_key(|(_, flag)| flag.display_order.unwrap_or(999));
         let flags: Vec<SpecFlag> = flags.into_iter().map(|(_, flag)| flag).collect();
-        let flags_usage_col_width = usage_column_width(
-            flags.iter().map(|f| f.display_usage.as_str()),
-            terminal_width,
-        );
-        let flags: Vec<SpecFlag> = flags
-            .into_iter()
-            .map(|mut spec_flag| {
-                // Get help text (prefer help_long over help)
-                let help_text = spec_flag.help_long.as_deref().or(spec_flag.help.as_deref());
-
-                spec_flag.help_is_block =
-                    visible_width(&spec_flag.display_usage) > flags_usage_col_width;
-
-                if let Some(help) = help_text {
-                    if spec_flag.help_is_block {
-                        spec_flag.row = Some(render_block_text(help, terminal_width));
-                    } else {
-                        let (rendered, is_multiline) =
-                            render_help_text(help, terminal_width, flags_usage_col_width);
-                        // Only set help_rendered if we have content (empty string signals block layout)
-                        if !rendered.is_empty() {
-                            spec_flag.help_rendered = Some(rendered);
-                            spec_flag.help_is_multiline = is_multiline;
-                        } else {
-                            spec_flag.row = Some(help.to_string());
-                        }
-                    }
-                }
-
-                spec_flag.usage_col_width = flags_usage_col_width;
-                spec_flag
-            })
-            .collect();
 
         // Destructured exhaustively (no `..`) so that adding a field to the spec
         // model fails to compile until this decides whether docs need it.
@@ -866,6 +802,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 Group {
                     heading: None,
                     help: None,
+                    help_rendered: None,
                     items: Vec::new(),
                 },
             );

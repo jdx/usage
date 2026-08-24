@@ -127,11 +127,10 @@ arg_choices_help_long:
     expected=r#"Usage: <shell>
 
 Arguments:
-  <shell>
-    help
-    fooo
-    bar
-    [possible values: bash, fish, zsh]
+  <shell>  help
+           fooo
+           bar
+           [possible values: bash, fish, zsh]
 
 Flags:
   -h, --help  Print help
@@ -157,11 +156,10 @@ flag_choices_help_long:
     expected=r#"Usage: [--shell <shell>]
 
 Flags:
-      --shell <shell>
-    help
-    fooo
-    bar
-    [possible values: bash, fish, zsh]
+      --shell <shell>  help
+                       fooo
+                       bar
+                       [possible values: bash, fish, zsh]
   -h, --help           Print help
 "#,
 
