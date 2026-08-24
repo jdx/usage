@@ -59,13 +59,14 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     }
 
     let width = crate::docs::layout::help_width(cmd.term_width, cmd.max_term_width);
-    let col = crate::docs::layout::max_usage_width(
+    let col = crate::docs::layout::usage_column_width(
         docs_cmd
             .flag_groups
             .iter()
             .flat_map(|g| g.items.iter())
             .chain(inherited.iter())
             .map(|f| f.display_usage.as_str()),
+        width,
     );
     let flag_column = Column {
         width,
@@ -81,8 +82,10 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     // The arguments get their own column, laid out here for the page being rendered rather than
     // taken from the model's — which is the long page's, and would put a long description in the
     // short page's column unwrapped.
-    let arg_col =
-        crate::docs::layout::max_usage_width(docs_cmd.args.iter().map(|a| a.usage.as_str()));
+    let arg_col = crate::docs::layout::usage_column_width(
+        docs_cmd.args.iter().map(|a| a.usage.as_str()),
+        width,
+    );
     for group in &mut docs_cmd.arg_groups {
         lay_out_args(
             &mut group.items,
@@ -103,13 +106,14 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
         let show_help_row = !docs_cmd.subcommands.is_empty()
             && !docs_cmd.flatten_help
             && !cmd.disable_help_subcommand;
-        let cmd_col = crate::docs::layout::max_usage_width(
+        let cmd_col = crate::docs::layout::usage_column_width(
             docs_cmd
                 .subcommand_groups
                 .iter()
                 .flat_map(|g| g.items.iter())
                 .map(|c| c.name.as_str())
                 .chain(show_help_row.then_some(HELP_SUBCOMMAND)),
+            width,
         );
         for group in &mut docs_cmd.subcommand_groups {
             lay_out_commands(&mut group.items, width, cmd_col);
@@ -396,6 +400,7 @@ fn lay_out(flags: &mut [crate::docs::models::SpecFlag], column: Column) {
         wrap_into(
             text,
             column,
+            crate::docs::layout::visible_width(&flag.display_usage),
             &mut flag.row,
             &mut flag.help_rendered,
             &mut flag.help_is_multiline,
@@ -423,6 +428,7 @@ fn lay_out_args(args: &mut [crate::docs::models::SpecArg], column: Column) {
         wrap_into(
             text,
             column,
+            crate::docs::layout::visible_width(&arg.usage),
             &mut arg.row,
             &mut arg.help_rendered,
             &mut arg.help_is_multiline,
@@ -439,6 +445,7 @@ fn lay_out_args(args: &mut [crate::docs::models::SpecArg], column: Column) {
 fn wrap_into(
     text: Option<String>,
     column: Column,
+    usage_width: usize,
     row: &mut Option<String>,
     help_rendered: &mut Option<String>,
     help_is_multiline: &mut bool,
@@ -449,14 +456,18 @@ fn wrap_into(
     *help_is_multiline = false;
     // An entry with nothing in the column still has annotations to place, and the column is
     // where they go: it is the entry's own row that is empty, not the table's.
-    *ann_indent = column.annotation_indent(!column.is_block());
+    *ann_indent = column.annotation_indent(!column.is_block(usage_width));
     let Some(text) = text else { return };
+    if column.is_block(usage_width) {
+        *row = Some(text);
+        return;
+    }
     let (rendered, is_multiline) =
         crate::docs::layout::render_help_text(&text, column.width, column.col);
     // `render_help_text` wraps whatever it is given; whether the page *uses* that is the
     // template's decision, and on a next-line page it does not. Both have to agree, or the
     // annotations align to a column the description never entered.
-    *ann_indent = column.annotation_indent(!column.is_block() && !rendered.is_empty());
+    *ann_indent = column.annotation_indent(!rendered.is_empty());
     if !rendered.is_empty() {
         *help_rendered = Some(rendered);
         *help_is_multiline = is_multiline;
@@ -574,10 +585,10 @@ struct Column {
 const BLOCK_INDENT: usize = 4;
 
 impl Column {
-    /// Whether nothing on this page reaches the column: either because the page puts every
-    /// description underneath, or because the column leaves too little room to say anything.
-    fn is_block(&self) -> bool {
-        self.next_line || self.width.saturating_sub(2 + self.col + 2) < 10
+    /// Whether this entry stays out of the column: because the page puts every description
+    /// underneath, its usage exceeds the capped column, or too little room remains for help.
+    fn is_block(&self, usage_width: usize) -> bool {
+        self.next_line || usage_width > self.col || self.width.saturating_sub(2 + self.col + 2) < 10
     }
 
     /// Where an entry's annotations are indented to.
@@ -614,6 +625,9 @@ fn lay_out_commands(
         command.row = command_row(command);
         command.help_rendered = None;
         command.help_is_multiline = false;
+        if crate::docs::layout::visible_width(&command.name) > col {
+            continue;
+        }
         if let Some(row) = command.row.as_deref() {
             let (rendered, is_multiline) =
                 crate::docs::layout::render_help_text(row, terminal_width, col);
@@ -693,7 +707,7 @@ fn render_row(
     col: usize,
     next_line_help: bool,
 ) -> String {
-    if !next_line_help {
+    if !next_line_help && crate::docs::layout::visible_width(name) <= col {
         let (rendered, _) = crate::docs::layout::render_help_text(row, terminal_width, col);
         if !rendered.is_empty() {
             return format!("  {name:<col$}  {rendered}");

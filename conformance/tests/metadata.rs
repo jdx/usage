@@ -12,6 +12,66 @@
 use usage::Spec as LibSpec;
 use usage_derive::{Args, Cli, Subcommands};
 
+#[derive(Cli)]
+#[usage(bin = "column-cap", term_width = 80)]
+#[allow(dead_code)]
+struct CappedColumns {
+    /// Disable reporting on warnings
+    #[usage(long)]
+    quiet: bool,
+    /// Choose the severity for unused directives
+    #[usage(
+        long = "report-unused-disable-directives-severity",
+        value_name = "SEVERITY"
+    )]
+    severity: Option<String>,
+    /// Number of threads to use
+    #[usage(long)]
+    threads: Option<usize>,
+}
+
+#[test]
+fn a_long_flag_only_moves_its_own_help_below_the_column() {
+    let spec = CappedColumns::spec();
+    let portable: LibSpec = CappedColumns::to_kdl().parse().expect("valid spec");
+
+    for long in [false, true] {
+        let page = usage_argv::help::render(spec, spec.root.cmd, long).unwrap();
+        assert_eq!(
+            page,
+            usage::docs::cli::render_help(&portable, &portable.cmd, long)
+        );
+
+        let lines: Vec<_> = page.lines().collect();
+        assert!(
+            lines.iter().any(|line| {
+                line.contains("--quiet") && line.contains("Disable reporting on warnings")
+            }),
+            "{page}"
+        );
+        assert!(
+            lines.iter().any(|line| {
+                line.contains("--threads <THREADS>") && line.contains("Number of threads to use")
+            }),
+            "{page}"
+        );
+
+        let outlier = lines
+            .iter()
+            .position(|line| line.contains("--report-unused-disable-directives-severity"))
+            .expect("outlier flag");
+        assert_eq!(
+            lines[outlier].trim(),
+            "--report-unused-disable-directives-severity <SEVERITY>"
+        );
+        assert_eq!(
+            lines.get(outlier + 1).map(|line| line.trim()),
+            Some("Choose the severity for unused directives")
+        );
+        assert!(lines[outlier + 1].starts_with("    "), "{page}");
+    }
+}
+
 #[derive(Args)]
 #[usage(deprecated = "use inspect", deprecated_remove_at = "7.0")]
 struct Old {}

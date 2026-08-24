@@ -23,6 +23,24 @@ pub fn max_usage_width<'a>(items: impl Iterator<Item = &'a str>) -> usize {
     items.map(visible_width).max().unwrap_or(0)
 }
 
+/// Calculate a readable usage column for a terminal-width help page.
+///
+/// The names get at most two fifths of the width left after the two-space indent and gap. A
+/// longer outlier is rendered as a block by its caller instead of narrowing every description
+/// on the page.
+pub fn usage_column_width<'a>(
+    items: impl Iterator<Item = &'a str>,
+    terminal_width: usize,
+) -> usize {
+    let longest = max_usage_width(items);
+    if terminal_width == usize::MAX {
+        return longest;
+    }
+    let available = terminal_width.saturating_sub(4);
+    let cap = available / 5 * 2 + available % 5 * 2 / 5;
+    longest.min(cap)
+}
+
 /// Calculate visible width of a string (ignoring ANSI codes)
 pub fn visible_width(s: &str) -> usize {
     // Simple implementation - counts chars
@@ -137,6 +155,29 @@ mod tests {
         assert_eq!(visible_width("hello"), 5);
         assert_eq!(visible_width(""), 0);
         assert_eq!(visible_width("hello world"), 11);
+    }
+
+    #[test]
+    fn test_usage_column_width_caps_outliers() {
+        assert_eq!(
+            usage_column_width(["--short", "--longer"].into_iter(), 80),
+            8
+        );
+        assert_eq!(
+            usage_column_width(
+                [
+                    "--short",
+                    "--report-unused-disable-directives-severity <SEVERITY>"
+                ]
+                .into_iter(),
+                80,
+            ),
+            30,
+        );
+        assert_eq!(
+            usage_column_width(["--an-unbounded-column"].into_iter(), usize::MAX),
+            21,
+        );
     }
 
     #[test]

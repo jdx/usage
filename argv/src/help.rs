@@ -1169,6 +1169,7 @@ fn short_sections(
         .iter()
         .map(|a| arg_usage(a).chars().count())
         .max()
+        .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
     split_groups_section(
         SectionSink {
@@ -1233,6 +1234,7 @@ fn short_sections(
         .map(|f| column_usage(f).chars().count())
         .chain(inherited.iter().map(|(_, u)| u.chars().count()))
         .max()
+        .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
     let short_entry = |out: &mut String, f: &FlagMeta<'_>, usage: String| {
         if meta.next_line_help {
@@ -1371,6 +1373,7 @@ fn commands_section(
         .map(|(_, sub)| sub.cmd.name.chars().count())
         .chain(show_help.then(|| HELP_SUBCOMMAND.chars().count()))
         .max()
+        .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
 
     let default_title = meta.subcommand_help_heading.unwrap_or("Commands");
@@ -1992,6 +1995,20 @@ fn terminal_width(meta: &CommandMeta<'_>) -> usize {
     }
 }
 
+/// Keep a single long spelling from narrowing every description on the page.
+///
+/// After the two-space indent and gap, usage gets at most two fifths of what remains. Entries
+/// beyond the cap use block layout on their own; an explicitly unbounded page keeps its natural
+/// column.
+fn usage_column_width(longest: usize, terminal_width: usize) -> usize {
+    if terminal_width == usize::MAX {
+        return longest;
+    }
+    let available = terminal_width.saturating_sub(4);
+    let cap = available / 5 * 2 + available % 5 * 2 / 5;
+    longest.min(cap)
+}
+
 /// Everything `--help` prints.
 ///
 /// The same content as [`short_help`] through a wider layout: help is aligned into a column and
@@ -2096,6 +2113,7 @@ fn long_sections(
         .iter()
         .map(|a| arg_usage(a).chars().count())
         .max()
+        .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
     split_groups_section(
         SectionSink {
@@ -2141,6 +2159,7 @@ fn long_sections(
         .map(|f| column_usage(f).chars().count())
         .chain(inherited.iter().map(|(_, u)| u.chars().count()))
         .max()
+        .map(|longest| usage_column_width(longest, width))
         .unwrap_or(0);
     split_groups_section(
         SectionSink {
@@ -2305,8 +2324,8 @@ fn entry(
     // there is room left for it to say anything.
     let indent = 2 + col + 2;
     let room = width.saturating_sub(indent);
-    // Whether anything on this page reaches the column at all.
-    let block = next_line || room < 10;
+    // A long outlier leaves the shared column to the ordinary entries and uses a block alone.
+    let block = next_line || usage.chars().count() > col || room < 10;
     let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
         let _ = writeln!(out, "  {usage}");
         // An entry with nothing in the column still has annotations to place, and the column is
