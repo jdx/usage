@@ -25,10 +25,7 @@ concurrency:
 env:
   # Pinned: an unannounced mbx release changing its hit rate would land here as
   # a step change indistinguishable from something this repository did.
-  MBX_VERSION: v0.1.0
-  MBX_REMOTE_URL: https://cache.mise.jdx.dev
-  MBX_REMOTE_NAMESPACE: jdx/usage
-  MBX_REMOTE_OIDC_AUDIENCE: https://cache.mise.jdx.dev
+  MBX_VERSION: v0.3.0
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -54,21 +51,14 @@ jobs:
       # to do: the run would look fast and measure zero. Absence here is the
       # experiment, not an oversight.
 
-      - name: Install mbx
-        run: |
-          set -euo pipefail
-          base="https://github.com/jdx/mr-boxington/releases/download/$MBX_VERSION"
-          # Keep the published name: SHA256SUMS lists assets by it, and
-          # `--ignore-missing` silently skips entries whose file is absent, so
-          # downloading to any other name verifies nothing at all.
-          archive="mbx-x86_64-unknown-linux-musl.tar.gz"
-          curl -fsSL --retry 3 -o "$archive" "$base/$archive"
-          curl -fsSL --retry 3 -o SHA256SUMS "$base/SHA256SUMS"
-          sha256sum --ignore-missing --check SHA256SUMS
-          tar -xzf "$archive"
-          sudo install -m 0755 mbx /usr/local/bin/mbx
-          rm -f mbx "$archive" SHA256SUMS
-          mbx --version
+      - name: Set up mbx with the remote cache
+        uses: jdx/mr-boxington-action@2bbb8f141e40e388b509cc68fe0bfbe7bc4b6818 # v1.0.0
+        with:
+          backend: server
+          version: ${{ env.MBX_VERSION }}
+          server-url: https://cache.mise.jdx.dev
+          namespace: jdx/usage
+          oidc-audience: https://cache.mise.jdx.dev
 
       # `--no-run` compiles every crate and every test binary without running
       # them, which is the whole dependency graph and none of the shell,
