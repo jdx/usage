@@ -10,6 +10,7 @@ include = [
     "/NOTICE.md",
     "/src/**/*.rs",
     "/src/**/*.tera",
+    "/third-party/**/*",
 ]
 description = "Library for working with usage specs"
 homepage = { workspace = true }
@@ -26,9 +27,8 @@ clap = { version = "4", features = ["derive", "env", "string"], optional = true 
 heck = "0.5"
 indexmap = { version = "2", features = ["serde"] }
 itertools = "0.15"
-kdl = "6"
 log = "0.4"
-miette = "7"
+num-traits = "0.2"
 regex = "1"
 roff = { version = "1.0", optional = true }
 semver = "1"
@@ -37,6 +37,7 @@ shell-words = "1"
 strum = { version = "0.28", features = ["derive"] }
 tera = { version = "2", optional = true }
 thiserror = "2"
+winnow = { version = "0.7", features = ["alloc", "unstable-recover"] }
 # No `xx`: three helpers (a lazy-regex macro, `file::read_to_string`, `check_status`) were
 # worth 21 crates in every dependent's tree — duct, homedir, nix, rand and their libc
 # subtrees — including one that ran in an adopter's build script.

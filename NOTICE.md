@@ -4,6 +4,22 @@ Usage itself is licensed under the MIT License; see [LICENSE](LICENSE). This fil
 records the third-party work that Usage vendors, derives from, or is closely
 modeled on, together with the license each is used under.
 
+## kdl-rs and miette
+
+`src/kdl/` is a trimmed and modified copy of
+[kdl-rs 6.7.1](https://github.com/kdl-org/kdl-rs/tree/v6.7.1). It retains the KDL v2
+document model, formatting, parser, and source spans; serde support, queries, KDL v1
+fallback, and miette integration were removed. kdl-rs is copyright Kat Marchán and
+the KDL Community.
+
+`src/miette.rs` is Usage's small diagnostic compatibility layer. Its API and rendered
+diagnostic conventions are modeled on
+[miette 7.6.0](https://github.com/zkat/miette/tree/7.6.0), copyright Kat Marchán; it
+does not contain miette's implementation.
+
+Both projects are distributed under the Apache License, Version 2.0. Usage takes
+them under that license, reproduced in `third-party/LICENSE-APACHE-2.0`.
+
 ## clap
 
 Usage's design owes a great deal to [clap](https://github.com/clap-rs/clap). No

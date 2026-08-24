@@ -1,6 +1,6 @@
 use usage_cli::env;
 
-fn main() -> miette::Result<()> {
+fn main() -> usage::miette::Result<()> {
     // The filter is resolved by `env::log_filter` rather than named to `env_logger`, which falls
     // back to its default only when a variable is *unset* — a blank `USAGECLI_LOG` would be
     // taken as the filter rather than falling through to `USAGE_LOG`.

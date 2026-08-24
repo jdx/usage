@@ -53,7 +53,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use kdl::{KdlDocument, KdlEntry, KdlNode};
+use crate::kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 use strum::{Display as StrumDisplay, EnumString};
 
@@ -666,7 +666,7 @@ mod tests {
         src.parse().expect("the fixture should parse")
     }
 
-    /// The message, not the `Display`: a spanned parse error renders its text as a miette
+    /// The message, not the `Display`: a spanned parse error renders its text as a source
     /// label, so `to_string()` on one is just "Invalid usage config".
     fn error(src: &str) -> String {
         match src.parse::<Spec>().expect_err("should be rejected") {

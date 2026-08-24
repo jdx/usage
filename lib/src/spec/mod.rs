@@ -19,6 +19,7 @@ pub mod output;
 pub mod unknown_flags;
 pub mod view;
 
+use crate::kdl;
 use indexmap::IndexMap;
 use kdl::{KdlDocument, KdlEntry, KdlNode};
 use log::{info, warn};

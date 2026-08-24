@@ -1,4 +1,4 @@
-use kdl::{KdlDocument, KdlEntry, KdlNode};
+use crate::kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

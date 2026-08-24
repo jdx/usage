@@ -1,6 +1,6 @@
+use crate::kdl::{KdlEntry, KdlEntryFormat, KdlNode, KdlValue};
+use crate::miette::SourceSpan;
 use indexmap::IndexMap;
-use kdl::{KdlEntry, KdlEntryFormat, KdlNode, KdlValue};
-use miette::SourceSpan;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
 
@@ -225,7 +225,7 @@ impl ParseEntry<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kdl::KdlDocument;
+    use crate::kdl::KdlDocument;
     use std::path::Path;
 
     fn parse_node(input: &str) -> (ParsingContext, KdlDocument) {

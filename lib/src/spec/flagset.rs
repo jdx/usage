@@ -32,8 +32,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::miette::SourceSpan;
 use indexmap::IndexMap;
-use miette::SourceSpan;
 use serde::Serialize;
 
 use crate::error::UsageErr;
@@ -316,7 +316,7 @@ mod tests {
         Spec::parse(&Default::default(), input).unwrap()
     }
 
-    /// The message a bad spec produced. `UsageErr::InvalidInput` renders as a miette
+    /// The message a bad spec produced. `UsageErr::InvalidInput` renders as a source
     /// diagnostic, so `to_string` is the headline rather than what went wrong.
     fn err(input: &str) -> String {
         match Spec::parse(&Default::default(), input).unwrap_err() {

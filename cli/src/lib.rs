@@ -1,8 +1,9 @@
 #[macro_use]
 extern crate log;
-extern crate miette;
+extern crate self as miette;
 
-use miette::Result;
+pub use usage::miette::{Error, IntoDiagnostic, Report, Result};
+pub use usage::{__usage_bail as bail, __usage_miette as miette};
 
 /// The reference implementation's completion candidates, readable as data.
 ///

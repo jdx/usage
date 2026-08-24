@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use kdl::{KdlDocument, KdlEntry, KdlNode};
+use crate::kdl::{self, KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 
 use crate::error::UsageErr;

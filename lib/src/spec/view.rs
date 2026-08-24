@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use kdl::{KdlEntry, KdlNode};
+use crate::kdl::{self, KdlEntry, KdlNode};
 use serde::Serialize;
 
 use crate::error::Result;

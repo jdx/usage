@@ -1,8 +1,8 @@
+use crate::miette::{self, bail};
 use heck::ToSnakeCase;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use log::trace;
-use miette::bail;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;

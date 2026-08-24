@@ -1,4 +1,5 @@
-use miette::{Diagnostic, NamedSource, SourceSpan};
+use crate::kdl;
+use crate::miette::{NamedSource, SourceSpan};
 use thiserror::Error;
 
 /// Everything that can go wrong reading a spec or a command line against one.
@@ -7,16 +8,14 @@ use thiserror::Error;
 /// this enum grows every time the spec learns to say something new — `MissingGroup`
 /// arrived with groups, `ArgRequiresDoubleDash` with `double_dash` — and without this
 /// each one is a major release for everyone downstream.
-#[derive(Error, Diagnostic, Debug)]
+#[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum UsageErr {
     #[error("Invalid flag `{token}`: {reason}")]
     InvalidFlag {
         token: String,
         reason: String,
-        #[label("{reason}")]
         span: SourceSpan,
-        #[source_code]
         input: String,
     },
 
@@ -35,11 +34,7 @@ pub enum UsageErr {
     MissingGroup { group: String, members: String },
 
     #[error("Invalid usage config")]
-    InvalidInput(
-        String,
-        #[label = "{0}"] SourceSpan,
-        #[source_code] NamedSource<String>,
-    ),
+    InvalidInput(String, SourceSpan, NamedSource<String>),
 
     #[error("Missing required arg: <{0}>")]
     MissingArg(String),
@@ -62,8 +57,7 @@ pub enum UsageErr {
     Version(String),
 
     #[error("Invalid usage config")]
-    #[diagnostic(transparent)]
-    Miette(#[from] miette::MietteError),
+    Miette(#[from] crate::miette::MietteError),
 
     #[error(transparent)]
     IO(#[from] std::io::Error),
@@ -79,7 +73,6 @@ pub enum UsageErr {
     TeraError(#[from] tera::Error),
 
     #[error(transparent)]
-    #[diagnostic(transparent)]
     KdlError(#[from] kdl::KdlError),
 
     /// A file the spec model was asked to read could not be read.
@@ -87,13 +80,11 @@ pub enum UsageErr {
     /// Carries the path as well as the io error: "No such file or directory" on its own
     /// names nothing, and this is reported for spec files given on a command line.
     #[error("{0}\nFile: {1}")]
-    #[diagnostic(code(usage::file))]
     FileError(std::io::Error, std::path::PathBuf),
 
     /// A `run=` script could not be run, exited non-zero, or produced output usage
     /// could not read. The message names the shell and the script.
     #[error("{0}")]
-    #[diagnostic(code(usage::shell))]
     ShellError(String),
 
     #[error("Variadic argument <{name}> requires at least {min} value(s), got {got}")]
@@ -152,16 +143,39 @@ pub enum UsageErr {
 }
 pub type Result<T> = std::result::Result<T, UsageErr>;
 
+impl UsageErr {
+    pub(crate) fn render(&self) -> String {
+        match self {
+            Self::InvalidInput(message, span, source) => crate::miette::render_source(
+                "Invalid usage config",
+                source.name(),
+                source.inner(),
+                *span,
+                message,
+                None,
+            ),
+            Self::InvalidFlag {
+                reason,
+                span,
+                input,
+                ..
+            } => crate::miette::render_source(&self.to_string(), "", input, *span, reason, None),
+            Self::KdlError(error) => error.render(),
+            _ => self.to_string(),
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! bail_parse {
     ($ctx:expr, $span:expr, $fmt:literal) => {{
-        let span: miette::SourceSpan = ($span.offset(), $span.len()).into();
+        let span: $crate::miette::SourceSpan = ($span.offset(), $span.len()).into();
         let msg = format!($fmt);
         let err = $ctx.build_err(msg, span);
         return std::result::Result::Err(err);
     }};
     ($ctx:expr, $span:expr, $fmt:literal, $($arg:tt)*) => {{
-        let span: miette::SourceSpan = ($span.offset(), $span.len()).into();
+        let span: $crate::miette::SourceSpan = ($span.offset(), $span.len()).into();
         let msg = format!($fmt, $($arg)*);
         let err = $ctx.build_err(msg, span);
         return std::result::Result::Err(err);

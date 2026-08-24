@@ -1,5 +1,5 @@
 use crate::error::UsageErr;
-use miette::{NamedSource, SourceSpan};
+use crate::miette::{NamedSource, SourceSpan};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
