@@ -1,5 +1,6 @@
 use assert_cmd::cargo;
 use assert_cmd::prelude::*;
+use predicates::prelude::PredicateBooleanExt;
 use predicates::str::contains;
 use std::process::Command;
 
@@ -56,6 +57,39 @@ fn test_new_usage_syntax_with_space() {
         .stdout(contains("Option value"))
         .stdout(contains("baz"))
         .stdout(contains("Positional value"));
+}
+
+#[test]
+fn shell_help_honours_terminal_colour_environment() {
+    let mut coloured = Command::new(cargo::cargo_bin!("usage"));
+    coloured
+        .env("NO_COLOR", "")
+        .env("CLICOLOR_FORCE", "1")
+        .args(["bash", "../examples/test-new-usage-syntax.sh", "--help"]);
+    coloured
+        .assert()
+        .success()
+        .stdout(contains("\u{1b}[1;33mUsage:\u{1b}[0m"))
+        .stdout(contains("\u{1b}[1;32m--foo\u{1b}[0m"));
+
+    let mut plain = Command::new(cargo::cargo_bin!("usage"));
+    plain.env("NO_COLOR", "1").env("CLICOLOR_FORCE", "1").args([
+        "bash",
+        "../examples/test-new-usage-syntax.sh",
+        "--help",
+    ]);
+    plain.assert().success().stdout(contains("\u{1b}[").not());
+}
+
+#[test]
+fn usage_own_help_uses_the_process_colour_policy() {
+    let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+    cmd.env("NO_COLOR", "")
+        .env("CLICOLOR_FORCE", "1")
+        .arg("--help");
+    cmd.assert()
+        .success()
+        .stdout(contains("\u{1b}[1;33mUsage:\u{1b}[0m"));
 }
 
 /// Test that the #[USAGE] syntax (no space) works correctly

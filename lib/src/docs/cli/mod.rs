@@ -2,7 +2,15 @@ use crate::{Spec, SpecCommand};
 use std::sync::LazyLock;
 use tera::Tera;
 
+mod style;
+pub use style::Style;
+
 pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
+    render_help_styled(spec, cmd, long, Style::PLAIN)
+}
+
+/// Render a terminal help page with an explicit colour policy.
+pub fn render_help_styled(spec: &Spec, cmd: &SpecCommand, long: bool, style: Style) -> String {
     // Convert to docs models to get layout calculations
     let docs_spec = crate::docs::models::Spec::from(spec);
     let mut docs_cmd = crate::docs::models::SpecCommand::from(&without_hidden(cmd, long));
@@ -180,13 +188,20 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     };
     let rendered = TERA.render(template, &ctx).unwrap();
     let sections = Sections::split(&rendered);
+    let styling = style::Styling::new(&docs_cmd, &inherited, sections.usage);
     let page = match spec
         .help_template
         .as_deref()
         .filter(|t| crate::help_template::is_set(t))
     {
-        Some(template) => crate::help_template::substitute(template, |name| sections.named(name)),
-        None => sections.concatenated(),
+        Some(template) => {
+            crate::help_template::substitute_with_style(template, style.coloured, |name| {
+                sections
+                    .named(name)
+                    .map(|section| styling.apply(&section, style))
+            })
+        }
+        None => styling.apply(&sections.concatenated(), style),
     };
     page.trim().to_string() + "\n"
 }
@@ -1977,5 +1992,41 @@ cmd "run" help="Run it" {
                 "{page}"
             );
         }
+    }
+
+    #[test]
+    fn styled_help_colours_semantics_and_template_styles() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+help_template "{$bright-blue}My tool{/$}\n\n{{usage}}\n\n{{flags}}"
+flag "--output <FILE>" help="Write **the file**"
+        "# }
+        .unwrap();
+
+        let plain = render_help(&spec, &spec.cmd, true);
+        assert!(plain.contains("My tool"), "{plain}");
+        assert!(!plain.contains('\u{1b}'), "{plain:?}");
+
+        let coloured = render_help_styled(&spec, &spec.cmd, true, Style::COLOURED);
+        assert!(
+            coloured.contains("\u{1b}[94mMy tool\u{1b}[0m"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains("\u{1b}[1;33mUsage:\u{1b}[0m"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains("\u{1b}[1;32m--output\u{1b}[0m"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains("\u{1b}[1;35m<FILE>\u{1b}[0m"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains("\u{1b}[1mthe file\u{1b}[22m"),
+            "{coloured:?}"
+        );
     }
 }
