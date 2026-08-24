@@ -68,9 +68,18 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
             .map(|f| f.display_usage.as_str()),
     );
     for group in &mut docs_cmd.flag_groups {
-        lay_out(&mut group.items, width, col);
+        lay_out(&mut group.items, width, col, long);
     }
-    lay_out(&mut inherited, width, col);
+    lay_out(&mut inherited, width, col, long);
+
+    // The arguments get their own column, laid out here for the page being rendered rather than
+    // taken from the model's — which is the long page's, and would put a long description in the
+    // short page's column unwrapped.
+    let arg_col =
+        crate::docs::layout::max_usage_width(docs_cmd.args.iter().map(|a| a.usage.as_str()));
+    for group in &mut docs_cmd.arg_groups {
+        lay_out_args(&mut group.items, width, arg_col, long);
+    }
 
     // The command list, laid out the way the flag list is: one column for the whole page, the
     // name in it, and everything else — summary, aliases, deprecation — trailing as text that
@@ -359,22 +368,182 @@ fn supplied_flags(
 /// command's own flags and the ones it inherits. The width is not only padding — a wrapped
 /// description is indented to sit under itself — so it cannot be decided per section and then
 /// shared.
-fn lay_out(flags: &mut [crate::docs::models::SpecFlag], terminal_width: usize, col: usize) {
+fn lay_out(
+    flags: &mut [crate::docs::models::SpecFlag],
+    terminal_width: usize,
+    col: usize,
+    long: bool,
+) {
     for flag in flags {
         flag.usage_col_width = col;
-        flag.help_rendered = None;
-        flag.help_is_multiline = false;
-        let help = flag.help_long.as_deref().or(flag.help.as_deref());
-        if let Some(help) = help {
-            let (rendered, is_multiline) =
-                crate::docs::layout::render_help_text(help, terminal_width, col);
-            // An empty rendering is how this says "use the block layout instead".
-            if !rendered.is_empty() {
-                flag.help_rendered = Some(rendered);
-                flag.help_is_multiline = is_multiline;
-            }
+        let text = if long {
+            flag.help_long
+                .as_deref()
+                .or(flag.help.as_deref())
+                .map(str::to_string)
+        } else {
+            with_annotations(flag.help.as_deref(), flag_annotations(flag))
+        };
+        wrap_into(
+            text,
+            terminal_width,
+            col,
+            &mut flag.row,
+            &mut flag.help_rendered,
+            &mut flag.help_is_multiline,
+        );
+    }
+}
+
+/// The same pass over a command's arguments.
+///
+/// `SpecCommand::from` already made one, but it made the long page's — the short page prefers
+/// the short description and carries the annotations in the text — so the page it is actually
+/// rendering gets the last word.
+fn lay_out_args(
+    args: &mut [crate::docs::models::SpecArg],
+    terminal_width: usize,
+    col: usize,
+    long: bool,
+) {
+    for arg in args {
+        arg.usage_col_width = col;
+        let text = if long {
+            arg.help_long
+                .as_deref()
+                .or(arg.help.as_deref())
+                .map(str::to_string)
+        } else {
+            with_annotations(arg.help.as_deref(), arg_annotations(arg))
+        };
+        wrap_into(
+            text,
+            terminal_width,
+            col,
+            &mut arg.row,
+            &mut arg.help_rendered,
+            &mut arg.help_is_multiline,
+        );
+    }
+}
+
+/// Fit one entry's text to the column, and say which layout it wants.
+///
+/// `row` is the text as composed and `help_rendered` the same text wrapped; an empty wrapping
+/// is how [`crate::docs::layout::render_help_text`] says "no room, put it underneath instead",
+/// which is the case the template reads `row` for.
+fn wrap_into(
+    text: Option<String>,
+    terminal_width: usize,
+    col: usize,
+    row: &mut Option<String>,
+    help_rendered: &mut Option<String>,
+    help_is_multiline: &mut bool,
+) {
+    *row = None;
+    *help_rendered = None;
+    *help_is_multiline = false;
+    let Some(text) = text else { return };
+    let (rendered, is_multiline) =
+        crate::docs::layout::render_help_text(&text, terminal_width, col);
+    if !rendered.is_empty() {
+        *help_rendered = Some(rendered);
+        *help_is_multiline = is_multiline;
+    }
+    *row = Some(text);
+}
+
+/// A short entry's description with its annotations joined on.
+///
+/// The wide layout gives each annotation a line of its own; the narrow one has no room for
+/// that, so they ride along with the description — and they have to be joined *before* it is
+/// wrapped, or an entry with a long description keeps its `[env: …]` out past the column where
+/// the wrapping was supposed to bring the text back.
+fn with_annotations(help: Option<&str>, annotations: Vec<String>) -> Option<String> {
+    let mut parts = Vec::new();
+    if let Some(help) = summarize(help) {
+        parts.push(help.to_string());
+    }
+    parts.extend(annotations);
+    (!parts.is_empty()).then(|| parts.join(" "))
+}
+
+/// What a flag's short entry says about it beyond its description.
+fn flag_annotations(flag: &crate::docs::models::SpecFlag) -> Vec<String> {
+    let mut parts = value_annotations(
+        flag.arg.as_ref().and_then(|arg| arg.choices.as_ref()),
+        flag.hide_possible_values,
+        flag.env.as_deref(),
+        flag.hide_env,
+        &flag.env_fallback,
+        &flag.deprecated_env,
+        &flag.default,
+        flag.hide_default_value,
+    );
+    if let Some(label) = deprecation_label(
+        flag.deprecated.as_deref(),
+        flag.deprecated_warn_at.as_deref(),
+        flag.deprecated_remove_at.as_deref(),
+    ) {
+        parts.push(label);
+    }
+    parts
+}
+
+/// The same for an argument, which carries no deprecation on the narrow page.
+fn arg_annotations(arg: &crate::docs::models::SpecArg) -> Vec<String> {
+    value_annotations(
+        arg.choices.as_ref(),
+        arg.hide_possible_values,
+        arg.env.as_deref(),
+        arg.hide_env,
+        &arg.env_fallback,
+        &arg.deprecated_env,
+        &arg.default,
+        arg.hide_default_value,
+    )
+}
+
+/// What can be said about a value, in the order the narrow page says it.
+#[allow(clippy::too_many_arguments)]
+fn value_annotations(
+    choices: Option<&crate::SpecChoices>,
+    hide_possible_values: bool,
+    env: Option<&str>,
+    hide_env: bool,
+    env_fallback: &[String],
+    deprecated_env: &[String],
+    default: &[String],
+    hide_default_value: bool,
+) -> Vec<String> {
+    let mut parts = Vec::new();
+    if let Some(choices) = choices.filter(|_| !hide_possible_values) {
+        if !choices.choices.is_empty() {
+            parts.push(format!("[{}]", choices.choices.join(", ")));
+        }
+        if let Some(env) = choices.env() {
+            parts.push(format!("[choices env: {env}]"));
         }
     }
+    if !hide_env {
+        if let Some(env) = env {
+            parts.push(format!("[env: {env}]"));
+        }
+        parts.extend(
+            env_fallback
+                .iter()
+                .map(|env| format!("[env fallback: {env}]")),
+        );
+        parts.extend(
+            deprecated_env
+                .iter()
+                .map(|env| format!("[deprecated env: {env}]")),
+        );
+    }
+    if !hide_default_value && !default.is_empty() {
+        parts.push(format!("(default: {})", default.join(", ")));
+    }
+    parts
 }
 
 /// The entry every command list ends with, unless the CLI turned it off.

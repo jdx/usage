@@ -149,12 +149,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 				longAnnotations(w, h, true)
 				return
 			}
-			if help := helpText(h); help != "" {
-				w.WriteString("  " + pad(usage, argCol) + "  " + help)
-			} else {
-				w.WriteString("  " + usage)
-			}
-			annotations(w, h, true)
+			entry(w, usage, withAnnotations(shortSummary(h), inlineAnnotations(h, true, false)), argCol, false)
 		})
 
 	own, inherited := ownAndGlobal(chain, help)
@@ -174,7 +169,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			flagCol = n
 		}
 	}
-	entry := func(w *strings.Builder, f shownFlag) {
+	flagEntry := func(w *strings.Builder, f shownFlag) {
 		h := help.Lookup(f.key)
 		if f.supplied != "" {
 			// A flag the parser supplies has no table entry; its help is fixed.
@@ -185,12 +180,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 				}
 				return
 			}
-			if text := f.suppliedHelp; text != "" {
-				w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
-			} else {
-				w.WriteString("  " + f.usage)
-			}
-			w.WriteString("\n")
+			entry(w, f.usage, f.suppliedHelp, flagCol, false)
 			return
 		}
 		if nextLineHelp {
@@ -201,12 +191,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			longAnnotations(w, h, true)
 			return
 		}
-		if text := helpText(h); text != "" {
-			w.WriteString("  " + pad(f.usage, flagCol) + "  " + text)
-		} else {
-			w.WriteString("  " + f.usage)
-		}
-		annotations(w, h, true)
+		entry(w, f.usage, withAnnotations(shortSummary(h), inlineAnnotations(h, true, true)), flagCol, false)
 	}
 	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Flags", len(own),
 		func(i int) string {
@@ -215,13 +200,13 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			}
 			return headingOf(help, own[i].key)
 		},
-		func(w *strings.Builder, i int) { entry(w, own[i]) })
+		func(w *strings.Builder, i int) { flagEntry(w, own[i]) })
 	// After the command's own, and under a heading that says where they came
 	// from: a global belongs to the program, not to this command, and a reader
 	// should be able to see that.
 	groupsSection(&sections.flags, &sections.ungroupedFlags, &sections.groupedFlags, "Global flags", len(inherited),
 		func(int) string { return "" },
-		func(w *strings.Builder, i int) { entry(w, inherited[i]) })
+		func(w *strings.Builder, i int) { flagEntry(w, inherited[i]) })
 	if meta != nil && meta.FlattenHelp {
 		flatCommandsShort(&sections.flattened, path[min(1, len(path)):], cmd, help, nextLineHelp)
 	}
@@ -537,6 +522,60 @@ func annotations(out *strings.Builder, h *Help, withDefault bool) {
 		}
 	}
 	out.WriteString("\n")
+}
+
+// inlineAnnotations is the same annotations as one string, for an entry that carries
+// them in its text rather than writing them out. The narrow layout needs its text
+// complete before it is wrapped.
+func inlineAnnotations(h *Help, withDefault, withDeprecation bool) string {
+	if h == nil {
+		return ""
+	}
+	parts := []string{}
+	if !h.HidePossibleValues && len(h.Choices) > 0 {
+		parts = append(parts, "["+strings.Join(h.Choices, ", ")+"]")
+	}
+	if !h.HideEnv && h.Env != "" {
+		parts = append(parts, "[env: "+h.Env+"]")
+	}
+	if !h.HideEnv {
+		for _, env := range h.EnvFallback {
+			parts = append(parts, "[env fallback: "+env+"]")
+		}
+		for _, env := range h.DeprecatedEnv {
+			parts = append(parts, "[deprecated env: "+env+"]")
+		}
+	}
+	if withDefault && !h.HideDefaultValue && len(h.Default) > 0 {
+		parts = append(parts, "(default: "+strings.Join(h.Default, ", ")+")")
+	}
+	// Last, as it is everywhere else a row carries one.
+	if withDeprecation {
+		if label := deprecationLabel(h); label != "" {
+			parts = append(parts, label)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+// shortSummary is the description a narrow entry shows, with nothing appended.
+func shortSummary(h *Help) string {
+	if h == nil {
+		return ""
+	}
+	return trimEnd(h.Short)
+}
+
+// withAnnotations joins a description to its annotations. Either may be empty.
+func withAnnotations(help, annotations string) string {
+	switch {
+	case help == "":
+		return annotations
+	case annotations == "":
+		return help
+	default:
+		return help + " " + annotations
+	}
 }
 
 func helpText(h *Help) string {

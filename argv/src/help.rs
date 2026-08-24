@@ -1106,6 +1106,9 @@ fn short_sections(
         .filter(|(flag, _)| !flag.hide_short_help)
         .collect();
     let mut sections = Sections::default();
+    // The narrow page wraps too. Its descriptions used to run off the end of the terminal,
+    // which the wide page has never done — and `-h` is the form most people type.
+    let width = terminal_width(meta);
     let out = &mut sections.about;
 
     // Text the command puts above everything else, and below it. The short form has only the
@@ -1144,7 +1147,7 @@ fn short_sections(
             &mut sections.commands,
             &path[1.min(path.len())..],
             meta,
-            terminal_width(meta),
+            width,
             false,
         );
     }
@@ -1196,18 +1199,9 @@ fn short_sections(
                 );
                 return;
             }
-            match a.help.filter(|h| !h.trim().is_empty()) {
-                Some(help) => {
-                    let _ = write!(out, "  {usage:<arg_col$}  {help}");
-                }
-                None => {
-                    let _ = write!(out, "  {usage}");
-                }
-            }
             let environment =
                 inline_environment_notes(a.hide_env, a.env_fallback, a.deprecated_env);
-            annotations(
-                out,
+            let notes = inline_annotations(
                 if a.hide_possible_values {
                     &[]
                 } else {
@@ -1217,6 +1211,14 @@ fn short_sections(
                 environment.as_deref(),
                 if a.hide_default_value { &[] } else { a.default },
                 None,
+            );
+            entry(
+                out,
+                &usage,
+                with_annotations(a.help, notes).as_deref(),
+                arg_col,
+                width,
+                false,
             );
         },
     );
@@ -1249,19 +1251,10 @@ fn short_sections(
             flag_notes(out, f, 4);
             return;
         }
-        match f.help.filter(|h| !h.trim().is_empty()) {
-            Some(help) => {
-                let _ = write!(out, "  {usage:<flag_col$}  {help}");
-            }
-            None => {
-                let _ = write!(out, "  {usage}");
-            }
-        }
         let deprecation =
             deprecation_label(f.deprecated, f.deprecated_warn_at, f.deprecated_remove_at);
         let environment = inline_environment_notes(f.hide_env, f.env_fallback, f.deprecated_env);
-        annotations(
-            out,
+        let notes = inline_annotations(
             if f.hide_possible_values {
                 &[]
             } else {
@@ -1271,6 +1264,14 @@ fn short_sections(
             environment.as_deref(),
             if f.hide_default_value { &[] } else { f.default },
             deprecation.as_deref(),
+        );
+        entry(
+            out,
+            &usage,
+            with_annotations(f.help, notes).as_deref(),
+            flag_col,
+            width,
+            false,
         );
     };
     split_groups_section(
@@ -1789,6 +1790,63 @@ fn annotations(
         let _ = write!(out, " {suffix}");
     }
     out.push('\n');
+}
+
+/// The same annotations as one string, for an entry that carries them in its text.
+///
+/// [`annotations`] writes them straight out, which the flattened sections still want. The
+/// narrow layout cannot: its text has to be complete before it is wrapped.
+fn inline_annotations(
+    choices: &[&str],
+    env: Option<&str>,
+    environment: Option<&str>,
+    default: &[&str],
+    suffix: Option<&str>,
+) -> Option<String> {
+    let mut out = String::new();
+    let mut push = |part: &str| {
+        if !out.is_empty() {
+            out.push(' ');
+        }
+        out.push_str(part);
+    };
+    if !choices.is_empty() {
+        push(&format!("[{}]", choices.join(", ")));
+    }
+    if let Some(env) = env {
+        push(&format!("[env: {env}]"));
+    }
+    if let Some(environment) = environment {
+        push(environment);
+    }
+    if !default.is_empty() {
+        push(&format!("(default: {})", default.join(", ")));
+    }
+    if let Some(suffix) = suffix {
+        push(suffix);
+    }
+    (!out.is_empty()).then_some(out)
+}
+
+/// A narrow entry's description with its annotations joined on.
+///
+/// The wide layout gives each annotation a line of its own; the narrow one has no room for
+/// that, so they ride along with the description — and they have to be joined *before* it is
+/// wrapped, or an entry with a long description keeps its `[env: …]` out past the column the
+/// wrapping was supposed to bring the text back into.
+///
+/// A description with nothing to add to it is borrowed rather than copied, which is most of
+/// them.
+fn with_annotations<'a>(
+    help: Option<&'a str>,
+    annotations: Option<String>,
+) -> Option<Cow<'a, str>> {
+    match (summarize(help), annotations) {
+        (Some(help), None) => Some(Cow::Borrowed(help)),
+        (None, Some(annotations)) => Some(Cow::Owned(annotations)),
+        (Some(help), Some(annotations)) => Some(Cow::Owned(format!("{help} {annotations}"))),
+        (None, None) => None,
+    }
 }
 
 /// How a usage line writes a flag: its first long form, or its short if that is all it has.

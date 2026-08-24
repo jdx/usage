@@ -183,6 +183,9 @@ pub struct SpecFlag {
     pub rendered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_rendered: Option<String>,
+    /// The same text unwrapped, for the layout that indents it under the usage instead.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub row: Option<String>,
     pub help_is_multiline: bool,
     pub usage_col_width: usize,
 }
@@ -549,6 +552,9 @@ pub struct SpecArg {
     pub rendered: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub help_rendered: Option<String>,
+    /// The same text unwrapped, for the layout that indents it under the usage instead.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub row: Option<String>,
     pub help_is_multiline: bool,
     pub usage_col_width: usize,
 }
@@ -1080,6 +1086,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
             display_order: flag.display_order,
             rendered: false,
             help_rendered: None,
+            row: None,
             help_is_multiline: false,
             usage_col_width: 0,
         }
@@ -1132,6 +1139,7 @@ impl From<&crate::SpecArg> for SpecArg {
             display_order: arg.display_order,
             rendered: false,
             help_rendered: None,
+            row: None,
             help_is_multiline: false,
             usage_col_width: 0,
         }
