@@ -25,5 +25,5 @@ Generate markdown documentation from usage specs
 
 - **`--replace-pre-with-code-fences`** — Replace `<pre>` tags with markdown code fences
 - **`--url-prefix <URL_PREFIX>`** — Prefix to add to all URLs
-- **`--template… <TEMPLATE>`** — Override a Tera template with NAME=PATH
+- **`--template <TEMPLATE>`** — Override a Tera template with NAME=PATH
 - **`-h --help`** — Print help

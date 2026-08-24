@@ -457,7 +457,7 @@
           },
           {
             "name": "env",
-            "usage": "-e --env… <ENV>",
+            "usage": "-e --env <ENV>",
             "help": "Environment to explain against, as KEY=VALUE, repeatable",
             "help_long": "Environment to explain against, as KEY=VALUE, repeatable\n\nGiven at all, these are the *whole* environment: an explanation pasted into a bug report has to mean the same thing on the machine that reads it. Omitted, the process environment is used, which is what an execution would see.",
             "help_first_line": "Environment to explain against, as KEY=VALUE, repeatable",
@@ -1434,7 +1434,7 @@
               },
               {
                 "name": "template",
-                "usage": "--template… <TEMPLATE>",
+                "usage": "--template <TEMPLATE>",
                 "help": "Override a Tera template with NAME=PATH",
                 "help_first_line": "Override a Tera template with NAME=PATH",
                 "short": [],
