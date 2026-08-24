@@ -355,9 +355,8 @@ pub struct Spec<'a> {
     pub usage: Option<&'a str>,
     /// How every page in this CLI is laid out, as named sections.
     ///
-    /// A template names the six pre-rendered sections — `{{about}}`, `{{usage}}`,
-    /// `{{commands}}`, `{{args}}`, `{{flags}}`, `{{after_help}}` — and may reorder,
-    /// omit or wrap them. See [`crate::help::SECTIONS`] for what each one covers and
+    /// A template names the pre-rendered sections and may reorder, omit, wrap or colour them.
+    /// See [`crate::help::SECTIONS`] for what each one covers and
     /// [`crate::help::unsupported_section`] for the rule an author's template is held to.
     pub help_template: Option<&'a str>,
     /// Which command the root falls back to when a word matches no subcommand.

@@ -45,6 +45,8 @@ type HelpSpec struct {
 	// `{{about}}`, `{{usage}}`, `{{commands}}`, `{{args}}`, `{{flags}}` and
 	// `{{after_help}}`, which an author may reorder, omit or wrap. Empty means the
 	// default order, which is what every page in the fleet is compared against.
+	// Runtime colour tags such as `{$heading}...{/$}` are removed because this
+	// renderer produces the portable plain page.
 	// See [HelpSections].
 	HelpTemplate string
 }

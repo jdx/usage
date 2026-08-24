@@ -26,6 +26,8 @@ use crate::spec::{
 use crate::Command;
 use crate::DoubleDash;
 
+mod template;
+
 /// The indent a page uses where it cannot align to its column.
 const BLOCK_INDENT: usize = 4;
 
@@ -39,8 +41,8 @@ const INLINE_LIMIT: usize = 2;
 ///
 /// A closed vocabulary on purpose. The alternative — handing a template the metadata tree and
 /// letting it lay a page out — makes this renderer's internals public API and asks every
-/// implementation of the spec to agree on a template language's semantics rather than on where
-/// a section starts and ends.
+/// implementation of the spec to expose its help model. Implementations agree only on these
+/// boundaries and the small colour-tag vocabulary, not on the metadata behind a section.
 ///
 /// What each one holds:
 ///
@@ -84,6 +86,7 @@ pub const SECTIONS: [&str; 10] = [
 /// assert!(unsupported_section("{{usage").is_err());
 /// ```
 pub fn unsupported_section(template: &str) -> Result<Option<&str>, &'static str> {
+    template::check(template)?;
     let mut rest = template;
     while let Some(at) = rest.find("{{") {
         let after = &rest[at + 2..];
@@ -180,51 +183,34 @@ impl Sections {
     ///
     /// A section that came out empty leaves no gap behind, which is what lets one template
     /// serve a whole CLI: see `usage::help_template::collapse_blank_runs`, whose rule this is.
-    fn substituted(&self, template: &str) -> String {
-        let mut out = String::with_capacity(template.len());
-        let mut rest = template;
-        while let Some(at) = rest.find("{{") {
-            out.push_str(&rest[..at]);
-            let after = &rest[at + 2..];
-            let Some(end) = after.find("}}") else {
-                out.push_str(&rest[at..]);
-                return collapse_blank_runs(&out);
-            };
-            match self.named(after[..end].trim()) {
-                Some(text) => out.push_str(&text),
-                None => out.push_str(&rest[at..at + 2 + end + 2]),
-            }
-            rest = &after[end + 2..];
-        }
-        out.push_str(rest);
-        collapse_blank_runs(&out)
+    fn substituted(&self, template: &str, style: Style) -> String {
+        template::substitute(template, style.coloured, |name| self.named(name))
     }
-}
 
-/// A page's runs of blank lines, each reduced to a single blank line.
-///
-/// The twin of `usage::help_template::collapse_blank_runs`, and the reason a template can name a
-/// section a given command does not have. A whitespace-only line counts as blank, since that is
-/// what an empty placeholder on an indented line leaves; a section's own indentation does not,
-/// since that is the page.
-fn collapse_blank_runs(page: &str) -> String {
-    let mut out = String::with_capacity(page.len());
-    let mut blank = false;
-    for line in page.split('\n') {
-        if line.trim().is_empty() {
-            blank = !out.is_empty();
-            continue;
+    fn styled(
+        &self,
+        style: Style,
+        headings: &[String],
+        flag_usages: &[String],
+        arg_usages: &[String],
+        synopsis: &[String],
+    ) -> Self {
+        let render =
+            |part: &str| styled_help(part, style, headings, flag_usages, arg_usages, synopsis);
+        Self {
+            about: render(&self.about),
+            usage: render(&self.usage),
+            commands: render(&self.commands),
+            args: render(&self.args),
+            flags: render(&self.flags),
+            grouped_args: render(&self.grouped_args),
+            ungrouped_args: render(&self.ungrouped_args),
+            grouped_flags: render(&self.grouped_flags),
+            ungrouped_flags: render(&self.ungrouped_flags),
+            flattened: render(&self.flattened),
+            after_help: render(&self.after_help),
         }
-        if !out.is_empty() {
-            out.push('\n');
-            if blank {
-                out.push('\n');
-            }
-        }
-        blank = false;
-        out.push_str(line);
     }
-    out
 }
 
 /// The finished page: laid out by the spec's template where it has one, and trimmed.
@@ -232,12 +218,12 @@ fn collapse_blank_runs(page: &str) -> String {
 /// usage-lib trims the whole document and puts back one newline, which is what keeps the blank
 /// lines between sections from becoming trailing ones. That applies to a template's output too:
 /// a page ends in exactly one newline however it was assembled.
-fn assemble(spec: &Spec<'_>, sections: &Sections) -> String {
+fn assemble(spec: &Spec<'_>, sections: &Sections, style: Style) -> String {
     let page = match spec
         .help_template
         .filter(|template| !template.trim().is_empty())
     {
-        Some(template) => sections.substituted(template),
+        Some(template) => sections.substituted(template, style),
         None => sections.concatenated(),
     };
     let trimmed = page.trim();
@@ -286,24 +272,16 @@ impl Style {
         }
     }
 
-    fn wrap(self, code: &str, text: &str) -> String {
-        if self.coloured {
-            format!("\u{1b}[{code}m{text}\u{1b}[0m")
-        } else {
-            text.to_string()
-        }
-    }
-
     fn heading(self, text: &str) -> String {
-        self.wrap("1;33", text)
+        template::semantic("heading", text, self.coloured)
     }
 
     fn literal(self, text: &str) -> String {
-        self.wrap("1;32", text)
+        template::semantic("option", text, self.coloured)
     }
 
     fn metavar(self, text: &str) -> String {
-        self.wrap("1;35", text)
+        template::semantic("metavar", text, self.coloured)
     }
 
     /// Render the small Markdown vocabulary accepted in help prose.
@@ -730,6 +708,25 @@ fn styled_help(
     out
 }
 
+fn assembled_help(
+    spec: &Spec<'_>,
+    path: &[&str],
+    chain: &[&CommandMeta<'_>],
+    long: bool,
+    style: Style,
+    inherit_version_actions: bool,
+) -> String {
+    let sections = if long {
+        long_sections(spec, path, chain, inherit_version_actions)
+    } else {
+        short_sections(spec, path, chain, inherit_version_actions)
+    };
+    let (headings, flag_usages, arg_usages, synopsis) =
+        help_structure(spec, path, chain, long, inherit_version_actions);
+    let styled = sections.styled(style, &headings, &flag_usages, &arg_usages, &synopsis);
+    assemble(spec, &styled, style)
+}
+
 /// The `Usage:` line's body, without the `Usage: ` prefix.
 ///
 /// `path` is the command as invoked, starting with the binary: `["mise", "config", "ls"]`.
@@ -1153,6 +1150,7 @@ fn short_help_with(
     assemble(
         spec,
         &short_sections(spec, path, chain, inherit_version_actions),
+        Style::PLAIN,
     )
 }
 
@@ -2076,6 +2074,7 @@ fn long_help_with(
     assemble(
         spec,
         &long_sections(spec, path, chain, inherit_version_actions),
+        Style::PLAIN,
     )
 }
 
@@ -3208,21 +3207,7 @@ pub fn render_styled(
     style: Style,
 ) -> Option<String> {
     let (path, chain) = find(spec, cmd)?;
-    let page = if long {
-        long_help(spec, &path, &chain)
-    } else {
-        short_help(spec, &path, &chain)
-    };
-    let (headings, flag_usages, arg_usages, synopsis) =
-        help_structure(spec, &path, &chain, long, false);
-    Some(styled_help(
-        &page,
-        style,
-        &headings,
-        &flag_usages,
-        &arg_usages,
-        &synopsis,
-    ))
+    Some(assembled_help(spec, &path, &chain, long, style, false))
 }
 
 /// Long help for a command and every visible descendant, in depth-first order.
@@ -3359,21 +3344,7 @@ pub fn render_at_styled(
     style: Style,
 ) -> Option<String> {
     let (path, chain) = route_context(spec, route)?;
-    let page = if long {
-        long_help(spec, &path, &chain)
-    } else {
-        short_help(spec, &path, &chain)
-    };
-    let (headings, flag_usages, arg_usages, synopsis) =
-        help_structure(spec, &path, &chain, long, false);
-    Some(styled_help(
-        &page,
-        style,
-        &headings,
-        &flag_usages,
-        &arg_usages,
-        &synopsis,
-    ))
+    Some(assembled_help(spec, &path, &chain, long, style, false))
 }
 
 /// Render help through a spec-declared executable view.
@@ -3424,21 +3395,7 @@ pub fn render_view_at_styled(
         root: &root,
         ..*spec
     };
-    let page = if long {
-        long_help_with(&viewed, &path, &chain, true)
-    } else {
-        short_help_with(&viewed, &path, &chain, true)
-    };
-    let (headings, flag_usages, arg_usages, synopsis) =
-        help_structure(&viewed, &path, &chain, long, true);
-    Some(styled_help(
-        &page,
-        style,
-        &headings,
-        &flag_usages,
-        &arg_usages,
-        &synopsis,
-    ))
+    Some(assembled_help(&viewed, &path, &chain, long, style, true))
 }
 
 /// Recursive long help for a command reached by a known route.
@@ -3663,16 +3620,13 @@ fn recursive_help<'a>(
         if !out.is_empty() {
             out.push('\n');
         }
-        let page = long_help_with(spec, path, chain, inherit_version_actions);
-        let (headings, flag_usages, arg_usages, synopsis) =
-            help_structure(spec, path, chain, true, inherit_version_actions);
-        out.push_str(&styled_help(
-            &page,
+        out.push_str(&assembled_help(
+            spec,
+            path,
+            chain,
+            true,
             style,
-            &headings,
-            &flag_usages,
-            &arg_usages,
-            &synopsis,
+            inherit_version_actions,
         ));
 
         let current = *chain.last().expect("a recursive page has a command");
@@ -3705,8 +3659,8 @@ fn recursive_help<'a>(
 mod style_tests {
     use super::{
         commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
-        inline_environment_notes, long_help, render_view_at_styled, styled_flag_usage, styled_help,
-        styled_inline, Shown, Style,
+        inline_environment_notes, long_help, render_styled, render_view_at_styled,
+        styled_flag_usage, styled_help, styled_inline, Shown, Style,
     };
     use crate::spec::{CommandMeta, FlagMeta, Spec, ViewMeta};
     use crate::{ArgAction, Command, Flag};
@@ -4051,6 +4005,44 @@ mod style_tests {
         assert!(coloured.contains("[possible values: --auto]"));
         assert!(coloured.contains("(default: -1)"));
         assert_eq!(strip_ansi(&coloured), page);
+    }
+
+    #[test]
+    fn a_help_template_can_style_its_own_text_without_styling_plain_output() {
+        let force = Flag {
+            name: "force",
+            longs: &["force"],
+            ..Flag::BOOL
+        };
+        let command = Command {
+            name: "ex",
+            flags: &[&force],
+            ..Command::EMPTY
+        };
+        let root = CommandMeta {
+            cmd: &command,
+            flags: &[FlagMeta {
+                flag: &force,
+                help: Some("Do it anyway"),
+                ..FlagMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            help_template: Some("{$heading}CUSTOM HELP{/$}\n\n{{usage}}\n\n{$cyan}{{flags}}{/$}"),
+            root: &root,
+            ..Spec::EMPTY
+        };
+
+        let plain = render_styled(&spec, &command, false, Style::PLAIN).expect("root page");
+        assert!(plain.starts_with("CUSTOM HELP\n\nUsage: ex"), "{plain}");
+        assert!(!plain.contains("{$"), "{plain}");
+
+        let coloured = render_styled(&spec, &command, false, Style::COLOURED).expect("root page");
+        assert!(coloured.starts_with("\u{1b}[1;33mCUSTOM HELP\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[36m\u{1b}[1;33mFlags:"));
+        assert_eq!(strip_ansi(&coloured), plain);
     }
 
     #[test]

@@ -3,8 +3,8 @@
 //! A spec can say what order its help sections come in — `help_template "{{about}}{{usage}}…"`
 //! — and nothing more than that. The template holds a closed vocabulary of *pre-rendered*
 //! sections rather than the metadata behind them, which is what lets an interpreter, a compiled
-//! parser and a generated Go program agree: they agree on where each section starts and ends,
-//! not on a template language's semantics.
+//! parser and a generated Go program agree: they agree on where each section starts and ends and
+//! on a small colour-tag vocabulary, not on the metadata behind a section.
 //!
 //! The twins of this module are `usage_argv::help`'s `SECTIONS` and `Sections`, and Go's
 //! `helpSections`. `conformance/tests/render.rs` is what says the three still agree.
@@ -53,6 +53,7 @@ pub fn is_set(template: &str) -> bool {
 /// placeholders whose spellings differ, because a template being ported is where this is most
 /// likely to be read.
 pub fn check(template: &str) -> Result<(), String> {
+    check_styles(template)?;
     let mut rest = template;
     while let Some(at) = rest.find("{{") {
         let after = &rest[at + 2..];
@@ -87,21 +88,114 @@ pub fn check(template: &str) -> Result<(), String> {
 pub fn substitute(template: &str, section: impl Fn(&str) -> Option<String>) -> String {
     let mut out = String::with_capacity(template.len());
     let mut rest = template;
-    while let Some(at) = rest.find("{{") {
-        out.push_str(&rest[..at]);
-        let after = &rest[at + 2..];
-        let Some(end) = after.find("}}") else {
-            out.push_str(&rest[at..]);
-            return collapse_blank_runs(&out);
+    loop {
+        let placeholder = rest.find("{{").map(|at| (at, 0));
+        let opening = rest.find("{$").map(|at| (at, 1));
+        let closing = rest.find("{/$}").map(|at| (at, 2));
+        let Some((at, kind)) = [placeholder, opening, closing]
+            .into_iter()
+            .flatten()
+            .min_by_key(|(at, _)| *at)
+        else {
+            out.push_str(rest);
+            break;
         };
-        match section(after[..end].trim()) {
-            Some(text) => out.push_str(&text),
-            None => out.push_str(&rest[at..at + 2 + end + 2]),
+        out.push_str(&rest[..at]);
+        rest = &rest[at..];
+        match kind {
+            0 => {
+                let after = &rest[2..];
+                let Some(end) = after.find("}}") else {
+                    out.push_str(rest);
+                    break;
+                };
+                match section(after[..end].trim()) {
+                    Some(text) => out.push_str(&text),
+                    None => out.push_str(&rest[..2 + end + 2]),
+                }
+                rest = &after[end + 2..];
+            }
+            1 => {
+                let end = rest
+                    .find('}')
+                    .expect("templates are checked before rendering");
+                rest = &rest[end + 1..];
+            }
+            _ => rest = &rest[4..],
         }
-        rest = &after[end + 2..];
     }
-    out.push_str(rest);
     collapse_blank_runs(&out)
+}
+
+fn check_styles(template: &str) -> Result<(), String> {
+    let mut rest = template;
+    let mut depth = 0usize;
+    while let Some((at, opening)) = {
+        let opening = rest.find("{$").map(|at| (at, true));
+        let closing = rest.find("{/$}").map(|at| (at, false));
+        match (opening, closing) {
+            (Some(left), Some(right)) => Some(if left.0 <= right.0 { left } else { right }),
+            (left, right) => left.or(right),
+        }
+    } {
+        let tag = &rest[at..];
+        if opening {
+            let Some(end) = tag.find('}') else {
+                return Err("help_template has a `{$` with no `}` after it".to_string());
+            };
+            let specification = &tag[2..end];
+            let unknown = specification.split('+').find(|fragment| {
+                !matches!(
+                    *fragment,
+                    "heading"
+                        | "option"
+                        | "metavar"
+                        | "black"
+                        | "red"
+                        | "green"
+                        | "yellow"
+                        | "blue"
+                        | "magenta"
+                        | "cyan"
+                        | "white"
+                        | "bright-black"
+                        | "bright-red"
+                        | "bright-green"
+                        | "bright-yellow"
+                        | "bright-blue"
+                        | "bright-magenta"
+                        | "bright-cyan"
+                        | "bright-white"
+                        | "bold"
+                        | "dim"
+                        | "italic"
+                        | "underline"
+                )
+            });
+            if let Some(unknown) = unknown {
+                return Err(format!(
+                    "help_template names no style \"{unknown}\"; use heading, option, metavar, \
+                     an ANSI colour, bright-<colour>, bold, dim, italic or underline"
+                ));
+            }
+            if specification.is_empty() {
+                return Err("help_template has an empty style tag `{$}`".to_string());
+            }
+            depth += 1;
+            rest = &tag[end + 1..];
+        } else {
+            if depth == 0 {
+                return Err("help_template has a `{/$}` with no open style tag".to_string());
+            }
+            depth -= 1;
+            rest = &tag[4..];
+        }
+    }
+    if depth == 0 {
+        Ok(())
+    } else {
+        Err("help_template has a style tag with no `{/$}` after it".to_string())
+    }
 }
 
 /// A page's runs of blank lines, each reduced to a single blank line.
@@ -169,6 +263,19 @@ mod tests {
             (name == "usage").then(|| "Usage: ex".to_string())
         });
         assert_eq!(filled, "[Usage: ex]{{ nope }}");
+    }
+
+    #[test]
+    fn colour_markup_is_checked_and_removed_from_plain_pages() {
+        assert!(check("{$heading}Usage:{/$} {{usage}}").is_ok());
+        assert!(check("{$orange}no{/$}").is_err());
+        assert!(check("{$red}unclosed").is_err());
+        assert!(check("orphan{/$}").is_err());
+
+        let filled = substitute("{$heading}Custom{/$}\n{{about}}", |_| {
+            Some("Literal {$red} prose".to_string())
+        });
+        assert_eq!(filled, "Custom\nLiteral {$red} prose");
     }
 
     #[test]

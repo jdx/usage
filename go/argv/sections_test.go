@@ -261,6 +261,20 @@ func TestAPlaceholderNamingNoSectionIsLeftAlone(t *testing.T) {
 	}
 }
 
+func TestAPlainGoPageStripsTemplateColourMarkupOnly(t *testing.T) {
+	root := &Command{Name: "ex", Key: 1}
+	spec := HelpSpec{
+		Name:         "ex",
+		Bin:          "ex",
+		About:        "Literal {$red} prose",
+		HelpTemplate: "{$heading}Custom help{/$}\n\n{{about}}\n\n{{usage}}",
+	}
+	got := ShortHelp(spec, []string{"ex"}, []*Command{root}, HelpTable{})
+	if !strings.HasPrefix(got, "Custom help\n\nLiteral {$red} prose\n\nUsage: ex") {
+		t.Fatalf("template markup was not stripped independently of section prose:\n%s", got)
+	}
+}
+
 func TestTheSectionVocabularyMatchesThePortableTemplate(t *testing.T) {
 	want := []string{
 		"about", "usage", "commands", "args", "flags",

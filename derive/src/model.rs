@@ -4291,6 +4291,7 @@ const HELP_SECTIONS: [&str; 10] = [
 
 /// Whether every `{{…}}` in a template names a section.
 fn check_help_template(template: &str) -> Result<(), String> {
+    check_help_template_styles(template)?;
     let mut rest = template;
     while let Some(at) = rest.find("{{") {
         let after = &rest[at + 2..];
@@ -4312,6 +4313,77 @@ fn check_help_template(template: &str) -> Result<(), String> {
         rest = &after[end + 2..];
     }
     Ok(())
+}
+
+fn check_help_template_styles(template: &str) -> Result<(), String> {
+    let mut rest = template;
+    let mut depth = 0usize;
+    while let Some((at, opening)) = {
+        let opening = rest.find("{$").map(|at| (at, true));
+        let closing = rest.find("{/$}").map(|at| (at, false));
+        match (opening, closing) {
+            (Some(left), Some(right)) => Some(if left.0 <= right.0 { left } else { right }),
+            (left, right) => left.or(right),
+        }
+    } {
+        let tag = &rest[at..];
+        if opening {
+            let Some(end) = tag.find('}') else {
+                return Err("`help_template` has a `{$` with no `}` after it".to_string());
+            };
+            let specification = &tag[2..end];
+            let unknown = specification.split('+').find(|fragment| {
+                !matches!(
+                    *fragment,
+                    "heading"
+                        | "option"
+                        | "metavar"
+                        | "black"
+                        | "red"
+                        | "green"
+                        | "yellow"
+                        | "blue"
+                        | "magenta"
+                        | "cyan"
+                        | "white"
+                        | "bright-black"
+                        | "bright-red"
+                        | "bright-green"
+                        | "bright-yellow"
+                        | "bright-blue"
+                        | "bright-magenta"
+                        | "bright-cyan"
+                        | "bright-white"
+                        | "bold"
+                        | "dim"
+                        | "italic"
+                        | "underline"
+                )
+            });
+            if let Some(unknown) = unknown {
+                return Err(format!(
+                    "`help_template` names no style `{unknown}`; use heading, option, metavar, \
+                     an ANSI colour, bright-<colour>, bold, dim, italic or underline"
+                ));
+            }
+            if specification.is_empty() {
+                return Err("`help_template` has an empty style tag `{$}`".to_string());
+            }
+            depth += 1;
+            rest = &tag[end + 1..];
+        } else {
+            if depth == 0 {
+                return Err("`help_template` has a `{/$}` with no open style tag".to_string());
+            }
+            depth -= 1;
+            rest = &tag[4..];
+        }
+    }
+    if depth == 0 {
+        Ok(())
+    } else {
+        Err("`help_template` has a style tag with no `{/$}` after it".to_string())
+    }
 }
 
 /// A Rust expression whose result must be usable as `&'static str` in the
@@ -6709,6 +6781,14 @@ mod tests {
         assert!(err.contains("`{{flags}}`"), "unhelpful: {err}");
         assert!(
             rejection(r#"#[usage(help_template = "{{about")] struct Root {}"#).contains("`}}`"),
+        );
+
+        assert!(
+            rejection(r#"#[usage(help_template = "{$orange}no{/$}")] struct Root {}"#)
+                .contains("orange"),
+        );
+        assert!(
+            rejection(r#"#[usage(help_template = "{$red}no")] struct Root {}"#).contains("`{/$}`"),
         );
 
         let parsed = cli(r#"#[usage(help_template = "{{ about }}\n{{usage}}")] struct Root {}"#)

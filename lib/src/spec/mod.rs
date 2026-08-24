@@ -106,11 +106,10 @@ pub struct Spec {
     pub after_help_long: Option<String>,
     /// How every page in this CLI is laid out, as named sections.
     ///
-    /// One template for the whole tree, holding the six pre-rendered sections — `{{about}}`,
-    /// `{{usage}}`, `{{commands}}`, `{{args}}`, `{{flags}}`, `{{after_help}}` — which an author
-    /// may reorder, omit or wrap in text of their own. Nothing else is substituted: a closed
-    /// vocabulary is what lets an interpreter, a compiled parser and a generated Go program
-    /// agree on where a section starts and ends rather than on a template language's semantics.
+    /// One template for the whole tree, holding the pre-rendered sections an author may reorder,
+    /// omit, wrap or colour. Nothing else is substituted: the closed section and style
+    /// vocabularies let an interpreter, a compiled parser and generated Go agree without
+    /// exposing the metadata behind a section.
     ///
     /// A placeholder naming no section is refused when the spec is read, so a page is never
     /// rendered from a template one of whose sections cannot be filled.
