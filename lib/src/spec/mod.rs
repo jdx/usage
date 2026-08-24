@@ -898,17 +898,34 @@ fn flag_matches_selector(flag: &SpecFlag, selector: &str) -> bool {
 }
 
 fn check_usage_version(version: &str) {
-    let cur = versions::Versioning::new(env!("CARGO_PKG_VERSION")).unwrap();
-    match versions::Versioning::new(version) {
-        Some(v) => {
+    let cur = semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+    match parse_usage_version(version) {
+        Ok(v) => {
             if cur < v {
                 warn!(
                     "This usage spec requires at least version {version}, but you are using version {cur} of usage"
                 );
             }
         }
-        _ => warn!("Invalid version: {version}"),
+        Err(_) => warn!("Invalid version: {version}"),
     }
+}
+
+/// Parse the relaxed SemVer spelling accepted by `min_usage_version`.
+///
+/// Specs have historically used versions such as `4.0`, while the SemVer crate correctly
+/// requires all three numeric components. Fill in omitted components before parsing without
+/// accepting any other non-SemVer syntax.
+fn parse_usage_version(version: &str) -> Result<semver::Version, semver::Error> {
+    let core_end = version.find(['-', '+']).unwrap_or(version.len());
+    let (core, suffix) = version.split_at(core_end);
+    let missing = match core.matches('.').count() {
+        0 => ".0.0",
+        1 => ".0",
+        _ => "",
+    };
+
+    semver::Version::parse(&format!("{core}{missing}{suffix}"))
 }
 
 /// Read a file, keeping its path in the error.
@@ -1355,6 +1372,24 @@ pub fn is_false(b: &bool) -> bool {
 mod tests {
     use super::*;
     use insta::assert_snapshot;
+
+    #[test]
+    fn parses_relaxed_usage_versions_as_semver() {
+        assert_eq!(
+            parse_usage_version("6").unwrap(),
+            semver::Version::new(6, 0, 0)
+        );
+        assert_eq!(
+            parse_usage_version("6.1").unwrap(),
+            semver::Version::new(6, 1, 0)
+        );
+        assert_eq!(
+            parse_usage_version("6.1.2-beta.1+build").unwrap(),
+            semver::Version::parse("6.1.2-beta.1+build").unwrap()
+        );
+        assert!(parse_usage_version("not-a-version").is_err());
+        assert!(parse_usage_version("6.1.2.3").is_err());
+    }
 
     #[test]
     fn test_display() {
