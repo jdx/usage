@@ -2438,7 +2438,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
 ///
 /// `None` when the command is not in this spec, which means the two came from different CLIs.
 pub fn find<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     cmd: &Command<'_>,
 ) -> Option<(Vec<&'a str>, Vec<&'a CommandMeta<'a>>)> {
     fn walk<'a>(

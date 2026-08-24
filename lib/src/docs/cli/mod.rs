@@ -4,7 +4,7 @@ use tera::Tera;
 
 pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
     // Convert to docs models to get layout calculations
-    let docs_spec = crate::docs::models::Spec::from(spec.clone());
+    let docs_spec = crate::docs::models::Spec::from(spec);
     let mut docs_cmd = crate::docs::models::SpecCommand::from(&without_hidden(cmd, long));
 
     let mut ctx = tera::Context::new();

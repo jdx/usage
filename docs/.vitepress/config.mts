@@ -67,6 +67,7 @@ export default defineConfig({
           { text: "Args and Flags", link: "/rust/args-and-flags" },
           { text: "Updating Values", link: "/rust/update-from" },
           { text: "Subcommands", link: "/rust/subcommands" },
+          { text: "Dynamic Commands", link: "/rust/dynamic-commands" },
           { text: "Dispatch", link: "/rust/dispatch" },
           { text: "Validation", link: "/rust/validation" },
           { text: "Help, Version, and Errors", link: "/rust/help" },

@@ -156,6 +156,22 @@ pub struct Spec {
 }
 
 impl Spec {
+    /// Recompute everything a command's position in this tree decides, after building one by
+    /// hand: each command's path, its usage line, and the memoized subcommand lookup.
+    ///
+    /// A `SpecCommand` inserted into `subcommands` carries the path it had wherever it came
+    /// from — a spec of its own, most likely, where it was the root and its path was empty. Its
+    /// help page would say so. So would its parent's, which gains a `<SUBCOMMAND>` placeholder
+    /// the first time it acquires a child. Call this after grafting, and the tree is
+    /// indistinguishable from one that declared the same commands in KDL.
+    ///
+    /// The alternative — writing the tree out and parsing it back, which is how this was reached
+    /// before — costs a KDL round trip of the whole spec. For a large one that is a quarter of a
+    /// second to fix up strings.
+    pub fn restamp(&mut self) {
+        restamp_paths(&mut self.cmd, &[], true);
+    }
+
     /// Resolve every mount from supplied command outputs without spawning processes.
     ///
     /// This is intended for deterministic generators and conformance harnesses. The
@@ -931,6 +947,23 @@ fn extract_usage_from_comments(full: &str) -> String {
 }
 
 fn set_subcommand_ancestors(cmd: &mut SpecCommand, ancestors: &[String]) {
+    restamp_paths(cmd, ancestors, false);
+}
+
+/// Recompute what a command's position in the tree decides: its path, its usage line, and the
+/// lookup that answers to its subcommands' names and aliases.
+///
+/// A command does not know where it sits — `full_cmd` is stamped onto it by whoever assembled
+/// the tree, `usage` is rendered from that path, and `find_subcommand` memoizes what it found.
+/// Move a command, or graft one in, and all three describe where it used to be. This is the pass
+/// that fixes them, and the only one: a tree built by hand is otherwise as stale as one built by
+/// hand always was, which is why building one used to mean writing it out as KDL and parsing it
+/// back.
+///
+/// `force` says whether a usage line that is already there is trusted. Parsing writes them as it
+/// goes and only wants the blanks filled; a graft brings a subtree whose lines are all correct
+/// for the spec it came from and all wrong here.
+fn restamp_paths(cmd: &mut SpecCommand, ancestors: &[String], force: bool) {
     for subcmd in cmd.subcommands.values_mut() {
         subcmd.full_cmd = ancestors
             .iter()
@@ -938,9 +971,14 @@ fn set_subcommand_ancestors(cmd: &mut SpecCommand, ancestors: &[String]) {
             .chain(once(subcmd.name.clone()))
             .collect();
         let child_ancestors = subcmd.full_cmd.clone();
-        set_subcommand_ancestors(subcmd, &child_ancestors);
+        restamp_paths(subcmd, &child_ancestors, force);
     }
-    if cmd.usage.is_empty() {
+    if force {
+        // The lookup memoizes names *and* aliases, so a grafted sibling is missing from it and a
+        // removed one is still in it. Dropping it costs the next lookup and nothing else.
+        cmd.reset_subcommand_lookup();
+        cmd.usage = cmd.usage();
+    } else if cmd.usage.is_empty() {
         cmd.usage = cmd.usage();
     }
 }
@@ -1260,6 +1298,28 @@ impl From<&clap::Command> for Spec {
         // empty — and `SpecCommand::usage()` joins `full_cmd`, so their usage lines came out
         // blank. Now they say what a user would type.
         set_subcommand_ancestors(&mut spec.cmd, &[]);
+        spec
+    }
+}
+
+/// A spec wrapping one command, for command trees built in Rust rather than parsed from KDL.
+///
+/// The command's own `name` becomes the spec's `name` and `bin`, and its `help` becomes the
+/// spec's `about` — the same correspondence `usage-dynamic` applies in the other direction when
+/// it grafts a spec into a host as a command.
+impl From<SpecCommand> for Spec {
+    fn from(cmd: SpecCommand) -> Self {
+        let mut spec = Self {
+            name: cmd.name.clone(),
+            bin: cmd.name.clone(),
+            about: cmd.help.clone(),
+            about_long: cmd.help_long.clone(),
+            cmd,
+            ..Self::default()
+        };
+        // A built tree has never been stamped: nested commands do not know their paths, so
+        // their usage lines are missing the words a user would type.
+        spec.restamp();
         spec
     }
 }
@@ -2112,5 +2172,70 @@ echo "hello"
         spec.resolve_mount_outputs(&outputs).unwrap();
 
         assert!(spec.cmd.subcommands.contains_key("leaf"));
+    }
+
+    #[test]
+    fn restamping_a_grafted_tree_matches_writing_it_out_and_reading_it_back() {
+        // The claim the whole thing rests on: grafting a command in and restamping produces the
+        // tree a spec declaring the same commands would have parsed to. If it ever stops being
+        // true, the cheap path is silently wrong rather than slow.
+        let host: Spec =
+            "name \"host\"\nbin \"host\"\ncmd \"plugins\" {\n  external_subcommand #true\n}\n"
+                .parse()
+                .unwrap();
+        let plugin: Spec =
+            "name \"formatter\"\nbin \"formatter\"\narg \"[path]\"\ncmd \"check\" {\n  flag \"--fix\"\n}\n"
+                .parse()
+                .unwrap();
+
+        let mut grafted = host.clone();
+        grafted
+            .cmd
+            .subcommands
+            .get_mut("plugins")
+            .unwrap()
+            .subcommands
+            .insert("formatter".to_string(), plugin.cmd.clone());
+        grafted.restamp();
+
+        let reparsed: Spec = grafted.to_string().parse().unwrap();
+        let path = |spec: &Spec, words: &[&str]| {
+            let mut cmd = &spec.cmd;
+            for word in words {
+                cmd = cmd.find_subcommand(word).unwrap();
+            }
+            (cmd.full_cmd.clone(), cmd.usage.clone())
+        };
+        for words in [
+            &[][..],
+            &["plugins"],
+            &["plugins", "formatter"],
+            &["plugins", "formatter", "check"],
+        ] {
+            assert_eq!(
+                path(&grafted, words),
+                path(&reparsed, words),
+                "at {words:?}"
+            );
+        }
+
+        // Specifically: the plugin no longer claims to be a root, and its new parent has
+        // learned that it takes a subcommand at all.
+        assert_eq!(
+            path(&grafted, &["plugins", "formatter"]).0,
+            ["plugins", "formatter"]
+        );
+        assert!(
+            path(&grafted, &["plugins"]).1.contains("<SUBCOMMAND>"),
+            "{:?}",
+            path(&grafted, &["plugins"]).1
+        );
+        // And the memoized lookup answers for what is there now, aliases included.
+        assert!(grafted
+            .cmd
+            .find_subcommand("plugins")
+            .unwrap()
+            .find_subcommand("formatter")
+            .is_some());
     }
 }

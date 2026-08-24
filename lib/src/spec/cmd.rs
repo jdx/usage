@@ -670,9 +670,9 @@ impl SpecCommand {
         self.usage_with_subcommands(true)
     }
 
-    // `docs` only, like `SpecChoices::for_help`: the usage line without the subcommand
+    // `cli-help` only, like `SpecChoices::for_help`: the usage line without the subcommand
     // placeholder is a help-page shape, and nothing else asks for it.
-    #[cfg(feature = "docs")]
+    #[cfg(feature = "cli-help")]
     pub(crate) fn usage_without_subcommands(&self) -> String {
         self.usage_with_subcommands(false)
     }
@@ -727,6 +727,14 @@ impl SpecCommand {
         }
         usage.trim().to_string()
     }
+    /// Forget which subcommands this command was asked for.
+    ///
+    /// `find_subcommand` memoizes names and aliases into a `OnceLock`, so anything that adds or
+    /// removes a subcommand has to say so or the lookup keeps answering for the old set.
+    pub(crate) fn reset_subcommand_lookup(&mut self) {
+        self.subcommand_lookup = OnceLock::new();
+    }
+
     pub(crate) fn merge(&mut self, other: Self) {
         // Merging can add subcommands and aliases, and `find_subcommand` memoizes
         // its lookup into a OnceLock — so the cache has to go, or a name that

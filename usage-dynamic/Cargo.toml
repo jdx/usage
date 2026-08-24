@@ -1,0 +1,23 @@
+[package]
+name = "usage-dynamic"
+description = "Runtime command catalogs for usage-rs applications"
+version = "6.1.1"
+edition = "2021"
+rust-version = "1.95"
+homepage = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+usage-argv = { workspace = true, features = ["spec", "complete"] }
+usage-parser = { package = "usage-lib", path = "../lib", version = "6.1.1", default-features = false, features = ["cli-help"] }
+
+[package.metadata.release]
+shared-version = true
+release = true
+
+[dev-dependencies]
+futures = "0.3"
+usage-rs = { workspace = true, features = ["completions"] }

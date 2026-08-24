@@ -1,3 +1,4 @@
+#[cfg(feature = "docs")]
 use crate::docs::markdown::MarkdownRenderer;
 use crate::spec::effect::SpecCommandEffect;
 use crate::{SpecAdmonition, SpecChoices};
@@ -240,6 +241,7 @@ pub struct SpecConfigChoice {
 }
 
 impl SpecConfig {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -255,12 +257,14 @@ impl SpecConfig {
         }
     }
 
+    #[cfg(feature = "docs")]
     pub fn is_empty(&self) -> bool {
         self.props.is_empty() && self.files.is_empty()
     }
 }
 
 impl SpecConfigProp {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -543,9 +547,18 @@ fn fold_outputs(
 
 impl From<crate::Spec> for Spec {
     fn from(spec: crate::Spec) -> Self {
+        Self::from(&spec)
+    }
+}
+
+impl From<&crate::Spec> for Spec {
+    fn from(spec: &crate::Spec) -> Self {
+        // One clone, because folding rewrites every command's effective outputs and the
+        // caller's spec is not ours to change. Taking a reference is what keeps this to one:
+        // rendering a help page used to clone at the call site and again right here.
         let spec = {
             let mut folded = spec.clone();
-            fold_outputs(&spec, &mut folded.cmd, &mut Vec::new());
+            fold_outputs(spec, &mut folded.cmd, &mut Vec::new());
             folded
         };
         Self {
@@ -1081,6 +1094,7 @@ impl From<&crate::SpecArg> for SpecArg {
 }
 
 impl Spec {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1098,6 +1112,7 @@ impl Spec {
 }
 
 impl SpecCommand {
+    #[cfg(feature = "docs")]
     pub fn all_subcommands(&self) -> Vec<&SpecCommand> {
         let mut cmds = vec![];
         for cmd in self.subcommands.values() {
@@ -1107,6 +1122,7 @@ impl SpecCommand {
         cmds
     }
 
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1148,6 +1164,7 @@ impl SpecCommand {
     /// Rebuild the grouped views from `flags` and `args`.
     ///
     /// Anything that mutates either list has to call this, or the groups go stale.
+    #[cfg(feature = "docs")]
     fn regroup(&mut self) {
         self.flag_groups = group_by_heading(&self.flags, |f| f.help_heading.as_deref());
         self.arg_groups = group_by_heading(&self.args, |a| a.help_heading.as_deref());
@@ -1155,6 +1172,7 @@ impl SpecCommand {
 }
 
 impl SpecFlag {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1176,6 +1194,7 @@ impl SpecFlag {
 }
 
 impl SpecArg {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;
@@ -1190,6 +1209,7 @@ impl SpecArg {
 }
 
 impl SpecExample {
+    #[cfg(feature = "docs")]
     pub fn render_md(&mut self, renderer: &MarkdownRenderer) {
         if self.rendered {
             return;

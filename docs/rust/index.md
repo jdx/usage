@@ -72,13 +72,14 @@ derive's compiler, which runs at build time ([comparison with clap](/rust/migrat
 `usage-rs` is a facade. Applications should depend on it alone. The split underneath stays
 available for low-level adopters that want a thinner surface:
 
-| Crate          | Role                                                                                                                 |
-| -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `usage-rs`     | The one package an application depends on; re-exports the whole runtime                                              |
-| `usage-derive` | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`, `ArgGroup`, and `Config` (behind the `config` feature) |
-| `usage-argv`   | The zero-allocation, zero-dependency runtime the derive emits code against                                           |
-| `usage-test`   | Test helpers: what a command line parses to, what a page says, what a shell is offered                               |
-| `usage-config` | Layered settings resolution with provenance ([Configuration](/rust/configuration))                                   |
+| Crate           | Role                                                                                                                 |
+| --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `usage-rs`      | The one package an application depends on; re-exports the whole runtime                                              |
+| `usage-derive`  | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`, `ArgGroup`, and `Config` (behind the `config` feature) |
+| `usage-argv`    | The zero-allocation, zero-dependency runtime the derive emits code against                                           |
+| `usage-test`    | Test helpers: what a command line parses to, what a page says, what a shell is offered                               |
+| `usage-config`  | Layered settings resolution with provenance ([Configuration](/rust/configuration))                                   |
+| `usage-dynamic` | Commands discovered at runtime, merged into help and completion ([Dynamic commands](/rust/dynamic-commands))         |
 
 ### Cargo features
 
@@ -150,6 +151,7 @@ how to opt out of the endpoint.
 - [Args and flags](/rust/args-and-flags) — field types, attributes, env vars, defaults
 - [Updating values](/rust/update-from) — merge another command line into an existing value
 - [Subcommands](/rust/subcommands) — command enums, nesting, `flatten`, value enums
+- [Dynamic commands](/rust/dynamic-commands) — commands discovered at runtime, in help and completion
 - [Dispatch](/rust/dispatch) — `Run`, `RunWith`, the async pair, and the generated `match`
 - [Validation](/rust/validation) — choices, groups, `exclusive`, `delimiter`, conflicts, portable `validate`
 - [Help, version, and errors](/rust/help) — what the parser renders and how to hook it

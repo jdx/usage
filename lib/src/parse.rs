@@ -8,7 +8,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use strum::EnumTryAs;
 
-#[cfg(feature = "docs")]
+#[cfg(feature = "cli-help")]
 use crate::docs;
 use crate::error::UsageErr;
 use crate::spec::arg::SpecDoubleDashChoices;
@@ -3192,12 +3192,12 @@ fn apply_flag_overrides(
     attributed.remove(&flag.name);
 }
 
-#[cfg(feature = "docs")]
+#[cfg(feature = "cli-help")]
 fn render_help_err(spec: &Spec, cmd: &SpecCommand, long: bool) -> UsageErr {
     UsageErr::Help(docs::cli::render_help(spec, cmd, long))
 }
 
-#[cfg(feature = "docs")]
+#[cfg(feature = "cli-help")]
 fn render_help_all_err(spec: &Spec, cmd: &SpecCommand) -> UsageErr {
     fn append(out: &mut String, spec: &Spec, cmd: &SpecCommand) {
         if !out.is_empty() {
@@ -3220,12 +3220,12 @@ fn render_help_all_err(spec: &Spec, cmd: &SpecCommand) -> UsageErr {
     UsageErr::Help(out)
 }
 
-#[cfg(not(feature = "docs"))]
+#[cfg(not(feature = "cli-help"))]
 fn render_help_err(_spec: &Spec, _cmd: &SpecCommand, _long: bool) -> UsageErr {
     UsageErr::Help("help".to_string())
 }
 
-#[cfg(not(feature = "docs"))]
+#[cfg(not(feature = "cli-help"))]
 fn render_help_all_err(_spec: &Spec, _cmd: &SpecCommand) -> UsageErr {
     UsageErr::Help("help".to_string())
 }

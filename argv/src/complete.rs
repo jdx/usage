@@ -70,6 +70,16 @@ pub struct Position<'t> {
     /// Taken from the parser rather than gathered again, so what is offered is what would be
     /// accepted — shadowing included.
     pub flags: Vec<&'t Flag<'t>>,
+    /// Where the words left these tables for a program they do not describe, as an index into
+    /// the words `walk` was given: the external command's own word.
+    ///
+    /// `Some` only past an [`external_subcommand`](Command::external_subcommand) catch-all,
+    /// which forwards that word and everything after it. [`cmd`](Self::cmd) is still the
+    /// command that declared the catch-all — it is what the words selected — but the rest of
+    /// this position describes *that* command, and nothing it says is true of the forwarded
+    /// program. Whoever knows what the external name means answers from there; whoever does
+    /// not offers nothing.
+    pub external: Option<usize>,
 }
 
 /// Walk the words before the cursor, and report what the cursor is at.
@@ -102,6 +112,7 @@ pub fn walk_view<'t>(
     let mut position = walk_inner(root, &projected, Some(view));
     let original_index = |index: usize| index.saturating_sub(count);
     position.command_start = original_index(position.command_start);
+    position.external = position.external.map(original_index);
     for (_, start) in &mut position.path {
         *start = original_index(*start);
     }
@@ -121,6 +132,7 @@ fn walk_inner<'t>(
     let mut awaiting_value = None;
     let mut last_arg = None;
     let mut last_arg_values = 0u32;
+    let mut external = None;
 
     while let Some(event) = parser.next_event() {
         match event {
@@ -131,6 +143,12 @@ fn walk_inner<'t>(
                     last_arg = Some(arg);
                     last_arg_values = 1;
                 }
+            }
+            // The words named a command these tables do not describe. Everything from that
+            // word on was forwarded in one go, so where it began is what is left of the line
+            // to say — the parser is finished either way.
+            Ok(crate::Event::External { values }) => {
+                external = Some(argv.len() - values.len());
             }
             Ok(_) => {}
             // The one error that says something about the cursor rather than about the line:
@@ -157,6 +175,7 @@ fn walk_inner<'t>(
                     command_start: 0,
                     help_topic: true,
                     flags: Vec::new(),
+                    external: None,
                 }
             }
             Err(_) => break,
@@ -179,6 +198,7 @@ fn walk_inner<'t>(
         command_start: parser.command_start(),
         help_topic: false,
         flags: parser.flags_in_scope().collect(),
+        external,
     }
 }
 
@@ -193,7 +213,7 @@ fn walk_inner<'t>(
 /// reference resolves a `complete` block by, so the two agree about which completer a `run=`
 /// belongs to. `None` when nothing of that name declares one.
 pub fn for_name<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     name: &str,
     ctx: &CompleteCtx<'_>,
 ) -> Option<Vec<Candidate<'static>>> {
@@ -203,7 +223,7 @@ pub fn for_name<'a>(
 
 /// Answer for a named completer through an executable view.
 pub fn for_name_view<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     name: &str,
     ctx: &CompleteCtx<'_>,
     view: &'a crate::spec::ViewMeta<'a>,
@@ -213,7 +233,7 @@ pub fn for_name_view<'a>(
 }
 
 fn for_name_at<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     name: &str,
     ctx: &CompleteCtx<'_>,
     reached: &Position<'a>,
@@ -450,7 +470,7 @@ impl core::fmt::Display for CompletionTrace<'_> {
 }
 
 /// Explain a completion answer using the same parser walk and tables that produced it.
-pub fn trace<'a>(spec: &'a Spec<'a>, split: &Split) -> CompletionTrace<'a> {
+pub fn trace<'a>(spec: &Spec<'a>, split: &Split) -> CompletionTrace<'a> {
     let position = walk(spec.root.cmd, split.argv());
     let answer = complete(spec, split);
     trace_from(spec, split, position, answer, None)
@@ -458,7 +478,7 @@ pub fn trace<'a>(spec: &'a Spec<'a>, split: &Split) -> CompletionTrace<'a> {
 
 /// Explain a completion answer through one executable view.
 pub fn trace_view<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     split: &Split,
     view: &'a crate::spec::ViewMeta<'a>,
 ) -> CompletionTrace<'a> {
@@ -468,7 +488,7 @@ pub fn trace_view<'a>(
 }
 
 fn trace_from<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     split: &Split,
     position: Position<'a>,
     answer: Completions<'a>,
@@ -685,8 +705,19 @@ impl<'a> App<'a> {
 
     /// Answer a hidden completion invocation, or return `None` for ordinary argv.
     pub async fn completion_request(self, argv: &[OsString]) -> Option<String> {
-        let request = Request::parse(argv)?;
-        let mut split = request.split;
+        let request = CompletionRequest::parse(argv)?;
+        let answer = self.complete_request(&request).await;
+        Some(render(&answer, request.shell))
+    }
+
+    /// The words this app actually walks: the request's, with any multicall projection spliced
+    /// in after argv0.
+    ///
+    /// A caller that has to know where in the line the cursor landed — which command it
+    /// selected, whether it left these tables — has to ask about the same words the answer was
+    /// computed from, or its indices point one projection away from where it thinks.
+    pub fn effective_split(&self, split: &Split) -> Split {
+        let mut split = split.clone();
         if let Some(path) = self.projection {
             let projected: Vec<String> =
                 path.split_ascii_whitespace().map(str::to_string).collect();
@@ -698,13 +729,21 @@ impl<'a> App<'a> {
                 split.cword += count;
             }
         }
+        split
+    }
+
+    /// The answer to a parsed request, before it is written the way a shell reads it.
+    ///
+    /// [`completion_request`](Self::completion_request) is this plus [`render`]. They are
+    /// separate for a caller that answers part of a line itself — a host whose runtime commands
+    /// these tables do not describe — and needs this half's answer as data to add to.
+    pub async fn complete_request(&self, request: &CompletionRequest) -> Completions<'a> {
+        let split = self.effective_split(&request.split);
         let spec = self.view.spec();
-        let answer = if let Some(name) = request.candidates_for {
-            complete_named_with(&spec, &split, self.overlays, &name).await
-        } else {
-            complete_with(&spec, &split, self.overlays).await
-        };
-        Some(render(&answer, request.shell))
+        match &request.candidates_for {
+            Some(name) => complete_named_with(&spec, &split, self.overlays, name).await,
+            None => complete_with(&spec, &split, self.overlays).await,
+        }
     }
 }
 
@@ -715,14 +754,49 @@ impl<'a> SpecView<'a> {
     }
 }
 
-struct Request {
-    shell: Shell,
-    split: Split,
-    candidates_for: Option<String>,
+/// What a shell asked, read off the hidden `__complete_word__` invocation.
+///
+/// The protocol is small and its own thing: five options, none of them in any CLI's tables,
+/// because a completion is not a command anybody runs. This is the one reader of it — a host
+/// that answers part of a line itself parses the request once, here, rather than keeping a
+/// second idea of what the flags mean.
+///
+/// `#[non_exhaustive]` because the protocol may grow an option; these come from
+/// [`parse`](Self::parse), never from a literal.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct CompletionRequest {
+    /// Which shell is asking, and so how the answer is written.
+    pub shell: Shell,
+    /// The line, split the way that shell splits it, with the cursor's word singled out.
+    pub split: Split,
+    /// The single named completer being asked for, when a spec's `run=` line asked for one
+    /// rather than for everything the cursor could take.
+    pub candidates_for: Option<String>,
 }
 
-impl Request {
-    fn parse(argv: &[OsString]) -> Option<Self> {
+impl CompletionRequest {
+    /// A request for a line that is already split, with everything else defaulted.
+    ///
+    /// For a caller holding a [`Split`] rather than the argv a shell passed — a host answering
+    /// part of a line itself, a test asking what a position offers.
+    pub const fn for_split(split: Split) -> Self {
+        Self {
+            shell: Shell::Bash,
+            split,
+            candidates_for: None,
+        }
+    }
+
+    /// Read a completion request, or return `None` for ordinary argv.
+    ///
+    /// `None` is the load-bearing case: it is what tells a `main` that this is a real
+    /// invocation and the parse should go ahead.
+    ///
+    /// Unknown options are ignored rather than refused. A stale generated script asking with a
+    /// flag this version dropped should still complete something; a beeping shell is worse than
+    /// an ignored word.
+    pub fn parse(argv: &[OsString]) -> Option<Self> {
         if argv.first()?.to_str()? != "__complete_word__" {
             return None;
         }
@@ -1071,13 +1145,13 @@ fn declared_files_at_cursor(
 ///
 /// Hidden things are never offered, in any branch. What is *not* here yet: the file fallback
 /// for a word nothing is known about, and the `run=` completions a spec can declare.
-pub fn complete<'a>(spec: &'a Spec<'a>, split: &Split) -> Completions<'a> {
+pub fn complete<'a>(spec: &Spec<'a>, split: &Split) -> Completions<'a> {
     complete_inner(spec, split, None)
 }
 
 /// Complete through an executable view, omitting root globals it does not carry.
 pub fn complete_view<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     split: &Split,
     view: &'a crate::spec::ViewMeta<'a>,
 ) -> Completions<'a> {
@@ -1085,7 +1159,7 @@ pub fn complete_view<'a>(
 }
 
 fn complete_inner<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     split: &Split,
     view: Option<&'a crate::spec::ViewMeta<'a>>,
 ) -> Completions<'a> {
@@ -1093,6 +1167,17 @@ fn complete_inner<'a>(
         Some(view) => walk_view(spec.root.cmd, split.argv(), view),
         None => walk(spec.root.cmd, split.argv()),
     };
+    // Past an external catch-all the cursor is inside another program's line, and these tables
+    // describe none of it. The command that declared the catch-all still has subcommands, flags
+    // and an unfilled positional to report, and every one of them would be an answer about the
+    // wrong CLI. Nothing is the honest answer — including no working directory, which would
+    // claim paths belong somewhere only the external program knows.
+    if position.external.is_some() {
+        return Completions {
+            candidates: Vec::new(),
+            files: None,
+        };
+    }
     let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
     let attached = attached_long_value(&position, token);
@@ -1192,7 +1277,7 @@ fn complete_inner<'a>(
 ///
 /// No future or callback is created until a completion request reaches a field with an overlay.
 pub async fn complete_with<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     split: &Split,
     overlays: &[CompletionOverlay<'_>],
 ) -> Completions<'a> {
@@ -1235,7 +1320,7 @@ pub async fn complete_with<'a>(
 }
 
 async fn complete_named_with<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     split: &Split,
     overlays: &[CompletionOverlay<'_>],
     name: &str,
@@ -1328,7 +1413,11 @@ fn overlay_at_cursor<'o>(
     overlays: &'o [CompletionOverlay<'_>],
 ) -> Option<&'o CompletionOverlay<'o>> {
     let attached = attached_long_value(position, &split.prefix);
+    // The external case is the same rule as the flag one: past a catch-all the position reports
+    // the parent's unfilled positional, and firing that positional's completer against another
+    // program's line answers a question nobody asked.
     if split.cword == 0
+        || position.external.is_some()
         || (position.awaiting_value.is_none()
             && attached.is_none()
             && position.flags_possible
@@ -1408,7 +1497,7 @@ fn overlay_at_cursor<'o>(
 }
 
 fn flag_meta_owner_on_route<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     position: &Position<'_>,
     flag: &Flag<'_>,
 ) -> Option<(&'a CommandMeta<'a>, &'a FlagMeta<'a>)> {
@@ -1423,7 +1512,7 @@ fn flag_meta_owner_on_route<'a>(
 }
 
 fn arg_meta_owner_on_route<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     position: &Position<'_>,
     arg: &Arg<'_>,
 ) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>)> {
@@ -1438,7 +1527,7 @@ fn arg_meta_owner_on_route<'a>(
 }
 
 fn default_subcommand_arg<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     split: &Split,
     position: &Position<'_>,
 ) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>)> {
@@ -1456,7 +1545,7 @@ fn default_subcommand_arg<'a>(
 /// The metadata route selected by the parser, preserving parent identity even when two
 /// wrappers reuse the same nested command tables.
 fn metadata_chain_on_route<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     position: &Position<'_>,
 ) -> Option<Vec<&'a CommandMeta<'a>>> {
     if position.path.is_empty() {
@@ -1476,12 +1565,12 @@ fn metadata_chain_on_route<'a>(
 }
 
 /// Just the candidates this CLI knows about, without the question of paths.
-pub fn candidates<'a>(spec: &'a Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
+pub fn candidates<'a>(spec: &Spec<'a>, split: &Split) -> Vec<Candidate<'a>> {
     candidates_inner(spec, split, None)
 }
 
 fn candidates_inner<'a>(
-    spec: &'a Spec<'a>,
+    spec: &Spec<'a>,
     split: &Split,
     view: Option<&'a crate::spec::ViewMeta<'a>>,
 ) -> Vec<Candidate<'a>> {
@@ -1489,6 +1578,10 @@ fn candidates_inner<'a>(
         Some(view) => walk_view(spec.root.cmd, split.argv(), view),
         None => walk(spec.root.cmd, split.argv()),
     };
+    // See `complete_inner`: nothing these tables hold describes the forwarded program.
+    if position.external.is_some() {
+        return Vec::new();
+    }
     let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
 
@@ -1635,7 +1728,7 @@ fn subcommands<'a>(meta: &'a CommandMeta<'a>, token: &str) -> Vec<Candidate<'a>>
 }
 
 /// The long forms of every flag in scope, and the negations of those that have one.
-fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
+fn long_flags<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
     let mut out = Vec::new();
     for flag in &position.flags {
         let meta = flag_meta(spec.root, flag);
@@ -1688,7 +1781,7 @@ fn long_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> V
 ///
 /// A token of `-x` is asking about the letter `x`, so only that letter's flag is offered:
 /// bundling means anything else would be a candidate for a different position in the token.
-fn short_flags<'a>(spec: &'a Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
+fn short_flags<'a>(spec: &Spec<'a>, position: &Position<'_>, token: &str) -> Vec<Candidate<'a>> {
     let wanted = token.as_bytes().get(1).copied();
     let mut out = Vec::new();
     for flag in &position.flags {
@@ -3835,7 +3928,7 @@ mod tests {
             OsString::from("run"),
             OsString::from("two words"),
         ];
-        let request = Request::parse(&argv).expect("a completion request");
+        let request = CompletionRequest::parse(&argv).expect("a completion request");
         assert_eq!(request.shell, Shell::Elvish);
         assert_eq!(request.split.words, ["mise", "run", "two words"]);
         assert_eq!(request.split.cword, 2);
@@ -4027,5 +4120,99 @@ mod tests {
         // Detached, the flag's own completer answers — which is the case that works.
         assert_eq!(offered("mise install --source "), ["upstream"]);
         assert_eq!(offered("mise install "), ["node", "python", "ruby"]);
+    }
+
+    static EXT_LS: Command = Command {
+        name: "ls",
+        ..Command::EMPTY
+    };
+    static EXT_QUIET: Flag = Flag {
+        key: 40,
+        name: "quiet",
+        longs: &["quiet"],
+        ..Flag::BOOL
+    };
+    static EXT_PLUGINS: Command = Command {
+        name: "plugins",
+        flags: &[&EXT_QUIET],
+        subcommands: &[&EXT_LS],
+        external_subcommand: true,
+        ..Command::EMPTY
+    };
+    static EXT_ROOT: Command = Command {
+        name: "host",
+        subcommands: &[&EXT_PLUGINS],
+        ..Command::EMPTY
+    };
+    static EXT_META_PLUGINS: CommandMeta = CommandMeta {
+        cmd: &EXT_PLUGINS,
+        subcommands: &[&CommandMeta {
+            cmd: &EXT_LS,
+            ..CommandMeta::EMPTY
+        }],
+        ..CommandMeta::EMPTY
+    };
+    static EXT_META: CommandMeta = CommandMeta {
+        cmd: &EXT_ROOT,
+        subcommands: &[&EXT_META_PLUGINS],
+        ..CommandMeta::EMPTY
+    };
+    static EXT_SPEC: Spec = Spec {
+        name: "host",
+        root: &EXT_META,
+        ..Spec::EMPTY
+    };
+
+    #[test]
+    fn a_walk_reports_where_the_words_left_these_tables() {
+        // The word after the catch-all is the boundary, and it is an index into the words the
+        // walk was given — `split.argv()`, which is argv0-less and cursor-less.
+        let split = at_end("host plugins myplugin ");
+        let position = walk(&EXT_ROOT, split.argv());
+        assert_eq!(position.external, Some(1), "{:?}", split.argv());
+        assert_eq!(position.cmd.name, "plugins", "the boundary's declarer");
+
+        // A flag of the host's own before the name is still the host's: it binds, and the name
+        // after it is still where the line left.
+        let split = at_end("host plugins --quiet myplugin ");
+        assert_eq!(walk(&EXT_ROOT, split.argv()).external, Some(2));
+
+        // The name being *typed* is not past anything. The cursor's word is excluded from the
+        // walk, so this is the ordinary "which subcommand?" position and stays static.
+        let split = at_end("host plugins mypl");
+        assert_eq!(walk(&EXT_ROOT, split.argv()).external, None);
+        let split = at_end("host plugins ");
+        assert_eq!(walk(&EXT_ROOT, split.argv()).external, None);
+
+        // A dash-prefixed word never forwards — it is a flag or an error, not a command name.
+        let split = at_end("host plugins --nope ");
+        assert_eq!(walk(&EXT_ROOT, split.argv()).external, None);
+    }
+
+    #[test]
+    fn nothing_is_offered_past_an_external_boundary() {
+        // The declarer still has a subcommand and a flag to report, and both would be answers
+        // about the wrong CLI: `myplugin` is a program these tables do not describe.
+        let answer = complete(&EXT_SPEC, &at_end("host plugins myplugin "));
+        assert!(answer.candidates.is_empty(), "{answer:?}");
+        assert_eq!(answer.files, None, "no working directory either");
+        assert!(candidates(&EXT_SPEC, &at_end("host plugins myplugin ")).is_empty());
+
+        // Including for a dash-prefixed word: the host's flags are not the plugin's.
+        let flags = complete(&EXT_SPEC, &at_end("host plugins myplugin --"));
+        assert!(flags.candidates.is_empty(), "{flags:?}");
+        assert_eq!(flags.files, None);
+
+        // The position *before* the boundary is untouched.
+        let parent = complete(&EXT_SPEC, &at_end("host plugins "));
+        assert_eq!(
+            parent
+                .candidates
+                .iter()
+                .map(|candidate| candidate.value.as_str())
+                .collect::<Vec<_>>(),
+            ["ls"],
+            "{parent:?}"
+        );
     }
 }
