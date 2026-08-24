@@ -324,6 +324,19 @@ output "json" framing="json"
         assert!(short.contains("## Output Formats"), "{short}");
         assert!(!short.contains("<details>"), "{short}");
 
+        let boundary: Spec = r#"
+name "boundary"
+output "text"
+output "json" framing="json"
+output "jsonl" framing="jsonl"
+output "xml"
+output "yaml"
+        "#
+        .parse()
+        .unwrap();
+        let boundary = MarkdownRenderer::new(boundary).render_spec().unwrap();
+        assert!(!boundary.contains("<details>"), "{boundary}");
+
         let long: Spec = r#"
 name "long"
 output "text"
