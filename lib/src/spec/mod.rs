@@ -1302,6 +1302,28 @@ impl From<&clap::Command> for Spec {
     }
 }
 
+/// A spec wrapping one command, for command trees built in Rust rather than parsed from KDL.
+///
+/// The command's own `name` becomes the spec's `name` and `bin`, and its `help` becomes the
+/// spec's `about` — the same correspondence `usage-dynamic` applies in the other direction when
+/// it grafts a spec into a host as a command.
+impl From<SpecCommand> for Spec {
+    fn from(cmd: SpecCommand) -> Self {
+        let mut spec = Self {
+            name: cmd.name.clone(),
+            bin: cmd.name.clone(),
+            about: cmd.help.clone(),
+            about_long: cmd.help_long.clone(),
+            cmd,
+            ..Self::default()
+        };
+        // A built tree has never been stamped: nested commands do not know their paths, so
+        // their usage lines are missing the words a user would type.
+        spec.restamp();
+        spec
+    }
+}
+
 #[inline]
 pub fn is_true(b: &bool) -> bool {
     *b

@@ -25,6 +25,10 @@ use usage_parser::Parser;
 
 pub use usage_parser::parse::ParseOutput;
 pub use usage_parser::Spec;
+// For command trees built in Rust rather than parsed from KDL. `Spec: From<SpecCommand>`
+// wraps a built root; the builders come along so an application defining runtime commands
+// programmatically needs no direct usage-lib dependency.
+pub use usage_parser::{SpecArgBuilder, SpecCommandBuilder, SpecFlagBuilder};
 
 /// A validated collection of caller-supplied runtime command specs.
 ///
@@ -654,8 +658,12 @@ impl<'a> Builder<'a> {
         let host = self.host.spec();
         let mut entries = Vec::with_capacity(self.pending.len());
         let mut claimed: HashMap<String, HashSet<String>> = HashMap::new();
-        for (requested_parent, spec) in self.pending {
+        for (requested_parent, mut spec) in self.pending {
             reject_mounts(&spec.cmd)?;
+            // Parsing stamps a tree; building one in Rust does not. Restamping here makes the
+            // two origins indistinguishable — for a parsed spec it recomputes what is already
+            // there — so nothing downstream has to know where a spec came from.
+            spec.restamp();
             let (parent, parent_meta) = resolve_parent(host.root, &requested_parent)?;
             if !parent_meta.cmd.external_subcommand {
                 return Err(Error::ParentNotExternal(parent));

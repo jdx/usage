@@ -713,3 +713,76 @@ fn a_builtin_never_needs_a_catalog_and_a_fallback_needs_one_spec() {
         .unwrap()
         .is_none());
 }
+
+#[test]
+fn a_spec_built_in_rust_works_like_one_parsed_from_kdl() {
+    // KDL is the contract with out-of-process plugins. Commands the application itself defines
+    // at runtime — tasks from a config file, say — should not have to render KDL text just so
+    // the catalog can parse it back. A `Spec` assembled with the builders must behave
+    // identically.
+    use usage_dynamic::{SpecArgBuilder, SpecCommandBuilder, SpecFlagBuilder};
+
+    let task: Spec = SpecCommandBuilder::new()
+        .name("deploy")
+        .help("Deploy the project")
+        .flag(
+            SpecFlagBuilder::new()
+                .name("env")
+                .long("env")
+                .arg(SpecArgBuilder::new().name("ENV").build())
+                .help("Target environment")
+                .build(),
+        )
+        .subcommand(
+            SpecCommandBuilder::new()
+                .name("status")
+                .help("Show deploy status")
+                .build(),
+        )
+        .build()
+        .into();
+    assert_eq!(task.name, "deploy");
+    assert_eq!(task.about.as_deref(), Some("Deploy the project"));
+
+    let catalog = Catalog::builder(Host::app())
+        .under("plugins", task)
+        .build()
+        .unwrap();
+
+    // Dispatch parses against the built spec, help/version included.
+    let parsed = catalog
+        .parse_external(
+            "plugins",
+            &[
+                OsString::from("deploy"),
+                OsString::from("--env"),
+                OsString::from("prod"),
+            ],
+        )
+        .unwrap()
+        .unwrap();
+    let Outcome::Parsed(parsed) = parsed else {
+        panic!("expected parsed")
+    };
+    assert!(!parsed.output.flags.is_empty());
+    let help = catalog
+        .parse_external(
+            "plugins",
+            &[OsString::from("deploy"), OsString::from("--help")],
+        )
+        .unwrap()
+        .unwrap();
+    let Outcome::Help(help) = help else {
+        panic!("expected help")
+    };
+    // The page's usage line reflects where the command sits, same as a KDL-parsed spec's would.
+    assert!(help.page.contains("deploy"), "{}", help.page);
+    assert!(help.page.contains("status"), "{}", help.page);
+    assert!(help.page.contains("--env"), "{}", help.page);
+
+    // Merged help and completion see it too.
+    let app = catalog.app().unwrap();
+    assert!(app.help("plugins deploy", false).unwrap().contains("--env"));
+    let offered = answer(&catalog, &["host", "plugins", "deploy", ""]);
+    assert!(offered.contains(&"status".to_string()), "{offered:?}");
+}

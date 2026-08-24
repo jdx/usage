@@ -82,6 +82,33 @@ its commands, flags, and choices drive completion, and its argv parses against i
 spec — just `name` and `about` — is enough for the plugin to show up in help and completion by
 name.
 
+KDL is the format for commands that come from _outside_ the process — it's what a plugin binary
+can print and any language can produce. For commands the application itself defines at runtime,
+such as tasks read from a config file, don't render KDL just to parse it back: build the
+command directly and convert it. `Spec: From<SpecCommand>` takes the command's `name` as the
+spec's name and its `help` as the `about`:
+
+```rust
+use usage_dynamic::{Spec, SpecArgBuilder, SpecCommandBuilder, SpecFlagBuilder};
+
+let task: Spec = SpecCommandBuilder::new()
+    .name("deploy")
+    .help("Deploy the project")
+    .flag(
+        SpecFlagBuilder::new()
+            .name("env")
+            .long("env")
+            .arg(SpecArgBuilder::new().name("ENV").build())
+            .help("Target environment")
+            .build(),
+    )
+    .build()
+    .into();
+```
+
+Either origin behaves identically from here on — the catalog doesn't know or care which one
+produced a spec.
+
 ## Declaring where plugins attach
 
 Plugins attach beneath a command that declares an
