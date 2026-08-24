@@ -2,7 +2,7 @@
 min_usage_version "4.0"
 name usage
 bin usage
-version "6.2.0"
+version "6.3.0"
 repository "https://github.com/jdx/usage"
 source_code_link_template #"""
 {%- set path = path | replace(from='-', to='_') -%}
