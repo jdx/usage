@@ -1,7 +1,7 @@
 [package]
 name = "usage-dynamic"
 description = "Runtime command catalogs for usage-rs applications"
-version = "6.3.0"
+version = "6.4.0"
 edition = "2021"
 rust-version = "1.95"
 homepage = { workspace = true }
@@ -12,7 +12,7 @@ license = { workspace = true }
 
 [dependencies]
 usage-argv = { workspace = true, features = ["spec", "complete"] }
-usage-parser = { package = "usage-lib", path = "../lib", version = "6.3.0", default-features = false, features = ["cli-help"] }
+usage-parser = { package = "usage-lib", path = "../lib", version = "6.4.0", default-features = false, features = ["cli-help"] }
 
 [package.metadata.release]
 shared-version = true

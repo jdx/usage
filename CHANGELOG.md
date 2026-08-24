@@ -1,5 +1,20 @@
 # Changelog
 
+## [6.4.0](https://github.com/jdx/usage/compare/v6.3.0..v6.4.0) - 2026-08-24
+
+### 🚀 Features
+
+- **(config)** add XDG file layers by [@jdx](https://github.com/jdx) in [#1303](https://github.com/jdx/usage/pull/1303)
+
+### 🐛 Bug Fixes
+
+- **(cli)** improve terminal help layout by [@jdx](https://github.com/jdx) in [#1304](https://github.com/jdx/usage/pull/1304)
+- **(zsh)** forward cursor to generated completions by [@jdx](https://github.com/jdx) in [#1300](https://github.com/jdx/usage/pull/1300)
+
+### 🚜 Refactor
+
+- **(lib)** reduce dependency footprint by [@jdx](https://github.com/jdx) in [#1301](https://github.com/jdx/usage/pull/1301)
+
 ## [6.3.0](https://github.com/jdx/usage/compare/v6.2.0..v6.3.0) - 2026-08-24
 
 ### 🚀 Features
