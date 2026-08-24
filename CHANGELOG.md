@@ -1,5 +1,68 @@
 # Changelog
 
+## [6.2.0](https://github.com/jdx/usage/compare/v6.1.1..v6.2.0) - 2026-08-24
+
+### 🚀 Features
+
+- **(argv)** add embedded parse outcomes by [@jdx](https://github.com/jdx) in [#1250](https://github.com/jdx/usage/pull/1250)
+- **(cli)** render inline formatting in help text by [@jdx](https://github.com/jdx) in [#1245](https://github.com/jdx/usage/pull/1245)
+- **(cli)** split grouped help template sections by [@jdx](https://github.com/jdx) in [#1251](https://github.com/jdx/usage/pull/1251)
+- **(complete)** add presentation labels to candidates by [@jdx](https://github.com/jdx) in [#1239](https://github.com/jdx/usage/pull/1239)
+- **(complete)** expose structured completion traces by [@jdx](https://github.com/jdx) in [#1241](https://github.com/jdx/usage/pull/1241)
+- **(complete)** add semantic candidate kinds by [@jdx](https://github.com/jdx) in [#1242](https://github.com/jdx/usage/pull/1242)
+- **(complete)** add Elvish runtime completions by [@jdx](https://github.com/jdx) in [#1243](https://github.com/jdx/usage/pull/1243)
+- **(derive)** let argument groups carry values by [@jdx](https://github.com/jdx) in [#1253](https://github.com/jdx/usage/pull/1253)
+- **(derive)** add typed command finalization by [@jdx](https://github.com/jdx) in [#1254](https://github.com/jdx/usage/pull/1254)
+- **(derive)** add runtime-computed defaults by [@jdx](https://github.com/jdx) in [#1256](https://github.com/jdx/usage/pull/1256)
+- **(derive)** dispatch embedded control requests by [@jdx](https://github.com/jdx) in [#1270](https://github.com/jdx/usage/pull/1270)
+- **(derive)** emit embedded_outcome_into for converted CLIs by [@jdx](https://github.com/jdx) in [#1281](https://github.com/jdx/usage/pull/1281)
+- **(docs)** allow overriding markdown templates by [@jdx](https://github.com/jdx) in [#1267](https://github.com/jdx/usage/pull/1267)
+- **(docs)** default to compact markdown references by [@jdx](https://github.com/jdx) in [#1272](https://github.com/jdx/usage/pull/1272)
+- **(docs)** polish compact markdown references by [@jdx](https://github.com/jdx) in [#1280](https://github.com/jdx/usage/pull/1280)
+- **(help)** expose addressable help topics by [@jdx](https://github.com/jdx) in [#1257](https://github.com/jdx/usage/pull/1257)
+- **(help)** list commands by name in one aligned column by [@jdx](https://github.com/jdx) in [#1284](https://github.com/jdx/usage/pull/1284)
+- **(help)** wrap the short help page by [@jdx](https://github.com/jdx) in [#1287](https://github.com/jdx/usage/pull/1287)
+- **(parse)** add structured diagnostic reports by [@jdx](https://github.com/jdx) in [#1255](https://github.com/jdx/usage/pull/1255)
+- **(parse)** add opt-in response files by [@jdx](https://github.com/jdx) in [#1259](https://github.com/jdx/usage/pull/1259)
+- **(parse)** preserve ordered argument groups by [@jdx](https://github.com/jdx) in [#1271](https://github.com/jdx/usage/pull/1271)
+- **(spec)** declare command outputs and exit codes by [@jdx](https://github.com/jdx) in [#1249](https://github.com/jdx/usage/pull/1249)
+- **(spec)** add surface availability metadata by [@jdx](https://github.com/jdx) in [#1258](https://github.com/jdx/usage/pull/1258)
+- **(spec)** add semantic note and warning blocks by [@jdx](https://github.com/jdx) in [#1273](https://github.com/jdx/usage/pull/1273)
+- **(spec)** add output media types by [@jdx](https://github.com/jdx) in [#1274](https://github.com/jdx/usage/pull/1274)
+- **(spec)** add help prose to heading sections by [@jdx](https://github.com/jdx) in [#1282](https://github.com/jdx/usage/pull/1282)
+- add dynamic command catalogs by [@jdx](https://github.com/jdx) in [#1275](https://github.com/jdx/usage/pull/1275)
+
+### 🐛 Bug Fixes
+
+- **(completion)** handle attached values and emit built-ins by [@jdx](https://github.com/jdx) in [#1277](https://github.com/jdx/usage/pull/1277)
+- **(derive)** preserve flattened command metadata by [@jdx](https://github.com/jdx) in [#1268](https://github.com/jdx/usage/pull/1268)
+- **(derive)** skip choice checks for typed defaults by [@jdx](https://github.com/jdx) in [#1269](https://github.com/jdx/usage/pull/1269)
+- **(derive)** suppress generated partial field lint by [@jdx](https://github.com/jdx) in [#1278](https://github.com/jdx/usage/pull/1278)
+- **(derive)** keep an invalid choice after an override displaces the flag by [@jdx](https://github.com/jdx) in [#1286](https://github.com/jdx/usage/pull/1286)
+- **(spec)** make the two KDL writers agree on three more nodes by [@jdx](https://github.com/jdx) in [#1289](https://github.com/jdx/usage/pull/1289)
+
+### 🚜 Refactor
+
+- **(deps)** replace versions with semver by [@jdx](https://github.com/jdx) in [#1285](https://github.com/jdx/usage/pull/1285)
+
+### ⚡ Performance
+
+- **(argv)** reduce sort code size by [@jdx](https://github.com/jdx) in [#1264](https://github.com/jdx/usage/pull/1264)
+- **(markdown)** skip empty admonition context by [@jdx](https://github.com/jdx) in [#1279](https://github.com/jdx/usage/pull/1279)
+- document usage-rs parser tradeoffs by [@jdx](https://github.com/jdx) in [#1265](https://github.com/jdx/usage/pull/1265)
+
+### 🛡️ Security
+
+- **(complete)** filter path candidates by extension by [@jdx](https://github.com/jdx) in [#1240](https://github.com/jdx/usage/pull/1240)
+
+### 🔍 Other Changes
+
+- update usage of deprecated `str downcase` thingy in nushell by [@TheBearodactyl](https://github.com/TheBearodactyl) in [#1262](https://github.com/jdx/usage/pull/1262)
+
+### New Contributors
+
+- @TheBearodactyl made their first contribution in [#1262](https://github.com/jdx/usage/pull/1262)
+
 ## [6.1.1](https://github.com/jdx/usage/compare/v6.1.0..v6.1.1) - 2026-08-23
 
 ### 🐛 Bug Fixes
