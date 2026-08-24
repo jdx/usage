@@ -23,15 +23,15 @@
 //! `Spec::usage` arrived this way — the build broke, carrying it took one line, and doing so
 //! turned up a rule the two implementations disagree about that nothing had recorded.
 
-use usage::spec::cmd::SpecExample;
+use usage::spec::cmd::{SpecExample, SpecHeading};
 use usage::{
     Framing, Spec, SpecArg, SpecChoices, SpecCommand, SpecComplete, SpecExitCode, SpecFlag,
     SpecGroup, SpecOutput,
 };
 use usage_argv::spec::{
     AdmonitionKind, AdmonitionMeta, ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf,
-    Effect, Example, ExitCodeMeta, FlagMeta, Framing as ArgvFraming, GroupMeta, OutputMeta,
-    RequiredIfEq, RequiresIf,
+    Effect, Example, ExitCodeMeta, FlagMeta, Framing as ArgvFraming, GroupMeta, HeadingMeta,
+    OutputMeta, RequiredIfEq, RequiresIf,
 };
 use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
@@ -175,6 +175,7 @@ pub fn build(
         after_help: opt(&cmd.after_help),
         after_long_help: opt(&cmd.after_help_long),
         examples: examples(&cmd.examples),
+        headings: headings(&cmd.headings),
         outputs: outputs(&cmd.outputs),
         select: opt(&cmd.select),
         exit_codes: exit_codes(&cmd.exit_codes),
@@ -806,6 +807,18 @@ fn exit_codes(list: &[SpecExitCode]) -> &'static [ExitCodeMeta<'static>] {
             .map(|e| ExitCodeMeta {
                 code: e.code,
                 help: leak(&e.help),
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice(),
+    )
+}
+
+fn headings(list: &[SpecHeading]) -> &'static [HeadingMeta<'static>] {
+    Box::leak(
+        list.iter()
+            .map(|heading| HeadingMeta {
+                title: leak(&heading.title),
+                help: leak(&heading.help),
             })
             .collect::<Vec<_>>()
             .into_boxed_slice(),

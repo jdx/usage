@@ -214,6 +214,8 @@ pub struct SpecCommand {
     pub after_help_md: Option<String>,
     /// Usage examples for this command
     pub examples: Vec<SpecExample>,
+    /// Prose introducing this command's help sections, by heading title.
+    pub headings: Vec<SpecHeading>,
     /// What this command writes, and how a consumer should read it.
     ///
     /// Folded with the spec's CLI-wide outputs on read rather than here — see
@@ -296,6 +298,7 @@ impl Default for SpecCommand {
             after_help_long: None,
             after_help_md: None,
             examples: vec![],
+            headings: vec![],
             outputs: vec![],
             select: None,
             exit_codes: vec![],
@@ -339,6 +342,36 @@ impl SpecExample {
     pub fn lang(mut self, lang: impl Into<String>) -> Self {
         self.lang = lang.into();
         self
+    }
+}
+
+/// Prose introducing one help section.
+///
+/// Keyed by the heading's title, because a section is assembled from every flag and
+/// argument that names it and the text describes the section rather than any one of them.
+#[derive(Debug, Default, Serialize, Clone)]
+#[non_exhaustive]
+pub struct SpecHeading {
+    pub title: String,
+    pub help: String,
+}
+
+impl SpecHeading {
+    /// Prose shown between a help section's heading and its entries.
+    pub fn new(title: impl Into<String>, help: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            help: help.into(),
+        }
+    }
+}
+
+impl From<&SpecHeading> for KdlNode {
+    fn from(heading: &SpecHeading) -> KdlNode {
+        let mut node = KdlNode::new("heading");
+        node.push(string_entry(None, &heading.title));
+        node.push(string_entry(Some("help"), &heading.help));
+        node
     }
 }
 
@@ -510,6 +543,20 @@ impl SpecCommand {
                         }
                     }
                     cmd.examples.push(example);
+                }
+                "heading" => {
+                    let title = child.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
+                    let mut help = None;
+                    for (k, v) in child.props() {
+                        match k {
+                            "help" => help = Some(v.ensure_string()?),
+                            k => bail_parse!(ctx, v.entry.span(), "unsupported heading key {k}"),
+                        }
+                    }
+                    let Some(help) = help else {
+                        bail_parse!(ctx, child.node.span(), "heading {title} needs help text");
+                    };
+                    cmd.headings.push(SpecHeading::new(title, help));
                 }
                 "output" => cmd.outputs.push(SpecOutput::parse(ctx, &child)?),
                 "exit_code" => cmd.exit_codes.push(SpecExitCode::parse(ctx, &child)?),
@@ -763,6 +810,7 @@ impl SpecCommand {
             aliases,
             hidden_aliases,
             examples,
+            headings,
             outputs,
             select,
             exit_codes,
@@ -871,6 +919,9 @@ impl SpecCommand {
         }
         if !examples.is_empty() {
             self.examples = examples;
+        }
+        if !headings.is_empty() {
+            self.headings = headings;
         }
         // Outputs describe what the *mounted* program writes, so they move with the flags
         // rather than being folded into what was here — the same reason groups follow the
@@ -1091,6 +1142,7 @@ impl From<&SpecCommand> for KdlNode {
             subcommands,
             complete,
             examples,
+            headings,
             outputs,
             select,
             exit_codes,
@@ -1302,6 +1354,10 @@ impl From<&SpecCommand> for KdlNode {
         for example in examples {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(example.into());
+        }
+        for heading in headings {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(heading.into());
         }
         // Outputs before the flag that picks among them, so a reader meets the things
         // being chosen before the rule for choosing — the same order groups follow.
@@ -1754,6 +1810,7 @@ cmd "install" help="Install a package" subcommand_required=#false {
     complete "pkg" run="mycli list --available" descriptions=#true
     example "mycli install foo" header="Install foo" help="Installs foo" lang="sh"
     example "mycli install bar"
+    heading "Output" help="Formats are stable across releases."
     output "human" default=#true help="A progress log"
     output "json" framing="json" help="One report object" {
         schema "{\n  \"type\": \"object\"\n}"
@@ -1805,6 +1862,7 @@ cmd "hidden" hide=#true
             "effect",
             "restart_token",
             "examples",
+            "headings",
             "complete",
             "mounts",
             "aliases",

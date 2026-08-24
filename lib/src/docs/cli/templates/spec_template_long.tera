@@ -39,6 +39,9 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- for group in cmd.subcommand_groups %}
 
 {{ group.heading | default(value=cmd.subcommand_help_heading | default(value="Commands")) }}:
+{%- if group.help %}
+  {{ group.help | indent(width=2) }}
+{% endif %}
 {%- for cmd in group.items %}
   {{ cmd.usage | trim }}
 {%- if cmd.deprecated or cmd.deprecated_warn_at or cmd.deprecated_remove_at %} [deprecated:{% if cmd.deprecated %} {{ cmd.deprecated }}{% endif %}{% if cmd.deprecated_warn_at %}{% if cmd.deprecated %};{% endif %} warns at {{ cmd.deprecated_warn_at }}{% endif %}{% if cmd.deprecated_remove_at %}{% if cmd.deprecated or cmd.deprecated_warn_at %};{% endif %} removed at {{ cmd.deprecated_remove_at }}{% endif %}]{%- endif %}
@@ -59,6 +62,9 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if group.heading and arg_has_ungrouped and loop.index0 == 1 %}{{ mark_grouped_args }}{% endif %}
 
 {{ group.heading | default(value="Arguments") }}:
+{%- if group.help %}
+  {{ group.help | indent(width=2) }}
+{% endif %}
 {%- for arg in group.items %}
 {%- if cmd.next_line_help %}
   {{ arg.usage | trim }}
@@ -107,6 +113,9 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if group.heading and flag_has_ungrouped and loop.index0 == 1 %}{{ mark_grouped_flags }}{% endif %}
 
 {{ group.heading | default(value="Flags") }}:
+{%- if group.help %}
+  {{ group.help | indent(width=2) }}
+{% endif %}
 {%- for flag in group.items %}
 {%- if cmd.next_line_help %}
   {{ flag.display_usage }}

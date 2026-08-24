@@ -77,13 +77,13 @@ Installs a tool.
 
 Takes a while.
 """#
-    example "ex install node@20" help="install a specific version"
     flag "-f --force" help="overwrite an existing install"
     flag --format {
         arg <format>
     }
     flag "-h --help" help="Print help" action=help builtin=#true
     arg <tool> help="the tool to install"
+    example "ex install node@20" help="install a specific version"
     output human help="a progress log" default=#true
     output json media_type="application/json" framing=json {
         schema #"""

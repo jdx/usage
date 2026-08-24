@@ -1,5 +1,6 @@
 #[cfg(feature = "docs")]
 use crate::docs::markdown::MarkdownRenderer;
+use crate::spec::cmd::SpecHeading;
 use crate::spec::effect::SpecCommandEffect;
 use crate::{SpecAdmonition, SpecChoices};
 use indexmap::IndexMap;
@@ -46,6 +47,8 @@ pub struct SpecCommand {
     pub flag_groups: Vec<Group<SpecFlag>>,
     /// `args`, partitioned by `help_heading`.
     pub arg_groups: Vec<Group<SpecArg>>,
+    /// Prose for this command's help sections, by heading title.
+    pub headings: Vec<SpecHeading>,
     // pub mounts: Vec<SpecMount>,
     pub deprecated: Option<String>,
     pub deprecated_warn_at: Option<String>,
@@ -182,6 +185,8 @@ pub struct SpecFlag {
 #[derive(Debug, Default, Serialize, Clone)]
 pub struct Group<T> {
     pub heading: Option<String>,
+    /// Prose introducing this section, when the command declared some for the heading.
+    pub help: Option<String>,
     pub items: Vec<T>,
 }
 
@@ -415,12 +420,29 @@ fn group_by_heading<T: Clone>(
             Some(group) => group.items.push(item.clone()),
             None => groups.push(Group {
                 heading,
+                help: None,
                 items: vec![item.clone()],
             }),
         }
     }
     groups.sort_by_key(|g| g.heading.is_some());
     groups
+}
+
+/// Attach each section's declared prose to the group that renders it.
+///
+/// Separate from grouping because the prose is declared on the command, by title, while a
+/// group is discovered from the entries that name it.
+fn attach_heading_help<T>(groups: &mut [Group<T>], headings: &[SpecHeading]) {
+    for group in groups {
+        let Some(title) = group.heading.as_deref() else {
+            continue;
+        };
+        group.help = headings
+            .iter()
+            .find(|heading| heading.title == title)
+            .map(|heading| heading.help.clone());
+    }
 }
 
 /// One declared output, as a page renders it.
@@ -709,6 +731,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             after_help_long,
             after_help_md,
             examples,
+            headings,
             restart_token,
             // How a command line is read, which no rendered page shows.
             unknown_flags: _,
@@ -788,6 +811,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 0,
                 Group {
                     heading: None,
+                    help: None,
                     items: Vec::new(),
                 },
             );
@@ -808,14 +832,22 @@ impl From<&crate::SpecCommand> for SpecCommand {
             }
         }
 
+        let headings: Vec<SpecHeading> = headings.clone();
+        let mut flag_groups = group_by_heading(&flags, |f| f.help_heading.as_deref());
+        let mut arg_groups = group_by_heading(&args, |a| a.help_heading.as_deref());
+        attach_heading_help(&mut flag_groups, &headings);
+        attach_heading_help(&mut arg_groups, &headings);
+        attach_heading_help(&mut subcommand_groups, &headings);
+
         Self {
             full_cmd: full_cmd.clone(),
             usage: usage.clone(),
             subcommands: rendered_subcommands,
             help_subcommands,
             subcommand_groups,
-            flag_groups: group_by_heading(&flags, |f| f.help_heading.as_deref()),
-            arg_groups: group_by_heading(&args, |a| a.help_heading.as_deref()),
+            flag_groups,
+            arg_groups,
+            headings,
             args,
             flags,
             deprecated: deprecated.clone(),
@@ -1168,6 +1200,9 @@ impl SpecCommand {
     fn regroup(&mut self) {
         self.flag_groups = group_by_heading(&self.flags, |f| f.help_heading.as_deref());
         self.arg_groups = group_by_heading(&self.args, |a| a.help_heading.as_deref());
+        attach_heading_help(&mut self.flag_groups, &self.headings);
+        attach_heading_help(&mut self.arg_groups, &self.headings);
+        attach_heading_help(&mut self.subcommand_groups, &self.headings);
     }
 }
 

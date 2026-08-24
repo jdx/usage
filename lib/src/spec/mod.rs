@@ -32,7 +32,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use crate::error::UsageErr;
-use crate::spec::cmd::{SpecCommand, SpecExample};
+use crate::spec::cmd::{SpecCommand, SpecExample, SpecHeading};
 use crate::spec::config::SpecConfig;
 use crate::spec::context::ParsingContext;
 use crate::spec::exit_code::SpecExitCode;
@@ -688,6 +688,20 @@ impl Spec {
                     }
                     schema.examples.push(example);
                 }
+                "heading" => {
+                    let title = node.ensure_arg_len(1..=1)?.arg(0)?.ensure_string()?;
+                    let mut help = None;
+                    for (k, v) in node.props() {
+                        match k {
+                            "help" => help = Some(v.ensure_string()?),
+                            k => bail_parse!(ctx, v.entry.span(), "unsupported heading key {k}"),
+                        }
+                    }
+                    let Some(help) = help else {
+                        bail_parse!(ctx, node.node.span(), "heading {title} needs help text");
+                    };
+                    schema.cmd.headings.push(SpecHeading::new(title, help));
+                }
                 "output" => schema.outputs.push(SpecOutput::parse(ctx, &node)?),
                 "exit_code" => schema.exit_codes.push(SpecExitCode::parse(ctx, &node)?),
                 "select" => {
@@ -1230,6 +1244,9 @@ impl Display for Spec {
         }
         for example in self.examples.iter() {
             nodes.push(example.into());
+        }
+        for heading in self.cmd.headings.iter() {
+            nodes.push(heading.into());
         }
         for output in self.outputs.iter() {
             nodes.push(output.into());

@@ -207,6 +207,11 @@ pub struct Cli {
     /// no way to declare one, so every example in the fleet lives as prose inside
     /// `after_long_help` where nothing can read it — or check it.
     pub examples: Vec<ExampleDecl>,
+    /// Prose introducing a help section, by the title of the heading it belongs under.
+    ///
+    /// Declared here rather than on a field because a section is assembled from whatever
+    /// names it, and the text describes the section rather than any one entry in it.
+    pub headings: Vec<HeadingDecl>,
     /// The word that starts another invocation of the same command: mise's `:::`.
     pub restart_token: Option<String>,
     /// A command to run for subcommands discovered at completion time.
@@ -841,6 +846,7 @@ impl Cli {
             after_help: None,
             after_long_help: None,
             examples: Vec::new(),
+            headings: Vec::new(),
             restart_token: None,
             mount: None,
             groups: Vec::new(),
@@ -1086,6 +1092,19 @@ impl Cli {
                     "mount" => cli.mount = Some(string_value(&meta)?),
                     "group" => cli.groups.push(group_decl(&meta)?),
                     "example" => cli.examples.push(example_decl(&meta)?),
+                    "heading" => {
+                        let heading = heading_decl(&meta)?;
+                        if cli.headings.iter().any(|h| h.title == heading.title) {
+                            return Err(syn::Error::new_spanned(
+                                &meta,
+                                format!(
+                                    "prose for the `{}` heading is already declared",
+                                    heading.title
+                                ),
+                            ));
+                        }
+                        cli.headings.push(heading);
+                    }
                     "output" => {
                         let output = output_decl(&meta)?;
                         if cli.outputs.iter().any(|o| o.name == output.name) {
@@ -1153,7 +1172,7 @@ impl Cli {
                                  `name`, `name_spec`, `bin`, `bin_spec`, `version`, `version_spec`, `long_version`, `long_version_spec`, `author`, `license`, `repository`, `source_code_link_template`, `usage`, `alias`, `alias_hidden`, `visible_alias`, `hide`, `surface`, `available_if`, `deprecated`, `deprecated_warn_at`, `deprecated_remove_at`, `verbatim_doc_comment`, `unknown_flags`, \
                                  `default_subcommand`, `multicall`, `no_binary_name`, `arg_required_else_help`, `disable_help_flag`, `disable_help_subcommand`, `disable_version_flag`, `dont_delimit_trailing_values`, `args_override_self`, `subcommand_negates_reqs`, `args_conflicts_with_subcommands`, `subcommand_precedence_over_arg`, `allow_missing_positional`, \
                                  `next_help_heading`, `subcommand_help_heading`, `next_line_help`, `flatten_help`, `help_template`, `term_width`, `max_term_width`, \
-                                 `subcommand_value_name`, `restart_token`, `mount`, `example`, `select`, `output`, `exit_code`, `run`, `run_with`, `run_async`, `run_async_with`, \
+                                 `subcommand_value_name`, `restart_token`, `mount`, `example`, `heading`, `select`, `output`, `exit_code`, `run`, `run_with`, `run_async`, `run_async_with`, \
                                  `group`, `view`, `validate_with`, and `try_into` here, and the description comes from the doc comment"
                             ),
                         ));
@@ -4407,6 +4426,59 @@ pub struct ExampleDecl {
     pub code: proc_macro2::TokenStream,
     pub header: Option<proc_macro2::TokenStream>,
     pub help: Option<proc_macro2::TokenStream>,
+}
+
+pub struct HeadingDecl {
+    /// A literal, because it has to match a `help_heading` spelling to find its section.
+    pub title: String,
+    pub help: proc_macro2::TokenStream,
+}
+
+fn heading_decl(meta: &Meta) -> syn::Result<HeadingDecl> {
+    let Meta::List(list) = meta else {
+        return Err(syn::Error::new_spanned(
+            meta,
+            "section prose is declared as \
+             `heading(\"Ignore Files\", help = \"…\")`, naming the heading it introduces",
+        ));
+    };
+    list.parse_args_with(|input: syn::parse::ParseStream| {
+        let title: syn::LitStr = input.parse()?;
+        let mut help = None;
+        while !input.is_empty() {
+            input.parse::<syn::Token![,]>()?;
+            if input.is_empty() {
+                break;
+            }
+            let property: syn::Ident = input.parse()?;
+            input.parse::<syn::Token![=]>()?;
+            let value: Expr = input.parse()?;
+            let value = quote::ToTokens::to_token_stream(&value);
+            match property.to_string().as_str() {
+                "help" => help = Some(value),
+                other => {
+                    return Err(syn::Error::new_spanned(
+                        property,
+                        format!(
+                            "unknown heading property `{other}`; a heading takes \
+                             `help` after the title it introduces"
+                        ),
+                    ));
+                }
+            }
+        }
+        let Some(help) = help else {
+            return Err(syn::Error::new_spanned(
+                &title,
+                "a heading needs the prose it introduces: \
+                 `heading(\"Ignore Files\", help = \"…\")`",
+            ));
+        };
+        Ok(HeadingDecl {
+            title: title.value(),
+            help,
+        })
+    })
 }
 
 fn example_decl(meta: &Meta) -> syn::Result<ExampleDecl> {

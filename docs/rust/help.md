@@ -113,6 +113,18 @@ full rule, including what a default does not count as, is in
   `after_long_help`, a declared example reaches the emitted spec, so docs, manpages and
   `usage lint` can all read it — the last of those checks that it still parses.
 - `help_heading` on a field or subcommand variant groups it under a heading.
+- `heading("Ignore Files", help = "…")` on a command gives one of those headings a paragraph,
+  rendered on the long page between the heading and its entries, whether the section was built
+  by flags, positionals, or subcommands. The prose is keyed by title
+  rather than attached to a field, because a section is assembled from everything that names
+  it — a field's `help_heading`, a flatten site's `next_help_heading` — and the text describes
+  the section rather than any one entry in it. Declared on an `Args` type, it speaks for the
+  section that type contributes; a heading the host also declares prose for keeps the host's.
+  Like an admonition, it is absent from the short page, and it reaches the emitted spec, so
+  generated Markdown and manpages carry it too. Only a declared heading takes prose: the
+  default `Flags` and `Arguments` sections hold the entries that never asked for one, and the
+  same entries appear under a different default title per renderer, so a title matching one of
+  those renders nowhere. This is bpaf's `group_help`; clap has no equivalent.
 - `display_order = n` on a field or subcommand controls its position within a help section
   without changing positional parsing order.
 - `next_line_help` on a command puts every argument, flag, and subcommand description beneath
@@ -249,7 +261,9 @@ if let Some(text) = usage::help::render_topic(
 Each visible `help_heading` becomes a topic. Ordinary Commands, Arguments, Flags, and Global flags
 sections are topics too. IDs are command-local lowercase slugs; `render_topic` also accepts the
 visible title case-insensitively. If an argument group and flag group share one heading, the topic
-combines both blocks in their normal help order. Hidden entries never create or enter a topic.
+combines both blocks in their normal help order. Hidden entries never create or enter a topic. A
+topic whose heading declares `heading(…, help = …)` opens with that prose, since the topic is the
+section as the long page renders it.
 
 ## Version
 

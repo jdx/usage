@@ -42,6 +42,10 @@
 {%- if group_args %}
 
 {{ "#" | repeat(count=header_level) }}# {{ arg_group.heading | default(value="Arguments") }}
+{%- if arg_group.help %}
+
+{{ arg_group.help }}
+{%- endif %}
 
 {%- for arg in group_args %}
 
@@ -77,6 +81,10 @@
 {%- if group_flags %}
 
 {{ "#" | repeat(count=header_level) }}# {{ flag_group.heading | default(value="Flags") }}
+{%- if flag_group.help %}
+
+{{ flag_group.help }}
+{%- endif %}
 
 {%- for flag in group_flags %}
 
