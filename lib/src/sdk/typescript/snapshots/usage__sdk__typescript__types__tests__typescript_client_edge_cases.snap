@@ -18,7 +18,7 @@ export class Runner {
     this.run = new Run(this.runner);
     this.info = new Info(this.runner);
   }
-  /** [-v --verbose] [--debug…] <input> <extra>… <SUBCOMMAND> */
+  /** [-v --verbose] [--debug] <input> <extra>… <SUBCOMMAND> */
   async exec(args: RunnerArgs, flags?: RunnerFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     if (args.input !== undefined) { cmdArgs.push(String(args.input)); }

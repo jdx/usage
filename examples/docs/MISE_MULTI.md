@@ -14,12 +14,12 @@ mise prepares your development environment before each command runs. https://git
 
 ## Global Flags
 - **`-C --cd <DIR>`** — Change directory before running command
-- **`-E --env… <ENV>`** — Set the environment for loading `mise.<ENV>.toml`
+- **`-E --env <ENV>`** — Set the environment for loading `mise.<ENV>.toml`
 - **`-j --jobs <JOBS>`** — How many jobs to run in parallel; values below 1 are treated as 1 [default: 8]
 
   **Environment Variable:** `MISE_JOBS`
 - **`-q --quiet`** — Suppress non-error messages
-- **`-v --verbose…`** — Show extra output (use -vv for even more)
+- **`-v --verbose`** — Show extra output (use -vv for even more)
 - **`-y --yes`** — Answer yes to all confirmation prompts
 - **`--raw`** — Read/write directly to stdin/stdout/stderr instead of by line
 - **`--locked`** — Require lockfile URLs to be present during installation
@@ -289,13 +289,13 @@ Use `--skip <part>` to skip named parts, or `--only <part>` to run just named pa
 - **`-n --dry-run`** — Print what would happen without installing anything
 - **`-y --yes`** — Skip confirmation prompts
 - **`--force-dotfiles`** — Overwrite existing files that conflict with whole-file dotfile entries
-- **`--only… <ONLY>`** — Run only one or more bootstrap parts
+- **`--only <ONLY>`** — Run only one or more bootstrap parts
 
   Can be passed multiple times or as a comma-separated list. Cannot be used with `--skip`.
 
   **Choices:** `plugins`, `packages`, `accounts`, `files`, `services`, `firewall`, `compose`, `repos`, `dotfiles`, `mise-shell-activate`, `macos-defaults`, `macos-launchd-agents`, `linux-systemd-units`, `user`, `tools`, `task`, `final-hook`
 - **`--prompt-secrets`** — Prompt securely for missing bootstrap secret inputs
-- **`--skip… <SKIP>`** — Skip one or more bootstrap parts
+- **`--skip <SKIP>`** — Skip one or more bootstrap parts
 
   Can be passed multiple times or as a comma-separated list.
 
@@ -1032,29 +1032,29 @@ Bootstrap one or more machines over OpenSSH
 - **`--connect-timeout <CONNECT_TIMEOUT>`** — SSH connection timeout in seconds
 
   **Default:** `10`
-- **`--copy-link… <PATH>`** — Dereference one source-relative symbolic link; repeat for multiple links
+- **`--copy-link <PATH>`** — Dereference one source-relative symbolic link; repeat for multiple links
 - **`--copy-links`** — Dereference every symbolic link in the source archive
-- **`--exclude… <PATTERN>`** — Additional archive pattern to exclude; repeat for multiple patterns
+- **`--exclude <PATTERN>`** — Additional archive pattern to exclude; repeat for multiple patterns
 - **`--fail-fast`** — Stop after the first failed target
 - **`--force-dotfiles`** — Allow remote dotfile conflicts to be replaced
-- **`--host… <[USER@]HOST>`** — Ad-hoc SSH destination (`[user@]host`); repeat for multiple hosts
+- **`--host <[USER@]HOST>`** — Ad-hoc SSH destination (`[user@]host`); repeat for multiple hosts
 - **`-i --identity-file <IDENTITY_FILE>`** — SSH identity file override
 - **`-n --dry-run`** — Print the remote bootstrap changes without applying them
 - **`--keep-staging`** — Keep the remote staging directory for debugging
 - **`--mise-bin <MISE_BIN>`** — Local mise binary to upload (escape hatch for custom architectures)
-- **`--only… <ONLY>`** — Run only one or more remote bootstrap parts
+- **`--only <ONLY>`** — Run only one or more remote bootstrap parts
 
   **Choices:** `plugins`, `packages`, `accounts`, `files`, `services`, `firewall`, `compose`, `repos`, `dotfiles`, `mise-shell-activate`, `macos-defaults`, `macos-launchd-agents`, `linux-systemd-units`, `user`, `tools`, `task`, `final-hook`
 - **`--port <PORT>`** — SSH port override
 - **`--prompt-secrets`** — Prompt securely for missing secret inputs on the remote host
-- **`--remote-env… <ENV>`** — Config environments to load on the remote host; repeat or delimit with commas (for example, ci,dotfiles)
+- **`--remote-env <ENV>`** — Config environments to load on the remote host; repeat or delimit with commas (for example, ci,dotfiles)
 - **`--remote-mise <COMMAND>`** — Existing mise executable name or path; relative paths use the staged project
-- **`--skip… <SKIP>`** — Skip one or more remote bootstrap parts
+- **`--skip <SKIP>`** — Skip one or more remote bootstrap parts
 
   **Choices:** `plugins`, `packages`, `accounts`, `files`, `services`, `firewall`, `compose`, `repos`, `dotfiles`, `mise-shell-activate`, `macos-defaults`, `macos-launchd-agents`, `linux-systemd-units`, `user`, `tools`, `task`, `final-hook`
 - **`--source <SOURCE>`** — Local directory archived and sent to each target
-- **`--ssh-option… <OPTION>`** — OpenSSH `-o` option; repeat for multiple options
-- **`--tag… <TAG>`** — Select configured hosts with this tag; repeat to match any tag
+- **`--ssh-option <OPTION>`** — OpenSSH `-o` option; repeat for multiple options
+- **`--tag <TAG>`** — Select configured hosts with this tag; repeat to match any tag
 - **`--update`** — Refresh package manager metadata and update configured repos remotely
 - **`-y --yes`** — Skip remote confirmation prompts
 
@@ -1251,7 +1251,7 @@ Show the cache directory path
 
 ## `mise cache prune`
 
-- **Usage:** `mise cache prune [-v --verbose…] [--dry-run] [TOOL]…`
+- **Usage:** `mise cache prune [-v --verbose] [--dry-run] [TOOL]…`
 - **Aliases:** `p`
 - **Effect:** modifies state
 
@@ -1264,7 +1264,7 @@ By default, this command will remove files that have not been accessed in 30 day
   e.g.: node, python
 
 ### Flags
-- **`-v --verbose…`** — Show pruned files
+- **`-v --verbose`** — Show pruned files
 - **`--dry-run`** — Just show what would be pruned
 
 ## `mise cache task`
@@ -1725,12 +1725,12 @@ The "--" separates runtimes from the commands to pass along to the subprocess.
   [default: 4]
 
   **Environment Variable:** `MISE_JOBS`
-- **`--allow-env… <VAR>`** — Allow specific env var through (implies --deny-env for everything else)
+- **`--allow-env <VAR>`** — Allow specific env var through (implies --deny-env for everything else)
   Supports wildcards, e.g. --allow-env='MYAPP_*'
-- **`--allow-net… <HOST>`** — Allow network to specific host (implies --deny-net for everything else)
+- **`--allow-net <HOST>`** — Allow network to specific host (implies --deny-net for everything else)
   macOS only in v1; on Linux falls back to allowing all network
-- **`--allow-read… <PATH>`** — Allow reads from specific path (implies --deny-read for everything else)
-- **`--allow-write… <PATH>`** — Allow writes to specific path (implies --deny-write for everything else)
+- **`--allow-read <PATH>`** — Allow reads from specific path (implies --deny-read for everything else)
+- **`--allow-write <PATH>`** — Allow writes to specific path (implies --deny-write for everything else)
 - **`--deny-all`** — Block reads, writes, network, and env vars
 - **`--deny-env`** — Block env var inheritance (only PATH, HOME, USER, SHELL, TERM, LANG pass through)
 - **`--deny-net`** — Block all network access
@@ -2002,10 +2002,10 @@ When generating stubs with platform-specific URLs, the command will append new p
   **Default:** `http`
 - **`--lock`** — Resolve and embed lockfile data (exact version + platform URLs/checksums)
   into an existing stub file for reproducible installs without runtime API calls
-- **`--platform-bin… <PLATFORM_BIN>`** — Platform-specific binary paths in the format platform:path
+- **`--platform-bin <PLATFORM_BIN>`** — Platform-specific binary paths in the format platform:path
 
   Examples: --platform-bin windows-x64:tool.exe --platform-bin linux-x64:bin/tool
-- **`--platform-url… <PLATFORM_URL>`** — Platform-specific URLs in the format platform:url or just url (auto-detect platform)
+- **`--platform-url <PLATFORM_URL>`** — Platform-specific URLs in the format platform:url or just url (auto-detect platform)
 
   When the output file already exists, new platforms will be appended to the existing platforms table. Existing platform URLs will be updated if specified again.
 
@@ -2134,7 +2134,7 @@ Use `mise local` to set a tool version locally in the current directory.
 - **`--path`** — Get the path of the global config file
 - **`--pin`** — Save exact version to `~/.tool-versions`
   e.g.: `mise global --pin node@20` will save `node 20.0.0` to ~/.tool-versions
-- **`--remove… <TOOL>`** — Remove the tool(s) from ~/.tool-versions
+- **`--remove <TOOL>`** — Remove the tool(s) from ~/.tool-versions
 
 Examples:
     # set the current version of node to 20.x
@@ -2235,7 +2235,7 @@ Tools will be installed in parallel. To disable, set `--jobs=1` or `MISE_JOBS=1`
 
   **Environment Variable:** `MISE_JOBS`
 - **`-n --dry-run`** — Show what would be installed without actually installing
-- **`-v --verbose…`** — Show installation output
+- **`-v --verbose`** — Show installation output
 
   This argument will print backend output such as download, configuration, and compilation output.
 - **`--dry-run-code`** — Like --dry-run but exits with code 1 if there are tools to install
@@ -2370,7 +2370,7 @@ Use this to set a tool's version when within a directory Use `mise global` to se
 - **`--path`** — Get the path of the config file
 - **`--pin`** — Save exact version to `.tool-versions`
   e.g.: `mise local --pin node@20` will save `node 20.0.0` to .tool-versions
-- **`--remove… <TOOL>`** — Remove the tool(s) from .tool-versions
+- **`--remove <TOOL>`** — Remove the tool(s) from .tool-versions
 
 Examples:
     # set the current version of node to 20.x for the current directory
@@ -2413,7 +2413,7 @@ Updates checksums and download URLs for all platforms already specified in the l
 
   **Environment Variable:** `MISE_JOBS`
 - **`-n --dry-run`** — Show what would be updated without making changes
-- **`-p --platform… <PLATFORM>`** — Comma-separated list of platforms to target
+- **`-p --platform <PLATFORM>`** — Comma-separated list of platforms to target
   e.g.: linux-x64,macos-arm64,windows-x64
   If not specified, all platforms already in lockfile will be updated
 - **`--bump`** — Re-resolve fuzzy version selectors against the latest available versions
@@ -2627,7 +2627,7 @@ Each tool version becomes its own content-addressable OCI layer. Bumping a tool 
 Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).
 
 ### Flags
-- **`--copy… <HOST_PATH:IMAGE_PATH>`** — Copy a host file, directory, or symlink into the image (repeatable, HOST:IMAGE)
+- **`--copy <HOST_PATH:IMAGE_PATH>`** — Copy a host file, directory, or symlink into the image (repeatable, HOST:IMAGE)
 - **`-o --output <OUTPUT>`** — Output directory for the OCI image layout
 
   **Default:** `./mise-oci`
@@ -2754,10 +2754,10 @@ Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`) and one of
 - **`--owner <UID[:GID]>`** — UID[:GID] to assign to every tar entry when building (conflicts with --image-dir)
 
   Overrides [oci].user_id / [oci].group_id. Defaults to 0:0. If GID is omitted, it defaults to UID. This affects file ownership only; [oci].user controls the image USER directive.
-- **`--volume… <HOST:CONTAINER>`** — Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)
+- **`--volume <HOST:CONTAINER>`** — Bind-mount a host path (repeatable, `HOST:CONTAINER[:MODE]`)
 
   Note: unlike `docker run -v`, there's no `-v` short flag here because mise reserves `-v` for --verbose. Use `--volume` or `--mount`.
-- **`-e --env… <KEY=VAL>`** — Set environment variable in the container (repeatable, `KEY=VAL`)
+- **`-e --env <KEY=VAL>`** — Set environment variable in the container (repeatable, `KEY=VAL`)
 - **`-i --interactive`** — Run interactively (pass `-i` to the engine)
 - **`-t --tty`** — Allocate a TTY (pass `-t` to the engine)
 - **`-w --workdir <WORKDIR>`** — Working directory inside the container
@@ -2895,7 +2895,7 @@ This behavior can be modified in ~/.config/mise/config.toml
 - **`-f --force`** — Reinstall even if plugin exists
 - **`-j --jobs <JOBS>`** — Number of jobs to run in parallel
   Values below 1 are treated as 1
-- **`-v --verbose…`** — Show installation output
+- **`-v --verbose`** — Show installation output
 
 Examples:
 
@@ -3054,8 +3054,8 @@ Providers with `auto = true` are automatically invoked before `mise x` and `mise
   Requires monorepo_root = true plus explicit [monorepo].config_roots in the monorepo root config. Providers are named like //apps/api:uv.
 
   **Environment Variable:** `MISE_MONOREPO`
-- **`--only… <ONLY>`** — Run specific deps rule(s) only
-- **`--skip… <SKIP>`** — Skip specific deps rule(s)
+- **`--only <ONLY>`** — Run specific deps rule(s) only
+- **`--skip <SKIP>`** — Skip specific deps rule(s)
 
 Examples:
 
@@ -3123,8 +3123,8 @@ Checks if dependency lockfiles are newer than installed outputs and runs install
   Requires monorepo_root = true plus explicit [monorepo].config_roots in the monorepo root config. Providers are named like //apps/api:uv.
 
   **Environment Variable:** `MISE_MONOREPO`
-- **`--only… <ONLY>`** — Run specific deps rule(s) only
-- **`--skip… <SKIP>`** — Skip specific deps rule(s)
+- **`--only <ONLY>`** — Run specific deps rule(s) only
+- **`--skip <SKIP>`** — Skip specific deps rule(s)
 
 ## `mise deps remove`
 
@@ -3295,13 +3295,13 @@ Alternatively, tasks can be defined as standalone scripts. These must be located
 - **`-S --silent`** — Don't show any output except for errors
 
   **Environment Variable:** `MISE_SILENT`
-- **`-t --tool… <TOOL@VERSION>`** — Tool(s) to run in addition to what is in mise.toml files
+- **`-t --tool <TOOL@VERSION>`** — Tool(s) to run in addition to what is in mise.toml files
   e.g.: node@20 python@3.10
-- **`--allow-env… <VAR>`** — Allow specific env var through (implies --deny-env for everything else)
+- **`--allow-env <VAR>`** — Allow specific env var through (implies --deny-env for everything else)
   Supports wildcards, e.g. --allow-env='MYAPP_*'
-- **`--allow-net… <HOST>`** — Allow network to specific host (implies --deny-net for everything else)
-- **`--allow-read… <PATH>`** — Allow reads from specific path (implies --deny-read for everything else)
-- **`--allow-write… <PATH>`** — Allow writes to specific path (implies --deny-write for everything else)
+- **`--allow-net <HOST>`** — Allow network to specific host (implies --deny-net for everything else)
+- **`--allow-read <PATH>`** — Allow reads from specific path (implies --deny-read for everything else)
+- **`--allow-write <PATH>`** — Allow writes to specific path (implies --deny-write for everything else)
 - **`--deny-all`** — Block reads, writes, network, and env vars
 - **`--deny-env`** — Block env var inheritance (only PATH, HOME, USER, SHELL, TERM, LANG pass through)
 - **`--deny-net`** — Block all network access
@@ -3438,10 +3438,10 @@ Use `-E <env>` to create/modify environment-specific config files like `mise.<en
 - **`--age-key-file <PATH>`** — [experimental] Age identity file for encryption
 
   Defaults to ~/.config/mise/age.txt if it exists
-- **`--age-recipient… <RECIPIENT>`** — [experimental] Age recipient (x25519 public key) for encryption
+- **`--age-recipient <RECIPIENT>`** — [experimental] Age recipient (x25519 public key) for encryption
 
   Can be used multiple times. Requires --age-encrypt.
-- **`--age-ssh-recipient… <PATH_OR_PUBKEY>`** — [experimental] SSH recipient (public key or path) for age encryption
+- **`--age-ssh-recipient <PATH_OR_PUBKEY>`** — [experimental] SSH recipient (public key or path) for age encryption
 
   Can be used multiple times. Requires --age-encrypt.
 - **`--file <FILE>`** — The TOML file to update
@@ -3866,18 +3866,18 @@ Adds a task to the local mise.toml file. See https://mise.jdx.dev/configuration.
 - **`[-- RUN]…`**
 
 ### Flags
-- **`-a --alias… <ALIAS>`** — Other names for the task
-- **`-d --depends… <DEPENDS>`** — Add dependencies to the task
+- **`-a --alias <ALIAS>`** — Other names for the task
+- **`-d --depends <DEPENDS>`** — Add dependencies to the task
 - **`-D --dir <DIR>`** — Run the task in a specific directory
 - **`-f --file`** — Create a file task instead of a toml task
 - **`-H --hide`** — Hide the task from `mise tasks` and completions
 - **`-q --quiet`** — Do not print the command before running
 - **`-r --raw`** — Directly connect stdin/stdout/stderr
-- **`-s --sources… <SOURCES>`** — Glob patterns of files this task uses as input
-- **`-w --wait-for… <WAIT_FOR>`** — Wait for these tasks to complete if they are to run
-- **`--depends-post… <DEPENDS_POST>`** — Dependencies to run after the task runs
+- **`-s --sources <SOURCES>`** — Glob patterns of files this task uses as input
+- **`-w --wait-for <WAIT_FOR>`** — Wait for these tasks to complete if they are to run
+- **`--depends-post <DEPENDS_POST>`** — Dependencies to run after the task runs
 - **`--description <DESCRIPTION>`** — Description of the task
-- **`--outputs… <OUTPUTS>`** — Glob patterns of files this task creates, to skip if they are not modified
+- **`--outputs <OUTPUTS>`** — Glob patterns of files this task creates, to skip if they are not modified
 - **`--run-windows <RUN_WINDOWS>`** — Command to run on windows
 - **`--shell <SHELL>`** — Run the task in a specific shell
 - **`--silent`** — Do not print the command or its output
@@ -4103,13 +4103,13 @@ Alternatively, tasks can be defined as standalone scripts. These must be located
 - **`-S --silent`** — Don't show any output except for errors
 
   **Environment Variable:** `MISE_SILENT`
-- **`-t --tool… <TOOL@VERSION>`** — Tool(s) to run in addition to what is in mise.toml files
+- **`-t --tool <TOOL@VERSION>`** — Tool(s) to run in addition to what is in mise.toml files
   e.g.: node@20 python@3.10
-- **`--allow-env… <VAR>`** — Allow specific env var through (implies --deny-env for everything else)
+- **`--allow-env <VAR>`** — Allow specific env var through (implies --deny-env for everything else)
   Supports wildcards, e.g. --allow-env='MYAPP_*'
-- **`--allow-net… <HOST>`** — Allow network to specific host (implies --deny-net for everything else)
-- **`--allow-read… <PATH>`** — Allow reads from specific path (implies --deny-read for everything else)
-- **`--allow-write… <PATH>`** — Allow writes to specific path (implies --deny-write for everything else)
+- **`--allow-net <HOST>`** — Allow network to specific host (implies --deny-net for everything else)
+- **`--allow-read <PATH>`** — Allow reads from specific path (implies --deny-read for everything else)
+- **`--allow-write <PATH>`** — Allow writes to specific path (implies --deny-write for everything else)
 - **`--deny-all`** — Block reads, writes, network, and env vars
 - **`--deny-env`** — Block env var inheritance (only PATH, HOME, USER, SHELL, TERM, LANG pass through)
 - **`--deny-net`** — Block all network access
@@ -4581,7 +4581,7 @@ This will update mise.lock if it is enabled, see https://mise.jdx.dev/configurat
 
   **Environment Variable:** `MISE_JOBS`
 - **`-n --dry-run`** — Just print what would be done, don't actually do it
-- **`-x --exclude… <INSTALLED_TOOL>`** — Tool(s) to exclude from upgrading
+- **`-x --exclude <INSTALLED_TOOL>`** — Tool(s) to exclude from upgrading
   e.g.: go python
 - **`--dry-run-code`** — Like --dry-run but exits with code 1 if there are outdated tools
 
@@ -4710,7 +4710,7 @@ Use the `--global` flag to use the global config file instead.
   Consider using mise.lock as a better alternative to pinning in mise.toml: https://mise.jdx.dev/configuration/settings.html#lockfile
 - **`--raw`** — Connect backend install command stdin/stdout/stderr directly to the terminal
   Implies `--jobs=1`
-- **`--remove… <TOOL>`** — Remove the tool(s) from config file
+- **`--remove <TOOL>`** — Remove the tool(s) from config file
 
 Examples:
 
@@ -4812,7 +4812,7 @@ For more advanced process management (daemon management, auto-restart, readiness
   This has no practical effect on Windows as the command is always forcefully terminated; see '--stop-signal' for why.
 
   **Default:** `10s`
-- **`--map-signal… <SIGNAL:SIGNAL>`** — Translate signals from the OS to signals to send to the command
+- **`--map-signal <SIGNAL:SIGNAL>`** — Translate signals from the OS to signals to send to the command
 
   Takes a pair of signal names, separated by a colon, such as "TERM:INT" to map SIGTERM to SIGINT. The first signal is the one received by watchexec, and the second is the one sent to the command. The second can be omitted to discard the first signal, such as "TERM:" to not do anything on SIGTERM.
 
@@ -4862,7 +4862,7 @@ For more advanced process management (daemon management, auto-restart, readiness
   By default, the working directory of the command is the working directory of Watchexec. You can change that with this option. Note that paths may be less intuitive to use with this.
 
 ### Filtering
-- **`-w --watch… <PATH>`** — Watch a specific file or directory
+- **`-w --watch <PATH>`** — Watch a specific file or directory
 
   By default, Watchexec watches the current directory.
 
@@ -4873,7 +4873,7 @@ For more advanced process management (daemon management, auto-restart, readiness
   This option can be specified multiple times to watch multiple files or directories.
 
   The special value '/dev/null', provided as the only path watched, will cause Watchexec to not watch any paths. Other event sources (like signals or key events) may still be used.
-- **`-W --watch-non-recursive… <PATH>`** — Watch a specific directory, non-recursively
+- **`-W --watch-non-recursive <PATH>`** — Watch a specific directory, non-recursively
 
   Unlike '-w', folders watched with this option are not recursed into.
 
@@ -4929,20 +4929,20 @@ For more advanced process management (daemon management, auto-restart, readiness
   This is a shorthand for '--no-discover-ignore', '--no-default-ignore'.
 
   Note that ignores explicitly loaded via other command line options, such as '--ignore' or '--ignore-file', will still be used.
-- **`-e --exts… <EXTENSIONS>`** — Filename extensions to filter to
+- **`-e --exts <EXTENSIONS>`** — Filename extensions to filter to
 
   This is a quick filter to only emit events for files with the given extensions. Extensions can be given with or without the leading dot (e.g. 'js' or '.js'). Multiple extensions can be given by repeating the option or by separating them with commas.
-- **`-f --filter… <PATTERN>`** — Filename patterns to filter to
+- **`-f --filter <PATTERN>`** — Filename patterns to filter to
 
   Provide a glob-like filter pattern, and only events for files matching the pattern will be emitted. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
-- **`--filter-file… <PATH>`** — Files to load filters from
+- **`--filter-file <PATH>`** — Files to load filters from
 
   Provide a path to a file containing filters, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--filter' option.
 
   This can also be used via the $WATCHEXEC_FILTER_FILES environment variable.
 
   **Environment Variable:** `WATCHEXEC_FILTER_FILES`
-- **`-J --filter-prog… <EXPRESSION>`** — [experimental] Filter programs.
+- **`-J --filter-prog <EXPRESSION>`** — [experimental] Filter programs.
 
   /!\ This option is EXPERIMENTAL and may change and/or vanish without notice.
 
@@ -4993,17 +4993,17 @@ For more advanced process management (daemon management, auto-restart, readiness
   Ignore files that start with shebangs:
 
     'any(.tags[] | select(.kind == "path" && .filetype == "file"); .absolute | read(2) == "#!") | not'
-- **`-i --ignore… <PATTERN>`** — Filename patterns to filter out
+- **`-i --ignore <PATTERN>`** — Filename patterns to filter out
 
   Provide a glob-like filter pattern, and events for files matching the pattern will be excluded. Multiple patterns can be given by repeating the option. Events that are not from files (e.g. signals, keyboard events) will pass through untouched.
-- **`--ignore-file… <PATH>`** — Files to load ignores from
+- **`--ignore-file <PATH>`** — Files to load ignores from
 
   Provide a path to a file containing ignores, one per line. Empty lines and lines starting with '#' are ignored. Uses the same pattern format as the '--ignore' option.
 
   This can also be used via the $WATCHEXEC_IGNORE_FILES environment variable.
 
   **Environment Variable:** `WATCHEXEC_IGNORE_FILES`
-- **`--fs-events… <EVENTS>`** — Filesystem events to filter to
+- **`--fs-events <EVENTS>`** — Filesystem events to filter to
 
   This is a quick filter to only emit events for the given types of filesystem changes. Choose from 'access', 'create', 'remove', 'rename', 'modify', 'metadata'. Multiple types can be given by repeating the option or by separating them with commas. By default, this is all types except for 'access'.
 
@@ -5161,7 +5161,7 @@ For more advanced process management (daemon management, auto-restart, readiness
   **Choices:** `environment`, `stdio`, `file`, `json-stdio`, `json-file`, `none`
 
   **Default:** `none`
-- **`-E --env… <KEY=VALUE>`** — Add env vars to the command
+- **`-E --env <KEY=VALUE>`** — Add env vars to the command
 
   This is a convenience option for setting environment variables for the command, without setting them for the Watchexec process itself.
 

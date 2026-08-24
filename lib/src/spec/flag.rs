@@ -867,14 +867,6 @@ impl SpecFlag {
     }
 
     pub fn usage(&self) -> String {
-        self.usage_with_repeatable(true)
-    }
-
-    pub(crate) fn usage_without_repeatable(&self) -> String {
-        self.usage_with_repeatable(false)
-    }
-
-    fn usage_with_repeatable(&self, show_repeatable: bool) -> String {
         let mut parts = vec![];
         let name = get_name_from_short_and_long(&self.short, &self.long).unwrap_or_default();
         // A flag whose only spelling is its negation — clap's `SetFalse`, tak's
@@ -898,9 +890,6 @@ impl SpecFlag {
             parts.push(format!("--{long}"));
         }
         let mut out = parts.join(" ");
-        if show_repeatable && self.var {
-            out = format!("{out}…");
-        }
         if let Some(arg) = &self.arg {
             let usage = arg.usage();
             if self.require_equals && (self.value_optional || !arg.required) {
@@ -1631,11 +1620,11 @@ mod tests {
         assert_snapshot!("-f".parse::<SpecFlag>().unwrap(), @"-f");
         assert_snapshot!("--flag".parse::<SpecFlag>().unwrap(), @"--flag");
         assert_snapshot!("-f --flag".parse::<SpecFlag>().unwrap(), @"-f --flag");
-        assert_snapshot!("-f --flag…".parse::<SpecFlag>().unwrap(), @"-f --flag…");
-        assert_snapshot!("-f --flag …".parse::<SpecFlag>().unwrap(), @"-f --flag…");
+        assert_snapshot!("-f --flag…".parse::<SpecFlag>().unwrap(), @"-f --flag");
+        assert_snapshot!("-f --flag …".parse::<SpecFlag>().unwrap(), @"-f --flag");
         assert_snapshot!("--flag <arg>".parse::<SpecFlag>().unwrap(), @"--flag <arg>");
         assert_snapshot!("-f --flag <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>");
-        assert_snapshot!("-f --flag… <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag… <arg>");
+        assert_snapshot!("-f --flag… <arg>".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>");
         assert_snapshot!("-f --flag <arg>…".parse::<SpecFlag>().unwrap(), @"-f --flag <arg>…");
         let range = "--range <start> <end>".parse::<SpecFlag>().unwrap();
         let arg = range.arg.as_ref().unwrap();
@@ -1978,9 +1967,9 @@ mod tests {
             require_equals: true,
             ..repeatable
         };
-        assert_eq!(repeatable.usage(), "--tag…=<TAG>");
+        assert_eq!(repeatable.usage(), "--tag=<TAG>");
         let reparsed: SpecFlag = repeatable.usage().parse().unwrap();
-        assert!(reparsed.var);
+        assert!(!reparsed.var);
         assert!(reparsed.require_equals);
         assert!(!reparsed.arg.as_ref().unwrap().var);
 
@@ -1990,9 +1979,9 @@ mod tests {
             require_equals: true,
             ..repeatable_optional
         };
-        assert_eq!(repeatable_optional.usage(), "--color…[=WHEN]");
+        assert_eq!(repeatable_optional.usage(), "--color[=WHEN]");
         let reparsed: SpecFlag = repeatable_optional.usage().parse().unwrap();
-        assert!(reparsed.var);
+        assert!(!reparsed.var);
         assert!(reparsed.require_equals);
         assert!(!reparsed.arg.as_ref().unwrap().var);
     }
