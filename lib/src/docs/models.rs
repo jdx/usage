@@ -192,6 +192,7 @@ pub struct SpecFlag {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub ann_indent: String,
     pub help_is_multiline: bool,
+    pub help_is_block: bool,
     pub usage_col_width: usize,
 }
 
@@ -566,6 +567,7 @@ pub struct SpecArg {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub ann_indent: String,
     pub help_is_multiline: bool,
+    pub help_is_block: bool,
     pub usage_col_width: usize,
 }
 
@@ -643,7 +645,9 @@ impl From<&crate::Spec> for Spec {
 
 impl From<&crate::SpecCommand> for SpecCommand {
     fn from(cmd: &crate::SpecCommand) -> Self {
-        use crate::docs::layout::{help_width, max_usage_width, render_help_text};
+        use crate::docs::layout::{
+            help_width, render_block_text, render_help_text, usage_column_width, visible_width,
+        };
 
         let terminal_width = help_width(cmd.term_width, cmd.max_term_width);
         let flattened_usage = if cmd.flatten_help {
@@ -665,7 +669,8 @@ impl From<&crate::SpecCommand> for SpecCommand {
         };
 
         // Calculate layout for args
-        let args_usage_col_width = max_usage_width(cmd.args.iter().map(|a| a.usage.as_str()));
+        let args_usage_col_width =
+            usage_column_width(cmd.args.iter().map(|a| a.usage.as_str()), terminal_width);
         let mut args: Vec<(usize, SpecArg)> = cmd
             .args
             .iter()
@@ -676,13 +681,21 @@ impl From<&crate::SpecCommand> for SpecCommand {
                 // Get help text (prefer help_long over help)
                 let help_text = spec_arg.help_long.as_deref().or(spec_arg.help.as_deref());
 
+                spec_arg.help_is_block = visible_width(&spec_arg.usage) > args_usage_col_width;
+
                 if let Some(help) = help_text {
-                    let (rendered, is_multiline) =
-                        render_help_text(help, terminal_width, args_usage_col_width);
-                    // Only set help_rendered if we have content (empty string signals block layout)
-                    if !rendered.is_empty() {
-                        spec_arg.help_rendered = Some(rendered);
-                        spec_arg.help_is_multiline = is_multiline;
+                    if spec_arg.help_is_block {
+                        spec_arg.row = Some(render_block_text(help, terminal_width));
+                    } else {
+                        let (rendered, is_multiline) =
+                            render_help_text(help, terminal_width, args_usage_col_width);
+                        // Only set help_rendered if we have content (empty string signals block layout)
+                        if !rendered.is_empty() {
+                            spec_arg.help_rendered = Some(rendered);
+                            spec_arg.help_is_multiline = is_multiline;
+                        } else {
+                            spec_arg.row = Some(help.to_string());
+                        }
                     }
                 }
 
@@ -702,20 +715,32 @@ impl From<&crate::SpecCommand> for SpecCommand {
             .collect();
         flags.sort_by_key(|(_, flag)| flag.display_order.unwrap_or(999));
         let flags: Vec<SpecFlag> = flags.into_iter().map(|(_, flag)| flag).collect();
-        let flags_usage_col_width = max_usage_width(flags.iter().map(|f| f.display_usage.as_str()));
+        let flags_usage_col_width = usage_column_width(
+            flags.iter().map(|f| f.display_usage.as_str()),
+            terminal_width,
+        );
         let flags: Vec<SpecFlag> = flags
             .into_iter()
             .map(|mut spec_flag| {
                 // Get help text (prefer help_long over help)
                 let help_text = spec_flag.help_long.as_deref().or(spec_flag.help.as_deref());
 
+                spec_flag.help_is_block =
+                    visible_width(&spec_flag.display_usage) > flags_usage_col_width;
+
                 if let Some(help) = help_text {
-                    let (rendered, is_multiline) =
-                        render_help_text(help, terminal_width, flags_usage_col_width);
-                    // Only set help_rendered if we have content (empty string signals block layout)
-                    if !rendered.is_empty() {
-                        spec_flag.help_rendered = Some(rendered);
-                        spec_flag.help_is_multiline = is_multiline;
+                    if spec_flag.help_is_block {
+                        spec_flag.row = Some(render_block_text(help, terminal_width));
+                    } else {
+                        let (rendered, is_multiline) =
+                            render_help_text(help, terminal_width, flags_usage_col_width);
+                        // Only set help_rendered if we have content (empty string signals block layout)
+                        if !rendered.is_empty() {
+                            spec_flag.help_rendered = Some(rendered);
+                            spec_flag.help_is_multiline = is_multiline;
+                        } else {
+                            spec_flag.row = Some(help.to_string());
+                        }
                     }
                 }
 
@@ -1099,6 +1124,7 @@ impl From<&crate::SpecFlag> for SpecFlag {
             row: None,
             ann_indent: String::new(),
             help_is_multiline: false,
+            help_is_block: false,
             usage_col_width: 0,
         }
     }
@@ -1153,6 +1179,7 @@ impl From<&crate::SpecArg> for SpecArg {
             row: None,
             ann_indent: String::new(),
             help_is_multiline: false,
+            help_is_block: false,
             usage_col_width: 0,
         }
     }

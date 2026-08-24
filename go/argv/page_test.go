@@ -336,6 +336,29 @@ func TestFlattenHelp(t *testing.T) {
 	}
 }
 
+func TestALongFlagOnlyMovesItsOwnHelpBelow(t *testing.T) {
+	short := &Flag{Name: "short", Key: 2, Longs: []string{"short"}}
+	long := &Flag{Name: "this-flag-name-is-far-beyond-the-column-cap", Key: 3, Longs: []string{"this-flag-name-is-far-beyond-the-column-cap"}}
+	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{short, long}}
+	help := HelpTable{
+		{Key: 1},
+		{Key: 2, Short: "ordinary help"},
+		{Key: 3, Short: "alpha beta"},
+	}
+
+	for _, page := range []string{
+		ShortHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+		LongHelp(HelpSpec{Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
+	} {
+		if !strings.Contains(page, "      --short                     ordinary help") {
+			t.Fatalf("the ordinary row did not retain a readable description column:\n%s", page)
+		}
+		if !strings.Contains(page, "      --this-flag-name-is-far-beyond-the-column-cap\n    alpha beta") {
+			t.Fatalf("the overflowing row did not move its help below:\n%s", page)
+		}
+	}
+}
+
 func TestFlattenedNextLineHelpKeepsDeprecationSeparate(t *testing.T) {
 	flag := &Flag{Name: "old", Key: 3, Longs: []string{"old"}}
 	sub := &Command{Name: "run", Key: 2, Flags: []*Flag{flag}}

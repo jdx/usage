@@ -2525,8 +2525,10 @@ fn typed_help_width_reaches_help_and_the_portable_spec() {
     assert_eq!(spec.root.max_term_width, Some(20));
     let page = usage::argv::help::long_help(spec, &["sized-help"], &[spec.root]);
     assert!(
-        page.contains("                         description\n"),
-        "fixed width should wrap and override the lower maximum: {page}"
+        page.contains("    A description long enough to\n")
+            && page.contains("    wrap at the command's declared\n")
+            && page.contains("    help width.\n"),
+        "fixed width should wrap an overflowing entry below its usage: {page}"
     );
 
     let kdl = SizedHelp::to_kdl();
@@ -2535,6 +2537,17 @@ fn typed_help_width_reaches_help_and_the_portable_spec() {
     let portable: usage_parser::Spec = kdl.parse().unwrap();
     assert_eq!(portable.cmd.term_width, Some(36));
     assert_eq!(portable.cmd.max_term_width, Some(20));
+    assert_eq!(
+        page,
+        usage_parser::docs::cli::render_help(&portable, &portable.cmd, true),
+        "the portable long-help template should render the wrapped block row"
+    );
+    assert!(
+        page.lines()
+            .filter(|line| !line.starts_with("Usage:"))
+            .all(|line| line.chars().count() <= 36),
+        "fixed-width help exceeded 36 columns: {page}"
+    );
 }
 
 #[test]

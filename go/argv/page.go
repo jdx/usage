@@ -143,6 +143,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			argCol = n
 		}
 	}
+	argCol = usageColumnWidth(argCol)
 	groupsSection(&sections.args, &sections.ungroupedArgs, &sections.groupedArgs, "Arguments", len(args),
 		func(i int) string { return headingOf(help, args[i].Key) },
 		nil,
@@ -178,6 +179,7 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 			flagCol = n
 		}
 	}
+	flagCol = usageColumnWidth(flagCol)
 	flagEntry := func(w *strings.Builder, f shownFlag) {
 		h := help.Lookup(f.key)
 		if f.supplied != "" {
@@ -298,6 +300,7 @@ func commandsSection(out *strings.Builder, path []string, cmd *Command, help Hel
 			col = n
 		}
 	}
+	col = usageColumnWidth(col)
 
 	headings := []string{""}
 	for _, l := range lines {
@@ -390,6 +393,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 		for _, a := range args {
 			argCol = max(argCol, width(argUsage(a, help.Lookup(a.Key))))
 		}
+		argCol = usageColumnWidth(argCol)
 		flagCol := 0
 		for _, f := range sub.Flags {
 			fh := help.Lookup(f.Key)
@@ -399,6 +403,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 			flags = append(flags, f)
 			flagCol = max(flagCol, width(columnUsage(f, allShown(f), help)))
 		}
+		flagCol = usageColumnWidth(flagCol)
 		orderFlags(flags, help)
 		for _, a := range args {
 			ah := help.Lookup(a.Key)
@@ -410,12 +415,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 				}
 				longAnnotations(out, ah, true, blockIndent)
 			} else {
-				if text := helpText(ah); text != "" {
-					out.WriteString("  " + pad(usage, argCol) + "  " + text)
-				} else {
-					out.WriteString("  " + usage)
-				}
-				annotations(out, ah, true)
+				entry(out, usage, withAnnotations(shortSummary(ah), inlineAnnotations(ah, true, false)), argCol, false)
 			}
 		}
 		for _, f := range flags {
@@ -428,12 +428,7 @@ func flatCommandsShort(out *strings.Builder, path []string, cmd *Command, help H
 				}
 				longAnnotations(out, fh, true, blockIndent)
 			} else {
-				if text := helpText(fh); text != "" {
-					out.WriteString("  " + pad(usage, flagCol) + "  " + text)
-				} else {
-					out.WriteString("  " + usage)
-				}
-				annotations(out, fh, true)
+				entry(out, usage, withAnnotations(shortSummary(fh), inlineAnnotations(fh, true, true)), flagCol, false)
 			}
 		}
 		if h != nil && h.FlattenHelp {
