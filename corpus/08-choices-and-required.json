@@ -151,6 +151,16 @@
       "layer": "post-binding"
     },
     {
+      "id": "overrides-do-not-erase-an-invalid-choice",
+      "doc": "`--trace` came last, so `--log-level` lost and holds nothing by the end. That settles which of the two is in effect; it does not make `v` one of the choices. Only a later occurrence of `--log-level` itself can replace the word it was given — a different flag winning the pair is not a correction of what was typed.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--log-level <level>\" overrides=\"--trace\" {\n  choices \"debug\" \"info\"\n}\nflag \"--trace\"\n",
+      "argv": ["--log-level", "v", "--trace"],
+      "expect": {
+        "error": "invalid_choice"
+      },
+      "layer": "post-binding"
+    },
+    {
       "id": "conflicts-both-given",
       "doc": "Two flags declared to conflict cannot be given together. Unlike `overrides`, where the last one wins, a conflict is a mistake to report rather than an order to resolve.",
       "spec": "name \"ex\"\nbin \"ex\"\nflag \"--file <file>\" conflicts=\"--stdin\"\nflag \"--stdin\"\nflag \"--url <url>\"\n",

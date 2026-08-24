@@ -157,6 +157,12 @@ mistake, and silently honouring one of them hides it.
 A conflict holds in either direction, so declaring it once is enough; it applies to flags
 that were actually given, not to defaults.
 
+Losing an override unsets a flag; it does not unsay the word it was given. `--log-level=v
+--trace` is still refused when `v` is outside `--log-level`'s
+[`choices`](/spec/reference/arg) — which
+of the two is in effect is what `overrides` settles, and only a later occurrence of
+`--log-level` itself replaces the word it was handed.
+
 For three or more flags that exclude each other, or for "one of these is required", a
 [`group`](/spec/reference/group) says in one node what `conflicts` says once per pair.
 

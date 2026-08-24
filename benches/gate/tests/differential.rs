@@ -25,6 +25,13 @@
 //! surfaced. The third was real and is fixed: `subcommand_required` was in the spec and no
 //! parser read it (#992).
 //!
+//! A later run found the second real one, and it pointed the other way: usage-argv accepted
+//! `mise --log-level=v --trace` because `--trace` declares `overrides --log-level`, and
+//! displacing a flag threw away the record of the word it had been given along with the
+//! value. usage-lib and clap both refused it. Pinned as
+//! `overrides-do-not-erase-an-invalid-choice` in the corpus and as
+//! `a_flag_displaced_by_an_override_still_reports_its_invalid_choice` below.
+//!
 //! Repeats are permissive in usage by default, including at the derive layer. A command that
 //! owns its entire grammar can opt into clap's rule with `args_override_self=false`:
 //!
@@ -521,6 +528,9 @@ fn clap_shadow_keeps_flag_requirements_from_the_shared_spec() {
 
 #[test]
 fn an_override_does_not_erase_an_invalid_choice() {
+    // `--index` is not declared on `tool-alias set` at all, so it falls through to a
+    // positional: what this pins is that a later *token* does not wash out the bad word.
+    // The `overrides` half of the name is the test below, which this one did not reach.
     let outcome = run(
         &SPEC,
         &[
@@ -533,6 +543,62 @@ fn an_override_does_not_erase_an_invalid_choice() {
     assert_eq!(outcome.argv, Verdict::InvalidChoice);
     assert!(!outcome.lib);
     assert_eq!(outcome.clap, Verdict::InvalidChoice);
+}
+
+/// The proptest's finding, kept as a line rather than as a seed.
+///
+/// `mise github token --log-level=v --include-global --trace` came out of the generator
+/// reading `Accept` / refuse / `InvalidChoice`, which no arm of `explained` names. Shrunk by
+/// hand to the two tokens that matter: `--include-global` is undeclared here and falls
+/// through to `[HOST]`, and the command path is incidental — `--log-level` is global.
+///
+/// `--trace` declares `overrides --log-level`, and usage-argv resolved that by clearing the
+/// flag *and* the record of the word it had been given, so nothing was left to judge. The
+/// pair is what `overrides` settles; whether `v` is one of the five levels is not, and the
+/// other two parsers said so. Fixed in the derive's post-binding checks and pinned in the
+/// corpus as `overrides-do-not-erase-an-invalid-choice`.
+#[test]
+fn a_flag_displaced_by_an_override_still_reports_its_invalid_choice() {
+    for line in [
+        vec![
+            "github".to_string(),
+            "token".to_string(),
+            "--log-level=v".to_string(),
+            "--include-global".to_string(),
+            "--trace".to_string(),
+        ],
+        // The same disagreement with the command path and the stray flag taken away.
+        vec!["--log-level=v".to_string(), "--trace".to_string()],
+    ] {
+        let outcome = run(&SPEC, &line);
+        assert_eq!(
+            outcome.argv,
+            Verdict::InvalidChoice,
+            "mise {}: the override settles the pair, not the word",
+            line.join(" ")
+        );
+        assert!(!outcome.lib, "mise {}", line.join(" "));
+        assert_eq!(
+            outcome.clap,
+            Verdict::InvalidChoice,
+            "mise {}",
+            line.join(" ")
+        );
+    }
+
+    // The half that was already right, kept beside it: `overrides` holds between the two
+    // flags whichever order they arrive in, so neither order may swallow the bad word.
+    let outcome = run(&SPEC, &["--trace".to_string(), "--log-level=v".to_string()]);
+    assert_eq!(outcome.argv, Verdict::InvalidChoice);
+
+    // And a valid level is still displaced in silence — the fix does not turn `overrides`
+    // into a refusal.
+    let outcome = run(
+        &SPEC,
+        &["--log-level=info".to_string(), "--trace".to_string()],
+    );
+    assert_eq!(outcome.argv, Verdict::Accept);
+    assert!(outcome.lib);
 }
 
 #[test]
