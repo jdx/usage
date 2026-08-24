@@ -1,6 +1,6 @@
 //! Runtime commands for a derive-generated usage-rs host.
 //!
-//! A plugin manager knows what `host plugin-x` is only after it has read its own configuration,
+//! A CLI that has plugins knows what `host plugin-x` is only after it has read its own configuration,
 //! which is long after the tables describing the rest of its CLI were compiled. Those tables
 //! stay as they are: an application discovers and caches plugin specs itself, and a [`Catalog`]
 //! attaches them beneath a static command that declared an

@@ -674,7 +674,7 @@ fn a_named_completer_request_is_answered_by_the_host() {
 #[test]
 fn a_builtin_never_needs_a_catalog_and_a_fallback_needs_one_spec() {
     // The design's cost promise: parse first, against the static tables alone. A built-in
-    // command dispatches before any catalog exists, so a plugin manager pays for discovery
+    // command dispatches before any catalog exists, so an application pays for discovery
     // only when the catch-all actually fired — and then only for the specs it chose to load.
     let host = Host::parse_from(&[OsStr::new("builtin")]).unwrap();
     assert!(matches!(host.command, HostCommand::Builtin));

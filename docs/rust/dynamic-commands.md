@@ -4,9 +4,9 @@
 `usage-dynamic` is new. Its API may change ahead of the rest of the framework.
 :::
 
-usage compiles a CLI's command tree at build time. A plugin manager doesn't have its full
-command tree at build time: plugins add commands, and which plugins are installed is only known
-at runtime. Out of the box those commands don't appear in `--help`, don't complete, and reach
+usage compiles a CLI's command tree at build time. A CLI that has plugins doesn't know its full
+command tree until runtime: plugins add commands, and which plugins are installed is only known
+by looking. Out of the box those commands don't appear in `--help`, don't complete, and reach
 the application as unparsed words.
 
 `usage-dynamic` handles this. The application loads a spec for each plugin and hands them to a

@@ -1,4 +1,4 @@
-//! A plugin-aware host, end to end.
+//! A CLI with plugin commands, end to end.
 //!
 //! This is the example `docs/rust/dynamic-commands.md` shows, kept here so it compiles. The
 //! shape it demonstrates: parse against the static tables first, so built-in commands run
