@@ -18,6 +18,7 @@
 //! corpus: usage-lib is the reference, and a divergence is a decision rather than an accident.
 
 use core::fmt::Write as _;
+use std::borrow::Cow;
 
 use crate::spec::{
     AdmonitionKind, AdmonitionMeta, ArgMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta,
@@ -1415,35 +1416,54 @@ fn commands_section(
 ///
 /// Aliases and deprecation trail the summary rather than sitting beside the name, so they wrap
 /// with the text instead of pushing every description out of the column.
-fn command_row(sub: &CommandMeta<'_>) -> Option<String> {
-    let mut parts: Vec<String> = Vec::new();
+fn command_row<'a>(sub: &'a CommandMeta<'a>) -> Option<Cow<'a, str>> {
     // A command that wrote only a long description still has a summary: its first line. Both
     // pages read the same one, so `-h` never says less about a command than `--help` does.
     let summary = summarize(sub.about)
         .or_else(|| summarize(sub.long_about.and_then(|about| about.lines().next())));
-    if let Some(summary) = summary {
-        parts.push(summary.to_string());
-    }
     // Visible aliases only: a hidden alias works and is not advertised, which is the whole of
     // the distinction.
-    let visible_aliases: Vec<&str> = sub
+    let mut visible_aliases = sub
         .cmd
         .aliases
         .iter()
         .copied()
         .filter(|a| !sub.hidden_aliases.contains(a))
-        .collect();
-    if !visible_aliases.is_empty() {
-        parts.push(format!("[aliases: {}]", visible_aliases.join(", ")));
-    }
-    if let Some(label) = deprecation_label(
+        .peekable();
+    let label = deprecation_label(
         sub.deprecated,
         sub.deprecated_warn_at,
         sub.deprecated_remove_at,
-    ) {
-        parts.push(label);
+    );
+    // A summary and nothing else is what almost every row is, and borrowing it there keeps the
+    // whole list off the allocator — which `usage --help` notices, since it renders one.
+    if visible_aliases.peek().is_none() && label.is_none() {
+        return summary.map(Cow::Borrowed);
     }
-    (!parts.is_empty()).then(|| parts.join(" "))
+    let mut row = String::new();
+    if let Some(summary) = summary {
+        row.push_str(summary);
+    }
+    if visible_aliases.peek().is_some() {
+        if !row.is_empty() {
+            row.push(' ');
+        }
+        row.push_str("[aliases: ");
+        for (index, alias) in visible_aliases.enumerate() {
+            if index > 0 {
+                row.push_str(", ");
+            }
+            row.push_str(alias);
+        }
+        row.push(']');
+    }
+    if let Some(label) = label {
+        if !row.is_empty() {
+            row.push(' ');
+        }
+        row.push_str(&label);
+    }
+    Some(Cow::Owned(row))
 }
 
 fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
@@ -2228,6 +2248,24 @@ fn entry(
         return;
     }
 
+    // Text that already fits is text `wrap` would hand straight back, so skip it and the two
+    // allocations it makes. Worth the check because it is the common case — most descriptions
+    // are shorter than the column leaves room for.
+    if fits(help, room) {
+        // Assembled rather than formatted. This is the row every entry on every page takes, and
+        // `{usage:<col$}` drags in the whole formatting machinery to pad a string.
+        out.push_str("  ");
+        out.push_str(usage);
+        // Padded by characters, as the format directive it replaces was: a usage can hold a `…`.
+        for _ in 0..col.saturating_sub(usage.chars().count()) {
+            out.push(' ');
+        }
+        out.push_str("  ");
+        out.push_str(help);
+        out.push('\n');
+        return;
+    }
+
     let lines = wrap(help, room);
     let _ = writeln!(out, "  {usage:<col$}  {}", lines[0]);
     for line in &lines[1..] {
@@ -2238,7 +2276,42 @@ fn entry(
     // directly by the next, and matching means matching that.
 }
 
+/// Whether [`wrap`] would return this text unchanged as a single line.
+///
+/// True only for text already spelled the way `wrap` spells it — one line, single spaces
+/// between words, none at either end — and no wider than the room available.
+///
+/// Answering conservatively is free: a false answer costs only the wrap it was going to avoid,
+/// and `wrap` returns the same single line anyway. So this reads bytes rather than characters —
+/// a byte count is never below a character count, which settles the width without counting, and
+/// anything non-ASCII is handed to `wrap` rather than reasoned about here, since the whitespace
+/// it would fold is not all ASCII.
+fn fits(text: &str, room: usize) -> bool {
+    if text.len() > room {
+        return false;
+    }
+    // The start counts as a space so that a leading one, which `wrap` would drop, fails here.
+    let mut after_space = true;
+    for &byte in text.as_bytes() {
+        match byte {
+            // A run of spaces collapses, which is `wrap` rewriting the text.
+            b' ' if after_space => return false,
+            b' ' => after_space = true,
+            // Any other whitespace becomes a space, and any non-ASCII byte may be some.
+            b'\t' | b'\n' | b'\r' | 0x0b | 0x0c => return false,
+            0x80.. => return false,
+            _ => after_space = false,
+        }
+    }
+    // A trailing space would be dropped too.
+    !after_space
+}
+
 /// Break text at word boundaries to fit a width, keeping any breaks it already has.
+///
+/// The width of the line under construction is carried along rather than recounted for each
+/// word. Recounting made this quadratic in the length of a line, which went unnoticed while
+/// only the long page wrapped and was 3% of `usage --help` once the command list did too.
 fn wrap(text: &str, width: usize) -> Vec<String> {
     let mut lines = Vec::new();
     for paragraph in text.split('\n') {
@@ -2247,15 +2320,19 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
             continue;
         }
         let mut line = String::new();
+        let mut line_width = 0;
         for word in paragraph.split_whitespace() {
             let word_width = word.chars().count();
-            if !line.is_empty() && line.chars().count() + 1 + word_width > width {
+            if !line.is_empty() && line_width + 1 + word_width > width {
                 lines.push(std::mem::take(&mut line));
+                line_width = 0;
             }
             if !line.is_empty() {
                 line.push(' ');
+                line_width += 1;
             }
             line.push_str(word);
+            line_width += word_width;
         }
         if !line.is_empty() {
             lines.push(line);
