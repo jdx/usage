@@ -1,8 +1,5 @@
 #[macro_use]
 extern crate log;
-extern crate miette;
-
-use miette::Result;
 
 /// The reference implementation's completion candidates, readable as data.
 ///
@@ -25,7 +22,7 @@ mod usage_spec;
 #[cfg(test)]
 mod test;
 
-pub fn run(args: &[String]) -> Result<()> {
+pub fn run(args: &[String]) -> usage::miette::Result<()> {
     // trace!(
     //     "args: {:?}",
     //     args.iter().map(|s| s[..100].to_string()).collect_vec()

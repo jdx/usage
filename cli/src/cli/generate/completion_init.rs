@@ -25,7 +25,7 @@ pub struct CompletionInit {
 }
 
 impl usage_rs::Run for CompletionInit {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
         println!("{}", complete_init(&self.shell, &self.usage_bin)?.trim());

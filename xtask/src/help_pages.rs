@@ -7,7 +7,7 @@
 //! `benches/gate/tests/help.rs` holds usage-argv to, which can call
 //! [`usage::docs::cli::render_help`] directly because it is Rust.
 //!
-//! A Go test cannot. It could shell out to the CLI and strip the frame miette
+//! A Go test cannot. It could shell out to the CLI and strip the diagnostic frame
 //! draws around a help page delivered as an error, but a reference that *might*
 //! have been reflowed on its way out is worse than no reference at all: the test
 //! would fail, and the obvious response would be to change the implementation to

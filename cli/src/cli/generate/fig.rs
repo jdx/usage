@@ -458,22 +458,22 @@ impl Fig {
 }
 
 impl usage_rs::Run for Fig {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
-        let write = |path: &PathBuf, md: &str| -> miette::Result<()> {
+        let write = |path: &PathBuf, md: &str| -> usage::miette::Result<()> {
             generate::write_or_stdout(Some(path), &format!("{}\n", md.trim()))?;
             Ok(())
         };
         let spec = generate::file_or_spec(&self.file, &self.spec)?;
         let mut main_command = FigCommand::parse_from_spec(&spec.cmd).ok_or_else(|| {
-            miette::miette!("Failed to parse command spec (command may be hidden)")
+            usage::miette::miette!("Failed to parse command spec (command may be hidden)")
         })?;
         let args = main_command.get_args();
         let completes = spec.complete;
         Fig::fill_args_complete(args, completes);
         let j = serde_json::to_string_pretty(&main_command)
-            .map_err(|e| miette::miette!("Failed to serialize Fig spec: {}", e))?;
+            .map_err(|e| usage::miette::miette!("Failed to serialize Fig spec: {}", e))?;
         let mut result = format!("const completionSpec: Fig.Spec = {j}");
 
         let generators = main_command.get_generators();

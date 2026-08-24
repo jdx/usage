@@ -12,6 +12,7 @@ use std::str::FromStr;
 use serde::Serialize;
 
 use crate::error::UsageErr;
+use crate::miette;
 
 /// A named, non-composite type.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

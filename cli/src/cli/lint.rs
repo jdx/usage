@@ -111,16 +111,16 @@ impl Lint {
         );
     }
 
-    fn print_json(&self, issues: &[LintIssue]) -> miette::Result<()> {
+    fn print_json(&self, issues: &[LintIssue]) -> usage::miette::Result<()> {
         let json = serde_json::to_string_pretty(issues)
-            .map_err(|e| miette::miette!("Failed to serialize issues: {}", e))?;
+            .map_err(|e| usage::miette::miette!("Failed to serialize issues: {}", e))?;
         println!("{}", json);
         Ok(())
     }
 }
 
 impl usage_rs::Run for Lint {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
         let spec = parse_file_or_stdin(&self.file)?;
@@ -678,7 +678,7 @@ fn lint_examples(
 /// Why an example did not parse, once a mount has been accounted for.
 enum Unparsed {
     /// The spec refused the line, and can answer for it.
-    Refused(miette::Error),
+    Refused(usage::miette::Error),
     /// The line needs something only the mounted program could have said.
     NeedsAMount,
 }
@@ -703,7 +703,7 @@ fn parse_example(spec: &Spec, words: &[String]) -> Result<(), Unparsed> {
             .with_mount_outputs(mounts)
             .parse(words)
     };
-    let needs_a_mount = |err: &miette::Error| {
+    let needs_a_mount = |err: &usage::miette::Error| {
         matches!(
             err.downcast_ref::<UsageErr>(),
             Some(UsageErr::MissingMountOutput(_))
@@ -715,7 +715,7 @@ fn parse_example(spec: &Spec, words: &[String]) -> Result<(), Unparsed> {
     // line. The invocation works; showing an author their own help output as a lint
     // message would not. True of either parse: what a mount would have added cannot
     // stop a line from asking for help.
-    let printed = |err: &miette::Error| !needs_a_mount(err) && prints_and_exits(spec, words);
+    let printed = |err: &usage::miette::Error| !needs_a_mount(err) && prints_and_exits(spec, words);
 
     match parse(HashMap::new()) {
         Ok(_) => Ok(()),
@@ -791,7 +791,7 @@ fn collect_printing_flags(cmd: &SpecCommand, spellings: &mut Vec<String>) {
 }
 
 /// The error as one line, since a lint issue is one line.
-fn one_line(err: &miette::Error) -> String {
+fn one_line(err: &usage::miette::Error) -> String {
     err.to_string()
         .split_whitespace()
         .collect::<Vec<_>>()

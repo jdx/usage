@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use crate::error::UsageErr;
+use crate::kdl::{KdlDocument, KdlEntry, KdlNode};
 use crate::sh::sh;
 use crate::spec::builder::SpecCommandBuilder;
 use crate::spec::context::ParsingContext;
@@ -17,7 +18,6 @@ use crate::spec::unknown_flags::UnknownFlags;
 use crate::{Spec, SpecArg, SpecComplete, SpecFlag};
 use indexmap::IndexMap;
 use itertools::Itertools;
-use kdl::{KdlDocument, KdlEntry, KdlNode};
 use serde::Serialize;
 
 /// A CLI command or subcommand specification.
@@ -1769,6 +1769,7 @@ mod merge_tests {
 
 #[cfg(test)]
 mod roundtrip_tests {
+    use crate::kdl;
     use crate::Spec;
 
     /// Serializing a spec back to KDL and reparsing it must not lose anything.

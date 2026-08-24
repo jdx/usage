@@ -1,4 +1,4 @@
-use kdl::{KdlEntry, KdlNode};
+use crate::kdl::{KdlEntry, KdlNode};
 use serde::{Deserialize, Serialize};
 
 use crate::error::UsageErr;

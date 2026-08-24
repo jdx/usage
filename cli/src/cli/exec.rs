@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use itertools::Itertools;
-use miette::IntoDiagnostic;
+use usage::miette::IntoDiagnostic;
 use usage_rs::Args;
 
 use usage::Spec;
@@ -33,7 +33,7 @@ pub struct Exec {
 }
 
 impl Exec {
-    pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> miette::Result<()> {
+    pub fn help(&self, spec: &Spec, args: &[String], long: bool) -> usage::miette::Result<()> {
         let parsed = usage::parse::parse_partial(spec, args)?;
         println!("{}", usage::docs::cli::render_help(spec, &parsed.cmd, long));
         Ok(())
@@ -41,7 +41,7 @@ impl Exec {
 }
 
 impl usage_rs::Run for Exec {
-    type Output = miette::Result<()>;
+    type Output = usage::miette::Result<()>;
 
     fn run(self) -> Self::Output {
         let parent = self
@@ -53,7 +53,7 @@ impl usage_rs::Run for Exec {
             .bin
             .file_name()
             .and_then(|n| n.to_str())
-            .ok_or_else(|| miette::miette!("Invalid file path: {}", self.bin.display()))?;
+            .ok_or_else(|| usage::miette::miette!("Invalid file path: {}", self.bin.display()))?;
         let dotted_spec_path = parent.join(format!(".{bin_name}.usage.kdl"));
         let spec = if dotted_spec_path.exists() {
             Spec::parse_file(&dotted_spec_path)?
@@ -79,7 +79,7 @@ impl usage_rs::Run for Exec {
         let bin_path = self
             .bin
             .to_str()
-            .ok_or_else(|| miette::miette!("Invalid file path: {}", self.bin.display()))?;
+            .ok_or_else(|| usage::miette::miette!("Invalid file path: {}", self.bin.display()))?;
         let args = std::iter::once(bin_path.to_string())
             .chain(self.args.clone())
             .collect_vec();

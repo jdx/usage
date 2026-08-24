@@ -350,8 +350,8 @@ fn a_failed_install_says_what_the_system_said() {
     // The operating system's own words, whatever they are in this locale — asserting the phrase
     // would pin prose that is not ours. `os error` is `io::Error`'s own rendering.
     assert!(stderr.contains("os error"), "{stderr}");
-    // Compared with the whitespace taken out, because miette wraps a long path across lines and
-    // where it breaks is its business, not this test's.
+    // Compared with the whitespace taken out because line layout is the reporter's business,
+    // not this test's.
     let squashed: String = stderr
         .chars()
         .filter(|c| !c.is_whitespace() && *c != '│')

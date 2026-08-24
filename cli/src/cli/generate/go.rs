@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use miette::Result;
 use usage::go::GoOptions;
+use usage::miette::Result;
 use usage_rs::Args;
 
 use crate::cli::generate;
@@ -48,7 +48,7 @@ impl usage_rs::Run for Go {
         // sanitized at all.
         if let Some(package) = &self.package {
             if !usage::go::is_valid_package(package) {
-                miette::bail!(
+                usage::miette::bail!(
                     "`--package {package}` is not a Go package name. It must be \
                      letters, digits and underscores, not start with a digit, and \
                      not be one of Go's keywords."

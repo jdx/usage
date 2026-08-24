@@ -388,7 +388,7 @@ fn a_page_collision_is_refused_before_anything_is_written() {
         .args(["--multi", "--out-dir", dir.to_str().unwrap()])
         .assert()
         .failure()
-        // A fragment miette does not wrap: it hard-wraps the message across lines.
+        // A fragment the diagnostic renderer keeps together.
         .stderr(predicates::str::contains("rename the command"));
     assert!(
         !dir.exists() || fs::read_dir(&dir).unwrap().count() == 0,

@@ -16,7 +16,7 @@
 //! alternative — a command that redeclares anything owns the full set — would make every
 //! command restate `0` and `130`.
 
-use kdl::{KdlEntry, KdlNode, KdlValue};
+use crate::kdl::{KdlEntry, KdlNode, KdlValue};
 use serde::Serialize;
 
 use crate::error::Result;

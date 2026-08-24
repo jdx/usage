@@ -19,8 +19,8 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use kdl::{KdlDocument, KdlNode, KdlValue};
 use serde::{Deserialize, Serialize};
+use usage::kdl::{self, KdlDocument, KdlNode, KdlValue};
 use usage_config::{
     resolve, Const, Layer, LayerCtx, LayerError, LayerOutput, Layers, Merge, Origin, PropMeta,
     Registry, Scope, SourceKind, Trust, Ty, Value, WarningKind,
@@ -223,7 +223,9 @@ pub fn load(dir: impl AsRef<Path>) -> Result<Vec<VectorFile>, String> {
 
 /// Parse one config corpus file from canonical KDL.
 pub fn parse_file(text: &str) -> Result<VectorFile, String> {
-    let document: KdlDocument = text.parse().map_err(|e: kdl::KdlError| e.to_string())?;
+    let document: KdlDocument = text
+        .parse()
+        .map_err(|e: usage::kdl::KdlError| e.to_string())?;
     let section = one_string(&document, "section")?;
     let about = one_string(&document, "about")?;
     let vectors = document
@@ -242,7 +244,9 @@ pub fn parse_file(text: &str) -> Result<VectorFile, String> {
 
 /// Parse one vector, useful to tests that exercise malformed values without making a corpus file.
 pub fn parse_vector(text: &str) -> Result<Vector, String> {
-    let document: KdlDocument = text.parse().map_err(|e: kdl::KdlError| e.to_string())?;
+    let document: KdlDocument = text
+        .parse()
+        .map_err(|e: usage::kdl::KdlError| e.to_string())?;
     let nodes: Vec<_> = document
         .nodes()
         .iter()

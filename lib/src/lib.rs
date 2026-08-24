@@ -27,6 +27,9 @@ pub use crate::warn::{Warning, WarningKind};
 #[macro_use]
 #[allow(unused_assignments)] // Fields in struct variants are read by derive macros
 pub mod error;
+#[doc(hidden)]
+pub mod kdl;
+pub mod miette;
 #[macro_use]
 pub mod macros;
 pub mod complete;
