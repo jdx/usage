@@ -324,10 +324,10 @@ def --env __usage_complete_{ident} [spans: list<string>] {
     let commands = (if $wants_commands {
         let prefix = ($spans | last)
         let insensitive = $nu.os-info.name == "windows"
-        let match_prefix = if $insensitive { $prefix | str downcase } else { $prefix }
+        let match_prefix = if $insensitive { $prefix | str lowercase } else { $prefix }
         which
         | where {|row|
-            let candidate = if $insensitive { $row.command | str downcase } else { $row.command }
+            let candidate = if $insensitive { $row.command | str lowercase } else { $row.command }
             $candidate | str starts-with $match_prefix
         }
         | each {|row| { value: $row.command, description: $row.path } }
