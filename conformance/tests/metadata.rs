@@ -30,6 +30,62 @@ struct CappedColumns {
     threads: Option<usize>,
 }
 
+#[derive(Args)]
+#[usage(disable_help_flag, term_width = 0)]
+#[allow(dead_code)]
+struct CappedFlatArgs {
+    /// Disable reporting on warnings
+    #[usage(long)]
+    quiet: bool,
+    /// Choose the severity for unused directives while keeping every long explanation inside the bounded parent help page
+    #[usage(
+        long = "report-unused-disable-directives-severity",
+        value_name = "SEVERITY",
+        env = "COLUMN_CAP_SEVERITY",
+        default = "warn"
+    )]
+    severity: Option<String>,
+    #[usage(
+        long = "an-extraordinarily-long-multiline-option-name",
+        help = "Keep this line.\nAnd this one."
+    )]
+    multiline: bool,
+}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum CappedFlatCommands {
+    Run(CappedFlatArgs),
+}
+
+#[derive(Args)]
+#[allow(dead_code)]
+struct LongCommandArgs {}
+
+#[derive(Subcommands)]
+#[allow(dead_code)]
+enum LongCommandNames {
+    /// Explain this unusually named command with enough detail to wrap beneath its name on a bounded help page
+    #[usage(name = "an-extraordinarily-long-subcommand-name")]
+    Long(LongCommandArgs),
+}
+
+#[derive(Cli)]
+#[usage(bin = "command-cap", term_width = 80)]
+#[allow(dead_code)]
+struct CappedCommandColumns {
+    #[usage(subcommand)]
+    command: Option<LongCommandNames>,
+}
+
+#[derive(Cli)]
+#[usage(bin = "column-cap-flat", term_width = 80, flatten_help)]
+#[allow(dead_code)]
+struct CappedFlatColumns {
+    #[usage(subcommand)]
+    command: Option<CappedFlatCommands>,
+}
+
 #[test]
 fn a_long_flag_only_moves_its_own_help_below_the_column() {
     let spec = CappedColumns::spec();
@@ -69,6 +125,64 @@ fn a_long_flag_only_moves_its_own_help_below_the_column() {
             Some("Choose the severity for unused directives")
         );
         assert!(lines[outlier + 1].starts_with("    "), "{page}");
+    }
+}
+
+#[test]
+fn flattened_help_caps_each_nested_commands_columns_too() {
+    let spec = CappedFlatColumns::spec();
+    let portable: LibSpec = CappedFlatColumns::to_kdl().parse().expect("valid spec");
+
+    for long in [false, true] {
+        let page = usage_argv::help::render(spec, spec.root.cmd, long).unwrap();
+        assert_eq!(
+            page,
+            usage::docs::cli::render_help(&portable, &portable.cmd, long)
+        );
+        assert!(
+            page.lines().any(|line| {
+                line.contains("--quiet") && line.contains("Disable reporting on warnings")
+            }),
+            "{page}"
+        );
+        assert!(
+            page.contains("--report-unused-disable-directives-severity <SEVERITY>\n    Choose the severity for unused directives while keeping every long\n    explanation inside the bounded parent help page"),
+            "{page}"
+        );
+        assert!(
+            page.contains("--an-extraordinarily-long-multiline-option-name\n    Keep this line.\n    And this one."),
+            "{page}"
+        );
+        if !long {
+            assert!(
+                page.contains("[env: COLUMN_CAP_SEVERITY]") && page.contains("(default: warn)"),
+                "{page}"
+            );
+        }
+        assert!(
+            page.lines()
+                .filter(|line| !line.trim_start().starts_with("column-cap-flat run"))
+                .all(|line| line.chars().count() <= 80),
+            "a flattened help row exceeded 80 columns: {page}"
+        );
+    }
+}
+
+#[test]
+fn a_long_command_name_only_moves_its_own_wrapped_summary_below() {
+    let spec = CappedCommandColumns::spec();
+    let portable: LibSpec = CappedCommandColumns::to_kdl().parse().expect("valid spec");
+
+    for long in [false, true] {
+        let page = usage_argv::help::render(spec, spec.root.cmd, long).unwrap();
+        assert_eq!(
+            page,
+            usage::docs::cli::render_help(&portable, &portable.cmd, long)
+        );
+        assert!(
+            page.contains("an-extraordinarily-long-subcommand-name\n    Explain this unusually named command with enough detail to wrap beneath its\n    name on a bounded help page"),
+            "{page}"
+        );
     }
 }
 

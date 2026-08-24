@@ -1309,7 +1309,12 @@ fn short_sections(
         |out, (f, usage)| short_entry(out, f, usage.clone()),
     );
     if meta.flatten_help {
-        flat_commands_short(&mut sections.flattened, &path[1.min(path.len())..], meta);
+        flat_commands_short(
+            &mut sections.flattened,
+            &path[1.min(path.len())..],
+            meta,
+            width,
+        );
     }
     examples_section(&mut sections.after_help, spec, meta);
     if let Some(after) = meta.after_help.or(spec.root.after_help) {
@@ -1475,7 +1480,7 @@ fn command_row<'a>(sub: &'a CommandMeta<'a>) -> Option<Cow<'a, str>> {
     Some(Cow::Owned(row))
 }
 
-fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) {
+fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, width: usize) {
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
     order_commands(&mut visible);
     for sub in visible {
@@ -1503,18 +1508,20 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
             .iter()
             .map(|arg| arg_usage(arg).chars().count())
             .max()
+            .map(|longest| usage_column_width(longest, width))
             .unwrap_or(0);
         let flag_col = flags
             .iter()
             .map(|flag| column_usage(flag).chars().count())
             .max()
+            .map(|longest| usage_column_width(longest, width))
             .unwrap_or(0);
         for arg in args {
             let usage = arg_usage(arg);
             if meta.next_line_help {
                 let _ = writeln!(out, "  {usage}");
                 if let Some(help) = arg.help.filter(|help| !help.trim().is_empty()) {
-                    write_indented(out, help, 4);
+                    write_indented(out, help, BLOCK_INDENT);
                 }
                 long_annotations(
                     out,
@@ -1539,15 +1546,9 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                 );
                 continue;
             }
-            if let Some(help) = arg.help.filter(|help| !help.trim().is_empty()) {
-                let _ = write!(out, "  {usage:<arg_col$}  {help}");
-            } else {
-                let _ = write!(out, "  {usage}");
-            }
             let environment =
                 inline_environment_notes(arg.hide_env, arg.env_fallback, arg.deprecated_env);
-            annotations(
-                out,
+            let notes = inline_annotations(
                 if arg.hide_possible_values {
                     &[]
                 } else {
@@ -1562,13 +1563,21 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                 },
                 None,
             );
+            entry(
+                out,
+                &usage,
+                with_annotations(arg.help, notes).as_deref(),
+                arg_col,
+                width,
+                false,
+            );
         }
         for flag in flags {
             let usage = column_usage(flag);
             if meta.next_line_help {
                 let _ = writeln!(out, "  {usage}");
                 if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
-                    write_indented(out, help, 4);
+                    write_indented(out, help, BLOCK_INDENT);
                 }
                 long_annotations(
                     out,
@@ -1598,11 +1607,6 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                 flag_notes(out, flag, BLOCK_INDENT);
                 continue;
             }
-            if let Some(help) = flag.help.filter(|help| !help.trim().is_empty()) {
-                let _ = write!(out, "  {usage:<flag_col$}  {help}");
-            } else {
-                let _ = write!(out, "  {usage}");
-            }
             let deprecation = deprecation_label(
                 flag.deprecated,
                 flag.deprecated_warn_at,
@@ -1610,8 +1614,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
             );
             let environment =
                 inline_environment_notes(flag.hide_env, flag.env_fallback, flag.deprecated_env);
-            annotations(
-                out,
+            let notes = inline_annotations(
                 if flag.hide_possible_values {
                     &[]
                 } else {
@@ -1626,9 +1629,17 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>) 
                 },
                 deprecation.as_deref(),
             );
+            entry(
+                out,
+                &usage,
+                with_annotations(flag.help, notes).as_deref(),
+                flag_col,
+                width,
+                false,
+            );
         }
         if sub.flatten_help {
-            flat_commands_short(out, &sub_path, sub);
+            flat_commands_short(out, &sub_path, sub, width);
         }
         out.push('\n');
     }
@@ -1775,37 +1786,7 @@ fn command_help_section<'a>(sub: &'a CommandMeta<'a>, default_title: &str) -> Op
     sub.help_heading.filter(|heading| *heading != default_title)
 }
 
-/// The bracketed notes after an entry's help: choices, environment, default.
-fn annotations(
-    out: &mut String,
-    choices: &[&str],
-    env: Option<&str>,
-    environment: Option<&str>,
-    default: &[&str],
-    suffix: Option<&str>,
-) {
-    if !choices.is_empty() {
-        let _ = write!(out, " [{}]", choices.join(", "));
-    }
-    if let Some(env) = env {
-        let _ = write!(out, " [env: {env}]");
-    }
-    if let Some(environment) = environment {
-        let _ = write!(out, " {environment}");
-    }
-    if !default.is_empty() {
-        let _ = write!(out, " (default: {})", default.join(", "));
-    }
-    if let Some(suffix) = suffix {
-        let _ = write!(out, " {suffix}");
-    }
-    out.push('\n');
-}
-
-/// The same annotations as one string, for an entry that carries them in its text.
-///
-/// [`annotations`] writes them straight out, which the flattened sections still want. The
-/// narrow layout cannot: its text has to be complete before it is wrapped.
+/// The bracketed notes after an entry's help, composed before the narrow layout wraps them.
 fn inline_annotations(
     choices: &[&str],
     env: Option<&str>,
@@ -2325,13 +2306,20 @@ fn entry(
     let indent = 2 + col + 2;
     let room = width.saturating_sub(indent);
     // A long outlier leaves the shared column to the ordinary entries and uses a block alone.
-    let block = next_line || usage.chars().count() > col || room < 10;
+    let overflow = usage.chars().count() > col;
+    let block = next_line || overflow || room < 10;
     let Some(help) = help.filter(|h| !h.trim().is_empty()) else {
         let _ = writeln!(out, "  {usage}");
         // An entry with nothing in the column still has annotations to place, and the column is
         // where they go: it is this entry's row that is empty, not the table's.
         return if block { BLOCK_INDENT } else { indent };
     };
+
+    if overflow && !next_line && !help.contains('\n') {
+        let _ = writeln!(out, "  {usage}");
+        write_wrapped_block(out, help, width);
+        return BLOCK_INDENT;
+    }
 
     if block || help.contains('\n') {
         let _ = writeln!(out, "  {usage}");
@@ -2366,6 +2354,14 @@ fn entry(
     // whitespace trimming eats it before it reaches the output — so a wrapped entry is followed
     // directly by the next, and matching means matching that.
     indent
+}
+
+/// Wrap an overflowing entry's description across the width below its usage.
+fn write_wrapped_block(out: &mut String, help: &str, width: usize) {
+    let room = width.saturating_sub(BLOCK_INDENT);
+    for line in wrap(help, room) {
+        let _ = writeln!(out, "{}{}", " ".repeat(BLOCK_INDENT), line);
+    }
 }
 
 /// Whether [`wrap`] would return this text unchanged as a single line.
@@ -2584,11 +2580,13 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
             .iter()
             .map(|arg| arg_usage(arg).chars().count())
             .max()
+            .map(|longest| usage_column_width(longest, width))
             .unwrap_or(0);
         let flag_col = flags
             .iter()
             .map(|flag| column_usage(flag).chars().count())
             .max()
+            .map(|longest| usage_column_width(longest, width))
             .unwrap_or(0);
         for arg in args {
             entry(
@@ -3736,7 +3734,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        flat_commands_short(&mut page, &["tool"], &root_meta);
+        flat_commands_short(&mut page, &["tool"], &root_meta, 80);
 
         assert!(
             page.contains("    Use the old mode\n    [deprecated: use --new]"),
@@ -3785,7 +3783,7 @@ mod style_tests {
         };
         let mut page = String::new();
 
-        flat_commands_short(&mut page, &["tool"], &root_meta);
+        flat_commands_short(&mut page, &["tool"], &root_meta, 80);
 
         assert!(page.contains("--old\n"), "{page}");
         assert!(page.contains("[deprecated: use --new]\n"), "{page}");
@@ -4096,4 +4094,15 @@ mod style_tests {
         }
         out
     }
+}
+#[cfg(test)]
+#[test]
+fn an_overflowing_entry_wraps_even_when_the_page_is_very_narrow() {
+    let mut page = String::new();
+    let width = 10;
+    let col = usage_column_width("--long".chars().count(), width);
+
+    entry(&mut page, "--long", Some("alpha beta"), col, width, false);
+
+    assert_eq!(page, "  --long\n    alpha\n    beta\n");
 }

@@ -91,6 +91,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 			argCol = n
 		}
 	}
+	argCol = usageColumnWidth(argCol)
 	groupsSection(&sections.args, &sections.ungroupedArgs, &sections.groupedArgs, "Arguments", len(args),
 		func(i int) string { return headingOf(help, args[i].Key) },
 		headingProse(meta),
@@ -113,6 +114,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 			flagCol = n
 		}
 	}
+	flagCol = usageColumnWidth(flagCol)
 	writeFlag := func(w *strings.Builder, f shownFlag) {
 		if f.supplied != "" {
 			entry(w, f.usage, f.suppliedHelp, flagCol, nextLineHelp)
@@ -237,6 +239,7 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 		for _, a := range args {
 			argCol = max(argCol, width(argUsage(a, help.Lookup(a.Key))))
 		}
+		argCol = usageColumnWidth(argCol)
 		flagCol := 0
 		for _, f := range sub.Flags {
 			fh := help.Lookup(f.Key)
@@ -246,6 +249,7 @@ func flatCommandsLong(out *strings.Builder, path []string, cmd *Command, help He
 			flags = append(flags, f)
 			flagCol = max(flagCol, width(columnUsage(f, allShown(f), help)))
 		}
+		flagCol = usageColumnWidth(flagCol)
 		orderFlags(flags, help)
 		for _, a := range args {
 			ah := help.Lookup(a.Key)
@@ -279,8 +283,10 @@ func entry(out *strings.Builder, usage, help string, col int, nextLine bool) int
 	if room < 0 {
 		room = 0
 	}
+	// A long outlier leaves the shared column to the ordinary entries and uses a block alone.
+	overflow := width(usage) > col
 	// Whether anything on this page reaches the column at all.
-	block := nextLine || room < 10
+	block := nextLine || overflow || room < 10
 	if strings.TrimSpace(help) == "" {
 		out.WriteString("  " + usage + "\n")
 		// An entry with nothing in the column still has annotations to place, and the
@@ -289,6 +295,14 @@ func entry(out *strings.Builder, usage, help string, col int, nextLine bool) int
 			return blockIndent
 		}
 		return indent
+	}
+
+	if overflow && !nextLine && !strings.Contains(help, "\n") {
+		out.WriteString("  " + usage + "\n")
+		for _, line := range wrap(help, helpWidth-blockIndent) {
+			out.WriteString(strings.Repeat(" ", blockIndent) + line + "\n")
+		}
+		return blockIndent
 	}
 
 	if block || strings.Contains(help, "\n") {
@@ -305,6 +319,14 @@ func entry(out *strings.Builder, usage, help string, col int, nextLine bool) int
 	// No blank line after a wrapped entry: the reference's template asks for one
 	// and its whitespace trimming eats it before it reaches the output.
 	return indent
+}
+
+// usageColumnWidth prevents one long spelling from narrowing every description on the page.
+// After the two-space indent and gap, usage gets at most two fifths of the remaining width.
+func usageColumnWidth(longest int) int {
+	available := helpWidth - 4
+	cap := available * 2 / 5
+	return min(longest, cap)
 }
 
 // longAnnotations gives each annotation its own line, which is the room the wide

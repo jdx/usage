@@ -98,6 +98,10 @@ pub fn render_help(spec: &Spec, cmd: &SpecCommand, long: bool) -> String {
         );
     }
 
+    // Flattened descendants live on this page, so this page's width governs them. Their own
+    // `term_width` applies when they get a page of their own, not when an ancestor expands them.
+    lay_out_flattened(&mut docs_cmd.flattened_subcommands, width, long);
+
     // The command list, laid out the way the flag list is: one column for the whole page, the
     // name in it, and everything else — summary, aliases, deprecation — trailing as text that
     // wraps under itself. Both pages get the same rows, so `--help` no longer reprints every
@@ -389,6 +393,8 @@ fn supplied_flags(
 fn lay_out(flags: &mut [crate::docs::models::SpecFlag], column: Column) {
     for flag in flags {
         flag.usage_col_width = column.col;
+        flag.help_is_block =
+            column.is_block(crate::docs::layout::visible_width(&flag.display_usage));
         let text = if column.long {
             flag.help_long
                 .as_deref()
@@ -417,6 +423,7 @@ fn lay_out(flags: &mut [crate::docs::models::SpecFlag], column: Column) {
 fn lay_out_args(args: &mut [crate::docs::models::SpecArg], column: Column) {
     for arg in args {
         arg.usage_col_width = column.col;
+        arg.help_is_block = column.is_block(crate::docs::layout::visible_width(&arg.usage));
         let text = if column.long {
             arg.help_long
                 .as_deref()
@@ -434,6 +441,46 @@ fn lay_out_args(args: &mut [crate::docs::models::SpecArg], column: Column) {
             &mut arg.help_is_multiline,
             &mut arg.ann_indent,
         );
+    }
+}
+
+fn lay_out_flattened(commands: &mut [crate::docs::models::SpecCommand], width: usize, long: bool) {
+    for command in commands {
+        let arg_col = crate::docs::layout::usage_column_width(
+            command
+                .arg_groups
+                .iter()
+                .flat_map(|group| group.items.iter())
+                .map(|arg| arg.usage.as_str()),
+            width,
+        );
+        let arg_column = Column {
+            width,
+            col: arg_col,
+            long,
+            next_line: command.flattened_next_line_help,
+        };
+        for group in &mut command.arg_groups {
+            lay_out_args(&mut group.items, arg_column);
+        }
+
+        let flag_col = crate::docs::layout::usage_column_width(
+            command
+                .flag_groups
+                .iter()
+                .flat_map(|group| group.items.iter())
+                .map(|flag| flag.display_usage.as_str()),
+            width,
+        );
+        let flag_column = Column {
+            width,
+            col: flag_col,
+            long,
+            next_line: command.flattened_next_line_help,
+        };
+        for group in &mut command.flag_groups {
+            lay_out(&mut group.items, flag_column);
+        }
     }
 }
 
@@ -459,7 +506,13 @@ fn wrap_into(
     *ann_indent = column.annotation_indent(!column.is_block(usage_width));
     let Some(text) = text else { return };
     if column.is_block(usage_width) {
-        *row = Some(text);
+        *row = Some(
+            if column.usage_overflows(usage_width) && !text.contains('\n') {
+                crate::docs::layout::render_block_text(&text, column.width)
+            } else {
+                text
+            },
+        );
         return;
     }
     let (rendered, is_multiline) =
@@ -585,10 +638,16 @@ struct Column {
 const BLOCK_INDENT: usize = 4;
 
 impl Column {
+    fn usage_overflows(&self, usage_width: usize) -> bool {
+        !self.next_line && usage_width > self.col
+    }
+
     /// Whether this entry stays out of the column: because the page puts every description
     /// underneath, its usage exceeds the capped column, or too little room remains for help.
     fn is_block(&self, usage_width: usize) -> bool {
-        self.next_line || usage_width > self.col || self.width.saturating_sub(2 + self.col + 2) < 10
+        self.next_line
+            || self.usage_overflows(usage_width)
+            || self.width.saturating_sub(2 + self.col + 2) < 10
     }
 
     /// Where an entry's annotations are indented to.
@@ -626,6 +685,9 @@ fn lay_out_commands(
         command.help_rendered = None;
         command.help_is_multiline = false;
         if crate::docs::layout::visible_width(&command.name) > col {
+            if let Some(row) = command.row.as_mut().filter(|row| !row.contains('\n')) {
+                *row = crate::docs::layout::render_block_text(row, terminal_width);
+            }
             continue;
         }
         if let Some(row) = command.row.as_deref() {
@@ -707,10 +769,17 @@ fn render_row(
     col: usize,
     next_line_help: bool,
 ) -> String {
-    if !next_line_help && crate::docs::layout::visible_width(name) <= col {
-        let (rendered, _) = crate::docs::layout::render_help_text(row, terminal_width, col);
-        if !rendered.is_empty() {
-            return format!("  {name:<col$}  {rendered}");
+    if !next_line_help {
+        if crate::docs::layout::visible_width(name) <= col {
+            let (rendered, _) = crate::docs::layout::render_help_text(row, terminal_width, col);
+            if !rendered.is_empty() {
+                return format!("  {name:<col$}  {rendered}");
+            }
+        } else if !row.contains('\n') {
+            return format!(
+                "  {name}\n    {}",
+                crate::docs::layout::render_block_text(row, terminal_width)
+            );
         }
     }
     format!("  {name}\n    {row}")

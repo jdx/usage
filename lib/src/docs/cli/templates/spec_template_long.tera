@@ -78,6 +78,9 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if arg.help_is_multiline %}
 
 {%- endif %}
+{%- elif arg.row %}
+  {{ arg.usage | trim }}
+    {{ arg.row | indent(width=4) }}
 {%- else %}
   {{ arg.usage | trim }}
 {%- set help = arg.help_long | default(value=arg.help | default(value='')) %}
@@ -130,6 +133,10 @@ Usage: {{ (spec.bin ~ " " ~ cmd.usage) | trim }}
 {%- if flag.help_is_multiline %}
 
 {%- endif %}
+{%- elif flag.row %}
+  {{ flag.display_usage }}
+{%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+    {{ flag.row | indent(width=4) }}
 {%- else %}
   {{ flag.display_usage }}
 {%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
@@ -187,6 +194,10 @@ Global flags:
 {%- if flag.help_is_multiline %}
 
 {%- endif %}
+{%- elif flag.row %}
+  {{ flag.display_usage }}
+{%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
+    {{ flag.row | indent(width=4) }}
 {%- else %}
   {{ flag.display_usage }}
 {%- if flag.aliases %}  [aliases: {{ flag.aliases | join(sep=", ") }}]{% endif %}
@@ -249,6 +260,9 @@ Global flags:
 {%- endif %}
 {%- elif arg.help_rendered %}
   {{ arg.usage | ljust(width=arg.usage_col_width) }}  {{ arg.help_rendered }}
+{%- elif arg.row %}
+  {{ arg.usage | trim }}
+    {{ arg.row | indent(width=4) }}
 {%- else %}
   {{ arg.usage | trim }}
 {%- endif %}
@@ -283,6 +297,9 @@ Global flags:
 {%- endif %}
 {%- elif flag.help_rendered %}
   {{ flag.display_usage | ljust(width=flag.usage_col_width) }}  {{ flag.help_rendered }}
+{%- elif flag.row %}
+  {{ flag.display_usage }}
+    {{ flag.row | indent(width=4) }}
 {%- else %}
   {{ flag.display_usage }}
 {%- endif %}

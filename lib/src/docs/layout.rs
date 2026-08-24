@@ -146,6 +146,11 @@ pub fn render_help_text(
     (result, is_multiline)
 }
 
+/// Wrap text for the four-space block beneath an entry that overflowed its usage column.
+pub fn render_block_text(help: &str, terminal_width: usize) -> String {
+    wrap_text(help, terminal_width.saturating_sub(4)).join("\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
