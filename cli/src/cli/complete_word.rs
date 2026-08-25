@@ -188,22 +188,49 @@ impl CompleteWord {
         let flags = parsed.completion_flags();
         // An explicit `--` stops the parser reading flags, so past one there is no such thing
         // as a flag to complete — a dash-prefixed word is a positional value.
-        let flags_possible = !parsed.double_dash_seen;
-        let sigil_arg = flags_possible
-            .then(|| {
-                parsed
-                    .cmds
+        let restart_seen = parsed.tokens.iter().any(|token| {
+            token
+                .roles
+                .iter()
+                .any(|role| matches!(role, usage::parse::TokenRole::Restart))
+        });
+        let automatic_trailing_seen = parsed
+            .tokens
+            .iter()
+            .rev()
+            .take_while(|token| {
+                !token
+                    .roles
                     .iter()
-                    .flat_map(|cmd| cmd.args.iter())
-                    .filter_map(|arg| {
-                        let sigil = arg.sigil.as_deref()?;
-                        ctoken
-                            .strip_prefix(sigil)
-                            .map(|prefix| (arg, sigil, prefix))
-                    })
-                    .max_by_key(|(_, sigil, _)| sigil.len())
+                    .any(|role| matches!(role, usage::parse::TokenRole::Restart))
             })
-            .flatten();
+            .flat_map(|token| &token.roles)
+            .any(|role| match role {
+                usage::parse::TokenRole::Arg { arg, .. }
+                | usage::parse::TokenRole::Sigil { arg, .. } => {
+                    arg.double_dash == usage::SpecDoubleDashChoices::Automatic
+                }
+                _ => false,
+            });
+        let flags_possible = !parsed.double_dash_seen && !automatic_trailing_seen;
+        let sigil_arg = (flags_possible
+            && !restart_seen
+            && !after_restart_token
+            && parsed.flag_awaiting_value.is_empty())
+        .then(|| {
+            parsed
+                .cmds
+                .iter()
+                .flat_map(|cmd| cmd.args.iter())
+                .filter_map(|arg| {
+                    let sigil = arg.sigil.as_deref()?;
+                    ctoken
+                        .strip_prefix(sigil)
+                        .map(|prefix| (arg, sigil, prefix))
+                })
+                .max_by_key(|(_, sigil, _)| sigil.len())
+        })
+        .flatten();
         let mut choices = if flags_possible && ctoken == "-" {
             let shorts = self.complete_short_flag_names(&flags, "");
             let longs = self.complete_long_flag_names(&flags, "");

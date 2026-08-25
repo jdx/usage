@@ -1086,7 +1086,7 @@ fn declared_files_at_cursor(
     }
     let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
     let after_restart = restarted(meta, split);
-    let sigil_cursor = sigil_arg_at_cursor(spec, position, &split.prefix);
+    let sigil_cursor = sigil_arg_at_cursor(spec, position, split);
     let at_cursor = if after_restart {
         meta.and_then(|m| m.args.first()).map(|m| m.arg)
     } else {
@@ -1193,7 +1193,7 @@ fn complete_inner<'a>(
     // argument, whatever the words before the token filled, and everything below follows from
     // that: whether paths belong, whether the set is declared, whether a separator is owed.
     let after_restart = restarted(meta, split);
-    let sigil_cursor = sigil_arg_at_cursor(spec, &position, token);
+    let sigil_cursor = sigil_arg_at_cursor(spec, &position, split);
     let at_cursor = if after_restart {
         meta.and_then(|m| m.args.first()).map(|m| m.arg)
     } else {
@@ -1298,8 +1298,7 @@ pub async fn complete_with<'a>(
     let sigil = attached
         .is_none()
         .then(|| {
-            sigil_arg_at_cursor(spec, &position, &split.prefix)
-                .map(|(_, _, sigil, prefix)| (sigil, prefix))
+            sigil_arg_at_cursor(spec, &position, split).map(|(_, _, sigil, prefix)| (sigil, prefix))
         })
         .flatten();
     let value_prefix = attached
@@ -1352,8 +1351,7 @@ async fn complete_named_with<'a>(
     let sigil = attached
         .is_none()
         .then(|| {
-            sigil_arg_at_cursor(spec, &position, &split.prefix)
-                .map(|(_, _, sigil, prefix)| (sigil, prefix))
+            sigil_arg_at_cursor(spec, &position, split).map(|(_, _, sigil, prefix)| (sigil, prefix))
         })
         .flatten();
     let value_prefix = attached
@@ -1462,7 +1460,7 @@ fn overlay_at_cursor<'o>(
         return None;
     }
     let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
-    let sigil_target = sigil_arg_at_cursor(spec, position, &split.prefix);
+    let sigil_target = sigil_arg_at_cursor(spec, position, split);
     let target = if restarted(meta, split) {
         meta.and_then(|owner| {
             owner.args.first().map(|field| {
@@ -1538,11 +1536,13 @@ fn overlay_at_cursor<'o>(
 fn sigil_arg_at_cursor<'a, 'p>(
     spec: &Spec<'a>,
     position: &Position<'_>,
-    token: &'p str,
+    split: &'p Split,
 ) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>, &'a str, &'p str)> {
-    if !position.flags_possible {
+    let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
+    if !position.flags_possible || position.awaiting_value.is_some() || restarted(meta, split) {
         return None;
     }
+    let token = split.prefix.as_str();
     metadata_chain_on_route(spec, position)?
         .into_iter()
         .flat_map(|owner| owner.args.iter().map(move |field| (owner, field)))
@@ -1646,7 +1646,7 @@ fn candidates_inner<'a>(
     }
     let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
-    let sigil_arg = sigil_arg_at_cursor(spec, &position, token);
+    let sigil_arg = sigil_arg_at_cursor(spec, &position, split);
 
     let mut out = if position.flags_possible && token == "-" {
         // Both forms, because a lone dash says nothing about which was meant.
@@ -2749,11 +2749,17 @@ mod tests {
         };
         static COMMAND: Command = Command {
             name: "ex",
+            flags: &[&JOBS],
             args: &[&FILE_ARG, &OVERLAY],
             ..Command::EMPTY
         };
         static META: CommandMeta = CommandMeta {
             cmd: &COMMAND,
+            restart_token: Some(":::"),
+            flags: &[FlagMeta {
+                flag: &JOBS,
+                ..FlagMeta::EMPTY
+            }],
             args: &[
                 ArgMeta {
                     arg: &FILE_ARG,
@@ -2784,6 +2790,14 @@ mod tests {
         // The ordinary positional would ask the shell for files, but a sigil token is
         // classified as the closed-choice overlay field even when no choice matches.
         assert_eq!(complete(&SIGIL_SPEC, &at_end("ex +z")).files, None);
+        assert_eq!(
+            complete(&SIGIL_SPEC, &at_end("ex --jobs +z")).files,
+            Some(Files::Any)
+        );
+        assert_eq!(
+            complete(&SIGIL_SPEC, &at_end("ex file ::: +z")).files,
+            Some(Files::Any)
+        );
 
         static OPEN_META: CommandMeta = CommandMeta {
             cmd: &COMMAND,
