@@ -205,10 +205,13 @@ impl CompleteWord {
             .iter()
             .rev()
             .take_while(|token| {
-                !token
-                    .roles
-                    .iter()
-                    .any(|role| matches!(role, usage::parse::TokenRole::Restart))
+                !token.roles.iter().any(|role| {
+                    matches!(
+                        role,
+                        usage::parse::TokenRole::Restart
+                            | usage::parse::TokenRole::ClauseSeparator { .. }
+                    )
+                })
             })
             .flat_map(|token| &token.roles)
             .any(|role| match role {
