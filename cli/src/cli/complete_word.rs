@@ -189,6 +189,19 @@ impl CompleteWord {
         // An explicit `--` stops the parser reading flags, so past one there is no such thing
         // as a flag to complete — a dash-prefixed word is a positional value.
         let flags_possible = !parsed.double_dash_seen;
+        let sigil_arg = flags_possible.then(|| {
+            parsed
+                .cmds
+                .iter()
+                .flat_map(|cmd| cmd.args.iter())
+                .filter_map(|arg| {
+                    let sigil = arg.sigil.as_deref()?;
+                    ctoken
+                        .strip_prefix(sigil)
+                        .map(|prefix| (arg, sigil, prefix))
+                })
+                .max_by_key(|(_, sigil, _)| sigil.len())
+        }).flatten();
         let mut choices = if flags_possible && ctoken == "-" {
             let shorts = self.complete_short_flag_names(&flags, "");
             let longs = self.complete_long_flag_names(&flags, "");
@@ -218,6 +231,13 @@ impl CompleteWord {
             let arg = flag.arg.as_ref().unwrap();
             let (found, closed) = self.complete_arg(&cx, &parsed.cmd, arg, &ctoken)?;
             has_explicit_choices = closed || arg.choices.is_some();
+            found
+        } else if let Some((arg, sigil, prefix)) = sigil_arg {
+            let (mut found, closed) = self.complete_arg(&cx, &parsed.cmd, arg, prefix)?;
+            for (candidate, _) in &mut found {
+                candidate.insert_str(0, sigil);
+            }
+            has_explicit_choices = closed || arg.choices.is_some() || found.is_empty();
             found
         } else {
             let mut choices = vec![];

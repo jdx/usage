@@ -1,0 +1,7 @@
+min_usage_version "6.5"
+name "Sigil example"
+bin "sigil"
+arg "[tool]..." sigil="+" help="Temporary tool selection" {
+  choices "node@22" "node@24" "python@3.14"
+}
+arg "<command>" help="Command to run"

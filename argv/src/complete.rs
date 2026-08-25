@@ -1426,6 +1426,7 @@ fn overlay_at_cursor<'o>(
         return None;
     }
     let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
+    let sigil_target = sigil_arg_at_cursor(spec, position, &split.prefix);
     let target = if restarted(meta, split) {
         meta.and_then(|owner| {
             owner.args.first().map(|field| {
@@ -1442,6 +1443,8 @@ fn overlay_at_cursor<'o>(
     {
         flag_meta_owner_on_route(spec, position, flag)
             .map(|(owner, field)| (owner, field.value_name.unwrap_or(field.flag.name), false))
+    } else if let Some((owner, field, _, _)) = sigil_target {
+        Some((owner, field.arg.name, false))
     } else {
         position
             .next_arg
@@ -1494,6 +1497,26 @@ fn overlay_at_cursor<'o>(
     overlays.iter().rev().find(|overlay| {
         overlay.value.eq_ignore_ascii_case(value) && overlay.command.matches(owner, &path)
     })
+}
+
+fn sigil_arg_at_cursor<'a, 'p>(
+    spec: &Spec<'a>,
+    position: &Position<'_>,
+    token: &'p str,
+) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>, &'a str, &'p str)> {
+    if !position.flags_possible {
+        return None;
+    }
+    metadata_chain_on_route(spec, position)?
+        .into_iter()
+        .flat_map(|owner| owner.args.iter().map(move |field| (owner, field)))
+        .filter_map(|(owner, field)| {
+            let sigil = field.arg.sigil.and_then(|value| core::str::from_utf8(value).ok())?;
+            token
+                .strip_prefix(sigil)
+                .map(|prefix| (owner, field, sigil, prefix))
+        })
+        .max_by_key(|(_, _, sigil, _)| sigil.len())
 }
 
 fn flag_meta_owner_on_route<'a>(
@@ -1584,6 +1607,7 @@ fn candidates_inner<'a>(
     }
     let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
+    let sigil_arg = sigil_arg_at_cursor(spec, &position, token);
 
     let mut out = if position.flags_possible && token == "-" {
         // Both forms, because a lone dash says nothing about which was meant.
@@ -1630,6 +1654,12 @@ fn candidates_inner<'a>(
                 )
             })
             .unwrap_or_default()
+    } else if let Some((_, arg, sigil, prefix)) = sigil_arg {
+        let mut found = positional(arg, &position, split, prefix);
+        for candidate in &mut found {
+            candidate.value.insert_str(0, sigil);
+        }
+        found
     } else {
         let mut found = Vec::new();
         if let Some(arg) = position.next_arg {
@@ -2663,6 +2693,43 @@ mod tests {
             .into_iter()
             .map(|c| c.value)
             .collect()
+    }
+
+    #[test]
+    fn sigil_completion_matches_the_stripped_value_and_restores_the_prefix() {
+        static OVERLAY: Arg = Arg {
+            key: 90,
+            name: "TOOL",
+            sigil: Some(b"+"),
+            ..Arg::VAR
+        };
+        static COMMAND: Command = Command {
+            name: "ex",
+            args: &[&OVERLAY],
+            ..Command::EMPTY
+        };
+        static META: CommandMeta = CommandMeta {
+            cmd: &COMMAND,
+            args: &[ArgMeta {
+                arg: &OVERLAY,
+                choices: &["node@22", "node@24", "python@3.14"],
+                ..ArgMeta::EMPTY
+            }],
+            ..CommandMeta::EMPTY
+        };
+        static SIGIL_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &META,
+            ..Spec::EMPTY
+        };
+
+        let values = candidates(&SIGIL_SPEC, &at_end("ex +n"))
+            .into_iter()
+            .map(|candidate| candidate.value)
+            .collect::<Vec<_>>();
+        assert_eq!(values, ["+node@22", "+node@24"]);
+        assert!(candidates(&SIGIL_SPEC, &at_end("ex -- +n")).is_empty());
     }
 
     fn runtime_tools(ctx: CompleteCtx<'_>) -> CompletionFuture<'_> {

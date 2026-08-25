@@ -253,6 +253,15 @@ fn complete_word_choices() {
 }
 
 #[test]
+fn complete_word_sigil_arg_strips_for_matching_and_restores_for_output() {
+    assert_cmd("sigil.usage.kdl", &["--", "+n"]).stdout("+node@22\n+node@24\n");
+    assert_cmd("sigil.usage.kdl", &["--", "+"])
+        .stdout("+node@22\n+node@24\n+python@3.14\n");
+    // A separator protects the same token from sigil classification.
+    assert_cmd("sigil.usage.kdl", &["--", "--", "+n"]).stdout("");
+}
+
+#[test]
 fn complete_word_choices_from_env() {
     cmd("env-choices.usage.kdl", Some("fish"))
         .env("DEPLOY_ENVS", "foo,bar baz")
