@@ -37,7 +37,7 @@ tera = { version = "2", optional = true }
 thiserror = "2"
 unicode-width = "0.2"
 # `unstable-recover` is explicitly semver-exempt, so pin the parser version we test.
-winnow = { version = "=0.7.15", features = ["alloc", "unstable-recover"] }
+winnow = { version = "=1.0.4", features = ["alloc", "unstable-recover"] }
 # No `xx`: three helpers (a lazy-regex macro, `file::read_to_string`, `check_status`) were
 # worth 21 crates in every dependent's tree — duct, homedir, nix, rand and their libc
 # subtrees — including one that ran in an adopter's build script.
