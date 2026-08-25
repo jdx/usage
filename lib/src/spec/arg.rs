@@ -665,7 +665,9 @@ fn required_if_eq(node: &NodeHelper<'_>) -> Result<SpecRequiredIfEq, UsageErr> {
 fn required_if_eq_pairs(node: &NodeHelper<'_>) -> Result<Vec<SpecRequiredIfEq>, UsageErr> {
     let entries = node.args().collect::<Vec<_>>();
     entries
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|pair| {
             Ok(SpecRequiredIfEq {
                 selector: pair[0].ensure_string()?,

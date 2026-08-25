@@ -473,7 +473,9 @@ impl SpecFlag {
                         );
                     }
                     flag.required_if_eq_all = entries
-                        .chunks_exact(2)
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
                         .map(|pair| {
                             Ok(SpecRequiredIfEq {
                                 selector: pair[0].ensure_string()?,
