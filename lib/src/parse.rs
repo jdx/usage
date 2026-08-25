@@ -1064,7 +1064,12 @@ impl<'a> Parser<'a> {
                         if let Some(min) = arg.var_min {
                             if values.len() < min {
                                 clause_errors.push(UsageErr::VarArgTooFew {
-                                    name: format!("{} instance {}: {}", clause.name, index + 1, arg.name),
+                                    name: format!(
+                                        "{} instance {}: {}",
+                                        clause.name,
+                                        index + 1,
+                                        arg.name
+                                    ),
                                     min,
                                     got: values.len(),
                                 });
@@ -1073,7 +1078,12 @@ impl<'a> Parser<'a> {
                         if let Some(max) = arg.var_max {
                             if values.len() > max {
                                 clause_errors.push(UsageErr::VarArgTooMany {
-                                    name: format!("{} instance {}: {}", clause.name, index + 1, arg.name),
+                                    name: format!(
+                                        "{} instance {}: {}",
+                                        clause.name,
+                                        index + 1,
+                                        arg.name
+                                    ),
                                     max,
                                     got: values.len(),
                                 });
@@ -2760,6 +2770,11 @@ fn parse_partial_traced(
             .map(|other| format!("--{}", other.name));
         let other_arg = active_args(&out.cmd).iter().find(|arg| {
             out.args.keys().any(|given| given.name == arg.name)
+                || out
+                    .clauses
+                    .values()
+                    .flatten()
+                    .any(|instance| instance.keys().any(|given| given.name == arg.name))
                 || arg
                     .env
                     .as_ref()
@@ -4241,11 +4256,7 @@ fn restore_current_clause(out: &mut ParseOutput) {
     let Some(clause) = out.cmd.clause.as_ref() else {
         return;
     };
-    if let Some(current) = out
-        .clauses
-        .get_mut(&clause.name)
-        .and_then(Vec::pop)
-    {
+    if let Some(current) = out.clauses.get_mut(&clause.name).and_then(Vec::pop) {
         out.args = current;
     }
 }
@@ -5860,6 +5871,22 @@ flag "--file <file>" required_unless="--stdin"
 
         // Not given, so it imposes nothing.
         parse(&spec, &input(&["ex", "--verbose", "t"])).expect("without it, nothing changes");
+    }
+
+    #[test]
+    fn an_exclusive_flag_conflicts_with_clause_arguments() {
+        let spec: Spec = r#"name "ex"
+bin "ex"
+flag "--dump" exclusive=#true
+clause "tasks" separator=":::" {
+  arg "<task>"
+}
+"#
+        .parse()
+        .unwrap();
+
+        let err = parse(&spec, &input(&["ex", "--dump", "lint"])).unwrap_err();
+        assert!(err.to_string().contains("on its own"), "{err}");
     }
 
     #[test]
