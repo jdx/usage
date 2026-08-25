@@ -213,3 +213,16 @@ fn derive_collects_each_clause_instance() {
     let emitted = TypedClause::to_kdl();
     assert!(emitted.contains("clause tasks separator=:::"), "{emitted}");
 }
+
+#[test]
+fn derived_clause_arguments_appear_in_compiled_help() {
+    let spec = TypedClause::spec();
+    let usage = usage_argv::help::usage_line(&["typed-clause"], spec.root);
+    assert!(usage.contains("<TASK>"), "{usage}");
+    assert!(usage.contains(":::"), "{usage}");
+
+    let help = usage_argv::help::short_help(spec, &["typed-clause"], &[spec.root]);
+    assert!(help.contains("Arguments:"), "{help}");
+    assert!(help.contains("<TASK>"), "{help}");
+    assert!(help.contains("[ARGS]…"), "{help}");
+}

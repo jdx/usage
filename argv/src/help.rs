@@ -574,8 +574,9 @@ fn help_structure(
                 !arg.hide_short_help
             }
     };
-    let mut args: Vec<_> = meta.args.iter().filter(visible_arg).collect();
-    order_args(&mut args, meta.args);
+    let positional_args = positional_args(meta);
+    let mut args: Vec<_> = positional_args.iter().filter(visible_arg).collect();
+    order_args(&mut args, positional_args);
     if args.iter().any(|arg| arg.help_heading.is_none()) {
         headings.push("Arguments".to_string());
     }
@@ -645,7 +646,7 @@ fn flat_help_usages(
     order_commands(&mut visible);
     for sub in visible {
         arg_usages.extend(
-            sub.args
+            positional_args(sub)
                 .iter()
                 .filter(|arg| {
                     !arg.hide
@@ -834,6 +835,10 @@ pub fn usage_line(path: &[&str], meta: &CommandMeta<'_>) -> String {
     usage_line_with_subcommands(path, meta, true)
 }
 
+fn positional_args<'a>(meta: &'a CommandMeta<'a>) -> &'a [ArgMeta<'a>] {
+    meta.clause.map_or(meta.args, |clause| clause.args)
+}
+
 fn usage_line_with_subcommands(
     path: &[&str],
     meta: &CommandMeta<'_>,
@@ -873,11 +878,20 @@ fn usage_line_with_subcommands(
         }
     }
 
-    let args: usize = meta.args.iter().filter(|a| !a.hide).count();
+    let positional_args = positional_args(meta);
+    let args: usize = positional_args.iter().filter(|a| !a.hide).count();
     if args > 0 {
-        let required = meta.args.iter().any(|a| !a.hide && demanded(a));
-        if args <= INLINE_LIMIT {
-            for arg in meta.args.iter().filter(|a| !a.hide) {
+        let required = positional_args.iter().any(|a| !a.hide && demanded(a));
+        if let Some(clause) = meta.clause {
+            let inner = positional_args
+                .iter()
+                .filter(|a| !a.hide)
+                .map(arg_usage)
+                .collect::<Vec<_>>()
+                .join(" ");
+            let _ = write!(out, " {inner} [{} {inner}]…", clause.separator);
+        } else if args <= INLINE_LIMIT {
+            for arg in positional_args.iter().filter(|a| !a.hide) {
                 let _ = write!(out, " {}", arg_usage(arg));
             }
         } else if required {
@@ -1292,12 +1306,12 @@ fn short_sections(
     // after the name it belonged to, so nothing in `-h` lined up with anything — and `-h` is
     // the form most people type. One column per section over its visible entries, which is
     // the rule the long page already follows.
-    let mut args: Vec<&ArgMeta<'_>> = meta
-        .args
+    let positional_args = positional_args(meta);
+    let mut args: Vec<&ArgMeta<'_>> = positional_args
         .iter()
         .filter(|a| !a.hide && !a.hide_short_help)
         .collect();
-    order_args(&mut args, meta.args);
+    order_args(&mut args, positional_args);
     let arg_col = args
         .iter()
         .map(|a| arg_usage(a).chars().count())
@@ -1635,12 +1649,12 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
         }
         command_deprecation(out, sub, 0, width);
 
-        let mut args: Vec<_> = sub
-            .args
+        let positional_args = positional_args(sub);
+        let mut args: Vec<_> = positional_args
             .iter()
             .filter(|arg| !arg.hide && !arg.hide_short_help)
             .collect();
-        order_args(&mut args, sub.args);
+        order_args(&mut args, positional_args);
         let mut flags: Vec<&FlagMeta<'_>> = sub
             .flags
             .iter()
@@ -2237,12 +2251,12 @@ fn long_sections(
 
     // One column width per section, over its visible entries — the same two the reference
     // computes, and separately, so a long flag does not push the arguments out.
-    let mut args: Vec<&ArgMeta<'_>> = meta
-        .args
+    let positional_args = positional_args(meta);
+    let mut args: Vec<&ArgMeta<'_>> = positional_args
         .iter()
         .filter(|a| !a.hide && !a.hide_long_help)
         .collect();
-    order_args(&mut args, meta.args);
+    order_args(&mut args, positional_args);
     let arg_col = args
         .iter()
         .map(|a| arg_usage(a).chars().count())
@@ -2833,12 +2847,12 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
         }
         command_deprecation(out, sub, 0, width);
 
-        let mut args: Vec<_> = sub
-            .args
+        let positional_args = positional_args(sub);
+        let mut args: Vec<_> = positional_args
             .iter()
             .filter(|arg| !arg.hide && !arg.hide_long_help)
             .collect();
-        order_args(&mut args, sub.args);
+        order_args(&mut args, positional_args);
         let mut flags: Vec<&FlagMeta<'_>> = sub
             .flags
             .iter()
@@ -3872,10 +3886,72 @@ mod style_tests {
     use super::{
         commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
         inline_environment_notes, long_help, render_styled, render_view_at_styled,
-        styled_flag_usage, styled_help, styled_inline, wrap, Shown, Style,
+        styled_flag_usage, styled_help, styled_inline, usage_line, wrap, Shown, Style,
     };
-    use crate::spec::{ArgMeta, CommandMeta, FlagMeta, Spec, ViewMeta};
-    use crate::{Arg, ArgAction, Command, Flag};
+    use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, FlagMeta, Spec, ViewMeta};
+    use crate::{Arg, ArgAction, Clause, Command, Flag};
+
+    #[test]
+    fn compiled_clause_arguments_appear_in_usage_and_help() {
+        let task = Arg {
+            name: "TASK",
+            ..Arg::REQUIRED
+        };
+        let args = Arg {
+            name: "ARGS",
+            required: false,
+            var: true,
+            ..Arg::REQUIRED
+        };
+        let command = Command {
+            name: "run",
+            clause: Some(Clause {
+                key: 0,
+                name: "tasks",
+                separator: b":::",
+                args: &[&task, &args],
+            }),
+            ..Command::EMPTY
+        };
+        let task_meta = ArgMeta {
+            arg: &task,
+            required: true,
+            help: Some("Task to run"),
+            ..ArgMeta::EMPTY
+        };
+        let args_meta = ArgMeta {
+            arg: &args,
+            required: false,
+            var_min: Some(0),
+            help: Some("Arguments for the task"),
+            ..ArgMeta::EMPTY
+        };
+        let meta = CommandMeta {
+            cmd: &command,
+            clause: Some(ClauseMeta {
+                name: "tasks",
+                separator: ":::",
+                help: None,
+                long_help: None,
+                args: &[task_meta, args_meta],
+            }),
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            root: &meta,
+            ..Spec::EMPTY
+        };
+
+        assert_eq!(
+            usage_line(&["ex"], &meta),
+            "ex <TASK> [ARGS]… [::: <TASK> [ARGS]…]…"
+        );
+        let help = super::short_help(&spec, &["ex"], &[&meta]);
+        assert!(help.contains("Arguments:"), "{help}");
+        assert!(help.contains("<TASK>"), "{help}");
+        assert!(help.contains("[ARGS]…"), "{help}");
+    }
 
     #[test]
     fn nested_lists_keep_their_hanging_indent() {
