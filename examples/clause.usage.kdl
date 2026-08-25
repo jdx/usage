@@ -1,0 +1,9 @@
+min_usage_version "6.5"
+name "Clause example"
+bin "clause"
+clause "tasks" separator=":::" {
+  arg "<task>" {
+    choices "lint" "test" "build"
+  }
+  arg "[args]..." var=#true double_dash="automatic"
+}

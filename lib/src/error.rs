@@ -46,6 +46,13 @@ pub enum UsageErr {
     #[error("Missing required arg: <{0}>")]
     MissingArg(String),
 
+    #[error("Missing required arg <{arg}> in clause {clause} instance {instance}")]
+    MissingClauseArg {
+        clause: String,
+        instance: usize,
+        arg: String,
+    },
+
     /// A command that declares `subcommand_required` was given none.
     ///
     /// The spec could say this and the parser did not read it, so `mise generate` — which

@@ -5,6 +5,7 @@ use crate::error::UsageErr;
 use crate::kdl::{KdlDocument, KdlEntry, KdlNode};
 use crate::sh::sh;
 use crate::spec::builder::SpecCommandBuilder;
+use crate::spec::clause::SpecClause;
 use crate::spec::context::ParsingContext;
 use crate::spec::effect::{SpecCommandEffect, EFFECT_VALUES};
 use crate::spec::exit_code::SpecExitCode;
@@ -48,6 +49,9 @@ pub struct SpecCommand {
     pub subcommands: IndexMap<String, SpecCommand>,
     /// Positional arguments for this command
     pub args: Vec<SpecArg>,
+    /// A repeatable separator-delimited positional group.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clause: Option<SpecClause>,
     /// Flags/options for this command
     pub flags: Vec<SpecFlag>,
     /// Flagsets this command pulls in, and where in [`Self::flags`] they belong.
@@ -285,6 +289,7 @@ impl Default for SpecCommand {
             subcommand_precedence_over_arg: false,
             allow_missing_positional: false,
             restart_token: None,
+            clause: None,
             help: None,
             help_long: None,
             help_md: None,
@@ -509,6 +514,12 @@ impl SpecCommand {
                     }
                     cmd.args.push(arg);
                 }
+                "clause" => {
+                    if cmd.clause.is_some() {
+                        bail_parse!(ctx, child.node.name().span(), "a command may declare at most one clause");
+                    }
+                    cmd.clause = Some(SpecClause::parse(ctx, &child)?);
+                }
                 "mount" => cmd.mounts.push(SpecMount::parse(ctx, &child)?),
                 "group" => cmd.groups.push(SpecGroup::parse(ctx, &child)?),
                 "cmd" => {
@@ -721,6 +732,17 @@ impl SpecCommand {
                 sigils.push(sigil);
             }
         }
+        if let Some(clause) = &cmd.clause {
+            if !cmd.args.is_empty() {
+                bail_parse!(ctx, node.span(), "a command cannot declare both top-level arguments and a clause");
+            }
+            if cmd.restart_token.is_some() {
+                bail_parse!(ctx, node.span(), "a command cannot declare both restart_token and a clause");
+            }
+            if clause.args.iter().any(|arg| arg.sigil.is_some()) {
+                bail_parse!(ctx, node.span(), "sigil arguments are not supported inside clauses");
+            }
+        }
         Ok(cmd)
     }
 
@@ -747,6 +769,7 @@ impl SpecCommand {
     }
     pub(crate) fn is_empty(&self) -> bool {
         self.args.is_empty()
+            && self.clause.is_none()
             && self.flags.is_empty()
             && self.mounts.is_empty()
             && self.subcommands.is_empty()
@@ -799,6 +822,9 @@ impl SpecCommand {
                 usage = format!("{usage} [ARGS]…");
             }
         }
+        if let Some(clause) = &self.clause {
+            usage = format!("{usage} {}", clause.usage());
+        }
         // TODO: mounts?
         // if !self.mounts.is_empty() {
         //     name = format!("{name} [mounts]");
@@ -841,6 +867,7 @@ impl SpecCommand {
             after_help_long,
             after_help_md,
             args,
+            clause,
             flags,
             uses,
             mounts,
@@ -922,6 +949,9 @@ impl SpecCommand {
         }
         if !args.is_empty() {
             self.args = args;
+        }
+        if clause.is_some() {
+            self.clause = clause;
         }
         let flags_replaced = !flags.is_empty();
         if flags_replaced {
@@ -1175,6 +1205,7 @@ impl From<&SpecCommand> for KdlNode {
             effect,
             flags,
             args,
+            clause,
             mounts,
             groups,
             subcommands,
@@ -1374,6 +1405,10 @@ impl From<&SpecCommand> for KdlNode {
         for arg in args {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);
             children.nodes_mut().push(arg.into());
+        }
+        if let Some(clause) = clause {
+            let children = node.children_mut().get_or_insert_with(KdlDocument::new);
+            children.nodes_mut().push(clause.into());
         }
         for mount in mounts {
             let children = node.children_mut().get_or_insert_with(KdlDocument::new);

@@ -7,6 +7,7 @@ pub use crate::spec::admonition::{SpecAdmonition, SpecAdmonitionKind};
 pub use crate::spec::arg::{SpecArg, SpecDoubleDashChoices, SpecRequiredIfEq};
 pub use crate::spec::builder::{SpecArgBuilder, SpecCommandBuilder, SpecFlagBuilder};
 pub use crate::spec::choices::{SpecChoice, SpecChoiceAlias, SpecChoices};
+pub use crate::spec::clause::SpecClause;
 pub use crate::spec::cmd::SpecCommand;
 pub use crate::spec::complete::SpecComplete;
 pub use crate::spec::effect::SpecCommandEffect;

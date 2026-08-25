@@ -345,6 +345,8 @@ pub enum TokenRole {
     /// over here. Recorded because the words before it are still in the report, and without
     /// this row they look like they filled arguments that then came back empty.
     Restart,
+    /// Ended one instance of a repeatable clause and began the next.
+    ClauseSeparator { name: String },
     /// A flag-like word no declaration matched. `bound_as` is the positional that took it
     /// under `unknown_flags="value"`, and `None` when the word was refused.
     UnknownFlag { bound_as: Option<Arc<SpecArg>> },
@@ -382,6 +384,8 @@ pub struct ParseOutput {
     pub cmd: SpecCommand,
     pub cmds: Vec<SpecCommand>,
     pub args: IndexMap<Arc<SpecArg>, ParseValue>,
+    /// Separator-delimited positional instances, keyed by clause name.
+    pub clauses: IndexMap<String, Vec<IndexMap<Arc<SpecArg>, ParseValue>>>,
     pub flags: IndexMap<Arc<SpecFlag>, ParseValue>,
     /// What each word of the command line became, in argv order, one entry per word.
     ///
@@ -784,6 +788,7 @@ impl<'a> Parser<'a> {
             self.mount_outputs.as_ref(),
             MountTiming::WhenAWordIsUnknown,
         )?;
+        restore_current_clause(&mut out);
         trace!("{out:?}");
 
         // A flag still waiting for a value never got one, so the command line ended
@@ -835,7 +840,12 @@ impl<'a> Parser<'a> {
         //
         // Not `skip(out.args.len())`: an explicit `--` can jump the parser's cursor past an arg
         // that stayed empty, leaving a gap that makes the fill count a wrong starting offset.
-        for arg in out.cmd.args.iter() {
+        for arg in active_args(&out.cmd) {
+            // Clause instances contain argv only: defaults and environment values do not
+            // manufacture fields inside a repeated group.
+            if out.cmd.clause.is_some() {
+                break;
+            }
             if out.args.contains_key(arg) {
                 continue;
             }
@@ -1029,6 +1039,51 @@ impl<'a> Parser<'a> {
                 &mut out.errors,
             );
         }
+        if let Some(clause) = &out.cmd.clause {
+            let mut clause_errors = Vec::new();
+            for (index, instance) in out
+                .clauses
+                .get(&clause.name)
+                .into_iter()
+                .flatten()
+                .chain(std::iter::once(&out.args))
+                .enumerate()
+            {
+                for arg in &clause.args {
+                    let Some(value) = instance.get(arg) else {
+                        if arg.required {
+                            clause_errors.push(UsageErr::MissingClauseArg {
+                                clause: clause.name.clone(),
+                                instance: index + 1,
+                                arg: arg.name.clone(),
+                            });
+                        }
+                        continue;
+                    };
+                    if let (true, ParseValue::MultiString(values)) = (arg.var, value) {
+                        if let Some(min) = arg.var_min {
+                            if values.len() < min {
+                                clause_errors.push(UsageErr::VarArgTooFew {
+                                    name: format!("{} instance {}: {}", clause.name, index + 1, arg.name),
+                                    min,
+                                    got: values.len(),
+                                });
+                            }
+                        }
+                        if let Some(max) = arg.var_max {
+                            if values.len() > max {
+                                clause_errors.push(UsageErr::VarArgTooMany {
+                                    name: format!("{} instance {}: {}", clause.name, index + 1, arg.name),
+                                    max,
+                                    got: values.len(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            out.errors.extend(clause_errors);
+        }
         for (flag, parsed) in &out.flags {
             if let Some(arg) = &flag.arg {
                 validate_expression(
@@ -1043,6 +1098,7 @@ impl<'a> Parser<'a> {
         // Applied once, here, because this is where the CLI's own version is known: a
         // `deprecated_warn_at` the spec has not reached yet is an author saying *not yet*.
         crate::warn::retain_reached(&mut out.warnings, self.spec.version.as_deref());
+        finalize_current_clause(&mut out);
         Ok(out)
     }
 }
@@ -1267,6 +1323,7 @@ fn parse_partial_traced(
         cmd: spec.cmd.clone(),
         cmds: vec![spec.cmd.clone()],
         args: IndexMap::new(),
+        clauses: IndexMap::new(),
         flags: IndexMap::new(),
         tokens: vec![],
         flag_origins: IndexMap::new(),
@@ -1583,6 +1640,27 @@ fn parse_partial_traced(
         // only when the value is actually missing, so `-cnever` is still `never`.
         let attached_continuation = grouped_flag;
 
+        // A clause boundary is syntax even after an automatic trailing argument disabled
+        // flags. Only an explicit `--` protects a literal separator.
+        if !seen_double_dash {
+            if let Some(clause) = out.cmd.clause.as_ref() {
+                if w == clause.separator {
+                    let name = clause.name.clone();
+                    out.clauses
+                        .entry(name.clone())
+                        .or_default()
+                        .push(std::mem::take(&mut out.args));
+                    out.arg_origins.clear();
+                    trace.record(argv, TokenRole::ClauseSeparator { name });
+                    next_arg_idx = 0;
+                    out.flag_awaiting_value.clear();
+                    enable_flags = true;
+                    seen_double_dash = false;
+                    continue;
+                }
+            }
+        }
+
         // Check for restart_token - resets argument parsing for multiple command invocations
         // e.g., `mise run lint ::: test ::: check` with restart_token=":::"
         if let Some(ref restart_token) = out.cmd.restart_token {
@@ -1696,7 +1774,7 @@ fn parse_partial_traced(
                 // that would otherwise swallow the rest. This mirrors clap's `Arg::last(true)`,
                 // which is what `double_dash="required"` is generated from. Specs without such
                 // an arg find nothing and keep the cursor where it was.
-                let target = out.cmd.args.iter().position(|arg| {
+                let target = active_args(&out.cmd).iter().position(|arg| {
                     arg.double_dash == SpecDoubleDashChoices::Required
                         && !out.args.contains_key(arg)
                 });
@@ -2190,11 +2268,11 @@ fn parse_partial_traced(
 
         if out.cmd.allow_missing_positional {
             next_arg_idx = cursor_skip_sigils(&out.cmd, next_arg_idx);
-            while let Some(current) = out.cmd.args.get(next_arg_idx) {
+            while let Some(current) = active_args(&out.cmd).get(next_arg_idx) {
                 if current.required || out.args.contains_key(current) {
                     break;
                 }
-                let required_after = out.cmd.args[next_arg_idx + 1..]
+                let required_after = active_args(&out.cmd)[next_arg_idx + 1..]
                     .iter()
                     .filter(|arg| arg.required && arg.sigil.is_none())
                     .count();
@@ -2217,7 +2295,7 @@ fn parse_partial_traced(
             }
         }
 
-        if let Some(arg) = out.cmd.args.get(next_arg_idx) {
+        if let Some(arg) = active_args(&out.cmd).get(next_arg_idx) {
             if arg.var
                 && out.args.contains_key(arg)
                 && arg.value_terminator.as_deref() == Some(w.as_str())
@@ -2680,7 +2758,7 @@ fn parse_partial_traced(
                     && (flag_was_parsed(other) || flag_has_env(other, custom_env))
             })
             .map(|other| format!("--{}", other.name));
-        let other_arg = out.cmd.args.iter().find(|arg| {
+        let other_arg = active_args(&out.cmd).iter().find(|arg| {
             out.args.keys().any(|given| given.name == arg.name)
                 || arg
                     .env
@@ -4144,15 +4222,49 @@ fn record_stop(
         .cloned()
         .map(Arc::new);
     out.double_dash_seen = seen_double_dash;
+    finalize_current_clause(out);
     trace.close(unread);
     out.tokens = std::mem::take(&mut trace.tokens);
 }
 
+fn finalize_current_clause(out: &mut ParseOutput) {
+    let Some(clause) = out.cmd.clause.as_ref() else {
+        return;
+    };
+    out.clauses
+        .entry(clause.name.clone())
+        .or_default()
+        .push(std::mem::take(&mut out.args));
+}
+
+fn restore_current_clause(out: &mut ParseOutput) {
+    let Some(clause) = out.cmd.clause.as_ref() else {
+        return;
+    };
+    if let Some(current) = out
+        .clauses
+        .get_mut(&clause.name)
+        .and_then(Vec::pop)
+    {
+        out.args = current;
+    }
+}
+
 fn cursor_skip_sigils(cmd: &SpecCommand, mut idx: usize) -> usize {
-    while cmd.args.get(idx).is_some_and(|arg| arg.sigil.is_some()) {
+    while active_args(cmd)
+        .get(idx)
+        .is_some_and(|arg| arg.sigil.is_some())
+    {
         idx += 1;
     }
     idx
+}
+
+fn active_args(cmd: &SpecCommand) -> &[SpecArg] {
+    cmd.clause
+        .as_ref()
+        .map(|clause| clause.args.as_slice())
+        .unwrap_or(cmd.args.as_slice())
 }
 
 fn match_sigil_arg<'a>(
@@ -4288,6 +4400,7 @@ fn render_role(role: &TokenRole) -> String {
         TokenRole::Builtin { spelling } => format!("built-in {spelling}"),
         TokenRole::ValueTerminator { ends } => format!("value terminator, ends {ends}"),
         TokenRole::Restart => "restart".to_string(),
+        TokenRole::ClauseSeparator { name } => format!("clause separator for {name}"),
         TokenRole::UnknownFlag { bound_as } => match bound_as {
             Some(arg) => format!("unknown flag, bound as {}", arg.name),
             None => "unknown flag".to_string(),
@@ -4310,6 +4423,7 @@ impl Debug for ParseOutput {
                     .map(|(a, w)| format!("{}: {w}", a.name))
                     .collect_vec(),
             )
+            .field("clauses", &self.clauses)
             .field(
                 "available_flags",
                 &self

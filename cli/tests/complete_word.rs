@@ -301,6 +301,12 @@ cmd "run" restart_token=":::" {
 }
 
 #[test]
+fn complete_word_clause_separator_restarts_at_the_first_inner_arg() {
+    assert_cmd("clause.usage.kdl", &["--", "lint", "--fix", ":::", "t"])
+        .stdout("test\n");
+}
+
+#[test]
 fn complete_word_choices_from_env() {
     cmd("env-choices.usage.kdl", Some("fish"))
         .env("DEPLOY_ENVS", "foo,bar baz")

@@ -175,7 +175,12 @@ impl CompleteWord {
             .cmd
             .restart_token
             .as_ref()
-            .is_some_and(|rt| prev_token == Some(rt.as_str()));
+            .is_some_and(|rt| prev_token == Some(rt.as_str()))
+            || parsed
+                .cmd
+                .clause
+                .as_ref()
+                .is_some_and(|clause| prev_token == Some(clause.separator.as_str()));
 
         let cx = Ctx {
             tera: &ctx,
@@ -245,7 +250,13 @@ impl CompleteWord {
             // This must be checked after flag checks (to allow --flag after :::)
             // but before flag_awaiting_value (since restart clears pending flag values)
             let mut choices = vec![];
-            if let Some(arg) = first_ordinary_arg(&parsed.cmd) {
+            if let Some(arg) = parsed
+                .cmd
+                .clause
+                .as_ref()
+                .and_then(|clause| clause.args.first())
+                .or_else(|| first_ordinary_arg(&parsed.cmd))
+            {
                 let (found, constrained) = self.complete_positional(
                     &cx,
                     &parsed.cmd,
