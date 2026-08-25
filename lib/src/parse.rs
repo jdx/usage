@@ -2434,9 +2434,9 @@ fn parse_partial_traced(
                 && arg.required_unless_all.iter().all(|selector| {
                     selector_is_explicit(selector, &out, &overridden_flags, custom_env)
                 });
-            let required_unless = !(unless_any
-                || unless_all
-                || (arg.required_unless.is_empty() && arg.required_unless_all.is_empty()));
+            let required_unless = (!arg.required_unless.is_empty()
+                || !arg.required_unless_all.is_empty())
+                && !(unless_any || unless_all);
             if (arg.required
                 || required_if
                 || required_if_eq
@@ -2720,9 +2720,9 @@ fn parse_partial_traced(
                 && flag.required_unless_all.iter().all(|selector| {
                     selector_is_explicit(selector, &out, &overridden_flags, custom_env)
                 });
-            let required_unless = !(unless_any
-                || unless_all
-                || (flag.required_unless.is_empty() && flag.required_unless_all.is_empty()));
+            let required_unless = (!flag.required_unless.is_empty()
+                || !flag.required_unless_all.is_empty())
+                && !(unless_any || unless_all);
             if (flag.required
                 || required_if
                 || required_if_eq
