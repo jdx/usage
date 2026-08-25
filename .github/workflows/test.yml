@@ -59,11 +59,11 @@ jobs:
           fi
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y zsh fish bash-completion
-          # pwsh is pre-installed on GitHub ubuntu-latest images. Self-heal
-          # if a future image drops it so the integration test still runs
-          # (rather than panicking under CI=1).
+          # pwsh is pre-installed on GitHub ubuntu-latest images. Namespace
+          # images have Microsoft's apt repository but not snap, so install
+          # from apt when it is absent.
           if ! command -v pwsh >/dev/null 2>&1; then
-            sudo snap install powershell --classic
+            sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y powershell
           fi
       # A step of its own, and `always()`, because the interesting time to hear which
       # shells are present is the run where the one above did not finish — and a `set -e`
