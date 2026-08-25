@@ -1089,8 +1089,9 @@ fn declared_files_at_cursor(
     let at_cursor = if after_restart {
         meta.and_then(|m| m.args.first()).map(|m| m.arg)
     } else {
-        position
-            .next_arg
+        sigil_arg_at_cursor(spec, position, &split.prefix)
+            .map(|(_, field, _, _)| field.arg)
+            .or(position.next_arg)
             .or_else(|| default_subcommand_arg(spec, split, position).map(|(_, field)| field.arg))
     };
     if position.awaiting_value.is_none()
@@ -1191,7 +1192,9 @@ fn complete_inner<'a>(
     let at_cursor = if after_restart {
         meta.and_then(|m| m.args.first()).map(|m| m.arg)
     } else {
-        position.next_arg
+        sigil_arg_at_cursor(spec, &position, token)
+            .map(|(_, field, _, _)| field.arg)
+            .or(position.next_arg)
     };
 
     // A dash-prefixed word is a flag or nothing: no path starts with one, and the reference
@@ -1287,7 +1290,17 @@ pub async fn complete_with<'a>(
     };
 
     let attached = attached_long_value(&position, &split.prefix);
-    let value_prefix = attached.map_or(split.prefix.as_str(), |(_, _, prefix)| prefix);
+    let sigil = attached
+        .is_none()
+        .then(|| {
+            sigil_arg_at_cursor(spec, &position, &split.prefix)
+                .map(|(_, _, sigil, prefix)| (sigil, prefix))
+        })
+        .flatten();
+    let value_prefix = attached
+        .map(|(_, _, prefix)| prefix)
+        .or_else(|| sigil.map(|(_, prefix)| prefix))
+        .unwrap_or(split.prefix.as_str());
     let words = split.argv();
     let command_path: Vec<(&Command<'_>, &[String])> = position
         .path
@@ -1308,6 +1321,10 @@ pub async fn complete_with<'a>(
     dynamic.retain(|candidate| candidate.value.starts_with(value_prefix));
     if let Some((_, form, _)) = attached {
         attach_candidates(&mut dynamic, form);
+    } else if let Some((sigil, _)) = sigil {
+        for candidate in &mut dynamic {
+            candidate.value.insert_str(0, sigil);
+        }
     }
 
     let mut answer = complete(spec, split);
@@ -1327,7 +1344,17 @@ async fn complete_named_with<'a>(
 ) -> Completions<'a> {
     let position = walk(spec.root.cmd, split.argv());
     let attached = attached_long_value(&position, &split.prefix);
-    let value_prefix = attached.map_or(split.prefix.as_str(), |(_, _, prefix)| prefix);
+    let sigil = attached
+        .is_none()
+        .then(|| {
+            sigil_arg_at_cursor(spec, &position, &split.prefix)
+                .map(|(_, _, sigil, prefix)| (sigil, prefix))
+        })
+        .flatten();
+    let value_prefix = attached
+        .map(|(_, _, prefix)| prefix)
+        .or_else(|| sigil.map(|(_, prefix)| prefix))
+        .unwrap_or(split.prefix.as_str());
     let words = split.argv();
     let command_path: Vec<(&Command<'_>, &[String])> = position
         .path
@@ -1352,6 +1379,10 @@ async fn complete_named_with<'a>(
     candidates.retain(|candidate| candidate.value.starts_with(value_prefix));
     if let Some((_, form, _)) = attached {
         attach_candidates(&mut candidates, form);
+    } else if let Some((sigil, _)) = sigil {
+        for candidate in &mut candidates {
+            candidate.value.insert_str(0, sigil);
+        }
     }
     sort_and_dedup_candidates(&mut candidates);
     Completions {
@@ -1511,7 +1542,10 @@ fn sigil_arg_at_cursor<'a, 'p>(
         .into_iter()
         .flat_map(|owner| owner.args.iter().map(move |field| (owner, field)))
         .filter_map(|(owner, field)| {
-            let sigil = field.arg.sigil.and_then(|value| core::str::from_utf8(value).ok())?;
+            let sigil = field
+                .arg
+                .sigil
+                .and_then(|value| core::str::from_utf8(value).ok())?;
             token
                 .strip_prefix(sigil)
                 .map(|prefix| (owner, field, sigil, prefix))
@@ -2697,6 +2731,11 @@ mod tests {
 
     #[test]
     fn sigil_completion_matches_the_stripped_value_and_restores_the_prefix() {
+        static FILE_ARG: Arg = Arg {
+            key: 89,
+            name: "file",
+            ..Arg::REQUIRED
+        };
         static OVERLAY: Arg = Arg {
             key: 90,
             name: "TOOL",
@@ -2705,16 +2744,22 @@ mod tests {
         };
         static COMMAND: Command = Command {
             name: "ex",
-            args: &[&OVERLAY],
+            args: &[&FILE_ARG, &OVERLAY],
             ..Command::EMPTY
         };
         static META: CommandMeta = CommandMeta {
             cmd: &COMMAND,
-            args: &[ArgMeta {
-                arg: &OVERLAY,
-                choices: &["node@22", "node@24", "python@3.14"],
-                ..ArgMeta::EMPTY
-            }],
+            args: &[
+                ArgMeta {
+                    arg: &FILE_ARG,
+                    ..ArgMeta::EMPTY
+                },
+                ArgMeta {
+                    arg: &OVERLAY,
+                    choices: &["node@22", "node@24", "python@3.14"],
+                    ..ArgMeta::EMPTY
+                },
+            ],
             ..CommandMeta::EMPTY
         };
         static SIGIL_SPEC: Spec = Spec {
@@ -2730,6 +2775,22 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(values, ["+node@22", "+node@24"]);
         assert!(candidates(&SIGIL_SPEC, &at_end("ex -- +n")).is_empty());
+
+        // The ordinary positional would ask the shell for files, but a sigil token is
+        // classified as the closed-choice overlay field even when no choice matches.
+        assert_eq!(complete(&SIGIL_SPEC, &at_end("ex +z")).files, None);
+
+        static RUNTIME: [CompletionOverlay<'static>; 1] =
+            [CompletionOverlay::async_any("TOOL", runtime_tools)];
+        let dynamic = run_ready(complete_with(&SIGIL_SPEC, &at_end("ex +r"), &RUNTIME));
+        assert_eq!(
+            dynamic
+                .candidates
+                .iter()
+                .map(|candidate| candidate.value.as_str())
+                .collect::<Vec<_>>(),
+            ["+ruby"]
+        );
     }
 
     fn runtime_tools(ctx: CompleteCtx<'_>) -> CompletionFuture<'_> {
