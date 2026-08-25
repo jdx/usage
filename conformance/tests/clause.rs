@@ -54,6 +54,27 @@ fn explicit_double_dash_protects_a_literal_separator() {
 }
 
 #[test]
+fn clause_variadic_can_preserve_double_dash() {
+    let spec: Spec = r#"
+name "clause"
+bin "clause"
+clause "tasks" separator=":::" {
+  arg "<task>"
+  arg "[args]..." double_dash="preserve"
+}
+"#
+    .parse()
+    .expect("valid clause spec");
+    let parsed = usage::Parser::new(&spec)
+        .parse(&["clause", "lint", "--", "--fix"].map(str::to_string))
+        .expect("preserved double dash is clause data");
+    assert_eq!(
+        strings(parsed.clauses["tasks"][0].iter(), "args"),
+        ["--", "--fix"]
+    );
+}
+
+#[test]
 fn clause_round_trips_through_canonical_kdl() {
     let spec = spec();
     let emitted = spec.to_string();

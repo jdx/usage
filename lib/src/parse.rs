@@ -1765,9 +1765,7 @@ fn parse_partial_traced(
 
             // Only preserve the double dash token if we're collecting values for a variadic arg
             // in double_dash == `preserve` mode
-            let should_preserve = out
-                .cmd
-                .args
+            let should_preserve = active_args(&out.cmd)
                 .get(next_arg_idx)
                 .map(|arg| arg.var && arg.double_dash == SpecDoubleDashChoices::Preserve)
                 .unwrap_or(false);
