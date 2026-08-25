@@ -178,15 +178,6 @@ Examples:
     $ mise tool-alias unset maven
     $ mise tool-alias unset node lts-jod
 
-## `mise asdf`
-
-- **Usage:** `mise asdf [ARGS]…`
-
-[internal] simulates asdf for plugins that call "asdf" internally
-
-### Arguments
-- **`[ARGS]…`** — all arguments
-
 ## `mise backends`
 
 - **Usage:** `mise backends <SUBCOMMAND>`
@@ -318,36 +309,6 @@ Examples:
     $ mise bootstrap macos launchd-agents apply --dry-run
     $ mise bootstrap linux systemd-units apply --dry-run
     $ mise bootstrap user apply --dry-run
-
-## `mise bootstrap __apply-account-plan`
-
-- **Usage:** `mise bootstrap __apply-account-plan`
-- **Effect:** destructive — may delete or irreversibly overwrite
-
-## `mise bootstrap __apply-service-plan`
-
-- **Usage:** `mise bootstrap __apply-service-plan`
-- **Effect:** destructive — may delete or irreversibly overwrite
-
-## `mise bootstrap __apply-firewall-plan`
-
-- **Usage:** `mise bootstrap __apply-firewall-plan`
-- **Effect:** destructive — may delete or irreversibly overwrite
-
-## `mise bootstrap __apply-system-plan`
-
-- **Usage:** `mise bootstrap __apply-system-plan`
-- **Effect:** destructive — may delete or irreversibly overwrite
-
-## `mise bootstrap __inspect-system-files`
-
-- **Usage:** `mise bootstrap __inspect-system-files`
-- **Effect:** read-only
-
-## `mise bootstrap __inspect-firewall-plan`
-
-- **Usage:** `mise bootstrap __inspect-firewall-plan`
-- **Effect:** read-only
 
 ## `mise bootstrap accounts`
 
@@ -593,13 +554,6 @@ Show configured Linux host firewall state
 - **`-J --json`** — Output in JSON format
 - **`--missing`** — Exit with code 1 when the firewall is not converged
 
-## `mise bootstrap launchd`
-
-- **Usage:** `mise bootstrap launchd <SUBCOMMAND>`
-- **Effect:** read-only
-
-Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
-
 ## `mise bootstrap launchd apply`
 
 - **Usage:** `mise bootstrap launchd apply [-n --dry-run] [-y --yes]`
@@ -706,13 +660,6 @@ Manage macOS LaunchAgents from `[bootstrap.macos.launchd.agents]`
 ### Flags
 - **`-J --json`** — Output in JSON format
 - **`--missing`** — Exit with code 1 if any configured LaunchAgent is not in its desired state
-
-## `mise bootstrap macos-defaults`
-
-- **Usage:** `mise bootstrap macos-defaults <SUBCOMMAND>`
-- **Effect:** read-only
-
-Manage macOS defaults from `[bootstrap.macos.defaults]`
 
 ## `mise bootstrap macos-defaults apply`
 
@@ -1167,13 +1114,6 @@ Show the aggregate bootstrap status
 - **`--missing`** — Exit with code 1 if any configured bootstrap state is not in its desired state
 - **`--prompt-secrets`** — Prompt securely for missing bootstrap secret inputs
 
-## `mise bootstrap systemd`
-
-- **Usage:** `mise bootstrap systemd <SUBCOMMAND>`
-- **Effect:** read-only
-
-Manage systemd user services from `[bootstrap.linux.systemd.units]`
-
 ## `mise bootstrap systemd apply`
 
 - **Usage:** `mise bootstrap systemd apply [-n --dry-run] [-y --yes]`
@@ -1394,35 +1334,6 @@ Examples:
     # Type for `settings` is inferred
     $ mise config set settings.jobs 4
 
-## `mise current`
-
-- **Usage:** `mise current [PLUGIN]`
-- **Effect:** read-only
-
-Shows current active and installed runtime versions
-
-This is similar to `mise ls --current`, but this only shows the runtime and/or version. It's designed to fit into scripts more easily.
-
-### Arguments
-- **`[PLUGIN]`** — Plugin to show versions of
-  e.g.: ruby, node, cargo:eza, npm:prettier, etc.
-
-Examples:
-
-    # outputs `.tool-versions` compatible format
-    $ mise current
-    python 3.11.0 3.10.0
-    shfmt 3.6.0
-    shellcheck 0.9.0
-    node 20.0.0
-
-    $ mise current node
-    20.0.0
-
-    # can output multiple versions
-    $ mise current python
-    3.11.0 3.10.0
-
 ## `mise deactivate`
 
 - **Usage:** `mise deactivate`
@@ -1435,178 +1346,6 @@ This can be used to temporarily disable mise in a shell session.
 Examples:
 
     $ mise deactivate
-
-## `mise direnv`
-
-- **Usage:** `mise direnv <SUBCOMMAND>`
-- **Effect:** read-only
-
-Output direnv function to use mise inside direnv
-
-See https://mise.jdx.dev/direnv.html for more information
-
-Because this generates the idiomatic files based on currently installed plugins, you should run this command after installing new plugins. Otherwise direnv may not know to update environment variables when idiomatic file versions change.
-
-## `mise direnv activate`
-
-- **Usage:** `mise direnv activate`
-- **Effect:** read-only
-
-Output direnv function to use mise inside direnv
-
-See https://mise.jdx.dev/direnv.html for more information
-
-Because this generates the idiomatic files based on currently installed plugins, you should run this command after installing new plugins. Otherwise direnv may not know to update environment variables when idiomatic file versions change.
-
-Examples:
-
-    $ mise direnv activate > ~/.config/direnv/lib/use_mise.sh
-    $ echo 'use mise' > .envrc
-    $ direnv allow
-
-## `mise direnv envrc`
-
-- **Usage:** `mise direnv envrc`
-- **Effect:** modifies state
-
-[internal] This is an internal command that writes an envrc file
-for direnv to consume.
-
-## `mise direnv exec`
-
-- **Usage:** `mise direnv exec`
-
-[internal] This is an internal command that writes an envrc file
-for direnv to consume.
-
-## `mise dotfiles`
-
-- **Usage:** `mise dotfiles <SUBCOMMAND>`
-- **Effect:** read-only
-
-Manage dotfiles from `[dotfiles]` (deprecated)
-
-Use `mise bootstrap dotfiles` instead.
-
-## `mise dotfiles add`
-
-- **Usage:** `mise dotfiles add [FLAGS] <TARGET>…`
-- **Effect:** modifies state
-
-Add or update dotfiles in `[dotfiles]`
-
-If the target is already managed, this updates its source from the live target. Otherwise it creates a `[dotfiles]` entry and seeds the source under `dotfiles.root` unless `--source` is provided.
-
-### Arguments
-- **`<TARGET>…`** — Targets to add or update
-
-### Flags
-- **`-f --force`** — Overwrite existing sources without prompting
-- **`-g --global`** — Write to the global config
-- **`-l --local`** — Write to the local config instead of the global config
-- **`-m --mode <MODE>`** — Dotfile mode to write
-- **`-n --dry-run`** — Print the config/source updates without writing anything
-- **`--no-apply`** — Add the entry without applying it
-- **`-p --path <PATH>`** — Write to this config file or directory
-- **`-s --source <PATH>`** — Source path to use for a single target
-- **`-y --yes`** — Skip the confirmation prompt
-
-Examples:
-
-    $ mise bootstrap dotfiles add ~/.zshrc
-    $ mise bootstrap dotfiles add --mode copy ~/.config/starship.toml
-    $ mise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig
-
-## `mise dotfiles apply`
-
-- **Usage:** `mise dotfiles apply [FLAGS] [TARGET]…`
-- **Effect:** modifies state
-
-Apply dotfiles from `[dotfiles]`
-
-Applies configured whole-file entries and edits that aren't in their desired state. Whole-file entries may symlink, copy, or render templates. Edit entries manage a marker-delimited block or a single line in a file mise doesn't otherwise own.
-
-### Arguments
-- **`[TARGET]…`** — Only apply these targets
-
-### Flags
-- **`-f --force`** — Overwrite existing files that conflict with whole-file dotfile entries
-- **`-n --dry-run`** — Print the actions that would run without writing anything
-- **`-y --yes`** — Skip the confirmation prompt
-
-Examples:
-
-    $ mise bootstrap dotfiles apply
-    $ mise bootstrap dotfiles apply --dry-run
-    $ mise bootstrap dotfiles apply --force --yes
-
-## `mise dotfiles edit`
-
-- **Usage:** `mise dotfiles edit [FLAGS] <TARGET>`
-- **Effect:** modifies state
-
-Edit a managed dotfile source
-
-### Arguments
-- **`<TARGET>`** — Target to edit
-
-### Flags
-- **`--apply`** — Apply this target after the editor exits
-- **`-m --mode <MODE>`** — Dotfile mode to use if the target is not yet managed
-- **`-s --source <PATH>`** — Source path to use if the target is not yet managed
-- **`-y --yes`** — Skip the confirmation prompt when adding an unmanaged target
-
-Examples:
-
-    $ mise bootstrap dotfiles edit ~/.zshrc
-    $ mise bootstrap dotfiles edit --apply ~/.config/starship.toml
-
-## `mise dotfiles status`
-
-- **Usage:** `mise dotfiles status [-J --json] [--missing] [TARGET]…`
-- **Aliases:** `ls`
-- **Effect:** read-only
-
-Show the status of dotfiles from `[dotfiles]`
-
-### Arguments
-- **`[TARGET]…`** — Only show these targets
-
-### Flags
-- **`-J --json`** — Output in JSON format
-- **`--missing`** — Exit with code 1 if any configured dotfiles are not in their desired
-  state (missing, source missing, differs)
-
-Examples:
-
-    $ mise bootstrap dotfiles status
-    $ mise bootstrap dotfiles status ~/.zshrc
-    $ mise bootstrap dotfiles status --json
-    $ mise bootstrap dotfiles status --missing # exit 1 if anything is out of sync
-
-## `mise dotfiles unapply`
-
-- **Usage:** `mise dotfiles unapply [FLAGS] [TARGET]…`
-- **Effect:** destructive — may delete or irreversibly overwrite
-
-Remove dotfiles applied from `[dotfiles]`
-
-Removes configured whole-file entries and edits while preserving files mise cannot identify as managed. Modified copies, templates, and plain-line edits require `--force`.
-
-### Arguments
-- **`[TARGET]…`** — Only unapply these targets
-
-### Flags
-- **`-f --force`** — Remove modified or otherwise ambiguous managed files and lines
-- **`-n --dry-run`** — Print the actions that would run without writing anything
-- **`-y --yes`** — Skip the confirmation prompt
-
-Examples:
-
-    $ mise bootstrap dotfiles unapply
-    $ mise bootstrap dotfiles unapply ~/.zshrc
-    $ mise bootstrap dotfiles unapply --dry-run
-    $ mise bootstrap dotfiles unapply --force --yes
 
 ## `mise doctor`
 
@@ -2069,111 +1808,6 @@ Examples:
     $ mise generate tool-stub ./bin/node --lock --version 22
     # Resolves the latest node 22.x, pins it, and updates platform URLs/checksums
 
-## `mise github`
-
-- **Usage:** `mise github <SUBCOMMAND>`
-- **Effect:** read-only
-
-GitHub related commands
-
-## `mise github token`
-
-- **Usage:** `mise github token [FLAGS] [HOST]`
-- **Effect:** read-only
-
-Display the GitHub token mise will use for a given host
-
-Shows which token source mise would use, useful for debugging authentication issues. The token is masked by default.
-
-### Arguments
-- **`[HOST]`** — GitHub hostname
-
-  **Default:** `github.com`
-
-### Flags
-- **`--oauth`** — Force native GitHub OAuth device flow instead of normal token resolution
-- **`--raw`** — Print only the token value
-- **`--refresh`** — Mint a fresh OAuth token even if the cached one has not
-  expired, via the refresh-token grant or a new device-code flow
-- **`--unmask`** — Show the full unmasked token
-
-Examples:
-
-    $ mise github token
-    github.com: ghp_…xxxx (source: GITHUB_TOKEN)
-
-    $ mise github token --unmask
-    github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)
-
-    $ mise github token github.mycompany.com
-    github.mycompany.com: (none)
-
-## `mise global`
-
-- **Usage:** `mise global [FLAGS] [TOOL@VERSION]…`
-- **Effect:** modifies state
-
-Sets/gets the global tool version(s)
-
-Displays the contents of global config after writing. The file is `$HOME/.config/mise/config.toml` by default. It can be changed with `$MISE_GLOBAL_CONFIG_FILE`. If `$MISE_GLOBAL_CONFIG_FILE` is set to anything that ends in `.toml`, it will be parsed as `mise.toml`. Otherwise, it will be parsed as a `.tool-versions` file.
-
-Use MISE_ASDF_COMPAT=1 to default the global config to ~/.tool-versions
-
-Use `mise local` to set a tool version locally in the current directory.
-
-### Arguments
-- **`[TOOL@VERSION]…`** — Tool(s) to add to .tool-versions
-  e.g.: node@20
-  If this is a single tool with no version, the current value of the global
-  .tool-versions will be displayed
-
-### Flags
-- **`--fuzzy`** — Save fuzzy version to `~/.tool-versions`
-  e.g.: `mise global --fuzzy node@20` will save `node 20` to ~/.tool-versions
-  this is the default behavior unless MISE_ASDF_COMPAT=1
-- **`--path`** — Get the path of the global config file
-- **`--pin`** — Save exact version to `~/.tool-versions`
-  e.g.: `mise global --pin node@20` will save `node 20.0.0` to ~/.tool-versions
-- **`--remove <TOOL>`** — Remove the tool(s) from ~/.tool-versions
-
-Examples:
-    # set the current version of node to 20.x
-    # will use a fuzzy version (e.g.: 20) in .tool-versions file
-    $ mise global --fuzzy node@20
-
-    # set the current version of node to 20.x
-    # will use a precise version (e.g.: 20.0.0) in .tool-versions file
-    $ mise global --pin node@20
-
-    # show the current version of node in ~/.tool-versions
-    $ mise global node
-    20.0.0
-
-## `mise hook-env`
-
-- **Usage:** `mise hook-env [FLAGS]`
-- **Effect:** read-only
-
-[internal] called by activate hook to update env vars directory change
-
-### Flags
-- **`-f --force`** — Skip early exit check
-- **`-q --quiet`** — Hide warnings such as when a tool is not installed
-- **`-s --shell <SHELL>`** — Shell type to generate script for
-
-## `mise hook-not-found`
-
-- **Usage:** `mise hook-not-found [-s --shell <SHELL>] <BIN>`
-- **Effect:** modifies state
-
-[internal] called by shell when a command is not found
-
-### Arguments
-- **`<BIN>`** — Attempted bin to run
-
-### Flags
-- **`-s --shell <SHELL>`** — Shell type to generate script for
-
 ## `mise implode`
 
 - **Usage:** `mise implode [-n --dry-run] [--config]`
@@ -2345,51 +1979,6 @@ Examples:
     $ brew install node
     $ mise link node@brew $(brew --prefix node)
     $ mise use node@brew
-
-## `mise local`
-
-- **Usage:** `mise local [FLAGS] [TOOL@VERSION]…`
-- **Effect:** modifies state
-
-Sets/gets tool version in local .tool-versions or mise.toml
-
-Use this to set a tool's version when within a directory Use `mise global` to set a tool version globally This uses `.tool-version` by default unless there is a `mise.toml` file or if `MISE_USE_TOML` is set. A future v2 release of mise will default to using `mise.toml`.
-
-### Arguments
-- **`[TOOL@VERSION]…`** — Tool(s) to add to .tool-versions/mise.toml
-  e.g.: node@20
-  if this is a single tool with no version,
-  the current value of .tool-versions/mise.toml will be displayed
-
-### Flags
-- **`-p --parent`** — Recurse up to find a .tool-versions file rather than using the current directory only
-  by default this command will only set the tool in the current directory ("$PWD/.tool-versions")
-- **`--fuzzy`** — Save fuzzy version to `.tool-versions`
-  e.g.: `mise local --fuzzy node@20` will save `node 20` to .tool-versions
-  This is the default behavior unless MISE_ASDF_COMPAT=1
-- **`--path`** — Get the path of the config file
-- **`--pin`** — Save exact version to `.tool-versions`
-  e.g.: `mise local --pin node@20` will save `node 20.0.0` to .tool-versions
-- **`--remove <TOOL>`** — Remove the tool(s) from .tool-versions
-
-Examples:
-    # set the current version of node to 20.x for the current directory
-    # will use a precise version (e.g.: 20.0.0) in .tool-versions file
-    $ mise local node@20
-
-    # set node to 20.x for the current project (recurses up to find .tool-versions)
-    $ mise local -p node@20
-
-    # set the current version of node to 20.x for the current directory
-    # will use a fuzzy version (e.g.: 20) in .tool-versions file
-    $ mise local --fuzzy node@20
-
-    # removes node from .tool-versions
-    $ mise local --remove=node
-
-    # show the current version of node in .tool-versions
-    $ mise local node
-    20.0.0
 
 ## `mise lock`
 
@@ -3200,13 +2789,6 @@ Examples:
 
     $ mise registry poetry
     asdf:mise-plugins/mise-poetry
-
-## `mise render-help`
-
-- **Usage:** `mise render-help`
-- **Effect:** modifies state
-
-internal command to generate markdown from help
 
 ## `mise reshim`
 
@@ -4640,15 +4222,6 @@ Examples:
 
     # Only upgrade tools defined in local mise.toml, not global ones
     $ mise upgrade --local
-
-## `mise usage`
-
-- **Usage:** `mise usage`
-- **Effect:** read-only
-
-Generate a usage CLI spec
-
-See https://usage.jdx.dev for more information on this specification.
 
 ## `mise use`
 
