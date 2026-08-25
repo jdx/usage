@@ -3,7 +3,7 @@ name = "usage-dynamic"
 description = "Runtime command catalogs for usage-rs applications"
 version = "6.4.0"
 edition = "2021"
-rust-version = "1.95"
+rust-version = "1.91"
 homepage = { workspace = true }
 documentation = { workspace = true }
 repository = { workspace = true }

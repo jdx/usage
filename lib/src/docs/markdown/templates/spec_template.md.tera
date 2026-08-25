@@ -40,7 +40,7 @@
 {%- include "cmd_template.md.tera" %}
 {%- set header_level = header_level + 1 %}
 
-{%- for cmd in all_commands %}
+{%- for cmd in all_commands | filter(attribute="hide", value=false) %}
 {%- set full_cmd = cmd.full_cmd | join(sep=" ") %}
 
 {{ "#" | repeat(count=header_level) }} `{{ (spec.bin ~ " " ~ full_cmd) | trim }}`

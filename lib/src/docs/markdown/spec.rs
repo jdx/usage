@@ -115,6 +115,24 @@ mod tests {
     }
 
     #[test]
+    fn hidden_commands_are_omitted_from_single_file_markdown() {
+        let spec: Spec = r#"
+            name "mycli"
+            bin "mycli"
+            cmd "visible" help="A documented command"
+            cmd "setup" hide=#true help="An internal command"
+        "#
+        .parse()
+        .unwrap();
+
+        let output = MarkdownRenderer::new(spec).render_spec().unwrap();
+
+        assert!(output.contains("## `mycli visible`"), "{output}");
+        assert!(!output.contains("mycli setup"), "{output}");
+        assert!(!output.contains("An internal command"), "{output}");
+    }
+
+    #[test]
     fn package_metadata_reaches_markdown() {
         let spec: Spec = r#"
             name "metadata"
