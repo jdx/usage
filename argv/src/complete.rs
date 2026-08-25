@@ -240,7 +240,11 @@ fn for_name_at<'a>(
     view: Option<&'a crate::spec::ViewMeta<'a>>,
 ) -> Option<Vec<Candidate<'static>>> {
     fn on(meta: &CommandMeta<'_>, name: &str) -> Option<Completer> {
-        for arg in meta.args {
+        for arg in meta.args.iter().chain(
+            meta.clause
+                .into_iter()
+                .flat_map(|clause| clause.args.iter()),
+        ) {
             if arg.arg.name.eq_ignore_ascii_case(name) {
                 if let Some(completer) = arg.complete {
                     return Some(completer);
@@ -280,9 +284,17 @@ fn for_name_at<'a>(
             }
         }
         if let Some(wanted) = position.next_arg {
-            let found = meta.args.iter().find(|field| {
-                core::ptr::eq(field.arg, wanted) && field.arg.name.eq_ignore_ascii_case(name)
-            });
+            let found = meta
+                .args
+                .iter()
+                .chain(
+                    meta.clause
+                        .into_iter()
+                        .flat_map(|clause| clause.args.iter()),
+                )
+                .find(|field| {
+                    core::ptr::eq(field.arg, wanted) && field.arg.name.eq_ignore_ascii_case(name)
+                });
             if let Some(completer) = found.and_then(|field| field.complete) {
                 return Some(completer);
             }
@@ -339,7 +351,11 @@ fn for_name_at<'a>(
 #[cfg(feature = "spec")]
 pub fn completers_on(meta: &CommandMeta<'_>) -> Vec<String> {
     let mut out = Vec::new();
-    for arg in meta.args {
+    for arg in meta.args.iter().chain(
+        meta.clause
+            .into_iter()
+            .flat_map(|clause| clause.args.iter()),
+    ) {
         if arg.complete.is_some() {
             out.push(arg.arg.name.to_ascii_lowercase());
         }
@@ -497,7 +513,12 @@ fn trace_from<'a>(
     let chain = metadata_chain_on_route(spec, &position);
     let meta = chain.as_ref().and_then(|chain| chain.last().copied());
     let next_arg = if restarted(meta, split) {
-        meta.and_then(first_ordinary_arg).map(|field| field.arg)
+        meta.and_then(|meta| {
+            meta.clause
+                .and_then(|clause| clause.args.first())
+                .or_else(|| first_ordinary_arg(meta))
+        })
+        .map(|field| field.arg)
     } else {
         position
             .next_arg
@@ -1584,6 +1605,14 @@ fn arg_meta_owner_on_route<'a>(
             .args
             .iter()
             .find(|field| core::ptr::eq(field.arg, arg))
+            .or_else(|| {
+                owner.clause.and_then(|clause| {
+                    clause
+                        .args
+                        .iter()
+                        .find(|field| core::ptr::eq(field.arg, arg))
+                })
+            })
             .map(|field| (*owner, field))
     })
 }
@@ -2049,6 +2078,10 @@ fn arg_meta<'a>(meta: &'a CommandMeta<'a>, arg: &Arg<'_>) -> Option<&'a ArgMeta<
     meta.args
         .iter()
         .find(|m| core::ptr::eq(m.arg, arg))
+        .or_else(|| {
+            meta.clause
+                .and_then(|clause| clause.args.iter().find(|m| core::ptr::eq(m.arg, arg)))
+        })
         .or_else(|| meta.subcommands.iter().find_map(|sub| arg_meta(sub, arg)))
 }
 

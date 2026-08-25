@@ -111,6 +111,7 @@ type Cmd struct {
 	HiddenAliases               []string    `json:"hidden_aliases"`
 	Subcommands                 Subcommands `json:"subcommands"`
 	Args                        []Arg       `json:"args"`
+	Clause                      *Clause     `json:"clause"`
 	Flags                       []Flag      `json:"flags"`
 	Mounts                      []Mount     `json:"mounts"`
 	UnknownFlags                *string     `json:"unknown_flags"`
@@ -130,6 +131,12 @@ type Cmd struct {
 	SubcommandRequired          bool        `json:"subcommand_required"`
 	NextLineHelp                bool        `json:"next_line_help"`
 	FlattenHelp                 bool        `json:"flatten_help"`
+}
+
+type Clause struct {
+	Name      string `json:"name"`
+	Separator string `json:"separator"`
+	Args      []Arg  `json:"args"`
 }
 
 // Mount is a command whose stdout contributes another spec at this command.
@@ -758,6 +765,12 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	}
 	for i := range c.Args {
 		out.Args = append(out.Args, b.arg(&c.Args[i]))
+	}
+	if c.Clause != nil {
+		out.Clause = &argv.Clause{Key: b.next(), Name: c.Clause.Name, Separator: c.Clause.Separator}
+		for i := range c.Clause.Args {
+			out.Clause.Args = append(out.Clause.Args, b.arg(&c.Clause.Args[i]))
+		}
 	}
 	// After the flags, because a relationship names a sibling and every sibling
 	// needs a key before any of them can be pointed at.

@@ -1,5 +1,20 @@
 use usage::parse::ParseValue;
 use usage::Spec;
+use usage_derive::{Args, Cli};
+
+#[derive(Debug, PartialEq, Eq, Args)]
+struct TaskClause {
+    task: String,
+    #[usage(double_dash = "automatic")]
+    args: Vec<String>,
+}
+
+#[derive(Debug, Cli)]
+#[usage(bin = "typed-clause")]
+struct TypedClause {
+    #[usage(clause, separator = ":::")]
+    tasks: Vec<TaskClause>,
+}
 
 fn spec() -> Spec {
     r#"
@@ -170,4 +185,31 @@ clause "items" separator=":::" {
             .unwrap_err();
         assert!(format!("{error:?}").contains(expected), "{error:?}");
     }
+}
+
+#[test]
+fn derive_collects_each_clause_instance() {
+    let parsed = TypedClause::parse_from(&[
+        std::ffi::OsStr::new("lint"),
+        std::ffi::OsStr::new("--fix"),
+        std::ffi::OsStr::new(":::"),
+        std::ffi::OsStr::new("test"),
+        std::ffi::OsStr::new("--all"),
+    ])
+    .expect("typed clause parses");
+    assert_eq!(
+        parsed.tasks,
+        [
+            TaskClause {
+                task: "lint".into(),
+                args: vec!["--fix".into()]
+            },
+            TaskClause {
+                task: "test".into(),
+                args: vec!["--all".into()]
+            },
+        ]
+    );
+    let emitted = TypedClause::to_kdl();
+    assert!(emitted.contains("clause tasks separator=:::"), "{emitted}");
 }

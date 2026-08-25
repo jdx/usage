@@ -117,6 +117,7 @@ pub fn run(vector: &Vector) -> Outcome {
     let mut cmd = Vec::new();
     let mut flags: BTreeMap<String, Value> = BTreeMap::new();
     let mut args: BTreeMap<String, Value> = BTreeMap::new();
+    let mut clauses: BTreeMap<String, Vec<BTreeMap<String, Value>>> = BTreeMap::new();
 
     while let Some(event) = parser.next_event() {
         match event {
@@ -166,11 +167,18 @@ pub fn run(vector: &Vector) -> Outcome {
                     args.insert(name, Value::Str(string(value)));
                 }
             }
+            Ok(Event::ClauseSeparator { clause }) => {
+                clauses
+                    .entry(clause.name.to_string())
+                    .or_default()
+                    .push(std::mem::take(&mut args));
+            }
             Ok(Event::External { values }) => {
                 return Outcome::Parsed(Parsed {
                     cmd,
                     flags,
                     args,
+                    clauses,
                     external: values
                         .iter()
                         .map(|v| v.to_str().expect("corpus values are UTF-8").to_string())
@@ -181,10 +189,18 @@ pub fn run(vector: &Vector) -> Outcome {
         }
     }
 
+    if let Some(clause) = parser.command().clause {
+        clauses
+            .entry(clause.name.to_string())
+            .or_default()
+            .push(std::mem::take(&mut args));
+    }
+
     Outcome::Parsed(Parsed {
         cmd,
         flags,
         args,
+        clauses,
         external: Vec::new(),
     })
 }

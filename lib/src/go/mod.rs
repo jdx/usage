@@ -193,6 +193,22 @@ impl<'a> Emitter<'a> {
             .iter()
             .map(|a| (a.clone(), self.name("Arg", path, &a.name)))
             .collect::<Vec<_>>();
+        let clause_args = cmd
+            .clause
+            .as_ref()
+            .map(|clause| {
+                clause
+                    .args
+                    .iter()
+                    .map(|a| {
+                        (
+                            a.clone(),
+                            self.name("Arg", path, &format!("{}-{}", clause.name, a.name)),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
 
         let index = out.len();
         out.push(Emitted {
@@ -200,6 +216,7 @@ impl<'a> Emitter<'a> {
             cmd: cmd.clone(),
             flags,
             args,
+            clause_args,
             subcommands: Vec::new(),
             root,
         });
@@ -278,6 +295,11 @@ impl<'a> Emitter<'a> {
             entries.push((&e.named.key, e.named.number));
             entries.extend(e.flags.iter().map(|(_, n)| (n.key.as_str(), n.number)));
             entries.extend(e.args.iter().map(|(_, n)| (n.key.as_str(), n.number)));
+            entries.extend(
+                e.clause_args
+                    .iter()
+                    .map(|(_, n)| (n.key.as_str(), n.number)),
+            );
         }
         // One run, so every name pads to the longest — which is what gofmt does to
         // a const block with no blank line in it.
@@ -360,6 +382,18 @@ impl<'a> Emitter<'a> {
                 for (arg, named) in &e.args {
                     block.push(format!("\t{},", arg_literal(arg, named)));
                 }
+                block.push("},".to_string());
+                lines.push(Line::Block(block));
+            }
+            if let Some(clause) = &e.cmd.clause {
+                let mut block = vec!["Clause: &argv.Clause{".to_string()];
+                block.push(format!("\tName: {},", go_string(&clause.name)));
+                block.push(format!("\tSeparator: {},", go_string(&clause.separator)));
+                block.push("\tArgs: []*argv.Arg{".to_string());
+                for (arg, named) in &e.clause_args {
+                    block.push(format!("\t\t{},", arg_literal(arg, named)));
+                }
+                block.push("\t},".to_string());
                 block.push("},".to_string());
                 lines.push(Line::Block(block));
             }
@@ -1364,6 +1398,7 @@ struct Emitted {
     cmd: SpecCommand,
     flags: Vec<(SpecFlag, Named)>,
     args: Vec<(SpecArg, Named)>,
+    clause_args: Vec<(SpecArg, Named)>,
     /// Indices into the flat list, in declaration order.
     subcommands: Vec<usize>,
     root: bool,

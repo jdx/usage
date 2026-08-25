@@ -856,6 +856,8 @@ pub struct CommandMeta<'a> {
     /// A token that starts a fresh invocation of this command, such as mise's
     /// `:::`.
     pub restart_token: Option<&'a str>,
+    /// Metadata for a repeatable positional clause.
+    pub clause: Option<ClauseMeta<'a>>,
     /// Whether this command cannot be run on its own: naming it and stopping is an
     /// error, and one of its subcommands has to follow.
     ///
@@ -935,6 +937,7 @@ impl CommandMeta<'_> {
         effect: None,
         mount: None,
         restart_token: None,
+        clause: None,
         subcommand_required: false,
         subcommand_help_heading: None,
         subcommand_value_name: None,
@@ -958,6 +961,16 @@ impl CommandMeta<'_> {
         subcommands: &[],
         flatten_groups: &[],
     };
+}
+
+/// Cold metadata for a command's compiled clause table.
+#[derive(Debug, Clone, Copy)]
+pub struct ClauseMeta<'a> {
+    pub name: &'a str,
+    pub separator: &'a str,
+    pub help: Option<&'a str>,
+    pub long_help: Option<&'a str>,
+    pub args: &'a [ArgMeta<'a>],
 }
 
 /// A run of one command's flags that arrived from a flattened `Args` type.
@@ -1931,11 +1944,15 @@ fn write_body<'a>(
         meta.flags.len(),
         "every flag in the parse table needs metadata, or it will not be written"
     );
-    debug_assert_eq!(
-        meta.cmd.args.len(),
-        meta.args.len(),
-        "every argument in the parse table needs metadata"
-    );
+    if let (Some(clause), Some(clause_meta)) = (meta.cmd.clause, meta.clause) {
+        debug_assert_eq!(clause.args.len(), clause_meta.args.len());
+    } else {
+        debug_assert_eq!(
+            meta.cmd.args.len(),
+            meta.args.len(),
+            "every argument in the parse table needs metadata"
+        );
+    }
     debug_assert_eq!(
         meta.cmd.subcommands.len(),
         meta.subcommands.len(),
@@ -1967,6 +1984,27 @@ fn write_body<'a>(
             "argument metadata is out of step with the parse table"
         );
         write_arg(out, arg, depth)?;
+    }
+    if let Some(clause) = meta.clause {
+        indent(out, depth)?;
+        write!(
+            out,
+            "clause {} separator={}",
+            quoted(clause.name),
+            quoted(clause.separator)
+        )?;
+        if let Some(help) = clause.help {
+            write!(out, " help={}", quoted(help))?;
+        }
+        if let Some(help) = clause.long_help {
+            write!(out, " help_long={}", quoted(help))?;
+        }
+        out.push_str(" {\n");
+        for arg in clause.args {
+            write_arg(out, arg, depth + 1)?;
+        }
+        indent(out, depth)?;
+        out.push_str("}\n");
     }
     write_completion_types(out, meta, depth)?;
     // After the flags and arguments they name, so a reader meets the members before the
@@ -2006,7 +2044,11 @@ fn write_completion_types<'a>(
     depth: usize,
 ) -> core::fmt::Result {
     let mut written: Vec<(String, &'a str)> = Vec::new();
-    for arg in meta.args {
+    for arg in meta.args.iter().chain(
+        meta.clause
+            .into_iter()
+            .flat_map(|clause| clause.args.iter()),
+    ) {
         if let Some(type_) = arg.complete_type {
             write_completion_type(
                 out,

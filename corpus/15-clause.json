@@ -1,0 +1,51 @@
+{
+  "section": "repeatable clauses",
+  "about": "A clause preserves each separator-delimited positional instance instead of replacing the previous instance.",
+  "vectors": [
+    {
+      "id": "clause-preserves-instances",
+      "doc": "Each separator closes one instance and resets the inner positional cursor.",
+      "spec": "name \"ex\"\nbin \"ex\"\nclause \"tasks\" separator=\":::\" {\n  arg \"<task>\"\n  arg \"[args]...\" double_dash=\"automatic\"\n}\n",
+      "argv": ["lint", "--fix", ":::", "test", "--all"],
+      "expect": {
+        "ok": {
+          "clauses": {
+            "tasks": [
+              { "task": "lint", "args": ["--fix"] },
+              { "task": "test", "args": ["--all"] }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "clause-separator-survives-automatic-mode",
+      "doc": "The boundary remains syntax after an automatic argument stopped flag parsing.",
+      "spec": "name \"ex\"\nbin \"ex\"\nclause \"tasks\" separator=\":::\" {\n  arg \"<task>\"\n  arg \"[args]...\" double_dash=\"automatic\"\n}\n",
+      "argv": ["one", "-x", ":::", "two", "-y"],
+      "expect": {
+        "ok": {
+          "clauses": {
+            "tasks": [
+              { "task": "one", "args": ["-x"] },
+              { "task": "two", "args": ["-y"] }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "double-dash-protects-clause-separator",
+      "doc": "An explicit separator makes the clause separator literal data.",
+      "spec": "name \"ex\"\nbin \"ex\"\nclause \"tasks\" separator=\":::\" {\n  arg \"<task>\"\n  arg \"[args]...\" double_dash=\"automatic\"\n}\n",
+      "argv": ["lint", "--", ":::", "tail"],
+      "expect": {
+        "ok": {
+          "clauses": {
+            "tasks": [{ "task": "lint", "args": [":::", "tail"] }]
+          }
+        }
+      }
+    }
+  ]
+}
