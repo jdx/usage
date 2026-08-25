@@ -23,18 +23,22 @@ positional cursor, so several classified values can appear before the command.
 Sigils follow a deliberately small grammar:
 
 - A token must start with the declared sigil and contain at least one byte after it.
-  A bare `+` is ordinary positional data.
-- When declarations overlap, the longest prefix wins. With `sigil="+"` and
-  `sigil="++"`, `++edge` belongs to the latter and stores `edge`.
+  A bare `+` is an invalid value; write `-- +` when it should be ordinary positional
+  data.
+- Active sigils must be prefix-free. Declarations such as `sigil="+"` and
+  `sigil="++"` are rejected instead of assigning meaning by longest-prefix order.
 - A flag waiting for a detached value wins before sigil matching, so
   `--label +raw` stores the literal flag value `+raw`.
-- Sigils are recognized only while flags are enabled and only in the leading segment.
-  An explicit `--`, the first value of a `double_dash="automatic"` argument, or a
+- Sigils are recognized while flags are enabled, including after ordinary positional
+  values and in subcommands. A subcommand inherits the sigils declared by its
+  ancestors.
+- An explicit `--`, the first value of a `double_dash="automatic"` argument, or a
   command restart boundary makes later sigil-shaped tokens ordinary data.
 - Binding a sigil argument does not block a later subcommand from being selected.
 
 The sigil must be non-empty, may not start with `-`, and may not contain whitespace.
-Each command may declare a sigil only once. Sigil arguments cannot use
+No command may introduce a sigil that overlaps another sigil active at that command.
+Sigil arguments cannot use
 `value_terminator` or a non-optional `double_dash` policy.
 
 ## Completion
