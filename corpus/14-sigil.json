@@ -102,7 +102,11 @@
       "argv": ["+node@27", "first", "last"],
       "expect": {
         "ok": {
-          "args": { "optional": "first", "tools": ["node@27"], "required": "last" }
+          "args": {
+            "optional": "first",
+            "tools": ["node@27"],
+            "required": "last"
+          }
         }
       }
     },
