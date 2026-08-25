@@ -16,7 +16,7 @@ env:
 
 jobs:
   test:
-    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
+    runs-on: ${{ github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login == 'dependabot[bot]') && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
     # Without this, a hung step sits until GitHub's 6-hour job limit.
     timeout-minutes: 30
     permissions:
@@ -54,7 +54,9 @@ jobs:
       - name: Install shells and bash-completion for completion integration tests
         timeout-minutes: 5
         run: |
-          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          fi
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update
           sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y zsh fish bash-completion
           # pwsh is pre-installed on GitHub ubuntu-latest images. Self-heal
@@ -183,7 +185,7 @@ jobs:
   # `cargo check` rather than `cargo test`: dev-dependencies are not part of what an adopter
   # compiles, and holding them to the MSRV would pin the toolchain past what the library needs.
   msrv:
-    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
+    runs-on: ${{ github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login == 'dependabot[bot]') && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
     timeout-minutes: 15
     permissions:
       contents: read
