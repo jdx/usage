@@ -345,8 +345,6 @@ pub enum TokenRole {
     /// over here. Recorded because the words before it are still in the report, and without
     /// this row they look like they filled arguments that then came back empty.
     Restart,
-    /// Ended one instance of a repeatable clause and began the next.
-    ClauseSeparator { name: String },
     /// A flag-like word no declaration matched. `bound_as` is the positional that took it
     /// under `unknown_flags="value"`, and `None` when the word was refused.
     UnknownFlag { bound_as: Option<Arc<SpecArg>> },
@@ -363,6 +361,8 @@ pub enum TokenRole {
         sigil: String,
         values: Vec<String>,
     },
+    /// Ended one instance of a repeatable clause and began the next.
+    ClauseSeparator { name: String },
 }
 
 /// One word of the command line, and what it became.
