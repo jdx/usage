@@ -221,14 +221,14 @@ impl CompleteWord {
             parsed
                 .cmds
                 .iter()
-                .flat_map(|cmd| cmd.args.iter())
-                .filter_map(|arg| {
+                .flat_map(|cmd| cmd.args.iter().map(move |arg| (cmd, arg)))
+                .filter_map(|(cmd, arg)| {
                     let sigil = arg.sigil.as_deref()?;
                     ctoken
                         .strip_prefix(sigil)
-                        .map(|prefix| (arg, sigil, prefix))
+                        .map(|prefix| (cmd, arg, sigil, prefix))
                 })
-                .max_by_key(|(_, sigil, _)| sigil.len())
+                .max_by_key(|(_, _, sigil, _)| sigil.len())
         })
         .flatten();
         let mut choices = if flags_possible && ctoken == "-" {
@@ -261,8 +261,8 @@ impl CompleteWord {
             let (found, closed) = self.complete_arg(&cx, &parsed.cmd, arg, &ctoken)?;
             has_explicit_choices = closed || arg.choices.is_some();
             found
-        } else if let Some((arg, sigil, prefix)) = sigil_arg {
-            let (mut found, closed) = self.complete_arg(&cx, &parsed.cmd, arg, prefix)?;
+        } else if let Some((owner, arg, sigil, prefix)) = sigil_arg {
+            let (mut found, closed) = self.complete_arg(&cx, owner, arg, prefix)?;
             for (candidate, _) in &mut found {
                 candidate.insert_str(0, sigil);
             }
