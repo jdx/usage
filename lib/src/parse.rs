@@ -2085,7 +2085,13 @@ fn parse_partial_traced(
         }
         if enable_flags
             && !out.flag_awaiting_value.is_empty()
-            && (attached_continuation || !is_flag_like(&w))
+            && (attached_continuation
+                || !is_flag_like(&w)
+                || (is_negative_number(&w)
+                    && out
+                        .flag_awaiting_value
+                        .last()
+                        .is_some_and(|flag| flag.default_missing.is_none())))
         {
             // Held before the drain pops it: a flag whose argument is variadic keeps
             // taking values after this first one.
@@ -3352,6 +3358,7 @@ fn render_action_err(spec: &Spec, cmd: &SpecCommand, flag: &SpecFlag, spelling: 
     }
 }
 
+/// Report a required flag value that was displaced by a later option.
 fn render_missing_flag_value(flag: &SpecFlag, following: &str) -> UsageErr {
     let token = flag
         .long
@@ -9208,7 +9215,7 @@ flag "-v --verbose"
     }
 
     #[test]
-    fn test_detached_negative_flag_values_are_opt_in() {
+    fn test_default_missing_requires_opt_in_for_detached_negative_flag_values() {
         let spec = r#"
 flag "--apps <N>"
 flag "--jobs <N>" default_missing="default missing"
@@ -9217,13 +9224,14 @@ flag "--kids <N>" default_missing="default missing" allow_negative_numbers=#true
         .parse::<Spec>()
         .unwrap();
 
-        for flag in ["--apps", "--jobs"] {
-            let err = parse(&spec, &input(&["test", flag, "-1"])).unwrap_err();
-            assert!(
-                err.to_string().contains("unexpected word: -1"),
-                "{flag} must not take an unopted detached negative value: {err}"
-            );
-        }
+        let parsed = parse(&spec, &input(&["test", "--apps", "-1"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "apps"), "-1");
+
+        let err = parse(&spec, &input(&["test", "--jobs", "-1"])).unwrap_err();
+        assert!(
+            err.to_string().contains("unexpected word: -1"),
+            "default_missing must keep an unopted negative value separate: {err}"
+        );
 
         let parsed = parse(&spec, &input(&["test", "--kids", "-1"])).unwrap();
         assert_eq!(flag_string_value(&parsed, "kids"), "-1");
