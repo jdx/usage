@@ -2,7 +2,7 @@
 name = "usage-lib"
 edition = "2021"
 version = "6.4.0"
-rust-version = "1.95"
+rust-version = "1.91"
 include = [
     "/Cargo.toml",
     "/Cargo.lock",
