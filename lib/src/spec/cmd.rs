@@ -516,7 +516,11 @@ impl SpecCommand {
                 }
                 "clause" => {
                     if cmd.clause.is_some() {
-                        bail_parse!(ctx, child.node.name().span(), "a command may declare at most one clause");
+                        bail_parse!(
+                            ctx,
+                            child.node.name().span(),
+                            "a command may declare at most one clause"
+                        );
                     }
                     cmd.clause = Some(SpecClause::parse(ctx, &child)?);
                 }
@@ -734,13 +738,25 @@ impl SpecCommand {
         }
         if let Some(clause) = &cmd.clause {
             if !cmd.args.is_empty() {
-                bail_parse!(ctx, node.span(), "a command cannot declare both top-level arguments and a clause");
+                bail_parse!(
+                    ctx,
+                    node.span(),
+                    "a command cannot declare both top-level arguments and a clause"
+                );
             }
             if cmd.restart_token.is_some() {
-                bail_parse!(ctx, node.span(), "a command cannot declare both restart_token and a clause");
+                bail_parse!(
+                    ctx,
+                    node.span(),
+                    "a command cannot declare both restart_token and a clause"
+                );
             }
             if clause.args.iter().any(|arg| arg.sigil.is_some()) {
-                bail_parse!(ctx, node.span(), "sigil arguments are not supported inside clauses");
+                bail_parse!(
+                    ctx,
+                    node.span(),
+                    "sigil arguments are not supported inside clauses"
+                );
             }
         }
         Ok(cmd)

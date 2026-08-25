@@ -36,27 +36,46 @@ impl SpecClause {
         for child in node.children() {
             match child.name() {
                 "arg" => clause.args.push(SpecArg::parse(ctx, &child)?),
-                key => bail_parse!(ctx, child.node.name().span(), "unsupported clause child {key}"),
+                key => bail_parse!(
+                    ctx,
+                    child.node.name().span(),
+                    "unsupported clause child {key}"
+                ),
             }
         }
         if clause.name.is_empty() {
             bail_parse!(ctx, node.span(), "a clause needs a name");
         }
         if clause.separator.is_empty() {
-            bail_parse!(ctx, node.span(), "clause {} needs a non-empty separator", clause.name);
+            bail_parse!(
+                ctx,
+                node.span(),
+                "clause {} needs a non-empty separator",
+                clause.name
+            );
         }
         if clause.separator.starts_with('-') {
             bail_parse!(ctx, node.span(), "clause separator cannot start with `-`");
         }
         if clause.args.is_empty() {
-            bail_parse!(ctx, node.span(), "clause {} needs at least one argument", clause.name);
+            bail_parse!(
+                ctx,
+                node.span(),
+                "clause {} needs at least one argument",
+                clause.name
+            );
         }
         clause.usage = clause.usage();
         Ok(clause)
     }
 
     pub fn usage(&self) -> String {
-        let inner = self.args.iter().map(SpecArg::usage).collect::<Vec<_>>().join(" ");
+        let inner = self
+            .args
+            .iter()
+            .map(SpecArg::usage)
+            .collect::<Vec<_>>()
+            .join(" ");
         format!("{inner} [{} {inner}]…", self.separator)
     }
 }
@@ -73,7 +92,9 @@ impl From<&SpecClause> for KdlNode {
             node.push(string_entry(Some("help_long"), help));
         }
         let children = node.children_mut().get_or_insert_with(KdlDocument::new);
-        children.nodes_mut().extend(clause.args.iter().map(Into::into));
+        children
+            .nodes_mut()
+            .extend(clause.args.iter().map(Into::into));
         node
     }
 }

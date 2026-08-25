@@ -782,13 +782,25 @@ impl Spec {
         };
         if let Some(clause) = &schema.cmd.clause {
             if !schema.cmd.args.is_empty() {
-                bail_parse!(ctx, kdl.span(), "a command cannot declare both top-level arguments and a clause");
+                bail_parse!(
+                    ctx,
+                    kdl.span(),
+                    "a command cannot declare both top-level arguments and a clause"
+                );
             }
             if schema.cmd.restart_token.is_some() {
-                bail_parse!(ctx, kdl.span(), "a command cannot declare both restart_token and a clause");
+                bail_parse!(
+                    ctx,
+                    kdl.span(),
+                    "a command cannot declare both restart_token and a clause"
+                );
             }
             if clause.args.iter().any(|arg| arg.sigil.is_some()) {
-                bail_parse!(ctx, kdl.span(), "sigil arguments are not supported inside clauses");
+                bail_parse!(
+                    ctx,
+                    kdl.span(),
+                    "sigil arguments are not supported inside clauses"
+                );
             }
         }
         // Before ancestors are stamped, because expanding a flagset or narrowing a selector can
