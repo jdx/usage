@@ -1443,9 +1443,7 @@ fn parse_partial_traced(
                 if f.arg.is_some()
                     && !word.contains('=')
                     && idx < input.len()
-                    && (!is_flag_like(&input[idx].word)
-                        || (f.arg.as_ref().is_some_and(|arg| arg.allow_negative_numbers)
-                            && is_negative_number(&input[idx].word)))
+                    && accepts_detached_flag_value(&f, &input[idx].word)
                 {
                     if let Some(words) = forwarded.as_mut() {
                         words.push(input[idx].word.clone());
@@ -1600,16 +1598,12 @@ fn parse_partial_traced(
         // still be waiting once the separator has done its job, so the starvation rule
         // below has no path around it.
         if enable_flags
+            && !attached_continuation
             && w.starts_with('-')
-            && out.flag_awaiting_value.last().is_some_and(|flag| {
-                !flag.require_equals
-                    && (flag.allow_hyphen_values()
-                        || (flag
-                            .arg
-                            .as_ref()
-                            .is_some_and(|arg| arg.allow_negative_numbers)
-                            && is_negative_number(&w)))
-            })
+            && out
+                .flag_awaiting_value
+                .last()
+                .is_some_and(|flag| accepts_detached_flag_value(flag, &w))
         {
             // A variadic argument collects here too: which token supplied its first
             // value says nothing about how many it takes.
@@ -1644,14 +1638,7 @@ fn parse_partial_traced(
             && !out.flag_awaiting_value.is_empty()
             && out.flag_awaiting_value.last().is_some_and(|flag| {
                 (flag.default_missing.is_some() || flag.value_optional)
-                    && (flag.require_equals
-                        || (is_flag_like(&w)
-                            && !flag.allow_hyphen_values()
-                            && !(flag
-                                .arg
-                                .as_ref()
-                                .is_some_and(|arg| arg.allow_negative_numbers)
-                                && is_negative_number(&w))))
+                    && !accepts_detached_flag_value(flag, &w)
             })
         {
             try_bind_default_missing(
@@ -1751,6 +1738,11 @@ fn parse_partial_traced(
                     &mut overridden_flags,
                     &mut out.overridden_flags,
                 );
+                if let Some(pending) = out.flag_awaiting_value.first() {
+                    out.errors.push(render_missing_flag_value(pending, &w));
+                    record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+                    return Ok((out, overridden_flags));
+                }
                 // An attached value only means something to a flag that takes one:
                 // `--jobs=` is an empty string, while `--force=yes` has nothing to
                 // give a flag that holds no value. Handing that leftover to the
@@ -1940,6 +1932,13 @@ fn parse_partial_traced(
                     &mut overridden_flags,
                     &mut out.overridden_flags,
                 );
+                if !attached_continuation {
+                    if let Some(pending) = out.flag_awaiting_value.first() {
+                        out.errors.push(render_missing_flag_value(pending, &w));
+                        record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+                        return Ok((out, overridden_flags));
+                    }
+                }
                 let rest = &w[1 + short.len_utf8()..];
                 if !rest.is_empty() {
                     // `-abc` is one token that names three flags, so the tail is read at the
@@ -2071,7 +2070,14 @@ fn parse_partial_traced(
             record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
             return Ok((out, overridden_flags));
         }
-        if enable_flags && !out.flag_awaiting_value.is_empty() {
+        if enable_flags
+            && !out.flag_awaiting_value.is_empty()
+            && (attached_continuation
+                || out
+                    .flag_awaiting_value
+                    .last()
+                    .is_some_and(|flag| accepts_detached_flag_value(flag, &w)))
+        {
             // Held before the drain pops it: a flag whose argument is variadic keeps
             // taking values after this first one.
             let should_return = bind_pending_flag_value(
@@ -3337,6 +3343,22 @@ fn render_action_err(spec: &Spec, cmd: &SpecCommand, flag: &SpecFlag, spelling: 
     }
 }
 
+/// Report a required flag value that was displaced by a later option.
+fn render_missing_flag_value(flag: &SpecFlag, following: &str) -> UsageErr {
+    let token = flag
+        .long
+        .first()
+        .map(|long| format!("--{long}"))
+        .or_else(|| flag.short.first().map(|short| format!("-{short}")))
+        .unwrap_or_else(|| flag.name.clone());
+    UsageErr::InvalidFlag {
+        token: token.clone(),
+        reason: "requires an argument".to_string(),
+        span: (0, 0).into(),
+        input: format!("{token} {following}"),
+    }
+}
+
 #[derive(Copy, Clone)]
 struct ChoiceTarget<'a> {
     kind: &'a str,
@@ -3455,6 +3477,23 @@ fn is_flag_like(token: &str) -> bool {
 
 fn is_negative_number(token: &str) -> bool {
     token.strip_prefix('-').is_some_and(is_number)
+}
+
+/// Whether a flag may claim its following token as a detached value.
+///
+/// A required value keeps the historical negative-number exception. A value
+/// that may be omitted needs an explicit opt-in to distinguish a negative value
+/// from the flag's bare form.
+fn accepts_detached_flag_value(flag: &SpecFlag, token: &str) -> bool {
+    !flag.require_equals
+        && (!is_flag_like(token)
+            || flag.allow_hyphen_values()
+            || (is_negative_number(token)
+                && (flag
+                    .arg
+                    .as_ref()
+                    .is_some_and(|arg| arg.allow_negative_numbers)
+                    || (flag.default_missing.is_none() && !flag.value_optional))))
 }
 
 fn record_scalar_flag_occurrence(
@@ -9178,6 +9217,51 @@ flag "-v --verbose"
     }
 
     #[test]
+    fn test_default_missing_requires_opt_in_for_detached_negative_flag_values() {
+        let spec = r#"
+flag "--apps <N>"
+flag "--jobs <N>" default_missing="default missing"
+flag "--kids <N>" default_missing="default missing" allow_negative_numbers=#true
+"#
+        .parse::<Spec>()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "--apps", "-1"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "apps"), "-1");
+
+        let err = parse(&spec, &input(&["test", "--jobs", "-1"])).unwrap_err();
+        assert!(
+            err.to_string().contains("unexpected word: -1"),
+            "default_missing must keep an unopted negative value separate: {err}"
+        );
+
+        let parsed = parse(&spec, &input(&["test", "--kids", "-1"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "kids"), "-1");
+
+        let external_spec = r#"
+external_subcommand #true
+flag "--apps <N>"
+"#
+        .parse::<Spec>()
+        .unwrap();
+        let parsed = parse(&external_spec, &input(&["test", "--apps", "-1"])).unwrap();
+        assert_eq!(flag_string_value(&parsed, "apps"), "-1");
+        assert!(parsed.external.is_none());
+
+        for words in [
+            &["test", "--apps", "--jobs", "1"][..],
+            &["test", "--apps", "--kids", "-1"][..],
+        ] {
+            let err = parse(&spec, &input(words)).unwrap_err();
+            let message = err.to_string();
+            assert!(
+                message.contains("--apps") && message.contains("requires an argument"),
+                "the earlier flag must report its missing value for {words:?}: {message}"
+            );
+        }
+    }
+
+    #[test]
     fn test_optional_flag_value_preserves_bare_and_explicit_empty_forms() {
         let spec = r#"
 flag "--bump [LEVEL]" value_optional=#true
@@ -9383,7 +9467,7 @@ arg "[rest]"
     }
 
     #[test]
-    fn test_hyphen_values_still_default_to_short_flag_parsing() {
+    fn test_hyphen_values_still_start_short_flag_parsing() {
         let spec = r#"
 flag "-d --working-dir <DIR>"
 flag "-a --args <ARGS>"
@@ -9391,9 +9475,12 @@ flag "-a --args <ARGS>"
         .parse::<Spec>()
         .unwrap();
 
-        let parsed = parse(&spec, &input(&["test", "-a", "-destroy"])).unwrap();
-
-        assert_eq!(flag_string_value(&parsed, "working-dir"), "estroy");
+        let err = parse(&spec, &input(&["test", "-a", "-destroy"])).unwrap_err();
+        let message = err.to_string();
+        assert!(
+            message.contains("--args") && message.contains("requires an argument"),
+            "the recognized -d must leave the earlier -a missing: {message}"
+        );
     }
 
     /// `available_flags` has to agree with what an actual parse accepts, since
