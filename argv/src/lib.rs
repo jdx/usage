@@ -2236,6 +2236,16 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             // Known subcommands and the default route keep precedence. A sigil positional
             // then claims its classified word before an external-subcommand catch-all can.
             if let Some((arg, sigil)) = self.match_sigil_arg(token) {
+                if token.len() == sigil.len() {
+                    return Err(invalid_value_error(
+                        arg.name,
+                        as_str(token).unwrap_or_default().to_string(),
+                        format!(
+                            "expected a value after sigil {:?}",
+                            as_str(sigil).unwrap_or_default()
+                        ),
+                    ));
+                }
                 return Ok(Event::Arg {
                     arg,
                     value: &token[sigil.len()..],
@@ -2255,6 +2265,26 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 self.pos = self.argv.len();
                 return Ok(Event::External {
                     values: &self.argv[from..],
+                });
+            }
+        }
+
+        if self.arg_filled && !self.flags_stopped {
+            if let Some((arg, sigil)) = self.match_sigil_arg(token) {
+                if token.len() == sigil.len() {
+                    return Err(invalid_value_error(
+                        arg.name,
+                        as_str(token).unwrap_or_default().to_string(),
+                        format!(
+                            "expected a value after sigil {:?}",
+                            as_str(sigil).unwrap_or_default()
+                        ),
+                    ));
+                }
+                return Ok(Event::Arg {
+                    arg,
+                    value: &token[sigil.len()..],
+                    delimit: true,
                 });
             }
         }
@@ -2380,12 +2410,16 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if self.flags_stopped {
             return None;
         }
-        self.cmd
-            .args
+        let own = self.cmd.args.iter().copied();
+        let inherited = self.ancestors[..self.depth]
             .iter()
+            .rev()
+            .filter_map(|cmd| *cmd)
+            .flat_map(|cmd| cmd.args.iter().copied());
+        own.chain(inherited)
             .filter_map(|arg| {
                 let sigil = arg.sigil?;
-                (token.len() > sigil.len() && token.starts_with(sigil)).then_some((*arg, sigil))
+                (token.len() >= sigil.len() && token.starts_with(sigil)).then_some((arg, sigil))
             })
             .max_by_key(|(_, sigil)| sigil.len())
     }

@@ -1684,13 +1684,16 @@ impl Cli {
                 Kind::Skip => {}
                 Kind::Arg { double_dash, sigil } => {
                     if let Some(sigil) = sigil {
-                        if let Some((_, first)) =
-                            seen_sigils.iter().find(|(seen, _)| *seen == sigil)
+                        if let Some((seen, first)) = seen_sigils
+                            .iter()
+                            .find(|(seen, _)| seen.starts_with(sigil) || sigil.starts_with(*seen))
                         {
                             return Err(dup(
                                 field.span,
                                 *first,
-                                &format!("sigil {sigil:?} is declared twice"),
+                                &format!(
+                                    "argument sigils must not overlap: {seen:?} and {sigil:?}"
+                                ),
                             ));
                         }
                         seen_sigils.push((sigil, field.span));
@@ -6708,6 +6711,24 @@ mod tests {
             Ok(_) => panic!("should not have compiled"),
             Err(e) => e.to_string(),
         }
+    }
+
+    #[test]
+    fn overlapping_sigil_fields_are_rejected() {
+        let error = rejection(
+            r#"
+            struct Args {
+                #[usage(sigil = "+")]
+                short: Vec<String>,
+                #[usage(sigil = "++")]
+                long: Vec<String>,
+            }
+            "#,
+        );
+        assert!(
+            error.contains("argument sigils must not overlap"),
+            "{error}"
+        );
     }
 
     #[test]

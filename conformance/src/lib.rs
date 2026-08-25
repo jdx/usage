@@ -170,6 +170,8 @@ pub enum ErrorCode {
     UnexpectedArg,
     /// A value was given that is not among the declared choices.
     InvalidChoice,
+    /// A value was rejected before typed conversion.
+    InvalidValue,
     /// A positional declared `double_dash="required"` was given before `--`.
     ArgRequiresDoubleDash,
     /// A variadic got fewer values than `var_min`.

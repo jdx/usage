@@ -2120,6 +2120,15 @@ fn parse_partial_traced(
             .then(|| match_sigil_arg_chain(&out.cmds, &w))
             .flatten()
         {
+            if value.is_empty() {
+                out.errors.push(UsageErr::InvalidValue {
+                    name: arg.name.clone(),
+                    value: w.clone(),
+                    reason: format!("expected a value after sigil {sigil:?}"),
+                });
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+                return Ok((out, overridden_flags));
+            }
             let trailing_value = arg.double_dash == SpecDoubleDashChoices::Automatic;
             let suppress_trailing_delimiter =
                 out.cmds.iter().any(|cmd| cmd.dont_delimit_trailing_values);
@@ -4148,7 +4157,7 @@ fn match_sigil_arg<'a>(
         .filter_map(|arg| {
             let sigil = arg.sigil.as_deref()?;
             let value = word.strip_prefix(sigil)?;
-            (!value.is_empty()).then_some((arg, sigil, value))
+            Some((arg, sigil, value))
         })
         .max_by_key(|(_, sigil, _)| sigil.len())
 }

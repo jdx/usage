@@ -607,6 +607,10 @@ func (p *Parser) word(token string) bool {
 		}
 
 		if arg, sigil := p.matchSigilArg(token); arg != nil {
+			if len(token) == len(sigil) {
+				return p.fail(Error{Code: CodeInvalidValue, Name: arg.Name, Value: token,
+					Reason: "expected a value after sigil " + sigil})
+			}
 			return p.emit(Event{
 				Kind: KindArg, Arg: arg, Value: token[len(sigil):], HasValue: true, Delimit: true,
 			})
@@ -625,6 +629,10 @@ func (p *Parser) word(token string) bool {
 
 	if p.argFilled {
 		if arg, sigil := p.matchSigilArg(token); arg != nil {
+			if len(token) == len(sigil) {
+				return p.fail(Error{Code: CodeInvalidValue, Name: arg.Name, Value: token,
+					Reason: "expected a value after sigil " + sigil})
+			}
 			return p.emit(Event{
 				Kind: KindArg, Arg: arg, Value: token[len(sigil):], HasValue: true, Delimit: true,
 			})
@@ -745,9 +753,17 @@ func (p *Parser) matchSigilArg(token string) (*Arg, string) {
 	}
 	var best *Arg
 	bestSigil := ""
-	for _, arg := range p.cmd.Args {
-		if arg.Sigil != "" && len(token) > len(arg.Sigil) && len(arg.Sigil) > len(bestSigil) && token[:len(arg.Sigil)] == arg.Sigil {
-			best, bestSigil = arg, arg.Sigil
+	match := func(cmd *Command) {
+		for _, arg := range cmd.Args {
+			if arg.Sigil != "" && len(token) >= len(arg.Sigil) && len(arg.Sigil) > len(bestSigil) && token[:len(arg.Sigil)] == arg.Sigil {
+				best, bestSigil = arg, arg.Sigil
+			}
+		}
+	}
+	match(p.cmd)
+	for i := p.depth - 1; i >= 0; i-- {
+		if p.ancestors[i] != nil {
+			match(p.ancestors[i])
 		}
 	}
 	return best, bestSigil

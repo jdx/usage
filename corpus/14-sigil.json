@@ -19,21 +19,6 @@
       }
     },
     {
-      "id": "longest-sigil-prefix-wins",
-      "doc": "Overlapping sigils select the longest matching declaration.",
-      "spec": "name \"ex\"\nbin \"ex\"\narg \"[short]...\" sigil=\"+\"\narg \"[long]...\" sigil=\"++\"\narg \"<command>\"\n",
-      "argv": ["++edge", "+stable", "run"],
-      "expect": {
-        "ok": {
-          "args": {
-            "short": ["stable"],
-            "long": ["edge"],
-            "command": "run"
-          }
-        }
-      }
-    },
-    {
       "id": "double-dash-protects-sigil",
       "doc": "After an explicit separator the same prefix is ordinary data.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\narg \"[args]...\"\n",
@@ -45,11 +30,11 @@
       }
     },
     {
-      "id": "bare-sigil-falls-through",
-      "doc": "A prefix with no value is not a classified argument.",
+      "id": "bare-sigil-is-invalid",
+      "doc": "A bare classifier is an empty sigil value, not ordinary positional data.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\n",
       "argv": ["+"],
-      "expect": { "ok": { "args": { "command": "+" } } }
+      "expect": { "error": "invalid_value" }
     },
     {
       "id": "flag-awaiting-value-outranks-sigil",
@@ -72,6 +57,53 @@
         "ok": {
           "cmd": ["build"],
           "args": { "tools": ["node@27"], "target": "app" }
+        }
+      }
+    },
+    {
+      "id": "sigil-after-ordinary-positional",
+      "doc": "A classified value may follow an ordinary positional while flag parsing remains active.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\narg \"[args]...\"\n",
+      "argv": ["run", "+node@27", "file"],
+      "expect": {
+        "ok": {
+          "args": { "tools": ["node@27"], "command": "run", "args": ["file"] }
+        }
+      }
+    },
+    {
+      "id": "ancestor-sigil-after-subcommand",
+      "doc": "A sigil declared by an ancestor remains in scope after an explicit subcommand or alias.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\ncmd \"build\" { alias \"b\"; arg \"<target>\" }\n",
+      "argv": ["b", "+node@27", "app"],
+      "expect": {
+        "ok": {
+          "cmd": ["build"],
+          "args": { "tools": ["node@27"], "target": "app" }
+        }
+      }
+    },
+    {
+      "id": "sigil-before-default-subcommand",
+      "doc": "A sigil does not prevent a later ordinary word from selecting the default subcommand.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\narg \"[tools]...\" sigil=\"+\"\ncmd \"run\" { arg \"<command>\" }\n",
+      "argv": ["+node@27", "node"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "args": { "tools": ["node@27"], "command": "node" }
+        }
+      }
+    },
+    {
+      "id": "sigil-outranks-external-command",
+      "doc": "A declared sigil binds before an external-command catch-all forwards the remaining argv.",
+      "spec": "name \"ex\"\nbin \"ex\"\nexternal_subcommand #true\narg \"[tools]...\" sigil=\"+\"\n",
+      "argv": ["+node@27", "node", "-v"],
+      "expect": {
+        "ok": {
+          "args": { "tools": ["node@27"] },
+          "external": ["node", "-v"]
         }
       }
     },
