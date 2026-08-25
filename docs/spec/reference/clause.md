@@ -4,7 +4,7 @@ A clause is a repeatable group of positional arguments. A separator ends the cur
 instance and starts another without discarding the values already parsed.
 
 ```kdl
-min_usage_version "6.5"
+min_usage_version "6.6"
 
 clause "tasks" separator=":::" {
   arg "<task>"

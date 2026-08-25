@@ -3,7 +3,7 @@ use usage::Spec;
 
 fn spec() -> Spec {
     r#"
-min_usage_version "6.5"
+min_usage_version "6.6"
 name "clause"
 bin "clause"
 clause "tasks" separator=":::" {
