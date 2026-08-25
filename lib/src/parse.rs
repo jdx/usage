@@ -330,12 +330,6 @@ pub enum TokenRole {
         arg: Arc<SpecArg>,
         values: Vec<String>,
     },
-    /// Filled a sigil-classified positional after removing its declared prefix.
-    Sigil {
-        arg: Arc<SpecArg>,
-        sigil: String,
-        values: Vec<String>,
-    },
     /// An explicit `--`, consumed as a separator.
     Separator,
     /// A word the parser answers itself rather than binding: `--help`, `-h`, `--version`,
@@ -361,6 +355,12 @@ pub enum TokenRole {
     External,
     /// The parser stopped before this word — a help request, a refused value.
     Unread,
+    /// Filled a sigil-classified positional after removing its declared prefix.
+    Sigil {
+        arg: Arc<SpecArg>,
+        sigil: String,
+        values: Vec<String>,
+    },
 }
 
 /// One word of the command line, and what it became.

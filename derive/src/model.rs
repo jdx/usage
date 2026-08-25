@@ -7124,7 +7124,8 @@ mod tests {
         assert!(matches!(
             native.fields[4].kind,
             Kind::Arg {
-                double_dash: DoubleDash::Required
+                double_dash: DoubleDash::Required,
+                ..
             }
         ));
 
@@ -7201,7 +7202,8 @@ mod tests {
         assert!(matches!(
             trailing.fields[0].kind,
             Kind::Arg {
-                double_dash: DoubleDash::Automatic
+                double_dash: DoubleDash::Automatic,
+                ..
             }
         ));
         let required_boundary = cli(r#"
@@ -7214,7 +7216,8 @@ mod tests {
         assert!(matches!(
             required_boundary.fields[0].kind,
             Kind::Arg {
-                double_dash: DoubleDash::Required
+                double_dash: DoubleDash::Required,
+                ..
             }
         ));
     }
