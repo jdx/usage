@@ -100,9 +100,9 @@ jobs:
       # defaults — are compiled nowhere else, and rotted unnoticed until they were measured.
       - name: check the trimmed feature shapes still compile
         run: |
-          mbx build clippy -p usage-lib --no-default-features -- -D warnings
-          mbx build clippy -p usage-rs --no-default-features -- -D warnings
-          mbx build clippy -p usage-config --no-default-features -- -D warnings
+          mbx clippy -p usage-lib --no-default-features -- -D warnings
+          mbx clippy -p usage-rs --no-default-features -- -D warnings
+          mbx clippy -p usage-config --no-default-features -- -D warnings
       - run: mise r render
       # Same reasoning as `render`: the shadow is checked in, so a change to the derive's
       # vocabulary that would alter it has to be committed rather than discovered later.
@@ -248,7 +248,7 @@ jobs:
       - name: they build at the version they claim
         run: |
           for crate in ${{ matrix.crates }}; do
-            mbx build +${{ matrix.version }} check --locked -p "$crate" --all-features
+            mbx +${{ matrix.version }} check --locked -p "$crate" --all-features
           done
 
   # Single fan-in gate, so branch protection can require one stable check
