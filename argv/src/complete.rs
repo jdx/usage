@@ -1539,7 +1539,7 @@ fn sigil_arg_at_cursor<'a, 'p>(
     split: &'p Split,
 ) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>, &'a str, &'p str)> {
     let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
-    if !position.flags_possible || position.awaiting_value.is_some() || restarted(meta, split) {
+    if !position.flags_possible || position.awaiting_value.is_some() || restart_seen(meta, split) {
         return None;
     }
     let token = split.prefix.as_str();
@@ -1757,6 +1757,13 @@ fn restarted(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
         return false;
     };
     split.cword > 0 && split.words[split.cword - 1] == token
+}
+
+fn restart_seen(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
+    let Some(token) = meta.and_then(|m| m.restart_token) else {
+        return false;
+    };
+    split.words[..split.cword].iter().any(|word| word == token)
 }
 
 /// The subcommands a word here could name, each under every name it answers to.
@@ -2796,6 +2803,10 @@ mod tests {
         );
         assert_eq!(
             complete(&SIGIL_SPEC, &at_end("ex file ::: +z")).files,
+            Some(Files::Any)
+        );
+        assert_eq!(
+            complete(&SIGIL_SPEC, &at_end("ex file ::: value +z")).files,
             Some(Files::Any)
         );
 
