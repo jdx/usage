@@ -2573,14 +2573,18 @@ fn parse_partial_traced(
     // Not `skip(out.args.len())`: a `--` may have jumped the cursor past an arg that stayed
     // empty, so position and fill count can disagree. Ask `out.args` which args it holds.
     if !exclusive_present {
-        for arg in out
+        for (arg, in_clause) in out
             .cmds
             .iter()
             .enumerate()
             .filter(|(index, _)| requirements_apply(*index))
-            .flat_map(|(_, cmd)| &cmd.args)
+            .flat_map(|(_, cmd)| {
+                active_args(cmd)
+                    .iter()
+                    .map(move |arg| (arg, cmd.clause.is_some()))
+            })
         {
-            if out.args.contains_key(arg) {
+            if arg_is_explicit(arg, &out, custom_env) {
                 continue;
             }
             // Already reported as needing a `--`; one mistake should not yield two messages.
@@ -2619,7 +2623,7 @@ fn parse_partial_traced(
             let required_unless = !(unless_any
                 || unless_all
                 || (arg.required_unless.is_empty() && arg.required_unless_all.is_empty()));
-            if (arg.required
+            if ((!in_clause && arg.required)
                 || required_if
                 || required_if_eq
                 || required_if_eq_all
@@ -2713,7 +2717,7 @@ fn parse_partial_traced(
         .cmds
         .iter()
         .enumerate()
-        .flat_map(|(index, cmd)| cmd.args.iter().map(move |arg| (index, arg)))
+        .flat_map(|(index, cmd)| active_args(cmd).iter().map(move |arg| (index, arg)))
     {
         let given = arg_is_explicit(arg, &out, custom_env);
         if !given {
@@ -3328,7 +3332,15 @@ fn selector_explicit_has_value(
         .args
         .iter()
         .find(|(given, _)| given.name == arg.name)
-        .map(|(_, value)| value);
+        .map(|(_, value)| value)
+        .or_else(|| {
+            out.clauses.values().flatten().find_map(|instance| {
+                instance
+                    .iter()
+                    .find(|(given, _)| given.name == arg.name)
+                    .map(|(_, value)| value)
+            })
+        });
     if let Some(value) = parsed {
         return match value {
             ParseValue::String(value) => value == expected,
@@ -3424,7 +3436,7 @@ fn selector_arg<'a>(selector: &str, out: &'a ParseOutput) -> Option<&'a SpecArg>
     }
     out.cmds
         .iter()
-        .flat_map(|cmd| &cmd.args)
+        .flat_map(|cmd| active_args(cmd))
         .find(|arg| arg.name == selector)
 }
 
@@ -3434,6 +3446,11 @@ fn arg_is_explicit(
     custom_env: Option<&HashMap<String, String>>,
 ) -> bool {
     out.args.keys().any(|given| given.name == arg.name)
+        || out
+            .clauses
+            .values()
+            .flatten()
+            .any(|instance| instance.keys().any(|given| given.name == arg.name))
         || arg
             .env
             .as_ref()

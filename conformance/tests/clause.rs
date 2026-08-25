@@ -63,3 +63,46 @@ fn clause_round_trips_through_canonical_kdl() {
     assert_eq!(clause.separator, ":::");
     assert_eq!(clause.args.len(), 2);
 }
+
+#[test]
+fn clause_arguments_participate_in_relationship_checks() {
+    for (spec, argv, expected) in [
+        (
+            r#"name "clause"
+bin "clause"
+clause "items" separator=":::" {
+  arg "[output]" requires="input"
+  arg "[input]"
+}
+"#,
+            vec!["clause", "artifact"],
+            "input",
+        ),
+        (
+            r#"name "clause"
+bin "clause"
+flag "--json" conflicts="task"
+clause "items" separator=":::" { arg "[task]" }
+"#,
+            vec!["clause", "--json", "lint"],
+            "conflicts with task",
+        ),
+        (
+            r#"name "clause"
+bin "clause"
+clause "items" separator=":::" {
+  arg "[trigger]"
+  arg "[dependent]" required_if="trigger"
+}
+"#,
+            vec!["clause", "yes"],
+            "dependent",
+        ),
+    ] {
+        let spec: Spec = spec.parse().expect("valid relationship spec");
+        let error = usage::Parser::new(&spec)
+            .parse(&argv.into_iter().map(str::to_string).collect::<Vec<_>>())
+            .unwrap_err();
+        assert!(format!("{error:?}").contains(expected), "{error:?}");
+    }
+}
