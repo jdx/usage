@@ -2439,14 +2439,17 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
             let required_after = self.cmd.args[self.arg_pos + 1..]
                 .iter()
-                .filter(|arg| arg.required)
+                .filter(|arg| arg.required && arg.sigil.is_none())
                 .count();
             if required_after == 0 {
                 return;
             }
             let remaining_values = 1 + self.argv[self.pos..]
                 .iter()
-                .filter(|word| self.flags_stopped || !is_flag_like(bytes(word)))
+                .filter(|word| {
+                    (self.flags_stopped || !is_flag_like(bytes(word)))
+                        && self.match_sigil_arg(bytes(word)).is_none()
+                })
                 .count();
             if remaining_values > required_after {
                 return;

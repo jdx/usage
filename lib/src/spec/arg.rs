@@ -478,6 +478,13 @@ impl SpecArg {
                     "sigil arguments cannot declare value_terminator"
                 );
             }
+            if arg.var_min.is_some() || arg.var_max.is_some() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "sigil arguments cannot declare var_min or var_max"
+                );
+            }
         }
         #[cfg(feature = "validation")]
         if let Some(expression) = &arg.validate {
@@ -1263,6 +1270,23 @@ flag "--trigger"
                     "Variadic flag --{flag} accepts at most 1 value(s), got 2"
                 )),
                 "{error}"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod sigil_tests {
+    use crate::Spec;
+
+    #[test]
+    fn sigil_arguments_reject_value_bounds() {
+        for bound in ["var_min=1", "var_max=2"] {
+            let spec = format!("arg \"[tools]...\" sigil=\"+\" {bound}\n");
+            let error = spec.parse::<Spec>().unwrap_err();
+            assert!(
+                format!("{error:?}").contains("cannot declare var_min or var_max"),
+                "{error:?}"
             );
         }
     }

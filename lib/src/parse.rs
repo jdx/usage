@@ -1472,7 +1472,7 @@ fn parse_partial_traced(
             }
             // Sigil-classified positionals do not occupy the ordinary positional cursor and
             // therefore do not close subcommand routing. Phase 2 binds and strips them.
-            if match_sigil_arg(&out.cmd, &input[idx].word).is_some() {
+            if match_sigil_arg_chain(&out.cmds, &input[idx].word).is_some() {
                 idx += 1;
                 continue;
             }
@@ -2194,14 +2194,17 @@ fn parse_partial_traced(
                 }
                 let required_after = out.cmd.args[next_arg_idx + 1..]
                     .iter()
-                    .filter(|arg| arg.required)
+                    .filter(|arg| arg.required && arg.sigil.is_none())
                     .count();
                 if required_after == 0 {
                     break;
                 }
                 let remaining_values = 1 + input
                     .iter()
-                    .filter(|token| !enable_flags || !is_flag_like(&token.word))
+                    .filter(|token| {
+                        (!enable_flags || !is_flag_like(&token.word))
+                            && match_sigil_arg_chain(&out.cmds, &token.word).is_none()
+                    })
                     .count();
                 if remaining_values > required_after {
                     break;

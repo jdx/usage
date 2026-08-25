@@ -3847,6 +3847,12 @@ impl Field {
                     "a sigil argument cannot declare `value_terminator`",
                 ));
             }
+            if var_min.is_some() || var_max.is_some() {
+                return Err(syn::Error::new(
+                    span,
+                    "a sigil argument cannot declare `var_min` or `var_max`",
+                ));
+            }
         }
 
         if require_equals {
@@ -6727,6 +6733,22 @@ mod tests {
         );
         assert!(
             error.contains("argument sigils must not overlap"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn bounded_sigil_fields_are_rejected() {
+        let error = rejection(
+            r#"
+            struct Args {
+                #[usage(sigil = "+", var_max = 2)]
+                tools: Vec<String>,
+            }
+            "#,
+        );
+        assert!(
+            error.contains("cannot declare `var_min` or `var_max`"),
             "{error}"
         );
     }

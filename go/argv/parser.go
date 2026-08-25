@@ -779,7 +779,7 @@ func (p *Parser) reserveForRequiredPositionals() {
 	for p.argPos < len(p.cmd.Args) && !p.cmd.Args[p.argPos].Required {
 		requiredAfter := 0
 		for _, arg := range p.cmd.Args[p.argPos+1:] {
-			if arg.Required {
+			if arg.Required && arg.Sigil == "" {
 				requiredAfter++
 			}
 		}
@@ -788,7 +788,8 @@ func (p *Parser) reserveForRequiredPositionals() {
 		}
 		remainingValues := 1
 		for _, word := range p.argv[p.pos:] {
-			if p.flagsStopped || !isFlagLike(word) {
+			arg, _ := p.matchSigilArg(word)
+			if (p.flagsStopped || !isFlagLike(word)) && arg == nil {
 				remainingValues++
 			}
 		}
