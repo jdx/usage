@@ -1751,6 +1751,11 @@ fn parse_partial_traced(
                     &mut overridden_flags,
                     &mut out.overridden_flags,
                 );
+                if let Some(pending) = out.flag_awaiting_value.first() {
+                    out.errors.push(render_missing_flag_value(pending, &w));
+                    record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+                    return Ok((out, overridden_flags));
+                }
                 // An attached value only means something to a flag that takes one:
                 // `--jobs=` is an empty string, while `--force=yes` has nothing to
                 // give a flag that holds no value. Handing that leftover to the
@@ -1940,6 +1945,13 @@ fn parse_partial_traced(
                     &mut overridden_flags,
                     &mut out.overridden_flags,
                 );
+                if !attached_continuation {
+                    if let Some(pending) = out.flag_awaiting_value.first() {
+                        out.errors.push(render_missing_flag_value(pending, &w));
+                        record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+                        return Ok((out, overridden_flags));
+                    }
+                }
                 let rest = &w[1 + short.len_utf8()..];
                 if !rest.is_empty() {
                     // `-abc` is one token that names three flags, so the tail is read at the
@@ -3337,6 +3349,21 @@ fn render_action_err(spec: &Spec, cmd: &SpecCommand, flag: &SpecFlag, spelling: 
         SpecFlagAction::HelpAll => render_help_all_err(spec, cmd),
         SpecFlagAction::Version => render_version_err(spec, spelling.starts_with("--")),
         SpecFlagAction::Set => unreachable!("binding actions are handled before this helper"),
+    }
+}
+
+fn render_missing_flag_value(flag: &SpecFlag, following: &str) -> UsageErr {
+    let token = flag
+        .long
+        .first()
+        .map(|long| format!("--{long}"))
+        .or_else(|| flag.short.first().map(|short| format!("-{short}")))
+        .unwrap_or_else(|| flag.name.clone());
+    UsageErr::InvalidFlag {
+        token: token.clone(),
+        reason: "requires an argument".to_string(),
+        span: (0, 0).into(),
+        input: format!("{token} {following}"),
     }
 }
 
@@ -9200,6 +9227,18 @@ flag "--kids <N>" default_missing="default missing" allow_negative_numbers=#true
 
         let parsed = parse(&spec, &input(&["test", "--kids", "-1"])).unwrap();
         assert_eq!(flag_string_value(&parsed, "kids"), "-1");
+
+        for words in [
+            &["test", "--apps", "--jobs", "1"][..],
+            &["test", "--apps", "--kids", "-1"][..],
+        ] {
+            let err = parse(&spec, &input(words)).unwrap_err();
+            let message = err.to_string();
+            assert!(
+                message.contains("--apps") && message.contains("requires an argument"),
+                "the earlier flag must report its missing value for {words:?}: {message}"
+            );
+        }
     }
 
     #[test]
@@ -9408,7 +9447,7 @@ arg "[rest]"
     }
 
     #[test]
-    fn test_hyphen_values_still_default_to_short_flag_parsing() {
+    fn test_hyphen_values_still_start_short_flag_parsing() {
         let spec = r#"
 flag "-d --working-dir <DIR>"
 flag "-a --args <ARGS>"
@@ -9416,9 +9455,12 @@ flag "-a --args <ARGS>"
         .parse::<Spec>()
         .unwrap();
 
-        let parsed = parse(&spec, &input(&["test", "-a", "-destroy"])).unwrap();
-
-        assert_eq!(flag_string_value(&parsed, "working-dir"), "estroy");
+        let err = parse(&spec, &input(&["test", "-a", "-destroy"])).unwrap_err();
+        let message = err.to_string();
+        assert!(
+            message.contains("--args") && message.contains("requires an argument"),
+            "the recognized -d must leave the earlier -a missing: {message}"
+        );
     }
 
     /// `available_flags` has to agree with what an actual parse accepts, since
