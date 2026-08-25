@@ -351,6 +351,7 @@ fn build_flag(f: &SpecFlag) -> &'static Flag<'static> {
 fn build_arg(a: &SpecArg) -> &'static Arg<'static> {
     Box::leak(Box::new(Arg {
         key: 0,
+        sigil: a.sigil.as_deref().map(|value| leak(value).as_bytes()),
         required: a.required,
         name: leak(&a.name),
         var: a.var,

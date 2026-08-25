@@ -1495,6 +1495,9 @@ fn arg_literal(arg: &SpecArg, named: &Named) -> String {
         format!("Key: {}", named.key),
         format!("Name: {}", go_string(&arg.name)),
     ];
+    if let Some(sigil) = &arg.sigil {
+        fields.push(format!("Sigil: {}", go_string(sigil)));
+    }
     if arg.required {
         fields.push("Required: true".to_string());
     }

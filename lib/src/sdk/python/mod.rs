@@ -768,7 +768,18 @@ fn render_class(
                 continue;
             }
             let ident = sanitize_py_ident(&arg.name);
-            if arg.var {
+            if let Some(sigil) = &arg.sigil {
+                let sigil = escape_py_string(sigil);
+                if arg.var {
+                    w.line(&format!(
+                        "if args.{ident} is not None: cmd_args.extend(\"{sigil}\" + str(value) for value in args.{ident})"
+                    ));
+                } else {
+                    w.line(&format!(
+                        "if args.{ident} is not None: cmd_args.append(\"{sigil}\" + str(args.{ident}))"
+                    ));
+                }
+            } else if arg.var {
                 w.line(&format!(
                     "if args.{ident} is not None: cmd_args.extend(args.{ident})"
                 ));

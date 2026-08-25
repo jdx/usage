@@ -606,6 +606,12 @@ func (p *Parser) word(token string) bool {
 			return p.emit(Event{Kind: KindCommand, Command: d})
 		}
 
+		if arg, sigil := p.matchSigilArg(token); arg != nil {
+			return p.emit(Event{
+				Kind: KindArg, Arg: arg, Value: token[len(sigil):], HasValue: true, Delimit: true,
+			})
+		}
+
 		// An unmatched word that names no subcommand is forwarded as an external
 		// command: this word, then every token after it, including flags. Known
 		// subcommands already won above, and a default subcommand already caught.
@@ -617,6 +623,7 @@ func (p *Parser) word(token string) bool {
 		}
 	}
 
+	p.skipSigilArgs()
 	p.reserveForRequiredPositionals()
 	arg := p.nextArg()
 	if arg == nil {
@@ -677,8 +684,10 @@ func (p *Parser) descend(sub *Command) bool {
 
 // advanceArg moves to the next positional, forgetting what the last one took.
 func (p *Parser) advanceArg() {
+	p.skipSigilArgs()
 	p.argPos++
 	p.argTaken = 0
+	p.skipSigilArgs()
 }
 
 // startCollecting begins a variadic flag occurrence.
@@ -708,10 +717,32 @@ func valuesIn(value string, delimiter byte) uint32 {
 }
 
 func (p *Parser) nextArg() *Arg {
-	if p.argPos < len(p.cmd.Args) {
-		return p.cmd.Args[p.argPos]
+	for i := p.argPos; i < len(p.cmd.Args); i++ {
+		if p.cmd.Args[i].Sigil == "" {
+			return p.cmd.Args[i]
+		}
 	}
 	return nil
+}
+
+func (p *Parser) skipSigilArgs() {
+	for p.argPos < len(p.cmd.Args) && p.cmd.Args[p.argPos].Sigil != "" {
+		p.argPos++
+	}
+}
+
+func (p *Parser) matchSigilArg(token string) (*Arg, string) {
+	if p.flagsStopped {
+		return nil, ""
+	}
+	var best *Arg
+	bestSigil := ""
+	for _, arg := range p.cmd.Args {
+		if arg.Sigil != "" && len(token) > len(arg.Sigil) && len(arg.Sigil) > len(bestSigil) && token[:len(arg.Sigil)] == arg.Sigil {
+			best, bestSigil = arg, arg.Sigil
+		}
+	}
+	return best, bestSigil
 }
 
 // reserveForRequiredPositionals implements the opt-in clap policy that lets a

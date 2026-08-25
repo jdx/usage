@@ -355,6 +355,7 @@ func (f *Flag) defaults() []string {
 // Arg is one positional argument, or a flag's value, in the lowered spec.
 type Arg struct {
 	Name                 string         `json:"name"`
+	Sigil                string         `json:"sigil"`
 	ValueNames           []string       `json:"value_names"`
 	Required             bool           `json:"required"`
 	Var                  bool           `json:"var"`
@@ -1063,6 +1064,7 @@ func (b *builder) arg(a *Arg) *argv.Arg {
 	out := &argv.Arg{
 		Key:                  b.next(),
 		Name:                 a.Name,
+		Sigil:                a.Sigil,
 		Required:             a.Required,
 		Var:                  a.Var,
 		DoubleDash:           doubleDash(a.DoubleDash),

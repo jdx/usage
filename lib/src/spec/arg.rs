@@ -63,6 +63,9 @@ impl_string_enum!(SpecDoubleDashChoices {
 pub struct SpecArg {
     /// Name of the argument (used in help text)
     pub name: String,
+    /// Prefix that classifies this positional independently of declaration order.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sigil: Option<String>,
     /// Ordered placeholders for a fixed-arity value, such as `START` and `END`.
     /// Empty means the argument's `name` is the sole placeholder.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -219,6 +222,7 @@ impl SpecArg {
         for (k, v) in node.props() {
             match k {
                 "help" => arg.help = Some(v.ensure_string()?),
+                "sigil" => arg.sigil = v.ensure_string().map(Some)?,
                 "long_help" => arg.help_long = Some(v.ensure_string()?),
                 "help_long" => arg.help_long = Some(v.ensure_string()?),
                 "help_md" => arg.help_md = Some(v.ensure_string()?),
@@ -336,6 +340,7 @@ impl SpecArg {
                     }
                 }
                 "help" => arg.help = Some(child.arg(0)?.ensure_string()?),
+                "sigil" => arg.sigil = child.arg(0)?.ensure_string().map(Some)?,
                 "long_help" => arg.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_long" => arg.help_long = Some(child.arg(0)?.ensure_string()?),
                 "help_md" => arg.help_md = Some(child.arg(0)?.ensure_string()?),
@@ -396,6 +401,11 @@ impl SpecArg {
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported arg child {k}"),
             }
         }
+        if let Some(sigil) = &arg.sigil {
+            if let Some(name) = arg.name.strip_prefix(sigil) {
+                arg.name = name.to_string();
+            }
+        }
         if let Some(first) = arg.value_names.first() {
             arg.name.clone_from(first);
         }
@@ -435,6 +445,35 @@ impl SpecArg {
                 node.node.name().span(),
                 "value_terminator requires a variadic argument"
             );
+        }
+        if let Some(sigil) = &arg.sigil {
+            if sigil.is_empty() {
+                bail_parse!(ctx, node.node.name().span(), "sigil cannot be empty");
+            }
+            if sigil.starts_with('-') {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "sigil cannot start with `-`; that namespace belongs to flags"
+                );
+            }
+            if sigil.chars().any(char::is_whitespace) {
+                bail_parse!(ctx, node.node.name().span(), "sigil cannot contain whitespace");
+            }
+            if arg.double_dash != SpecDoubleDashChoices::Optional {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "sigil arguments cannot declare non-optional double_dash behavior"
+                );
+            }
+            if arg.value_terminator.is_some() {
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "sigil arguments cannot declare value_terminator"
+                );
+            }
         }
         #[cfg(feature = "validation")]
         if let Some(expression) = &arg.validate {
@@ -491,7 +530,9 @@ impl SpecArg {
                 placeholders
             };
         }
-        let name = if self.double_dash == SpecDoubleDashChoices::Required {
+        let name = if let Some(sigil) = &self.sigil {
+            format!("{sigil}{}", self.name)
+        } else if self.double_dash == SpecDoubleDashChoices::Required {
             format!("-- {}", self.name)
         } else {
             self.name.clone()
@@ -512,6 +553,9 @@ impl From<&SpecArg> for KdlNode {
     fn from(arg: &SpecArg) -> Self {
         let mut node = KdlNode::new("arg");
         node.push(KdlEntry::new(arg.usage()));
+        if let Some(sigil) = &arg.sigil {
+            node.push(string_entry(Some("sigil"), sigil));
+        }
         if let Some(desc) = &arg.help {
             node.push(string_entry(Some("help"), desc));
         }
@@ -1011,6 +1055,7 @@ impl From<&clap::Arg> for SpecArg {
                 .first()
                 .cloned()
                 .unwrap_or_else(|| source.get_id().to_string()),
+            sigil: None,
             value_names,
             usage: "".into(),
             required,

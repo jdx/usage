@@ -705,6 +705,18 @@ impl SpecCommand {
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported cmd key {k}"),
             }
         }
+        let mut sigils = std::collections::HashSet::new();
+        for arg in &cmd.args {
+            if let Some(sigil) = &arg.sigil {
+                if !sigils.insert(sigil) {
+                    bail_parse!(
+                        ctx,
+                        node.node.name().span(),
+                        "duplicate argument sigil {sigil:?}"
+                    );
+                }
+            }
+        }
         Ok(cmd)
     }
     pub(crate) fn is_empty(&self) -> bool {

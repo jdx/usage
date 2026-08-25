@@ -1,0 +1,90 @@
+{
+  "section": "sigil arguments",
+  "about": "A sigil classifies a leading-segment positional by prefix, strips that prefix from its value, and leaves the ordinary positional cursor untouched.",
+  "vectors": [
+    {
+      "id": "sigil-values-accumulate-without-advancing",
+      "doc": "Several classified values may surround flags before the first ordinary positional.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--quiet\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\narg \"[args]...\"\n",
+      "argv": ["+node@27", "--quiet", "+python@3.14", "node", "-v"],
+      "expect": {
+        "ok": {
+          "flags": { "quiet": true },
+          "args": {
+            "tools": ["node@27", "python@3.14"],
+            "command": "node",
+            "args": ["-v"]
+          }
+        }
+      }
+    },
+    {
+      "id": "longest-sigil-prefix-wins",
+      "doc": "Overlapping sigils select the longest matching declaration.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[short]...\" sigil=\"+\"\narg \"[long]...\" sigil=\"++\"\narg \"<command>\"\n",
+      "argv": ["++edge", "+stable", "run"],
+      "expect": {
+        "ok": {
+          "args": {
+            "short": ["stable"],
+            "long": ["edge"],
+            "command": "run"
+          }
+        }
+      }
+    },
+    {
+      "id": "double-dash-protects-sigil",
+      "doc": "After an explicit separator the same prefix is ordinary data.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\narg \"[args]...\"\n",
+      "argv": ["run", "--", "+literal"],
+      "expect": {
+        "ok": {
+          "args": { "command": "run", "args": ["+literal"] }
+        }
+      }
+    },
+    {
+      "id": "bare-sigil-falls-through",
+      "doc": "A prefix with no value is not a classified argument.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\n",
+      "argv": ["+"],
+      "expect": { "ok": { "args": { "command": "+" } } }
+    },
+    {
+      "id": "flag-awaiting-value-outranks-sigil",
+      "doc": "A detached flag value owns the next token before sigil classification runs.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--label <label>\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\n",
+      "argv": ["--label", "+raw", "run"],
+      "expect": {
+        "ok": {
+          "flags": { "label": "+raw" },
+          "args": { "command": "run" }
+        }
+      }
+    },
+    {
+      "id": "sigil-does-not-block-subcommand-routing",
+      "doc": "A classified positional before a known subcommand does not make the subcommand an ordinary value.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\ncmd \"build\" { arg \"<target>\" }\n",
+      "argv": ["+node@27", "build", "app"],
+      "expect": {
+        "ok": {
+          "cmd": ["build"],
+          "args": { "tools": ["node@27"], "target": "app" }
+        }
+      }
+    },
+    {
+      "id": "automatic-boundary-protects-later-sigil",
+      "doc": "Once an automatic trailing positional starts, later sigil-shaped words are data.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\" double_dash=\"automatic\"\narg \"[args]...\"\n",
+      "argv": ["run", "+literal"],
+      "expect": {
+        "ok": {
+          "args": { "command": "run", "args": ["+literal"] }
+        }
+      }
+    }
+  ]
+}

@@ -530,6 +530,7 @@ pub struct SpecExample {
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct SpecArg {
     pub name: String,
+    pub sigil: Option<String>,
     pub usage: String,
     pub help: Option<String>,
     pub help_long: Option<String>,
@@ -1080,6 +1081,7 @@ impl From<&crate::SpecArg> for SpecArg {
     fn from(arg: &crate::SpecArg) -> Self {
         Self {
             name: arg.name.clone(),
+            sigil: arg.sigil.clone(),
             usage: arg.usage.clone(),
             help: said(&arg.help),
             help_long: arg.help_long.clone(),

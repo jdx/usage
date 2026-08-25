@@ -659,6 +659,8 @@ pub enum Kind {
     Arg {
         /// How this argument relates to the `--` separator.
         double_dash: DoubleDash,
+        /// Prefix that classifies this positional independently of declaration order.
+        sigil: Option<String>,
     },
     /// Holds the enum whose variants are this command's subcommands.
     ///
@@ -1628,6 +1630,7 @@ impl Cli {
     fn check(&self) -> syn::Result<()> {
         let mut seen_long: Vec<(&str, Span)> = Vec::new();
         let mut seen_short: Vec<(char, Span)> = Vec::new();
+        let mut seen_sigils: Vec<(&str, Span)> = Vec::new();
         let mut variadic_arg: Option<Span> = None;
         // A variadic that only takes what follows a `--`, which is the end of the line in
         // both senses: it holds the remaining words and the separator cannot come twice.
@@ -1679,7 +1682,22 @@ impl Cli {
                 // duplicate-form check is where the whole tree is visible.
                 Kind::ArgGroup { .. } => {}
                 Kind::Skip => {}
-                Kind::Arg { double_dash } => {
+                Kind::Arg { double_dash, sigil } => {
+                    if let Some(sigil) = sigil {
+                        if let Some((_, first)) =
+                            seen_sigils.iter().find(|(seen, _)| *seen == sigil)
+                        {
+                            return Err(dup(
+                                field.span,
+                                *first,
+                                &format!("sigil {sigil:?} is declared twice"),
+                            ));
+                        }
+                        seen_sigils.push((sigil, field.span));
+                        // A sigil-classified positional never occupies the ordinary cursor, so
+                        // its collection shape says nothing about whether later args are reachable.
+                        continue;
+                    }
                     // A variadic takes every remaining word, so anything after it can
                     // never be filled — with two exceptions, both of which are something
                     // that stops the variadic. An argument only fillable after a `--`,
@@ -2677,6 +2695,7 @@ impl Field {
         let mut allow_hyphen_values = false;
         let mut allow_negative_numbers = false;
         let mut value_terminator = None;
+        let mut sigil = None;
         let mut require_equals = false;
         let mut bool_value = false;
         let mut default_missing = None;
@@ -2868,6 +2887,7 @@ impl Field {
                     "allow_hyphen_values" => allow_hyphen_values = flag_value(&meta)?,
                     "allow_negative_numbers" => allow_negative_numbers = flag_value(&meta)?,
                     "value_terminator" => value_terminator = Some(string_value(&meta)?),
+                    "sigil" => sigil = Some(string_value(&meta)?),
                     "require_equals" => require_equals = flag_value(&meta)?,
                     "bool_value" => bool_value = flag_value(&meta)?,
                     "default_missing" => default_missing = Some(string_value(&meta)?),
@@ -3003,7 +3023,7 @@ impl Field {
                                  `var_min`, `var_max`, `value_enum`, `value_hint`, `overrides`, \
                                  `conflicts`, `requires`, `group`, `exclusive`, \
                                  `delimiter`, `allow_hyphen_values`, `allow_negative_numbers`, \
-                                 `value_terminator`, `require_equals`, `bool_value`, \
+                                 `value_terminator`, `sigil`, `require_equals`, `bool_value`, \
                                  `default_missing`, `default_if`, \
                                  `required_if`, \
                                  `required_unless`, `required_unless_all`, `help_heading`, `surface`, `available_if`, `select`, `display_order`, `value_name`, `value_names`, `num_args`, \
@@ -3659,7 +3679,7 @@ impl Field {
                      use `String`",
                 ));
             }
-            Kind::Arg { double_dash }
+            Kind::Arg { double_dash, sigil }
         };
 
         if complete_type.as_deref() == Some("command_args")
@@ -3792,6 +3812,36 @@ impl Field {
                 return Err(syn::Error::new(
                     span,
                     "`value_terminator` only changes a collection; use it on a `Vec<T>` field",
+                ));
+            }
+        }
+        if let Kind::Arg {
+            double_dash,
+            sigil: Some(sigil),
+        } = &kind
+        {
+            if sigil.is_empty() {
+                return Err(syn::Error::new(span, "`sigil` cannot be empty"));
+            }
+            if sigil.starts_with('-') {
+                return Err(syn::Error::new(
+                    span,
+                    "`sigil` cannot start with `-`; that namespace belongs to flags",
+                ));
+            }
+            if sigil.chars().any(char::is_whitespace) {
+                return Err(syn::Error::new(span, "`sigil` cannot contain whitespace"));
+            }
+            if *double_dash != DoubleDash::Optional {
+                return Err(syn::Error::new(
+                    span,
+                    "a sigil argument cannot declare non-optional `double_dash` behavior",
+                ));
+            }
+            if value_terminator.is_some() {
+                return Err(syn::Error::new(
+                    span,
+                    "a sigil argument cannot declare `value_terminator`",
                 ));
             }
         }

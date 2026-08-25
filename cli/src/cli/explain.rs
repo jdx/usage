@@ -535,6 +535,10 @@ impl RoleRow {
                 name: arg.name.clone(),
                 values: values.clone(),
             },
+            TokenRole::Sigil { arg, values, .. } => Self::Arg {
+                name: arg.name.clone(),
+                values: values.clone(),
+            },
             TokenRole::Separator => Self::Separator,
             TokenRole::ValueTerminator { ends } => Self::ValueTerminator { ends: ends.clone() },
             TokenRole::Restart => Self::Restart,

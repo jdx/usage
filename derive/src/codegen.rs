@@ -2498,8 +2498,12 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     let var = field.shape == Shape::Many;
     let required =
         (field.shape == Shape::Required || field.required_collection) && !field.has_default();
-    let Kind::Arg { double_dash } = &field.kind else {
+    let Kind::Arg { double_dash, sigil } = &field.kind else {
         unreachable!("filtered by the caller");
+    };
+    let sigil = match sigil.as_deref() {
+        Some(value) => quote!(::core::option::Option::Some(#value.as_bytes())),
+        None => quote!(::core::option::Option::None),
     };
     let double_dash = match double_dash {
         DoubleDash::Optional => quote!(usage_argv::DoubleDash::Optional),
@@ -2526,6 +2530,7 @@ fn arg_table(i: usize, field: &Field) -> TokenStream {
     quote! {
         pub static #name: usage_argv::Arg = usage_argv::Arg {
             key: #key,
+            sigil: #sigil,
             required: #required,
             name: #field_name,
             var: #var,

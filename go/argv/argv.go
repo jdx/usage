@@ -210,6 +210,8 @@ const (
 type Arg struct {
 	// Key is a caller-assigned identifier, echoed back in the event.
 	Key uint64
+	// Sigil classifies this positional by prefix. It is stripped from emitted values.
+	Sigil string
 	// Required is used while binding when AllowMissingPositional reserves words
 	// for later required positionals.
 	Required bool
