@@ -2203,7 +2203,9 @@ fn parse_partial_traced(
                     .iter()
                     .filter(|token| {
                         (!enable_flags || !is_flag_like(&token.word))
-                            && match_sigil_arg_chain(&out.cmds, &token.word).is_none()
+                            && (!enable_flags
+                                || restart_seen
+                                || match_sigil_arg_chain(&out.cmds, &token.word).is_none())
                     })
                     .count();
                 if remaining_values > required_after {

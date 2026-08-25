@@ -107,6 +107,17 @@
       }
     },
     {
+      "id": "missing-positional-counts-sigil-shape-after-double-dash",
+      "doc": "After flag parsing stops, sigil-shaped words count as ordinary values during positional reservation.",
+      "spec": "name \"ex\"\nbin \"ex\"\nallow_missing_positional #true\narg \"[optional]\"\narg \"[tools]...\" sigil=\"+\"\narg \"<required>\"\n",
+      "argv": ["--", "first", "+literal"],
+      "expect": {
+        "ok": {
+          "args": { "optional": "first", "required": "+literal" }
+        }
+      }
+    },
+    {
       "id": "sigil-before-default-subcommand",
       "doc": "A sigil does not prevent a later ordinary word from selecting the default subcommand.",
       "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\narg \"[tools]...\" sigil=\"+\"\ncmd \"run\" { arg \"<command>\" }\n",
