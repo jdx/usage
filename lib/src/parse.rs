@@ -2121,17 +2121,18 @@ fn parse_partial_traced(
             .flatten()
         {
             let trailing_value = arg.double_dash == SpecDoubleDashChoices::Automatic;
-            let suppress_trailing_delimiter = out
-                .cmds
-                .iter()
-                .any(|cmd| cmd.dont_delimit_trailing_values);
+            let suppress_trailing_delimiter =
+                out.cmds.iter().any(|cmd| cmd.dont_delimit_trailing_values);
             let delimiter = if suppress_trailing_delimiter && trailing_value {
                 None
             } else {
                 arg.delimiter
             };
             let parts = match delimiter {
-                Some(delimiter) => value.split(delimiter).map(str::to_string).collect::<Vec<_>>(),
+                Some(delimiter) => value
+                    .split(delimiter)
+                    .map(str::to_string)
+                    .collect::<Vec<_>>(),
                 None => vec![value.to_string()],
             };
             let mut refused = false;
@@ -4137,7 +4138,10 @@ fn cursor_skip_sigils(cmd: &SpecCommand, mut idx: usize) -> usize {
     idx
 }
 
-fn match_sigil_arg<'a>(cmd: &'a SpecCommand, word: &'a str) -> Option<(&'a SpecArg, &'a str, &'a str)> {
+fn match_sigil_arg<'a>(
+    cmd: &'a SpecCommand,
+    word: &'a str,
+) -> Option<(&'a SpecArg, &'a str, &'a str)> {
     cmd.args
         .iter()
         .filter_map(|arg| {

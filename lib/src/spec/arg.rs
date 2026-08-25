@@ -458,7 +458,11 @@ impl SpecArg {
                 );
             }
             if sigil.chars().any(char::is_whitespace) {
-                bail_parse!(ctx, node.node.name().span(), "sigil cannot contain whitespace");
+                bail_parse!(
+                    ctx,
+                    node.node.name().span(),
+                    "sigil cannot contain whitespace"
+                );
             }
             if arg.double_dash != SpecDoubleDashChoices::Optional {
                 bail_parse!(

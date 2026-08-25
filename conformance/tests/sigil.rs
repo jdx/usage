@@ -23,7 +23,9 @@ fn interpreted_values(spec: &LibSpec, argv: &[&str], name: &str) -> Vec<String> 
         .chain(argv.iter().copied())
         .map(str::to_string)
         .collect::<Vec<_>>();
-    let parsed = usage::Parser::new(spec).parse(&argv).expect("valid invocation");
+    let parsed = usage::Parser::new(spec)
+        .parse(&argv)
+        .expect("valid invocation");
     parsed
         .args
         .iter()
@@ -51,8 +53,14 @@ fn sigils_strip_and_do_not_advance_the_positional_cursor() {
 
     let spec: LibSpec = Overlay::to_kdl().parse().expect("derived KDL is valid");
     assert_eq!(spec.cmd.args[0].sigil.as_deref(), Some("+"));
-    assert_eq!(interpreted_values(&spec, &["+node@27", "node"], "tools"), ["node@27"]);
-    assert_eq!(interpreted_values(&spec, &["+node@27", "node"], "command"), ["node"]);
+    assert_eq!(
+        interpreted_values(&spec, &["+node@27", "node"], "tools"),
+        ["node@27"]
+    );
+    assert_eq!(
+        interpreted_values(&spec, &["+node@27", "node"], "command"),
+        ["node"]
+    );
 }
 
 #[test]
