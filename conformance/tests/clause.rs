@@ -98,6 +98,30 @@ clause "items" separator=":::" {
             vec!["clause", "yes"],
             "dependent",
         ),
+        (
+            r#"name "clause"
+bin "clause"
+clause "items" separator=":::" {
+  arg "[output]" requires="input"
+  arg "[input]"
+}
+"#,
+            vec!["clause", "first", ":::", "second", "input"],
+            "instance 1",
+        ),
+        (
+            r#"name "clause"
+bin "clause"
+clause "items" separator=":::" {
+  arg "[trigger]"
+  arg "[dependent]" {
+    required_if_eq "trigger" "yes"
+  }
+}
+"#,
+            vec!["clause", "yes", ":::", "no", "present"],
+            "instance 1",
+        ),
     ] {
         let spec: Spec = spec.parse().expect("valid relationship spec");
         let error = usage::Parser::new(&spec)

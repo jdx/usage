@@ -2454,6 +2454,7 @@ fn parse_partial_traced(
     }
 
     record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+    validate_clause_relationships(&mut out, &overridden_flags, custom_env);
 
     // `out.flags` is keyed by `SpecFlag`, whose equality is intentionally name-only. Two
     // declarations with the same canonical name therefore share one public value entry even
@@ -2573,18 +2574,14 @@ fn parse_partial_traced(
     // Not `skip(out.args.len())`: a `--` may have jumped the cursor past an arg that stayed
     // empty, so position and fill count can disagree. Ask `out.args` which args it holds.
     if !exclusive_present {
-        for (arg, in_clause) in out
+        for arg in out
             .cmds
             .iter()
             .enumerate()
             .filter(|(index, _)| requirements_apply(*index))
-            .flat_map(|(_, cmd)| {
-                active_args(cmd)
-                    .iter()
-                    .map(move |arg| (arg, cmd.clause.is_some()))
-            })
+            .flat_map(|(_, cmd)| &cmd.args)
         {
-            if arg_is_explicit(arg, &out, custom_env) {
+            if out.args.contains_key(arg) {
                 continue;
             }
             // Already reported as needing a `--`; one mistake should not yield two messages.
@@ -2623,7 +2620,7 @@ fn parse_partial_traced(
             let required_unless = !(unless_any
                 || unless_all
                 || (arg.required_unless.is_empty() && arg.required_unless_all.is_empty()));
-            if ((!in_clause && arg.required)
+            if (arg.required
                 || required_if
                 || required_if_eq
                 || required_if_eq_all
@@ -2717,7 +2714,7 @@ fn parse_partial_traced(
         .cmds
         .iter()
         .enumerate()
-        .flat_map(|(index, cmd)| active_args(cmd).iter().map(move |arg| (index, arg)))
+        .flat_map(|(index, cmd)| cmd.args.iter().map(move |arg| (index, arg)))
     {
         let given = arg_is_explicit(arg, &out, custom_env);
         if !given {
@@ -3309,6 +3306,139 @@ fn explicit_flag_has_value(
     )
 }
 
+fn parse_value_has(value: &ParseValue, expected: &str) -> bool {
+    match value {
+        ParseValue::Bool(value) => value.to_string() == expected,
+        ParseValue::String(value) => value == expected,
+        ParseValue::MultiBool(values) => values.iter().any(|value| value.to_string() == expected),
+        ParseValue::MultiString(values) => values.iter().any(|value| value == expected),
+    }
+}
+
+fn validate_clause_relationships(
+    out: &mut ParseOutput,
+    overridden_flags: &HashSet<String>,
+    custom_env: Option<&HashMap<String, String>>,
+) {
+    let Some(clause) = out.cmd.clause.as_ref() else {
+        return;
+    };
+    let Some(instances) = out.clauses.get(&clause.name) else {
+        return;
+    };
+    let flag_is_explicit = |selector: &str| {
+        out.available_flags
+            .values()
+            .chain(out.flags.keys())
+            .any(|flag| {
+                flag_matches_selector(flag, selector)
+                    && !overridden_flags.contains(&flag.name)
+                    && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
+            })
+    };
+    let flag_matches_value = |selector: &str, expected: &str| {
+        out.available_flags
+            .values()
+            .chain(out.flags.keys())
+            .find(|flag| flag_matches_selector(flag, selector))
+            .is_some_and(|flag| {
+                !overridden_flags.contains(&flag.name)
+                    && explicit_flag_has_value(flag, expected, out, custom_env)
+            })
+    };
+    let flag_is_satisfied = |selector: &str| {
+        out.available_flags
+            .values()
+            .chain(out.flags.keys())
+            .any(|flag| flag_matches_selector(flag, selector))
+            && selector_is_satisfied(selector, out, overridden_flags, custom_env)
+    };
+    let mut errors = Vec::new();
+    for (instance_index, instance) in instances.iter().enumerate() {
+        let arg_is_explicit = |selector: &str| {
+            instance
+                .keys()
+                .any(|arg| !selector.starts_with('-') && arg.name == selector)
+        };
+        let selector_is_explicit =
+            |selector: &str| flag_is_explicit(selector) || arg_is_explicit(selector);
+        let selector_has_value = |selector: &str, expected: &str| {
+            flag_matches_value(selector, expected)
+                || instance.iter().any(|(arg, value)| {
+                    !selector.starts_with('-')
+                        && arg.name == selector
+                        && parse_value_has(value, expected)
+                })
+        };
+        let selector_is_satisfied =
+            |selector: &str| selector_is_explicit(selector) || flag_is_satisfied(selector);
+        for arg in &clause.args {
+            let given = instance.keys().any(|present| present.name == arg.name);
+            if !given {
+                let required_if = arg
+                    .required_if
+                    .iter()
+                    .any(|selector| selector_is_explicit(selector));
+                let required_if_eq = arg
+                    .required_if_eq
+                    .iter()
+                    .any(|condition| selector_has_value(&condition.selector, &condition.value));
+                let required_if_eq_all = !arg.required_if_eq_all.is_empty()
+                    && arg
+                        .required_if_eq_all
+                        .iter()
+                        .all(|condition| selector_has_value(&condition.selector, &condition.value));
+                let unless_any = arg
+                    .required_unless
+                    .iter()
+                    .any(|selector| selector_is_explicit(selector));
+                let unless_all = !arg.required_unless_all.is_empty()
+                    && arg
+                        .required_unless_all
+                        .iter()
+                        .all(|selector| selector_is_explicit(selector));
+                let required_unless = (!arg.required_unless.is_empty()
+                    || !arg.required_unless_all.is_empty())
+                    && !(unless_any || unless_all);
+                if required_if || required_if_eq || required_if_eq_all || required_unless {
+                    errors.push(UsageErr::MissingClauseArg {
+                        clause: clause.name.clone(),
+                        instance: instance_index + 1,
+                        arg: arg.name.clone(),
+                    });
+                }
+                continue;
+            }
+            for other in &arg.conflicts {
+                if selector_is_explicit(other) {
+                    errors.push(UsageErr::InvalidFlag {
+                        token: arg.name.clone(),
+                        reason: format!("conflicts with {other}"),
+                        span: (0, 0).into(),
+                        input: format!("{} {other}", arg.name),
+                    });
+                }
+            }
+            for other in &arg.requires {
+                if selector_is_satisfied(other) {
+                    continue;
+                }
+                if other.starts_with('-') {
+                    let name = selector_flag_name(other, out).unwrap_or_else(|| other.clone());
+                    errors.push(UsageErr::MissingFlag(name));
+                } else {
+                    errors.push(UsageErr::MissingClauseArg {
+                        clause: clause.name.clone(),
+                        instance: instance_index + 1,
+                        arg: other.clone(),
+                    });
+                }
+            }
+        }
+    }
+    out.errors.extend(errors);
+}
+
 fn selector_explicit_has_value(
     selector: &str,
     expected: &str,
@@ -3436,7 +3566,7 @@ fn selector_arg<'a>(selector: &str, out: &'a ParseOutput) -> Option<&'a SpecArg>
     }
     out.cmds
         .iter()
-        .flat_map(|cmd| active_args(cmd))
+        .flat_map(active_args)
         .find(|arg| arg.name == selector)
 }
 
