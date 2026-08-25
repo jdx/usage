@@ -1470,12 +1470,6 @@ fn parse_partial_traced(
                 idx += 1;
                 continue;
             }
-            // Sigil-classified positionals do not occupy the ordinary positional cursor and
-            // therefore do not close subcommand routing. Phase 2 binds and strips them.
-            if match_sigil_arg_chain(&out.cmds, &input[idx].word).is_some() {
-                idx += 1;
-                continue;
-            }
             // Found a word that's not a flag or subcommand
             // Check if we should use the default_subcommand (only once, and only at the
             // root, which is the only place a spec can declare one — `out.cmds` holds just
@@ -1523,6 +1517,14 @@ fn parse_partial_traced(
                         continue;
                     }
                 }
+            }
+            // Sigil-classified positionals do not occupy the ordinary positional cursor and
+            // therefore do not close subcommand routing. Phase 2 binds and strips them. A
+            // default subcommand gets first refusal so interpreted and compiled routing agree
+            // when the root sigil and the default command can both accept this word.
+            if match_sigil_arg_chain(&out.cmds, &input[idx].word).is_some() {
+                idx += 1;
+                continue;
             }
             // An unmatched word that names no subcommand is forwarded as an external
             // command: this word, then every token after it, including flags. Known
@@ -6760,6 +6762,32 @@ cmd "build" {
         assert_eq!(arg.name, "task");
         let value = parsed.args.values().next().unwrap();
         assert_eq!(value.to_string(), "mytask");
+    }
+
+    #[test]
+    fn default_subcommand_outranks_root_sigil_arg() {
+        let spec: Spec = r#"
+name "test"
+bin "test"
+default_subcommand "run"
+arg "[tools]..." sigil="+"
+cmd "run" { arg "<task>" }
+"#
+        .parse()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "+node", "node"])).unwrap();
+        assert_eq!(parsed.cmd.name, "run");
+        let value = |name| {
+            parsed
+                .args
+                .iter()
+                .find(|(arg, _)| arg.name == name)
+                .map(|(_, value)| value.to_string())
+                .unwrap()
+        };
+        assert_eq!(value("tools"), "node");
+        assert_eq!(value("task"), "node");
     }
 
     #[test]
