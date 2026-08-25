@@ -667,7 +667,11 @@ fn arg_origins(out: &ParseOutput, arg: &SpecArg) -> Vec<OriginRow> {
     for token in &out.tokens {
         for role in &token.roles {
             match role {
-                TokenRole::Arg { arg: a, .. } if a.name == arg.name => tokens.push(token.index),
+                TokenRole::Arg { arg: a, .. } | TokenRole::Sigil { arg: a, .. }
+                    if a.name == arg.name =>
+                {
+                    tokens.push(token.index)
+                }
                 TokenRole::UnknownFlag { bound_as: Some(a) } if a.name == arg.name => {
                     tokens.push(token.index)
                 }

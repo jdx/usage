@@ -606,12 +606,6 @@ func (p *Parser) word(token string) bool {
 			return p.emit(Event{Kind: KindCommand, Command: d})
 		}
 
-		if arg, sigil := p.matchSigilArg(token); arg != nil {
-			return p.emit(Event{
-				Kind: KindArg, Arg: arg, Value: token[len(sigil):], HasValue: true, Delimit: true,
-			})
-		}
-
 		// An unmatched word that names no subcommand is forwarded as an external
 		// command: this word, then every token after it, including flags. Known
 		// subcommands already won above, and a default subcommand already caught.
@@ -621,6 +615,12 @@ func (p *Parser) word(token string) bool {
 			p.pos = len(p.argv)
 			return p.emit(Event{Kind: KindExternal, Values: values})
 		}
+	}
+
+	if arg, sigil := p.matchSigilArg(token); arg != nil {
+		return p.emit(Event{
+			Kind: KindArg, Arg: arg, Value: token[len(sigil):], HasValue: true, Delimit: true,
+		})
 	}
 
 	p.skipSigilArgs()

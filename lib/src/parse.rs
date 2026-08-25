@@ -2178,6 +2178,7 @@ fn parse_partial_traced(
         }
 
         if out.cmd.allow_missing_positional {
+            next_arg_idx = cursor_skip_sigils(&out.cmd, next_arg_idx);
             while let Some(current) = out.cmd.args.get(next_arg_idx) {
                 if current.required || out.args.contains_key(current) {
                     break;
@@ -2196,7 +2197,7 @@ fn parse_partial_traced(
                 if remaining_values > required_after {
                     break;
                 }
-                next_arg_idx += 1;
+                next_arg_idx = cursor_skip_sigils(&out.cmd, next_arg_idx + 1);
             }
         }
 
@@ -6598,6 +6599,26 @@ arg "<required>"
             .unwrap()
             .1;
         assert!(matches!(value, ParseValue::String(value) if value == "value"));
+    }
+
+    #[test]
+    fn sigil_args_do_not_block_optional_positional_skipping() {
+        let spec: Spec = r#"name "ex"
+bin "ex"
+allow_missing_positional #true
+arg "[optional]"
+arg "[tool]" sigil="@"
+arg "<required>"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &input(&["ex", "@node", "value"])).unwrap();
+        assert!(!out.args.keys().any(|arg| arg.name == "optional"));
+        let tool = out.args.keys().find(|arg| arg.name == "tool").unwrap();
+        let required = out.args.keys().find(|arg| arg.name == "required").unwrap();
+        assert_eq!(out.args[tool].to_string(), "node");
+        assert_eq!(out.args[required].to_string(), "value");
     }
 
     #[test]
