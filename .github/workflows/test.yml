@@ -16,7 +16,7 @@ env:
 
 jobs:
   test:
-    runs-on: ${{ github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login == 'dependabot[bot]') && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
+    runs-on: ${{ github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login != 'jdx') && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
     # Without this, a hung step sits until GitHub's 6-hour job limit.
     timeout-minutes: 30
     permissions:
@@ -185,7 +185,7 @@ jobs:
   # `cargo check` rather than `cargo test`: dev-dependencies are not part of what an adopter
   # compiles, and holding them to the MSRV would pin the toolchain past what the library needs.
   msrv:
-    runs-on: ${{ github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login == 'dependabot[bot]') && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
+    runs-on: ${{ github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login != 'jdx') && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
     timeout-minutes: 15
     permissions:
       contents: read
