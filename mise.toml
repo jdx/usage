@@ -90,25 +90,7 @@ run = 'cargo clippy --all --all-features --all-targets -- -D warnings'
 run = 'cargo fmt --all -- --check'
 [tasks."lint:semver"]
 tools = { rust = "1.95" }
-# Held back until 6.0 is out, because a break that has been *decided* cannot pass this.
-# `check-release` compares against the published crate, so `feat(lib)!:` work is red from
-# the moment it is written until release-plz ships the major it implies — and a gate that
-# cannot pass is a gate people learn to ignore, which is worse than not running it.
-#
-# The condition clears itself rather than needing remembering: once the crates are on
-# 6.x, the break is in the published baseline and this runs again, catching the *next*
-# unintended one. Raise the number the same way if a later major is declared the same way.
-#
-# One block rather than a list, because each entry of a list is its own shell and the
-# version would not survive between them.
-run = '''
-major=$(sed -n 's/^version = "\([0-9]*\)\..*/\1/p' lib/Cargo.toml | head -1)
-if [ "$major" -lt 6 ]; then
-  echo "skipped: usage-lib is $major.x, and the 6.0 break this would report is declared rather than accidental"
-  exit 0
-fi
-cargo semver-checks check-release -p usage-lib
-'''
+run = "cargo semver-checks check-release -p usage-lib"
 [tasks."lint:rust-docs-version"]
 run = '''
 major=$(sed -n 's/^version = "\([0-9]*\)\..*/\1/p' lib/Cargo.toml | head -1)
