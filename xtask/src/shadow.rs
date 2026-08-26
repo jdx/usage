@@ -1920,7 +1920,7 @@ fn needs_declaring(help: Option<&str>, long: Option<&str>) -> bool {
     // A long form with no short one cannot be a comment at all: a comment's first paragraph *is*
     // the short form, so writing one would invent a short help the spec never gave.
     let long_only =
-        long.is_some_and(|l| !l.trim().is_empty()) && !help.is_some_and(|h| !h.trim().is_empty());
+        long.is_some_and(|l| !l.trim().is_empty()) && help.is_none_or(|h| h.trim().is_empty());
     flowed || independent || long_only
 }
 
