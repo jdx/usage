@@ -3,6 +3,7 @@ CARGO_TERM_COLOR = 'always'
 _.path = ["./target/debug"]
 
 [tools]
+"github:jdx/mr-boxington" = "latest"
 # Pinned rather than "latest" because tak is the measuring instrument: an
 # upgrade that changes how it samples would land in the series as a step change
 # in usage's numbers, indistinguishable from a real regression. Bump deliberately.
@@ -30,7 +31,7 @@ depends = ["render", "lint-fix", "snapshots"]
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
 outputs = ['target/debug/rtx']
-run = 'cargo build --all'
+run = 'mbx build --all'
 
 [tasks.cli]
 alias = ['x']
@@ -61,7 +62,7 @@ run = 'aube install && aube run docs:dev'
 
 [tasks.test]
 alias = 't'
-run = 'cargo test --all --all-features'
+run = 'mbx test --all --all-features'
 
 # The Go parser answers the same corpus the Rust one does, so its suite needs the
 # `usage` CLI: a vector's spec is KDL, and lowering it is the CLI's job rather than
@@ -85,7 +86,7 @@ run = 'actionlint'
 [tasks."lint:prettier"]
 run = "prettier -c ."
 [tasks."lint:clippy"]
-run = 'cargo clippy --all --all-features --all-targets -- -D warnings'
+run = 'mbx clippy --all --all-features --all-targets -- -D warnings'
 [tasks."lint:fmt"]
 run = 'cargo fmt --all -- --check'
 [tasks."lint:semver"]
