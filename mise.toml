@@ -89,6 +89,7 @@ run = 'cargo clippy --all --all-features --all-targets -- -D warnings'
 [tasks."lint:fmt"]
 run = 'cargo fmt --all -- --check'
 [tasks."lint:semver"]
+tools = { rust = "1.95" }
 # Held back until 6.0 is out, because a break that has been *decided* cannot pass this.
 # `check-release` compares against the published crate, so `feat(lib)!:` work is red from
 # the moment it is written until release-plz ships the major it implies — and a gate that
