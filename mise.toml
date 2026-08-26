@@ -89,7 +89,6 @@ run = 'cargo clippy --all --all-features --all-targets -- -D warnings'
 [tasks."lint:fmt"]
 run = 'cargo fmt --all -- --check'
 [tasks."lint:semver"]
-tools = { rust = "1.95" }
 run = "cargo semver-checks check-release -p usage-lib"
 [tasks."lint:rust-docs-version"]
 run = '''
