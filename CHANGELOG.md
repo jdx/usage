@@ -1,5 +1,24 @@
 # Changelog
 
+## [6.4.1](https://github.com/jdx/usage/compare/v6.4.0..v6.4.1) - 2026-08-26
+
+### 🐛 Bug Fixes
+
+- **(cli)** color interpreted help output by [@jdx](https://github.com/jdx) in [#1309](https://github.com/jdx/usage/pull/1309)
+- **(docs)** omit hidden commands from markdown by [@jdx](https://github.com/jdx) in [#1315](https://github.com/jdx/usage/pull/1315)
+- **(parse)** require opt-in for negative flag values by [@jdx](https://github.com/jdx) in [#1317](https://github.com/jdx/usage/pull/1317)
+- **(parse)** align negative values across parse phases by [@jdx](https://github.com/jdx) in [#1318](https://github.com/jdx/usage/pull/1318)
+- simplify required-unless predicates by [@jdx](https://github.com/jdx) in [#1326](https://github.com/jdx/usage/pull/1326)
+
+### 🔍 Other Changes
+
+- **(sponsors)** replace 37signals with omacom foundation by [@jdx](https://github.com/jdx) in [#1324](https://github.com/jdx/usage/pull/1324)
+- lower published crate msrv to 1.91 by [@jdx](https://github.com/jdx) in [#1314](https://github.com/jdx/usage/pull/1314)
+
+### 📦️ Dependency Updates
+
+- update rust crate winnow to v1 by [@renovate[bot]](https://github.com/renovate[bot]) in [#1313](https://github.com/jdx/usage/pull/1313)
+
 ## [6.4.0](https://github.com/jdx/usage/compare/v6.3.0..v6.4.0) - 2026-08-24
 
 ### 🚀 Features
