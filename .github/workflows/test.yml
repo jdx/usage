@@ -1,274 +1,48 @@
 name: test
+
 on:
   push:
     branches: ["main"]
   pull_request:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions: {}
 
-env:
-  MISE_EXPERIMENTAL: 1
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 jobs:
-  test:
-    runs-on: ${{ github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login != 'jdx') && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
-    # Without this, a hung step sits until GitHub's 6-hour job limit.
-    timeout-minutes: 30
+  trusted:
+    if: ${{ github.actor == 'jdx' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'jdx')) }}
     permissions:
       contents: read
       id-token: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: recursive
-          persist-credentials: false
-      - uses: ./.github/actions/mbx
-      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
-      # Retries and a longer wait, rather than being allowed to fail. `cli`'s completion
-      # tests refuse to skip a missing shell when `CI` is set — see
-      # `skip_if_shell_missing` — which is a deliberate policy this step exists to keep:
-      # a run that quietly tested one shell instead of four is worse than a run that
-      # stopped. So the flakiness is what gets fixed, not the consequence of it.
-      #
-      # The failure mode, seen three times in an afternoon, is the azure mirror that
-      # GitHub's runners list first *stalling* rather than refusing. Retries alone did not
-      # help — an eight-minute attempt with them timed out the same way — because retrying
-      # a connection that hangs just hangs again. What was missing is a per-connection
-      # timeout: with one, apt gives up on the stalled mirror in seconds and moves to the
-      # next entry in `/etc/apt/apt-mirrors.txt`, which is the archive.ubuntu.com that was
-      # answering fine throughout.
-      #
-      # `bash-completion` is in the list for the same reason: usage no longer embeds a copy of
-      # it, so the generated bash completion needs the system one loaded, and
-      # `bash_completion_or_skip` panics under CI rather than skipping without it. The image
-      # already ships it; naming it here is what keeps that true if a future one stops.
-      #
-      # Deliberately the distro package rather than a newer build from source: `ubuntu-latest`
-      # is 24.04, whose 2.11 is the oldest version the generated script supports. Testing
-      # against the floor is the point — 26.04 ships 2.16, which would pass either way.
-      - name: Install shells and bash-completion for completion integration tests
-        timeout-minutes: 5
-        run: |
-          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
-            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
-          fi
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update
-          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y zsh fish bash-completion
-          # pwsh is pre-installed on GitHub ubuntu-latest images. Namespace
-          # images have Microsoft's apt repository but not snap, so install
-          # from apt when it is absent.
-          if ! command -v pwsh >/dev/null 2>&1; then
-            sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y powershell
-          fi
-      # A step of its own, and `always()`, because the interesting time to hear which
-      # shells are present is the run where the one above did not finish — and a `set -e`
-      # script says nothing after the command that failed it.
-      - name: Report which shells are available
-        if: always()
-        run: |
-          probe_dir=$(mktemp -d)
-          trap 'rm -rf "$probe_dir"' EXIT
-          for shell in bash zsh fish pwsh; do
-            if [[ "$shell" == pwsh ]]; then
-              probe="$probe_dir/$shell.ps1"
-            else
-              probe="$probe_dir/$shell"
-            fi
-            printf 'echo ok\n' > "$probe"
-            if [[ "$shell" == pwsh ]]; then
-              output=$(pwsh -NoProfile -NonInteractive -File "$probe" 2>/dev/null) && usable=true || usable=false
-            else
-              output=$("$shell" "$probe" 2>/dev/null) && usable=true || usable=false
-            fi
-            if [[ "$usable" == true && "$output" == ok ]]; then
-              echo "$shell: $(command -v "$shell") (script probe passed)"
-            else
-              echo "::warning::$shell cannot run a script, so its completion tests cannot run"
-            fi
-          done
-      - run: mise r build
-      - run: mise r test
-      # Run here rather than in a job of its own: the corpus vectors carry KDL
-      # specs, and lowering them needs the `usage` CLI this job has already built.
-      - run: mise r test:go
-      # Everything else in this pipeline builds with `--all-features`, and resolver-v2 unification
-      # means a workspace build turns a feature on for every member as soon as one member wants it.
-      # So the shapes an adopter actually gets — usage-lib without `docs`, usage-rs without its
-      # defaults — are compiled nowhere else, and rotted unnoticed until they were measured.
-      - name: check the trimmed feature shapes still compile
-        run: |
-          mbx clippy -p usage-lib --no-default-features -- -D warnings
-          mbx clippy -p usage-rs --no-default-features -- -D warnings
-          mbx clippy -p usage-config --no-default-features -- -D warnings
-      - run: mise r render
-      # Same reasoning as `render`: the shadow is checked in, so a change to the derive's
-      # vocabulary that would alter it has to be committed rather than discovered later.
-      - run: mise r gen-shadow
-      # And the Go tables, for the same reason: they are checked in, so a change to
-      # the emitter that nobody meant has to show up as a diff here.
-      - run: mise r gen-go
-      - name: assert render, gen-shadow and gen-go produce no diff
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "::error::'mise run render', 'mise run gen-shadow' or 'mise run gen-go' produced changes. Run them locally and commit."
-            git status
-            git diff
-            exit 1
-          fi
-      - run: mise r lint
+    uses: ./.github/workflows/test-impl.yml
+    with:
+      trusted: true
+      mbx-backend: server
 
-  # The only job that is not Linux, and for several `cfg` branches the only place they are
-  # compiled at all. The argv path planner, the config path normaliser and
-  # `os_string_from_bytes` all exist for Windows and had never been built on it — each of
-  # #1232, #1233 and #1234 fixed something no other job could see. This is the job that keeps
-  # that true going forward rather than once.
-  test-windows:
-    runs-on: windows-latest
-    timeout-minutes: 30
+  untrusted:
+    if: ${{ github.actor != 'jdx' || (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login != 'jdx')) }}
     permissions:
       contents: read
-      id-token: write
-    steps:
-      # Before the checkout, and not optional: there is no `.gitattributes`, and Windows git
-      # defaults to `autocrlf=true`. The fixtures would arrive with CRLF and the help snapshots
-      # in `lib/tests/parse.rs` and `cli/tests/markdown.rs` would fail on a difference
-      # `pretty_assertions` prints as two identical strings.
-      - run: git config --global core.autocrlf false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: recursive
-          persist-credentials: false
-      - uses: ./.github/actions/mbx
-      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
-      - run: mise r build
-      # `usage bash` runs whatever Windows resolves `bash` to, and `CreateProcess` searches the
-      # system directory before `PATH`. On this runner that is `C:\Windows\System32\bash.exe` —
-      # the WSL launcher, with no distribution installed — so the mount fixtures cannot run.
-      # Naming Git Bash is what makes them run rather than skip.
-      #
-      # `USAGECLI_`, not `USAGE_`: mise strips `usage_*` from a task's environment by comparing
-      # six characters case-insensitively, and Windows variable names are case-insensitive, so
-      # `USAGE_SHELL_BASH` would not survive `mise r`. That collision is why the `USAGECLI_`
-      # spelling exists.
-      #
-      # Unquoted on purpose. In double quotes YAML reads `\b` as a backspace.
-      #
-      # If this ever stops arriving, the job fails rather than passing quietly:
-      # `skip_if_posix_shell_missing` panics under CI on every platform, so a run cannot skip
-      # its way to green.
-      - env:
-          USAGECLI_SHELL_BASH: C:\Program Files\Git\bin\bash.exe
-        run: mise r test
-      # No zsh, fish or bash-completion, and nothing to install them with: they have no Windows
-      # equivalent, which is why `skip_if_shell_missing` and `bash_completion_or_skip` limit
-      # their CI panic to Unix. Three tests skip here and the Linux job covers them.
-      #
-      # Linting here is not duplication of the Linux job. `#[cfg]` decides whether code exists,
-      # so a warning can be real on one platform and absent on the other — both of the ones
-      # #1234 fixed were invisible to every other job in this file. `lint:clippy` denies
-      # warnings and passes `--all-targets`, which makes those a build failure rather than noise.
-      - run: mise r lint:clippy
+    uses: ./.github/workflows/test-impl.yml
+    with:
+      trusted: false
+      mbx-backend: github
 
-  # The declared `rust-version` is a promise to anyone depending on these crates, and nothing
-  # was checking it. It said 1.80 — set in 2024 when `LazyLock` landed and never revisited —
-  # and usage-argv had not built at 1.80 for a long time. A promise nobody checks is a guess.
-  #
-  # All published crates hold mise's own 1.91, which is the floor that matters for the fleet.
-  # Each crate is checked at the version it declares rather than at one shared guess, which is
-  # how a lower floor stays real instead of aspirational.
-  #
-  # `cargo check` rather than `cargo test`: dev-dependencies are not part of what an adopter
-  # compiles, and holding them to the MSRV would pin the toolchain past what the library needs.
-  msrv:
-    runs-on: ${{ github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.event.pull_request.user.login != 'jdx') && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - version: "1.91"
-            crates: >-
-              usage-argv usage-derive usage-config usage-validation usage-rs usage-test
-              usage-lib usage-dynamic clap_usage usage-cli
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: recursive
-          persist-credentials: false
-      - name: the matrix and the manifests agree
-        run: |
-          # Both directions, because one of them alone is how a false floor survives.
-          #
-          # Every crate this row checks declares this row's version. Or the job checks a version
-          # nobody promised: a crate that changes its floor without touching this file would
-          # otherwise be tested at the old one and pass.
-          for crate in ${{ matrix.crates }}; do
-            manifest="$(git ls-files '*Cargo.toml' | xargs grep -l "^name = \"$crate\"$" | head -1)"
-            declared="$(sed -n 's/^rust-version *= *"\(.*\)".*/\1/p' "$manifest" | head -1)"
-            if [ "$declared" != "${{ matrix.version }}" ]; then
-              echo "::error::$crate declares $declared, checked here at ${{ matrix.version }}"
-              exit 1
-            fi
-          done
-          # And every published crate declaring this row's version is in this row. Without this
-          # half, a new crate — or one that was simply never listed — makes a floor promise that
-          # no toolchain ever tries. `usage-conformance` and `xtask` promised 1.91 for as long as
-          # this job existed while depending on a crate that needs 1.95; nothing noticed, because
-          # nothing looked from the manifests back to the matrix.
-          #
-          # Published only: a floor is a promise to whoever depends on the crate, so a
-          # `publish = false` member has nobody to make one to and should not declare one.
-          for manifest in $(git ls-files '*Cargo.toml'); do
-            declared="$(sed -n 's/^rust-version *= *"\(.*\)".*/\1/p' "$manifest" | head -1)"
-            [ "$declared" = "${{ matrix.version }}" ] || continue
-            grep -q '^publish *= *false' "$manifest" && continue
-            name="$(sed -n 's/^name *= *"\(.*\)".*/\1/p' "$manifest" | head -1)"
-            case " ${{ matrix.crates }} " in
-              *" $name "*) ;;
-              *)
-                echo "::error::$name declares $declared and is published, but no row checks it"
-                exit 1
-                ;;
-            esac
-          done
-      # `rustup` rather than an action: it is already on the runner, and this needs one
-      # toolchain and no other behaviour — a pinned third-party action would be one more
-      # thing to keep current for no gain.
-      - name: install the toolchain under test
-        run: rustup toolchain install ${{ matrix.version }} --profile minimal
-      - uses: ./.github/actions/mbx
-      - name: they build at the version they claim
-        run: |
-          for crate in ${{ matrix.crates }}; do
-            mbx +${{ matrix.version }} check --locked -p "$crate" --all-features
-          done
-
-  # Single fan-in gate, so branch protection can require one stable check
-  # instead of an enumerated list that goes stale when jobs are added or renamed.
   final:
+    name: final
+    if: ${{ always() && !cancelled() && needs.trusted.result != 'cancelled' && needs.untrusted.result != 'cancelled' }}
     permissions: {}
-    needs:
-      - test
-      - test-windows
-      - msrv
+    needs: [trusted, untrusted]
     runs-on: ubuntu-latest
     timeout-minutes: 1
-    # Run on success or upstream failure but skip when the workflow is cancelled
-    # — `always()` would override `cancel-in-progress` and waste a runner.
-    if: ${{ !cancelled() }}
     steps:
-      - name: Check job results
-        if: |
-          needs.test.result != 'success' ||
-          needs.test-windows.result != 'success' ||
-          needs.msrv.result != 'success'
-        run: exit 1
-      - run: echo "All CI jobs completed successfully"
+      - name: Check selected workflow result
+        env:
+          TRUSTED_RESULT: ${{ needs.trusted.result }}
+          UNTRUSTED_RESULT: ${{ needs.untrusted.result }}
+        run: |
+          if [[ "$TRUSTED_RESULT" == success && "$UNTRUSTED_RESULT" == skipped ]] ||
+             [[ "$TRUSTED_RESULT" == skipped && "$UNTRUSTED_RESULT" == success ]]; then
+            exit 0
+          fi
+          echo "trusted=$TRUSTED_RESULT untrusted=$UNTRUSTED_RESULT"
+          exit 1
