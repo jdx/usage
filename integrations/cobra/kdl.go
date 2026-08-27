@@ -39,6 +39,12 @@ func renderKDL(spec *Spec) string {
 		b.WriteString(renderArg(&arg, 0))
 	}
 
+	// Root examples: after args and before subcommands, matching usage-lib's own
+	// top-level node order.
+	for _, ex := range spec.Examples {
+		b.WriteString(renderExample(&ex, 0))
+	}
+
 	// Subcommands
 	for _, cmd := range spec.Cmds {
 		b.WriteString(renderCommand(&cmd, 0))
@@ -73,6 +79,7 @@ func renderCommand(cmd *SpecCommand, depth int) string {
 		len(cmd.Aliases) > 0 ||
 		len(cmd.Flags) > 0 ||
 		len(cmd.Args) > 0 ||
+		len(cmd.Examples) > 0 ||
 		len(cmd.Cmds) > 0
 
 	if !hasChildren {
@@ -112,7 +119,35 @@ func renderCommand(cmd *SpecCommand, depth int) string {
 		b.WriteString(renderCommand(&sub, depth+1))
 	}
 
+	// Examples: after subcommands, matching usage-lib's own child node order.
+	for _, ex := range cmd.Examples {
+		b.WriteString(renderExample(&ex, depth+1))
+	}
+
 	fmt.Fprintf(&b, "%s}\n", indent)
+	return b.String()
+}
+
+// renderExample renders a SpecExample as a KDL example node.
+// The code is always fully quoted: example code contains spaces and shell
+// punctuation, and a multi-line example has to come out as \n escapes.
+func renderExample(ex *SpecExample, depth int) string {
+	var b strings.Builder
+	indent := strings.Repeat("    ", depth)
+
+	fmt.Fprintf(&b, "%sexample %s", indent, kdlQuoteAlways(ex.Code))
+
+	if ex.Header != "" {
+		fmt.Fprintf(&b, " header=%s", kdlQuote(ex.Header))
+	}
+	if ex.Help != "" {
+		fmt.Fprintf(&b, " help=%s", kdlQuote(ex.Help))
+	}
+	if ex.Lang != "" {
+		fmt.Fprintf(&b, " lang=%s", kdlQuote(ex.Lang))
+	}
+
+	b.WriteString("\n")
 	return b.String()
 }
 

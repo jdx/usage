@@ -8,13 +8,14 @@ import (
 // JSON types matching the usage-lib JSON schema (Spec -> serde serialization).
 
 type jsonSpec struct {
-	Name     string       `json:"name,omitempty"`
-	Bin      string       `json:"bin,omitempty"`
-	Cmd      jsonCommand  `json:"cmd"`
-	Version  string       `json:"version,omitempty"`
-	Usage    string       `json:"usage,omitempty"`
-	About    string       `json:"about,omitempty"`
-	AboutLon string       `json:"about_long,omitempty"`
+	Name     string        `json:"name,omitempty"`
+	Bin      string        `json:"bin,omitempty"`
+	Cmd      jsonCommand   `json:"cmd"`
+	Version  string        `json:"version,omitempty"`
+	Usage    string        `json:"usage,omitempty"`
+	About    string        `json:"about,omitempty"`
+	AboutLon string        `json:"about_long,omitempty"`
+	Examples []jsonExample `json:"examples,omitempty"`
 }
 
 type jsonCommand struct {
@@ -31,6 +32,7 @@ type jsonCommand struct {
 	Deprecated         string                  `json:"deprecated,omitempty"`
 	Aliases            []string                `json:"aliases"`
 	HiddenAliases      []string                `json:"hidden_aliases"`
+	Examples           []jsonExample           `json:"examples"`
 }
 
 type jsonFlag struct {
@@ -64,6 +66,15 @@ type jsonChoices struct {
 	Choices []string `json:"choices"`
 }
 
+// jsonExample mirrors usage-lib's SpecExample, which derives a plain Serialize:
+// every field is always present, and header/help are null when unset.
+type jsonExample struct {
+	Code   string  `json:"code"`
+	Header *string `json:"header"`
+	Help   *string `json:"help"`
+	Lang   string  `json:"lang"`
+}
+
 // toJSON converts internal Spec to the JSON-serializable format matching usage-lib.
 func toJSON(spec *Spec) jsonSpec {
 	js := jsonSpec{
@@ -74,12 +85,15 @@ func toJSON(spec *Spec) jsonSpec {
 		AboutLon: spec.Long,
 	}
 
+	js.Examples = examplesToJSON(spec.Examples)
+
 	// Root command
 	js.Cmd = jsonCommand{
 		FullCmd:       []string{},
 		Name:          spec.Name,
 		Aliases:       []string{},
 		HiddenAliases: []string{},
+		Examples:      []jsonExample{},
 		Subcommands:   make(map[string]*jsonCommand),
 	}
 
@@ -97,6 +111,8 @@ func toJSON(spec *Spec) jsonSpec {
 	return js
 }
 
+// commandToJSON converts a SpecCommand and its subcommand tree into the JSON
+// shape usage-lib expects, threading the full command path down to each child.
 func commandToJSON(cmd *SpecCommand, fullCmd []string) jsonCommand {
 	jc := jsonCommand{
 		FullCmd:            fullCmd,
@@ -108,6 +124,7 @@ func commandToJSON(cmd *SpecCommand, fullCmd []string) jsonCommand {
 		SubcommandRequired: cmd.SubcommandRequired,
 		Aliases:            cmd.Aliases,
 		HiddenAliases:      []string{},
+		Examples:           examplesToJSON(cmd.Examples),
 		Subcommands:        make(map[string]*jsonCommand),
 	}
 	if jc.Aliases == nil {
@@ -129,6 +146,35 @@ func commandToJSON(cmd *SpecCommand, fullCmd []string) jsonCommand {
 	return jc
 }
 
+// examplesToJSON converts internal examples, always returning a non-nil slice so
+// the field marshals as [] rather than null - usage-lib's SpecCommand.examples
+// has no skip_serializing_if and always emits an array.
+func examplesToJSON(examples []SpecExample) []jsonExample {
+	out := make([]jsonExample, 0, len(examples))
+	for i := range examples {
+		out = append(out, exampleToJSON(&examples[i]))
+	}
+	return out
+}
+
+// exampleToJSON converts a single example, leaving the optional header and help
+// fields nil when unset so they marshal as null rather than "".
+func exampleToJSON(ex *SpecExample) jsonExample {
+	je := jsonExample{
+		Code: ex.Code,
+		Lang: ex.Lang,
+	}
+	if ex.Header != "" {
+		je.Header = &ex.Header
+	}
+	if ex.Help != "" {
+		je.Help = &ex.Help
+	}
+	return je
+}
+
+// flagToJSON converts a SpecFlag, deriving the flag's name and usage string from
+// its long and short spellings and its optional value argument.
 func flagToJSON(f *SpecFlag) jsonFlag {
 	jf := jsonFlag{
 		Help:       f.Help,
@@ -179,6 +225,8 @@ func flagToJSON(f *SpecFlag) jsonFlag {
 	return jf
 }
 
+// argToJSON converts a SpecArg, rendering its usage string as <name> when the arg
+// is required and [name] when it is not.
 func argToJSON(a *SpecArg) jsonArg {
 	ja := jsonArg{
 		Name:     a.Name,
