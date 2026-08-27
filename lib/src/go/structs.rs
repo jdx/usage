@@ -23,10 +23,59 @@ use crate::{SpecArg, SpecFlag};
 /// two cannot disagree about where a value goes.
 type Fields = HashMap<String, String>;
 
+struct ClauseFields {
+    field: String,
+    type_name: String,
+    args: Fields,
+}
+
+type Clauses = HashMap<String, ClauseFields>;
+
 /// Write every command's struct, then `Parse`.
 pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
     let mut assigned: Fields = HashMap::new();
+    let mut clauses: Clauses = HashMap::new();
     for e in commands {
+        let clause_type = e.cmd.clause.as_ref().map(|clause| {
+            let type_name = format!("{}{}Clause", name(e), field_name(&clause.name));
+            let mut args = Fields::new();
+            let mut taken = HashSet::new();
+            let _ = writeln!(
+                out,
+                "// {type_name} is one `{}` clause instance.",
+                clause.name
+            );
+            let _ = writeln!(out, "type {type_name} struct {{");
+            let fields = e
+                .clause_args
+                .iter()
+                .map(|(arg, named)| {
+                    let base = field_name(&arg.name);
+                    let field = if taken.insert(base.clone()) {
+                        base
+                    } else {
+                        let mut n = 2;
+                        loop {
+                            let candidate = format!("{base}{n}");
+                            if taken.insert(candidate.clone()) {
+                                break candidate;
+                            }
+                            n += 1;
+                        }
+                    };
+                    args.insert(named.key.clone(), field.clone());
+                    (field, arg_type(arg), named.key.as_str())
+                })
+                .collect::<Vec<_>>();
+            let name_col = fields.iter().map(|(n, _, _)| n.len()).max().unwrap_or(0);
+            let type_col = fields.iter().map(|(_, t, _)| t.len()).max().unwrap_or(0);
+            for (field, ty, key) in fields {
+                let _ = writeln!(out, "\t{field:<name_col$} {ty:<type_col$} // {key}");
+            }
+            let _ = writeln!(out, "}}\n");
+            (type_name, args)
+        });
+
         let doc = if e.root {
             format!("// {} is the whole command line.", name(e))
         } else {
@@ -73,6 +122,22 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
             fields.push((field.clone(), arg_type(arg).to_string(), named.key.clone()));
             assigned.insert(named.key.clone(), field);
         }
+        if let (Some(clause), Some((type_name, args))) = (&e.cmd.clause, clause_type) {
+            let field = claim(field_name(&clause.name), "Clause");
+            fields.push((
+                field.clone(),
+                format!("[]{type_name}"),
+                format!("clause {}", clause.name),
+            ));
+            clauses.insert(
+                e.named.key.clone(),
+                ClauseFields {
+                    field,
+                    type_name,
+                    args,
+                },
+            );
+        }
         for at in &e.subcommands {
             let sub = &commands[*at];
             // A pointer, and at most one is set: the command line selects one path
@@ -95,10 +160,10 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
         let _ = writeln!(out, "}}\n");
     }
 
-    parse_fn(out, commands, &assigned);
+    parse_fn(out, commands, &assigned, &clauses);
 }
 
-fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
+fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: &Clauses) {
     let root = &commands[0];
     let mut strict_keys = commands
         .iter()
@@ -185,6 +250,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         }) || command
             .args
             .iter()
+            .chain(command.clause_args.iter())
             .any(|(arg, _)| !arg.required_if_eq.is_empty() || !arg.required_if_eq_all.is_empty())
     });
     let has_default_if = commands
@@ -206,6 +272,26 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         "\t\tresolved[key] = values\n"
     } else {
         ""
+    };
+    let clause_state = if clauses.is_empty() {
+        ""
+    } else {
+        "\tclauseGiven := map[uint64][]string{}\n\tclauseInstances := map[uint64][]map[uint64][]string{}\n"
+    };
+    let clause_arg_values = if clauses.is_empty() {
+        "\t\t\tgiven[ev.Arg.Key] = append(given[ev.Arg.Key], values...)\n"
+    } else {
+        "\t\t\tif p.Command().Clause != nil {\n\t\t\t\tclauseGiven[ev.Arg.Key] = append(clauseGiven[ev.Arg.Key], values...)\n\t\t\t} else {\n\t\t\t\tgiven[ev.Arg.Key] = append(given[ev.Arg.Key], values...)\n\t\t\t}\n"
+    };
+    let clause_separator_event = if clauses.is_empty() {
+        ""
+    } else {
+        "\t\tcase argv.KindClauseSeparator:\n\t\t\tclauseInstances[ev.Clause.Key] = append(clauseInstances[ev.Clause.Key], clauseGiven)\n\t\t\tclauseGiven = map[uint64][]string{}\n"
+    };
+    let finish_clause = if clauses.is_empty() {
+        ""
+    } else {
+        "\tif p.Command().Clause != nil {\n\t\tclauseInstances[p.Command().Clause.Key] = append(clauseInstances[p.Command().Clause.Key], clauseGiven)\n\t}\n"
     };
     let _ = writeln!(
         out,
@@ -236,6 +322,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
          \t// before any of it is handed back.\n\
          \tgiven := map[uint64][]string{{}}\n\
          \tseen := map[uint64]int{{}}\n\
+         {clause_state}\
          {duplicate_state}\
          {conditional_state}\
          \tchain := []*argv.Command{{Root}}\n\
@@ -305,7 +392,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
         out,
         "\t\t\t}}\n\t\tcase argv.KindArg:\n\t\t\tseen[ev.Arg.Key]++\n\
          \t\t\tvalues := argv.SplitValue(ev.Value, ev.Arg.Delimiter, ev.Delimit)\n\
-         \t\t\tgiven[ev.Arg.Key] = append(given[ev.Arg.Key], values...)\n\
+         {clause_arg_values}\
          \t\t\tswitch ev.Arg.Key {{"
     );
     for e in commands {
@@ -324,7 +411,8 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
     let negated_arg = if needs_negated { "negated" } else { "nil" };
     let _ = writeln!(
         out,
-        "\t\t\t}}\n\t\t}}\n\t}}\n\
+        "\t\t\t}}\n{clause_separator_event}\t\t}}\n\t}}\n\
+         {finish_clause}\
          \tif err := p.Err(); err != nil {{\n\t\treturn nil, err\n\t}}\n\
          \tif p.Command().ArgRequiredElseHelp && p.CommandStart() == len(args) {{\n\
          \t\treturn nil, &argv.Error{{Code: argv.CodeHelp, Cmd: p.Command()}}\n\t}}\n\
@@ -382,7 +470,87 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields) {
              \t\treturn sources[k]\n\t}}, nil, func(k uint64) bool {{ return requirements[k] }}); err != nil {{\n\t\treturn nil, err\n\t}}"
         );
     }
+    emit_clause_instances(out, commands, clauses, has_relationship_values);
     let _ = writeln!(out, "\treturn out, nil\n}}\n");
+}
+
+/// Validate each clause independently and append its typed value to the command field.
+///
+/// Clause arguments deliberately stay out of the command-wide `given` and `scope`: reusing
+/// those maps would collapse repeated instances into one value and let one instance satisfy
+/// another's required argument. Flags remain visible to relationship checks by prepending the
+/// ordinary command scope to each instance's own keys.
+fn emit_clause_instances(
+    out: &mut String,
+    commands: &[Emitted],
+    clauses: &Clauses,
+    has_relationship_values: bool,
+) {
+    for e in commands {
+        let Some(fields) = clauses.get(&e.named.key) else {
+            continue;
+        };
+        let keys = e
+            .clause_args
+            .iter()
+            .map(|(_, named)| named.key.as_str())
+            .collect::<Vec<_>>();
+        let key_list = keys.join(", ");
+        let owner = owner_of(e);
+        let _ = writeln!(
+            out,
+            "\t{{\n\t\tclauseScope := []uint64{{{key_list}}}\n\
+             \t\tfor _, instance := range clauseInstances[{}] {{\n\
+             \t\t\tclauseSources := map[uint64]argv.Source{{}}\n\
+             \t\t\tfor _, key := range clauseScope {{\n\
+             \t\t\t\tvalues := instance[key]\n\
+             \t\t\t\tif values != nil {{\n\t\t\t\t\tclauseSources[key] = argv.FromArgv\n\t\t\t\t}} else {{\n\t\t\t\t\tclauseSources[key] = argv.Unset\n\t\t\t\t}}\n\
+             \t\t\t\tif err := argv.Check(Meta.Lookup(key), values, 0); err != nil {{\n\t\t\t\t\treturn nil, err\n\t\t\t\t}}\n\
+             \t\t\t}}\n\
+             \t\t\tinstanceScope := append(append([]uint64{{}}, scope...), clauseScope...)\n",
+            e.named.key
+        );
+        if has_relationship_values {
+            let _ = writeln!(
+                out,
+                "\t\t\tif err := argv.CheckRelationshipsWithValuesAndRequirements(Meta, instanceScope, func(k uint64) argv.Source {{\n\
+                 \t\t\t\tswitch k {{\n\t\t\t\tcase {key_list}:\n\t\t\t\t\treturn clauseSources[k]\n\t\t\t\tdefault:\n\t\t\t\t\treturn sources[k]\n\t\t\t\t}}\n\
+                 \t\t\t}}, func(k uint64) []string {{\n\
+                 \t\t\t\tswitch k {{\n\t\t\t\tcase {key_list}:\n\t\t\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), instance[k], clauseSources[k], false)\n\t\t\t\tdefault:\n\t\t\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n\t\t\t\t}}\n\
+                 \t\t\t}}, func(k uint64) bool {{\n\
+                 \t\t\t\tswitch k {{\n\t\t\t\tcase {key_list}:\n\t\t\t\t\treturn true\n\t\t\t\tdefault:\n\t\t\t\t\treturn requirements[k]\n\t\t\t\t}}\n\
+                 \t\t\t}}); err != nil {{\n\t\t\t\treturn nil, err\n\t\t\t}}"
+            );
+        } else {
+            let _ = writeln!(
+                out,
+                "\t\t\tif err := argv.CheckRelationshipsWithValuesAndRequirements(Meta, instanceScope, func(k uint64) argv.Source {{\n\
+                 \t\t\t\tswitch k {{\n\t\t\t\tcase {key_list}:\n\t\t\t\t\treturn clauseSources[k]\n\t\t\t\tdefault:\n\t\t\t\t\treturn sources[k]\n\t\t\t\t}}\n\
+                 \t\t\t}}, nil, func(k uint64) bool {{\n\
+                 \t\t\t\tswitch k {{\n\t\t\t\tcase {key_list}:\n\t\t\t\t\treturn true\n\t\t\t\tdefault:\n\t\t\t\t\treturn requirements[k]\n\t\t\t\t}}\n\
+                 \t\t\t}}); err != nil {{\n\t\t\t\treturn nil, err\n\t\t\t}}"
+            );
+        }
+        let _ = writeln!(out, "\t\t\titem := {}{{}}", fields.type_name);
+        for (arg, named) in &e.clause_args {
+            let field = &fields.args[&named.key];
+            let assign = if arg.var {
+                format!("item.{field} = append(item.{field}, values...)")
+            } else {
+                format!("item.{field} = values[len(values)-1]")
+            };
+            let _ = writeln!(
+                out,
+                "\t\t\tif values := instance[{}]; len(values) > 0 {{\n\t\t\t\t{assign}\n\t\t\t}}",
+                named.key
+            );
+        }
+        let _ = writeln!(
+            out,
+            "\t\t\t{owner}.{} = append({owner}.{}, item)\n\t\t}}\n\t}}",
+            fields.field, fields.field
+        );
+    }
 }
 
 /// The cases that put an `env` or `default` value into its field.

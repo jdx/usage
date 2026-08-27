@@ -387,6 +387,7 @@ impl<'a> Emitter<'a> {
             }
             if let Some(clause) = &e.cmd.clause {
                 let mut block = vec!["Clause: &argv.Clause{".to_string()];
+                block.push(format!("\tKey: {},", e.named.key));
                 block.push(format!("\tName: {},", go_string(&clause.name)));
                 block.push(format!("\tSeparator: {},", go_string(&clause.separator)));
                 block.push("\tArgs: []*argv.Arg{".to_string());
@@ -845,6 +846,7 @@ fn resolve_relationship(names: &[String], owner: &Emitted, commands: &[Emitted])
             found = owner
                 .args
                 .iter()
+                .chain(owner.clause_args.iter())
                 .find(|(arg, _)| arg.name == *name)
                 .map(|(_, named)| named.key.clone());
         }
@@ -2311,6 +2313,16 @@ cmd "later" {
             }),
             "{out}"
         );
+        for generated in [
+            "type RunCmdItemsClause struct {",
+            "Items []RunCmdItemsClause // clause items",
+            "case argv.KindClauseSeparator:",
+            "for _, instance := range clauseInstances[CmdRun] {",
+            "if err := argv.Check(Meta.Lookup(key), values, 0); err != nil {",
+            "cmdRunV.Items = append(cmdRunV.Items, item)",
+        ] {
+            assert!(out.contains(generated), "missing {generated:?}:\n{out}");
+        }
     }
 
     #[test]
