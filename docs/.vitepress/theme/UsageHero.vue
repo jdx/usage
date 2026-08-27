@@ -23,9 +23,8 @@ const javascriptPath =
         <p class="usage-hero-desc">
           Usage is a toolkit for building command-line tools. Define your CLI's commands,
           flags, and args once in a KDL spec — get argument parsing, shell completions,
-          <code>--help</code>, docs, and manpages from that one definition. Experimental reference
-          frameworks for Rust and Go build your CLI from the spec, with Python and
-          JavaScript planned.
+          <code>--help</code>, docs, and manpages from that one definition. The Rust framework
+          builds your CLI from the spec, with Go in development and Python and JavaScript planned.
         </p>
 
         <p class="usage-hero-label">Frameworks</p>
@@ -35,10 +34,9 @@ const javascriptPath =
               <path :d="rustPath" />
             </svg>
             <span>Rust</span>
-            <span class="usage-tile-experimental-pill">experimental</span>
             <div class="usage-tile-tooltip">
               <strong>Rust framework</strong>
-              <p>Derive your CLI from Rust types — parsing, help, and completions generated from the usage spec. Experimental: APIs may change between releases.</p>
+              <p>Derive your CLI from Rust types — parsing, help, and completions generated from the usage spec.</p>
             </div>
           </a>
           <a href="/go/" class="usage-tile usage-tile-live">

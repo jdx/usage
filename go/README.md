@@ -1,11 +1,10 @@
 # usage-go
 
 > [!CAUTION]
-> **usage-go is not ready for any amount of testing.** It is far more experimental
-> than the Rust framework (`usage-rs`) — which is itself experimental, but complete
-> enough that `usage-cli` is built with it. usage-go's APIs, generated output, and
-> behavior are all still in flux, and parts of what is described below only exist in
-> open pull requests. Do not build against it yet.
+> **usage-go is not ready for any amount of testing.** Unlike the Rust framework
+> (`usage-rs`), which is complete enough that `usage-cli` is built with it, usage-go's
+> APIs, generated output, and behavior are all still in flux, and parts of what is
+> described below only exist in open pull requests. Do not build against it yet.
 
 A CLI framework for Go, built the way [usage-argv](../argv) is built for Rust: the
 command line is bound against **static tables** instead of a command tree
