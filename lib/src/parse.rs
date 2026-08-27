@@ -3395,9 +3395,9 @@ fn validate_clause_relationships(
                         .required_unless_all
                         .iter()
                         .all(|selector| selector_is_explicit(selector));
-                let required_unless = (!arg.required_unless.is_empty()
-                    || !arg.required_unless_all.is_empty())
-                    && !(unless_any || unless_all);
+                let required_unless = !(unless_any
+                    || unless_all
+                    || (arg.required_unless.is_empty() && arg.required_unless_all.is_empty()));
                 if required_if || required_if_eq || required_if_eq_all || required_unless {
                     errors.push(UsageErr::MissingClauseArg {
                         clause: clause.name.clone(),
