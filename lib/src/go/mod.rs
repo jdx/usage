@@ -498,11 +498,14 @@ impl Emitter<'_> {
             for (arg, named) in &e.args {
                 by_key.insert(named.number, arg_meta(self.spec, arg, named, e, commands));
             }
+            for (arg, named) in &e.clause_args {
+                by_key.insert(named.number, arg_meta(self.spec, arg, named, e, commands));
+            }
         }
 
         let total = commands
             .iter()
-            .map(|e| 1 + e.flags.len() + e.args.len())
+            .map(|e| 1 + e.flags.len() + e.args.len() + e.clause_args.len())
             .sum::<usize>() as u64;
 
         let _ = writeln!(
@@ -985,11 +988,14 @@ impl Emitter<'_> {
             for (arg, named) in &e.args {
                 by_key.insert(named.number, arg_help(arg, named));
             }
+            for (arg, named) in &e.clause_args {
+                by_key.insert(named.number, arg_help(arg, named));
+            }
         }
 
         let total = commands
             .iter()
-            .map(|e| 1 + e.flags.len() + e.args.len())
+            .map(|e| 1 + e.flags.len() + e.args.len() + e.clause_args.len())
             .sum::<usize>() as u64;
 
         let _ = writeln!(
@@ -2263,6 +2269,48 @@ cmd "run" arg_required_else_help=#true {
         let strict =
             go("name \"ex\"\nbin \"ex\"\nargs_override_self #false\nflag \"--jobs <n>\"\n");
         assert!(strict.contains("RejectDuplicate: true"), "{strict}");
+    }
+
+    #[test]
+    fn clause_args_and_later_entries_reach_go_cold_tables() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+cmd "run" {
+    clause "items" separator=":::" {
+        arg "<task>" help="Task to run"
+    }
+}
+cmd "later" {
+    flag "--mode <mode>" help="Later flag"
+}
+"#);
+        let meta = out
+            .split_once("var Meta = argv.Metadata{")
+            .and_then(|(_, rest)| rest.split_once("var HelpText = argv.HelpTable{"))
+            .map(|(meta, _)| meta)
+            .expect("generated metadata and help tables");
+        let help = out
+            .split_once("var HelpText = argv.HelpTable{")
+            .and_then(|(_, rest)| rest.split_once("var HelpMeta = argv.HelpSpec{"))
+            .map(|(help, _)| help)
+            .expect("generated help table and metadata");
+
+        assert!(
+            meta.contains("Key: ArgRunItemsTask, Name: \"task\""),
+            "{out}"
+        );
+        assert!(meta.contains("Key: FlagLaterMode, Name: \"mode\""), "{out}");
+        assert!(
+            help.contains("Key: ArgRunItemsTask, Demanded: true"),
+            "{out}"
+        );
+        assert!(
+            help.lines().any(|line| {
+                line.contains("Key: FlagLaterMode") && line.contains("Short: \"Later flag\"")
+            }),
+            "{out}"
+        );
     }
 
     #[test]
