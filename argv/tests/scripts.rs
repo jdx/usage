@@ -65,7 +65,7 @@ impl Fixture {
     /// and not only on what comes back.
     fn echoing(name: &str, shell: Shell) -> Self {
         let fixture = Self::new(name, shell, "");
-        let stand_in = "#!/usr/bin/env bash\n             line=\nwhile [[ $# -gt 0 ]]; do\n               if [[ $1 == --line ]]; then line=$2; shift; fi\n  shift\ndone\n             printf 'line=[%s]\\n' \"$line\"\n";
+        let stand_in = "#!/usr/bin/env bash\n             line=\nwhile [[ $# -gt 0 ]]; do\n               if [[ $1 == --line ]]; then line=$2; shift; fi\n  shift\ndone\n             line=${line//$'\\t'/\\\\t}\n             printf 'line=[%s]\\n' \"$line\"\n";
         let bin = fixture.dir.join("ex");
         fs::write(&bin, stand_in).expect("writing the stand-in");
         make_executable(&bin);
@@ -543,6 +543,44 @@ fn zsh_passes_extension_filters_to_its_native_file_completer() {
         &format!("{ZSH_STUBS}\nsource ./script\nBUFFER='ex '\nCURSOR=3\n_ex\n"),
     );
     assert!(out.contains("_files:-g *.(toml|yaml)"), "{out}");
+}
+
+#[test]
+fn zsh_expands_a_local_alias_before_asking_the_binary() {
+    if !available("zsh") {
+        println!("zsh is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::echoing("zsh-alias", Shell::Zsh);
+    let out = fixture.run(
+        "zsh",
+        &format!(
+            "{ZSH_STUBS}\nalias true=false\nsource ./script\nalias xa='ex deploy'\nalias empty=''\n\
+             BUFFER='xa feature'\nCURSOR=10\n_ex\n\
+             BUFFER='  xa feature'\nCURSOR=12\n_ex\n\
+             BUFFER=$'\\txa feature'\nCURSOR=11\n_ex\n\
+             BUFFER='empty feature'\nCURSOR=13\n_ex\n\
+             BUFFER='FOO=1 xa feature'\nCURSOR=16\n_ex\n\
+             BUFFER='FOO+=1 xa feature'\nCURSOR=17\n_ex\n\
+             BUFFER=\"FOO='a b' xa feature\"\nCURSOR=20\n_ex\n"
+        ),
+    );
+    assert!(out.contains("display:line=[ex deploy feature]"), "{out}");
+    assert!(out.contains("display:line=[  ex deploy feature]"), "{out}");
+    assert!(out.contains("display:line=[\\tex deploy feature]"), "{out}");
+    assert!(out.contains("display:line=[ feature]"), "{out}");
+    assert!(
+        out.contains("display:line=[FOO=1 ex deploy feature]"),
+        "{out}"
+    );
+    assert!(
+        out.contains("display:line=[FOO+=1 ex deploy feature]"),
+        "{out}"
+    );
+    assert!(
+        out.contains("display:line=[FOO='a b' ex deploy feature]"),
+        "{out}"
+    );
 }
 
 #[test]
