@@ -277,6 +277,28 @@ func TestAPageWithoutATemplateIsUnchanged(t *testing.T) {
 	}
 }
 
+func TestClauseArgumentsAppearInUsageAndHelp(t *testing.T) {
+	task := &Arg{Key: 2, Name: "task", Required: true}
+	args := &Arg{Key: 3, Name: "args", Var: true}
+	root := &Command{
+		Name: "ex", Key: 1,
+		Clause: &Clause{Name: "tasks", Separator: ":::", Args: []*Arg{task, args}},
+	}
+	help := helpKeyed(
+		Help{Key: 2, Short: "Task to run", Demanded: true},
+		Help{Key: 3, Short: "Arguments for the task"},
+	)
+	if got, want := UsageLine([]string{"ex"}, root, help), "ex <task> [args]… [::: <task> [args]…]…"; got != want {
+		t.Fatalf("usage differs\n got: %s\nwant: %s", got, want)
+	}
+	page := ShortHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help)
+	for _, text := range []string{"Arguments:", "<task>", "Task to run", "[args]…", "Arguments for the task"} {
+		if !strings.Contains(page, text) {
+			t.Fatalf("missing %q:\n%s", text, page)
+		}
+	}
+}
+
 func TestAPlaceholderNamingNoSectionIsLeftAlone(t *testing.T) {
 	force := &Flag{Key: 2, Name: "force", Longs: []string{"force"}}
 	root := &Command{Name: "ex", Key: 1, Flags: []*Flag{force}}

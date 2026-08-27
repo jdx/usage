@@ -116,6 +116,15 @@ type Clause struct {
 	Args      []*Arg
 }
 
+// positionalArgs is the positional grammar a command exposes. A clause replaces
+// ordinary arguments rather than supplementing them.
+func positionalArgs(cmd *Command) []*Arg {
+	if cmd.Clause != nil {
+		return cmd.Clause.Args
+	}
+	return cmd.Args
+}
+
 // Flag is a flag, addressed by any of its long or short forms.
 type Flag struct {
 	// Key is a caller-assigned identifier, echoed back in the event. This is how

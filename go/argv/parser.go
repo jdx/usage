@@ -743,10 +743,7 @@ func valuesIn(value string, delimiter byte) uint32 {
 }
 
 func (p *Parser) currentArgs() []*Arg {
-	if p.cmd.Clause != nil {
-		return p.cmd.Clause.Args
-	}
-	return p.cmd.Args
+	return positionalArgs(p.cmd)
 }
 
 func (p *Parser) nextArg() *Arg {

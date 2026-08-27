@@ -174,9 +174,10 @@ func usageLine(path []string, cmd *Command, help HelpTable, includeSubcommands b
 		}
 	}
 
-	visibleArgs := make([]*Arg, 0, len(cmd.Args))
+	args := positionalArgs(cmd)
+	visibleArgs := make([]*Arg, 0, len(args))
 	demandedArg := false
-	for _, a := range cmd.Args {
+	for _, a := range args {
 		h := help.Lookup(a.Key)
 		if h != nil && h.Hide {
 			continue
@@ -187,7 +188,16 @@ func usageLine(path []string, cmd *Command, help HelpTable, includeSubcommands b
 		}
 	}
 	if n := len(visibleArgs); n > 0 {
-		if n <= inlineLimit {
+		if cmd.Clause != nil {
+			var inner strings.Builder
+			for i, a := range visibleArgs {
+				if i > 0 {
+					inner.WriteByte(' ')
+				}
+				inner.WriteString(argUsage(a, help.Lookup(a.Key)))
+			}
+			out.WriteString(" " + inner.String() + " [" + cmd.Clause.Separator + " " + inner.String() + "]…")
+		} else if n <= inlineLimit {
 			for _, a := range visibleArgs {
 				out.WriteString(" " + argUsage(a, help.Lookup(a.Key)))
 			}

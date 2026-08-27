@@ -677,8 +677,9 @@ func orderFlags(flags []*Flag, help HelpTable) {
 }
 
 func visibleArgs(cmd *Command, help HelpTable, long bool) []*Arg {
-	out := make([]*Arg, 0, len(cmd.Args))
-	for _, a := range cmd.Args {
+	args := positionalArgs(cmd)
+	out := make([]*Arg, 0, len(args))
+	for _, a := range args {
 		if h := help.Lookup(a.Key); h != nil {
 			if h.Hide || (!long && h.HideShortHelp) || (long && h.HideLongHelp) {
 				continue
