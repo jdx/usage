@@ -2279,6 +2279,7 @@ cmd "run" arg_required_else_help=#true {
 name "ex"
 bin "ex"
 cmd "run" {
+    flag "--needs-task" requires="task"
     clause "items" separator=":::" {
         arg "<task>" help="Task to run"
     }
@@ -2302,6 +2303,13 @@ cmd "later" {
             meta.contains("Key: ArgRunItemsTask, Name: \"task\""),
             "{out}"
         );
+        assert!(
+            meta.lines().any(|line| {
+                line.contains("Key: FlagRunNeedsTask")
+                    && line.contains("Requires: []uint64{ArgRunItemsTask}")
+            }),
+            "{out}"
+        );
         assert!(meta.contains("Key: FlagLaterMode, Name: \"mode\""), "{out}");
         assert!(
             help.contains("Key: ArgRunItemsTask, Demanded: true"),
@@ -2315,14 +2323,22 @@ cmd "later" {
         );
         for generated in [
             "type RunCmdItemsClause struct {",
-            "Items []RunCmdItemsClause // clause items",
             "case argv.KindClauseSeparator:",
             "for _, instance := range clauseInstances[CmdRun] {",
             "if err := argv.Check(Meta.Lookup(key), values, 0); err != nil {",
+            "clauseSources := map[uint64]argv.Source{ArgRunItemsTask: argv.Unset}",
             "cmdRunV.Items = append(cmdRunV.Items, item)",
         ] {
             assert!(out.contains(generated), "missing {generated:?}:\n{out}");
         }
+        assert!(
+            out.lines().any(|line| {
+                line.contains("Items")
+                    && line.contains("[]RunCmdItemsClause")
+                    && line.contains("// clause items")
+            }),
+            "{out}"
+        );
     }
 
     #[test]

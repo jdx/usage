@@ -455,19 +455,77 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
     );
     fallback_cases(out, commands, assigned);
     let _ = writeln!(out, "\t\t\t}}\n\t\t}}\n\t}}");
+    let clause_keys = commands
+        .iter()
+        .flat_map(|command| {
+            command
+                .clause_args
+                .iter()
+                .map(|(_, named)| named.key.as_str())
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    if !clauses.is_empty() {
+        let initial_sources = commands
+            .iter()
+            .flat_map(|command| command.clause_args.iter())
+            .map(|(_, named)| format!("{}: argv.Unset", named.key))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let aggregate_values = if has_relationship_values {
+            "\t\t\tclauseValues[key] = append(clauseValues[key], values...)\n"
+        } else {
+            ""
+        };
+        let aggregate_binding = if has_relationship_values {
+            "key, values"
+        } else {
+            "key"
+        };
+        let values_state = if has_relationship_values {
+            "\tclauseValues := map[uint64][]string{}\n"
+        } else {
+            ""
+        };
+        let _ = writeln!(
+            out,
+            "\tclauseSources := map[uint64]argv.Source{{{initial_sources}}}\n\
+             {values_state}\
+             \tfor _, instances := range clauseInstances {{\n\
+             \t\tfor _, instance := range instances {{\n\
+             \t\t\tfor {aggregate_binding} := range instance {{\n\
+             \t\t\t\tclauseSources[key] = argv.FromArgv\n\
+             {aggregate_values}\
+             \t\t\t}}\n\t\t}}\n\t}}"
+        );
+    }
+    let relationship_source = if clauses.is_empty() {
+        "\t\treturn sources[k]\n".to_string()
+    } else {
+        format!(
+            "\t\tswitch k {{\n\t\tcase {clause_keys}:\n\t\t\treturn clauseSources[k]\n\t\tdefault:\n\t\t\treturn sources[k]\n\t\t}}\n"
+        )
+    };
     if has_relationship_values {
+        let relationship_values = if clauses.is_empty() {
+            "\t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n".to_string()
+        } else {
+            format!(
+                "\t\tswitch k {{\n\t\tcase {clause_keys}:\n\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), clauseValues[k], clauseSources[k], false)\n\t\tdefault:\n\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n\t\t}}\n"
+            )
+        };
         let _ = writeln!(
             out,
             "\tif err := argv.CheckRelationshipsWithValuesAndRequirements(Meta, scope, func(k uint64) argv.Source {{\n\
-             \t\treturn sources[k]\n\t}}, func(k uint64) []string {{\n\
-             \t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n\
+             {relationship_source}\t}}, func(k uint64) []string {{\n\
+             {relationship_values}\
              \t}}, func(k uint64) bool {{ return requirements[k] }}); err != nil {{\n\t\treturn nil, err\n\t}}"
         );
     } else {
         let _ = writeln!(
             out,
             "\tif err := argv.CheckRelationshipsWithValuesAndRequirements(Meta, scope, func(k uint64) argv.Source {{\n\
-             \t\treturn sources[k]\n\t}}, nil, func(k uint64) bool {{ return requirements[k] }}); err != nil {{\n\t\treturn nil, err\n\t}}"
+             {relationship_source}\t}}, nil, func(k uint64) bool {{ return requirements[k] }}); err != nil {{\n\t\treturn nil, err\n\t}}"
         );
     }
     emit_clause_instances(out, commands, clauses, has_relationship_values);
@@ -478,8 +536,9 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
 ///
 /// Clause arguments deliberately stay out of the command-wide `given` and `scope`: reusing
 /// those maps would collapse repeated instances into one value and let one instance satisfy
-/// another's required argument. Flags remain visible to relationship checks by prepending the
-/// ordinary command scope to each instance's own keys.
+/// another's required argument. Flags remain visible through the source/value callbacks, but
+/// are not entries in this pass: flag relationships are judged once against clause values
+/// aggregated across every instance, matching the reference parser.
 fn emit_clause_instances(
     out: &mut String,
     commands: &[Emitted],
@@ -507,7 +566,7 @@ fn emit_clause_instances(
              \t\t\t\tif values != nil {{\n\t\t\t\t\tclauseSources[key] = argv.FromArgv\n\t\t\t\t}} else {{\n\t\t\t\t\tclauseSources[key] = argv.Unset\n\t\t\t\t}}\n\
              \t\t\t\tif err := argv.Check(Meta.Lookup(key), values, 0); err != nil {{\n\t\t\t\t\treturn nil, err\n\t\t\t\t}}\n\
              \t\t\t}}\n\
-             \t\t\tinstanceScope := append(append([]uint64{{}}, scope...), clauseScope...)\n",
+             \t\t\tinstanceScope := clauseScope\n",
             e.named.key
         );
         if has_relationship_values {
