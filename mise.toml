@@ -70,12 +70,13 @@ run = 'mbx test --all --all-features'
 [tasks."test:go"]
 dir = '{{config_root}}'
 depends = ['build']
-# The shadows are the second line, and skipped when the frameworks cannot be fetched: they
+# The shadows are the last line, and skipped when the frameworks cannot be fetched: they
 # are a benchmark fixture, and a machine without a proxy should still get the suite that
 # matters. Asked as its own question rather than with `|| true`, so a generator change that
 # broke a shadow is a failure rather than a skip.
 run = [
     'cd go && go test ./...',
+    'cd integrations/cobra && go test ./...',
     'cd benches/go && if go mod download >/dev/null 2>&1; then go test ./...; else echo "skipped: the benchmark frameworks could not be fetched"; fi',
 ]
 
