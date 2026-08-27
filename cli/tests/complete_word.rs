@@ -261,6 +261,23 @@ fn complete_word_sigil_arg_strips_for_matching_and_restores_for_output() {
 }
 
 #[test]
+fn complete_word_sigil_run_receives_the_stripped_current_word() {
+    let spec = r#"
+name "ex"
+bin "ex"
+arg "[tool]..." sigil="+"
+complete "tool" run="printf '%s\\n' {{ words[CURRENT] | shell_quote }}"
+"#;
+    Command::new(cargo::cargo_bin!("usage"))
+        .args([
+            "cw", "--shell", "fish", "--spec", spec, "--", "mycli", "+node",
+        ])
+        .assert()
+        .success()
+        .stdout("+node\n");
+}
+
+#[test]
 fn complete_word_choices_from_env() {
     cmd("env-choices.usage.kdl", Some("fish"))
         .env("DEPLOY_ENVS", "foo,bar baz")

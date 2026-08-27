@@ -262,7 +262,23 @@ impl CompleteWord {
             has_explicit_choices = closed || arg.choices.is_some();
             found
         } else if let Some((owner, arg, sigil, prefix)) = sigil_arg {
-            let (mut found, closed) = self.complete_arg(&cx, owner, arg, prefix)?;
+            // A dynamic completer and the candidate filter must see the same word. The
+            // parser removes a sigil before binding its value, so expose that stripped
+            // value through `words[CURRENT]` too; the prefix is restored only after the
+            // completer has answered.
+            let mut sigil_ctx = ctx.clone();
+            let mut sigil_words = self.words.clone();
+            if let Some(current) = sigil_words.get_mut(cword) {
+                *current = prefix.to_string();
+            }
+            sigil_ctx.insert("words", &sigil_words);
+            let sigil_cx = Ctx {
+                tera: &sigil_ctx,
+                spec: cx.spec,
+                parsed: cx.parsed,
+                after_restart_token: cx.after_restart_token,
+            };
+            let (mut found, closed) = self.complete_arg(&sigil_cx, owner, arg, prefix)?;
             for (candidate, _) in &mut found {
                 candidate.insert_str(0, sigil);
             }
