@@ -111,6 +111,8 @@ func toJSON(spec *Spec) jsonSpec {
 	return js
 }
 
+// commandToJSON converts a SpecCommand and its subcommand tree into the JSON
+// shape usage-lib expects, threading the full command path down to each child.
 func commandToJSON(cmd *SpecCommand, fullCmd []string) jsonCommand {
 	jc := jsonCommand{
 		FullCmd:            fullCmd,
@@ -155,6 +157,8 @@ func examplesToJSON(examples []SpecExample) []jsonExample {
 	return out
 }
 
+// exampleToJSON converts a single example, leaving the optional header and help
+// fields nil when unset so they marshal as null rather than "".
 func exampleToJSON(ex *SpecExample) jsonExample {
 	je := jsonExample{
 		Code: ex.Code,
@@ -169,6 +173,8 @@ func exampleToJSON(ex *SpecExample) jsonExample {
 	return je
 }
 
+// flagToJSON converts a SpecFlag, deriving the flag's name and usage string from
+// its long and short spellings and its optional value argument.
 func flagToJSON(f *SpecFlag) jsonFlag {
 	jf := jsonFlag{
 		Help:       f.Help,
@@ -219,6 +225,8 @@ func flagToJSON(f *SpecFlag) jsonFlag {
 	return jf
 }
 
+// argToJSON converts a SpecArg, rendering its usage string as <name> when the arg
+// is required and [name] when it is not.
 func argToJSON(a *SpecArg) jsonArg {
 	ja := jsonArg{
 		Name:     a.Name,

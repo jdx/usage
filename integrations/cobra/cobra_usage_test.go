@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// TestSimpleCommand checks that a flat command's name, bin, version, about, and
+// flags all reach the spec.
 func TestSimpleCommand(t *testing.T) {
 	cmd := &cobra.Command{
 		Use:     "mycli",
@@ -27,6 +29,7 @@ func TestSimpleCommand(t *testing.T) {
 	assertContains(t, got, `arg <CONFIG>`)
 }
 
+// TestNestedSubcommands checks that subcommands are converted recursively.
 func TestNestedSubcommands(t *testing.T) {
 	root := &cobra.Command{Use: "app", Short: "An app"}
 	sub := &cobra.Command{Use: "sub", Short: "A subcommand"}
@@ -41,6 +44,7 @@ func TestNestedSubcommands(t *testing.T) {
 	assertContains(t, got, `cmd nested help="A nested command"`)
 }
 
+// TestPersistentFlags checks that a root persistent flag is marked global.
 func TestPersistentFlags(t *testing.T) {
 	root := &cobra.Command{Use: "app"}
 	root.PersistentFlags().BoolP("debug", "d", false, "Enable debug mode")
@@ -53,6 +57,8 @@ func TestPersistentFlags(t *testing.T) {
 	assertContains(t, got, `flag "-d --debug" help="Enable debug mode" global=#true`)
 }
 
+// TestRequiredFlags checks that a flag marked required in Cobra is required in the
+// spec.
 func TestRequiredFlags(t *testing.T) {
 	cmd := &cobra.Command{Use: "deploy"}
 	cmd.Flags().String("env", "", "Target environment")
@@ -63,6 +69,8 @@ func TestRequiredFlags(t *testing.T) {
 	assertContains(t, got, `flag --env help="Target environment" required=#true`)
 }
 
+// TestHiddenAndDeprecated checks that hidden commands, deprecated commands, and
+// hidden flags carry their markers through.
 func TestHiddenAndDeprecated(t *testing.T) {
 	root := &cobra.Command{Use: "app"}
 	hidden := &cobra.Command{Use: "internal", Short: "Internal command", Hidden: true}
@@ -79,6 +87,8 @@ func TestHiddenAndDeprecated(t *testing.T) {
 	assertContains(t, got, `flag --secret help="Secret flag" hide=#true`)
 }
 
+// TestArgInference checks that required, optional, variadic, and mixed positional
+// args are inferred from a command's Use string.
 func TestArgInference(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -118,6 +128,8 @@ func TestArgInference(t *testing.T) {
 	}
 }
 
+// TestValidArgsChoices checks that Cobra's ValidArgs become a choices block on the
+// first positional arg.
 func TestValidArgsChoices(t *testing.T) {
 	cmd := &cobra.Command{
 		Use:       "deploy <env>",
@@ -133,6 +145,7 @@ func TestValidArgsChoices(t *testing.T) {
 	assertContains(t, got, `"prod"`)
 }
 
+// TestCountFlag checks that a pflag count flag is marked var and count.
 func TestCountFlag(t *testing.T) {
 	cmd := &cobra.Command{Use: "app"}
 	cmd.Flags().CountP("verbose", "v", "Increase verbosity")
@@ -142,6 +155,7 @@ func TestCountFlag(t *testing.T) {
 	assertContains(t, got, `flag "-v --verbose" help="Increase verbosity" var=#true count=#true`)
 }
 
+// TestDefaultValues checks that string and int flag defaults are rendered.
 func TestDefaultValues(t *testing.T) {
 	cmd := &cobra.Command{Use: "app"}
 	cmd.Flags().String("output", "json", "Output format")
@@ -153,6 +167,7 @@ func TestDefaultValues(t *testing.T) {
 	assertContains(t, got, `flag --retries help="Number of retries" default="3"`)
 }
 
+// TestBoolFlagNoArg checks that a bool flag takes no value argument.
 func TestBoolFlagNoArg(t *testing.T) {
 	cmd := &cobra.Command{Use: "app"}
 	cmd.Flags().Bool("force", false, "Force the operation")
@@ -168,6 +183,8 @@ func TestBoolFlagNoArg(t *testing.T) {
 	}
 }
 
+// TestSkipsBuiltinCommands checks that Cobra's auto-added help and completion
+// commands are left out of the spec.
 func TestSkipsBuiltinCommands(t *testing.T) {
 	root := &cobra.Command{Use: "app", Version: "1.0.0"}
 	root.AddCommand(&cobra.Command{Use: "run", Short: "Run"})
@@ -180,6 +197,8 @@ func TestSkipsBuiltinCommands(t *testing.T) {
 	assertContains(t, got, `cmd run`)
 }
 
+// TestSkipsBuiltinFlags checks that Cobra's auto-added --help and --version flags
+// are left out of the spec.
 func TestSkipsBuiltinFlags(t *testing.T) {
 	cmd := &cobra.Command{Use: "app", Version: "1.0.0"}
 	cmd.Flags().String("custom", "", "A custom flag")
@@ -191,6 +210,8 @@ func TestSkipsBuiltinFlags(t *testing.T) {
 	assertContains(t, got, `flag --custom`)
 }
 
+// TestSubcommandRequired checks that a command with subcommands and no Run handler
+// is marked subcommand_required.
 func TestSubcommandRequired(t *testing.T) {
 	root := &cobra.Command{Use: "app"}
 	sub := &cobra.Command{Use: "config", Short: "Manage config"}
@@ -203,6 +224,7 @@ func TestSubcommandRequired(t *testing.T) {
 	assertContains(t, got, `subcommand_required=#true`)
 }
 
+// TestAliases checks that command aliases are rendered as an alias node.
 func TestAliases(t *testing.T) {
 	root := &cobra.Command{Use: "app"}
 	sub := &cobra.Command{
@@ -217,6 +239,8 @@ func TestAliases(t *testing.T) {
 	assertContains(t, got, `alias i add`)
 }
 
+// TestGenerateJSON checks the top-level shape of the JSON output: spec metadata
+// plus a root cmd object with map-based subcommands.
 func TestGenerateJSON(t *testing.T) {
 	cmd := &cobra.Command{
 		Use:     "mycli",
@@ -241,6 +265,8 @@ func TestGenerateJSON(t *testing.T) {
 	assertContains(t, jsonStr, `"run"`)
 }
 
+// TestGenerateJSONChoices checks that arg choices serialize under the "choices"
+// key that usage-lib expects, not "values".
 func TestGenerateJSONChoices(t *testing.T) {
 	cmd := &cobra.Command{
 		Use:       "deploy <env>",
@@ -260,6 +286,7 @@ func TestGenerateJSONChoices(t *testing.T) {
 	assertNotContains(t, jsonStr, `"values"`)
 }
 
+// TestLongHelp checks that Short and Long map to about and long_about.
 func TestLongHelp(t *testing.T) {
 	root := &cobra.Command{
 		Use:   "app",
@@ -273,6 +300,8 @@ func TestLongHelp(t *testing.T) {
 	assertContains(t, got, `long_about "This is a much longer description of the app."`)
 }
 
+// TestRunnableCommandWithSubcommands checks that a command with both a Run handler
+// and subcommands is not marked subcommand_required.
 func TestRunnableCommandWithSubcommands(t *testing.T) {
 	root := &cobra.Command{Use: "app"}
 	sub := &cobra.Command{
@@ -292,6 +321,8 @@ func TestRunnableCommandWithSubcommands(t *testing.T) {
 	}
 }
 
+// TestCommandPlaceholderSkipped checks that Cobra's [command] placeholder in a Use
+// string is not mistaken for a positional arg.
 func TestCommandPlaceholderSkipped(t *testing.T) {
 	root := &cobra.Command{Use: "app [command]"}
 	root.AddCommand(&cobra.Command{Use: "sub", Short: "A sub"})
@@ -303,6 +334,8 @@ func TestCommandPlaceholderSkipped(t *testing.T) {
 	assertContains(t, got, `cmd sub`)
 }
 
+// TestStringDefaultZero checks that the string default "0" is preserved rather than
+// treated as an empty zero value.
 func TestStringDefaultZero(t *testing.T) {
 	cmd := &cobra.Command{Use: "app"}
 	cmd.Flags().String("port", "0", "Port number")
@@ -313,6 +346,8 @@ func TestStringDefaultZero(t *testing.T) {
 	assertContains(t, got, `default="0"`)
 }
 
+// TestSpecialCharacterEscaping checks that kdlQuoteAlways escapes newlines, tabs,
+// carriage returns, backslashes, and double quotes.
 func TestSpecialCharacterEscaping(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -361,6 +396,8 @@ func TestSpecialCharacterEscaping(t *testing.T) {
 	}
 }
 
+// TestNewlineInCommandHelp checks that a multi-line Long is escaped into a single
+// quoted long_about value.
 func TestNewlineInCommandHelp(t *testing.T) {
 	root := &cobra.Command{
 		Use:   "app",
@@ -373,6 +410,8 @@ func TestNewlineInCommandHelp(t *testing.T) {
 	assertContains(t, got, `long_about "First line.\nSecond line.\n\nThird paragraph."`)
 }
 
+// TestSpecialCharsInFlagHelp checks that a multi-line flag help string is escaped
+// into a single quoted property.
 func TestSpecialCharsInFlagHelp(t *testing.T) {
 	cmd := &cobra.Command{Use: "app"}
 	cmd.Flags().String("format", "", "Output format:\n  json\n  yaml")
@@ -382,6 +421,7 @@ func TestSpecialCharsInFlagHelp(t *testing.T) {
 	assertContains(t, got, `help="Output format:\n  json\n  yaml"`)
 }
 
+// TestCommandExample checks that a subcommand's Example becomes an example node.
 func TestCommandExample(t *testing.T) {
 	root := &cobra.Command{Use: "mycli"}
 	deploy := &cobra.Command{
@@ -397,6 +437,8 @@ func TestCommandExample(t *testing.T) {
 	assertContains(t, got, `example "mycli deploy --env prod"`)
 }
 
+// TestRootExample checks that the root command's Example becomes an unindented
+// top-level example node.
 func TestRootExample(t *testing.T) {
 	root := &cobra.Command{
 		Use:     "mycli",
@@ -413,6 +455,8 @@ func TestRootExample(t *testing.T) {
 	}
 }
 
+// TestExampleMultilineDedent checks that a multi-line Example becomes one example
+// node with its shared leading indent removed.
 func TestExampleMultilineDedent(t *testing.T) {
 	root := &cobra.Command{Use: "mycli"}
 	deploy := &cobra.Command{
@@ -435,6 +479,8 @@ func TestExampleMultilineDedent(t *testing.T) {
 	assertNotContains(t, got, `\n  mycli deploy`)
 }
 
+// TestExampleRelativeIndentPreserved checks that dedenting keeps indentation that
+// is relative to the block's common prefix.
 func TestExampleRelativeIndentPreserved(t *testing.T) {
 	root := &cobra.Command{Use: "mycli"}
 	sub := &cobra.Command{
@@ -451,6 +497,8 @@ func TestExampleRelativeIndentPreserved(t *testing.T) {
 	assertContains(t, got, `example "mycli run\n  --with-continuation"`)
 }
 
+// TestExampleAsOnlyChild checks that an example alone is enough to open a cmd
+// node's child block.
 func TestExampleAsOnlyChild(t *testing.T) {
 	root := &cobra.Command{Use: "mycli"}
 	sub := &cobra.Command{
@@ -471,6 +519,7 @@ func TestExampleAsOnlyChild(t *testing.T) {
 	assertContains(t, got, `    example "mycli ping"`)
 }
 
+// TestNoExample checks that a command without an Example emits no example node.
 func TestNoExample(t *testing.T) {
 	root := &cobra.Command{Use: "mycli", Short: "A CLI"}
 	sub := &cobra.Command{
@@ -485,6 +534,7 @@ func TestNoExample(t *testing.T) {
 	assertNotContains(t, got, "example ")
 }
 
+// TestExampleWhitespaceOnly checks that a whitespace-only Example is dropped.
 func TestExampleWhitespaceOnly(t *testing.T) {
 	root := &cobra.Command{Use: "mycli", Short: "A CLI", Example: "  \n\t\n"}
 
@@ -493,6 +543,8 @@ func TestExampleWhitespaceOnly(t *testing.T) {
 	assertNotContains(t, got, "example ")
 }
 
+// TestExampleSpecialChars checks that quotes and backslashes inside an example are
+// escaped.
 func TestExampleSpecialChars(t *testing.T) {
 	root := &cobra.Command{Use: "mycli"}
 	sub := &cobra.Command{
@@ -508,6 +560,8 @@ func TestExampleSpecialChars(t *testing.T) {
 	assertContains(t, got, `example "mycli grep \"a\\b\""`)
 }
 
+// TestExampleCRLF checks that CRLF line endings are normalized to LF and trailing
+// newlines are trimmed.
 func TestExampleCRLF(t *testing.T) {
 	root := &cobra.Command{Use: "mycli", Example: "mycli one\r\nmycli two\r\n"}
 
@@ -517,6 +571,8 @@ func TestExampleCRLF(t *testing.T) {
 	assertNotContains(t, got, `\r`)
 }
 
+// TestGenerateJSONExamples checks that examples serialize with all four fields
+// present and that commands without examples still emit an empty array.
 func TestGenerateJSONExamples(t *testing.T) {
 	root := &cobra.Command{
 		Use:     "mycli",
@@ -555,6 +611,7 @@ func TestGenerateJSONExamples(t *testing.T) {
 
 // --- helpers ---
 
+// assertContains fails the test when got does not contain want.
 func assertContains(t *testing.T, got, want string) {
 	t.Helper()
 	if !strings.Contains(got, want) {
@@ -562,6 +619,7 @@ func assertContains(t *testing.T, got, want string) {
 	}
 }
 
+// assertNotContains fails the test when got contains unwanted.
 func assertNotContains(t *testing.T, got, unwanted string) {
 	t.Helper()
 	if strings.Contains(got, unwanted) {
@@ -569,6 +627,7 @@ func assertNotContains(t *testing.T, got, unwanted string) {
 	}
 }
 
+// findLine returns the first line of output containing prefix, or "" if none does.
 func findLine(output, prefix string) string {
 	for _, line := range strings.Split(output, "\n") {
 		if strings.Contains(line, prefix) {

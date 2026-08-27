@@ -15,6 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// main builds the demo command tree and either prints its usage spec, when
+// --usage-spec is present in os.Args, or runs the CLI normally.
 func main() {
 	root := &cobra.Command{
 		Use:     "deploy-tool",
