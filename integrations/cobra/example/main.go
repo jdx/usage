@@ -21,6 +21,7 @@ func main() {
 		Short:   "A deployment management tool",
 		Long:    "deploy-tool manages deployments across multiple environments with rollback support.",
 		Version: "0.1.0",
+		Example: "  deploy-tool deploy api --env prod",
 	}
 
 	root.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
@@ -30,7 +31,12 @@ func main() {
 		Use:   "deploy <service>",
 		Short: "Deploy a service",
 		Long:  "Deploy a service to the specified environment. Defaults to staging if --env is not set.",
-		Args:  cobra.ExactArgs(1),
+		Example: `  # deploy to production
+  deploy-tool deploy api --env prod
+
+  # see what would change first
+  deploy-tool deploy api --env prod --dry-run`,
+		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("Deploying %s\n", args[0])
 		},
@@ -41,9 +47,10 @@ func main() {
 
 	// rollback subcommand
 	rollback := &cobra.Command{
-		Use:   "rollback <service> [version]",
-		Short: "Rollback a service to a previous version",
-		Args:  cobra.RangeArgs(1, 2),
+		Use:     "rollback <service> [version]",
+		Short:   "Rollback a service to a previous version",
+		Example: "  deploy-tool rollback api 1.2.3",
+		Args:    cobra.RangeArgs(1, 2),
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Printf("Rolling back %s\n", args[0])
 		},

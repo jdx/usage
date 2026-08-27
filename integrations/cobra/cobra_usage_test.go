@@ -382,6 +382,177 @@ func TestSpecialCharsInFlagHelp(t *testing.T) {
 	assertContains(t, got, `help="Output format:\n  json\n  yaml"`)
 }
 
+func TestCommandExample(t *testing.T) {
+	root := &cobra.Command{Use: "mycli"}
+	deploy := &cobra.Command{
+		Use:     "deploy",
+		Short:   "Deploy the app",
+		Example: "mycli deploy --env prod",
+		Run:     func(cmd *cobra.Command, args []string) {},
+	}
+	root.AddCommand(deploy)
+
+	got := Generate(root)
+
+	assertContains(t, got, `example "mycli deploy --env prod"`)
+}
+
+func TestRootExample(t *testing.T) {
+	root := &cobra.Command{
+		Use:     "mycli",
+		Short:   "A CLI",
+		Example: "  mycli --help",
+	}
+
+	got := Generate(root)
+
+	// The root's example is a top-level node, so it must not be indented.
+	line := findLine(got, "example ")
+	if line != `example "mycli --help"` {
+		t.Errorf("root example should be an unindented top-level node, got %q", line)
+	}
+}
+
+func TestExampleMultilineDedent(t *testing.T) {
+	root := &cobra.Command{Use: "mycli"}
+	deploy := &cobra.Command{
+		Use:   "deploy",
+		Short: "Deploy the app",
+		Example: `  # deploy to production
+  mycli deploy --env prod
+
+  # dry run first
+  mycli deploy --dry-run`,
+		Run: func(cmd *cobra.Command, args []string) {},
+	}
+	root.AddCommand(deploy)
+
+	got := Generate(root)
+
+	// One node holding the whole block, dedented, with newlines escaped.
+	assertContains(t, got, `example "# deploy to production\nmycli deploy --env prod\n\n# dry run first\nmycli deploy --dry-run"`)
+	// The shared two-space indent is gone from inside the quotes.
+	assertNotContains(t, got, `\n  mycli deploy`)
+}
+
+func TestExampleRelativeIndentPreserved(t *testing.T) {
+	root := &cobra.Command{Use: "mycli"}
+	sub := &cobra.Command{
+		Use:   "run",
+		Short: "Run it",
+		Example: `  mycli run
+    --with-continuation`,
+		Run: func(cmd *cobra.Command, args []string) {},
+	}
+	root.AddCommand(sub)
+
+	got := Generate(root)
+
+	assertContains(t, got, `example "mycli run\n  --with-continuation"`)
+}
+
+func TestExampleAsOnlyChild(t *testing.T) {
+	root := &cobra.Command{Use: "mycli"}
+	sub := &cobra.Command{
+		Use:     "ping",
+		Short:   "Ping",
+		Example: "mycli ping",
+		Run:     func(cmd *cobra.Command, args []string) {},
+	}
+	root.AddCommand(sub)
+
+	got := Generate(root)
+
+	// The example is the command's only child, so the block must still open.
+	line := findLine(got, `cmd ping`)
+	if !strings.HasSuffix(line, "{") {
+		t.Errorf("cmd node should open a child block, got %q", line)
+	}
+	assertContains(t, got, `    example "mycli ping"`)
+}
+
+func TestNoExample(t *testing.T) {
+	root := &cobra.Command{Use: "mycli", Short: "A CLI"}
+	sub := &cobra.Command{
+		Use:   "ping",
+		Short: "Ping",
+		Run:   func(cmd *cobra.Command, args []string) {},
+	}
+	root.AddCommand(sub)
+
+	got := Generate(root)
+
+	assertNotContains(t, got, "example ")
+}
+
+func TestExampleWhitespaceOnly(t *testing.T) {
+	root := &cobra.Command{Use: "mycli", Short: "A CLI", Example: "  \n\t\n"}
+
+	got := Generate(root)
+
+	assertNotContains(t, got, "example ")
+}
+
+func TestExampleSpecialChars(t *testing.T) {
+	root := &cobra.Command{Use: "mycli"}
+	sub := &cobra.Command{
+		Use:     "grep",
+		Short:   "Grep",
+		Example: `mycli grep "a\b"`,
+		Run:     func(cmd *cobra.Command, args []string) {},
+	}
+	root.AddCommand(sub)
+
+	got := Generate(root)
+
+	assertContains(t, got, `example "mycli grep \"a\\b\""`)
+}
+
+func TestExampleCRLF(t *testing.T) {
+	root := &cobra.Command{Use: "mycli", Example: "mycli one\r\nmycli two\r\n"}
+
+	got := Generate(root)
+
+	assertContains(t, got, `example "mycli one\nmycli two"`)
+	assertNotContains(t, got, `\r`)
+}
+
+func TestGenerateJSONExamples(t *testing.T) {
+	root := &cobra.Command{
+		Use:     "mycli",
+		Short:   "A CLI",
+		Example: "mycli --help",
+	}
+	deploy := &cobra.Command{
+		Use:     "deploy",
+		Short:   "Deploy",
+		Example: "mycli deploy",
+		Run:     func(cmd *cobra.Command, args []string) {},
+	}
+	plain := &cobra.Command{
+		Use:   "status",
+		Short: "Status",
+		Run:   func(cmd *cobra.Command, args []string) {},
+	}
+	root.AddCommand(deploy, plain)
+
+	data, err := GenerateJSON(root)
+	if err != nil {
+		t.Fatalf("GenerateJSON failed: %v", err)
+	}
+	got := string(data)
+
+	// All four SpecExample fields always serialize, matching usage-lib.
+	assertContains(t, got, `"code": "mycli --help"`)
+	assertContains(t, got, `"header": null`)
+	assertContains(t, got, `"help": null`)
+	assertContains(t, got, `"lang": ""`)
+	assertContains(t, got, `"code": "mycli deploy"`)
+	// Command-level examples always emit an array, mirroring Rust's
+	// SpecCommand.examples having no skip_serializing_if.
+	assertContains(t, got, `"examples": []`)
+}
+
 // --- helpers ---
 
 func assertContains(t *testing.T, got, want string) {

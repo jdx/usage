@@ -62,6 +62,7 @@ For completions, `--usage-cmd 'mycli --usage-spec'` can replace the pipe and
 | `cmd.Aliases`                                      | `alias`                                       |
 | `cmd.Hidden`                                       | `hide=#true`                                  |
 | `cmd.Deprecated`                                   | `deprecated="message"`                        |
+| `cmd.Example`                                      | `example` node (top-level for root)           |
 | `cmd.Use` args (`<required>`, `[optional]`, `...`) | `arg` nodes                                   |
 | `cmd.ValidArgs`                                    | `choices` on first arg                        |
 | Persistent flags                                   | `global=#true`                                |
@@ -75,6 +76,10 @@ For completions, `--usage-cmd 'mycli --usage-spec'` can replace the pipe and
 | Count flags (`CountP`)                             | `count=#true var=#true`                       |
 | Other flags                                        | `arg <UPPER_NAME>` child                      |
 | `MarkFlagRequired`                                 | `required=#true`                              |
+
+Cobra's `Example` is a single free-form block rather than a list of structured
+examples, so it maps to one `example` node holding the whole text, dedented.
+Comment lines the author wrote stay inside the example code.
 
 ## Example
 

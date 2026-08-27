@@ -22,6 +22,9 @@ func convertRoot(cmd *cobra.Command) Spec {
 	if cmd.Long != "" {
 		spec.Long = cmd.Long
 	}
+	// The root's examples belong at spec level, which is where a top-level KDL
+	// example node parses to.
+	spec.Examples = convertExamples(cmd.Example)
 
 	spec.Flags = convertPersistentFlags(cmd)
 	spec.Flags = append(spec.Flags, convertLocalFlags(cmd, true)...)
@@ -51,6 +54,7 @@ func convertCommand(cmd *cobra.Command) SpecCommand {
 	if cmd.Long != "" {
 		sc.HelpLong = cmd.Long
 	}
+	sc.Examples = convertExamples(cmd.Example)
 	if cmd.Hidden {
 		sc.Hide = true
 	}
@@ -86,6 +90,81 @@ func convertCommand(cmd *cobra.Command) SpecCommand {
 	}
 
 	return sc
+}
+
+// convertExamples turns a cobra Example string into spec examples.
+// Cobra's Example is one free-form block with no header/help split of its own, so
+// it maps to a single example node holding the whole dedented text as its code.
+// Comment lines the author wrote stay inside that code rather than being lifted
+// out, so nothing is reordered or dropped.
+func convertExamples(example string) []SpecExample {
+	code := dedent(example)
+	if code == "" {
+		return nil
+	}
+	return []SpecExample{{Code: code}}
+}
+
+// dedent normalizes line endings, drops surrounding blank lines, strips the
+// leading whitespace prefix shared by every non-blank line, and trims trailing
+// whitespace from each line. Cobra examples are conventionally written indented
+// inside a raw string literal; without this every line would render indented
+// inside the generated code block.
+func dedent(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t")
+	}
+	for len(lines) > 0 && lines[0] == "" {
+		lines = lines[1:]
+	}
+	for len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+
+	prefix := ""
+	seen := false
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+		if !seen {
+			prefix = indent
+			seen = true
+			continue
+		}
+		prefix = commonPrefix(prefix, indent)
+		if prefix == "" {
+			break
+		}
+	}
+	if prefix != "" {
+		for i, line := range lines {
+			lines[i] = strings.TrimPrefix(line, prefix)
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// commonPrefix returns the longest common leading run of a and b.
+func commonPrefix(a, b string) string {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	i := 0
+	for i < n && a[i] == b[i] {
+		i++
+	}
+	return a[:i]
 }
 
 // convertPersistentFlags converts persistent flags from a command (global=true).

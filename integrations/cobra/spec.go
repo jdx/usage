@@ -4,15 +4,16 @@ package cobra_usage
 // Spec is the root struct representing a CLI definition.
 // Used internally for KDL rendering.
 type Spec struct {
-	Name    string
-	Bin     string
-	Version string
-	About   string
-	Long    string
-	Usage   string
-	Flags   []SpecFlag
-	Args    []SpecArg
-	Cmds    []SpecCommand
+	Name     string
+	Bin      string
+	Version  string
+	About    string
+	Long     string
+	Usage    string
+	Flags    []SpecFlag
+	Args     []SpecArg
+	Examples []SpecExample
+	Cmds     []SpecCommand
 }
 
 // SpecCommand represents a subcommand.
@@ -26,6 +27,7 @@ type SpecCommand struct {
 	SubcommandRequired bool
 	Flags              []SpecFlag
 	Args               []SpecArg
+	Examples           []SpecExample
 	Cmds               []SpecCommand
 }
 
@@ -54,6 +56,14 @@ type SpecArg struct {
 	Hide     bool
 	Default  []string
 	Choices  *SpecChoices
+}
+
+// SpecExample represents a usage example for a command.
+type SpecExample struct {
+	Code   string
+	Header string
+	Help   string
+	Lang   string
 }
 
 // SpecChoices represents a set of valid choices for an argument.
