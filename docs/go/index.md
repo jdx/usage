@@ -1,9 +1,9 @@
 # Go Framework
 
 ::: danger Not ready for testing
-The Go framework is far more experimental than the [Rust framework](/rust/) and is **not ready
-for any amount of testing yet** — do not build against it. Unlike usage-rs, which is experimental
-but complete enough that `usage-cli` itself is built with it, usage-go's APIs, generated output,
+The Go framework is experimental and **not ready for any amount of testing yet** — do not build
+against it. Unlike [usage-rs](/rust/), which is complete enough that `usage-cli` itself is built
+with it, usage-go's APIs, generated output,
 and behavior are all still in flux, and much of what these pages document only exists in open
 pull requests. These docs are a draft published for review, not an invitation to try it.
 :::

@@ -1,9 +1,5 @@
 # Rust Framework
 
-::: warning Experimental
-Used by some of jdx's CLIs, but point releases may break.
-:::
-
 `usage-rs` is a fast, typed framework for building complete command-line applications in Rust.
 Declare commands, flags, arguments, and settings with familiar structs and enums, and get
 first-class environment and config-file resolution, advanced shell completions, portable
