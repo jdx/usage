@@ -1786,9 +1786,9 @@ dependencies = [
 
 [[package]]
 name = "tera"
-version = "2.2.0"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3e9db9fa0629187ae0a53f3278a99d35f74647f0259c633c9504af85bd0d506"
+checksum = "52fca06a22977165c6821c26e2bf0387cd7e0822107a6854d5fbb787307c4194"
 dependencies = [
  "serde",
 ]
@@ -2012,11 +2012,11 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "usage-argv"
-version = "6.4.1"
+version = "6.5.0"
 
 [[package]]
 name = "usage-cli"
-version = "6.4.1"
+version = "6.5.0"
 dependencies = [
  "assert_cmd",
  "ctor",
@@ -2043,7 +2043,7 @@ dependencies = [
 
 [[package]]
 name = "usage-config"
-version = "6.4.1"
+version = "6.5.0"
 dependencies = [
  "serde_json",
  "toml",
@@ -2069,7 +2069,7 @@ dependencies = [
 
 [[package]]
 name = "usage-derive"
-version = "6.4.1"
+version = "6.5.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2079,7 +2079,7 @@ dependencies = [
 
 [[package]]
 name = "usage-dynamic"
-version = "6.4.1"
+version = "6.5.0"
 dependencies = [
  "futures",
  "usage-argv",
@@ -2089,7 +2089,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "6.4.1"
+version = "6.5.0"
 dependencies = [
  "clap",
  "criterion",
@@ -2116,7 +2116,7 @@ dependencies = [
 
 [[package]]
 name = "usage-rs"
-version = "6.4.1"
+version = "6.5.0"
 dependencies = [
  "serde",
  "shell-words",
@@ -2131,14 +2131,14 @@ dependencies = [
 
 [[package]]
 name = "usage-test"
-version = "6.4.1"
+version = "6.5.0"
 dependencies = [
  "usage-argv",
 ]
 
 [[package]]
 name = "usage-validation"
-version = "6.4.1"
+version = "6.5.0"
 dependencies = [
  "expr-lang",
 ]
@@ -2151,9 +2151,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.25.0"
+version = "1.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f053576934f05a761a402421fbbe3d425d9366f75f978806a037b3ca481abecc"
+checksum = "b5772d71c9be8a8a6ac2117d949c5b224c1b72241bb611d9a3012edcf8af7812"
 dependencies = [
  "getrandom 0.4.3",
  "js-sys",

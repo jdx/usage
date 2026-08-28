@@ -1,5 +1,22 @@
 # Changelog
 
+## [6.5.0](https://github.com/jdx/usage/compare/v6.4.1..v6.5.0) - 2026-08-28
+
+### 🚀 Features
+
+- **(argv,derive)** add compiled clause support by [@jdx](https://github.com/jdx) in [#1320](https://github.com/jdx/usage/pull/1320)
+- **(complete)** complete sigil-prefixed positionals by [@jdx](https://github.com/jdx) in [#1319](https://github.com/jdx/usage/pull/1319)
+- **(spec,parse)** add sigil-classified positional arguments by [@jdx](https://github.com/jdx) in [#1322](https://github.com/jdx/usage/pull/1322)
+- **(spec,parse)** add repeatable clause groups by [@jdx](https://github.com/jdx) in [#1321](https://github.com/jdx/usage/pull/1321)
+
+### 🐛 Bug Fixes
+
+- **(zsh)** complete aliases with argument prefixes by [@halms](https://github.com/halms) in [#1330](https://github.com/jdx/usage/pull/1330)
+
+### New Contributors
+
+- @halms made their first contribution in [#1330](https://github.com/jdx/usage/pull/1330)
+
 ## [6.4.1](https://github.com/jdx/usage/compare/v6.4.0..v6.4.1) - 2026-08-26
 
 ### 🐛 Bug Fixes

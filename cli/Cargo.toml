@@ -2,7 +2,7 @@
 name = "usage-cli"
 edition = "2021"
 rust-version = "1.91"
-version = "6.4.1"
+version = "6.5.0"
 description = "CLI for working with usage-based CLIs"
 license = { workspace = true }
 authors = { workspace = true }
