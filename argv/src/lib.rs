@@ -201,6 +201,8 @@ pub struct Command<'a> {
     pub flags: &'a [&'a Flag<'a>],
     /// Positional arguments, in the order they are filled.
     pub args: &'a [&'a Arg<'a>],
+    /// A repeatable group of positional arguments, if this command has one.
+    pub clause: ::core::option::Option<Clause<'a>>,
     pub subcommands: &'a [&'a Command<'a>],
     /// Where a word goes when it names no subcommand of this one.
     ///
@@ -285,6 +287,7 @@ impl Command<'_> {
         aliases: &[],
         flags: &[],
         args: &[],
+        clause: ::core::option::Option::None,
         subcommands: &[],
         default_subcommand: ::core::option::Option::None,
         external_subcommand: false,
@@ -301,6 +304,15 @@ impl Command<'_> {
         disable_version_flag: false,
         key: 0,
     };
+}
+
+/// A separator-delimited positional group.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Clause<'a> {
+    pub key: u64,
+    pub name: &'a str,
+    pub separator: &'a [u8],
+    pub args: &'a [&'a Arg<'a>],
 }
 
 /// Basename of argv[0] for a multicall CLI: last path component, with a trailing
@@ -625,6 +637,8 @@ pub enum Event<'t, 'a, 'v> {
         /// Whether this value should be split by the argument's declared delimiter.
         delimit: bool,
     },
+    /// Ended one clause instance and began the next.
+    ClauseSeparator { clause: Clause<'t> },
     /// An unmatched word was forwarded as an external command: the name, then
     /// every remaining token, including flags.
     External { values: &'a [&'v OsStr] },
@@ -1850,6 +1864,19 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         let token = bytes(self.argv.get(self.pos)?);
         self.pos += 1;
 
+        // A clause separator remains syntax after an automatic positional stopped flags.
+        // Only an explicit `--` protects a literal separator.
+        if !self.separator_seen {
+            if let Some(clause) = self.cmd.clause.filter(|clause| token == clause.separator) {
+                self.arg_pos = 0;
+                self.arg_taken = 0;
+                self.arg_filled = false;
+                self.collecting = None;
+                self.flags_stopped = false;
+                return Some(Ok(Event::ClauseSeparator { clause }));
+            }
+        }
+
         // An automatic trailing argument stops flag interpretation without consuming an
         // explicit separator. A later `--` must still unlock a required trailing argument
         // (clap's `last`), while a separator already consumed makes every later `--` data.
@@ -1870,7 +1897,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             self.separator_seen = true;
             // An explicit separator unlocks any argument that required one, even
             // if earlier arguments are still unfilled.
-            if let Some(idx) = self.cmd.args[self.arg_pos..]
+            if let Some(idx) = self.current_args()[self.arg_pos..]
                 .iter()
                 .position(|a| a.double_dash == DoubleDash::Required)
             {
@@ -2389,7 +2416,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     fn next_arg(&self) -> Option<&'t Arg<'t>> {
-        self.cmd.args[self.arg_pos..]
+        self.current_args()[self.arg_pos..]
             .iter()
             .find(|arg| arg.sigil.is_none())
             .copied()
@@ -2397,8 +2424,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
     fn skip_sigil_args(&mut self) {
         while self
-            .cmd
-            .args
+            .current_args()
             .get(self.arg_pos)
             .is_some_and(|arg| arg.sigil.is_some())
         {
@@ -2410,7 +2436,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         if self.flags_stopped {
             return None;
         }
-        let own = self.cmd.args.iter().copied();
+        let own = self.current_args().iter().copied();
         let inherited = self.ancestors[..self.depth]
             .iter()
             .rev()
@@ -2422,6 +2448,13 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 (token.len() >= sigil.len() && token.starts_with(sigil)).then_some((arg, sigil))
             })
             .max_by_key(|(_, sigil)| sigil.len())
+    }
+
+    fn current_args(&self) -> &'t [&'t Arg<'t>] {
+        self.cmd
+            .clause
+            .map(|clause| clause.args)
+            .unwrap_or(self.cmd.args)
     }
 
     /// Skip empty optional positionals when every remaining value is needed by a later
@@ -2437,7 +2470,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             if current.required {
                 return;
             }
-            let required_after = self.cmd.args[self.arg_pos + 1..]
+            let required_after = self.current_args()[self.arg_pos + 1..]
                 .iter()
                 .filter(|arg| arg.required && arg.sigil.is_none())
                 .count();
@@ -2673,6 +2706,57 @@ fn validate_bool_value<'t, 'v>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clause_separator_resets_inner_args_and_survives_automatic_mode() {
+        static TASK: Arg = Arg {
+            key: 91,
+            name: "task",
+            ..Arg::REQUIRED
+        };
+        static REST: Arg = Arg {
+            key: 92,
+            name: "args",
+            double_dash: DoubleDash::Automatic,
+            ..Arg::VAR
+        };
+        static ROOT: Command = Command {
+            name: "ex",
+            clause: Some(Clause {
+                key: 90,
+                name: "tasks",
+                separator: b":::",
+                args: &[&TASK, &REST],
+            }),
+            ..Command::EMPTY
+        };
+        let argv = [
+            OsStr::new("lint"),
+            OsStr::new("--fix"),
+            OsStr::new(":::"),
+            OsStr::new("test"),
+        ];
+        let mut parser = Parser::new(&ROOT, &argv);
+        let mut seen = Vec::new();
+        while let Some(event) = parser.next_event() {
+            match event.expect("valid clause") {
+                Event::Arg { arg, value, .. } => {
+                    seen.push((arg.name, String::from_utf8_lossy(value).into_owned()))
+                }
+                Event::ClauseSeparator { clause } => seen.push((clause.name, ":::".into())),
+                _ => {}
+            }
+        }
+        assert_eq!(
+            seen,
+            [
+                ("task", "lint".into()),
+                ("args", "--fix".into()),
+                ("tasks", ":::".into()),
+                ("task", "test".into())
+            ]
+        );
+    }
 
     static FORCE: Flag = Flag {
         key: 1,

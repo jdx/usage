@@ -193,6 +193,22 @@ impl<'a> Emitter<'a> {
             .iter()
             .map(|a| (a.clone(), self.name("Arg", path, &a.name)))
             .collect::<Vec<_>>();
+        let clause_args = cmd
+            .clause
+            .as_ref()
+            .map(|clause| {
+                clause
+                    .args
+                    .iter()
+                    .map(|a| {
+                        (
+                            a.clone(),
+                            self.name("Arg", path, &format!("{}-{}", clause.name, a.name)),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
 
         let index = out.len();
         out.push(Emitted {
@@ -200,6 +216,7 @@ impl<'a> Emitter<'a> {
             cmd: cmd.clone(),
             flags,
             args,
+            clause_args,
             subcommands: Vec::new(),
             root,
         });
@@ -278,6 +295,11 @@ impl<'a> Emitter<'a> {
             entries.push((&e.named.key, e.named.number));
             entries.extend(e.flags.iter().map(|(_, n)| (n.key.as_str(), n.number)));
             entries.extend(e.args.iter().map(|(_, n)| (n.key.as_str(), n.number)));
+            entries.extend(
+                e.clause_args
+                    .iter()
+                    .map(|(_, n)| (n.key.as_str(), n.number)),
+            );
         }
         // One run, so every name pads to the longest — which is what gofmt does to
         // a const block with no blank line in it.
@@ -360,6 +382,19 @@ impl<'a> Emitter<'a> {
                 for (arg, named) in &e.args {
                     block.push(format!("\t{},", arg_literal(arg, named)));
                 }
+                block.push("},".to_string());
+                lines.push(Line::Block(block));
+            }
+            if let Some(clause) = &e.cmd.clause {
+                let mut block = vec!["Clause: &argv.Clause{".to_string()];
+                block.push(format!("\tKey: {},", e.named.key));
+                block.push(format!("\tName: {},", go_string(&clause.name)));
+                block.push(format!("\tSeparator: {},", go_string(&clause.separator)));
+                block.push("\tArgs: []*argv.Arg{".to_string());
+                for (arg, named) in &e.clause_args {
+                    block.push(format!("\t\t{},", arg_literal(arg, named)));
+                }
+                block.push("\t},".to_string());
                 block.push("},".to_string());
                 lines.push(Line::Block(block));
             }
@@ -464,11 +499,14 @@ impl Emitter<'_> {
             for (arg, named) in &e.args {
                 by_key.insert(named.number, arg_meta(self.spec, arg, named, e, commands));
             }
+            for (arg, named) in &e.clause_args {
+                by_key.insert(named.number, arg_meta(self.spec, arg, named, e, commands));
+            }
         }
 
         let total = commands
             .iter()
-            .map(|e| 1 + e.flags.len() + e.args.len())
+            .map(|e| 1 + e.flags.len() + e.args.len() + e.clause_args.len())
             .sum::<usize>() as u64;
 
         let _ = writeln!(
@@ -808,6 +846,7 @@ fn resolve_relationship(names: &[String], owner: &Emitted, commands: &[Emitted])
             found = owner
                 .args
                 .iter()
+                .chain(owner.clause_args.iter())
                 .find(|(arg, _)| arg.name == *name)
                 .map(|(_, named)| named.key.clone());
         }
@@ -951,11 +990,14 @@ impl Emitter<'_> {
             for (arg, named) in &e.args {
                 by_key.insert(named.number, arg_help(arg, named));
             }
+            for (arg, named) in &e.clause_args {
+                by_key.insert(named.number, arg_help(arg, named));
+            }
         }
 
         let total = commands
             .iter()
-            .map(|e| 1 + e.flags.len() + e.args.len())
+            .map(|e| 1 + e.flags.len() + e.args.len() + e.clause_args.len())
             .sum::<usize>() as u64;
 
         let _ = writeln!(
@@ -1364,6 +1406,7 @@ struct Emitted {
     cmd: SpecCommand,
     flags: Vec<(SpecFlag, Named)>,
     args: Vec<(SpecArg, Named)>,
+    clause_args: Vec<(SpecArg, Named)>,
     /// Indices into the flat list, in declaration order.
     subcommands: Vec<usize>,
     root: bool,
@@ -2228,6 +2271,74 @@ cmd "run" arg_required_else_help=#true {
         let strict =
             go("name \"ex\"\nbin \"ex\"\nargs_override_self #false\nflag \"--jobs <n>\"\n");
         assert!(strict.contains("RejectDuplicate: true"), "{strict}");
+    }
+
+    #[test]
+    fn clause_args_and_later_entries_reach_go_cold_tables() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+cmd "run" {
+    flag "--needs-task" requires="task"
+    clause "items" separator=":::" {
+        arg "<task>" help="Task to run"
+    }
+}
+cmd "later" {
+    flag "--mode <mode>" help="Later flag"
+}
+"#);
+        let meta = out
+            .split_once("var Meta = argv.Metadata{")
+            .and_then(|(_, rest)| rest.split_once("var HelpText = argv.HelpTable{"))
+            .map(|(meta, _)| meta)
+            .expect("generated metadata and help tables");
+        let help = out
+            .split_once("var HelpText = argv.HelpTable{")
+            .and_then(|(_, rest)| rest.split_once("var HelpMeta = argv.HelpSpec{"))
+            .map(|(help, _)| help)
+            .expect("generated help table and metadata");
+
+        assert!(
+            meta.contains("Key: ArgRunItemsTask, Name: \"task\""),
+            "{out}"
+        );
+        assert!(
+            meta.lines().any(|line| {
+                line.contains("Key: FlagRunNeedsTask")
+                    && line.contains("Requires: []uint64{ArgRunItemsTask}")
+            }),
+            "{out}"
+        );
+        assert!(meta.contains("Key: FlagLaterMode, Name: \"mode\""), "{out}");
+        assert!(
+            help.contains("Key: ArgRunItemsTask, Demanded: true"),
+            "{out}"
+        );
+        assert!(
+            help.lines().any(|line| {
+                line.contains("Key: FlagLaterMode") && line.contains("Short: \"Later flag\"")
+            }),
+            "{out}"
+        );
+        for generated in [
+            "type RunCmdItemsClause struct {",
+            "case argv.KindClauseSeparator:",
+            "for _, instance := range clauseInstances[CmdRun] {",
+            "if err := argv.Check(Meta.Lookup(key), values, 0); err != nil {",
+            "clauseSources := map[uint64]argv.Source{ArgRunItemsTask: argv.Unset}",
+            "cmdRunV.Items = append(cmdRunV.Items, item)",
+        ] {
+            assert!(out.contains(generated), "missing {generated:?}:\n{out}");
+        }
+        assert!(
+            out.lines().any(|line| {
+                line.contains("Items")
+                    && line.contains("[]RunCmdItemsClause")
+                    && line.contains("// clause items")
+            }),
+            "{out}"
+        );
     }
 
     #[test]

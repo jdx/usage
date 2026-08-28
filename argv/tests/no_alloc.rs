@@ -165,7 +165,11 @@ fn drain(argv: &[&OsStr]) -> usize {
     while let Some(event) = parser.next_event() {
         match event {
             Ok(
-                Event::Command(_) | Event::Flag { .. } | Event::Arg { .. } | Event::External { .. },
+                Event::Command(_)
+                | Event::Flag { .. }
+                | Event::Arg { .. }
+                | Event::External { .. }
+                | Event::ClauseSeparator { .. },
             ) => seen += 1,
             Err(_) => seen += 1,
         }

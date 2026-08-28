@@ -88,6 +88,22 @@ pub fn run(vector: &Vector) -> Observed {
                 cmd,
                 flags,
                 args,
+                clauses: out
+                    .clauses
+                    .into_iter()
+                    .map(|(name, instances)| {
+                        let instances = instances
+                            .into_iter()
+                            .map(|instance| {
+                                instance
+                                    .into_iter()
+                                    .map(|(arg, value)| (arg.name.clone(), convert(&value)))
+                                    .collect()
+                            })
+                            .collect();
+                        (name, instances)
+                    })
+                    .collect(),
                 external: out.external.unwrap_or_default(),
             })
         }

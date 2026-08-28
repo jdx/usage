@@ -49,6 +49,7 @@ type Command struct {
 	Flags   []*Flag
 	// Args are positional arguments, in the order they are filled.
 	Args        []*Arg
+	Clause      *Clause
 	Subcommands []*Command
 	// DefaultSubcommand is where a word goes when it names no subcommand of this
 	// one.
@@ -105,6 +106,23 @@ type Command struct {
 	// can simply count, but the width costs nothing and keeps the two tables
 	// interchangeable.
 	Key uint64
+}
+
+// Clause is a repeatable separator-delimited positional group.
+type Clause struct {
+	Key       uint64
+	Name      string
+	Separator string
+	Args      []*Arg
+}
+
+// positionalArgs is the positional grammar a command exposes. A clause replaces
+// ordinary arguments rather than supplementing them.
+func positionalArgs(cmd *Command) []*Arg {
+	if cmd.Clause != nil {
+		return cmd.Clause.Args
+	}
+	return cmd.Args
 }
 
 // Flag is a flag, addressed by any of its long or short forms.
@@ -285,6 +303,8 @@ const (
 	KindFlag
 	// KindArg means a word was bound to a positional argument.
 	KindArg
+	// KindClauseSeparator ends one clause instance and begins the next.
+	KindClauseSeparator
 	// KindExternal means an unmatched word was forwarded as an external command:
 	// the name, then every remaining token, including flags.
 	KindExternal
@@ -307,6 +327,8 @@ type Event struct {
 	Flag *Flag
 	// Arg is set when Kind is KindArg.
 	Arg *Arg
+	// Clause is set when Kind is KindClauseSeparator.
+	Clause *Clause
 	// Value is the bound value. Meaningful for KindArg always, and for KindFlag
 	// when HasValue is set.
 	Value string

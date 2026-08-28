@@ -248,6 +248,37 @@ pub fn emit(cli: &Cli) -> TokenStream {
         .iter()
         .enumerate()
         .map(|(i, f)| arg_meta(cli, i, f, &cli.ident));
+    let clause_field = cli.fields.iter().find_map(|field| {
+        let Kind::Clause { ty, separator } = &field.kind else {
+            return None;
+        };
+        Some((field, ty, separator))
+    });
+    let clause_table = clause_field
+        .map(|(field, ty, separator)| {
+            let name = proc_macro2::Literal::string(&field.name);
+            let separator = proc_macro2::Literal::byte_string(separator.as_bytes());
+            quote!(::core::option::Option::Some(usage_argv::Clause {
+                key: 0,
+                name: #name,
+                separator: #separator,
+                args: <#ty as usage_argv::spec::CommandArgs>::COMMAND.args,
+            }))
+        })
+        .unwrap_or_else(|| quote!(::core::option::Option::None));
+    let clause_meta = clause_field
+        .map(|(field, ty, separator)| {
+            let name = proc_macro2::Literal::string(&field.name);
+            let separator = proc_macro2::Literal::string(separator);
+            quote!(::core::option::Option::Some(usage_argv::spec::ClauseMeta {
+                name: #name,
+                separator: #separator,
+                help: ::core::option::Option::None,
+                long_help: ::core::option::Option::None,
+                args: <#ty as usage_argv::spec::CommandArgs>::META.args,
+            }))
+        })
+        .unwrap_or_else(|| quote!(::core::option::Option::None));
 
     // Both the plain slices and, when a field is flattened, the joined arrays.
     let tables = tables(cli);
@@ -1036,6 +1067,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 key: #root_key,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,
+                clause: #clause_table,
                 #sub_commands
                 #sub_default
                 #sub_external
@@ -1088,6 +1120,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 headings: #headings,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
+                clause: #clause_meta,
                 groups: #group_meta_table_ref,
                 flatten_groups: #flatten_group_table_ref,
                 #sub_metas
@@ -3235,7 +3268,7 @@ fn tables(cli: &Cli) -> Tables {
                 flag_groups.push(quote!(<#ty as usage_argv::spec::ArgGroup>::FLAGS));
                 flag_meta_groups.push(quote!(<#ty as usage_argv::spec::ArgGroup>::FLAG_METAS));
             }
-            Kind::Subcommand { .. } | Kind::Skip => {}
+            Kind::Clause { .. } | Kind::Subcommand { .. } | Kind::Skip => {}
         }
     }
     flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
@@ -3573,6 +3606,7 @@ fn standing_presence(field: &Field) -> Option<TokenStream> {
     let ident = &field.ident;
     match &field.kind {
         Kind::Skip | Kind::Flatten { .. } => None,
+        Kind::Clause { .. } => Some(quote!(!__usage_s.#ident.is_empty())),
         Kind::ArgGroup { multiple: true, .. } => Some(quote!(!__usage_s.#ident.is_empty())),
         Kind::ArgGroup { optional, .. } | Kind::Subcommand { optional, .. } => Some(if *optional {
             quote!(__usage_s.#ident.is_some())
@@ -4150,7 +4184,11 @@ fn presence_methods(cli: &Cli) -> TokenStream {
     let direct_given = cli.fields.iter().filter_map(|field| {
         if matches!(
             field.kind,
-            Kind::Flatten { .. } | Kind::ArgGroup { .. } | Kind::Subcommand { .. } | Kind::Skip
+            Kind::Flatten { .. }
+                | Kind::ArgGroup { .. }
+                | Kind::Clause { .. }
+                | Kind::Subcommand { .. }
+                | Kind::Skip
         ) {
             return None;
         }
@@ -4318,7 +4356,11 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
     let state_arms = cli.fields.iter().filter_map(|field| {
         if matches!(
             field.kind,
-            Kind::Flatten { .. } | Kind::ArgGroup { .. } | Kind::Subcommand { .. } | Kind::Skip
+            Kind::Flatten { .. }
+                | Kind::ArgGroup { .. }
+                | Kind::Clause { .. }
+                | Kind::Subcommand { .. }
+                | Kind::Skip
         ) {
             return None;
         }
@@ -4378,7 +4420,11 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
     let match_arms = cli.fields.iter().filter_map(|field| {
         if matches!(
             field.kind,
-            Kind::Flatten { .. } | Kind::ArgGroup { .. } | Kind::Subcommand { .. } | Kind::Skip
+            Kind::Flatten { .. }
+                | Kind::ArgGroup { .. }
+                | Kind::Clause { .. }
+                | Kind::Subcommand { .. }
+                | Kind::Skip
         ) {
             return None;
         }
@@ -4602,6 +4648,14 @@ fn partial_struct(cli: &Cli) -> TokenStream {
             let ident = &f.ident;
             return Some(quote! {
                 pub #ident: <#ty as usage_argv::spec::ArgGroup>::Partial,
+            });
+        }
+        if let Kind::Clause { ty, .. } = &f.kind {
+            let ident = &f.ident;
+            let current = format_ident!("__usage_current_{}", ident);
+            return Some(quote! {
+                pub #ident: ::std::vec::Vec<<#ty as usage_argv::spec::CommandArgs>::Partial>,
+                pub #current: <#ty as usage_argv::spec::CommandArgs>::Partial,
             });
         }
         let ident = &f.ident;
@@ -4984,6 +5038,14 @@ fn partial_defaults(cli: &Cli) -> TokenStream {
                 #ident: <#ty as usage_argv::spec::ArgGroup>::start(),
             });
         }
+        if let Kind::Clause { ty, .. } = &f.kind {
+            let ident = &f.ident;
+            let current = format_ident!("__usage_current_{}", ident);
+            return Some(quote! {
+                #ident: ::std::vec::Vec::new(),
+                #current: <#ty as usage_argv::spec::CommandArgs>::start(),
+            });
+        }
         let ident = &f.ident;
         let given = format_ident!("__given_{}", ident);
         let overridden = is_displaceable(cli, f).then(|| {
@@ -5069,6 +5131,16 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
             None => quote! {
                 <#ty as usage_argv::spec::CommandArgs>::build(partial.#ident)?
             },
+        };
+    }
+    if let Kind::Clause { ty, .. } = &field.kind {
+        let current = format_ident!("__usage_current_{}", ident);
+        return quote! {
+            partial.#ident
+                .into_iter()
+                .chain(::core::iter::once(partial.#current))
+                .map(<#ty as usage_argv::spec::CommandArgs>::build)
+                .collect::<::std::result::Result<::std::vec::Vec<_>, _>>()?
         };
     }
     // The group's own `build` says which member was given; the field's type says what "none"
@@ -5444,6 +5516,17 @@ fn merge_fn(cli: &Cli) -> TokenStream {
                     }
                 }
             }),
+            Kind::Clause { ty, .. } => {
+                let current = format_ident!("__usage_current_{}", field_ident);
+                let value = field_value(field, None);
+                Some(quote! {
+                    if !partial.#field_ident.is_empty()
+                        || <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#current).is_some()
+                    {
+                        __usage_standing.#field_ident = #value;
+                    }
+                })
+            }
             Kind::Flag { .. } | Kind::Arg { .. } => {
                 let present = merge_present(field);
                 let value = field_value(field, None);
@@ -5751,6 +5834,30 @@ fn apply_fn(cli: &Cli) -> TokenStream {
             ))
         })
         .collect();
+    let clauses: Vec<TokenStream> = cli
+        .fields
+        .iter()
+        .filter_map(|f| {
+            let Kind::Clause { ty, .. } = &f.kind else {
+                return None;
+            };
+            let ident = &f.ident;
+            let current = format_ident!("__usage_current_{}", ident);
+            Some(quote! {
+                if let usage_argv::Event::ClauseSeparator { .. } = event {
+                    let __usage_finished = ::core::mem::replace(
+                        &mut partial.#current,
+                        <#ty as usage_argv::spec::CommandArgs>::start(),
+                    );
+                    partial.#ident.push(__usage_finished);
+                    return true;
+                }
+                if <#ty as usage_argv::spec::CommandArgs>::apply(&mut partial.#current, event) {
+                    return true;
+                }
+            })
+        })
+        .collect();
     let mirrored_flattened = cli.fields.iter().filter_map(|f| {
         let Kind::Flatten { ty, .. } = &f.kind else {
             return None;
@@ -5811,6 +5918,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
             #route
             #(#flattened)*
             #(#grouped)*
+            #(#clauses)*
             // Each arm evaluates to whether it claimed the event, rather than
             // returning: a command with no flags of its own would otherwise have every
             // arm diverge, leaving an unreachable tail.
@@ -5849,6 +5957,7 @@ fn apply_fn(cli: &Cli) -> TokenStream {
                 // Forwarded argv belongs to the catch-all variant, which the
                 // subcommand route claims; this command's own flags do not.
                 Event::External { .. } => false,
+                Event::ClauseSeparator { .. } => false,
             }
         }
 

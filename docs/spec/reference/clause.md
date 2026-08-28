@@ -31,3 +31,24 @@ Version 1 deliberately keeps clauses narrow:
 
 Use [sigil arguments](./sigils.md) to classify independent prefixed values. Use a clause
 when several adjacent positional values form one repeatable unit.
+
+## Rust derive
+
+The outer field is a `Vec<T>` and `T` derives `Args`:
+
+```rust
+#[derive(usage::Args)]
+struct TaskClause {
+    task: String,
+    #[usage(double_dash = "automatic")]
+    args: Vec<String>,
+}
+
+#[derive(usage::Cli)]
+struct Run {
+    #[usage(clause, separator = ":::")]
+    tasks: Vec<TaskClause>,
+}
+```
+
+The compiled parser emits a clause-boundary event and builds each nested partial independently.

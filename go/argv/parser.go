@@ -252,6 +252,15 @@ func (p *Parser) step() bool {
 		token := p.argv[p.pos]
 		p.pos++
 
+		if !p.separatorSeen && p.cmd.Clause != nil && token == p.cmd.Clause.Separator {
+			p.argPos = 0
+			p.argTaken = 0
+			p.argFilled = false
+			p.collecting = nil
+			p.flagsStopped = false
+			return p.emit(Event{Kind: KindClauseSeparator, Clause: p.cmd.Clause})
+		}
+
 		if p.flagsStopped {
 			return p.word(token)
 		}
@@ -266,8 +275,9 @@ func (p *Parser) step() bool {
 			p.separatorSeen = true
 			// An explicit separator unlocks any argument that required one, even if
 			// earlier arguments are still unfilled.
-			for i := p.argPos; i < len(p.cmd.Args); i++ {
-				if p.cmd.Args[i].DoubleDash == DoubleDashRequired {
+			args := p.currentArgs()
+			for i := p.argPos; i < len(args); i++ {
+				if args[i].DoubleDash == DoubleDashRequired {
 					// The count belongs to the argument at argPos, so jumping past it has to
 					// leave the count behind: a bounded variadic before the separator would
 					// otherwise lend its total to the argument after it, which then stops
@@ -732,17 +742,21 @@ func valuesIn(value string, delimiter byte) uint32 {
 	return count
 }
 
+func (p *Parser) currentArgs() []*Arg {
+	return positionalArgs(p.cmd)
+}
+
 func (p *Parser) nextArg() *Arg {
-	for i := p.argPos; i < len(p.cmd.Args); i++ {
-		if p.cmd.Args[i].Sigil == "" {
-			return p.cmd.Args[i]
+	for i := p.argPos; i < len(p.currentArgs()); i++ {
+		if p.currentArgs()[i].Sigil == "" {
+			return p.currentArgs()[i]
 		}
 	}
 	return nil
 }
 
 func (p *Parser) skipSigilArgs() {
-	for p.argPos < len(p.cmd.Args) && p.cmd.Args[p.argPos].Sigil != "" {
+	for p.argPos < len(p.currentArgs()) && p.currentArgs()[p.argPos].Sigil != "" {
 		p.argPos++
 	}
 }
@@ -753,17 +767,17 @@ func (p *Parser) matchSigilArg(token string) (*Arg, string) {
 	}
 	var best *Arg
 	bestSigil := ""
-	match := func(cmd *Command) {
-		for _, arg := range cmd.Args {
+	match := func(args []*Arg) {
+		for _, arg := range args {
 			if arg.Sigil != "" && len(token) >= len(arg.Sigil) && len(arg.Sigil) > len(bestSigil) && token[:len(arg.Sigil)] == arg.Sigil {
 				best, bestSigil = arg, arg.Sigil
 			}
 		}
 	}
-	match(p.cmd)
+	match(p.currentArgs())
 	for i := p.depth - 1; i >= 0; i-- {
 		if p.ancestors[i] != nil {
-			match(p.ancestors[i])
+			match(p.ancestors[i].Args)
 		}
 	}
 	return best, bestSigil
@@ -776,9 +790,9 @@ func (p *Parser) reserveForRequiredPositionals() {
 	if !p.cmd.AllowMissingPositional || p.argTaken != 0 {
 		return
 	}
-	for p.argPos < len(p.cmd.Args) && !p.cmd.Args[p.argPos].Required {
+	for p.argPos < len(p.currentArgs()) && !p.currentArgs()[p.argPos].Required {
 		requiredAfter := 0
-		for _, arg := range p.cmd.Args[p.argPos+1:] {
+		for _, arg := range p.currentArgs()[p.argPos+1:] {
 			if arg.Required && arg.Sigil == "" {
 				requiredAfter++
 			}

@@ -452,6 +452,31 @@ fn diff_command_props(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut 
         _ => {}
     }
 
+    match (&old.clause, &new.clause) {
+        (Some(was), None) => c.breaking(
+            "clause-removed",
+            path,
+            format!("clause '{}' was removed", was.name),
+        ),
+        (None, Some(now)) => c.breaking(
+            "clause-added",
+            path,
+            format!(
+                "clause '{}' using separator '{}' was added, so matching words now start a new clause",
+                now.name, now.separator
+            ),
+        ),
+        (Some(was), Some(now)) if was.separator != now.separator => c.breaking(
+            "clause-separator-changed",
+            path,
+            format!(
+                "clause separator changed from '{}' to '{}'",
+                was.separator, now.separator
+            ),
+        ),
+        _ => {}
+    }
+
     diff_unknown_flags(old.unknown_flags, new.unknown_flags, path, c);
 
     if !old.args_conflicts_with_subcommands && new.args_conflicts_with_subcommands {
@@ -2321,6 +2346,32 @@ cmd "run" help="run" {
     #[test]
     fn a_spec_against_itself_reports_nothing() {
         assert!(codes(BASE, BASE).is_empty());
+    }
+
+    #[test]
+    fn clause_shape_changes_are_breaking() {
+        let plain = r#"
+name "ex"
+bin "ex"
+"#;
+        let colon = r#"
+name "ex"
+bin "ex"
+clause "tasks" separator=":::" {
+    arg "<task>"
+}
+"#;
+        let plus = r#"
+name "ex"
+bin "ex"
+clause "tasks" separator="+++" {
+    arg "<task>"
+}
+"#;
+
+        assert_eq!(codes(plain, colon), ["breaking:clause-added"]);
+        assert_eq!(codes(colon, plain), ["breaking:clause-removed"]);
+        assert_eq!(codes(colon, plus), ["breaking:clause-separator-changed"]);
     }
 
     #[test]

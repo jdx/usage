@@ -65,10 +65,11 @@ type Expect struct {
 // the spec gives each flag or argument, never by the token that set it, so -j,
 // --jobs and an env var all land under `jobs`.
 type Parsed struct {
-	Cmd      []string               `json:"cmd"`
-	Flags    map[string]interface{} `json:"flags"`
-	Args     map[string]interface{} `json:"args"`
-	External []string               `json:"external,omitempty"`
+	Cmd      []string                            `json:"cmd"`
+	Flags    map[string]interface{}              `json:"flags"`
+	Args     map[string]interface{}              `json:"args"`
+	Clauses  map[string][]map[string]interface{} `json:"clauses,omitempty"`
+	External []string                            `json:"external,omitempty"`
 }
 
 type file struct {
@@ -290,6 +291,14 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 		}
 		return got[key]
 	}
+	clauseInstances := map[string][]map[uint64]*bound{}
+	currentClause := map[uint64]*bound{}
+	clauseEntry := func(key uint64) *bound {
+		if currentClause[key] == nil {
+			currentClause[key] = &bound{}
+		}
+		return currentClause[key]
+	}
 
 	// The commands whose declarations are in scope. A required flag on a command
 	// nobody selected is not missing; it is simply not this invocation's.
@@ -315,12 +324,21 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 		case argv.KindArg:
 			seen++
 			b := entry(ev.Arg.Key)
+			if p.Command().Clause != nil {
+				b = clauseEntry(ev.Arg.Key)
+			}
 			b.occurrences++
 			b.at = seen
 			b.values = append(b.values, argv.SplitValue(ev.Value, ev.Arg.Delimiter, ev.Delimit)...)
+		case argv.KindClauseSeparator:
+			clauseInstances[ev.Clause.Name] = append(clauseInstances[ev.Clause.Name], currentClause)
+			currentClause = map[uint64]*bound{}
 		case argv.KindExternal:
 			external = append(external, ev.Values...)
 		}
+	}
+	if p.Command().Clause != nil {
+		clauseInstances[p.Command().Clause.Name] = append(clauseInstances[p.Command().Clause.Name], currentClause)
 	}
 	if err := p.Err(); err != nil {
 		e, ok := err.(*argv.Error)
@@ -334,7 +352,28 @@ func run(s *spec.Spec, args []string, argv0 *string, env map[string]string) (*Pa
 		Cmd:      []string{},
 		Flags:    map[string]interface{}{},
 		Args:     map[string]interface{}{},
+		Clauses:  map[string][]map[string]interface{}{},
 		External: external,
+	}
+	for _, cmd := range path {
+		if cmd.Clause == nil {
+			continue
+		}
+		for _, instance := range clauseInstances[cmd.Clause.Name] {
+			values := map[string]interface{}{}
+			for _, arg := range cmd.Clause.Args {
+				b := instance[arg.Key]
+				if b == nil {
+					continue
+				}
+				if arg.Var {
+					values[arg.Name] = b.values
+				} else if len(b.values) > 0 {
+					values[arg.Name] = b.values[len(b.values)-1]
+				}
+			}
+			out.Clauses[cmd.Clause.Name] = append(out.Clauses[cmd.Clause.Name], values)
+		}
 	}
 	for _, cmd := range path[1:] {
 		out.Cmd = append(out.Cmd, cmd.Name)
@@ -574,7 +613,7 @@ func bools(v interface{}) []interface{} { return strs(v) }
 // root. Likewise for the two maps. The corpus is the definition of correct about
 // bindings, not about which of two spellings of "nothing" a decoder produces.
 func normalizeExpected(p *Parsed) *Parsed {
-	out := &Parsed{Cmd: p.Cmd, Flags: p.Flags, Args: p.Args, External: p.External}
+	out := &Parsed{Cmd: p.Cmd, Flags: p.Flags, Args: p.Args, Clauses: p.Clauses, External: p.External}
 	if out.Cmd == nil {
 		out.Cmd = []string{}
 	}
@@ -583,6 +622,22 @@ func normalizeExpected(p *Parsed) *Parsed {
 	}
 	if out.Args == nil {
 		out.Args = map[string]interface{}{}
+	}
+	if out.Clauses == nil {
+		out.Clauses = map[string][]map[string]interface{}{}
+	}
+	for _, instances := range out.Clauses {
+		for _, instance := range instances {
+			for name, value := range instance {
+				if raw, ok := value.([]interface{}); ok {
+					strings := make([]string, len(raw))
+					for i, item := range raw {
+						strings[i] = item.(string)
+					}
+					instance[name] = strings
+				}
+			}
+		}
 	}
 	return out
 }

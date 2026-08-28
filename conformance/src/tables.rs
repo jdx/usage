@@ -29,11 +29,11 @@ use usage::{
     SpecGroup, SpecOutput,
 };
 use usage_argv::spec::{
-    AdmonitionKind, AdmonitionMeta, ArgMeta, ChoiceAliasMeta, ChoiceMeta, CommandMeta, DefaultIf,
-    Effect, Example, ExitCodeMeta, FlagMeta, Framing as ArgvFraming, GroupMeta, HeadingMeta,
-    OutputMeta, RequiredIfEq, RequiresIf,
+    AdmonitionKind, AdmonitionMeta, ArgMeta, ChoiceAliasMeta, ChoiceMeta, ClauseMeta, CommandMeta,
+    DefaultIf, Effect, Example, ExitCodeMeta, FlagMeta, Framing as ArgvFraming, GroupMeta,
+    HeadingMeta, OutputMeta, RequiredIfEq, RequiresIf,
 };
-use usage_argv::{Arg, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
+use usage_argv::{Arg, Clause, Command, DoubleDash, Flag, UnknownFlags as ArgvUnknownFlags};
 
 /// A command's two tables, built together so the metadata can borrow the parse table.
 pub struct Built {
@@ -80,6 +80,17 @@ pub fn build(
 
     let flags: Vec<&'static Flag<'static>> = cmd.flags.iter().map(build_flag).collect();
     let args: Vec<&'static Arg<'static>> = cmd.args.iter().map(build_arg).collect();
+    let clause_args: Vec<&'static Arg<'static>> = cmd
+        .clause
+        .as_ref()
+        .map(|clause| clause.args.iter().map(build_arg).collect())
+        .unwrap_or_default();
+    let clause = cmd.clause.as_ref().map(|clause| Clause {
+        key: 0,
+        name: leak(&clause.name),
+        separator: leak(&clause.separator).as_bytes(),
+        args: Box::leak(clause_args.clone().into_boxed_slice()),
+    });
     let subs: Vec<Built> = cmd
         .subcommands
         .values()
@@ -101,6 +112,7 @@ pub fn build(
         aliases: Box::leak(aliases.into_boxed_slice()),
         flags: Box::leak(flags.clone().into_boxed_slice()),
         args: Box::leak(args.clone().into_boxed_slice()),
+        clause,
         subcommands: Box::leak(
             subs.iter()
                 .map(|s| s.cmd)
@@ -137,6 +149,21 @@ pub fn build(
         .zip(&args)
         .map(|(a, table)| arg_meta(a, table, &completers))
         .collect();
+    let clause_meta = cmd.clause.as_ref().map(|clause| ClauseMeta {
+        name: leak(&clause.name),
+        separator: leak(&clause.separator),
+        help: opt(&clause.help),
+        long_help: opt(&clause.help_long),
+        args: Box::leak(
+            clause
+                .args
+                .iter()
+                .zip(&clause_args)
+                .map(|(arg, table)| arg_meta(arg, table, &completers))
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
+    });
 
     let meta: &'static CommandMeta<'static> = Box::leak(Box::new(CommandMeta {
         cmd: table,
@@ -162,6 +189,7 @@ pub fn build(
         // first is the one the tables can hold.
         mount: cmd.mounts.first().map(|m| leak(&m.run)),
         restart_token: opt(&cmd.restart_token),
+        clause: clause_meta,
         subcommand_required: cmd.subcommand_required,
         subcommand_help_heading: opt(&cmd.subcommand_help_heading),
         subcommand_value_name: opt(&cmd.subcommand_value_name),

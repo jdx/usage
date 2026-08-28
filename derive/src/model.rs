@@ -662,6 +662,8 @@ pub enum Kind {
         /// Prefix that classifies this positional independently of declaration order.
         sigil: Option<String>,
     },
+    /// Holds repeatable instances of a positional-only `Args` struct.
+    Clause { ty: syn::Type, separator: String },
     /// Holds the enum whose variants are this command's subcommands.
     ///
     /// The type is carried rather than resolved, because the derive cannot see the
@@ -1681,6 +1683,7 @@ impl Cli {
                 // this struct declares is invisible from either side. `Spec::to_kdl`'s
                 // duplicate-form check is where the whole tree is visible.
                 Kind::ArgGroup { .. } => {}
+                Kind::Clause { .. } => {}
                 Kind::Skip => {}
                 Kind::Arg { double_dash, sigil } => {
                     if let Some(sigil) = sigil {
@@ -1773,6 +1776,31 @@ impl Cli {
                     subcommand_field = Some(field.span);
                 }
             }
+        }
+
+        let clauses = self
+            .fields
+            .iter()
+            .filter(|field| matches!(field.kind, Kind::Clause { .. }))
+            .count();
+        if clauses > 1 {
+            return Err(syn::Error::new(
+                self.ident.span(),
+                "a command may declare at most one clause",
+            ));
+        }
+        if clauses == 1
+            && self.fields.iter().any(|field| {
+                matches!(
+                    field.kind,
+                    Kind::Arg { .. } | Kind::Subcommand { .. } | Kind::ArgGroup { .. }
+                )
+            })
+        {
+            return Err(syn::Error::new(
+                self.ident.span(),
+                "a clause cannot be combined with top-level arguments or subcommands",
+            ));
         }
 
         // What `run` on a *struct* can generate is a forwarder to its subcommands. A
@@ -2296,6 +2324,133 @@ impl Field {
         }))
     }
 
+    fn clause(
+        field: &syn::Field,
+        ident: &syn::Ident,
+        span: proc_macro2::Span,
+    ) -> syn::Result<Option<Self>> {
+        let mut found = false;
+        let mut separator = None;
+        for attr in attrs(&field.attrs) {
+            for meta in nested(attr)? {
+                match ident_of(&meta.path().clone()).as_str() {
+                    "clause" => {
+                        if !matches!(meta, Meta::Path(_)) {
+                            return Err(syn::Error::new_spanned(
+                                meta.path(),
+                                "`clause` takes no value",
+                            ));
+                        }
+                        found = true;
+                    }
+                    "separator" => separator = Some(string_value(&meta)?),
+                    _ => {}
+                }
+            }
+        }
+        if !found {
+            return Ok(None);
+        }
+        for attr in attrs(&field.attrs) {
+            for meta in nested(attr)? {
+                let name = ident_of(&meta.path().clone());
+                if !matches!(name.as_str(), "clause" | "separator") {
+                    return Err(syn::Error::new_spanned(
+                        meta.path(),
+                        format!("`clause` cannot be combined with `{name}`"),
+                    ));
+                }
+            }
+        }
+        let separator =
+            separator.ok_or_else(|| syn::Error::new(span, "a clause needs `separator = \"…\"`"))?;
+        if separator.is_empty() || separator.starts_with('-') {
+            return Err(syn::Error::new(
+                span,
+                "a clause separator must be non-empty and cannot start with `-`",
+            ));
+        }
+        let ty = vec_element_type(&field.ty).ok_or_else(|| {
+            syn::Error::new_spanned(
+                &field.ty,
+                "a clause field must be `Vec<T>` where `T` derives `Args`",
+            )
+        })?;
+        Ok(Some(Field {
+            ident: ident.clone(),
+            ty: field.ty.clone(),
+            name: to_kebab(&ident.to_string()),
+            value_optional: false,
+            kind: Kind::Clause { ty, separator },
+            effect: None,
+            complete: None,
+            complete_type: None,
+            shape: Shape::Many,
+            value_ty: None,
+            optional_collection: false,
+            optional_value_type: false,
+            help: None,
+            long_help: None,
+            admonitions: Vec::new(),
+            deprecated: None,
+            deprecated_warn_at: None,
+            deprecated_remove_at: None,
+            env: None,
+            env_fallback: Vec::new(),
+            deprecated_env: Vec::new(),
+            setting: None,
+            default: Vec::new(),
+            default_value_t: None,
+            default_fn: None,
+            help_heading: None,
+            surface: None,
+            available_if: Vec::new(),
+            select: false,
+            display_order: None,
+            value_name: None,
+            value_names: Vec::new(),
+            required_collection: false,
+            choices: Vec::new(),
+            allow_unknown_choices: false,
+            validate: None,
+            validate_error: None,
+            value_enum: false,
+            var_min: None,
+            var_max: None,
+            value_var_min: None,
+            value_var_max: None,
+            overrides: Vec::new(),
+            conflicts: Vec::new(),
+            requires: Vec::new(),
+            requires_if: Vec::new(),
+            default_if: Vec::new(),
+            delimiter: None,
+            allow_hyphen_values: false,
+            allow_negative_numbers: false,
+            value_terminator: None,
+            require_equals: false,
+            bool_value: false,
+            default_missing: None,
+            exclusive: false,
+            group: None,
+            required_if: Vec::new(),
+            required_if_eq: Vec::new(),
+            required_if_eq_all: Vec::new(),
+            required_unless: Vec::new(),
+            required_unless_all: Vec::new(),
+            hide: false,
+            hide_default_value: false,
+            hide_env: false,
+            hide_env_values: false,
+            hide_possible_values: false,
+            hide_short_help: false,
+            hide_long_help: false,
+            repeatable: true,
+            action: ArgAction::Set,
+            span,
+        }))
+    }
+
     /// A field marked `#[usage(arg_group)]`, if this is one.
     ///
     /// Recognized before flags and arguments for the same reason a flatten is: the field holds
@@ -2616,6 +2771,9 @@ impl Field {
         }
         if let Some(flattened) = Self::flatten(field, &ident, span)? {
             return Ok(flattened);
+        }
+        if let Some(clause) = Self::clause(field, &ident, span)? {
+            return Ok(clause);
         }
         if let Some(group) = Self::arg_group(field, &ident, span)? {
             return Ok(group);
@@ -4193,6 +4351,10 @@ fn peel(ty: &Type, wrapper: &str) -> Option<Type> {
         [syn::GenericArgument::Type(inner)] => Some(inner.clone()),
         _ => None,
     }
+}
+
+fn vec_element_type(ty: &Type) -> Option<Type> {
+    peel(ty, "Vec")
 }
 
 /// A type as written, path and all, with the spaces `quote` leaves out.
