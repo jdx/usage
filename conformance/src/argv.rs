@@ -208,6 +208,7 @@ fn code(err: Error<'_, '_>) -> ErrorCode {
         Error::MissingFlagValue { .. } => ErrorCode::MissingFlagValue,
         Error::UnexpectedArg { .. } => ErrorCode::UnexpectedArg,
         Error::ArgRequiresDoubleDash { .. } => ErrorCode::ArgRequiresDoubleDash,
+        Error::InvalidValue(_) => ErrorCode::InvalidValue,
         // Binding does raise this one, and only this one of the bounds: a `var_max` stops a
         // collection rather than judging it, so it can only be *exceeded* when a delimiter
         // makes one word several values — which is a question about where a word lands, and

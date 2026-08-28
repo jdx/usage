@@ -32,7 +32,7 @@ mod sponsors;
 #[usage(
     bin = "usage",
     version,
-    min_usage_version = "4.0",
+    min_usage_version = "6.5",
     repository = "https://github.com/jdx/usage",
     // The command path is not the file path: command names are hyphenated where the files
     // that implement them are snake_case, a command with subcommands lives in its directory's

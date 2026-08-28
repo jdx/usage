@@ -136,6 +136,10 @@ struct MaximalRun {
     #[usage(long, help_heading = "Task Options")]
     config: Option<String>,
 
+    /// Temporary tool selections.
+    #[usage(sigil = "+")]
+    tools: Vec<String>,
+
     /// Task name.
     task: String,
 }

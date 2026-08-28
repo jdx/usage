@@ -129,6 +129,9 @@ fn duplicate_group_name(meta: &CommandMeta<'_>) -> Option<std::string::String> {
 fn unfillable_arg<'a>(cmd: &Command<'a>) -> Option<&'a str> {
     let mut variadic: Option<&Arg<'_>> = None;
     for arg in cmd.args {
+        if arg.sigil.is_some() {
+            continue;
+        }
         // A `--` stops the collecting, so an argument behind one is still reachable — but only
         // one separator exists, so nothing can follow *that*.
         let stopped_by_separator = arg.double_dash == DoubleDash::Required;
@@ -2778,9 +2781,24 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         meta.arg.name
     };
     write!(out, "arg {}", quoted(&arg_placeholder(name, meta)))?;
+    if let Some(sigil) = meta.arg.sigil {
+        write!(
+            out,
+            " sigil={}",
+            quoted(::core::str::from_utf8(sigil).unwrap_or_default())
+        )?;
+    }
 
     if let Some(help) = meta.help {
         write!(out, " help={}", quoted(help))?;
+    }
+    if meta.arg.sigil.is_some() {
+        if !meta.required {
+            out.push_str(" required=#false");
+        }
+        if meta.arg.var {
+            out.push_str(" var=#true");
+        }
     }
     if meta.hide {
         out.push_str(" hide=#true");
@@ -3191,11 +3209,17 @@ fn exact_arity(min: Option<usize>, max: Option<usize>) -> Option<usize> {
 
 /// A positional's placeholder: angle brackets when required, square when not.
 fn arg_placeholder(name: &str, meta: &ArgMeta<'_>) -> String {
+    let sigil = meta
+        .arg
+        .sigil
+        .and_then(|value| ::core::str::from_utf8(value).ok())
+        .unwrap_or_default();
+    let name = format!("{sigil}{name}");
     if let Some(arity) =
         exact_arity(meta.var_min, meta.var_max).filter(|n| *n > 1 && meta.value_names.len() <= 1)
     {
         let values = (0..arity)
-            .map(|_| placeholder(name, false, !meta.required))
+            .map(|_| placeholder(&name, false, !meta.required))
             .collect::<Vec<_>>()
             .join(" ");
         return values;
@@ -3209,7 +3233,7 @@ fn arg_placeholder(name: &str, meta: &ArgMeta<'_>) -> String {
         let values = meta
             .value_names
             .iter()
-            .map(|name| format!("{open}{name}{close}"))
+            .map(|value_name| format!("{open}{sigil}{value_name}{close}"))
             .collect::<Vec<_>>()
             .join(" ");
         return if meta.arg.double_dash == DoubleDash::Required {
@@ -3218,7 +3242,13 @@ fn arg_placeholder(name: &str, meta: &ArgMeta<'_>) -> String {
             values
         };
     }
-    let ellipsis = if meta.arg.var { "..." } else { "" };
+    let ellipsis = if meta.arg.var && meta.arg.sigil.is_some() {
+        "…"
+    } else if meta.arg.var {
+        "..."
+    } else {
+        ""
+    };
     if meta.required {
         format!("<{name}>{ellipsis}")
     } else {

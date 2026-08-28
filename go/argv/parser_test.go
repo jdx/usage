@@ -102,6 +102,19 @@ func TestAllowMissingPositionalReservesLastWord(t *testing.T) {
 	}
 }
 
+func TestSigilArgumentMatchesAfterOrdinaryPositional(t *testing.T) {
+	ordinary := &Arg{Key: 90, Name: "ordinary"}
+	tool := &Arg{Key: 91, Name: "tool", Sigil: "@"}
+	external := &Command{Name: "ex", Args: []*Arg{ordinary, tool}, ExternalSubcommand: true}
+	if got := collect(external, "@node"); got != "arg:tool=node" {
+		t.Fatalf("leading sigil: got %q", got)
+	}
+	cmd := &Command{Name: "ex", Args: []*Arg{ordinary, tool}}
+	if got := collect(cmd, "file", "@node"); got != "arg:ordinary=file arg:tool=node" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestBinding(t *testing.T) {
 	cases := []struct {
 		name string

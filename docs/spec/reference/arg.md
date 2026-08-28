@@ -1,5 +1,8 @@
 # `arg`
 
+Arguments may also be classified by a prefix instead of position. See
+[sigil arguments](./sigils.md) for matching, boundary, completion, and derive rules.
+
 Positionals accept `hide`, `hide_default_value`, `hide_env`, `hide_env_values`,
 `hide_possible_values`, `hide_short_help`, and `hide_long_help`. These affect
 help presentation only; defaults, environment fallback, and validation remain
@@ -14,6 +17,7 @@ arg "<file>" env="MY_FILE"               // arg can be backed by an env var
 arg "<file>" display_order=10             // explicit order in help; parse order is unchanged
 arg "<port>" validate="int(value) >= 1 && int(value) <= 65535" validate_error="must be a valid port"
 arg "<output>" effect="write"             // raises the command effect when supplied
+arg "[tool]..." sigil="+"                  // +node@24 stores node@24 without advancing
 
 arg "[file]" var=#true // multiple args can be passed (e.g. mycli file1 file2 file3) (0 or more)
 arg "<file>" var=#true // multiple args can be passed (e.g. mycli file1 file2 file3) (1 or more)

@@ -266,7 +266,18 @@ fn render_class(
                     continue;
                 }
                 let ident = sanitize_ident(&arg.name);
-                if arg.var {
+                if let Some(sigil) = &arg.sigil {
+                    let sigil = escape_ts_string(sigil);
+                    if arg.var {
+                        w.line(&format!(
+                            "if (args.{ident} !== undefined) {{ cmdArgs.push(...args.{ident}.map(value => \"{sigil}\" + String(value))); }}"
+                        ));
+                    } else {
+                        w.line(&format!(
+                            "if (args.{ident} !== undefined) {{ cmdArgs.push(\"{sigil}\" + String(args.{ident})); }}"
+                        ));
+                    }
+                } else if arg.var {
                     w.line(&format!(
                         "if (args.{ident} !== undefined) {{ cmdArgs.push(...args.{ident}); }}"
                     ));

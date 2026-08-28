@@ -515,6 +515,9 @@ pub struct Arg<'a> {
     /// Caller-assigned identifier, echoed back in [`Event::Arg`]. See
     /// [`Command::key`] on why it is this wide.
     pub key: u64,
+    /// Prefix that classifies this positional independently of declaration order.
+    /// The prefix is removed from the value emitted in [`Event::Arg`].
+    pub sigil: ::core::option::Option<&'a [u8]>,
     /// Whether post-binding requires this positional to have a value. Kept in the hot
     /// table because `allow_missing_positional` must reserve words for later required args.
     pub required: bool,
@@ -549,6 +552,7 @@ impl Arg<'_> {
     /// A single-value argument, for use with struct update syntax.
     pub const REQUIRED: Arg<'static> = Arg {
         key: 0,
+        sigil: ::core::option::Option::None,
         required: true,
         var: false,
         var_max: ::core::option::Option::None,
@@ -2229,6 +2233,26 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 }
             }
 
+            // Known subcommands and the default route keep precedence. A sigil positional
+            // then claims its classified word before an external-subcommand catch-all can.
+            if let Some((arg, sigil)) = self.match_sigil_arg(token) {
+                if token.len() == sigil.len() {
+                    return Err(invalid_value_error(
+                        arg.name,
+                        as_str(token).unwrap_or_default().to_string(),
+                        format!(
+                            "expected a value after sigil {:?}",
+                            as_str(sigil).unwrap_or_default()
+                        ),
+                    ));
+                }
+                return Ok(Event::Arg {
+                    arg,
+                    value: &token[sigil.len()..],
+                    delimit: true,
+                });
+            }
+
             // An unmatched word that names no subcommand is forwarded as an external
             // command: this word, then every token after it, including flags. Known
             // subcommands already won above, and a default_subcommand already caught.
@@ -2245,6 +2269,27 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
         }
 
+        if self.arg_filled && !self.flags_stopped {
+            if let Some((arg, sigil)) = self.match_sigil_arg(token) {
+                if token.len() == sigil.len() {
+                    return Err(invalid_value_error(
+                        arg.name,
+                        as_str(token).unwrap_or_default().to_string(),
+                        format!(
+                            "expected a value after sigil {:?}",
+                            as_str(sigil).unwrap_or_default()
+                        ),
+                    ));
+                }
+                return Ok(Event::Arg {
+                    arg,
+                    value: &token[sigil.len()..],
+                    delimit: true,
+                });
+            }
+        }
+
+        self.skip_sigil_args();
         self.reserve_for_required_positionals();
         let Some(arg) = self.next_arg() else {
             return Err(Error::UnexpectedArg { token });
@@ -2315,8 +2360,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
     /// Move to the next positional, forgetting what the last one took.
     fn advance_arg(&mut self) {
+        self.skip_sigil_args();
         self.arg_pos += 1;
         self.arg_taken = 0;
+        self.skip_sigil_args();
     }
 
     /// A variadic flag occurrence begins, counting from zero.
@@ -2342,7 +2389,39 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     fn next_arg(&self) -> Option<&'t Arg<'t>> {
-        self.cmd.args.get(self.arg_pos).copied()
+        self.cmd.args[self.arg_pos..]
+            .iter()
+            .find(|arg| arg.sigil.is_none())
+            .copied()
+    }
+
+    fn skip_sigil_args(&mut self) {
+        while self
+            .cmd
+            .args
+            .get(self.arg_pos)
+            .is_some_and(|arg| arg.sigil.is_some())
+        {
+            self.arg_pos += 1;
+        }
+    }
+
+    fn match_sigil_arg(&self, token: &[u8]) -> Option<(&'t Arg<'t>, &'t [u8])> {
+        if self.flags_stopped {
+            return None;
+        }
+        let own = self.cmd.args.iter().copied();
+        let inherited = self.ancestors[..self.depth]
+            .iter()
+            .rev()
+            .filter_map(|cmd| *cmd)
+            .flat_map(|cmd| cmd.args.iter().copied());
+        own.chain(inherited)
+            .filter_map(|arg| {
+                let sigil = arg.sigil?;
+                (token.len() >= sigil.len() && token.starts_with(sigil)).then_some((arg, sigil))
+            })
+            .max_by_key(|(_, sigil)| sigil.len())
     }
 
     /// Skip empty optional positionals when every remaining value is needed by a later
@@ -2360,14 +2439,17 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
             let required_after = self.cmd.args[self.arg_pos + 1..]
                 .iter()
-                .filter(|arg| arg.required)
+                .filter(|arg| arg.required && arg.sigil.is_none())
                 .count();
             if required_after == 0 {
                 return;
             }
             let remaining_values = 1 + self.argv[self.pos..]
                 .iter()
-                .filter(|word| self.flags_stopped || !is_flag_like(bytes(word)))
+                .filter(|word| {
+                    (self.flags_stopped || !is_flag_like(bytes(word)))
+                        && self.match_sigil_arg(bytes(word)).is_none()
+                })
                 .count();
             if remaining_values > required_after {
                 return;

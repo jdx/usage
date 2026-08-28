@@ -1,0 +1,160 @@
+{
+  "section": "sigil arguments",
+  "about": "A sigil classifies a leading-segment positional by prefix, strips that prefix from its value, and leaves the ordinary positional cursor untouched.",
+  "vectors": [
+    {
+      "id": "sigil-values-accumulate-without-advancing",
+      "doc": "Several classified values may surround flags before the first ordinary positional.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--quiet\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\narg \"[args]...\"\n",
+      "argv": ["+node@27", "--quiet", "+python@3.14", "node", "-v"],
+      "expect": {
+        "ok": {
+          "flags": { "quiet": true },
+          "args": {
+            "tools": ["node@27", "python@3.14"],
+            "command": "node",
+            "args": ["-v"]
+          }
+        }
+      }
+    },
+    {
+      "id": "double-dash-protects-sigil",
+      "doc": "After an explicit separator the same prefix is ordinary data.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\narg \"[args]...\"\n",
+      "argv": ["run", "--", "+literal"],
+      "expect": {
+        "ok": {
+          "args": { "command": "run", "args": ["+literal"] }
+        }
+      }
+    },
+    {
+      "id": "bare-sigil-is-invalid",
+      "doc": "A bare classifier is an empty sigil value, not ordinary positional data.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\n",
+      "argv": ["+"],
+      "expect": { "error": "invalid_value" }
+    },
+    {
+      "id": "flag-awaiting-value-outranks-sigil",
+      "doc": "A detached flag value owns the next token before sigil classification runs.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--label <label>\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\n",
+      "argv": ["--label", "+raw", "run"],
+      "expect": {
+        "ok": {
+          "flags": { "label": "+raw" },
+          "args": { "command": "run" }
+        }
+      }
+    },
+    {
+      "id": "sigil-does-not-block-subcommand-routing",
+      "doc": "A classified positional before a known subcommand does not make the subcommand an ordinary value.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\ncmd \"build\" { arg \"<target>\" }\n",
+      "argv": ["+node@27", "build", "app"],
+      "expect": {
+        "ok": {
+          "cmd": ["build"],
+          "args": { "tools": ["node@27"], "target": "app" }
+        }
+      }
+    },
+    {
+      "id": "sigil-after-ordinary-positional",
+      "doc": "A classified value may follow an ordinary positional while flag parsing remains active.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\"\narg \"[args]...\"\n",
+      "argv": ["run", "+node@27", "file"],
+      "expect": {
+        "ok": {
+          "args": { "tools": ["node@27"], "command": "run", "args": ["file"] }
+        }
+      }
+    },
+    {
+      "id": "ancestor-sigil-after-subcommand",
+      "doc": "A sigil declared by an ancestor remains in scope after an explicit subcommand or alias.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\ncmd \"build\" { alias \"b\"; arg \"<target>\" }\n",
+      "argv": ["b", "+node@27", "app"],
+      "expect": {
+        "ok": {
+          "cmd": ["build"],
+          "args": { "tools": ["node@27"], "target": "app" }
+        }
+      }
+    },
+    {
+      "id": "ancestor-sigil-preserves-nested-subcommand-routing",
+      "doc": "An inherited sigil between two command names does not close nested subcommand routing.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\ncmd \"build\" { cmd \"deploy\" {} }\n",
+      "argv": ["build", "+node@27", "deploy"],
+      "expect": {
+        "ok": {
+          "cmd": ["build", "deploy"],
+          "args": { "tools": ["node@27"] }
+        }
+      }
+    },
+    {
+      "id": "missing-positional-ignores-filled-required-sigil",
+      "doc": "A required sigil already filled does not reserve an ordinary positional slot.",
+      "spec": "name \"ex\"\nbin \"ex\"\nallow_missing_positional #true\narg \"[optional]\"\narg \"<tools>...\" sigil=\"+\"\narg \"<required>\"\n",
+      "argv": ["+node@27", "first", "last"],
+      "expect": {
+        "ok": {
+          "args": {
+            "optional": "first",
+            "tools": ["node@27"],
+            "required": "last"
+          }
+        }
+      }
+    },
+    {
+      "id": "missing-positional-counts-sigil-shape-after-double-dash",
+      "doc": "After flag parsing stops, sigil-shaped words count as ordinary values during positional reservation.",
+      "spec": "name \"ex\"\nbin \"ex\"\nallow_missing_positional #true\narg \"[optional]\"\narg \"[tools]...\" sigil=\"+\"\narg \"<required>\"\n",
+      "argv": ["--", "first", "+literal"],
+      "expect": {
+        "ok": {
+          "args": { "optional": "first", "required": "+literal" }
+        }
+      }
+    },
+    {
+      "id": "sigil-before-default-subcommand",
+      "doc": "A sigil does not prevent a later ordinary word from selecting the default subcommand.",
+      "spec": "name \"ex\"\nbin \"ex\"\ndefault_subcommand \"run\"\narg \"[tools]...\" sigil=\"+\"\ncmd \"run\" { arg \"<command>\" }\n",
+      "argv": ["+node@27", "node"],
+      "expect": {
+        "ok": {
+          "cmd": ["run"],
+          "args": { "tools": ["node@27"], "command": "node" }
+        }
+      }
+    },
+    {
+      "id": "sigil-outranks-external-command",
+      "doc": "A declared sigil binds before an external-command catch-all forwards the remaining argv.",
+      "spec": "name \"ex\"\nbin \"ex\"\nexternal_subcommand #true\narg \"[tools]...\" sigil=\"+\"\n",
+      "argv": ["+node@27", "node", "-v"],
+      "expect": {
+        "ok": {
+          "args": { "tools": ["node@27"] },
+          "external": ["node", "-v"]
+        }
+      }
+    },
+    {
+      "id": "automatic-boundary-protects-later-sigil",
+      "doc": "Once an automatic trailing positional starts, later sigil-shaped words are data.",
+      "spec": "name \"ex\"\nbin \"ex\"\narg \"[tools]...\" sigil=\"+\"\narg \"<command>\" double_dash=\"automatic\"\narg \"[args]...\"\n",
+      "argv": ["run", "+literal"],
+      "expect": {
+        "ok": {
+          "args": { "command": "run", "args": ["+literal"] }
+        }
+      }
+    }
+  ]
+}

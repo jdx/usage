@@ -705,7 +705,45 @@ impl SpecCommand {
                 k => bail_parse!(ctx, child.node.name().span(), "unsupported cmd key {k}"),
             }
         }
+        let mut sigils: Vec<&str> = Vec::new();
+        for arg in &cmd.args {
+            if let Some(sigil) = &arg.sigil {
+                if let Some(existing) = sigils
+                    .iter()
+                    .find(|existing| existing.starts_with(sigil) || sigil.starts_with(**existing))
+                {
+                    bail_parse!(
+                        ctx,
+                        node.node.name().span(),
+                        "argument sigils must not overlap: {existing:?} and {sigil:?}"
+                    );
+                }
+                sigils.push(sigil);
+            }
+        }
         Ok(cmd)
+    }
+
+    pub(crate) fn validate_sigil_prefixes(&self) -> Result<(), String> {
+        fn validate(cmd: &SpecCommand, ancestors: &[String]) -> Result<(), String> {
+            let mut active = ancestors.to_vec();
+            for sigil in cmd.args.iter().filter_map(|arg| arg.sigil.as_ref()) {
+                if let Some(existing) = active.iter().find(|existing| {
+                    existing.starts_with(sigil.as_str()) || sigil.starts_with(existing.as_str())
+                }) {
+                    return Err(format!(
+                        "argument sigils must not overlap: {existing:?} and {sigil:?}"
+                    ));
+                }
+                active.push(sigil.clone());
+            }
+            for subcommand in cmd.subcommands.values() {
+                validate(subcommand, &active)?;
+            }
+            Ok(())
+        }
+
+        validate(self, &[])
     }
     pub(crate) fn is_empty(&self) -> bool {
         self.args.is_empty()
@@ -1610,6 +1648,26 @@ mod tests {
     use crate::spec::effect::SpecCommandEffect;
     use crate::Spec;
     use insta::assert_snapshot;
+
+    #[test]
+    fn overlapping_sigils_are_rejected_on_one_command_and_across_subcommands() {
+        for spec in [
+            r#"bin "ex"
+arg "[short]..." sigil="+"
+arg "[long]..." sigil="++"
+"#,
+            r#"bin "ex"
+arg "[short]..." sigil="+"
+cmd "run" { arg "[long]..." sigil="++" }
+"#,
+        ] {
+            let error = Spec::parse(&Default::default(), spec).unwrap_err();
+            assert!(
+                format!("{error:?}").contains("argument sigils must not overlap"),
+                "{error:?}"
+            );
+        }
+    }
 
     #[test]
     fn test_effect_prop_and_child_node() {

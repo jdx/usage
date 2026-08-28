@@ -141,6 +141,8 @@ fn classify(msg: &str) -> Observed {
         }
     } else if msg.contains("Invalid choice") || msg.contains("expected one of") {
         ErrorCode::InvalidChoice
+    } else if msg.contains("Invalid value") {
+        ErrorCode::InvalidValue
     } else if msg.contains("Unexpected argument") || msg.contains("unexpected") {
         ErrorCode::UnexpectedArg
     } else {

@@ -355,6 +355,12 @@ pub enum TokenRole {
     External,
     /// The parser stopped before this word — a help request, a refused value.
     Unread,
+    /// Filled a sigil-classified positional after removing its declared prefix.
+    Sigil {
+        arg: Arc<SpecArg>,
+        sigil: String,
+        values: Vec<String>,
+    },
 }
 
 /// One word of the command line, and what it became.
@@ -1512,6 +1518,14 @@ fn parse_partial_traced(
                     }
                 }
             }
+            // Sigil-classified positionals do not occupy the ordinary positional cursor and
+            // therefore do not close subcommand routing. Phase 2 binds and strips them. A
+            // default subcommand gets first refusal so interpreted and compiled routing agree
+            // when the root sigil and the default command can both accept this word.
+            if match_sigil_arg_chain(&out.cmds, &input[idx].word).is_some() {
+                idx += 1;
+                continue;
+            }
             // An unmatched word that names no subcommand is forwarded as an external
             // command: this word, then every token after it, including flags. Known
             // subcommands already won above, and a default_subcommand already caught.
@@ -1538,13 +1552,16 @@ fn parse_partial_traced(
     // explicit `--` may jump it *past* arguments that stay empty (see the `w == "--"` arm).
     // With such a gap `out.args.len()` no longer equals the cursor, so anything asking "is this
     // argument filled?" has to consult `out.args` by key instead of counting.
-    let mut next_arg_idx: usize = 0;
+    let mut next_arg_idx = cursor_skip_sigils(&out.cmd, 0);
     let mut enable_flags = true;
     let mut grouped_flag = false;
     // Whether an explicit `--` has been consumed *as a separator* (as opposed to being kept as a
     // value by `double_dash="preserve"`). Args declared `double_dash="required"` only accept
     // words that come after it — see `report_double_dash_violation`.
     let mut seen_double_dash = false;
+    // Sigils are a leading-segment grammar. A restart begins a later segment but does not
+    // reopen sigil classification for this invocation.
+    let mut restart_seen = false;
     // Args already reported as having been offered a word before the `--` they require, so a
     // variadic one does not report the same violation for every word it is offered.
     let mut double_dash_violations: HashSet<String> = HashSet::new();
@@ -1581,7 +1598,8 @@ fn parse_partial_traced(
                 // dropped them would show a command line with a hole in it.
                 out.arg_origins.clear();
                 trace.record(argv, TokenRole::Restart);
-                next_arg_idx = 0;
+                next_arg_idx = cursor_skip_sigils(&out.cmd, 0);
+                restart_seen = true;
                 out.flag_awaiting_value.clear(); // Clear any pending flag values
                 enable_flags = true; // Reset -- separator effect
                 seen_double_dash = false; // The next invocation needs its own `--`
@@ -2100,26 +2118,102 @@ fn parse_partial_traced(
             continue;
         }
 
+        if let Some((arg, sigil, value)) = (enable_flags && !restart_seen)
+            .then(|| match_sigil_arg_chain(&out.cmds, &w))
+            .flatten()
+        {
+            if value.is_empty() {
+                out.errors.push(UsageErr::InvalidValue {
+                    name: arg.name.clone(),
+                    value: w.clone(),
+                    reason: format!("expected a value after sigil {sigil:?}"),
+                });
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+                return Ok((out, overridden_flags));
+            }
+            let trailing_value = arg.double_dash == SpecDoubleDashChoices::Automatic;
+            let suppress_trailing_delimiter =
+                out.cmds.iter().any(|cmd| cmd.dont_delimit_trailing_values);
+            let delimiter = if suppress_trailing_delimiter && trailing_value {
+                None
+            } else {
+                arg.delimiter
+            };
+            let parts = match delimiter {
+                Some(delimiter) => value
+                    .split(delimiter)
+                    .map(str::to_string)
+                    .collect::<Vec<_>>(),
+                None => vec![value.to_string()],
+            };
+            let mut refused = false;
+            for part in &parts {
+                if validate_choices(
+                    spec,
+                    &out.cmd,
+                    &mut out.errors,
+                    ChoiceTarget::arg(arg),
+                    part,
+                    arg.choices.as_ref(),
+                    custom_env,
+                )? {
+                    refused = true;
+                    break;
+                }
+            }
+            if refused {
+                record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+                return Ok((out, overridden_flags));
+            }
+            trace.record(
+                argv,
+                TokenRole::Sigil {
+                    arg: Arc::new(arg.clone()),
+                    sigil: sigil.to_string(),
+                    values: parts.clone(),
+                },
+            );
+            let key = Arc::new(arg.clone());
+            if arg.var {
+                let arr = out
+                    .args
+                    .entry(key)
+                    .or_insert_with(|| ParseValue::MultiString(vec![]))
+                    .try_as_multi_string_mut()
+                    .unwrap();
+                arr.extend(parts);
+            } else {
+                out.args.insert(key, ParseValue::String(value.to_string()));
+            }
+            continue;
+        }
+
         if out.cmd.allow_missing_positional {
+            next_arg_idx = cursor_skip_sigils(&out.cmd, next_arg_idx);
             while let Some(current) = out.cmd.args.get(next_arg_idx) {
                 if current.required || out.args.contains_key(current) {
                     break;
                 }
                 let required_after = out.cmd.args[next_arg_idx + 1..]
                     .iter()
-                    .filter(|arg| arg.required)
+                    .filter(|arg| arg.required && arg.sigil.is_none())
                     .count();
                 if required_after == 0 {
                     break;
                 }
                 let remaining_values = 1 + input
                     .iter()
-                    .filter(|token| !enable_flags || !is_flag_like(&token.word))
+                    .filter(|token| {
+                        (!enable_flags || !is_flag_like(&token.word))
+                            && (!enable_flags
+                                || restart_seen
+                                || match_sigil_arg_chain(&out.cmds, &token.word).is_none())
+                    })
                     .count();
                 if remaining_values > required_after {
                     break;
                 }
-                next_arg_idx += 1;
+                next_arg_idx = cursor_skip_sigils(&out.cmd, next_arg_idx + 1);
             }
         }
 
@@ -4043,10 +4137,45 @@ fn record_stop(
     trace: &mut Trace,
     unread: &VecDeque<Token>,
 ) {
-    out.next_arg = out.cmd.args.get(next_arg_idx).cloned().map(Arc::new);
+    out.next_arg = out
+        .cmd
+        .args
+        .get(cursor_skip_sigils(&out.cmd, next_arg_idx))
+        .cloned()
+        .map(Arc::new);
     out.double_dash_seen = seen_double_dash;
     trace.close(unread);
     out.tokens = std::mem::take(&mut trace.tokens);
+}
+
+fn cursor_skip_sigils(cmd: &SpecCommand, mut idx: usize) -> usize {
+    while cmd.args.get(idx).is_some_and(|arg| arg.sigil.is_some()) {
+        idx += 1;
+    }
+    idx
+}
+
+fn match_sigil_arg<'a>(
+    cmd: &'a SpecCommand,
+    word: &'a str,
+) -> Option<(&'a SpecArg, &'a str, &'a str)> {
+    cmd.args
+        .iter()
+        .filter_map(|arg| {
+            let sigil = arg.sigil.as_deref()?;
+            let value = word.strip_prefix(sigil)?;
+            Some((arg, sigil, value))
+        })
+        .max_by_key(|(_, sigil, _)| sigil.len())
+}
+
+fn match_sigil_arg_chain<'a>(
+    cmds: &'a [SpecCommand],
+    word: &'a str,
+) -> Option<(&'a SpecArg, &'a str, &'a str)> {
+    cmds.iter()
+        .filter_map(|cmd| match_sigil_arg(cmd, word))
+        .max_by_key(|(_, sigil, _)| sigil.len())
 }
 
 /// Record that `arg` was handed a word before the `--` it requires.
@@ -4152,6 +4281,9 @@ fn render_role(role: &TokenRole) -> String {
             format!("value of {} = {values:?}{attached}", flag.name)
         }
         TokenRole::Arg { arg, values } => format!("arg {} = {values:?}", arg.name),
+        TokenRole::Sigil { arg, sigil, values } => {
+            format!("sigil arg {} ({sigil}) = {values:?}", arg.name)
+        }
         TokenRole::Separator => "separator".to_string(),
         TokenRole::Builtin { spelling } => format!("built-in {spelling}"),
         TokenRole::ValueTerminator { ends } => format!("value terminator, ends {ends}"),
@@ -6486,6 +6618,26 @@ arg "<required>"
     }
 
     #[test]
+    fn sigil_args_do_not_block_optional_positional_skipping() {
+        let spec: Spec = r#"name "ex"
+bin "ex"
+allow_missing_positional #true
+arg "[optional]"
+arg "[tool]" sigil="@"
+arg "<required>"
+"#
+        .parse()
+        .unwrap();
+
+        let out = parse(&spec, &input(&["ex", "@node", "value"])).unwrap();
+        assert!(!out.args.keys().any(|arg| arg.name == "optional"));
+        let tool = out.args.keys().find(|arg| arg.name == "tool").unwrap();
+        let required = out.args.keys().find(|arg| arg.name == "required").unwrap();
+        assert_eq!(out.args[tool].to_string(), "node");
+        assert_eq!(out.args[required].to_string(), "value");
+    }
+
+    #[test]
     fn unknown_flags_can_be_rejected_for_the_whole_cli() {
         let spec: Spec =
             "name \"ex\"\nbin \"ex\"\nunknown_flags \"error\"\nflag \"--force\"\nflag \"-0 --print0\"\narg \"[rest]...\" allow_negative_numbers=#true\n"
@@ -6610,6 +6762,32 @@ cmd "build" {
         assert_eq!(arg.name, "task");
         let value = parsed.args.values().next().unwrap();
         assert_eq!(value.to_string(), "mytask");
+    }
+
+    #[test]
+    fn default_subcommand_outranks_root_sigil_arg() {
+        let spec: Spec = r#"
+name "test"
+bin "test"
+default_subcommand "run"
+arg "[tools]..." sigil="+"
+cmd "run" { arg "<task>" }
+"#
+        .parse()
+        .unwrap();
+
+        let parsed = parse(&spec, &input(&["test", "+node", "node"])).unwrap();
+        assert_eq!(parsed.cmd.name, "run");
+        let value = |name| {
+            parsed
+                .args
+                .iter()
+                .find(|(arg, _)| arg.name == name)
+                .map(|(_, value)| value.to_string())
+                .unwrap()
+        };
+        assert_eq!(value("tools"), "node");
+        assert_eq!(value("task"), "node");
     }
 
     #[test]

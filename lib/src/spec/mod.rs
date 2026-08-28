@@ -779,6 +779,10 @@ impl Spec {
         if resolve_outputs {
             output::resolve_selectors(&mut schema)?;
         }
+        schema
+            .cmd
+            .validate_sigil_prefixes()
+            .map_err(|message| ctx.build_err(message, (0, ctx.spec.len()).into()))?;
         schema.sources.extend(ctx.sources());
         set_subcommand_ancestors(&mut schema.cmd, &[]);
         Ok(schema)

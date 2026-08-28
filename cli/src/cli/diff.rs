@@ -1164,6 +1164,18 @@ fn diff_arg(old: &SpecArg, new: &SpecArg, path: &str, subject: &str, c: &mut Cha
         );
     }
 
+    if old.sigil != new.sigil {
+        c.breaking(
+            "sigil-changed",
+            path,
+            format!(
+                "{subject} sigil changed from {} to {}",
+                option(&old.sigil),
+                option(&new.sigil)
+            ),
+        );
+    }
+
     if old.allow_negative_numbers && !new.allow_negative_numbers {
         c.breaking(
             "allow-negative-numbers-removed",

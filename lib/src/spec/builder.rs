@@ -543,6 +543,12 @@ impl SpecArgBuilder {
         self
     }
 
+    /// Classify this positional by a leading token prefix and strip it on binding.
+    pub fn sigil(mut self, sigil: impl Into<String>) -> Self {
+        self.inner.sigil = Some(sigil.into());
+        self
+    }
+
     /// Set the ordered placeholders for a fixed-arity value.
     pub fn value_names<I, S>(mut self, names: I) -> Self
     where
