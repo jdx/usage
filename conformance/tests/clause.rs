@@ -75,6 +75,26 @@ clause "tasks" separator=":::" {
 }
 
 #[test]
+fn clause_arguments_can_accept_negative_numbers() {
+    let spec: Spec = r#"
+name "clause"
+bin "clause"
+unknown_flags "error"
+clause "numbers" separator=":::" {
+  arg "<number>" allow_negative_numbers=#true
+}
+"#
+    .parse()
+    .expect("valid clause spec");
+    let parsed = usage::Parser::new(&spec)
+        .parse(&["clause", "-1", ":::", "-2"].map(str::to_string))
+        .expect("negative numbers are clause values, not flags");
+    let instances = &parsed.clauses["numbers"];
+    assert_eq!(strings(instances[0].iter(), "number"), ["-1"]);
+    assert_eq!(strings(instances[1].iter(), "number"), ["-2"]);
+}
+
+#[test]
 fn clause_round_trips_through_canonical_kdl() {
     let spec = spec();
     let emitted = spec.to_string();

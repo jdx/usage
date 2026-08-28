@@ -1975,9 +1975,7 @@ fn parse_partial_traced(
         let declared_numeric_short = declared_numeric_short(&out.available_flags, &w);
         let positional_negative_number = !declared_numeric_short
             && is_negative_number(&w)
-            && out
-                .cmd
-                .args
+            && active_args(&out.cmd)
                 .get(next_arg_idx)
                 .is_some_and(|arg| arg.allow_negative_numbers);
         if enable_flags
