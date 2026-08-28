@@ -1625,7 +1625,7 @@ fn default_subcommand_arg<'a>(
     subcommands()
         .find(|sub| sub.cmd.name == default)
         .or_else(|| subcommands().find(|sub| sub.cmd.aliases.contains(&default)))
-        .and_then(|sub| first_ordinary_arg(sub).map(|field| (sub, field)))
+        .and_then(|sub| restart_arg(sub).map(|field| (sub, field)))
 }
 
 /// The first argument that advances the ordinary positional cursor.
@@ -3667,7 +3667,7 @@ mod tests {
             args: &[&TASK_ARG],
         };
         static COMMAND: Command = Command {
-            name: "ex",
+            name: "run",
             clause: Some(TASKS),
             ..Command::EMPTY
         };
@@ -3687,14 +3687,31 @@ mod tests {
             }),
             ..CommandMeta::EMPTY
         };
+        static ROOT: Command = Command {
+            name: "ex",
+            subcommands: &[&COMMAND],
+            ..Command::EMPTY
+        };
+        static ROOT_META: CommandMeta = CommandMeta {
+            cmd: &ROOT,
+            subcommands: &[&META],
+            ..CommandMeta::EMPTY
+        };
         static CLAUSE_SPEC: Spec = Spec {
             name: "ex",
             bin: Some("ex"),
-            root: &META,
+            root: &ROOT_META,
+            default_subcommand: Some("run"),
             ..Spec::EMPTY
         };
 
-        let values = candidates(&CLAUSE_SPEC, &at_end("ex build ::: b"))
+        let values = candidates(&CLAUSE_SPEC, &at_end("ex run build ::: b"))
+            .into_iter()
+            .map(|candidate| candidate.value)
+            .collect::<Vec<_>>();
+        assert_eq!(values, ["build"]);
+
+        let values = candidates(&CLAUSE_SPEC, &at_end("ex b"))
             .into_iter()
             .map(|candidate| candidate.value)
             .collect::<Vec<_>>();
