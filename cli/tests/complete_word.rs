@@ -306,6 +306,27 @@ fn complete_word_clause_separator_restarts_at_the_first_inner_arg() {
 }
 
 #[test]
+fn complete_word_default_subcommand_reaches_clause_arguments() {
+    let spec = r#"
+name "ex"
+bin "ex"
+default_subcommand "run"
+cmd "run" {
+    clause "tasks" separator=":::" {
+        arg "<task>" {
+            choices "build" "check"
+        }
+    }
+}
+"#;
+    Command::new(cargo::cargo_bin!("usage"))
+        .args(["cw", "--shell", "fish", "--spec", spec, "--", "mycli", "b"])
+        .assert()
+        .success()
+        .stdout("build\n");
+}
+
+#[test]
 fn complete_word_choices_from_env() {
     cmd("env-choices.usage.kdl", Some("fish"))
         .env("DEPLOY_ENVS", "foo,bar baz")

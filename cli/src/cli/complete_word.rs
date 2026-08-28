@@ -253,13 +253,7 @@ impl CompleteWord {
             // This must be checked after flag checks (to allow --flag after :::)
             // but before flag_awaiting_value (since restart clears pending flag values)
             let mut choices = vec![];
-            if let Some(arg) = parsed
-                .cmd
-                .clause
-                .as_ref()
-                .and_then(|clause| clause.args.first())
-                .or_else(|| first_ordinary_arg(&parsed.cmd))
-            {
+            if let Some(arg) = first_active_arg(&parsed.cmd) {
                 let (found, constrained) = self.complete_positional(
                     &cx,
                     &parsed.cmd,
@@ -329,7 +323,7 @@ impl CompleteWord {
                         // them — see `complete_word_default_subcommand_choices_do_not_block_
                         // root_file_fallback`. The `double_dash="required"` rule does apply,
                         // which is why this goes through the helper at all.
-                        if let Some(arg) = first_ordinary_arg(default_cmd) {
+                        if let Some(arg) = first_active_arg(default_cmd) {
                             let (found, _) = self.complete_positional(
                                 &cx,
                                 default_cmd,
@@ -1083,6 +1077,14 @@ struct Ctx<'a> {
 /// The first argument that advances the ordinary positional cursor.
 fn first_ordinary_arg(cmd: &SpecCommand) -> Option<&SpecArg> {
     cmd.args.iter().find(|arg| arg.sigil.is_none())
+}
+
+/// The first argument in the command's active positional grammar.
+fn first_active_arg(cmd: &SpecCommand) -> Option<&SpecArg> {
+    cmd.clause
+        .as_ref()
+        .and_then(|clause| clause.args.first())
+        .or_else(|| first_ordinary_arg(cmd))
 }
 
 /// A description reduced to one line.
