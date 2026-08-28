@@ -278,6 +278,29 @@ complete "tool" run="printf '%s\\n' {{ words[CURRENT] | shell_quote }}"
 }
 
 #[test]
+fn complete_word_restart_skips_leading_sigil_args() {
+    let spec = r#"
+name "ex"
+bin "ex"
+cmd "run" restart_token=":::" {
+    arg "[tool]..." sigil="+" {
+        choices "node@22" "node@24"
+    }
+    arg "<command>" {
+        choices "build" "check"
+    }
+}
+"#;
+    Command::new(cargo::cargo_bin!("usage"))
+        .args([
+            "cw", "--shell", "fish", "--spec", spec, "--", "mycli", "run", "build", ":::", "b",
+        ])
+        .assert()
+        .success()
+        .stdout("build\n");
+}
+
+#[test]
 fn complete_word_choices_from_env() {
     cmd("env-choices.usage.kdl", Some("fish"))
         .env("DEPLOY_ENVS", "foo,bar baz")

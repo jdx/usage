@@ -497,8 +497,7 @@ fn trace_from<'a>(
     let chain = metadata_chain_on_route(spec, &position);
     let meta = chain.as_ref().and_then(|chain| chain.last().copied());
     let next_arg = if restarted(meta, split) {
-        meta.and_then(|meta| meta.args.first())
-            .map(|field| field.arg)
+        meta.and_then(first_ordinary_arg).map(|field| field.arg)
     } else {
         position
             .next_arg
@@ -1088,7 +1087,7 @@ fn declared_files_at_cursor(
     let after_restart = restarted(meta, split);
     let sigil_cursor = sigil_arg_at_cursor(spec, position, split);
     let at_cursor = if after_restart {
-        meta.and_then(|m| m.args.first()).map(|m| m.arg)
+        meta.and_then(first_ordinary_arg).map(|m| m.arg)
     } else {
         sigil_cursor
             .map(|(_, field, _, _)| field.arg)
@@ -1190,12 +1189,13 @@ fn complete_inner<'a>(
 
     // Which argument the cursor is at — the same question `candidates` answers, asked once so
     // that the two halves cannot disagree. Past a restart token it is the command's *first*
-    // argument, whatever the words before the token filled, and everything below follows from
-    // that: whether paths belong, whether the set is declared, whether a separator is owed.
+    // ordinary argument, whatever the words before the token filled, and everything below
+    // follows from that: whether paths belong, whether the set is declared, whether a separator
+    // is owed. Sigil arguments are overlays and do not occupy the positional cursor.
     let after_restart = restarted(meta, split);
     let sigil_cursor = sigil_arg_at_cursor(spec, &position, split);
     let at_cursor = if after_restart {
-        meta.and_then(|m| m.args.first()).map(|m| m.arg)
+        meta.and_then(first_ordinary_arg).map(|m| m.arg)
     } else {
         sigil_cursor
             .map(|(_, field, _, _)| field.arg)
@@ -1463,7 +1463,7 @@ fn overlay_at_cursor<'o>(
     let sigil_target = sigil_arg_at_cursor(spec, position, split);
     let target = if restarted(meta, split) {
         meta.and_then(|owner| {
-            owner.args.first().map(|field| {
+            first_ordinary_arg(owner).map(|field| {
                 (
                     owner,
                     field.arg.name,
@@ -1601,7 +1601,12 @@ fn default_subcommand_arg<'a>(
     subcommands()
         .find(|sub| sub.cmd.name == default)
         .or_else(|| subcommands().find(|sub| sub.cmd.aliases.contains(&default)))
-        .and_then(|sub| sub.args.first().map(|field| (sub, field)))
+        .and_then(|sub| first_ordinary_arg(sub).map(|field| (sub, field)))
+}
+
+/// The first argument that advances the ordinary positional cursor.
+fn first_ordinary_arg<'m, 'a>(meta: &'m CommandMeta<'a>) -> Option<&'m ArgMeta<'a>> {
+    meta.args.iter().find(|field| field.arg.sigil.is_none())
 }
 
 /// The metadata route selected by the parser, preserving parent identity even when two
@@ -1675,9 +1680,9 @@ fn candidates_inner<'a>(
         short_flags(spec, &position, token)
     } else if restarted(meta, split) {
         // Past a restart token — mise's `:::`, which starts a fresh invocation of the same
-        // command — the cursor is at that command's *first* argument again, whatever the
-        // words before the token filled.
-        meta.and_then(|m| m.args.first())
+        // command — the cursor is at that command's first ordinary argument again, whatever
+        // the words before the token filled. Sigil arguments do not occupy that cursor.
+        meta.and_then(first_ordinary_arg)
             .map(|m| positional(m, &position, split, token))
             .unwrap_or_default()
     } else if let Some(flag) = position.awaiting_value {
@@ -2757,7 +2762,7 @@ mod tests {
         static COMMAND: Command = Command {
             name: "ex",
             flags: &[&JOBS],
-            args: &[&FILE_ARG, &OVERLAY],
+            args: &[&OVERLAY, &FILE_ARG],
             ..Command::EMPTY
         };
         static META: CommandMeta = CommandMeta {
@@ -2769,12 +2774,12 @@ mod tests {
             }],
             args: &[
                 ArgMeta {
-                    arg: &FILE_ARG,
+                    arg: &OVERLAY,
+                    choices: &["node@22", "node@24", "python@3.14"],
                     ..ArgMeta::EMPTY
                 },
                 ArgMeta {
-                    arg: &OVERLAY,
-                    choices: &["node@22", "node@24", "python@3.14"],
+                    arg: &FILE_ARG,
                     ..ArgMeta::EMPTY
                 },
             ],

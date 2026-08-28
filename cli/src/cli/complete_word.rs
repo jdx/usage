@@ -164,7 +164,8 @@ impl CompleteWord {
             });
         }
 
-        // Check if previous token was a restart_token - if so, complete from first arg
+        // Check if previous token was a restart_token - if so, complete from the first
+        // ordinary arg. Sigil arguments are overlays and do not occupy that cursor.
         let prev_token = if cword > 0 {
             self.words.get(cword - 1).map(|s| s.as_str())
         } else {
@@ -240,11 +241,11 @@ impl CompleteWord {
         } else if flags_possible && ctoken.starts_with('-') {
             self.complete_short_flag_names(&flags, &ctoken)
         } else if after_restart_token {
-            // After a restart_token, complete from the first arg of the current command
+            // After a restart_token, complete from the first ordinary arg of the current command
             // This must be checked after flag checks (to allow --flag after :::)
             // but before flag_awaiting_value (since restart clears pending flag values)
             let mut choices = vec![];
-            if let Some(arg) = parsed.cmd.args.first() {
+            if let Some(arg) = first_ordinary_arg(&parsed.cmd) {
                 let (found, constrained) = self.complete_positional(
                     &cx,
                     &parsed.cmd,
@@ -304,7 +305,7 @@ impl CompleteWord {
             if parsed.cmd.name == spec.cmd.name {
                 if let Some(default_name) = &spec.default_subcommand {
                     if let Some(default_cmd) = spec.cmd.find_subcommand(default_name) {
-                        // Include completions from default subcommand's first arg.
+                        // Include completions from default subcommand's first ordinary arg.
                         //
                         // The `constrained` half is dropped on purpose: unlike the two call
                         // sites above, this arg belongs to a *different* command and is only
@@ -314,7 +315,7 @@ impl CompleteWord {
                         // them — see `complete_word_default_subcommand_choices_do_not_block_
                         // root_file_fallback`. The `double_dash="required"` rule does apply,
                         // which is why this goes through the helper at all.
-                        if let Some(arg) = default_cmd.args.first() {
+                        if let Some(arg) = first_ordinary_arg(default_cmd) {
                             let (found, _) = self.complete_positional(
                                 &cx,
                                 default_cmd,
@@ -1063,6 +1064,11 @@ struct Ctx<'a> {
     spec: &'a Spec,
     parsed: &'a ParseOutput,
     after_restart_token: bool,
+}
+
+/// The first argument that advances the ordinary positional cursor.
+fn first_ordinary_arg(cmd: &SpecCommand) -> Option<&SpecArg> {
+    cmd.args.iter().find(|arg| arg.sigil.is_none())
 }
 
 /// A description reduced to one line.
