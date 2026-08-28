@@ -513,12 +513,7 @@ fn trace_from<'a>(
     let chain = metadata_chain_on_route(spec, &position);
     let meta = chain.as_ref().and_then(|chain| chain.last().copied());
     let next_arg = if restarted(meta, split) {
-        meta.and_then(|meta| {
-            meta.clause
-                .and_then(|clause| clause.args.first())
-                .or_else(|| first_ordinary_arg(meta))
-        })
-        .map(|field| field.arg)
+        meta.and_then(restart_arg).map(|field| field.arg)
     } else {
         position
             .next_arg
@@ -1108,7 +1103,7 @@ fn declared_files_at_cursor(
     let after_restart = restarted(meta, split);
     let sigil_cursor = sigil_arg_at_cursor(spec, position, split);
     let at_cursor = if after_restart {
-        meta.and_then(first_ordinary_arg).map(|m| m.arg)
+        meta.and_then(restart_arg).map(|m| m.arg)
     } else {
         sigil_cursor
             .map(|(_, field, _, _)| field.arg)
@@ -1209,14 +1204,14 @@ fn complete_inner<'a>(
     let candidates = candidates_inner(spec, split, view);
 
     // Which argument the cursor is at — the same question `candidates` answers, asked once so
-    // that the two halves cannot disagree. Past a restart token it is the command's *first*
-    // ordinary argument, whatever the words before the token filled, and everything below
-    // follows from that: whether paths belong, whether the set is declared, whether a separator
-    // is owed. Sigil arguments are overlays and do not occupy the positional cursor.
+    // that the two halves cannot disagree. Past a restart token it is the first clause argument,
+    // or the command's first ordinary argument when there is no clause, whatever the words
+    // before the token filled. Everything below follows from that: whether paths belong,
+    // whether the set is declared, whether a separator is owed.
     let after_restart = restarted(meta, split);
     let sigil_cursor = sigil_arg_at_cursor(spec, &position, split);
     let at_cursor = if after_restart {
-        meta.and_then(first_ordinary_arg).map(|m| m.arg)
+        meta.and_then(restart_arg).map(|m| m.arg)
     } else {
         sigil_cursor
             .map(|(_, field, _, _)| field.arg)
@@ -1484,7 +1479,7 @@ fn overlay_at_cursor<'o>(
     let sigil_target = sigil_arg_at_cursor(spec, position, split);
     let target = if restarted(meta, split) {
         meta.and_then(|owner| {
-            first_ordinary_arg(owner).map(|field| {
+            restart_arg(owner).map(|field| {
                 (
                     owner,
                     field.arg.name,
@@ -1638,6 +1633,13 @@ fn first_ordinary_arg<'m, 'a>(meta: &'m CommandMeta<'a>) -> Option<&'m ArgMeta<'
     meta.args.iter().find(|field| field.arg.sigil.is_none())
 }
 
+/// The positional target immediately after this command's restart token.
+fn restart_arg<'m, 'a>(meta: &'m CommandMeta<'a>) -> Option<&'m ArgMeta<'a>> {
+    meta.clause
+        .and_then(|clause| clause.args.first())
+        .or_else(|| first_ordinary_arg(meta))
+}
+
 /// The metadata route selected by the parser, preserving parent identity even when two
 /// wrappers reuse the same nested command tables.
 fn metadata_chain_on_route<'a>(
@@ -1709,9 +1711,9 @@ fn candidates_inner<'a>(
         short_flags(spec, &position, token)
     } else if restarted(meta, split) {
         // Past a restart token — mise's `:::`, which starts a fresh invocation of the same
-        // command — the cursor is at that command's first ordinary argument again, whatever
-        // the words before the token filled. Sigil arguments do not occupy that cursor.
-        meta.and_then(first_ordinary_arg)
+        // command — the cursor is at its first clause argument, or its first ordinary argument
+        // when there is no clause, whatever the words before the token filled.
+        meta.and_then(restart_arg)
             .map(|m| positional(m, &position, split, token))
             .unwrap_or_default()
     } else if let Some(flag) = position.awaiting_value {
@@ -3649,6 +3651,54 @@ mod tests {
         assert_eq!(offered("mise task one "), ["alpha", "beta"]);
         assert_eq!(offered("mise task one ::: "), ["one", "two"]);
         assert_eq!(offered("mise task one ::: t"), ["two"]);
+    }
+
+    #[test]
+    fn a_clause_restart_targets_the_first_inner_argument() {
+        static TASK_ARG: Arg = Arg {
+            key: 91,
+            name: "task",
+            ..Arg::REQUIRED
+        };
+        static TASKS: crate::Clause = crate::Clause {
+            key: 92,
+            name: "tasks",
+            separator: b":::",
+            args: &[&TASK_ARG],
+        };
+        static COMMAND: Command = Command {
+            name: "ex",
+            clause: Some(TASKS),
+            ..Command::EMPTY
+        };
+        static META: CommandMeta = CommandMeta {
+            cmd: &COMMAND,
+            restart_token: Some(":::"),
+            clause: Some(crate::spec::ClauseMeta {
+                name: "tasks",
+                separator: ":::",
+                help: None,
+                long_help: None,
+                args: &[ArgMeta {
+                    arg: &TASK_ARG,
+                    choices: &["build", "check"],
+                    ..ArgMeta::EMPTY
+                }],
+            }),
+            ..CommandMeta::EMPTY
+        };
+        static CLAUSE_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &META,
+            ..Spec::EMPTY
+        };
+
+        let values = candidates(&CLAUSE_SPEC, &at_end("ex build ::: b"))
+            .into_iter()
+            .map(|candidate| candidate.value)
+            .collect::<Vec<_>>();
+        assert_eq!(values, ["build"]);
     }
 
     #[test]
