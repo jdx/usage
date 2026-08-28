@@ -164,7 +164,8 @@ impl CompleteWord {
             });
         }
 
-        // Check if previous token was a restart_token - if so, complete from first arg
+        // Check if previous token was a restart_token - if so, complete from the first
+        // ordinary arg. Sigil arguments are overlays and do not occupy that cursor.
         let prev_token = if cword > 0 {
             self.words.get(cword - 1).map(|s| s.as_str())
         } else {
@@ -188,7 +189,49 @@ impl CompleteWord {
         let flags = parsed.completion_flags();
         // An explicit `--` stops the parser reading flags, so past one there is no such thing
         // as a flag to complete — a dash-prefixed word is a positional value.
-        let flags_possible = !parsed.double_dash_seen;
+        let restart_seen = parsed.tokens.iter().any(|token| {
+            token
+                .roles
+                .iter()
+                .any(|role| matches!(role, usage::parse::TokenRole::Restart))
+        });
+        let automatic_trailing_seen = parsed
+            .tokens
+            .iter()
+            .rev()
+            .take_while(|token| {
+                !token
+                    .roles
+                    .iter()
+                    .any(|role| matches!(role, usage::parse::TokenRole::Restart))
+            })
+            .flat_map(|token| &token.roles)
+            .any(|role| match role {
+                usage::parse::TokenRole::Arg { arg, .. }
+                | usage::parse::TokenRole::Sigil { arg, .. } => {
+                    arg.double_dash == usage::SpecDoubleDashChoices::Automatic
+                }
+                _ => false,
+            });
+        let flags_possible = !parsed.double_dash_seen && !automatic_trailing_seen;
+        let sigil_arg = (flags_possible
+            && !restart_seen
+            && !after_restart_token
+            && parsed.flag_awaiting_value.is_empty())
+        .then(|| {
+            parsed
+                .cmds
+                .iter()
+                .flat_map(|cmd| cmd.args.iter().map(move |arg| (cmd, arg)))
+                .filter_map(|(cmd, arg)| {
+                    let sigil = arg.sigil.as_deref()?;
+                    ctoken
+                        .strip_prefix(sigil)
+                        .map(|prefix| (cmd, arg, sigil, prefix))
+                })
+                .max_by_key(|(_, _, sigil, _)| sigil.len())
+        })
+        .flatten();
         let mut choices = if flags_possible && ctoken == "-" {
             let shorts = self.complete_short_flag_names(&flags, "");
             let longs = self.complete_long_flag_names(&flags, "");
@@ -198,11 +241,11 @@ impl CompleteWord {
         } else if flags_possible && ctoken.starts_with('-') {
             self.complete_short_flag_names(&flags, &ctoken)
         } else if after_restart_token {
-            // After a restart_token, complete from the first arg of the current command
+            // After a restart_token, complete from the first ordinary arg of the current command
             // This must be checked after flag checks (to allow --flag after :::)
             // but before flag_awaiting_value (since restart clears pending flag values)
             let mut choices = vec![];
-            if let Some(arg) = parsed.cmd.args.first() {
+            if let Some(arg) = first_ordinary_arg(&parsed.cmd) {
                 let (found, constrained) = self.complete_positional(
                     &cx,
                     &parsed.cmd,
@@ -218,6 +261,29 @@ impl CompleteWord {
             let arg = flag.arg.as_ref().unwrap();
             let (found, closed) = self.complete_arg(&cx, &parsed.cmd, arg, &ctoken)?;
             has_explicit_choices = closed || arg.choices.is_some();
+            found
+        } else if let Some((owner, arg, sigil, prefix)) = sigil_arg {
+            // A dynamic completer and the candidate filter must see the same word. The
+            // parser removes a sigil before binding its value, so expose that stripped
+            // value through `words[CURRENT]` too; the prefix is restored only after the
+            // completer has answered.
+            let mut sigil_ctx = ctx.clone();
+            let mut sigil_words = self.words.clone();
+            if let Some(current) = sigil_words.get_mut(cword) {
+                *current = prefix.to_string();
+            }
+            sigil_ctx.insert("words", &sigil_words);
+            let sigil_cx = Ctx {
+                tera: &sigil_ctx,
+                spec: cx.spec,
+                parsed: cx.parsed,
+                after_restart_token: cx.after_restart_token,
+            };
+            let (mut found, closed) = self.complete_arg(&sigil_cx, owner, arg, prefix)?;
+            for (candidate, _) in &mut found {
+                candidate.insert_str(0, sigil);
+            }
+            has_explicit_choices = closed || arg.choices.is_some() || found.is_empty();
             found
         } else {
             let mut choices = vec![];
@@ -239,7 +305,7 @@ impl CompleteWord {
             if parsed.cmd.name == spec.cmd.name {
                 if let Some(default_name) = &spec.default_subcommand {
                     if let Some(default_cmd) = spec.cmd.find_subcommand(default_name) {
-                        // Include completions from default subcommand's first arg.
+                        // Include completions from default subcommand's first ordinary arg.
                         //
                         // The `constrained` half is dropped on purpose: unlike the two call
                         // sites above, this arg belongs to a *different* command and is only
@@ -249,7 +315,7 @@ impl CompleteWord {
                         // them — see `complete_word_default_subcommand_choices_do_not_block_
                         // root_file_fallback`. The `double_dash="required"` rule does apply,
                         // which is why this goes through the helper at all.
-                        if let Some(arg) = default_cmd.args.first() {
+                        if let Some(arg) = first_ordinary_arg(default_cmd) {
                             let (found, _) = self.complete_positional(
                                 &cx,
                                 default_cmd,
@@ -998,6 +1064,11 @@ struct Ctx<'a> {
     spec: &'a Spec,
     parsed: &'a ParseOutput,
     after_restart_token: bool,
+}
+
+/// The first argument that advances the ordinary positional cursor.
+fn first_ordinary_arg(cmd: &SpecCommand) -> Option<&SpecArg> {
+    cmd.args.iter().find(|arg| arg.sigil.is_none())
 }
 
 /// A description reduced to one line.

@@ -497,8 +497,7 @@ fn trace_from<'a>(
     let chain = metadata_chain_on_route(spec, &position);
     let meta = chain.as_ref().and_then(|chain| chain.last().copied());
     let next_arg = if restarted(meta, split) {
-        meta.and_then(|meta| meta.args.first())
-            .map(|field| field.arg)
+        meta.and_then(first_ordinary_arg).map(|field| field.arg)
     } else {
         position
             .next_arg
@@ -1086,11 +1085,13 @@ fn declared_files_at_cursor(
     }
     let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
     let after_restart = restarted(meta, split);
+    let sigil_cursor = sigil_arg_at_cursor(spec, position, split);
     let at_cursor = if after_restart {
-        meta.and_then(|m| m.args.first()).map(|m| m.arg)
+        meta.and_then(first_ordinary_arg).map(|m| m.arg)
     } else {
-        position
-            .next_arg
+        sigil_cursor
+            .map(|(_, field, _, _)| field.arg)
+            .or(position.next_arg)
             .or_else(|| default_subcommand_arg(spec, split, position).map(|(_, field)| field.arg))
     };
     if position.awaiting_value.is_none()
@@ -1098,6 +1099,9 @@ fn declared_files_at_cursor(
         && at_cursor.is_some_and(|arg| arg.double_dash == crate::DoubleDash::Required)
         && !position.separator_seen
     {
+        return None;
+    }
+    if sigil_cursor.is_some() {
         return None;
     }
     let value_flag = position
@@ -1185,13 +1189,17 @@ fn complete_inner<'a>(
 
     // Which argument the cursor is at — the same question `candidates` answers, asked once so
     // that the two halves cannot disagree. Past a restart token it is the command's *first*
-    // argument, whatever the words before the token filled, and everything below follows from
-    // that: whether paths belong, whether the set is declared, whether a separator is owed.
+    // ordinary argument, whatever the words before the token filled, and everything below
+    // follows from that: whether paths belong, whether the set is declared, whether a separator
+    // is owed. Sigil arguments are overlays and do not occupy the positional cursor.
     let after_restart = restarted(meta, split);
+    let sigil_cursor = sigil_arg_at_cursor(spec, &position, split);
     let at_cursor = if after_restart {
-        meta.and_then(|m| m.args.first()).map(|m| m.arg)
+        meta.and_then(first_ordinary_arg).map(|m| m.arg)
     } else {
-        position.next_arg
+        sigil_cursor
+            .map(|(_, field, _, _)| field.arg)
+            .or(position.next_arg)
     };
 
     // A dash-prefixed word is a flag or nothing: no path starts with one, and the reference
@@ -1260,7 +1268,7 @@ fn complete_inner<'a>(
     let closed =
         !candidates.is_empty() || declares_choices || declared_non_file_type || position.help_topic;
 
-    let files = if flag_like || needs_separator {
+    let files = if flag_like || needs_separator || sigil_cursor.is_some() {
         None
     } else if asked_for.is_some() {
         asked_for
@@ -1287,7 +1295,16 @@ pub async fn complete_with<'a>(
     };
 
     let attached = attached_long_value(&position, &split.prefix);
-    let value_prefix = attached.map_or(split.prefix.as_str(), |(_, _, prefix)| prefix);
+    let sigil = attached
+        .is_none()
+        .then(|| {
+            sigil_arg_at_cursor(spec, &position, split).map(|(_, _, sigil, prefix)| (sigil, prefix))
+        })
+        .flatten();
+    let value_prefix = attached
+        .map(|(_, _, prefix)| prefix)
+        .or_else(|| sigil.map(|(_, prefix)| prefix))
+        .unwrap_or(split.prefix.as_str());
     let words = split.argv();
     let command_path: Vec<(&Command<'_>, &[String])> = position
         .path
@@ -1308,6 +1325,10 @@ pub async fn complete_with<'a>(
     dynamic.retain(|candidate| candidate.value.starts_with(value_prefix));
     if let Some((_, form, _)) = attached {
         attach_candidates(&mut dynamic, form);
+    } else if let Some((sigil, _)) = sigil {
+        for candidate in &mut dynamic {
+            candidate.value.insert_str(0, sigil);
+        }
     }
 
     let mut answer = complete(spec, split);
@@ -1327,7 +1348,16 @@ async fn complete_named_with<'a>(
 ) -> Completions<'a> {
     let position = walk(spec.root.cmd, split.argv());
     let attached = attached_long_value(&position, &split.prefix);
-    let value_prefix = attached.map_or(split.prefix.as_str(), |(_, _, prefix)| prefix);
+    let sigil = attached
+        .is_none()
+        .then(|| {
+            sigil_arg_at_cursor(spec, &position, split).map(|(_, _, sigil, prefix)| (sigil, prefix))
+        })
+        .flatten();
+    let value_prefix = attached
+        .map(|(_, _, prefix)| prefix)
+        .or_else(|| sigil.map(|(_, prefix)| prefix))
+        .unwrap_or(split.prefix.as_str());
     let words = split.argv();
     let command_path: Vec<(&Command<'_>, &[String])> = position
         .path
@@ -1352,6 +1382,10 @@ async fn complete_named_with<'a>(
     candidates.retain(|candidate| candidate.value.starts_with(value_prefix));
     if let Some((_, form, _)) = attached {
         attach_candidates(&mut candidates, form);
+    } else if let Some((sigil, _)) = sigil {
+        for candidate in &mut candidates {
+            candidate.value.insert_str(0, sigil);
+        }
     }
     sort_and_dedup_candidates(&mut candidates);
     Completions {
@@ -1426,9 +1460,10 @@ fn overlay_at_cursor<'o>(
         return None;
     }
     let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
+    let sigil_target = sigil_arg_at_cursor(spec, position, split);
     let target = if restarted(meta, split) {
         meta.and_then(|owner| {
-            owner.args.first().map(|field| {
+            first_ordinary_arg(owner).map(|field| {
                 (
                     owner,
                     field.arg.name,
@@ -1442,6 +1477,8 @@ fn overlay_at_cursor<'o>(
     {
         flag_meta_owner_on_route(spec, position, flag)
             .map(|(owner, field)| (owner, field.value_name.unwrap_or(field.flag.name), false))
+    } else if let Some((owner, field, _, _)) = sigil_target {
+        Some((owner, field.arg.name, false))
     } else {
         position
             .next_arg
@@ -1496,6 +1533,31 @@ fn overlay_at_cursor<'o>(
     })
 }
 
+fn sigil_arg_at_cursor<'a, 'p>(
+    spec: &Spec<'a>,
+    position: &Position<'_>,
+    split: &'p Split,
+) -> Option<(&'a CommandMeta<'a>, &'a ArgMeta<'a>, &'a str, &'p str)> {
+    let meta = metadata_chain_on_route(spec, position).and_then(|chain| chain.last().copied());
+    if !position.flags_possible || position.awaiting_value.is_some() || restart_seen(meta, split) {
+        return None;
+    }
+    let token = split.prefix.as_str();
+    metadata_chain_on_route(spec, position)?
+        .into_iter()
+        .flat_map(|owner| owner.args.iter().map(move |field| (owner, field)))
+        .filter_map(|(owner, field)| {
+            let sigil = field
+                .arg
+                .sigil
+                .and_then(|value| core::str::from_utf8(value).ok())?;
+            token
+                .strip_prefix(sigil)
+                .map(|prefix| (owner, field, sigil, prefix))
+        })
+        .max_by_key(|(_, _, sigil, _)| sigil.len())
+}
+
 fn flag_meta_owner_on_route<'a>(
     spec: &Spec<'a>,
     position: &Position<'_>,
@@ -1539,7 +1601,12 @@ fn default_subcommand_arg<'a>(
     subcommands()
         .find(|sub| sub.cmd.name == default)
         .or_else(|| subcommands().find(|sub| sub.cmd.aliases.contains(&default)))
-        .and_then(|sub| sub.args.first().map(|field| (sub, field)))
+        .and_then(|sub| first_ordinary_arg(sub).map(|field| (sub, field)))
+}
+
+/// The first argument that advances the ordinary positional cursor.
+fn first_ordinary_arg<'m, 'a>(meta: &'m CommandMeta<'a>) -> Option<&'m ArgMeta<'a>> {
+    meta.args.iter().find(|field| field.arg.sigil.is_none())
 }
 
 /// The metadata route selected by the parser, preserving parent identity even when two
@@ -1584,6 +1651,7 @@ fn candidates_inner<'a>(
     }
     let meta = metadata_chain_on_route(spec, &position).and_then(|chain| chain.last().copied());
     let token = split.prefix.as_str();
+    let sigil_arg = sigil_arg_at_cursor(spec, &position, split);
 
     let mut out = if position.flags_possible && token == "-" {
         // Both forms, because a lone dash says nothing about which was meant.
@@ -1612,9 +1680,9 @@ fn candidates_inner<'a>(
         short_flags(spec, &position, token)
     } else if restarted(meta, split) {
         // Past a restart token — mise's `:::`, which starts a fresh invocation of the same
-        // command — the cursor is at that command's *first* argument again, whatever the
-        // words before the token filled.
-        meta.and_then(|m| m.args.first())
+        // command — the cursor is at that command's first ordinary argument again, whatever
+        // the words before the token filled. Sigil arguments do not occupy that cursor.
+        meta.and_then(first_ordinary_arg)
             .map(|m| positional(m, &position, split, token))
             .unwrap_or_default()
     } else if let Some(flag) = position.awaiting_value {
@@ -1630,6 +1698,12 @@ fn candidates_inner<'a>(
                 )
             })
             .unwrap_or_default()
+    } else if let Some((_, arg, sigil, prefix)) = sigil_arg {
+        let mut found = positional(arg, &position, split, prefix);
+        for candidate in &mut found {
+            candidate.value.insert_str(0, sigil);
+        }
+        found
     } else {
         let mut found = Vec::new();
         if let Some(arg) = position.next_arg {
@@ -1688,6 +1762,13 @@ fn restarted(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
         return false;
     };
     split.cword > 0 && split.words[split.cword - 1] == token
+}
+
+fn restart_seen(meta: Option<&CommandMeta<'_>>, split: &Split) -> bool {
+    let Some(token) = meta.and_then(|m| m.restart_token) else {
+        return false;
+    };
+    split.words[..split.cword].iter().any(|word| word == token)
 }
 
 /// The subcommands a word here could name, each under every name it answers to.
@@ -2663,6 +2744,111 @@ mod tests {
             .into_iter()
             .map(|c| c.value)
             .collect()
+    }
+
+    #[test]
+    fn sigil_completion_matches_the_stripped_value_and_restores_the_prefix() {
+        static FILE_ARG: Arg = Arg {
+            key: 89,
+            name: "file",
+            ..Arg::REQUIRED
+        };
+        static OVERLAY: Arg = Arg {
+            key: 90,
+            name: "TOOL",
+            sigil: Some(b"+"),
+            ..Arg::VAR
+        };
+        static COMMAND: Command = Command {
+            name: "ex",
+            flags: &[&JOBS],
+            args: &[&OVERLAY, &FILE_ARG],
+            ..Command::EMPTY
+        };
+        static META: CommandMeta = CommandMeta {
+            cmd: &COMMAND,
+            restart_token: Some(":::"),
+            flags: &[FlagMeta {
+                flag: &JOBS,
+                ..FlagMeta::EMPTY
+            }],
+            args: &[
+                ArgMeta {
+                    arg: &OVERLAY,
+                    choices: &["node@22", "node@24", "python@3.14"],
+                    ..ArgMeta::EMPTY
+                },
+                ArgMeta {
+                    arg: &FILE_ARG,
+                    ..ArgMeta::EMPTY
+                },
+            ],
+            ..CommandMeta::EMPTY
+        };
+        static SIGIL_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &META,
+            ..Spec::EMPTY
+        };
+
+        let values = candidates(&SIGIL_SPEC, &at_end("ex +n"))
+            .into_iter()
+            .map(|candidate| candidate.value)
+            .collect::<Vec<_>>();
+        assert_eq!(values, ["+node@22", "+node@24"]);
+        assert!(candidates(&SIGIL_SPEC, &at_end("ex -- +n")).is_empty());
+
+        // The ordinary positional would ask the shell for files, but a sigil token is
+        // classified as the closed-choice overlay field even when no choice matches.
+        assert_eq!(complete(&SIGIL_SPEC, &at_end("ex +z")).files, None);
+        assert_eq!(
+            complete(&SIGIL_SPEC, &at_end("ex --jobs +z")).files,
+            Some(Files::Any)
+        );
+        assert_eq!(
+            complete(&SIGIL_SPEC, &at_end("ex file ::: +z")).files,
+            Some(Files::Any)
+        );
+        assert_eq!(
+            complete(&SIGIL_SPEC, &at_end("ex file ::: value +z")).files,
+            Some(Files::Any)
+        );
+
+        static OPEN_META: CommandMeta = CommandMeta {
+            cmd: &COMMAND,
+            args: &[
+                ArgMeta {
+                    arg: &FILE_ARG,
+                    ..ArgMeta::EMPTY
+                },
+                ArgMeta {
+                    arg: &OVERLAY,
+                    complete_type: Some("path"),
+                    ..ArgMeta::EMPTY
+                },
+            ],
+            ..CommandMeta::EMPTY
+        };
+        static OPEN_SIGIL_SPEC: Spec = Spec {
+            name: "ex",
+            bin: Some("ex"),
+            root: &OPEN_META,
+            ..Spec::EMPTY
+        };
+        assert_eq!(complete(&OPEN_SIGIL_SPEC, &at_end("ex +z")).files, None);
+
+        static RUNTIME: [CompletionOverlay<'static>; 1] =
+            [CompletionOverlay::async_any("TOOL", runtime_tools)];
+        let dynamic = run_ready(complete_with(&SIGIL_SPEC, &at_end("ex +r"), &RUNTIME));
+        assert_eq!(
+            dynamic
+                .candidates
+                .iter()
+                .map(|candidate| candidate.value.as_str())
+                .collect::<Vec<_>>(),
+            ["+ruby"]
+        );
     }
 
     fn runtime_tools(ctx: CompleteCtx<'_>) -> CompletionFuture<'_> {

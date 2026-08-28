@@ -253,6 +253,54 @@ fn complete_word_choices() {
 }
 
 #[test]
+fn complete_word_sigil_arg_strips_for_matching_and_restores_for_output() {
+    assert_cmd("sigil.usage.kdl", &["--", "+n"]).stdout("+node@22\n+node@24\n");
+    assert_cmd("sigil.usage.kdl", &["--", "+"]).stdout("+node@22\n+node@24\n+python@3.14\n");
+    // A separator protects the same token from sigil classification.
+    assert_cmd("sigil.usage.kdl", &["--", "--", "+n"]).stdout("");
+}
+
+#[test]
+fn complete_word_sigil_run_receives_the_stripped_current_word() {
+    let spec = r#"
+name "ex"
+bin "ex"
+arg "[tool]..." sigil="+"
+complete "tool" run="printf '%s\\n' {{ words[CURRENT] | shell_quote }}"
+"#;
+    Command::new(cargo::cargo_bin!("usage"))
+        .args([
+            "cw", "--shell", "fish", "--spec", spec, "--", "mycli", "+node",
+        ])
+        .assert()
+        .success()
+        .stdout("+node\n");
+}
+
+#[test]
+fn complete_word_restart_skips_leading_sigil_args() {
+    let spec = r#"
+name "ex"
+bin "ex"
+cmd "run" restart_token=":::" {
+    arg "[tool]..." sigil="+" {
+        choices "node@22" "node@24"
+    }
+    arg "<command>" {
+        choices "build" "check"
+    }
+}
+"#;
+    Command::new(cargo::cargo_bin!("usage"))
+        .args([
+            "cw", "--shell", "fish", "--spec", spec, "--", "mycli", "run", "build", ":::", "b",
+        ])
+        .assert()
+        .success()
+        .stdout("build\n");
+}
+
+#[test]
 fn complete_word_choices_from_env() {
     cmd("env-choices.usage.kdl", Some("fish"))
         .env("DEPLOY_ENVS", "foo,bar baz")

@@ -120,6 +120,7 @@ export default defineConfig({
             link: "/spec/reference/",
             items: [
               { text: "arg", link: "/spec/reference/arg" },
+              { text: "sigils", link: "/spec/reference/sigils" },
               { text: "cmd", link: "/spec/reference/cmd" },
               { text: "complete", link: "/spec/reference/complete" },
               { text: "flag", link: "/spec/reference/flag" },
