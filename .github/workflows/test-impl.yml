@@ -248,7 +248,9 @@ jobs:
       # toolchain and no other behaviour — a pinned third-party action would be one more
       # thing to keep current for no gain.
       - name: install the toolchain under test
-        run: rustup toolchain install ${{ matrix.version }} --profile minimal
+        run: |
+          rustup toolchain install ${{ matrix.version }} --profile minimal
+          rustup default ${{ matrix.version }}
       - uses: ./.github/actions/mbx
         with:
           backend: ${{ inputs.mbx-backend }}
