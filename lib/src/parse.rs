@@ -361,6 +361,8 @@ pub enum TokenRole {
         sigil: String,
         values: Vec<String>,
     },
+    /// Ended one instance of a repeatable clause and began the next.
+    ClauseSeparator { name: String },
 }
 
 /// One word of the command line, and what it became.
@@ -382,6 +384,8 @@ pub struct ParseOutput {
     pub cmd: SpecCommand,
     pub cmds: Vec<SpecCommand>,
     pub args: IndexMap<Arc<SpecArg>, ParseValue>,
+    /// Separator-delimited positional instances, keyed by clause name.
+    pub clauses: IndexMap<String, Vec<IndexMap<Arc<SpecArg>, ParseValue>>>,
     pub flags: IndexMap<Arc<SpecFlag>, ParseValue>,
     /// What each word of the command line became, in argv order, one entry per word.
     ///
@@ -784,6 +788,7 @@ impl<'a> Parser<'a> {
             self.mount_outputs.as_ref(),
             MountTiming::WhenAWordIsUnknown,
         )?;
+        restore_current_clause(&mut out);
         trace!("{out:?}");
 
         // A flag still waiting for a value never got one, so the command line ended
@@ -835,7 +840,12 @@ impl<'a> Parser<'a> {
         //
         // Not `skip(out.args.len())`: an explicit `--` can jump the parser's cursor past an arg
         // that stayed empty, leaving a gap that makes the fill count a wrong starting offset.
-        for arg in out.cmd.args.iter() {
+        for arg in active_args(&out.cmd) {
+            // Clause instances contain argv only: defaults and environment values do not
+            // manufacture fields inside a repeated group.
+            if out.cmd.clause.is_some() {
+                break;
+            }
             if out.args.contains_key(arg) {
                 continue;
             }
@@ -1029,6 +1039,61 @@ impl<'a> Parser<'a> {
                 &mut out.errors,
             );
         }
+        if let Some(clause) = &out.cmd.clause {
+            let mut clause_errors = Vec::new();
+            for (index, instance) in out
+                .clauses
+                .get(&clause.name)
+                .into_iter()
+                .flatten()
+                .chain(std::iter::once(&out.args))
+                .enumerate()
+            {
+                for arg in &clause.args {
+                    let Some(value) = instance.get(arg) else {
+                        if arg.required {
+                            clause_errors.push(UsageErr::MissingClauseArg {
+                                clause: clause.name.clone(),
+                                instance: index + 1,
+                                arg: arg.name.clone(),
+                            });
+                        }
+                        continue;
+                    };
+                    if let (true, ParseValue::MultiString(values)) = (arg.var, value) {
+                        if let Some(min) = arg.var_min {
+                            if values.len() < min {
+                                clause_errors.push(UsageErr::VarArgTooFew {
+                                    name: format!(
+                                        "{} instance {}: {}",
+                                        clause.name,
+                                        index + 1,
+                                        arg.name
+                                    ),
+                                    min,
+                                    got: values.len(),
+                                });
+                            }
+                        }
+                        if let Some(max) = arg.var_max {
+                            if values.len() > max {
+                                clause_errors.push(UsageErr::VarArgTooMany {
+                                    name: format!(
+                                        "{} instance {}: {}",
+                                        clause.name,
+                                        index + 1,
+                                        arg.name
+                                    ),
+                                    max,
+                                    got: values.len(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            out.errors.extend(clause_errors);
+        }
         for (flag, parsed) in &out.flags {
             if let Some(arg) = &flag.arg {
                 validate_expression(
@@ -1043,6 +1108,7 @@ impl<'a> Parser<'a> {
         // Applied once, here, because this is where the CLI's own version is known: a
         // `deprecated_warn_at` the spec has not reached yet is an author saying *not yet*.
         crate::warn::retain_reached(&mut out.warnings, self.spec.version.as_deref());
+        finalize_current_clause(&mut out);
         Ok(out)
     }
 }
@@ -1267,6 +1333,7 @@ fn parse_partial_traced(
         cmd: spec.cmd.clone(),
         cmds: vec![spec.cmd.clone()],
         args: IndexMap::new(),
+        clauses: IndexMap::new(),
         flags: IndexMap::new(),
         tokens: vec![],
         flag_origins: IndexMap::new(),
@@ -1583,6 +1650,27 @@ fn parse_partial_traced(
         // only when the value is actually missing, so `-cnever` is still `never`.
         let attached_continuation = grouped_flag;
 
+        // A clause boundary is syntax even after an automatic trailing argument disabled
+        // flags. Only an explicit `--` protects a literal separator.
+        if !seen_double_dash {
+            if let Some(clause) = out.cmd.clause.as_ref() {
+                if w == clause.separator {
+                    let name = clause.name.clone();
+                    out.clauses
+                        .entry(name.clone())
+                        .or_default()
+                        .push(std::mem::take(&mut out.args));
+                    out.arg_origins.clear();
+                    trace.record(argv, TokenRole::ClauseSeparator { name });
+                    next_arg_idx = 0;
+                    out.flag_awaiting_value.clear();
+                    enable_flags = true;
+                    seen_double_dash = false;
+                    continue;
+                }
+            }
+        }
+
         // Check for restart_token - resets argument parsing for multiple command invocations
         // e.g., `mise run lint ::: test ::: check` with restart_token=":::"
         if let Some(ref restart_token) = out.cmd.restart_token {
@@ -1677,9 +1765,7 @@ fn parse_partial_traced(
 
             // Only preserve the double dash token if we're collecting values for a variadic arg
             // in double_dash == `preserve` mode
-            let should_preserve = out
-                .cmd
-                .args
+            let should_preserve = active_args(&out.cmd)
                 .get(next_arg_idx)
                 .map(|arg| arg.var && arg.double_dash == SpecDoubleDashChoices::Preserve)
                 .unwrap_or(false);
@@ -1696,7 +1782,7 @@ fn parse_partial_traced(
                 // that would otherwise swallow the rest. This mirrors clap's `Arg::last(true)`,
                 // which is what `double_dash="required"` is generated from. Specs without such
                 // an arg find nothing and keep the cursor where it was.
-                let target = out.cmd.args.iter().position(|arg| {
+                let target = active_args(&out.cmd).iter().position(|arg| {
                     arg.double_dash == SpecDoubleDashChoices::Required
                         && !out.args.contains_key(arg)
                 });
@@ -1889,9 +1975,7 @@ fn parse_partial_traced(
         let declared_numeric_short = declared_numeric_short(&out.available_flags, &w);
         let positional_negative_number = !declared_numeric_short
             && is_negative_number(&w)
-            && out
-                .cmd
-                .args
+            && active_args(&out.cmd)
                 .get(next_arg_idx)
                 .is_some_and(|arg| arg.allow_negative_numbers);
         if enable_flags
@@ -2190,11 +2274,11 @@ fn parse_partial_traced(
 
         if out.cmd.allow_missing_positional {
             next_arg_idx = cursor_skip_sigils(&out.cmd, next_arg_idx);
-            while let Some(current) = out.cmd.args.get(next_arg_idx) {
+            while let Some(current) = active_args(&out.cmd).get(next_arg_idx) {
                 if current.required || out.args.contains_key(current) {
                     break;
                 }
-                let required_after = out.cmd.args[next_arg_idx + 1..]
+                let required_after = active_args(&out.cmd)[next_arg_idx + 1..]
                     .iter()
                     .filter(|arg| arg.required && arg.sigil.is_none())
                     .count();
@@ -2217,7 +2301,7 @@ fn parse_partial_traced(
             }
         }
 
-        if let Some(arg) = out.cmd.args.get(next_arg_idx) {
+        if let Some(arg) = active_args(&out.cmd).get(next_arg_idx) {
             if arg.var
                 && out.args.contains_key(arg)
                 && arg.value_terminator.as_deref() == Some(w.as_str())
@@ -2366,6 +2450,7 @@ fn parse_partial_traced(
     }
 
     record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
+    validate_clause_relationships(&mut out, &overridden_flags, custom_env);
 
     // `out.flags` is keyed by `SpecFlag`, whose equality is intentionally name-only. Two
     // declarations with the same canonical name therefore share one public value entry even
@@ -2680,8 +2765,13 @@ fn parse_partial_traced(
                     && (flag_was_parsed(other) || flag_has_env(other, custom_env))
             })
             .map(|other| format!("--{}", other.name));
-        let other_arg = out.cmd.args.iter().find(|arg| {
+        let other_arg = active_args(&out.cmd).iter().find(|arg| {
             out.args.keys().any(|given| given.name == arg.name)
+                || out
+                    .clauses
+                    .values()
+                    .flatten()
+                    .any(|instance| instance.keys().any(|given| given.name == arg.name))
                 || arg
                     .env
                     .as_ref()
@@ -3212,6 +3302,139 @@ fn explicit_flag_has_value(
     )
 }
 
+fn parse_value_has(value: &ParseValue, expected: &str) -> bool {
+    match value {
+        ParseValue::Bool(value) => value.to_string() == expected,
+        ParseValue::String(value) => value == expected,
+        ParseValue::MultiBool(values) => values.iter().any(|value| value.to_string() == expected),
+        ParseValue::MultiString(values) => values.iter().any(|value| value == expected),
+    }
+}
+
+fn validate_clause_relationships(
+    out: &mut ParseOutput,
+    overridden_flags: &HashSet<String>,
+    custom_env: Option<&HashMap<String, String>>,
+) {
+    let Some(clause) = out.cmd.clause.as_ref() else {
+        return;
+    };
+    let Some(instances) = out.clauses.get(&clause.name) else {
+        return;
+    };
+    let flag_is_explicit = |selector: &str| {
+        out.available_flags
+            .values()
+            .chain(out.flags.keys())
+            .any(|flag| {
+                flag_matches_selector(flag, selector)
+                    && !overridden_flags.contains(&flag.name)
+                    && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
+            })
+    };
+    let flag_matches_value = |selector: &str, expected: &str| {
+        out.available_flags
+            .values()
+            .chain(out.flags.keys())
+            .find(|flag| flag_matches_selector(flag, selector))
+            .is_some_and(|flag| {
+                !overridden_flags.contains(&flag.name)
+                    && explicit_flag_has_value(flag, expected, out, custom_env)
+            })
+    };
+    let flag_is_satisfied = |selector: &str| {
+        out.available_flags
+            .values()
+            .chain(out.flags.keys())
+            .any(|flag| flag_matches_selector(flag, selector))
+            && selector_is_satisfied(selector, out, overridden_flags, custom_env)
+    };
+    let mut errors = Vec::new();
+    for (instance_index, instance) in instances.iter().enumerate() {
+        let arg_is_explicit = |selector: &str| {
+            instance
+                .keys()
+                .any(|arg| !selector.starts_with('-') && arg.name == selector)
+        };
+        let selector_is_explicit =
+            |selector: &str| flag_is_explicit(selector) || arg_is_explicit(selector);
+        let selector_has_value = |selector: &str, expected: &str| {
+            flag_matches_value(selector, expected)
+                || instance.iter().any(|(arg, value)| {
+                    !selector.starts_with('-')
+                        && arg.name == selector
+                        && parse_value_has(value, expected)
+                })
+        };
+        let selector_is_satisfied =
+            |selector: &str| selector_is_explicit(selector) || flag_is_satisfied(selector);
+        for arg in &clause.args {
+            let given = instance.keys().any(|present| present.name == arg.name);
+            if !given {
+                let required_if = arg
+                    .required_if
+                    .iter()
+                    .any(|selector| selector_is_explicit(selector));
+                let required_if_eq = arg
+                    .required_if_eq
+                    .iter()
+                    .any(|condition| selector_has_value(&condition.selector, &condition.value));
+                let required_if_eq_all = !arg.required_if_eq_all.is_empty()
+                    && arg
+                        .required_if_eq_all
+                        .iter()
+                        .all(|condition| selector_has_value(&condition.selector, &condition.value));
+                let unless_any = arg
+                    .required_unless
+                    .iter()
+                    .any(|selector| selector_is_explicit(selector));
+                let unless_all = !arg.required_unless_all.is_empty()
+                    && arg
+                        .required_unless_all
+                        .iter()
+                        .all(|selector| selector_is_explicit(selector));
+                let required_unless = !(unless_any
+                    || unless_all
+                    || (arg.required_unless.is_empty() && arg.required_unless_all.is_empty()));
+                if required_if || required_if_eq || required_if_eq_all || required_unless {
+                    errors.push(UsageErr::MissingClauseArg {
+                        clause: clause.name.clone(),
+                        instance: instance_index + 1,
+                        arg: arg.name.clone(),
+                    });
+                }
+                continue;
+            }
+            for other in &arg.conflicts {
+                if selector_is_explicit(other) {
+                    errors.push(UsageErr::InvalidFlag {
+                        token: arg.name.clone(),
+                        reason: format!("conflicts with {other}"),
+                        span: (0, 0).into(),
+                        input: format!("{} {other}", arg.name),
+                    });
+                }
+            }
+            for other in &arg.requires {
+                if selector_is_satisfied(other) {
+                    continue;
+                }
+                if other.starts_with('-') {
+                    let name = selector_flag_name(other, out).unwrap_or_else(|| other.clone());
+                    errors.push(UsageErr::MissingFlag(name));
+                } else {
+                    errors.push(UsageErr::MissingClauseArg {
+                        clause: clause.name.clone(),
+                        instance: instance_index + 1,
+                        arg: other.clone(),
+                    });
+                }
+            }
+        }
+    }
+    out.errors.extend(errors);
+}
+
 fn selector_explicit_has_value(
     selector: &str,
     expected: &str,
@@ -3235,7 +3458,15 @@ fn selector_explicit_has_value(
         .args
         .iter()
         .find(|(given, _)| given.name == arg.name)
-        .map(|(_, value)| value);
+        .map(|(_, value)| value)
+        .or_else(|| {
+            out.clauses.values().flatten().find_map(|instance| {
+                instance
+                    .iter()
+                    .find(|(given, _)| given.name == arg.name)
+                    .map(|(_, value)| value)
+            })
+        });
     if let Some(value) = parsed {
         return match value {
             ParseValue::String(value) => value == expected,
@@ -3331,7 +3562,7 @@ fn selector_arg<'a>(selector: &str, out: &'a ParseOutput) -> Option<&'a SpecArg>
     }
     out.cmds
         .iter()
-        .flat_map(|cmd| &cmd.args)
+        .flat_map(active_args)
         .find(|arg| arg.name == selector)
 }
 
@@ -3341,6 +3572,11 @@ fn arg_is_explicit(
     custom_env: Option<&HashMap<String, String>>,
 ) -> bool {
     out.args.keys().any(|given| given.name == arg.name)
+        || out
+            .clauses
+            .values()
+            .flatten()
+            .any(|instance| instance.keys().any(|given| given.name == arg.name))
         || arg
             .env
             .as_ref()
@@ -4144,15 +4380,45 @@ fn record_stop(
         .cloned()
         .map(Arc::new);
     out.double_dash_seen = seen_double_dash;
+    finalize_current_clause(out);
     trace.close(unread);
     out.tokens = std::mem::take(&mut trace.tokens);
 }
 
+fn finalize_current_clause(out: &mut ParseOutput) {
+    let Some(clause) = out.cmd.clause.as_ref() else {
+        return;
+    };
+    out.clauses
+        .entry(clause.name.clone())
+        .or_default()
+        .push(std::mem::take(&mut out.args));
+}
+
+fn restore_current_clause(out: &mut ParseOutput) {
+    let Some(clause) = out.cmd.clause.as_ref() else {
+        return;
+    };
+    if let Some(current) = out.clauses.get_mut(&clause.name).and_then(Vec::pop) {
+        out.args = current;
+    }
+}
+
 fn cursor_skip_sigils(cmd: &SpecCommand, mut idx: usize) -> usize {
-    while cmd.args.get(idx).is_some_and(|arg| arg.sigil.is_some()) {
+    while active_args(cmd)
+        .get(idx)
+        .is_some_and(|arg| arg.sigil.is_some())
+    {
         idx += 1;
     }
     idx
+}
+
+fn active_args(cmd: &SpecCommand) -> &[SpecArg] {
+    cmd.clause
+        .as_ref()
+        .map(|clause| clause.args.as_slice())
+        .unwrap_or(cmd.args.as_slice())
 }
 
 fn match_sigil_arg<'a>(
@@ -4288,6 +4554,7 @@ fn render_role(role: &TokenRole) -> String {
         TokenRole::Builtin { spelling } => format!("built-in {spelling}"),
         TokenRole::ValueTerminator { ends } => format!("value terminator, ends {ends}"),
         TokenRole::Restart => "restart".to_string(),
+        TokenRole::ClauseSeparator { name } => format!("clause separator for {name}"),
         TokenRole::UnknownFlag { bound_as } => match bound_as {
             Some(arg) => format!("unknown flag, bound as {}", arg.name),
             None => "unknown flag".to_string(),
@@ -4310,6 +4577,7 @@ impl Debug for ParseOutput {
                     .map(|(a, w)| format!("{}: {w}", a.name))
                     .collect_vec(),
             )
+            .field("clauses", &self.clauses)
             .field(
                 "available_flags",
                 &self
@@ -5746,6 +6014,22 @@ flag "--file <file>" required_unless="--stdin"
 
         // Not given, so it imposes nothing.
         parse(&spec, &input(&["ex", "--verbose", "t"])).expect("without it, nothing changes");
+    }
+
+    #[test]
+    fn an_exclusive_flag_conflicts_with_clause_arguments() {
+        let spec: Spec = r#"name "ex"
+bin "ex"
+flag "--dump" exclusive=#true
+clause "tasks" separator=":::" {
+  arg "<task>"
+}
+"#
+        .parse()
+        .unwrap();
+
+        let err = parse(&spec, &input(&["ex", "--dump", "lint"])).unwrap_err();
+        assert!(err.to_string().contains("on its own"), "{err}");
     }
 
     #[test]

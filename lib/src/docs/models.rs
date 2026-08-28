@@ -42,6 +42,7 @@ pub struct SpecCommand {
     /// Visible subcommand summaries partitioned by their own `help_heading`.
     pub subcommand_groups: Vec<Group<HelpCommand>>,
     pub args: Vec<SpecArg>,
+    pub clause: Option<crate::SpecClause>,
     pub flags: Vec<SpecFlag>,
     /// `flags`, partitioned by `help_heading`. Same flags, same order.
     pub flag_groups: Vec<Group<SpecFlag>>,
@@ -739,6 +740,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             allow_missing_positional: _,
             // Rendered above, or deliberately absent from the docs model.
             args: _,
+            clause,
             flags: _,
             // Where a flag was declared is not something a rendered page shows: a `use` is
             // resolved before docs are generated, and the flags it named are in `flags`.
@@ -841,6 +843,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             arg_groups,
             headings,
             args,
+            clause: clause.clone(),
             flags,
             deprecated: deprecated.clone(),
             deprecated_warn_at: deprecated_warn_at.clone(),

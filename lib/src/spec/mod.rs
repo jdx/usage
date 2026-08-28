@@ -2,6 +2,7 @@ pub mod admonition;
 pub mod arg;
 pub mod builder;
 pub mod choices;
+pub mod clause;
 pub mod cmd;
 pub mod complete;
 pub mod config;
@@ -550,6 +551,12 @@ impl Spec {
                     }
                     schema.cmd.args.push(arg);
                 }
+                "clause" => {
+                    if schema.cmd.clause.is_some() {
+                        bail_parse!(ctx, node.span(), "a command may declare at most one clause");
+                    }
+                    schema.cmd.clause = Some(crate::SpecClause::parse(ctx, &node)?);
+                }
                 "flag" => schema.cmd.flags.push(SpecFlag::parse(ctx, &node)?),
                 // The root command's groups, as its flags and arguments are: a spec
                 // whose top level declares flags can group them there too.
@@ -773,6 +780,29 @@ impl Spec {
         } else {
             schema.bin.clone()
         };
+        if let Some(clause) = &schema.cmd.clause {
+            if !schema.cmd.args.is_empty() {
+                bail_parse!(
+                    ctx,
+                    kdl.span(),
+                    "a command cannot declare both top-level arguments and a clause"
+                );
+            }
+            if schema.cmd.restart_token.is_some() {
+                bail_parse!(
+                    ctx,
+                    kdl.span(),
+                    "a command cannot declare both restart_token and a clause"
+                );
+            }
+            if clause.args.iter().any(|arg| arg.sigil.is_some()) {
+                bail_parse!(
+                    ctx,
+                    kdl.span(),
+                    "sigil arguments are not supported inside clauses"
+                );
+            }
+        }
         // Before ancestors are stamped, because expanding a flagset or narrowing a selector can
         // add a flag to a command and the usage strings are computed from the flag list.
         flagset::expand(ctx, &mut schema.cmd, &mut schema.flagsets)?;
@@ -1254,6 +1284,9 @@ impl Display for Spec {
         }
         for arg in self.cmd.args.iter() {
             nodes.push(arg.into());
+        }
+        if let Some(clause) = &self.cmd.clause {
+            nodes.push(clause.into());
         }
         // Written here rather than by SpecCommand, because the root's own nodes
         // live at the top level of the document instead of inside a `cmd` block.

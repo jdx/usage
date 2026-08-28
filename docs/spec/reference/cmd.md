@@ -364,6 +364,10 @@ cmd "run" restart_token=":::" {
 retains the last invocation's scalar bindings. This is a command-only property;
 it is not accepted as a top-level node.
 
+For new grammars that need every invocation rather than only the last one's values,
+use a repeatable [clause](./clause.md). A clause is the value-preserving successor to
+`restart_token`; the two cannot be declared together on one command.
+
 ## Command-local completions
 
 A `complete` child applies only while parsing that command. It has the same
