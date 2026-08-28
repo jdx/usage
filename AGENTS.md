@@ -13,6 +13,12 @@ Cargo the permanent path, and do not post externally without user authorization.
 
 This file provides guidance to coding agents working in this repository.
 
+## Crate versioning
+
+Do not manually change crate versions in `Cargo.toml`, generated manifests, or
+lockfiles. `release-plz` owns crate version updates and applies them as part of
+the release workflow.
+
 ## Conventional Commits
 
 All commit messages and PR titles MUST follow conventional commit format:
