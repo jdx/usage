@@ -5,9 +5,6 @@ on:
       trusted:
         required: true
         type: boolean
-      mbx-backend:
-        required: true
-        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,9 +30,6 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - uses: ./.github/actions/mbx
-        with:
-          backend: ${{ inputs.mbx-backend }}
-          mirror-github-cache: "true"
       - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
       # Retries and a longer wait, rather than being allowed to fail. `cli`'s completion
       # tests refuse to skip a missing shell when `CI` is set — see
@@ -149,9 +143,6 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - uses: ./.github/actions/mbx
-        with:
-          backend: ${{ inputs.mbx-backend }}
-          mirror-github-cache: "true"
       - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
       - run: mise r build
       # `usage bash` runs whatever Windows resolves `bash` to, and `CreateProcess` searches the
@@ -251,7 +242,6 @@ jobs:
         run: rustup toolchain install ${{ matrix.version }} --profile minimal
       - uses: ./.github/actions/mbx
         with:
-          backend: ${{ inputs.mbx-backend }}
           toolchain: ${{ matrix.version }}
       - name: they build at the version they claim
         run: |
