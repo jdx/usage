@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.6.0](https://github.com/jdx/usage/compare/v6.5.0..v6.6.0) - 2026-08-30
+
+### 🚀 Features
+
+- **(parse)** support scoped flags in implicit clauses by [@jdx](https://github.com/jdx) in [#1343](https://github.com/jdx/usage/pull/1343)
+
 ## [6.5.0](https://github.com/jdx/usage/compare/v6.4.1..v6.5.0) - 2026-08-28
 
 ### 🚀 Features

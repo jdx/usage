@@ -621,7 +621,7 @@ version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ccbe01093a53933ac2e794bf8de543359ba840520304a6b93b8d00d0b99ceaf"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "log",
  "pest",
  "pest_derive",
@@ -866,9 +866,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.14.0"
+version = "2.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d466e9454f08e4a911e14806c24e16fba1b4c121d1ea474396f396069cf949d9"
+checksum = "07aa2048142242915a31d35844fb311e0e53fcca590c3a0a40dcf1b841fa09eb"
 dependencies = [
  "equivalent",
  "hashbrown 0.17.1",
@@ -1406,7 +1406,7 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "futures",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "pastey",
  "pin-project-lite",
  "rmcp-macros",
@@ -1603,7 +1603,7 @@ dependencies = [
  "chrono",
  "hex",
  "indexmap 1.9.3",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "jiff",
  "schemars 0.9.0",
  "schemars 1.2.2",
@@ -1916,7 +1916,7 @@ version = "1.1.4+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3aace63f4bbcdfc2c965b059de67119c89c4017a70d633be6c104910f67056f5"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "serde_core",
  "serde_spanned",
  "toml_datetime",
@@ -2012,17 +2012,17 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "usage-argv"
-version = "6.5.0"
+version = "6.6.0"
 
 [[package]]
 name = "usage-cli"
-version = "6.5.0"
+version = "6.6.0"
 dependencies = [
  "assert_cmd",
  "ctor",
  "env_logger",
  "exec",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "insta",
  "itertools 0.15.0",
  "log",
@@ -2043,7 +2043,7 @@ dependencies = [
 
 [[package]]
 name = "usage-config"
-version = "6.5.0"
+version = "6.6.0"
 dependencies = [
  "serde_json",
  "toml",
@@ -2069,7 +2069,7 @@ dependencies = [
 
 [[package]]
 name = "usage-derive"
-version = "6.5.0"
+version = "6.6.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2079,7 +2079,7 @@ dependencies = [
 
 [[package]]
 name = "usage-dynamic"
-version = "6.5.0"
+version = "6.6.0"
 dependencies = [
  "futures",
  "usage-argv",
@@ -2089,12 +2089,12 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "6.5.0"
+version = "6.6.0"
 dependencies = [
  "clap",
  "criterion",
  "ctor",
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "insta",
  "itertools 0.15.0",
  "log",
@@ -2116,7 +2116,7 @@ dependencies = [
 
 [[package]]
 name = "usage-rs"
-version = "6.5.0"
+version = "6.6.0"
 dependencies = [
  "serde",
  "shell-words",
@@ -2131,14 +2131,14 @@ dependencies = [
 
 [[package]]
 name = "usage-test"
-version = "6.5.0"
+version = "6.6.0"
 dependencies = [
  "usage-argv",
 ]
 
 [[package]]
 name = "usage-validation"
-version = "6.5.0"
+version = "6.6.0"
 dependencies = [
  "expr-lang",
 ]
@@ -2372,7 +2372,7 @@ version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33b729a08a9a6be689bbad3e2bf8015926db54b6622cc89c3a5f7dc174b9e918"
 dependencies = [
- "indexmap 2.14.0",
+ "indexmap 2.14.1",
  "itoa",
  "libyaml-rs",
  "ryu",
