@@ -167,6 +167,7 @@ pub fn build(
         separator: clause.separator.as_ref().map(|separator| leak(separator)),
         help: opt(&clause.help),
         long_help: opt(&clause.help_long),
+        canonical_selector: |_| None,
         flags: Box::leak(
             clause
                 .flags

@@ -901,10 +901,19 @@ fn usage_line_with_subcommands(
                 .join(" ");
             match clause.separator {
                 Some(separator) => {
-                    let _ = write!(out, " {inner} [{separator} {inner}]…");
+                    let _ = write!(out, " [{inner} [{separator} {inner}]…]");
                 }
                 None => {
-                    let _ = write!(out, " {inner}…");
+                    let arg = positional_args
+                        .iter()
+                        .find(|arg| !arg.hide)
+                        .expect("an implicit clause has one visible positional");
+                    let separator = if arg.arg.double_dash == DoubleDash::Required {
+                        "-- "
+                    } else {
+                        ""
+                    };
+                    let _ = write!(out, " [{separator}{}]…", arg.arg.name);
                 }
             }
         } else if args <= INLINE_LIMIT {
@@ -3970,6 +3979,7 @@ mod style_tests {
                 }],
                 help: None,
                 long_help: None,
+                canonical_selector: |_| None,
                 args: &[task_meta, args_meta],
             }),
             ..CommandMeta::EMPTY
@@ -3982,7 +3992,7 @@ mod style_tests {
 
         assert_eq!(
             usage_line(&["ex"], &meta),
-            "ex <TASK> [ARGS]… [::: <TASK> [ARGS]…]…"
+            "ex [<TASK> [ARGS]… [::: <TASK> [ARGS]…]…]"
         );
         let help = super::short_help(&spec, &["ex"], &[&meta]);
         assert!(help.contains("Arguments:"), "{help}");

@@ -113,8 +113,16 @@ impl SpecClause {
             .collect::<Vec<_>>()
             .join(" ");
         match &self.separator {
-            Some(separator) => format!("{inner} [{separator} {inner}]…"),
-            None => format!("{inner}…"),
+            Some(separator) => format!("[{inner} [{separator} {inner}]…]"),
+            None => {
+                let Some(arg) = self.args.first() else {
+                    return String::new();
+                };
+                let mut arg = arg.clone();
+                arg.required = false;
+                arg.var = true;
+                arg.usage()
+            }
         }
     }
 }
@@ -140,5 +148,15 @@ impl From<&SpecClause> for KdlNode {
             .nodes_mut()
             .extend(clause.args.iter().map(Into::into));
         node
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SpecClause;
+
+    #[test]
+    fn an_empty_default_clause_has_an_empty_synopsis() {
+        assert_eq!(SpecClause::default().usage(), "");
     }
 }

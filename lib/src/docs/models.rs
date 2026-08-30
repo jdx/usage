@@ -675,6 +675,16 @@ impl From<&crate::SpecCommand> for SpecCommand {
             .enumerate()
             .map(|(index, arg)| (index, SpecArg::from(arg)))
             .collect();
+        if let Some(clause) = &cmd.clause {
+            let offset = args.len();
+            args.extend(
+                clause
+                    .args
+                    .iter()
+                    .enumerate()
+                    .map(|(index, arg)| (offset + index, SpecArg::from(arg))),
+            );
+        }
         args.sort_by_key(|(_, arg)| arg.display_order.unwrap_or(999));
         let args: Vec<SpecArg> = args.into_iter().map(|(_, arg)| arg).collect();
 
@@ -684,6 +694,16 @@ impl From<&crate::SpecCommand> for SpecCommand {
             .enumerate()
             .map(|(index, flag)| (index, SpecFlag::from(flag)))
             .collect();
+        if let Some(clause) = &cmd.clause {
+            let offset = flags.len();
+            flags.extend(
+                clause
+                    .flags
+                    .iter()
+                    .enumerate()
+                    .map(|(index, flag)| (offset + index, SpecFlag::from(flag))),
+            );
+        }
         flags.sort_by_key(|(_, flag)| flag.display_order.unwrap_or(999));
         let flags: Vec<SpecFlag> = flags.into_iter().map(|(_, flag)| flag).collect();
 

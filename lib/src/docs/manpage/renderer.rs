@@ -256,15 +256,20 @@ impl ManpageRenderer {
             parts.push("[OPTIONS]".to_string());
         }
 
-        // Add arguments
-        for arg in &cmd.args {
-            if arg.required {
-                parts.push(format!("<{}>", arg.name));
-            } else {
-                parts.push(format!("[<{}>]", arg.name));
-            }
-            if arg.var {
-                parts.push("...".to_string());
+        // Add arguments. A clause's inner positional can be required while the
+        // outer repeated clause remains optional, so use its complete synopsis.
+        if let Some(clause) = &cmd.clause {
+            parts.push(clause.usage.clone());
+        } else {
+            for arg in &cmd.args {
+                if arg.required {
+                    parts.push(format!("<{}>", arg.name));
+                } else {
+                    parts.push(format!("[<{}>]", arg.name));
+                }
+                if arg.var {
+                    parts.push("...".to_string());
+                }
             }
         }
 
@@ -789,6 +794,31 @@ cmd "run"
         assert!(page.contains("\\fBex\\fR <COMMAND>"), "{page}");
         assert!(page.contains("\\fBex\\fR \\-\\-print\\-spec"), "{page}");
         assert!(!page.contains("[COMMAND]"), "{page}");
+    }
+
+    #[test]
+    fn clause_fields_reach_subcommand_manpage_sections() {
+        let spec: Spec = r#"
+name "mycli"
+bin "mycli"
+cmd "use" {
+    clause tools {
+        flag "--postinstall <command>" help="Run after installation"
+        arg <tool> help="Tool to install"
+    }
+}
+"#
+        .parse()
+        .unwrap();
+        let page = ManpageRenderer::new(spec).render().unwrap();
+
+        assert!(
+            page.contains("\\fBUsage:\\fR mycli use [OPTIONS] [tool]…"),
+            "{page}"
+        );
+        assert!(page.contains("\\-\\-postinstall"), "{page}");
+        assert!(page.contains("Run after installation"), "{page}");
+        assert!(page.contains("Tool to install"), "{page}");
     }
 
     #[test]

@@ -284,6 +284,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 long_help: ::core::option::Option::None,
                 flags: <#ty as usage_argv::spec::CommandArgs>::META.flags,
                 args: <#ty as usage_argv::spec::CommandArgs>::META.args,
+                canonical_selector: <#ty as usage_argv::spec::CommandArgs>::canonical_selector,
             }))
         })
         .unwrap_or_else(|| quote!(::core::option::Option::None));
@@ -3698,6 +3699,9 @@ fn standing_locals(cli: &Cli) -> TokenStream {
             Kind::Flatten { .. } => quote! {
                 let #name = __usage_standing.map(|__usage_s| &__usage_s.#ident);
             },
+            Kind::Clause { .. } => quote! {
+                let #name = __usage_standing.map(|__usage_s| &__usage_s.#ident);
+            },
             // The nested value itself, so a parent can ask which member stands — a bool
             // would answer required-ness and nothing about `--json` vs `--yaml`.
             Kind::ArgGroup { multiple: true, .. } => quote! {
@@ -4349,12 +4353,31 @@ fn presence_methods(cli: &Cli) -> TokenStream {
             argument_state(partial, selector)
         }
 
+        fn canonical_selector(selector: &str) -> ::std::option::Option<&'static str> {
+            canonical_selector(selector)
+        }
+
         fn argument_matches(
             partial: &Self::Partial,
             selector: &str,
             value: &[u8],
         ) -> ::std::option::Option<bool> {
             argument_matches(partial, selector, value)
+        }
+
+        fn standing_state(
+            standing: &Self,
+            selector: &str,
+        ) -> ::std::option::Option<usage_argv::spec::ArgumentState> {
+            standing_state(standing, selector)
+        }
+
+        fn standing_matches(
+            standing: &Self,
+            selector: &str,
+            value: &[u8],
+        ) -> ::std::option::Option<bool> {
+            standing_matches(standing, selector, value)
         }
 
         fn displace(partial: &mut Self::Partial, selector: &str) -> bool {
@@ -4401,6 +4424,36 @@ fn field_selectors(field: &Field) -> Vec<String> {
 /// through `CommandArgs`. Keeping the lookup beside the partial avoids building a dynamic
 /// command graph or allocating on the successful parse path.
 fn argument_lookup_functions(cli: &Cli) -> TokenStream {
+    let args = &cli.ident;
+    let canonical_arms = cli.fields.iter().filter_map(|field| {
+        let canonical = Cli::selector_for_field(field)?;
+        let selectors = field_selectors(field);
+        Some(quote!(#(#selectors)|* => return ::std::option::Option::Some(#canonical),))
+    });
+    let canonical_flattened = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty, .. } = &field.kind else {
+            return None;
+        };
+        Some(quote! {
+            if let ::std::option::Option::Some(canonical) =
+                <#ty as usage_argv::spec::CommandArgs>::canonical_selector(selector)
+            {
+                return ::std::option::Option::Some(canonical);
+            }
+        })
+    });
+    let canonical_clause = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, .. } = &field.kind else {
+            return None;
+        };
+        Some(quote! {
+            if let ::std::option::Option::Some(canonical) =
+                <#ty as usage_argv::spec::CommandArgs>::canonical_selector(selector)
+            {
+                return ::std::option::Option::Some(canonical);
+            }
+        })
+    });
     let state_arms = cli.fields.iter().filter_map(|field| {
         if matches!(
             field.kind,
@@ -4465,6 +4518,32 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let state_clause = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        let current = format_ident!("__usage_current_{}", ident);
+        Some(quote! {
+            let mut __usage_clause_state = ::std::option::Option::None;
+            for __usage_instance in partial.#ident.iter().chain(::core::iter::once(&partial.#current)) {
+                if let ::std::option::Option::Some(state) =
+                    <#ty as usage_argv::spec::CommandArgs>::argument_state(
+                        __usage_instance,
+                        selector,
+                    )
+                {
+                    if state.given || state.satisfied {
+                        return ::std::option::Option::Some(state);
+                    }
+                    __usage_clause_state = ::std::option::Option::Some(state);
+                }
+            }
+            if __usage_clause_state.is_some() {
+                return __usage_clause_state;
+            }
+        })
+    });
     let match_arms = cli.fields.iter().filter_map(|field| {
         if matches!(
             field.kind,
@@ -4524,6 +4603,244 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
                 )
             {
                 return ::std::option::Option::Some(matches);
+            }
+        })
+    });
+    let match_clause = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        let current = format_ident!("__usage_current_{}", ident);
+        Some(quote! {
+            let mut __usage_clause_recognized = false;
+            for __usage_instance in partial.#ident.iter().chain(::core::iter::once(&partial.#current)) {
+                match <#ty as usage_argv::spec::CommandArgs>::argument_matches(
+                    __usage_instance,
+                    selector,
+                    value,
+                ) {
+                    ::std::option::Option::Some(true) => {
+                        return ::std::option::Option::Some(true);
+                    }
+                    ::std::option::Option::Some(false) => {
+                        __usage_clause_recognized = true;
+                    }
+                    ::std::option::Option::None => {}
+                }
+            }
+            if __usage_clause_recognized {
+                return ::std::option::Option::Some(false);
+            }
+        })
+    });
+    let standing_state_arms = cli.fields.iter().filter_map(|field| {
+        if matches!(
+            field.kind,
+            Kind::Flatten { .. }
+                | Kind::ArgGroup { .. }
+                | Kind::Clause { .. }
+                | Kind::Subcommand { .. }
+                | Kind::Skip
+        ) {
+            return None;
+        }
+        let selectors = field_selectors(field);
+        let present = standing_presence(field)?;
+        let name = &field.name;
+        Some(quote! {
+            #(#selectors)|* => {
+                let given = #present;
+                return ::std::option::Option::Some(usage_argv::spec::ArgumentState {
+                    name: #name,
+                    given,
+                    satisfied: given,
+                });
+            }
+        })
+    });
+    let standing_state_flattened = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if let ::std::option::Option::Some(state) =
+                <#ty as usage_argv::spec::CommandArgs>::standing_state(
+                    &__usage_s.#ident,
+                    selector,
+                )
+            {
+                return ::std::option::Option::Some(state);
+            }
+        })
+    });
+    let standing_state_grouped = cli.fields.iter().filter_map(|field| {
+        let Kind::ArgGroup {
+            ty,
+            multiple,
+            optional,
+            ..
+        } = &field.kind
+        else {
+            return None;
+        };
+        let ident = &field.ident;
+        let values = if *multiple || *optional {
+            quote!(__usage_s.#ident.iter())
+        } else {
+            quote!(::core::iter::once(&__usage_s.#ident))
+        };
+        Some(quote! {
+            let mut __usage_standing_group_state = ::std::option::Option::None;
+            for __usage_member in #values {
+                if let ::std::option::Option::Some(state) =
+                    <#ty as usage_argv::spec::ArgGroup>::standing_state(
+                        __usage_member,
+                        selector,
+                    )
+                {
+                    if state.given || state.satisfied {
+                        return ::std::option::Option::Some(state);
+                    }
+                    __usage_standing_group_state = ::std::option::Option::Some(state);
+                }
+            }
+            if __usage_standing_group_state.is_some() {
+                return __usage_standing_group_state;
+            }
+        })
+    });
+    let standing_state_clause = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            let mut __usage_standing_clause_state = ::std::option::Option::None;
+            for __usage_instance in &__usage_s.#ident {
+                if let ::std::option::Option::Some(state) =
+                    <#ty as usage_argv::spec::CommandArgs>::standing_state(
+                        __usage_instance,
+                        selector,
+                    )
+                {
+                    if state.given || state.satisfied {
+                        return ::std::option::Option::Some(state);
+                    }
+                    __usage_standing_clause_state = ::std::option::Option::Some(state);
+                }
+            }
+            if __usage_standing_clause_state.is_some() {
+                return __usage_standing_clause_state;
+            }
+        })
+    });
+    let standing_match_arms = cli.fields.iter().filter_map(|field| {
+        if matches!(
+            field.kind,
+            Kind::Flatten { .. }
+                | Kind::ArgGroup { .. }
+                | Kind::Clause { .. }
+                | Kind::Subcommand { .. }
+                | Kind::Skip
+        ) {
+            return None;
+        }
+        let selectors = field_selectors(field);
+        let ident = &field.ident;
+        let matches = match field.shape {
+            Shape::Bool => quote!(
+                (value == b"true" && __usage_s.#ident)
+                    || (value == b"false" && !__usage_s.#ident)
+            ),
+            Shape::Count => quote!(
+                (value == b"true" && __usage_s.#ident > 0)
+                    || (value == b"false" && __usage_s.#ident == 0)
+            ),
+            Shape::Optional | Shape::Required | Shape::Many => quote!(false),
+        };
+        Some(quote!(#(#selectors)|* => return ::std::option::Option::Some(#matches),))
+    });
+    let standing_match_flattened = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            if let ::std::option::Option::Some(matches) =
+                <#ty as usage_argv::spec::CommandArgs>::standing_matches(
+                    &__usage_s.#ident,
+                    selector,
+                    value,
+                )
+            {
+                return ::std::option::Option::Some(matches);
+            }
+        })
+    });
+    let standing_match_grouped = cli.fields.iter().filter_map(|field| {
+        let Kind::ArgGroup {
+            ty,
+            multiple,
+            optional,
+            ..
+        } = &field.kind
+        else {
+            return None;
+        };
+        let ident = &field.ident;
+        let values = if *multiple || *optional {
+            quote!(__usage_s.#ident.iter())
+        } else {
+            quote!(::core::iter::once(&__usage_s.#ident))
+        };
+        Some(quote! {
+            let mut __usage_standing_group_recognized = false;
+            for __usage_member in #values {
+                match <#ty as usage_argv::spec::ArgGroup>::standing_matches(
+                    __usage_member,
+                    selector,
+                    value,
+                ) {
+                    ::std::option::Option::Some(true) => {
+                        return ::std::option::Option::Some(true);
+                    }
+                    ::std::option::Option::Some(false) => {
+                        __usage_standing_group_recognized = true;
+                    }
+                    ::std::option::Option::None => {}
+                }
+            }
+            if __usage_standing_group_recognized {
+                return ::std::option::Option::Some(false);
+            }
+        })
+    });
+    let standing_match_clause = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        Some(quote! {
+            let mut __usage_standing_clause_recognized = false;
+            for __usage_instance in &__usage_s.#ident {
+                match <#ty as usage_argv::spec::CommandArgs>::standing_matches(
+                    __usage_instance,
+                    selector,
+                    value,
+                ) {
+                    ::std::option::Option::Some(true) => {
+                        return ::std::option::Option::Some(true);
+                    }
+                    ::std::option::Option::Some(false) => {
+                        __usage_standing_clause_recognized = true;
+                    }
+                    ::std::option::Option::None => {}
+                }
+            }
+            if __usage_standing_clause_recognized {
+                return ::std::option::Option::Some(false);
             }
         })
     });
@@ -4605,6 +4922,17 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
     });
     quote! {
         #[allow(dead_code)]
+        pub fn canonical_selector(selector: &str) -> ::std::option::Option<&'static str> {
+            match selector {
+                #(#canonical_arms)*
+                _ => {}
+            }
+            #(#canonical_flattened)*
+            #(#canonical_clause)*
+            ::std::option::Option::None
+        }
+
+        #[allow(dead_code)]
         pub fn argument_state(
             partial: &Partial,
             selector: &str,
@@ -4615,6 +4943,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
             #(#state_flattened)*
             #(#state_grouped)*
+            #(#state_clause)*
             ::std::option::Option::None
         }
 
@@ -4630,6 +4959,38 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
             #(#match_flattened)*
             #(#match_grouped)*
+            #(#match_clause)*
+            ::std::option::Option::None
+        }
+
+        #[allow(dead_code)]
+        pub fn standing_state(
+            __usage_s: &#args,
+            selector: &str,
+        ) -> ::std::option::Option<usage_argv::spec::ArgumentState> {
+            match selector {
+                #(#standing_state_arms)*
+                _ => {}
+            }
+            #(#standing_state_flattened)*
+            #(#standing_state_grouped)*
+            #(#standing_state_clause)*
+            ::std::option::Option::None
+        }
+
+        #[allow(dead_code)]
+        pub fn standing_matches(
+            __usage_s: &#args,
+            selector: &str,
+            value: &[u8],
+        ) -> ::std::option::Option<bool> {
+            match selector {
+                #(#standing_match_arms)*
+                _ => {}
+            }
+            #(#standing_match_flattened)*
+            #(#standing_match_grouped)*
+            #(#standing_match_clause)*
             ::std::option::Option::None
         }
 
@@ -6425,6 +6786,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 long_help: ::core::option::Option::None,
                 flags: <#ty as usage_argv::spec::CommandArgs>::META.flags,
                 args: <#ty as usage_argv::spec::CommandArgs>::META.args,
+                canonical_selector: <#ty as usage_argv::spec::CommandArgs>::canonical_selector,
             }))
         },
     );
@@ -9311,6 +9673,66 @@ fn argument_state_standing(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let clause_overlays = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        let current = format_ident!("__usage_current_{}", ident);
+        let standing = standing_ident(field);
+        Some(quote! {
+            if !partial.#ident.iter().chain(::core::iter::once(&partial.#current)).any(
+                |__usage_instance| {
+                    <#ty as usage_argv::spec::CommandArgs>::any_given(__usage_instance).is_some()
+                },
+            ) {
+                if let ::std::option::Option::Some(__usage_s) = #standing {
+                    for __usage_instance in __usage_s {
+                        if let ::std::option::Option::Some(__usage_standing_state) =
+                            <#ty as usage_argv::spec::CommandArgs>::standing_state(
+                                __usage_instance,
+                                selector,
+                            )
+                        {
+                            if __usage_standing_state.given
+                                || __usage_standing_state.satisfied
+                            {
+                                return ::std::option::Option::Some(__usage_standing_state);
+                            }
+                        }
+                    }
+                }
+            }
+        })
+    });
+    let clause_match_overlays = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        let current = format_ident!("__usage_current_{}", ident);
+        let standing = standing_ident(field);
+        Some(quote! {
+            if !partial.#ident.iter().chain(::core::iter::once(&partial.#current)).any(
+                |__usage_instance| {
+                    <#ty as usage_argv::spec::CommandArgs>::any_given(__usage_instance).is_some()
+                },
+            ) {
+                if let ::std::option::Option::Some(__usage_s) = #standing {
+                    for __usage_instance in __usage_s {
+                        if <#ty as usage_argv::spec::CommandArgs>::standing_matches(
+                            __usage_instance,
+                            selector,
+                            value,
+                        ) == ::std::option::Option::Some(true)
+                        {
+                            return ::std::option::Option::Some(true);
+                        }
+                    }
+                }
+            }
+        })
+    });
     quote! {
         // Shadow the module helper for every check below: an update's standing group
         // member has to answer `requires` / `conflicts` the same way a standing flag does,
@@ -9326,6 +9748,7 @@ fn argument_state_standing(cli: &Cli) -> TokenStream {
                     }
                     recognized => {
                         #(#overlays)*
+                        #(#clause_overlays)*
                         recognized
                     }
                 }
@@ -9340,6 +9763,7 @@ fn argument_state_standing(cli: &Cli) -> TokenStream {
                     ::std::option::Option::Some(true) => ::std::option::Option::Some(true),
                     recognized => {
                         #(#match_overlays)*
+                        #(#clause_match_overlays)*
                         recognized
                     }
                 }
