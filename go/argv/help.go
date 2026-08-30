@@ -1,6 +1,7 @@
 package argv
 
 import (
+	"slices"
 	"sort"
 	"strings"
 )
@@ -146,6 +147,11 @@ func usageLine(path []string, cmd *Command, help HelpTable, includeSubcommands b
 	visibleFlags := make([]*Flag, 0, len(cmd.Flags))
 	demandedFlag := false
 	for _, f := range cmd.Flags {
+		if cmd.Clause != nil && slices.ContainsFunc(cmd.Clause.Flags, func(scoped *Flag) bool {
+			return scoped.Key == f.Key
+		}) {
+			continue
+		}
 		h := help.Lookup(f.Key)
 		if h != nil && h.Hide {
 			continue
@@ -196,7 +202,11 @@ func usageLine(path []string, cmd *Command, help HelpTable, includeSubcommands b
 				}
 				inner.WriteString(argUsage(a, help.Lookup(a.Key)))
 			}
-			out.WriteString(" " + inner.String() + " [" + cmd.Clause.Separator + " " + inner.String() + "]…")
+			if cmd.Clause.Separator == "" {
+				out.WriteString(" " + inner.String() + "…")
+			} else {
+				out.WriteString(" " + inner.String() + " [" + cmd.Clause.Separator + " " + inner.String() + "]…")
+			}
 		} else if n <= inlineLimit {
 			for _, a := range visibleArgs {
 				out.WriteString(" " + argUsage(a, help.Lookup(a.Key)))

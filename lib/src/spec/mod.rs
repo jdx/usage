@@ -208,7 +208,10 @@ impl Spec {
         let default_outranks_root_mounts = apply_default_subcommand
             && self.default_subcommand.is_some()
             && !self.cmd.mounts.iter().any(|mount| mount.overrides_default);
-        resolve(&mut self.cmd, outputs, default_outranks_root_mounts)
+        resolve(&mut self.cmd, outputs, default_outranks_root_mounts)?;
+        self.cmd
+            .validate_clause_flag_spellings()
+            .map_err(UsageErr::InvalidSpec)
     }
 
     /// Parse a spec from a file.
@@ -802,10 +805,21 @@ impl Spec {
                     "sigil arguments are not supported inside clauses"
                 );
             }
+            if let Some(spelling) = clause.conflicting_flag_spelling(&schema.cmd.flags) {
+                bail_parse!(
+                    ctx,
+                    kdl.span(),
+                    "clause flag spelling {spelling:?} conflicts with another flag on this command"
+                );
+            }
         }
         // Before ancestors are stamped, because expanding a flagset or narrowing a selector can
         // add a flag to a command and the usage strings are computed from the flag list.
         flagset::expand(ctx, &mut schema.cmd, &mut schema.flagsets)?;
+        schema
+            .cmd
+            .validate_clause_flag_spellings()
+            .map_err(|message| ctx.build_err(message, (0, ctx.spec.len()).into()))?;
         if resolve_outputs {
             output::resolve_selectors(&mut schema)?;
         }

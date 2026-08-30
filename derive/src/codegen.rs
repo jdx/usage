@@ -257,11 +257,18 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let clause_table = clause_field
         .map(|(field, ty, separator)| {
             let name = proc_macro2::Literal::string(&field.name);
-            let separator = proc_macro2::Literal::byte_string(separator.as_bytes());
+            let separator = separator.as_ref().map_or_else(
+                || quote!(::core::option::Option::None),
+                |separator| {
+                    let separator = proc_macro2::Literal::byte_string(separator.as_bytes());
+                    quote!(::core::option::Option::Some(#separator))
+                },
+            );
             quote!(::core::option::Option::Some(usage_argv::Clause {
                 key: 0,
                 name: #name,
                 separator: #separator,
+                flags: <#ty as usage_argv::spec::CommandArgs>::COMMAND.flags,
                 args: <#ty as usage_argv::spec::CommandArgs>::COMMAND.args,
             }))
         })
@@ -269,16 +276,43 @@ pub fn emit(cli: &Cli) -> TokenStream {
     let clause_meta = clause_field
         .map(|(field, ty, separator)| {
             let name = proc_macro2::Literal::string(&field.name);
-            let separator = proc_macro2::Literal::string(separator);
+            let separator = option_str(separator.as_deref());
             quote!(::core::option::Option::Some(usage_argv::spec::ClauseMeta {
                 name: #name,
                 separator: #separator,
                 help: ::core::option::Option::None,
                 long_help: ::core::option::Option::None,
+                flags: <#ty as usage_argv::spec::CommandArgs>::META.flags,
                 args: <#ty as usage_argv::spec::CommandArgs>::META.args,
             }))
         })
         .unwrap_or_else(|| quote!(::core::option::Option::None));
+    let implicit_clause_assertions = clause_field
+        .filter(|(_, _, separator)| separator.is_none())
+        .map(|(_, ty, _)| {
+            quote! {
+                const _: () = {
+                    const INNER: &usage_argv::Command<'static> =
+                        <#ty as usage_argv::spec::CommandArgs>::COMMAND;
+                    assert!(
+                        INNER.args.len() == 1,
+                        "an implicit clause needs exactly one positional argument",
+                    );
+                    assert!(
+                        INNER.args[0].required && !INNER.args[0].var,
+                        "an implicit clause positional must be required and non-variadic",
+                    );
+                    assert!(
+                        INNER.subcommands.is_empty(),
+                        "an implicit clause cannot contain subcommands",
+                    );
+                    assert!(
+                        INNER.args[0].sigil.is_none(),
+                        "an implicit clause positional cannot use a sigil",
+                    );
+                };
+            }
+        });
 
     // Both the plain slices and, when a field is flattened, the joined arrays.
     let tables = tables(cli);
@@ -1081,6 +1115,8 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 !#multicall || !ROOT.subcommands.is_empty(),
                 "`multicall` needs at least one named subcommand to select",
             );
+            #implicit_clause_assertions
+            const _: () = usage_argv::assert_clause_flag_spellings(&ROOT);
 
             #(#flag_metas)*
             #(#arg_metas)*
@@ -3268,7 +3304,19 @@ fn tables(cli: &Cli) -> Tables {
                 flag_groups.push(quote!(<#ty as usage_argv::spec::ArgGroup>::FLAGS));
                 flag_meta_groups.push(quote!(<#ty as usage_argv::spec::ArgGroup>::FLAG_METAS));
             }
-            Kind::Clause { .. } | Kind::Subcommand { .. } | Kind::Skip => {}
+            Kind::Clause { ty, .. } => {
+                flattened = true;
+                if own_since_flatten > 0 {
+                    flag_offset.push(quote!(#own_since_flatten));
+                    own_since_flatten = 0;
+                }
+                flag_offset
+                    .push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.flags.len()));
+                flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
+                flag_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::COMMAND.flags));
+                flag_meta_groups.push(quote!(<#ty as usage_argv::spec::CommandArgs>::META.flags));
+            }
+            Kind::Subcommand { .. } | Kind::Skip => {}
         }
     }
     flush_flags(&mut own_flags, &mut flag_groups, &mut flag_meta_groups);
@@ -5133,14 +5181,28 @@ fn field_value(field: &Field, omitter: Option<&TokenStream>) -> TokenStream {
             },
         };
     }
-    if let Kind::Clause { ty, .. } = &field.kind {
+    if let Kind::Clause { ty, separator } = &field.kind {
         let current = format_ident!("__usage_current_{}", ident);
+        let finish_current = if separator.is_some() {
+            quote!(__usage_instances.push(partial.#current);)
+        } else {
+            quote! {
+                if <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#current)
+                    .is_some()
+                {
+                    __usage_instances.push(partial.#current);
+                }
+            }
+        };
         return quote! {
-            partial.#ident
-                .into_iter()
-                .chain(::core::iter::once(partial.#current))
-                .map(<#ty as usage_argv::spec::CommandArgs>::build)
-                .collect::<::std::result::Result<::std::vec::Vec<_>, _>>()?
+            {
+                let mut __usage_instances = partial.#ident;
+                #finish_current
+                __usage_instances
+                    .into_iter()
+                    .map(<#ty as usage_argv::spec::CommandArgs>::build)
+                    .collect::<::std::result::Result<::std::vec::Vec<_>, _>>()?
+            }
         };
     }
     // The group's own `build` says which member was given; the field's type says what "none"
@@ -6331,6 +6393,59 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
         .iter()
         .enumerate()
         .map(|(i, f)| arg_meta(cli, i, f, &cli.ident));
+    let clause_field = cli.fields.iter().find_map(|field| match &field.kind {
+        Kind::Clause { ty, separator } => Some((field, ty, separator)),
+        _ => None,
+    });
+    let clause_table = clause_field.map_or_else(
+        || quote!(::core::option::Option::None),
+        |(field, ty, separator)| {
+            let name = proc_macro2::Literal::string(&field.name);
+            let separator = separator.as_ref().map_or_else(
+                || quote!(::core::option::Option::None),
+                |value| {
+                    let value = proc_macro2::Literal::byte_string(value.as_bytes());
+                    quote!(::core::option::Option::Some(#value))
+                },
+            );
+            quote!(::core::option::Option::Some(usage_argv::Clause {
+                key: 0, name: #name, separator: #separator,
+                flags: <#ty as usage_argv::spec::CommandArgs>::COMMAND.flags,
+                args: <#ty as usage_argv::spec::CommandArgs>::COMMAND.args,
+            }))
+        },
+    );
+    let clause_meta = clause_field.map_or_else(
+        || quote!(::core::option::Option::None),
+        |(field, ty, separator)| {
+            let name = proc_macro2::Literal::string(&field.name);
+            let separator = option_str(separator.as_deref());
+            quote!(::core::option::Option::Some(usage_argv::spec::ClauseMeta {
+                name: #name, separator: #separator, help: ::core::option::Option::None,
+                long_help: ::core::option::Option::None,
+                flags: <#ty as usage_argv::spec::CommandArgs>::META.flags,
+                args: <#ty as usage_argv::spec::CommandArgs>::META.args,
+            }))
+        },
+    );
+    let implicit_clause_assertions = clause_field
+        .filter(|(_, _, separator)| separator.is_none())
+        .map(|(_, ty, _)| {
+            quote! {
+                const _: () = {
+                    const INNER: &usage_argv::Command<'static> =
+                        <#ty as usage_argv::spec::CommandArgs>::COMMAND;
+                    assert!(INNER.args.len() == 1,
+                        "an implicit clause needs exactly one positional argument");
+                    assert!(INNER.args[0].required && !INNER.args[0].var,
+                        "an implicit clause positional must be required and non-variadic");
+                    assert!(INNER.subcommands.is_empty(),
+                        "an implicit clause cannot contain subcommands");
+                    assert!(INNER.args[0].sigil.is_none(),
+                        "an implicit clause positional cannot use a sigil");
+                };
+            }
+        });
     // Both the plain slices and, when a field is flattened, the joined arrays.
     let tables = tables(cli);
     let table_decls = &tables.decls;
@@ -6551,10 +6666,13 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 dont_delimit_trailing_values: #dont_delimit_trailing_values,
                 flags: #flag_table_ref,
                 args: #arg_table_ref,
+                clause: #clause_table,
                 #sub_commands
                 #sub_external
                 ..usage_argv::Command::EMPTY
             };
+            #implicit_clause_assertions
+            const _: () = usage_argv::assert_clause_flag_spellings(&COMMAND);
 
             #(#flag_metas)*
             #(#arg_metas)*
@@ -6597,6 +6715,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 headings: #headings,
                 flags: #flag_meta_table_ref,
                 args: #arg_meta_table_ref,
+                clause: #clause_meta,
                 groups: #group_meta_table_ref,
                 flatten_groups: #flatten_group_table_ref,
                 #sub_metas
@@ -9335,6 +9454,39 @@ fn post_binding(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let clause_checks = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, separator } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        let current = format_ident!("__usage_current_{}", ident);
+        let check_current = if separator.is_some() {
+            quote!(true)
+        } else {
+            quote!(
+                <#ty as usage_argv::spec::CommandArgs>::any_given(&partial.#current).is_some()
+            )
+        };
+        Some(quote! {
+            if !__usage_exclusive_present
+                || <#ty as usage_argv::spec::CommandArgs>::exclusive_given(&partial.#current)
+                    .is_some()
+            {
+                for __usage_instance in &mut partial.#ident {
+                    <#ty as usage_argv::spec::CommandArgs>::check_with_args_override_self(
+                        __usage_instance,
+                        false,
+                    )?;
+                }
+                if #check_current {
+                    <#ty as usage_argv::spec::CommandArgs>::check_with_args_override_self(
+                        &mut partial.#current,
+                        false,
+                    )?;
+                }
+            }
+        })
+    });
     let duplicate_checks = cli
         .fields
         .iter()
@@ -10230,6 +10382,7 @@ fn post_binding(cli: &Cli) -> TokenStream {
         #exclusive_cross_checks
         #(#group_exclusivity_checks)*
         #(#flattened_checks)*
+        #(#clause_checks)*
         // An exclusive occurrence is the command's escape from requiredness, just as in clap:
         // `--version` remains usable on a command that otherwise requires an input. Conflicts
         // and other validation still ran above; only errors about absent siblings are skipped.

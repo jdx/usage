@@ -839,6 +839,15 @@ fn positional_args<'a>(meta: &'a CommandMeta<'a>) -> &'a [ArgMeta<'a>] {
     meta.clause.map_or(meta.args, |clause| clause.args)
 }
 
+fn is_clause_flag(meta: &CommandMeta<'_>, flag: &FlagMeta<'_>) -> bool {
+    meta.clause.is_some_and(|clause| {
+        clause
+            .flags
+            .iter()
+            .any(|scoped| core::ptr::eq(scoped.flag, flag.flag))
+    })
+}
+
 fn usage_line_with_subcommands(
     path: &[&str],
     meta: &CommandMeta<'_>,
@@ -854,14 +863,15 @@ fn usage_line_with_subcommands(
 
     // Hidden entries are absent from the line as they are from the sections: help describes
     // what a user is invited to type.
-    let flags: usize = meta.flags.iter().filter(|f| !f.hide && !f.builtin).count();
+    let command_flags = meta
+        .flags
+        .iter()
+        .filter(|f| !f.hide && !f.builtin && !is_clause_flag(meta, f));
+    let flags = command_flags.clone().count();
     if flags > 0 {
-        let required = meta
-            .flags
-            .iter()
-            .any(|f| !f.hide && !f.builtin && flag_demanded(f));
+        let required = command_flags.clone().any(flag_demanded);
         if flags <= INLINE_LIMIT {
-            for flag in meta.flags.iter().filter(|f| !f.hide && !f.builtin) {
+            for flag in command_flags {
                 // A required flag is angled, like a required argument: the brackets are what
                 // say whether leaving it out is allowed.
                 let (open, close) = if flag_demanded(flag) {
@@ -889,7 +899,14 @@ fn usage_line_with_subcommands(
                 .map(arg_usage)
                 .collect::<Vec<_>>()
                 .join(" ");
-            let _ = write!(out, " {inner} [{} {inner}]…", clause.separator);
+            match clause.separator {
+                Some(separator) => {
+                    let _ = write!(out, " {inner} [{separator} {inner}]…");
+                }
+                None => {
+                    let _ = write!(out, " {inner}…");
+                }
+            }
         } else if args <= INLINE_LIMIT {
             for arg in positional_args.iter().filter(|a| !a.hide) {
                 let _ = write!(out, " {}", arg_usage(arg));
@@ -3893,6 +3910,12 @@ mod style_tests {
 
     #[test]
     fn compiled_clause_arguments_appear_in_usage_and_help() {
+        let postinstall = Flag {
+            key: 4,
+            name: "postinstall",
+            longs: &["postinstall"],
+            ..Flag::VALUE
+        };
         let task = Arg {
             name: "TASK",
             ..Arg::REQUIRED
@@ -3905,10 +3928,12 @@ mod style_tests {
         };
         let command = Command {
             name: "run",
+            flags: &[&postinstall],
             clause: Some(Clause {
                 key: 0,
                 name: "tasks",
-                separator: b":::",
+                separator: Some(b":::"),
+                flags: &[&postinstall],
                 args: &[&task, &args],
             }),
             ..Command::EMPTY
@@ -3928,9 +3953,21 @@ mod style_tests {
         };
         let meta = CommandMeta {
             cmd: &command,
+            flags: &[FlagMeta {
+                flag: &postinstall,
+                required: true,
+                help: Some("Command to run after install"),
+                ..FlagMeta::EMPTY
+            }],
             clause: Some(ClauseMeta {
                 name: "tasks",
-                separator: ":::",
+                separator: Some(":::"),
+                flags: &[FlagMeta {
+                    flag: &postinstall,
+                    required: true,
+                    help: Some("Command to run after install"),
+                    ..FlagMeta::EMPTY
+                }],
                 help: None,
                 long_help: None,
                 args: &[task_meta, args_meta],

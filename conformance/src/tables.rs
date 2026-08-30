@@ -78,17 +78,28 @@ pub fn build(
         .chain(cmd.complete.values())
         .collect();
 
-    let flags: Vec<&'static Flag<'static>> = cmd.flags.iter().map(build_flag).collect();
+    let command_flags: Vec<&'static Flag<'static>> = cmd.flags.iter().map(build_flag).collect();
     let args: Vec<&'static Arg<'static>> = cmd.args.iter().map(build_arg).collect();
     let clause_args: Vec<&'static Arg<'static>> = cmd
         .clause
         .as_ref()
         .map(|clause| clause.args.iter().map(build_arg).collect())
         .unwrap_or_default();
+    let clause_flags: Vec<&'static Flag<'static>> = cmd
+        .clause
+        .as_ref()
+        .map(|clause| clause.flags.iter().map(build_flag).collect())
+        .unwrap_or_default();
+    let flags: Vec<&'static Flag<'static>> =
+        command_flags.iter().chain(&clause_flags).copied().collect();
     let clause = cmd.clause.as_ref().map(|clause| Clause {
         key: 0,
         name: leak(&clause.name),
-        separator: leak(&clause.separator).as_bytes(),
+        separator: clause
+            .separator
+            .as_ref()
+            .map(|separator| leak(separator).as_bytes()),
+        flags: Box::leak(clause_flags.clone().into_boxed_slice()),
         args: Box::leak(clause_args.clone().into_boxed_slice()),
     });
     let subs: Vec<Built> = cmd
@@ -137,9 +148,11 @@ pub fn build(
         key: 0,
     }));
 
-    let flag_metas: Vec<FlagMeta<'static>> = cmd
+    let all_spec_flags = cmd
         .flags
         .iter()
+        .chain(cmd.clause.iter().flat_map(|clause| clause.flags.iter()));
+    let flag_metas: Vec<FlagMeta<'static>> = all_spec_flags
         .zip(&flags)
         .map(|(f, table)| flag_meta(f, table, &completers))
         .collect();
@@ -151,9 +164,18 @@ pub fn build(
         .collect();
     let clause_meta = cmd.clause.as_ref().map(|clause| ClauseMeta {
         name: leak(&clause.name),
-        separator: leak(&clause.separator),
+        separator: clause.separator.as_ref().map(|separator| leak(separator)),
         help: opt(&clause.help),
         long_help: opt(&clause.help_long),
+        flags: Box::leak(
+            clause
+                .flags
+                .iter()
+                .zip(&clause_flags)
+                .map(|(flag, table)| flag_meta(flag, table, &completers))
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        ),
         args: Box::leak(
             clause
                 .args

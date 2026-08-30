@@ -209,6 +209,22 @@ impl<'a> Emitter<'a> {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
+        let clause_flags = cmd
+            .clause
+            .as_ref()
+            .map(|clause| {
+                clause
+                    .flags
+                    .iter()
+                    .map(|flag| {
+                        (
+                            flag.clone(),
+                            self.name("Flag", path, &format!("{}-{}", clause.name, flag.name)),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
 
         let index = out.len();
         out.push(Emitted {
@@ -216,6 +232,7 @@ impl<'a> Emitter<'a> {
             cmd: cmd.clone(),
             flags,
             args,
+            clause_flags,
             clause_args,
             subcommands: Vec::new(),
             root,
@@ -294,6 +311,11 @@ impl<'a> Emitter<'a> {
         for e in commands {
             entries.push((&e.named.key, e.named.number));
             entries.extend(e.flags.iter().map(|(_, n)| (n.key.as_str(), n.number)));
+            entries.extend(
+                e.clause_flags
+                    .iter()
+                    .map(|(_, n)| (n.key.as_str(), n.number)),
+            );
             entries.extend(e.args.iter().map(|(_, n)| (n.key.as_str(), n.number)));
             entries.extend(
                 e.clause_args
@@ -368,9 +390,9 @@ impl<'a> Emitter<'a> {
                 lines.push(Line::Field("Aliases".into(), format!("[]string{{{list}}}")));
             }
 
-            if !e.flags.is_empty() {
+            if !e.flags.is_empty() || !e.clause_flags.is_empty() {
                 let mut block = vec!["Flags: []*argv.Flag{".to_string()];
-                for (flag, named) in &e.flags {
+                for (flag, named) in e.flags.iter().chain(&e.clause_flags) {
                     block.push(format!("\t{},", flag_literal(flag, named)));
                 }
                 block.push("},".to_string());
@@ -389,7 +411,15 @@ impl<'a> Emitter<'a> {
                 let mut block = vec!["Clause: &argv.Clause{".to_string()];
                 block.push(format!("\tKey: {},", e.named.key));
                 block.push(format!("\tName: {},", go_string(&clause.name)));
-                block.push(format!("\tSeparator: {},", go_string(&clause.separator)));
+                block.push(format!(
+                    "\tSeparator: {},",
+                    go_string(clause.separator.as_deref().unwrap_or_default())
+                ));
+                block.push("\tFlags: []*argv.Flag{".to_string());
+                for (flag, named) in &e.clause_flags {
+                    block.push(format!("\t\t{},", flag_literal(flag, named)));
+                }
+                block.push("\t},".to_string());
                 block.push("\tArgs: []*argv.Arg{".to_string());
                 for (arg, named) in &e.clause_args {
                     block.push(format!("\t\t{},", arg_literal(arg, named)));
@@ -493,7 +523,7 @@ impl Emitter<'_> {
         // By key, so the slice can be written in one pass in index order.
         let mut by_key: BTreeMap<u64, String> = BTreeMap::new();
         for e in commands {
-            for (flag, named) in &e.flags {
+            for (flag, named) in e.flags.iter().chain(&e.clause_flags) {
                 by_key.insert(named.number, self.flag_meta(flag, named, e, commands));
             }
             for (arg, named) in &e.args {
@@ -506,7 +536,7 @@ impl Emitter<'_> {
 
         let total = commands
             .iter()
-            .map(|e| 1 + e.flags.len() + e.args.len() + e.clause_args.len())
+            .map(|e| 1 + e.flags.len() + e.clause_flags.len() + e.args.len() + e.clause_args.len())
             .sum::<usize>() as u64;
 
         let _ = writeln!(
@@ -546,7 +576,11 @@ impl Emitter<'_> {
             format!("Name: {}", go_string(&flag.name)),
             "Flag: true".to_string(),
         ];
-        if !owner.cmd.args_override_self
+        let scoped = owner
+            .clause_flags
+            .iter()
+            .any(|(_, candidate)| candidate.key == named.key);
+        if (!owner.cmd.args_override_self || scoped)
             && !flag.var
             && !flag.count
             && !flag.arg.as_ref().is_some_and(|arg| arg.var)
@@ -901,7 +935,7 @@ fn match_flag(cmd: &Emitted, name: &str, globals_only: bool) -> Option<String> {
         (None, None, Some(name))
     };
 
-    let ordinary = cmd.flags.iter().find(|(flag, _)| {
+    let ordinary = cmd.flags.iter().chain(&cmd.clause_flags).find(|(flag, _)| {
         if !eligible(flag) {
             return false;
         }
@@ -922,6 +956,7 @@ fn match_flag(cmd: &Emitted, name: &str, globals_only: bool) -> Option<String> {
     // usage-lib resolves it that way round too.
     cmd.flags
         .iter()
+        .chain(&cmd.clause_flags)
         .find(|(flag, _)| eligible(flag) && flag.negate.as_deref() == Some(name))
         .map(|(_, named)| named.key.clone())
 }
@@ -984,7 +1019,7 @@ impl Emitter<'_> {
         let mut by_key: BTreeMap<u64, String> = BTreeMap::new();
         for e in commands {
             by_key.insert(e.named.number, command_help(e));
-            for (flag, named) in &e.flags {
+            for (flag, named) in e.flags.iter().chain(&e.clause_flags) {
                 by_key.insert(named.number, flag_help(flag, named));
             }
             for (arg, named) in &e.args {
@@ -997,7 +1032,7 @@ impl Emitter<'_> {
 
         let total = commands
             .iter()
-            .map(|e| 1 + e.flags.len() + e.args.len() + e.clause_args.len())
+            .map(|e| 1 + e.flags.len() + e.clause_flags.len() + e.args.len() + e.clause_args.len())
             .sum::<usize>() as u64;
 
         let _ = writeln!(
@@ -1406,6 +1441,7 @@ struct Emitted {
     cmd: SpecCommand,
     flags: Vec<(SpecFlag, Named)>,
     args: Vec<(SpecArg, Named)>,
+    clause_flags: Vec<(SpecFlag, Named)>,
     clause_args: Vec<(SpecArg, Named)>,
     /// Indices into the flat list, in declaration order.
     subcommands: Vec<usize>,
@@ -2281,6 +2317,7 @@ bin "ex"
 cmd "run" {
     flag "--needs-task" requires="task"
     clause "items" separator=":::" {
+        flag "--postinstall <command>"
         arg "<task>" help="Task to run"
     }
 }
@@ -2305,6 +2342,13 @@ cmd "later" {
         );
         assert!(
             meta.lines().any(|line| {
+                line.contains("Key: FlagRunItemsPostinstall")
+                    && line.contains("RejectDuplicate: true")
+            }),
+            "{out}"
+        );
+        assert!(
+            meta.lines().any(|line| {
                 line.contains("Key: FlagRunNeedsTask")
                     && line.contains("Requires: []uint64{ArgRunItemsTask}")
             }),
@@ -2323,10 +2367,13 @@ cmd "later" {
         );
         for generated in [
             "type RunCmdItemsClause struct {",
+            "Postinstall string",
+            "Flags: []*argv.Flag{",
+            "clauseFlag := map[uint64]bool{FlagRunItemsPostinstall: true}",
             "case argv.KindClauseSeparator:",
-            "for _, instance := range clauseInstances[CmdRun] {",
-            "if err := argv.Check(Meta.Lookup(key), values, 0); err != nil {",
-            "clauseSources := map[uint64]argv.Source{ArgRunItemsTask: argv.Unset}",
+            "for instanceIndex, instance := range clauseInstances[CmdRun] {",
+            "if err := argv.Check(Meta.Lookup(key), values, instanceOccurrences[key]); err != nil {",
+            "clauseSources := map[uint64]argv.Source{FlagRunItemsPostinstall: argv.Unset, ArgRunItemsTask: argv.Unset}",
             "cmdRunV.Items = append(cmdRunV.Items, item)",
         ] {
             assert!(out.contains(generated), "missing {generated:?}:\n{out}");
@@ -2423,8 +2470,8 @@ bin "ex"
 flag "--pair <ITEM>..." {
     arg "<ITEM>..." var=#true var_min=2 var_max=2 {
         value_names "ITEM"
+        }
     }
-}
 arg "<ITEM>..." var=#true var_min=2 var_max=2 {
     value_names "ITEM"
 }
@@ -2433,6 +2480,55 @@ arg "<ITEM>..." var=#true var_min=2 var_max=2 {
         assert_eq!(
             out.matches("ValueNames: []string{\"ITEM\"}").count(),
             2,
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn scoped_flag_binding_preserves_counts_and_boolean_polarity() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+clause "tools" {
+    flag "--required" required=#true
+    flag "-v --verbose" count=#true
+    flag "--color" negate="--no-color" bool_value=#true
+    arg "<tool>"
+}
+"#);
+
+        for generated in [
+            "if clauseFlag[f.Key] {",
+            "instanceOccurrences := clauseInstanceOccurrences[CmdRoot][instanceIndex]",
+            "argv.Check(Meta.Lookup(key), values, instanceOccurrences[key])",
+            "item.Required = !instanceNegated[FlagToolsRequired]",
+            "item.Verbose = instanceOccurrences[FlagToolsVerbose]",
+            "item.Color = (values[len(values)-1] == \"true\") != instanceNegated[FlagToolsColor]",
+            "item.Color = !instanceNegated[FlagToolsColor]",
+        ] {
+            assert!(out.contains(generated), "missing {generated:?}:\n{out}");
+        }
+    }
+
+    #[test]
+    fn a_bare_optional_scoped_flag_does_not_index_an_empty_value() {
+        let out = go(r#"
+name "ex"
+bin "ex"
+clause "tools" {
+    flag "--label [LABEL]" value_optional=#true
+    arg "<tool>"
+}
+"#);
+
+        assert!(
+            out.contains(
+                "if values := instance[FlagToolsLabel]; len(values) > 0 {\n\t\t\t\titem.Label = values[len(values)-1]"
+            ),
+            "{out}"
+        );
+        assert!(
+            !out.contains("if values, ok := instance[FlagToolsLabel]; ok"),
             "{out}"
         );
     }

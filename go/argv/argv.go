@@ -108,11 +108,12 @@ type Command struct {
 	Key uint64
 }
 
-// Clause is a repeatable separator-delimited positional group.
+// Clause is a repeatable group of scoped flags and positional arguments.
 type Clause struct {
 	Key       uint64
 	Name      string
 	Separator string
+	Flags     []*Flag
 	Args      []*Arg
 }
 

@@ -278,13 +278,16 @@ func TestAPageWithoutATemplateIsUnchanged(t *testing.T) {
 }
 
 func TestClauseArgumentsAppearInUsageAndHelp(t *testing.T) {
+	postinstall := &Flag{Key: 4, Name: "postinstall", Longs: []string{"postinstall"}, TakesValue: true}
 	task := &Arg{Key: 2, Name: "task", Required: true}
 	args := &Arg{Key: 3, Name: "args", Var: true}
 	root := &Command{
 		Name: "ex", Key: 1,
-		Clause: &Clause{Name: "tasks", Separator: ":::", Args: []*Arg{task, args}},
+		Flags:  []*Flag{postinstall},
+		Clause: &Clause{Name: "tasks", Separator: ":::", Flags: []*Flag{{Key: 4, Name: "postinstall", Longs: []string{"postinstall"}, TakesValue: true}}, Args: []*Arg{task, args}},
 	}
 	help := helpKeyed(
+		Help{Key: 4, Short: "Command to run after install", Demanded: true},
 		Help{Key: 2, Short: "Task to run", Demanded: true},
 		Help{Key: 3, Short: "Arguments for the task"},
 	)

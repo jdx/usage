@@ -136,6 +136,7 @@ type Cmd struct {
 type Clause struct {
 	Name      string `json:"name"`
 	Separator string `json:"separator"`
+	Flags     []Flag `json:"flags"`
 	Args      []Arg  `json:"args"`
 }
 
@@ -556,8 +557,12 @@ func (s *Spec) MultiFlags() map[string]Multi {
 }
 
 func collectMulti(c *Cmd, out map[string]Multi) {
-	for i := range c.Flags {
-		f := &c.Flags[i]
+	flags := c.Flags
+	if c.Clause != nil {
+		flags = append(flags, c.Clause.Flags...)
+	}
+	for i := range flags {
+		f := &flags[i]
 		switch {
 		case f.Count:
 			out[f.Name] = MultiCount
@@ -768,6 +773,11 @@ func (b *builder) command(c *Cmd, inherited argv.UnknownFlags) *argv.Command {
 	}
 	if c.Clause != nil {
 		out.Clause = &argv.Clause{Key: b.next(), Name: c.Clause.Name, Separator: c.Clause.Separator}
+		for i := range c.Clause.Flags {
+			flag := b.flag(&c.Clause.Flags[i], true)
+			out.Clause.Flags = append(out.Clause.Flags, flag)
+			out.Flags = append(out.Flags, flag)
+		}
 		for i := range c.Clause.Args {
 			out.Clause.Args = append(out.Clause.Args, b.arg(&c.Clause.Args[i]))
 		}
@@ -810,6 +820,13 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 			for _, arg := range out.Args {
 				if arg.Name == name {
 					return arg.Key, true
+				}
+			}
+			if out.Clause != nil {
+				for _, arg := range out.Clause.Args {
+					if arg.Name == name {
+						return arg.Key, true
+					}
 				}
 			}
 		}
@@ -857,9 +874,13 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		return out
 	}
 
-	// `c.Flags` and `out.Flags` are built in step, so the index is the join.
-	for i := range c.Flags {
-		src := &c.Flags[i]
+	// Command and clause flags are appended to `out.Flags` in this order, so the index is the join.
+	flags := c.Flags
+	if c.Clause != nil {
+		flags = append(flags, c.Clause.Flags...)
+	}
+	for i := range flags {
+		src := &flags[i]
 		m := &b.meta[out.Flags[i].Key-1]
 		m.Conflicts = resolve(src.Conflicts)
 		m.Overrides = resolve(src.Overrides)
@@ -882,6 +903,19 @@ func (b *builder) resolveRelationships(c *Cmd, out *argv.Command) {
 		m.RequiredIfEqAll = resolveConditions(src.RequiredIfEqAll)
 		m.RequiredUnless = resolve(src.RequiredUnless)
 		m.RequiredUnlessAll = resolve(src.RequiredUnlessAll)
+	}
+	if c.Clause != nil {
+		for i := range c.Clause.Args {
+			src := &c.Clause.Args[i]
+			m := &b.meta[out.Clause.Args[i].Key-1]
+			m.Conflicts = resolve(src.Conflicts)
+			m.Requires = resolve(src.Requires)
+			m.RequiredIf = resolve(src.RequiredIf)
+			m.RequiredIfEq = resolveConditions(src.RequiredIfEq)
+			m.RequiredIfEqAll = resolveConditions(src.RequiredIfEqAll)
+			m.RequiredUnless = resolve(src.RequiredUnless)
+			m.RequiredUnlessAll = resolve(src.RequiredUnlessAll)
+		}
 	}
 }
 

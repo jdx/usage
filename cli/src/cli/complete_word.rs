@@ -180,7 +180,8 @@ impl CompleteWord {
                 .cmd
                 .clause
                 .as_ref()
-                .is_some_and(|clause| prev_token == Some(clause.separator.as_str()));
+                .and_then(|clause| clause.separator.as_deref())
+                .is_some_and(|separator| prev_token == Some(separator));
 
         let cx = Ctx {
             tera: &ctx,

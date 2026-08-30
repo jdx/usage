@@ -76,6 +76,9 @@ type Parser struct {
 	// asking this question want to know what the user wrote, not what state the
 	// parser reached.
 	separatorSeen bool
+	// clauseBoundaryPending emits the implicit boundary after the terminal
+	// positional event, before the next token is read.
+	clauseBoundaryPending bool
 	// defaultTaken records whether the default subcommand has been used, which may
 	// happen at most once: a default that itself declares one would otherwise
 	// descend on every word until the tree ran out.
@@ -198,6 +201,15 @@ func (p *Parser) emit(e Event) bool {
 
 func (p *Parser) step() bool {
 	for {
+		if p.clauseBoundaryPending {
+			p.clauseBoundaryPending = false
+			p.argPos = 0
+			p.argTaken = 0
+			p.argFilled = false
+			p.collecting = nil
+			p.flagsStopped = false
+			return p.emit(Event{Kind: KindClauseSeparator, Clause: p.cmd.Clause})
+		}
 		// A partly-read short bundle takes priority: its remaining bytes are still
 		// part of the token being processed.
 		if len(p.bundle) > 0 {
@@ -227,7 +239,7 @@ func (p *Parser) step() bool {
 					p.collecting = nil
 					continue
 				}
-				if (!isFlagLike(next) || (flag.AllowNegativeNumbers && isNegativeNumber(next))) && next != "--" {
+				if (!isFlagLike(next) || (flag.AllowNegativeNumbers && isNegativeNumber(next))) && !p.isClauseSeparator(next) && next != "--" {
 					p.pos++
 					p.collected += valuesIn(next, flag.Delimiter)
 					// Same rule as a positional: a bounded occurrence takes that many and
@@ -252,7 +264,7 @@ func (p *Parser) step() bool {
 		token := p.argv[p.pos]
 		p.pos++
 
-		if !p.separatorSeen && p.cmd.Clause != nil && token == p.cmd.Clause.Separator {
+		if p.isClauseSeparator(token) {
 			p.argPos = 0
 			p.argTaken = 0
 			p.argFilled = false
@@ -511,12 +523,16 @@ func (p *Parser) takeDetachedValue(flag *Flag, long string, short byte) (string,
 	if flag.RequireEquals {
 		return p.missingOrDefault(flag, long, short)
 	}
-	if p.pos < len(p.argv) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos]) || (flag.AllowNegativeNumbers && isNegativeNumber(p.argv[p.pos]))) {
+	if p.pos < len(p.argv) && !p.isClauseSeparator(p.argv[p.pos]) && (flag.AllowHyphenValues || !isFlagLike(p.argv[p.pos]) || (flag.AllowNegativeNumbers && isNegativeNumber(p.argv[p.pos]))) {
 		v := p.argv[p.pos]
 		p.pos++
 		return v, true, true
 	}
 	return p.missingOrDefault(flag, long, short)
+}
+
+func (p *Parser) isClauseSeparator(token string) bool {
+	return !p.separatorSeen && p.cmd.Clause != nil && p.cmd.Clause.Separator != "" && token == p.cmd.Clause.Separator
 }
 
 // missingOrDefault is the value when a detached one is refused or absent.
@@ -682,6 +698,9 @@ func (p *Parser) word(token string) bool {
 		}
 	} else {
 		p.advanceArg()
+		if p.cmd.Clause != nil && p.cmd.Clause.Separator == "" && p.argPos >= len(p.currentArgs()) {
+			p.clauseBoundaryPending = true
+		}
 	}
 	return p.emit(Event{
 		Kind: KindArg, Arg: arg, Value: token, HasValue: true, Delimit: delimit,

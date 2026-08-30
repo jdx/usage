@@ -43,6 +43,9 @@ pub enum UsageErr {
     #[error("Invalid usage config")]
     InvalidInput(String, SourceSpan, NamedSource<String>),
 
+    #[error("Invalid usage spec: {0}")]
+    InvalidSpec(String),
+
     #[error("Missing required arg: <{0}>")]
     MissingArg(String),
 

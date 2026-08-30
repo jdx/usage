@@ -462,18 +462,35 @@ fn diff_command_props(old: &SpecCommand, new: &SpecCommand, path: &str, c: &mut 
             "clause-added",
             path,
             format!(
-                "clause '{}' using separator '{}' was added, so matching words now start a new clause",
-                now.name, now.separator
+                "clause '{}'{} was added",
+                now.name,
+                now.separator
+                    .as_ref()
+                    .map(|separator| format!(
+                        " using separator '{separator}', so matching words now start a new clause"
+                    ))
+                    .unwrap_or_default()
             ),
         ),
-        (Some(was), Some(now)) if was.separator != now.separator => c.breaking(
-            "clause-separator-changed",
-            path,
-            format!(
-                "clause separator changed from '{}' to '{}'",
-                was.separator, now.separator
-            ),
-        ),
+        (Some(was), Some(now)) => {
+            if was.separator != now.separator {
+                c.breaking(
+                    "clause-separator-changed",
+                    path,
+                    format!(
+                        "clause separator changed from '{}' to '{}'",
+                        was.separator.as_deref().unwrap_or("implicit"),
+                        now.separator.as_deref().unwrap_or("implicit")
+                    ),
+                );
+            }
+            let mut was_cmd = old.clone();
+            was_cmd.flags = was.flags.clone();
+            let mut now_cmd = new.clone();
+            now_cmd.flags = now.flags.clone();
+            diff_flags(&was_cmd, &now_cmd, path, c);
+            diff_args(&was.args, &now.args, path, c);
+        }
         _ => {}
     }
 
@@ -2368,10 +2385,25 @@ clause "tasks" separator="+++" {
     arg "<task>"
 }
 "#;
+        let required_flag = r#"
+name "ex"
+bin "ex"
+clause "tasks" separator=":::" {
+    flag "--postinstall <COMMAND>" required=#true
+    arg "<task>"
+}
+"#;
 
         assert_eq!(codes(plain, colon), ["breaking:clause-added"]);
         assert_eq!(codes(colon, plain), ["breaking:clause-removed"]);
         assert_eq!(codes(colon, plus), ["breaking:clause-separator-changed"]);
+        assert!(
+            codes(colon, required_flag)
+                .iter()
+                .any(|code| code == "breaking:required-flag-added"),
+            "{:?}",
+            codes(colon, required_flag)
+        );
     }
 
     #[test]

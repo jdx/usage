@@ -193,6 +193,7 @@ fn flag_keys(flag: &SpecFlag) -> Vec<String> {
 fn gather_flags(cmd: &SpecCommand) -> BTreeMap<String, Arc<SpecFlag>> {
     cmd.flags
         .iter()
+        .chain(cmd.clause.iter().flat_map(|clause| &clause.flags))
         .flat_map(|f| {
             let f = Arc::new(f.clone()); // One clone per flag, then cheap Arc refs
             flag_keys(&f)
@@ -386,6 +387,8 @@ pub struct ParseOutput {
     pub args: IndexMap<Arc<SpecArg>, ParseValue>,
     /// Separator-delimited positional instances, keyed by clause name.
     pub clauses: IndexMap<String, Vec<IndexMap<Arc<SpecArg>, ParseValue>>>,
+    /// Per-instance flags belonging to a repeatable clause, keyed by clause name.
+    pub clause_flags: IndexMap<String, Vec<IndexMap<Arc<SpecFlag>, ParseValue>>>,
     pub flags: IndexMap<Arc<SpecFlag>, ParseValue>,
     /// What each word of the command line became, in argv order, one entry per word.
     ///
@@ -770,6 +773,7 @@ impl<'a> Parser<'a> {
             self.env.as_ref(),
             self.mount_outputs.as_ref(),
             MountTiming::WhenAWordIsUnknown,
+            true,
             &mut trace,
         ) {
             // A parse that got as far as stopping normally already moved its tokens onto the
@@ -787,6 +791,7 @@ impl<'a> Parser<'a> {
             custom_env,
             self.mount_outputs.as_ref(),
             MountTiming::WhenAWordIsUnknown,
+            false,
         )?;
         restore_current_clause(&mut out);
         trace!("{out:?}");
@@ -916,7 +921,12 @@ impl<'a> Parser<'a> {
         // that was filled from env. Applying both in one pass would make the
         // answer depend on declaration order: `--bin-names` before `--json`
         // would miss `EX_JSON=1`.
-        let flags: Vec<Arc<SpecFlag>> = out.available_flags.values().cloned().collect();
+        let flags: Vec<Arc<SpecFlag>> = out
+            .available_flags
+            .values()
+            .filter(|flag| !is_clause_scoped_flag(&out, flag))
+            .cloned()
+            .collect();
         for flag in &flags {
             if out.flags.contains_key(flag) || overridden_flags.contains(&flag.name) {
                 continue;
@@ -1026,6 +1036,18 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        // The binding phase leaves the last clause instance in `args`/`flags` so
+        // completion can inspect it. A full parse closes it before applying scoped
+        // fallbacks: defaults and environment values fill instances that argv made,
+        // but never manufacture a repeated group on their own.
+        finalize_current_clause(&mut out);
+        let clause_explicit = apply_clause_flag_fallbacks(&mut out, &overridden_flags, custom_env)?;
+        validate_clause_relationships(
+            &mut out,
+            &overridden_flags,
+            custom_env,
+            clause_explicit.as_deref(),
+        );
         // Declarative value validation is deliberately post-binding. Defaults and
         // environment fallbacks have landed by here, and delimiters were already split
         // while binding. Like clap's value parsers, a declaration judges each resulting
@@ -1046,7 +1068,6 @@ impl<'a> Parser<'a> {
                 .get(&clause.name)
                 .into_iter()
                 .flatten()
-                .chain(std::iter::once(&out.args))
                 .enumerate()
             {
                 for arg in &clause.args {
@@ -1094,7 +1115,18 @@ impl<'a> Parser<'a> {
             }
             out.errors.extend(clause_errors);
         }
-        for (flag, parsed) in &out.flags {
+        let clause_flag_names = out
+            .cmd
+            .clause
+            .iter()
+            .flat_map(|clause| &clause.flags)
+            .map(|flag| flag.name.as_str())
+            .collect::<HashSet<_>>();
+        for (flag, parsed) in out
+            .flags
+            .iter()
+            .filter(|(flag, _)| !clause_flag_names.contains(flag.name.as_str()))
+        {
             if let Some(arg) = &flag.arg {
                 validate_expression(
                     &flag.name,
@@ -1108,7 +1140,6 @@ impl<'a> Parser<'a> {
         // Applied once, here, because this is where the CLI's own version is known: a
         // `deprecated_warn_at` the spec has not reached yet is an author saying *not yet*.
         crate::warn::retain_reached(&mut out.warnings, self.spec.version.as_deref());
-        finalize_current_clause(&mut out);
         Ok(out)
     }
 }
@@ -1129,7 +1160,7 @@ pub fn parse(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error
 /// Use this for help text generation or when you need the raw parsed values.
 #[must_use = "parsing result should be used"]
 pub fn parse_partial(spec: &Spec, input: &[String]) -> Result<ParseOutput, miette::Error> {
-    parse_partial_with_env(spec, input, None, None, MountTiming::Eager).map(|(out, _)| out)
+    parse_partial_with_env(spec, input, None, None, MountTiming::Eager, true).map(|(out, _)| out)
 }
 
 /// Basename of argv[0] for a multicall CLI: last path component, with a trailing
@@ -1266,6 +1297,7 @@ fn parse_partial_with_env(
     custom_env: Option<&HashMap<String, String>>,
     mount_outputs: Option<&HashMap<String, String>>,
     mount_timing: MountTiming,
+    validate_clauses: bool,
 ) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
     let mut trace = Trace::new(input);
     parse_partial_traced(
@@ -1274,6 +1306,7 @@ fn parse_partial_with_env(
         custom_env,
         mount_outputs,
         mount_timing,
+        validate_clauses,
         &mut trace,
     )
 }
@@ -1290,6 +1323,7 @@ fn parse_partial_traced(
     custom_env: Option<&HashMap<String, String>>,
     mount_outputs: Option<&HashMap<String, String>>,
     mount_timing: MountTiming,
+    validate_clauses: bool,
     trace: &mut Trace,
 ) -> Result<(ParseOutput, HashSet<String>), miette::Error> {
     if let Some(view) = input.first().and_then(|argv0| spec.view_for_program(argv0)) {
@@ -1300,6 +1334,7 @@ fn parse_partial_traced(
             custom_env,
             mount_outputs,
             mount_timing,
+            validate_clauses,
             trace,
         );
     }
@@ -1334,6 +1369,7 @@ fn parse_partial_traced(
         cmds: vec![spec.cmd.clone()],
         args: IndexMap::new(),
         clauses: IndexMap::new(),
+        clause_flags: IndexMap::new(),
         flags: IndexMap::new(),
         tokens: vec![],
         flag_origins: IndexMap::new(),
@@ -1654,16 +1690,35 @@ fn parse_partial_traced(
         // flags. Only an explicit `--` protects a literal separator.
         if !seen_double_dash {
             if let Some(clause) = out.cmd.clause.as_ref() {
-                if w == clause.separator {
+                if clause.separator.as_deref() == Some(w.as_str()) {
+                    while try_bind_default_missing(
+                        &mut out.flags,
+                        &mut out.flag_awaiting_value,
+                        custom_env,
+                        &mut out.flag_origins,
+                    )? {}
+                    if let Some(flag) = out.flag_awaiting_value.first() {
+                        let spelling = flag
+                            .long
+                            .first()
+                            .map(|long| format!("--{long}"))
+                            .or_else(|| flag.short.first().map(|short| format!("-{short}")))
+                            .unwrap_or_else(|| flag.name.clone());
+                        return Err(UsageErr::InvalidFlag {
+                            token: spelling.clone(),
+                            reason: "requires an argument".to_string(),
+                            span: (0, spelling.len()).into(),
+                            input: spelling,
+                        }
+                        .into());
+                    }
                     let name = clause.name.clone();
-                    out.clauses
-                        .entry(name.clone())
-                        .or_default()
-                        .push(std::mem::take(&mut out.args));
+                    finalize_current_clause(&mut out);
                     out.arg_origins.clear();
                     trace.record(argv, TokenRole::ClauseSeparator { name });
                     next_arg_idx = 0;
                     out.flag_awaiting_value.clear();
+                    reset_clause_scalar_occurrences(&out, &mut scalar_occurrences);
                     enable_flags = true;
                     seen_double_dash = false;
                     continue;
@@ -2414,6 +2469,44 @@ fn parse_partial_traced(
                     .insert(Arc::new(arg.clone()), ParseValue::String(w));
                 next_arg_idx += 1;
             }
+            if out
+                .cmd
+                .clause
+                .as_ref()
+                .is_some_and(|clause| clause.separator.is_none())
+                && next_arg_idx >= active_args(&out.cmd).len()
+            {
+                while try_bind_default_missing(
+                    &mut out.flags,
+                    &mut out.flag_awaiting_value,
+                    custom_env,
+                    &mut out.flag_origins,
+                )? {}
+                if let Some(flag) = out.flag_awaiting_value.first() {
+                    let spelling = flag
+                        .long
+                        .first()
+                        .map(|long| format!("--{long}"))
+                        .or_else(|| flag.short.first().map(|short| format!("-{short}")))
+                        .unwrap_or_else(|| flag.name.clone());
+                    return Err(UsageErr::InvalidFlag {
+                        token: spelling.clone(),
+                        reason: "requires an argument".to_string(),
+                        span: (0, spelling.len()).into(),
+                        input: spelling,
+                    }
+                    .into());
+                }
+                let name = out.cmd.clause.as_ref().unwrap().name.clone();
+                finalize_current_clause(&mut out);
+                out.arg_origins.clear();
+                trace.record(argv, TokenRole::ClauseSeparator { name });
+                next_arg_idx = 0;
+                out.flag_awaiting_value.clear();
+                reset_clause_scalar_occurrences(&out, &mut scalar_occurrences);
+                enable_flags = true;
+                seen_double_dash = false;
+            }
             continue;
         }
         if is_help_arg(spec, &out.cmd, &w) {
@@ -2450,7 +2543,16 @@ fn parse_partial_traced(
     }
 
     record_stop(&mut out, next_arg_idx, seen_double_dash, trace, &input);
-    validate_clause_relationships(&mut out, &overridden_flags, custom_env);
+    if validate_clauses {
+        validate_clause_relationships(&mut out, &overridden_flags, custom_env, None);
+    }
+    let clause_flag_names = out
+        .cmd
+        .clause
+        .iter()
+        .flat_map(|clause| &clause.flags)
+        .map(|flag| flag.name.clone())
+        .collect::<HashSet<_>>();
 
     // `out.flags` is keyed by `SpecFlag`, whose equality is intentionally name-only. Two
     // declarations with the same canonical name therefore share one public value entry even
@@ -2531,8 +2633,9 @@ fn parse_partial_traced(
     // command that otherwise needs an input. Companions are still diagnosed below, but an
     // exclusive occurrence suppresses the missing-value checks that would make it unusable
     // whether it was alone or not.
-    let exclusive_present =
-        unique_flags(out.available_flags.values().chain(out.flags.keys())).any(|flag| {
+    let exclusive_present = unique_flags(out.available_flags.values().chain(out.flags.keys()))
+        .filter(|flag| !clause_flag_names.contains(&flag.name))
+        .any(|flag| {
             exclusive_occurrence(flag)
                 && !overridden_flags.contains(&flag.name)
                 && (flag_was_parsed(flag) || flag_has_env(flag, custom_env))
@@ -2646,7 +2749,9 @@ fn parse_partial_traced(
     // has a value, not how it got one. That is what clap does, and an asymmetric rule
     // would make the same pair of flags a conflict or not depending on which one
     // happened to be typed.
-    for flag in unique_flags(out.available_flags.values()) {
+    for flag in unique_flags(out.available_flags.values())
+        .filter(|flag| !clause_flag_names.contains(&flag.name))
+    {
         let given = out.flags.contains_key(flag) || flag_has_env(flag, custom_env);
         if !given || overridden_flags.contains(&flag.name) {
             continue;
@@ -2749,7 +2854,9 @@ fn parse_partial_traced(
     // exclusive one is nobody saying anything, and counting it would make the exclusive
     // flag unusable on any command that has a default. Environment values do count, also as
     // `conflicts` reads them, so the spec parser and the derive agree.
-    for flag in unique_flags(out.available_flags.values().chain(out.flags.keys())) {
+    for flag in unique_flags(out.available_flags.values().chain(out.flags.keys()))
+        .filter(|flag| !clause_flag_names.contains(&flag.name))
+    {
         // `SpecFlag` equality is intentionally name-only for the public parsed-value map,
         // but re-declared aliases can leave distinct declarations with that same name in
         // scope. Exclusivity is about the declaration the typed spelling resolved to, so
@@ -2759,6 +2866,7 @@ fn parse_partial_traced(
             continue;
         }
         let other_flag = unique_flags(out.available_flags.values().chain(out.flags.keys()))
+            .filter(|other| !clause_flag_names.contains(&other.name))
             .find(|other| {
                 !Arc::ptr_eq(other, flag)
                     && !overridden_flags.contains(&other.name)
@@ -2860,7 +2968,9 @@ fn parse_partial_traced(
     out.errors.extend(group_errors);
 
     if !exclusive_present {
-        for flag in unique_flags(out.available_flags.values()) {
+        for flag in unique_flags(out.available_flags.values())
+            .filter(|flag| !clause_flag_names.contains(&flag.name))
+        {
             let owner = out
                 .cmds
                 .iter()
@@ -2949,7 +3059,9 @@ fn parse_partial_traced(
     // Validate var_min/var_max constraints for variadic flags. These are bounds on
     // repeated occurrences of the flag itself. Bounds on its nested argument are enforced
     // by binding once per occurrence, where the per-occurrence count is still available.
-    for flag in unique_flags(out.available_flags.values()) {
+    for flag in unique_flags(out.available_flags.values())
+        .filter(|flag| !clause_flag_names.contains(&flag.name))
+    {
         if flag.var {
             let bound = match out.flags.get(flag) {
                 Some(ParseValue::MultiString(values)) => values.len(),
@@ -3192,17 +3304,34 @@ fn bind_flag_fallback(
     custom_env: Option<&HashMap<String, String>>,
     origin: ValueOrigin,
 ) -> Result<(), miette::Error> {
-    if values.is_empty() {
+    let Some(value) = flag_fallback_value(flag, values, &mut out.errors, custom_env)? else {
         return Ok(());
+    };
+    out.flags.insert(Arc::clone(flag), value);
+    out.flag_origins
+        .entry(Arc::clone(flag))
+        .or_default()
+        .push(origin);
+    Ok(())
+}
+
+fn flag_fallback_value(
+    flag: &SpecFlag,
+    values: &[String],
+    errors: &mut Vec<UsageErr>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> Result<Option<ParseValue>, miette::Error> {
+    if values.is_empty() {
+        return Ok(None);
     }
     if let Some(arg) = flag.arg.as_ref() {
         let values = split_fallback_values(values, arg.delimiter);
         if flag.var || arg.var {
             if flag.var {
-                validate_flag_fallback_count(flag, values.len(), &mut out.errors);
+                validate_flag_fallback_count(flag, values.len(), errors);
             }
             if arg.var {
-                validate_flag_arg_fallback_count(flag, arg, values.len(), &mut out.errors);
+                validate_flag_arg_fallback_count(flag, arg, values.len(), errors);
             }
             validate_choice_values(
                 ChoiceTarget::option(flag),
@@ -3210,8 +3339,7 @@ fn bind_flag_fallback(
                 arg.choices.as_ref(),
                 custom_env,
             )?;
-            out.flags
-                .insert(Arc::clone(flag), ParseValue::MultiString(values));
+            Ok(Some(ParseValue::MultiString(values)))
         } else {
             let value = values.into_iter().next().unwrap_or_default();
             validate_choice_value(
@@ -3220,25 +3348,183 @@ fn bind_flag_fallback(
                 arg.choices.as_ref(),
                 custom_env,
             )?;
-            out.flags
-                .insert(Arc::clone(flag), ParseValue::String(value));
+            Ok(Some(ParseValue::String(value)))
         }
     } else if flag.var {
-        validate_flag_fallback_count(flag, values.len(), &mut out.errors);
+        validate_flag_fallback_count(flag, values.len(), errors);
         let bools: Vec<bool> = values.iter().map(|s| fallback_is_true(s)).collect();
-        out.flags
-            .insert(Arc::clone(flag), ParseValue::MultiBool(bools));
+        Ok(Some(ParseValue::MultiBool(bools)))
     } else {
-        out.flags.insert(
-            Arc::clone(flag),
-            ParseValue::Bool(fallback_is_true(&values[0])),
-        );
+        Ok(Some(ParseValue::Bool(fallback_is_true(&values[0]))))
     }
-    out.flag_origins
-        .entry(Arc::clone(flag))
-        .or_default()
-        .push(origin);
-    Ok(())
+}
+
+/// Fill scoped flags inside the clause instances argv created.
+///
+/// The returned sets contain argv and environment sources only. Relationship
+/// validation uses them to keep defaults from becoming explicit conflicts while
+/// still allowing a fallback value to satisfy a required scoped flag.
+fn apply_clause_flag_fallbacks(
+    out: &mut ParseOutput,
+    overridden_flags: &HashSet<String>,
+    custom_env: Option<&HashMap<String, String>>,
+) -> Result<Option<Vec<HashSet<String>>>, miette::Error> {
+    let Some(clause) = out.cmd.clause.clone() else {
+        return Ok(None);
+    };
+    let Some(positional_instances) = out.clauses.get(&clause.name) else {
+        return Ok(None);
+    };
+    let positional_instances = positional_instances.clone();
+    let mut flag_instances = out
+        .clause_flags
+        .shift_remove(&clause.name)
+        .unwrap_or_default();
+    flag_instances.resize_with(positional_instances.len(), IndexMap::new);
+    let get_env = |key: &str| -> Option<String> {
+        custom_env
+            .and_then(|values| values.get(key).cloned())
+            .or_else(|| {
+                custom_env
+                    .is_none()
+                    .then(|| std::env::var(key).ok())
+                    .flatten()
+            })
+    };
+    let mut explicit_instances = Vec::with_capacity(flag_instances.len());
+
+    for (instance_index, scoped) in flag_instances.iter_mut().enumerate() {
+        let positional = &positional_instances[instance_index];
+        let mut explicit = scoped
+            .keys()
+            .map(|flag| flag.name.clone())
+            .collect::<HashSet<_>>();
+
+        // Environment first so every default_if sees all explicit sources,
+        // independent of declaration order.
+        for declared in &clause.flags {
+            let flag = Arc::new(declared.clone());
+            if scoped.contains_key(&flag) {
+                continue;
+            }
+            let Some((env_name, env_value)) = first_set_env(declared.env_names(), &get_env) else {
+                continue;
+            };
+            if let Some(warning) = flag_deprecation(declared) {
+                out.warnings.push(warning);
+            }
+            if flag_env_is_deprecated(declared, env_name) {
+                out.warnings
+                    .push(Warning::env(env_name, flag_current_env(declared)));
+            }
+            if let Some(value) = flag_fallback_value(
+                declared,
+                std::slice::from_ref(&env_value),
+                &mut out.errors,
+                custom_env,
+            )? {
+                scoped.insert(flag, value);
+                explicit.insert(declared.name.clone());
+            }
+        }
+
+        let condition_matches =
+            |condition: &crate::SpecDefaultIf| {
+                if let Some(flag) = clause
+                    .flags
+                    .iter()
+                    .find(|flag| flag_matches_selector(flag, &condition.selector))
+                {
+                    if !explicit.contains(&flag.name) {
+                        return false;
+                    }
+                    return condition.when.as_ref().is_none_or(|expected| {
+                        scoped
+                            .iter()
+                            .find(|(present, _)| present.name == flag.name)
+                            .is_some_and(|(_, value)| parse_value_has(value, expected))
+                    });
+                }
+                if let Some(arg) = clause.args.iter().find(|arg| {
+                    !condition.selector.starts_with('-') && arg.name == condition.selector
+                }) {
+                    return positional.get(arg).is_some_and(|value| {
+                        condition
+                            .when
+                            .as_ref()
+                            .is_none_or(|expected| parse_value_has(value, expected))
+                    });
+                }
+                let command_flag = out
+                    .available_flags
+                    .values()
+                    .chain(out.flags.keys())
+                    .filter(|flag| !is_clause_scoped_flag(out, flag))
+                    .find(|flag| flag_matches_selector(flag, &condition.selector));
+                command_flag.is_some_and(|flag| {
+                    !overridden_flags.contains(&flag.name)
+                        && command_flag_has_explicit_source(flag, out)
+                        && condition.when.as_ref().is_none_or(|expected| {
+                            out.flags
+                                .get(flag)
+                                .is_some_and(|value| parse_value_has(value, expected))
+                        })
+                })
+            };
+
+        let conditional = clause
+            .flags
+            .iter()
+            .filter(|flag| !scoped.keys().any(|present| present.name == flag.name))
+            .filter_map(|flag| {
+                flag.default_if
+                    .iter()
+                    .find(|condition| condition_matches(condition))
+                    .map(|condition| (flag.clone(), condition.value.clone()))
+            })
+            .collect::<Vec<_>>();
+        for (declared, value) in conditional {
+            if let Some(value) = flag_fallback_value(
+                &declared,
+                std::slice::from_ref(&value),
+                &mut out.errors,
+                custom_env,
+            )? {
+                scoped.insert(Arc::new(declared), value);
+            }
+        }
+
+        for declared in &clause.flags {
+            let flag = Arc::new(declared.clone());
+            if scoped.contains_key(&flag) {
+                continue;
+            }
+            let values = if !declared.default.is_empty() {
+                &declared.default
+            } else if let Some(arg) = declared.arg.as_ref().filter(|arg| !arg.default.is_empty()) {
+                &arg.default
+            } else {
+                continue;
+            };
+            if let Some(value) = flag_fallback_value(declared, values, &mut out.errors, custom_env)?
+            {
+                scoped.insert(flag, value);
+            }
+        }
+        explicit_instances.push(explicit);
+    }
+
+    out.clause_flags.insert(clause.name, flag_instances);
+    Ok(Some(explicit_instances))
+}
+
+fn command_flag_has_explicit_source(flag: &SpecFlag, out: &ParseOutput) -> bool {
+    out.flags.contains_key(flag)
+        && out.flag_origins.get(flag).is_none_or(|origins| {
+            origins
+                .iter()
+                .any(|origin| matches!(origin, ValueOrigin::DefaultMissing | ValueOrigin::Env(_)))
+        })
 }
 
 fn default_if_condition_matches(
@@ -3311,10 +3597,48 @@ fn parse_value_has(value: &ParseValue, expected: &str) -> bool {
     }
 }
 
+/// Clause flags share the command's spelling table so they can be recognized while parsing,
+/// but their values and validation belong to one clause instance rather than the command.
+fn is_clause_scoped_flag(out: &ParseOutput, flag: &SpecFlag) -> bool {
+    out.cmd
+        .clause
+        .as_ref()
+        .is_some_and(|clause| clause.flags.iter().any(|scoped| scoped.name == flag.name))
+}
+
+fn selected_clause_flag<'a>(out: &'a ParseOutput, selector: &str) -> Option<&'a SpecFlag> {
+    out.cmd
+        .clause
+        .as_ref()?
+        .flags
+        .iter()
+        .find(|flag| flag_matches_selector(flag, selector))
+}
+
+fn clause_flag_is_explicit(out: &ParseOutput, flag: &SpecFlag) -> bool {
+    out.clause_flags
+        .values()
+        .flatten()
+        .any(|instance| instance.keys().any(|present| present.name == flag.name))
+        || out.flags.keys().any(|present| present.name == flag.name)
+}
+
+fn clause_flag_has_value(out: &ParseOutput, flag: &SpecFlag, expected: &str) -> bool {
+    out.clause_flags.values().flatten().any(|instance| {
+        instance
+            .iter()
+            .any(|(present, value)| present.name == flag.name && parse_value_has(value, expected))
+    }) || out
+        .flags
+        .iter()
+        .any(|(present, value)| present.name == flag.name && parse_value_has(value, expected))
+}
+
 fn validate_clause_relationships(
     out: &mut ParseOutput,
     overridden_flags: &HashSet<String>,
     custom_env: Option<&HashMap<String, String>>,
+    explicit_instances: Option<&[HashSet<String>]>,
 ) {
     let Some(clause) = out.cmd.clause.as_ref() else {
         return;
@@ -3322,52 +3646,196 @@ fn validate_clause_relationships(
     let Some(instances) = out.clauses.get(&clause.name) else {
         return;
     };
-    let flag_is_explicit = |selector: &str| {
+    let command_flag_is_explicit = |selector: &str| {
         out.available_flags
             .values()
             .chain(out.flags.keys())
+            .filter(|flag| !is_clause_scoped_flag(out, flag))
             .any(|flag| {
                 flag_matches_selector(flag, selector)
                     && !overridden_flags.contains(&flag.name)
                     && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
             })
     };
-    let flag_matches_value = |selector: &str, expected: &str| {
+    let command_flag_matches_value = |selector: &str, expected: &str| {
         out.available_flags
             .values()
             .chain(out.flags.keys())
+            .filter(|flag| !is_clause_scoped_flag(out, flag))
             .find(|flag| flag_matches_selector(flag, selector))
             .is_some_and(|flag| {
                 !overridden_flags.contains(&flag.name)
                     && explicit_flag_has_value(flag, expected, out, custom_env)
             })
     };
-    let flag_is_satisfied = |selector: &str| {
+    let command_flag_is_satisfied = |selector: &str| {
         out.available_flags
             .values()
             .chain(out.flags.keys())
+            .filter(|flag| !is_clause_scoped_flag(out, flag))
             .any(|flag| flag_matches_selector(flag, selector))
             && selector_is_satisfied(selector, out, overridden_flags, custom_env)
     };
     let mut errors = Vec::new();
     for (instance_index, instance) in instances.iter().enumerate() {
+        let explicit = explicit_instances.and_then(|instances| instances.get(instance_index));
+        let scoped = out
+            .clause_flags
+            .get(&clause.name)
+            .and_then(|instances| instances.get(instance_index));
+        let scoped_flag = |selector: &str| {
+            clause
+                .flags
+                .iter()
+                .find(|flag| flag_matches_selector(flag, selector))
+        };
+        let scoped_value = |flag: &SpecFlag| {
+            scoped.and_then(|values| {
+                values
+                    .iter()
+                    .find(|(present, _)| present.name == flag.name)
+                    .map(|(_, value)| value)
+            })
+        };
         let arg_is_explicit = |selector: &str| {
             instance
                 .keys()
                 .any(|arg| !selector.starts_with('-') && arg.name == selector)
         };
-        let selector_is_explicit =
-            |selector: &str| flag_is_explicit(selector) || arg_is_explicit(selector);
+        let selector_is_explicit = |selector: &str| {
+            scoped_flag(selector).is_some_and(|flag| {
+                explicit
+                    .map(|given| given.contains(&flag.name))
+                    .unwrap_or_else(|| scoped_value(flag).is_some())
+            }) || command_flag_is_explicit(selector)
+                || arg_is_explicit(selector)
+        };
         let selector_has_value = |selector: &str, expected: &str| {
-            flag_matches_value(selector, expected)
+            scoped_flag(selector)
+                .filter(|flag| {
+                    explicit
+                        .map(|given| given.contains(&flag.name))
+                        .unwrap_or_else(|| scoped_value(flag).is_some())
+                })
+                .and_then(scoped_value)
+                .is_some_and(|value| parse_value_has(value, expected))
+                || command_flag_matches_value(selector, expected)
                 || instance.iter().any(|(arg, value)| {
                     !selector.starts_with('-')
                         && arg.name == selector
                         && parse_value_has(value, expected)
                 })
         };
-        let selector_is_satisfied =
-            |selector: &str| selector_is_explicit(selector) || flag_is_satisfied(selector);
+        let selector_is_satisfied = |selector: &str| {
+            scoped_flag(selector).is_some_and(|flag| scoped_value(flag).is_some())
+                || command_flag_is_satisfied(selector)
+                || arg_is_explicit(selector)
+        };
+        let selector_name = |selector: &str| {
+            scoped_flag(selector)
+                .map(|flag| flag.name.clone())
+                .or_else(|| selector_flag_name(selector, out))
+                .unwrap_or_else(|| selector.to_string())
+        };
+
+        for flag in &clause.flags {
+            let value = scoped_value(flag);
+            if value.is_none() {
+                let required_if = flag
+                    .required_if
+                    .iter()
+                    .any(|selector| selector_is_explicit(selector));
+                let required_if_eq = flag
+                    .required_if_eq
+                    .iter()
+                    .any(|condition| selector_has_value(&condition.selector, &condition.value));
+                let required_if_eq_all = !flag.required_if_eq_all.is_empty()
+                    && flag
+                        .required_if_eq_all
+                        .iter()
+                        .all(|condition| selector_has_value(&condition.selector, &condition.value));
+                let unless_any = flag
+                    .required_unless
+                    .iter()
+                    .any(|selector| selector_is_explicit(selector));
+                let unless_all = !flag.required_unless_all.is_empty()
+                    && flag
+                        .required_unless_all
+                        .iter()
+                        .all(|selector| selector_is_explicit(selector));
+                let required_unless = !(unless_any
+                    || unless_all
+                    || (flag.required_unless.is_empty() && flag.required_unless_all.is_empty()));
+                if flag.required
+                    || required_if
+                    || required_if_eq
+                    || required_if_eq_all
+                    || required_unless
+                {
+                    errors.push(UsageErr::MissingFlag(flag.name.clone()));
+                }
+                continue;
+            }
+
+            let explicitly_provided = explicit
+                .map(|given| given.contains(&flag.name))
+                .unwrap_or(true);
+
+            if explicitly_provided {
+                for other in &flag.conflicts {
+                    if selector_is_explicit(other) {
+                        errors.push(UsageErr::InvalidFlag {
+                            token: format!("--{}", flag.name),
+                            reason: format!("conflicts with {other}"),
+                            span: (0, 0).into(),
+                            input: format!("--{} {other}", flag.name),
+                        });
+                    }
+                }
+                for other in &flag.requires {
+                    if !selector_is_satisfied(other) {
+                        errors.push(UsageErr::MissingFlag(selector_name(other)));
+                    }
+                }
+                for condition in &flag.requires_if {
+                    if value.is_some_and(|value| parse_value_has(value, &condition.value))
+                        && !selector_is_satisfied(&condition.requires)
+                    {
+                        errors.push(UsageErr::MissingFlag(selector_name(&condition.requires)));
+                    }
+                }
+            }
+            if let (true, Some(value)) = (flag.var, value) {
+                let count = match value {
+                    ParseValue::MultiString(values) => values.len(),
+                    ParseValue::MultiBool(values) => values.len(),
+                    _ => 1,
+                };
+                if let Some(min) = flag.var_min.filter(|min| count < *min) {
+                    errors.push(UsageErr::VarFlagTooFew {
+                        name: flag.name.clone(),
+                        min,
+                        got: count,
+                    });
+                }
+                if let Some(max) = flag.var_max.filter(|max| count > *max) {
+                    errors.push(UsageErr::VarFlagTooMany {
+                        name: flag.name.clone(),
+                        max,
+                        got: count,
+                    });
+                }
+            }
+            if let (Some(arg), Some(value)) = (&flag.arg, value) {
+                validate_expression(
+                    &flag.name,
+                    arg.validate.as_deref(),
+                    arg.validate_error.as_deref(),
+                    value,
+                    &mut errors,
+                );
+            }
+        }
         for arg in &clause.args {
             let given = instance.keys().any(|present| present.name == arg.name);
             if !given {
@@ -3420,8 +3888,7 @@ fn validate_clause_relationships(
                     continue;
                 }
                 if other.starts_with('-') {
-                    let name = selector_flag_name(other, out).unwrap_or_else(|| other.clone());
-                    errors.push(UsageErr::MissingFlag(name));
+                    errors.push(UsageErr::MissingFlag(selector_name(other)));
                 } else {
                     errors.push(UsageErr::MissingClauseArg {
                         clause: clause.name.clone(),
@@ -3442,10 +3909,14 @@ fn selector_explicit_has_value(
     overridden_flags: &HashSet<String>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> bool {
+    if let Some(flag) = selected_clause_flag(out, selector) {
+        return clause_flag_has_value(out, flag, expected);
+    }
     if let Some(flag) = out
         .available_flags
         .values()
         .chain(out.flags.keys())
+        .filter(|flag| !is_clause_scoped_flag(out, flag))
         .find(|flag| flag_matches_selector(flag, selector))
     {
         return !overridden_flags.contains(&flag.name)
@@ -3493,16 +3964,20 @@ fn selector_is_explicit(
     overridden_flags: &HashSet<String>,
     custom_env: Option<&HashMap<String, String>>,
 ) -> bool {
+    let scoped_flag_is_explicit =
+        selected_clause_flag(out, selector).is_some_and(|flag| clause_flag_is_explicit(out, flag));
     let flag_is_explicit = out
         .available_flags
         .values()
         .chain(out.flags.keys())
+        .filter(|flag| !is_clause_scoped_flag(out, flag))
         .any(|flag| {
             flag_matches_selector(flag, selector)
                 && !overridden_flags.contains(&flag.name)
                 && (out.flags.contains_key(flag) || flag_has_env(flag, custom_env))
         });
-    flag_is_explicit
+    scoped_flag_is_explicit
+        || flag_is_explicit
         || selector_arg(selector, out).is_some_and(|arg| arg_is_explicit(arg, out, custom_env))
 }
 
@@ -3512,9 +3987,13 @@ fn selector_is_explicit(
 /// about a flag that is *missing* has to say which one, and the selector may be a short
 /// form or an alias rather than the name.
 fn selector_flag_name(selector: &str, out: &ParseOutput) -> Option<String> {
+    if let Some(flag) = selected_clause_flag(out, selector) {
+        return Some(flag.name.clone());
+    }
     out.available_flags
         .values()
         .chain(out.flags.keys())
+        .filter(|flag| !is_clause_scoped_flag(out, flag))
         .find(|flag| flag_matches_selector(flag, selector))
         .map(|flag| flag.name.clone())
         .or_else(|| selector_arg(selector, out).map(|arg| arg.name.clone()))
@@ -3542,6 +4021,7 @@ fn selector_is_satisfied(
         .available_flags
         .values()
         .chain(out.flags.keys())
+        .filter(|flag| !is_clause_scoped_flag(out, flag))
         .filter(|flag| flag_matches_selector(flag, selector))
         .any(|flag| {
             !overridden_flags.contains(&flag.name)
@@ -3834,9 +4314,13 @@ fn record_scalar_flag_occurrence(
     occurrences: &mut HashMap<(usize, usize), u8>,
     errors: &mut Vec<UsageErr>,
 ) {
-    let strict = cmds
-        .get(command_level)
-        .is_some_and(|cmd| !cmd.args_override_self);
+    let strict = cmds.get(command_level).is_some_and(|cmd| {
+        !cmd.args_override_self
+            || cmd
+                .clause
+                .as_ref()
+                .is_some_and(|clause| clause.flags.iter().any(|candidate| candidate == &**flag))
+    });
     let collects_values = flag.var || flag.arg.as_ref().is_some_and(|arg| arg.var);
     if !strict || flag.count || collects_values {
         return;
@@ -4389,10 +4873,28 @@ fn finalize_current_clause(out: &mut ParseOutput) {
     let Some(clause) = out.cmd.clause.as_ref() else {
         return;
     };
+    let has_scoped_flags = clause
+        .flags
+        .iter()
+        .any(|flag| out.flags.contains_key(&Arc::new(flag.clone())));
+    if clause.separator.is_none() && out.args.is_empty() && !has_scoped_flags {
+        return;
+    }
     out.clauses
         .entry(clause.name.clone())
         .or_default()
         .push(std::mem::take(&mut out.args));
+    let mut flags = IndexMap::new();
+    for clause_flag in &clause.flags {
+        let key = Arc::new(clause_flag.clone());
+        if let Some((flag, value)) = out.flags.shift_remove_entry(&key) {
+            flags.insert(flag, value);
+        }
+    }
+    out.clause_flags
+        .entry(clause.name.clone())
+        .or_default()
+        .push(flags);
 }
 
 fn restore_current_clause(out: &mut ParseOutput) {
@@ -4402,6 +4904,28 @@ fn restore_current_clause(out: &mut ParseOutput) {
     if let Some(current) = out.clauses.get_mut(&clause.name).and_then(Vec::pop) {
         out.args = current;
     }
+    if let Some(current) = out.clause_flags.get_mut(&clause.name).and_then(Vec::pop) {
+        out.flags.extend(current);
+    }
+}
+
+fn reset_clause_scalar_occurrences(
+    out: &ParseOutput,
+    occurrences: &mut HashMap<(usize, usize), u8>,
+) {
+    let Some(clause) = out.cmd.clause.as_ref() else {
+        return;
+    };
+    let names = clause
+        .flags
+        .iter()
+        .map(|flag| flag.name.as_str())
+        .collect::<HashSet<_>>();
+    let pointers = unique_flags(out.available_flags.values())
+        .filter(|flag| names.contains(flag.name.as_str()))
+        .map(|flag| Arc::as_ptr(flag) as usize)
+        .collect::<HashSet<_>>();
+    occurrences.retain(|(flag, _), _| !pointers.contains(flag));
 }
 
 fn cursor_skip_sigils(cmd: &SpecCommand, mut idx: usize) -> usize {
