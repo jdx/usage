@@ -201,7 +201,7 @@ pub struct Command<'a> {
     pub flags: &'a [&'a Flag<'a>],
     /// Positional arguments, in the order they are filled.
     pub args: &'a [&'a Arg<'a>],
-    /// A repeatable group of positional arguments, if this command has one.
+    /// A repeatable group of scoped flags and positional arguments, if this command has one.
     pub clause: ::core::option::Option<Clause<'a>>,
     pub subcommands: &'a [&'a Command<'a>],
     /// Where a word goes when it names no subcommand of this one.
@@ -306,12 +306,15 @@ impl Command<'_> {
     };
 }
 
-/// A separator-delimited positional group.
+/// A repeatable group of scoped flags and positional arguments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Clause<'a> {
     pub key: u64,
     pub name: &'a str,
-    pub separator: &'a [u8],
+    /// An explicit token that starts the next instance. When absent, consuming the
+    /// clause's sole required positional completes the current instance.
+    pub separator: ::core::option::Option<&'a [u8]>,
+    pub flags: &'a [&'a Flag<'a>],
     pub args: &'a [&'a Arg<'a>],
 }
 
@@ -1297,6 +1300,89 @@ pub const fn assert_unique_subcommand_names(subcommands: &[&Command<'_>]) {
     }
 }
 
+/// Assert that flags scoped to a clause do not reuse a command-level spelling.
+///
+/// Derive-generated command tables include scoped flags so the parser can find them. Entries
+/// that share a key are therefore the same declaration and are ignored here; every other pair
+/// must have disjoint long, short, alias, and negated spellings.
+pub const fn assert_clause_flag_spellings(command: &Command<'_>) {
+    let Some(clause) = command.clause else {
+        return;
+    };
+    let mut scoped_at = 0;
+    while scoped_at < clause.flags.len() {
+        let scoped = clause.flags[scoped_at];
+        let mut command_at = 0;
+        while command_at < command.flags.len() {
+            let flag = command.flags[command_at];
+            if flag.key != scoped.key && const_flag_forms_overlap(flag, scoped) {
+                panic!("a clause flag spelling conflicts with a command-level flag");
+            }
+            command_at += 1;
+        }
+        scoped_at += 1;
+    }
+}
+
+const fn const_flag_forms_overlap(a: &Flag<'_>, b: &Flag<'_>) -> bool {
+    let mut i = 0;
+    while i < a.longs.len() {
+        let mut j = 0;
+        while j < b.longs.len() {
+            if const_bytes_eq(a.longs[i].as_bytes(), b.longs[j].as_bytes()) {
+                return true;
+            }
+            j += 1;
+        }
+        if let Some(negate) = b.negate {
+            if const_bytes_eq(a.longs[i].as_bytes(), negate.as_bytes()) {
+                return true;
+            }
+        }
+        i += 1;
+    }
+    i = 0;
+    while i < a.shorts.len() {
+        let mut j = 0;
+        while j < b.shorts.len() {
+            if a.shorts[i] == b.shorts[j] {
+                return true;
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+    if let Some(negate) = a.negate {
+        let mut j = 0;
+        while j < b.longs.len() {
+            if const_bytes_eq(negate.as_bytes(), b.longs[j].as_bytes()) {
+                return true;
+            }
+            j += 1;
+        }
+        if let Some(other) = b.negate {
+            if const_bytes_eq(negate.as_bytes(), other.as_bytes()) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+const fn const_bytes_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
 /// `==` on strings, in a `const fn`.
 const fn str_eq(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
@@ -1618,6 +1704,8 @@ pub struct Parser<'t, 'a, 'v> {
     /// that happens to spell a sibling's name. Two indices rather than the commands
     /// themselves, so the parser keeps allocating nothing.
     help_span: (usize, usize),
+    /// An implicit clause boundary follows the positional event that completed it.
+    pending_clause_boundary: ::core::option::Option<Clause<'t>>,
 }
 
 impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
@@ -1671,6 +1759,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             done: false,
             action_errors,
             help_span: (0, 0),
+            pending_clause_boundary: ::core::option::Option::None,
         }
     }
 
@@ -1792,6 +1881,14 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
     }
 
     fn step(&mut self) -> Option<Result<Event<'t, 'a, 'v>, Error<'t, 'v>>> {
+        if let Some(clause) = self.pending_clause_boundary.take() {
+            self.arg_pos = 0;
+            self.arg_taken = 0;
+            self.arg_filled = false;
+            self.collecting = None;
+            self.flags_stopped = false;
+            return Some(Ok(Event::ClauseSeparator { clause }));
+        }
         // A partly-read short bundle takes priority: its remaining bytes are
         // still part of the token being processed.
         if !self.bundle.is_empty() {
@@ -1826,6 +1923,7 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
                 Some(next)
                     if (!is_flag_like(bytes(next))
                         || (flag.allow_negative_numbers && is_negative_number(bytes(next))))
+                        && self.clause_separator(bytes(next)).is_none()
                         && bytes(next) != b"--" =>
                 {
                     self.pos += 1;
@@ -1866,15 +1964,13 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
 
         // A clause separator remains syntax after an automatic positional stopped flags.
         // Only an explicit `--` protects a literal separator.
-        if !self.separator_seen {
-            if let Some(clause) = self.cmd.clause.filter(|clause| token == clause.separator) {
-                self.arg_pos = 0;
-                self.arg_taken = 0;
-                self.arg_filled = false;
-                self.collecting = None;
-                self.flags_stopped = false;
-                return Some(Ok(Event::ClauseSeparator { clause }));
-            }
+        if let Some(clause) = self.clause_separator(token) {
+            self.arg_pos = 0;
+            self.arg_taken = 0;
+            self.arg_filled = false;
+            self.collecting = None;
+            self.flags_stopped = false;
+            return Some(Ok(Event::ClauseSeparator { clause }));
         }
 
         // An automatic trailing argument stops flag interpretation without consuming an
@@ -2154,9 +2250,10 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
         }
         match self.argv.get(self.pos) {
             Some(next)
-                if flag.allow_hyphen_values
-                    || !is_flag_like(bytes(next))
-                    || (flag.allow_negative_numbers && is_negative_number(bytes(next))) =>
+                if self.clause_separator(bytes(next)).is_none()
+                    && (flag.allow_hyphen_values
+                        || !is_flag_like(bytes(next))
+                        || (flag.allow_negative_numbers && is_negative_number(bytes(next)))) =>
             {
                 self.pos += 1;
                 Ok(Some(bytes(next)))
@@ -2171,6 +2268,13 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             None if flag.value_optional => Ok(None),
             None => Err(Error::MissingFlagValue { flag }),
         }
+    }
+
+    fn clause_separator(&self, token: &[u8]) -> Option<Clause<'t>> {
+        (!self.separator_seen)
+            .then_some(self.cmd.clause)
+            .flatten()
+            .filter(|clause| clause.separator.is_some_and(|separator| token == separator))
     }
 
     fn word(&mut self, token: &'v [u8]) -> Result<Event<'t, 'a, 'v>, Error<'t, 'v>> {
@@ -2354,6 +2458,13 @@ impl<'t: 'v, 'a, 'v> Parser<'t, 'a, 'v> {
             }
         } else {
             self.advance_arg();
+        }
+        if self
+            .cmd
+            .clause
+            .is_some_and(|clause| clause.separator.is_none() && self.next_arg().is_none())
+        {
+            self.pending_clause_boundary = self.cmd.clause;
         }
         Ok(Event::Arg {
             arg,
@@ -2725,7 +2836,8 @@ mod tests {
             clause: Some(Clause {
                 key: 90,
                 name: "tasks",
-                separator: b":::",
+                separator: Some(b":::"),
+                flags: &[],
                 args: &[&TASK, &REST],
             }),
             ..Command::EMPTY
@@ -2756,6 +2868,64 @@ mod tests {
                 ("task", "test".into())
             ]
         );
+    }
+
+    #[test]
+    fn clause_separator_is_not_a_scoped_flag_value() {
+        static POSTINSTALL: Flag = Flag {
+            key: 93,
+            name: "postinstall",
+            longs: &["postinstall"],
+            takes_value: true,
+            variadic: true,
+            ..Flag::BOOL
+        };
+        static TOOL: Arg = Arg {
+            key: 94,
+            name: "tool",
+            ..Arg::REQUIRED
+        };
+        static ROOT: Command = Command {
+            name: "ex",
+            flags: &[&POSTINSTALL],
+            clause: Some(Clause {
+                key: 95,
+                name: "tools",
+                separator: Some(b":::"),
+                flags: &[&POSTINSTALL],
+                args: &[&TOOL],
+            }),
+            ..Command::EMPTY
+        };
+        let argv = [OsStr::new("--postinstall"), OsStr::new(":::")];
+        let mut parser = Parser::new(&ROOT, &argv);
+        assert!(matches!(
+            parser.next_event(),
+            Some(Err(Error::MissingFlagValue { flag })) if flag.key == POSTINSTALL.key
+        ));
+
+        let argv = [
+            OsStr::new("--postinstall"),
+            OsStr::new("setup"),
+            OsStr::new(":::"),
+            OsStr::new("tool"),
+        ];
+        let mut parser = Parser::new(&ROOT, &argv);
+        assert!(matches!(
+            parser.next_event(),
+            Some(Ok(Event::Flag {
+                value: Some(b"setup"),
+                ..
+            }))
+        ));
+        assert!(matches!(
+            parser.next_event(),
+            Some(Ok(Event::ClauseSeparator { clause })) if clause.key == 95
+        ));
+        assert!(matches!(
+            parser.next_event(),
+            Some(Ok(Event::Arg { value: b"tool", .. }))
+        ));
     }
 
     static FORCE: Flag = Flag {

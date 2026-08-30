@@ -967,9 +967,10 @@ impl CommandMeta<'_> {
 #[derive(Debug, Clone, Copy)]
 pub struct ClauseMeta<'a> {
     pub name: &'a str,
-    pub separator: &'a str,
+    pub separator: Option<&'a str>,
     pub help: Option<&'a str>,
     pub long_help: Option<&'a str>,
+    pub flags: &'a [FlagMeta<'a>],
     pub args: &'a [ArgMeta<'a>],
 }
 
@@ -1913,7 +1914,15 @@ fn write_flag_layout_with(
                         .is_some_and(|f| core::ptr::eq(*f, meta.flags[i].flag)),
                     "flag metadata is out of step with the parse table"
                 );
-                write_flag(out, &meta.flags[i], depth, inherited_heading)?;
+                let scoped_to_clause = meta.clause.is_some_and(|clause| {
+                    clause
+                        .flags
+                        .iter()
+                        .any(|flag| core::ptr::eq(flag.flag, meta.flags[i].flag))
+                });
+                if !scoped_to_clause {
+                    write_flag(out, &meta.flags[i], depth, inherited_heading)?;
+                }
                 i += 1;
             }
         }
@@ -1946,6 +1955,7 @@ fn write_body<'a>(
     );
     if let (Some(clause), Some(clause_meta)) = (meta.cmd.clause, meta.clause) {
         debug_assert_eq!(clause.args.len(), clause_meta.args.len());
+        debug_assert_eq!(clause.flags.len(), clause_meta.flags.len());
     } else {
         debug_assert_eq!(
             meta.cmd.args.len(),
@@ -1987,12 +1997,10 @@ fn write_body<'a>(
     }
     if let Some(clause) = meta.clause {
         indent(out, depth)?;
-        write!(
-            out,
-            "clause {} separator={}",
-            quoted(clause.name),
-            quoted(clause.separator)
-        )?;
+        write!(out, "clause {}", quoted(clause.name))?;
+        if let Some(separator) = clause.separator {
+            write!(out, " separator={}", quoted(separator))?;
+        }
         if let Some(help) = clause.help {
             write!(out, " help={}", quoted(help))?;
         }
@@ -2000,6 +2008,9 @@ fn write_body<'a>(
             write!(out, " help_long={}", quoted(help))?;
         }
         out.push_str(" {\n");
+        for flag in clause.flags {
+            write_flag(out, flag, depth + 1, None)?;
+        }
         for arg in clause.args {
             write_arg(out, arg, depth + 1)?;
         }

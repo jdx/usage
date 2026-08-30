@@ -46,27 +46,29 @@ pub(super) fn emit(out: &mut String, commands: &[Emitted]) {
                 clause.name
             );
             let _ = writeln!(out, "type {type_name} struct {{");
-            let fields = e
-                .clause_args
-                .iter()
-                .map(|(arg, named)| {
-                    let base = field_name(&arg.name);
-                    let field = if taken.insert(base.clone()) {
-                        base
-                    } else {
-                        let mut n = 2;
-                        loop {
-                            let candidate = format!("{base}{n}");
-                            if taken.insert(candidate.clone()) {
-                                break candidate;
-                            }
-                            n += 1;
+            let mut fields = Vec::new();
+            let mut add_field = |base: String, ty: String, named: &super::Named| {
+                let field = if taken.insert(base.clone()) {
+                    base
+                } else {
+                    let mut n = 2;
+                    loop {
+                        let candidate = format!("{base}{n}");
+                        if taken.insert(candidate.clone()) {
+                            break candidate;
                         }
-                    };
-                    args.insert(named.key.clone(), field.clone());
-                    (field, arg_type(arg), named.key.as_str())
-                })
-                .collect::<Vec<_>>();
+                        n += 1;
+                    }
+                };
+                args.insert(named.key.clone(), field.clone());
+                fields.push((field, ty, named.key.clone()));
+            };
+            for (flag, named) in &e.clause_flags {
+                add_field(field_name(&flag.name), flag_type(flag).to_string(), named);
+            }
+            for (arg, named) in &e.clause_args {
+                add_field(field_name(&arg.name), arg_type(arg).to_string(), named);
+            }
             let name_col = fields.iter().map(|(n, _, _)| n.len()).max().unwrap_or(0);
             let type_col = fields.iter().map(|(_, t, _)| t.len()).max().unwrap_or(0);
             for (field, ty, key) in fields {
@@ -178,6 +180,17 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
                         && !flag.arg.as_ref().is_some_and(|arg| arg.var)
                 })
                 .map(|(_, named)| named.key.as_str())
+                .chain(
+                    command
+                        .clause_flags
+                        .iter()
+                        .filter(|(flag, _)| {
+                            !flag.var
+                                && !flag.count
+                                && !flag.arg.as_ref().is_some_and(|arg| arg.var)
+                        })
+                        .map(|(_, named)| named.key.as_str()),
+                )
         })
         .collect::<Vec<_>>();
     strict_keys.sort_unstable();
@@ -190,6 +203,13 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
                 .iter()
                 .filter(|(flag, _)| !command.cmd.args_override_self && flag.negate.is_some())
                 .map(|(_, named)| named.key.as_str())
+                .chain(
+                    command
+                        .clause_flags
+                        .iter()
+                        .filter(|(flag, _)| flag.negate.is_some())
+                        .map(|(_, named)| named.key.as_str()),
+                )
         })
         .collect::<Vec<_>>();
     strict_negate_keys.sort_unstable();
@@ -243,19 +263,26 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
         format!("\t\t\tlevelSeen = map[uint64]int{{}}\n{polarity}")
     };
     let has_relationship_values = commands.iter().any(|command| {
-        command.flags.iter().any(|(flag, _)| {
-            !flag.requires_if.is_empty()
-                || !flag.required_if_eq.is_empty()
-                || !flag.required_if_eq_all.is_empty()
-        }) || command
-            .args
+        command
+            .flags
             .iter()
-            .chain(command.clause_args.iter())
-            .any(|(arg, _)| !arg.required_if_eq.is_empty() || !arg.required_if_eq_all.is_empty())
+            .chain(command.clause_flags.iter())
+            .any(|(flag, _)| {
+                !flag.requires_if.is_empty()
+                    || !flag.required_if_eq.is_empty()
+                    || !flag.required_if_eq_all.is_empty()
+            })
+            || command
+                .args
+                .iter()
+                .chain(command.clause_args.iter())
+                .any(|(arg, _)| {
+                    !arg.required_if_eq.is_empty() || !arg.required_if_eq_all.is_empty()
+                })
     });
     let has_default_if = commands
         .iter()
-        .flat_map(|command| command.flags.iter())
+        .flat_map(|command| command.flags.iter().chain(command.clause_flags.iter()))
         .any(|(flag, _)| !flag.default_if.is_empty());
     let needs_negated = has_relationship_values || has_default_if;
     let conditional_state = if needs_negated {
@@ -274,24 +301,86 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
         ""
     };
     let clause_state = if clauses.is_empty() {
-        ""
+        String::new()
     } else {
-        "\tclauseGiven := map[uint64][]string{}\n\tclauseInstances := map[uint64][]map[uint64][]string{}\n"
+        let keys = commands
+            .iter()
+            .flat_map(|command| command.clause_flags.iter())
+            .map(|(_, named)| format!("{}: true", named.key))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!(
+            "\tclauseGiven := map[uint64][]string{{}}\n\
+             \tclauseOccurrences := map[uint64]int{{}}\n\
+             \tclauseNegated := map[uint64]bool{{}}\n\
+             \tclauseInstances := map[uint64][]map[uint64][]string{{}}\n\
+             \tclauseInstanceOccurrences := map[uint64][]map[uint64]int{{}}\n\
+             \tclauseInstanceNegated := map[uint64][]map[uint64]bool{{}}\n\
+             \tclauseFlag := map[uint64]bool{{{keys}}}\n"
+        )
     };
     let clause_arg_values = if clauses.is_empty() {
         "\t\t\tgiven[ev.Arg.Key] = append(given[ev.Arg.Key], values...)\n"
     } else {
         "\t\t\tif p.Command().Clause != nil {\n\t\t\t\tclauseGiven[ev.Arg.Key] = append(clauseGiven[ev.Arg.Key], values...)\n\t\t\t} else {\n\t\t\t\tgiven[ev.Arg.Key] = append(given[ev.Arg.Key], values...)\n\t\t\t}\n"
     };
-    let clause_separator_event = if clauses.is_empty() {
+    let clause_flag_target = if clauses.is_empty() {
         ""
     } else {
-        "\t\tcase argv.KindClauseSeparator:\n\t\t\tclauseInstances[ev.Clause.Key] = append(clauseInstances[ev.Clause.Key], clauseGiven)\n\t\t\tclauseGiven = map[uint64][]string{}\n"
+        "\t\t\tflagGiven := given\n\t\t\tif clauseFlag[ev.Flag.Key] {\n\
+         \t\t\t\tflagGiven = clauseGiven\n\
+         \t\t\t\tclauseOccurrences[ev.Flag.Key]++\n\
+         \t\t\t\tclauseNegated[ev.Flag.Key] = ev.Negated\n\
+         \t\t\t}\n"
+    };
+    let flag_values = if clauses.is_empty() {
+        "given"
+    } else {
+        "flagGiven"
+    };
+    let skip_clause_flag = if clauses.is_empty() {
+        ""
+    } else {
+        "\t\t\tif clauseFlag[f.Key] {\n\t\t\t\tcontinue\n\t\t\t}\n"
+    };
+    let clause_separator_event = if clauses.is_empty() {
+        String::new()
+    } else {
+        let duplicate = if strict_keys.is_empty() {
+            ""
+        } else {
+            "\t\t\t\tif strictSeen[flag.Key] {\n\t\t\t\t\tclauseOccurrences[flag.Key] = 1\n\t\t\t\t\tif duplicateSeen[flag.Key] {\n\t\t\t\t\t\tclauseOccurrences[flag.Key] = 2\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\tdelete(levelSeen, flag.Key)\n\t\t\t\tdelete(strictSeen, flag.Key)\n\t\t\t\tdelete(duplicateSeen, flag.Key)\n"
+        };
+        let polarity = if strict_negate_keys.is_empty() {
+            ""
+        } else {
+            "\t\t\t\tdelete(polaritySeen, flag.Key)\n"
+        };
+        format!(
+            "\t\tcase argv.KindClauseSeparator:\n\
+             \t\t\tclauseInstances[ev.Clause.Key] = append(clauseInstances[ev.Clause.Key], clauseGiven)\n\
+             \t\t\tfor _, flag := range ev.Clause.Flags {{\n\t\t\t\tdelete(seen, flag.Key)\n{duplicate}{polarity}\t\t\t}}\n\
+             \t\t\tclauseInstanceOccurrences[ev.Clause.Key] = append(clauseInstanceOccurrences[ev.Clause.Key], clauseOccurrences)\n\
+             \t\t\tclauseInstanceNegated[ev.Clause.Key] = append(clauseInstanceNegated[ev.Clause.Key], clauseNegated)\n\
+             \t\t\tclauseGiven = map[uint64][]string{{}}\n\
+             \t\t\tclauseOccurrences = map[uint64]int{{}}\n\
+             \t\t\tclauseNegated = map[uint64]bool{{}}\n"
+        )
+    };
+    let finish_normalize = if strict_keys.is_empty() {
+        ""
+    } else {
+        "\t\tfor _, flag := range p.Command().Clause.Flags {\n\t\t\tif strictSeen[flag.Key] {\n\t\t\t\tclauseOccurrences[flag.Key] = 1\n\t\t\t\tif duplicateSeen[flag.Key] {\n\t\t\t\t\tclauseOccurrences[flag.Key] = 2\n\t\t\t\t}\n\t\t\t}\n\t\t}\n"
     };
     let finish_clause = if clauses.is_empty() {
-        ""
+        String::new()
     } else {
-        "\tif p.Command().Clause != nil {\n\t\tclauseInstances[p.Command().Clause.Key] = append(clauseInstances[p.Command().Clause.Key], clauseGiven)\n\t}\n"
+        format!("\tif p.Command().Clause != nil && (p.Command().Clause.Separator != \"\" || len(clauseGiven) > 0) {{\n\
+         {finish_normalize}\
+         \t\tclauseInstances[p.Command().Clause.Key] = append(clauseInstances[p.Command().Clause.Key], clauseGiven)\n\
+         \t\tclauseInstanceOccurrences[p.Command().Clause.Key] = append(clauseInstanceOccurrences[p.Command().Clause.Key], clauseOccurrences)\n\
+         \t\tclauseInstanceNegated[p.Command().Clause.Key] = append(clauseInstanceNegated[p.Command().Clause.Key], clauseNegated)\n\
+         \t}}\n")
     };
     let _ = writeln!(
         out,
@@ -360,20 +449,21 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
         "\t\t\t}}\n\t\tcase argv.KindFlag:\n\t\t\tseen[ev.Flag.Key]++\n\
          {duplicate_event}\
          {conditional_event}\
+         {clause_flag_target}\
          \t\t\tif ev.Flag.BoolValue {{\n\
          \t\t\t\t// Boolean binding is last-one-wins. Replace an earlier attached value even\n\
          \t\t\t\t// when the last occurrence is bare, so relationship polarity follows the field.\n\
          \t\t\t\tif ev.HasValue {{\n\
-         \t\t\t\t\tgiven[ev.Flag.Key] = []string{{ev.Value}}\n\
+         \t\t\t\t\t{flag_values}[ev.Flag.Key] = []string{{ev.Value}}\n\
          \t\t\t\t}} else {{\n\
-         \t\t\t\t\tgiven[ev.Flag.Key] = []string{{}}\n\
+         \t\t\t\t\t{flag_values}[ev.Flag.Key] = []string{{}}\n\
          \t\t\t\t}}\n\
          \t\t\t}} else if ev.HasValue {{\n\
-         \t\t\t\tgiven[ev.Flag.Key] = append(given[ev.Flag.Key], argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)\n\
-         \t\t\t}} else if given[ev.Flag.Key] == nil {{\n\
+         \t\t\t\t{flag_values}[ev.Flag.Key] = append({flag_values}[ev.Flag.Key], argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)\n\
+         \t\t\t}} else if {flag_values}[ev.Flag.Key] == nil {{\n\
          \t\t\t\t// Given without a value is still given, and nil would read as\n\
          \t\t\t\t// absent when the fallbacks are applied.\n\
-         \t\t\t\tgiven[ev.Flag.Key] = []string{{}}\n\t\t\t}}\n\
+         \t\t\t\t{flag_values}[ev.Flag.Key] = []string{{}}\n\t\t\t}}\n\
          \t\t\tswitch ev.Flag.Key {{"
     );
     for e in commands {
@@ -422,7 +512,9 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
          \trequirements := map[uint64]bool{{}}\n\
          \tfor i, cmd := range chain {{\n\
          \t\tcheckRequirements := i == len(chain)-1 || !cmd.SubcommandNegatesReqs\n\
-         \t\tfor _, f := range cmd.Flags {{\n\t\t\tscope = append(scope, f.Key)\n\t\t\trequirements[f.Key] = checkRequirements\n\t\t}}\n\
+         \t\tfor _, f := range cmd.Flags {{\n\
+         {skip_clause_flag}\
+         \t\t\tscope = append(scope, f.Key)\n\t\t\trequirements[f.Key] = checkRequirements\n\t\t}}\n\
          \t\tfor _, a := range cmd.Args {{\n\t\t\tscope = append(scope, a.Key)\n\t\t\trequirements[a.Key] = checkRequirements\n\t\t}}\n\
          \t}}\n\
          \tsources := map[uint64]argv.Source{{}}\n\
@@ -459,23 +551,45 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
         .iter()
         .flat_map(|command| {
             command
-                .clause_args
+                .clause_flags
                 .iter()
                 .map(|(_, named)| named.key.as_str())
+                .chain(
+                    command
+                        .clause_args
+                        .iter()
+                        .map(|(_, named)| named.key.as_str()),
+                )
         })
         .collect::<Vec<_>>()
         .join(", ");
     if !clauses.is_empty() {
         let initial_sources = commands
             .iter()
-            .flat_map(|command| command.clause_args.iter())
-            .map(|(_, named)| format!("{}: argv.Unset", named.key))
+            .flat_map(|command| {
+                command
+                    .clause_flags
+                    .iter()
+                    .map(|(_, named)| named)
+                    .chain(command.clause_args.iter().map(|(_, named)| named))
+            })
+            .map(|named| format!("{}: argv.Unset", named.key))
             .collect::<Vec<_>>()
             .join(", ");
         let aggregate_values = if has_relationship_values {
-            "\t\t\tclauseValues[key] = append(clauseValues[key], values...)\n"
+            "\t\t\tclauseValues[key] = append(clauseValues[key], argv.RelationshipValues(Meta.Lookup(key), values, argv.FromArgv, clauseInstanceNegated[clauseKey][instanceIndex][key])...)\n"
         } else {
             ""
+        };
+        let aggregate_instances = if has_relationship_values {
+            "clauseKey, instances"
+        } else {
+            "_, instances"
+        };
+        let aggregate_instance = if has_relationship_values {
+            "instanceIndex, instance"
+        } else {
+            "_, instance"
         };
         let aggregate_binding = if has_relationship_values {
             "key, values"
@@ -491,8 +605,8 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
             out,
             "\tclauseSources := map[uint64]argv.Source{{{initial_sources}}}\n\
              {values_state}\
-             \tfor _, instances := range clauseInstances {{\n\
-             \t\tfor _, instance := range instances {{\n\
+             \tfor {aggregate_instances} := range clauseInstances {{\n\
+             \t\tfor {aggregate_instance} := range instances {{\n\
              \t\t\tfor {aggregate_binding} := range instance {{\n\
              \t\t\t\tclauseSources[key] = argv.FromArgv\n\
              {aggregate_values}\
@@ -511,7 +625,7 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
             "\t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n".to_string()
         } else {
             format!(
-                "\t\tswitch k {{\n\t\tcase {clause_keys}:\n\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), clauseValues[k], clauseSources[k], false)\n\t\tdefault:\n\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n\t\t}}\n"
+                "\t\tswitch k {{\n\t\tcase {clause_keys}:\n\t\t\treturn clauseValues[k]\n\t\tdefault:\n\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n\t\t}}\n"
             )
         };
         let _ = writeln!(
@@ -534,11 +648,9 @@ fn parse_fn(out: &mut String, commands: &[Emitted], assigned: &Fields, clauses: 
 
 /// Validate each clause independently and append its typed value to the command field.
 ///
-/// Clause arguments deliberately stay out of the command-wide `given` and `scope`: reusing
+/// Clause entries deliberately stay out of the command-wide `given` and `scope`: reusing
 /// those maps would collapse repeated instances into one value and let one instance satisfy
-/// another's required argument. Flags remain visible through the source/value callbacks, but
-/// are not entries in this pass: flag relationships are judged once against clause values
-/// aggregated across every instance, matching the reference parser.
+/// another's requirements.
 fn emit_clause_instances(
     out: &mut String,
     commands: &[Emitted],
@@ -550,24 +662,46 @@ fn emit_clause_instances(
             continue;
         };
         let keys = e
-            .clause_args
+            .clause_flags
             .iter()
             .map(|(_, named)| named.key.as_str())
+            .chain(e.clause_args.iter().map(|(_, named)| named.key.as_str()))
             .collect::<Vec<_>>();
         let key_list = keys.join(", ");
+        let flag_key_list = e
+            .clause_flags
+            .iter()
+            .map(|(_, named)| named.key.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
         let owner = owner_of(e);
+        let instance_negated = format!(
+            "\t\t\tinstanceNegated := clauseInstanceNegated[{}][instanceIndex]\n",
+            e.named.key
+        );
         let _ = writeln!(
             out,
             "\t{{\n\t\tclauseScope := []uint64{{{key_list}}}\n\
-             \t\tfor _, instance := range clauseInstances[{}] {{\n\
+             \t\tclauseFlagScope := []uint64{{{flag_key_list}}}\n\
+             \t\tfor instanceIndex, instance := range clauseInstances[{}] {{\n\
+             \t\t\tinstanceOccurrences := clauseInstanceOccurrences[{}][instanceIndex]\n\
+             {instance_negated}\
              \t\t\tclauseSources := map[uint64]argv.Source{{}}\n\
              \t\t\tfor _, key := range clauseScope {{\n\
+             \t\t\t\tif _, ok := instance[key]; ok {{\n\t\t\t\t\tclauseSources[key] = argv.FromArgv\n\t\t\t\t}} else {{\n\t\t\t\t\tclauseSources[key] = argv.Unset\n\t\t\t\t}}\n\
+             \t\t\t}}\n\
+             \t\t\tfor _, key := range clauseFlagScope {{\n\
+             \t\t\t\tvalues, source := argv.Fill(Meta.Lookup(key), instance[key], argv.LookupEnv)\n\
+             \t\t\t\tif values != nil {{\n\t\t\t\t\tinstance[key] = values\n\t\t\t\t}} else {{\n\t\t\t\t\tdelete(instance, key)\n\t\t\t\t}}\n\
+             \t\t\t\tclauseSources[key] = source\n\
+             \t\t\t}}\n\
+             \t\t\targv.ApplyDefaultIf(Meta, clauseFlagScope, instance, clauseSources, instanceNegated)\n\
+             \t\t\tfor _, key := range clauseScope {{\n\
              \t\t\t\tvalues := instance[key]\n\
-             \t\t\t\tif values != nil {{\n\t\t\t\t\tclauseSources[key] = argv.FromArgv\n\t\t\t\t}} else {{\n\t\t\t\t\tclauseSources[key] = argv.Unset\n\t\t\t\t}}\n\
-             \t\t\t\tif err := argv.Check(Meta.Lookup(key), values, 0); err != nil {{\n\t\t\t\t\treturn nil, err\n\t\t\t\t}}\n\
+             \t\t\t\tif err := argv.Check(Meta.Lookup(key), values, instanceOccurrences[key]); err != nil {{\n\t\t\t\t\treturn nil, err\n\t\t\t\t}}\n\
              \t\t\t}}\n\
              \t\t\tinstanceScope := clauseScope\n",
-            e.named.key
+            e.named.key, e.named.key
         );
         if has_relationship_values {
             let _ = writeln!(
@@ -575,7 +709,7 @@ fn emit_clause_instances(
                 "\t\t\tif err := argv.CheckRelationshipsWithValuesAndRequirements(Meta, instanceScope, func(k uint64) argv.Source {{\n\
                  \t\t\t\tswitch k {{\n\t\t\t\tcase {key_list}:\n\t\t\t\t\treturn clauseSources[k]\n\t\t\t\tdefault:\n\t\t\t\t\treturn sources[k]\n\t\t\t\t}}\n\
                  \t\t\t}}, func(k uint64) []string {{\n\
-                 \t\t\t\tswitch k {{\n\t\t\t\tcase {key_list}:\n\t\t\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), instance[k], clauseSources[k], false)\n\t\t\t\tdefault:\n\t\t\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n\t\t\t\t}}\n\
+                 \t\t\t\tswitch k {{\n\t\t\t\tcase {key_list}:\n\t\t\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), instance[k], clauseSources[k], instanceNegated[k])\n\t\t\t\tdefault:\n\t\t\t\t\treturn argv.RelationshipValues(Meta.Lookup(k), resolved[k], sources[k], negated[k])\n\t\t\t\t}}\n\
                  \t\t\t}}, func(k uint64) bool {{\n\
                  \t\t\t\tswitch k {{\n\t\t\t\tcase {key_list}:\n\t\t\t\t\treturn true\n\t\t\t\tdefault:\n\t\t\t\t\treturn requirements[k]\n\t\t\t\t}}\n\
                  \t\t\t}}); err != nil {{\n\t\t\t\treturn nil, err\n\t\t\t}}"
@@ -591,6 +725,19 @@ fn emit_clause_instances(
             );
         }
         let _ = writeln!(out, "\t\t\titem := {}{{}}", fields.type_name);
+        for (flag, named) in &e.clause_flags {
+            let field = &fields.args[&named.key];
+            let assign = clause_flag_assign(flag, field, &named.key);
+            let guard = match flag_type(flag) {
+                "int" => format!("if _, ok := instance[{}]; ok", named.key),
+                "bool" if !flag.bool_value => {
+                    format!("if _, ok := instance[{}]; ok", named.key)
+                }
+                "bool" => format!("if values, ok := instance[{}]; ok", named.key),
+                _ => format!("if values := instance[{}]; len(values) > 0", named.key),
+            };
+            let _ = writeln!(out, "\t\t\t{guard} {{\n\t\t\t\t{assign}\n\t\t\t}}",);
+        }
         for (arg, named) in &e.clause_args {
             let field = &fields.args[&named.key];
             let assign = if arg.var {
@@ -705,5 +852,19 @@ fn flag_assign(flag: &SpecFlag, owner: &str, field: &str) -> String {
             "\t\t\t\tif ev.HasValue {{\n\t\t\t\t\t{owner}.{field} = append({owner}.{field}, argv.SplitValue(ev.Value, ev.Flag.Delimiter, true)...)\n\t\t\t\t}}"
         ),
         _ => format!("\t\t\t\t{owner}.{field} = ev.Value"),
+    }
+}
+
+fn clause_flag_assign(flag: &SpecFlag, field: &str, key: &str) -> String {
+    match flag_type(flag) {
+        "int" => format!("item.{field} = instanceOccurrences[{key}]"),
+        "bool" if flag.bool_value => format!(
+            "if clauseSources[{key}] == argv.FromEnv {{\n\t\t\t\t\titem.{field} = argv.EnvTruth(values[len(values)-1])\n\t\t\t\t}} else if clauseSources[{key}] == argv.FromDefault {{\n\t\t\t\t\titem.{field} = values[len(values)-1] == \"true\"\n\t\t\t\t}} else if len(values) > 0 {{\n\t\t\t\t\titem.{field} = (values[len(values)-1] == \"true\") != instanceNegated[{key}]\n\t\t\t\t}} else {{\n\t\t\t\t\titem.{field} = !instanceNegated[{key}]\n\t\t\t\t}}"
+        ),
+        "bool" => format!(
+            "if clauseSources[{key}] == argv.FromEnv {{\n\t\t\t\t\titem.{field} = argv.EnvTruth(values[len(values)-1])\n\t\t\t\t}} else if clauseSources[{key}] == argv.FromDefault {{\n\t\t\t\t\titem.{field} = values[len(values)-1] == \"true\"\n\t\t\t\t}} else {{\n\t\t\t\t\titem.{field} = !instanceNegated[{key}]\n\t\t\t\t}}"
+        ),
+        "[]string" => format!("item.{field} = append(item.{field}, values...)"),
+        _ => format!("item.{field} = values[len(values)-1]"),
     }
 }

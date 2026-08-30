@@ -76,6 +76,8 @@ func collect(cmd *Command, args ...string) string {
 			out = append(out, s)
 		case KindArg:
 			out = append(out, "arg:"+ev.Arg.Name+"="+ev.Value)
+		case KindClauseSeparator:
+			out = append(out, "clause:"+ev.Clause.Name)
 		case KindExternal:
 			out = append(out, "external:"+strings.Join(ev.Values, ","))
 		}
@@ -84,6 +86,40 @@ func collect(cmd *Command, args ...string) string {
 		out = append(out, "err:"+err.(*Error).Code.String())
 	}
 	return strings.Join(out, " ")
+}
+
+func TestImplicitClauseResetsAfterItsTerminalPositional(t *testing.T) {
+	postinstall := &Flag{Key: 20, Name: "postinstall", Longs: []string{"postinstall"}, TakesValue: true}
+	tool := &Arg{Key: 21, Name: "tool", Required: true}
+	cmd := &Command{
+		Name:   "use",
+		Flags:  []*Flag{postinstall},
+		Clause: &Clause{Key: 22, Name: "tools", Flags: []*Flag{postinstall}, Args: []*Arg{tool}},
+	}
+	got := collect(cmd, "--postinstall", "A", "a", "--postinstall", "B", "b")
+	want := "flag:postinstall=A arg:tool=a clause:tools flag:postinstall=B arg:tool=b clause:tools"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestClauseSeparatorIsNotAScopedFlagValue(t *testing.T) {
+	postinstall := &Flag{Key: 23, Name: "postinstall", Longs: []string{"postinstall"}, TakesValue: true, Variadic: true}
+	tool := &Arg{Key: 24, Name: "tool", Required: true}
+	cmd := &Command{
+		Name:  "use",
+		Flags: []*Flag{postinstall},
+		Clause: &Clause{
+			Key: 25, Name: "tools", Separator: ":::",
+			Flags: []*Flag{postinstall}, Args: []*Arg{tool},
+		},
+	}
+	if got := collect(cmd, "--postinstall", ":::"); got != "err:missing_flag_value" {
+		t.Fatalf("got %q", got)
+	}
+	if got := collect(cmd, "--postinstall", "setup", ":::", "tool"); got != "flag:postinstall=setup clause:tools arg:tool=tool" {
+		t.Fatalf("got %q", got)
+	}
 }
 
 func TestAllowMissingPositionalReservesLastWord(t *testing.T) {

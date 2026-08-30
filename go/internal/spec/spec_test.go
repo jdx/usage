@@ -323,6 +323,28 @@ func TestConflictsCanNamePositionals(t *testing.T) {
 	}
 }
 
+func TestClauseRelationshipsCanNameScopedPositionalsAndFlags(t *testing.T) {
+	root, meta := build(&Spec{
+		Name: "ex", Bin: "ex",
+		Cmd: Cmd{Name: "ex", Clause: &Clause{
+			Name: "tools",
+			Flags: []Flag{{
+				Name: "postinstall", Long: []string{"postinstall"}, Requires: []string{"tool"},
+			}},
+			Args: []Arg{{Name: "tool", Conflicts: []string{"--postinstall"}}},
+		}},
+	})
+
+	postinstall := root.Clause.Flags[0]
+	tool := root.Clause.Args[0]
+	if got := meta.Lookup(postinstall.Key).Requires; !reflect.DeepEqual(got, []uint64{tool.Key}) {
+		t.Fatalf("scoped flag should resolve the clause positional: %v", got)
+	}
+	if got := meta.Lookup(tool.Key).Conflicts; !reflect.DeepEqual(got, []uint64{postinstall.Key}) {
+		t.Fatalf("clause positional should resolve the scoped flag: %v", got)
+	}
+}
+
 // A subcommand redeclaring an inherited name shadows it, here as at parse time.
 func TestALocalFlagShadowsTheGlobalOfTheSameName(t *testing.T) {
 	root, meta := build(&Spec{

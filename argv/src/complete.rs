@@ -3663,7 +3663,8 @@ mod tests {
         static TASKS: crate::Clause = crate::Clause {
             key: 92,
             name: "tasks",
-            separator: b":::",
+            separator: Some(b":::"),
+            flags: &[],
             args: &[&TASK_ARG],
         };
         static COMMAND: Command = Command {
@@ -3676,7 +3677,8 @@ mod tests {
             restart_token: Some(":::"),
             clause: Some(crate::spec::ClauseMeta {
                 name: "tasks",
-                separator: ":::",
+                separator: Some(":::"),
+                flags: &[],
                 help: None,
                 long_help: None,
                 args: &[ArgMeta {

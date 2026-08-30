@@ -758,6 +758,13 @@ impl SpecCommand {
                     "sigil arguments are not supported inside clauses"
                 );
             }
+            if let Some(spelling) = clause.conflicting_flag_spelling(&cmd.flags) {
+                bail_parse!(
+                    ctx,
+                    node.span(),
+                    "clause flag spelling {spelling:?} conflicts with another flag on this command"
+                );
+            }
         }
         Ok(cmd)
     }
@@ -782,6 +789,24 @@ impl SpecCommand {
         }
 
         validate(self, &[])
+    }
+
+    pub(crate) fn validate_clause_flag_spellings(&self) -> Result<(), String> {
+        fn validate(cmd: &SpecCommand) -> Result<(), String> {
+            if let Some(clause) = &cmd.clause {
+                if let Some(spelling) = clause.conflicting_flag_spelling(&cmd.flags) {
+                    return Err(format!(
+                        "clause flag spelling {spelling:?} conflicts with another flag on this command"
+                    ));
+                }
+            }
+            for subcommand in cmd.subcommands.values() {
+                validate(subcommand)?;
+            }
+            Ok(())
+        }
+
+        validate(self)
     }
     pub(crate) fn is_empty(&self) -> bool {
         self.args.is_empty()
@@ -1161,7 +1186,8 @@ impl SpecCommand {
             self.flags_from_mount |= !spec.cmd.flags.is_empty();
             self.merge(spec.cmd);
         }
-        Ok(())
+        self.validate_clause_flag_spellings()
+            .map_err(UsageErr::InvalidSpec)
     }
 
     /// Mark this command and all of its subcommands as coming from a mount.

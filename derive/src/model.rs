@@ -663,7 +663,10 @@ pub enum Kind {
         sigil: Option<String>,
     },
     /// Holds repeatable instances of a positional-only `Args` struct.
-    Clause { ty: syn::Type, separator: String },
+    Clause {
+        ty: syn::Type,
+        separator: Option<String>,
+    },
     /// Holds the enum whose variants are this command's subcommands.
     ///
     /// The type is carried rather than resolved, because the derive cannot see the
@@ -2362,12 +2365,13 @@ impl Field {
                 }
             }
         }
-        let separator =
-            separator.ok_or_else(|| syn::Error::new(span, "a clause needs `separator = \"…\"`"))?;
-        if separator.is_empty() || separator.starts_with('-') {
+        if separator
+            .as_ref()
+            .is_some_and(|separator| separator.is_empty() || separator.starts_with('-'))
+        {
             return Err(syn::Error::new(
                 span,
-                "a clause separator must be non-empty and cannot start with `-`",
+                "a clause separator, when supplied, must be non-empty and cannot start with `-`",
             ));
         }
         let ty = vec_element_type(&field.ty).ok_or_else(|| {
