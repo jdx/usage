@@ -2007,7 +2007,7 @@ fn write_body<'a>(
                 .is_some_and(|a| core::ptr::eq(*a, arg.arg)),
             "argument metadata is out of step with the parse table"
         );
-        write_arg(out, arg, depth)?;
+        write_arg(out, arg, depth, None)?;
     }
     if let Some(clause) = meta.clause {
         indent(out, depth)?;
@@ -2026,7 +2026,7 @@ fn write_body<'a>(
             write_flag(out, flag, depth + 1, None, Some(clause.canonical_selector))?;
         }
         for arg in clause.args {
-            write_arg(out, arg, depth + 1)?;
+            write_arg(out, arg, depth + 1, Some(clause.canonical_selector))?;
         }
         indent(out, depth)?;
         out.push_str("}\n");
@@ -2494,16 +2494,6 @@ fn portable_selector(selector: &str, canonical: Option<CanonicalSelector>) -> &s
         .unwrap_or(selector)
 }
 
-fn portable_selectors<'a>(
-    selectors: &'a [&'a str],
-    canonical: Option<CanonicalSelector>,
-) -> Vec<&'a str> {
-    selectors
-        .iter()
-        .map(|selector| portable_selector(selector, canonical))
-        .collect()
-}
-
 fn write_flag(
     out: &mut String,
     meta: &FlagMeta<'_>,
@@ -2511,12 +2501,6 @@ fn write_flag(
     inherited_heading: Option<&str>,
     canonical: Option<CanonicalSelector>,
 ) -> core::fmt::Result {
-    let overrides = portable_selectors(meta.overrides, canonical);
-    let conflicts = portable_selectors(meta.conflicts, canonical);
-    let requires = portable_selectors(meta.requires, canonical);
-    let required_if = portable_selectors(meta.required_if, canonical);
-    let required_unless = portable_selectors(meta.required_unless, canonical);
-    let required_unless_all = portable_selectors(meta.required_unless_all, canonical);
     indent(out, depth)?;
     write!(out, "flag {}", quoted(&flag_forms(meta)))?;
 
@@ -2603,8 +2587,8 @@ fn write_flag(
     write_single_list(out, "env_fallback", meta.env_fallback)?;
     write_single_list(out, "deprecated_env", meta.deprecated_env)?;
     write_single_default(out, meta.default)?;
-    write_single_list(out, "overrides", &overrides)?;
-    write_single_list(out, "conflicts", &conflicts)?;
+    write_single_selectors(out, "overrides", meta.overrides, canonical)?;
+    write_single_selectors(out, "conflicts", meta.conflicts, canonical)?;
     if meta.exclusive {
         out.push_str(" exclusive=#true");
     }
@@ -2640,10 +2624,15 @@ fn write_flag(
             quoted(::core::str::from_utf8(missing).unwrap_or_default())
         )?;
     }
-    write_single_list(out, "requires", &requires)?;
-    write_single_list(out, "required_if", &required_if)?;
-    write_single_list(out, "required_unless", &required_unless)?;
-    write_single_list(out, "required_unless_all", &required_unless_all)?;
+    write_single_selectors(out, "requires", meta.requires, canonical)?;
+    write_single_selectors(out, "required_if", meta.required_if, canonical)?;
+    write_single_selectors(out, "required_unless", meta.required_unless, canonical)?;
+    write_single_selectors(
+        out,
+        "required_unless_all",
+        meta.required_unless_all,
+        canonical,
+    )?;
 
     let has_children = meta.long_help.is_some()
         || !meta.admonitions.is_empty()
@@ -2652,16 +2641,16 @@ fn write_flag(
         || meta.flag.takes_value
         || !meta.choices.is_empty()
         || meta.default.len() > 1
-        || overrides.len() > 1
-        || conflicts.len() > 1
-        || requires.len() > 1
+        || meta.overrides.len() > 1
+        || meta.conflicts.len() > 1
+        || meta.requires.len() > 1
         || !meta.requires_if.is_empty()
         || !meta.default_if.is_empty()
         || !meta.required_if_eq.is_empty()
         || !meta.required_if_eq_all.is_empty()
-        || required_if.len() > 1
-        || required_unless.len() > 1
-        || required_unless_all.len() > 1
+        || meta.required_if.len() > 1
+        || meta.required_unless.len() > 1
+        || meta.required_unless_all.len() > 1
         || meta.env_fallback.len() > 1
         || meta.deprecated_env.len() > 1;
     let has_children = has_children || meta.available_if.len() > 1;
@@ -2696,9 +2685,9 @@ fn write_flag(
         out.push_str(" hide=#true\n");
     }
     write_many_defaults(out, meta.default, inner)?;
-    write_many_list(out, "overrides", &overrides, inner)?;
-    write_many_list(out, "conflicts", &conflicts, inner)?;
-    write_many_list(out, "requires", &requires, inner)?;
+    write_many_selectors(out, "overrides", meta.overrides, inner, canonical)?;
+    write_many_selectors(out, "conflicts", meta.conflicts, inner, canonical)?;
+    write_many_selectors(out, "requires", meta.requires, inner, canonical)?;
     for condition in meta.requires_if {
         indent(out, inner)?;
         writeln!(
@@ -2748,9 +2737,21 @@ fn write_flag(
         }
         out.push('\n');
     }
-    write_many_list(out, "required_if", &required_if, inner)?;
-    write_many_list(out, "required_unless", &required_unless, inner)?;
-    write_many_list(out, "required_unless_all", &required_unless_all, inner)?;
+    write_many_selectors(out, "required_if", meta.required_if, inner, canonical)?;
+    write_many_selectors(
+        out,
+        "required_unless",
+        meta.required_unless,
+        inner,
+        canonical,
+    )?;
+    write_many_selectors(
+        out,
+        "required_unless_all",
+        meta.required_unless_all,
+        inner,
+        canonical,
+    )?;
     write_many_list(out, "env_fallback", meta.env_fallback, inner)?;
     write_many_list(out, "deprecated_env", meta.deprecated_env, inner)?;
     write_many_list(out, "available_if", meta.available_if, inner)?;
@@ -2865,7 +2866,12 @@ fn write_help_hides(
     Ok(())
 }
 
-fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::Result {
+fn write_arg(
+    out: &mut String,
+    meta: &ArgMeta<'_>,
+    depth: usize,
+    canonical: Option<CanonicalSelector>,
+) -> core::fmt::Result {
     indent(out, depth)?;
     let name = if meta.arg.name.is_empty() {
         "arg"
@@ -2904,9 +2910,7 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         meta.hide_short_help,
         meta.hide_long_help,
     )?;
-    if meta.conflicts.len() == 1 {
-        write!(out, " conflicts={}", quoted(meta.conflicts[0]))?;
-    }
+    write_single_selectors(out, "conflicts", meta.conflicts, canonical)?;
     if let Some(min) = meta.var_min {
         write!(out, " var_min={min}")?;
     }
@@ -2959,10 +2963,15 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         }
     }
     write_single_default(out, meta.default)?;
-    write_single_list(out, "requires", meta.requires)?;
-    write_single_list(out, "required_if", meta.required_if)?;
-    write_single_list(out, "required_unless", meta.required_unless)?;
-    write_single_list(out, "required_unless_all", meta.required_unless_all)?;
+    write_single_selectors(out, "requires", meta.requires, canonical)?;
+    write_single_selectors(out, "required_if", meta.required_if, canonical)?;
+    write_single_selectors(out, "required_unless", meta.required_unless, canonical)?;
+    write_single_selectors(
+        out,
+        "required_unless_all",
+        meta.required_unless_all,
+        canonical,
+    )?;
 
     let has_children = meta.long_help.is_some()
         || !meta.admonitions.is_empty()
@@ -3003,18 +3012,18 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
         indent(out, inner)?;
         out.push_str("conflicts");
         for conflict in meta.conflicts {
-            write!(out, " {}", quoted(conflict))?;
+            write!(out, " {}", quoted(portable_selector(conflict, canonical)))?;
         }
         out.push('\n');
     }
-    write_many_list(out, "requires", meta.requires, inner)?;
-    write_many_list(out, "required_if", meta.required_if, inner)?;
+    write_many_selectors(out, "requires", meta.requires, inner, canonical)?;
+    write_many_selectors(out, "required_if", meta.required_if, inner, canonical)?;
     for condition in meta.required_if_eq {
         indent(out, inner)?;
         writeln!(
             out,
             "required_if_eq {} {}",
-            quoted(condition.selector),
+            quoted(portable_selector(condition.selector, canonical)),
             quoted(condition.value)
         )?;
     }
@@ -3025,14 +3034,26 @@ fn write_arg(out: &mut String, meta: &ArgMeta<'_>, depth: usize) -> core::fmt::R
             write!(
                 out,
                 " {} {}",
-                quoted(condition.selector),
+                quoted(portable_selector(condition.selector, canonical)),
                 quoted(condition.value)
             )?;
         }
         out.push('\n');
     }
-    write_many_list(out, "required_unless", meta.required_unless, inner)?;
-    write_many_list(out, "required_unless_all", meta.required_unless_all, inner)?;
+    write_many_selectors(
+        out,
+        "required_unless",
+        meta.required_unless,
+        inner,
+        canonical,
+    )?;
+    write_many_selectors(
+        out,
+        "required_unless_all",
+        meta.required_unless_all,
+        inner,
+        canonical,
+    )?;
     write_many_list(out, "env_fallback", meta.env_fallback, inner)?;
     write_many_list(out, "deprecated_env", meta.deprecated_env, inner)?;
     write_many_list(out, "available_if", meta.available_if, inner)?;
@@ -3060,6 +3081,18 @@ fn write_single_list(out: &mut String, key: &str, values: &[&str]) -> core::fmt:
     Ok(())
 }
 
+fn write_single_selectors(
+    out: &mut String,
+    key: &str,
+    values: &[&str],
+    canonical: Option<CanonicalSelector>,
+) -> core::fmt::Result {
+    if let [only] = values {
+        write!(out, " {key}={}", quoted(portable_selector(only, canonical)))?;
+    }
+    Ok(())
+}
+
 /// Several values, as `overrides "a" "b"`.
 ///
 /// The same trap as defaults: `overrides="a" overrides="b"` is one node with a
@@ -3077,6 +3110,25 @@ fn write_many_list(
     write!(out, "{key}")?;
     for value in values {
         write!(out, " {}", quoted(value))?;
+    }
+    out.push('\n');
+    Ok(())
+}
+
+fn write_many_selectors(
+    out: &mut String,
+    key: &str,
+    values: &[&str],
+    depth: usize,
+    canonical: Option<CanonicalSelector>,
+) -> core::fmt::Result {
+    if values.len() < 2 {
+        return Ok(());
+    }
+    indent(out, depth)?;
+    write!(out, "{key}")?;
+    for value in values {
+        write!(out, " {}", quoted(portable_selector(value, canonical)))?;
     }
     out.push('\n');
     Ok(())
@@ -3869,6 +3921,18 @@ pub trait CommandArgs: Sized {
     /// This is the value-aware half needed by conditional defaults and requirements.
     fn argument_matches(partial: &Self::Partial, selector: &str, value: &[u8]) -> Option<bool> {
         let _ = (partial, selector, value);
+        None
+    }
+
+    /// Find an argument by selector in a value the caller already holds.
+    fn standing_state(standing: &Self, selector: &str) -> Option<ArgumentState> {
+        let _ = (standing, selector);
+        None
+    }
+
+    /// Whether an argument in a value the caller already holds matches `value`.
+    fn standing_matches(standing: &Self, selector: &str, value: &[u8]) -> Option<bool> {
+        let _ = (standing, selector, value);
         None
     }
 

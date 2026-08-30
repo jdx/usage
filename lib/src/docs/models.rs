@@ -672,21 +672,38 @@ impl From<&crate::SpecCommand> for SpecCommand {
         let mut args: Vec<(usize, SpecArg)> = cmd
             .args
             .iter()
-            .chain(cmd.clause.iter().flat_map(|clause| clause.args.iter()))
             .enumerate()
             .map(|(index, arg)| (index, SpecArg::from(arg)))
             .collect();
+        if let Some(clause) = &cmd.clause {
+            let offset = args.len();
+            args.extend(
+                clause
+                    .args
+                    .iter()
+                    .enumerate()
+                    .map(|(index, arg)| (offset + index, SpecArg::from(arg))),
+            );
+        }
         args.sort_by_key(|(_, arg)| arg.display_order.unwrap_or(999));
         let args: Vec<SpecArg> = args.into_iter().map(|(_, arg)| arg).collect();
 
         let mut flags: Vec<(usize, SpecFlag)> = cmd
-            .clause
+            .flags
             .iter()
-            .flat_map(|clause| clause.flags.iter())
-            .chain(cmd.flags.iter())
             .enumerate()
             .map(|(index, flag)| (index, SpecFlag::from(flag)))
             .collect();
+        if let Some(clause) = &cmd.clause {
+            let offset = flags.len();
+            flags.extend(
+                clause
+                    .flags
+                    .iter()
+                    .enumerate()
+                    .map(|(index, flag)| (offset + index, SpecFlag::from(flag))),
+            );
+        }
         flags.sort_by_key(|(_, flag)| flag.display_order.unwrap_or(999));
         let flags: Vec<SpecFlag> = flags.into_iter().map(|(_, flag)| flag).collect();
 

@@ -1934,6 +1934,9 @@ impl Cli {
         // is the advantage of declaring them in code: a spec written by hand can only
         // find a typo'd selector at parse time, or never, since a selector naming
         // nothing quietly holds no relationship at all.
+        // Flattened, grouped, and clause fields are separate derived types. Their
+        // selectors are intentionally opaque here: the parent model cannot inspect
+        // them, so valid nested selectors are resolved by the generated lookup.
         let has_opaque = self.fields.iter().any(|field| {
             matches!(
                 field.kind,

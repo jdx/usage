@@ -41,6 +41,21 @@ struct RelatedClause {
     tools: Vec<ToolClause>,
 }
 
+#[derive(Debug, Args)]
+struct ArgRelationshipToolClause {
+    #[usage(long)]
+    postinstall: Option<String>,
+    #[usage(value_name = "TOOL", requires = "postinstall")]
+    tool: String,
+}
+
+#[derive(Debug, Cli)]
+#[usage(bin = "arg-related-clause", unknown_flags = "error")]
+struct ArgRelatedClause {
+    #[usage(clause)]
+    tools: Vec<ArgRelationshipToolClause>,
+}
+
 #[derive(Debug, Cli)]
 #[usage(bin = "nested-clause")]
 struct NestedClause {
@@ -666,6 +681,32 @@ fn command_flags_can_name_clause_arguments() {
         conflict.to_string().contains("conflicts with TOOL"),
         "{conflict}"
     );
+
+    let mut standing = RelatedClause::parse_from(&[std::ffi::OsStr::new("node")]).unwrap();
+    standing
+        .try_update_from(&[std::ffi::OsStr::new("--force")])
+        .expect("a standing clause terminal satisfies an update requirement");
+    let conflict = standing
+        .try_update_from(&[std::ffi::OsStr::new("--select")])
+        .unwrap_err();
+    assert!(
+        matches!(
+            conflict,
+            usage_argv::Error::ConflictingFlags { other: "TOOL", .. }
+        ),
+        "{conflict:?}"
+    );
+}
+
+#[test]
+fn clause_argument_relationships_use_portable_selectors() {
+    let kdl = ArgRelatedClause::to_kdl();
+    assert!(kdl.contains("requires=--postinstall"), "{kdl}");
+    let portable: Spec = kdl.parse().expect("derived relationship spec reparses");
+    let explained = usage::Parser::new(&portable)
+        .explain(&["arg-related-clause", "--postinstall", "setup", "node"].map(str::to_string))
+        .expect("the reference parser binds the invocation");
+    assert!(explained.errors.is_empty(), "{explained:#?}");
 }
 
 #[test]
