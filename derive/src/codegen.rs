@@ -284,6 +284,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 long_help: ::core::option::Option::None,
                 flags: <#ty as usage_argv::spec::CommandArgs>::META.flags,
                 args: <#ty as usage_argv::spec::CommandArgs>::META.args,
+                canonical_selector: <#ty as usage_argv::spec::CommandArgs>::canonical_selector,
             }))
         })
         .unwrap_or_else(|| quote!(::core::option::Option::None));
@@ -4349,6 +4350,10 @@ fn presence_methods(cli: &Cli) -> TokenStream {
             argument_state(partial, selector)
         }
 
+        fn canonical_selector(selector: &str) -> ::std::option::Option<&'static str> {
+            canonical_selector(selector)
+        }
+
         fn argument_matches(
             partial: &Self::Partial,
             selector: &str,
@@ -4401,6 +4406,35 @@ fn field_selectors(field: &Field) -> Vec<String> {
 /// through `CommandArgs`. Keeping the lookup beside the partial avoids building a dynamic
 /// command graph or allocating on the successful parse path.
 fn argument_lookup_functions(cli: &Cli) -> TokenStream {
+    let canonical_arms = cli.fields.iter().filter_map(|field| {
+        let canonical = Cli::selector_for_field(field)?;
+        let selectors = field_selectors(field);
+        Some(quote!(#(#selectors)|* => return ::std::option::Option::Some(#canonical),))
+    });
+    let canonical_flattened = cli.fields.iter().filter_map(|field| {
+        let Kind::Flatten { ty, .. } = &field.kind else {
+            return None;
+        };
+        Some(quote! {
+            if let ::std::option::Option::Some(canonical) =
+                <#ty as usage_argv::spec::CommandArgs>::canonical_selector(selector)
+            {
+                return ::std::option::Option::Some(canonical);
+            }
+        })
+    });
+    let canonical_clause = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, .. } = &field.kind else {
+            return None;
+        };
+        Some(quote! {
+            if let ::std::option::Option::Some(canonical) =
+                <#ty as usage_argv::spec::CommandArgs>::canonical_selector(selector)
+            {
+                return ::std::option::Option::Some(canonical);
+            }
+        })
+    });
     let state_arms = cli.fields.iter().filter_map(|field| {
         if matches!(
             field.kind,
@@ -4465,6 +4499,32 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
         })
     });
+    let state_clause = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        let current = format_ident!("__usage_current_{}", ident);
+        Some(quote! {
+            let mut __usage_clause_state = ::std::option::Option::None;
+            for __usage_instance in partial.#ident.iter().chain(::core::iter::once(&partial.#current)) {
+                if let ::std::option::Option::Some(state) =
+                    <#ty as usage_argv::spec::CommandArgs>::argument_state(
+                        __usage_instance,
+                        selector,
+                    )
+                {
+                    if state.given || state.satisfied {
+                        return ::std::option::Option::Some(state);
+                    }
+                    __usage_clause_state = ::std::option::Option::Some(state);
+                }
+            }
+            if __usage_clause_state.is_some() {
+                return __usage_clause_state;
+            }
+        })
+    });
     let match_arms = cli.fields.iter().filter_map(|field| {
         if matches!(
             field.kind,
@@ -4524,6 +4584,34 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
                 )
             {
                 return ::std::option::Option::Some(matches);
+            }
+        })
+    });
+    let match_clause = cli.fields.iter().filter_map(|field| {
+        let Kind::Clause { ty, .. } = &field.kind else {
+            return None;
+        };
+        let ident = &field.ident;
+        let current = format_ident!("__usage_current_{}", ident);
+        Some(quote! {
+            let mut __usage_clause_recognized = false;
+            for __usage_instance in partial.#ident.iter().chain(::core::iter::once(&partial.#current)) {
+                match <#ty as usage_argv::spec::CommandArgs>::argument_matches(
+                    __usage_instance,
+                    selector,
+                    value,
+                ) {
+                    ::std::option::Option::Some(true) => {
+                        return ::std::option::Option::Some(true);
+                    }
+                    ::std::option::Option::Some(false) => {
+                        __usage_clause_recognized = true;
+                    }
+                    ::std::option::Option::None => {}
+                }
+            }
+            if __usage_clause_recognized {
+                return ::std::option::Option::Some(false);
             }
         })
     });
@@ -4605,6 +4693,17 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
     });
     quote! {
         #[allow(dead_code)]
+        pub fn canonical_selector(selector: &str) -> ::std::option::Option<&'static str> {
+            match selector {
+                #(#canonical_arms)*
+                _ => {}
+            }
+            #(#canonical_flattened)*
+            #(#canonical_clause)*
+            ::std::option::Option::None
+        }
+
+        #[allow(dead_code)]
         pub fn argument_state(
             partial: &Partial,
             selector: &str,
@@ -4615,6 +4714,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
             #(#state_flattened)*
             #(#state_grouped)*
+            #(#state_clause)*
             ::std::option::Option::None
         }
 
@@ -4630,6 +4730,7 @@ fn argument_lookup_functions(cli: &Cli) -> TokenStream {
             }
             #(#match_flattened)*
             #(#match_grouped)*
+            #(#match_clause)*
             ::std::option::Option::None
         }
 
@@ -6425,6 +6526,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 long_help: ::core::option::Option::None,
                 flags: <#ty as usage_argv::spec::CommandArgs>::META.flags,
                 args: <#ty as usage_argv::spec::CommandArgs>::META.args,
+                canonical_selector: <#ty as usage_argv::spec::CommandArgs>::canonical_selector,
             }))
         },
     );

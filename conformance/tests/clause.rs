@@ -31,6 +31,17 @@ struct ImplicitClause {
 }
 
 #[derive(Debug, Cli)]
+#[usage(bin = "related-clause", unknown_flags = "error")]
+struct RelatedClause {
+    #[usage(long, requires = "tool")]
+    force: bool,
+    #[usage(long, conflicts = "tool")]
+    select: bool,
+    #[usage(clause)]
+    tools: Vec<ToolClause>,
+}
+
+#[derive(Debug, Cli)]
 #[usage(bin = "nested-clause")]
 struct NestedClause {
     #[usage(subcommand)]
@@ -561,7 +572,7 @@ fn implicit_clause_flags_apply_to_the_following_positional() {
     let spec = ImplicitClause::spec();
     let help = usage_argv::help::short_help(spec, &["implicit-clause"], &[spec.root]);
     assert!(help.contains("--postinstall"), "{help}");
-    assert!(help.contains("<TOOL>…"), "{help}");
+    assert!(help.contains("[TOOL]…"), "{help}");
     for line in ["implicit-clause --", "implicit-clause a --"] {
         let split =
             usage_argv::complete::split(line, line.len(), usage_argv::complete::Shell::Bash);
@@ -598,6 +609,62 @@ fn implicit_clause_flags_apply_to_the_following_positional() {
                 tool: "c".into(),
             },
         ]
+    );
+}
+
+#[test]
+fn command_flags_can_name_clause_arguments() {
+    let spec = RelatedClause::spec();
+    let force = spec
+        .root
+        .flags
+        .iter()
+        .find(|flag| flag.flag.name == "force")
+        .expect("force metadata");
+    assert_eq!(force.requires, ["tool"]);
+
+    RelatedClause::parse_from(&[
+        std::ffi::OsStr::new("--force"),
+        std::ffi::OsStr::new("node"),
+    ])
+    .expect("the clause terminal satisfies the command flag requirement");
+
+    let missing = RelatedClause::parse_from(&[std::ffi::OsStr::new("--force")]).unwrap_err();
+    assert!(
+        matches!(missing, usage_argv::Error::MissingRequired { name: "TOOL" }),
+        "{missing:?}"
+    );
+
+    let conflict = RelatedClause::parse_from(&[
+        std::ffi::OsStr::new("--select"),
+        std::ffi::OsStr::new("node"),
+    ])
+    .unwrap_err();
+    assert!(
+        matches!(
+            conflict,
+            usage_argv::Error::ConflictingFlags { other: "TOOL", .. }
+        ),
+        "{conflict:?}"
+    );
+
+    let kdl = RelatedClause::to_kdl();
+    assert!(kdl.contains("requires=TOOL"), "{kdl}");
+    assert!(kdl.contains("conflicts=TOOL"), "{kdl}");
+    let portable: Spec = kdl.parse().expect("derived relationship spec reparses");
+    let explained = usage::Parser::new(&portable)
+        .explain(&["related-clause", "--force", "node"].map(str::to_string))
+        .expect("the reference parser binds the invocation");
+    assert!(
+        explained.errors.is_empty(),
+        "the reference parser resolves command relationships into the clause: {explained:#?}"
+    );
+    let conflict = usage::Parser::new(&portable)
+        .parse(&["related-clause", "--select", "node"].map(str::to_string))
+        .unwrap_err();
+    assert!(
+        conflict.to_string().contains("conflicts with TOOL"),
+        "{conflict}"
     );
 }
 

@@ -1934,10 +1934,12 @@ impl Cli {
         // is the advantage of declaring them in code: a spec written by hand can only
         // find a typo'd selector at parse time, or never, since a selector naming
         // nothing quietly holds no relationship at all.
-        let has_opaque = self
-            .fields
-            .iter()
-            .any(|field| matches!(field.kind, Kind::Flatten { .. } | Kind::ArgGroup { .. }));
+        let has_opaque = self.fields.iter().any(|field| {
+            matches!(
+                field.kind,
+                Kind::Flatten { .. } | Kind::ArgGroup { .. } | Kind::Clause { .. }
+            )
+        });
         for field in &self.fields {
             for (option, selectors) in [
                 ("overrides", &field.overrides),

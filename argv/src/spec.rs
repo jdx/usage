@@ -972,6 +972,8 @@ pub struct ClauseMeta<'a> {
     pub long_help: Option<&'a str>,
     pub flags: &'a [FlagMeta<'a>],
     pub args: &'a [ArgMeta<'a>],
+    /// Translate a typed field selector into the spelling written to a portable spec.
+    pub canonical_selector: fn(&str) -> Option<&'static str>,
 }
 
 /// A run of one command's flags that arrived from a flattened `Args` type.
@@ -1921,7 +1923,13 @@ fn write_flag_layout_with(
                         .any(|flag| core::ptr::eq(flag.flag, meta.flags[i].flag))
                 });
                 if !scoped_to_clause {
-                    write_flag(out, &meta.flags[i], depth, inherited_heading)?;
+                    write_flag(
+                        out,
+                        &meta.flags[i],
+                        depth,
+                        inherited_heading,
+                        meta.clause.map(|clause| clause.canonical_selector),
+                    )?;
                 }
                 i += 1;
             }
@@ -1983,7 +1991,13 @@ fn write_body<'a>(
         }
     }
     for supplied in crate::help::supplied_entries(meta.cmd, &claimed) {
-        write_flag(out, supplied, depth, None)?;
+        write_flag(
+            out,
+            supplied,
+            depth,
+            None,
+            meta.clause.map(|clause| clause.canonical_selector),
+        )?;
     }
     for (i, arg) in meta.args.iter().enumerate() {
         debug_assert!(
@@ -2009,7 +2023,7 @@ fn write_body<'a>(
         }
         out.push_str(" {\n");
         for flag in clause.flags {
-            write_flag(out, flag, depth + 1, None)?;
+            write_flag(out, flag, depth + 1, None, Some(clause.canonical_selector))?;
         }
         for arg in clause.args {
             write_arg(out, arg, depth + 1)?;
@@ -2472,12 +2486,37 @@ fn write_completers(
     Ok(())
 }
 
+type CanonicalSelector = fn(&str) -> Option<&'static str>;
+
+fn portable_selector(selector: &str, canonical: Option<CanonicalSelector>) -> &str {
+    canonical
+        .and_then(|resolve| resolve(selector))
+        .unwrap_or(selector)
+}
+
+fn portable_selectors<'a>(
+    selectors: &'a [&'a str],
+    canonical: Option<CanonicalSelector>,
+) -> Vec<&'a str> {
+    selectors
+        .iter()
+        .map(|selector| portable_selector(selector, canonical))
+        .collect()
+}
+
 fn write_flag(
     out: &mut String,
     meta: &FlagMeta<'_>,
     depth: usize,
     inherited_heading: Option<&str>,
+    canonical: Option<CanonicalSelector>,
 ) -> core::fmt::Result {
+    let overrides = portable_selectors(meta.overrides, canonical);
+    let conflicts = portable_selectors(meta.conflicts, canonical);
+    let requires = portable_selectors(meta.requires, canonical);
+    let required_if = portable_selectors(meta.required_if, canonical);
+    let required_unless = portable_selectors(meta.required_unless, canonical);
+    let required_unless_all = portable_selectors(meta.required_unless_all, canonical);
     indent(out, depth)?;
     write!(out, "flag {}", quoted(&flag_forms(meta)))?;
 
@@ -2564,8 +2603,8 @@ fn write_flag(
     write_single_list(out, "env_fallback", meta.env_fallback)?;
     write_single_list(out, "deprecated_env", meta.deprecated_env)?;
     write_single_default(out, meta.default)?;
-    write_single_list(out, "overrides", meta.overrides)?;
-    write_single_list(out, "conflicts", meta.conflicts)?;
+    write_single_list(out, "overrides", &overrides)?;
+    write_single_list(out, "conflicts", &conflicts)?;
     if meta.exclusive {
         out.push_str(" exclusive=#true");
     }
@@ -2601,10 +2640,10 @@ fn write_flag(
             quoted(::core::str::from_utf8(missing).unwrap_or_default())
         )?;
     }
-    write_single_list(out, "requires", meta.requires)?;
-    write_single_list(out, "required_if", meta.required_if)?;
-    write_single_list(out, "required_unless", meta.required_unless)?;
-    write_single_list(out, "required_unless_all", meta.required_unless_all)?;
+    write_single_list(out, "requires", &requires)?;
+    write_single_list(out, "required_if", &required_if)?;
+    write_single_list(out, "required_unless", &required_unless)?;
+    write_single_list(out, "required_unless_all", &required_unless_all)?;
 
     let has_children = meta.long_help.is_some()
         || !meta.admonitions.is_empty()
@@ -2613,16 +2652,16 @@ fn write_flag(
         || meta.flag.takes_value
         || !meta.choices.is_empty()
         || meta.default.len() > 1
-        || meta.overrides.len() > 1
-        || meta.conflicts.len() > 1
-        || meta.requires.len() > 1
+        || overrides.len() > 1
+        || conflicts.len() > 1
+        || requires.len() > 1
         || !meta.requires_if.is_empty()
         || !meta.default_if.is_empty()
         || !meta.required_if_eq.is_empty()
         || !meta.required_if_eq_all.is_empty()
-        || meta.required_if.len() > 1
-        || meta.required_unless.len() > 1
-        || meta.required_unless_all.len() > 1
+        || required_if.len() > 1
+        || required_unless.len() > 1
+        || required_unless_all.len() > 1
         || meta.env_fallback.len() > 1
         || meta.deprecated_env.len() > 1;
     let has_children = has_children || meta.available_if.len() > 1;
@@ -2657,16 +2696,16 @@ fn write_flag(
         out.push_str(" hide=#true\n");
     }
     write_many_defaults(out, meta.default, inner)?;
-    write_many_list(out, "overrides", meta.overrides, inner)?;
-    write_many_list(out, "conflicts", meta.conflicts, inner)?;
-    write_many_list(out, "requires", meta.requires, inner)?;
+    write_many_list(out, "overrides", &overrides, inner)?;
+    write_many_list(out, "conflicts", &conflicts, inner)?;
+    write_many_list(out, "requires", &requires, inner)?;
     for condition in meta.requires_if {
         indent(out, inner)?;
         writeln!(
             out,
             "requires_if {} {}",
             quoted(condition.value),
-            quoted(condition.requires)
+            quoted(portable_selector(condition.requires, canonical))
         )?;
     }
     for condition in meta.default_if {
@@ -2675,13 +2714,13 @@ fn write_flag(
             None => writeln!(
                 out,
                 "default_if {} {}",
-                quoted(condition.selector),
+                quoted(portable_selector(condition.selector, canonical)),
                 quoted(condition.value)
             )?,
             Some(when) => writeln!(
                 out,
                 "default_if {} {} {}",
-                quoted(condition.selector),
+                quoted(portable_selector(condition.selector, canonical)),
                 quoted(when),
                 quoted(condition.value)
             )?,
@@ -2692,7 +2731,7 @@ fn write_flag(
         writeln!(
             out,
             "required_if_eq {} {}",
-            quoted(condition.selector),
+            quoted(portable_selector(condition.selector, canonical)),
             quoted(condition.value)
         )?;
     }
@@ -2703,15 +2742,15 @@ fn write_flag(
             write!(
                 out,
                 " {} {}",
-                quoted(condition.selector),
+                quoted(portable_selector(condition.selector, canonical)),
                 quoted(condition.value)
             )?;
         }
         out.push('\n');
     }
-    write_many_list(out, "required_if", meta.required_if, inner)?;
-    write_many_list(out, "required_unless", meta.required_unless, inner)?;
-    write_many_list(out, "required_unless_all", meta.required_unless_all, inner)?;
+    write_many_list(out, "required_if", &required_if, inner)?;
+    write_many_list(out, "required_unless", &required_unless, inner)?;
+    write_many_list(out, "required_unless_all", &required_unless_all, inner)?;
     write_many_list(out, "env_fallback", meta.env_fallback, inner)?;
     write_many_list(out, "deprecated_env", meta.deprecated_env, inner)?;
     write_many_list(out, "available_if", meta.available_if, inner)?;
@@ -3830,6 +3869,12 @@ pub trait CommandArgs: Sized {
     /// This is the value-aware half needed by conditional defaults and requirements.
     fn argument_matches(partial: &Self::Partial, selector: &str, value: &[u8]) -> Option<bool> {
         let _ = (partial, selector, value);
+        None
+    }
+
+    /// The portable spelling for a selector accepted by this typed command.
+    fn canonical_selector(selector: &str) -> Option<&'static str> {
+        let _ = selector;
         None
     }
 

@@ -154,6 +154,36 @@ cmd "version" help="Show the version"
     }
 
     #[test]
+    fn clause_fields_are_documented_like_the_arguments_users_type() {
+        let spec: Spec = r#"
+bin "mycli"
+cmd "use" {
+    clause tools {
+        flag "--postinstall <command>" help="Run after installation"
+        arg <tool> help="Tool to install"
+    }
+}
+        "#
+        .parse()
+        .unwrap();
+        let ctx = MarkdownRenderer::new(spec.clone()).with_multi(true);
+        let rendered = ctx
+            .render_cmd(spec.cmd.subcommands.get("use").unwrap())
+            .unwrap();
+
+        assert!(rendered.contains("## Arguments"), "{rendered}");
+        assert!(
+            rendered.contains("**`<tool>`** — Tool to install"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("## Flags"), "{rendered}");
+        assert!(
+            rendered.contains("**`--postinstall <command>`** — Run after installation"),
+            "{rendered}"
+        );
+    }
+
+    #[test]
     fn test_render_markdown_groups_by_heading() {
         let spec: Spec = r#"
 bin "mycli"

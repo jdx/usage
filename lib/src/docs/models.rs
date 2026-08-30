@@ -672,6 +672,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
         let mut args: Vec<(usize, SpecArg)> = cmd
             .args
             .iter()
+            .chain(cmd.clause.iter().flat_map(|clause| clause.args.iter()))
             .enumerate()
             .map(|(index, arg)| (index, SpecArg::from(arg)))
             .collect();
@@ -679,8 +680,10 @@ impl From<&crate::SpecCommand> for SpecCommand {
         let args: Vec<SpecArg> = args.into_iter().map(|(_, arg)| arg).collect();
 
         let mut flags: Vec<(usize, SpecFlag)> = cmd
-            .flags
+            .clause
             .iter()
+            .flat_map(|clause| clause.flags.iter())
+            .chain(cmd.flags.iter())
             .enumerate()
             .map(|(index, flag)| (index, SpecFlag::from(flag)))
             .collect();

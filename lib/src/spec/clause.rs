@@ -113,8 +113,13 @@ impl SpecClause {
             .collect::<Vec<_>>()
             .join(" ");
         match &self.separator {
-            Some(separator) => format!("{inner} [{separator} {inner}]…"),
-            None => format!("{inner}…"),
+            Some(separator) => format!("[{inner} [{separator} {inner}]…]"),
+            None => {
+                let mut arg = self.args[0].clone();
+                arg.required = false;
+                arg.var = true;
+                arg.usage()
+            }
         }
     }
 }

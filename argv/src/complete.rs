@@ -3681,6 +3681,7 @@ mod tests {
                 flags: &[],
                 help: None,
                 long_help: None,
+                canonical_selector: |_| None,
                 args: &[ArgMeta {
                     arg: &TASK_ARG,
                     choices: &["build", "check"],
