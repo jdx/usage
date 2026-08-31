@@ -21,6 +21,15 @@
       }
     },
     {
+      "id": "an-attached-long-flag-value-narrows",
+      "doc": "A value typed after `=` in the same long-flag word is still that flag's value. Completion narrows against the fragment after `=` and keeps the flag spelling in the replacement because shells replace the whole word.",
+      "spec": "name \"ex\"\nbin \"ex\"\nflag \"--format <F>\" {\n  arg \"<F>\" {\n    choices \"json\" \"yaml\" \"toml\"\n  }\n}\n",
+      "line": "ex --format=j",
+      "expect": {
+        "candidates": ["--format=json"]
+      }
+    },
+    {
       "id": "a-positionals-choices-are-offered",
       "doc": "A positional carrying choices answers at command position, alongside the subcommands rather than instead of them \u2014 a word there could be either.",
       "spec": "name \"ex\"\nbin \"ex\"\narg \"<MODE>\" {\n  choices \"fast\" \"slow\"\n}\ncmd \"go\" {}\n",
