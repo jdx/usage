@@ -3,7 +3,7 @@ CARGO_TERM_COLOR = 'always'
 _.path = ["./target/debug"]
 
 [tools]
-"github:jdx/mr-boxington" = "latest"
+mr-boxington = { version = "1.1.0", postinstall = "mbx setup --global" }
 # Pinned rather than "latest" because tak is the measuring instrument: an
 # upgrade that changes how it samples would land in the series as a step change
 # in usage's numbers, indistinguishable from a real regression. Bump deliberately.
@@ -31,7 +31,7 @@ depends = ["render", "lint-fix", "snapshots"]
 [tasks.build]
 sources = ['{cli/,}src/**/*.rs', '{cli/,}Cargo.toml']
 outputs = ['target/debug/rtx']
-run = 'mbx build --all'
+run = 'cargo build --all'
 
 [tasks.cli]
 alias = ['x']
@@ -62,7 +62,7 @@ run = 'aube install && aube run docs:dev'
 
 [tasks.test]
 alias = 't'
-run = 'mbx test --all --all-features'
+run = 'cargo test --all --all-features'
 
 # The Go parser answers the same corpus the Rust one does, so its suite needs the
 # `usage` CLI: a vector's spec is KDL, and lowering it is the CLI's job rather than
@@ -87,7 +87,7 @@ run = 'actionlint'
 [tasks."lint:prettier"]
 run = "prettier -c ."
 [tasks."lint:clippy"]
-run = 'mbx clippy --all --all-features --all-targets -- -D warnings'
+run = 'cargo clippy --all --all-features --all-targets -- -D warnings'
 [tasks."lint:fmt"]
 run = 'cargo fmt --all -- --check'
 [tasks."lint:semver"]
@@ -274,13 +274,19 @@ run = './tasks/perf-go.sh'
 # Instruction-counted benchmarks (see tak.toml). Needs valgrind for the counts;
 # without it tak reports wall clock only and says so, so this still works on
 # macOS where there is no usable cachegrind.
+[tasks."perf:build"]
+env = { MBX_DISABLE = "1" }
+run = "cargo build --release"
+
 [tasks.perf]
 dir = "{{config_root}}"
-run = ["cargo build --release", "tak run"]
+depends = ["perf:build"]
+run = "tak run"
 
 # Same measurement, appended to refs/notes/tak for this commit. Run by the
 # `perf` workflow on every push to main; the notes are the history. Safe to run
 # locally — nothing leaves the machine until `tak push`.
 [tasks."perf:record"]
 dir = "{{config_root}}"
-run = ["cargo build --release", "tak run --record"]
+depends = ["perf:build"]
+run = "tak run --record"
