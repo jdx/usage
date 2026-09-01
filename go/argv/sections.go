@@ -123,7 +123,47 @@ func (s *helpSections) assemble(template string) string {
 	if strings.TrimSpace(template) != "" {
 		page = substituteSections(template, s)
 	}
+	page = stripANSISequences(page)
 	return strings.TrimSpace(page) + "\n"
+}
+
+// stripANSISequences removes complete ANSI control-sequence introducer escapes
+// from authored help. The Go renderer only produces plain pages, so bytes
+// embedded before rendering, such as color_print output carried through a spec,
+// have no place in the finished document.
+func stripANSISequences(text string) string {
+	first := strings.Index(text, "\x1b[")
+	if first < 0 {
+		return text
+	}
+
+	var plain strings.Builder
+	plain.Grow(len(text))
+	copied := 0
+	for at := first; at+1 < len(text); {
+		if text[at] != '\x1b' || text[at+1] != '[' {
+			at++
+			continue
+		}
+
+		end := at + 2
+		for end < len(text) && text[end] >= 0x30 && text[end] <= 0x3f {
+			end++
+		}
+		for end < len(text) && text[end] >= 0x20 && text[end] <= 0x2f {
+			end++
+		}
+		if end == len(text) || text[end] < 0x40 || text[end] > 0x7e {
+			at += 2
+			continue
+		}
+
+		plain.WriteString(text[copied:at])
+		copied = end + 1
+		at = copied
+	}
+	plain.WriteString(text[copied:])
+	return plain.String()
 }
 
 // substituteSections fills a template in, section by section.
