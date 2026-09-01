@@ -127,6 +127,32 @@ impl Cli {
         // went wrong instead of ending the process — which is what lets the error come out
         // through the same path as every other failure here.
         let words: Vec<&OsStr> = argv.iter().skip(1).map(OsStr::new).collect();
+        // `exec` owns `-h` and `--help`: once COMMAND and BIN are present they describe the
+        // wrapped script, not this command. With no script to describe, answer the ordinary
+        // command-help request before its required positionals are checked. `usage help exec`
+        // reaches the same page through the parser's synthesized help command.
+        if let [command, help] = words.as_slice() {
+            if matches!(command.to_str(), Some("exec" | "x"))
+                && matches!(help.to_str(), Some("-h" | "--help"))
+            {
+                let spec = Self::spec();
+                let exec = spec
+                    .root
+                    .subcommands
+                    .iter()
+                    .find(|subcommand| subcommand.cmd.name == "exec")
+                    .expect("the CLI declares its exec command");
+                if let Some(page) = usage_rs::help::render_styled(
+                    spec,
+                    exec.cmd,
+                    *help == OsStr::new("--help"),
+                    usage_rs::help::Style::auto(),
+                ) {
+                    print!("{page}");
+                }
+                return Ok(());
+            }
+        }
         let cli = match Self::parse_from(&words) {
             Ok(cli) => cli,
             // Not failures: someone asked a question, and the answer goes to stdout.
