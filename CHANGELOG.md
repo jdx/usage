@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.6.1](https://github.com/jdx/usage/compare/v6.6.0..v6.6.1) - 2026-09-01
+
+### 🐛 Bug Fixes
+
+- **(complete)** complete attached long flag values by [@nfvelten](https://github.com/nfvelten) in [#1349](https://github.com/jdx/usage/pull/1349)
+- **(docs)** strip authored ANSI from plain help by [@jdx](https://github.com/jdx) in [#1357](https://github.com/jdx/usage/pull/1357)
+
+### New Contributors
+
+- @nfvelten made their first contribution in [#1349](https://github.com/jdx/usage/pull/1349)
+
 ## [6.6.0](https://github.com/jdx/usage/compare/v6.5.0..v6.6.0) - 2026-08-30
 
 ### 🚀 Features

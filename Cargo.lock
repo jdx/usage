@@ -1399,9 +1399,9 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "rmcp"
-version = "3.1.4"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a15bc53261a9dc37e105df006e4656c598379a8f9581f8950debb130f27a7cf"
+checksum = "42b6914fac0be956fe704a38239c3f44a9f841d1b06a5713d2f638065593f5b5"
 dependencies = [
  "base64 0.23.1",
  "chrono",
@@ -1422,9 +1422,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-macros"
-version = "3.1.4"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a85d45508e9b4ba024fe996c2638799635d75b6dd0ba8f32ccf08f8026f0c780"
+checksum = "cdf1c49bd4d52014b94db0877410db273c2008f01628b0252a2e9460ad9b7fda"
 dependencies = [
  "darling 0.24.1",
  "proc-macro2",
@@ -2012,11 +2012,11 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "usage-argv"
-version = "6.6.0"
+version = "6.6.1"
 
 [[package]]
 name = "usage-cli"
-version = "6.6.0"
+version = "6.6.1"
 dependencies = [
  "assert_cmd",
  "ctor",
@@ -2043,7 +2043,7 @@ dependencies = [
 
 [[package]]
 name = "usage-config"
-version = "6.6.0"
+version = "6.6.1"
 dependencies = [
  "serde_json",
  "toml",
@@ -2069,7 +2069,7 @@ dependencies = [
 
 [[package]]
 name = "usage-derive"
-version = "6.6.0"
+version = "6.6.1"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2079,7 +2079,7 @@ dependencies = [
 
 [[package]]
 name = "usage-dynamic"
-version = "6.6.0"
+version = "6.6.1"
 dependencies = [
  "futures",
  "usage-argv",
@@ -2089,7 +2089,7 @@ dependencies = [
 
 [[package]]
 name = "usage-lib"
-version = "6.6.0"
+version = "6.6.1"
 dependencies = [
  "clap",
  "criterion",
@@ -2116,7 +2116,7 @@ dependencies = [
 
 [[package]]
 name = "usage-rs"
-version = "6.6.0"
+version = "6.6.1"
 dependencies = [
  "serde",
  "shell-words",
@@ -2131,14 +2131,14 @@ dependencies = [
 
 [[package]]
 name = "usage-test"
-version = "6.6.0"
+version = "6.6.1"
 dependencies = [
  "usage-argv",
 ]
 
 [[package]]
 name = "usage-validation"
-version = "6.6.0"
+version = "6.6.1"
 dependencies = [
  "expr-lang",
 ]
