@@ -235,3 +235,23 @@ fn test_exec_help() {
         .stdout(contains("<file>"))
         .stdout(contains("File to process"));
 }
+
+#[test]
+fn test_exec_help_without_a_script() {
+    for command in ["exec", "x"] {
+        for help in ["-h", "--help"] {
+            let mut cmd = Command::new(cargo::cargo_bin!("usage"));
+            cmd.args([command, help]);
+
+            cmd.assert()
+                .success()
+                .stdout(contains(
+                    "Execute a script, parsing args and exposing them as environment variables",
+                ))
+                .stdout(contains("Usage: usage exec"))
+                .stdout(contains("<COMMAND>"))
+                .stdout(contains("<BIN>"))
+                .stderr("");
+        }
+    }
+}
