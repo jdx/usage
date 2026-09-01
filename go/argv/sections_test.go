@@ -326,6 +326,22 @@ func TestAPlainGoPageStripsTemplateColourMarkupOnly(t *testing.T) {
 	}
 }
 
+func TestAPlainGoPageStripsAuthoredANSI(t *testing.T) {
+	root := &Command{Name: "ex", Key: 1}
+	spec := HelpSpec{
+		Name: "ex", Bin: "ex",
+		AfterLongHelp: "\x1b[1m\x1b[4mExamples:\x1b[22m\x1b[24m\n\n    \x1b[1mex run\x1b[22m",
+	}
+
+	got := LongHelp(spec, []string{"ex"}, []*Command{root}, HelpTable{})
+	if !strings.Contains(got, "Examples:\n\n    ex run") {
+		t.Fatalf("authored help was not preserved as plain text:\n%s", got)
+	}
+	if strings.Contains(got, "\x1b") {
+		t.Fatalf("plain help contains ANSI escapes: %q", got)
+	}
+}
+
 func TestAPlainGoPageKeepsEscapedAndMalformedStyleMarkupLiteral(t *testing.T) {
 	root := &Command{Name: "ex", Key: 1}
 	sections := helpSections{}

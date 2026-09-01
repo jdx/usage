@@ -8,6 +8,8 @@ pub struct Style {
 
 impl Style {
     /// Plain text, suitable for a pipe or generated artifact.
+    ///
+    /// ANSI CSI escapes already present in authored help are removed as well.
     pub const PLAIN: Style = Style { coloured: false };
     /// ANSI-coloured text, regardless of the output destination.
     pub const COLOURED: Style = Style { coloured: true };

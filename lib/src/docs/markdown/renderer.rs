@@ -50,8 +50,6 @@ impl MarkdownTemplate {
     }
 }
 
-/// An ANSI escape sequence: what `color_print::cstr!` leaves in help text.
-static SGR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\x1b\[[0-?]*[ -/]*[@-~]").unwrap());
 /// A backtick span, or a bare `<` outside one.
 static CODE_SPAN_OR_LT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(`[^`]*`)|(<)").unwrap());
 
@@ -61,7 +59,7 @@ fn escape_md_with_indent(value: &str, html_encode: bool, indent: bool) -> String
     // their examples with `color_print::cstr!`, which embeds SGR sequences even when color is
     // disabled at runtime. Terminal styling has no meaning in generated Markdown, and leaving
     // it here publishes literal escape bytes in docs and downstream static sites.
-    let value = SGR.replace_all(value, "");
+    let value = crate::docs::strip_ansi(value);
 
     value
         .lines()
