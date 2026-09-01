@@ -203,11 +203,59 @@ fn assemble(spec: &Spec<'_>, sections: &Sections, style: Style) -> String {
         Some(template) => sections.substituted(template, style),
         None => sections.concatenated(),
     };
+    finish_page(page, style)
+}
+
+fn finish_page(page: String, style: Style) -> String {
+    let page = if style.coloured {
+        page
+    } else {
+        strip_ansi_sequences(page)
+    };
     let trimmed = page.trim();
     let mut done = String::with_capacity(trimmed.len() + 1);
     done.push_str(trimmed);
     done.push('\n');
     done
+}
+
+/// Remove complete ANSI control-sequence introducer escapes from authored help text.
+///
+/// Applications migrating from clap commonly carry `color_print::cstr!` output in fields such
+/// as `after_long_help`. Those bytes were present before this renderer selected a style, so a
+/// plain page has to remove them as well as declining to add its own styling.
+fn strip_ansi_sequences(text: String) -> String {
+    let bytes = text.as_bytes();
+    let Some(mut at) = bytes.windows(2).position(|pair| pair == b"\x1b[") else {
+        return text;
+    };
+
+    let mut plain = String::with_capacity(text.len());
+    let mut copied = 0;
+    while at + 1 < bytes.len() {
+        if bytes[at] != b'\x1b' || bytes[at + 1] != b'[' {
+            at += 1;
+            continue;
+        }
+
+        let mut end = at + 2;
+        while end < bytes.len() && (0x30..=0x3f).contains(&bytes[end]) {
+            end += 1;
+        }
+        while end < bytes.len() && (0x20..=0x2f).contains(&bytes[end]) {
+            end += 1;
+        }
+        if end == bytes.len() || !(0x40..=0x7e).contains(&bytes[end]) {
+            at += 2;
+            continue;
+        }
+
+        plain.push_str(&text[copied..at]);
+        copied = end + 1;
+        at = copied;
+    }
+    plain.push_str(&text[copied..]);
+    plain
 }
 
 /// Whether help output is coloured.
@@ -221,6 +269,8 @@ pub struct Style {
 
 impl Style {
     /// Plain text, suitable for a pipe or a generated artifact.
+    ///
+    /// ANSI CSI escapes already present in authored help are removed as well.
     pub const PLAIN: Style = Style { coloured: false };
     /// ANSI-coloured text, regardless of the output destination.
     pub const COLOURED: Style = Style { coloured: true };
@@ -795,11 +845,7 @@ fn assembled_help(
             &synopsis,
         ),
     };
-    let trimmed = page.trim();
-    let mut done = String::with_capacity(trimmed.len() + 1);
-    done.push_str(trimmed);
-    done.push('\n');
-    done
+    finish_page(page, style)
 }
 
 /// The `Usage:` line's body, without the `Usage: ` prefix.
@@ -3911,7 +3957,7 @@ fn recursive_help<'a>(
 mod style_tests {
     use super::{
         commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
-        inline_environment_notes, long_help, render_styled, render_view_at_styled,
+        inline_environment_notes, long_help, render, render_styled, render_view_at_styled,
         styled_flag_usage, styled_help, styled_inline, usage_line, wrap, Shown, Style,
     };
     use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, FlagMeta, Spec, ViewMeta};
@@ -4404,6 +4450,35 @@ mod style_tests {
         let page = render_styled(&malformed, &command, false, Style::COLOURED)
             .expect("a programmatic malformed template remains renderable");
         assert!(page.starts_with("before {$red and \u{1b}[1;33mUsage:"));
+    }
+
+    #[test]
+    fn plain_help_strips_ansi_authored_before_style_selection() {
+        let command = Command {
+            name: "ex",
+            ..Command::EMPTY
+        };
+        let root = CommandMeta {
+            cmd: &command,
+            after_long_help: Some(
+                "\u{1b}[1m\u{1b}[4mExamples:\u{1b}[22m\u{1b}[24m\n\n    \u{1b}[1mex run\u{1b}[22m",
+            ),
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            root: &root,
+            ..Spec::EMPTY
+        };
+
+        let plain = render_styled(&spec, &command, true, Style::PLAIN).expect("root page");
+        assert!(plain.contains("Examples:\n\n    ex run"), "{plain}");
+        assert!(!plain.contains('\u{1b}'), "{plain:?}");
+        assert_eq!(render(&spec, &command, true).as_deref(), Some(&*plain));
+
+        let coloured = render_styled(&spec, &command, true, Style::COLOURED).expect("root page");
+        assert!(coloured.contains("\u{1b}[1m\u{1b}[4mExamples:"));
+        assert_eq!(strip_ansi(&coloured), plain);
     }
 
     #[test]

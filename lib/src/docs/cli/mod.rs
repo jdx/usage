@@ -203,6 +203,11 @@ pub fn render_help_styled(spec: &Spec, cmd: &SpecCommand, long: bool, style: Sty
         }
         None => styling.apply(&sections.concatenated(), style),
     };
+    let page = if style.coloured {
+        std::borrow::Cow::Borrowed(page.as_str())
+    } else {
+        crate::docs::strip_ansi(&page)
+    };
     page.trim().to_string() + "\n"
 }
 
@@ -1996,15 +2001,20 @@ cmd "run" help="Run it" {
 
     #[test]
     fn styled_help_colours_semantics_and_template_styles() {
-        let spec = crate::spec! { r#"
+        let mut spec = crate::spec! { r#"
 bin "testcli"
-help_template "{$bright-blue}My tool{/$}\n\n{{usage}}\n\n{{flags}}"
+help_template "{$bright-blue}My tool{/$}\n\n{{usage}}\n\n{{flags}}\n\n{{after_help}}"
 flag "--output <FILE>" help="Write **the file**"
         "# }
         .unwrap();
+        spec.cmd.after_help_long = Some(
+            "\u{1b}[1m\u{1b}[4mExamples:\u{1b}[22m\u{1b}[24m\n\n    \u{1b}[1mtestcli run\u{1b}[22m"
+                .to_string(),
+        );
 
         let plain = render_help(&spec, &spec.cmd, true);
         assert!(plain.contains("My tool"), "{plain}");
+        assert!(plain.contains("Examples:\n\n    testcli run"), "{plain}");
         assert!(!plain.contains('\u{1b}'), "{plain:?}");
 
         let coloured = render_help_styled(&spec, &spec.cmd, true, Style::COLOURED);
@@ -2026,6 +2036,10 @@ flag "--output <FILE>" help="Write **the file**"
         );
         assert!(
             coloured.contains("\u{1b}[1mthe file\u{1b}[22m"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains("\u{1b}[1m\u{1b}[4mExamples:"),
             "{coloured:?}"
         );
     }
