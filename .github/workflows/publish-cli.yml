@@ -177,9 +177,9 @@ jobs:
 
           ## 💚 Sponsor usage
 
-          usage is maintained by [@jdx](https://github.com/jdx), an open source developer for [**entire.io**](https://entire.io), the title sponsor of the [jdx.dev](https://jdx.dev) open source tools including [mise](https://mise.jdx.dev/), [aube](https://aube.jdx.dev/), hk, and more. Work on usage is funded by sponsorships.
+          usage is built and maintained by [@jdx](https://github.com/jdx), an open source developer at [**entire.io**](https://entire.io/), the title sponsor of his open source work.
 
-          If `usage` powers CLI specs, docs, or completions for a tool you maintain or use, please consider [sponsoring at jdx.dev](https://jdx.dev/sponsors.html). Every sponsorship helps the project stay independent and moving.
+          If `usage` powers CLI specs, docs, or completions for a tool you maintain or use, please consider becoming an [individual or company sponsor](https://jdx.dev/sponsors.html). Your support funds ongoing development and helps keep usage fast, free, and independent.
           EOF
           } > /tmp/release-notes.md
           gh release edit "$TAG" --notes-file /tmp/release-notes.md
