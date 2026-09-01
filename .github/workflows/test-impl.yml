@@ -104,9 +104,9 @@ jobs:
       # defaults — are compiled nowhere else, and rotted unnoticed until they were measured.
       - name: check the trimmed feature shapes still compile
         run: |
-          mbx clippy -p usage-lib --no-default-features -- -D warnings
-          mbx clippy -p usage-rs --no-default-features -- -D warnings
-          mbx clippy -p usage-config --no-default-features -- -D warnings
+          cargo clippy -p usage-lib --no-default-features -- -D warnings
+          cargo clippy -p usage-rs --no-default-features -- -D warnings
+          cargo clippy -p usage-config --no-default-features -- -D warnings
       - run: mise r render
       # Same reasoning as `render`: the shadow is checked in, so a change to the derive's
       # vocabulary that would alter it has to be committed rather than discovered later.
