@@ -1666,6 +1666,54 @@ flag "--verbose" help="Enable verbose output"
     }
 
     #[test]
+    fn root_help_stays_on_the_root_page() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+author "Root Author"
+license "MIT"
+before_help "root before"
+before_help_long "root before long"
+after_help "root after"
+after_help_long "root after long"
+example "testcli --verbose"
+cmd "run" help="run it" {
+    after_help "run after"
+    after_long_help "run after long"
+    example "testcli run"
+    cmd "now" help="run it now"
+}
+        "# }
+        .unwrap();
+        let run = spec.cmd.subcommands.get("run").expect("run command");
+        let now = run.subcommands.get("now").expect("now command");
+
+        for long in [false, true] {
+            let page = render_help(&spec, now, long);
+            for root_only in [
+                "root before",
+                "root after",
+                "$ testcli --verbose",
+                "run after",
+                "$ testcli run",
+                "Root Author",
+                "License: MIT",
+            ] {
+                assert!(
+                    !page.contains(root_only),
+                    "long={long}, inherited ancestor metadata {root_only:?}:\n{page}"
+                );
+            }
+        }
+
+        let short = render_help(&spec, run, false);
+        let long = render_help(&spec, run, true);
+        assert!(short.contains("run after"), "{short}");
+        assert!(short.contains("$ testcli run"), "{short}");
+        assert!(long.contains("run after long"), "{long}");
+        assert!(long.contains("$ testcli run"), "{long}");
+    }
+
+    #[test]
     fn test_render_help_with_examples() {
         let spec = crate::spec! { r#"
 bin "testcli"

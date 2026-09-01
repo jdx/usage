@@ -76,7 +76,7 @@
     },
     {
       "id": "template-gathers-a-long-pages-trailing-sections",
-      "doc": "`{{after_help}}` is the whole tail of a page — examples, the spec's `after_help`, and the author and licence a long page ends with — so a template moving it moves all of it at once. Pinned on `--help`, since that is the form those last two lines appear on.",
+      "doc": "`{{after_help}}` is the whole tail of a page — examples, `after_help`, and on the root page the author and licence — so a template moving it moves all of it at once. Pinned on the root's `--help`, since that is the form those last two lines appear on.",
       "spec": "name \"ex\"\nbin \"ex\"\nversion \"1.2.3\"\nabout \"An example\"\nauthor \"Ex Ample\"\nafter_help \"Read the docs.\"\nhelp_template \"{{after_help}}\\n\\n{{usage}}\\n\\n{{flags}}\\n\\n{{about}}\"\nexample \"ex --force\" header=\"Force it\"\nflag \"--force\" help=\"Do it anyway\"\n",
       "expect": {
         "usage": "ex [--force]",

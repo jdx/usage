@@ -295,18 +295,14 @@ fn the_text_around_a_page_is_rendered_where_the_reference_puts_it() {
 }
 
 #[test]
-fn a_spec_can_surround_every_page_at_once() {
-    // usage-lib falls back to the spec's text when a command declares none, so a preamble
-    // written once at the top appears on every page — which is the point of writing it there.
-    // The renderer stopped at the command, so it never appeared at all.
+fn root_surrounding_text_stays_on_the_root_page() {
     let spec: LibSpec = "name \"ex\"\nbin \"ex\"\nbefore_help \"Above every page.\"\n\
          after_help \"Below every page.\"\ncmd go help=\"Go\"\n"
         .parse()
         .expect("valid spec");
     let go = spec.cmd.subcommands.get("go").expect("go");
 
-    // The text sits on the *root*, which is what a top-level declaration is: the page under
-    // test is a subcommand, so the fallback is what puts it there.
+    // The text sits on the root. The page under test is a subcommand and must not inherit it.
     static GO: usage_argv::Command = usage_argv::Command {
         name: "go",
         ..usage_argv::Command::EMPTY
@@ -341,6 +337,8 @@ fn a_spec_can_surround_every_page_at_once() {
         } else {
             short_help(&SPEC, &["ex", "go"], &[&GO_META])
         };
+        assert!(!ours.contains("Above every page."), "{ours}");
+        assert!(!ours.contains("Below every page."), "{ours}");
         assert_eq!(
             ours,
             usage::docs::cli::render_help(&spec, go, long),
@@ -379,20 +377,15 @@ fn the_root_writes_its_own_surrounding_text() {
         "{kdl}"
     );
 
-    // And it parses back as what it said, which is the only claim that matters.
-    // Read back on the *spec*, which is where usage-lib puts a top-level declaration — the
-    // same place its template looks for the fallback.
+    // And it parses back as what it said, which is the only claim that matters. Read back on
+    // the spec, which is where usage-lib keeps a top-level declaration.
     let parsed: LibSpec = kdl.parse().expect("valid spec");
     assert_eq!(parsed.before_help.as_deref(), Some("Above."));
     assert_eq!(parsed.after_help_long.as_deref(), Some("Below, at length."));
 }
 
 #[test]
-fn a_specs_examples_reach_a_page_that_has_none() {
-    // Top-level `example` nodes are the root's, and the reference shows them on every page
-    // whose command declares none — the same rule the text around a page follows. Rendering
-    // only the command's own meant a CLI's examples appeared on its root page and nowhere
-    // else, while the same CLI read back from `to_kdl` showed them everywhere.
+fn root_examples_stay_on_the_root_page() {
     let spec: LibSpec =
         "name \"ex\"\nbin \"ex\"\nexample \"ex go --fast\" help=\"the quick way\"\n\
          cmd go help=\"Go\"\ncmd own help=\"Own\" {\n  example \"ex own --mine\"\n}\n"
@@ -444,7 +437,7 @@ fn a_specs_examples_reach_a_page_that_has_none() {
         ..usage_argv::spec::Spec::EMPTY
     };
 
-    // `go` borrows the spec's; `own` keeps its own, and does not also show the spec's.
+    // `go` has none; `own` keeps its own and does not also show the root's.
     for (name, meta) in [("go", &GO_META), ("own", &OWN_META)] {
         let cmd = spec.cmd.subcommands.get(name).expect("in the spec");
         for long in [false, true] {
@@ -453,6 +446,10 @@ fn a_specs_examples_reach_a_page_that_has_none() {
             } else {
                 short_help(&SPEC, &["ex", name], &[meta])
             };
+            assert!(!ours.contains("ex go --fast"), "{ours}");
+            if name == "own" {
+                assert!(ours.contains("ex own --mine"), "{ours}");
+            }
             assert_eq!(
                 ours,
                 usage::docs::cli::render_help(&spec, cmd, long),

@@ -31,13 +31,16 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	}
 	cmd := chain[len(chain)-1]
 	meta := help.Lookup(cmd.Key)
+	root := len(path) <= 1
 	nextLineHelp := meta != nil && meta.NextLineHelp
 	var sections helpSections
 	out := &sections.about
 
 	before := firstOf(metaField(meta, func(h *Help) string { return h.BeforeLongHelp }),
-		metaField(meta, func(h *Help) string { return h.BeforeHelp }),
-		spec.BeforeLongHelp, spec.BeforeHelp)
+		metaField(meta, func(h *Help) string { return h.BeforeHelp }))
+	if before == "" && root {
+		before = firstOf(spec.BeforeLongHelp, spec.BeforeHelp)
+	}
 	if before != "" {
 		writeWrapped(out, before, 0)
 		out.WriteString("\n")
@@ -46,7 +49,6 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	// The banner and the program's own description belong to the program's page.
 	// A subcommand's page describes the subcommand, which is the question that
 	// was asked.
-	root := len(path) <= 1
 	if root && spec.Version != "" {
 		name := spec.Name
 		if name == "" {
@@ -150,7 +152,7 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	}
 
 	out = &sections.afterHelp
-	if examples := pageExamples(chain, help, meta); len(examples) > 0 {
+	if examples := pageExamples(meta); len(examples) > 0 {
 		out.WriteString("\nExamples:\n")
 		for _, e := range examples {
 			if e.Header != "" {
@@ -167,13 +169,15 @@ func LongHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) st
 	}
 
 	after := firstOf(metaField(meta, func(h *Help) string { return h.AfterLongHelp }),
-		metaField(meta, func(h *Help) string { return h.AfterHelp }),
-		spec.AfterLongHelp, spec.AfterHelp)
+		metaField(meta, func(h *Help) string { return h.AfterHelp }))
+	if after == "" && root {
+		after = firstOf(spec.AfterLongHelp, spec.AfterHelp)
+	}
 	if after != "" {
 		out.WriteString("\n")
 		writeWrapped(out, after, 0)
 	}
-	if spec.Author != "" || spec.License != "" {
+	if root && (spec.Author != "" || spec.License != "") {
 		out.WriteByte('\n')
 		if spec.Author != "" {
 			out.WriteString("Author: " + spec.Author + "\n")

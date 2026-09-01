@@ -249,18 +249,9 @@ pub fn build(
 
 /// The whole spec, as usage-argv's cold model of one.
 ///
-/// A KDL spec has one place for surrounding text and examples — the top level — and the two
-/// implementations put them in different places: usage-lib keeps them on the `Spec` and
-/// usage-argv on the root's metadata, where its renderer reads them both as the root's own and
-/// as the default for every other page. So they are folded here. The help texts fold root
-/// first, a root command that says something of its own keeping it; the examples concatenate,
-/// which is the same thing in practice — `example` at the top level parses onto
-/// `Spec::examples` and leaves `spec.cmd.examples` empty, so at most one side is ever filled.
-///
-/// Examples were dropped on the way through to begin with, which cost every page its Examples
-/// section — the one the reference still rendered from the same spec. A fold that copied only
-/// the help texts lost them silently, and `render/03-sections.json` pins all three cases now:
-/// the root's own page, a page that falls back to them, and a page that has its own instead.
+/// A KDL spec keeps root surrounding text and examples on `Spec`, while usage-argv keeps them
+/// on the root command's metadata. Fold them onto that root metadata so they remain available
+/// on the root help page without leaking into subcommand pages.
 pub fn build_spec(spec: &Spec) -> &'static usage_argv::spec::Spec<'static> {
     // The third thing a spec writes at the top level and hangs off `Spec` rather than off the
     // root command. Unlike the other two it is not the root's to keep: `build` hands it down to

@@ -235,8 +235,8 @@
       }
     },
     {
-      "id": "a-specs-examples-reach-a-page-that-has-none",
-      "doc": "Top-level `example` nodes are the root's, and every page whose command declares none of its own shows them — the same rule the text around a page follows. They parse onto the spec rather than onto the root command, so an implementation that reads only the command's loses them from every page at once, which is exactly what happened to this corpus's own table builder.",
+      "id": "a-specs-examples-stay-on-the-root-page",
+      "doc": "Top-level `example` nodes belong to the root page and do not appear on a subcommand that declares none of its own.",
       "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nexample \"ex go --fast\" help=\"the quick way\"\ncmd \"go\" help=\"Go\"\ncmd \"own\" help=\"Own\" {\n    example \"ex own --mine\" header=\"Mine\"\n}\n",
       "cmd": ["go"],
       "expect": {
@@ -247,10 +247,7 @@
           "Usage: ex go",
           "",
           "Flags:",
-          "  -h, --help  Print help",
-          "",
-          "Examples:",
-          "    $ ex go --fast"
+          "  -h, --help  Print help"
         ],
         "long_help": [
           "Go",
@@ -258,11 +255,7 @@
           "Usage: ex go",
           "",
           "Flags:",
-          "  -h, --help  Print help",
-          "",
-          "Examples:",
-          "    the quick way",
-          "    $ ex go --fast"
+          "  -h, --help  Print help"
         ]
       }
     },

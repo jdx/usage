@@ -24,7 +24,7 @@ import "strings"
 //	ungrouped_args   arguments under the default Arguments heading
 //	grouped_flags    flags with a declared help heading
 //	ungrouped_flags  flags under Flags, plus inherited global flags
-//	after_help       examples, AfterHelp, and the author/license footer on a long page
+//	after_help       examples, AfterHelp, and the root long page's package footer
 //
 // An array rather than a slice, so the vocabulary cannot grow or shrink the way
 // a package-level slice can. The names themselves are still assignable; nothing

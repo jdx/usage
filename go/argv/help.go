@@ -91,8 +91,8 @@ type Help struct {
 	EnvFallback   []string
 	DeprecatedEnv []string
 	Default       []string
-	// BeforeHelp and AfterHelp bracket this command's page, overriding the
-	// spec-wide text. The long variants are preferred by `--help`.
+	// BeforeHelp and AfterHelp bracket this command's page. The long variants
+	// are preferred by `--help`.
 	BeforeHelp            string
 	AfterHelp             string
 	BeforeLongHelp        string

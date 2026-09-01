@@ -32,11 +32,11 @@ type HelpSpec struct {
 	About string
 	// LongAbout is what `--help` prefers over About.
 	LongAbout string
-	// Author and License are printed at the end of every long page.
+	// Author and License are printed at the end of the root's long page.
 	Author  string
 	License string
-	// BeforeHelp and AfterHelp bracket every page that does not override them,
-	// and the long variants are what `--help` prefers.
+	// BeforeHelp and AfterHelp bracket the root page, and the long variants are
+	// what `--help` prefers.
 	BeforeHelp     string
 	AfterHelp      string
 	BeforeLongHelp string
@@ -84,12 +84,13 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	}
 	cmd := chain[len(chain)-1]
 	meta := help.Lookup(cmd.Key)
+	root := len(path) <= 1
 	var sections helpSections
 	out := &sections.about
 
-	before := spec.BeforeHelp
-	if meta != nil && meta.BeforeHelp != "" {
-		before = meta.BeforeHelp
+	before := metaField(meta, func(h *Help) string { return h.BeforeHelp })
+	if before == "" && root {
+		before = spec.BeforeHelp
 	}
 	if before != "" {
 		writeWrapped(out, before, 0)
@@ -100,7 +101,6 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 	// subcommand's page says what the subcommand does. usage-lib prints the name
 	// when the spec gives one and the binary otherwise, and only when there is a
 	// version beside it.
-	root := len(path) <= 1
 	if root && spec.Version != "" {
 		name := spec.Name
 		if name == "" {
@@ -230,11 +230,11 @@ func ShortHelp(spec HelpSpec, path []string, chain []*Command, help HelpTable) s
 		flatCommandsShort(&sections.flattened, path[min(1, len(path)):], cmd, help, nextLineHelp)
 	}
 
-	examplesSection(&sections.afterHelp, pageExamples(chain, help, meta))
+	examplesSection(&sections.afterHelp, pageExamples(meta))
 
-	after := spec.AfterHelp
-	if meta != nil && meta.AfterHelp != "" {
-		after = meta.AfterHelp
+	after := metaField(meta, func(h *Help) string { return h.AfterHelp })
+	if after == "" && root {
+		after = spec.AfterHelp
 	}
 	if after != "" {
 		sections.afterHelp.WriteString("\n")
@@ -497,22 +497,11 @@ func groupsSection(out, ungrouped, grouped *strings.Builder, defaultTitle string
 	}
 }
 
-// pageExamples is a command's own examples, or the root's where it has none.
-//
-// The same fallback `BeforeHelp` and `AfterHelp` get, and for the same reason: a
-// CLI writing examples once at the top means them to appear. mise declares none
-// at its root, so the 211-page parity test cannot see this either way — it is
-// checked against the reference's rule rather than against the fixture.
-func pageExamples(chain []*Command, help HelpTable, meta *Help) []Example {
-	if meta != nil && len(meta.Examples) > 0 {
-		return meta.Examples
+func pageExamples(meta *Help) []Example {
+	if meta == nil {
+		return nil
 	}
-	if len(chain) > 0 {
-		if root := help.Lookup(chain[0].Key); root != nil {
-			return root.Examples
-		}
-	}
-	return nil
+	return meta.Examples
 }
 
 func examplesSection(out *strings.Builder, examples []Example) {
