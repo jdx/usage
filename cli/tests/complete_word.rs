@@ -225,6 +225,8 @@ fn complete_word_long_flag_val() {
         &["--", "plugins", "install", "--dir", ""],
     )
     .stdout(contains("src").and(contains("tests")));
+    assert_cmd("basic.usage.kdl", &["--", "plugins", "install", "--dir=s"])
+        .stdout(contains("--dir=src/"));
 }
 
 #[test]
@@ -250,6 +252,60 @@ fn complete_word_choices() {
         &["--", "activate", "--shell", ""],
     )
     .stdout("bash\nelvish\nfish\nnu\nxonsh\nzsh\npwsh\n");
+}
+
+#[test]
+fn complete_word_attached_long_flag_value_choices() {
+    let spec = r#"
+name "ex"
+bin "ex"
+flag "--format <F>" {
+    arg "<F>" {
+        choices "json" "yaml" "toml"
+    }
+}
+"#;
+    Command::new(cargo::cargo_bin!("usage"))
+        .args([
+            "cw",
+            "--shell",
+            "fish",
+            "--spec",
+            spec,
+            "--",
+            "ex",
+            "--format=j",
+        ])
+        .assert()
+        .success()
+        .stdout("--format=json\n");
+}
+
+#[test]
+fn complete_word_attached_long_flag_value_run_receives_value_fragment() {
+    let spec = r#"
+name "ex"
+bin "ex"
+flag "--format <F>" {
+    arg "<F>" {
+    }
+}
+complete "F" run="printf '%s\\n' {{ words[CURRENT] | shell_quote }}"
+"#;
+    Command::new(cargo::cargo_bin!("usage"))
+        .args([
+            "cw",
+            "--shell",
+            "fish",
+            "--spec",
+            spec,
+            "--",
+            "ex",
+            "--format=j",
+        ])
+        .assert()
+        .success()
+        .stdout("--format=j\n");
 }
 
 #[test]

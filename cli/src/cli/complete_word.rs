@@ -241,12 +241,48 @@ impl CompleteWord {
                 .max_by_key(|(_, _, sigil, _)| sigil.len())
         })
         .flatten();
+        let attached_long_value = flags_possible
+            .then(|| Self::attached_long_value(&flags, &ctoken))
+            .flatten();
+        let mut used_file_fallback = false;
         let mut choices = if flags_possible && ctoken == "-" {
             let shorts = self.complete_short_flag_names(&flags, "");
             let longs = self.complete_long_flag_names(&flags, "");
             shorts.into_iter().chain(longs).collect::<Vec<_>>()
         } else if flags_possible && ctoken.starts_with("--") {
-            self.complete_long_flag_names(&flags, &ctoken)
+            if let Some((flag, form, prefix)) = attached_long_value {
+                let arg = flag.arg.as_ref().unwrap();
+                // Dynamic completers inspect `words[CURRENT]`; expose the value fragment just
+                // like sigil completion does, since the flag prefix is handled separately.
+                let mut attached_ctx = ctx.clone();
+                let mut attached_words = self.words.clone();
+                if let Some(current) = attached_words.get_mut(cword) {
+                    *current = prefix.to_string();
+                }
+                attached_ctx.insert("words", &attached_words);
+                let attached_cx = Ctx {
+                    tera: &attached_ctx,
+                    spec: cx.spec,
+                    parsed: cx.parsed,
+                    after_restart_token: cx.after_restart_token,
+                };
+                let (mut found, closed) =
+                    self.complete_arg(&attached_cx, &parsed.cmd, arg, prefix)?;
+                has_explicit_choices = closed || arg.choices.is_some();
+                if found.is_empty() && !has_explicit_choices {
+                    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                    found = self
+                        .complete_path(&cwd, prefix, |_| true)
+                        .into_iter()
+                        .map(|name| (name, String::new()))
+                        .collect();
+                    used_file_fallback = true;
+                }
+                Self::attach_long_value_candidates(&mut found, form);
+                found
+            } else {
+                self.complete_long_flag_names(&flags, &ctoken)
+            }
         } else if flags_possible && ctoken.starts_with('-') {
             self.complete_short_flag_names(&flags, &ctoken)
         } else if after_restart_token {
@@ -343,8 +379,9 @@ impl CompleteWord {
         // flag. Past a `--` a dash-prefixed word is not a flag but a value, so a path like
         // `-input` still gets completed there.
         let looks_like_a_flag = flags_possible && ctoken.starts_with('-');
-        let files = choices.is_empty() && !looks_like_a_flag && !has_explicit_choices;
-        if files {
+        let files = used_file_fallback
+            || (choices.is_empty() && !looks_like_a_flag && !has_explicit_choices);
+        if files && choices.is_empty() {
             let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
             let files = self.complete_path(&cwd, &ctoken, |_| true);
             choices = files.into_iter().map(|n| (n, String::new())).collect();
@@ -428,6 +465,28 @@ impl CompleteWord {
             .map(|c| (format!("-{c}"), String::new()))
             .sorted()
             .collect()
+    }
+
+    /// A value being typed in the same word as its long flag.
+    ///
+    /// The shell replaces the whole word, so callers complete against the fragment after `=`
+    /// and then put the flag spelling back on each candidate.
+    fn attached_long_value<'f, 't>(
+        flags: &'f BTreeMap<String, Arc<SpecFlag>>,
+        token: &'t str,
+    ) -> Option<(&'f SpecFlag, &'t str, &'t str)> {
+        let (form, prefix) = token.split_once('=')?;
+        let long = form.strip_prefix("--")?;
+        flags
+            .values()
+            .find(|flag| flag.arg.is_some() && flag.long.iter().any(|candidate| candidate == long))
+            .map(|flag| (flag.as_ref(), form, prefix))
+    }
+
+    fn attach_long_value_candidates(candidates: &mut [(String, String)], form: &str) {
+        for (candidate, _) in candidates {
+            *candidate = format!("{form}={candidate}");
+        }
     }
 
     /// Completions for a reserved `type=`, and whether the set they came from is *closed*.
