@@ -376,11 +376,10 @@ pub struct Spec<'a> {
     pub views: &'a [ViewMeta<'a>],
     /// The root command, and the home of everything a spec declares at its top level.
     ///
-    /// A KDL spec has one place for surrounding text and examples — the top level — and the
-    /// reference reads what is written there as the root's *and* as the default for every
-    /// other page. So they live here, on the root's metadata, rather than in a second set of
-    /// fields on the spec: two homes for one declaration is two answers to one question, and
-    /// `to_kdl` and the renderer picked differently.
+    /// A KDL spec has one place for the root's surrounding text and examples — the top level.
+    /// They live here, on the root's metadata, rather than in a second set of fields on the
+    /// spec: two homes for one declaration is two answers to one question, and `to_kdl` and
+    /// the renderer picked differently.
     pub root: &'a CommandMeta<'a>,
 }
 

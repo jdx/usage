@@ -59,7 +59,7 @@ const INLINE_LIMIT: usize = 2;
 /// | `ungrouped_args` | arguments under the default `Arguments` heading                    |
 /// | `grouped_flags` | flags with a declared help heading                                  |
 /// | `ungrouped_flags` | flags under `Flags`, plus inherited global flags                   |
-/// | `after_help`   | examples, `after_help`, and the author/license footer on a long page  |
+/// | `after_help`   | examples, `after_help`, and the root long page's package footer       |
 pub const SECTIONS: [&str; 10] = [
     "about",
     "usage",
@@ -595,7 +595,7 @@ fn help_structure(
 ) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
     let meta = *chain.last().expect("a page is always about some command");
     let mut headings = Vec::new();
-    if !page_examples(spec, meta).is_empty() {
+    if !meta.examples.is_empty() {
         headings.push("Examples".to_string());
     }
     if meta.flatten_help {
@@ -1333,7 +1333,7 @@ fn short_sections(
 
     // Text the command puts above everything else, and below it. The short form has only the
     // one pair; the long form prefers the long variants.
-    if let Some(before) = meta.before_help.or(spec.root.before_help) {
+    if let Some(before) = meta.before_help {
         write_wrapped_indented(out, before, width, 0);
         out.push('\n');
     }
@@ -1544,8 +1544,8 @@ fn short_sections(
             width,
         );
     }
-    examples_section(&mut sections.after_help, spec, meta);
-    if let Some(after) = meta.after_help.or(spec.root.after_help) {
+    examples_section(&mut sections.after_help, meta.examples);
+    if let Some(after) = meta.after_help {
         sections.after_help.push('\n');
         write_wrapped_indented(&mut sections.after_help, after, width, 0);
     }
@@ -2166,8 +2166,7 @@ fn column_usage_masked(meta: &FlagMeta<'_>, show: &Shown) -> String {
     format!("{short:<SHORT_COL$}{after}")
 }
 
-fn examples_section(out: &mut String, spec: &Spec<'_>, meta: &CommandMeta<'_>) {
-    let examples = page_examples(spec, meta);
+fn examples_section(out: &mut String, examples: &[Example<'_>]) {
     if examples.is_empty() {
         return;
     }
@@ -2177,19 +2176,6 @@ fn examples_section(out: &mut String, spec: &Spec<'_>, meta: &CommandMeta<'_>) {
             let _ = writeln!(out, "  {header}:");
         }
         let _ = writeln!(out, "    $ {}", example.code);
-    }
-}
-
-/// The examples a page shows: the command's own, or the spec's where it has none.
-///
-/// Top-level `example` nodes are the root's, and the reference shows them on every page whose
-/// command declares none of its own — the same rule the text around a page follows, and for
-/// the same reason: the top level is where a spec says something about the whole CLI.
-fn page_examples<'a>(spec: &Spec<'a>, meta: &CommandMeta<'a>) -> &'a [Example<'a>] {
-    if meta.examples.is_empty() {
-        spec.root.examples
-    } else {
-        meta.examples
     }
 }
 
@@ -2272,12 +2258,7 @@ fn long_sections(
     let mut sections = Sections::default();
     let out = &mut sections.about;
 
-    if let Some(before) = meta
-        .before_long_help
-        .or(meta.before_help)
-        .or(spec.root.before_long_help)
-        .or(spec.root.before_help)
-    {
+    if let Some(before) = meta.before_long_help.or(meta.before_help) {
         write_wrapped_indented(out, before, width, 0);
         out.push('\n');
     }
@@ -2465,7 +2446,7 @@ fn long_sections(
     }
 
     let out = &mut sections.after_help;
-    let examples = page_examples(spec, meta);
+    let examples = meta.examples;
     if !examples.is_empty() {
         let _ = writeln!(out, "\nExamples:");
         for example in examples {
@@ -2481,18 +2462,12 @@ fn long_sections(
         }
     }
 
-    // mise puts an Examples section here on 115 commands, which is why a page without it is
-    // missing the part a reader came for.
-    let after = meta
-        .after_long_help
-        .or(meta.after_help)
-        .or(spec.root.after_long_help)
-        .or(spec.root.after_help);
+    let after = meta.after_long_help.or(meta.after_help);
     if let Some(after) = after {
         out.push('\n');
         write_wrapped_indented(out, after, width, 0);
     }
-    if spec.author.is_some() || spec.license.is_some() {
+    if root && (spec.author.is_some() || spec.license.is_some()) {
         // The reference template starts the footer in a new paragraph without trimming the
         // configured trailing help. A newline deliberately present in `after_help` therefore
         // remains an additional blank line before package metadata.
@@ -3960,7 +3935,7 @@ mod style_tests {
         inline_environment_notes, long_help, render, render_styled, render_view_at_styled,
         styled_flag_usage, styled_help, styled_inline, usage_line, wrap, Shown, Style,
     };
-    use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, FlagMeta, Spec, ViewMeta};
+    use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
     use crate::{Arg, ArgAction, Clause, Command, Flag};
 
     #[test]
@@ -4060,6 +4035,115 @@ mod style_tests {
                 "     to wrap"
             ]
         );
+    }
+
+    #[test]
+    fn root_help_stays_on_the_root_page() {
+        let leaf_cmd = Command {
+            name: "now",
+            ..Command::EMPTY
+        };
+        let leaf_meta = CommandMeta {
+            cmd: &leaf_cmd,
+            about: Some("run it now"),
+            ..CommandMeta::EMPTY
+        };
+        let sub_commands = [&leaf_cmd];
+        let sub_cmd = Command {
+            name: "run",
+            subcommands: &sub_commands,
+            ..Command::EMPTY
+        };
+        let sub_subcommands = [&leaf_meta];
+        let sub_examples = [Example {
+            code: "ex run",
+            header: None,
+            help: None,
+        }];
+        let sub_meta = CommandMeta {
+            cmd: &sub_cmd,
+            about: Some("run it"),
+            after_help: Some("run after"),
+            after_long_help: Some("run after long"),
+            examples: &sub_examples,
+            subcommands: &sub_subcommands,
+            ..CommandMeta::EMPTY
+        };
+        let root_commands = [&sub_cmd];
+        let root_cmd = Command {
+            name: "ex",
+            subcommands: &root_commands,
+            ..Command::EMPTY
+        };
+        let root_subcommands = [&sub_meta];
+        let examples = [Example {
+            code: "ex build",
+            header: None,
+            help: None,
+        }];
+        let root_meta = CommandMeta {
+            cmd: &root_cmd,
+            before_help: Some("root before"),
+            before_long_help: Some("root before long"),
+            after_help: Some("root after"),
+            after_long_help: Some("root after long"),
+            examples: &examples,
+            subcommands: &root_subcommands,
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            author: Some("Root Author"),
+            license: Some("MIT"),
+            root: &root_meta,
+            ..Spec::EMPTY
+        };
+
+        for page in [
+            super::short_help(
+                &spec,
+                &["ex", "run", "now"],
+                &[&root_meta, &sub_meta, &leaf_meta],
+            ),
+            super::long_help(
+                &spec,
+                &["ex", "run", "now"],
+                &[&root_meta, &sub_meta, &leaf_meta],
+            ),
+        ] {
+            for root_only in [
+                "root before",
+                "root after",
+                "$ ex build",
+                "run after",
+                "$ ex run",
+                "Root Author",
+                "License: MIT",
+            ] {
+                assert!(
+                    !page.contains(root_only),
+                    "inherited ancestor metadata {root_only:?}:\n{page}"
+                );
+            }
+        }
+
+        let sub_short = super::short_help(&spec, &["ex", "run"], &[&root_meta, &sub_meta]);
+        let sub_long = super::long_help(&spec, &["ex", "run"], &[&root_meta, &sub_meta]);
+        assert!(sub_short.contains("run after"), "{sub_short}");
+        assert!(sub_short.contains("$ ex run"), "{sub_short}");
+        assert!(sub_long.contains("run after long"), "{sub_long}");
+        assert!(sub_long.contains("$ ex run"), "{sub_long}");
+
+        let short = super::short_help(&spec, &["ex"], &[&root_meta]);
+        let long = super::long_help(&spec, &["ex"], &[&root_meta]);
+        assert!(short.contains("root before"), "{short}");
+        assert!(short.contains("root after"), "{short}");
+        assert!(short.contains("$ ex build"), "{short}");
+        assert!(long.contains("root before long"), "{long}");
+        assert!(long.contains("root after long"), "{long}");
+        assert!(long.contains("$ ex build"), "{long}");
+        assert!(long.contains("Author: Root Author"), "{long}");
+        assert!(long.contains("License: MIT"), "{long}");
     }
 
     #[test]

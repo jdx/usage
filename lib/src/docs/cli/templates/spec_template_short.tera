@@ -1,6 +1,6 @@
 {%- if cmd.before_help %}{{ cmd.before_help | terminal_wrap(width=terminal_width) }}
 
-{% elif spec.before_help %}{{ spec.before_help | terminal_wrap(width=terminal_width) }}
+{% elif root and spec.before_help %}{{ spec.before_help | terminal_wrap(width=terminal_width) }}
 
 {% endif -%}
 {%- if root %}
@@ -224,7 +224,7 @@ Examples:
 {%- endif %}
     $ {{ example.code }}
 {%- endfor %}
-{%- elif spec.examples %}
+{%- elif root and spec.examples %}
 
 Examples:
 {%- for example in spec.examples %}
@@ -238,7 +238,7 @@ Examples:
 {%- if cmd.after_help %}
 
 {{ cmd.after_help | terminal_wrap(width=terminal_width) }}
-{%- elif spec.after_help %}
+{%- elif root and spec.after_help %}
 
 {{ spec.after_help | terminal_wrap(width=terminal_width) }}
 {%- endif -%}

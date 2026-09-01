@@ -2,9 +2,9 @@
 
 {% elif cmd.before_help %}{{ cmd.before_help | terminal_wrap(width=terminal_width) }}
 
-{% elif spec.before_help_long %}{{ spec.before_help_long | terminal_wrap(width=terminal_width) }}
+{% elif root and spec.before_help_long %}{{ spec.before_help_long | terminal_wrap(width=terminal_width) }}
 
-{% elif spec.before_help %}{{ spec.before_help | terminal_wrap(width=terminal_width) }}
+{% elif root and spec.before_help %}{{ spec.before_help | terminal_wrap(width=terminal_width) }}
 
 {% endif -%}
 {%- if root %}
@@ -348,7 +348,7 @@ Examples:
 {%- endif %}
     $ {{ example.code }}
 {%- endfor %}
-{%- elif spec.examples %}
+{%- elif root and spec.examples %}
 
 Examples:
 {%- for example in spec.examples %}
@@ -368,15 +368,15 @@ Examples:
 {%- elif cmd.after_help %}
 
 {{ cmd.after_help | terminal_wrap(width=terminal_width) }}
-{%- elif spec.after_help_long %}
+{%- elif root and spec.after_help_long %}
 
 {{ spec.after_help_long | terminal_wrap(width=terminal_width) }}
-{%- elif spec.after_help %}
+{%- elif root and spec.after_help %}
 
 {{ spec.after_help | terminal_wrap(width=terminal_width) }}
 {%- endif %}
 
-{%- if spec.author or spec.license %}
+{%- if root and (spec.author or spec.license) %}
 {% if spec.author %}
 Author: {{ spec.author }}
 {%- endif %}

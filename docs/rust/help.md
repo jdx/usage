@@ -182,18 +182,18 @@ holds ten named sections and nothing else. `args` and `flags` retain the complet
 existing templates; their grouped and ungrouped variants expose the same content in smaller pieces
 when a port needs to interleave them:
 
-| section               | what it covers                                                                       |
-| --------------------- | ------------------------------------------------------------------------------------ |
-| `{{about}}`           | `before_help`, the `{bin} {version}` banner, and the description                     |
-| `{{usage}}`           | the `Usage:` synopsis, however many lines it takes                                   |
-| `{{commands}}`        | the subcommand list — or, under `flatten_help`, the subcommands' own bodies          |
-| `{{args}}`            | every argument group, each under its heading                                         |
-| `{{flags}}`           | this command's flag groups, then the global flags it inherits                        |
-| `{{grouped_args}}`    | arguments with a declared help heading                                               |
-| `{{ungrouped_args}}`  | arguments under the default `Arguments` heading                                      |
-| `{{grouped_flags}}`   | flags with a declared help heading                                                   |
-| `{{ungrouped_flags}}` | flags under `Flags`, plus inherited global flags                                     |
-| `{{after_help}}`      | the Examples section, `after_help`, and the author and licence a long page ends with |
+| section               | what it covers                                                              |
+| --------------------- | --------------------------------------------------------------------------- |
+| `{{about}}`           | `before_help`, the `{bin} {version}` banner, and the description            |
+| `{{usage}}`           | the `Usage:` synopsis, however many lines it takes                          |
+| `{{commands}}`        | the subcommand list — or, under `flatten_help`, the subcommands' own bodies |
+| `{{args}}`            | every argument group, each under its heading                                |
+| `{{flags}}`           | this command's flag groups, then the global flags it inherits               |
+| `{{grouped_args}}`    | arguments with a declared help heading                                      |
+| `{{ungrouped_args}}`  | arguments under the default `Arguments` heading                             |
+| `{{grouped_flags}}`   | flags with a declared help heading                                          |
+| `{{ungrouped_flags}}` | flags under `Flags`, plus inherited global flags                            |
+| `{{after_help}}`      | the Examples section, `after_help`, and the root long page's package footer |
 
 Reorder them, leave them out, or put text of your own around them. Two rules make that
 predictable:

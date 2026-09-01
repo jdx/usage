@@ -22,7 +22,7 @@
 /// | `ungrouped_args` | arguments under the default `Arguments` heading                 |
 /// | `grouped_flags` | flags with a declared help heading                               |
 /// | `ungrouped_flags` | flags under `Flags`, plus inherited global flags                |
-/// | `after_help` | examples, `after_help`, and the author/license footer on a long page |
+/// | `after_help` | examples, `after_help`, and the root long page's package footer      |
 pub const SECTIONS: [&str; 10] = [
     "about",
     "usage",

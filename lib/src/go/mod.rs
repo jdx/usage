@@ -1105,7 +1105,7 @@ impl Emitter<'_> {
         let _ = writeln!(
             self.out,
             "// HelpMeta is what a page needs from the spec's root rather than from any one\n\
-             // command: the header, and the text that brackets every page.\n\
+             // command: root presentation metadata and CLI-wide layout.\n\
              var HelpMeta = argv.HelpSpec{{{}}}\n",
             fields.join(", ")
         );

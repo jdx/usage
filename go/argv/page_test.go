@@ -19,46 +19,71 @@ func TestNestedListsKeepTheirHangingIndent(t *testing.T) {
 	}
 }
 
-// Examples declared once at the root appear on a page that declares none.
-//
-// The same fallback `BeforeHelp` and `AfterHelp` get. mise declares no root
-// examples, so the 211-page parity suite cannot see this in either direction —
-// it is checked here against the reference's rule instead.
-func TestExamplesFallBackToTheRoot(t *testing.T) {
-	sub := &Command{Name: "run", Key: 2}
+func TestRootHelpStaysOnTheRootPage(t *testing.T) {
+	leaf := &Command{Name: "now", Key: 3}
+	sub := &Command{Name: "run", Key: 2, Subcommands: []*Command{leaf}}
 	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{sub}}
 	help := HelpTable{
 		{Key: 1, Examples: []Example{{Header: "Build it", Code: "ex build"}}},
-		{Key: 2, Short: "run it"},
+		{Key: 2, Short: "run it", AfterHelp: "run after", AfterLongHelp: "run after long", Examples: []Example{{Code: "ex run"}}},
+		{Key: 3, Short: "run it now"},
 	}
-	spec := HelpSpec{Name: "ex", Bin: "ex"}
+	spec := HelpSpec{
+		Name: "ex", Bin: "ex",
+		BeforeHelp: "root before", BeforeLongHelp: "root before long",
+		AfterHelp: "root after", AfterLongHelp: "root after long",
+	}
 
+	for _, page := range []string{
+		ShortHelp(spec, []string{"ex", "run", "now"}, []*Command{root, sub, leaf}, help),
+		LongHelp(spec, []string{"ex", "run", "now"}, []*Command{root, sub, leaf}, help),
+	} {
+		for _, ancestorOnly := range []string{"root before", "root after", "$ ex build", "run after", "$ ex run"} {
+			if strings.Contains(page, ancestorOnly) {
+				t.Errorf("nested page inherited ancestor metadata %q:\n%s", ancestorOnly, page)
+			}
+		}
+	}
 	for _, page := range []string{
 		ShortHelp(spec, []string{"ex", "run"}, []*Command{root, sub}, help),
 		LongHelp(spec, []string{"ex", "run"}, []*Command{root, sub}, help),
 	} {
+		if !strings.Contains(page, "$ ex run") || !strings.Contains(page, "run after") {
+			t.Errorf("subcommand page lost its own metadata:\n%s", page)
+		}
+	}
+	for _, page := range []string{
+		ShortHelp(spec, []string{"ex"}, []*Command{root}, help),
+		LongHelp(spec, []string{"ex"}, []*Command{root}, help),
+	} {
 		if !strings.Contains(page, "$ ex build") {
-			t.Errorf("a page with no examples of its own should show the root's:\n%s", page)
+			t.Errorf("root page lost its examples:\n%s", page)
 		}
 	}
 
-	// And a command's own win where it has them.
-	help[1].Examples = []Example{{Code: "ex run --now"}}
-	page := ShortHelp(spec, []string{"ex", "run"}, []*Command{root, sub}, help)
-	if strings.Contains(page, "ex build") || !strings.Contains(page, "ex run --now") {
+	// A nested subcommand still shows examples it declares itself.
+	help[2].Examples = []Example{{Code: "ex run now --fast"}}
+	page := ShortHelp(spec, []string{"ex", "run", "now"}, []*Command{root, sub, leaf}, help)
+	if strings.Contains(page, "ex build") || strings.Contains(page, "$ ex run\n") || !strings.Contains(page, "ex run now --fast") {
 		t.Errorf("its own examples should win:\n%s", page)
 	}
 }
 
 func TestLongHelpEndsWithAuthorshipAndLicense(t *testing.T) {
-	root := &Command{Name: "ex", Key: 1}
+	sub := &Command{Name: "run", Key: 2}
+	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{sub}}
 	spec := HelpSpec{Bin: "ex", Author: "A. Person", License: "MIT"}
-	page := LongHelp(spec, []string{"ex"}, []*Command{root}, HelpTable{{Key: 1}})
+	help := HelpTable{{Key: 1}, {Key: 2}}
+	page := LongHelp(spec, []string{"ex"}, []*Command{root}, help)
 	if !strings.HasSuffix(page, "Author: A. Person\nLicense: MIT\n") {
 		t.Fatalf("missing long-page footer:\n%s", page)
 	}
-	if strings.Contains(ShortHelp(spec, []string{"ex"}, []*Command{root}, HelpTable{{Key: 1}}), "Author:") {
+	if strings.Contains(ShortHelp(spec, []string{"ex"}, []*Command{root}, help), "Author:") {
 		t.Fatal("short help should not print the long-page footer")
+	}
+	subPage := LongHelp(spec, []string{"ex", "run"}, []*Command{root, sub}, help)
+	if strings.Contains(subPage, "Author:") || strings.Contains(subPage, "License:") {
+		t.Fatalf("subcommand inherited the root package footer:\n%s", subPage)
 	}
 }
 
