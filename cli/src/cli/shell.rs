@@ -38,33 +38,33 @@ pub struct Shell {
 
 /// One of the four commands that run a script, which differ only in the shell they name.
 ///
-/// The long help is the same paragraph four times over, so it is written here once. A
-/// `concat!` in a `long_about` would not do: the attribute takes a literal, and by the time
-/// the derive reads it a macro call is not one.
+/// Everything true of all four is written here once. What is not — the shebang to write, the
+/// program that ends up running, and the variable that overrides it — is passed in as
+/// `$shell_specific`, because a page that told a `usage zsh` reader to write a `usage bash`
+/// shebang would be wrong three times out of four.
+///
+/// One literal per shell rather than interpolation: a `concat!` in a doc attribute is still a
+/// macro call by the time the derive reads it, and the derive wants a literal.
 macro_rules! shell_command {
-    ($ty:ident, $program:literal, $about:tt) => {
+    ($ty:ident, $program:literal, $about:tt, $shell_specific:literal) => {
         #[doc = "Run a script whose usage spec is written in its own comments"]
         #[doc = ""]
-        #[doc = "Usually reached through the script's shebang, `#!/usr/bin/env -S usage bash`: the kernel"]
-        #[doc = "hands the script and its arguments to `usage`, which parses them against the `#USAGE`"]
-        #[doc = "lines at the top of the file and then runs the script with this shell. Each flag and"]
-        #[doc = "argument reaches the script as an environment variable named `usage_<name>`, so"]
-        #[doc = "`--force` becomes `usage_force` and `<file>` becomes `usage_file`. A value declared"]
-        #[doc = "`var=#true` arrives as one string, joined with `shell_words::join()` so that an element"]
+        #[doc = "Usually reached through the script's shebang: the kernel hands the"]
+        #[doc = "script and its arguments to `usage`, which parses them against the"]
+        #[doc = "`#USAGE` lines at the top of the file, then runs the script with this"]
+        #[doc = "shell. Each flag and argument reaches the script as an environment"]
+        #[doc = "variable named `usage_<name>`, so `--force` becomes `usage_force` and"]
+        #[doc = "`<file>` becomes `usage_file`. A value declared `var=#true` arrives as"]
+        #[doc = "one string, joined with `shell_words::join()` so that an element"]
         #[doc = "containing a space stays quoted."]
         #[doc = ""]
-        #[doc = "`-h` and `--help` print the script's help page rather than this one. The shell is found"]
-        #[doc = "on PATH; `USAGECLI_SHELL_BASH`, `USAGECLI_SHELL_ZSH`, `USAGECLI_SHELL_FISH` and"]
-        #[doc = "`USAGECLI_SHELL_PWSH` each name a different program to run instead, which is how"]
-        #[doc = "`usage bash` is pointed at Git Bash on a Windows machine where `bash` is WSL."]
+        #[doc = "`-h` and `--help` print the script's help page rather than this one."]
+        #[doc = ""]
+        #[doc = $shell_specific]
         #[derive(Debug, Args)]
         // The words after the script are the script's, so a flag `usage` does not know is a
         // value to forward rather than a mistake to report — the root's `error` stops here.
-        #[usage(
-            about = $about,
-            unknown_flags = "value",
-            verbatim_doc_comment
-        )]
+        #[usage(about = $about, unknown_flags = "value", verbatim_doc_comment)]
         pub struct $ty {
             #[usage(flatten)]
             pub shell: Shell,
@@ -80,14 +80,33 @@ macro_rules! shell_command {
     };
 }
 
-shell_command!(Bash, "bash", "Execute a shell script using bash");
-shell_command!(Fish, "fish", "Execute a shell script using fish");
+shell_command!(
+    Bash,
+    "bash",
+    "Execute a shell script using bash",
+    // Hand-wrapped for an 80-column terminal, like every other `verbatim_doc_comment` in
+    // this crate: verbatim keeps these line breaks, so a longer line is re-wrapped by the
+    // help renderer and comes out ragged.
+    "This command's shebang is `#!/usr/bin/env -S usage bash`, and the\nprogram it runs is `bash` from PATH. `USAGECLI_SHELL_BASH` names a\ndifferent one, which is how it is pointed at Git Bash on a Windows\nmachine where `bash` is the WSL launcher."
+);
+shell_command!(
+    Fish,
+    "fish",
+    "Execute a shell script using fish",
+    "This command's shebang is `#!/usr/bin/env -S usage fish`, and the\nprogram it runs is `fish` from PATH. `USAGECLI_SHELL_FISH` names a\ndifferent one."
+);
 shell_command!(
     PowerShell,
     "pwsh",
-    "Execute a shell script using PowerShell"
+    "Execute a shell script using PowerShell",
+    "This command's shebang is `#!/usr/bin/env -S usage powershell`, and\nthe program it runs is `pwsh` from PATH. `USAGECLI_SHELL_PWSH` names a\ndifferent one, which is also how it is pointed at `powershell.exe` on a\nmachine that has only Windows PowerShell."
 );
-shell_command!(Zsh, "zsh", "Execute a shell script using zsh");
+shell_command!(
+    Zsh,
+    "zsh",
+    "Execute a shell script using zsh",
+    "This command's shebang is `#!/usr/bin/env -S usage zsh`, and the\nprogram it runs is `zsh` from PATH. `USAGECLI_SHELL_ZSH` names a\ndifferent one."
+);
 
 impl Shell {
     pub fn run(&mut self, shell: &str) -> usage::miette::Result<()> {

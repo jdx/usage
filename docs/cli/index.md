@@ -18,9 +18,11 @@ things a CLI ships with, and runs scripts that carry a spec in their own comment
 | Mistakes a spec can have and still parse                    | `usage lint`                 | [reference](/cli/reference/lint)                 |
 | A CLI described to an AI agent, with each command's effect  | `usage mcp`                  | [reference](/cli/reference/mcp)                  |
 
-Every command that reads a spec takes it the same three ways: a `.usage.kdl` file with `-f`, a
-script whose `#USAGE` comments declare it, or `-` for stdin. A binary built with the
-[Rust framework](/rust/) prints its own spec, so documenting it needs no file at all:
+Most of these read a spec the same way: `-f` takes a `.usage.kdl` file, a script whose `#USAGE`
+comments declare one, or `-` for stdin. `--spec` passes one as a string instead, and
+`generate completion` will run a command that prints one, so that a completion script follows
+whichever version of the CLI is installed. A binary built with the [Rust framework](/rust/)
+prints its own spec, so documenting it needs no file at all:
 
 ```sh
 mycli __usage_spec__ | usage generate markdown -mf - --out-dir docs

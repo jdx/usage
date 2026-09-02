@@ -7,18 +7,20 @@
 
 Run a script whose usage spec is written in its own comments
 
-Usually reached through the script's shebang, `#!/usr/bin/env -S usage bash`: the kernel
-hands the script and its arguments to `usage`, which parses them against the `#USAGE`
-lines at the top of the file and then runs the script with this shell. Each flag and
-argument reaches the script as an environment variable named `usage_<name>`, so
-`--force` becomes `usage_force` and `<file>` becomes `usage_file`. A value declared
-`var=#true` arrives as one string, joined with `shell_words::join()` so that an element
+Usually reached through the script's shebang: the kernel hands the
+script and its arguments to `usage`, which parses them against the
+`#USAGE` lines at the top of the file, then runs the script with this
+shell. Each flag and argument reaches the script as an environment
+variable named `usage_<name>`, so `--force` becomes `usage_force` and
+`<file>` becomes `usage_file`. A value declared `var=#true` arrives as
+one string, joined with `shell_words::join()` so that an element
 containing a space stays quoted.
 
-`-h` and `--help` print the script's help page rather than this one. The shell is found
-on PATH; `USAGECLI_SHELL_BASH`, `USAGECLI_SHELL_ZSH`, `USAGECLI_SHELL_FISH` and
-`USAGECLI_SHELL_PWSH` each name a different program to run instead, which is how
-`usage bash` is pointed at Git Bash on a Windows machine where `bash` is WSL.
+`-h` and `--help` print the script's help page rather than this one.
+
+This command's shebang is `#!/usr/bin/env -S usage fish`, and the
+program it runs is `fish` from PATH. `USAGECLI_SHELL_FISH` names a
+different one.
 
 ## Arguments
 
