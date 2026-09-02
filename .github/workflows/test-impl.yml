@@ -16,7 +16,7 @@ env:
 
 jobs:
   test:
-    runs-on: ${{ !inputs.trusted && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
+    runs-on: ${{ !inputs.trusted && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64;overrides.cache-tag=cache' }}
     # Without this, a hung step sits until GitHub's 6-hour job limit.
     timeout-minutes: 30
     steps:
@@ -190,7 +190,7 @@ jobs:
   # `cargo check` rather than `cargo test`: dev-dependencies are not part of what an adopter
   # compiles, and holding them to the MSRV would pin the toolchain past what the library needs.
   msrv:
-    runs-on: ${{ !inputs.trusted && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64' }}
+    runs-on: ${{ !inputs.trusted && 'ubuntu-latest' || 'namespace-profile-endev-linux-amd64;overrides.cache-tag=cache' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
