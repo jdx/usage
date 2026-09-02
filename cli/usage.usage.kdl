@@ -15,7 +15,14 @@ source_code_link_template #"""
 {%- endif -%}
 https://github.com/jdx/usage/blob/main/cli/src/cli/{{path}}
 """#
-about "CLI for working with usage-based CLIs"
+about "Generate completions, docs, manpages, and SDKs from a usage spec, and run scripts that carry one"
+long_about #"""
+Generate completions, docs, manpages, and SDKs from a usage spec, and run scripts that carry one
+
+A usage spec describes a CLI's commands, flags, and arguments once, in KDL. Most commands here read one: a `.usage.kdl` file given with `-f`, a script whose `#USAGE` comments declare it, or `-` for stdin. A binary built with the Rust framework prints its own spec, so a pipeline like `mycli __usage_spec__ | usage generate markdown -f -` needs no file at all.
+
+Guides and a reference for every command: https://usage.jdx.dev/cli/
+"""#
 usage #"""
 Usage: usage <COMMAND>
        usage --completions <COMPLETIONS>
@@ -24,29 +31,40 @@ Usage: usage <COMMAND>
 unknown_flags error
 subcommand_required #true
 flagset shell {
-    flag -h help="Show help"
-    flag --help help="Show help"
+    flag -h help="Print the script's help page instead of running it"
+    flag --help help="Print the script's help page instead of running it"
 }
-flag --completions help="Outputs completions for the specified shell for completing the `usage` CLI itself" {
+flag --completions help="Print a completion script for the `usage` CLI itself, for the named shell" {
     arg <COMPLETIONS>
 }
-flag --usage-spec help="Outputs a `usage.kdl` spec for this CLI itself"
+flag --usage-spec help="Print the usage spec for the `usage` CLI itself"
 flag "-h --help" help="Print help" action=help builtin=#true
 flag "-V --version" help="Print version" action=version builtin=#true
 cmd bash help="Execute a shell script using bash" unknown_flags=value {
     long_help #"""
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 
-Typically, this will be called by a script's shebang.
+Usually reached through the script's shebang: the kernel hands the
+script and its arguments to `usage`, which parses them against the
+`#USAGE` lines at the top of the file, then runs the script with this
+shell. Each flag and argument reaches the script as an environment
+variable named `usage_<name>`, so `--force` becomes `usage_force` and
+`<file>` becomes `usage_file`. A value declared `var=#true` arrives as
+one string, joined with `shell_words::join()` so that an element
+containing a space stays quoted.
 
-If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them.
+`-h` and `--help` print the script's help page rather than this one.
+
+This command's shebang is `#!/usr/bin/env -S usage bash`, and the
+program it runs is `bash` from PATH. `USAGECLI_SHELL_BASH` names a
+different one, which is how it is pointed at Git Bash on a Windows
+machine where `bash` is the WSL launcher.
 """#
     use shell
-    arg <SCRIPT>
-    arg "[ARGS]..." help="Arguments to pass to script" {
+    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file"
+    arg "[ARGS]..." help="Arguments to pass to the script" {
         long_help #"""
-Arguments to pass to script
+Arguments to pass to the script
 
 Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 """#
@@ -57,24 +75,24 @@ cmd complete-word help="Generate shell completion candidates for a partial comma
     long_help #"""
 Generate shell completion candidates for a partial command line
 
-This is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.
+What the scripts from `usage generate completion` run on every Tab: they pass the words typed so far and read back one candidate per line. Useful by hand, too, for checking what a spec offers at a given point without installing anything.
 """#
-    flag "-f --file" help="Usage spec file or script with usage shebang, use \"-\" to read from stdin" {
+    flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" {
         arg <FILE>
     }
-    flag "-s --spec" help="Raw string spec input" overrides=--file required_unless=--file {
+    flag "-s --spec" help="The spec itself, as a string, instead of a file" overrides=--file required_unless=--file {
         arg <SPEC>
     }
-    flag --cword help="Current word index" {
+    flag --cword help="Index of the word being completed; defaults to the last word" {
         arg <CWORD>
     }
-    flag --shell default=bash {
+    flag --shell help="The shell the candidates are for, which decides how they are quoted" default=bash {
         arg <SHELL> {
             choices bash fish nu powershell zsh
         }
     }
     flag "-h --help" help="Print help" action=help builtin=#true
-    arg "[WORDS]..." help="User's input from the command line"
+    arg "[WORDS]..." help="The words typed so far, starting with the program name"
 }
 cmd diff help="Compare two usage specs and report what changed about the interface" effect=read {
     long_help #"""
@@ -109,13 +127,20 @@ every release does not get left switched on.
     complete old type=path
     complete new type=path
 }
-cmd exec help="Execute a script, parsing args and exposing them as environment variables" unknown_flags=value {
+cmd exec help="Run a script through any interpreter, with its parsed arguments as environment variables" unknown_flags=value {
     alias x
-    flag -h help="Show help"
-    flag --help help="Show help"
-    arg <COMMAND> help="command to execute after parsing usage spec"
-    arg <BIN> help="path to script to execute"
-    arg "[ARGS]..." help="arguments to pass to script"
+    long_help #"""
+Run a script through any interpreter, with its parsed arguments as environment variables
+
+For scripts in a language `usage` has no dedicated command for. A shebang of `#!/usr/bin/env -S usage exec node` parses the arguments against the `USAGE` comments at the top of the file, then runs `node <script> <args>` with each flag and argument exported as `usage_<name>`. When a file named `.<script>.usage.kdl` sits beside the script, the spec is read from it instead of from the comments.
+
+`-h` and `--help` belong to the script once one is named, so they print its help page rather than this one. Asked with no script to describe, they print this page.
+"""#
+    flag -h help="Print the script's help page instead of running it"
+    flag --help help="Print the script's help page instead of running it"
+    arg <COMMAND> help="The interpreter to run the script with, such as `node` or `python3`"
+    arg <BIN> help="The script to run"
+    arg "[ARGS]..." help="Arguments to pass to the script"
 }
 cmd explain help="Explain what a command line binds to" effect=read {
     long_help #"""
@@ -125,10 +150,10 @@ Prints a row per argv token saying what it became, then the values that came fro
 somewhere other than argv, then anything that went wrong. Exits 0 even when the explained
 command line does not parse: the report succeeded, and that is the case worth a report.
 """#
-    flag "-f --file" help="A usage spec file or script with a usage shebang, use \"-\" to read from stdin" {
+    flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" {
         arg <FILE>
     }
-    flag "-s --spec" help="Raw string spec input" overrides=--file required_unless=--file {
+    flag "-s --spec" help="The spec itself, as a string, instead of a file" overrides=--file required_unless=--file {
         arg <SPEC>
     }
     flag --format help="Output format" default=text {
@@ -163,30 +188,45 @@ The command line to explain, starting with the program name
 }
 cmd fish help="Execute a shell script using fish" unknown_flags=value {
     long_help #"""
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 
-Typically, this will be called by a script's shebang.
+Usually reached through the script's shebang: the kernel hands the
+script and its arguments to `usage`, which parses them against the
+`#USAGE` lines at the top of the file, then runs the script with this
+shell. Each flag and argument reaches the script as an environment
+variable named `usage_<name>`, so `--force` becomes `usage_force` and
+`<file>` becomes `usage_file`. A value declared `var=#true` arrives as
+one string, joined with `shell_words::join()` so that an element
+containing a space stays quoted.
 
-If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them.
+`-h` and `--help` print the script's help page rather than this one.
+
+This command's shebang is `#!/usr/bin/env -S usage fish`, and the
+program it runs is `fish` from PATH. `USAGECLI_SHELL_FISH` names a
+different one.
 """#
     use shell
-    arg <SCRIPT>
-    arg "[ARGS]..." help="Arguments to pass to script" {
+    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file"
+    arg "[ARGS]..." help="Arguments to pass to the script" {
         long_help #"""
-Arguments to pass to script
+Arguments to pass to the script
 
 Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 """#
     }
 }
-cmd generate help="Generate completions, documentation, and other artifacts from usage specs" effect=read subcommand_required=#true {
+cmd generate help="Generate completions, docs, manpages, SDKs, and parse tables from a usage spec" effect=read subcommand_required=#true {
     alias g
     flag "-h --help" help="Print help" action=help builtin=#true
-    cmd completion help="Generate shell completion scripts for bash, fish, nu, powershell, or zsh" effect=read {
+    cmd completion help="Generate a shell completion script for bash, fish, nu, powershell, or zsh" effect=read {
         alias c
         alias complete hide=#true
         alias completions hide=#true
+        long_help #"""
+Generate a shell completion script for bash, fish, nu, powershell, or zsh
+
+The script is a shim: on each Tab it hands the words typed so far to `usage complete-word`, so `usage` must be installed wherever the script is. The spec comes from `--file`, or from running `--usage-cmd` at completion time, which keeps a CLI that prints its own spec from ever going stale.
+"""#
         flag --install help="Install the script where this shell looks for it, instead of printing it" effect=write {
             long_help #"""
 Install the script where this shell looks for it, instead of printing it
@@ -195,59 +235,54 @@ Writes the script file and nothing else: no shell rc file and no PowerShell prof
 """#
         }
         flag --force help="Replace a file at the target path that usage did not write" effect=write requires=--install
-        flag "-f --file" help="A .usage.kdl spec file to use for generating completions, use \"-\" to read from stdin" {
+        flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" {
             arg <FILE>
         }
-        flag --cache-key help="A cache key to use for storing the results of calling the CLI with --usage-cmd" requires=--usage-cmd {
+        flag --cache-key help="Cache what --usage-cmd prints under this key, so it runs once per key rather than on every Tab; the CLI's version is a good key" requires=--usage-cmd {
             arg <CACHE_KEY>
         }
-        flag --usage-bin help="Override the bin used for calling back to usage-cli" env=JDX_USAGE_BIN default=usage {
-            long_help #"""
-Override the bin used for calling back to usage-cli
-
-You may need to set this if you have a different bin named "usage"
-"""#
+        flag --usage-bin help="The `usage` executable the script calls back to, when it is not `usage` on PATH" env=JDX_USAGE_BIN default=usage {
             arg <USAGE_BIN>
         }
-        flag --usage-cmd help="A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to \"$bin --usage\"" required_unless=--file {
+        flag --usage-cmd help="A command that prints the CLI's spec, run in place of reading --file" required_unless=--file {
+            long_help #"""
+A command that prints the CLI's spec, run in place of reading --file
+
+For a CLI that answers with its own spec, such as `mycli __usage_spec__`, so the script always completes the version that is installed. Required unless --file is given.
+"""#
             arg <USAGE_CMD>
         }
         flag "-h --help" help="Print help" action=help builtin=#true
-        arg <SHELL> help="Shell to generate completions for" {
+        arg <SHELL> help="The shell to generate the script for" {
             choices bash fish nu powershell zsh
         }
-        arg <BIN> help="The CLI which we're generating completions for"
+        arg <BIN> help="The name of the CLI being completed, as it is typed at the prompt"
     }
-    cmd completion-init help="Generate a shell init script that auto-completes any usage shebang script on $PATH" effect=read {
+    cmd completion-init help="Generate a shell init script that completes every usage-shebang script on PATH" effect=read {
         alias ci
         alias init hide=#true
         alias completions-init hide=#true
         long_help #"""
-Generate a shell init script that auto-completes any usage shebang script on $PATH
+Generate a shell init script that completes every usage-shebang script on PATH
 
-Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required.
+Source it once from the shell's rc file and Tab works on any executable whose first line is a `usage` shebang, with no per-script `usage generate completion` step. bash and zsh register a fallback completer that asks `usage complete-word` when the command has such a shebang; fish has no fallback, so it scans PATH once at startup and registers each script it finds.
 """#
-        flag --usage-bin help="Override the bin used for calling back to usage-cli" env=JDX_USAGE_BIN default=usage {
-            long_help #"""
-Override the bin used for calling back to usage-cli
-
-You may need to set this if you have a different bin named "usage"
-"""#
+        flag --usage-bin help="The `usage` executable the script calls back to, when it is not `usage` on PATH" env=JDX_USAGE_BIN default=usage {
             arg <USAGE_BIN>
         }
         flag "-h --help" help="Print help" action=help builtin=#true
-        arg <SHELL> help="Shell to generate the init script for" {
+        arg <SHELL> help="The shell to generate the script for" {
             choices bash fish zsh
         }
     }
-    cmd fig help="Generate Fig completion spec for Amazon Q / Fig" effect=read {
-        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
+    cmd fig help="Generate a Fig completion spec, for Amazon Q and Fig" effect=read {
+        flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" {
             arg <FILE>
         }
-        flag --out-file help="File path where the generated Fig spec will be saved, or \"-\" for stdout" effect=write {
+        flag --out-file help="Where to write the spec, or \"-\" for stdout (default)" effect=write {
             arg <OUT_FILE>
         }
-        flag --spec help="Raw string spec input" overrides=--file required_unless=--file {
+        flag --spec help="The spec itself, as a string, instead of a file" overrides=--file required_unless=--file {
             arg <SPEC>
         }
         flag "-h --help" help="Print help" action=help builtin=#true
@@ -261,26 +296,31 @@ The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a
 
   //go:generate usage generate go -f mycli.usage.kdl -o tables.go
 """#
-        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
+        flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" {
             arg <FILE>
         }
-        flag "-o --out-file" help="File path where the generated Go source will be saved, or \"-\" for stdout" effect=write {
+        flag "-o --out-file" help="Where to write the Go source, or \"-\" for stdout (default)" effect=write {
             arg <OUT_FILE>
         }
         flag "-p --package" help="Go package clause for the generated file (defaults to the spec's bin name)" {
             arg <PACKAGE>
         }
-        flag --spec help="Raw string spec input" overrides=--file required_unless=--file {
+        flag --spec help="The spec itself, as a string, instead of a file" overrides=--file required_unless=--file {
             arg <SPEC>
         }
         flag "-h --help" help="Print help" action=help builtin=#true
         complete out_file type=path
     }
-    cmd json help="Outputs a usage spec in json format" effect=read {
-        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
+    cmd json help="Print a usage spec as JSON" effect=read {
+        long_help #"""
+Print a usage spec as JSON
+
+The same document the KDL describes, with included files merged and defaults filled in, for a tool that would rather not parse KDL itself.
+"""#
+        flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" {
             arg <FILE>
         }
-        flag --spec help="raw string spec input" overrides=--file required_unless=--file {
+        flag --spec help="The spec itself, as a string, instead of a file" overrides=--file required_unless=--file {
             arg <SPEC>
         }
         flag --view help="Render one spec-declared executable view" {
@@ -289,13 +329,18 @@ The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a
         flag "-h --help" help="Print help" action=help builtin=#true
     }
     cmd json-schema help="Generate a JSON Schema for a CLI's config file from its usage spec" effect=read {
-        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" {
+        long_help #"""
+Generate a JSON Schema for a CLI's config file from its usage spec
+
+Built from the spec's `config` block: each `prop` becomes a property with its type, default, and help, so an editor can complete and validate the file the CLI reads. A spec whose settings cannot live in a file is an error rather than an empty schema.
+"""#
+        flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" {
             arg <FILE>
         }
         flag --out-file help="Write the schema here instead of to stdout" effect=write {
             arg <OUT_FILE>
         }
-        flag --spec help="raw string spec input" overrides=--file required_unless=--file {
+        flag --spec help="The spec itself, as a string, instead of a file" overrides=--file required_unless=--file {
             arg <SPEC>
         }
         flag --title help="The schema's title, shown by editors" {
@@ -309,7 +354,7 @@ The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a
     }
     cmd manpage help="Generate a manpage from a usage spec" effect=read {
         alias man
-        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" required=#true {
+        flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" required=#true {
             arg <FILE>
         }
         flag --view help="Render one spec-declared executable view" {
@@ -329,9 +374,14 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
         flag "-h --help" help="Print help" action=help builtin=#true
         complete out_file type=path
     }
-    cmd markdown help="Generate markdown documentation from usage specs" effect=read {
+    cmd markdown help="Generate Markdown documentation from a usage spec" effect=read {
         alias md
-        flag "-f --file" help="A usage spec taken in as a file, use \"-\" to read from stdin" required=#true {
+        long_help #"""
+Generate Markdown documentation from a usage spec
+
+One page by default, or a page per command with --multi. Every part of the output comes from a Tera template that --template can replace.
+"""#
+        flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" required=#true {
             arg <FILE>
         }
         flag --view help="Render one spec-declared executable view" {
@@ -339,17 +389,17 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
         }
         flag "-m --multi" help="Render each subcommand as a separate markdown file" conflicts=--out-file
         flag --html-encode help="Escape HTML in markdown"
-        flag --out-dir help="Output markdown files to this directory (required when using --multi)" effect=write requires=--multi required_if=--multi {
+        flag --out-dir help="Directory for the per-command pages (required with --multi)" effect=write requires=--multi required_if=--multi {
             arg <OUT_DIR>
         }
         flag --out-file help="Output file path for single-file markdown generation, or \"-\" for stdout (default)" effect=write {
             arg <OUT_FILE>
         }
         flag --replace-pre-with-code-fences help="Replace `<pre>` tags with markdown code fences"
-        flag --url-prefix help="Prefix to add to all URLs" {
+        flag --url-prefix help="Prefix for the links between pages, such as /cli/reference" {
             arg <URL_PREFIX>
         }
-        flag --template help="Override a Tera template with NAME=PATH" var=#true {
+        flag --template help="Replace a built-in Tera template, as NAME=PATH; the names are spec, index, command, argument, flag, and config" var=#true {
             arg <TEMPLATE>
         }
         flag "-h --help" help="Print help" action=help builtin=#true
@@ -357,7 +407,12 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
         complete out_file type=path
     }
     cmd sdk help="Generate a type-safe SDK from a usage spec" effect=write {
-        flag "-f --file" help="A usage spec taken in as a file" {
+        long_help #"""
+Generate a type-safe SDK from a usage spec
+
+The SDK is a subprocess wrapper: typed arguments, flags, and choices for every command, and a client that builds the argument list and runs the binary.
+"""#
+        flag "-f --file" help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin" {
             arg <FILE>
         }
         flag "-l --language" help="Target language for the SDK" required=#true {
@@ -365,19 +420,26 @@ Common sections: - 1: User commands - 5: File formats - 7: Miscellaneous - 8: Sy
                 choices typescript python
             }
         }
-        flag "-o --output" help="Output directory for generated SDK files" required=#true {
+        flag "-o --output" help="Directory to write the SDK into" required=#true {
             arg <OUTPUT>
         }
         flag "-p --package-name" help="Override the package/module name (defaults to spec bin name)" {
             arg <PACKAGE_NAME>
         }
-        flag --spec help="Raw string spec input" overrides=--file required_unless=--file {
+        flag --spec help="The spec itself, as a string, instead of a file" overrides=--file required_unless=--file {
             arg <SPEC>
         }
         flag "-h --help" help="Print help" action=help builtin=#true
     }
 }
-cmd lint help="Lint a usage spec file for common issues" effect=read {
+cmd lint help="Lint a usage spec for mistakes that still parse" effect=read {
+    long_help #"""
+Lint a usage spec for mistakes that still parse
+
+A spec can be valid KDL and still be wrong: a flag or subcommand declared twice, a required argument after an optional one, a variadic argument that is not last, a command or flag with no help, an example its own spec cannot parse. Each finding carries a code such as `duplicate-flag`, and `--format json` prints the findings as a list for a script to act on.
+
+Exits 1 when there is an error, or a warning under `--warnings-as-errors`.
+"""#
     flag "-f --format" help="Output format" default=text {
         arg <FORMAT> {
             choices {
@@ -395,7 +457,7 @@ Off by default: declaration order is a house convention rather than a correctnes
 """#
     }
     flag "-h --help" help="Print help" action=help builtin=#true
-    arg <FILE> help="A usage spec file to lint, use \"-\" to read from stdin"
+    arg <FILE> help="A usage spec file, or a script with a usage shebang; \"-\" reads stdin"
 }
 cmd mcp help="Serve a usage spec over the Model Context Protocol" effect=read {
     alias mcp-server
@@ -404,29 +466,45 @@ Serve a usage spec over the Model Context Protocol
 
 Reads JSON-RPC over stdin and writes responses to stdout, which is how MCP
 clients launch a local server. Point one at `usage mcp -f mycli.usage.kdl`.
+
+Two tools are served: `list_commands`, every command with its effect, and
+`describe_command`, one command's help, flags, and arguments. Together they
+let an agent learn what a CLI does, and what running it would touch, without
+running it.
 """#
-    flag "-f --file" help="Usage spec file (not \"-\": stdin is the MCP transport)" {
+    flag "-f --file" help="A usage spec file, or a script with a usage shebang (not \"-\": stdin is the MCP transport)" {
         arg <FILE>
     }
-    flag "-s --spec" help="Raw string spec input" overrides=--file required_unless=--file {
+    flag "-s --spec" help="The spec itself, as a string, instead of a file" overrides=--file required_unless=--file {
         arg <SPEC>
     }
     flag "-h --help" help="Print help" action=help builtin=#true
 }
 cmd powershell help="Execute a shell script using PowerShell" unknown_flags=value {
     long_help #"""
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 
-Typically, this will be called by a script's shebang.
+Usually reached through the script's shebang: the kernel hands the
+script and its arguments to `usage`, which parses them against the
+`#USAGE` lines at the top of the file, then runs the script with this
+shell. Each flag and argument reaches the script as an environment
+variable named `usage_<name>`, so `--force` becomes `usage_force` and
+`<file>` becomes `usage_file`. A value declared `var=#true` arrives as
+one string, joined with `shell_words::join()` so that an element
+containing a space stays quoted.
 
-If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them.
+`-h` and `--help` print the script's help page rather than this one.
+
+This command's shebang is `#!/usr/bin/env -S usage powershell`, and
+the program it runs is `pwsh` from PATH. `USAGECLI_SHELL_PWSH` names a
+different one, which is also how it is pointed at `powershell.exe` on a
+machine that has only Windows PowerShell.
 """#
     use shell
-    arg <SCRIPT>
-    arg "[ARGS]..." help="Arguments to pass to script" {
+    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file"
+    arg "[ARGS]..." help="Arguments to pass to the script" {
         long_help #"""
-Arguments to pass to script
+Arguments to pass to the script
 
 Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 """#
@@ -437,18 +515,28 @@ cmd sponsors help="Show the companies sponsoring usage and the jdx.dev open sour
 }
 cmd zsh help="Execute a shell script using zsh" unknown_flags=value {
     long_help #"""
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 
-Typically, this will be called by a script's shebang.
+Usually reached through the script's shebang: the kernel hands the
+script and its arguments to `usage`, which parses them against the
+`#USAGE` lines at the top of the file, then runs the script with this
+shell. Each flag and argument reaches the script as an environment
+variable named `usage_<name>`, so `--force` becomes `usage_force` and
+`<file>` becomes `usage_file`. A value declared `var=#true` arrives as
+one string, joined with `shell_words::join()` so that an element
+containing a space stays quoted.
 
-If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them.
+`-h` and `--help` print the script's help page rather than this one.
+
+This command's shebang is `#!/usr/bin/env -S usage zsh`, and the
+program it runs is `zsh` from PATH. `USAGECLI_SHELL_ZSH` names a
+different one.
 """#
     use shell
-    arg <SCRIPT>
-    arg "[ARGS]..." help="Arguments to pass to script" {
+    arg <SCRIPT> help="The script to run; its spec is read from the `#USAGE` comments at the top of the file"
+    arg "[ARGS]..." help="Arguments to pass to the script" {
         long_help #"""
-Arguments to pass to script
+Arguments to pass to the script
 
 Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 """#

@@ -5,15 +5,20 @@ use usage_rs::Args;
 
 use super::parse_file_or_stdin;
 
-/// Generate shell completion scripts for bash, fish, nu, powershell, or zsh
+/// Generate a shell completion script for bash, fish, nu, powershell, or zsh
+///
+/// The script is a shim: on each Tab it hands the words typed so far to `usage complete-word`,
+/// so `usage` must be installed wherever the script is. The spec comes from `--file`, or from
+/// running `--usage-cmd` at completion time, which keeps a CLI that prints its own spec from
+/// ever going stale.
 #[derive(Args)]
 #[usage(alias = "c", alias_hidden("complete", "completions"), effect = "read")]
 pub struct Completion {
-    /// Shell to generate completions for
+    /// The shell to generate the script for
     #[usage(choices("bash", "fish", "nu", "powershell", "zsh"))]
     shell: String,
 
-    /// The CLI which we're generating completions for
+    /// The name of the CLI being completed, as it is typed at the prompt
     bin: String,
 
     /// Install the script where this shell looks for it, instead of printing it
@@ -28,23 +33,22 @@ pub struct Completion {
     #[usage(long, requires = "--install", effect = "write")]
     force: bool,
 
-    /// A .usage.kdl spec file to use for generating completions, use "-" to read from stdin
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     #[usage(short, long)]
     file: Option<PathBuf>,
 
-    /// A cache key to use for storing the results of calling the CLI with --usage-cmd
+    /// Cache what --usage-cmd prints under this key, so it runs once per key rather than on every Tab; the CLI's version is a good key
     #[usage(long, requires = "--usage-cmd")]
     cache_key: Option<String>,
 
-    /// Override the bin used for calling back to usage-cli
-    ///
-    /// You may need to set this if you have a different bin named "usage"
+    /// The `usage` executable the script calls back to, when it is not `usage` on PATH
     #[usage(long, default = "usage", env = "JDX_USAGE_BIN")]
     usage_bin: String,
 
-    /// A command which generates a usage spec
-    /// e.g.: `mycli --usage` or `mycli completion usage`
-    /// Defaults to "$bin --usage"
+    /// A command that prints the CLI's spec, run in place of reading --file
+    ///
+    /// For a CLI that answers with its own spec, such as `mycli __usage_spec__`, so the script
+    /// always completes the version that is installed. Required unless --file is given.
     #[usage(long, required_unless = "--file")]
     usage_cmd: Option<String>,
 }

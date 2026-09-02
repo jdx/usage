@@ -1,47 +1,47 @@
 # Generating Manpages
 
-Usage CLI can generate Unix man pages from a Usage definition in the standard roff format.
-
-## Basic Usage
-
-Generate a manpage and output to stdout:
+`usage generate manpage` renders a spec as roff, the format `man` reads. `g` and `man` are the
+short aliases, and without `-o` the page goes to stdout:
 
 ```bash
-$ usage generate manpage -f ./mycli.usage.kdl
+usage g man -f ./mycli.usage.kdl -o mycli.1
 ```
 
-Save to a file:
+Piping it straight into `man` previews the page without installing anything:
 
 ```bash
-$ usage generate manpage -f ./mycli.usage.kdl -o mycli.1
+usage g man -f ./mycli.usage.kdl | man -l -
 ```
 
-Install to the system man directory:
+## Installing
+
+A page lives in the directory for its section, and `mandb` has to be told it is there:
 
 ```bash
-$ usage generate manpage -f ./mycli.usage.kdl | sudo tee /usr/share/man/man1/mycli.1
-$ sudo mandb  # Update the man database
-$ man mycli
+usage g man -f ./mycli.usage.kdl | sudo tee /usr/share/man/man1/mycli.1 > /dev/null
+sudo mandb
+man mycli
 ```
 
-## Manual Sections
+## Sections
 
-You can specify the manual section with the `--section` flag (default is 1):
+The page is section 1, user commands, unless `--section` says otherwise:
 
 ```bash
-$ usage generate manpage -f ./myconfig.usage.kdl --section 5 -o myconfig.5
+usage g man -f ./myconfig.usage.kdl --section 5 -o myconfig.5
 ```
 
-Common manual sections:
+| Section | Contents                                                           |
+| ------- | ------------------------------------------------------------------ |
+| 1       | User commands (default)                                            |
+| 5       | File formats and conventions, such as a page about the config file |
+| 7       | Miscellaneous: overviews and conventions                           |
+| 8       | System administration commands and daemons                         |
 
-- **1**: User commands (default)
-- **5**: File formats and conventions
-- **7**: Miscellaneous (including macro packages and conventions)
-- **8**: System administration commands and daemons
+## What the page contains
 
-## Output Format
-
-The generated man page follows the standard Unix man page format:
+The spec's `about` and long help become NAME and DESCRIPTION, its flags and subcommands become
+OPTIONS and COMMANDS, and any `example` nodes become EXAMPLES:
 
 ```
 mycli(1)                    General Commands Manual                   mycli(1)
@@ -76,27 +76,4 @@ EXAMPLES
 
 AUTHOR
        Your Name <your.email@example.com>
-```
-
-## Aliases
-
-The command has a short alias for convenience:
-
-```bash
-$ usage g man -f ./mycli.usage.kdl
-```
-
-## Viewing Generated Pages
-
-To preview the generated man page without installing it:
-
-```bash
-$ usage g man -f ./mycli.usage.kdl | man -l -
-```
-
-Or save and view:
-
-```bash
-$ usage g man -f ./mycli.usage.kdl -o mycli.1
-$ man ./mycli.1
 ```

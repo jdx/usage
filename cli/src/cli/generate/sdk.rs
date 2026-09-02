@@ -7,13 +7,16 @@ use crate::cli::generate;
 use usage::sdk::{SdkLanguage, SdkOptions};
 
 /// Generate a type-safe SDK from a usage spec
+///
+/// The SDK is a subprocess wrapper: typed arguments, flags, and choices for every command,
+/// and a client that builds the argument list and runs the binary.
 // The only generator whose output flag is required: it cannot print an SDK to stdout, so
 // every invocation writes a directory, and the effect belongs on the command rather than on
 // a flag that raises it.
 #[derive(Args)]
 #[usage(effect = "write")]
 pub struct Sdk {
-    /// A usage spec taken in as a file
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     #[usage(short, long)]
     file: Option<PathBuf>,
 
@@ -21,7 +24,7 @@ pub struct Sdk {
     #[usage(short, long, choices("typescript", "python"))]
     language: String,
 
-    /// Output directory for generated SDK files
+    /// Directory to write the SDK into
     #[usage(short, long)]
     output: PathBuf,
 
@@ -29,7 +32,7 @@ pub struct Sdk {
     #[usage(short, long)]
     package_name: Option<String>,
 
-    /// Raw string spec input
+    /// The spec itself, as a string, instead of a file
     #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 }

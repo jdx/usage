@@ -6,11 +6,15 @@
 - **Effect:** read-only
 - **Source code:** [`cli/src/cli/lint.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/lint.rs)
 
-Lint a usage spec file for common issues
+Lint a usage spec for mistakes that still parse
+
+A spec can be valid KDL and still be wrong: a flag or subcommand declared twice, a required argument after an optional one, a variadic argument that is not last, a command or flag with no help, an example its own spec cannot parse. Each finding carries a code such as `duplicate-flag`, and `--format json` prints the findings as a list for a script to act on.
+
+Exits 1 when there is an error, or a warning under `--warnings-as-errors`.
 
 ## Arguments
 
-- **`<FILE>`** — A usage spec file to lint, use "-" to read from stdin
+- **`<FILE>`** — A usage spec file, or a script with a usage shebang; "-" reads stdin
 
 ## Flags
 

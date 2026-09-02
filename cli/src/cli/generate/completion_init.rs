@@ -1,11 +1,13 @@
 use usage::complete::complete_init;
 use usage_rs::Args;
 
-/// Generate a shell init script that auto-completes any usage shebang script on $PATH
+/// Generate a shell init script that completes every usage-shebang script on PATH
 ///
-/// Source the output once from your shell rc (e.g. ~/.bashrc) to enable
-/// tab-completion for any executable whose first line is a `usage` shebang —
-/// no per-script `usage g completion` step required.
+/// Source it once from the shell's rc file and Tab works on any executable whose first line
+/// is a `usage` shebang, with no per-script `usage generate completion` step. bash and zsh
+/// register a fallback completer that asks `usage complete-word` when the command has such a
+/// shebang; fish has no fallback, so it scans PATH once at startup and registers each script
+/// it finds.
 #[derive(Args)]
 #[usage(
     alias = "ci",
@@ -13,13 +15,11 @@ use usage_rs::Args;
     effect = "read"
 )]
 pub struct CompletionInit {
-    /// Shell to generate the init script for
+    /// The shell to generate the script for
     #[usage(choices("bash", "fish", "zsh"))]
     shell: String,
 
-    /// Override the bin used for calling back to usage-cli
-    ///
-    /// You may need to set this if you have a different bin named "usage"
+    /// The `usage` executable the script calls back to, when it is not `usage` on PATH
     #[usage(long, default = "usage", env = "JDX_USAGE_BIN")]
     usage_bin: String,
 }

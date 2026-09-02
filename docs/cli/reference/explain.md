@@ -20,8 +20,8 @@ command line does not parse: the report succeeded, and that is the case worth a 
 
 ## Flags
 
-- **`-f --file <FILE>`** — A usage spec file or script with a usage shebang, use "-" to read from stdin
-- **`-s --spec <SPEC>`** — Raw string spec input
+- **`-f --file <FILE>`** — A usage spec file, or a script with a usage shebang; "-" reads stdin
+- **`-s --spec <SPEC>`** — The spec itself, as a string, instead of a file
 - **`--format <FORMAT>`** — Output format
 
   **Choices:** `text`, `json`

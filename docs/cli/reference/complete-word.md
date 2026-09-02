@@ -9,18 +9,18 @@
 
 Generate shell completion candidates for a partial command line
 
-This is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.
+What the scripts from `usage generate completion` run on every Tab: they pass the words typed so far and read back one candidate per line. Useful by hand, too, for checking what a spec offers at a given point without installing anything.
 
 ## Arguments
 
-- **`[WORDS]…`** — User's input from the command line
+- **`[WORDS]…`** — The words typed so far, starting with the program name
 
 ## Flags
 
-- **`-f --file <FILE>`** — Usage spec file or script with usage shebang, use "-" to read from stdin
-- **`-s --spec <SPEC>`** — Raw string spec input
-- **`--cword <CWORD>`** — Current word index
-- **`--shell <SHELL>`**
+- **`-f --file <FILE>`** — A usage spec file, or a script with a usage shebang; "-" reads stdin
+- **`-s --spec <SPEC>`** — The spec itself, as a string, instead of a file
+- **`--cword <CWORD>`** — Index of the word being completed; defaults to the last word
+- **`--shell <SHELL>`** — The shell the candidates are for, which decides how they are quoted
 
   **Choices:** `bash`, `fish`, `nu`, `powershell`, `zsh`
 

@@ -11,7 +11,7 @@ Generate a manpage from a usage spec
 
 ## Flags
 
-- **`-f --file <FILE>`** — A usage spec taken in as a file, use "-" to read from stdin
+- **`-f --file <FILE>`** — A usage spec file, or a script with a usage shebang; "-" reads stdin
 - **`--view <VIEW>`** — Render one spec-declared executable view
 - **`-o --out-file <OUT_FILE>`** — Output file path, or "-" for stdout (default)
 

@@ -7,21 +7,19 @@
 - **Effect:** read-only
 - **Source code:** [`cli/src/cli/generate/completion_init.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/completion_init.rs)
 
-Generate a shell init script that auto-completes any usage shebang script on $PATH
+Generate a shell init script that completes every usage-shebang script on PATH
 
-Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab-completion for any executable whose first line is a `usage` shebang — no per-script `usage g completion` step required.
+Source it once from the shell's rc file and Tab works on any executable whose first line is a `usage` shebang, with no per-script `usage generate completion` step. bash and zsh register a fallback completer that asks `usage complete-word` when the command has such a shebang; fish has no fallback, so it scans PATH once at startup and registers each script it finds.
 
 ## Arguments
 
-- **`<SHELL>`** — Shell to generate the init script for
+- **`<SHELL>`** — The shell to generate the script for
 
   **Choices:** `bash`, `fish`, `zsh`
 
 ## Flags
 
-- **`--usage-bin <USAGE_BIN>`** — Override the bin used for calling back to usage-cli
-
-  You may need to set this if you have a different bin named "usage"
+- **`--usage-bin <USAGE_BIN>`** — The `usage` executable the script calls back to, when it is not `usage` on PATH
 
   **Default:** `usage`
 

@@ -6,14 +6,14 @@
 - **Effect:** read-only
 - **Source code:** [`cli/src/cli/generate/fig.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/fig.rs)
 
-Generate Fig completion spec for Amazon Q / Fig
+Generate a Fig completion spec, for Amazon Q and Fig
 
 ## Flags
 
-- **`-f --file <FILE>`** — A usage spec taken in as a file, use "-" to read from stdin
-- **`--out-file <OUT_FILE>`** — File path where the generated Fig spec will be saved, or "-" for stdout
+- **`-f --file <FILE>`** — A usage spec file, or a script with a usage shebang; "-" reads stdin
+- **`--out-file <OUT_FILE>`** — Where to write the spec, or "-" for stdout (default)
 
   **Effect:** modifies state
 
-- **`--spec <SPEC>`** — Raw string spec input
+- **`--spec <SPEC>`** — The spec itself, as a string, instead of a file
 - **`-h --help`** — Print help

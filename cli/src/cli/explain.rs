@@ -37,11 +37,11 @@ use crate::cli::{empty_mount_answers, OutputFormat};
 // nothing.
 #[usage(effect = "read", verbatim_doc_comment)]
 pub struct Explain {
-    /// A usage spec file or script with a usage shebang, use "-" to read from stdin
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     #[usage(short, long, value_hint = usage_rs::ValueHint::FilePath)]
     file: Option<PathBuf>,
 
-    /// Raw string spec input
+    /// The spec itself, as a string, instead of a file
     #[usage(short, long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 

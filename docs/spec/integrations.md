@@ -1,6 +1,6 @@
 # Integrations
 
-Integrations extract CLI definitions from framework internals and output a [usage spec](/spec/) in KDL format. This enables shell completions, markdown docs, and man pages from your existing CLI framework — no manual spec authoring needed.
+An integration reads a CLI's definition out of the framework it was written in and prints a [usage spec](/spec/). An existing CLI gets completions, Markdown docs, man pages, and everything else the spec drives, without a hand-written spec and without changing frameworks.
 
 ## Available
 
@@ -23,7 +23,7 @@ Integrations extract CLI definitions from framework internals and output a [usag
 
 ## Planned
 
-Contributions welcome! Here are the frameworks we'd like to support next.
+Contributions are welcome. These are the frameworks worth covering next.
 
 ### High Priority
 

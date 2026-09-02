@@ -1,23 +1,25 @@
 # Usage Specification
 
-Usage is a spec and CLI for defining CLI tools. Arguments, flags, environment variables, and config
-files can all be defined in a Usage spec. It can be thought of
-like [OpenAPI (swagger)](https://www.openapis.org/)
-for CLIs. Here are some potential reasons for defining your CLI with a Usage spec:
+A usage spec describes a command-line interface once: its commands, flags, arguments,
+environment variables, and config files, written in [KDL](https://kdl.dev/). It is the contract
+the rest of the project is built on. The [Rust](/rust/) and [Go](/go/) frameworks parse against
+it, and [the CLI](/cli/) generates from it. Think of it as [OpenAPI](https://www.openapis.org/)
+for CLIs: one declaration, from which everything a CLI ships with is derived rather than written
+again.
 
-- Generate autocompletion scripts
-- Generate markdown documentation
-- Generate man pages
-- Generate type-safe SDK client libraries for TypeScript and Python
-- Use an advanced arg parser in any language
-- Scaffold one spec into different CLI frameworks—even different languages
-- [coming soon] Host your CLI documentation on usage.sh
+- Shell completions for bash, zsh, fish, PowerShell, and Nushell
+- Markdown documentation and man pages
+- Type-safe TypeScript and Python client libraries
+- Argument parsing in any language, and typed parsers in Rust and Go
+- A machine-readable answer to what changed in a release, from [`usage diff`](/cli/diff)
+
+A spec need not be written by hand. A CLI built with the Rust framework prints its own, and
+[integrations](/spec/integrations) extract one from clap, Cobra, argparse, and a dozen other
+frameworks.
 
 ## Example Usage Spec
 
-Usage specs are written in [kdl](https://kdl.dev/) which is a newer document language that sort of
-combines
-the best of XML and JSON. Here is a basic example CLI definition:
+KDL reads like a config file and nests like XML. A basic CLI:
 
 ```kdl
 // optional metadata
@@ -158,22 +160,19 @@ cmd "uninstall" {
 
 ## Compatibility
 
-Usage is not designed to model every possible CLI. It's generally designed for CLIs that follow
-standard GNU-style
-options. While it is not high priority, adding support for CLIs that differ from the standard may be
-allowed.
-As an example, some CLIs may accept multiple options on a flag: `--flag option1 option2`. This is
-poor design
-as it's unclear to the user if "option2" is another positional arg or not. What we will likely do
-for behaviors
-like this is allow it, but show a warning that it is not recommended.
+The spec models CLIs that follow GNU conventions: `--long` and `-s` flags, `--flag=value` and
+`--flag value`, bundled short flags, and `--` to end flag parsing. It does not set out to model
+every CLI that exists. A flag that takes several values in a row, `--flag one two`, is the usual
+example of what it leaves out: a reader of that line cannot tell whether `two` is the flag's
+second value or the next positional, and neither can a parser. The [argv grammar](/spec/argv)
+says exactly what is accepted.
 
-## CLI Framework Developers
+## For CLI Framework Authors
 
-You could think of Usage like an LSP (Language Server Protocol) for CLIs.
-
-Those building CLI frameworks can really benefit from Usage. Rather than building features like
-autocompletion
-for every shell, just output a Usage definition and use the Usage CLI to generate autocompletion
-scripts for all
-of the shells it supports.
+A framework that can emit a usage spec gets everything downstream of it without building any of
+it. Completion for five shells, Markdown, man pages, and SDKs are each written once against the
+spec rather than once per framework, so emitting the spec is the whole integration. Every
+[integration](/spec/integrations) that exists is this shape. The same holds in reverse for a
+framework built on the spec: the [Rust](/rust/) and [Go](/go/) frameworks answer a shared
+conformance corpus, so a parser that passes it is known to agree with the reference
+implementation.

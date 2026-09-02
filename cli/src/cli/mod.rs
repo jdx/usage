@@ -14,7 +14,14 @@ mod mcp;
 mod shell;
 mod sponsors;
 
-/// CLI for working with usage-based CLIs
+/// Generate completions, docs, manpages, and SDKs from a usage spec, and run scripts that carry one
+///
+/// A usage spec describes a CLI's commands, flags, and arguments once, in KDL. Most commands
+/// here read one: a `.usage.kdl` file given with `-f`, a script whose `#USAGE` comments declare
+/// it, or `-` for stdin. A binary built with the Rust framework prints its own spec, so a
+/// pipeline like `mycli __usage_spec__ | usage generate markdown -f -` needs no file at all.
+///
+/// Guides and a reference for every command: https://usage.jdx.dev/cli/
 // `usage` parses its own command line with the parser it ships: the tables below are the same
 // ones an adopter's CLI compiles into, and `--usage-spec` prints the spec they emit rather
 // than a transcription of a clap command. Said here rather than in the doc comment, which is
@@ -64,7 +71,7 @@ pub struct Cli {
     #[usage(subcommand)]
     command: Command,
 
-    /// Outputs completions for the specified shell for completing the `usage` CLI itself
+    /// Print a completion script for the `usage` CLI itself, for the named shell
     // `--completions <shell>` is normally answered in `crate::run` before a parse happens,
     // because a shell init script asks for it on every new shell and it does not need a
     // subcommand to answer. It remains a real parsed field so direct callers of `Cli::run`
@@ -78,7 +85,7 @@ pub struct Cli {
     #[usage(long)]
     completions: Option<String>,
 
-    /// Outputs a `usage.kdl` spec for this CLI itself
+    /// Print the usage spec for the `usage` CLI itself
     #[usage(long)]
     usage_spec: bool,
 }
