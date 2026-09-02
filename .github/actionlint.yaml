@@ -4,7 +4,7 @@ self-hosted-runner:
     - jdx-perf-v1
     - bamboo-perf
     - macos-14
-    - namespace-profile-endev-linux-amd64
+    - namespace-profile-endev-linux-amd64;overrides.cache-tag=cache
     - buildjet-32vcpu-ubuntu-2204-arm
     - buildjet-16vcpu-ubuntu-2204-arm
     - buildjet-8vcpu-ubuntu-2204-arm
