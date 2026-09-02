@@ -6,15 +6,19 @@
 - **Aliases:** `x`
 - **Source code:** [`cli/src/cli/exec.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/exec.rs)
 
-Execute a script, parsing args and exposing them as environment variables
+Run a script through any interpreter, with its parsed arguments as environment variables
+
+For scripts in a language `usage` has no dedicated command for. A shebang of `#!/usr/bin/env -S usage exec node` parses the arguments against the `USAGE` comments at the top of the file, then runs `node <script> <args>` with each flag and argument exported as `usage_<name>`. When a file named `.<script>.usage.kdl` sits beside the script, the spec is read from it instead of from the comments.
+
+`-h` and `--help` belong to the script once one is named, so they print its help page rather than this one. Asked with no script to describe, they print this page.
 
 ## Arguments
 
-- **`<COMMAND>`** — command to execute after parsing usage spec
-- **`<BIN>`** — path to script to execute
-- **`[ARGS]…`** — arguments to pass to script
+- **`<COMMAND>`** — The interpreter to run the script with, such as `node` or `python3`
+- **`<BIN>`** — The script to run
+- **`[ARGS]…`** — Arguments to pass to the script
 
 ## Flags
 
-- **`-h`** — Show help
-- **`--help`** — Show help
+- **`-h`** — Print the script's help page instead of running it
+- **`--help`** — Print the script's help page instead of running it

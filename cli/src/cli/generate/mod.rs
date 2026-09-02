@@ -14,7 +14,7 @@ mod manpage;
 mod markdown;
 mod sdk;
 
-/// Generate completions, documentation, and other artifacts from usage specs
+/// Generate completions, docs, manpages, SDKs, and parse tables from a usage spec
 // Cannot run alone, and every child starts at `read`, so the parent is `read` too.
 #[derive(usage_rs::Args)]
 #[usage(alias = "g", effect = "read", run)]

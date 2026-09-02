@@ -1,17 +1,17 @@
 # Usage Scripts
 
-Scripts can be used with the Usage CLI to display help, parse args, and autocomplete in
-any language.
-For this to work, we add comments to the script that describe the flags and arguments that the
-script accepts.
+A script can have `--help`, parsed arguments, and tab completion without a line of parsing code
+in it. The spec lives in comments at the top of the file, and a `usage` shebang runs the script
+through the parser first. Each flag and argument reaches the script as an environment variable
+named `usage_<name>`.
 
 ::: tip Enabling autocompletion
-Tab-completion for shebang scripts is opt-in: add
-`source <(usage g completion-init bash)` to your `~/.bashrc` (one-time setup)
-to enable `<Tab>` on every `usage`-shebang script on `$PATH`. See
-[Generating Completion Scripts](./completions.md) for details and other shells.
+Tab completion for shebang scripts is one line of setup: `source <(usage g completion-init bash)`
+in `~/.bashrc` enables `<Tab>` on every `usage`-shebang script on `$PATH`. See
+[Generating Completion Scripts](./completions.md#shebang-scripts) for zsh and fish.
 :::
-Here is an example in bash:
+
+In bash:
 
 ```bash
 #!/usr/bin/env -S usage bash
@@ -29,18 +29,30 @@ else
 fi
 ```
 
-Assuming this script was located at `./mycli`, it could be used like this:
+With the script at `./mycli`:
 
 ```bash
 $ ./mycli --help
-Usage: mycli [flags] [args]
-...
+Usage: mycli [-f --force] [-u --user <user>] [file]
+
+Arguments:
+  [file]  The file to write
+          (default: file.txt)
+
+Flags:
+  -f, --force        Overwrite existing <file>
+  -u, --user <user>  User to run as
+  -h, --help         Print help
 $ ./mycli -f --user=alice output.txt
 $ cat output.txt
 Hello, alice
 ```
 
-For languages that use `//` for comments, like JavaScript, you can use `//USAGE` comments:
+The synopsis, the two sections, and `-h`/`--help` itself are all built from those three
+comment lines. Nothing in the script prints them.
+
+A language without a dedicated command goes through `usage exec`, which names the interpreter to
+run. The comment prefix follows the language, so JavaScript uses `//USAGE`:
 
 ```js
 #!/usr/bin/env -S usage exec node
@@ -62,10 +74,7 @@ fs.appendFileSync(usage_file, `Hello, ${user}\n`);
 
 ## Short Flag Chaining
 
-Short flag chaining allows you to combine multiple single-character flags into a single argument.
-This can make command-line usage more concise and easier to type.
-
-For example, consider the following script:
+Single-character flags can be bundled into one word, so `-abc` means `-a -b -c`:
 
 ```bash
 #!/usr/bin/env -S usage bash
@@ -84,8 +93,6 @@ if [ "$usage_c" = "true" ]; then
 fi
 ```
 
-Assuming this script was located at `./mycli`, it could be used like this:
-
 ```bash
 $ ./mycli -abc
 Option A is set
@@ -93,18 +100,15 @@ Option B is set
 Option C is set
 ```
 
-In this example, the `-a`, `-b`, and `-c` flags are combined into a single `-abc` argument, enabling all three options at once.
-
 ## Shell Escaping
 
 ### `var=#true`
 
-When using `var=#true`, the value will be a single string (because that's all env vars can do)
-delimited
-by spaces. If an arg itself has a space, then it will have quotes around it. This logic is handled
-by [`shell_words::join()`](https://docs.rs/shell-words/latest/shell_words/fn.join.html). For now,
-this is not customizable behavior. It would be possible to
-support [alternatives](https://github.com/jdx/usage/issues/189) though.
+An environment variable holds one string, so a flag or argument declared `var=#true` arrives as
+its values joined with spaces. A value that itself contains a space is quoted, as
+[`shell_words::join()`](https://docs.rs/shell-words/latest/shell_words/fn.join.html) quotes it,
+so `eval set -- "$usage_files"` recovers the list in a POSIX shell. The joining is not
+configurable yet; [issue 189](https://github.com/jdx/usage/issues/189) tracks alternatives.
 
 ## Windows
 

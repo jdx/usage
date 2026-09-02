@@ -7,7 +7,7 @@
 - **Effect:** read-only
 - **Source code:** [`cli/src/cli/generate/mod.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/mod.rs)
 
-Generate completions, documentation, and other artifacts from usage specs
+Generate completions, docs, manpages, SDKs, and parse tables from a usage spec
 
 ## Flags
 

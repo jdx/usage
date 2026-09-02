@@ -93,22 +93,24 @@ const completionSpec: Fig.Spec = {
       options: [
         {
           name: "-h",
-          description: "Show help",
+          description: "Print the script's help page instead of running it",
           isRepeatable: false,
         },
         {
           name: "--help",
-          description: "Show help",
+          description: "Print the script's help page instead of running it",
           isRepeatable: false,
         },
       ],
       args: [
         {
           name: "script",
+          description:
+            "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
         },
         {
           name: "args",
-          description: "Arguments to pass to script",
+          description: "Arguments to pass to the script",
           isOptional: true,
           isVariadic: true,
         },
@@ -122,7 +124,7 @@ const completionSpec: Fig.Spec = {
         {
           name: ["-f", "--file"],
           description:
-            'Usage spec file or script with usage shebang, use "-" to read from stdin',
+            'A usage spec file, or a script with a usage shebang; "-" reads stdin',
           isRepeatable: false,
           args: {
             name: "file",
@@ -131,7 +133,7 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: ["-s", "--spec"],
-          description: "Raw string spec input",
+          description: "The spec itself, as a string, instead of a file",
           isRepeatable: false,
           args: {
             name: "spec",
@@ -139,7 +141,8 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: "--cword",
-          description: "Current word index",
+          description:
+            "Index of the word being completed; defaults to the last word",
           isRepeatable: false,
           args: {
             name: "cword",
@@ -147,6 +150,8 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: "--shell",
+          description:
+            "The shell the candidates are for, which decides how they are quoted",
           isRepeatable: false,
           args: {
             name: "shell",
@@ -161,7 +166,7 @@ const completionSpec: Fig.Spec = {
       ],
       args: {
         name: "words",
-        description: "User's input from the command line",
+        description: "The words typed so far, starting with the program name",
         isOptional: true,
         isVariadic: true,
       },
@@ -213,31 +218,32 @@ const completionSpec: Fig.Spec = {
     {
       name: ["exec", "x"],
       description:
-        "Execute a script, parsing args and exposing them as environment variables",
+        "Run a script through any interpreter, with its parsed arguments as environment variables",
       options: [
         {
           name: "-h",
-          description: "Show help",
+          description: "Print the script's help page instead of running it",
           isRepeatable: false,
         },
         {
           name: "--help",
-          description: "Show help",
+          description: "Print the script's help page instead of running it",
           isRepeatable: false,
         },
       ],
       args: [
         {
           name: "command",
-          description: "Command to execute after parsing usage spec",
+          description:
+            "The interpreter to run the script with, such as `node` or `python3`",
         },
         {
           name: "bin",
-          description: "Path to script to execute",
+          description: "The script to run",
         },
         {
           name: "args",
-          description: "Arguments to pass to script",
+          description: "Arguments to pass to the script",
           isOptional: true,
           isVariadic: true,
         },
@@ -250,7 +256,7 @@ const completionSpec: Fig.Spec = {
         {
           name: ["-f", "--file"],
           description:
-            'A usage spec file or script with a usage shebang, use "-" to read from stdin',
+            'A usage spec file, or a script with a usage shebang; "-" reads stdin',
           isRepeatable: false,
           args: {
             name: "file",
@@ -259,7 +265,7 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: ["-s", "--spec"],
-          description: "Raw string spec input",
+          description: "The spec itself, as a string, instead of a file",
           isRepeatable: false,
           args: {
             name: "spec",
@@ -311,22 +317,24 @@ const completionSpec: Fig.Spec = {
       options: [
         {
           name: "-h",
-          description: "Show help",
+          description: "Print the script's help page instead of running it",
           isRepeatable: false,
         },
         {
           name: "--help",
-          description: "Show help",
+          description: "Print the script's help page instead of running it",
           isRepeatable: false,
         },
       ],
       args: [
         {
           name: "script",
+          description:
+            "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
         },
         {
           name: "args",
-          description: "Arguments to pass to script",
+          description: "Arguments to pass to the script",
           isOptional: true,
           isVariadic: true,
         },
@@ -335,12 +343,12 @@ const completionSpec: Fig.Spec = {
     {
       name: ["generate", "g"],
       description:
-        "Generate completions, documentation, and other artifacts from usage specs",
+        "Generate completions, docs, manpages, SDKs, and parse tables from a usage spec",
       subcommands: [
         {
           name: ["completion", "c"],
           description:
-            "Generate shell completion scripts for bash, fish, nu, powershell, or zsh",
+            "Generate a shell completion script for bash, fish, nu, powershell, or zsh",
           options: [
             {
               name: "--install",
@@ -357,7 +365,7 @@ const completionSpec: Fig.Spec = {
             {
               name: ["-f", "--file"],
               description:
-                'A .usage.kdl spec file to use for generating completions, use "-" to read from stdin',
+                'A usage spec file, or a script with a usage shebang; "-" reads stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -367,7 +375,7 @@ const completionSpec: Fig.Spec = {
             {
               name: "--cache-key",
               description:
-                "A cache key to use for storing the results of calling the CLI with --usage-cmd",
+                "Cache what --usage-cmd prints under this key, so it runs once per key rather than on every Tab; the CLI's version is a good key",
               isRepeatable: false,
               args: {
                 name: "cache_key",
@@ -376,7 +384,7 @@ const completionSpec: Fig.Spec = {
             {
               name: "--usage-bin",
               description:
-                "Override the bin used for calling back to usage-cli",
+                "The `usage` executable the script calls back to, when it is not `usage` on PATH",
               isRepeatable: false,
               args: {
                 name: "usage_bin",
@@ -385,7 +393,7 @@ const completionSpec: Fig.Spec = {
             {
               name: "--usage-cmd",
               description:
-                'A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"',
+                "A command that prints the CLI's spec, run in place of reading --file",
               isRepeatable: false,
               args: {
                 name: "usage_cmd",
@@ -400,24 +408,25 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "shell",
-              description: "Shell to generate completions for",
+              description: "The shell to generate the script for",
               suggestions: ["bash", "fish", "nu", "powershell", "zsh"],
             },
             {
               name: "bin",
-              description: "The CLI which we're generating completions for",
+              description:
+                "The name of the CLI being completed, as it is typed at the prompt",
             },
           ],
         },
         {
           name: ["completion-init", "ci"],
           description:
-            "Generate a shell init script that auto-completes any usage shebang script on $PATH",
+            "Generate a shell init script that completes every usage-shebang script on PATH",
           options: [
             {
               name: "--usage-bin",
               description:
-                "Override the bin used for calling back to usage-cli",
+                "The `usage` executable the script calls back to, when it is not `usage` on PATH",
               isRepeatable: false,
               args: {
                 name: "usage_bin",
@@ -431,18 +440,18 @@ const completionSpec: Fig.Spec = {
           ],
           args: {
             name: "shell",
-            description: "Shell to generate the init script for",
+            description: "The shell to generate the script for",
             suggestions: ["bash", "fish", "zsh"],
           },
         },
         {
           name: "fig",
-          description: "Generate Fig completion spec for Amazon Q / Fig",
+          description: "Generate a Fig completion spec, for Amazon Q and Fig",
           options: [
             {
               name: ["-f", "--file"],
               description:
-                'A usage spec taken in as a file, use "-" to read from stdin',
+                'A usage spec file, or a script with a usage shebang; "-" reads stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -452,7 +461,7 @@ const completionSpec: Fig.Spec = {
             {
               name: "--out-file",
               description:
-                'File path where the generated Fig spec will be saved, or "-" for stdout',
+                'Where to write the spec, or "-" for stdout (default)',
               isRepeatable: false,
               args: {
                 name: "out_file",
@@ -461,7 +470,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--spec",
-              description: "Raw string spec input",
+              description: "The spec itself, as a string, instead of a file",
               isRepeatable: false,
               args: {
                 name: "spec",
@@ -481,7 +490,7 @@ const completionSpec: Fig.Spec = {
             {
               name: ["-f", "--file"],
               description:
-                'A usage spec taken in as a file, use "-" to read from stdin',
+                'A usage spec file, or a script with a usage shebang; "-" reads stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -491,7 +500,7 @@ const completionSpec: Fig.Spec = {
             {
               name: ["-o", "--out-file"],
               description:
-                'File path where the generated Go source will be saved, or "-" for stdout',
+                'Where to write the Go source, or "-" for stdout (default)',
               isRepeatable: false,
               args: {
                 name: "out_file",
@@ -509,7 +518,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--spec",
-              description: "Raw string spec input",
+              description: "The spec itself, as a string, instead of a file",
               isRepeatable: false,
               args: {
                 name: "spec",
@@ -524,12 +533,12 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: "json",
-          description: "Outputs a usage spec in json format",
+          description: "Print a usage spec as JSON",
           options: [
             {
               name: ["-f", "--file"],
               description:
-                'A usage spec taken in as a file, use "-" to read from stdin',
+                'A usage spec file, or a script with a usage shebang; "-" reads stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -538,7 +547,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--spec",
-              description: "Raw string spec input",
+              description: "The spec itself, as a string, instead of a file",
               isRepeatable: false,
               args: {
                 name: "spec",
@@ -567,7 +576,7 @@ const completionSpec: Fig.Spec = {
             {
               name: ["-f", "--file"],
               description:
-                'A usage spec taken in as a file, use "-" to read from stdin',
+                'A usage spec file, or a script with a usage shebang; "-" reads stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -585,7 +594,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--spec",
-              description: "Raw string spec input",
+              description: "The spec itself, as a string, instead of a file",
               isRepeatable: false,
               args: {
                 name: "spec",
@@ -621,7 +630,7 @@ const completionSpec: Fig.Spec = {
             {
               name: ["-f", "--file"],
               description:
-                'A usage spec taken in as a file, use "-" to read from stdin',
+                'A usage spec file, or a script with a usage shebang; "-" reads stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -662,12 +671,12 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: ["markdown", "md"],
-          description: "Generate markdown documentation from usage specs",
+          description: "Generate Markdown documentation from a usage spec",
           options: [
             {
               name: ["-f", "--file"],
               description:
-                'A usage spec taken in as a file, use "-" to read from stdin',
+                'A usage spec file, or a script with a usage shebang; "-" reads stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -695,7 +704,7 @@ const completionSpec: Fig.Spec = {
             {
               name: "--out-dir",
               description:
-                "Output markdown files to this directory (required when using --multi)",
+                "Directory for the per-command pages (required with --multi)",
               isRepeatable: false,
               args: {
                 name: "out_dir",
@@ -719,7 +728,8 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--url-prefix",
-              description: "Prefix to add to all URLs",
+              description:
+                "Prefix for the links between pages, such as /cli/reference",
               isRepeatable: false,
               args: {
                 name: "url_prefix",
@@ -727,7 +737,8 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--template",
-              description: "Override a Tera template with NAME=PATH",
+              description:
+                "Replace a built-in Tera template, as NAME=PATH; the names are spec, index, command, argument, flag, and config",
               isRepeatable: true,
               args: {
                 name: "template",
@@ -746,7 +757,8 @@ const completionSpec: Fig.Spec = {
           options: [
             {
               name: ["-f", "--file"],
-              description: "A usage spec taken in as a file",
+              description:
+                'A usage spec file, or a script with a usage shebang; "-" reads stdin',
               isRepeatable: false,
               args: {
                 name: "file",
@@ -764,7 +776,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: ["-o", "--output"],
-              description: "Output directory for generated SDK files",
+              description: "Directory to write the SDK into",
               isRepeatable: false,
               args: {
                 name: "output",
@@ -781,7 +793,7 @@ const completionSpec: Fig.Spec = {
             },
             {
               name: "--spec",
-              description: "Raw string spec input",
+              description: "The spec itself, as a string, instead of a file",
               isRepeatable: false,
               args: {
                 name: "spec",
@@ -805,7 +817,7 @@ const completionSpec: Fig.Spec = {
     },
     {
       name: "lint",
-      description: "Lint a usage spec file for common issues",
+      description: "Lint a usage spec for mistakes that still parse",
       options: [
         {
           name: ["-f", "--format"],
@@ -835,7 +847,8 @@ const completionSpec: Fig.Spec = {
       ],
       args: {
         name: "file",
-        description: 'A usage spec file to lint, use "-" to read from stdin',
+        description:
+          'A usage spec file, or a script with a usage shebang; "-" reads stdin',
         template: "filepaths",
       },
     },
@@ -845,7 +858,8 @@ const completionSpec: Fig.Spec = {
       options: [
         {
           name: ["-f", "--file"],
-          description: 'Usage spec file (not "-": stdin is the MCP transport)',
+          description:
+            'A usage spec file, or a script with a usage shebang (not "-": stdin is the MCP transport)',
           isRepeatable: false,
           args: {
             name: "file",
@@ -854,7 +868,7 @@ const completionSpec: Fig.Spec = {
         },
         {
           name: ["-s", "--spec"],
-          description: "Raw string spec input",
+          description: "The spec itself, as a string, instead of a file",
           isRepeatable: false,
           args: {
             name: "spec",
@@ -873,22 +887,24 @@ const completionSpec: Fig.Spec = {
       options: [
         {
           name: "-h",
-          description: "Show help",
+          description: "Print the script's help page instead of running it",
           isRepeatable: false,
         },
         {
           name: "--help",
-          description: "Show help",
+          description: "Print the script's help page instead of running it",
           isRepeatable: false,
         },
       ],
       args: [
         {
           name: "script",
+          description:
+            "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
         },
         {
           name: "args",
-          description: "Arguments to pass to script",
+          description: "Arguments to pass to the script",
           isOptional: true,
           isVariadic: true,
         },
@@ -912,22 +928,24 @@ const completionSpec: Fig.Spec = {
       options: [
         {
           name: "-h",
-          description: "Show help",
+          description: "Print the script's help page instead of running it",
           isRepeatable: false,
         },
         {
           name: "--help",
-          description: "Show help",
+          description: "Print the script's help page instead of running it",
           isRepeatable: false,
         },
       ],
       args: [
         {
           name: "script",
+          description:
+            "The script to run; its spec is read from the `#USAGE` comments at the top of the file",
         },
         {
           name: "args",
-          description: "Arguments to pass to script",
+          description: "Arguments to pass to the script",
           isOptional: true,
           isVariadic: true,
         },
@@ -938,7 +956,7 @@ const completionSpec: Fig.Spec = {
     {
       name: "--completions",
       description:
-        "Outputs completions for the specified shell for completing the `usage` CLI itself",
+        "Print a completion script for the `usage` CLI itself, for the named shell",
       isRepeatable: false,
       args: {
         name: "completions",
@@ -946,7 +964,7 @@ const completionSpec: Fig.Spec = {
     },
     {
       name: "--usage-spec",
-      description: "Outputs a `usage.kdl` spec for this CLI itself",
+      description: "Print the usage spec for the `usage` CLI itself",
       isRepeatable: false,
     },
     {

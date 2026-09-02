@@ -7,15 +7,17 @@
 - **Effect:** read-only
 - **Source code:** [`cli/src/cli/generate/completion.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/completion.rs)
 
-Generate shell completion scripts for bash, fish, nu, powershell, or zsh
+Generate a shell completion script for bash, fish, nu, powershell, or zsh
+
+The script is a shim: on each Tab it hands the words typed so far to `usage complete-word`, so `usage` must be installed wherever the script is. The spec comes from `--file`, or from running `--usage-cmd` at completion time, which keeps a CLI that prints its own spec from ever going stale.
 
 ## Arguments
 
-- **`<SHELL>`** — Shell to generate completions for
+- **`<SHELL>`** — The shell to generate the script for
 
   **Choices:** `bash`, `fish`, `nu`, `powershell`, `zsh`
 
-- **`<BIN>`** — The CLI which we're generating completions for
+- **`<BIN>`** — The name of the CLI being completed, as it is typed at the prompt
 
 ## Flags
 
@@ -29,15 +31,16 @@ Generate shell completion scripts for bash, fish, nu, powershell, or zsh
 
   **Effect:** modifies state
 
-- **`-f --file <FILE>`** — A .usage.kdl spec file to use for generating completions, use "-" to read from stdin
-- **`--cache-key <CACHE_KEY>`** — A cache key to use for storing the results of calling the CLI with --usage-cmd
-- **`--usage-bin <USAGE_BIN>`** — Override the bin used for calling back to usage-cli
-
-  You may need to set this if you have a different bin named "usage"
+- **`-f --file <FILE>`** — A usage spec file, or a script with a usage shebang; "-" reads stdin
+- **`--cache-key <CACHE_KEY>`** — Cache what --usage-cmd prints under this key, so it runs once per key rather than on every Tab; the CLI's version is a good key
+- **`--usage-bin <USAGE_BIN>`** — The `usage` executable the script calls back to, when it is not `usage` on PATH
 
   **Default:** `usage`
 
   **Environment Variable:** `JDX_USAGE_BIN`
 
-- **`--usage-cmd <USAGE_CMD>`** — A command which generates a usage spec e.g.: `mycli --usage` or `mycli completion usage` Defaults to "$bin --usage"
+- **`--usage-cmd <USAGE_CMD>`** — A command that prints the CLI's spec, run in place of reading --file
+
+  For a CLI that answers with its own spec, such as `mycli __usage_spec__`, so the script always completes the version that is installed. Required unless --file is given.
+
 - **`-h --help`** — Print help

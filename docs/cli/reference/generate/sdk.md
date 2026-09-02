@@ -8,14 +8,16 @@
 
 Generate a type-safe SDK from a usage spec
 
+The SDK is a subprocess wrapper: typed arguments, flags, and choices for every command, and a client that builds the argument list and runs the binary.
+
 ## Flags
 
-- **`-f --file <FILE>`** — A usage spec taken in as a file
+- **`-f --file <FILE>`** — A usage spec file, or a script with a usage shebang; "-" reads stdin
 - **`-l --language <LANGUAGE>`** — Target language for the SDK
 
   **Choices:** `typescript`, `python`
 
-- **`-o --output <OUTPUT>`** — Output directory for generated SDK files
+- **`-o --output <OUTPUT>`** — Directory to write the SDK into
 - **`-p --package-name <PACKAGE_NAME>`** — Override the package/module name (defaults to spec bin name)
-- **`--spec <SPEC>`** — Raw string spec input
+- **`--spec <SPEC>`** — The spec itself, as a string, instead of a file
 - **`-h --help`** — Print help

@@ -10,24 +10,33 @@ use usage::Spec;
 
 use crate::env;
 
-/// Execute a script, parsing args and exposing them as environment variables
+/// Run a script through any interpreter, with its parsed arguments as environment variables
+///
+/// For scripts in a language `usage` has no dedicated command for. A shebang of
+/// `#!/usr/bin/env -S usage exec node` parses the arguments against the `USAGE` comments at the
+/// top of the file, then runs `node <script> <args>` with each flag and argument exported as
+/// `usage_<name>`. When a file named `.<script>.usage.kdl` sits beside the script, the spec is
+/// read from it instead of from the comments.
+///
+/// `-h` and `--help` belong to the script once one is named, so they print its help page
+/// rather than this one. Asked with no script to describe, they print this page.
 #[derive(Debug, Args)]
 // The words after the script are the script's, so a flag `usage` does not know is a value to
 // forward rather than a mistake to report — the root's `error` stops here.
 #[usage(alias = "x", unknown_flags = "value")]
 pub struct Exec {
-    /// command to execute after parsing usage spec
+    /// The interpreter to run the script with, such as `node` or `python3`
     command: String,
-    /// path to script to execute
+    /// The script to run
     bin: PathBuf,
-    /// arguments to pass to script
+    /// Arguments to pass to the script
     args: Vec<String>,
 
-    /// Show help
+    /// Print the script's help page instead of running it
     #[usage(short)]
     h: bool,
 
-    /// Show help
+    /// Print the script's help page instead of running it
     #[usage(long)]
     help: bool,
 }

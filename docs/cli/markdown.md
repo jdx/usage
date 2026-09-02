@@ -1,20 +1,24 @@
 # Generating Markdown Documentation
 
-Usage CLI can generate markdown documentation from a Usage definition either into a single file, or a directory.
+`usage generate markdown` renders a spec as Markdown reference pages: one page for the whole
+CLI, or one per command for a docs site with a sidebar. The [CLI reference](/cli/reference/) on
+this site is its output for `usage`'s own spec.
 
-Single file, written with `--out-file` (or to stdout, the default, so you can redirect it
-wherever you like):
+A single file goes to `--out-file`, or to stdout when there is none:
 
 ```sh
-$ usage g markdown -f ./mycli.usage.kdl --out-file ./docs/cli.md
-$ usage g markdown -f ./mycli.usage.kdl > ./docs/cli.md
+usage g markdown -f ./mycli.usage.kdl --out-file ./docs/cli.md
+usage g markdown -f ./mycli.usage.kdl > ./docs/cli.md
 ```
 
-Multiple files:
+`--multi` writes one page per command into `--out-dir`, nested the way the commands are:
 
 ```sh
-$ usage g markdown -mf ./mycli.usage.kdl --out-dir ./docs
-$ tree ./docs
+usage g markdown -mf ./mycli.usage.kdl --out-dir ./docs
+tree ./docs
+```
+
+```text
 docs
 ├── config
 │   ├── add.md
@@ -24,13 +28,18 @@ docs
 └── update.md
 ```
 
+Links between the pages are written from the root of the output, as `/bash.md`.
+`--url-prefix /cli/reference` puts a path in front of them, `/cli/reference/bash.md`, which is
+what a docs site serving the pages under a subdirectory needs.
+
 ## Custom templates from the CLI
 
-Each renderer template can be replaced with a Tera template file. For example, a custom
-single-file document can keep the built-in command template:
+Every part of the output comes from a [Tera](https://keats.github.io/tera/) template, and
+`--template NAME=PATH` replaces one. A custom single-file document can keep the built-in
+command template by including it:
 
 ```sh
-$ usage g markdown -f ./mycli.usage.kdl \
+usage g markdown -f ./mycli.usage.kdl \
     --template spec=./templates/spec.md.tera \
     --out-file ./docs/cli.md
 ```
@@ -42,42 +51,48 @@ $ usage g markdown -f ./mycli.usage.kdl \
 {% include "cmd_template.md.tera" %}
 ```
 
-The available names are `spec`, `index`, `command`, `argument`, `flag`, and `config`. Repeat
-`--template` to replace more than one. Templates that are not named keep their built-in
-definitions and remain available through Tera's `include`.
+The names are `spec`, `index`, `command`, `argument`, `flag`, and `config`. Repeat `--template`
+to replace more than one. Templates that are not named keep their built-in definitions and
+remain available through Tera's `include`.
 
 ## Custom templates from Rust
 
-`MarkdownRenderer` bundles a complete set of Tera templates. A Rust caller can replace one
-member without copying the rest:
+`MarkdownRenderer` in `usage-lib` bundles the same templates. A Rust caller replaces one member
+without copying the rest:
 
 ```rust
 use usage::docs::markdown::{MarkdownRenderer, MarkdownTemplate};
 
-let spec: usage::Spec = std::fs::read_to_string("mycli.usage.kdl")?.parse()?;
-let markdown = MarkdownRenderer::new(spec)
-    .with_template(
-        MarkdownTemplate::Spec,
-        "# {{ spec.bin }} reference\n{% set cmd = spec.cmd %}\n{% include \"cmd_template.md.tera\" %}",
-    )
-    .render_spec()?;
-# Ok::<(), Box<dyn std::error::Error>>(())
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let spec: usage::Spec = std::fs::read_to_string("mycli.usage.kdl")?.parse()?;
+    let markdown = MarkdownRenderer::new(spec)
+        .with_template(
+            MarkdownTemplate::Spec,
+            "# {{ spec.bin }} reference\n{% set cmd = spec.cmd %}\n{% include \"cmd_template.md.tera\" %}",
+        )
+        .render_spec()?;
+    print!("{markdown}");
+    Ok(())
+}
 ```
 
-The selectable members are `Spec`, `Index`, `Command`, `Argument`, `Flag`, and `Config`.
-Templates that are not replaced remain available through Tera's `include`; syntax and include
-errors are returned when the page is rendered.
+The members are `Spec`, `Index`, `Command`, `Argument`, `Flag`, and `Config`. Templates that are
+not replaced remain available through `include`; syntax and include errors are returned when
+the page is rendered, not when the template is set.
 
-Generated references use `MarkdownTheme::Compact`: arguments and flags are grouped into dense
-lists that remain easy to scan on a large page. To give each entry its own addressable heading,
-select the detailed theme:
+Pages use `MarkdownTheme::Compact` by default: arguments and flags are grouped into dense lists
+that stay easy to scan on a large page. `MarkdownTheme::Detailed` gives each entry its own
+heading, so that a flag can be linked to directly:
 
 ```rust
 use usage::docs::markdown::{MarkdownRenderer, MarkdownTheme};
 
-# let spec: usage::Spec = "bin \"mycli\"".parse()?;
-let markdown = MarkdownRenderer::new(spec)
-    .with_theme(MarkdownTheme::Detailed)
-    .render_spec()?;
-# Ok::<(), Box<dyn std::error::Error>>(())
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let spec: usage::Spec = std::fs::read_to_string("mycli.usage.kdl")?.parse()?;
+    let markdown = MarkdownRenderer::new(spec)
+        .with_theme(MarkdownTheme::Detailed)
+        .render_spec()?;
+    print!("{markdown}");
+    Ok(())
+}
 ```

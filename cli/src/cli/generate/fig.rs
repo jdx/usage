@@ -44,15 +44,15 @@ mod description_format {
     }
 }
 
-/// Generate Fig completion spec for Amazon Q / Fig
+/// Generate a Fig completion spec, for Amazon Q and Fig
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct Fig {
-    /// A usage spec taken in as a file, use "-" to read from stdin
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     #[usage(short, long)]
     file: Option<PathBuf>,
 
-    /// File path where the generated Fig spec will be saved, or "-" for stdout
+    /// Where to write the spec, or "-" for stdout (default)
     #[usage(
         long,
         value_hint = usage_rs::ValueHint::FilePath,
@@ -60,7 +60,7 @@ pub struct Fig {
     )]
     out_file: Option<PathBuf>,
 
-    /// Raw string spec input
+    /// The spec itself, as a string, instead of a file
     #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 }

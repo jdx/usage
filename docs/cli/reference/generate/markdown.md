@@ -7,15 +7,17 @@
 - **Effect:** read-only
 - **Source code:** [`cli/src/cli/generate/markdown.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/markdown.rs)
 
-Generate markdown documentation from usage specs
+Generate Markdown documentation from a usage spec
+
+One page by default, or a page per command with --multi. Every part of the output comes from a Tera template that --template can replace.
 
 ## Flags
 
-- **`-f --file <FILE>`** — A usage spec taken in as a file, use "-" to read from stdin
+- **`-f --file <FILE>`** — A usage spec file, or a script with a usage shebang; "-" reads stdin
 - **`--view <VIEW>`** — Render one spec-declared executable view
 - **`-m --multi`** — Render each subcommand as a separate markdown file
 - **`--html-encode`** — Escape HTML in markdown
-- **`--out-dir <OUT_DIR>`** — Output markdown files to this directory (required when using --multi)
+- **`--out-dir <OUT_DIR>`** — Directory for the per-command pages (required with --multi)
 
   **Effect:** modifies state
 
@@ -24,6 +26,6 @@ Generate markdown documentation from usage specs
   **Effect:** modifies state
 
 - **`--replace-pre-with-code-fences`** — Replace `<pre>` tags with markdown code fences
-- **`--url-prefix <URL_PREFIX>`** — Prefix to add to all URLs
-- **`--template <TEMPLATE>`** — Override a Tera template with NAME=PATH
+- **`--url-prefix <URL_PREFIX>`** — Prefix for the links between pages, such as /cli/reference
+- **`--template <TEMPLATE>`** — Replace a built-in Tera template, as NAME=PATH; the names are spec, index, command, argument, flag, and config
 - **`-h --help`** — Print help

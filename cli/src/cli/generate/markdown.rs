@@ -5,11 +5,14 @@ use usage::docs::markdown::{MarkdownRenderer, MarkdownTemplate};
 use usage::error::UsageErr;
 use usage_rs::Args;
 
-/// Generate markdown documentation from usage specs
+/// Generate Markdown documentation from a usage spec
+///
+/// One page by default, or a page per command with --multi. Every part of the output comes
+/// from a Tera template that --template can replace.
 #[derive(Args)]
 #[usage(alias = "md", effect = "read")]
 pub struct Markdown {
-    /// A usage spec taken in as a file, use "-" to read from stdin
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     #[usage(short, long)]
     file: PathBuf,
 
@@ -27,7 +30,7 @@ pub struct Markdown {
     #[usage(long)]
     html_encode: bool,
 
-    /// Output markdown files to this directory (required when using --multi)
+    /// Directory for the per-command pages (required with --multi)
     #[usage(
         long,
         value_hint = usage_rs::ValueHint::DirPath,
@@ -49,11 +52,11 @@ pub struct Markdown {
     #[usage(long)]
     replace_pre_with_code_fences: bool,
 
-    /// Prefix to add to all URLs
+    /// Prefix for the links between pages, such as /cli/reference
     #[usage(long)]
     url_prefix: Option<String>,
 
-    /// Override a Tera template with NAME=PATH
+    /// Replace a built-in Tera template, as NAME=PATH; the names are spec, index, command, argument, flag, and config
     #[usage(long)]
     template: Vec<String>,
 }

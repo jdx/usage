@@ -6,11 +6,13 @@
 - **Effect:** read-only
 - **Source code:** [`cli/src/cli/generate/json.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/generate/json.rs)
 
-Outputs a usage spec in json format
+Print a usage spec as JSON
+
+The same document the KDL describes, with included files merged and defaults filled in, for a tool that would rather not parse KDL itself.
 
 ## Flags
 
-- **`-f --file <FILE>`** — A usage spec taken in as a file, use "-" to read from stdin
-- **`--spec <SPEC>`** — raw string spec input
+- **`-f --file <FILE>`** — A usage spec file, or a script with a usage shebang; "-" reads stdin
+- **`--spec <SPEC>`** — The spec itself, as a string, instead of a file
 - **`--view <VIEW>`** — Render one spec-declared executable view
 - **`-h --help`** — Print help

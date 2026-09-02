@@ -55,26 +55,28 @@ fn render_completer_run(run: &str, ctx: &tera::Context) -> tera::TeraResult<Stri
 
 /// Generate shell completion candidates for a partial command line
 ///
-/// This is used internally by shell completion scripts to provide
-/// intelligent completions for commands, flags, and arguments.
+/// What the scripts from `usage generate completion` run on every Tab: they pass the words
+/// typed so far and read back one candidate per line. Useful by hand, too, for checking what
+/// a spec offers at a given point without installing anything.
 #[derive(Debug, Args)]
 #[usage(alias = "cw", effect = "read")]
 pub struct CompleteWord {
-    /// User's input from the command line
+    /// The words typed so far, starting with the program name
     words: Vec<String>,
 
-    /// Usage spec file or script with usage shebang, use "-" to read from stdin
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     #[usage(short, long)]
     file: Option<PathBuf>,
 
-    /// Raw string spec input
+    /// The spec itself, as a string, instead of a file
     #[usage(short, long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 
-    /// Current word index
+    /// Index of the word being completed; defaults to the last word
     #[usage(long)]
     cword: Option<usize>,
 
+    /// The shell the candidates are for, which decides how they are quoted
     #[usage(
         long,
         default = "bash",

@@ -8,7 +8,7 @@ use usage_rs::Args;
 #[derive(Args)]
 #[usage(alias = "man", effect = "read")]
 pub struct Manpage {
-    /// A usage spec taken in as a file, use "-" to read from stdin
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     #[usage(short, long)]
     file: PathBuf,
 
