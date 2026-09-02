@@ -19,7 +19,7 @@ impl MarkdownRenderer {
 
     /// The command at this path in the renderer's folded model.
     fn folded(&self, path: &[String]) -> Option<&SpecCommand> {
-        let mut cmd = &self.spec.cmd;
+        let mut cmd = &self.spec().cmd;
         for name in path {
             cmd = cmd.subcommands.get(name)?;
         }
@@ -38,7 +38,7 @@ mod tests {
     fn test_render_markdown_cmd() {
         let ctx = MarkdownRenderer::new(SPEC_KITCHEN_SINK.clone())
             .with_multi(true)
-            .with_replace_pre_with_code_fences(true);
+            .with_indented_blocks_to_code_fences(true);
         assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @"
         # `mycli`
 

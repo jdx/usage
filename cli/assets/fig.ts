@@ -722,8 +722,12 @@ const completionSpec: Fig.Spec = {
               },
             },
             {
-              name: "--replace-pre-with-code-fences",
-              description: "Replace `<pre>` tags with markdown code fences",
+              name: [
+                "--indented-blocks-to-code-fences",
+                "--replace-pre-with-code-fences",
+              ],
+              description:
+                "Turn four-space indented blocks in help text into markdown code fences",
               isRepeatable: false,
             },
             {

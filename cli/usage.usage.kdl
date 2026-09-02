@@ -395,7 +395,14 @@ One page by default, or a page per command with --multi. Every part of the outpu
         flag --out-file help="Output file path for single-file markdown generation, or \"-\" for stdout (default)" effect=write {
             arg <OUT_FILE>
         }
-        flag --replace-pre-with-code-fences help="Replace `<pre>` tags with markdown code fences"
+        flag --indented-blocks-to-code-fences help="Turn four-space indented blocks in help text into markdown code fences" {
+            long_help #"""
+Turn four-space indented blocks in help text into markdown code fences
+
+`--replace-pre-with-code-fences` is the former name and still works. It was always a misnomer: this has never looked at `<pre>` tags.
+"""#
+            alias --replace-pre-with-code-fences hide=#true
+        }
         flag --url-prefix help="Prefix for the links between pages, such as /cli/reference" {
             arg <URL_PREFIX>
         }

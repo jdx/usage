@@ -174,7 +174,7 @@ run = [
     'usage --usage-spec > cli/usage.usage.kdl',
     'rm -rf docs/cli/reference && mkdir -p docs/cli/reference',
     'usage g json -f cli/usage.usage.kdl > docs/cli/reference/commands.json',
-    'usage g md -mf cli/usage.usage.kdl --out-dir docs/cli/reference --url-prefix /cli/reference --replace-pre-with-code-fences',
+    'usage g md -mf cli/usage.usage.kdl --out-dir docs/cli/reference --url-prefix /cli/reference --indented-blocks-to-code-fences',
     'usage g manpage -f cli/usage.usage.kdl -o cli/assets/usage.1',
     # `command usage` so a shell function named `usage` can't intercept the spec
     # call — the guard above only proves an executable exists, not that a bare
@@ -188,8 +188,8 @@ run = [
 [tasks."render:example-md"]
 depends = ['build']
 run = [
-    "usage g md -f benches/mise.usage.kdl --out-file examples/docs/MISE_INLINE.md --replace-pre-with-code-fences",
-    "usage g md -f benches/mise.usage.kdl --out-file examples/docs/MISE_MULTI.md --replace-pre-with-code-fences",
+    "usage g md -f benches/mise.usage.kdl --out-file examples/docs/MISE_INLINE.md --indented-blocks-to-code-fences",
+    "usage g md -f benches/mise.usage.kdl --out-file examples/docs/MISE_MULTI.md --indented-blocks-to-code-fences",
 ]
 
 [tasks."render:fig"]
