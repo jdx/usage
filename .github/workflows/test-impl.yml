@@ -33,7 +33,6 @@ jobs:
       - uses: ./.github/actions/mbx
         with:
           backend: ${{ inputs.trusted && 'local' || 'github' }}
-          mirror-github-cache: "true"
       # Retries and a longer wait, rather than being allowed to fail. `cli`'s completion
       # tests refuse to skip a missing shell when `CI` is set — see
       # `skip_if_shell_missing` — which is a deliberate policy this step exists to keep:
@@ -149,7 +148,6 @@ jobs:
       - uses: ./.github/actions/mbx
         with:
           backend: github
-          mirror-github-cache: "true"
       - run: mise r build
       # `usage bash` runs whatever Windows resolves `bash` to, and `CreateProcess` searches the
       # system directory before `PATH`. On this runner that is `C:\Windows\System32\bash.exe` —
