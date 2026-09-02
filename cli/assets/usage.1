@@ -1,20 +1,24 @@
 .TH USAGE 1
 .SH NAME
-usage \- CLI for working with usage\-based CLIs
+usage \- Generate completions, docs, manpages, and SDKs from a usage spec, and run scripts that carry one
 .SH SYNOPSIS
 \fBusage\fR <COMMAND>
 \fBusage\fR \-\-completions <COMPLETIONS>
 \fBusage\fR \-\-usage\-spec
 .SH DESCRIPTION
-CLI for working with usage\-based CLIs
+Generate completions, docs, manpages, and SDKs from a usage spec, and run scripts that carry one
+.PP
+A usage spec describes a CLI's commands, flags, and arguments once, in KDL. Most commands here read one: a `.usage.kdl` file given with `\-f`, a script whose `#USAGE` comments declare it, or `\-` for stdin. A binary built with the Rust framework prints its own spec, so a pipeline like `mycli __usage_spec__ | usage generate markdown \-f \-` needs no file at all.
+.PP
+Guides and a reference for every command: https://usage.jdx.dev/cli/
 .PP
 .SH OPTIONS
 .TP
 \fB\-\-completions\fR \fI<COMPLETIONS>\fR
-Outputs completions for the specified shell for completing the `usage` CLI itself
+Print a completion script for the `usage` CLI itself, for the named shell
 .TP
 \fB\-\-usage\-spec\fR
-Outputs a `usage.kdl` spec for this CLI itself
+Print the usage spec for the `usage` CLI itself
 .TP
 \fB\-h, \-\-help\fR
 Print help
@@ -24,7 +28,7 @@ Print version
 .SH COMMANDS
 .TP
 \fBbash\fR
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 .TP
 \fBcomplete\-word\fR
 Generate shell completion candidates for a partial command line
@@ -36,7 +40,7 @@ Generate shell completion candidates for a partial command line
 Compare two usage specs and report what changed about the interface
 .TP
 \fBexec\fR
-Execute a script, parsing args and exposing them as environment variables
+Run a script through any interpreter, with its parsed arguments as environment variables
 .RS
 \fIAliases: \fRx
 .RE
@@ -45,34 +49,34 @@ Execute a script, parsing args and exposing them as environment variables
 Explain what a command line binds to
 .TP
 \fBfish\fR
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 .TP
 \fBgenerate\fR
-Generate completions, documentation, and other artifacts from usage specs
+Generate completions, docs, manpages, SDKs, and parse tables from a usage spec
 .RS
 \fIAliases: \fRg
 .RE
 .TP
 \fBgenerate completion\fR
-Generate shell completion scripts for bash, fish, nu, powershell, or zsh
+Generate a shell completion script for bash, fish, nu, powershell, or zsh
 .RS
 \fIAliases: \fRc
 .RE
 .TP
 \fBgenerate completion\-init\fR
-Generate a shell init script that auto\-completes any usage shebang script on $PATH
+Generate a shell init script that completes every usage\-shebang script on PATH
 .RS
 \fIAliases: \fRci
 .RE
 .TP
 \fBgenerate fig\fR
-Generate Fig completion spec for Amazon Q / Fig
+Generate a Fig completion spec, for Amazon Q and Fig
 .TP
 \fBgenerate go\fR
 Generate Go parse tables from a usage spec
 .TP
 \fBgenerate json\fR
-Outputs a usage spec in json format
+Print a usage spec as JSON
 .TP
 \fBgenerate json\-schema\fR
 Generate a JSON Schema for a CLI's config file from its usage spec
@@ -84,7 +88,7 @@ Generate a manpage from a usage spec
 .RE
 .TP
 \fBgenerate markdown\fR
-Generate markdown documentation from usage specs
+Generate Markdown documentation from a usage spec
 .RS
 \fIAliases: \fRmd
 .RE
@@ -93,7 +97,7 @@ Generate markdown documentation from usage specs
 Generate a type\-safe SDK from a usage spec
 .TP
 \fBlint\fR
-Lint a usage spec file for common issues
+Lint a usage spec for mistakes that still parse
 .TP
 \fBmcp\fR
 Serve a usage spec over the Model Context Protocol
@@ -102,20 +106,28 @@ Serve a usage spec over the Model Context Protocol
 .RE
 .TP
 \fBpowershell\fR
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 .TP
 \fBsponsors\fR
 Show the companies sponsoring usage and the jdx.dev open source tools
 .TP
 \fBzsh\fR
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 .SH "USAGE BASH"
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 
-Typically, this will be called by a script's shebang.
+Usually reached through the script's shebang, `#!/usr/bin/env \-S usage bash`: the kernel
+hands the script and its arguments to `usage`, which parses them against the `#USAGE`
+lines at the top of the file and then runs the script with this shell. Each flag and
+argument reaches the script as an environment variable named `usage_<name>`, so
+`\-\-force` becomes `usage_force` and `<file>` becomes `usage_file`. A value declared
+`var=#true` arrives as one string, joined with `shell_words::join()` so that an element
+containing a space stays quoted.
 
-If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them.
+`\-h` and `\-\-help` print the script's help page rather than this one. The shell is found
+on PATH; `USAGECLI_SHELL_BASH`, `USAGECLI_SHELL_ZSH`, `USAGECLI_SHELL_FISH` and
+`USAGECLI_SHELL_PWSH` each name a different program to run instead, which is how
+`usage bash` is pointed at Git Bash on a Windows machine where `bash` is WSL.
 .PP
 \fBUsage:\fR usage bash [OPTIONS] <SCRIPT> [<ARGS>] ...
 .PP
@@ -123,21 +135,24 @@ to properly escape and quote values with spaces in them.
 .PP
 .TP
 \fB\-h\fR
-Show help
+Print the script's help page instead of running it
 .TP
 \fB\-\-help\fR
-Show help
+Print the script's help page instead of running it
 \fBArguments:\fR
 .PP
 .TP
+\fB<SCRIPT>\fR
+The script to run; its spec is read from the `#USAGE` comments at the top of the file
+.TP
 \fB<ARGS>\fR
-Arguments to pass to script
+Arguments to pass to the script
 
 Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 .SH "USAGE COMPLETE-WORD"
 Generate shell completion candidates for a partial command line
 
-This is used internally by shell completion scripts to provide intelligent completions for commands, flags, and arguments.
+What the scripts from `usage generate completion` run on every Tab: they pass the words typed so far and read back one candidate per line. Useful by hand, too, for checking what a spec offers at a given point without installing anything.
 .PP
 \fBUsage:\fR usage complete\-word [OPTIONS] [<WORDS>] ...
 .PP
@@ -145,15 +160,16 @@ This is used internally by shell completion scripts to provide intelligent compl
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-Usage spec file or script with usage shebang, use "\-" to read from stdin
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .TP
 \fB\-s, \-\-spec\fR \fI<SPEC>\fR
-Raw string spec input
+The spec itself, as a string, instead of a file
 .TP
 \fB\-\-cword\fR \fI<CWORD>\fR
-Current word index
+Index of the word being completed; defaults to the last word
 .TP
 \fB\-\-shell\fR \fI<SHELL>\fR
+The shell the candidates are for, which decides how they are quoted
 .RS
 \fIDefault: \fRbash
 .RE
@@ -164,7 +180,7 @@ Print help
 .PP
 .TP
 \fB<WORDS>\fR
-User's input from the command line
+The words typed so far, starting with the program name
 .SH "USAGE DIFF"
 Compare two usage specs and report what changed about the interface
 
@@ -209,7 +225,11 @@ The spec as it was, typically the released one, use "\-" to read from stdin
 \fB<NEW>\fR
 The spec as it is now, use "\-" to read from stdin
 .SH "USAGE EXEC"
-Execute a script, parsing args and exposing them as environment variables
+Run a script through any interpreter, with its parsed arguments as environment variables
+
+For scripts in a language `usage` has no dedicated command for. A shebang of `#!/usr/bin/env \-S usage exec node` parses the arguments against the `USAGE` comments at the top of the file, then runs `node <script> <args>` with each flag and argument exported as `usage_<name>`. When a file named `.<script>.usage.kdl` sits beside the script, the spec is read from it instead of from the comments.
+
+`\-h` and `\-\-help` print the script's help page rather than this one.
 .PP
 \fBUsage:\fR usage exec [OPTIONS] <COMMAND> <BIN> [<ARGS>] ...
 .PP
@@ -217,21 +237,21 @@ Execute a script, parsing args and exposing them as environment variables
 .PP
 .TP
 \fB\-h\fR
-Show help
+Print the script's help page instead of running it
 .TP
 \fB\-\-help\fR
-Show help
+Print the script's help page instead of running it
 \fBArguments:\fR
 .PP
 .TP
 \fB<COMMAND>\fR
-command to execute after parsing usage spec
+The interpreter to run the script with, such as `node` or `python3`
 .TP
 \fB<BIN>\fR
-path to script to execute
+The script to run
 .TP
 \fB<ARGS>\fR
-arguments to pass to script
+Arguments to pass to the script
 .SH "USAGE EXPLAIN"
 Explain what a command line binds to
 
@@ -245,10 +265,10 @@ command line does not parse: the report succeeded, and that is the case worth a 
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec file or script with a usage shebang, use "\-" to read from stdin
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .TP
 \fB\-s, \-\-spec\fR \fI<SPEC>\fR
-Raw string spec input
+The spec itself, as a string, instead of a file
 .TP
 \fB\-\-format\fR \fI<FORMAT>\fR
 Output format
@@ -274,12 +294,20 @@ The command line to explain, starting with the program name
 
 `usage`'s own flags come before it, and flag parsing ends at the program name, so both `explain \-f f.kdl mycli \-\-env=prod` and `explain \-f f.kdl \-\- mycli \-\-env=prod` work. Separate with `\-\-` when the explained line carries its own: the first `\-\-` is still `usage`'s separator, so `explain \-f f.kdl mycli a \-\- b` loses one.
 .SH "USAGE FISH"
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 
-Typically, this will be called by a script's shebang.
+Usually reached through the script's shebang, `#!/usr/bin/env \-S usage bash`: the kernel
+hands the script and its arguments to `usage`, which parses them against the `#USAGE`
+lines at the top of the file and then runs the script with this shell. Each flag and
+argument reaches the script as an environment variable named `usage_<name>`, so
+`\-\-force` becomes `usage_force` and `<file>` becomes `usage_file`. A value declared
+`var=#true` arrives as one string, joined with `shell_words::join()` so that an element
+containing a space stays quoted.
 
-If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them.
+`\-h` and `\-\-help` print the script's help page rather than this one. The shell is found
+on PATH; `USAGECLI_SHELL_BASH`, `USAGECLI_SHELL_ZSH`, `USAGECLI_SHELL_FISH` and
+`USAGECLI_SHELL_PWSH` each name a different program to run instead, which is how
+`usage bash` is pointed at Git Bash on a Windows machine where `bash` is WSL.
 .PP
 \fBUsage:\fR usage fish [OPTIONS] <SCRIPT> [<ARGS>] ...
 .PP
@@ -287,19 +315,22 @@ to properly escape and quote values with spaces in them.
 .PP
 .TP
 \fB\-h\fR
-Show help
+Print the script's help page instead of running it
 .TP
 \fB\-\-help\fR
-Show help
+Print the script's help page instead of running it
 \fBArguments:\fR
 .PP
 .TP
+\fB<SCRIPT>\fR
+The script to run; its spec is read from the `#USAGE` comments at the top of the file
+.TP
 \fB<ARGS>\fR
-Arguments to pass to script
+Arguments to pass to the script
 
 Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 .SH "USAGE GENERATE"
-Generate completions, documentation, and other artifacts from usage specs
+Generate completions, docs, manpages, SDKs, and parse tables from a usage spec
 .PP
 \fBUsage:\fR usage generate [OPTIONS] <COMMAND>
 .PP
@@ -309,7 +340,9 @@ Generate completions, documentation, and other artifacts from usage specs
 \fB\-h, \-\-help\fR
 Print help
 .SH "USAGE GENERATE COMPLETION"
-Generate shell completion scripts for bash, fish, nu, powershell, or zsh
+Generate a shell completion script for bash, fish, nu, powershell, or zsh
+
+The script is a shim: on each Tab it hands the words typed so far to `usage complete\-word`, so `usage` must be installed wherever the script is. The spec comes from `\-\-file`, or from running `\-\-usage\-cmd` at completion time, which keeps a CLI that prints its own spec from ever going stale.
 .PP
 \fBUsage:\fR usage generate completion [OPTIONS] <SHELL> <BIN>
 .PP
@@ -325,15 +358,13 @@ Writes the script file and nothing else: no shell rc file and no PowerShell prof
 Replace a file at the target path that usage did not write
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A .usage.kdl spec file to use for generating completions, use "\-" to read from stdin
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .TP
 \fB\-\-cache\-key\fR \fI<CACHE_KEY>\fR
-A cache key to use for storing the results of calling the CLI with \-\-usage\-cmd
+Cache what \-\-usage\-cmd prints under this key, so it runs once per key rather than on every Tab; the CLI's version is a good key
 .TP
 \fB\-\-usage\-bin\fR \fI<USAGE_BIN>\fR
-Override the bin used for calling back to usage\-cli
-
-You may need to set this if you have a different bin named "usage"
+The `usage` executable the script calls back to, when it is not `usage` on PATH
 .RS
 \fIDefault: \fRusage
 .RE
@@ -342,7 +373,9 @@ You may need to set this if you have a different bin named "usage"
 .RE
 .TP
 \fB\-\-usage\-cmd\fR \fI<USAGE_CMD>\fR
-A command which generates a usage spec e.g.: `mycli \-\-usage` or `mycli completion usage` Defaults to "$bin \-\-usage"
+A command that prints the CLI's spec, run in place of reading \-\-file
+
+For a CLI that answers with its own spec, such as `mycli __usage_spec__`, so the script always completes the version that is installed. Required unless \-\-file is given.
 .TP
 \fB\-h, \-\-help\fR
 Print help
@@ -350,14 +383,14 @@ Print help
 .PP
 .TP
 \fB<SHELL>\fR
-Shell to generate completions for
+The shell to generate the script for
 .TP
 \fB<BIN>\fR
-The CLI which we're generating completions for
+The name of the CLI being completed, as it is typed at the prompt
 .SH "USAGE GENERATE COMPLETION-INIT"
-Generate a shell init script that auto\-completes any usage shebang script on $PATH
+Generate a shell init script that completes every usage\-shebang script on PATH
 
-Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab\-completion for any executable whose first line is a `usage` shebang — no per\-script `usage g completion` step required.
+Source it once from the shell's rc file and Tab works on any executable whose first line is a `usage` shebang, with no per\-script `usage generate completion` step. bash and zsh register a fallback completer that asks `usage complete\-word` when the command has such a shebang; fish has no fallback, so it scans PATH once at startup and registers each script it finds.
 .PP
 \fBUsage:\fR usage generate completion\-init [OPTIONS] <SHELL>
 .PP
@@ -365,9 +398,7 @@ Source the output once from your shell rc (e.g. ~/.bashrc) to enable tab\-comple
 .PP
 .TP
 \fB\-\-usage\-bin\fR \fI<USAGE_BIN>\fR
-Override the bin used for calling back to usage\-cli
-
-You may need to set this if you have a different bin named "usage"
+The `usage` executable the script calls back to, when it is not `usage` on PATH
 .RS
 \fIDefault: \fRusage
 .RE
@@ -381,9 +412,9 @@ Print help
 .PP
 .TP
 \fB<SHELL>\fR
-Shell to generate the init script for
+The shell to generate the script for
 .SH "USAGE GENERATE FIG"
-Generate Fig completion spec for Amazon Q / Fig
+Generate a Fig completion spec, for Amazon Q and Fig
 .PP
 \fBUsage:\fR usage generate fig [OPTIONS]
 .PP
@@ -391,13 +422,13 @@ Generate Fig completion spec for Amazon Q / Fig
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file, use "\-" to read from stdin
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .TP
 \fB\-\-out\-file\fR \fI<OUT_FILE>\fR
-File path where the generated Fig spec will be saved, or "\-" for stdout
+Where to write the spec, or "\-" for stdout (default)
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
-Raw string spec input
+The spec itself, as a string, instead of a file
 .TP
 \fB\-h, \-\-help\fR
 Print help
@@ -414,21 +445,23 @@ The tables are read by github.com/jdx/usage/go/argv. Go has no macros, so what a
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file, use "\-" to read from stdin
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .TP
 \fB\-o, \-\-out\-file\fR \fI<OUT_FILE>\fR
-File path where the generated Go source will be saved, or "\-" for stdout
+Where to write the Go source, or "\-" for stdout (default)
 .TP
 \fB\-p, \-\-package\fR \fI<PACKAGE>\fR
 Go package clause for the generated file (defaults to the spec's bin name)
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
-Raw string spec input
+The spec itself, as a string, instead of a file
 .TP
 \fB\-h, \-\-help\fR
 Print help
 .SH "USAGE GENERATE JSON"
-Outputs a usage spec in json format
+Print a usage spec as JSON
+
+The same document the KDL describes, with included files merged and defaults filled in, for a tool that would rather not parse KDL itself.
 .PP
 \fBUsage:\fR usage generate json [OPTIONS]
 .PP
@@ -436,10 +469,10 @@ Outputs a usage spec in json format
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file, use "\-" to read from stdin
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
-raw string spec input
+The spec itself, as a string, instead of a file
 .TP
 \fB\-\-view\fR \fI<VIEW>\fR
 Render one spec\-declared executable view
@@ -448,6 +481,8 @@ Render one spec\-declared executable view
 Print help
 .SH "USAGE GENERATE JSON-SCHEMA"
 Generate a JSON Schema for a CLI's config file from its usage spec
+
+Built from the spec's `config` block: each `prop` becomes a property with its type, default, and help, so an editor can complete and validate the file the CLI reads. A spec whose settings cannot live in a file is an error rather than an empty schema.
 .PP
 \fBUsage:\fR usage generate json\-schema [OPTIONS]
 .PP
@@ -455,13 +490,13 @@ Generate a JSON Schema for a CLI's config file from its usage spec
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file, use "\-" to read from stdin
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .TP
 \fB\-\-out\-file\fR \fI<OUT_FILE>\fR
 Write the schema here instead of to stdout
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
-raw string spec input
+The spec itself, as a string, instead of a file
 .TP
 \fB\-\-title\fR \fI<TITLE>\fR
 The schema's title, shown by editors
@@ -480,7 +515,7 @@ Generate a manpage from a usage spec
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file, use "\-" to read from stdin
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .TP
 \fB\-\-view\fR \fI<VIEW>\fR
 Render one spec\-declared executable view
@@ -499,7 +534,9 @@ Common sections: \- 1: User commands \- 5: File formats \- 7: Miscellaneous \- 8
 \fB\-h, \-\-help\fR
 Print help
 .SH "USAGE GENERATE MARKDOWN"
-Generate markdown documentation from usage specs
+Generate Markdown documentation from a usage spec
+
+One page by default, or a page per command with \-\-multi. Every part of the output comes from a Tera template that \-\-template can replace.
 .PP
 \fBUsage:\fR usage generate markdown [OPTIONS]
 .PP
@@ -507,7 +544,7 @@ Generate markdown documentation from usage specs
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file, use "\-" to read from stdin
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .TP
 \fB\-\-view\fR \fI<VIEW>\fR
 Render one spec\-declared executable view
@@ -519,7 +556,7 @@ Render each subcommand as a separate markdown file
 Escape HTML in markdown
 .TP
 \fB\-\-out\-dir\fR \fI<OUT_DIR>\fR
-Output markdown files to this directory (required when using \-\-multi)
+Directory for the per\-command pages (required with \-\-multi)
 .TP
 \fB\-\-out\-file\fR \fI<OUT_FILE>\fR
 Output file path for single\-file markdown generation, or "\-" for stdout (default)
@@ -528,15 +565,17 @@ Output file path for single\-file markdown generation, or "\-" for stdout (defau
 Replace `<pre>` tags with markdown code fences
 .TP
 \fB\-\-url\-prefix\fR \fI<URL_PREFIX>\fR
-Prefix to add to all URLs
+Prefix for the links between pages, such as /cli/reference
 .TP
 \fB\-\-template\fR \fI<TEMPLATE>\fR
-Override a Tera template with NAME=PATH
+Replace a built\-in Tera template, as NAME=PATH; the names are spec, index, command, argument, flag, and config
 .TP
 \fB\-h, \-\-help\fR
 Print help
 .SH "USAGE GENERATE SDK"
 Generate a type\-safe SDK from a usage spec
+
+The SDK is a subprocess wrapper: typed arguments, flags, and choices for every command, and a client that builds the argument list and runs the binary.
 .PP
 \fBUsage:\fR usage generate sdk [OPTIONS]
 .PP
@@ -544,24 +583,28 @@ Generate a type\-safe SDK from a usage spec
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-A usage spec taken in as a file
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .TP
 \fB\-l, \-\-language\fR \fI<LANGUAGE>\fR
 Target language for the SDK
 .TP
 \fB\-o, \-\-output\fR \fI<OUTPUT>\fR
-Output directory for generated SDK files
+Directory to write the SDK into
 .TP
 \fB\-p, \-\-package\-name\fR \fI<PACKAGE_NAME>\fR
 Override the package/module name (defaults to spec bin name)
 .TP
 \fB\-\-spec\fR \fI<SPEC>\fR
-Raw string spec input
+The spec itself, as a string, instead of a file
 .TP
 \fB\-h, \-\-help\fR
 Print help
 .SH "USAGE LINT"
-Lint a usage spec file for common issues
+Lint a usage spec for mistakes that still parse
+
+A spec can be valid KDL and still be wrong: a flag or subcommand declared twice, a required argument after an optional one, a variadic argument that is not last, a command or flag with no help, an example its own spec cannot parse. Each finding carries a code such as `duplicate\-flag`, and `\-\-format json` prints the findings as a list for a script to act on.
+
+Exits 1 when there is an error, or a warning under `\-\-warnings\-as\-errors`.
 .PP
 \fBUsage:\fR usage lint [OPTIONS] <FILE>
 .PP
@@ -588,12 +631,17 @@ Print help
 .PP
 .TP
 \fB<FILE>\fR
-A usage spec file to lint, use "\-" to read from stdin
+A usage spec file, or a script with a usage shebang; "\-" reads stdin
 .SH "USAGE MCP"
 Serve a usage spec over the Model Context Protocol
 
 Reads JSON\-RPC over stdin and writes responses to stdout, which is how MCP
 clients launch a local server. Point one at `usage mcp \-f mycli.usage.kdl`.
+
+Two tools are served: `list_commands`, every command with its effect, and
+`describe_command`, one command's help, flags, and arguments. Together they
+let an agent learn what a CLI does, and what running it would touch, without
+running it.
 .PP
 \fBUsage:\fR usage mcp [OPTIONS]
 .PP
@@ -601,20 +649,28 @@ clients launch a local server. Point one at `usage mcp \-f mycli.usage.kdl`.
 .PP
 .TP
 \fB\-f, \-\-file\fR \fI<FILE>\fR
-Usage spec file (not "\-": stdin is the MCP transport)
+A usage spec file, or a script with a usage shebang (not "\-": stdin is the MCP transport)
 .TP
 \fB\-s, \-\-spec\fR \fI<SPEC>\fR
-Raw string spec input
+The spec itself, as a string, instead of a file
 .TP
 \fB\-h, \-\-help\fR
 Print help
 .SH "USAGE POWERSHELL"
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 
-Typically, this will be called by a script's shebang.
+Usually reached through the script's shebang, `#!/usr/bin/env \-S usage bash`: the kernel
+hands the script and its arguments to `usage`, which parses them against the `#USAGE`
+lines at the top of the file and then runs the script with this shell. Each flag and
+argument reaches the script as an environment variable named `usage_<name>`, so
+`\-\-force` becomes `usage_force` and `<file>` becomes `usage_file`. A value declared
+`var=#true` arrives as one string, joined with `shell_words::join()` so that an element
+containing a space stays quoted.
 
-If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them.
+`\-h` and `\-\-help` print the script's help page rather than this one. The shell is found
+on PATH; `USAGECLI_SHELL_BASH`, `USAGECLI_SHELL_ZSH`, `USAGECLI_SHELL_FISH` and
+`USAGECLI_SHELL_PWSH` each name a different program to run instead, which is how
+`usage bash` is pointed at Git Bash on a Windows machine where `bash` is WSL.
 .PP
 \fBUsage:\fR usage powershell [OPTIONS] <SCRIPT> [<ARGS>] ...
 .PP
@@ -622,15 +678,18 @@ to properly escape and quote values with spaces in them.
 .PP
 .TP
 \fB\-h\fR
-Show help
+Print the script's help page instead of running it
 .TP
 \fB\-\-help\fR
-Show help
+Print the script's help page instead of running it
 \fBArguments:\fR
 .PP
 .TP
+\fB<SCRIPT>\fR
+The script to run; its spec is read from the `#USAGE` comments at the top of the file
+.TP
 \fB<ARGS>\fR
-Arguments to pass to script
+Arguments to pass to the script
 
 Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 .SH "USAGE SPONSORS"
@@ -644,12 +703,20 @@ Show the companies sponsoring usage and the jdx.dev open source tools
 \fB\-h, \-\-help\fR
 Print help
 .SH "USAGE ZSH"
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 
-Typically, this will be called by a script's shebang.
+Usually reached through the script's shebang, `#!/usr/bin/env \-S usage bash`: the kernel
+hands the script and its arguments to `usage`, which parses them against the `#USAGE`
+lines at the top of the file and then runs the script with this shell. Each flag and
+argument reaches the script as an environment variable named `usage_<name>`, so
+`\-\-force` becomes `usage_force` and `<file>` becomes `usage_file`. A value declared
+`var=#true` arrives as one string, joined with `shell_words::join()` so that an element
+containing a space stays quoted.
 
-If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them.
+`\-h` and `\-\-help` print the script's help page rather than this one. The shell is found
+on PATH; `USAGECLI_SHELL_BASH`, `USAGECLI_SHELL_ZSH`, `USAGECLI_SHELL_FISH` and
+`USAGECLI_SHELL_PWSH` each name a different program to run instead, which is how
+`usage bash` is pointed at Git Bash on a Windows machine where `bash` is WSL.
 .PP
 \fBUsage:\fR usage zsh [OPTIONS] <SCRIPT> [<ARGS>] ...
 .PP
@@ -657,15 +724,18 @@ to properly escape and quote values with spaces in them.
 .PP
 .TP
 \fB\-h\fR
-Show help
+Print the script's help page instead of running it
 .TP
 \fB\-\-help\fR
-Show help
+Print the script's help page instead of running it
 \fBArguments:\fR
 .PP
 .TP
+\fB<SCRIPT>\fR
+The script to run; its spec is read from the `#USAGE` comments at the top of the file
+.TP
 \fB<ARGS>\fR
-Arguments to pass to script
+Arguments to pass to the script
 
 Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 .SH SOURCE

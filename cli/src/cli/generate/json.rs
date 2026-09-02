@@ -3,15 +3,18 @@ use std::path::PathBuf;
 use usage::miette::IntoDiagnostic;
 use usage::miette::Result;
 
-/// Outputs a usage spec in json format
+/// Print a usage spec as JSON
+///
+/// The same document the KDL describes, with included files merged and defaults filled in,
+/// for a tool that would rather not parse KDL itself.
 #[derive(usage_rs::Args)]
 #[usage(effect = "read")]
 pub struct Json {
-    /// A usage spec taken in as a file, use "-" to read from stdin
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     #[usage(short, long)]
     file: Option<PathBuf>,
 
-    /// raw string spec input
+    /// The spec itself, as a string, instead of a file
     #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 

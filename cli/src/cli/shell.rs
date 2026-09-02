@@ -18,19 +18,20 @@ use crate::env;
 /// derive refuses two variants wrapping one — and the shell to run is the command that ran.
 #[derive(Debug, Args)]
 pub struct Shell {
+    /// The script to run; its spec is read from the `#USAGE` comments at the top of the file
     script: PathBuf,
 
-    /// Arguments to pass to script
+    /// Arguments to pass to the script
     ///
     /// Anything `usage` does not recognise is a value rather than a mistake, which is what
     /// lets a shebang script take flags of its own.
     args: Vec<String>,
 
-    /// Show help
+    /// Print the script's help page instead of running it
     #[usage(short)]
     h: bool,
 
-    /// Show help
+    /// Print the script's help page instead of running it
     #[usage(long)]
     help: bool,
 }
@@ -42,12 +43,20 @@ pub struct Shell {
 /// the derive reads it a macro call is not one.
 macro_rules! shell_command {
     ($ty:ident, $program:literal, $about:tt) => {
-        #[doc = "Execute a shell script with the specified shell"]
+        #[doc = "Run a script whose usage spec is written in its own comments"]
         #[doc = ""]
-        #[doc = "Typically, this will be called by a script's shebang."]
+        #[doc = "Usually reached through the script's shebang, `#!/usr/bin/env -S usage bash`: the kernel"]
+        #[doc = "hands the script and its arguments to `usage`, which parses them against the `#USAGE`"]
+        #[doc = "lines at the top of the file and then runs the script with this shell. Each flag and"]
+        #[doc = "argument reaches the script as an environment variable named `usage_<name>`, so"]
+        #[doc = "`--force` becomes `usage_force` and `<file>` becomes `usage_file`. A value declared"]
+        #[doc = "`var=#true` arrives as one string, joined with `shell_words::join()` so that an element"]
+        #[doc = "containing a space stays quoted."]
         #[doc = ""]
-        #[doc = "If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`"]
-        #[doc = "to properly escape and quote values with spaces in them."]
+        #[doc = "`-h` and `--help` print the script's help page rather than this one. The shell is found"]
+        #[doc = "on PATH; `USAGECLI_SHELL_BASH`, `USAGECLI_SHELL_ZSH`, `USAGECLI_SHELL_FISH` and"]
+        #[doc = "`USAGECLI_SHELL_PWSH` each name a different program to run instead, which is how"]
+        #[doc = "`usage bash` is pointed at Git Bash on a Windows machine where `bash` is WSL."]
         #[derive(Debug, Args)]
         // The words after the script are the script's, so a flag `usage` does not know is a
         // value to forward rather than a mistake to report — the root's `error` stops here.

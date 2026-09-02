@@ -7,10 +7,14 @@ use crate::schema::{config_schema, SchemaOptions};
 use usage::miette::Result;
 
 /// Generate a JSON Schema for a CLI's config file from its usage spec
+///
+/// Built from the spec's `config` block: each `prop` becomes a property with its type,
+/// default, and help, so an editor can complete and validate the file the CLI reads. A spec
+/// whose settings cannot live in a file is an error rather than an empty schema.
 #[derive(usage_rs::Args)]
 #[usage(effect = "read")]
 pub struct JsonSchema {
-    /// A usage spec taken in as a file, use "-" to read from stdin
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     #[usage(short, long)]
     file: Option<PathBuf>,
 
@@ -22,7 +26,7 @@ pub struct JsonSchema {
     )]
     out_file: Option<PathBuf>,
 
-    /// raw string spec input
+    /// The spec itself, as a string, instead of a file
     #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 

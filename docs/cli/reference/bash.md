@@ -5,21 +5,29 @@
 - **Usage:** `usage bash [-h] [--help] <SCRIPT> [ARGS]…`
 - **Source code:** [`cli/src/cli/shell.rs`](https://github.com/jdx/usage/blob/main/cli/src/cli/shell.rs)
 
-Execute a shell script with the specified shell
+Run a script whose usage spec is written in its own comments
 
-Typically, this will be called by a script's shebang.
+Usually reached through the script's shebang, `#!/usr/bin/env -S usage bash`: the kernel
+hands the script and its arguments to `usage`, which parses them against the `#USAGE`
+lines at the top of the file and then runs the script with this shell. Each flag and
+argument reaches the script as an environment variable named `usage_<name>`, so
+`--force` becomes `usage_force` and `<file>` becomes `usage_file`. A value declared
+`var=#true` arrives as one string, joined with `shell_words::join()` so that an element
+containing a space stays quoted.
 
-If using `var=#true` on args/flags, they will be joined with spaces using `shell_words::join()`
-to properly escape and quote values with spaces in them.
+`-h` and `--help` print the script's help page rather than this one. The shell is found
+on PATH; `USAGECLI_SHELL_BASH`, `USAGECLI_SHELL_ZSH`, `USAGECLI_SHELL_FISH` and
+`USAGECLI_SHELL_PWSH` each name a different program to run instead, which is how
+`usage bash` is pointed at Git Bash on a Windows machine where `bash` is WSL.
 
 ## Arguments
 
-- **`<SCRIPT>`**
-- **`[ARGS]…`** — Arguments to pass to script
+- **`<SCRIPT>`** — The script to run; its spec is read from the `#USAGE` comments at the top of the file
+- **`[ARGS]…`** — Arguments to pass to the script
 
   Anything `usage` does not recognise is a value rather than a mistake, which is what lets a shebang script take flags of its own.
 
 ## Flags
 
-- **`-h`** — Show help
-- **`--help`** — Show help
+- **`-h`** — Print the script's help page instead of running it
+- **`--help`** — Print the script's help page instead of running it

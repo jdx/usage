@@ -16,11 +16,11 @@ use crate::cli::generate;
 #[derive(Args)]
 #[usage(effect = "read")]
 pub struct Go {
-    /// A usage spec taken in as a file, use "-" to read from stdin
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     #[usage(short, long)]
     file: Option<PathBuf>,
 
-    /// File path where the generated Go source will be saved, or "-" for stdout
+    /// Where to write the Go source, or "-" for stdout (default)
     #[usage(
         short,
         long,
@@ -33,7 +33,7 @@ pub struct Go {
     #[usage(short, long)]
     package: Option<String>,
 
-    /// Raw string spec input
+    /// The spec itself, as a string, instead of a file
     #[usage(long, required_unless = "--file", overrides = "--file")]
     spec: Option<String>,
 }

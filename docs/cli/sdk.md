@@ -1,57 +1,47 @@
 # Generating Type-Safe SDKs
 
-Usage CLI can generate type-safe SDK client libraries from a Usage spec. The generated SDK is a
-**subprocess wrapper** -- it invokes your CLI binary via `subprocess.run` / `child_process.spawn`,
-not a native binding. It provides type definitions for arguments, flags,
-and choices, along with a client that constructs the correct CLI argument list for you.
-
-## When to Use This
-
-### CLIs without language bindings
-
-Popular tools like ffmpeg have hand-written bindings in many languages, but the vast majority of CLI
-tools don't. For tools like `restic`, `rclone`, `pandoc`, `age`, or any internal CLI, the only
-option has been to manually construct argument lists:
+A CLI without a client library is called the same way everywhere: a hand-built list of strings
+handed to `subprocess.run` or `child_process.spawn`, where a misspelled flag is found at runtime
+by whoever runs it. `usage generate sdk` derives the client from the spec instead. The result is
+a **subprocess wrapper**, not a native binding: typed definitions for every command's arguments,
+flags, and choices, and a client that builds the argument list and invokes the binary.
 
 ```python
-# before: stringly-typed, no autocomplete, typos slip through
+# before: stringly typed, no autocomplete, typos found at runtime
 subprocess.run(["rclone", "copy", src, dst, "--progress", "--transfers", "4"])
-```
 
-With a generated SDK:
-
-```python
-# after: typed, autocomplete, mistakes caught at lint time
+# after: typed, autocompleted, mistakes caught by the type checker
 rclone.copy(src, dst, progress=True, transfers=4)
 ```
 
-### Stay in sync with CLI versions
+## When it fits
 
-Hand-written bindings drift out of date when the CLI evolves. Generated SDKs solve this the same way
-Protobuf/gRPC does -- the spec is the source of truth, the SDK is a derived artifact:
+**CLIs without bindings.** A few tools such as ffmpeg have hand-written bindings in many
+languages. Most do not: `restic`, `rclone`, `pandoc`, `age`, and every internal CLI are called by
+assembling strings. A spec for the tool is enough to generate the binding.
+
+**Staying in sync.** Hand-written bindings drift as the CLI changes. A generated SDK is a derived
+artifact, the way Protobuf stubs are, so regenerating it on each release is the whole of the
+maintenance:
 
 ```sh
-# in CI, when you cut a new release:
 usage generate sdk -l python -o ./sdk/python/ -f ./mycli.usage.kdl
 git commit -m "chore: regenerate sdk from v2.3.0 spec"
 ```
 
-### Internal platform CLIs
-
-This is the strongest use case. Companies typically have internal CLIs for deployment, config
-management, database migrations, etc. Teams in different languages (Python scripts, TypeScript
-services, Rust tools) all need to call these CLIs, and each team independently writes fragile
-subprocess calls. With a Usage spec, you generate typed SDKs for all languages from a single source
-of truth:
+**Internal platform CLIs.** This is the strongest case. A company's deploy, config, and migration
+tools are called from Python scripts, TypeScript services, and Rust tools alike, and each team
+writes its own fragile subprocess calls. One spec generates a typed client for every language at
+once:
 
 ```ts
-// auto-generated, always in sync with the CLI
+// generated, and regenerated with the CLI
 import { deploy } from "@internal/platform-sdk";
 const result = await deploy({ env: "prod", service: "api", replicas: 3 });
-//                        ^ typed, choices-constrained, required-checked
+//                        ^ typed, choices constrained, required fields checked
 ```
 
-## Quick Start
+## Quick start
 
 Given a spec file `mycli.usage.kdl`:
 
@@ -59,7 +49,7 @@ Given a spec file `mycli.usage.kdl`:
 usage generate sdk -l typescript -o ./sdk -f ./mycli.usage.kdl
 ```
 
-This generates a complete SDK in the `./sdk` directory, ready to use:
+The `./sdk` directory is a complete package, ready to import:
 
 ```ts
 import { Mycli } from "./sdk";
@@ -74,13 +64,13 @@ if (result.ok) {
 }
 ```
 
-## Supported Languages
+## Supported languages
 
-| Language   | Flag            | Output Files                                         |
+| Language   | Flag            | Output files                                         |
 | ---------- | --------------- | ---------------------------------------------------- |
 | TypeScript | `-l typescript` | `types.ts`, `client.ts`, `runtime.ts`, `index.ts`    |
 | Python     | `-l python`     | `types.py`, `client.py`, `runtime.py`, `__init__.py` |
-| Rust       | Coming soon     |                                                      |
+| Rust       | planned         |                                                      |
 
 ### TypeScript
 
@@ -88,9 +78,8 @@ if (result.ok) {
 usage generate sdk -l typescript -o ./sdk -f ./mycli.usage.kdl
 ```
 
-Generates ES module files with full type annotations. The client uses `spawn` from
-`node:child_process` under the hood and all `exec()` methods are async, returning
-`Promise<CliResult>`.
+ES modules with full type annotations. The client spawns the binary with `node:child_process`,
+so every `exec()` is async and returns a `Promise<CliResult>`.
 
 ```ts
 import { Mycli, BuildArgs, BuildFlags } from "./sdk";
@@ -108,8 +97,8 @@ const result = await cli.build.exec(
 usage generate sdk -l python -o ./sdk -f ./mycli.usage.kdl
 ```
 
-Generates a Python package with `@dataclass` type definitions and type annotations. The client uses
-`subprocess.run` under the hood.
+A package of `@dataclass` types with annotations throughout. The client runs the binary with
+`subprocess.run`.
 
 ```python
 from sdk import Mycli, BuildArgs, BuildFlags
@@ -123,34 +112,29 @@ if result.ok:
     print(result.stdout)
 ```
 
-### Rust
+## How it works
 
-_Rust SDK support is coming soon._
+Each SDK is three modules:
 
-## How It Works
+1. **Types.** A definition for every command's args and flags. `choices` become union types in
+   TypeScript and `Literal` types in Python, and global flags are repeated on every subcommand's
+   flag type so that they can be passed where they are used.
 
-Each generated SDK consists of three parts:
+2. **Client.** A nested class hierarchy mirroring the subcommand tree. Each node has an `exec()`
+   that assembles the argument list and runs the binary; one helper handles value flags, boolean
+   flags, count flags, negated flags, and repeatable flags.
 
-1. **Types module** -- Type definitions for every command's args and flags. Choice constraints are
-   rendered as union types (TypeScript) or `Literal` types (Python).
-   Global flags are propagated to all subcommand flag types.
-
-2. **Client module** -- A nested class/struct hierarchy mirroring the subcommand tree. Each node has
-   an `exec()` method that constructs the CLI argument list and invokes the binary. Flag arguments
-   are built via a helper method that handles value flags, boolean flags, count flags, negate flags,
-   and repeatable flags.
-
-3. **Runtime module** -- A small, static module containing `CliResult` (stdout, stderr, exit code)
-   and `CliRunner` (the subprocess invocation logic). This module is identical across all SDKs
-   generated from the same language target.
+3. **Runtime.** A small static module holding `CliResult` (stdout, stderr, exit code) and
+   `CliRunner`, the subprocess call. It is identical across every SDK generated for the same
+   language.
 
 ## Structured and streaming outputs
 
 When a command [declares structured outputs](/spec/reference/output), the SDK keeps `exec()` for
-raw text and adds a method matching each wire format. A `json` output produces `execJson()` in
-TypeScript and `exec_json()` in Python; a `jsonl` output produces an async iterable or iterator
-that parses one document at a time. The generated result still carries stderr and the exit code,
-because a documented nonzero status may accompany valid structured output.
+raw text and adds a method per wire format. A `json` output produces `execJson()` in TypeScript
+and `exec_json()` in Python; a `jsonl` output produces an async iterable or an iterator that
+parses one document at a time. The result still carries stderr and the exit code, because a
+documented nonzero status may accompany valid structured output.
 
-Declared JSON Schemas are exported as string constants, and declared exit statuses become a table
-and a literal-union type in the generated types module.
+Declared JSON Schemas are exported as string constants, and declared exit statuses become a
+table and a literal-union type in the types module.

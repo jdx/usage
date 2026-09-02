@@ -8,11 +8,18 @@ use usage::{Parser, Spec, SpecArg, SpecCommand, SpecFlag, SpecFlagAction};
 use crate::cli::generate::parse_file_or_stdin;
 use crate::cli::{empty_mount_answers, OutputFormat};
 
-/// Lint a usage spec file for common issues
+/// Lint a usage spec for mistakes that still parse
+///
+/// A spec can be valid KDL and still be wrong: a flag or subcommand declared twice, a required
+/// argument after an optional one, a variadic argument that is not last, a command or flag
+/// with no help, an example its own spec cannot parse. Each finding carries a code such as
+/// `duplicate-flag`, and `--format json` prints the findings as a list for a script to act on.
+///
+/// Exits 1 when there is an error, or a warning under `--warnings-as-errors`.
 #[derive(usage_rs::Args)]
 #[usage(effect = "read")]
 pub struct Lint {
-    /// A usage spec file to lint, use "-" to read from stdin
+    /// A usage spec file, or a script with a usage shebang; "-" reads stdin
     file: PathBuf,
 
     /// Output format
