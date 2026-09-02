@@ -353,7 +353,7 @@
         "hide": false,
         "args_override_self": true,
         "help": "Run a script through any interpreter, with its parsed arguments as environment variables",
-        "help_long": "Run a script through any interpreter, with its parsed arguments as environment variables\n\nFor scripts in a language `usage` has no dedicated command for. A shebang of `#!/usr/bin/env -S usage exec node` parses the arguments against the `USAGE` comments at the top of the file, then runs `node <script> <args>` with each flag and argument exported as `usage_<name>`. When a file named `.<script>.usage.kdl` sits beside the script, the spec is read from it instead of from the comments.\n\n`-h` and `--help` print the script's help page rather than this one.",
+        "help_long": "Run a script through any interpreter, with its parsed arguments as environment variables\n\nFor scripts in a language `usage` has no dedicated command for. A shebang of `#!/usr/bin/env -S usage exec node` parses the arguments against the `USAGE` comments at the top of the file, then runs `node <script> <args>` with each flag and argument exported as `usage_<name>`. When a file named `.<script>.usage.kdl` sits beside the script, the spec is read from it instead of from the comments.\n\n`-h` and `--help` belong to the script once one is named, so they print its help page rather than this one. Asked with no script to describe, they print this page.",
         "name": "exec",
         "aliases": ["x"],
         "hidden_aliases": [],

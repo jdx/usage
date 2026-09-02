@@ -18,7 +18,8 @@ use crate::env;
 /// `usage_<name>`. When a file named `.<script>.usage.kdl` sits beside the script, the spec is
 /// read from it instead of from the comments.
 ///
-/// `-h` and `--help` print the script's help page rather than this one.
+/// `-h` and `--help` belong to the script once one is named, so they print its help page
+/// rather than this one. Asked with no script to describe, they print this page.
 #[derive(Debug, Args)]
 // The words after the script are the script's, so a flag `usage` does not know is a value to
 // forward rather than a mistake to report — the root's `error` stops here.

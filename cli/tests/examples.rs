@@ -245,9 +245,9 @@ fn test_exec_help_without_a_script() {
 
             cmd.assert()
                 .success()
-                .stdout(contains(
-                    "Execute a script, parsing args and exposing them as environment variables",
-                ))
+                // A fragment rather than the whole first line: the renderer wraps the page to
+                // the terminal width, so a full sentence can arrive with a newline in it.
+                .stdout(contains("Run a script through any interpreter"))
                 .stdout(contains("Usage: usage exec"))
                 .stdout(contains("<COMMAND>"))
                 .stdout(contains("<BIN>"))
