@@ -27,7 +27,7 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       - uses: ./.github/actions/mbx
         with:
-          backend: ${{ inputs.trusted && 'local' || 'github' }}
+          backend: ${{ inputs.trusted && 'local' || 'server' }}
       # Retries and a longer wait, rather than being allowed to fail. `cli`'s completion
       # tests refuse to skip a missing shell when `CI` is set — see
       # `skip_if_shell_missing` — which is a deliberate policy this step exists to keep:
@@ -245,7 +245,7 @@ jobs:
           install_args: mr-boxington
       - uses: ./.github/actions/mbx
         with:
-          backend: ${{ inputs.trusted && 'local' || 'github' }}
+          backend: ${{ inputs.trusted && 'local' || 'server' }}
       - name: they build at the version they claim
         run: |
           for crate in ${{ matrix.crates }}; do
