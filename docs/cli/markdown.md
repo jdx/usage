@@ -28,10 +28,9 @@ docs
 └── update.md
 ```
 
-Links between the pages are relative to that directory; `--url-prefix /cli/reference` roots
-them at a site path instead. Help text is wrapped in `<pre>` so that its line breaks survive
-any renderer; `--replace-pre-with-code-fences` swaps those for fenced code blocks, which is
-what a renderer with syntax highlighting wants.
+Links between the pages are written from the root of the output, as `/bash.md`.
+`--url-prefix /cli/reference` puts a path in front of them, `/cli/reference/bash.md`, which is
+what a docs site serving the pages under a subdirectory needs.
 
 ## Custom templates from the CLI
 

@@ -23,7 +23,7 @@ script whose `#USAGE` comments declare it, or `-` for stdin. A binary built with
 [Rust framework](/rust/) prints its own spec, so documenting it needs no file at all:
 
 ```sh
-mycli __usage_spec__ | usage generate markdown -f - --out-dir docs
+mycli __usage_spec__ | usage generate markdown -mf - --out-dir docs
 ```
 
 The [reference](/cli/reference/) lists every command and flag. It is generated from `usage`'s
