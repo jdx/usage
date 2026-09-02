@@ -174,14 +174,13 @@ jobs:
           (
             cd "$base_worktree"
             mbx build --release
-            taskset -c 0-3 mise run perf:record
+            taskset -c 0-3 tak run --record
           )
 
       # `--record` writes a git note locally and nothing more. There is no
       # `tak push` in this workflow and there should never be one.
       - name: Measure this pull request
         run: |
-          mbx build --release
           taskset -c 0-3 mise run perf:record
 
       # Reported, never gated: the shadow is a fixture that grows as the derive learns to
