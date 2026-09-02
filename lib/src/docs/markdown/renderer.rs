@@ -69,7 +69,7 @@ fn escape_md_with_indent(value: &str, html_encode: bool, indent: bool) -> String
                 line.to_string()
             } else {
                 // Indented code is handled before fence state. This is safe because
-                // `replace_code_fences` always emits closing fences at column zero.
+                // `fence_indented_blocks` always emits closing fences at column zero.
                 if line.starts_with("    ") {
                     line.to_string()
                 } else if in_fenced_code_block {
@@ -77,7 +77,7 @@ fn escape_md_with_indent(value: &str, html_encode: bool, indent: bool) -> String
                         in_fenced_code_block = false;
                     }
                     line.to_string()
-                // Support the conventional fence shape emitted by `replace_code_fences`
+                // Support the conventional fence shape emitted by `fence_indented_blocks`
                 // without attempting to parse the full Markdown specification.
                 } else if line
                     .strip_prefix("```")
@@ -113,42 +113,65 @@ fn escape_md(value: &str, html_encode: bool) -> String {
 
 #[derive(Debug, Clone)]
 pub struct MarkdownRenderer {
-    pub(crate) spec: Spec,
-    /// The config block as the spec wrote it, before any rendering.
+    /// The spec as its author wrote it, before any rendering.
     ///
-    /// `new` renders the whole docs model eagerly, which happens *before* the builder methods
-    /// that set `replace_pre_with_code_fences` and friends — and rendering marks each item
-    /// done, so a later pass no-ops. `render_cmd` avoids this by re-deriving from the raw
-    /// command its caller hands it; config has no such argument, so the raw form is kept here
-    /// instead. Without it, `--replace-pre-with-code-fences` silently did nothing to a
-    /// setting's long help.
-    pub(crate) raw_config: crate::spec::config::SpecConfig,
+    /// Kept because rendering depends on the builder options, and the builders run *after*
+    /// [`Self::new`]. Rendering eagerly in `new` read options nobody had set yet, and because
+    /// rendering marks each item done, the later pass with the real options no-opped — which
+    /// is how `--indented-blocks-to-code-fences` came to do nothing at all on single-file
+    /// output. The rendered model is derived from this on first use instead, so it always sees
+    /// the options the caller actually asked for.
+    raw: crate::Spec,
+    /// The rendered docs model, derived from [`Self::raw`] on first use by [`Self::spec`].
+    ///
+    /// Every builder clears this, so an option set after a render still takes effect.
+    ///
+    /// A `OnceLock` rather than a `OnceCell` so the renderer stays `Sync` and `RefUnwindSafe`
+    /// for callers that hold one across threads — a `OnceCell` here would take those away.
+    spec: std::sync::OnceLock<Spec>,
     pub(crate) header_level: usize,
     pub(crate) multi: bool,
     url_prefix: Option<String>,
     html_encode: bool,
-    replace_pre_with_code_fences: bool,
+    indented_blocks_to_code_fences: bool,
     theme: MarkdownTheme,
     templates: Vec<(MarkdownTemplate, String)>,
 }
 
 impl MarkdownRenderer {
     pub fn new(spec: crate::Spec) -> Self {
-        let mut renderer = Self {
-            raw_config: spec.config.clone(),
-            spec: spec.into(),
+        Self {
+            raw: spec,
+            spec: std::sync::OnceLock::new(),
             header_level: 1,
             multi: false,
             url_prefix: None,
             html_encode: true,
-            replace_pre_with_code_fences: false,
+            indented_blocks_to_code_fences: false,
             theme: MarkdownTheme::default(),
             templates: Vec::new(),
-        };
-        let mut spec = renderer.spec.clone();
-        spec.render_md(&renderer);
-        renderer.spec = spec;
-        renderer
+        }
+    }
+
+    /// The rendered docs model, built on first use from the options set by then.
+    pub(crate) fn spec(&self) -> &Spec {
+        self.spec.get_or_init(|| {
+            // By reference: `From<&Spec>` already clones internally, so handing it an owned
+            // spec clones the whole tree twice.
+            let mut spec = Spec::from(&self.raw);
+            spec.render_md(self);
+            spec
+        })
+    }
+
+    /// Apply a builder option and drop any model rendered under the old options.
+    ///
+    /// Every `with_*` goes through this. A builder that set its field directly would leave a
+    /// model rendered without its option behind, which is the bug this type already had once.
+    fn with(mut self, set: impl FnOnce(&mut Self)) -> Self {
+        set(&mut self);
+        self.spec = std::sync::OnceLock::new();
+        self
     }
 
     /// The file name the settings page gets in `--multi` mode.
@@ -173,7 +196,7 @@ impl MarkdownRenderer {
     /// so the one case left is reported rather than guessed at.
     pub fn config_page_collision(&self) -> Option<&str> {
         let stem = self.config_page().trim_end_matches(".md");
-        self.spec
+        self.spec()
             .cmd
             .subcommands
             .values()
@@ -181,35 +204,40 @@ impl MarkdownRenderer {
             .map(|cmd| cmd.name.as_str())
     }
 
-    pub fn with_header_level(mut self, header_level: usize) -> Self {
-        self.header_level = header_level;
-        self
+    pub fn with_header_level(self, header_level: usize) -> Self {
+        self.with(|r| r.header_level = header_level)
     }
 
-    pub fn with_multi(mut self, index: bool) -> Self {
-        self.multi = index;
-        self
+    pub fn with_multi(self, index: bool) -> Self {
+        self.with(|r| r.multi = index)
     }
 
-    pub fn with_url_prefix<S: Into<String>>(mut self, url_prefix: S) -> Self {
-        self.url_prefix = Some(url_prefix.into());
-        self
+    pub fn with_url_prefix<S: Into<String>>(self, url_prefix: S) -> Self {
+        self.with(|r| r.url_prefix = Some(url_prefix.into()))
     }
 
-    pub fn with_html_encode(mut self, html_encode: bool) -> Self {
-        self.html_encode = html_encode;
-        self
+    pub fn with_html_encode(self, html_encode: bool) -> Self {
+        self.with(|r| r.html_encode = html_encode)
     }
 
-    pub fn with_replace_pre_with_code_fences(mut self, replace_pre_with_code_fences: bool) -> Self {
-        self.replace_pre_with_code_fences = replace_pre_with_code_fences;
-        self
+    /// Turn four-space indented blocks in help text into fenced code blocks.
+    pub fn with_indented_blocks_to_code_fences(self, indented_blocks_to_code_fences: bool) -> Self {
+        self.with(|r| r.indented_blocks_to_code_fences = indented_blocks_to_code_fences)
+    }
+
+    /// The former name of [`Self::with_indented_blocks_to_code_fences`]. Prefer that one.
+    ///
+    /// A misnomer from the start: no `<pre>` tag was ever involved. Kept, rather than renamed
+    /// out from under callers, so an existing docs build kept compiling — and left in the
+    /// public API rather than `#[doc(hidden)]`, because hiding it is itself the kind of
+    /// removal that costs downstreams a major version.
+    pub fn with_replace_pre_with_code_fences(self, indented_blocks_to_code_fences: bool) -> Self {
+        self.with_indented_blocks_to_code_fences(indented_blocks_to_code_fences)
     }
 
     /// Select a built-in Markdown presentation.
-    pub fn with_theme(mut self, theme: MarkdownTheme) -> Self {
-        self.theme = theme;
-        self
+    pub fn with_theme(self, theme: MarkdownTheme) -> Self {
+        self.with(|r| r.theme = theme)
     }
 
     /// Replace one built-in Markdown template.
@@ -218,23 +246,24 @@ impl MarkdownRenderer {
     /// templates it did not replace; for example, a custom [`MarkdownTemplate::Spec`] can still
     /// contain `{% include "cmd_template.md.tera" %}`. Replacing the same member more than once
     /// uses the last value. Syntax and include errors are returned by the render method.
-    pub fn with_template(mut self, template: MarkdownTemplate, source: impl Into<String>) -> Self {
+    pub fn with_template(self, template: MarkdownTemplate, source: impl Into<String>) -> Self {
         let source = source.into();
-        if let Some((_, current)) = self
-            .templates
-            .iter_mut()
-            .find(|(current, _)| *current == template)
-        {
-            *current = source;
-        } else {
-            self.templates.push((template, source));
-        }
-        self
+        self.with(|r| {
+            if let Some((_, current)) = r
+                .templates
+                .iter_mut()
+                .find(|(current, _)| *current == template)
+            {
+                *current = source;
+            } else {
+                r.templates.push((template, source));
+            }
+        })
     }
 
     fn tera_ctx(&self) -> tera::Context {
         let mut ctx = tera::Context::new();
-        ctx.insert("spec", &self.spec);
+        ctx.insert("spec", self.spec());
         ctx.insert("header_level", &self.header_level);
         ctx.insert("multi", &self.multi);
         ctx.insert("url_prefix", &self.url_prefix);
@@ -289,8 +318,9 @@ impl MarkdownRenderer {
         Ok(tera.render(template_name, &ctx)?)
     }
 
-    pub(crate) fn replace_code_fences(&self, md: String) -> String {
-        if !self.replace_pre_with_code_fences {
+    /// Rewrite four-space indented blocks as fenced ones, when the caller asked for it.
+    pub(crate) fn fence_indented_blocks(&self, md: String) -> String {
+        if !self.indented_blocks_to_code_fences {
             return md;
         }
         // TODO: handle fences inside of <pre> or <code>

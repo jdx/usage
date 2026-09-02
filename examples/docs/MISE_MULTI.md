@@ -50,11 +50,15 @@ This should go into your shell's rc file or login shell. Otherwise, it will only
 
 Typically, this can be added with something like the following:
 
-    echo 'eval "$(mise activate zsh)"' >> ~/.zshrc
+```
+echo 'eval "$(mise activate zsh)"' >> ~/.zshrc
+```
 
 However, this requires that "mise" is in your PATH. If it is not, you need to specify the full path like this:
 
-    echo 'eval "$(/path/to/mise activate zsh)"' >> ~/.zshrc
+```
+echo 'eval "$(/path/to/mise activate zsh)"' >> ~/.zshrc
+```
 
 Customize status output with `status` settings.
 
@@ -71,18 +75,22 @@ Customize status output with `status` settings.
 - **`--shims`** — Use shims instead of modifying PATH
   Effectively the same as:
 
-      PATH="$HOME/.local/share/mise/shims:$PATH"
+  ```
+  PATH="$HOME/.local/share/mise/shims:$PATH"
+  ```
 
   `mise activate --shims` does not support all the features of `mise activate`.
   See https://mise.jdx.dev/dev-tools/shims.html#shims-vs-path for more information
 
 Examples:
 
-    $ eval "$(mise activate bash)"
-    $ eval "$(mise activate zsh)"
-    $ mise activate fish | source
-    $ execx($(mise activate xonsh))
-    $ (&mise activate pwsh) | Out-String | Invoke-Expression
+```
+$ eval "$(mise activate bash)"
+$ eval "$(mise activate zsh)"
+$ mise activate fish | source
+$ execx($(mise activate xonsh))
+$ (&mise activate pwsh) | Out-String | Invoke-Expression
+```
 
 ## `mise tool-alias`
 
@@ -110,8 +118,10 @@ This is the contents of a tool_alias.<TOOL> entry in ~/.config/mise/config.toml
 
 Examples:
 
-    $ mise tool-alias get node lts-hydrogen
-    20.0.0
+```
+$ mise tool-alias get node lts-hydrogen
+20.0.0
+```
 
 ## `mise tool-alias ls`
 
@@ -125,8 +135,10 @@ These can come from user config or from plugins in `bin/list-aliases`.
 
 For user config, aliases are defined like the following in `~/.config/mise/config.toml`:
 
-    [tool_alias.node.versions]
-    lts = "22.0.0"
+```
+[tool_alias.node.versions]
+lts = "22.0.0"
+```
 
 ### Arguments
 - **`[TOOL]`** — Show aliases for <TOOL>
@@ -136,8 +148,10 @@ For user config, aliases are defined like the following in `~/.config/mise/confi
 
 Examples:
 
-    $ mise tool-alias ls
-    node  lts-jod      22
+```
+$ mise tool-alias ls
+node  lts-jod      22
+```
 
 ## `mise tool-alias set`
 
@@ -156,8 +170,10 @@ This modifies the contents of ~/.config/mise/config.toml
 
 Examples:
 
-    $ mise tool-alias set maven asdf:mise-plugins/mise-maven
-    $ mise tool-alias set node lts-jod 22.0.0
+```
+$ mise tool-alias set maven asdf:mise-plugins/mise-maven
+$ mise tool-alias set node lts-jod 22.0.0
+```
 
 ## `mise tool-alias unset`
 
@@ -175,8 +191,10 @@ This modifies the contents of ~/.config/mise/config.toml
 
 Examples:
 
-    $ mise tool-alias unset maven
-    $ mise tool-alias unset node lts-jod
+```
+$ mise tool-alias unset maven
+$ mise tool-alias unset node lts-jod
+```
 
 ## `mise backends`
 
@@ -200,19 +218,21 @@ List built-in backends
 
 Examples:
 
-    $ mise backends ls
-    aqua
-    asdf
-    cargo
-    core
-    dotnet
-    gem
-    go
-    npm
-    pipx
-    spm
-    ubi
-    vfox
+```
+$ mise backends ls
+aqua
+asdf
+cargo
+core
+dotnet
+gem
+go
+npm
+pipx
+spm
+ubi
+vfox
+```
 
 ## `mise bin-paths`
 
@@ -257,19 +277,29 @@ Runs the bootstrap steps for the current config in order:
 9. `mise bootstrap mise-shell-activate apply` — configure shell activation
    from `[bootstrap.mise_shell_activate]`
 10. `mise bootstrap macos defaults apply` — write
-    `[bootstrap.macos.defaults]` entries (macOS)
-    surrounded by `pre-defaults`/`post-defaults` hooks
+```
+`[bootstrap.macos.defaults]` entries (macOS)
+surrounded by `pre-defaults`/`post-defaults` hooks
+```
 11. `mise bootstrap macos launchd-agents apply` — install/load
-    `[bootstrap.macos.launchd.agents]`
+```
+`[bootstrap.macos.launchd.agents]`
+```
 12. `mise bootstrap linux systemd-units apply` — install/start
-    `[bootstrap.linux.systemd.units]`
+```
+`[bootstrap.linux.systemd.units]`
+```
 13. `mise bootstrap user apply` — set `[bootstrap.user].login_shell`
-    (Unix)
-    surrounded by `pre-user`/`post-user` hooks
+```
+(Unix)
+surrounded by `pre-user`/`post-user` hooks
+```
 14. `mise install` — install missing tools from `[tools]`
-    surrounded by `pre-tools`/`post-tools` hooks; package-plugin entries
-    from `[bootstrap.packages]` install afterward, followed by
-    `[bootstrap.hooks.post-packages]`
+```
+surrounded by `pre-tools`/`post-tools` hooks; package-plugin entries
+from `[bootstrap.packages]` install afterward, followed by
+`[bootstrap.hooks.post-packages]`
+```
 15. `mise run bootstrap` — if a task named `bootstrap` is defined 16. `[bootstrap.hooks.final]` — optional final hook
 
 The declarative steps converge — anything already in its desired state is skipped, so re-running is safe. The `bootstrap` task runs on every invocation; keep it idempotent. Use it for any project-specific setup that doesn't fit the declarative sections (seeding databases, auth flows, etc.) — it runs with the installed tools on PATH.
@@ -295,20 +325,22 @@ Use `--skip <part>` to skip named parts, or `--only <part>` to run just named pa
 
 Examples:
 
-    $ mise bootstrap                    # packages + repos + dotfiles + tools + bootstrap task
-    $ mise bootstrap --force-dotfiles   # replace conflicting dotfile targets
-    $ mise bootstrap --skip tools,task  # skip tool installation and the bootstrap task
-    $ mise bootstrap --only tools       # run just tool installation
-    $ mise bootstrap status --missing
-    $ mise bootstrap packages apply --yes
-    $ mise bootstrap repos status
-    $ mise bootstrap repos apply --dry-run
-    $ mise bootstrap dotfiles status
-    $ mise bootstrap mise-shell-activate apply --dry-run
-    $ mise bootstrap macos defaults status
-    $ mise bootstrap macos launchd-agents apply --dry-run
-    $ mise bootstrap linux systemd-units apply --dry-run
-    $ mise bootstrap user apply --dry-run
+```
+$ mise bootstrap                    # packages + repos + dotfiles + tools + bootstrap task
+$ mise bootstrap --force-dotfiles   # replace conflicting dotfile targets
+$ mise bootstrap --skip tools,task  # skip tool installation and the bootstrap task
+$ mise bootstrap --only tools       # run just tool installation
+$ mise bootstrap status --missing
+$ mise bootstrap packages apply --yes
+$ mise bootstrap repos status
+$ mise bootstrap repos apply --dry-run
+$ mise bootstrap dotfiles status
+$ mise bootstrap mise-shell-activate apply --dry-run
+$ mise bootstrap macos defaults status
+$ mise bootstrap macos launchd-agents apply --dry-run
+$ mise bootstrap linux systemd-units apply --dry-run
+$ mise bootstrap user apply --dry-run
+```
 
 ## `mise bootstrap accounts`
 
@@ -400,9 +432,11 @@ If the target is already managed, this updates its source from the live target. 
 
 Examples:
 
-    $ mise bootstrap dotfiles add ~/.zshrc
-    $ mise bootstrap dotfiles add --mode copy ~/.config/starship.toml
-    $ mise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig
+```
+$ mise bootstrap dotfiles add ~/.zshrc
+$ mise bootstrap dotfiles add --mode copy ~/.config/starship.toml
+$ mise bootstrap dotfiles add --source dotfiles/gitconfig ~/.gitconfig
+```
 
 ## `mise bootstrap dotfiles apply`
 
@@ -423,9 +457,11 @@ Applies configured whole-file entries and edits that aren't in their desired sta
 
 Examples:
 
-    $ mise bootstrap dotfiles apply
-    $ mise bootstrap dotfiles apply --dry-run
-    $ mise bootstrap dotfiles apply --force --yes
+```
+$ mise bootstrap dotfiles apply
+$ mise bootstrap dotfiles apply --dry-run
+$ mise bootstrap dotfiles apply --force --yes
+```
 
 ## `mise bootstrap dotfiles edit`
 
@@ -445,8 +481,10 @@ Edit a managed dotfile source
 
 Examples:
 
-    $ mise bootstrap dotfiles edit ~/.zshrc
-    $ mise bootstrap dotfiles edit --apply ~/.config/starship.toml
+```
+$ mise bootstrap dotfiles edit ~/.zshrc
+$ mise bootstrap dotfiles edit --apply ~/.config/starship.toml
+```
 
 ## `mise bootstrap dotfiles status`
 
@@ -465,10 +503,12 @@ Show the status of dotfiles from `[dotfiles]`
 
 Examples:
 
-    $ mise bootstrap dotfiles status
-    $ mise bootstrap dotfiles status ~/.zshrc
-    $ mise bootstrap dotfiles status --json
-    $ mise bootstrap dotfiles status --missing # exit 1 if anything is out of sync
+```
+$ mise bootstrap dotfiles status
+$ mise bootstrap dotfiles status ~/.zshrc
+$ mise bootstrap dotfiles status --json
+$ mise bootstrap dotfiles status --missing # exit 1 if anything is out of sync
+```
 
 ## `mise bootstrap dotfiles unapply`
 
@@ -489,10 +529,12 @@ Removes configured whole-file entries and edits while preserving files mise cann
 
 Examples:
 
-    $ mise bootstrap dotfiles unapply
-    $ mise bootstrap dotfiles unapply ~/.zshrc
-    $ mise bootstrap dotfiles unapply --dry-run
-    $ mise bootstrap dotfiles unapply --force --yes
+```
+$ mise bootstrap dotfiles unapply
+$ mise bootstrap dotfiles unapply ~/.zshrc
+$ mise bootstrap dotfiles unapply --dry-run
+$ mise bootstrap dotfiles unapply --force --yes
+```
 
 ## `mise bootstrap files`
 
@@ -735,10 +777,12 @@ Packages can also be given explicitly in `manager:package` form (e.g. `apk:zlib-
 
 Examples:
 
-    $ mise bootstrap packages apply
-    $ mise bootstrap packages apply apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox flatpak-user:org.gnome.Builder mas:497799835
-    $ mise bootstrap packages apply --dry-run
-    $ mise bootstrap packages apply --manager apt --yes
+```
+$ mise bootstrap packages apply
+$ mise bootstrap packages apply apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox flatpak-user:org.gnome.Builder mas:497799835
+$ mise bootstrap packages apply --dry-run
+$ mise bootstrap packages apply --manager apt --yes
+```
 
 ## `mise bootstrap packages brew`
 
@@ -769,8 +813,10 @@ Add a Homebrew tap URL to [bootstrap.brew.taps]
 
 Examples:
 
-    $ mise bootstrap packages brew tap railwaycat/emacsmacport
-    $ mise bootstrap packages brew tap acme/tools https://github.com/acme/homebrew-tools.git
+```
+$ mise bootstrap packages brew tap railwaycat/emacsmacport
+$ mise bootstrap packages brew tap acme/tools https://github.com/acme/homebrew-tools.git
+```
 
 ## `mise bootstrap packages brew untap`
 
@@ -792,7 +838,9 @@ Remove Homebrew tap URLs from [bootstrap.brew.taps]
 
 Examples:
 
-    $ mise bootstrap packages brew untap railwaycat/emacsmacport
+```
+$ mise bootstrap packages brew untap railwaycat/emacsmacport
+```
 
 ## `mise bootstrap packages import`
 
@@ -819,10 +867,12 @@ Currently supports Homebrew formulae only. By default, imports linked formulae w
 
 Examples:
 
-    $ mise bootstrap packages import --manager brew
-    $ mise bootstrap packages import --manager brew --all
-    $ mise bootstrap packages import --manager brew --global
-    $ mise bootstrap packages import --manager brew --dry-run
+```
+$ mise bootstrap packages import --manager brew
+$ mise bootstrap packages import --manager brew --all
+$ mise bootstrap packages import --manager brew --global
+$ mise bootstrap packages import --manager brew --dry-run
+```
 
 ## `mise bootstrap packages prune`
 
@@ -844,10 +894,12 @@ Supports Homebrew formulae and conservatively removable, mise-owned casks. Pruni
 
 Examples:
 
-    $ mise bootstrap packages prune --manager brew
-    $ mise bootstrap packages prune --manager brew --dry-run
-    $ mise bootstrap packages prune --manager brew --yes
-    $ mise bootstrap packages prune --manager brew-cask --dry-run
+```
+$ mise bootstrap packages prune --manager brew
+$ mise bootstrap packages prune --manager brew --dry-run
+$ mise bootstrap packages prune --manager brew --yes
+$ mise bootstrap packages prune --manager brew-cask --dry-run
+```
 
 ## `mise bootstrap packages status`
 
@@ -863,9 +915,11 @@ Show the status of system packages from `[bootstrap.packages]`
 
 Examples:
 
-    $ mise bootstrap packages status
-    $ mise bootstrap packages status --json
-    $ mise bootstrap packages status --missing # exit 1 if anything is out of sync
+```
+$ mise bootstrap packages status
+$ mise bootstrap packages status --json
+$ mise bootstrap packages status --missing # exit 1 if anything is out of sync
+```
 
 ## `mise bootstrap packages upgrade`
 
@@ -890,12 +944,14 @@ Packages can also be given explicitly in `manager:package` form.
 
 Examples:
 
-    $ mise bootstrap packages upgrade
-    $ mise bootstrap packages upgrade brew:postgresql@17
-    $ mise bootstrap packages upgrade --manager brew-cask
-    $ mise bootstrap packages upgrade --manager mas
-    $ mise bootstrap packages upgrade --manager apt --yes
-    $ mise bootstrap packages upgrade --dry-run
+```
+$ mise bootstrap packages upgrade
+$ mise bootstrap packages upgrade brew:postgresql@17
+$ mise bootstrap packages upgrade --manager brew-cask
+$ mise bootstrap packages upgrade --manager mas
+$ mise bootstrap packages upgrade --manager apt --yes
+$ mise bootstrap packages upgrade --dry-run
+```
 
 ## `mise bootstrap packages use`
 
@@ -924,9 +980,11 @@ Versions are pinned with `@`: `mise bootstrap packages use apt:curl@8.5.0-2`. Wi
 
 Examples:
 
-    $ mise bootstrap packages use apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox flatpak-user:org.gnome.Builder mas:497799835
-    $ mise bootstrap packages use -g brew:postgresql@17
-    $ mise bootstrap packages use apt:curl@8.5.0-2
+```
+$ mise bootstrap packages use apk:zlib-dev apt:curl brew:jq brew-cask:firefox flatpak:org.mozilla.firefox flatpak-user:org.gnome.Builder mas:497799835
+$ mise bootstrap packages use -g brew:postgresql@17
+$ mise bootstrap packages use apt:curl@8.5.0-2
+```
 
 ## `mise bootstrap plan`
 
@@ -1237,10 +1295,12 @@ Generate shell completions
 
 Examples:
 
-    $ mise completion bash --include-bash-completion-lib > ~/.local/share/bash-completion/completions/mise
-    $ mise completion zsh  > /usr/local/share/zsh/site-functions/_mise
-    $ mise completion fish > ~/.config/fish/completions/mise.fish
-    $ mise completion powershell >> $PROFILE
+```
+$ mise completion bash --include-bash-completion-lib > ~/.local/share/bash-completion/completions/mise
+$ mise completion zsh  > /usr/local/share/zsh/site-functions/_mise
+$ mise completion fish > ~/.config/fish/completions/mise.fish
+$ mise completion powershell >> $PROFILE
+```
 
 ## `mise config`
 
@@ -1276,8 +1336,10 @@ Display the value of a setting in a mise.toml file
 
 Examples:
 
-    $ mise toml get tools.python
-    3.12
+```
+$ mise toml get tools.python
+3.12
+```
 
 ## `mise config ls`
 
@@ -1294,10 +1356,12 @@ List config files currently in use
 
 Examples:
 
-    $ mise config ls
-    Path                        Tools
-    ~/.config/mise/config.toml  pitchfork
-    ~/src/mise/mise.toml        actionlint, bun, cargo-binstall, cargo:cargo-insta
+```
+$ mise config ls
+Path                        Tools
+~/.config/mise/config.toml  pitchfork
+~/src/mise/mise.toml        actionlint, bun, cargo-binstall, cargo:cargo-insta
+```
 
 ## `mise config set`
 
@@ -1326,13 +1390,15 @@ Set the value of a setting in a mise.toml file
 
 Examples:
 
-    $ mise config set tools.python 3.12
-    $ mise config set settings.always_keep_download true
-    $ mise config set env.TEST_ENV_VAR ABC
-    $ mise config set settings.disable_tools node,rust
+```
+$ mise config set tools.python 3.12
+$ mise config set settings.always_keep_download true
+$ mise config set env.TEST_ENV_VAR ABC
+$ mise config set settings.disable_tools node,rust
 
-    # Type for `settings` is inferred
-    $ mise config set settings.jobs 4
+# Type for `settings` is inferred
+$ mise config set settings.jobs 4
+```
 
 ## `mise deactivate`
 
@@ -1345,7 +1411,9 @@ This can be used to temporarily disable mise in a shell session.
 
 Examples:
 
-    $ mise deactivate
+```
+$ mise deactivate
+```
 
 ## `mise doctor`
 
@@ -1360,8 +1428,10 @@ Check mise installation for possible problems
 
 Examples:
 
-    $ mise doctor
-    [WARN] plugin node is not installed
+```
+$ mise doctor
+[WARN] plugin node is not installed
+```
 
 ## `mise doctor path`
 
@@ -1375,11 +1445,13 @@ Print the current PATH entries mise is providing
 
 Examples:
 
-    Get the current PATH entries mise is providing
-    $ mise doctor path
-    /home/user/.local/share/mise/installs/node/24.0.0/bin
-    /home/user/.local/share/mise/installs/rust/1.90.0/bin
-    /home/user/.local/share/mise/installs/python/3.10.0/bin
+```
+Get the current PATH entries mise is providing
+$ mise doctor path
+/home/user/.local/share/mise/installs/node/24.0.0/bin
+/home/user/.local/share/mise/installs/rust/1.90.0/bin
+/home/user/.local/share/mise/installs/python/3.10.0/bin
+```
 
 ## `mise en`
 
@@ -1401,15 +1473,17 @@ This is an alternative to `mise activate` that allows you to explicitly start a 
 
 Examples:
 
-    $ mise en .
-    $ node -v
-    v20.0.0
+```
+$ mise en .
+$ node -v
+v20.0.0
 
-    Skip loading bashrc:
-    $ mise en -s "bash --norc"
+Skip loading bashrc:
+$ mise en -s "bash --norc"
 
-    Skip loading zshrc:
-    $ mise en -s "zsh -f"
+Skip loading zshrc:
+$ mise en -s "zsh -f"
+```
 
 ## `mise env`
 
@@ -1434,10 +1508,12 @@ Use this if you don't want to permanently install mise. It's not necessary to us
 
 Examples:
 
-    $ eval "$(mise env -s bash)"
-    $ eval "$(mise env -s zsh)"
-    $ mise env -s fish | source
-    $ execx($(mise env -s xonsh))
+```
+$ eval "$(mise env -s bash)"
+$ eval "$(mise env -s zsh)"
+$ mise env -s fish | source
+$ execx($(mise env -s xonsh))
+```
 
 ## `mise exec`
 
@@ -1482,14 +1558,16 @@ The "--" separates runtimes from the commands to pass along to the subprocess.
 
 Examples:
 
-    $ mise exec node@20 -- node ./app.js  # launch app.js using node-20.x
-    $ mise x node@20 -- node ./app.js     # shorter alias
+```
+$ mise exec node@20 -- node ./app.js  # launch app.js using node-20.x
+$ mise x node@20 -- node ./app.js     # shorter alias
 
-    # Specify command as a string:
-    $ mise exec node@20 python@3.11 --command "node -v && python -V"
+# Specify command as a string:
+$ mise exec node@20 python@3.11 --command "node -v && python -V"
 
-    # Run a command in a different directory:
-    $ mise x -C /path/to/project node@20 -- node ./app.js
+# Run a command in a different directory:
+$ mise x -C /path/to/project node@20 -- node ./app.js
+```
 
 ## `mise fmt`
 
@@ -1508,7 +1586,9 @@ Sorts keys and cleans up whitespace in mise.toml
 
 Examples:
 
-    $ mise fmt
+```
+$ mise fmt
+```
 
 ## `mise generate`
 
@@ -1544,12 +1624,14 @@ This is designed to be used in a project where contributors may not have mise in
 
 Examples:
 
-    $ mise generate bootstrap --write ./bin/mise
-    $ ./bin/mise install                                    # downloads mise to .mise if not already installed
+```
+$ mise generate bootstrap --write ./bin/mise
+$ ./bin/mise install                                    # downloads mise to .mise if not already installed
 
-    # add a launcher for contributors who clone the project on Windows
-    $ mise generate bootstrap --write ./bin/mise --windows  # also writes bin/mise.cmd
-    $ .\bin\mise.cmd install
+# add a launcher for contributors who clone the project on Windows
+$ mise generate bootstrap --write ./bin/mise --windows  # also writes bin/mise.cmd
+$ .\bin\mise.cmd install
+```
 
 ## `mise generate config`
 
@@ -1568,11 +1650,13 @@ Generate a mise.toml file
 
 Examples:
 
-    $ mise generate config             # generate mise.toml interactively
-    $ mise generate config .mise.toml  # generate a specific file
-    $ mise generate config -g          # generate the global config file
-    $ mise generate config -y          # skip interactive editor
-    $ mise generate config -n          # preview without writing
+```
+$ mise generate config             # generate mise.toml interactively
+$ mise generate config .mise.toml  # generate a specific file
+$ mise generate config -g          # generate the global config file
+$ mise generate config -y          # skip interactive editor
+$ mise generate config -n          # preview without writing
+```
 
 ## `mise generate devcontainer`
 
@@ -1589,7 +1673,9 @@ Generate a devcontainer to execute mise
 
 Examples:
 
-    $ mise generate devcontainer
+```
+$ mise generate devcontainer
+```
 
 ## `mise generate git-pre-commit`
 
@@ -1621,11 +1707,13 @@ For more advanced pre-commit functionality, see mise's sister project: https://h
 
 Examples:
 
-    $ mise generate git-pre-commit --write --task=pre-commit
-    $ git commit -m "feat: add new feature" # runs `mise run pre-commit`
+```
+$ mise generate git-pre-commit --write --task=pre-commit
+$ git commit -m "feat: add new feature" # runs `mise run pre-commit`
 
-    # config lives in a subdirectory, so the hook has to change into it first
-    $ mise generate git-pre-commit --write -- -C subdir
+# config lives in a subdirectory, so the hook has to change into it first
+$ mise generate git-pre-commit --write -- -C subdir
+```
 
 ## `mise generate github-action`
 
@@ -1647,9 +1735,11 @@ This command generates a GitHub Action workflow file that runs a mise task like 
 
 Examples:
 
-    $ mise generate github-action --write --task=ci
-    $ git commit -m "feat: add new feature"
-    $ git push # runs `mise run ci` on GitHub
+```
+$ mise generate github-action --write --task=ci
+$ git commit -m "feat: add new feature"
+$ git push # runs `mise run ci` on GitHub
+```
 
 ## `mise generate task-docs`
 
@@ -1674,7 +1764,9 @@ Generate documentation for tasks in a project
 
 Examples:
 
-    $ mise generate task-docs
+```
+$ mise generate task-docs
+```
 
 ## `mise generate task-stubs`
 
@@ -1697,10 +1789,12 @@ By default, this will build shims like ./bin/<task>. These can be paired with `m
 
 Examples:
 
-    $ mise tasks add test -- echo 'running tests'
-    $ mise generate task-stubs
-    $ ./bin/test
-    running tests
+```
+$ mise tasks add test -- echo 'running tests'
+$ mise generate task-stubs
+$ ./bin/test
+running tests
+```
 
 ## `mise generate tool-stub`
 
@@ -1761,52 +1855,54 @@ When generating stubs with platform-specific URLs, the command will append new p
 
 Examples:
 
-    Generate a tool stub for a single URL:
-    $ mise generate tool-stub ./bin/gh --url "https://github.com/cli/cli/releases/download/v2.96.0/gh_2.96.0_linux_amd64.tar.gz"
+```
+Generate a tool stub for a single URL:
+$ mise generate tool-stub ./bin/gh --url "https://github.com/cli/cli/releases/download/v2.96.0/gh_2.96.0_linux_amd64.tar.gz"
 
-    Generate a tool stub with platform-specific URLs:
-    $ mise generate tool-stub ./bin/rg \
-        --platform-url linux-x64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-x86_64-unknown-linux-musl.tar.gz \
-        --platform-url darwin-arm64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-aarch64-apple-darwin.tar.gz
+Generate a tool stub with platform-specific URLs:
+$ mise generate tool-stub ./bin/rg \
+    --platform-url linux-x64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-x86_64-unknown-linux-musl.tar.gz \
+    --platform-url darwin-arm64:https://github.com/BurntSushi/ripgrep/releases/download/14.0.3/ripgrep-14.0.3-aarch64-apple-darwin.tar.gz
 
-    Append additional platforms to an existing stub:
-    $ mise generate tool-stub ./bin/rg \
-        --platform-url linux-x64:https://example.com/rg-linux.tar.gz
-    $ mise generate tool-stub ./bin/rg \
-        --platform-url darwin-arm64:https://example.com/rg-darwin.tar.gz
-    # The stub now contains both platforms
+Append additional platforms to an existing stub:
+$ mise generate tool-stub ./bin/rg \
+    --platform-url linux-x64:https://example.com/rg-linux.tar.gz
+$ mise generate tool-stub ./bin/rg \
+    --platform-url darwin-arm64:https://example.com/rg-darwin.tar.gz
+# The stub now contains both platforms
 
-    Use auto-detection for platform from URL:
-    $ mise generate tool-stub ./bin/node \
-        --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
-    # Platform 'macos-arm64' will be auto-detected from the URL
+Use auto-detection for platform from URL:
+$ mise generate tool-stub ./bin/node \
+    --platform-url https://nodejs.org/dist/v22.17.1/node-v22.17.1-darwin-arm64.tar.gz
+# Platform 'macos-arm64' will be auto-detected from the URL
 
-    Generate with platform-specific binary paths:
-    $ mise generate tool-stub ./bin/tool \
-        --platform-url linux-x64:https://example.com/tool-linux.tar.gz \
-        --platform-url windows-x64:https://example.com/tool-windows.zip \
-        --platform-bin windows-x64:tool.exe
+Generate with platform-specific binary paths:
+$ mise generate tool-stub ./bin/tool \
+    --platform-url linux-x64:https://example.com/tool-linux.tar.gz \
+    --platform-url windows-x64:https://example.com/tool-windows.zip \
+    --platform-bin windows-x64:tool.exe
 
-    Generate without downloading (faster):
-    $ mise generate tool-stub ./bin/tool --url "https://example.com/tool.tar.gz" --skip-download
+Generate without downloading (faster):
+$ mise generate tool-stub ./bin/tool --url "https://example.com/tool.tar.gz" --skip-download
 
-    Fetch checksums for an existing stub:
-    $ mise generate tool-stub ./bin/jq --fetch
-    # This will read the existing stub and download files to fill in any missing checksums/sizes
+Fetch checksums for an existing stub:
+$ mise generate tool-stub ./bin/jq --fetch
+# This will read the existing stub and download files to fill in any missing checksums/sizes
 
-    Generate a bootstrap stub that installs mise if needed:
-    $ mise generate tool-stub ./bin/tool --url "https://example.com/tool.tar.gz" --bootstrap
-    # The stub will check for mise and install it automatically before running the tool
+Generate a bootstrap stub that installs mise if needed:
+$ mise generate tool-stub ./bin/tool --url "https://example.com/tool.tar.gz" --bootstrap
+# The stub will check for mise and install it automatically before running the tool
 
-    Generate a bootstrap stub with a pinned mise version:
-    $ mise generate tool-stub ./bin/tool --url "https://example.com/tool.tar.gz" --bootstrap --bootstrap-version 2025.1.0
+Generate a bootstrap stub with a pinned mise version:
+$ mise generate tool-stub ./bin/tool --url "https://example.com/tool.tar.gz" --bootstrap --bootstrap-version 2025.1.0
 
-    Lock an existing tool stub with pinned version and platform URLs/checksums:
-    $ mise generate tool-stub ./bin/node --lock
+Lock an existing tool stub with pinned version and platform URLs/checksums:
+$ mise generate tool-stub ./bin/node --lock
 
-    Bump the version in a locked stub:
-    $ mise generate tool-stub ./bin/node --lock --version 22
-    # Resolves the latest node 22.x, pins it, and updates platform URLs/checksums
+Bump the version in a locked stub:
+$ mise generate tool-stub ./bin/node --lock --version 22
+# Resolves the latest node 22.x, pins it, and updates platform URLs/checksums
+```
 
 ## `mise implode`
 
@@ -1838,11 +1934,13 @@ Edit mise.toml interactively
 
 Examples:
 
-    $ mise edit             # edit mise.toml interactively
-    $ mise edit .mise.toml  # edit a specific file
-    $ mise edit -g          # edit the global config file
-    $ mise edit -y          # skip interactive editor
-    $ mise edit -n          # preview without writing
+```
+$ mise edit             # edit mise.toml interactively
+$ mise edit .mise.toml  # edit a specific file
+$ mise edit -g          # edit the global config file
+$ mise edit -y          # skip interactive editor
+$ mise edit -n          # preview without writing
+```
 
 ## `mise install`
 
@@ -1897,11 +1995,13 @@ Tools will be installed in parallel. To disable, set `--jobs=1` or `MISE_JOBS=1`
 
 Examples:
 
-    $ mise install node@20.0.0  # install specific node version
-    $ mise install node@20      # install fuzzy node version
-    $ mise install node         # install version specified in mise.toml
-    $ mise install              # installs everything specified in mise.toml
-    $ mise install --include-task-tools # also install tools required by tasks
+```
+$ mise install node@20.0.0  # install specific node version
+$ mise install node@20      # install fuzzy node version
+$ mise install node         # install version specified in mise.toml
+$ mise install              # installs everything specified in mise.toml
+$ mise install --include-task-tools # also install tools required by tasks
+```
 
 ## `mise install-into`
 
@@ -1919,9 +2019,11 @@ Used for building a tool to a directory for use outside of mise
 
 Examples:
 
-    # install node@20.0.0 into ./mynode
-    $ mise install-into node@20.0.0 ./mynode && ./mynode/bin/node -v
-    20.0.0
+```
+# install node@20.0.0 into ./mynode
+$ mise install-into node@20.0.0 ./mynode && ./mynode/bin/node -v
+20.0.0
+```
 
 ## `mise latest`
 
@@ -1943,13 +2045,15 @@ Supports prefixes such as `node@20` to get the latest version of node 20.
 
 Examples:
 
-    $ mise latest node@20  # get the latest version of node 20
-    20.0.0
+```
+$ mise latest node@20  # get the latest version of node 20
+20.0.0
 
-    $ mise latest node     # get the latest stable version of node
-    20.0.0
+$ mise latest node     # get the latest stable version of node
+20.0.0
 
-    $ mise latest node --minimum-release-age 2024-01-01  # latest stable node released before 2024-01-01
+$ mise latest node --minimum-release-age 2024-01-01  # latest stable node released before 2024-01-01
+```
 
 ## `mise link`
 
@@ -1971,14 +2075,16 @@ Use this for adding installs either custom compiled outside mise or built with a
 
 Examples:
 
-    # build node-20.0.0 with node-build and link it into mise
-    $ node-build 20.0.0 ~/.nodes/20.0.0
-    $ mise link node@20.0.0 ~/.nodes/20.0.0
+```
+# build node-20.0.0 with node-build and link it into mise
+$ node-build 20.0.0 ~/.nodes/20.0.0
+$ mise link node@20.0.0 ~/.nodes/20.0.0
 
-    # have mise use the node version provided by Homebrew
-    $ brew install node
-    $ mise link node@brew $(brew --prefix node)
-    $ mise use node@brew
+# have mise use the node version provided by Homebrew
+$ brew install node
+$ mise link node@brew $(brew --prefix node)
+$ mise use node@brew
+```
 
 ## `mise lock`
 
@@ -2019,15 +2125,17 @@ Updates checksums and download URLs for all platforms already specified in the l
 
 Examples:
 
-    $ mise lock                       # update lockfile for all common platforms
-    $ mise lock node python           # update only node and python
-    $ mise lock --platform linux-x64  # update only linux-x64 platform
-    $ mise lock --dry-run             # show what would be updated
-    $ mise lock --bump                # re-resolve selectors like "latest" or "20" to the latest matching versions
-    $ mise lock --bump --dry-run --json   # list available updates as JSON without writing
-    $ mise lock --minimum-release-age 2024-01-01   # lock latest/fuzzy versions released before 2024-01-01
-    $ mise lock --local               # update mise.local.lock for local configs
-    $ mise lock --global              # update only global config lockfiles
+```
+$ mise lock                       # update lockfile for all common platforms
+$ mise lock node python           # update only node and python
+$ mise lock --platform linux-x64  # update only linux-x64 platform
+$ mise lock --dry-run             # show what would be updated
+$ mise lock --bump                # re-resolve selectors like "latest" or "20" to the latest matching versions
+$ mise lock --bump --dry-run --json   # list available updates as JSON without writing
+$ mise lock --minimum-release-age 2024-01-01   # lock latest/fuzzy versions released before 2024-01-01
+$ mise lock --local               # update mise.local.lock for local configs
+$ mise lock --global              # update only global config lockfiles
+```
 
 ## `mise ls`
 
@@ -2065,33 +2173,35 @@ It's a useful command to get the current state of your tools.
 
 Examples:
 
-    $ mise ls
-    node    20.0.0 ~/src/myapp/.tool-versions latest
-    python  3.11.0 ~/.tool-versions           3.10
-    python  3.10.0
+```
+$ mise ls
+node    20.0.0 ~/src/myapp/.tool-versions latest
+python  3.11.0 ~/.tool-versions           3.10
+python  3.10.0
 
-    $ mise ls --current
-    node    20.0.0 ~/src/myapp/.tool-versions 20
-    python  3.11.0 ~/.tool-versions           3.11.0
+$ mise ls --current
+node    20.0.0 ~/src/myapp/.tool-versions 20
+python  3.11.0 ~/.tool-versions           3.11.0
 
-    $ mise ls --json
+$ mise ls --json
+{
+  "node": [
     {
-      "node": [
-        {
-          "version": "20.0.0",
-          "install_path": "/Users/jdx/.mise/installs/node/20.0.0",
-          "source": {
-            "type": "mise.toml",
-            "path": "/Users/jdx/mise.toml"
-          }
-        }
-      ],
-      "python": [...]
+      "version": "20.0.0",
+      "install_path": "/Users/jdx/.mise/installs/node/20.0.0",
+      "source": {
+        "type": "mise.toml",
+        "path": "/Users/jdx/mise.toml"
+      }
     }
+  ],
+  "python": [...]
+}
 
-    $ mise ls --all-sources
-    node    20.0.0  ~/src/myapp/mise.toml  20
-                    ~/.config/mise/config.toml  latest
+$ mise ls --all-sources
+node    20.0.0  ~/src/myapp/mise.toml  20
+                ~/.config/mise/config.toml  latest
+```
 
 ## `mise ls-remote`
 
@@ -2126,23 +2236,25 @@ Note that the results may be cached, run `mise cache clean` to clear the cache a
 
 Examples:
 
-    $ mise ls-remote node
-    18.0.0
-    20.0.0
+```
+$ mise ls-remote node
+18.0.0
+20.0.0
 
-    $ mise ls-remote node@20
-    20.0.0
-    20.1.0
+$ mise ls-remote node@20
+20.0.0
+20.1.0
 
-    $ mise ls-remote node 20
-    20.0.0
-    20.1.0
+$ mise ls-remote node 20
+20.0.0
+20.1.0
 
-    $ mise ls-remote node --minimum-release-age 2024-01-01
-    20.0.0
+$ mise ls-remote node --minimum-release-age 2024-01-01
+20.0.0
 
-    $ mise ls-remote github:cli/cli --json
-    [{"version":"2.62.0","created_at":"2024-11-14T15:40:35Z","prerelease":false},{"version":"2.61.0","created_at":"2024-10-23T19:22:15Z","prerelease":false}]
+$ mise ls-remote github:cli/cli --json
+[{"version":"2.62.0","created_at":"2024-11-14T15:40:35Z","prerelease":false},{"version":"2.61.0","created_at":"2024-10-23T19:22:15Z","prerelease":false}]
+```
 
 ## `mise mcp`
 
@@ -2162,36 +2274,38 @@ Note: This is primarily intended for integration with AI assistants like Claude,
 
 Examples:
 
-    # Start the MCP server (typically used by AI assistant tools)
-    $ mise mcp
+```
+# Start the MCP server (typically used by AI assistant tools)
+$ mise mcp
 
-    # Example integration with Claude Desktop (add to claude_desktop_config.json):
-    {
-      "mcpServers": {
-        "mise": {
-          "command": "mise",
-          "args": ["mcp"],
-          "env": {}
-        }
-      }
+# Example integration with Claude Desktop (add to claude_desktop_config.json):
+{
+  "mcpServers": {
+    "mise": {
+      "command": "mise",
+      "args": ["mcp"],
+      "env": {}
     }
+  }
+}
 
-    # Interactive testing with JSON-RPC commands:
-    $ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | mise mcp
+# Interactive testing with JSON-RPC commands:
+$ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | mise mcp
 
-    # Resources you can query:
-    - mise://tools - List active tools
-    - mise://tools?include_inactive=true - List all installed tools
-    - mise://tasks - List all tasks
-    - mise://env - List environment variables
-    - mise://config - Show configuration info
+# Resources you can query:
+- mise://tools - List active tools
+- mise://tools?include_inactive=true - List all installed tools
+- mise://tasks - List all tasks
+- mise://env - List environment variables
+- mise://config - Show configuration info
 
-    # Tools available:
-    - list_commands - Every mise command and what running it does
-      Example: {"include_hidden": false}
-    - install_tool - Install a tool (not yet implemented)
-    - run_task - Execute a mise task with optional arguments
-      Example: {"task": "build", "args": ["--verbose"]}
+# Tools available:
+- list_commands - Every mise command and what running it does
+  Example: {"include_hidden": false}
+- install_tool - Install a tool (not yet implemented)
+- run_task - Execute a mise task with optional arguments
+  Example: {"task": "build", "args": ["--verbose"]}
+```
 
 ## `mise oci`
 
@@ -2233,28 +2347,32 @@ Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).
 
 Examples:
 
-    Build with defaults (debian:bookworm-slim base):
-    $ mise oci build
+```
+Build with defaults (debian:bookworm-slim base):
+$ mise oci build
 
-    Build with a specific base image and tag:
-    $ mise oci build --from ubuntu:24.04 --tag myorg/dev:latest -o ./img
+Build with a specific base image and tag:
+$ mise oci build --from ubuntu:24.04 --tag myorg/dev:latest -o ./img
 
-    Inspect the result with skopeo:
-    $ skopeo inspect oci:./mise-oci
+Inspect the result with skopeo:
+$ skopeo inspect oci:./mise-oci
 
-    Push to a registry:
-    $ mise oci push --image-dir ./mise-oci ghcr.io/me/dev:latest
+Push to a registry:
+$ mise oci push --image-dir ./mise-oci ghcr.io/me/dev:latest
+```
 
 Notes:
 
-    - The image only contains tools from the project's mise config (and
-      any configs at-or-below the project root). Tools from
-      `~/.config/mise/config.toml` are not included; pass --include-global
-      to package them too.
-    - asdf and vfox plugins are not supported in v1; use a different backend
-      (core, aqua, ubi, github, cargo, npm, go, pipx, spm, http) for each tool.
-    - The host mise binary is embedded at /usr/local/bin/mise by default;
-      build on the same OS/arch as your target image (or pass --no-mise).
+```
+- The image only contains tools from the project's mise config (and
+  any configs at-or-below the project root). Tools from
+  `~/.config/mise/config.toml` are not included; pass --include-global
+  to package them too.
+- asdf and vfox plugins are not supported in v1; use a different backend
+  (core, aqua, ubi, github, cargo, npm, go, pipx, spm, http) for each tool.
+- The host mise binary is embedded at /usr/local/bin/mise by default;
+  build on the same OS/arch as your target image (or pass --no-mise).
+```
 
 ## `mise oci push`
 
@@ -2295,21 +2413,25 @@ Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`).
 
 Examples:
 
-    Build and push to GHCR:
-    $ mise oci push ghcr.io/me/devenv:latest
+```
+Build and push to GHCR:
+$ mise oci push ghcr.io/me/devenv:latest
 
-    Push an image built earlier:
-    $ mise oci build -o ./img
-    $ mise oci push --image-dir ./img ghcr.io/me/devenv:v1
+Push an image built earlier:
+$ mise oci build -o ./img
+$ mise oci push --image-dir ./img ghcr.io/me/devenv:v1
+```
 
 Auth:
 
-    Credentials are resolved the same way docker/podman resolve them:
-    $REGISTRY_AUTH_FILE, $XDG_RUNTIME_DIR/containers/auth.json,
-    ~/.config/containers/auth.json, then ~/.docker/config.json
-    (inline auths and credential helpers). Log in with either:
-    $ docker login ghcr.io
-    $ podman login ghcr.io
+```
+Credentials are resolved the same way docker/podman resolve them:
+$REGISTRY_AUTH_FILE, $XDG_RUNTIME_DIR/containers/auth.json,
+~/.config/containers/auth.json, then ~/.docker/config.json
+(inline auths and credential helpers). Log in with either:
+$ docker login ghcr.io
+$ podman login ghcr.io
+```
 
 ## `mise oci run`
 
@@ -2353,20 +2475,24 @@ Requires `mise settings experimental=true` (or `MISE_EXPERIMENTAL=1`) and one of
 
 Examples:
 
-    Build the current mise.toml and drop into bash:
-    $ mise oci run -it -- bash
+```
+Build the current mise.toml and drop into bash:
+$ mise oci run -it -- bash
 
-    Run a one-shot command with env + volume (note: `-v` is reserved
-    for --verbose, so use `--volume`):
-    $ mise oci run -e DEBUG=1 --volume $PWD:/work -w /work -- npm test
+Run a one-shot command with env + volume (note: `-v` is reserved
+for --verbose, so use `--volume`):
+$ mise oci run -e DEBUG=1 --volume $PWD:/work -w /work -- npm test
 
-    Re-use a previously built layout (skip the build step):
-    $ mise oci build -o ./img && mise oci run --image-dir ./img -- node -e 'console.log(process.version)'
+Re-use a previously built layout (skip the build step):
+$ mise oci build -o ./img && mise oci run --image-dir ./img -- node -e 'console.log(process.version)'
+```
 
 Engines:
 
-    Prefers podman (loads OCI layouts natively). Falls back to docker
-    (loaded via docker load). Pass --engine podman or --engine docker to override.
+```
+Prefers podman (loads OCI layouts natively). Falls back to docker
+(loaded via docker load). Pass --engine podman or --engine docker to override.
+```
 
 ## `mise outdated`
 
@@ -2405,21 +2531,23 @@ After removal, `-l` will become shorthand for `--local`. Use `-b` or `--bump` in
 
 Examples:
 
-    $ mise outdated
-    Plugin  Requested  Current  Latest
-    python  3.11       3.11.0   3.11.1
-    node    20         20.0.0   20.1.0
+```
+$ mise outdated
+Plugin  Requested  Current  Latest
+python  3.11       3.11.0   3.11.1
+node    20         20.0.0   20.1.0
 
-    $ mise outdated node
-    Plugin  Requested  Current  Latest
-    node    20         20.0.0   20.1.0
+$ mise outdated node
+Plugin  Requested  Current  Latest
+node    20         20.0.0   20.1.0
 
-    $ mise outdated --json
-    {"python": {"requested": "3.11", "current": "3.11.0", "latest": "3.11.1"}, ...}
+$ mise outdated --json
+{"python": {"requested": "3.11", "current": "3.11.0", "latest": "3.11.1"}, ...}
 
-    $ mise outdated --local
-    Plugin  Requested  Current  Latest
-    node    20         20.0.0   20.1.0
+$ mise outdated --local
+Plugin  Requested  Current  Latest
+node    20         20.0.0   20.1.0
+```
 
 ## `mise patrons`
 
@@ -2438,9 +2566,11 @@ To appear here, become a patron at <https://jdx.dev/sponsors.html>.
 
 Examples:
 
-    $ mise patrons
-    $ mise patrons -J
-    $ mise patrons --refresh
+```
+$ mise patrons
+$ mise patrons -J
+$ mise patrons --refresh
+```
 
 ## `mise plugins`
 
@@ -2488,18 +2618,20 @@ This behavior can be modified in ~/.config/mise/config.toml
 
 Examples:
 
-    # install the poetry via shorthand
-    $ mise plugins install poetry
+```
+# install the poetry via shorthand
+$ mise plugins install poetry
 
-    # install the poetry plugin using a specific git url
-    $ mise plugins install poetry https://github.com/mise-plugins/mise-poetry.git
+# install the poetry plugin using a specific git url
+$ mise plugins install poetry https://github.com/mise-plugins/mise-poetry.git
 
-    # install the poetry plugin using the git url only
-    # (poetry is inferred from the url)
-    $ mise plugins install https://github.com/mise-plugins/mise-poetry.git
+# install the poetry plugin using the git url only
+# (poetry is inferred from the url)
+$ mise plugins install https://github.com/mise-plugins/mise-poetry.git
 
-    # install the poetry plugin using a specific ref
-    $ mise plugins install poetry https://github.com/mise-plugins/mise-poetry.git#11d0c1e
+# install the poetry plugin using a specific ref
+$ mise plugins install poetry https://github.com/mise-plugins/mise-poetry.git#11d0c1e
+```
 
 ## `mise plugins link`
 
@@ -2522,11 +2654,13 @@ This is used for developing a plugin.
 
 Examples:
 
-    # essentially just `ln -s ./vfox-cmake ~/.local/share/mise/plugins/cmake`
-    $ mise plugins link cmake ./vfox-cmake
+```
+# essentially just `ln -s ./vfox-cmake ~/.local/share/mise/plugins/cmake`
+$ mise plugins link cmake ./vfox-cmake
 
-    # infer plugin name as "cmake"
-    $ mise plugins link ./vfox-cmake
+# infer plugin name as "cmake"
+$ mise plugins link ./vfox-cmake
+```
 
 ## `mise plugins ls`
 
@@ -2546,13 +2680,15 @@ Can also show remotely available plugins to install.
 
 Examples:
 
-    $ mise plugins ls
-    cmake
-    poetry
+```
+$ mise plugins ls
+cmake
+poetry
 
-    $ mise plugins ls --urls
-    cmake     https://github.com/mise-plugins/vfox-cmake.git
-    poetry    https://github.com/mise-plugins/vfox-poetry.git
+$ mise plugins ls --urls
+cmake     https://github.com/mise-plugins/vfox-cmake.git
+poetry    https://github.com/mise-plugins/vfox-poetry.git
+```
 
 ## `mise plugins ls-remote`
 
@@ -2567,7 +2703,9 @@ The full list is here: https://github.com/jdx/mise/blob/main/registry/
 
 Examples:
 
-    $ mise plugins ls-remote
+```
+$ mise plugins ls-remote
+```
 
 ### Flags
 - **`-u --urls`** — Show the git url for each plugin
@@ -2592,7 +2730,9 @@ Removes a plugin
 
 Examples:
 
-    $ mise plugins uninstall cmake
+```
+$ mise plugins uninstall cmake
+```
 
 ## `mise plugins update`
 
@@ -2614,9 +2754,11 @@ note: this updates the plugin itself, not the runtime versions
 
 Examples:
 
-    $ mise plugins update              # update all plugins
-    $ mise plugins update cmake       # update only cmake
-    $ mise plugins update cmake#beta  # specify a ref
+```
+$ mise plugins update              # update all plugins
+$ mise plugins update cmake       # update only cmake
+$ mise plugins update cmake#beta  # specify a ref
+```
 
 ## `mise deps`
 
@@ -2648,14 +2790,16 @@ Providers with `auto = true` are automatically invoked before `mise x` and `mise
 
 Examples:
 
-    $ mise deps                    # Install all project dependencies
-    $ mise deps install            # Same as bare `mise deps`
-    $ mise deps install --force    # Force reinstall even if fresh
-    $ mise deps install --dry-run  # Show what would run
-    $ mise deps --monorepo         # Install deps from explicit monorepo config roots
-    $ mise deps add npm:react      # Add a dependency
-    $ mise deps add -D npm:vitest  # Add a dev dependency
-    $ mise deps remove npm:lodash  # Remove a dependency
+```
+$ mise deps                    # Install all project dependencies
+$ mise deps install            # Same as bare `mise deps`
+$ mise deps install --force    # Force reinstall even if fresh
+$ mise deps install --dry-run  # Show what would run
+$ mise deps --monorepo         # Install deps from explicit monorepo config roots
+$ mise deps add npm:react      # Add a dependency
+$ mise deps add -D npm:vitest  # Add a dev dependency
+$ mise deps remove npm:lodash  # Remove a dependency
+```
 
 Configuration:
 
@@ -2754,9 +2898,11 @@ You can list prunable tools with `mise ls --prunable`
 
 Examples:
 
-    $ mise prune --dry-run
-    rm -rf ~/.local/share/mise/versions/node/20.0.0
-    rm -rf ~/.local/share/mise/versions/node/20.0.1
+```
+$ mise prune --dry-run
+rm -rf ~/.local/share/mise/versions/node/20.0.0
+rm -rf ~/.local/share/mise/versions/node/20.0.1
+```
 
 ## `mise registry`
 
@@ -2782,13 +2928,15 @@ For example, `poetry` is shorthand for `asdf:mise-plugins/mise-poetry`.
 
 Examples:
 
-    $ mise registry
-    node    core:node
-    poetry  asdf:mise-plugins/mise-poetry
-    ubi     cargo:ubi-cli
+```
+$ mise registry
+node    core:node
+poetry  asdf:mise-plugins/mise-poetry
+ubi     cargo:ubi-cli
 
-    $ mise registry poetry
-    asdf:mise-plugins/mise-poetry
+$ mise registry poetry
+asdf:mise-plugins/mise-poetry
+```
 
 ## `mise reshim`
 
@@ -2801,10 +2949,12 @@ This creates new shims in ~/.local/share/mise/shims for CLIs that have been adde
 
 If you think mise should automatically call this for a particular command, please open an issue on the mise repo. You can also set up a shell function to reshim automatically (it's really fast so you don't need to worry about overhead):
 
-    npm() {
-      command npm "$@"
-      mise reshim
-    }
+```
+npm() {
+  command npm "$@"
+  mise reshim
+}
+```
 
 Note that this creates shims for _all_ installed tools, not just the ones that are currently active in mise.toml.
 
@@ -2813,9 +2963,11 @@ Note that this creates shims for _all_ installed tools, not just the ones that a
 
 Examples:
 
-    $ mise reshim
-    $ ~/.local/share/mise/shims/node -v
-    v20.0.0
+```
+$ mise reshim
+$ ~/.local/share/mise/shims/node -v
+v20.0.0
+```
 
 ## `mise run`
 
@@ -2828,18 +2980,22 @@ This command will run a task, or multiple tasks in parallel. Tasks may have depe
 
 Tasks can be defined in mise.toml or as standalone scripts. In mise.toml, tasks take this form:
 
-    [tasks.build]
-    run = "npm run build"
-    sources = ["src/**/*.ts"]
-    outputs = ["dist/**/*.js"]
+```
+[tasks.build]
+run = "npm run build"
+sources = ["src/**/*.ts"]
+outputs = ["dist/**/*.js"]
+```
 
 Alternatively, tasks can be defined as standalone scripts. These must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or `.config/mise/tasks`. The name of the script will be the name of the tasks.
 
-    $ cat .mise/tasks/build<<EOF
-    #!/usr/bin/env bash
-    npm run build
-    EOF
-    $ mise run build
+```
+$ cat .mise/tasks/build<<EOF
+#!/usr/bin/env bash
+npm run build
+EOF
+$ mise run build
+```
 
 ### Flags
 - **`--affected`** — Run matching tasks only for projects affected by Git changes
@@ -2920,22 +3076,24 @@ Alternatively, tasks can be defined as standalone scripts. These must be located
 
 Examples:
 
-    # Runs the "lint" tasks. This needs to either be defined in mise.toml
-    # or as a standalone script. See the project README for more information.
-    $ mise run lint
+```
+# Runs the "lint" tasks. This needs to either be defined in mise.toml
+# or as a standalone script. See the project README for more information.
+$ mise run lint
 
-    # Forces the "build" tasks to run even if its sources are up-to-date.
-    $ mise run --force build
+# Forces the "build" tasks to run even if its sources are up-to-date.
+$ mise run --force build
 
-    # Run "test" with stdin/stdout/stderr all connected to the current terminal.
-    # This forces `--jobs=1` to prevent interleaving of output.
-    $ mise run --raw test
+# Run "test" with stdin/stdout/stderr all connected to the current terminal.
+# This forces `--jobs=1` to prevent interleaving of output.
+$ mise run --raw test
 
-    # Runs the "lint", "test", and "check" tasks in parallel.
-    $ mise run lint ::: test ::: check
+# Runs the "lint", "test", and "check" tasks in parallel.
+$ mise run lint ::: test ::: check
 
-    # Execute multiple tasks each with their own arguments.
-    $ mise run cmd1 arg1 arg2 ::: cmd2 arg1 arg2
+# Execute multiple tasks each with their own arguments.
+$ mise run cmd1 arg1 arg2 ::: cmd2 arg1 arg2
+```
 
 ## `mise search`
 
@@ -2962,22 +3120,24 @@ By default, it will show all tools that fuzzy match the search term. For non-fuz
 
 Examples:
 
-    $ mise search jq
-    Tool  Description
-    jq    Command-line JSON processor. https://github.com/jqlang/jq
-    jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp
-    jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq
-    gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq
+```
+$ mise search jq
+Tool  Description
+jq    Command-line JSON processor. https://github.com/jqlang/jq
+jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp
+jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq
+gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq
 
-    $ mise search --interactive
-    Tool
-    Search a tool
-    ❯ jq    Command-line JSON processor. https://github.com/jqlang/jq
-      jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp
-      jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq
-      gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq
-    /jq 
-    esc clear filter • enter confirm
+$ mise search --interactive
+Tool
+Search a tool
+❯ jq    Command-line JSON processor. https://github.com/jqlang/jq
+  jqp   A TUI playground to experiment with jq. https://github.com/noahgorstein/jqp
+  jiq   jid on jq - interactive JSON query tool using jq expressions. https://github.com/fiatjaf/jiq
+  gojq  Pure Go implementation of jq. https://github.com/itchyny/gojq
+/jq 
+esc clear filter • enter confirm
+```
 
 ## `mise self-update`
 
@@ -3039,33 +3199,35 @@ Use `-E <env>` to create/modify environment-specific config files like `mise.<en
 
 Examples:
 
-    $ mise set NODE_ENV=production
+```
+$ mise set NODE_ENV=production
 
-    $ mise set NODE_ENV
-    production
+$ mise set NODE_ENV
+production
 
-    $ mise set -E staging NODE_ENV=staging
-    # creates or modifies mise.staging.toml
+$ mise set -E staging NODE_ENV=staging
+# creates or modifies mise.staging.toml
 
-    $ mise set
-    key       value       source
-    NODE_ENV  production  ~/.config/mise/config.toml
+$ mise set
+key       value       source
+NODE_ENV  production  ~/.config/mise/config.toml
 
-    $ mise set --prompt PASSWORD
-    Enter value for PASSWORD: [hidden input]
+$ mise set --prompt PASSWORD
+Enter value for PASSWORD: [hidden input]
 
-    Multiline Values (--stdin):
+Multiline Values (--stdin):
 
-    $ cat private.key | mise set --stdin MY_KEY
+$ cat private.key | mise set --stdin MY_KEY
 
-    $ printf "line1\nline2" | mise set --stdin MY_KEY
+$ printf "line1\nline2" | mise set --stdin MY_KEY
 
-    [experimental] Age Encryption:
+[experimental] Age Encryption:
 
-    $ mise set --age-encrypt API_KEY=secret
+$ mise set --age-encrypt API_KEY=secret
 
-    $ mise set --age-encrypt --prompt API_KEY
-    Enter value for API_KEY: [hidden input]
+$ mise set --age-encrypt --prompt API_KEY
+Enter value for API_KEY: [hidden input]
+```
 
 ## `mise settings`
 
@@ -3088,17 +3250,19 @@ Manage settings
 - **`--json-extended`** — Output in JSON format with sources
 
 Examples:
-    # list all settings
-    $ mise settings
+```
+# list all settings
+$ mise settings
 
-    # get the value of the setting "always_keep_download"
-    $ mise settings always_keep_download
+# get the value of the setting "always_keep_download"
+$ mise settings always_keep_download
 
-    # set the value of the setting "always_keep_download" to "true"
-    $ mise settings always_keep_download=true
+# set the value of the setting "always_keep_download" to "true"
+$ mise settings always_keep_download=true
 
-    # set the value of the setting "node.mirror_url" to "https://npmmirror.com/mirrors/node/"
-    $ mise settings node.mirror_url https://npmmirror.com/mirrors/node/
+# set the value of the setting "node.mirror_url" to "https://npmmirror.com/mirrors/node/"
+$ mise settings node.mirror_url https://npmmirror.com/mirrors/node/
+```
 
 ## `mise settings add`
 
@@ -3118,7 +3282,9 @@ Used with an array setting, this will append the value to the array. This modifi
 
 Examples:
 
-    $ mise settings add disable_hints python_multi
+```
+$ mise settings add disable_hints python_multi
+```
 
 ## `mise settings get`
 
@@ -3139,8 +3305,10 @@ Note that aliases are also stored in this file but managed separately with `mise
 
 Examples:
 
-    $ mise settings get idiomatic_version_file
-    true
+```
+$ mise settings get idiomatic_version_file
+true
+```
 
 ## `mise settings ls`
 
@@ -3166,13 +3334,15 @@ Note that aliases are also stored in this file but managed separately with `mise
 
 Examples:
 
-    $ mise settings ls
-    idiomatic_version_file = false
-    ...
+```
+$ mise settings ls
+idiomatic_version_file = false
+...
 
-    $ mise settings ls python
-    default_packages_file = "~/.default-python-packages"
-    ...
+$ mise settings ls python
+default_packages_file = "~/.default-python-packages"
+...
+```
 
 ## `mise settings set`
 
@@ -3193,7 +3363,9 @@ This modifies the contents of ~/.config/mise/config.toml by default. With `--loc
 
 Examples:
 
-    $ mise settings idiomatic_version_file=true
+```
+$ mise settings idiomatic_version_file=true
+```
 
 ## `mise settings unset`
 
@@ -3213,7 +3385,9 @@ This modifies the contents of ~/.config/mise/config.toml
 
 Examples:
 
-    $ mise settings unset idiomatic_version_file
+```
+$ mise settings unset idiomatic_version_file
+```
 
 ## `mise shell`
 
@@ -3242,9 +3416,11 @@ This works by setting environment variables for the current shell session such a
 
 Examples:
 
-    $ mise shell node@20
-    $ node -v
-    v20.0.0
+```
+$ mise shell node@20
+$ node -v
+v20.0.0
+```
 
 ## `mise shell-alias`
 
@@ -3268,8 +3444,10 @@ Show the command for a shell alias
 
 Examples:
 
-    $ mise shell-alias get ll
-    ls -la
+```
+$ mise shell-alias get ll
+ls -la
+```
 
 ## `mise shell-alias ls`
 
@@ -3286,10 +3464,12 @@ Shows the shell aliases that are set in the current directory. These are defined
 
 Examples:
 
-    $ mise shell-alias ls
-    alias    command
-    ll       ls -la
-    gs       git status
+```
+$ mise shell-alias ls
+alias    command
+ll       ls -la
+gs       git status
+```
 
 ## `mise shell-alias set`
 
@@ -3307,8 +3487,10 @@ This modifies the contents of ~/.config/mise/config.toml
 
 Examples:
 
-    $ mise shell-alias set ll "ls -la"
-    $ mise shell-alias set gs "git status"
+```
+$ mise shell-alias set ll "ls -la"
+$ mise shell-alias set gs "git status"
+```
 
 ## `mise shell-alias unset`
 
@@ -3325,7 +3507,9 @@ This modifies the contents of ~/.config/mise/config.toml
 
 Examples:
 
-    $ mise shell-alias unset ll
+```
+$ mise shell-alias unset ll
+```
 
 ## `mise sponsors`
 
@@ -3359,9 +3543,11 @@ This won't overwrite managed installs, runtime aliases, or links from other prov
 
 Examples:
 
-    $ brew install node@18 node@20
-    $ mise sync node --brew
-    $ mise use -g node@18 - uses Homebrew-provided node
+```
+$ brew install node@18 node@20
+$ mise sync node --brew
+$ mise use -g node@18 - uses Homebrew-provided node
+```
 
 ## `mise sync python`
 
@@ -3380,15 +3566,17 @@ This won't overwrite managed installs, runtime aliases, or links from other prov
 
 Examples:
 
-    $ pyenv install 3.11.0
-    $ mise sync python --pyenv
-    $ mise use -g python@3.11.0 - uses pyenv-provided python
-    
-    $ uv python install 3.11.0
-    $ mise install python@3.10.0
-    $ mise sync python --uv
-    $ mise x python@3.11.0 -- python -V - uses uv-provided python
-    $ uv run -p 3.10.0 -- python -V - uses mise-provided python
+```
+$ pyenv install 3.11.0
+$ mise sync python --pyenv
+$ mise use -g python@3.11.0 - uses pyenv-provided python
+
+$ uv python install 3.11.0
+$ mise install python@3.10.0
+$ mise sync python --uv
+$ mise x python@3.11.0 -- python -V - uses uv-provided python
+$ uv run -p 3.10.0 -- python -V - uses mise-provided python
+```
 
 ## `mise sync ruby`
 
@@ -3402,9 +3590,11 @@ Symlinks all ruby tool versions from an external tool into mise
 
 Examples:
 
-    $ brew install ruby
-    $ mise sync ruby --brew
-    $ mise use -g ruby - Use the latest version of Ruby installed by Homebrew
+```
+$ brew install ruby
+$ mise sync ruby --brew
+$ mise use -g ruby - Use the latest version of Ruby installed by Homebrew
+```
 
 ## `mise tasks`
 
@@ -3466,7 +3656,9 @@ Adds a task to the local mise.toml file. See https://mise.jdx.dev/configuration.
 
 Examples:
 
-    $ mise tasks add pre-commit --depends "test" --depends "render" -- echo pre-commit
+```
+$ mise tasks add pre-commit --depends "test" --depends "render" -- echo pre-commit
+```
 
 ## `mise tasks deps`
 
@@ -3487,17 +3679,19 @@ Display a tree visualization of a dependency graph
 
 Examples:
 
-    # Show dependencies for all tasks
-    $ mise tasks deps
+```
+# Show dependencies for all tasks
+$ mise tasks deps
 
-    # Show dependencies for the "lint", "test" and "check" tasks
-    $ mise tasks deps lint test check
+# Show dependencies for the "lint", "test" and "check" tasks
+$ mise tasks deps lint test check
 
-    # Show dependencies in DOT format
-    $ mise tasks deps --dot
+# Show dependencies in DOT format
+$ mise tasks deps --dot
 
-    # Collapse repeated dependencies
-    $ mise tasks deps --compact
+# Collapse repeated dependencies
+$ mise tasks deps --compact
+```
 
 ## `mise tasks edit`
 
@@ -3516,8 +3710,10 @@ The task will be created as a standalone script if it does not already exist.
 
 Examples:
 
-    $ mise tasks edit build
-    $ mise tasks edit test
+```
+$ mise tasks edit build
+$ mise tasks edit test
+```
 
 ## `mise tasks graph`
 
@@ -3533,14 +3729,16 @@ Examples:
 
 Examples:
 
-    # Inspect projects and their dependency edges
-    $ mise tasks graph
+```
+# Inspect projects and their dependency edges
+$ mise tasks graph
 
-    # Emit the project graph as JSON
-    $ mise tasks graph --json
+# Emit the project graph as JSON
+$ mise tasks graph --json
 
-    # Explain where inferred projects and task fields came from
-    $ mise tasks graph --explain
+# Explain where inferred projects and task fields came from
+$ mise tasks graph --explain
+```
 
 ## `mise tasks info`
 
@@ -3557,32 +3755,34 @@ Get information about a task
 
 Examples:
 
-    $ mise tasks info
-    Name: test
-    Aliases: t
-    Description: Test the application
-    Source: ~/src/myproj/mise.toml
+```
+$ mise tasks info
+Name: test
+Aliases: t
+Description: Test the application
+Source: ~/src/myproj/mise.toml
 
-    $ mise tasks info test --json
-    {
-      "name": "test",
-      "aliases": "t",
-      "description": "Test the application",
-      "source": "~/src/myproj/mise.toml",
-      "config_sources": ["~/src/myproj/mise.toml"],
-      "depends": [],
-      "env": {},
-      "dir": null,
-      "hide": false,
-      "raw": false,
-      "sources": [],
-      "outputs": [],
-      "run": [
-        "echo \"testing!\""
-      ],
-      "file": null,
-      "usage_spec": {}
-    }
+$ mise tasks info test --json
+{
+  "name": "test",
+  "aliases": "t",
+  "description": "Test the application",
+  "source": "~/src/myproj/mise.toml",
+  "config_sources": ["~/src/myproj/mise.toml"],
+  "depends": [],
+  "env": {},
+  "dir": null,
+  "hide": false,
+  "raw": false,
+  "sources": [],
+  "outputs": [],
+  "run": [
+    "echo \"testing!\""
+  ],
+  "file": null,
+  "usage_spec": {}
+}
+```
 
 ## `mise tasks ls`
 
@@ -3616,7 +3816,9 @@ tasks will override the global ones if they have the same name.
 
 Examples:
 
-    $ mise tasks ls
+```
+$ mise tasks ls
+```
 
 ## `mise tasks run`
 
@@ -3629,18 +3831,22 @@ This command will run a task, or multiple tasks in parallel. Tasks may have depe
 
 Tasks can be defined in mise.toml or as standalone scripts. In mise.toml, tasks take this form:
 
-    [tasks.build]
-    run = "npm run build"
-    sources = ["src/**/*.ts"]
-    outputs = ["dist/**/*.js"]
+```
+[tasks.build]
+run = "npm run build"
+sources = ["src/**/*.ts"]
+outputs = ["dist/**/*.js"]
+```
 
 Alternatively, tasks can be defined as standalone scripts. These must be located in `mise-tasks`, `.mise-tasks`, `.mise/tasks`, `mise/tasks` or `.config/mise/tasks`. The name of the script will be the name of the tasks.
 
-    $ cat .mise/tasks/build<<EOF
-    #!/usr/bin/env bash
-    npm run build
-    EOF
-    $ mise run build
+```
+$ cat .mise/tasks/build<<EOF
+#!/usr/bin/env bash
+npm run build
+EOF
+$ mise run build
+```
 
 ### Arguments
 - **`[TASK]`** — Tasks to run
@@ -3728,22 +3934,24 @@ Alternatively, tasks can be defined as standalone scripts. These must be located
 
 Examples:
 
-    # Runs the "lint" tasks. This needs to either be defined in mise.toml
-    # or as a standalone script. See the project README for more information.
-    $ mise run lint
+```
+# Runs the "lint" tasks. This needs to either be defined in mise.toml
+# or as a standalone script. See the project README for more information.
+$ mise run lint
 
-    # Forces the "build" tasks to run even if its sources are up-to-date.
-    $ mise run --force build
+# Forces the "build" tasks to run even if its sources are up-to-date.
+$ mise run --force build
 
-    # Run "test" with stdin/stdout/stderr all connected to the current terminal.
-    # This forces `--jobs=1` to prevent interleaving of output.
-    $ mise run --raw test
+# Run "test" with stdin/stdout/stderr all connected to the current terminal.
+# This forces `--jobs=1` to prevent interleaving of output.
+$ mise run --raw test
 
-    # Runs the "lint", "test", and "check" tasks in parallel.
-    $ mise run lint ::: test ::: check
+# Runs the "lint", "test", and "check" tasks in parallel.
+$ mise run lint ::: test ::: check
 
-    # Execute multiple tasks each with their own arguments.
-    $ mise run cmd1 arg1 arg2 ::: cmd2 arg1 arg2
+# Execute multiple tasks each with their own arguments.
+$ mise run cmd1 arg1 arg2 ::: cmd2 arg1 arg2
+```
 
 ## `mise tasks validate`
 
@@ -3762,17 +3970,19 @@ Validate tasks for common errors and issues
 
 Examples:
 
-    # Validate all tasks
-    $ mise tasks validate
+```
+# Validate all tasks
+$ mise tasks validate
 
-    # Validate specific tasks
-    $ mise tasks validate build test
+# Validate specific tasks
+$ mise tasks validate build test
 
-    # Output results as JSON
-    $ mise tasks validate --json
+# Output results as JSON
+$ mise tasks validate --json
 
-    # Only show errors (skip warnings)
-    $ mise tasks validate --errors-only
+# Only show errors (skip warnings)
+$ mise tasks validate --errors-only
+```
 
 Validation Checks:
 
@@ -3812,7 +4022,9 @@ Test a tool installs and executes
 
 Examples:
 
-    $ mise test-tool ripgrep
+```
+$ mise test-tool ripgrep
+```
 
 ## `mise token`
 
@@ -3841,14 +4053,16 @@ authentication issues. The token is masked by default.
 
 Examples:
 
-    $ mise token forgejo
-    codeberg.org: a180…61f6 (source: FORGEJO_TOKEN)
+```
+$ mise token forgejo
+codeberg.org: a180…61f6 (source: FORGEJO_TOKEN)
 
-    $ mise token forgejo --unmask
-    codeberg.org: a18099ca69064be387fbe37b8ad1d333758361f6 (source: FORGEJO_TOKEN)
+$ mise token forgejo --unmask
+codeberg.org: a18099ca69064be387fbe37b8ad1d333758361f6 (source: FORGEJO_TOKEN)
 
-    $ mise token forgejo forgejo.mycompany.com
-    forgejo.mycompany.com: (none)
+$ mise token forgejo forgejo.mycompany.com
+forgejo.mycompany.com: (none)
+```
 
 ## `mise token github`
 
@@ -3877,17 +4091,19 @@ authentication issues. The token is masked by default.
 
 Examples:
 
-    $ mise token github
-    github.com: ghp_…xxxx (source: GITHUB_TOKEN)
+```
+$ mise token github
+github.com: ghp_…xxxx (source: GITHUB_TOKEN)
 
-    $ mise token github --unmask
-    github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)
+$ mise token github --unmask
+github.com: ghp_xxxxxxxxxxxx (source: GITHUB_TOKEN)
 
-    $ mise token github github.mycompany.com
-    github.mycompany.com: (none)
+$ mise token github github.mycompany.com
+github.mycompany.com: (none)
 
-    $ mise token github --oauth --refresh
-    github.com: gho_…xxxx (source: GitHub OAuth)
+$ mise token github --oauth --refresh
+github.com: gho_…xxxx (source: GitHub OAuth)
+```
 
 ## `mise token gitlab`
 
@@ -3909,14 +4125,16 @@ authentication issues. The token is masked by default.
 
 Examples:
 
-    $ mise token gitlab
-    gitlab.com: glpa…xxxx (source: GITLAB_TOKEN)
+```
+$ mise token gitlab
+gitlab.com: glpa…xxxx (source: GITLAB_TOKEN)
 
-    $ mise token gitlab --unmask
-    gitlab.com: glpat-xxxxxxxxxxxx (source: GITLAB_TOKEN)
+$ mise token gitlab --unmask
+gitlab.com: glpat-xxxxxxxxxxxx (source: GITLAB_TOKEN)
 
-    $ mise token gitlab gitlab.mycompany.com
-    gitlab.mycompany.com: (none)
+$ mise token gitlab gitlab.mycompany.com
+gitlab.mycompany.com: (none)
+```
 
 ## `mise tool`
 
@@ -3940,13 +4158,15 @@ Gets information about a tool
 
 Examples:
 
-    $ mise tool node
-    Backend:            core
-    Installed Versions: 20.0.0 22.0.0
-    Active Version:     20.0.0
-    Requested Version:  20
-    Config Source:      ~/.config/mise/mise.toml
-    Tool Options:       [none]
+```
+$ mise tool node
+Backend:            core
+Installed Versions: 20.0.0 22.0.0
+Active Version:     20.0.0
+Requested Version:  20
+Config Source:      ~/.config/mise/mise.toml
+Tool Options:       [none]
+```
 
 ## `mise tool-stub`
 
@@ -4007,11 +4227,13 @@ Trust is shared across git worktrees: a config file inside a linked worktree is 
 
 Examples:
 
-    # trusts ~/some_dir/mise.toml
-    $ mise trust ~/some_dir/mise.toml
+```
+# trusts ~/some_dir/mise.toml
+$ mise trust ~/some_dir/mise.toml
 
-    # trusts mise.toml in the current or parent directory
-    $ mise trust
+# trusts mise.toml in the current or parent directory
+$ mise trust
+```
 
 ## `mise uninstall`
 
@@ -4034,14 +4256,16 @@ This only removes the installed version, it does not modify mise.toml.
 
 Examples:
 
-    # will uninstall specific version
-    $ mise uninstall node@18.0.0
+```
+# will uninstall specific version
+$ mise uninstall node@18.0.0
 
-    # will uninstall the current node version (if only one version is installed)
-    $ mise uninstall node
+# will uninstall the current node version (if only one version is installed)
+$ mise uninstall node
 
-    # will uninstall all installed versions of node
-    $ mise uninstall --all node@18.0.0 # will uninstall all node versions
+# will uninstall all installed versions of node
+$ mise uninstall --all node@18.0.0 # will uninstall all node versions
+```
 
 ## `mise unset`
 
@@ -4068,11 +4292,13 @@ By default, this command modifies `mise.toml` in the current directory.
 
 Examples:
 
-    # Remove NODE_ENV from the current directory's config
-    $ mise unset NODE_ENV
+```
+# Remove NODE_ENV from the current directory's config
+$ mise unset NODE_ENV
 
-    # Remove NODE_ENV from the global config
-    $ mise unset NODE_ENV -g
+# Remove NODE_ENV from the global config
+$ mise unset NODE_ENV -g
+```
 
 ## `mise untrust`
 
@@ -4121,17 +4347,19 @@ Will also prune the installed version if no other configurations are using it.
 
 Examples:
 
-    # will uninstall specific version
-    $ mise unuse node@18.0.0
+```
+# will uninstall specific version
+$ mise unuse node@18.0.0
 
-    # will uninstall specific version from global config
-    $ mise unuse -g node@18.0.0
+# will uninstall specific version from global config
+$ mise unuse -g node@18.0.0
 
-    # will uninstall specific version from .mise.local.toml
-    $ mise unuse --env local node@20
+# will uninstall specific version from .mise.local.toml
+$ mise unuse --env local node@20
 
-    # will uninstall specific version from .mise.staging.toml
-    $ mise unuse --env staging node@20
+# will uninstall specific version from .mise.staging.toml
+$ mise unuse --env staging node@20
+```
 
 ## `mise upgrade`
 
@@ -4196,32 +4424,34 @@ After removal, `-l` will become shorthand for `--local`. Use `-b` or `--bump` in
 
 Examples:
 
-    # Upgrades node to the latest version matching the range in mise.toml
-    $ mise upgrade node
+```
+# Upgrades node to the latest version matching the range in mise.toml
+$ mise upgrade node
 
-    # Upgrades node to the latest version and bumps the version in mise.toml
-    $ mise upgrade node --bump
+# Upgrades node to the latest version and bumps the version in mise.toml
+$ mise upgrade node --bump
 
-    # Upgrades all tools to the latest versions
-    $ mise upgrade
+# Upgrades all tools to the latest versions
+$ mise upgrade
 
-    # Upgrades all tools to the latest versions and bumps the version in mise.toml
-    $ mise upgrade --bump
+# Upgrades all tools to the latest versions and bumps the version in mise.toml
+$ mise upgrade --bump
 
-    # Just print what would be done, don't actually do it
-    $ mise upgrade --dry-run
+# Just print what would be done, don't actually do it
+$ mise upgrade --dry-run
 
-    # Upgrades node and python to the latest versions
-    $ mise upgrade node python
+# Upgrades node and python to the latest versions
+$ mise upgrade node python
 
-    # Upgrade all tools except go
-    $ mise upgrade --exclude go
+# Upgrade all tools except go
+$ mise upgrade --exclude go
 
-    # Show a multiselect menu to choose which tools to upgrade
-    $ mise upgrade --interactive
+# Show a multiselect menu to choose which tools to upgrade
+$ mise upgrade --interactive
 
-    # Only upgrade tools defined in local mise.toml, not global ones
-    $ mise upgrade --local
+# Only upgrade tools defined in local mise.toml, not global ones
+$ mise upgrade --local
+```
 
 ## `mise use`
 
@@ -4252,7 +4482,9 @@ Use the `--global` flag to use the global config file instead.
 
   Tool options can be set with this syntax:
 
-      mise use ubi:BurntSushi/ripgrep[exe=rg]
+  ```
+  mise use ubi:BurntSushi/ripgrep[exe=rg]
+  ```
 
 ### Flags
 - **`-e --env <ENV>`** — Create/modify an environment-specific config file like .mise.<env>.toml
@@ -4287,22 +4519,24 @@ Use the `--global` flag to use the global config file instead.
 
 Examples:
 
-    # run with no arguments to use the interactive selector
-    $ mise use
+```
+# run with no arguments to use the interactive selector
+$ mise use
 
-    # set the current version of node to 20.x in mise.toml of current directory
-    # will write the fuzzy version (e.g.: 20)
-    $ mise use node@20
+# set the current version of node to 20.x in mise.toml of current directory
+# will write the fuzzy version (e.g.: 20)
+$ mise use node@20
 
-    # set the current version of node to 20.x in ~/.config/mise/config.toml
-    # will write the precise version (e.g.: 20.0.0)
-    $ mise use -g --pin node@20
+# set the current version of node to 20.x in ~/.config/mise/config.toml
+# will write the precise version (e.g.: 20.0.0)
+$ mise use -g --pin node@20
 
-    # sets .mise.local.toml (which is intended not to be committed to a project)
-    $ mise use --env local node@20
+# sets .mise.local.toml (which is intended not to be committed to a project)
+$ mise use --env local node@20
 
-    # sets .mise.staging.toml (which is used if MISE_ENV=staging)
-    $ mise use --env staging node@20
+# sets .mise.staging.toml (which is used if MISE_ENV=staging)
+$ mise use --env staging node@20
+```
 
 ## `mise version`
 
@@ -4321,10 +4555,12 @@ If the version is out of date, it will display a warning.
 
 Examples:
 
-    $ mise version
-    $ mise --version
-    $ mise -v
-    $ mise -V
+```
+$ mise version
+$ mise --version
+$ mise -v
+$ mise -V
+```
 
 ## `mise watch`
 
@@ -4528,18 +4764,26 @@ For more advanced process management (daemon management, auto-restart, readiness
     - 'path | file_size' returns the size of the file at path, or null if it does not exist.
 
     - 'path | file_read(bytes)' returns a string with the first n bytes of the file at path.
-      If the file is smaller than n bytes, the whole file is returned. There is no filter to
-      read the whole file at once to encourage limiting the amount of data read and processed.
+  ```
+  If the file is smaller than n bytes, the whole file is returned. There is no filter to
+  read the whole file at once to encourage limiting the amount of data read and processed.
+  ```
 
     - 'string | hash', and 'path | file_hash' return the hash of the string or file at path.
-      No guarantee is made about the algorithm used: treat it as an opaque value.
+  ```
+  No guarantee is made about the algorithm used: treat it as an opaque value.
+  ```
 
     - 'any | kv_store(key)', 'kv_fetch(key)', and 'kv_clear' provide a simple key-value store.
-      Data is kept in memory only, there is no persistence. Consistency is not guaranteed.
+  ```
+  Data is kept in memory only, there is no persistence. Consistency is not guaranteed.
+  ```
 
     - 'any | printout', 'any | printerr', and 'any | log(level)' will print or log any given
-      value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and
-      pass the value through (so '[1] | log("debug") | .[]' will produce a '1' and log '[1]').
+  ```
+  value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and
+  pass the value through (so '[1] | log("debug") | .[]' will produce a '1' and log '[1]').
+  ```
 
   All filtering done with such programs, and especially those using kv or filesystem access, is much slower than the other filtering methods. If filtering is too slow, events will back up and stall watchexec. Take care when designing your filters.
 
@@ -4669,25 +4913,27 @@ For more advanced process management (daemon management, auto-restart, readiness
 
   ```json
     {
-      "tags": [
-        {
-          "kind": "path",
-          "absolute": "/home/user/your/new-folder",
-          "filetype": "dir"
-        },
-        {
-          "kind": "fs",
-          "simple": "create",
-          "full": "Create(Folder)"
-        },
-        {
-          "kind": "source",
-          "source": "filesystem",
-        }
-      ],
-      "metadata": {
-        "notify-backend": "inotify"
-      }
+  ```
+  "tags": [
+    {
+      "kind": "path",
+      "absolute": "/home/user/your/new-folder",
+      "filetype": "dir"
+    },
+    {
+      "kind": "fs",
+      "simple": "create",
+      "full": "Create(Folder)"
+    },
+    {
+      "kind": "source",
+      "source": "filesystem",
+    }
+  ],
+  "metadata": {
+    "notify-backend": "inotify"
+  }
+  ```
     }
   ```
 
@@ -4695,23 +4941,25 @@ For more advanced process management (daemon management, auto-restart, readiness
 
     - `tags`, structured event data.
     - `tags[].kind`, which can be:
-      * 'path', along with:
-        + `absolute`, an absolute path.
-        + `filetype`, a file type if known ('dir', 'file', 'symlink', 'other').
-      * 'fs':
-        + `simple`, the "simple" event type ('access', 'create', 'modify', 'remove', or 'other').
-        + `full`, the "full" event type, which is too complex to fully describe here, but looks like 'General(Precise(Specific))'.
-      * 'source', along with:
-        + `source`, the source of the event ('filesystem', 'keyboard', 'mouse', 'os', 'time', 'internal').
-      * 'keyboard', along with:
-        + `keycode`. Currently only the value 'eof' is supported.
-      * 'process', for events caused by processes:
-        + `pid`, the process ID.
-      * 'signal', for signals sent to Watchexec:
-        + `signal`, the normalised signal name ('hangup', 'interrupt', 'quit', 'terminate', 'user1', 'user2').
-      * 'completion', for when a command ends:
-        + `disposition`, the exit disposition ('success', 'error', 'signal', 'stop', 'exception', 'continued').
-        + `code`, the exit, signal, stop, or exception code.
+  ```
+  * 'path', along with:
+    + `absolute`, an absolute path.
+    + `filetype`, a file type if known ('dir', 'file', 'symlink', 'other').
+  * 'fs':
+    + `simple`, the "simple" event type ('access', 'create', 'modify', 'remove', or 'other').
+    + `full`, the "full" event type, which is too complex to fully describe here, but looks like 'General(Precise(Specific))'.
+  * 'source', along with:
+    + `source`, the source of the event ('filesystem', 'keyboard', 'mouse', 'os', 'time', 'internal').
+  * 'keyboard', along with:
+    + `keycode`. Currently only the value 'eof' is supported.
+  * 'process', for events caused by processes:
+    + `pid`, the process ID.
+  * 'signal', for signals sent to Watchexec:
+    + `signal`, the normalised signal name ('hangup', 'interrupt', 'quit', 'terminate', 'user1', 'user2').
+  * 'completion', for when a command ends:
+    + `disposition`, the exit disposition ('success', 'error', 'signal', 'stop', 'exception', 'continued').
+    + `code`, the exit, signal, stop, or exception code.
+  ```
     - `metadata`, additional information about the event.
 
   The 'json-stdio' mode will emit JSON events to the standard input of the command, one per line, then close stdin. The 'json-file' mode will create a temporary file, write the events to it, and provide the path to the file with the $WATCHEXEC_EVENTS_FILE environment variable.
@@ -4761,19 +5009,21 @@ For more advanced process management (daemon management, auto-restart, readiness
 
 Examples:
 
-    $ mise watch build
-    Runs the "build" tasks. Will re-run the tasks when any of its sources change.
-    Uses "sources" from the tasks definition to determine which files to watch.
+```
+$ mise watch build
+Runs the "build" tasks. Will re-run the tasks when any of its sources change.
+Uses "sources" from the tasks definition to determine which files to watch.
 
-    $ mise watch build --glob src/**/*.rs
-    Runs the "build" tasks but specify the files to watch with a glob pattern.
-    This overrides the "sources" from the tasks definition.
+$ mise watch build --glob src/**/*.rs
+Runs the "build" tasks but specify the files to watch with a glob pattern.
+This overrides the "sources" from the tasks definition.
 
-    $ mise watch build --clear
-    Extra arguments are passed to watchexec. See `watchexec --help` for details.
+$ mise watch build --clear
+Extra arguments are passed to watchexec. See `watchexec --help` for details.
 
-    $ mise watch serve --watch src --exts rs --restart
-    Starts an api server, watching for changes to "*.rs" files in "./src" and kills/restarts the server when they change.
+$ mise watch serve --watch src --exts rs --restart
+Starts an api server, watching for changes to "*.rs" files in "./src" and kills/restarts the server when they change.
+```
 
 ## `mise where`
 
@@ -4793,15 +5043,17 @@ The tool must be installed for this to work.
 
 Examples:
 
-    # Show the latest installed version of node
-    # If it is is not installed, errors
-    $ mise where node@20
-    /home/jdx/.local/share/mise/installs/node/20.0.0
+```
+# Show the latest installed version of node
+# If it is is not installed, errors
+$ mise where node@20
+/home/jdx/.local/share/mise/installs/node/20.0.0
 
-    # Show the current, active install directory of node
-    # Errors if node is not referenced in any .tool-version file
-    $ mise where node
-    /home/jdx/.local/share/mise/installs/node/20.0.0
+# Show the current, active install directory of node
+# Errors if node is not referenced in any .tool-version file
+$ mise where node
+/home/jdx/.local/share/mise/installs/node/20.0.0
+```
 
 ## `mise which`
 
@@ -4823,11 +5075,13 @@ Use this to figure out what version of a tool is currently active.
 
 Examples:
 
-    $ mise which node
-    /home/username/.local/share/mise/installs/node/20.0.0/bin/node
+```
+$ mise which node
+/home/username/.local/share/mise/installs/node/20.0.0/bin/node
 
-    $ mise which node --plugin
-    node
+$ mise which node --plugin
+node
 
-    $ mise which node --version
-    20.0.0
+$ mise which node --version
+20.0.0
+```

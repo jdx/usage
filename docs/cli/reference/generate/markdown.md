@@ -25,7 +25,10 @@ One page by default, or a page per command with --multi. Every part of the outpu
 
   **Effect:** modifies state
 
-- **`--replace-pre-with-code-fences`** — Replace `<pre>` tags with markdown code fences
+- **`--indented-blocks-to-code-fences`** — Turn four-space indented blocks in help text into markdown code fences
+
+  `--replace-pre-with-code-fences` is the former name and still works. It was always a misnomer: this has never looked at `<pre>` tags.
+
 - **`--url-prefix <URL_PREFIX>`** — Prefix for the links between pages, such as /cli/reference
 - **`--template <TEMPLATE>`** — Replace a built-in Tera template, as NAME=PATH; the names are spec, index, command, argument, flag, and config
 - **`-h --help`** — Print help

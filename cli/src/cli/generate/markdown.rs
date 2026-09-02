@@ -48,9 +48,15 @@ pub struct Markdown {
     )]
     out_file: Option<PathBuf>,
 
-    /// Replace `<pre>` tags with markdown code fences
-    #[usage(long)]
-    replace_pre_with_code_fences: bool,
+    /// Turn four-space indented blocks in help text into markdown code fences
+    ///
+    /// `--replace-pre-with-code-fences` is the former name and still works. It was always a
+    /// misnomer: this has never looked at `<pre>` tags.
+    #[usage(
+        long = "indented-blocks-to-code-fences",
+        alias = "replace-pre-with-code-fences"
+    )]
+    indented_blocks_to_code_fences: bool,
 
     /// Prefix for the links between pages, such as /cli/reference
     #[usage(long)]
@@ -83,7 +89,7 @@ impl usage_rs::Run for Markdown {
         let spec = select_view(parse_file_or_stdin(&self.file)?, self.view.as_deref())?;
         let mut ctx = MarkdownRenderer::new(spec.clone())
             .with_html_encode(self.html_encode)
-            .with_replace_pre_with_code_fences(self.replace_pre_with_code_fences);
+            .with_indented_blocks_to_code_fences(self.indented_blocks_to_code_fences);
         for value in &self.template {
             let Some((name, path)) = value.split_once('=') else {
                 usage::miette::bail!("invalid template `{value}`; expected NAME=PATH");

@@ -1,5 +1,4 @@
 use crate::docs::markdown::renderer::MarkdownRenderer;
-use crate::docs::models::SpecConfig;
 use crate::error::UsageErr;
 
 impl MarkdownRenderer {
@@ -8,17 +7,12 @@ impl MarkdownRenderer {
     /// Empty string when there is nothing to say, so a caller can concatenate it without
     /// checking — a CLI with no settings should not grow a blank section.
     pub fn render_config(&self) -> Result<String, UsageErr> {
-        // From the raw block, not from `self.spec.config`: that one was rendered by `new`
-        // before the builder options were set, and rendering is once-only, so taking it would
-        // silently ignore `replace_pre_with_code_fences`. Same reason `render_cmd` converts
-        // from the raw command it is given.
-        let mut config = SpecConfig::from(&self.raw_config);
+        let config = &self.spec().config;
         if config.is_empty() {
             return Ok(String::new());
         }
-        config.render_md(self);
         self.render_with("config_template.md.tera", |ctx| {
-            ctx.insert("config", &config)
+            ctx.insert("config", config)
         })
     }
 }
@@ -31,7 +25,7 @@ mod tests {
     fn rendered(src: &str) -> String {
         let spec: crate::Spec = src.parse().unwrap();
         MarkdownRenderer::new(spec)
-            .with_replace_pre_with_code_fences(true)
+            .with_indented_blocks_to_code_fences(true)
             .render_config()
             .unwrap()
     }
@@ -116,7 +110,7 @@ cmd "run" help="Run"
     fn a_setting_s_long_help_gets_the_rendering_options_it_was_asked_for() {
         // `MarkdownRenderer::new` renders the whole docs model eagerly — before the builder
         // methods that set the options — and rendering marks each item done, so a second pass
-        // no-ops. Taking the already-rendered config meant `replace_pre_with_code_fences` did
+        // no-ops. Taking the already-rendered config meant `--indented-blocks-to-code-fences` did
         // nothing at all to a setting's long help, silently, while doing its job everywhere
         // else on the same page.
         let src = r##"
@@ -130,7 +124,7 @@ config {
 "##;
         let spec: crate::Spec = src.parse().unwrap();
         let with_fences = MarkdownRenderer::new(spec.clone())
-            .with_replace_pre_with_code_fences(true)
+            .with_indented_blocks_to_code_fences(true)
             .render_config()
             .unwrap();
         assert!(
@@ -145,7 +139,7 @@ config {
 
         // The single-file page renders the same model by its own path, and had the same bug.
         let whole = MarkdownRenderer::new(spec)
-            .with_replace_pre_with_code_fences(true)
+            .with_indented_blocks_to_code_fences(true)
             .render_spec()
             .unwrap();
         assert!(

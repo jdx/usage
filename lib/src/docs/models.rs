@@ -302,7 +302,7 @@ impl SpecConfigProp {
         }
         self.rendered = true;
         if let Some(help) = &mut self.help_md {
-            *help = renderer.replace_code_fences(help.to_string());
+            *help = renderer.fence_indented_blocks(help.to_string());
         }
     }
 }
@@ -1152,7 +1152,7 @@ impl Spec {
         }
         self.rendered = true;
         if let Some(h) = &mut self.about_md {
-            *h = renderer.replace_code_fences(h.to_string());
+            *h = renderer.fence_indented_blocks(h.to_string());
         }
         for example in &mut self.examples {
             example.render_md(renderer);
@@ -1181,17 +1181,17 @@ impl SpecCommand {
         self.rendered = true;
         if self.before_help_md.is_none() {
             if let Some(h) = self.before_help_long.clone().or(self.before_help.clone()) {
-                self.before_help_md = Some(renderer.replace_code_fences(h));
+                self.before_help_md = Some(renderer.fence_indented_blocks(h));
             }
         }
         if self.help_md.is_none() {
             if let Some(h) = self.help_long.clone().or(self.help.clone()) {
-                self.help_md = Some(renderer.replace_code_fences(h));
+                self.help_md = Some(renderer.fence_indented_blocks(h));
             }
         }
         if self.after_help_md.is_none() {
             if let Some(h) = self.after_help_long.clone().or(self.after_help.clone()) {
-                self.after_help_md = Some(renderer.replace_code_fences(h));
+                self.after_help_md = Some(renderer.fence_indented_blocks(h));
             }
         }
         for flag in &mut self.flags {
@@ -1234,7 +1234,7 @@ impl SpecFlag {
         self.rendered = true;
         if self.help_md.is_none() {
             if let Some(h) = self.help_long.clone().or(self.help.clone()) {
-                self.help_md = Some(renderer.replace_code_fences(h));
+                self.help_md = Some(renderer.fence_indented_blocks(h));
             }
         }
         self.aliases = self
@@ -1256,7 +1256,7 @@ impl SpecArg {
         self.rendered = true;
         if self.help_md.is_none() {
             if let Some(h) = self.help_long.clone().or(self.help.clone()) {
-                self.help_md = Some(renderer.replace_code_fences(h));
+                self.help_md = Some(renderer.fence_indented_blocks(h));
             }
         }
     }
@@ -1270,7 +1270,7 @@ impl SpecExample {
         }
         self.rendered = true;
         if let Some(h) = self.help.clone() {
-            self.help = Some(renderer.replace_code_fences(h));
+            self.help = Some(renderer.fence_indented_blocks(h));
         }
     }
 }

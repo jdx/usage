@@ -1415,12 +1415,17 @@
                 "effect": "write"
               },
               {
-                "name": "replace-pre-with-code-fences",
-                "usage": "--replace-pre-with-code-fences",
-                "help": "Replace `<pre>` tags with markdown code fences",
-                "help_first_line": "Replace `<pre>` tags with markdown code fences",
+                "name": "indented-blocks-to-code-fences",
+                "usage": "--indented-blocks-to-code-fences",
+                "help": "Turn four-space indented blocks in help text into markdown code fences",
+                "help_long": "Turn four-space indented blocks in help text into markdown code fences\n\n`--replace-pre-with-code-fences` is the former name and still works. It was always a misnomer: this has never looked at `<pre>` tags.",
+                "help_first_line": "Turn four-space indented blocks in help text into markdown code fences",
                 "short": [],
-                "long": ["replace-pre-with-code-fences"],
+                "long": [
+                  "indented-blocks-to-code-fences",
+                  "replace-pre-with-code-fences"
+                ],
+                "hidden_aliases": ["replace-pre-with-code-fences"],
                 "hide": false,
                 "global": false
               },
