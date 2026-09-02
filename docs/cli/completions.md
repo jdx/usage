@@ -92,8 +92,8 @@ offers at a given point:
 
 ```bash
 $ usage complete-word --file ./mycli.usage.kdl -- mycli cmd1 cmd2 --f
---force
 --file
+--force
 ```
 
 Because the shell-specific part is this thin, adding a shell is mostly a matter of writing the

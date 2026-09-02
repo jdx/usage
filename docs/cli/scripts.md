@@ -33,12 +33,23 @@ With the script at `./mycli`:
 
 ```bash
 $ ./mycli --help
-Usage: mycli [flags] [args]
-...
+Usage: mycli [-f --force] [-u --user <user>] [file]
+
+Arguments:
+  [file]  The file to write
+          (default: file.txt)
+
+Flags:
+  -f, --force        Overwrite existing <file>
+  -u, --user <user>  User to run as
+  -h, --help         Print help
 $ ./mycli -f --user=alice output.txt
 $ cat output.txt
 Hello, alice
 ```
+
+The synopsis, the two sections, and `-h`/`--help` itself are all built from those three
+comment lines. Nothing in the script prints them.
 
 A language without a dedicated command goes through `usage exec`, which names the interpreter to
 run. The comment prefix follows the language, so JavaScript uses `//USAGE`:
