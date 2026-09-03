@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  MBX_DISABLE: "1"
   MISE_EXPERIMENTAL: 1
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

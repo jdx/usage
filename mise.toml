@@ -5,6 +5,7 @@ CARGO_TERM_COLOR = 'always'
 _.path = ["./target/debug"]
 
 [tools]
+mr-boxington = "1.5.0"
 # Pinned rather than "latest" because tak is the measuring instrument: an
 # upgrade that changes how it samples would land in the series as a step change
 # in usage's numbers, indistinguishable from a real regression. Bump deliberately.
@@ -25,6 +26,10 @@ go = "1.27.0"
 node = "24"
 python = "latest"
 "npm:tsc" = "latest"
+
+[wrappers.cargo]
+command = "mbx"
+env = { MBX_CARGO_SHIM_MODE = "1" }
 
 [tasks.autofix]
 depends = ["render", "lint-fix", "snapshots"]
@@ -263,7 +268,7 @@ run = [
 # the note in tak.toml. Takes an optional path to write the markdown to.
 [tasks."perf:shadow"]
 dir = "{{config_root}}"
-run = ["cargo build --release", "./tasks/perf-shadow.sh"]
+run = ["mbx build --release", "./tasks/perf-shadow.sh"]
 
 # What binding a mise-sized command line costs a Go CLI. Reported, never gated — see the
 # note at the top of the script, and `perf:shadow` for the Rust side's version of the same
@@ -276,7 +281,7 @@ run = './tasks/perf-go.sh'
 # without it tak reports wall clock only and says so, so this still works on
 # macOS where there is no usable cachegrind.
 [tasks."perf:build"]
-run = "cargo build --release"
+run = "mbx build --release"
 
 [tasks.perf]
 dir = "{{config_root}}"
