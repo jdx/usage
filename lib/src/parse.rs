@@ -1651,8 +1651,9 @@ fn parse_partial_traced(
     // Now that we've identified all subcommands and executed their mounts,
     // we can parse the remaining arguments, flags, and their values.
 
-    // The cursor into `out.cmd.args`, kept as an index rather than a reference because an
-    // explicit `--` may jump it *past* arguments that stay empty (see the `w == "--"` arm).
+    // The cursor into the active positional arguments, kept as an index rather than a reference
+    // because an explicit `--` may jump it *past* arguments that stay empty (see the `w == "--"`
+    // arm).
     // With such a gap `out.args.len()` no longer equals the cursor, so anything asking "is this
     // argument filled?" has to consult `out.args` by key instead of counting.
     let mut next_arg_idx = cursor_skip_sigils(&out.cmd, 0);
@@ -4857,9 +4858,7 @@ fn record_stop(
     trace: &mut Trace,
     unread: &VecDeque<Token>,
 ) {
-    out.next_arg = out
-        .cmd
-        .args
+    out.next_arg = active_args(&out.cmd)
         .get(cursor_skip_sigils(&out.cmd, next_arg_idx))
         .cloned()
         .map(Arc::new);
@@ -6554,6 +6553,25 @@ clause "tasks" separator=":::" {
 
         let err = parse(&spec, &input(&["ex", "--dump", "lint"])).unwrap_err();
         assert!(err.to_string().contains("on its own"), "{err}");
+    }
+
+    #[test]
+    fn a_partial_parse_reports_the_next_implicit_clause_argument() {
+        let spec: Spec = r#"name "ex"
+bin "ex"
+clause "tools" {
+  arg "<tool@version>"
+}
+"#
+        .parse()
+        .unwrap();
+
+        let parsed = parse_partial(&spec, &input(&["ex"])).unwrap();
+
+        assert_eq!(
+            parsed.next_arg.as_ref().map(|arg| arg.name.as_str()),
+            Some("tool@version")
+        );
     }
 
     #[test]
