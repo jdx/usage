@@ -84,13 +84,17 @@ impl Styling {
             headings.push("Global flags".to_string());
         }
 
-        let mut command_usages: Vec<String> = command
-            .subcommand_groups
-            .iter()
-            .flat_map(|group| group.items.iter())
-            .map(|command| command.name.clone())
-            .collect();
-        if !command_usages.is_empty() && !command.flatten_help && show_help_subcommand {
+        let mut command_usages: Vec<String> = if command.flatten_help {
+            Vec::new()
+        } else {
+            command
+                .subcommand_groups
+                .iter()
+                .flat_map(|group| group.items.iter())
+                .map(|command| command.name.clone())
+                .collect()
+        };
+        if !command_usages.is_empty() && show_help_subcommand {
             command_usages.push("help".to_string());
         }
         command_usages.sort_unstable_by_key(|usage| std::cmp::Reverse(usage.len()));
@@ -209,7 +213,9 @@ fn style_entry(entry: &str, usage: &str, style: Style) -> Option<String> {
 fn style_command_entry(entry: &str, usage: &str, style: Style) -> Option<String> {
     entry
         .strip_prefix(usage)
-        .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
+        // A rendered row either ends after the name or has the table's two-space column
+        // separator. Group prose has the same indentation, but ordinary word spacing.
+        .filter(|rest| rest.is_empty() || rest.starts_with("  "))
         .map(|rest| format!("  {}{rest}", style.semantic("command", usage)))
 }
 

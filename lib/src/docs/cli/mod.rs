@@ -2107,4 +2107,49 @@ flag "--output <FILE>" help="Write **the file**"
             "{coloured:?}"
         );
     }
+
+    #[test]
+    fn command_style_does_not_match_command_group_prose() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+heading "Build commands" help="build these projects before publishing"
+cmd "build" help="Build it" help_heading="Build commands"
+        "# }
+        .unwrap();
+
+        let coloured = render_help_styled(&spec, &spec.cmd, true, Style::COLOURED);
+        assert!(
+            coloured.contains("  build these projects before publishing"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains("\u{1b}[1;32mbuild\u{1b}[0m  Build it"),
+            "{coloured:?}"
+        );
+        assert!(
+            !coloured.contains("\u{1b}[1;32mbuild\u{1b}[0m these projects"),
+            "{coloured:?}"
+        );
+    }
+
+    #[test]
+    fn flattened_help_does_not_apply_command_style() {
+        let spec = crate::spec! { r#"
+bin "testcli"
+flatten_help #true
+help_template "Intro\n  run  should stay prose\n\n{{commands}}"
+cmd "run" help="Run it"
+        "# }
+        .unwrap();
+
+        let coloured = render_help_styled(&spec, &spec.cmd, true, Style::COLOURED);
+        assert!(
+            coloured.contains("  run  should stay prose"),
+            "{coloured:?}"
+        );
+        assert!(
+            !coloured.contains("\u{1b}[1;32mrun\u{1b}[0m"),
+            "{coloured:?}"
+        );
+    }
 }

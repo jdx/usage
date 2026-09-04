@@ -823,7 +823,10 @@ fn styled_help(
                             entry
                                 .strip_prefix(usage)
                                 .filter(|rest| {
-                                    rest.is_empty() || rest.starts_with(char::is_whitespace)
+                                    // Command rows either end after the name or have the
+                                    // table's two-space separator. Group prose uses ordinary
+                                    // word spacing despite sharing the row indentation.
+                                    rest.is_empty() || rest.starts_with("  ")
                                 })
                                 .map(|rest| format!("  {}{rest}", style.command(usage)))
                         })
@@ -4488,7 +4491,7 @@ mod style_tests {
 
     #[test]
     fn coloured_help_styles_structure_without_changing_plain_text() {
-        let page = "A summary ending in:\nUsage: prose is not a synopsis\nExamples:\n\nUsage: ex [OPTIONS]\n       ex --all\n\nCommands:\n  build  Build it\n  help   Print help\n\nArguments:\n  <FILE>  Read this file\n\nOptions:\n  -f, --force  Force it\n    [possible values: --auto]\n    (default: -1)\n";
+        let page = "A summary ending in:\nUsage: prose is not a synopsis\nExamples:\n\nUsage: ex [OPTIONS]\n       ex --all\n\nCommands:\n  build these projects before publishing\n\n  build  Build it\n  help   Print help\n\nArguments:\n  <FILE>  Read this file\n\nOptions:\n  -f, --force  Force it\n    [possible values: --auto]\n    (default: -1)\n";
         let headings = vec![
             "Commands".to_string(),
             "Arguments".to_string(),
@@ -4530,6 +4533,8 @@ mod style_tests {
         assert!(coloured.contains("\u{1b}[1;35m<FILE>\u{1b}[0m"));
         assert!(coloured.contains("\u{1b}[1;32mbuild\u{1b}[0m  Build it"));
         assert!(coloured.contains("\u{1b}[1;32mhelp\u{1b}[0m   Print help"));
+        assert!(coloured.contains("  build these projects before publishing"));
+        assert!(!coloured.contains("\u{1b}[1;32mbuild\u{1b}[0m these projects"));
         assert!(coloured.contains("A summary ending in:\nUsage: prose is not a synopsis"));
         assert!(coloured.contains("Usage: prose is not a synopsis\nExamples:"));
         assert!(coloured.contains("ex \u{1b}[1;32m--all\u{1b}[0m"));
