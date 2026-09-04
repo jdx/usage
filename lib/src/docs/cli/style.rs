@@ -47,6 +47,7 @@ impl Style {
 
 pub(super) struct Styling {
     headings: Vec<String>,
+    command_usages: Vec<String>,
     flag_usages: Vec<String>,
     arg_usages: Vec<String>,
     synopsis: Vec<String>,
@@ -57,6 +58,7 @@ impl Styling {
         command: &SpecCommand,
         global_flags: &[SpecFlag],
         usage_section: &str,
+        show_help_subcommand: bool,
     ) -> Self {
         let mut headings = vec!["Examples".to_string()];
         headings.extend(command.subcommand_groups.iter().map(|group| {
@@ -82,6 +84,16 @@ impl Styling {
             headings.push("Global flags".to_string());
         }
 
+        let mut command_usages: Vec<String> = command
+            .subcommand_groups
+            .iter()
+            .flat_map(|group| group.items.iter())
+            .map(|command| command.name.clone())
+            .collect();
+        if !command_usages.is_empty() && !command.flatten_help && show_help_subcommand {
+            command_usages.push("help".to_string());
+        }
+        command_usages.sort_unstable_by_key(|usage| std::cmp::Reverse(usage.len()));
         let mut flag_usages = command
             .flag_groups
             .iter()
@@ -105,6 +117,7 @@ impl Styling {
         arg_usages.sort_unstable_by_key(|usage| std::cmp::Reverse(usage.len()));
         Self {
             headings,
+            command_usages,
             flag_usages,
             arg_usages,
             synopsis: usage_section.lines().map(str::to_string).collect(),
@@ -140,6 +153,11 @@ impl Styling {
                             self.arg_usages
                                 .iter()
                                 .find_map(|usage| style_entry(entry, usage, style))
+                        })
+                        .or_else(|| {
+                            self.command_usages
+                                .iter()
+                                .find_map(|usage| style_command_entry(entry, usage, style))
                         })
                 });
                 let body = styled.as_deref().unwrap_or(body);
@@ -186,6 +204,13 @@ fn style_entry(entry: &str, usage: &str, style: Style) -> Option<String> {
         .strip_prefix(usage)
         .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
         .map(|rest| format!("  {}{rest}", styled_usage(usage, style)))
+}
+
+fn style_command_entry(entry: &str, usage: &str, style: Style) -> Option<String> {
+    entry
+        .strip_prefix(usage)
+        .filter(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
+        .map(|rest| format!("  {}{rest}", style.semantic("command", usage)))
 }
 
 fn styled_usage(usage: &str, style: Style) -> String {

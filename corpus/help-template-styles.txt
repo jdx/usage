@@ -1,6 +1,7 @@
 heading
 option
 metavar
+command
 black
 red
 green

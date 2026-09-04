@@ -8,10 +8,11 @@ const MARK: char = '\u{2}';
 const END: char = '\u{3}';
 
 /// The styles accepted in a help template.
-pub const STYLES: [&str; 23] = [
+pub const STYLES: [&str; 24] = [
     "heading",
     "option",
     "metavar",
+    "command",
     "black",
     "red",
     "green",
@@ -60,6 +61,10 @@ impl AnsiStyle {
                 }
                 "metavar" => {
                     self.foreground = Some(35);
+                    self.bold = true;
+                }
+                "command" => {
+                    self.foreground = Some(32);
                     self.bold = true;
                 }
                 "black" => self.foreground = Some(30),

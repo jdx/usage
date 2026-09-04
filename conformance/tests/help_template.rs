@@ -198,7 +198,7 @@ struct EverySection {
 #[derive(Cli)]
 #[usage(
     bin = "every-style",
-    help_template = "{$heading}heading{/$} {$option}option{/$} {$metavar}metavar{/$} {$black}black{/$} {$red}red{/$} {$green}green{/$} {$yellow}yellow{/$} {$blue}blue{/$} {$magenta}magenta{/$} {$cyan}cyan{/$} {$white}white{/$} {$bright-black}bright-black{/$} {$bright-red}bright-red{/$} {$bright-green}bright-green{/$} {$bright-yellow}bright-yellow{/$} {$bright-blue}bright-blue{/$} {$bright-magenta}bright-magenta{/$} {$bright-cyan}bright-cyan{/$} {$bright-white}bright-white{/$} {$bold}bold{/$} {$dim}dim{/$} {$italic}italic{/$} {$underline}underline{/$}"
+    help_template = "{$heading}heading{/$} {$option}option{/$} {$metavar}metavar{/$} {$command}command{/$} {$black}black{/$} {$red}red{/$} {$green}green{/$} {$yellow}yellow{/$} {$blue}blue{/$} {$magenta}magenta{/$} {$cyan}cyan{/$} {$white}white{/$} {$bright-black}bright-black{/$} {$bright-red}bright-red{/$} {$bright-green}bright-green{/$} {$bright-yellow}bright-yellow{/$} {$bright-blue}bright-blue{/$} {$bright-magenta}bright-magenta{/$} {$bright-cyan}bright-cyan{/$} {$bright-white}bright-white{/$} {$bold}bold{/$} {$dim}dim{/$} {$italic}italic{/$} {$underline}underline{/$}"
 )]
 struct EveryStyle {}
 

@@ -37,10 +37,11 @@ pub const SECTIONS: [&str; 10] = [
 ];
 
 /// The styles a template may apply to its own text or to a rendered section.
-pub const STYLES: [&str; 23] = [
+pub const STYLES: [&str; 24] = [
     "heading",
     "option",
     "metavar",
+    "command",
     "black",
     "red",
     "green",
@@ -92,6 +93,10 @@ impl AnsiStyle {
                 }
                 "metavar" => {
                     self.foreground = Some(35);
+                    self.bold = true;
+                }
+                "command" => {
+                    self.foreground = Some(32);
                     self.bold = true;
                 }
                 "black" => self.foreground = Some(30),

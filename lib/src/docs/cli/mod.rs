@@ -188,7 +188,12 @@ pub fn render_help_styled(spec: &Spec, cmd: &SpecCommand, long: bool, style: Sty
     };
     let rendered = TERA.render(template, &ctx).unwrap();
     let sections = Sections::split(&rendered);
-    let styling = style::Styling::new(&docs_cmd, &inherited, sections.usage);
+    let styling = style::Styling::new(
+        &docs_cmd,
+        &inherited,
+        sections.usage,
+        !cmd.disable_help_subcommand,
+    );
     let page = match spec
         .help_template
         .as_deref()
@@ -2051,7 +2056,8 @@ cmd "run" help="Run it" {
     fn styled_help_colours_semantics_and_template_styles() {
         let mut spec = crate::spec! { r#"
 bin "testcli"
-help_template "{$bright-blue}My tool{/$}\n\n{{usage}}\n\n{{flags}}\n\n{{after_help}}"
+help_template "{$bright-blue}My tool{/$}\n\n{{usage}}\n\n{{commands}}\n\n{{flags}}\n\n{{after_help}}"
+cmd "build" help="Build it"
 flag "--output <FILE>" help="Write **the file**"
         "# }
         .unwrap();
@@ -2080,6 +2086,16 @@ flag "--output <FILE>" help="Write **the file**"
         );
         assert!(
             coloured.contains("\u{1b}[1;35m<FILE>\u{1b}[0m"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains("\u{1b}[1;32mbuild\u{1b}[0m  Build it"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains(
+                "\u{1b}[1;32mhelp\u{1b}[0m   Print this message or the help of the given subcommand(s)"
+            ),
             "{coloured:?}"
         );
         assert!(

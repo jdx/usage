@@ -215,12 +215,13 @@ Template-authored text and whole sections may be styled with runtime, bunt-like 
 ```
 
 An opening `{$…}` tag applies until its matching `{/$}` and tags may nest. Join styles with `+`,
-as in `{$bold+bright-blue}`. `heading`, `option`, and `metavar` use usage's semantic palette. The
-physical vocabulary contains `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, and
-`white`; each `bright-` variant; and `bold`, `dim`, `italic`, and `underline`. Terminal output
-renders the ANSI styles. Plain output and generated Go pages remove the tags while retaining their
-contents. Double the dollar sign to write either delimiter literally: `{$$heading}` renders
-`{$heading}`, and `{/$$}` renders `{/$}`.
+as in `{$bold+bright-blue}`. `heading`, `option`, `metavar`, and `command` use usage's semantic
+palette. Headings are bold yellow by default, options and commands are bold green, and
+metavariables are bold magenta. The physical vocabulary contains `black`, `red`, `green`, `yellow`,
+`blue`, `magenta`, `cyan`, and `white`; each `bright-` variant; and `bold`, `dim`, `italic`, and
+`underline`. Terminal output renders the ANSI styles. Plain output and generated Go pages remove
+the tags while retaining their contents. Double the dollar sign to write either delimiter
+literally: `{$$heading}` renders `{$heading}`, and `{/$$}` renders `{/$}`.
 
 The reference renderer keeps `usage::docs::cli::render_help` plain for generated artifacts and
 snapshots. A process printing a dynamically parsed spec should call `render_help_styled` with
