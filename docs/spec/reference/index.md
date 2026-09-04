@@ -100,12 +100,13 @@ sections may carry terminal styles with `{$style}…{/$}`:
 help_template "{$heading}My tool{/$}\n\n{{usage}}\n\n{$cyan}{{flags}}{/$}"
 ```
 
-Styles may be combined with `+`. The semantic styles are `heading`, `option`, and
-`metavar`; the physical styles are the eight ANSI colour names, their `bright-`
-variants, `bold`, `dim`, `italic`, and `underline`. Plain and generated help removes
-the tags. Tags in substituted descriptions are ordinary prose rather than template
-markup. Double the dollar sign to write a delimiter literally: `{$$heading}` renders
-`{$heading}`, and `{/$$}` renders `{/$}`.
+Styles may be combined with `+`. The semantic styles are `heading`, `option`,
+`metavar`, and `command`. Headings are bold yellow by default, options and commands
+are bold green, and metavariables are bold magenta. The physical styles are the eight
+ANSI colour names, their `bright-` variants, `bold`, `dim`, `italic`, and `underline`.
+Plain and generated help removes the tags. Tags in substituted descriptions are
+ordinary prose rather than template markup. Double the dollar sign to write a delimiter
+literally: `{$$heading}` renders `{$heading}`, and `{/$$}` renders `{/$}`.
 
 ## Root command policy
 

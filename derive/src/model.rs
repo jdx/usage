@@ -4519,10 +4519,11 @@ const HELP_SECTIONS: [&str; 10] = [
     "after_help",
 ];
 
-const HELP_STYLES: [&str; 23] = [
+const HELP_STYLES: [&str; 24] = [
     "heading",
     "option",
     "metavar",
+    "command",
     "black",
     "red",
     "green",

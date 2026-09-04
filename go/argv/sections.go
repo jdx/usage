@@ -37,7 +37,7 @@ var HelpSections = [...]string{
 
 // HelpStyles is the closed style vocabulary accepted by HelpTemplate.
 var HelpStyles = [...]string{
-	"heading", "option", "metavar",
+	"heading", "option", "metavar", "command",
 	"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
 	"bright-black", "bright-red", "bright-green", "bright-yellow", "bright-blue",
 	"bright-magenta", "bright-cyan", "bright-white",

@@ -311,6 +311,10 @@ impl Style {
         template::semantic("metavar", text, self.coloured)
     }
 
+    fn command(self, text: &str) -> String {
+        template::semantic("command", text, self.coloured)
+    }
+
     /// Render the small Markdown vocabulary accepted in help prose.
     ///
     /// Plain output deliberately keeps the source spelling: generated artifacts and pipes
@@ -586,21 +590,39 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
     out
 }
 
+struct HelpStructure {
+    headings: Vec<String>,
+    command_usages: Vec<String>,
+    flag_usages: Vec<String>,
+    arg_usages: Vec<String>,
+    synopsis: Vec<String>,
+}
+
 fn help_structure(
     spec: &Spec<'_>,
     path: &[&str],
     chain: &[&CommandMeta<'_>],
     long: bool,
     inherit_version_actions: bool,
-) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
+) -> HelpStructure {
     let meta = *chain.last().expect("a page is always about some command");
     let mut headings = Vec::new();
+    let mut command_usages = Vec::new();
     if !meta.examples.is_empty() {
         headings.push("Examples".to_string());
     }
     if meta.flatten_help {
         flat_help_headings(&path[1.min(path.len())..], meta, &mut headings);
     } else if meta.subcommands.iter().any(|sub| !sub.hide) {
+        command_usages.extend(
+            meta.subcommands
+                .iter()
+                .filter(|sub| !sub.hide)
+                .map(|sub| sub.cmd.name.to_string()),
+        );
+        if !meta.cmd.disable_help_subcommand {
+            command_usages.push(HELP_SUBCOMMAND.to_string());
+        }
         headings.push(
             meta.subcommand_help_heading
                 .unwrap_or("Commands")
@@ -679,11 +701,18 @@ fn help_structure(
     }
     arg_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
     flag_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
+    command_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
 
     let mut synopsis = String::new();
     usage_section(&mut synopsis, spec, path, meta);
     let synopsis = synopsis.lines().map(str::to_string).collect();
-    (headings, flag_usages, arg_usages, synopsis)
+    HelpStructure {
+        headings,
+        command_usages,
+        flag_usages,
+        arg_usages,
+        synopsis,
+    }
 }
 
 fn flat_help_usages(
@@ -745,6 +774,7 @@ fn styled_help(
     page: &str,
     style: Style,
     headings: &[String],
+    command_usages: &[String],
     flag_usages: &[String],
     arg_usages: &[String],
     synopsis: &[String],
@@ -788,6 +818,19 @@ fn styled_help(
                                 .map(|rest| format!("  {}{rest}", styled_flag_usage(usage, style)))
                         })
                     })
+                    .or_else(|| {
+                        command_usages.iter().find_map(|usage| {
+                            entry
+                                .strip_prefix(usage)
+                                .filter(|rest| {
+                                    // Command rows either end after the name or have the
+                                    // table's two-space separator. Group prose uses ordinary
+                                    // word spacing despite sharing the row indentation.
+                                    rest.is_empty() || rest.starts_with("  ")
+                                })
+                                .map(|rest| format!("  {}{rest}", style.command(usage)))
+                        })
+                    })
             });
             // Examples are shell source, where paired backticks are command substitution rather
             // than prose markup. Every other non-structural line may contain author emphasis;
@@ -818,8 +861,7 @@ fn assembled_help(
     } else {
         short_sections(spec, path, chain, inherit_version_actions)
     };
-    let (headings, flag_usages, arg_usages, synopsis) =
-        help_structure(spec, path, chain, long, inherit_version_actions);
+    let structure = help_structure(spec, path, chain, long, inherit_version_actions);
     let page = match spec
         .help_template
         .filter(|template| !template.trim().is_empty())
@@ -829,20 +871,22 @@ fn assembled_help(
                 styled_help(
                     &part,
                     style,
-                    &headings,
-                    &flag_usages,
-                    &arg_usages,
-                    &synopsis,
+                    &structure.headings,
+                    &structure.command_usages,
+                    &structure.flag_usages,
+                    &structure.arg_usages,
+                    &structure.synopsis,
                 )
             })
         }),
         None => styled_help(
             &sections.concatenated(),
             style,
-            &headings,
-            &flag_usages,
-            &arg_usages,
-            &synopsis,
+            &structure.headings,
+            &structure.command_usages,
+            &structure.flag_usages,
+            &structure.arg_usages,
+            &structure.synopsis,
         ),
     };
     finish_page(page, style)
@@ -4447,8 +4491,13 @@ mod style_tests {
 
     #[test]
     fn coloured_help_styles_structure_without_changing_plain_text() {
-        let page = "A summary ending in:\nUsage: prose is not a synopsis\nExamples:\n\nUsage: ex [OPTIONS]\n       ex --all\n\nArguments:\n  <FILE>  Read this file\n\nOptions:\n  -f, --force  Force it\n    [possible values: --auto]\n    (default: -1)\n";
-        let headings = vec!["Arguments".to_string(), "Options".to_string()];
+        let page = "A summary ending in:\nUsage: prose is not a synopsis\nExamples:\n\nUsage: ex [OPTIONS]\n       ex --all\n\nCommands:\n  build these projects before publishing\n\n  build  Build it\n  help   Print help\n\nArguments:\n  <FILE>  Read this file\n\nOptions:\n  -f, --force  Force it\n    [possible values: --auto]\n    (default: -1)\n";
+        let headings = vec![
+            "Commands".to_string(),
+            "Arguments".to_string(),
+            "Options".to_string(),
+        ];
+        let command_usages = vec!["build".to_string(), "help".to_string()];
         let usages = vec!["-f, --force".to_string()];
         let arg_usages = vec!["<FILE>".to_string()];
         let synopsis = vec![
@@ -4460,6 +4509,7 @@ mod style_tests {
                 page,
                 Style::PLAIN,
                 &headings,
+                &command_usages,
                 &usages,
                 &arg_usages,
                 &synopsis
@@ -4471,6 +4521,7 @@ mod style_tests {
             page,
             Style::COLOURED,
             &headings,
+            &command_usages,
             &usages,
             &arg_usages,
             &synopsis,
@@ -4480,12 +4531,59 @@ mod style_tests {
         assert!(coloured.contains("\u{1b}[1;32m-f\u{1b}[0m"));
         assert!(coloured.contains("\u{1b}[1;32m--force\u{1b}[0m"));
         assert!(coloured.contains("\u{1b}[1;35m<FILE>\u{1b}[0m"));
+        assert!(coloured.contains("\u{1b}[1;32mbuild\u{1b}[0m  Build it"));
+        assert!(coloured.contains("\u{1b}[1;32mhelp\u{1b}[0m   Print help"));
+        assert!(coloured.contains("  build these projects before publishing"));
+        assert!(!coloured.contains("\u{1b}[1;32mbuild\u{1b}[0m these projects"));
         assert!(coloured.contains("A summary ending in:\nUsage: prose is not a synopsis"));
         assert!(coloured.contains("Usage: prose is not a synopsis\nExamples:"));
         assert!(coloured.contains("ex \u{1b}[1;32m--all\u{1b}[0m"));
         assert!(coloured.contains("[possible values: --auto]"));
         assert!(coloured.contains("(default: -1)"));
         assert_eq!(strip_ansi(&coloured), page);
+    }
+
+    #[test]
+    fn rendered_command_rows_receive_command_style() {
+        let build_command = Command {
+            name: "build",
+            ..Command::EMPTY
+        };
+        let root_command = Command {
+            name: "ex",
+            subcommands: &[&build_command],
+            ..Command::EMPTY
+        };
+        let build_meta = CommandMeta {
+            cmd: &build_command,
+            about: Some("Build it"),
+            ..CommandMeta::EMPTY
+        };
+        let root_meta = CommandMeta {
+            cmd: &root_command,
+            subcommands: &[&build_meta],
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            root: &root_meta,
+            ..Spec::EMPTY
+        };
+
+        let plain = render_styled(&spec, &root_command, false, Style::PLAIN).expect("root help");
+        let coloured =
+            render_styled(&spec, &root_command, false, Style::COLOURED).expect("root help");
+        assert!(
+            coloured.contains("\u{1b}[1;32mbuild\u{1b}[0m  Build it"),
+            "{coloured:?}"
+        );
+        assert!(
+            coloured.contains(
+                "\u{1b}[1;32mhelp\u{1b}[0m   Print this message or the help of the given subcommand(s)"
+            ),
+            "{coloured:?}"
+        );
+        assert_eq!(strip_ansi(&coloured), plain);
     }
 
     #[test]
@@ -4654,7 +4752,7 @@ mod style_tests {
     #[test]
     fn coloured_help_renders_inline_markdown_emphasis() {
         let page = "Use **force** for *all* files, _including_hidden_, `--literally`, and ~~never~~ this.\n  --dry_run  Keep snake_case and an unmatched * glob\n\nExamples:\n    $ echo `date`\n";
-        let coloured = styled_help(page, Style::COLOURED, &[], &[], &[], &[]);
+        let coloured = styled_help(page, Style::COLOURED, &[], &[], &[], &[], &[]);
 
         assert!(
             coloured.contains("\u{1b}[1mforce\u{1b}[22m"),
