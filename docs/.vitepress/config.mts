@@ -23,12 +23,14 @@ if (!versionMatch) {
   console.warn("Unable to find package version in lib/Cargo.toml");
 }
 const latestVersion = versionMatch?.[1] ?? "0.0.0";
+const siteUrl = "https://usage.jdx.dev";
+const siteDescription =
+  "Define CLI commands, flags, and arguments once in KDL, then generate parsers, shell completions, documentation, and man pages across languages.";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "--usage",
-  description:
-    "A spec and reference frameworks for building CLIs — define commands, flags, and args once in KDL; get argument parsing, shell completions, docs, and manpages everywhere",
+  description: siteDescription,
   appearance: "force-dark",
   lastUpdated: true,
   cleanUrls: true,
@@ -38,7 +40,7 @@ export default defineConfig({
     }
   },
   sitemap: {
-    hostname: "https://usage.jdx.dev"
+    hostname: siteUrl
   },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
@@ -213,10 +215,41 @@ export default defineConfig({
     // OpenGraph
     ["meta", { property: "og:site_name", content: "--usage" }],
     ["meta", { property: "og:type", content: "website" }],
+    ["meta", { property: "og:locale", content: "en_US" }],
     ["meta", { property: "og:image", content: "https://usage.jdx.dev/og.png" }],
     ["meta", { property: "og:image:width", content: "1200" }],
     ["meta", { property: "og:image:height", content: "630" }],
+    ["meta", { property: "og:image:alt", content: "usage — CLI specifications, parsers, completions, and documentation" }],
     ["meta", { name: "twitter:card", content: "summary_large_image" }],
-    ["meta", { name: "twitter:image", content: "https://usage.jdx.dev/og.png" }]
-  ]
+    ["meta", { name: "twitter:site", content: "@jdxcode" }],
+    ["meta", { name: "twitter:image", content: "https://usage.jdx.dev/og.png" }],
+    ["meta", { name: "twitter:image:alt", content: "usage — CLI specifications, parsers, completions, and documentation" }]
+  ],
+  transformHead({ pageData, title, description }) {
+    const url = new URL(
+      pageData.relativePath.replace(/index\.md$/, "").replace(/\.md$/, ""),
+      `${siteUrl}/`
+    ).toString();
+
+    return [
+      ["link", { rel: "canonical", href: url }],
+      ["meta", { property: "og:url", content: url }],
+      ["meta", { property: "og:title", content: title }],
+      ["meta", { property: "og:description", content: description }],
+      ["meta", { name: "twitter:title", content: title }],
+      ["meta", { name: "twitter:description", content: description }],
+      [
+        "script",
+        { type: "application/ld+json" },
+        JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: title,
+          description,
+          url,
+          isPartOf: { "@type": "WebSite", name: "usage", url: siteUrl }
+        })
+      ]
+    ];
+  }
 });
