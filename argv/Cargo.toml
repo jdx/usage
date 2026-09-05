@@ -1,7 +1,7 @@
 [package]
 name = "usage-argv"
 description = "Zero-allocation argv parser for usage specs"
-version = "6.6.1"
+version = "6.7.0"
 edition = "2021"
 rust-version = "1.91"
 homepage = { workspace = true }
