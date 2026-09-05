@@ -1,3 +1,4 @@
+import { socialCard, writeSocialCard } from "./social-images.mjs";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -216,16 +217,20 @@ export default defineConfig({
     ["meta", { property: "og:site_name", content: "--usage" }],
     ["meta", { property: "og:type", content: "website" }],
     ["meta", { property: "og:locale", content: "en_US" }],
-    ["meta", { property: "og:image", content: "https://usage.jdx.dev/og.png" }],
     ["meta", { property: "og:image:width", content: "1200" }],
     ["meta", { property: "og:image:height", content: "630" }],
-    ["meta", { property: "og:image:alt", content: "usage — CLI specifications, parsers, completions, and documentation" }],
     ["meta", { name: "twitter:card", content: "summary_large_image" }],
     ["meta", { name: "twitter:site", content: "@jdxcode" }],
-    ["meta", { name: "twitter:image", content: "https://usage.jdx.dev/og.png" }],
-    ["meta", { name: "twitter:image:alt", content: "usage — CLI specifications, parsers, completions, and documentation" }]
   ],
-  transformHead({ pageData, title, description }) {
+  transformHead({ pageData, title, description, siteConfig }) {
+    const heading =
+      pageData.relativePath === "index.md"
+        ? "CLI specs, parsers, and completions"
+        : pageData.title || "usage";
+    const card = socialCard(heading);
+    writeSocialCard(siteConfig.outDir, card);
+    const image = new URL(card.path, `${siteUrl}/`).toString();
+    const imageAlt = `${heading} — usage docs`;
     const url = new URL(
       pageData.relativePath.replace(/index\.md$/, "").replace(/\.md$/, ""),
       `${siteUrl}/`
@@ -234,6 +239,10 @@ export default defineConfig({
     return [
       ["link", { rel: "canonical", href: url }],
       ["meta", { property: "og:url", content: url }],
+      ["meta", { property: "og:image", content: image }],
+      ["meta", { property: "og:image:alt", content: imageAlt }],
+      ["meta", { name: "twitter:image", content: image }],
+      ["meta", { name: "twitter:image:alt", content: imageAlt }],
       ["meta", { property: "og:title", content: title }],
       ["meta", { property: "og:description", content: description }],
       ["meta", { name: "twitter:title", content: title }],
