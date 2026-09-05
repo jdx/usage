@@ -1987,8 +1987,7 @@ function usage
     echo "FUNCTION_MARKER"
 end
 source "{asset}"
-echo "SPEC_BEGIN"
-cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
+complete --do-complete "usage ge"
 "#,
         usage_dir = sh_path(usage_bin.parent().unwrap()),
         cache = sh_path(&temp_dir),
@@ -2008,7 +2007,7 @@ cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
         "completion called the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        stdout.lines().any(|line| line == "generate"),
+        stdout.lines().any(|line| line.split('\t').next() == Some("generate")),
         "native completion should return the generate command.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 
