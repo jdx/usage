@@ -234,18 +234,20 @@ jobs:
           ls -la dist
         env:
           REPO: ${{ github.repository }}
-      # usage is the tool that reads these specs, so it prints its own. A
-      # consumer generates completions and documentation from the file with
-      # its own copy of usage, and nothing of this release's has to run.
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-        with:
-          install: false
-          cache: false
+      # The spec supports documentation generation without running the binary.
+      # Native completion scripts call the installed binary on each completion.
       - name: Install completion syntax checkers
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y zsh fish
-          mise install github:PowerShell/PowerShell@7.5.4
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          fi
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y zsh fish
+          # Hosted runners include PowerShell; Namespace images have its signed apt repository.
+          if ! command -v pwsh >/dev/null 2>&1; then
+            sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y powershell
+          fi
       - name: Publish the CLI specification and completions
         run: |
           mkdir -p bin
@@ -260,7 +262,7 @@ jobs:
           bash -n usage.bash
           zsh -n usage.zsh
           fish --no-execute usage.fish
-          mise exec github:PowerShell/PowerShell@7.5.4 -- pwsh -NoProfile -Command - <<'POWERSHELL'
+          cat > completion-syntax-check.ps1 <<'POWERSHELL'
           $ErrorActionPreference = 'Stop'
           foreach ($script in Get-ChildItem -LiteralPath "." -Filter '*.powershell') {
             $parseErrors = $null
@@ -268,6 +270,7 @@ jobs:
             if ($parseErrors.Count) { $parseErrors | Write-Error; exit 1 }
           }
           POWERSHELL
+          pwsh -NoProfile -NonInteractive -File completion-syntax-check.ps1
           gh release upload "$GITHUB_REF_NAME" usage.usage.kdl usage.bash usage.zsh usage.fish usage.powershell --repo "$REPO" --clobber
         env:
           REPO: ${{ github.repository }}
