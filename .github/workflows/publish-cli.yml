@@ -243,7 +243,7 @@ jobs:
           gh release upload "$GITHUB_REF_NAME" usage.usage.kdl --repo "$REPO" --clobber
         env:
           REPO: ${{ github.repository }}
-      - uses: jdx/packslip@433c0c0f033e64c22f12433471768c255ef2bd93 # v0.3.0
+      - uses: jdx/packslip@0121abf6972fe6ca13633233402439a715f4cc0e # v1.0.0
         with:
           artifacts: dist/usage-*.tar.gz dist/usage-*.zip
           bin: usage
