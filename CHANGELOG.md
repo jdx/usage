@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.7.1](https://github.com/jdx/usage/compare/v6.7.0..v6.7.1) - 2026-09-05
+
+### 🐛 Bug Fixes
+
+- **(cli)** trigger release pr by [@jdx](https://github.com/jdx) in [31c9336](https://github.com/jdx/usage/commit/31c9336c37e08c9b93bf4e022b07731ad9e8e522)
+
+### 🔍 Other Changes
+
+- bypass mbx for universal macos release builds by [@jdx](https://github.com/jdx) in [#1385](https://github.com/jdx/usage/pull/1385)
+- allow empty commits to trigger release prs by [@jdx](https://github.com/jdx) in [#1386](https://github.com/jdx/usage/pull/1386)
+
 ## [6.7.0](https://github.com/jdx/usage/compare/v6.6.1..v6.7.0) - 2026-09-05
 
 ### 🚀 Features
