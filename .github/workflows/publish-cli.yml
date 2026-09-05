@@ -237,6 +237,15 @@ jobs:
       # usage is the tool that reads these specs, so it prints its own. A
       # consumer generates completions and documentation from the file with
       # its own copy of usage, and nothing of this release's has to run.
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install: false
+          cache: false
+      - name: Install completion syntax checkers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh fish
+          mise install github:PowerShell/PowerShell@7.5.4
       - name: Publish the CLI specification and completions
         run: |
           mkdir -p bin
@@ -249,6 +258,16 @@ jobs:
             bin/usage __complete_word__ --shell "$shell" --line 'usage ge' | grep -Fq -- 'generate'
           done
           bash -n usage.bash
+          zsh -n usage.zsh
+          fish --no-execute usage.fish
+          mise exec github:PowerShell/PowerShell@7.5.4 -- pwsh -NoProfile -Command - <<'POWERSHELL'
+          $ErrorActionPreference = 'Stop'
+          foreach ($script in Get-ChildItem -LiteralPath "." -Filter '*.powershell') {
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$null, [ref]$parseErrors)
+            if ($parseErrors.Count) { $parseErrors | Write-Error; exit 1 }
+          }
+          POWERSHELL
           gh release upload "$GITHUB_REF_NAME" usage.usage.kdl usage.bash usage.zsh usage.fish usage.powershell --repo "$REPO" --clobber
         env:
           REPO: ${{ github.repository }}
