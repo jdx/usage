@@ -1,0 +1,5 @@
+what does this do? is it a good idea? [https://github.com/jdx/usage/pull/1372](https://github.com/jdx/usage/pull/1372)
+
+---
+
+merge it
