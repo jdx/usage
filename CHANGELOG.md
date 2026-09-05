@@ -1,5 +1,25 @@
 # Changelog
 
+## [6.7.0](https://github.com/jdx/usage/compare/v6.6.1..v6.7.0) - 2026-09-05
+
+### 🚀 Features
+
+- **(help)** add semantic command styling by [@jdx](https://github.com/jdx) in [#1375](https://github.com/jdx/usage/pull/1375)
+
+### 🐛 Bug Fixes
+
+- **(cli)** show help for bare exec command by [@jdx](https://github.com/jdx) in [#1361](https://github.com/jdx/usage/pull/1361)
+- **(docs)** make indented-blocks-to-code-fences reach single-file markdown by [@jdx](https://github.com/jdx) in [#1367](https://github.com/jdx/usage/pull/1367)
+- **(parse)** report next implicit clause argument by [@3w36zj6](https://github.com/3w36zj6) in [#1372](https://github.com/jdx/usage/pull/1372)
+
+### 📚 Documentation
+
+- **(cli)** rewrite cli help text and guide pages by [@jdx](https://github.com/jdx) in [#1364](https://github.com/jdx/usage/pull/1364)
+
+### New Contributors
+
+- @3w36zj6 made their first contribution in [#1372](https://github.com/jdx/usage/pull/1372)
+
 ## [6.6.1](https://github.com/jdx/usage/compare/v6.6.0..v6.6.1) - 2026-09-01
 
 ### 🐛 Bug Fixes
