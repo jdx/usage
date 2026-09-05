@@ -204,10 +204,57 @@ jobs:
             exit 1
           fi
           echo "notarized: submission $id"
+  # The packslip is this release's signed inventory: every archive's digest,
+  # the executable and man page inside it, the shared objects it needs from
+  # the host, and the workflow identity that signed for all of it. An
+  # installer checks a download against jdx/usage's identity rather than
+  # against a key this project would have to hold. See https://packslip.dev.
+  #
+  # Its own job because build-and-publish uploads straight to the release from
+  # each runner; one document covering the whole release can only be written
+  # once every target has landed.
+  packslip:
+    name: Publish the packslip
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-and-publish]
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download the release assets
+        run: |
+          mkdir -p dist
+          gh release download "$GITHUB_REF_NAME" --repo "$REPO" --dir dist --clobber \
+            --pattern 'usage-*.tar.gz' --pattern 'usage-*.zip'
+          ls -la dist
+        env:
+          REPO: ${{ github.repository }}
+      # usage is the tool that reads these specs, so it prints its own. A
+      # consumer generates completions and documentation from the file with
+      # its own copy of usage, and nothing of this release's has to run.
+      - name: Publish the CLI specification
+        run: |
+          mkdir -p bin
+          tar -xzf dist/usage-x86_64-unknown-linux-gnu.tar.gz -C bin
+          bin/usage --usage-spec > usage.usage.kdl
+          gh release upload "$GITHUB_REF_NAME" usage.usage.kdl --repo "$REPO" --clobber
+        env:
+          REPO: ${{ github.repository }}
+      - uses: jdx/packslip@433c0c0f033e64c22f12433471768c255ef2bd93 # v0.3.0
+        with:
+          artifacts: dist/usage-*.tar.gz dist/usage-*.zip
+          bin: usage
+          resources: |
+            man=archive:usage.1
+            cli-spec/usage=asset:usage.usage.kdl
+
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [build-and-publish, enhance-release]
+    needs: [build-and-publish, enhance-release, packslip]
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     permissions:
       contents: write
