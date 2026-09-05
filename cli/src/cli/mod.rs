@@ -36,6 +36,7 @@ mod sponsors;
 // for that release rather than being guessed at here — and this crate warning about its own
 // spec until then is worse than the stale claim.
 #[derive(DeriveCli)]
+#[usage(completion = true)]
 #[usage(
     bin = "usage",
     version,
