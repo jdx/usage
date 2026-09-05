@@ -14,14 +14,8 @@ pub(crate) fn generate() -> Result<()> {
 }
 
 pub(crate) fn complete(shell: &str) -> Result<()> {
-    match shell {
-        "bash" => print!("{}", include_str!("../assets/completions/usage.bash")),
-        "fish" => print!("{}", include_str!("../assets/completions/usage.fish")),
-        "zsh" => print!("{}", include_str!("../assets/completions/_usage")),
-        _ => {
-            usage::miette::bail!("unsupported shell: {}", shell);
-        }
-    };
-
+    let shell = usage_rs::complete::Shell::from_name(shell)
+        .ok_or_else(|| usage::miette::miette!("unsupported shell: {shell}"))?;
+    print!("{}", Cli::completion_script(shell));
     Ok(())
 }

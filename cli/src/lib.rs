@@ -23,6 +23,13 @@ mod usage_spec;
 mod test;
 
 pub fn run(args: &[String]) -> usage::miette::Result<()> {
+    if args.get(1).is_some_and(|arg| arg == "__complete_word__") {
+        let argv: Vec<_> = args.iter().skip(1).map(std::ffi::OsString::from).collect();
+        if let Some(answer) = Cli::completion_request(&argv) {
+            print!("{answer}");
+            return Ok(());
+        }
+    }
     // trace!(
     //     "args: {:?}",
     //     args.iter().map(|s| s[..100].to_string()).collect_vec()

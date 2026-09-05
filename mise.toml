@@ -176,12 +176,10 @@ run = [
     'usage g json -f cli/usage.usage.kdl > docs/cli/reference/commands.json',
     'usage g md -mf cli/usage.usage.kdl --out-dir docs/cli/reference --url-prefix /cli/reference --indented-blocks-to-code-fences',
     'usage g manpage -f cli/usage.usage.kdl -o cli/assets/usage.1',
-    # `command usage` so a shell function named `usage` can't intercept the spec
-    # call — the guard above only proves an executable exists, not that a bare
-    # `usage` would reach it.
-    'usage g completion bash usage --usage-cmd "command usage --usage-spec" > cli/assets/completions/usage.bash',
-    'usage g completion fish usage --usage-cmd "command usage --usage-spec" > cli/assets/completions/usage.fish',
-    'usage g completion zsh  usage --usage-cmd "command usage --usage-spec" > cli/assets/completions/_usage',
+    'usage --completions bash > cli/assets/completions/usage.bash',
+    'usage --completions fish > cli/assets/completions/usage.fish',
+    'usage --completions zsh > cli/assets/completions/_usage',
+    'usage --completions powershell > cli/assets/completions/usage.ps1',
     'mise run lint-fix',
 ]
 

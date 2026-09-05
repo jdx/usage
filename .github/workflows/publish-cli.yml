@@ -234,15 +234,44 @@ jobs:
           ls -la dist
         env:
           REPO: ${{ github.repository }}
-      # usage is the tool that reads these specs, so it prints its own. A
-      # consumer generates completions and documentation from the file with
-      # its own copy of usage, and nothing of this release's has to run.
-      - name: Publish the CLI specification
+      # The spec supports documentation generation without running the binary.
+      # Native completion scripts call the installed binary on each completion.
+      - name: Install completion syntax checkers
+        timeout-minutes: 5
+        run: |
+          if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          fi
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y zsh fish
+          # Hosted runners include PowerShell; Namespace images have its signed apt repository.
+          if ! command -v pwsh >/dev/null 2>&1; then
+            sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y powershell
+          fi
+      - name: Publish the CLI specification and completions
         run: |
           mkdir -p bin
           tar -xzf dist/usage-x86_64-unknown-linux-gnu.tar.gz -C bin
           bin/usage --usage-spec > usage.usage.kdl
-          gh release upload "$GITHUB_REF_NAME" usage.usage.kdl --repo "$REPO" --clobber
+          for shell in bash zsh fish powershell; do
+            bin/usage --completions "$shell" > usage.$shell
+            test -s usage.$shell
+            grep -Fq '__complete_word__' usage.$shell
+            bin/usage __complete_word__ --shell "$shell" --line 'usage ge' | grep -Fq -- 'generate'
+          done
+          bash -n usage.bash
+          zsh -n usage.zsh
+          fish --no-execute usage.fish
+          cat > completion-syntax-check.ps1 <<'POWERSHELL'
+          $ErrorActionPreference = 'Stop'
+          foreach ($script in Get-ChildItem -LiteralPath "." -Filter '*.powershell') {
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$null, [ref]$parseErrors)
+            if ($parseErrors.Count) { $parseErrors | Write-Error; exit 1 }
+          }
+          POWERSHELL
+          pwsh -NoProfile -NonInteractive -File completion-syntax-check.ps1
+          gh release upload "$GITHUB_REF_NAME" usage.usage.kdl usage.bash usage.zsh usage.fish usage.powershell --repo "$REPO" --clobber
         env:
           REPO: ${{ github.repository }}
       - uses: jdx/packslip@a0d434ad57571c62dbd0ab5095b4eff607a71fd3 # v1.1.1
@@ -252,6 +281,10 @@ jobs:
           resources: |
             man=archive:usage.1
             cli-spec/usage=asset:usage.usage.kdl
+            completion/bash=asset:usage.bash
+            completion/zsh=asset:usage.zsh
+            completion/fish=asset:usage.fish
+            completion/powershell=asset:usage.powershell
 
   release:
     runs-on: ubuntu-latest

@@ -1817,21 +1817,24 @@ fn test_bash_self_completion_uses_executable_not_shadowing_function() {
     let temp_dir = env::temp_dir().join(format!("usage_bash_shadow_test_{}", std::process::id()));
     fs::create_dir_all(&temp_dir).unwrap();
 
-    // The real usage binary is on $PATH *and* a `usage` function is defined,
-    // so the guard passes legitimately — only the spec call can go wrong.
-    // bash-completion isn't loaded here; stub the helpers it provides so the spec
-    // write is the only thing under test.
+    // Native completions must invoke the executable even when a shell function
+    // shadows it, and must work without loading bash-completion.
     let test_script = format!(
         r#"#!/usr/bin/env bash
 export PATH="{usage_dir}:$PATH"
 export XDG_CACHE_HOME="{cache}"
 usage() {{ echo "FUNCTION_MARKER"; }}
-_init_completion() {{ return 0; }}
-__ltrim_colon_completions() {{ return 0; }}
 source "{asset}"
-_usage usage "" usage 1
-echo "SPEC_BEGIN"
-cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
+COMP_LINE="usage ge"
+COMP_POINT=${{#COMP_LINE}}
+COMP_WORDS=(usage ge)
+COMP_CWORD=1
+COMPREPLY=()
+registration=$(complete -p usage)
+callback=${{registration#*-F }}
+callback=${{callback%% *}}
+"$callback"
+printf '%s\n' "${{COMPREPLY[@]}}"
 "#,
         usage_dir = path_var_entry("bash", usage_bin.parent().unwrap()),
         cache = sh_path(&temp_dir),
@@ -1848,13 +1851,11 @@ cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
 
     assert!(
         !stdout.contains("FUNCTION_MARKER"),
-        "spec file was written by the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        "completion called the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        // Canonical KDL leaves a safe identifier bare. The spec still comes from the
-        // CLI's own derive rather than from the shell function or clap bridge.
-        stdout.contains("bin usage"),
-        "spec file should hold the real usage spec.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        stdout.lines().any(|line| line == "generate"),
+        "native completion should return the generate command.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 
     let _ = fs::remove_dir_all(&temp_dir);
@@ -1986,8 +1987,7 @@ function usage
     echo "FUNCTION_MARKER"
 end
 source "{asset}"
-echo "SPEC_BEGIN"
-cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
+complete --do-complete "usage ge"
 "#,
         usage_dir = sh_path(usage_bin.parent().unwrap()),
         cache = sh_path(&temp_dir),
@@ -2004,13 +2004,11 @@ cat "$XDG_CACHE_HOME/usage/usage__usage_spec_usage.spec"
 
     assert!(
         !stdout.contains("FUNCTION_MARKER"),
-        "spec file was written by the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        "completion called the shell function instead of the CLI.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
-        // Canonical KDL leaves a safe identifier bare. The spec still comes from the
-        // CLI's own derive rather than from the shell function or clap bridge.
-        stdout.contains("bin usage"),
-        "spec file should hold the real usage spec.\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        stdout.lines().any(|line| line.split('\t').next() == Some("generate")),
+        "native completion should return the generate command.\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
 
     let _ = fs::remove_dir_all(&temp_dir);
