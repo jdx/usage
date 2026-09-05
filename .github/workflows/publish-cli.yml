@@ -122,6 +122,8 @@ jobs:
           codesign_options: runtime
           dry-run: ${{ github.event_name == 'workflow_dispatch' }}
         env:
+          # The universal build passes two --target flags, which mbx cannot handle.
+          MBX_DISABLE: ${{ matrix.target == 'universal-apple-darwin' }}
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
           CARGO_PROFILE_RELEASE_LTO: true
       # Signing settles who built the binary; notarization is what Gatekeeper
