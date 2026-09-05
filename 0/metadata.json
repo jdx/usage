@@ -1,0 +1,79 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M1SJYWGDJE0ZAYF5T9961BAG",
+  "session_id": "01a07325-7966-7c73-bd5d-3bf0e204ead9",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-05T20:08:04.792602Z",
+  "branch": "codex/release-empty-commits",
+  "checkpoints_count": 3,
+  "save_step_count": 3,
+  "files_touched": [],
+  "agent": "Codex",
+  "model": "gpt-6-astra",
+  "turn_id": "b27d44e3a90a",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 68741,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 857344,
+    "output_tokens": 2503,
+    "api_call_count": 21
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 17,
+      "user_lines_removed": 17,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".github/workflows/publish-cli.yml": 3,
+        "README.md": 2,
+        "cli/assets/fig.ts": 1,
+        "cli/assets/usage.1": 1,
+        "cli/src/cli/sponsors.rs": 2,
+        "cli/usage.usage.kdl": 1,
+        "docs/.vitepress/theme/EndevFooter.vue": 3,
+        "docs/.vitepress/theme/EndevSponsors.vue": 2,
+        "docs/cli/reference/commands.json": 1,
+        "docs/cli/reference/sponsors.md": 1
+      },
+      "user_removed_per_file": {
+        ".github/workflows/publish-cli.yml": 3,
+        "README.md": 2,
+        "cli/assets/fig.ts": 1,
+        "cli/assets/usage.1": 1,
+        "cli/src/cli/sponsors.rs": 2,
+        "cli/usage.usage.kdl": 1,
+        "docs/.vitepress/theme/EndevFooter.vue": 3,
+        "docs/.vitepress/theme/EndevSponsors.vue": 2,
+        "docs/cli/reference/commands.json": 1,
+        "docs/cli/reference/sponsors.md": 1
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 17,
+      "agent_lines_removed": 17
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 17,
+      "agent_lines_removed": 17
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 17,
+      "agent_lines_removed": 17
+    }
+  ]
+}
