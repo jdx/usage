@@ -3,7 +3,7 @@
   "checkpoint_id": "01M1QDXPJ6F41KCH69ZNHZBAMW",
   "strategy": "manual-commit",
   "branch": "feat/notarize-macos",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     ".github/workflows/publish-cli.yml"
   ],
@@ -14,13 +14,20 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 50000,
+    "input_tokens": 81161,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 455168,
-    "output_tokens": 3093,
-    "api_call_count": 13
+    "cache_read_tokens": 3419264,
+    "output_tokens": 6990,
+    "api_call_count": 49
   }
 }
