@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "8f0862ba690c",
+  "strategy": "manual-commit",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".github/workflows/publish-cli.yml",
+    "README.md",
+    "cli/assets/fig.ts",
+    "cli/assets/usage.1",
+    "cli/src/cli/sponsors.rs",
+    "cli/usage.usage.kdl",
+    "docs/.vitepress/theme/EndevFooter.vue",
+    "docs/.vitepress/theme/EndevSponsors.vue",
+    "docs/cli/reference/commands.json",
+    "docs/cli/reference/sponsors.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/8f/0862ba690c/0/metadata.json",
+      "transcript": "/8f/0862ba690c/0/full.jsonl",
+      "compact_transcript": "/8f/0862ba690c/0/transcript.jsonl",
+      "content_hash": "/8f/0862ba690c/0/content_hash.txt",
+      "prompt": "/8f/0862ba690c/0/prompt.txt"
+    }
+  ]
+}
