@@ -2400,7 +2400,7 @@ fn typed_subcommand_presentation_reaches_help_and_the_spec() {
     assert!(kdl.contains("subcommand_value_name ACTION"), "{kdl}");
     let spec = PresentedSubcommands::spec();
     let page = usage::argv::help::short_help(spec, &["presented"], &[spec.root]);
-    assert!(page.contains("<ACTION>"), "{page}");
+    assert!(page.contains("[ACTION]"), "{page}");
     assert!(page.contains("Actions:"), "{page}");
 }
 

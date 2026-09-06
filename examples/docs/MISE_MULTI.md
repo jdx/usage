@@ -5,7 +5,7 @@
 mise prepares your development environment before each command runs. https://github.com/jdx/mise
 
 
-- **Usage:** `mise [FLAGS] [TASK] <SUBCOMMAND>`
+- **Usage:** `mise [FLAGS] [TASK] [SUBCOMMAND]`
 
 ## Arguments
 - **`[TASK]`** — Task to run.
@@ -94,7 +94,7 @@ $ (&mise activate pwsh) | Out-String | Invoke-Expression
 
 ## `mise tool-alias`
 
-- **Usage:** `mise tool-alias [-p --tool <TOOL>] [--no-header] <SUBCOMMAND>`
+- **Usage:** `mise tool-alias [-p --tool <TOOL>] [--no-header] [SUBCOMMAND]`
 - **Effect:** read-only
 
 Manage tool version aliases.
@@ -198,7 +198,7 @@ $ mise tool-alias unset node lts-jod
 
 ## `mise backends`
 
-- **Usage:** `mise backends <SUBCOMMAND>`
+- **Usage:** `mise backends [SUBCOMMAND]`
 - **Effect:** read-only
 
 Manage backends
@@ -251,7 +251,7 @@ List all the active runtime bin paths
 
 ## `mise bootstrap`
 
-- **Usage:** `mise bootstrap [FLAGS] <SUBCOMMAND>`
+- **Usage:** `mise bootstrap [FLAGS] [SUBCOMMAND]`
 - **Effect:** destructive — may delete or irreversibly overwrite
 
 Set up a machine for the current config in one command
@@ -1217,7 +1217,7 @@ Manage current-user bootstrap settings from `[bootstrap.user]`
 
 ## `mise cache`
 
-- **Usage:** `mise cache <SUBCOMMAND>`
+- **Usage:** `mise cache [SUBCOMMAND]`
 - **Effect:** read-only
 
 Manage the mise cache
@@ -1304,7 +1304,7 @@ $ mise completion powershell >> $PROFILE
 
 ## `mise config`
 
-- **Usage:** `mise config [FLAGS] <SUBCOMMAND>`
+- **Usage:** `mise config [FLAGS] [SUBCOMMAND]`
 - **Aliases:** `cfg`
 - **Effect:** read-only
 
@@ -1417,7 +1417,7 @@ $ mise deactivate
 
 ## `mise doctor`
 
-- **Usage:** `mise doctor [-J --json] <SUBCOMMAND>`
+- **Usage:** `mise doctor [-J --json] [SUBCOMMAND]`
 - **Aliases:** `dr`
 - **Effect:** read-only
 
@@ -2574,7 +2574,7 @@ $ mise patrons --refresh
 
 ## `mise plugins`
 
-- **Usage:** `mise plugins [FLAGS] <SUBCOMMAND>`
+- **Usage:** `mise plugins [FLAGS] [SUBCOMMAND]`
 - **Aliases:** `p`
 - **Effect:** read-only
 
@@ -2762,7 +2762,7 @@ $ mise plugins update cmake#beta  # specify a ref
 
 ## `mise deps`
 
-- **Usage:** `mise deps [FLAGS] [PROVIDER] <SUBCOMMAND>`
+- **Usage:** `mise deps [FLAGS] [PROVIDER] [SUBCOMMAND]`
 - **Aliases:** `dep`
 - **Effect:** modifies state
 
@@ -3231,7 +3231,7 @@ Enter value for API_KEY: [hidden input]
 
 ## `mise settings`
 
-- **Usage:** `mise settings [FLAGS] [SETTING] [VALUE] <SUBCOMMAND>`
+- **Usage:** `mise settings [FLAGS] [SETTING] [VALUE] [SUBCOMMAND]`
 - **Effect:** modifies state
 
 Manage settings
@@ -3424,7 +3424,7 @@ v20.0.0
 
 ## `mise shell-alias`
 
-- **Usage:** `mise shell-alias [--no-header] <SUBCOMMAND>`
+- **Usage:** `mise shell-alias [--no-header] [SUBCOMMAND]`
 - **Effect:** read-only
 
 Manage shell aliases.
@@ -3598,7 +3598,7 @@ $ mise use -g ruby - Use the latest version of Ruby installed by Homebrew
 
 ## `mise tasks`
 
-- **Usage:** `mise tasks [FLAGS] [TASK] <SUBCOMMAND>`
+- **Usage:** `mise tasks [FLAGS] [TASK] [SUBCOMMAND]`
 - **Aliases:** `t`
 - **Effect:** read-only
 

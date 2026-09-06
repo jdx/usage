@@ -1019,7 +1019,11 @@ fn usage_line_with_subcommands(
 
     if include_subcommands && !meta.cmd.subcommands.is_empty() {
         let name = meta.subcommand_value_name.unwrap_or("SUBCOMMAND");
-        let _ = write!(out, " <{name}>");
+        if meta.subcommand_required {
+            let _ = write!(out, " <{name}>");
+        } else {
+            let _ = write!(out, " [{name}]");
+        }
     }
     out
 }
