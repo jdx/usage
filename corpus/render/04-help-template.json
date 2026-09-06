@@ -27,11 +27,11 @@
       "doc": "A section the template does not name is not on the page. A CLI whose subcommands are documented elsewhere can leave `{{commands}}` out, and the entries are still parsed — omitting a section changes the page and nothing else.",
       "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nhelp_template \"{{about}}\\n\\n{{usage}}\\n\\n{{flags}}\"\ncmd \"install\" help=\"Install a tool\"\ncmd \"remove\" help=\"Remove a tool\"\n",
       "expect": {
-        "usage": "ex <SUBCOMMAND>",
+        "usage": "ex [SUBCOMMAND]",
         "short_help": [
           "An example",
           "",
-          "Usage: ex <SUBCOMMAND>",
+          "Usage: ex [SUBCOMMAND]",
           "",
           "Flags:",
           "  -h, --help  Print help"

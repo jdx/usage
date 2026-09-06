@@ -78,13 +78,13 @@
       "id": "subcommands-are-named-generically",
       "doc": "A command with subcommands ends its line by saying so, whatever they are called.",
       "spec": "name \"ex\"\nbin \"ex\"\ncmd \"go\" help=\"Go\"\ncmd \"stop\" help=\"Stop\"\n",
-      "expect": { "usage": "ex <SUBCOMMAND>" }
+      "expect": { "usage": "ex [SUBCOMMAND]" }
     },
     {
       "id": "subcommands-all-hidden-still-say-subcommand",
-      "doc": "The line is computed before hidden commands are filtered, so a command whose subcommands are all hidden still says `<SUBCOMMAND>` while listing none. Recorded because it looks like a bug and is the reference's behaviour, which mise reaches on `direnv` and `dotfiles`.",
+      "doc": "The line is computed before hidden commands are filtered, so a command whose subcommands are all hidden still says `[SUBCOMMAND]` while listing none. Recorded because it looks like a bug and is the reference's behaviour, which mise reaches on `direnv` and `dotfiles`.",
       "spec": "name \"ex\"\nbin \"ex\"\ncmd \"go\" help=\"Go\" hide=#true\n",
-      "expect": { "usage": "ex <SUBCOMMAND>" }
+      "expect": { "usage": "ex [SUBCOMMAND]" }
     },
     {
       "id": "subcommand-line-starts-at-the-command",
