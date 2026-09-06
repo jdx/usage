@@ -2,8 +2,6 @@
 
 # `usage`
 
-**Usage:** `usage [--completions <COMPLETIONS>] [--usage-spec] <SUBCOMMAND>`
-
 **Version:** 6.7.1
 
 **Repository:** https://github.com/jdx/usage

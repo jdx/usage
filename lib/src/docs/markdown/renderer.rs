@@ -68,8 +68,7 @@ fn escape_md_with_indent(value: &str, html_encode: bool, indent: bool) -> String
             let line = if !html_encode {
                 line.to_string()
             } else {
-                // Indented code is handled before fence state. This is safe because
-                // `fence_indented_blocks` always emits closing fences at column zero.
+                // Preserve indented code, including code nested within list items.
                 if line.starts_with("    ") {
                     line.to_string()
                 } else if let Some((marker, length)) = fence {
@@ -78,8 +77,7 @@ fn escape_md_with_indent(value: &str, html_encode: bool, indent: bool) -> String
                         fence = None;
                     }
                     line.to_string()
-                // Support the conventional fence shape emitted by `fence_indented_blocks`
-                // without attempting to parse the full Markdown specification.
+                // Converted blocks may require longer fences to contain literal backticks.
                 } else if line.trim_start().starts_with("```")
                     || line.trim_start().starts_with("~~~")
                 {

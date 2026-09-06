@@ -277,29 +277,19 @@ Runs the bootstrap steps for the current config in order:
 9. `mise bootstrap mise-shell-activate apply` — configure shell activation
    from `[bootstrap.mise_shell_activate]`
 10. `mise bootstrap macos defaults apply` — write
-```
-`[bootstrap.macos.defaults]` entries (macOS)
-surrounded by `pre-defaults`/`post-defaults` hooks
-```
+    `[bootstrap.macos.defaults]` entries (macOS)
+    surrounded by `pre-defaults`/`post-defaults` hooks
 11. `mise bootstrap macos launchd-agents apply` — install/load
-```
-`[bootstrap.macos.launchd.agents]`
-```
+    `[bootstrap.macos.launchd.agents]`
 12. `mise bootstrap linux systemd-units apply` — install/start
-```
-`[bootstrap.linux.systemd.units]`
-```
+    `[bootstrap.linux.systemd.units]`
 13. `mise bootstrap user apply` — set `[bootstrap.user].login_shell`
-```
-(Unix)
-surrounded by `pre-user`/`post-user` hooks
-```
+    (Unix)
+    surrounded by `pre-user`/`post-user` hooks
 14. `mise install` — install missing tools from `[tools]`
-```
-surrounded by `pre-tools`/`post-tools` hooks; package-plugin entries
-from `[bootstrap.packages]` install afterward, followed by
-`[bootstrap.hooks.post-packages]`
-```
+    surrounded by `pre-tools`/`post-tools` hooks; package-plugin entries
+    from `[bootstrap.packages]` install afterward, followed by
+    `[bootstrap.hooks.post-packages]`
 15. `mise run bootstrap` — if a task named `bootstrap` is defined 16. `[bootstrap.hooks.final]` — optional final hook
 
 The declarative steps converge — anything already in its desired state is skipped, so re-running is safe. The `bootstrap` task runs on every invocation; keep it idempotent. Use it for any project-specific setup that doesn't fit the declarative sections (seeding databases, auth flows, etc.) — it runs with the installed tools on PATH.
@@ -3250,10 +3240,10 @@ Manage settings
 - **`--json-extended`** — Output in JSON format with sources
 
 Examples:
-```
-# list all settings
-$ mise settings
+    # list all settings
+    $ mise settings
 
+```
 # get the value of the setting "always_keep_download"
 $ mise settings always_keep_download
 
@@ -4764,26 +4754,18 @@ For more advanced process management (daemon management, auto-restart, readiness
     - 'path | file_size' returns the size of the file at path, or null if it does not exist.
 
     - 'path | file_read(bytes)' returns a string with the first n bytes of the file at path.
-  ```
-  If the file is smaller than n bytes, the whole file is returned. There is no filter to
-  read the whole file at once to encourage limiting the amount of data read and processed.
-  ```
+      If the file is smaller than n bytes, the whole file is returned. There is no filter to
+      read the whole file at once to encourage limiting the amount of data read and processed.
 
     - 'string | hash', and 'path | file_hash' return the hash of the string or file at path.
-  ```
-  No guarantee is made about the algorithm used: treat it as an opaque value.
-  ```
+      No guarantee is made about the algorithm used: treat it as an opaque value.
 
     - 'any | kv_store(key)', 'kv_fetch(key)', and 'kv_clear' provide a simple key-value store.
-  ```
-  Data is kept in memory only, there is no persistence. Consistency is not guaranteed.
-  ```
+      Data is kept in memory only, there is no persistence. Consistency is not guaranteed.
 
     - 'any | printout', 'any | printerr', and 'any | log(level)' will print or log any given
-  ```
-  value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and
-  pass the value through (so '[1] | log("debug") | .[]' will produce a '1' and log '[1]').
-  ```
+      value to stdout, stderr, or the log (levels = error, warn, info, debug, trace), and
+      pass the value through (so '[1] | log("debug") | .[]' will produce a '1' and log '[1]').
 
   All filtering done with such programs, and especially those using kv or filesystem access, is much slower than the other filtering methods. If filtering is too slow, events will back up and stall watchexec. Take care when designing your filters.
 
@@ -4913,27 +4895,25 @@ For more advanced process management (daemon management, auto-restart, readiness
 
   ```json
     {
-  ```
-  "tags": [
-    {
-      "kind": "path",
-      "absolute": "/home/user/your/new-folder",
-      "filetype": "dir"
-    },
-    {
-      "kind": "fs",
-      "simple": "create",
-      "full": "Create(Folder)"
-    },
-    {
-      "kind": "source",
-      "source": "filesystem",
-    }
-  ],
-  "metadata": {
-    "notify-backend": "inotify"
-  }
-  ```
+      "tags": [
+        {
+          "kind": "path",
+          "absolute": "/home/user/your/new-folder",
+          "filetype": "dir"
+        },
+        {
+          "kind": "fs",
+          "simple": "create",
+          "full": "Create(Folder)"
+        },
+        {
+          "kind": "source",
+          "source": "filesystem",
+        }
+      ],
+      "metadata": {
+        "notify-backend": "inotify"
+      }
     }
   ```
 
@@ -4941,25 +4921,23 @@ For more advanced process management (daemon management, auto-restart, readiness
 
     - `tags`, structured event data.
     - `tags[].kind`, which can be:
-  ```
-  * 'path', along with:
-    + `absolute`, an absolute path.
-    + `filetype`, a file type if known ('dir', 'file', 'symlink', 'other').
-  * 'fs':
-    + `simple`, the "simple" event type ('access', 'create', 'modify', 'remove', or 'other').
-    + `full`, the "full" event type, which is too complex to fully describe here, but looks like 'General(Precise(Specific))'.
-  * 'source', along with:
-    + `source`, the source of the event ('filesystem', 'keyboard', 'mouse', 'os', 'time', 'internal').
-  * 'keyboard', along with:
-    + `keycode`. Currently only the value 'eof' is supported.
-  * 'process', for events caused by processes:
-    + `pid`, the process ID.
-  * 'signal', for signals sent to Watchexec:
-    + `signal`, the normalised signal name ('hangup', 'interrupt', 'quit', 'terminate', 'user1', 'user2').
-  * 'completion', for when a command ends:
-    + `disposition`, the exit disposition ('success', 'error', 'signal', 'stop', 'exception', 'continued').
-    + `code`, the exit, signal, stop, or exception code.
-  ```
+      * 'path', along with:
+        + `absolute`, an absolute path.
+        + `filetype`, a file type if known ('dir', 'file', 'symlink', 'other').
+      * 'fs':
+        + `simple`, the "simple" event type ('access', 'create', 'modify', 'remove', or 'other').
+        + `full`, the "full" event type, which is too complex to fully describe here, but looks like 'General(Precise(Specific))'.
+      * 'source', along with:
+        + `source`, the source of the event ('filesystem', 'keyboard', 'mouse', 'os', 'time', 'internal').
+      * 'keyboard', along with:
+        + `keycode`. Currently only the value 'eof' is supported.
+      * 'process', for events caused by processes:
+        + `pid`, the process ID.
+      * 'signal', for signals sent to Watchexec:
+        + `signal`, the normalised signal name ('hangup', 'interrupt', 'quit', 'terminate', 'user1', 'user2').
+      * 'completion', for when a command ends:
+        + `disposition`, the exit disposition ('success', 'error', 'signal', 'stop', 'exception', 'continued').
+        + `code`, the exit, signal, stop, or exception code.
     - `metadata`, additional information about the event.
 
   The 'json-stdio' mode will emit JSON events to the standard input of the command, one per line, then close stdin. The 'json-file' mode will create a temporary file, write the events to it, and provide the path to the file with the $WATCHEXEC_EVENTS_FILE environment variable.
