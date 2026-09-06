@@ -30,6 +30,7 @@ log = "0.4"
 miette = { version = "7", default-features = false, optional = true }
 num-traits = "0.2"
 regex = "1"
+pulldown-cmark = { version = "0.13", default-features = false, optional = true }
 roff = { version = "1.0", optional = true }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
@@ -48,7 +49,7 @@ usage-validation = { workspace = true, optional = true }
 default = ["docs"]
 # CLI help is useful to lightweight consumers that do not generate Markdown or manpages.
 cli-help = ["tera"]
-markdown = ["cli-help"]
+markdown = ["cli-help", "dep:pulldown-cmark"]
 manpage = ["cli-help", "dep:roff"]
 docs = ["markdown", "manpage", "roff"]
 # Compatibility alias for callers that enabled the implicit optional-dependency feature.

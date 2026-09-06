@@ -54,7 +54,7 @@ impl MarkdownTemplate {
 static CODE_SPAN_OR_LT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(`[^`]*`)|(<)").unwrap());
 
 fn escape_md_with_indent(value: &str, html_encode: bool, indent: bool) -> String {
-    let mut in_fenced_code_block = false;
+    let mut fence: Option<(char, usize)> = None;
     // Help text is allowed to contain terminal styling. clap-era applications commonly build
     // their examples with `color_print::cstr!`, which embeds SGR sequences even when color is
     // disabled at runtime. Terminal styling has no meaning in generated Markdown, and leaving
@@ -72,18 +72,20 @@ fn escape_md_with_indent(value: &str, html_encode: bool, indent: bool) -> String
                 // `fence_indented_blocks` always emits closing fences at column zero.
                 if line.starts_with("    ") {
                     line.to_string()
-                } else if in_fenced_code_block {
-                    if line.trim_end() == "```" {
-                        in_fenced_code_block = false;
+                } else if let Some((marker, length)) = fence {
+                    let trimmed = line.trim();
+                    if trimmed.len() >= length && trimmed.chars().all(|c| c == marker) {
+                        fence = None;
                     }
                     line.to_string()
                 // Support the conventional fence shape emitted by `fence_indented_blocks`
                 // without attempting to parse the full Markdown specification.
-                } else if line
-                    .strip_prefix("```")
-                    .is_some_and(|suffix| !suffix.starts_with('`'))
+                } else if line.trim_start().starts_with("```")
+                    || line.trim_start().starts_with("~~~")
                 {
-                    in_fenced_code_block = true;
+                    let trimmed = line.trim_start();
+                    let marker = trimmed.chars().next().unwrap();
+                    fence = Some((marker, trimmed.chars().take_while(|c| *c == marker).count()));
                     line.to_string()
                 } else {
                     // replace '<' with '&lt;' but not inside code blocks
@@ -323,29 +325,57 @@ impl MarkdownRenderer {
         if !self.indented_blocks_to_code_fences {
             return md;
         }
-        // TODO: handle fences inside of <pre> or <code>
-        let mut in_code_block = false;
-        let mut new_md = String::new();
-        for line in md.lines() {
-            if let Some(line) = line.strip_prefix("    ") {
-                if in_code_block {
-                    new_md.push_str(&format!("{line}\n"));
-                } else {
-                    new_md.push_str(&format!("```\n{line}\n"));
-                    in_code_block = true;
+        use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag, TagEnd};
+        let mut edits = Vec::new();
+        let mut block = None;
+        for (event, range) in Parser::new(&md).into_offset_iter() {
+            match event {
+                Event::Start(Tag::CodeBlock(CodeBlockKind::Indented)) => {
+                    block = Some((range, String::new()));
                 }
-            } else {
-                if in_code_block {
-                    new_md.push_str("```\n");
-                    in_code_block = false;
+                Event::Text(text) => {
+                    if let Some((_, content)) = &mut block {
+                        content.push_str(&text);
+                    }
                 }
-                new_md.push_str(&format!("{line}\n"));
+                Event::End(TagEnd::CodeBlock) => {
+                    if let Some((range, content)) = block.take() {
+                        let start = md[..range.start].rfind('\n').map_or(0, |i| i + 1);
+                        let source_line = md[start..].lines().next().unwrap_or_default();
+                        let source_indent =
+                            source_line.len() - source_line.trim_start_matches(' ').len();
+                        let content_line = content
+                            .lines()
+                            .find(|line| !line.trim().is_empty())
+                            .unwrap_or_default();
+                        let content_indent =
+                            content_line.len() - content_line.trim_start_matches(' ').len();
+                        let prefix = " ".repeat(source_indent.saturating_sub(4 + content_indent));
+                        let fence = "`".repeat(
+                            content
+                                .split(|c| c != '`')
+                                .map(str::len)
+                                .max()
+                                .unwrap_or(0)
+                                .max(2)
+                                + 1,
+                        );
+                        let mut replacement = format!("{prefix}{fence}\n");
+                        for line in content.lines() {
+                            replacement.push_str(&format!("{prefix}{line}\n"));
+                        }
+                        replacement.push_str(&format!("{prefix}{fence}\n"));
+                        edits.push((start..range.end, replacement));
+                    }
+                }
+                _ => {}
             }
         }
-        if in_code_block {
-            new_md.push_str("```\n");
+        let mut result = md;
+        for (range, replacement) in edits.into_iter().rev() {
+            result.replace_range(range, &replacement);
         }
-        new_md.replace("```\n\n```\n", "\n")
+        result
     }
 }
 
@@ -353,6 +383,66 @@ impl MarkdownRenderer {
 mod tests {
     use super::{escape_md, MarkdownRenderer, MarkdownTemplate};
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn conversion_preserves_markdown_structure_and_code_contents() {
+        use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag};
+        let renderer = MarkdownRenderer::new("bin ex".parse().unwrap())
+            .with_indented_blocks_to_code_fences(true);
+        for source in [
+            "- outer\n  - inner\n\n        first\n\n          indented\n\n    prose\n",
+            "```json\n{\n    \"key\": 1\n}\n```\n",
+            "    [tools]\n    node = \"20\"\n\n    ```literal```\n",
+            "    first\n\n      second\n",
+        ] {
+            let normalized = |text: &str| {
+                pulldown_cmark::TextMergeStream::new(Parser::new(text))
+                    .map(|event| match event {
+                        Event::Start(Tag::CodeBlock(_)) => {
+                            Event::Start(Tag::CodeBlock(CodeBlockKind::Indented))
+                        }
+                        event => event,
+                    })
+                    .map(Event::into_static)
+                    .collect::<Vec<_>>()
+            };
+            let output = renderer.fence_indented_blocks(source.into());
+            assert_eq!(normalized(source), normalized(&output), "{output}");
+            assert_eq!(renderer.fence_indented_blocks(output.clone()), output);
+        }
+    }
+
+    #[test]
+    fn visible_children_get_a_heading_and_index_has_one_synopsis() {
+        let spec: crate::Spec = "bin ex\ncmd a hide=#true\ncmd b\n".parse().unwrap();
+        for theme in [
+            super::MarkdownTheme::Compact,
+            super::MarkdownTheme::Detailed,
+        ] {
+            let renderer = MarkdownRenderer::new(spec.clone())
+                .with_theme(theme)
+                .with_multi(true);
+            assert!(renderer
+                .render_cmd(&spec.cmd)
+                .unwrap()
+                .contains("## Subcommands"));
+            assert_eq!(
+                renderer
+                    .render_index()
+                    .unwrap()
+                    .matches("**Usage:**")
+                    .count(),
+                1
+            );
+            let hidden: crate::Spec = "bin ex\ncmd a hide=#true\n".parse().unwrap();
+            assert!(!MarkdownRenderer::new(hidden.clone())
+                .with_theme(theme)
+                .with_multi(true)
+                .render_cmd(&hidden.cmd)
+                .unwrap()
+                .contains("## Subcommands"));
+        }
+    }
 
     #[test]
     fn escapes_html_around_fenced_code_blocks() {
@@ -378,9 +468,9 @@ mod tests {
     }
 
     #[test]
-    fn ignores_indented_and_longer_fences() {
+    fn handles_longer_fences_and_indented_code() {
         let input = "    ```\nindented <\n````\nlonger <";
-        let expected = "    ```\nindented &lt;\n````\nlonger &lt;";
+        let expected = "    ```\nindented &lt;\n````\nlonger <";
 
         assert_eq!(escape_md(input, true), expected);
     }
