@@ -275,12 +275,15 @@ impl ManpageRenderer {
 
         // Add subcommands indicator
         if !cmd.subcommands.is_empty() {
+            let name = cmd.subcommand_value_name.as_deref().unwrap_or("COMMAND");
             if cmd.subcommand_required {
-                parts.push("<COMMAND>".to_string());
+                parts.push(format!("<{name}>"));
             } else {
-                parts.push("[COMMAND]".to_string());
+                parts.push(format!("[{name}]"));
             }
         }
+
+        parts.extend(cmd.mount_synopses.iter().cloned());
 
         parts.join(" ")
     }
@@ -514,7 +517,13 @@ impl ManpageRenderer {
             let has_outputs = !subcmd.outputs.is_empty();
             let has_exit_codes = !subcmd.exit_codes.is_empty();
 
-            if has_flags || has_documented_args || has_examples || has_outputs || has_exit_codes {
+            if has_flags
+                || has_documented_args
+                || has_examples
+                || has_outputs
+                || has_exit_codes
+                || !subcmd.mount_synopses.is_empty()
+            {
                 // Section header for this subcommand
                 roff.control("SH", [full_name.to_uppercase().as_str()]);
 
@@ -778,6 +787,23 @@ config {
         let spec: Spec = "name \"ex\"\nbin \"ex\"\n".parse().unwrap();
         let page = ManpageRenderer::new(spec).render().unwrap();
         assert!(!page.contains("CONFIGURATION"), "{page}");
+    }
+
+    #[test]
+    fn unresolved_mounts_and_custom_subcommands_reach_manpage_synopses() {
+        for required in [false, true] {
+            let spec: Spec = format!("name ex\nbin ex\nsubcommand_required #{required}\nsubcommand_value_name ACTION\nmount run=must-not-execute synopsis=\"[ROOT]…\"\ncmd run {{\n mount run=must-not-execute synopsis=\"[TASK] [ARGS]…\"\n}}\n").parse().unwrap();
+            let page = ManpageRenderer::new(spec).render().unwrap();
+            let placeholder = if required { "<ACTION>" } else { "[ACTION]" };
+            assert!(
+                page.contains(&format!("\\fBex\\fR {placeholder} [ROOT]…")),
+                "{page}"
+            );
+            assert!(
+                page.contains("\\fBUsage:\\fR ex run [TASK] [ARGS]…"),
+                "{page}"
+            );
+        }
     }
 
     #[test]
