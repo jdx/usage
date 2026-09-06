@@ -740,6 +740,15 @@ const completionSpec: Fig.Spec = {
               },
             },
             {
+              name: "--link-extension",
+              description:
+                "Extension for page links (including the dot); empty means extensionless URLs",
+              isRepeatable: false,
+              args: {
+                name: "link_extension",
+              },
+            },
+            {
               name: "--template",
               description:
                 "Replace a built-in Tera template, as NAME=PATH; the names are spec, index, command, argument, flag, and config",

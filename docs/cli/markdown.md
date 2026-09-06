@@ -32,6 +32,12 @@ Links between the pages are written from the root of the output, as `/bash.md`.
 `--url-prefix /cli/reference` puts a path in front of them, `/cli/reference/bash.md`, which is
 what a docs site serving the pages under a subdirectory needs.
 
+Use `--link-extension .html` when your site serves rendered HTML, or
+`--link-extension ''` for extensionless URLs. The default is `.md`. This affects
+command and configuration links, while generated files still end in `.md`.
+Rust callers can use `with_link_extension(".html")`; custom templates receive
+`link_extension` and `config_link` alongside the existing `url_prefix`.
+
 ## Custom templates from the CLI
 
 Every part of the output comes from a [Tera](https://keats.github.io/tera/) template, and
