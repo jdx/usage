@@ -3,8 +3,6 @@
 {%- set full_cmd = cmd.full_cmd | join(sep=" ") %}
 {{- "#" | repeat(count=header_level) }} `{{ (spec.bin ~ " " ~ full_cmd) | trim }}`
 
-**Usage:** `{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`
-
 {%- if spec.version %}
 
 **Version:** {{ spec.version }}

@@ -141,7 +141,7 @@
 {%- endif %}
 
 {%- if multi %}
-{%- for cmd in cmd.subcommands | values | sort(attribute="usage") %}
+{%- for cmd in cmd.subcommands | values | filter(attribute="hide", value=false) | sort(attribute="usage") %}
 {%- if not cmd.hide or cmd.hide == false %}
 {%- if loop.first %}
 
