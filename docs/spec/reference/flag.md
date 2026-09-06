@@ -1,5 +1,9 @@
 # `flag`
 
+A `flag` declares a named option. A flag without a value is a boolean switch;
+adding `<value>` makes it take a value. Short and long spellings on the same
+line are aliases. The examples below show independent alternatives.
+
 Flags can be removed from every help page and completion with `hide`. Help
 annotations and page variants can also be hidden independently without changing
 parsing or fallback behavior. Flags accept `hide_default_value`, `hide_env`,
@@ -36,8 +40,8 @@ flag "--include <pattern>" var=#true var_min=1  // at least 1 value required
 flag "--include <pattern>" var=#true var_max=5  // up to 5 values allowed
 flag "--range <start> <end>"                    // one occurrence takes exactly two values
 
-flag "--color" negate="--no-color" default=#true // $usage_color=#true by default
-                                                 // --no-color will set $usage_color=#false
+flag "--color" negate="--no-color" default=#true // usage_color is "true" by default
+                                                 // --no-color sets it to "false"
 
 flag "--color" env="MYCLI_COLOR" // flag can be backed by an env var
 
@@ -65,7 +69,7 @@ flag "--dump" exclusive=#true            // --dump has to be given on its own
 flag "--tags <tag>" var=#true delimiter="," // --tags a,b,c is three values
 flag "--args <ARGS>" allow_hyphen_values=#true // --args -destroy binds "-destroy"
 flag "--jobs <N>" allow_negative_numbers=#true // --jobs -1 binds "-1"
-flag "--item <ITEM>" var=#true value_terminator=";" // ; ends this occurrence
+flag "--item <ITEM>..." value_terminator=";" // ; ends this occurrence
 flag "--inspect <PORT>" require_equals=#true   // --inspect=9229 yes, --inspect 9229 no
 flag "--color <WHEN>" default_missing="always" // --color is always; --color=never is never
 flag "--bump [LEVEL]" value_optional=#true      // absent, bare, and valued are distinct
@@ -187,6 +191,8 @@ A value from the environment or a default satisfies a requirement, on the same p
 `conflicts` follows: the question is whether the other flag ended up with a value, not
 how it got one.
 
+### `requires_if`
+
 `requires_if VALUE FLAG` makes the requirement conditional on the declaring flag's
 value. The node may be repeated when different values require different flags:
 
@@ -210,7 +216,7 @@ back out — a CLI that wants the constraint in its spec has to declare it here.
 ## `default_if`
 
 A default that depends on another flag. Lives on the _target_ — the flag that
-gets the value — which is the inverse of [`requires_if`](#requires_if):
+gets the value — which is the inverse of [`requires_if`](#requires-if):
 
 ```kdl
 flag "--bin-names" {
@@ -228,7 +234,7 @@ value. An applied `default_if` is a default, not an explicit value: it satisfies
 
 Which condition fired, or why none did, is what
 [`usage explain`](/cli/reference/explain) reports — along with the same answer for
-`env`, `default` and [`default_missing`](#default_missing).
+`env`, `default` and [`default_missing`](#default-missing).
 
 ::: warning
 A spec generated from a clap command never carries this. clap has
@@ -302,7 +308,7 @@ a clap command carries it — aube's `--inspect` / `--inspect-brk` are the fleet
 case.
 
 A short's attached form still binds (`-i9229`, `-i=9229`); only the following
-word is refused. Combined with [`allow_hyphen_values`](#allow_hyphen_values),
+word is refused. Combined with [`allow_hyphen_values`](#allow-hyphen-values),
 the attached form can still pass a dash-prefixed value (`--args=--force`);
 the detached form stays refused.
 
@@ -340,7 +346,7 @@ when a bare flag should mean a default and explicit values can use
 
 The value used when the flag is given with none: `--color` binds `always` if the
 spec says `default_missing="always"`. `--color=never` and (unless
-[`require_equals`](#require_equals)) `--color never` still bind the word that was
+[`require_equals`](#require-equals)) `--color never` still bind the word that was
 typed. A following flag-like token is not taken as the value.
 
 clap spells this `default_missing_value`. clap 4 has the setter and no getter, so

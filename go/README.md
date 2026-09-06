@@ -1,10 +1,9 @@
 # usage-go
 
 > [!CAUTION]
-> **usage-go is not ready for any amount of testing.** Unlike the Rust framework
-> (`usage-rs`), which is complete enough that `usage-cli` is built with it, usage-go's
-> APIs, generated output, and behavior are all still in flux, and parts of what is
-> described below only exist in open pull requests. Do not build against it yet.
+> **Development preview.** usage-go is not ready for adoption or testing. APIs,
+> generated code, and behavior may change. The material below describes the
+> implementation and its current limits; do not build against it yet.
 
 A CLI framework for Go, built the way [usage-argv](../argv) is built for Rust: the
 command line is bound against **static tables** instead of a command tree
@@ -134,7 +133,7 @@ plain data, so the Go linker lays them out. `go tool nm` reports them as type `D
 and the package has no `init` function — a 211-command table costs 47 KB of
 initialized data and zero instructions.
 
-**A parse allocates nothing.** The parser holds its state, its ancestor chain and
+**The binder allocates nothing.** The parser holds its state, its ancestor chain and
 its error inline; a bound value is a slice of the argv string rather than a copy.
 `TestParseAllocatesNothing` measures this with `testing.AllocsPerRun`, on the
 failure paths as well as the success ones. `argv`'s own `BenchmarkParse` binds a
@@ -156,7 +155,7 @@ the declaration has to be resolved to the entry it refers to before any of them
 can be checked. `overrides` is the odd one out and is applied first: it asks which
 of two flags came _last_, which only the arriving tokens know.
 
-## Using it
+## Development example
 
 ```go
 p := argv.New(root, os.Args[1:])

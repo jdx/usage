@@ -1,4 +1,4 @@
-# Generating Markdown Documentation
+# Generate Markdown documentation
 
 `usage generate markdown` renders a spec as Markdown reference pages: one page for the whole
 CLI, or one per command for a docs site with a sidebar. The [CLI reference](/cli/reference/) on
@@ -14,7 +14,7 @@ usage g markdown -f ./mycli.usage.kdl > ./docs/cli.md
 `--multi` writes one page per command into `--out-dir`, nested the way the commands are:
 
 ```sh
-usage g markdown -mf ./mycli.usage.kdl --out-dir ./docs
+usage generate markdown --file ./mycli.usage.kdl --multi --out-dir ./docs
 tree ./docs
 ```
 
@@ -44,7 +44,7 @@ usage g markdown -f ./mycli.usage.kdl \
     --out-file ./docs/cli.md
 ```
 
-```tera
+```jinja
 {# templates/spec.md.tera #}
 # {{ spec.bin }} reference
 {% set cmd = spec.cmd %}
@@ -55,7 +55,15 @@ The names are `spec`, `index`, `command`, `argument`, `flag`, and `config`. Repe
 to replace more than one. Templates that are not named keep their built-in definitions and
 remain available through Tera's `include`.
 
-## Custom templates from Rust
+## Render from Rust
+
+These examples use the `usage-lib` crate, whose library name is `usage`. It is
+separate from the `usage-rs` framework facade:
+
+```toml
+[dependencies]
+usage = { package = "usage-lib", version = "6" }
+```
 
 `MarkdownRenderer` in `usage-lib` bundles the same templates. A Rust caller replaces one member
 without copying the rest:

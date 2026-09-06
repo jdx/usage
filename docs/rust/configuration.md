@@ -1,11 +1,8 @@
 # Configuration
 
-CLIs that resolve configuration from several places — flags, environment variables, config
-files — have historically kept three descriptions of every setting in step by hand: a registry
-file, a code generator, and the struct the program reads. `#[derive(usage::Config)]` collapses
-them to one. The struct the CLI already holds its settings in becomes the declaration; the
-derive generates the [usage-config](https://docs.rs/usage-config) registry, the reader that
-fills the struct from a resolution, and the spec `config` block that documents it.
+Derive `usage::Config` on your settings struct to generate a registry, typed readers,
+and a portable `config` block. Your application supplies the configuration layers;
+the resolver merges their values and records where each setting came from.
 
 Enable the `config` feature:
 

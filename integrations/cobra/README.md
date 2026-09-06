@@ -10,10 +10,15 @@ This enables shell completions (bash, zsh, fish, PowerShell, nushell), markdown 
 go get github.com/jdx/usage/integrations/cobra
 ```
 
-## Quick Start
+## Quickstart
 
 ```go
+package main
+
 import (
+    "fmt"
+
+    "github.com/spf13/cobra"
     cobra_usage "github.com/jdx/usage/integrations/cobra"
 )
 
@@ -30,7 +35,7 @@ func main() {
 }
 ```
 
-## Integration Pattern
+## Expose the spec
 
 The recommended pattern is to check for a `--usage-spec` flag before `Execute()`:
 
@@ -46,13 +51,17 @@ if err := rootCmd.Execute(); err != nil {
 }
 ```
 
-Then pipe the output to `usage` to generate completions, docs, or man pages:
+Install the [Usage CLI](https://usage.jdx.dev/cli/#installation), then pipe the
+output to it. `--file -` reads the spec from stdin:
 
 ```bash
-mycli --usage-spec | usage generate completion bash
+mycli --usage-spec | usage generate completion bash mycli --file -
 mycli --usage-spec | usage generate md -f -
 mycli --usage-spec | usage generate man -f -
 ```
+
+For installed completions that follow the current executable, use
+`usage generate completion bash mycli --usage-cmd "mycli --usage-spec" --install`.
 
 ## API
 
@@ -63,7 +72,7 @@ mycli --usage-spec | usage generate man -f -
 | `GenerateToFile(cmd, path) error`     | Writes the KDL spec to a file          |
 | `GenerateJSONToFile(cmd, path) error` | Writes the JSON spec to a file         |
 
-## Feature Mapping
+## Feature mapping
 
 | Cobra                                              | Usage Spec                                    |
 | -------------------------------------------------- | --------------------------------------------- |

@@ -1,4 +1,8 @@
-# Quickstart
+# Rust quickstart
+
+Build a `greet` CLI with a subcommand, environment fallback, shell completions, and
+an integration test. You will need Rust and Cargo; install the [Usage CLI](/cli/#installation)
+when you reach documentation generation.
 
 ## A new project
 
@@ -129,6 +133,16 @@ fn main() {
 
 ## Run it
 
+Build the executable and put this project's debug output on `PATH` for this shell.
+The examples below use a POSIX shell:
+
+```sh
+cargo build
+export PATH="$PWD/target/debug:$PATH"
+```
+
+You can also use `cargo run -- hello` instead of `greet hello`.
+
 ```console
 $ greet hello
 hello, world
@@ -195,7 +209,7 @@ scripts, and other formats:
 
 ```bash
 greet __usage_spec__ > greet.usage.kdl
-usage g markdown -f greet.usage.kdl --out-dir docs   # markdown docs
+usage generate markdown --file greet.usage.kdl --multi --out-dir docs
 usage g manpage  -f greet.usage.kdl > greet.1        # man page
 ```
 
@@ -207,7 +221,10 @@ bin greet
 version "0.1.0"
 about "Greets people, politely"
 subcommand_required #true
+flag "-h --help" help="Print help" action=help builtin=#true
+flag "-V --version" help="Print version" action=version builtin=#true
 cmd hello help="Greet someone" {
+    flag "-h --help" help="Print help" action=help builtin=#true
     arg "[NAME]" help="Who to greet" env=GREET_NAME default=world
 }
 cmd completion help="Print a completion script" {
@@ -216,6 +233,7 @@ cmd completion help="Print a completion script" {
             choices bash zsh fish
         }
     }
+    flag "-h --help" help="Print help" action=help builtin=#true
 }
 ```
 
@@ -234,6 +252,12 @@ fn hello_greets_by_name() {
 
 `command!` also retains stderr and the exit status. See [Testing](/rust/testing) for
 process-free parser assertions, help-page snapshots, and completion candidates.
+
+Run the test from the project root:
+
+```sh
+cargo test
+```
 
 ## Where next
 

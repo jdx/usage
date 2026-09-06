@@ -1,4 +1,4 @@
-# Usage Scripts
+# Parse arguments in scripts
 
 A script can have `--help`, parsed arguments, and tab completion without a line of parsing code
 in it. The spec lives in comments at the top of the file, and a `usage` shebang runs the script
@@ -8,10 +8,12 @@ named `usage_<name>`.
 ::: tip Enabling autocompletion
 Tab completion for shebang scripts is one line of setup: `source <(usage g completion-init bash)`
 in `~/.bashrc` enables `<Tab>` on every `usage`-shebang script on `$PATH`. See
-[Generating Completion Scripts](./completions.md#shebang-scripts) for zsh and fish.
+[Shell completions](./completions.md#shebang-scripts) for zsh and fish.
 :::
 
-In bash:
+## Bash
+
+Save this example as `mycli`:
 
 ```bash
 #!/usr/bin/env -S usage bash
@@ -29,9 +31,15 @@ else
 fi
 ```
 
-With the script at `./mycli`:
+Save the script as `mycli`, then make it executable:
 
-```bash
+```sh
+chmod +x mycli
+```
+
+With `usage` on `PATH`, run it:
+
+```console
 $ ./mycli --help
 Usage: mycli [-f --force] [-u --user <user>] [file]
 
@@ -51,8 +59,11 @@ Hello, alice
 The synopsis, the two sections, and `-h`/`--help` itself are all built from those three
 comment lines. Nothing in the script prints them.
 
+## Other interpreters
+
 A language without a dedicated command goes through `usage exec`, which names the interpreter to
-run. The comment prefix follows the language, so JavaScript uses `//USAGE`:
+run. The comment prefix follows the language, so JavaScript uses `//USAGE`. Save this
+CommonJS example as `mycli.cjs`:
 
 ```js
 #!/usr/bin/env -S usage exec node
@@ -72,7 +83,7 @@ const user = usage_user ?? "world";
 fs.appendFileSync(usage_file, `Hello, ${user}\n`);
 ```
 
-## Short Flag Chaining
+## Short flag chaining
 
 Single-character flags can be bundled into one word, so `-abc` means `-a -b -c`:
 
@@ -93,21 +104,21 @@ if [ "$usage_c" = "true" ]; then
 fi
 ```
 
-```bash
+```console
 $ ./mycli -abc
 Option A is set
 Option B is set
 Option C is set
 ```
 
-## Shell Escaping
+## Shell escaping
 
 ### `var=#true`
 
 An environment variable holds one string, so a flag or argument declared `var=#true` arrives as
 its values joined with spaces. A value that itself contains a space is quoted, as
 [`shell_words::join()`](https://docs.rs/shell-words/latest/shell_words/fn.join.html) quotes it,
-so `eval set -- "$usage_files"` recovers the list in a POSIX shell. The joining is not
+so `eval "set -- $usage_files"` recovers the list in a POSIX shell. The joining is not
 configurable yet; [issue 189](https://github.com/jdx/usage/issues/189) tracks alternatives.
 
 ## Windows

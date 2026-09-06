@@ -1,4 +1,4 @@
-# CLI
+# Usage CLI
 
 `usage` is the command-line utility around the [usage spec](/spec/). A spec describes a CLI's
 commands, flags, and arguments once, in KDL. This tool turns that one description into the
@@ -10,7 +10,7 @@ things a CLI ships with, and runs scripts that carry a spec in their own comment
 | Markdown reference pages                                    | `usage generate markdown`    | [Markdown](/cli/markdown)                        |
 | Man pages                                                   | `usage generate manpage`     | [Manpages](/cli/manpages)                        |
 | Typed TypeScript and Python clients                         | `usage generate sdk`         | [SDK generation](/cli/sdk)                       |
-| Parse tables for a Go CLI                                   | `usage generate go`          | [Go framework](/go/)                             |
+| Parse tables for a Go CLI                                   | `usage generate go`          | [Go preview](/go/)                               |
 | A JSON Schema for the CLI's config file                     | `usage generate json-schema` | [reference](/cli/reference/generate/json-schema) |
 | A shell script with parsed arguments and `--help`           | `usage bash`, `usage exec`   | [Scripts](/cli/scripts)                          |
 | What changed between two versions of an interface           | `usage diff`                 | [Comparing specs](/cli/diff)                     |
@@ -25,7 +25,7 @@ whichever version of the CLI is installed. A binary built with the [Rust framewo
 prints its own spec, so documenting it needs no file at all:
 
 ```sh
-mycli __usage_spec__ | usage generate markdown -mf - --out-dir docs
+mycli __usage_spec__ | usage generate markdown --file - --multi --out-dir docs
 ```
 
 The [reference](/cli/reference/) lists every command and flag. It is generated from `usage`'s
@@ -42,7 +42,7 @@ mise use -g usage
 ### Cargo
 
 ```sh
-cargo install usage-cli
+cargo install usage-cli --locked
 ```
 
 [`cargo-binstall`](https://github.com/cargo-bins/cargo-binstall) fetches a prebuilt binary

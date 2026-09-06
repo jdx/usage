@@ -1,5 +1,9 @@
 # `cmd`
 
+A `cmd` declares a subcommand. Nest commands inside it, then add the arguments,
+flags, aliases, and help that belong to that command. Top-level arguments and
+flags belong to the root; only global flags are inherited by descendants.
+
 ```kdl
 // aliases
 cmd "config" help="Manage the CLI config" {
@@ -98,15 +102,9 @@ than only the last one. See [Warnings](/spec/argv#warnings).
 
 ## Mounting dynamic commands
 
-A usage spec can define a command to run which emits extra usage spec which will be merged into the
-cmd.
-For example, assume a CLI named `mycli` has a command `run` which executes a set of tasks, those
-tasks
-are themselves commands which have their own sets of args/flags dynamically generated. To support
-this,
-create a hidden command like `mycli mount-usage-tasks` which emits usage spec for the tasks. Then,
-create a `mount` on the `run` command. Here is the static usage spec for the `mycli` CLI as
-described:
+Use `mount` when a command's children are discovered at runtime. The named command
+prints KDL, which Usage merges beneath the mount point. For example, a task runner
+can expose each task and its arguments through a hidden spec command:
 
 ```kdl
 cmd "mount-usage-tasks" hide=#true

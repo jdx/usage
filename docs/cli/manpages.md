@@ -1,4 +1,4 @@
-# Generating Manpages
+# Generate man pages
 
 `usage generate manpage` renders a spec as roff, the format `man` reads. `g` and `man` are the
 short aliases, and without `-o` the page goes to stdout:
@@ -7,18 +7,23 @@ short aliases, and without `-o` the page goes to stdout:
 usage g man -f ./mycli.usage.kdl -o mycli.1
 ```
 
-Piping it straight into `man` previews the page without installing anything:
+On Linux, pipe the result into `man` to preview it:
 
 ```bash
 usage g man -f ./mycli.usage.kdl | man -l -
 ```
 
+On macOS, generate the file and open it with `man ./mycli.1`.
+
 ## Installing
 
-A page lives in the directory for its section, and `mandb` has to be told it is there:
+Install the page in a directory on the target system's manual search path. For
+example, on Linux with `man-db`, install a locally managed page and refresh the
+index:
 
 ```bash
-usage g man -f ./mycli.usage.kdl | sudo tee /usr/share/man/man1/mycli.1 > /dev/null
+usage generate manpage --file ./mycli.usage.kdl --out-file mycli.1
+sudo install -Dm644 mycli.1 /usr/local/share/man/man1/mycli.1
 sudo mandb
 man mycli
 ```

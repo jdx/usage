@@ -1,5 +1,10 @@
 # `complete`
 
+A `complete` node supplies candidates for an argument or flag with the given name.
+Use a built-in `type` for paths and other common values, or `run` for a command
+that prints candidates. For a fixed list, put `choices` on the argument or flag
+instead.
+
 ```kdl
 // use a custom completion command for all args named "plugin"
 complete "plugin" run="mycli plugins list"

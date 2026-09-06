@@ -1,5 +1,25 @@
 # Top-level metadata
 
+Use top-level nodes for the executable's identity, help, examples, and command
+policies. Define its interface with the following nodes:
+
+| Node                                              | Purpose                                             |
+| ------------------------------------------------- | --------------------------------------------------- |
+| [`arg`](./arg.md)                                 | Positional values, choices, and validation          |
+| [`flag`](./flag.md)                               | Named options and their relationships               |
+| [`cmd`](./cmd.md)                                 | Subcommands and command policies                    |
+| [`complete`](./complete.md)                       | Dynamic candidates and built-in completion types    |
+| [`config`](./config.md)                           | Settings, sources, defaults, and types              |
+| [`flagset`](./flagset.md) / [`group`](./group.md) | Shared declarations / constraints between arguments |
+| [`output`](./output.md)                           | Structured output formats and exit codes            |
+| [`clause`](./clause.md)                           | Repeated groups of arguments                        |
+
+[`sigil`](./sigils.md) is a property on `arg` for prefixed arguments. The remaining
+sections describe top-level metadata. See [spec basics](/spec/) for an introduction
+to KDL.
+
+## Identity and metadata
+
 ```kdl
 min_usage_version "1.0.0" // the minimum version of usage this CLI supports
                           // you want this at the top

@@ -1,6 +1,13 @@
 # Integrations
 
-An integration reads a CLI's definition out of the framework it was written in and prints a [usage spec](/spec/). An existing CLI gets completions, Markdown docs, man pages, and everything else the spec drives, without a hand-written spec and without changing frameworks.
+Export a Usage spec from your existing CLI framework, then use it for completions,
+reference docs, man pages, and generated clients. The integration reads your
+application's declaration; your framework continues to parse and run the CLI.
+
+Start with the [clap guide](/spec/integrations/clap) or
+[Cobra guide](/spec/integrations/cobra), or choose a community integration below.
+Each exporter supports a different subset of its framework's features. Check its
+feature mapping and any loss report before relying on the generated interface.
 
 ## Available
 
@@ -23,9 +30,10 @@ An integration reads a CLI's definition out of the framework it was written in a
 
 ## Planned
 
-Contributions are welcome. These are the frameworks worth covering next.
+These frameworks are candidates for future integrations, not available packages.
+See [Contributing](/contributing) before starting a new exporter.
 
-### High Priority
+### High priority
 
 | Framework                                                               | Language |
 | ----------------------------------------------------------------------- | -------- |
@@ -39,7 +47,7 @@ Contributions are welcome. These are the frameworks worth covering next.
 | [swift-argument-parser](https://github.com/apple/swift-argument-parser) | Swift    |
 | [System.CommandLine](https://github.com/dotnet/command-line-api)        | C#/.NET  |
 
-### Medium Priority
+### Medium priority
 
 | Framework                                                                  | Language |
 | -------------------------------------------------------------------------- | -------- |

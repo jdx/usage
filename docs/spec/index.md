@@ -1,21 +1,19 @@
-# Usage Specification
+# Usage specification
 
-A usage spec describes a command-line interface once: its commands, flags, arguments,
-environment variables, and config files, written in [KDL](https://kdl.dev/). It is the contract
-the rest of the project is built on. The [Rust](/rust/) and [Go](/go/) frameworks parse against
-it, and [the CLI](/cli/) generates from it. Think of it as [OpenAPI](https://www.openapis.org/)
-for CLIs: one declaration, from which everything a CLI ships with is derived rather than written
-again.
+A Usage spec describes a CLI's commands, arguments, flags, help, completion, and
+configuration in [KDL](https://kdl.dev/). The [Usage CLI](/cli/) generates artifacts
+from that definition, and the [Rust framework](/rust/) exports it from typed code.
 
-- Shell completions for bash, zsh, fish, PowerShell, and Nushell
-- Markdown documentation and man pages
-- Type-safe TypeScript and Python client libraries
-- Argument parsing in any language, and typed parsers in Rust and Go
-- A machine-readable answer to what changed in a release, from [`usage diff`](/cli/diff)
+New to Usage? [Write a spec and generate your first artifacts](/guide/getting-started).
+For an existing application, [an integration](/spec/integrations) can export the
+interface from your CLI framework.
 
-A spec need not be written by hand. A CLI built with the Rust framework prints its own, and
-[integrations](/spec/integrations) extract one from clap, Cobra, argparse, and a dozen other
-frameworks.
+## Read the syntax
+
+Each line is a node. Values follow the node name, `key=value` properties add
+metadata, and braces contain child nodes. Use `#true` and `#false` for booleans.
+Angle brackets mark required values (`<file>`); square brackets mark optional
+values (`[file]`). The next examples are separate specs.
 
 ## Example Usage Spec
 
@@ -25,13 +23,13 @@ KDL reads like a config file and nests like XML. A basic CLI:
 // optional metadata
 name "My CLI"        // a friendly name for the CLI
 bin "mycli"          // the name of the binary
-about "some help"    // a short description of the CLI
+about "Process project files" // a short description of the CLI
 version "1.0.0"      // the version of the CLI
-author "nobody"      // the author of the CLI
+author "Example Team" // the author of the CLI
 license "MIT"        // license the CLI is released under
 
 // a standard flag
-flag "-f --force"   help="Always do the thing"
+flag "-f --force"   help="Overwrite existing output"
 flag "-v --version" help="Print the CLI version"
 flag "-h --help"    help="Print the CLI help"
 
@@ -58,12 +56,12 @@ cmd "config" help="Manage the CLI config" {
     arg "<value>" help="The new config value"
     flag "-f --force" help="Overwrite existing config"
   }
-  cmd "remove" help="Remove a thing" {
+  cmd "remove" help="Remove a setting" {
     alias "rm"
     alias "delete" hide=#true // hide alias from docs and completions
-    arg "<name>" help="The name of the thing"
+    arg "<name>" help="Setting to remove"
   }
-  cmd "list" help="List all things"
+  cmd "list" help="List all settings"
 }
 cmd "version" help="Print the CLI version"
 cmd "help" help="Print the CLI help"
@@ -129,7 +127,7 @@ cmd "logs" effect="read" help="Show daemon logs" {
 
 cmd "settings" effect="read" {
   arg "[setting]"
-  arg "[value]" effect="write"   // `settings foo` reads, `settings foo=bar` writes
+  arg "[value]" effect="write"   // `settings foo` reads, `settings foo bar` writes
 }
 ```
 
@@ -160,12 +158,13 @@ cmd "uninstall" {
 
 ## Compatibility
 
-The spec models CLIs that follow GNU conventions: `--long` and `-s` flags, `--flag=value` and
-`--flag value`, bundled short flags, and `--` to end flag parsing. It does not set out to model
-every CLI that exists. A flag that takes several values in a row, `--flag one two`, is the usual
-example of what it leaves out: a reader of that line cannot tell whether `two` is the flag's
-second value or the next positional, and neither can a parser. The [argv grammar](/spec/argv)
-says exactly what is accepted.
+Usage supports GNU-style long and short flags, attached or detached values,
+bundled short flags, subcommands, and `--` to end flag parsing. Multi-value flags
+are supported when explicitly declared, but they consume following values greedily;
+use bounds or a separator when the boundary would otherwise be ambiguous.
+
+The [argument grammar](/spec/argv) defines the exact rules, including unknown
+flags and repeated values.
 
 ## For CLI Framework Authors
 

@@ -1,11 +1,9 @@
 # Go Framework
 
-::: danger Not ready for testing
-The Go framework is experimental and **not ready for any amount of testing yet** — do not build
-against it. Unlike [usage-rs](/rust/), which is complete enough that `usage-cli` itself is built
-with it, usage-go's APIs, generated output,
-and behavior are all still in flux, and much of what these pages document only exists in open
-pull requests. These docs are a draft published for review, not an invitation to try it.
+::: danger Development preview
+The Go framework is not ready for adoption or testing. These pages describe work
+in progress; APIs, generated code, and behavior may change. See the
+[overview](/go/) for the current scope and limitations.
 :::
 
 The Go framework builds your CLI from a usage spec — but unlike most Go CLI libraries, your
@@ -144,7 +142,7 @@ and `--help` pages are compared byte-for-byte against usage-lib's rendering in C
 
 ## Current limitations
 
-Worth knowing before you commit:
+The current implementation has these limitations:
 
 - **`overrides` is not enforced by generated `Parse`.** `conflicts`, `required_if`, and
   `required_unless` are; a spec relying on last-one-wins `overrides` semantics needs to call

@@ -12,7 +12,7 @@ export default {
   extends: DefaultTheme,
   Layout() {
     return h(DefaultTheme.Layout, null, {
-      'home-hero-before': () => [h(UsageHero), h(UsageBenches)],
+      'home-hero-before': () => h(UsageHero),
       'layout-bottom': () => [h(EndevSponsors), h(EndevFooter)]
     })
   },

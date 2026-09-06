@@ -242,28 +242,14 @@ the positional arguments like any other. With nothing left to hold it, that is a
 `unexpected_arg` — the same error an extra word produces, rather than a special one
 about flags.
 
-This is where the grammar parts company with every comparable parser. clap,
-argparse, commander, oclif v2+, and POSIX `getopt` all reject the token. They are
-right for what they do, which is parse _their own_ argv, where a dash-word can only
-be a flag or a typo. A usage spec is also used to parse command lines whose flags it
-does not own:
+This default supports wrappers and task runners that forward options to another
+program, as well as completion over partly typed input. It also means a typo such
+as `--hekp` can become a positional value when an argument is available to hold it.
 
-- a shell script run through `usage exec`, forwarding options to a tool it wraps
-- a task's arguments, where the task script is the authority on what it accepts
-- a completion, asked about a line that is still half-typed
-
-In all three, a token the spec has not heard of is far more likely to be data in
-transit than a mistake, and refusing it would break the wrapper for everyone who
-did not enumerate the flags of the program behind it.
-
-The cost is real and worth stating plainly: a misspelled `--hekp` becomes an
-argument instead of an error, and whether it does depends on whether a positional
-is free to take it. A CLI that owns all of its flags can have the stricter reading
-by asking:
+For a CLI that should reject unknown flags, opt into strict handling:
 
 ```kdl
-unknown_flags "error"     // for the whole CLI
-cmd "exec" unknown_flags="value"   // except here, which forwards a command line
+unknown_flags "error"
 ```
 
 Unlike `effect`, this **is** inherited: the nearest enclosing command that states a
@@ -271,10 +257,8 @@ preference wins, then the spec, then `value`. It describes how a command line is
 read rather than what a command does, and a CLI that forwards options tends to
 forward them at every level.
 
-Even when refusing, a lone `-` and a negative number stay values — neither is a
-misspelled flag, and without the second `--offset -1` could not be written. oclif
-made exactly this mistake when it switched to refusing unknown flags, and had to
-add the number case back afterward.
+Even with strict handling, a lone `-` and negative numbers remain values, so
+`--offset -1` still works.
 
 ## Positional arguments
 
@@ -576,13 +560,14 @@ An empty list is a state, not a promise. The next rule written here will very
 likely land before the parser does, and the label is how that gets said out loud
 rather than discovered by whoever writes the next implementation.
 
-## Not yet covered
+## Coverage boundaries
 
 - **Restart tokens.** `restart_token` (mise's `:::`) makes one command line
   describe several invocations, which the vector format cannot express: `expect`
   holds a single result. Supporting it needs a multi-invocation shape, and until
   then usage-lib's behavior — rewind, and let the last invocation's bindings
   stand — is untested here.
-- **Completion parsing.** `parse_partial` deliberately accepts incomplete input
-  to drive completions. It is a different contract with different expectations,
-  and deserves its own corpus.
+- **Completion parsing.** `parse_partial` accepts incomplete input under a separate
+  contract. The [completion corpus](https://github.com/jdx/usage/tree/main/corpus/complete)
+  covers candidate selection, including restart tokens at the cursor. Full parsing
+  of multiple invocations remains outside the argv vector format.

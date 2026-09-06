@@ -323,9 +323,10 @@ A `global` flag declared on a parent is accepted anywhere below it:
 yes: bool,
 ```
 
-A global flag may be given **once per command level**, with the innermost occurrence winning:
-`mycli -y install -y` works. Giving it twice at the _same_ level is still a `DuplicateFlag`
-error: `mycli -y -y` is refused.
+Repeated scalar flags keep the last value by default, including globals. Set
+`args_override_self = false` on a command to reject repeated scalar flags at that
+level. Repeatable, variadic, and count flags continue to collect values or count
+occurrences. See [repeated scalar flags](/spec/reference/cmd#repeated-scalar-flags).
 
 ## Container attributes
 

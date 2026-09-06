@@ -1,6 +1,9 @@
 # `group`
 
-A set of flags that relate to one another as a set.
+A `group` constrains a set of flags or positional arguments: at most one, exactly
+one, or at least one must be present. Use it when the rule belongs to the set
+rather than to one argument. The following group declarations are alternatives;
+choose one for your spec.
 
 ```kdl
 flag "--file <file>"
@@ -23,10 +26,10 @@ group "input" required=#true {
 }
 ```
 
-The name comes first, then the members, spelled the way every other relationship names
-a flag — `--long` or `-s`. A group lives on the command whose flags it names, and a
-group naming [global flags](/spec/reference/flag#global) belongs to the command that
-declares them.
+The name comes first, then the members. Use `--long` or `-s` for flags and a bare
+argument name for a positional. A group lives on the command whose arguments it
+names, and a group naming [global flags](/spec/reference/flag#global) belongs to
+the command that declares them.
 
 ## What the two properties mean
 

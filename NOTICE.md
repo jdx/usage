@@ -1,6 +1,6 @@
 # Third-party notices
 
-Usage itself is licensed under the MIT License; see [LICENSE](LICENSE). This file
+Usage itself is licensed under the MIT License; see [LICENSE](https://github.com/jdx/usage/blob/main/LICENSE). This file
 records the third-party work that Usage vendors, derives from, or is closely
 modeled on, together with the license each is used under.
 
@@ -44,7 +44,7 @@ warrant attribution:
 - `usage-derive` / `usage-rs` deliberately mirror `clap_derive`'s attribute
   vocabulary and semantics (`long`, `short`, `env`, `default_value`, `flatten`,
   `value_enum`, `rename_all`, and friends) so a clap declaration can be ported
-  field by field. See [docs/rust/migrating-from-clap.md](docs/rust/migrating-from-clap.md).
+  field by field. See [docs/rust/migrating-from-clap.md](https://github.com/jdx/usage/blob/main/docs/rust/migrating-from-clap.md).
 - The rendered help, usage line, and diagnostic conventions follow clap's output
   shape so migrated CLIs keep their existing user-facing text.
 - `clap_usage` reads a `clap::Command` through clap's public API to generate a
@@ -84,7 +84,7 @@ The Apache-2.0 option is available upstream at
 
 `benches/shadows/external-*` and `conformance/tests/external_clap_adopters.rs`
 are reductions of three real clap-based CLIs, pinned to the revisions recorded in
-[benches/external/README.md](benches/external/README.md). They are reduced rather
+[benches/external/README.md](https://github.com/jdx/usage/blob/main/benches/external/README.md). They are reduced rather
 than vendored, but they do carry each upstream's declaration shapes and help text,
 so each upstream's license is reproduced below.
 

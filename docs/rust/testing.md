@@ -1,13 +1,9 @@
 # Testing
 
-A CLI test can run the compiled program and assert on stdout, stderr, and its exit status.
-Lower-level helpers assert what argv parses to, what a user reads when it does not, and what a
-shell offers while one is being typed.
-
-The third has no clap equivalent at all: testing a `clap_complete` script means golden-filing
-the script's text or driving a real shell, neither of which asserts what a user is actually
-offered. Here a completion is a function of the spec and a half-typed line, so it is a plain
-assertion.
+The `test` feature provides `command!` for running a compiled binary and capturing
+its output. Its in-process helpers call your generated `parse_from` function to parse
+arguments and use `usage_argv` to check help text and completion candidates, so tests
+exercise the same parser and renderers users receive.
 
 ```toml
 [dev-dependencies]
@@ -15,10 +11,6 @@ usage = { package = "usage-rs", version = "6", features = ["test"] }
 ```
 
 The feature belongs in `dev-dependencies`: nothing in an application's own code calls it.
-
-Nothing here formats a page or a message of its own. Every page comes from the same function
-`parse()` renders a help request with, and every failure from the same one it prints — a harness
-that renders its own approximation is a harness whose passing tests mean nothing.
 
 ## What a command writes
 

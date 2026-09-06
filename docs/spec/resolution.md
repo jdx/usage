@@ -1,15 +1,13 @@
 # Configuration resolution
 
-A [`config` block](/spec/reference/config) says what a CLI's settings are. This page
-says how a value is arrived at: which place wins when several have something to say,
-what a declared type does to a value on its way in, which places are allowed to set
-which settings, and what a resolution has to report about the values it refused.
+Configuration resolution merges settings from the command line, environment, files,
+and defaults. It determines the final value, records its origin, and reports
+values that could not be used.
 
-It exists because that behavior was previously written down nowhere. Every CLI in the
-jdx fleet resolved its own settings by hand, and every copy differed — not through
-carelessness, but because the declaration of a setting and the code that resolved it
-were two separate things kept in step by hand. The rules here are normative, and
-[the conformance corpus](#the-conformance-corpus) makes them executable.
+A [`config` block](/spec/reference/config) declares the settings. This page defines
+the rules a resolver must follow; the [conformance corpus](#the-conformance-corpus)
+tests those rules. For a Rust application, start with the
+[configuration guide](/rust/configuration).
 
 ## Terms
 

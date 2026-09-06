@@ -1,9 +1,7 @@
 # The argv conformance corpus
 
-> Two neighbours have corpora of their own: resolving a CLI's _configuration_ —
-> layers, precedence, merge policies — is [`config/`](config/README.md), and what a
-> spec _reads as_ — the usage line, `-h`, `--help` — is
-> [`render/`](render/README.md). This file is about parsing a command line.
+Related corpora cover [configuration resolution](config/README.md),
+[help rendering](render/README.md), and [completion](complete/README.md).
 
 Test vectors for [the argv grammar](https://usage.jdx.dev/spec/argv). Each one
 pairs a spec with a command line and the result parsing them must produce.

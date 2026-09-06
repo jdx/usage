@@ -51,14 +51,15 @@ The defaults include the derive, help rendering, and clap-shaped diagnostics. Ad
 if the binary generates or answers completion requests, and `validation` for portable validation
 expressions.
 
-During a prerelease migration, pin every producer and consumer to one revision — in particular,
-the `usage-rs` that emits KDL and any installed `usage-cli` that renders it must match.
+Keep the spec producer and its consumers compatible. When testing unreleased changes,
+pin `usage-rs` and `usage-cli` to the same repository revision.
 
 The swap also shrinks the build. On a minimal binary, clap 4.6.6 with `derive` compiles 8
 third-party crates into the binary; usage's defaults plus `completions` compile 0. The whole
 graph is 17 crates against 7, and usage's four non-usage crates — proc-macro2, quote, syn,
 unicode-ident — are build-time only, already compiled by any project using serde's derive or
-clap_derive itself. The one exception is the opt-in `validation` feature, which adds `expr-lang`.
+clap_derive itself. Optional features add dependencies: `validation` adds `expr-lang`, and
+configuration file readers add their format parsers.
 
 ## Derive mapping
 
@@ -258,13 +259,14 @@ enum Command {
 }
 ```
 
-Tuple `Cli` and `Args` structs are not inferred, though — name the field and say whether it is
-flattened:
+Tuple `Cli` and `Args` structs are not inferred. This form fails to compile:
 
-```compile_fail
+```rust
 #[derive(usage::Args)]
 struct Ambiguous(CommonArgs);
 ```
+
+Use a named field and declare whether it is flattened:
 
 ```rust
 #[derive(usage::Args)]
