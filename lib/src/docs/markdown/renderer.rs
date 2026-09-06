@@ -414,6 +414,7 @@ mod tests {
             "    first\n\n      second\n",
             ">     quoted code\n>\n>       indented\n",
             "-     same-line list code\n",
+            "Examples:\n    paragraph continuation\n\n    actual code\n",
         ] {
             let normalized = |text: &str| {
                 pulldown_cmark::TextMergeStream::new(Parser::new(text))
@@ -430,6 +431,27 @@ mod tests {
             assert_eq!(normalized(source), normalized(&output), "{output}");
             assert_eq!(renderer.fence_indented_blocks(output.clone()), output);
         }
+    }
+
+    #[test]
+    fn legacy_examples_with_markdown_separation_form_one_code_block() {
+        let renderer = MarkdownRenderer::new("bin ex".parse().unwrap())
+            .with_indented_blocks_to_code_fences(true);
+        let source = "Examples:\n\n    # first\n    ex first\n\n    # second\n    ex second\n";
+        assert_eq!(
+            renderer.fence_indented_blocks(source.into()),
+            "Examples:\n\n```\n# first\nex first\n\n# second\nex second\n```\n"
+        );
+        let spec =
+            crate::Spec::parse_file(std::path::Path::new("../benches/mise.usage.kdl")).unwrap();
+        let page = MarkdownRenderer::new(spec.clone())
+            .with_indented_blocks_to_code_fences(true)
+            .render_cmd(&spec.cmd.subcommands["settings"])
+            .unwrap();
+        assert!(
+            page.contains("Examples:\n\n```\n# list all settings"),
+            "{page}"
+        );
     }
 
     #[test]

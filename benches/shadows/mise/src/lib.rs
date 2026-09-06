@@ -4648,7 +4648,7 @@ pub struct SettingsUnsetArgs {
 /// Manage settings
 #[derive(Args)]
 #[usage(
-    after_long_help = "\u{1b}[1m\u{1b}[4mExamples:\u{1b}[22m\u{1b}[24m\n    # list all settings\n    $ \u{1b}[1mmise settings\u{1b}[22m\n\n    # get the value of the setting \"always_keep_download\"\n    $ \u{1b}[1mmise settings always_keep_download\u{1b}[22m\n\n    # set the value of the setting \"always_keep_download\" to \"true\"\n    $ \u{1b}[1mmise settings always_keep_download=true\u{1b}[22m\n\n    # set the value of the setting \"node.mirror_url\" to \"https://npmmirror.com/mirrors/node/\"\n    $ \u{1b}[1mmise settings node.mirror_url https://npmmirror.com/mirrors/node/\u{1b}[22m\n",
+    after_long_help = "\u{1b}[1m\u{1b}[4mExamples:\u{1b}[22m\u{1b}[24m\n\n    # list all settings\n    $ \u{1b}[1mmise settings\u{1b}[22m\n\n    # get the value of the setting \"always_keep_download\"\n    $ \u{1b}[1mmise settings always_keep_download\u{1b}[22m\n\n    # set the value of the setting \"always_keep_download\" to \"true\"\n    $ \u{1b}[1mmise settings always_keep_download=true\u{1b}[22m\n\n    # set the value of the setting \"node.mirror_url\" to \"https://npmmirror.com/mirrors/node/\"\n    $ \u{1b}[1mmise settings node.mirror_url https://npmmirror.com/mirrors/node/\u{1b}[22m\n",
     effect = "write",
     group("output")
 )]

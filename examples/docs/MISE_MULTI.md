@@ -3240,10 +3240,11 @@ Manage settings
 - **`--json-extended`** — Output in JSON format with sources
 
 Examples:
-    # list all settings
-    $ mise settings
 
 ```
+# list all settings
+$ mise settings
+
 # get the value of the setting "always_keep_download"
 $ mise settings always_keep_download
 
