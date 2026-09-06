@@ -341,6 +341,12 @@ impl MarkdownRenderer {
                 Event::End(TagEnd::CodeBlock) => {
                     if let Some((range, content)) = block.take() {
                         let start = md[..range.start].rfind('\n').map_or(0, |i| i + 1);
+                        // A same-line list marker or blockquote prefix belongs to its
+                        // container. Keep these blocks indented rather than replacing
+                        // the container along with the code block.
+                        if md[start..range.start].chars().any(|c| !c.is_whitespace()) {
+                            continue;
+                        }
                         let source_line = md[start..].lines().next().unwrap_or_default();
                         let source_indent =
                             source_line.len() - source_line.trim_start_matches(' ').len();
@@ -394,6 +400,8 @@ mod tests {
             "```json\n{\n    \"key\": 1\n}\n```\n",
             "    [tools]\n    node = \"20\"\n\n    ```literal```\n",
             "    first\n\n      second\n",
+            ">     quoted code\n>\n>       indented\n",
+            "-     same-line list code\n",
         ] {
             let normalized = |text: &str| {
                 pulldown_cmark::TextMergeStream::new(Parser::new(text))
