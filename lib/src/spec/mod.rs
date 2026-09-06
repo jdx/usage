@@ -1549,7 +1549,7 @@ source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}
         assert_eq!(go.full_cmd, ["go"]);
         // `usage()` names the command and then what it takes — `go` has a subcommand, so it
         // says so. The point is that the command's own name is in there at all.
-        assert_eq!(go.usage, "go <SUBCOMMAND>");
+        assert_eq!(go.usage, "go [SUBCOMMAND]");
 
         // And all the way down, which is what makes it a walk rather than one level.
         let fast = go.subcommands.get("fast").expect("fast");
@@ -2329,7 +2329,7 @@ echo "hello"
             ["plugins", "formatter"]
         );
         assert!(
-            path(&grafted, &["plugins"]).1.contains("<SUBCOMMAND>"),
+            path(&grafted, &["plugins"]).1.contains("[SUBCOMMAND]"),
             "{:?}",
             path(&grafted, &["plugins"]).1
         );

@@ -15,7 +15,7 @@ export class App {
     this.runner = new CliRunner(binPath ?? "app");
     this.status = new Status(this.runner);
   }
-  /** <SUBCOMMAND> */
+  /** [SUBCOMMAND] */
   async exec(): Promise<CliResult> {
     return this.runner.run([]);
   }

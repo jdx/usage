@@ -14,7 +14,7 @@ class App:
         self.db = Db(self._runner)
 
     def exec(self) -> CliResult:
-        """<SUBCOMMAND>"""
+        """[SUBCOMMAND]"""
         cmd_args: list[str] = []
         return self._runner.run(cmd_args)
 
@@ -25,7 +25,7 @@ class Db:
         self.migration = Migration(self._runner)
 
     def exec(self) -> CliResult:
-        """db <SUBCOMMAND>"""
+        """db [SUBCOMMAND]"""
         cmd_args: list[str] = ["db"]
         return self._runner.run(cmd_args)
 
@@ -37,7 +37,7 @@ class Migration:
         self.run = Run(self._runner)
 
     def exec(self) -> CliResult:
-        """db migration <SUBCOMMAND>"""
+        """db migration [SUBCOMMAND]"""
         cmd_args: list[str] = ["db", "migration"]
         return self._runner.run(cmd_args)
 

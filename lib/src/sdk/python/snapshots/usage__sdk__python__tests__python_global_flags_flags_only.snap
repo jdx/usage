@@ -15,7 +15,7 @@ class App:
         self.info = Info(self._runner)
 
     def exec(self, flags: Optional[AppFlags] = None) -> CliResult:
-        """[-v --verbose] <SUBCOMMAND>"""
+        """[-v --verbose] [SUBCOMMAND]"""
         cmd_args: list[str] = []
         flag_args = self._build_flag_args(flags)
         return self._runner.run(cmd_args + flag_args)

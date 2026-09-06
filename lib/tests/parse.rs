@@ -166,7 +166,7 @@ Flags:
 cmd_help_short:
     spec=r#"cmd "cmd" help="shorthelp" help_long="help\nfooo\nbar""#,
     args="-h",
-    expected=r#"Usage: <SUBCOMMAND>
+    expected=r#"Usage: [SUBCOMMAND]
 
 Commands:
   cmd   shorthelp
@@ -179,7 +179,7 @@ Flags:
 cmd_help_long:
     spec=r#"cmd "cmd" help="shorthelp" help_long="help\nfooo\nbar""#,
     args="--help",
-    expected=r#"Usage: <SUBCOMMAND>
+    expected=r#"Usage: [SUBCOMMAND]
 
 Commands:
   cmd   shorthelp
@@ -194,7 +194,7 @@ subcommand_help_short:
     cmd "install" help="shorthelp" help_long="help\nfooo\nbar"
 }"#,
     args="plugins -h",
-    expected=r#"Usage: plugins <SUBCOMMAND>
+    expected=r#"Usage: plugins [SUBCOMMAND]
 
 Commands:
   install  shorthelp

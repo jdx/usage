@@ -875,7 +875,18 @@ impl SpecCommand {
                 .subcommand_value_name
                 .as_deref()
                 .unwrap_or("SUBCOMMAND");
-            usage = format!("{usage} <{name}>");
+            usage = if self.subcommand_required {
+                format!("{usage} <{name}>")
+            } else {
+                format!("{usage} [{name}]")
+            };
+        }
+        for synopsis in self
+            .mounts
+            .iter()
+            .filter_map(|mount| mount.synopsis.as_deref())
+        {
+            usage = format!("{usage} {synopsis}");
         }
         usage.trim().to_string()
     }
