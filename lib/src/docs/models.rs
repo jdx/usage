@@ -50,7 +50,8 @@ pub struct SpecCommand {
     pub arg_groups: Vec<Group<SpecArg>>,
     /// Prose for this command's help sections, by heading title.
     pub headings: Vec<SpecHeading>,
-    // pub mounts: Vec<SpecMount>,
+    /// Display fragments for unresolved mounts, without running discovery.
+    pub mount_synopses: Vec<String>,
     pub deprecated: Option<String>,
     pub deprecated_warn_at: Option<String>,
     pub deprecated_remove_at: Option<String>,
@@ -65,6 +66,7 @@ pub struct SpecCommand {
     pub available_if: Vec<String>,
     pub display_order: Option<usize>,
     pub subcommand_required: bool,
+    pub subcommand_value_name: Option<String>,
     pub subcommand_help_heading: Option<String>,
     pub next_line_help: bool,
     pub flatten_help: bool,
@@ -724,7 +726,7 @@ impl From<&crate::SpecCommand> for SpecCommand {
             display_order,
             subcommand_required,
             subcommand_help_heading,
-            subcommand_value_name: _,
+            subcommand_value_name,
             next_line_help,
             flatten_help,
             // Consumed above while laying help out; templates need only the result.
@@ -881,6 +883,12 @@ impl From<&crate::SpecCommand> for SpecCommand {
             available_if: available_if.clone(),
             display_order: *display_order,
             subcommand_required: *subcommand_required,
+            subcommand_value_name: subcommand_value_name.clone(),
+            mount_synopses: cmd
+                .mounts
+                .iter()
+                .filter_map(|mount| mount.synopsis.clone())
+                .collect(),
             subcommand_help_heading: subcommand_help_heading.clone(),
             next_line_help: *next_line_help,
             flatten_help: *flatten_help,
