@@ -9,7 +9,7 @@
 clap_usage = "5"
 ```
 
-## Quick Start
+## Quickstart
 
 ```rust
 use clap::Command;
@@ -41,7 +41,7 @@ visible through clap's public getters, not for every setter clap exposes. Before
 treating the generated spec as fully compatible, audit the declaration against the
 [clap migration guide](/rust/migrating-from-clap#compatibility-gaps).
 
-## Integration Pattern
+## Expose the spec
 
 A common approach is to add a hidden `--usage-spec` flag that outputs the spec:
 
@@ -82,7 +82,7 @@ does not: `Arg::requires`, `requires_if`, `requires_ifs` and `requires_all` are 
 with no reader, so a flag declared with them arrives in the spec with no requirement on
 it, and everything downstream — help, docs, completions — describes a CLI without that
 constraint. `Arg::default_value_if` is the same hole: a generated spec never carries
-[`default_if`](/spec/reference/flag#default_if).
+[`default_if`](/spec/reference/flag#default-if).
 
 [`multicall`](/spec/reference/#multicall) is one clap _does_ expose:
 `Command::is_multicall_set` reaches the spec as `multicall #true`.

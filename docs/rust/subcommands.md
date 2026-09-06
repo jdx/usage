@@ -70,7 +70,7 @@ When argv selects no command, `run` is assumed. Naming a command that doesn't ex
 
 ## Multicall
 
-clap's `#[command(multicall = true)]` is busybox-style applets: argv[0]'s basename
+`#[usage(multicall)]` supports BusyBox-style applets: argv[0]'s basename
 selects a subcommand. `parse()` rewrites the process's argv[0]; `parse_from` is
 unchanged, because the caller already decided the words.
 
@@ -110,7 +110,7 @@ requests are completed from the promoted command. `global = "--flag"` may be rep
 
 ## External subcommands
 
-clap's `#[command(external_subcommand)]` is a catch-all variant that holds the unmatched
+`#[usage(external_subcommand)]` marks a catch-all variant that holds the unmatched
 name plus the rest of argv:
 
 ```rust

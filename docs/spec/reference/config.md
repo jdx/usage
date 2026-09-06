@@ -34,11 +34,13 @@ A property can name its sources explicitly; the order they are written in is the
 are consulted.
 
 ```kdl
-prop "check" type="bool" {
-    cli "--check"              // flags that set it, as declared elsewhere in this spec
-    env "HK_CHECK" "HK_LINT"   // several: aliases, highest precedence first
-    deprecated_env "HK_VERIFY" // read last, with a warning
-    source "git" "hk.check"    // a source kind declared below
+config {
+    prop "check" type="bool" {
+        cli "--check"              // flags that set it, as declared elsewhere in this spec
+        env "HK_CHECK" "HK_LINT"   // several: aliases, highest precedence first
+        deprecated_env "HK_VERIFY" // read last, with a warning
+        source "git" "hk.check"    // a source kind declared below
+    }
 }
 ```
 
@@ -161,9 +163,11 @@ setting deserializes into, which file a write should be routed to, an enterprise
 `usage g json`, and interpreted by nothing in usage.
 
 ```kdl
-prop "python.uv_venv_auto" type="bool|string" {
-    x "mise.rust_type" "PythonUvVenvAuto"
-    x "mise.parse_env" "bool_string"
+config {
+    prop "python.uv_venv_auto" type="bool|string" {
+        x "mise.rust_type" "PythonUvVenvAuto"
+        x "mise.parse_env" "bool_string"
+    }
 }
 ```
 
@@ -197,8 +201,9 @@ The parser refuses vocabulary it does not know, so a spec using anything on this
 say which version of usage it needs:
 
 ```kdl
-min_usage_version "2.0"
+min_usage_version "6.7.1"
 ```
 
-Without it, an older `usage` fails to read the whole spec rather than quietly ignoring the
-part it cannot understand.
+Choose the oldest release that supports the nodes your spec uses; `6.7.1` is an
+example, not a requirement for every config block. The version declaration makes
+the requirement visible before an older consumer encounters unsupported syntax.

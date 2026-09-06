@@ -1,6 +1,17 @@
 # Contributing
 
-See the [contributing guide](https://usage.jdx.dev/contributing).
+The [contributing guide](https://usage.jdx.dev/contributing) covers project scope,
+review expectations, and checks. Start from the repository root:
+
+```sh
+mise install
+mise run build
+mise run test
+```
+
+For website changes, run `mise run docs:dev` for a live preview and
+`mise exec -- aube run docs:build` for the production build. Guides live in
+`docs/`; `docs/cli/reference/` is generated from command help in the Rust source.
 
 ## mbx build cache
 
@@ -9,12 +20,12 @@ See the [contributing guide](https://usage.jdx.dev/contributing).
 its transparent Cargo wrapper and therefore use the cache while invoking Cargo
 normally. Standalone Cargo commands require an activated mise shell. To bypass
 mbx without skipping or weakening a check, prefix the
-equivalent Cargo command with `MBX_DISABLE=1`:
+equivalent Cargo command with `MBX_DISABLE=1` and keep the mise tool environment:
 
 ```sh
-MBX_DISABLE=1 cargo build --all
-MBX_DISABLE=1 cargo test --all --all-features
-MBX_DISABLE=1 cargo clippy --all --all-features --all-targets -- -D warnings
+MBX_DISABLE=1 mise exec -- cargo build --all
+MBX_DISABLE=1 mise exec -- cargo test --all --all-features
+MBX_DISABLE=1 mise exec -- cargo clippy --all --all-features --all-targets -- -D warnings
 ```
 
 If bypassed Cargo succeeds where the wrapper fails, or mbx introduces a papercut, please start a

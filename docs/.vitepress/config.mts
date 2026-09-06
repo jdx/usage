@@ -18,8 +18,13 @@ function getCommands(cmd): string[][] {
 
 const commands = getCommands(spec.cmd);
 const configDir = dirname(fileURLToPath(import.meta.url));
-const cargoToml = readFileSync(resolve(configDir, "../../lib/Cargo.toml"), "utf8");
-const versionMatch = cargoToml.match(/^\[package\][\s\S]*?^\s*version\s*=\s*"([^"]+)"/m);
+const cargoToml = readFileSync(
+  resolve(configDir, "../../lib/Cargo.toml"),
+  "utf8"
+);
+const versionMatch = cargoToml.match(
+  /^\[package\][\s\S]*?^\s*version\s*=\s*"([^"]+)"/m
+);
 if (!versionMatch) {
   console.warn("Unable to find package version in lib/Cargo.toml");
 }
@@ -38,138 +43,165 @@ export default defineConfig({
   markdown: {
     shikiSetup: async (shiki) => {
       await shiki.loadLanguage(kdlGrammar as any);
-    }
+    },
   },
   sitemap: {
-    hostname: siteUrl
+    hostname: siteUrl,
   },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     logo: "/icon.svg",
     nav: [
-      { text: "Home", link: "/" },
-      { text: "Spec", link: "/spec/" },
+      { text: "Get started", link: "/guide/getting-started" },
       {
         text: "Frameworks",
         items: [
           { text: "Rust", link: "/rust/" },
-          { text: "Go", link: "/go/" }
-        ]
+          { text: "Go (development preview)", link: "/go/" },
+          {
+            text: "Existing framework integrations",
+            link: "/spec/integrations",
+          },
+        ],
       },
+      { text: "Spec", link: "/spec/" },
       { text: "CLI", link: "/cli/" },
-      { text: `v${latestVersion}`, link: "https://github.com/jdx/usage/releases" }
+      {
+        text: `v${latestVersion}`,
+        link: "https://github.com/jdx/usage/releases",
+      },
     ],
 
-    sidebar: [
-      { text: "Contributing", link: "/contributing" },
-      {
-        text: "Rust Framework",
-        link: "/rust/",
-        items: [
-          { text: "Quickstart", link: "/rust/quickstart" },
-          { text: "Args and Flags", link: "/rust/args-and-flags" },
-          { text: "Updating Values", link: "/rust/update-from" },
-          { text: "Subcommands", link: "/rust/subcommands" },
-          { text: "Dynamic Commands", link: "/rust/dynamic-commands" },
-          { text: "Dispatch", link: "/rust/dispatch" },
-          { text: "Validation", link: "/rust/validation" },
-          { text: "Help, Version, and Errors", link: "/rust/help" },
-          { text: "Completions", link: "/rust/completions" },
-          { text: "Configuration", link: "/rust/configuration" },
-          { text: "Testing", link: "/rust/testing" },
-          { text: "Spec Output", link: "/rust/spec" },
-          { text: "Migrating from clap", link: "/rust/migrating-from-clap" },
-          { text: "Performance", link: "/rust/performance" }
-        ]
-      },
-      {
-        text: "Go Framework",
-        link: "/go/",
-        items: [
-          { text: "Generated Code", link: "/go/generated-code" },
-          { text: "The Parser", link: "/go/parser" },
-          { text: "Binding and Values", link: "/go/binding" },
-          { text: "Help and Errors", link: "/go/help" },
-          { text: "Completions", link: "/go/completions" }
-        ]
-      },
-      {
-        text: "CLI",
-        link: "/cli/",
-        items: [
-          { text: "Completions", link: "/cli/completions" },
-          { text: "Comparing Specs", link: "/cli/diff" },
-          { text: "Manpages", link: "/cli/manpages" },
-          { text: "Markdown", link: "/cli/markdown" },
-          { text: "SDK Generation", link: "/cli/sdk" },
-          { text: "Scripts", link: "/cli/scripts" },
-          {
-            text: "CLI Reference", link: "/cli/reference/", items:
-              commands.map((command) => ({
-                text: command.join(" "),
-                link: `/cli/reference/${command.join("/")}`
-              }))
-          }
-        ]
-      },
-      {
-        text: "Spec",
-        link: "/spec/",
-        items: [
-          { text: "argv grammar", link: "/spec/argv" },
-          { text: "config resolution", link: "/spec/resolution" },
-          {
-            text: "Reference",
-            link: "/spec/reference/",
-            items: [
-              { text: "arg", link: "/spec/reference/arg" },
-          { text: "sigils", link: "/spec/reference/sigils" },
-          { text: "clauses", link: "/spec/reference/clause" },
-              { text: "cmd", link: "/spec/reference/cmd" },
-              { text: "complete", link: "/spec/reference/complete" },
-              { text: "flag", link: "/spec/reference/flag" },
-              { text: "flagset", link: "/spec/reference/flagset" },
-              { text: "group", link: "/spec/reference/group" },
-              { text: "output", link: "/spec/reference/output" },
-              // { text: 'env', link: '/spec/reference/env' },
-              { text: "config", link: "/spec/reference/config" }
-            ]
-          },
-          {
-            text: "Integrations",
-            link: "/spec/integrations",
-            collapsed: true,
-            items: [
-              { text: "Cobra (Go)", link: "/spec/integrations/cobra" },
-              { text: "Kong (Go)", link: "https://github.com/gaojunran/usage-integrations/tree/main/packages/kong-usage" },
-              { text: "urfave/cli (Go)", link: "https://github.com/gaojunran/usage-integrations/tree/main/packages/urfavecli-usage" },
-              { text: "clap (Rust)", link: "/spec/integrations/clap" },
-              { text: "argparse (Python)", link: "https://github.com/acidghost/argparse-usage" },
-              { text: "OptionParser (Ruby)", link: "https://github.com/packrat386/option_parser_usage" },
-              { text: "Commander.js (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/commander" },
-              { text: "oclif (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/oclif" },
-              { text: "yargs (Node.js)", link: "https://www.npmjs.com/package/@usage-spec/yargs" },
-              { text: "Typer (Python)", link: "https://pypi.org/project/usage-spec-typer/" },
-              { text: "Click (Python)", link: "https://pypi.org/project/usage-spec-click/" },
-              { text: "JCommander (Java)", link: "https://github.com/gaojunran/usage-integrations/packages/3045397" },
-              { text: "picocli (Java)", link: "https://github.com/gaojunran/usage-integrations/packages/3045398" },
-              { text: "Clikt (Kotlin)", link: "https://github.com/gaojunran/usage-integrations/packages/3045396" },
-            ]
-          }
-        ]
-      }
-    ],
+    sidebar: {
+      "/rust/": [
+        {
+          text: "Rust framework",
+          link: "/rust/",
+          items: [
+            { text: "Quickstart", link: "/rust/quickstart" },
+            { text: "Arguments and flags", link: "/rust/args-and-flags" },
+            { text: "Subcommands", link: "/rust/subcommands" },
+            { text: "Dispatch", link: "/rust/dispatch" },
+            { text: "Help, version, and errors", link: "/rust/help" },
+            { text: "Completions", link: "/rust/completions" },
+            { text: "Configuration", link: "/rust/configuration" },
+            { text: "Validation", link: "/rust/validation" },
+            { text: "Testing", link: "/rust/testing" },
+          ],
+        },
+        {
+          text: "Advanced topics",
+          items: [
+            { text: "Dynamic commands", link: "/rust/dynamic-commands" },
+            { text: "Updating values", link: "/rust/update-from" },
+            { text: "Response files", link: "/rust/response-files" },
+            { text: "Spec output", link: "/rust/spec" },
+            { text: "Migrating from clap", link: "/rust/migrating-from-clap" },
+            { text: "Performance", link: "/rust/performance" },
+          ],
+        },
+        {
+          text: "More documentation",
+          items: [
+            { text: "Spec reference", link: "/spec/reference/" },
+            { text: "Usage CLI", link: "/cli/" },
+            { text: "Contributing", link: "/contributing" },
+          ],
+        },
+      ],
+      "/go/": [
+        {
+          text: "Go development preview",
+          link: "/go/",
+          items: [
+            { text: "Generated code", link: "/go/generated-code" },
+            { text: "Parser", link: "/go/parser" },
+            { text: "Binding and values", link: "/go/binding" },
+            { text: "Help and errors", link: "/go/help" },
+            { text: "Completions", link: "/go/completions" },
+          ],
+        },
+        {
+          text: "Related",
+          items: [
+            { text: "Rust framework", link: "/rust/" },
+            { text: "Cobra integration", link: "/spec/integrations/cobra" },
+            { text: "Spec reference", link: "/spec/reference/" },
+            { text: "Contributing", link: "/contributing" },
+          ],
+        },
+      ],
+      "/": [
+        {
+          text: "Start here",
+          items: [
+            { text: "Get started", link: "/guide/getting-started" },
+            { text: "Install Usage", link: "/cli/#installation" },
+            { text: "Spec basics", link: "/spec/" },
+            { text: "Framework integrations", link: "/spec/integrations" },
+          ],
+        },
+        {
+          text: "Guides",
+          items: [
+            { text: "Shell completions", link: "/cli/completions" },
+            { text: "Scripts", link: "/cli/scripts" },
+            { text: "Markdown documentation", link: "/cli/markdown" },
+            { text: "Man pages", link: "/cli/manpages" },
+            { text: "TypeScript and Python SDKs", link: "/cli/sdk" },
+            { text: "Compare specs", link: "/cli/diff" },
+          ],
+        },
+        {
+          text: "Spec reference",
+          link: "/spec/reference/",
+          collapsed: false,
+          items: [
+            { text: "Arguments · arg", link: "/spec/reference/arg" },
+            { text: "Flags · flag", link: "/spec/reference/flag" },
+            { text: "Commands · cmd", link: "/spec/reference/cmd" },
+            {
+              text: "Completions · complete",
+              link: "/spec/reference/complete",
+            },
+            { text: "Configuration · config", link: "/spec/reference/config" },
+            { text: "Shared flags · flagset", link: "/spec/reference/flagset" },
+            { text: "Argument groups · group", link: "/spec/reference/group" },
+            { text: "Outputs and exit codes", link: "/spec/reference/output" },
+            { text: "Sigil arguments", link: "/spec/reference/sigils" },
+            { text: "Clauses", link: "/spec/reference/clause" },
+            { text: "Argument grammar", link: "/spec/argv" },
+            { text: "Configuration resolution", link: "/spec/resolution" },
+          ],
+        },
+        {
+          text: "CLI reference",
+          link: "/cli/reference/",
+          collapsed: true,
+          items: commands.map((command) => ({
+            text: command.join(" "),
+            link: `/cli/reference/${command.join("/")}`,
+          })),
+        },
+        {
+          text: "Frameworks and project",
+          items: [
+            { text: "Rust framework", link: "/rust/" },
+            { text: "Go development preview", link: "/go/" },
+            { text: "clap integration", link: "/spec/integrations/clap" },
+            { text: "Cobra integration", link: "/spec/integrations/cobra" },
+            { text: "Contributing", link: "/contributing" },
+          ],
+        },
+      ],
+    },
 
     socialLinks: [{ icon: "github", link: "https://github.com/jdx/usage" }],
     editLink: {
-      pattern: "https://github.com/jdx/usage/edit/main/docs/:path"
+      pattern: "https://github.com/jdx/usage/edit/main/docs/:path",
     },
-    // carbonAds: {
-    //   code: 'CWYIPKQN',
-    //   placement: 'misejdxdev',
-    // },
     search: {
-      provider: "local"
+      provider: "local",
     },
     footer: false,
   },
@@ -208,9 +240,32 @@ export default defineConfig({
 })();`,
     ],
     ["link", { rel: "icon", type: "image/svg+xml", href: "/icon.svg" }],
-    ["link", { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" }],
-    ["link", { rel: "icon", type: "image/png", sizes: "16x16", href: "/favicon-16x16.png" }],
-    ["link", { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" }],
+    [
+      "link",
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "32x32",
+        href: "/favicon-32x32.png",
+      },
+    ],
+    [
+      "link",
+      {
+        rel: "icon",
+        type: "image/png",
+        sizes: "16x16",
+        href: "/favicon-16x16.png",
+      },
+    ],
+    [
+      "link",
+      {
+        rel: "apple-touch-icon",
+        sizes: "180x180",
+        href: "/apple-touch-icon.png",
+      },
+    ],
     ["link", { rel: "manifest", href: "/site.webmanifest" }],
     ["meta", { name: "theme-color", content: "#0d0221" }],
     // OpenGraph
@@ -256,9 +311,9 @@ export default defineConfig({
           name: title,
           description,
           url,
-          isPartOf: { "@type": "WebSite", name: "usage", url: siteUrl }
-        })
-      ]
+          isPartOf: { "@type": "WebSite", name: "usage", url: siteUrl },
+        }),
+      ],
     ];
-  }
+  },
 });

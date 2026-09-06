@@ -91,8 +91,7 @@ reported before an unsatisfied group.
 Groups are emitted into the KDL spec
 (`group input --file --url --stdin required=#true`), and a group declared on a
 [flattened](/rust/subcommands#sharing-declarations-with-flatten) struct is enforced on every
-command that flattens it. Malformed groups — one member, no members, declared twice, a group on
-a positional — are compile errors.
+command that flattens it. Malformed groups — one member, no members, declared twice, an unresolved member — are compile errors.
 
 ## A group as an enum
 
@@ -194,8 +193,8 @@ An `exclusive` flag has to be given alone — no other flag, no argument, no sub
 dump: bool,
 ```
 
-This is stronger than `conflicts` with every other flag, because `conflicts` has nowhere to name
-an _argument_. The details:
+Use `exclusive` for an operation that must run alone, without listing every other
+argument as a conflict. The rules are:
 
 - `--dump -v` and `--dump somefile` both fail with `ConflictingFlags`.
 - An exclusive flag **bypasses required-ness**: required siblings the flag's command declares are

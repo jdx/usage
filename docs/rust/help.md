@@ -2,9 +2,9 @@
 
 ## Help
 
-`-h` and `--help` are supplied by the parser — you never declare them. They aren't written into
-the spec either, so the help page never disagrees with the spec about what exists. If your CLI
-declares its own `--help`, your declaration wins for that spelling.
+The parser supplies `-h` and `--help` unless you disable them or declare those
+spellings yourself. Generated specs record surviving built-ins with an `action` and
+`builtin=#true`, so other consumers can render the same interface.
 
 `-h` renders the short page, `--help` the long page: the first paragraph of each doc comment
 versus the whole comment, `long_help` over `help`, `long_about` over `about`.

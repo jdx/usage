@@ -1,5 +1,9 @@
 # `arg`
 
+An `arg` declares a positional value. Use `<name>` for a required argument,
+`[name]` for an optional one, and `...` for multiple values. The examples below
+show separate declarations you can adapt; they are not one combined spec.
+
 Arguments may also be classified by a prefix instead of position. See
 [sigil arguments](./sigils.md) for matching, boundary, completion, and derive rules.
 
@@ -143,7 +147,11 @@ done
 touch "${files[@]}"
 ```
 
-This pattern ensures arguments with spaces are handled correctly as separate elements.
+Use the quoted array expansion to preserve each original value.
+
+## Choices
+
+List accepted values with `choices`. These values also appear in completion and help.
 
 ```kdl
 arg "<shell>" {

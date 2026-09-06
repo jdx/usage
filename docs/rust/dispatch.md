@@ -1,13 +1,10 @@
 # Dispatch
 
-A parse ends with a value: an enum whose selected variant holds the command's own struct. What
-every CLI then writes is the same `match` — one arm per command, each calling the one function
-that command exists for. At mise's size that is 210 arms of pure routing, and nothing checks
-that an arm calls the right thing, because every arm has the same shape.
+Use `#[usage(run)]` to generate dispatch from a subcommand enum to each command's
+`Run` implementation. Every variant must implement the selected trait and return a
+compatible output type; the compiler checks both.
 
-`#[usage(run)]` generates it. A command implements `Run`, the enum says it dispatches, and the
-match comes from the same declaration the parser and the spec come from. Four traits, differing
-only in whether a command is handed a context and whether it is awaited:
+Choose the trait according to whether commands need shared context or async work:
 
 |           | no context                         | a context                                        |
 | --------- | ---------------------------------- | ------------------------------------------------ |

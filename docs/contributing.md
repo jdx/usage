@@ -1,8 +1,9 @@
 # Contributing
 
-Thank you for your interest in contributing to usage.
+Contribute documentation, bug fixes, integrations, and improvements to Usage.
+This guide covers the local workflow and what a pull request needs for review.
 
-## Contribution Expectations
+## Contribution expectations
 
 Before opening a PR, unless it is something obvious, consider creating a
 discussion or mentioning what you plan to do in
@@ -23,42 +24,78 @@ contributors.
 I get hundreds of PRs per week across my projects, so I do not have time to
 respond to every PR with detailed context. A rejection may be brief.
 
-## Code Style
+## Set up a checkout
 
-Linting and formatting run through mise tasks. Run the checks before opening a
-PR:
-
-```sh
-mise run lint
-mise run lint-fix
-```
-
-`mise run ci` runs the full CI check. (Some of my other repos use
-[hk](https://hk.jdx.dev) for this instead — check each repo for its own tasks.)
-
-## Commit and PR Titles
-
-Use Conventional Commits for commit messages and PR titles. Examples:
-
-- `fix: handle missing config file`
-- `docs: clarify installation steps`
-- `feat: add quiet output mode`
-
-## Testing
-
-Testing differs by project. Run the relevant tests for the code you changed and
-the repo's CI-style task when practical. Check `mise tasks`, `mise.toml`,
-and existing README/docs for the exact commands.
-
-## Development
-
-Install project tools with mise:
+Install [mise](https://mise.jdx.dev), then run these commands from the repository
+root. The tool versions are recorded in `mise.toml`.
 
 ```sh
 mise install
+mise run build
 ```
 
-Run the checks listed in the repository before opening a PR.
+Mise activates the project's Cargo cache wrapper. For standalone Cargo commands,
+use `mise exec -- cargo …` or an activated mise shell. See the
+[repository contribution notes](https://github.com/jdx/usage/blob/main/CONTRIBUTING.md#mbx-build-cache)
+if the wrapper fails.
+
+## Work on the documentation
+
+The website lives in `docs/` and uses VitePress. Start the development server:
+
+```sh
+mise run docs:dev
+```
+
+Build the production site and check its generated social images:
+
+```sh
+mise exec -- aube run docs:build
+```
+
+Edit guides directly. Files under `docs/cli/reference/` come from the CLI's spec;
+change command help in the Rust source and regenerate them instead. The render
+task also updates completion scripts and man pages, and runs formatters:
+
+```sh
+mise run render:usage-cli-completions
+```
+
+Use `mise run render` when all generated artifacts need refreshing. Review the
+diff so generated changes match the intended interface.
+
+## Test and format
+
+Run the checks relevant to your change:
+
+| Change                    | Check                                            |
+| ------------------------- | ------------------------------------------------ |
+| Rust code                 | `mise run test`                                  |
+| One Rust test             | `mise exec -- cargo test -p usage-lib test_name` |
+| Go runtime or integration | `mise run test:go`                               |
+| Markdown and formatting   | `mise run lint:prettier`                         |
+| Rust lint and formatting  | `mise run lint:clippy` and `mise run lint:fmt`   |
+| Documentation website     | `mise exec -- aube run docs:build`               |
+| Full CI checks            | `mise run ci`                                    |
+
+`mise run lint-fix` applies formatters and automatic lint fixes across the project.
+Review every change it produces. Snapshot tests use `cargo-insta`; when behavior
+intentionally changes, use `mise exec -- cargo insta review` to inspect updates.
+Shell integration tests require the shells they exercise, including Bash, Zsh,
+Fish, and PowerShell.
+
+## Prepare a pull request
+
+Explain the problem, the resulting behavior, and how you verified it. CI must
+pass and automated review comments must be addressed before maintainer review.
+
+Use Conventional Commits for commit messages and PR titles. Keep the description
+lowercase and imperative; scopes identify the affected subsystem:
+
+- `fix(zsh): preserve spaces in completion values`
+- `docs: clarify installation steps`
+- `feat(spec): add a configuration node`
+- `chore(ci): update the build workflow`
 
 ## Performance checks
 

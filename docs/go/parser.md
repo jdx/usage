@@ -1,13 +1,12 @@
 # The Parser
 
-::: danger Not ready for testing
-The Go framework is experimental and **not ready for any amount of testing yet** — do not build
-against it. Much of what this page documents only
-exists in open pull requests and may change before release. These docs are a draft published for
-review, not an invitation to try it.
+::: danger Development preview
+The Go framework is not ready for adoption or testing. These pages describe work
+in progress; APIs, generated code, and behavior may change. See the
+[overview](/go/) for the current scope and limitations.
 :::
 
-Generated `Parse` is the front door, but the event-level API underneath is public and stable —
+Generated `Parse` is the front door, but the event-level API underneath is public —
 use it when you need custom binding, a REPL, or completion positions.
 
 ```go

@@ -1,5 +1,5 @@
 /* Usage Docs Custom Theme — cyberpunk vaporwave */
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap");
 
 /* ------------------------------------------------------------------ */
 /* Palette                                                             */
@@ -58,16 +58,17 @@
 }
 
 .vp-doc h1 {
-  font-family: Orbitron, sans-serif;
+  font-family: var(--vp-font-family-base);
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
 }
 
 .vp-doc a {
   text-decoration-color: var(--vw-purple-soft);
 }
 
-.vp-doc div[class*='language-'] {
+.vp-doc div[class*="language-"] {
   border: 1px solid var(--vw-purple-soft);
 }
 
@@ -82,20 +83,25 @@
 .usage-hero {
   position: relative;
   padding: 4rem 1.5rem 5rem;
-  /* clip the glow horizontally without cutting off tile tooltips below */
+  /* Contain the glow without creating a horizontal scrollbar. */
   overflow-x: clip;
   overflow-y: visible;
-  min-height: 72vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, var(--vw-bg-deep) 0%, #1c0640 78%, #2a0a4a 100%);
+  background: linear-gradient(
+    180deg,
+    var(--vw-bg-deep) 0%,
+    #1c0640 78%,
+    #2a0a4a 100%
+  );
 }
 
 /* scanlines */
 .usage-hero::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -115,7 +121,12 @@
   width: 560px;
   height: 560px;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--vw-magenta-glow) 0%, rgba(185, 103, 255, 0.18) 45%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    var(--vw-magenta-glow) 0%,
+    rgba(185, 103, 255, 0.18) 45%,
+    transparent 70%
+  );
   filter: blur(40px);
   z-index: 0;
   pointer-events: none;
@@ -124,11 +135,10 @@
 .usage-hero-content {
   position: relative;
   z-index: 3;
-  animation: hero-fade-in 0.6s ease-out;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4rem;
+  gap: 3rem;
   max-width: 1120px;
   width: 100%;
 }
@@ -136,11 +146,6 @@
 .usage-hero-text {
   flex: 1;
   text-align: left;
-}
-
-@keyframes hero-fade-in {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Title — Orbitron with chromatic split */
@@ -168,20 +173,6 @@
   color: var(--vw-cyan);
   margin: 0 0 2rem;
   text-shadow: 0 0 16px var(--vw-cyan-glow);
-}
-
-.usage-hero-tagline .cursor {
-  display: inline-block;
-  width: 0.6em;
-  height: 1.1em;
-  margin-left: 0.15em;
-  vertical-align: text-bottom;
-  background: var(--vw-cyan);
-  animation: cursor-blink 1.1s steps(1) infinite;
-}
-
-@keyframes cursor-blink {
-  50% { opacity: 0; }
 }
 
 /* What-is-it description */
@@ -214,136 +205,7 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Tiles                                                               */
-/* ------------------------------------------------------------------ */
-.usage-hero-tiles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-bottom: 1.5rem;
-  max-width: 560px;
-}
-
-.usage-tile {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.9rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-decoration: none;
-  color: var(--vw-text-bright);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--vw-purple-soft);
-  transition: all 0.2s ease;
-  position: relative;
-  cursor: pointer;
-}
-
-.usage-tile-icon {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-}
-
-.usage-tile:hover {
-  transform: translateY(-2px);
-  z-index: 10;
-}
-
-.usage-tile-live {
-  border-color: rgba(255, 45, 149, 0.55);
-  background: rgba(255, 45, 149, 0.08);
-}
-
-.usage-tile-live:hover {
-  border-color: var(--vw-magenta);
-  box-shadow: 0 0 18px var(--vw-magenta-glow);
-}
-
-.usage-tile-feature:hover {
-  border-color: var(--vw-cyan);
-  box-shadow: 0 0 18px var(--vw-cyan-glow);
-}
-
-.usage-tile-soon {
-  border-style: dashed;
-  border-color: rgba(185, 103, 255, 0.5);
-  color: rgba(245, 240, 255, 0.65);
-  cursor: default;
-}
-
-.usage-tile-soon:hover {
-  transform: none;
-  box-shadow: 0 0 14px rgba(185, 103, 255, 0.3);
-}
-
-.usage-tile-soon-pill,
-.usage-tile-experimental-pill {
-  font-family: Orbitron, sans-serif;
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--vw-purple);
-  border: 1px solid var(--vw-purple);
-  border-radius: 999px;
-  padding: 0.1rem 0.45rem;
-  margin-left: 0.15rem;
-}
-
-.usage-tile-experimental-pill {
-  color: var(--vw-cyan);
-  border-color: var(--vw-cyan);
-}
-
-/* Tooltips */
-.usage-tile-tooltip {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%) translateY(10px);
-  background: rgba(13, 2, 33, 0.96);
-  border: 1px solid var(--vw-magenta);
-  border-radius: 10px;
-  padding: 0.9rem 1.1rem;
-  min-width: 220px;
-  max-width: 280px;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.2s ease;
-  z-index: 100;
-  margin-top: 0.6rem;
-  text-align: left;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px var(--vw-magenta-glow);
-  pointer-events: none;
-}
-
-.usage-tile:hover .usage-tile-tooltip,
-.usage-tile:focus-visible .usage-tile-tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) translateY(0);
-}
-
-.usage-tile-tooltip strong {
-  display: block;
-  color: var(--vw-magenta);
-  font-size: 0.88rem;
-  margin-bottom: 0.4rem;
-}
-
-.usage-tile-tooltip p {
-  font-size: 0.83rem;
-  color: rgba(245, 240, 255, 0.75);
-  margin: 0;
-  line-height: 1.5;
-}
-
-/* ------------------------------------------------------------------ */
-/* Action buttons                                                      */
-/* ------------------------------------------------------------------ */
+/* Primary navigation */
 .usage-hero-actions {
   display: flex;
   gap: 1rem;
@@ -357,12 +219,13 @@
   gap: 0.5rem;
   padding: 0.8rem 1.7rem;
   border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 0.92rem;
+  font-weight: 650;
   text-decoration: none;
-  transition: all 0.2s ease;
-  font-family: Orbitron, sans-serif;
-  letter-spacing: 0.04em;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+  font-family: var(--vp-font-family-base);
 }
 
 .usage-hero-btn-primary {
@@ -374,7 +237,9 @@
 .usage-hero-btn-primary:hover {
   background: var(--vw-magenta-light);
   transform: scale(1.04);
-  box-shadow: 0 0 34px var(--vw-magenta-glow), 0 0 60px rgba(255, 45, 149, 0.25);
+  box-shadow:
+    0 0 34px var(--vw-magenta-glow),
+    0 0 60px rgba(255, 45, 149, 0.25);
 }
 
 .usage-hero-btn-secondary {
@@ -410,8 +275,13 @@
 }
 
 @keyframes art-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -783,18 +653,14 @@
 /* Reduced motion                                                      */
 /* ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
-  .usage-hero-content,
-  .usage-hero-tagline .cursor,
   .usage-hero-art {
     animation: none;
   }
 
-  .usage-tile,
   .usage-hero-btn {
     transition: none;
   }
 
-  .usage-tile:hover,
   .usage-hero-btn-primary:hover,
   .usage-hero-btn-secondary:hover {
     transform: none;
@@ -806,47 +672,24 @@
 /* ------------------------------------------------------------------ */
 @media (max-width: 960px) {
   .usage-hero-content {
-    flex-direction: column-reverse;
-    gap: 2rem;
+    flex-direction: column;
+    gap: 2.5rem;
     text-align: center;
   }
-
-  /* The stacked hero centers its column, so the text block is shrink-to-fit and
-     would otherwise be widened past the viewport by the tile grid below. */
   .usage-hero-text {
     text-align: center;
     align-self: stretch;
-    min-width: 0;
   }
-
   .usage-hero-actions {
     justify-content: center;
   }
-
-  .usage-hero-tiles,
   .usage-hero-desc {
     margin-left: auto;
     margin-right: auto;
   }
-
-  /* Once the hero stacks, wrapping leaves ragged trailing rows. Even columns
-     keep the tiles aligned at every count. The floor clears the widest tile
-     ("Rust" plus its pill), so phones drop to one column rather than squeezing
-     a label against its pill. */
-  .usage-hero-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(208px, 1fr));
+  .usage-hero-art-wrapper {
     width: 100%;
-    max-width: 440px;
-  }
-
-  .usage-hero-tiles .usage-tile {
-    justify-content: center;
-  }
-
-  /* An odd tile count would otherwise leave the last one alone in a column. */
-  .usage-hero-tiles > :last-child:nth-child(odd) {
-    grid-column: 1 / -1;
+    max-width: 520px;
   }
 }
 
@@ -916,5 +759,237 @@
 @media (max-width: 640px) {
   .VPSocialLinks .star-count {
     display: none;
+  }
+}
+
+/* Clear reading paths within the existing neon identity. */
+:root {
+  --vp-c-text-2: #c3b8d4;
+  --vp-c-text-3: #a99abf;
+}
+.usage-hero-text {
+  min-width: 0;
+}
+.usage-hero-art-wrapper {
+  min-width: 0;
+}
+@media (min-width: 961px) {
+  .usage-hero-art-wrapper {
+    max-width: 44%;
+  }
+}
+.usage-hero-label {
+  line-height: 1.8;
+  letter-spacing: 0.16em;
+}
+.usage-hero-tagline {
+  margin-bottom: 1.25rem;
+}
+.usage-hero-support {
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--vp-c-text-2);
+}
+.usage-hero-support a {
+  color: var(--vw-cyan);
+  text-underline-offset: 4px;
+}
+.usage-hero-support a:hover {
+  text-decoration: underline;
+}
+.usage-hero-shells {
+  margin-top: 1.1rem;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  color: var(--vp-c-text-2);
+}
+.usage-spec-card {
+  max-width: 420px;
+}
+.usage-spec-card code {
+  font-size: 0.78rem;
+  line-height: 1.8;
+}
+.usage-spec-card-bar em {
+  color: var(--vp-c-text-2);
+}
+
+.VPHome {
+  margin-bottom: 0 !important;
+}
+.VPHome .vp-doc .content {
+  max-width: none !important;
+}
+.usage-home-content {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 3.5rem 24px 0;
+}
+.usage-home-content h2 {
+  border: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+  font-size: 1.85rem;
+  line-height: 1.3;
+  letter-spacing: -0.035em;
+}
+.usage-home-content h3 {
+  margin: 0.8rem 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.025em;
+}
+.usage-home-content p {
+  color: var(--vp-c-text-2);
+}
+.usage-home-content .usage-section-label {
+  color: var(--vw-cyan);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0 0 0.8rem;
+}
+.usage-paths {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  margin: 2rem 0 3.5rem;
+}
+.usage-paths > div {
+  border-top: 1px solid var(--vw-purple);
+  padding-top: 1.25rem;
+}
+.usage-path-number {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: var(--vw-purple);
+}
+.usage-paths p {
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+.usage-paths a {
+  font-size: 0.85rem;
+}
+.usage-toolkit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  padding: 32px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+  background: var(--vp-c-bg-soft);
+}
+.usage-toolkit p {
+  font-size: 0.9rem;
+}
+.usage-toolkit-links p {
+  margin: 0;
+}
+.usage-toolkit-links a {
+  display: block;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--vp-c-divider);
+  text-decoration: none;
+}
+.usage-toolkit-links p:first-child a {
+  padding-top: 0;
+}
+.usage-toolkit-links p:last-child a {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.usage-toolkit-links strong {
+  color: var(--vp-c-text-1);
+}
+.usage-toolkit-links a:hover strong {
+  color: var(--vw-cyan);
+}
+.usage-toolkit-links span {
+  display: block;
+  margin-top: 3px;
+  color: var(--vp-c-text-2);
+  font-size: 0.8rem;
+}
+.usage-home-footer {
+  text-align: center;
+  padding: 0 24px 32px;
+  font-size: 0.9rem;
+}
+
+.vp-doc {
+  line-height: 1.8;
+}
+.vp-doc h2 {
+  letter-spacing: -0.025em;
+}
+.vp-doc a {
+  text-underline-offset: 4px;
+}
+.vp-doc th {
+  background-color: var(--vp-c-bg-soft);
+}
+.vp-doc tr:nth-child(2n) {
+  background-color: transparent;
+}
+.vp-doc .custom-block {
+  border: 1px solid var(--vp-c-divider);
+}
+.vp-doc :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--vw-cyan);
+  outline-offset: 4px;
+}
+
+@media (max-width: 767px) {
+  .usage-hero {
+    padding-top: 2.75rem;
+    padding-bottom: 2.75rem;
+  }
+  .usage-hero-art-wrapper {
+    max-width: 100%;
+    width: 100%;
+  }
+  .usage-hero-support {
+    line-height: 1.8;
+  }
+  .usage-hero-actions {
+    flex-direction: column;
+  }
+  .usage-hero-btn {
+    justify-content: center;
+    width: 100%;
+  }
+  .usage-hero-shells {
+    font-size: 0.65rem;
+  }
+  .usage-home-content {
+    padding: 2.5rem 0 0;
+  }
+  .usage-home-content h2 {
+    font-size: 1.6rem;
+  }
+  .usage-paths {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-bottom: 2rem;
+  }
+  .usage-toolkit {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
   }
 }

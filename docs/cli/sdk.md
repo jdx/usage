@@ -1,132 +1,114 @@
-# Generating Type-Safe SDKs
+# Generate SDKs
 
-A CLI without a client library is called the same way everywhere: a hand-built list of strings
-handed to `subprocess.run` or `child_process.spawn`, where a misspelled flag is found at runtime
-by whoever runs it. `usage generate sdk` derives the client from the spec instead. The result is
-a **subprocess wrapper**, not a native binding: typed definitions for every command's arguments,
-flags, and choices, and a client that builds the argument list and invokes the binary.
+`usage generate sdk` creates typed TypeScript and Python clients for a CLI. Each
+client builds an argument list and runs the executable as a subprocess. Required
+arguments and declared choices appear in the generated types, so editors and type
+checkers can catch mistakes before a command runs.
 
-```python
-# before: stringly typed, no autocomplete, typos found at runtime
-subprocess.run(["rclone", "copy", src, dst, "--progress", "--transfers", "4"])
+The CLI binary must be installed wherever the client runs. The generated client
+does not need the `usage` executable at runtime.
 
-# after: typed, autocompleted, mistakes caught by the type checker
-rclone.copy(src, dst, progress=True, transfers=4)
+## Start with a spec
+
+Save this as `mycli.usage.kdl`. It describes the interface your executable must
+implement; generating a client does not implement the `build` command itself.
+
+```kdl
+bin "mycli"
+cmd "build" help="Build a target" {
+    arg "<target>" help="Build target" {
+        choices "debug" "release"
+    }
+    flag "--output <dir>" help="Output directory"
+    flag "--release" help="Enable optimizations"
+}
 ```
 
-## When it fits
+## TypeScript
 
-**CLIs without bindings.** A few tools such as ffmpeg have hand-written bindings in many
-languages. Most do not: `restic`, `rclone`, `pandoc`, `age`, and every internal CLI are called by
-assembling strings. A spec for the tool is enough to generate the binding.
-
-**Staying in sync.** Hand-written bindings drift as the CLI changes. A generated SDK is a derived
-artifact, the way Protobuf stubs are, so regenerating it on each release is the whole of the
-maintenance:
+Generate the source files into your Node.js project:
 
 ```sh
-usage generate sdk -l python -o ./sdk/python/ -f ./mycli.usage.kdl
-git commit -m "chore: regenerate sdk from v2.3.0 spec"
+usage generate sdk --language typescript --output ./sdk --file ./mycli.usage.kdl
 ```
 
-**Internal platform CLIs.** This is the strongest case. A company's deploy, config, and migration
-tools are called from Python scripts, TypeScript services, and Rust tools alike, and each team
-writes its own fragile subprocess calls. One spec generates a typed client for every language at
-once:
-
-```ts
-// generated, and regenerated with the CLI
-import { deploy } from "@internal/platform-sdk";
-const result = await deploy({ env: "prod", service: "api", replicas: 3 });
-//                        ^ typed, choices constrained, required fields checked
-```
-
-## Quick start
-
-Given a spec file `mycli.usage.kdl`:
-
-```sh
-usage generate sdk -l typescript -o ./sdk -f ./mycli.usage.kdl
-```
-
-The `./sdk` directory is a complete package, ready to import:
+The output contains `types.ts`, `client.ts`, `runtime.ts`, and `index.ts`. Include
+these files in your project's TypeScript build; the generator does not create
+package metadata or install dependencies. The runtime uses `node:child_process`
+and needs Node.js type declarations when type-checking. Install `@types/node`
+as a development dependency and include `"node"` in your TypeScript
+`compilerOptions.types`.
 
 ```ts
 import { Mycli } from "./sdk";
 
-const cli = new Mycli();
-const result = await cli.build.exec(
-  { target: "release", output: "./dist" },
-  { release: true }
-);
-if (result.ok) {
-  console.log(result.stdout);
+async function build() {
+  const cli = new Mycli("mycli");
+  const result = await cli.build.exec(
+    { target: "release" },
+    { output: "./dist", release: true }
+  );
+  if (result.ok) {
+    console.log(result.stdout);
+  } else {
+    console.error(result.stderr);
+    process.exitCode = result.exitCode;
+  }
 }
+
+build();
 ```
 
-## Supported languages
+The first object holds positional arguments; the second holds flags. `target` is
+required and accepts `"debug"` or `"release"`. Each `exec()` returns a promise.
+Pass an absolute binary path to `Mycli` when the executable is not on `PATH`.
 
-| Language   | Flag            | Output files                                         |
-| ---------- | --------------- | ---------------------------------------------------- |
-| TypeScript | `-l typescript` | `types.ts`, `client.ts`, `runtime.ts`, `index.ts`    |
-| Python     | `-l python`     | `types.py`, `client.py`, `runtime.py`, `__init__.py` |
-| Rust       | planned         |                                                      |
+## Python
 
-### TypeScript
+Generate a package next to the Python code that imports it:
 
 ```sh
-usage generate sdk -l typescript -o ./sdk -f ./mycli.usage.kdl
+usage generate sdk --language python --output ./sdk --file ./mycli.usage.kdl
 ```
 
-ES modules with full type annotations. The client spawns the binary with `node:child_process`,
-so every `exec()` is async and returns a `Promise<CliResult>`.
-
-```ts
-import { Mycli, BuildArgs, BuildFlags } from "./sdk";
-
-const cli = new Mycli();
-const result = await cli.build.exec(
-  { target: "release", output: "./dist" } as BuildArgs,
-  { release: true } as BuildFlags
-);
-```
-
-### Python
-
-```sh
-usage generate sdk -l python -o ./sdk -f ./mycli.usage.kdl
-```
-
-A package of `@dataclass` types with annotations throughout. The client runs the binary with
-`subprocess.run`.
+The output contains `types.py`, `client.py`, `runtime.py`, and `__init__.py`. The
+runtime uses the Python standard library and runs commands synchronously.
 
 ```python
 from sdk import Mycli, BuildArgs, BuildFlags
 
-cli = Mycli()
+cli = Mycli(bin_path="mycli")
 result = cli.build.exec(
-    BuildArgs(target="release", output="./dist"),
-    BuildFlags(release=True)
+    BuildArgs(target="release"),
+    BuildFlags(output="./dist", release=True),
 )
 if result.ok:
     print(result.stdout)
+else:
+    print(result.stderr)
+    raise SystemExit(result.exit_code)
 ```
 
-## How it works
+Generated dataclasses carry type annotations, including `Literal` choices. Use a
+Python type checker to validate calls; annotations alone do not enforce types at
+runtime.
 
-Each SDK is three modules:
+## Results and errors
 
-1. **Types.** A definition for every command's args and flags. `choices` become union types in
-   TypeScript and `Literal` types in Python, and global flags are repeated on every subcommand's
-   flag type so that they can be passed where they are used.
+A completed process returns stdout, stderr, and its exit code, including when the
+exit code is nonzero. Check `result.ok` or the exit code before consuming output.
+Failures to start the executable are reported as errors instead of successful
+results.
 
-2. **Client.** A nested class hierarchy mirroring the subcommand tree. Each node has an `exec()`
-   that assembles the argument list and runs the binary; one helper handles value flags, boolean
-   flags, count flags, negated flags, and repeatable flags.
+## Keep clients in sync
 
-3. **Runtime.** A small static module holding `CliResult` (stdout, stderr, exit code) and
-   `CliRunner`, the subprocess call. It is identical across every SDK generated for the same
-   language.
+Regenerate the SDK when the CLI's interface changes. Keep the spec, generated
+sources, and binary version together in your release process. Generated source
+files are overwritten, so put custom wrappers in separate files.
+
+TypeScript and Python are the supported targets. Both mirror the subcommand tree,
+include global flags on descendant commands, and represent choices in their types.
+See the [command reference](/cli/reference/generate/sdk) for generation options.
 
 ## Structured and streaming outputs
 

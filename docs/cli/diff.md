@@ -1,7 +1,8 @@
 # Comparing two specs
 
-A CLI is a public API, and a spec is the only machine-readable statement of what that API is.
-`usage diff` reads two of them and says what changed:
+`usage diff` compares two versions of a CLI spec and classifies changes as
+breaking, compatible, or metadata-only. Pass the released spec first and the new
+spec second:
 
 ```sh
 usage diff released.usage.kdl current.usage.kdl
@@ -18,10 +19,9 @@ metadata [help-changed] at ex: flag '--force' help text changed
 Found 3 breaking, 2 compatible, 1 metadata change(s)
 ```
 
-It exits `1` when there is a breaking change, so a release job can gate on it. Nothing else
-in the CLI ecosystem can answer this question, for a structural reason:
-[clap#918](https://github.com/clap-rs/clap/issues/918) has been open since 2017 asking for the
-export it would need.
+The command exits `1` when it finds a breaking change, making it suitable for a
+release check. It compares the interfaces described by the files; it does not run
+the applications or detect changes in their implementation.
 
 ## The three categories
 

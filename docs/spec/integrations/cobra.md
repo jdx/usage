@@ -8,16 +8,32 @@
 go get github.com/jdx/usage/integrations/cobra
 ```
 
-## Quick Start
+## Quickstart
 
 ```go
-import cobra_usage "github.com/jdx/usage/integrations/cobra"
+package main
 
-// Print usage spec as KDL
-fmt.Print(cobra_usage.Generate(rootCmd))
+import (
+    "fmt"
+
+    "github.com/spf13/cobra"
+    cobra_usage "github.com/jdx/usage/integrations/cobra"
+)
+
+func main() {
+    root := &cobra.Command{
+        Use:     "mycli",
+        Short:   "My CLI tool",
+        Version: "1.0.0",
+    }
+    // ... add subcommands, flags, args ...
+
+    // Print usage spec as KDL
+    fmt.Print(cobra_usage.Generate(root))
+}
 ```
 
-## Integration Pattern
+## Expose the spec
 
 The recommended pattern is to check for a `--usage-spec` flag before `Execute()`:
 
@@ -28,7 +44,9 @@ for _, arg := range os.Args[1:] {
         return
     }
 }
-rootCmd.Execute()
+if err := rootCmd.Execute(); err != nil {
+    os.Exit(1)
+}
 ```
 
 Then pipe the output to `usage`, passing `-f -` to read the spec from stdin:
@@ -51,7 +69,7 @@ For completions, `--usage-cmd 'mycli --usage-spec'` can replace the pipe and
 | `GenerateToFile(cmd, path) error`     | Writes the KDL spec to a file          |
 | `GenerateJSONToFile(cmd, path) error` | Writes the JSON spec to a file         |
 
-## Feature Mapping
+## Feature mapping
 
 | Cobra                                              | Usage Spec                                    |
 | -------------------------------------------------- | --------------------------------------------- |

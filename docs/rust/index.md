@@ -1,28 +1,24 @@
-# Rust Framework
+# Rust framework
 
-`usage-rs` is a fast, typed framework for building complete command-line applications in Rust.
-Declare commands, flags, arguments, and settings with familiar structs and enums, and get
-first-class environment and config-file resolution, advanced shell completions, portable
-validation, negation flags, typed argument groups, categorized subcommands, and more.
+`usage-rs` builds typed command-line applications from Rust structs and enums.
+The derives generate parsing, help, and a portable [Usage spec](/spec/). Optional
+features add completion, layered configuration, validation, and test helpers.
 
-In the mise-scale benchmark it parses hundreds of times faster than clap, with no third-party
-runtime crates and a 1.3 MB stripped binary versus clap's 3.1 MB. See the
-[performance results](/rust/performance) and [clap migration guide](/rust/migrating-from-clap).
+Start with the [quickstart](/rust/quickstart) to build and test a complete CLI.
+If you already use clap, follow [Migrating from clap](/rust/migrating-from-clap).
 
-The same declaration also becomes a portable [usage spec](/spec/) that the binary can print.
-`usage-cli` turns it into documentation, manpages, and completions — the same toolchain used
-across jdx's CLIs.
+Here is a small declaration:
 
 ```rust
 use usage::Cli;
 
-/// A tool that does things
+/// Process files with configurable parallelism
 #[derive(Cli)]
 #[usage(bin = "ex", version = "1.0")]
 struct Cli {
     /// How many jobs to run at once
     #[usage(short = 'j', long, env = "EX_JOBS", default = "4")]
-    jobs: Option<String>,
+    jobs: usize,
 
     /// Print more
     #[usage(short = 'v', long, count)]
@@ -62,8 +58,8 @@ One dependency. Add `usage-rs` to your `Cargo.toml`, aliased to `usage`:
 usage = { package = "usage-rs", version = "6" }
 ```
 
-Nothing third-party links into your binary — the only non-usage crates in the graph are the
-derive's compiler, which runs at build time ([comparison with clap](/rust/migrating-from-clap#dependencies)).
+The default runtime uses only Usage crates. Optional features such as validation and
+configuration readers add dependencies; see the [dependency comparison](/rust/migrating-from-clap#dependencies).
 
 `usage-rs` is a facade. Applications should depend on it alone. The split underneath stays
 available for low-level adopters that want a thinner surface:
@@ -72,7 +68,7 @@ available for low-level adopters that want a thinner surface:
 | --------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `usage-rs`      | The one package an application depends on; re-exports the whole runtime                                              |
 | `usage-derive`  | The derive macros: `Cli`, `Args`, `Subcommands`, `ValueEnum`, `ArgGroup`, and `Config` (behind the `config` feature) |
-| `usage-argv`    | The zero-allocation, zero-dependency runtime the derive emits code against                                           |
+| `usage-argv`    | The runtime for compiled parse tables; optional features extend its capabilities                                     |
 | `usage-test`    | Test helpers: what a command line parses to, what a page says, what a shell is offered                               |
 | `usage-config`  | Layered settings resolution with provenance ([Configuration](/rust/configuration))                                   |
 | `usage-dynamic` | Commands discovered at runtime, merged into help and completion ([Dynamic commands](/rust/dynamic-commands))         |
@@ -131,7 +127,7 @@ own spec:
 
 ```bash
 mycli __usage_spec__ > mycli.usage.kdl
-usage g markdown -f mycli.usage.kdl --out-dir docs
+usage generate markdown --file mycli.usage.kdl --multi --out-dir docs
 usage g manpage -f mycli.usage.kdl > mycli.1
 usage g completion bash mycli --file mycli.usage.kdl
 ```
