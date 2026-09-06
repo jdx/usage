@@ -62,6 +62,10 @@ pub struct Markdown {
     #[usage(long)]
     url_prefix: Option<String>,
 
+    /// Extension for page links (including the dot); empty means extensionless URLs
+    #[usage(long, default = ".md")]
+    link_extension: String,
+
     /// Replace a built-in Tera template, as NAME=PATH; the names are spec, index, command, argument, flag, and config
     #[usage(long)]
     template: Vec<String>,
@@ -88,6 +92,7 @@ impl usage_rs::Run for Markdown {
         };
         let spec = select_view(parse_file_or_stdin(&self.file)?, self.view.as_deref())?;
         let mut ctx = MarkdownRenderer::new(spec.clone())
+            .with_link_extension(self.link_extension)
             .with_html_encode(self.html_encode)
             .with_indented_blocks_to_code_fences(self.indented_blocks_to_code_fences);
         for value in &self.template {

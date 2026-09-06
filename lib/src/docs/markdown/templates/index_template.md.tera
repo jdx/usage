@@ -31,7 +31,7 @@
 
 {{ "#" | repeat(count=header_level) }} Subcommands
 {% endif %}
-- [`{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}.md)
+- [`{{ (spec.bin ~ " " ~ cmd.usage) | trim }}`]({{ url_prefix }}/{{ cmd.full_cmd | join(sep="/") }}{{ link_extension }})
 {%- endfor %}
 {#- The settings page, written beside this one in `--multi` mode by the same run. Gated on
     the same condition that decides whether the page exists at all, so the index never links
@@ -40,5 +40,5 @@
 
 {{ "#" | repeat(count=header_level) }} Configuration
 
-- [Settings]({{ url_prefix }}/{{ config_page }})
+- [Settings]({{ url_prefix }}/{{ config_link }})
 {%- endif -%}

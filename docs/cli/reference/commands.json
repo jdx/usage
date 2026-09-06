@@ -1447,6 +1447,24 @@
                 }
               },
               {
+                "name": "link-extension",
+                "usage": "--link-extension <LINK_EXTENSION>",
+                "help": "Extension for page links (including the dot); empty means extensionless URLs",
+                "help_first_line": "Extension for page links (including the dot); empty means extensionless URLs",
+                "short": [],
+                "long": ["link-extension"],
+                "hide": false,
+                "global": false,
+                "arg": {
+                  "name": "LINK_EXTENSION",
+                  "usage": "<LINK_EXTENSION>",
+                  "required": true,
+                  "double_dash": "Optional",
+                  "hide": false
+                },
+                "default": [".md"]
+              },
+              {
                 "name": "template",
                 "usage": "--template <TEMPLATE>",
                 "help": "Replace a built-in Tera template, as NAME=PATH; the names are spec, index, command, argument, flag, and config",

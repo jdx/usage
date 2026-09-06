@@ -132,6 +132,7 @@ pub struct MarkdownRenderer {
     pub(crate) header_level: usize,
     pub(crate) multi: bool,
     url_prefix: Option<String>,
+    link_extension: String,
     html_encode: bool,
     indented_blocks_to_code_fences: bool,
     theme: MarkdownTheme,
@@ -146,6 +147,7 @@ impl MarkdownRenderer {
             header_level: 1,
             multi: false,
             url_prefix: None,
+            link_extension: ".md".into(),
             html_encode: true,
             indented_blocks_to_code_fences: false,
             theme: MarkdownTheme::default(),
@@ -220,6 +222,13 @@ impl MarkdownRenderer {
         self.with(|r| r.html_encode = html_encode)
     }
 
+    /// Extension for generated page links, including the dot (default `.md`).
+    /// Use `.html` for rendered websites or an empty string for extensionless URLs.
+    /// This does not change the names of generated Markdown files.
+    pub fn with_link_extension(self, extension: impl Into<String>) -> Self {
+        self.with(|r| r.link_extension = extension.into())
+    }
+
     /// Turn four-space indented blocks in help text into fenced code blocks.
     pub fn with_indented_blocks_to_code_fences(self, indented_blocks_to_code_fences: bool) -> Self {
         self.with(|r| r.indented_blocks_to_code_fences = indented_blocks_to_code_fences)
@@ -267,6 +276,11 @@ impl MarkdownRenderer {
         ctx.insert("header_level", &self.header_level);
         ctx.insert("multi", &self.multi);
         ctx.insert("url_prefix", &self.url_prefix);
+        ctx.insert("link_extension", &self.link_extension);
+        ctx.insert(
+            "config_link",
+            &format!("configuration{}", self.link_extension),
+        );
         ctx.insert("html_encode", &self.html_encode);
         ctx
     }
@@ -353,6 +367,27 @@ impl MarkdownRenderer {
 mod tests {
     use super::{escape_md, MarkdownRenderer, MarkdownTemplate};
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn page_links_follow_extension_without_renaming_files() {
+        let spec: crate::Spec = "bin ex\ncmd go\nconfig {\n prop jobs type=\"uint\"\n}\n"
+            .parse()
+            .unwrap();
+        for extension in [".md", ".html", ""] {
+            let renderer = MarkdownRenderer::new(spec.clone())
+                .with_url_prefix("/cli")
+                .with_link_extension(extension);
+            let index = renderer.render_index().unwrap();
+            assert!(index.contains(&format!("(/cli/go{extension})")), "{index}");
+            assert!(
+                index.contains(&format!("(/cli/configuration{extension})")),
+                "{index}"
+            );
+            assert_eq!(renderer.config_page(), "configuration.md");
+            let custom = renderer.with_template(MarkdownTemplate::Index, "{{ link_extension }}");
+            assert_eq!(custom.render_index().unwrap(), extension);
+        }
+    }
 
     #[test]
     fn escapes_html_around_fenced_code_blocks() {
