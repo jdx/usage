@@ -1,0 +1,24 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M1VTK7JH5HN8DV675CEKKM7P",
+  "strategy": "manual-commit",
+  "branch": "codex/manpage-mount-synopsis",
+  "checkpoints_count": 2,
+  "files_touched": null,
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 56929,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9072256,
+    "output_tokens": 12248,
+    "api_call_count": 50
+  }
+}
