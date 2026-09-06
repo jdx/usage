@@ -30,5 +30,9 @@ One page by default, or a page per command with --multi. Every part of the outpu
   `--replace-pre-with-code-fences` is the former name and still works. It was always a misnomer: this has never looked at `<pre>` tags.
 
 - **`--url-prefix <URL_PREFIX>`** — Prefix for the links between pages, such as /cli/reference
+- **`--link-extension <LINK_EXTENSION>`** — Extension for page links (including the dot); empty means extensionless URLs
+
+  **Default:** `.md`
+
 - **`--template <TEMPLATE>`** — Replace a built-in Tera template, as NAME=PATH; the names are spec, index, command, argument, flag, and config
 - **`-h --help`** — Print help

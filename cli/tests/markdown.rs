@@ -215,6 +215,41 @@ fn test_markdown_snapshot_with_examples() {
 }
 
 #[test]
+fn markdown_link_extension_keeps_markdown_output_files() {
+    for extension in [".md", ".html", ""] {
+        let dir = std::env::temp_dir().join(format!(
+            "usage_link_extension_{}_{}",
+            std::process::id(),
+            extension.len()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let output = usage_cmd()
+            .args(["generate", "markdown", "-f"])
+            .arg(example_path("with-examples.usage.kdl"))
+            .args([
+                "--multi",
+                "--url-prefix",
+                "/cli",
+                "--link-extension",
+                extension,
+                "--out-dir",
+            ])
+            .arg(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let index = std::fs::read_to_string(dir.join("index.md")).unwrap();
+        assert!(index.contains(&format!("{extension})")), "{index}");
+        assert!(!dir.join("index.html").exists());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+}
+
+#[test]
 fn test_markdown_stdout_when_out_file_omitted() {
     // The two spellings of "stdout" have to agree; `--out-file -` exists for callers that
     // build the path in a variable.
