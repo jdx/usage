@@ -1,0 +1,17 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M1VPCR2DCK5TAN2B9BARX2V2",
+  "strategy": "manual-commit",
+  "branch": "codex/markdown-code-blocks",
+  "checkpoints_count": 3,
+  "files_touched": null,
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ]
+}
