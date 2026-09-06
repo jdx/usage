@@ -1,5 +1,26 @@
 # Changelog
 
+## [6.8.0](https://github.com/jdx/usage/compare/v6.7.1..v6.8.0) - 2026-09-06
+
+### 🚀 Features
+
+- **(cli)** publish native completions in packslip by [@jdx](https://github.com/jdx) in [#1388](https://github.com/jdx/usage/pull/1388)
+- **(docs)** configure markdown link extensions by [@jdx](https://github.com/jdx) in [#1394](https://github.com/jdx/usage/pull/1394)
+
+### 🐛 Bug Fixes
+
+- **(docs)** render optional subcommands and mount synopses by [@jdx](https://github.com/jdx) in [#1393](https://github.com/jdx/usage/pull/1393)
+- **(docs)** preserve markdown code blocks and headings by [@jdx](https://github.com/jdx) in [#1392](https://github.com/jdx/usage/pull/1392)
+- **(manpage)** render mount synopses and custom command names by [@jdx](https://github.com/jdx) in [#1395](https://github.com/jdx/usage/pull/1395)
+
+### 📚 Documentation
+
+- improve guides, navigation, and landing page by [@jdx](https://github.com/jdx) in [#1391](https://github.com/jdx/usage/pull/1391)
+
+### 📦️ Dependency Updates
+
+- bump mr-boxington to 1.8.3 by [@jdx](https://github.com/jdx) in [#1390](https://github.com/jdx/usage/pull/1390)
+
 ## [6.7.1](https://github.com/jdx/usage/compare/v6.7.0..v6.7.1) - 2026-09-05
 
 ### 🐛 Bug Fixes
