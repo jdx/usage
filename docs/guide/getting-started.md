@@ -133,7 +133,7 @@ usage generate completion nu mycli --file mycli.usage.kdl --install
 :::
 
 Follow any startup-file instruction printed by `--install`, then start a new
-shell. Type `mycli deploy api --env ` and press Tab.
+shell. Type `mycli deploy api --env` and press Tab at the end.
 
 Bash also needs `bash-completion` installed and sourced. All five generated scripts
 call `usage` at runtime. See [shell completions](/cli/completions) for setup and

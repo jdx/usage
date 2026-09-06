@@ -1,9 +1,9 @@
 # Testing
 
-The `test` feature provides helpers for running a binary, parsing arguments without
-a subprocess, checking help text, and inspecting completion candidates. The helpers
-use your CLI's generated parser and renderers, so tests exercise the same behavior
-users receive.
+The `test` feature provides `command!` for running a compiled binary and capturing
+its output. Its in-process helpers call your generated `parse_from` function to parse
+arguments and use `usage_argv` to check help text and completion candidates, so tests
+exercise the same parser and renderers users receive.
 
 ```toml
 [dev-dependencies]

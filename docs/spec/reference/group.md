@@ -27,9 +27,9 @@ group "input" required=#true {
 ```
 
 The name comes first, then the members. Use `--long` or `-s` for flags and a bare
-argument name for a positional. A group lives on the command whose flags it names, and a
-group naming [global flags](/spec/reference/flag#global) belongs to the command that
-declares them.
+argument name for a positional. A group lives on the command whose arguments it
+names, and a group naming [global flags](/spec/reference/flag#global) belongs to
+the command that declares them.
 
 ## What the two properties mean
 

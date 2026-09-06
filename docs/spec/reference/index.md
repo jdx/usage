@@ -12,10 +12,11 @@ policies. Define its interface with the following nodes:
 | [`config`](./config.md)                           | Settings, sources, defaults, and types              |
 | [`flagset`](./flagset.md) / [`group`](./group.md) | Shared declarations / constraints between arguments |
 | [`output`](./output.md)                           | Structured output formats and exit codes            |
-| [`sigil`](./sigils.md) / [`clause`](./clause.md)  | Prefixed arguments / repeated groups of arguments   |
+| [`clause`](./clause.md)                           | Repeated groups of arguments                        |
 
-`sigil` is a property on `arg`; `clause` is a node. The remaining sections describe
-top-level metadata. See [spec basics](/spec/) for an introduction to KDL.
+[`sigil`](./sigils.md) is a property on `arg` for prefixed arguments. The remaining
+sections describe top-level metadata. See [spec basics](/spec/) for an introduction
+to KDL.
 
 ## Identity and metadata
 
