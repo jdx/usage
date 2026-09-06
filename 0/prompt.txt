@@ -1,0 +1,66 @@
+hmm what does this pr do? [https://github.com/jdx/mise/pull/12885](https://github.com/jdx/mise/pull/12885)
+
+---
+
+i am wondering if these patches should actually be in usage
+
+---
+
+- although structured `example` nodes are the cleaner long-term solution.
+
+go with that for mise, make a pr for mise to use examples
+
+
+
+fix the rest of the stuff in PRs for usage
+
+---
+
+PLEASE IMPLEMENT THIS PLAN:
+# Move generic documentation fixes into usage
+
+## Summary
+
+Create one mise PR and three usage PRs, all ready for review. Base the mise work on main, treating #12885 as a source of corrected examples. Leave closing #12885 to you.
+
+## Mise PR: structured examples
+
+- Migrate command examples embedded in help strings to native `#[usage(example(...))]` declarations, using `header` and `help` for explanatory prose.
+- Preserve corrected commands and relevant output from #12885. Keep surrounding explanatory text in help fields; remove duplicated example headings and terminal styling from migrated blocks.
+- Use those declarations as the source for terminal help, generated KDL, Markdown, and man pages.
+- Regenerate affected artifacts and update help assertions. Keep the PR focused on examples; exclude the navigation overhaul and `install-into` change.
+
+## Usage PRs
+
+1. **Correct Markdown rendering**
+   - Replace the indentation-only fence conversion with Markdown parsing and source-range edits. Preserve nested lists, existing fences, blank lines, code indentation, and embedded backticks.
+   - Preserve both existing names for the fence-conversion option.
+   - Filter hidden children before deciding whether to emit the Subcommands heading.
+   - Remove the duplicate synopsis from the built-in multipage index.
+   - Continue rendering structured examples through their existing templates; do not infer headings from arbitrary `Examples:` prose.
+
+2. **Correct command and mount synopses**
+   - Make generated subcommand placeholders honor `subcommand_required`, including custom placeholder names, consistently across help, Markdown, man pages, and JSON.
+   - Keep argument parsing and completion behavior unchanged.
+   - Add optional `synopsis` metadata to mounts, containing the display fragment for unresolved dynamic commands, such as `[TASK] [ARGS]…`. Support KDL parsing, serialization, and the Rust model.
+   - Render declared mount fragments without executing mount commands. Undeclared mount fragments remain omitted.
+   - Document this as the generic replacement for mise’s hardcoded task-synopsis patch. Include the corresponding metadata assignment in the mise PR once its usage dependency can consume it.
+
+3. **Configurable Markdown link extensions**
+   - Add `--link-extension` and `MarkdownRenderer::with_link_extension`, defaulting to `.md`; support `.html` and an empty extension.
+   - Apply it consistently to generated command and configuration-page links while keeping output filenames as Markdown.
+   - Expose the setting to custom templates. Keep guide mappings and workflow categories in the consuming project.
+
+## Validation and delivery
+
+- Cover optional and required subcommands, custom names, hidden-first/all-hidden children, and root/index synopsis consistency.
+- Test fence conversion with nested lists, fenced JSON, indented TOML, blank lines, backticks, and repeated conversion.
+- Test mount metadata round trips, displayed task arguments, and absence of subprocess execution during rendering.
+- Test default, HTML, and extensionless links, including custom templates.
+- For mise, verify representative terminal help, structured KDL examples, Markdown and man-page output, and run the documentation build.
+- Run repository-required checks without weakening gates. Let release-plz manage usage versions; document any release dependency in the mise PR.
+- Use isolated branches, conventional commit titles, and focused PR descriptions with validation results.
+
+---
+
+keep addressing feedback failing checks and merge conflicts
