@@ -5,6 +5,26 @@ import (
 	"testing"
 )
 
+func TestUsageLineHonorsSubcommandRequirementsAndNames(t *testing.T) {
+	root := &Command{Name: "ex", Key: 1, Subcommands: []*Command{{Name: "run", Key: 2}}}
+	for _, required := range []bool{false, true} {
+		for _, name := range []string{"", "ACTION"} {
+			help := HelpTable{{Key: 1, SubcommandRequired: required, SubcommandValueName: name}}
+			placeholder := name
+			if placeholder == "" {
+				placeholder = "SUBCOMMAND"
+			}
+			want := "ex [" + placeholder + "]"
+			if required {
+				want = "ex <" + placeholder + ">"
+			}
+			if got := UsageLine([]string{"ex"}, root, help); got != want {
+				t.Errorf("required=%v name=%q: got %q, want %q", required, name, got, want)
+			}
+		}
+	}
+}
+
 // A rendered failure is judged on three things rather than on bytes: it says what
 // went wrong, it shows the command the user was actually in, and it says what to
 // try next. There is no reference to match here — see render.go.

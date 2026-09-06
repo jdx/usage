@@ -209,6 +209,7 @@ impl Spec {
             && self.default_subcommand.is_some()
             && !self.cmd.mounts.iter().any(|mount| mount.overrides_default);
         resolve(&mut self.cmd, outputs, default_outranks_root_mounts)?;
+        self.restamp();
         self.cmd
             .validate_clause_flag_spellings()
             .map_err(UsageErr::InvalidSpec)
@@ -2259,6 +2260,24 @@ echo "hello"
         assert_eq!(spec.name, "my-script.usage.kdl");
         assert_eq!(spec.bin, "my-script.usage.kdl");
         assert!(spec.cmd.name.is_empty());
+    }
+
+    #[test]
+    fn resolving_mounts_replaces_the_unresolved_synopsis() {
+        let mut spec: Spec = "bin ex\nmount run=tasks synopsis=\"[TASK] [ARGS]…\""
+            .parse()
+            .unwrap();
+        assert!(spec.cmd.usage.contains("[TASK] [ARGS]…"));
+        spec.resolve_mount_outputs(&HashMap::from([(
+            "tasks".to_string(),
+            "cmd build".to_string(),
+        )]))
+        .unwrap();
+        assert!(spec.cmd.mounts.is_empty());
+        assert_eq!(spec.cmd.usage, "[SUBCOMMAND]");
+        assert_eq!(spec.cmd.subcommands["build"].usage, "build");
+        let json = serde_json::to_value(&spec).unwrap();
+        assert_eq!(json["cmd"]["usage"], "[SUBCOMMAND]");
     }
 
     #[test]
