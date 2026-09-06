@@ -101,7 +101,7 @@ mod tests {
         assert_snapshot!(ctx.render_spec().unwrap(), @"
         # `mycli`
 
-        - **Usage:** `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
+        - **Usage:** `mycli [FLAGS] <ARGS>… [SUBCOMMAND]`
 
         ## Arguments
         - **`<arg1>`** — arg1 description
@@ -149,7 +149,7 @@ mod tests {
 
         ## `mycli plugin`
 
-        - **Usage:** `mycli plugin <SUBCOMMAND>`
+        - **Usage:** `mycli plugin [SUBCOMMAND]`
         - **Source code:** [`src/cli/plugin.rs`](https://github.com/jdx/mise/blob/main/src/cli/plugin.rs)
 
         ## `mycli plugin install`

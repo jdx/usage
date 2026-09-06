@@ -152,6 +152,23 @@ cmd "install"
 mount run="mycli plugin-commands"
 ```
 
+An unresolved mount can declare a display-only synopsis for generated documentation:
+
+```kdl
+cmd "run" {
+    mount run="mycli tasks --usage" synopsis="[TASK] [ARGS]…"
+}
+```
+
+The generated usage line includes `run [TASK] [ARGS]…` without running discovery.
+This metadata does not declare arguments or change parsing or completion. Without
+`synopsis`, an unresolved mount adds no placeholder. Static subcommands use
+`[SUBCOMMAND]` when optional and `<SUBCOMMAND>` when `subcommand_required` is true.
+
+Producers must require a usage release that supports mount `synopsis` before
+emitting it for external consumers. Serialization preserves explicitly declared
+metadata; it does not negotiate a target consumer version or silently drop it.
+
 Resolving a mount runs a process, so when the root's mount runs depends on what is
 asking for it:
 

@@ -209,6 +209,7 @@ impl Spec {
             && self.default_subcommand.is_some()
             && !self.cmd.mounts.iter().any(|mount| mount.overrides_default);
         resolve(&mut self.cmd, outputs, default_outranks_root_mounts)?;
+        self.restamp();
         self.cmd
             .validate_clause_flag_spellings()
             .map_err(UsageErr::InvalidSpec)
@@ -1549,7 +1550,7 @@ source_code_link_template "https://github.com/jdx/mise/blob/main/src/cli/{{path}
         assert_eq!(go.full_cmd, ["go"]);
         // `usage()` names the command and then what it takes — `go` has a subcommand, so it
         // says so. The point is that the command's own name is in there at all.
-        assert_eq!(go.usage, "go <SUBCOMMAND>");
+        assert_eq!(go.usage, "go [SUBCOMMAND]");
 
         // And all the way down, which is what makes it a walk rather than one level.
         let fast = go.subcommands.get("fast").expect("fast");
@@ -2262,6 +2263,24 @@ echo "hello"
     }
 
     #[test]
+    fn resolving_mounts_replaces_the_unresolved_synopsis() {
+        let mut spec: Spec = "bin ex\nmount run=tasks synopsis=\"[TASK] [ARGS]…\""
+            .parse()
+            .unwrap();
+        assert!(spec.cmd.usage.contains("[TASK] [ARGS]…"));
+        spec.resolve_mount_outputs(&HashMap::from([(
+            "tasks".to_string(),
+            "cmd build".to_string(),
+        )]))
+        .unwrap();
+        assert!(spec.cmd.mounts.is_empty());
+        assert_eq!(spec.cmd.usage, "[SUBCOMMAND]");
+        assert_eq!(spec.cmd.subcommands["build"].usage, "build");
+        let json = serde_json::to_value(&spec).unwrap();
+        assert_eq!(json["cmd"]["usage"], "[SUBCOMMAND]");
+    }
+
+    #[test]
     fn injected_nested_mounts_ignore_the_mounted_specs_root_default() {
         let mut spec: Spec = "mount run=outer".parse().unwrap();
         let outputs = HashMap::from([
@@ -2329,7 +2348,7 @@ echo "hello"
             ["plugins", "formatter"]
         );
         assert!(
-            path(&grafted, &["plugins"]).1.contains("<SUBCOMMAND>"),
+            path(&grafted, &["plugins"]).1.contains("[SUBCOMMAND]"),
             "{:?}",
             path(&grafted, &["plugins"]).1
         );

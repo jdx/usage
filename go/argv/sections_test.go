@@ -130,7 +130,7 @@ func TestATemplateOmitsASection(t *testing.T) {
 	want := strings.Join([]string{
 		"An example",
 		"",
-		"Usage: ex <SUBCOMMAND>",
+		"Usage: ex [SUBCOMMAND]",
 		"",
 		"Flags:",
 		"  -h, --help  Print help",

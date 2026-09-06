@@ -93,8 +93,8 @@ func TestTheRootLineIsWhatAUserWouldRecognise(t *testing.T) {
 	if !strings.HasPrefix(line, "mise ") {
 		t.Errorf("the line should start with the binary: %s", line)
 	}
-	if !strings.HasSuffix(line, "<SUBCOMMAND>") {
-		t.Errorf("mise has subcommands, so the line should say so: %s", line)
+	if !strings.HasSuffix(line, "[SUBCOMMAND]") {
+		t.Errorf("mise has optional subcommands, so the line should say so: %s", line)
 	}
 }
 

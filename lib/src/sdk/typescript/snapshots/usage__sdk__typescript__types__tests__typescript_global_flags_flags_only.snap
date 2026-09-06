@@ -18,7 +18,7 @@ export class App {
     this.status = new Status(this.runner);
     this.info = new Info(this.runner);
   }
-  /** [-v --verbose] <SUBCOMMAND> */
+  /** [-v --verbose] [SUBCOMMAND] */
   async exec(flags?: AppFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     const flagArgs = this.buildFlagArgs(flags);

@@ -220,10 +220,18 @@ func usageLine(path []string, cmd *Command, help HelpTable, includeSubcommands b
 
 	if includeSubcommands && len(cmd.Subcommands) > 0 {
 		name := "SUBCOMMAND"
-		if h := help.Lookup(cmd.Key); h != nil && h.SubcommandValueName != "" {
-			name = h.SubcommandValueName
+		required := false
+		if h := help.Lookup(cmd.Key); h != nil {
+			required = h.SubcommandRequired
+			if h.SubcommandValueName != "" {
+				name = h.SubcommandValueName
+			}
 		}
-		out.WriteString(" <" + name + ">")
+		if required {
+			out.WriteString(" <" + name + ">")
+		} else {
+			out.WriteString(" [" + name + "]")
+		}
 	}
 	return out.String()
 }

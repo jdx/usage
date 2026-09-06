@@ -15,7 +15,7 @@ class Mytool:
         self.deploy = Deploy(self._runner)
 
     def exec(self, args: MytoolArgs, flags: Optional[MytoolFlags] = None) -> CliResult:
-        """[FLAGS] <input> <extra>… <SUBCOMMAND>"""
+        """[FLAGS] <input> <extra>… [SUBCOMMAND]"""
         cmd_args: list[str] = []
         if args._input is not None: cmd_args.append(str(args._input))
         if args.extra is not None: cmd_args.extend(args.extra)

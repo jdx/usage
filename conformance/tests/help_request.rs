@@ -207,6 +207,7 @@ fn root_help_uses_an_explicit_multiline_synopsis() {
             "{page}"
         );
         assert!(!page.contains("Usage: alternate <SUBCOMMAND>"), "{page}");
+        assert!(!page.contains("Usage: alternate [SUBCOMMAND]"), "{page}");
     }
 }
 
@@ -362,17 +363,17 @@ fn usage_line_of(page: &str) -> &str {
 fn the_help_command_answers_about_the_command_it_names() {
     // What the page itself advertises — "help  Print this message or the help of the given
     // subcommand(s)" — and what it did not do until now.
-    assert_eq!(usage_line_of(&ask_deep(&["help"])), "deep <SUBCOMMAND>");
+    assert_eq!(usage_line_of(&ask_deep(&["help"])), "deep [SUBCOMMAND]");
     assert_eq!(
         usage_line_of(&ask_deep(&["help", "config"])),
-        "deep config <SUBCOMMAND>"
+        "deep config [SUBCOMMAND]"
     );
 
     // Every name a command answers to, since `help` is asking about the command rather than
     // about the word: `ex help cfg` is a question about `config`.
     assert_eq!(
         usage_line_of(&ask_deep(&["help", "cfg"])),
-        "deep config <SUBCOMMAND>"
+        "deep config [SUBCOMMAND]"
     );
 
     // The whole path, not just the first word.
@@ -387,7 +388,7 @@ fn help_stops_at_a_word_that_names_no_command() {
     // `help` are a question, and the most useful answer to a half-recognised one is the page
     // for as far as it got.
     let page = ask_deep(&["help", "config", "nonsense"]);
-    assert_eq!(usage_line_of(&page), "deep config <SUBCOMMAND>");
+    assert_eq!(usage_line_of(&page), "deep config [SUBCOMMAND]");
 }
 
 #[test]

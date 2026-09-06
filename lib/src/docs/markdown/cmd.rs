@@ -42,7 +42,7 @@ mod tests {
         assert_snapshot!(ctx.render_cmd(&SPEC_KITCHEN_SINK.cmd).unwrap(), @"
         # `mycli`
 
-        - **Usage:** `mycli [FLAGS] <ARGS>… <SUBCOMMAND>`
+        - **Usage:** `mycli [FLAGS] <ARGS>… [SUBCOMMAND]`
 
         ## Arguments
         - **`<arg1>`** — arg1 description
@@ -96,7 +96,7 @@ mod tests {
 
         ## Subcommands
 
-        - [`mycli plugin <SUBCOMMAND>`](/plugin.md)
+        - [`mycli plugin [SUBCOMMAND]`](/plugin.md)
         ");
     }
 
@@ -236,7 +236,7 @@ cmd "sub" help="a subcommand"
         assert_snapshot!(ctx.render_cmd(&spec.cmd).unwrap(), @"
         # `mycli`
 
-        - **Usage:** `mycli [FLAGS] <SUBCOMMAND>`
+        - **Usage:** `mycli [FLAGS] [SUBCOMMAND]`
 
         ## Global Flags
         - **`--verbose`** — Verbose output

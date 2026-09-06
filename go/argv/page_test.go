@@ -202,7 +202,7 @@ func TestSubcommandPresentation(t *testing.T) {
 		ShortHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
 		LongHelp(HelpSpec{Name: "ex", Bin: "ex"}, []string{"ex"}, []*Command{root}, help),
 	} {
-		if !strings.Contains(page, "Usage: ex <ACTION>") || !strings.Contains(page, "\nActions:\n") {
+		if !strings.Contains(page, "Usage: ex [ACTION]") || !strings.Contains(page, "\nActions:\n") {
 			t.Fatalf("subcommand presentation was not preserved:\n%s", page)
 		}
 	}

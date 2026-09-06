@@ -254,7 +254,7 @@ tables and `HelpText`:
 
 ```go
 argv.UsageLine([]string{"mise"}, mise.Root, mise.HelpText)
-// mise [FLAGS] [TASK] <SUBCOMMAND>
+// mise [FLAGS] [TASK] [SUBCOMMAND]
 ```
 
 `argv.ShortHelp` renders the whole page `-h` prints — header, `Commands`,

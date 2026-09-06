@@ -123,11 +123,11 @@
       "doc": "Subcommands are listed by name in one column, with the summary after it and the aliases after that; a hidden alias works and is not advertised. The supplied `help` entry sits in the same column as the declared commands, because it is a row like any other.",
       "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\ncmd \"install\" help=\"Install a tool\" {\n    alias \"i\"\n    alias \"add\" hide=#true\n    arg \"<TOOL>\"\n}\ncmd \"remove\" help=\"Remove a tool\" hide=#true\n",
       "expect": {
-        "usage": "ex <SUBCOMMAND>",
+        "usage": "ex [SUBCOMMAND]",
         "short_help": [
           "An example",
           "",
-          "Usage: ex <SUBCOMMAND>",
+          "Usage: ex [SUBCOMMAND]",
           "",
           "Commands:",
           "  install  Install a tool [aliases: i]",
@@ -197,11 +197,11 @@
       "doc": "`hide` keeps a flag, an argument and a subcommand out of the page as well as out of the usage line.",
       "spec": "name \"ex\"\nbin \"ex\"\nabout \"An example\"\nflag \"--shown\" help=\"Visible\"\nflag \"--secret\" help=\"Hidden\" hide=#true\narg \"[shown]\" help=\"Visible\"\narg \"[buried]\" help=\"Hidden\" hide=#true\ncmd \"go\" help=\"Go\"\ncmd \"lurk\" help=\"Hidden\" hide=#true\n",
       "expect": {
-        "usage": "ex [--shown] [shown] <SUBCOMMAND>",
+        "usage": "ex [--shown] [shown] [SUBCOMMAND]",
         "short_help": [
           "An example",
           "",
-          "Usage: ex [--shown] [shown] <SUBCOMMAND>",
+          "Usage: ex [--shown] [shown] [SUBCOMMAND]",
           "",
           "Commands:",
           "  go    Go",

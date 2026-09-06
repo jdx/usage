@@ -15,7 +15,7 @@ class Cli:
         self.remove_remote = RemoveRemote(self._runner)
 
     def exec(self) -> CliResult:
-        """<SUBCOMMAND>"""
+        """[SUBCOMMAND]"""
         cmd_args: list[str] = []
         return self._runner.run(cmd_args)
 

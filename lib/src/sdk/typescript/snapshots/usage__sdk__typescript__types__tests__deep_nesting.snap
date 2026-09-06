@@ -15,7 +15,7 @@ export class App {
     this.runner = new CliRunner(binPath ?? "app");
     this.db = new Db(this.runner);
   }
-  /** <SUBCOMMAND> */
+  /** [SUBCOMMAND] */
   async exec(): Promise<CliResult> {
     return this.runner.run([]);
   }
@@ -31,7 +31,7 @@ export class Db {
     this.runner = runner;
     this.migration = new Migration(this.runner);
   }
-  /** db <SUBCOMMAND> */
+  /** db [SUBCOMMAND] */
   async exec(): Promise<CliResult> {
     return this.runner.run(["db"]);
   }
@@ -50,7 +50,7 @@ export class Migration {
     this.create = new Create(this.runner);
     this.run = new Run(this.runner);
   }
-  /** db migration <SUBCOMMAND> */
+  /** db migration [SUBCOMMAND] */
   async exec(): Promise<CliResult> {
     return this.runner.run(["db", "migration"]);
   }

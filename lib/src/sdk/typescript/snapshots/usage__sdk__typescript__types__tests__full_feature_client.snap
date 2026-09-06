@@ -20,7 +20,7 @@ export class Mytool {
     this.build = new Build(this.runner);
     this.deploy = new Deploy(this.runner);
   }
-  /** [FLAGS] <input> <extra>… <SUBCOMMAND> */
+  /** [FLAGS] <input> <extra>… [SUBCOMMAND] */
   async exec(args: MytoolArgs, flags?: MytoolFlags): Promise<CliResult> {
     const cmdArgs: string[] = [];
     if (args.input !== undefined) { cmdArgs.push(String(args.input)); }

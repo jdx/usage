@@ -14,7 +14,7 @@ class Mycli:
         self.plugin = Plugin(self._runner)
 
     def exec(self, args: MycliArgs, flags: Optional[MycliFlags] = None) -> CliResult:
-        """[FLAGS] <ARGS>… <SUBCOMMAND>"""
+        """[FLAGS] <ARGS>… [SUBCOMMAND]"""
         cmd_args: list[str] = []
         if args.arg1 is not None: cmd_args.append(str(args.arg1))
         if args.arg2 is not None: cmd_args.append(str(args.arg2))
@@ -41,7 +41,7 @@ class Plugin:
         self.install = Install(self._runner)
 
     def exec(self) -> CliResult:
-        """plugin <SUBCOMMAND>"""
+        """plugin [SUBCOMMAND]"""
         cmd_args: list[str] = ["plugin"]
         return self._runner.run(cmd_args)
 

@@ -8,7 +8,7 @@ expression: "markdown_stdout(&[\"--out-file\", \"-\"])"
 A demo CLI with examples
 
 
-- **Usage:** `demo <SUBCOMMAND>`
+- **Usage:** `demo [SUBCOMMAND]`
 
 ## `demo deploy`
 
@@ -42,7 +42,7 @@ demo deploy -e staging --force
 
 ## `demo config`
 
-- **Usage:** `demo config <SUBCOMMAND>`
+- **Usage:** `demo config [SUBCOMMAND]`
 
 Manage configuration
 

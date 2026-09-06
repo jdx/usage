@@ -103,8 +103,8 @@ fn the_root_line_is_what_a_user_would_recognise() {
         "the line should start with the binary: {line}"
     );
     assert!(
-        line.ends_with("<SUBCOMMAND>"),
-        "mise has subcommands, so the line should end by saying so: {line}"
+        line.ends_with("[SUBCOMMAND]"),
+        "mise has optional subcommands, so the line should end by saying so: {line}"
     );
 }
 

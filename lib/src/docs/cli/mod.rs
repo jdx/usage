@@ -1305,7 +1305,7 @@ cmd sneaky hide=#true help="a hidden command"
         // above it did not mention. A heading whose every entry is hidden produces no
         // section, which is the rule markdown rendering already followed.
         assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
-        Usage: ex [--visible] [SHOWN] <SUBCOMMAND>
+        Usage: ex [--visible] [SHOWN] [SUBCOMMAND]
 
         Commands:
           open  a command
@@ -1543,7 +1543,7 @@ cmd "run" help="Run it"
         assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
         An example
 
-        Usage: ex [--force] <file> <SUBCOMMAND>
+        Usage: ex [--force] <file> [SUBCOMMAND]
 
         Flags:
               --force  Do it anyway
@@ -1575,7 +1575,7 @@ cmd "run" help="Run it"
         .unwrap();
 
         assert_snapshot!(render_help(&spec, &spec.cmd, true), @"
-        Usage: ex [--force] <SUBCOMMAND>
+        Usage: ex [--force] [SUBCOMMAND]
 
         Flags:
               --force    Do it anyway
@@ -1869,7 +1869,7 @@ cmd "new-cmd" help="Do something better"
         .unwrap();
 
         assert_snapshot!(render_help(&spec, &spec.cmd, false), @"
-        Usage: testcli [--old] <SUBCOMMAND>
+        Usage: testcli [--old] [SUBCOMMAND]
 
         Commands:
           new-cmd  Do something better
@@ -1912,7 +1912,7 @@ cmd "run" help="Run it\n"
         .unwrap();
 
         let page = render_help(&spec, &spec.cmd, false);
-        assert!(page.contains("Usage: testcli <ACTION>"), "{page}");
+        assert!(page.contains("Usage: testcli [ACTION]"), "{page}");
         assert!(page.contains("\nActions:\n"), "{page}");
     }
 

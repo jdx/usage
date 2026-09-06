@@ -18,7 +18,7 @@ export class Cli {
     this.addRemote = new AddRemote(this.runner);
     this.removeRemote = new RemoveRemote(this.runner);
   }
-  /** <SUBCOMMAND> */
+  /** [SUBCOMMAND] */
   async exec(): Promise<CliResult> {
     return this.runner.run([]);
   }
