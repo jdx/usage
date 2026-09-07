@@ -590,6 +590,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
     out
 }
 
+#[derive(Default)]
 struct HelpStructure {
     headings: Vec<String>,
     command_usages: Vec<String>,
@@ -875,7 +876,12 @@ fn assembled_help(
     } else {
         short_sections(spec, path, chain, inherit_version_actions)
     };
-    let structure = help_structure(spec, path, chain, long, inherit_version_actions);
+    // Plain output never reads the spellings used to recognize colored spans.
+    let structure = if style.coloured {
+        help_structure(spec, path, chain, long, inherit_version_actions)
+    } else {
+        HelpStructure::default()
+    };
     let page = match spec
         .help_template
         .filter(|template| !template.trim().is_empty())

@@ -42,6 +42,21 @@ fn main() {
             usage_argv::help::render(black_box(spec), black_box(meta.cmd), true).unwrap()
         });
     }
+    // The process renderer also recognizes structural spans for colored output.
+    for (name, style) in [
+        ("plain", usage_argv::help::Style::PLAIN),
+        ("colored", usage_argv::help::Style::COLOURED),
+    ] {
+        bench(&format!("mise root process help ({name})"), 1_000, || {
+            usage_argv::help::render_styled(
+                black_box(spec),
+                black_box(spec.root.cmd),
+                true,
+                black_box(style),
+            )
+            .unwrap()
+        });
+    }
     bench("mise KDL", 20, || black_box(spec).to_kdl());
     bench("mise recursive help", 5, || {
         usage_argv::help::render_all(black_box(spec), black_box(spec.root.cmd)).unwrap()
