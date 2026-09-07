@@ -2037,8 +2037,11 @@ fn split_groups_section<'m, T: 'm>(
     }
 }
 
+// Cache declaration positions once per row: searching them inside the sort comparator
+// repeats the scan and expands it into each specialized sorting routine. Both row types
+// use the same numeric keys, so their cached-key sorts can share the sorting code.
 fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>]) {
-    items.sort_unstable_by_key(|item| {
+    items.sort_by_cached_key(|item| {
         let position = declared
             .iter()
             .position(|candidate| core::ptr::eq(candidate, *item))
@@ -2048,7 +2051,7 @@ fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>])
 }
 
 fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a>]) {
-    items.sort_unstable_by_key(|item| {
+    items.sort_by_cached_key(|item| {
         let position = declared
             .iter()
             .position(|candidate| core::ptr::eq(candidate, *item))
@@ -3985,6 +3988,39 @@ mod style_tests {
     };
     use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
     use crate::{Arg, ArgAction, Clause, Command, Flag};
+
+    #[test]
+    fn filtered_help_rows_keep_declaration_order_as_the_tie_breaker() {
+        macro_rules! check {
+            ($meta:ident, $order:ident) => {{
+                let declared = [
+                    $meta::EMPTY,
+                    $meta {
+                        display_order: Some(1),
+                        ..$meta::EMPTY
+                    },
+                    $meta::EMPTY,
+                    $meta {
+                        display_order: Some(0),
+                        ..$meta::EMPTY
+                    },
+                    $meta {
+                        display_order: Some(1),
+                        ..$meta::EMPTY
+                    },
+                ];
+                // Filtering out a row must not renumber the remaining defaults. Shuffle rows
+                // so equal explicit orders must use declaration position.
+                let mut rows = vec![&declared[4], &declared[2], &declared[3], &declared[1]];
+                super::$order(&mut rows, &declared);
+                for (row, expected) in rows.iter().zip([3, 1, 4, 2]) {
+                    assert!(core::ptr::eq(*row, &declared[expected]));
+                }
+            }};
+        }
+        check!(ArgMeta, order_args);
+        check!(FlagMeta, order_flags);
+    }
 
     #[test]
     fn compiled_clause_arguments_appear_in_usage_and_help() {
