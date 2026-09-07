@@ -1,0 +1,75 @@
+find my pr for oxfmt and rebase it, also update it to use the latest released usage-rs
+
+---
+
+install just
+
+---
+
+update the pr desc and improve it
+
+---
+
+what changes did you make to the desc
+
+---
+
+install typos and uupdate that
+
+---
+
+use mise x typos
+
+---
+
+do the binary-size numebrs for the desc
+
+---
+
+before we edit the pr desc, what was the comparison before?
+
+---
+
+could we reduce this by improving usage-rs?
+
+---
+
+make a pr to improve this
+
+---
+
+the pr desc doesn't need so much detail about this pr, but it should mention it, and the numbers should be bpaf vs no bpaf
+
+---
+
+oh nevermind
+
+on second thought, do you think we coudl reduce size more? i think we have quite a bit more to go right? how much do we need to save?
+
+---
+
+see what you can do, it doesn't have to be less but we should reduce as much as we can
+
+---
+
+i think we used unstable for perf reasons
+
+---
+
+ok continue working on this
+
+---
+
+look for more improvements, maybe think of ways we could use features to remove things that oxc doesn't need
+
+---
+
+ok do it
+
+---
+
+what else could we do
+
+---
+
+continue
