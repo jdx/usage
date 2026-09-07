@@ -343,6 +343,32 @@ fn tip(style: Style, noun: &str, near: &[&str]) -> String {
     }
 }
 
+// Both parser errors use the same spelling suggestions and output layout.
+#[inline(never)]
+fn unexpected_flag(out: &mut String, style: Style, typed: &str, chain: &[&CommandMeta<'_>]) {
+    let _ = writeln!(
+        out,
+        "{} unexpected argument '{}' found",
+        style.error("error:"),
+        style.invalid(typed)
+    );
+    // Scored without the dashes, and only then written back with them. Every flag
+    // starts `--`, and the prefix bonus in Jaro-Winkler counts that agreement — so
+    // `--fore` came out similar to `--quiet`, which it is not. clap compares the bare
+    // names for the same reason.
+    let bare = typed.trim_start_matches('-');
+    let names: Vec<&str> = flags_in_scope(chain).flat_map(long_spellings).collect();
+    let near: Vec<String> = nearest(bare, names.into_iter())
+        .into_iter()
+        .map(|name| format!("--{name}"))
+        .collect();
+    out.push_str(&tip(
+        style,
+        "argument",
+        &near.iter().map(String::as_str).collect::<Vec<_>>(),
+    ));
+}
+
 /// A name as a usage line writes it: `<TOOL>`, `[TOOL]…`, `--jobs`.
 ///
 /// The error carries the spec's name for a thing; a user reads the form the help shows. Both come
@@ -850,27 +876,7 @@ fn render_inner<'a>(
             with_usage = true;
             let whole = String::from_utf8_lossy(token);
             let typed = flag_named(&whole);
-            let _ = writeln!(
-                out,
-                "{} unexpected argument '{}' found",
-                style.error("error:"),
-                style.invalid(typed)
-            );
-            // Scored without the dashes, and only then written back with them. Every flag
-            // starts `--`, and the prefix bonus in Jaro-Winkler counts that agreement — so
-            // `--fore` came out similar to `--quiet`, which it is not. clap compares the bare
-            // names for the same reason.
-            let bare = typed.trim_start_matches('-');
-            let names: Vec<&str> = flags_in_scope(chain).flat_map(long_spellings).collect();
-            let near: Vec<String> = nearest(bare, names.into_iter())
-                .into_iter()
-                .map(|name| format!("--{name}"))
-                .collect();
-            out.push_str(&tip(
-                style,
-                "argument",
-                &near.iter().map(String::as_str).collect::<Vec<_>>(),
-            ));
+            unexpected_flag(&mut out, style, typed, chain);
         }
         Error::UnexpectedArg { token } => {
             with_usage = true;
@@ -884,23 +890,7 @@ fn render_inner<'a>(
                 // Same rule as a refused flag: a value attached with `=` is not part of the
                 // name, and the word reaches here by the same spelling mistake.
                 let named = flag_named(&word);
-                let _ = writeln!(
-                    out,
-                    "{} unexpected argument '{}' found",
-                    style.error("error:"),
-                    style.invalid(named)
-                );
-                let bare = named.trim_start_matches('-');
-                let names: Vec<&str> = flags_in_scope(chain).flat_map(long_spellings).collect();
-                let near: Vec<String> = nearest(bare, names.into_iter())
-                    .into_iter()
-                    .map(|name| format!("--{name}"))
-                    .collect();
-                out.push_str(&tip(
-                    style,
-                    "argument",
-                    &near.iter().map(String::as_str).collect::<Vec<_>>(),
-                ));
+                unexpected_flag(&mut out, style, named, chain);
             } else if cmd.subcommands.is_empty() {
                 let _ = writeln!(
                     out,

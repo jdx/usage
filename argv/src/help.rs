@@ -590,6 +590,7 @@ fn styled_flag_usage(usage: &str, style: Style) -> String {
     out
 }
 
+#[derive(Default)]
 struct HelpStructure {
     headings: Vec<String>,
     command_usages: Vec<String>,
@@ -612,6 +613,7 @@ fn flatten_help(meta: &CommandMeta<'_>) -> bool {
     __usage_advanced_help(meta.flatten_help)
 }
 
+#[inline(never)]
 fn help_structure(
     spec: &Spec<'_>,
     path: &[&str],
@@ -626,6 +628,7 @@ fn help_structure(
         headings.push("Examples".to_string());
     }
     if flatten_help(meta) {
+        #[cfg(feature = "help-advanced")]
         flat_help_headings(&path[1.min(path.len())..], meta, &mut headings);
     } else if meta.subcommands.iter().any(|sub| !sub.hide) {
         command_usages.extend(
@@ -711,6 +714,7 @@ fn help_structure(
     let mut flag_usages: Vec<String> = own.iter().map(|flag| column_usage(flag)).collect();
     flag_usages.extend(inherited.into_iter().map(|(_, usage)| usage));
     if flatten_help(meta) {
+        #[cfg(feature = "help-advanced")]
         flat_help_usages(meta, long, &mut flag_usages, &mut arg_usages);
     }
     arg_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
@@ -729,6 +733,7 @@ fn help_structure(
     }
 }
 
+#[cfg(feature = "help-advanced")]
 fn flat_help_usages(
     meta: &CommandMeta<'_>,
     long: bool,
@@ -771,6 +776,7 @@ fn flat_help_usages(
     }
 }
 
+#[cfg(feature = "help-advanced")]
 fn flat_help_headings(path: &[&str], meta: &CommandMeta<'_>, headings: &mut Vec<String>) {
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
     order_commands(&mut visible);
@@ -784,6 +790,7 @@ fn flat_help_headings(path: &[&str], meta: &CommandMeta<'_>, headings: &mut Vec<
     }
 }
 
+#[inline(never)]
 fn styled_help(
     page: &str,
     style: Style,
@@ -875,7 +882,12 @@ fn assembled_help(
     } else {
         short_sections(spec, path, chain, inherit_version_actions)
     };
-    let structure = help_structure(spec, path, chain, long, inherit_version_actions);
+    // Plain output never reads the spellings used to recognize colored spans.
+    let structure = if style.coloured {
+        help_structure(spec, path, chain, long, inherit_version_actions)
+    } else {
+        HelpStructure::default()
+    };
     let page = match spec
         .help_template
         .filter(|template| !template.trim().is_empty())
@@ -1056,26 +1068,30 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
     // Only flattened help needs a synopsis for every visible child.
     if !flatten_help(meta) || !meta.subcommands.iter().any(|sub| !sub.hide) {
         let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+        #[cfg(feature = "help-advanced")]
         return;
     }
-    let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    fn compare_names(a: &CommandMeta<'_>, b: &CommandMeta<'_>) -> core::cmp::Ordering {
-        a.cmd.name.cmp(b.cmd.name)
-    }
-    sort_rows(&mut visible, &mut |a, b| compare_names(a, b));
-    let mut lines = Vec::new();
-    if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
-        lines.push(usage_line_with_subcommands(path, meta, false));
-    }
-    for sub in visible {
-        let mut sub_path = path.to_vec();
-        sub_path.push(sub.cmd.name);
-        lines.push(usage_line(&sub_path, sub));
-    }
-    if let Some((first, rest)) = lines.split_first() {
-        let _ = writeln!(out, "Usage: {first}");
-        for line in rest {
-            let _ = writeln!(out, "       {line}");
+    #[cfg(feature = "help-advanced")]
+    {
+        let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
+        fn compare_names(a: &CommandMeta<'_>, b: &CommandMeta<'_>) -> core::cmp::Ordering {
+            a.cmd.name.cmp(b.cmd.name)
+        }
+        sort_rows(&mut visible, &mut |a, b| compare_names(a, b));
+        let mut lines = Vec::new();
+        if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
+            lines.push(usage_line_with_subcommands(path, meta, false));
+        }
+        for sub in visible {
+            let mut sub_path = path.to_vec();
+            sub_path.push(sub.cmd.name);
+            lines.push(usage_line(&sub_path, sub));
+        }
+        if let Some((first, rest)) = lines.split_first() {
+            let _ = writeln!(out, "Usage: {first}");
+            for line in rest {
+                let _ = writeln!(out, "       {line}");
+            }
         }
     }
 }
@@ -1464,11 +1480,11 @@ fn short_sections(
         },
         "Arguments",
         width,
-        args.iter().copied(),
-        |a| a.help_heading,
+        &args,
+        &|a| a.help_heading,
         // Section prose belongs to the long page, like an entry's admonitions.
-        |_| None,
-        |out, a| {
+        &|_| None,
+        &mut |out, a| {
             let usage = arg_usage(a);
             if meta.next_line_help {
                 let _ = writeln!(out, "  {usage}");
@@ -1581,10 +1597,10 @@ fn short_sections(
         },
         "Flags",
         width,
-        own.iter().copied(),
-        |f| flag_help_heading(meta, f),
-        |_| None,
-        |out, f| short_entry(out, f, column_usage(f)),
+        &own,
+        &|f| flag_help_heading(meta, f),
+        &|_| None,
+        &mut |out, f| short_entry(out, f, column_usage(f)),
     );
     // After the command's own, and under a heading that says where they came from: `--config`
     // belongs to the program, not to this command, and a reader should be able to see that.
@@ -1597,12 +1613,13 @@ fn short_sections(
         },
         "Global flags",
         width,
-        inherited.iter(),
-        |_| None,
-        |_| None,
-        |out, (f, usage)| short_entry(out, f, usage.clone()),
+        &inherited,
+        &|_| None,
+        &|_| None,
+        &mut |out, (f, usage)| short_entry(out, f, usage.clone()),
     );
     if flatten_help(meta) {
+        #[cfg(feature = "help-advanced")]
         flat_commands_short(
             &mut sections.flattened,
             &path[1.min(path.len())..],
@@ -1775,6 +1792,7 @@ fn command_row<'a>(sub: &'a CommandMeta<'a>) -> Option<Cow<'a, str>> {
     Some(Cow::Owned(row))
 }
 
+#[cfg(feature = "help-advanced")]
 fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, width: usize) {
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
     order_commands(&mut visible);
@@ -2005,19 +2023,22 @@ struct SectionSink<'s> {
 
 /// One section per heading, unheaded first, while also keeping the named and default groups
 /// available to a template.
-fn split_groups_section<'m, T: 'm>(
+///
+/// Erased callbacks so fat LTO does not clone this layout for every argument and flag writer.
+#[inline(never)]
+fn split_groups_section<'a, T: 'a>(
     sink: SectionSink<'_>,
     default_title: &str,
     width: usize,
-    items: impl Iterator<Item = &'m T> + Clone,
-    heading_of: impl Fn(&T) -> Option<&str>,
-    prose_of: impl Fn(&str) -> Option<&'m str>,
-    mut write_item: impl FnMut(&mut String, &T),
+    items: &'a [T],
+    heading_of: &dyn Fn(&T) -> Option<&'a str>,
+    prose_of: &dyn Fn(&str) -> Option<&'a str>,
+    write_item: &mut dyn FnMut(&mut String, &T),
 ) {
     // Headings in first-seen order, with the unheaded group before them. Collected rather
     // than sorted so that "first seen" means what it says.
     let mut headings: Vec<Option<&str>> = Vec::new();
-    for item in items.clone() {
+    for item in items {
         let heading = heading_of(item);
         if !headings.contains(&heading) {
             headings.push(heading);
@@ -2040,11 +2061,13 @@ fn split_groups_section<'m, T: 'm>(
         // exists because entries did not ask for a section, and it is not one title: the
         // same unheaded flags render under `Flags` here and under `Global Flags` in a
         // Markdown page, so keying prose to it would mean different things per renderer.
-        if let Some(prose) = heading.and_then(&prose_of) {
-            write_wrapped_indented(&mut section, prose, width, 2);
-            section.push('\n');
+        if let Some(title) = heading {
+            if let Some(prose) = prose_of(title) {
+                write_wrapped_indented(&mut section, prose, width, 2);
+                section.push('\n');
+            }
         }
-        for item in items.clone().filter(|i| heading_of(i) == heading) {
+        for item in items.iter().filter(|i| heading_of(i) == heading) {
             write_item(&mut section, item);
         }
         sink.page.push_str(&section);
@@ -2425,10 +2448,10 @@ fn long_sections(
         },
         "Arguments",
         width,
-        args.iter().copied(),
-        |a| a.help_heading,
-        |title| heading_help(meta, title),
-        |out, a| {
+        &args,
+        &|a| a.help_heading,
+        &|title| heading_help(meta, title),
+        &mut |out, a| {
             let text = a.long_help.or(a.help);
             let indent = entry(
                 out,
@@ -2472,10 +2495,10 @@ fn long_sections(
         },
         "Flags",
         width,
-        own.iter().copied(),
-        |f| flag_help_heading(meta, f),
-        |title| heading_help(meta, title),
-        |out, f| {
+        &own,
+        &|f| flag_help_heading(meta, f),
+        &|title| heading_help(meta, title),
+        &mut |out, f| {
             let text = f.long_help.or(f.help);
             let indent = entry(
                 out,
@@ -2514,10 +2537,10 @@ fn long_sections(
         },
         "Global flags",
         width,
-        inherited.iter(),
-        |_| None,
-        |_| None,
-        |out, (f, usage)| {
+        &inherited,
+        &|_| None,
+        &|_| None,
+        &mut |out, (f, usage)| {
             let text = f.long_help.or(f.help);
             let indent = entry(out, usage, text, flag_col, width, meta.next_line_help);
             admonitions(out, f.admonitions, width);
@@ -2538,6 +2561,7 @@ fn long_sections(
         },
     );
     if flatten_help(meta) {
+        #[cfg(feature = "help-advanced")]
         flat_commands_long(
             &mut sections.flattened,
             &path[1.min(path.len())..],
@@ -2612,6 +2636,7 @@ fn write_indented(out: &mut String, text: &str, indent: usize) {
 }
 
 /// One entry: its usage, and its help either beside it or beneath it.
+#[inline(never)]
 fn entry(
     out: &mut String,
     usage: &str,
@@ -2704,6 +2729,7 @@ fn entry(
     indent
 }
 
+#[inline(never)]
 fn wrap_at(text: &str, first_width: usize, continuation_width: usize) -> Vec<String> {
     let mut lines = Vec::new();
     for (index, line) in text.split('\n').enumerate() {
@@ -2724,6 +2750,7 @@ fn write_wrapped_block(out: &mut String, help: &str, width: usize) {
     write_wrapped_indented(out, help, width, BLOCK_INDENT);
 }
 
+#[inline(never)]
 fn write_wrapped_indented(out: &mut String, help: &str, width: usize, indent: usize) {
     let room = width.saturating_sub(indent);
     let pad = " ".repeat(indent);
@@ -2772,6 +2799,7 @@ fn fits(text: &str, room: usize) -> bool {
 /// The width of the line under construction is carried along rather than recounted for each
 /// word. Recounting made this quadratic in the length of a line, which went unnoticed while
 /// only the long page wrapped and was 3% of `usage --help` once the command list did too.
+#[inline(never)]
 fn wrap(text: &str, width: usize) -> Vec<String> {
     let mut lines = Vec::new();
     for paragraph in text.split('\n') {
@@ -2840,6 +2868,7 @@ fn list_prefix(line: &str) -> Option<(&str, &str)> {
 /// description reached it, and [`BLOCK_INDENT`] when it did not. An annotation is a note about
 /// the same entry, so it belongs under the text it qualifies rather than in the gutter beside a
 /// column it is ignoring.
+#[inline(never)]
 fn long_annotations(
     out: &mut String,
     choices: &[&str],
@@ -2979,6 +3008,7 @@ fn flag_notes(out: &mut String, meta: &FlagMeta<'_>, indent: usize, width: usize
     }
 }
 
+#[cfg(feature = "help-advanced")]
 fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, width: usize) {
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
     order_commands(&mut visible);
@@ -3606,8 +3636,17 @@ pub fn render_all(spec: &Spec<'_>, cmd: &Command<'_>) -> Option<String> {
 /// # Panics
 /// Panics without the `help-advanced` feature.
 pub fn render_all_styled(spec: &Spec<'_>, cmd: &Command<'_>, style: Style) -> Option<String> {
-    let (path, chain) = find(spec, cmd)?;
-    Some(recursive_help(spec, path, chain, style, false))
+    #[cfg(feature = "help-advanced")]
+    {
+        let (path, chain) = find(spec, cmd)?;
+        Some(recursive_help(spec, path, chain, style, false))
+    }
+    #[cfg(not(feature = "help-advanced"))]
+    {
+        let _ = (spec, cmd, style);
+        let _ = __usage_advanced_help(true);
+        None
+    }
 }
 
 /// The route the words took to a command, for rendering its page unambiguously.
@@ -3804,8 +3843,17 @@ pub fn render_all_at_styled(
     route: &[&Command<'_>],
     style: Style,
 ) -> Option<String> {
-    let (path, chain) = route_context(spec, route)?;
-    Some(recursive_help(spec, path, chain, style, false))
+    #[cfg(feature = "help-advanced")]
+    {
+        let (path, chain) = route_context(spec, route)?;
+        Some(recursive_help(spec, path, chain, style, false))
+    }
+    #[cfg(not(feature = "help-advanced"))]
+    {
+        let _ = (spec, route, style);
+        let _ = __usage_advanced_help(true);
+        None
+    }
 }
 
 /// Recursive long help through a spec-declared executable view.
@@ -3818,39 +3866,48 @@ pub fn render_all_view_at_styled(
     view: &ViewMeta<'_>,
     style: Style,
 ) -> Option<String> {
-    let (canonical_path, canonical_chain) = route_context(spec, route)?;
-    let depth = view.root.split_ascii_whitespace().count();
-    let promoted = *canonical_chain.get(depth)?;
-    let (root_flags, root_groups) = view_root_fields(spec, promoted, view);
-    let root_command = Command {
-        version: spec.root.cmd.version,
-        disable_version_flag: spec.root.cmd.disable_version_flag,
-        ..*promoted.cmd
-    };
-    let root = CommandMeta {
-        cmd: &root_command,
-        flags: &root_flags,
-        groups: &root_groups,
-        ..*promoted
-    };
-    let mut chain = Vec::with_capacity(canonical_chain.len().saturating_sub(depth));
-    chain.push(&root);
-    chain.extend_from_slice(canonical_chain.get(depth + 1..).unwrap_or_default());
-    let mut path = Vec::with_capacity(canonical_path.len().saturating_sub(depth));
-    path.push(view.bin);
-    path.extend_from_slice(canonical_path.get(depth + 1..).unwrap_or_default());
-    let viewed = Spec {
-        name: view.name,
-        bin: Some(view.bin),
-        about: promoted.about,
-        long_about: promoted.long_about,
-        usage: None,
-        default_subcommand: None,
-        multicall: false,
-        root: &root,
-        ..*spec
-    };
-    Some(recursive_help(&viewed, path, chain, style, true))
+    #[cfg(not(feature = "help-advanced"))]
+    {
+        let _ = (spec, route, view, style);
+        let _ = __usage_advanced_help(true);
+        None
+    }
+    #[cfg(feature = "help-advanced")]
+    {
+        let (canonical_path, canonical_chain) = route_context(spec, route)?;
+        let depth = view.root.split_ascii_whitespace().count();
+        let promoted = *canonical_chain.get(depth)?;
+        let (root_flags, root_groups) = view_root_fields(spec, promoted, view);
+        let root_command = Command {
+            version: spec.root.cmd.version,
+            disable_version_flag: spec.root.cmd.disable_version_flag,
+            ..*promoted.cmd
+        };
+        let root = CommandMeta {
+            cmd: &root_command,
+            flags: &root_flags,
+            groups: &root_groups,
+            ..*promoted
+        };
+        let mut chain = Vec::with_capacity(canonical_chain.len().saturating_sub(depth));
+        chain.push(&root);
+        chain.extend_from_slice(canonical_chain.get(depth + 1..).unwrap_or_default());
+        let mut path = Vec::with_capacity(canonical_path.len().saturating_sub(depth));
+        path.push(view.bin);
+        path.extend_from_slice(canonical_path.get(depth + 1..).unwrap_or_default());
+        let viewed = Spec {
+            name: view.name,
+            bin: Some(view.bin),
+            about: promoted.about,
+            long_about: promoted.long_about,
+            usage: None,
+            default_subcommand: None,
+            multicall: false,
+            root: &root,
+            ..*spec
+        };
+        Some(recursive_help(&viewed, path, chain, style, true))
+    }
 }
 
 /// Which page a help request asks for.
@@ -4000,6 +4057,7 @@ pub(crate) fn view_root_fields<'a>(
     (flags, groups)
 }
 
+#[cfg(feature = "help-advanced")]
 fn recursive_help<'a>(
     spec: &'a Spec<'a>,
     path: Vec<&'a str>,
@@ -4056,10 +4114,12 @@ fn recursive_help<'a>(
 
 #[cfg(test)]
 mod style_tests {
+    #[cfg(feature = "help-advanced")]
+    use super::flat_commands_short;
     use super::{
-        commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
-        inline_environment_notes, long_help, render, render_styled, render_view_at_styled,
-        styled_flag_usage, styled_help, styled_inline, usage_line, wrap, Shown, Style,
+        commands_section, display_usage_masked, flag_notes, flag_usage, inline_environment_notes,
+        long_help, render, render_styled, render_view_at_styled, styled_flag_usage, styled_help,
+        styled_inline, usage_line, wrap, Shown, Style,
     };
     use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
     use crate::{Arg, ArgAction, Clause, Command, Flag};
@@ -4395,6 +4455,7 @@ mod style_tests {
         assert_eq!(display_usage_masked(&meta, &shown), "--no-credit");
     }
 
+    #[cfg(feature = "help-advanced")]
     #[test]
     fn flattened_next_line_deprecation_follows_help_without_a_blank_row() {
         let flag = Flag {
@@ -4434,6 +4495,7 @@ mod style_tests {
         assert!(!page.contains("Use the old mode\n\n    [deprecated"));
     }
 
+    #[cfg(feature = "help-advanced")]
     #[test]
     fn flattened_next_line_flags_without_help_still_end_their_usage_rows() {
         let old = Flag {
@@ -4837,6 +4899,7 @@ mod style_tests {
     }
 
     #[test]
+    #[cfg(feature = "help-advanced")]
     fn flattened_descendant_rows_receive_argument_and_flag_styles() {
         let file = Arg {
             name: "file",
