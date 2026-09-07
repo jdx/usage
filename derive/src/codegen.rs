@@ -1144,7 +1144,7 @@ pub fn emit(cli: &Cli) -> TokenStream {
                 subcommand_help_heading: #subcommand_help_heading,
                 subcommand_value_name: #subcommand_value_name,
                 next_line_help: #next_line_help,
-                flatten_help: #flatten_help,
+                flatten_help: usage_argv::help::__usage_advanced_help(#flatten_help),
                 term_width: #term_width,
                 max_term_width: #max_term_width,
                 args_override_self: #args_override_self,
@@ -2029,6 +2029,14 @@ fn spec_endpoint_fns(cli: &Cli) -> (TokenStream, TokenStream) {
     if !cli.spec_endpoint {
         return (TokenStream::new(), TokenStream::new());
     }
+    let response = match &cli.spec_endpoint_file {
+        Some(path) => quote! {
+            ::std::string::String::from(::core::include_str!(::core::concat!(
+                ::core::env!("CARGO_MANIFEST_DIR"), "/", #path,
+            )))
+        },
+        None => quote! { Self::to_kdl() },
+    };
     let functions = quote! {
         /// This CLI's own spec, when argv asks for it.
         ///
@@ -2043,7 +2051,7 @@ fn spec_endpoint_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             argv: &[&::std::ffi::OsStr],
         ) -> ::std::option::Option<::std::string::String> {
             if usage_argv::is_spec_request(Self::command(), argv) {
-                ::std::option::Option::Some(Self::to_kdl())
+                ::std::option::Option::Some(#response)
             } else {
                 ::std::option::Option::None
             }
@@ -2416,7 +2424,10 @@ fn flag_table(i: usize, field: &Field) -> TokenStream {
         crate::model::ArgAction::Help => quote!(usage_argv::ArgAction::Help),
         crate::model::ArgAction::HelpShort => quote!(usage_argv::ArgAction::HelpShort),
         crate::model::ArgAction::HelpLong => quote!(usage_argv::ArgAction::HelpLong),
-        crate::model::ArgAction::HelpAll => quote!(usage_argv::ArgAction::HelpAll),
+        crate::model::ArgAction::HelpAll => quote!({
+            usage_argv::help::__usage_advanced_help(true);
+            usage_argv::ArgAction::HelpAll
+        }),
         crate::model::ArgAction::Version => quote!(usage_argv::ArgAction::Version),
     };
     quote! {
@@ -7064,7 +7075,7 @@ pub fn emit_args(cli: &Cli) -> TokenStream {
                 subcommand_help_heading: #subcommand_help_heading,
                 subcommand_value_name: #subcommand_value_name,
                 next_line_help: #next_line_help,
-                flatten_help: #flatten_help,
+                flatten_help: usage_argv::help::__usage_advanced_help(#flatten_help),
                 term_width: #term_width,
                 max_term_width: #max_term_width,
                 args_override_self: #args_override_self,

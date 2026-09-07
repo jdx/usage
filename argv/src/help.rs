@@ -598,6 +598,20 @@ struct HelpStructure {
     synopsis: Vec<String>,
 }
 
+/// Validate advanced-help metadata, including in generated static declarations.
+#[doc(hidden)]
+pub const fn __usage_advanced_help(enabled: bool) -> bool {
+    assert!(
+        !enabled || cfg!(feature = "help-advanced"),
+        "flatten_help and HelpAll require the `help-advanced` feature"
+    );
+    enabled && cfg!(feature = "help-advanced")
+}
+
+fn flatten_help(meta: &CommandMeta<'_>) -> bool {
+    __usage_advanced_help(meta.flatten_help)
+}
+
 fn help_structure(
     spec: &Spec<'_>,
     path: &[&str],
@@ -611,7 +625,7 @@ fn help_structure(
     if !meta.examples.is_empty() {
         headings.push("Examples".to_string());
     }
-    if meta.flatten_help {
+    if flatten_help(meta) {
         flat_help_headings(&path[1.min(path.len())..], meta, &mut headings);
     } else if meta.subcommands.iter().any(|sub| !sub.hide) {
         command_usages.extend(
@@ -696,7 +710,7 @@ fn help_structure(
 
     let mut flag_usages: Vec<String> = own.iter().map(|flag| column_usage(flag)).collect();
     flag_usages.extend(inherited.into_iter().map(|(_, usage)| usage));
-    if meta.flatten_help {
+    if flatten_help(meta) {
         flat_help_usages(meta, long, &mut flag_usages, &mut arg_usages);
     }
     arg_usages.sort_unstable_by_key(|usage| core::cmp::Reverse(usage.len()));
@@ -751,7 +765,7 @@ fn flat_help_usages(
                 })
                 .map(column_usage),
         );
-        if sub.flatten_help {
+        if flatten_help(sub) {
             flat_help_usages(sub, long, flag_usages, arg_usages);
         }
     }
@@ -764,7 +778,7 @@ fn flat_help_headings(path: &[&str], meta: &CommandMeta<'_>, headings: &mut Vec<
         let mut sub_path = path.to_vec();
         sub_path.push(sub.cmd.name);
         headings.push(sub_path.join(" "));
-        if sub.flatten_help {
+        if flatten_help(sub) {
             flat_help_headings(&sub_path, sub, headings);
         }
     }
@@ -1045,7 +1059,7 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
         a.cmd.name.cmp(b.cmd.name)
     }
     visible.sort_unstable_by(|a, b| compare_names(a, b));
-    if meta.flatten_help && !visible.is_empty() {
+    if flatten_help(meta) && !visible.is_empty() {
         let mut lines = Vec::new();
         if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
             lines.push(usage_line_with_subcommands(path, meta, false));
@@ -1416,7 +1430,7 @@ fn short_sections(
 
     // The path without the binary: it is the sort key the reference orders the list by, even
     // now that the row itself shows the child's own name.
-    if !meta.flatten_help {
+    if !flatten_help(meta) {
         commands_section(
             &mut sections.commands,
             &path[1.min(path.len())..],
@@ -1588,7 +1602,7 @@ fn short_sections(
         |_| None,
         |out, (f, usage)| short_entry(out, f, usage.clone()),
     );
-    if meta.flatten_help {
+    if flatten_help(meta) {
         flat_commands_short(
             &mut sections.flattened,
             &path[1.min(path.len())..],
@@ -1925,7 +1939,7 @@ fn flat_commands_short(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, 
                 false,
             );
         }
-        if sub.flatten_help {
+        if flatten_help(sub) {
             flat_commands_short(out, &sub_path, sub, width);
         }
         out.push('\n');
@@ -2375,7 +2389,7 @@ fn long_sections(
     command_deprecation(out, meta, 0, width);
     usage_section(&mut sections.usage, spec, path, meta);
 
-    if !meta.flatten_help {
+    if !flatten_help(meta) {
         commands_section(
             &mut sections.commands,
             &path[1.min(path.len())..],
@@ -2519,7 +2533,7 @@ fn long_sections(
             flag_notes(out, f, indent, width);
         },
     );
-    if meta.flatten_help {
+    if flatten_help(meta) {
         flat_commands_long(
             &mut sections.flattened,
             &path[1.min(path.len())..],
@@ -3076,7 +3090,7 @@ fn flat_commands_long(out: &mut String, path: &[&str], meta: &CommandMeta<'_>, w
             );
             flag_notes(out, flag, BLOCK_INDENT, width);
         }
-        if sub.flatten_help {
+        if flatten_help(sub) {
             flat_commands_long(out, &sub_path, sub, width);
         }
         out.push('\n');
@@ -3567,11 +3581,17 @@ pub fn render_styled(
 }
 
 /// Long help for a command and every visible descendant, in depth-first order.
+///
+/// # Panics
+/// Panics without the `help-advanced` feature.
 pub fn render_all(spec: &Spec<'_>, cmd: &Command<'_>) -> Option<String> {
     render_all_styled(spec, cmd, Style::PLAIN)
 }
 
 /// Recursive long help with an explicit colour policy.
+///
+/// # Panics
+/// Panics without the `help-advanced` feature.
 pub fn render_all_styled(spec: &Spec<'_>, cmd: &Command<'_>, style: Style) -> Option<String> {
     let (path, chain) = find(spec, cmd)?;
     Some(recursive_help(spec, path, chain, style, false))
@@ -3755,11 +3775,17 @@ pub fn render_view_at_styled(
 }
 
 /// Recursive long help for a command reached by a known route.
+///
+/// # Panics
+/// Panics without the `help-advanced` feature.
 pub fn render_all_at(spec: &Spec<'_>, route: &[&Command<'_>]) -> Option<String> {
     render_all_at_styled(spec, route, Style::PLAIN)
 }
 
 /// Route-specific recursive long help with an explicit colour policy.
+///
+/// # Panics
+/// Panics without the `help-advanced` feature.
 pub fn render_all_at_styled(
     spec: &Spec<'_>,
     route: &[&Command<'_>],
@@ -3770,6 +3796,9 @@ pub fn render_all_at_styled(
 }
 
 /// Recursive long help through a spec-declared executable view.
+///
+/// # Panics
+/// Panics without the `help-advanced` feature.
 pub fn render_all_view_at_styled(
     spec: &Spec<'_>,
     route: &[&Command<'_>],
@@ -3965,6 +3994,7 @@ fn recursive_help<'a>(
     style: Style,
     inherit_version_actions: bool,
 ) -> String {
+    __usage_advanced_help(true);
     fn append<'a>(
         out: &mut String,
         spec: &'a Spec<'a>,

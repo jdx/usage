@@ -105,6 +105,7 @@ jobs:
         run: |
           cargo clippy -p usage-lib --no-default-features -- -D warnings
           cargo clippy -p usage-rs --no-default-features -- -D warnings
+          cargo test -p usage-rs --no-default-features --features help,diagnostics,completions --lib --test static_endpoint
           cargo clippy -p usage-config --no-default-features -- -D warnings
       - run: mise r render
       # Same reasoning as `render`: the shadow is checked in, so a change to the derive's

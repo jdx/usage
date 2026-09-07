@@ -62,6 +62,8 @@ pub struct Cli {
     /// remembers to write is an endpoint nothing can rely on. `spec_endpoint = false` is for a
     /// binary that does not want to carry the KDL writer at all.
     pub spec_endpoint: bool,
+    /// Pre-generated endpoint KDL, included relative to the declaring crate.
+    pub spec_endpoint_file: Option<String>,
     /// A file whose KDL is appended to the emitted spec.
     ///
     /// The escape hatch for a node no attribute carries, so a CLI that needs one keeps a single
@@ -792,6 +794,7 @@ impl Cli {
             runtime_bin: None,
             completion: false,
             spec_endpoint: true,
+            spec_endpoint_file: None,
             spec_extra: None,
             settings: false,
             dispatch: Dispatch::default(),
@@ -921,6 +924,7 @@ impl Cli {
                     // decorative after it.
                     "completion" => cli.completion = flag_value(&meta)?,
                     "spec_endpoint" => cli.spec_endpoint = flag_value(&meta)?,
+                    "spec_endpoint_file" => cli.spec_endpoint_file = Some(string_value(&meta)?),
                     "spec_extra" => cli.spec_extra = Some(string_value(&meta)?),
                     "settings" => cli.settings = flag_value(&meta)?,
                     "run" => cli.dispatch.run = flag_value(&meta)?,
@@ -1186,6 +1190,13 @@ impl Cli {
                     }
                 }
             }
+        }
+
+        if cli.spec_endpoint_file.is_some() && !cli.spec_endpoint {
+            return Err(syn::Error::new_spanned(
+                &input.ident,
+                "`spec_endpoint_file` requires `spec_endpoint` to be enabled",
+            ));
         }
 
         (cli.about, cli.long_about) = doc_comment(&input.attrs, verbatim_doc_comment)?;
@@ -6889,6 +6900,23 @@ mod tests {
             Ok(_) => panic!("should not have compiled"),
             Err(e) => e.to_string(),
         }
+    }
+
+    #[test]
+    fn a_static_endpoint_file_requires_the_endpoint() {
+        assert!(rejection(
+            r#"
+            #[usage(spec_endpoint = false, spec_endpoint_file = "cli.usage.kdl")]
+            struct Ex {}
+        "#
+        )
+        .contains("requires `spec_endpoint`"));
+        let parsed = cli(r#"
+            #[usage(spec_endpoint_file = "cli.usage.kdl")]
+            struct Ex {}
+        "#)
+        .unwrap();
+        assert_eq!(parsed.spec_endpoint_file.as_deref(), Some("cli.usage.kdl"));
     }
 
     #[test]

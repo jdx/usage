@@ -42,7 +42,7 @@ license = "MIT"
 [workspace.dependencies]
 clap_usage = { path = "./clap_usage", version = "5.0.0" }
 usage-cli = { path = "./cli" }
-usage-argv = { path = "./argv", version = "6.8.0" }
+usage-argv = { path = "./argv", version = "6.8.0", default-features = false }
 usage-config = { path = "./config", version = "6.8.0" }
 usage-derive = { path = "./derive", version = "6.8.0" }
 # No features, and defaults off. A feature named here is inherited by every member that writes

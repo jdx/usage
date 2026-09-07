@@ -23,9 +23,10 @@ shell-words = { version = "1", optional = true }
 # clap-shaped errors. Completions and expression validation stay opt-in.
 # Low-level adopters that want only the binding runtime keep depending on
 # `usage-argv` directly (no defaults).
-default = ["spec", "help", "diagnostics"]
+default = ["spec", "help", "diagnostics", "help-advanced"]
 spec = ["usage-argv/spec", "dep:usage-derive"]
 help = ["spec"]
+help-advanced = ["help", "usage-argv/help-advanced"]
 completions = ["spec", "usage-argv/complete", "usage-test?/completions"]
 # Kept as a spelling close to the runtime feature for low-level adopters.
 complete = ["completions"]

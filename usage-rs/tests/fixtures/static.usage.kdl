@@ -1,0 +1,4 @@
+name static-spec
+bin static-spec
+flag --verbose
+flag "-h --help" help="Print help" action=help builtin=#true
