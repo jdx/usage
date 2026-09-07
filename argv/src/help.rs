@@ -1040,7 +1040,11 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
         }
     }
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    visible.sort_unstable_by_key(|sub| sub.cmd.name);
+    #[inline(never)]
+    fn compare_names(a: &CommandMeta<'_>, b: &CommandMeta<'_>) -> core::cmp::Ordering {
+        a.cmd.name.cmp(b.cmd.name)
+    }
+    visible.sort_unstable_by(|a, b| compare_names(a, b));
     if meta.flatten_help && !visible.is_empty() {
         let mut lines = Vec::new();
         if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
@@ -2037,33 +2041,64 @@ fn split_groups_section<'m, T: 'm>(
     }
 }
 
-fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>]) {
-    items.sort_unstable_by_key(|item| {
-        let position = declared
+// Rows refer into their declaration slice. Compute the index without repeatedly scanning
+// that slice from inside the sort comparator. Check identity to preserve the fallback for
+// a row outside the slice; no pointer is dereferenced or offset outside its allocation.
+fn declaration_position<T>(item: &T, declared: &[T]) -> usize {
+    let offset = core::ptr::from_ref(item)
+        .addr()
+        .wrapping_sub(declared.as_ptr().addr());
+    let Some(index) = offset.checked_div(core::mem::size_of::<T>()) else {
+        return declared
             .iter()
-            .position(|candidate| core::ptr::eq(candidate, *item))
+            .position(|candidate| core::ptr::eq(candidate, item))
             .unwrap_or(usize::MAX);
-        (item.display_order.unwrap_or(position), position)
-    });
+    };
+    declared
+        .get(index)
+        .filter(|candidate| core::ptr::eq(*candidate, item))
+        .map_or(usize::MAX, |_| index)
+}
+
+// Outlining the comparators keeps fat LTO from duplicating their bodies throughout
+// the sort implementation. The sort remains unstable and needs no key allocation.
+fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>]) {
+    #[inline(never)]
+    fn compare(a: &ArgMeta<'_>, b: &ArgMeta<'_>, declared: &[ArgMeta<'_>]) -> core::cmp::Ordering {
+        let key = |item: &ArgMeta<'_>| {
+            let position = declaration_position(item, declared);
+            (item.display_order.unwrap_or(position), position)
+        };
+        key(a).cmp(&key(b))
+    }
+    items.sort_unstable_by(|a, b| compare(a, b, declared));
 }
 
 fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a>]) {
-    items.sort_unstable_by_key(|item| {
-        let position = declared
-            .iter()
-            .position(|candidate| core::ptr::eq(candidate, *item))
-            .unwrap_or(usize::MAX);
-        (item.display_order.unwrap_or(position), position)
-    });
+    #[inline(never)]
+    fn compare(
+        a: &FlagMeta<'_>,
+        b: &FlagMeta<'_>,
+        declared: &[FlagMeta<'_>],
+    ) -> core::cmp::Ordering {
+        let key = |item: &FlagMeta<'_>| {
+            let position = declaration_position(item, declared);
+            (item.display_order.unwrap_or(position), position)
+        };
+        key(a).cmp(&key(b))
+    }
+    items.sort_unstable_by(|a, b| compare(a, b, declared));
 }
 
 fn order_commands(items: &mut Vec<&&CommandMeta<'_>>) {
-    items.sort_unstable_by(|a, b| {
+    #[inline(never)]
+    fn compare(a: &CommandMeta<'_>, b: &CommandMeta<'_>) -> core::cmp::Ordering {
         a.display_order
             .unwrap_or(999)
             .cmp(&b.display_order.unwrap_or(999))
             .then_with(|| a.cmd.name.cmp(b.cmd.name))
-    });
+    }
+    items.sort_unstable_by(|a, b| compare(a, b));
 }
 
 fn command_help_section<'a>(sub: &'a CommandMeta<'a>, default_title: &str) -> Option<&'a str> {
@@ -3952,7 +3987,7 @@ fn recursive_help<'a>(
 
         let current = *chain.last().expect("a recursive page has a command");
         let mut children: Vec<_> = current.subcommands.iter().filter(|cmd| !cmd.hide).collect();
-        children.sort_unstable_by_key(|cmd| (cmd.display_order.unwrap_or(999), cmd.cmd.name));
+        order_commands(&mut children);
         for child in children {
             path.push(child.cmd.name);
             chain.push(child);
@@ -3985,6 +4020,65 @@ mod style_tests {
     };
     use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
     use crate::{Arg, ArgAction, Clause, Command, Flag};
+
+    #[test]
+    fn declaration_positions_match_identity_search() {
+        let values = [11_u32, 22, 11, 44];
+        let other = 11;
+        for declared in [&values[..], &values[1..3], &values[..0]] {
+            for item in values.iter().chain([&other]) {
+                let expected = declared
+                    .iter()
+                    .position(|candidate| core::ptr::eq(candidate, item))
+                    .unwrap_or(usize::MAX);
+                assert_eq!(super::declaration_position(item, declared), expected);
+            }
+        }
+        // The helper is generic, even though help metadata is never zero-sized.
+        let values = [(); 3];
+        for declared in [&values[..], &values[..0]] {
+            for item in &values {
+                let expected = declared
+                    .iter()
+                    .position(|candidate| core::ptr::eq(candidate, item))
+                    .unwrap_or(usize::MAX);
+                assert_eq!(super::declaration_position(item, declared), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn filtered_help_rows_keep_declaration_order_as_the_tie_breaker() {
+        macro_rules! check {
+            ($meta:ident, $order:ident) => {{
+                let declared = [
+                    $meta::EMPTY,
+                    $meta {
+                        display_order: Some(1),
+                        ..$meta::EMPTY
+                    },
+                    $meta::EMPTY,
+                    $meta {
+                        display_order: Some(0),
+                        ..$meta::EMPTY
+                    },
+                    $meta {
+                        display_order: Some(1),
+                        ..$meta::EMPTY
+                    },
+                ];
+                // Filtering out a row must not renumber the remaining defaults. Shuffle rows
+                // so equal explicit orders must use declaration position.
+                let mut rows = vec![&declared[4], &declared[2], &declared[3], &declared[1]];
+                super::$order(&mut rows, &declared);
+                for (row, expected) in rows.iter().zip([3, 1, 4, 2]) {
+                    assert!(core::ptr::eq(*row, &declared[expected]));
+                }
+            }};
+        }
+        check!(ArgMeta, order_args);
+        check!(FlagMeta, order_flags);
+    }
 
     #[test]
     fn compiled_clause_arguments_appear_in_usage_and_help() {
