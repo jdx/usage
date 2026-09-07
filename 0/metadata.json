@@ -1,0 +1,61 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M1X42HEMTQCR2T3DJWP7M4BD",
+  "session_id": "01a079ef-56be-7840-a6bd-f02e7fbf5df3",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-07T05:04:53.831248Z",
+  "branch": "codex/optional-help-size",
+  "checkpoints_count": 2,
+  "files_touched": [
+    ".github/workflows/test-impl.yml",
+    "Cargo.toml",
+    "argv/Cargo.toml",
+    "argv/src/help.rs",
+    "conformance/Cargo.toml",
+    "derive/src/codegen.rs",
+    "derive/src/model.rs",
+    "test/Cargo.toml",
+    "usage-dynamic/Cargo.toml",
+    "usage-rs/Cargo.toml",
+    "usage-rs/src/lib.rs",
+    "usage-rs/tests/fixtures/static.usage.kdl",
+    "usage-rs/tests/static_endpoint.rs"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6-astra",
+  "turn_id": "cef02e4eec16",
+  "checkpoint_transcript_start": 1649,
+  "transcript_lines_at_start": 1649,
+  "compact_transcript_start": 223,
+  "token_usage": {
+    "input_tokens": 83102,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2895872,
+    "output_tokens": 16202,
+    "api_call_count": 47
+  },
+  "session_metrics": {
+    "turn_count": 10
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-07T05:04:53.718888Z",
+    "agent_lines": 305,
+    "agent_removed": 50,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 305,
+    "total_lines_changed": 355,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    }
+  ]
+}

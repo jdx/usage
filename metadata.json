@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "01M1X42HEMTQCR2T3DJWP7M4BD",
+  "strategy": "manual-commit",
+  "branch": "codex/optional-help-size",
+  "checkpoints_count": 2,
+  "files_touched": [
+    ".github/workflows/test-impl.yml",
+    "Cargo.toml",
+    "argv/Cargo.toml",
+    "argv/src/help.rs",
+    "conformance/Cargo.toml",
+    "derive/src/codegen.rs",
+    "derive/src/model.rs",
+    "test/Cargo.toml",
+    "usage-dynamic/Cargo.toml",
+    "usage-rs/Cargo.toml",
+    "usage-rs/src/lib.rs",
+    "usage-rs/tests/fixtures/static.usage.kdl",
+    "usage-rs/tests/static_endpoint.rs"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 83102,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2895872,
+    "output_tokens": 16202,
+    "api_call_count": 47
+  }
+}
