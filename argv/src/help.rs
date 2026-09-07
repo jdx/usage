@@ -1053,30 +1053,30 @@ fn usage_section(out: &mut String, spec: &Spec<'_>, path: &[&str], meta: &Comman
             return;
         }
     }
+    // Only flattened help needs a synopsis for every visible child.
+    if !flatten_help(meta) || !meta.subcommands.iter().any(|sub| !sub.hide) {
+        let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
+        return;
+    }
     let mut visible: Vec<_> = meta.subcommands.iter().filter(|sub| !sub.hide).collect();
-    #[inline(never)]
     fn compare_names(a: &CommandMeta<'_>, b: &CommandMeta<'_>) -> core::cmp::Ordering {
         a.cmd.name.cmp(b.cmd.name)
     }
-    visible.sort_unstable_by(|a, b| compare_names(a, b));
-    if flatten_help(meta) && !visible.is_empty() {
-        let mut lines = Vec::new();
-        if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
-            lines.push(usage_line_with_subcommands(path, meta, false));
+    sort_rows(&mut visible, &mut |a, b| compare_names(a, b));
+    let mut lines = Vec::new();
+    if !meta.subcommand_required || meta.cmd.args_conflicts_with_subcommands {
+        lines.push(usage_line_with_subcommands(path, meta, false));
+    }
+    for sub in visible {
+        let mut sub_path = path.to_vec();
+        sub_path.push(sub.cmd.name);
+        lines.push(usage_line(&sub_path, sub));
+    }
+    if let Some((first, rest)) = lines.split_first() {
+        let _ = writeln!(out, "Usage: {first}");
+        for line in rest {
+            let _ = writeln!(out, "       {line}");
         }
-        for sub in visible {
-            let mut sub_path = path.to_vec();
-            sub_path.push(sub.cmd.name);
-            lines.push(usage_line(&sub_path, sub));
-        }
-        if let Some((first, rest)) = lines.split_first() {
-            let _ = writeln!(out, "Usage: {first}");
-            for line in rest {
-                let _ = writeln!(out, "       {line}");
-            }
-        }
-    } else {
-        let _ = writeln!(out, "Usage: {}", usage_line(path, meta));
     }
 }
 
@@ -1658,7 +1658,7 @@ fn commands_section(
             (usage_line(&sub_path, sub), *sub)
         })
         .collect();
-    lines.sort_unstable_by(|a, b| {
+    sort_rows(&mut lines, &mut |a, b| {
         a.1.display_order
             .unwrap_or(999)
             .cmp(&b.1.display_order.unwrap_or(999))
@@ -2074,10 +2074,16 @@ fn declaration_position<T>(item: &T, declared: &[T]) -> usize {
         .map_or(usize::MAX, |_| index)
 }
 
-// Outlining the comparators keeps fat LTO from duplicating their bodies throughout
-// the sort implementation. The sort remains unstable and needs no key allocation.
+// Erasing the comparator lets LLVM share the sort between same-sized row types.
+// The callback is borrowed from the stack: no boxed closure or index allocation.
+#[inline(never)]
+fn sort_rows<T>(items: &mut [T], compare: &mut dyn FnMut(&T, &T) -> core::cmp::Ordering) {
+    items.sort_unstable_by(compare);
+}
+
+// The comparator lives in one callback body rather than being specialized throughout
+// the sort. The sort remains unstable and needs no key allocation.
 fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>]) {
-    #[inline(never)]
     fn compare(a: &ArgMeta<'_>, b: &ArgMeta<'_>, declared: &[ArgMeta<'_>]) -> core::cmp::Ordering {
         let key = |item: &ArgMeta<'_>| {
             let position = declaration_position(item, declared);
@@ -2085,11 +2091,10 @@ fn order_args<'a>(items: &mut Vec<&'a ArgMeta<'a>>, declared: &'a [ArgMeta<'a>])
         };
         key(a).cmp(&key(b))
     }
-    items.sort_unstable_by(|a, b| compare(a, b, declared));
+    sort_rows(items, &mut |a, b| compare(a, b, declared));
 }
 
 fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a>]) {
-    #[inline(never)]
     fn compare(
         a: &FlagMeta<'_>,
         b: &FlagMeta<'_>,
@@ -2101,18 +2106,17 @@ fn order_flags<'a>(items: &mut Vec<&'a FlagMeta<'a>>, declared: &'a [FlagMeta<'a
         };
         key(a).cmp(&key(b))
     }
-    items.sort_unstable_by(|a, b| compare(a, b, declared));
+    sort_rows(items, &mut |a, b| compare(a, b, declared));
 }
 
 fn order_commands(items: &mut Vec<&&CommandMeta<'_>>) {
-    #[inline(never)]
     fn compare(a: &CommandMeta<'_>, b: &CommandMeta<'_>) -> core::cmp::Ordering {
         a.display_order
             .unwrap_or(999)
             .cmp(&b.display_order.unwrap_or(999))
             .then_with(|| a.cmd.name.cmp(b.cmd.name))
     }
-    items.sort_unstable_by(|a, b| compare(a, b));
+    sort_rows(items, &mut |a, b| compare(a, b));
 }
 
 fn command_help_section<'a>(sub: &'a CommandMeta<'a>, default_title: &str) -> Option<&'a str> {
@@ -3321,55 +3325,64 @@ fn own_and_global<'a>(
         f.flag.negate.map(|n| format!("--{n}"))
     }
 
-    // Every long and short anything in scope answers to, near or far: one of these always
-    // beats a negation, so a negation survives only where none of them is the same word.
-    let every_form: Vec<String> = here
-        .flags
-        .iter()
-        .chain(ancestors.iter().flat_map(|m| m.flags.iter()).filter(|f| {
-            f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
-        }))
-        .flat_map(forms)
-        .collect();
-
     let mut taken: Vec<String> = here.flags.iter().flat_map(forms).collect();
     let mut taken_negations: Vec<String> = here.flags.iter().filter_map(negation).collect();
-    let mut keep: Vec<(*const FlagMeta<'_>, Shown<'_>)> = Vec::new();
-    for meta in ancestors.iter().rev() {
-        for f in meta.flags.iter().filter(|f| {
-            f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
-        }) {
-            let show = Shown::surviving(f, &taken, &taken_negations, &every_form);
-            // Reserved whether or not it is shown: a hidden one still binds, and so does one
-            // whose every spelling something nearer already took.
-            taken.extend(forms(f));
-            taken_negations.extend(negation(f));
-            if f.hide || show.nothing() {
-                continue;
-            }
-            keep.push((f as *const _, show));
-        }
-    }
-    let mut inherited: Vec<(&FlagMeta<'_>, String)> = ancestors
-        .iter()
-        .flat_map(|meta| meta.flags.iter())
-        .filter_map(|f| {
-            keep.iter()
-                .find(|(p, _)| core::ptr::eq(*p, f as *const _))
-                .map(|(_, show)| (f, column_usage_masked(f, show)))
-        })
-        .collect();
-    let inherited_positions: Vec<*const FlagMeta<'_>> = inherited
-        .iter()
-        .map(|(flag, _)| *flag as *const _)
-        .collect();
-    inherited.sort_unstable_by_key(|(flag, _)| {
-        let position = inherited_positions
+    // A root page has nothing to inherit. Do not allocate another copy of every
+    // spelling just to resolve shadowing against an empty ancestor list.
+    let mut inherited = if ancestors.is_empty() {
+        Vec::new()
+    } else {
+        // Every long and short anything in scope answers to, near or far: one of these always
+        // beats a negation, so a negation survives only where none of them is the same word.
+        let every_form: Vec<String> = here
+            .flags
             .iter()
-            .position(|candidate| core::ptr::eq(*candidate, *flag as *const _))
-            .unwrap_or(usize::MAX);
-        (flag.display_order.unwrap_or(position), position)
-    });
+            .chain(ancestors.iter().flat_map(|m| m.flags.iter()).filter(|f| {
+                f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
+            }))
+            .flat_map(forms)
+            .collect();
+
+        let mut keep: Vec<(*const FlagMeta<'_>, Shown<'_>)> = Vec::new();
+        for meta in ancestors.iter().rev() {
+            for f in meta.flags.iter().filter(|f| {
+                f.flag.global || (inherit_version_actions && crate::is_version_flag(f.flag))
+            }) {
+                let show = Shown::surviving(f, &taken, &taken_negations, &every_form);
+                // Reserved whether or not it is shown: a hidden one still binds, and so does one
+                // whose every spelling something nearer already took.
+                taken.extend(forms(f));
+                taken_negations.extend(negation(f));
+                if f.hide || show.nothing() {
+                    continue;
+                }
+                keep.push((f as *const _, show));
+            }
+        }
+        let mut inherited: Vec<(&FlagMeta<'_>, String)> = ancestors
+            .iter()
+            .flat_map(|meta| meta.flags.iter())
+            .filter_map(|f| {
+                keep.iter()
+                    .find(|(p, _)| core::ptr::eq(*p, f as *const _))
+                    .map(|(_, show)| (f, column_usage_masked(f, show)))
+            })
+            .collect();
+        let inherited_positions: Vec<*const FlagMeta<'_>> = inherited
+            .iter()
+            .map(|(flag, _)| *flag as *const _)
+            .collect();
+        let key = |flag: &FlagMeta<'_>| {
+            let position = inherited_positions
+                .iter()
+                .position(|candidate| core::ptr::eq(*candidate, flag))
+                .unwrap_or(usize::MAX);
+            (flag.display_order.unwrap_or(position), position)
+        };
+        sort_rows(&mut inherited, &mut |a, b| key(a.0).cmp(&key(b.0)));
+
+        inherited
+    };
 
     // Last in the command's own section, which is where clap has them: they carry no
     // `help_heading`, so a CLI that groups its flags gets them at the end of the ungrouped
