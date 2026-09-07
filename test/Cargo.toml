@@ -13,7 +13,7 @@ license = { workspace = true }
 # A test harness may have dependencies where the runtime may not, and still has none:
 # everything here is the cold half of usage-argv, asked a question instead of printed.
 [dependencies]
-usage-argv = { workspace = true, features = ["spec"] }
+usage-argv = { workspace = true, features = ["help-advanced", "spec"] }
 
 [features]
 # Asking what a CLI would offer for a half-typed line. Off by default, so a CLI that only

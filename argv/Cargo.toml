@@ -15,6 +15,9 @@ license = { workspace = true }
 [dependencies]
 
 [features]
+default = ["help-advanced"]
+# Flattened subcommand pages and recursive help. Disable defaults for smaller CLIs.
+help-advanced = []
 # Cold-path metadata and spec emission. Off by default so a CLI that wants only
 # a parser does not carry it.
 spec = []

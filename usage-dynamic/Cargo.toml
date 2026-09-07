@@ -11,7 +11,7 @@ authors = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
-usage-argv = { workspace = true, features = ["spec", "complete"] }
+usage-argv = { workspace = true, features = ["help-advanced", "spec", "complete"] }
 usage-parser = { package = "usage-lib", path = "../lib", version = "6.8.0", default-features = false, features = ["cli-help"] }
 
 [package.metadata.release]

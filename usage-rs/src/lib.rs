@@ -10,6 +10,25 @@
 //! usage = { package = "usage-rs", version = "6" }
 //! ```
 //!
+//! # Smaller binaries
+//!
+//! CLIs without `flatten_help` or `HelpAll` actions can omit `help-advanced`:
+//!
+//! ```toml
+//! usage = { package = "usage-rs", version = "6", default-features = false, features = ["help", "diagnostics", "completions"] }
+//! ```
+//!
+//! Advanced help remains enabled by default. Declaring those actions without its feature
+//! fails at compile time; hand-written metadata requesting advanced help panics when rendered.
+//! Cargo features are additive: another dependency enabling it restores advanced help.
+//!
+//! To keep the spec endpoint without linking the KDL writer, use
+//! `#[usage(spec_endpoint_file = "cli.usage.kdl")]`. The file is included at compile time,
+//! relative to the declaring crate. Generate it with `Cli::to_kdl()` in a development tool,
+//! and test that `Cli::spec_request(&[usage::SPEC_REQUEST.as_ref()])` equals `Cli::to_kdl()`.
+//! Regenerate after changing CLI metadata or its version. `to_kdl()` still uses the live
+//! metadata, including settings and `spec_extra`; only the endpoint uses the file.
+//!
 //! What happens after a parse can come from the same declaration: a command implements [`Run`],
 //! the subcommand enum says `#[usage(run)]`, and the `match` that routes argv to the code
 //! carrying it out is generated rather than written. [`RunWith`] under `#[usage(run_with)]` hands
