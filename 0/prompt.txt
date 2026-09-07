@@ -1,0 +1,37 @@
+find my pr for oxfmt and rebase it, also update it to use the latest released usage-rs
+
+---
+
+install just
+
+---
+
+update the pr desc and improve it
+
+---
+
+what changes did you make to the desc
+
+---
+
+install typos and uupdate that
+
+---
+
+use mise x typos
+
+---
+
+do the binary-size numebrs for the desc
+
+---
+
+before we edit the pr desc, what was the comparison before?
+
+---
+
+could we reduce this by improving usage-rs?
+
+---
+
+make a pr to improve this
