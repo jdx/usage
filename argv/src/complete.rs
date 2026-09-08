@@ -923,15 +923,21 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
             .as_deref()
             .is_some_and(|wordbreaks| wordbreaks.contains(':'))
     {
-        if let Some(prefix) = request
-            .bash_word
-            .as_deref()
-            .and_then(|word| request.split.prefix.strip_suffix(word))
-            .filter(|prefix| prefix.ends_with(':') && !prefix.chars().any(char::is_control))
-        {
-            out.push_str("\u{1}prefix\t");
-            out.push_str(prefix);
-            out.push('\n');
+        if let (Some(word), Some((before_colon, fragment))) = (
+            request.bash_word.as_deref(),
+            request.split.prefix.rsplit_once(':'),
+        ) {
+            // COMP_WORDS holds the entire Readline fragment even when the cursor is in its
+            // middle. If Bash split at the colon, that fragment starts with the part of our
+            // parsed prefix after the colon; quoted or escaped colons remain in the fragment.
+            let split_at_colon = (fragment.is_empty() && word == ":")
+                || (!fragment.is_empty() && word.starts_with(fragment));
+            let prefix = &request.split.prefix[..before_colon.len() + 1];
+            if split_at_colon && !prefix.chars().any(char::is_control) {
+                out.push_str("\u{1}prefix\t");
+                out.push_str(prefix);
+                out.push('\n');
+            }
         }
     }
     out
@@ -4287,6 +4293,23 @@ mod tests {
             files: None,
         };
 
+        assert_eq!(
+            render_request(&answer, &request),
+            "update:deps:no-cooldown\n\u{1}prefix\tupdate:deps:\n"
+        );
+
+        let mut in_the_middle = argv.clone();
+        in_the_middle[6] = OsString::from("no-cooldown");
+        let request = CompletionRequest::parse(&in_the_middle).expect("a completion request");
+        assert_eq!(
+            render_request(&answer, &request),
+            "update:deps:no-cooldown\n\u{1}prefix\tupdate:deps:\n"
+        );
+
+        let mut on_the_colon = argv.clone();
+        on_the_colon[4] = OsString::from("ex update:deps:");
+        on_the_colon[6] = OsString::from(":");
+        let request = CompletionRequest::parse(&on_the_colon).expect("a completion request");
         assert_eq!(
             render_request(&answer, &request),
             "update:deps:no-cooldown\n\u{1}prefix\tupdate:deps:\n"

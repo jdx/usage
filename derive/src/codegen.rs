@@ -2204,7 +2204,6 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
             argv: &[::std::ffi::OsString],
         ) -> ::std::option::Option<::std::string::String> {
             let request = usage_argv::complete::CompletionRequest::parse(argv)?;
-            let shell = request.shell;
             let candidates_for = request.candidates_for.clone();
             let mut split = request.split.clone();
             let __usage_selected_view = split.words.first().and_then(|__usage_program| {
