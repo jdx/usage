@@ -792,6 +792,8 @@ pub struct CompletionRequest {
     bash_word: Option<String>,
     /// Bash's configured word-breaking characters.
     bash_wordbreaks: Option<String>,
+    /// Bash's current prefix with escaped and quoted colons distinguished from word breaks.
+    bash_marked_prefix: Option<String>,
 }
 
 impl CompletionRequest {
@@ -806,6 +808,7 @@ impl CompletionRequest {
             candidates_for: None,
             bash_word: None,
             bash_wordbreaks: None,
+            bash_marked_prefix: None,
         }
     }
 
@@ -868,6 +871,10 @@ impl CompletionRequest {
                 _ => {}
             }
         }
+        let bash_marked_prefix = (shell == Shell::Bash && words.is_none()).then(|| {
+            let cursor = cursor.unwrap_or(line.len());
+            split(&mark_bash_nonbreaking_colons(&line), cursor, shell).prefix
+        });
         let split = match words {
             Some(mut words) => {
                 if words.is_empty() {
@@ -892,8 +899,58 @@ impl CompletionRequest {
             candidates_for,
             bash_word,
             bash_wordbreaks,
+            bash_marked_prefix,
         })
     }
+}
+
+const BASH_NONBREAKING_COLON: char = '\u{1}';
+
+/// Mark colons that Bash Readline keeps inside its current word.
+///
+/// The regular split intentionally removes quoting and escapes, but the Bash wrapper also needs
+/// to distinguish `::` from `:\:`. Reusing [`split`] after marking those colons preserves that
+/// distinction without maintaining a second shell-word parser.
+fn mark_bash_nonbreaking_colons(line: &str) -> String {
+    let mut marked = String::with_capacity(line.len());
+    let mut chars = line.chars().peekable();
+    let mut quote = None;
+    while let Some(c) = chars.next() {
+        match quote {
+            Some(q) if c == q => {
+                quote = None;
+                marked.push(c);
+            }
+            Some(_) if c == ':' => marked.push(BASH_NONBREAKING_COLON),
+            Some('"') if c == '\\' => {
+                marked.push(c);
+                if let Some(next) = chars.next() {
+                    marked.push(if next == ':' {
+                        BASH_NONBREAKING_COLON
+                    } else {
+                        next
+                    });
+                }
+            }
+            Some(_) => marked.push(c),
+            None if c == '\'' || c == '"' => {
+                quote = Some(c);
+                marked.push(c);
+            }
+            None if c == '\\' => {
+                marked.push(c);
+                if let Some(next) = chars.next() {
+                    marked.push(if next == ':' {
+                        BASH_NONBREAKING_COLON
+                    } else {
+                        next
+                    });
+                }
+            }
+            None => marked.push(c),
+        }
+    }
+    marked
 }
 
 /// The line a shell reads to mean "paths belong here too".
@@ -928,20 +985,22 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
             // middle. Find the colon whose remaining fragment starts that word. This cannot
             // simply take the last normalized colon: an escaped colon remains inside Bash's
             // word but is indistinguishable in the unescaped Split::prefix.
-            let prefix = request
-                .split
-                .prefix
+            let marked_prefix = request
+                .bash_marked_prefix
+                .as_deref()
+                .unwrap_or(&request.split.prefix);
+            let prefix = marked_prefix
                 .match_indices(':')
                 .rev()
                 .find_map(|(colon, _)| {
-                    let fragment = &request.split.prefix[colon + 1..];
+                    let fragment = marked_prefix[colon + 1..].replace(BASH_NONBREAKING_COLON, ":");
                     ((fragment.is_empty() && word == ":")
-                        || (!fragment.is_empty() && word.starts_with(fragment)))
-                    .then_some(&request.split.prefix[..=colon])
+                        || (!fragment.is_empty() && word.starts_with(&fragment)))
+                    .then(|| marked_prefix[..=colon].replace(BASH_NONBREAKING_COLON, ":"))
                 });
             if let Some(prefix) = prefix.filter(|prefix| !prefix.chars().any(char::is_control)) {
                 out.push_str("\u{1}prefix\t");
-                out.push_str(prefix);
+                out.push_str(&prefix);
                 out.push('\n');
             }
         }
@@ -4338,6 +4397,16 @@ mod tests {
         assert_eq!(
             render_request(&answer, &request),
             "update:deps:no-cooldown\n\u{1}prefix\tupdate::\n"
+        );
+
+        let mut after_escaped_trailing_colon = argv.clone();
+        after_escaped_trailing_colon[4] = OsString::from(r"ex update:\:");
+        after_escaped_trailing_colon[6] = OsString::from(":");
+        let request =
+            CompletionRequest::parse(&after_escaped_trailing_colon).expect("a completion request");
+        assert_eq!(
+            render_request(&answer, &request),
+            "update:deps:no-cooldown\n\u{1}prefix\tupdate:\n"
         );
 
         let mut without_colon_break = argv;
