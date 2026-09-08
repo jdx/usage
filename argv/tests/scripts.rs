@@ -290,6 +290,33 @@ printf '%s\n' "${COMPREPLY[@]}"
 }
 
 #[test]
+fn bash_trims_the_colon_prefix_readline_preserves() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "bash-colon-prefix",
+        Shell::Bash,
+        "update:deps:no-cooldown\n\u{1}prefix\tupdate:deps:\n",
+    );
+    // Bash keeps colons as separate COMP_WORDS entries and replaces only the final fragment.
+    // The binary sees the unsplit line so it can identify the full prefix Readline preserves.
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex update:deps:no'
+COMP_POINT=17
+COMP_WORDS=(ex update : deps : no)
+COMP_CWORD=5
+_usage_complete_ex
+printf '%s\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, "no-cooldown\n");
+}
+
+#[test]
 fn bash_asks_the_shell_for_paths_when_the_marker_says_so() {
     if !available("bash") {
         println!("bash is not installed; skipping");

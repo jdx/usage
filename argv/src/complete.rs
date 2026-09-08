@@ -722,7 +722,7 @@ impl<'a> App<'a> {
     pub async fn completion_request(self, argv: &[OsString]) -> Option<String> {
         let request = CompletionRequest::parse(argv)?;
         let answer = self.complete_request(&request).await;
-        Some(render(&answer, request.shell))
+        Some(render_request(&answer, &request))
     }
 
     /// The words this app actually walks: the request's, with any multicall projection spliced
@@ -788,6 +788,10 @@ pub struct CompletionRequest {
     /// The single named completer being asked for, when a spec's `run=` line asked for one
     /// rather than for everything the cursor could take.
     pub candidates_for: Option<String>,
+    /// Bash's current Readline word, which may omit a colon-prefixed part of [`Split::prefix`].
+    bash_word: Option<String>,
+    /// Bash's configured word-breaking characters.
+    bash_wordbreaks: Option<String>,
 }
 
 impl CompletionRequest {
@@ -800,6 +804,8 @@ impl CompletionRequest {
             shell: Shell::Bash,
             split,
             candidates_for: None,
+            bash_word: None,
+            bash_wordbreaks: None,
         }
     }
 
@@ -819,6 +825,8 @@ impl CompletionRequest {
         let mut line = String::new();
         let mut cursor = None;
         let mut candidates_for = None;
+        let mut bash_word = None;
+        let mut bash_wordbreaks = None;
         let mut words: Option<Vec<String>> = None;
         let mut rest = argv[1..].iter();
         while let Some(arg) = rest.next() {
@@ -843,6 +851,12 @@ impl CompletionRequest {
                 }
                 "--candidates" => {
                     candidates_for = rest.next().map(|v| v.to_string_lossy().into_owned());
+                }
+                "--bash-word" => {
+                    bash_word = rest.next().map(|v| v.to_string_lossy().into_owned());
+                }
+                "--bash-wordbreaks" => {
+                    bash_wordbreaks = rest.next().map(|v| v.to_string_lossy().into_owned());
                 }
                 "--words" => {
                     words = Some(
@@ -876,6 +890,8 @@ impl CompletionRequest {
             shell,
             split,
             candidates_for,
+            bash_word,
+            bash_wordbreaks,
         })
     }
 }
@@ -893,6 +909,33 @@ pub const DIRS_MARKER: &str = "\u{1}dirs";
 pub const EXECUTABLE_PATHS_MARKER: &str = "\u{1}executables";
 /// See [`FILES_MARKER`]. Command names from the shell and `PATH` only.
 pub const COMMANDS_MARKER: &str = "\u{1}commands";
+
+/// Render an answer with the shell-specific context carried by its request.
+///
+/// Bash's Readline splits the word being replaced at `:` by default, while the completion engine
+/// deliberately parses the full shell word. Tell the generated wrapper which already-typed prefix
+/// Readline will preserve so it can trim that prefix from full candidates before insertion.
+pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> String {
+    let mut out = render(answer, request.shell);
+    if request.shell == Shell::Bash
+        && request
+            .bash_wordbreaks
+            .as_deref()
+            .is_some_and(|wordbreaks| wordbreaks.contains(':'))
+    {
+        if let Some(prefix) = request
+            .bash_word
+            .as_deref()
+            .and_then(|word| request.split.prefix.strip_suffix(word))
+            .filter(|prefix| prefix.ends_with(':') && !prefix.chars().any(char::is_control))
+        {
+            out.push_str("\u{1}prefix\t");
+            out.push_str(prefix);
+            out.push('\n');
+        }
+    }
+    out
+}
 
 /// Write an answer the way `shell` reads it.
 ///
@@ -4222,6 +4265,40 @@ mod tests {
         assert_eq!(request.split.words, ["mise", "run", "two words"]);
         assert_eq!(request.split.cword, 2);
         assert_eq!(request.split.prefix, "two words");
+    }
+
+    #[test]
+    fn a_bash_request_reports_the_colon_prefix_readline_preserves() {
+        let argv = [
+            "__complete_word__",
+            "--shell",
+            "bash",
+            "--line",
+            "ex update:deps:no",
+            "--bash-word",
+            "no",
+            "--bash-wordbreaks",
+            " :",
+        ]
+        .map(OsString::from);
+        let request = CompletionRequest::parse(&argv).expect("a completion request");
+        let answer = Completions {
+            candidates: vec![Candidate::new("update:deps:no-cooldown")],
+            files: None,
+        };
+
+        assert_eq!(
+            render_request(&answer, &request),
+            "update:deps:no-cooldown\n\u{1}prefix\tupdate:deps:\n"
+        );
+
+        let mut without_colon_break = argv;
+        without_colon_break[8] = OsString::from(" ");
+        let request = CompletionRequest::parse(&without_colon_break).expect("a completion request");
+        assert_eq!(
+            render_request(&answer, &request),
+            "update:deps:no-cooldown\n"
+        );
     }
 
     #[test]
