@@ -932,6 +932,7 @@ pub fn render_request(answer: &Completions<'_>, request: &CompletionRequest) -> 
                 .split
                 .prefix
                 .match_indices(':')
+                .rev()
                 .find_map(|(colon, _)| {
                     let fragment = &request.split.prefix[colon + 1..];
                     ((fragment.is_empty() && word == ":")
@@ -4327,6 +4328,16 @@ mod tests {
         assert_eq!(
             render_request(&answer, &request),
             "update:deps:no-cooldown\n\u{1}prefix\tupdate:deps:\n"
+        );
+
+        let mut after_consecutive_colons = argv.clone();
+        after_consecutive_colons[4] = OsString::from("ex update::");
+        after_consecutive_colons[6] = OsString::from(":");
+        let request =
+            CompletionRequest::parse(&after_consecutive_colons).expect("a completion request");
+        assert_eq!(
+            render_request(&answer, &request),
+            "update:deps:no-cooldown\n\u{1}prefix\tupdate::\n"
         );
 
         let mut without_colon_break = argv;

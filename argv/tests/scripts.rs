@@ -342,6 +342,31 @@ printf '%s\n' "${COMPREPLY[@]}"
 }
 
 #[test]
+fn bash_keeps_consecutive_colons_in_the_readline_prefix() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "bash-consecutive-colons",
+        Shell::Bash,
+        "update::no-cooldown\n\u{1}prefix\tupdate::\n",
+    );
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex update::'
+COMP_POINT=11
+COMP_WORDS=(ex update : :)
+COMP_CWORD=3
+_usage_complete_ex
+printf '%s\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, "no-cooldown\n");
+}
+
+#[test]
 fn bash_asks_the_shell_for_paths_when_the_marker_says_so() {
     if !available("bash") {
         println!("bash is not installed; skipping");
