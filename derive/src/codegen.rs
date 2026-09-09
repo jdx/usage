@@ -2203,80 +2203,9 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
         pub fn completion_request(
             argv: &[::std::ffi::OsString],
         ) -> ::std::option::Option<::std::string::String> {
-            let first = argv.first()?.to_str()?;
-            if first != "__complete_word__" {
-                return ::std::option::Option::None;
-            }
-            // Its own flags, read by hand: three of them, and reading them with the parser
-            // would mean putting them in the tables this is deliberately outside of.
-            let mut shell = usage_argv::complete::Shell::Bash;
-            let mut line = ::std::string::String::new();
-            let mut cursor = ::std::option::Option::None;
-            let mut candidates_for: ::std::option::Option<::std::string::String> =
-                ::std::option::Option::None;
-            let mut words: ::std::option::Option<::std::vec::Vec<::std::string::String>> =
-                ::std::option::Option::None;
-            let mut rest = argv[1..].iter();
-            while let ::std::option::Option::Some(arg) = rest.next() {
-                match arg.to_str().unwrap_or_default() {
-                    "--shell" => {
-                        if let ::std::option::Option::Some(name) = rest.next() {
-                            if let ::std::option::Option::Some(found) =
-                                usage_argv::complete::Shell::from_name(
-                                    &name.to_string_lossy(),
-                                )
-                            {
-                                shell = found;
-                            }
-                        }
-                    }
-                    "--line" => {
-                        if let ::std::option::Option::Some(value) = rest.next() {
-                            line = value.to_string_lossy().into_owned();
-                        }
-                    }
-                    "--cursor" => {
-                        cursor = rest
-                            .next()
-                            .and_then(|value| value.to_str().and_then(|v| v.parse().ok()));
-                    }
-                    // What the `run=` in this CLI's own emitted spec asks for: one named
-                    // completer's answers, rather than everything the cursor could take. That is
-                    // the shape a spec's `complete` block promises, so anything reading the KDL
-                    // gets what it expects from the binary the KDL names.
-                    "--candidates" => {
-                        candidates_for = rest.next().map(|v| v.to_string_lossy().into_owned());
-                    }
-                    // Elvish already hands its completer losslessly split words. Keeping them as
-                    // argv avoids re-quoting text just so the shared line splitter can undo it.
-                    "--words" => {
-                        words = ::std::option::Option::Some(
-                            rest.map(|word| word.to_string_lossy().into_owned()).collect(),
-                        );
-                        break;
-                    }
-                    // Anything else is a shell passing something this version does not know
-                    // about. Ignored rather than refused: a completion that errors out is a
-                    // shell that beeps at every keystroke.
-                    _ => {}
-                }
-            }
-            // No cursor means the end of the line, which is where a shell puts it when it has
-            // no way to say — nushell, whose completer only ever sees the words.
-            let mut split = match words {
-                ::std::option::Option::Some(mut words) => {
-                    if words.is_empty() {
-                        words.push(::std::string::String::new());
-                    }
-                    let cword = words.len() - 1;
-                    let prefix = words[cword].clone();
-                    usage_argv::complete::Split { words, cword, prefix }
-                }
-                ::std::option::Option::None => {
-                    let cursor = cursor.unwrap_or(line.len());
-                    usage_argv::complete::split(&line, cursor, shell)
-                }
-            };
+            let request = usage_argv::complete::CompletionRequest::parse(argv)?;
+            let candidates_for = request.candidates_for.clone();
+            let mut split = request.split.clone();
             let __usage_selected_view = split.words.first().and_then(|__usage_program| {
                 usage_argv::spec::view_for_program(
                     Self::spec(),
@@ -2330,7 +2259,10 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                     candidates: found,
                     files: ::std::option::Option::None,
                 };
-                return ::std::option::Option::Some(usage_argv::complete::render(&answer, shell));
+                return ::std::option::Option::Some(usage_argv::complete::render_request(
+                    &answer,
+                    &request,
+                ));
             }
             let answer = match __usage_selected_view {
                 ::std::option::Option::Some(view) =>
@@ -2338,7 +2270,7 @@ fn completion_fns(cli: &Cli) -> (TokenStream, TokenStream) {
                 ::std::option::Option::None =>
                     usage_argv::complete::complete(Self::spec(), &split),
             };
-            ::std::option::Option::Some(usage_argv::complete::render(&answer, shell))
+            ::std::option::Option::Some(usage_argv::complete::render_request(&answer, &request))
         }
     };
     let intercept = quote! {

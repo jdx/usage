@@ -58,6 +58,20 @@ impl Fixture {
         Self { dir }
     }
 
+    /// A fixture whose stand-in also verifies the unsplit line forwarded by the wrapper.
+    fn expecting_line(name: &str, shell: Shell, expected_line: &str, answer: &str) -> Self {
+        let fixture = Self::new(name, shell, answer);
+        let stand_in = format!(
+            "#!/usr/bin/env bash\nif [[ ${{1:-}} != __complete_word__ ]]; then\n  echo \"the script called the binary for something else: $*\" >&2\n  exit 1\nfi\nline=\nwhile [[ $# -gt 0 ]]; do\n  if [[ $1 == --line ]]; then line=$2; shift; fi\n  shift\ndone\nif [[ $line != {} ]]; then\n  echo \"unexpected --line: $line\" >&2\n  exit 1\nfi\nprintf '%s' {}\n",
+            shell_quote(expected_line),
+            shell_quote(answer)
+        );
+        let bin = fixture.dir.join("ex");
+        fs::write(&bin, stand_in).expect("writing the stand-in");
+        make_executable(&bin);
+        fixture
+    }
+
     /// A fixture whose stand-in reports the line it was handed, rather than answering.
     ///
     /// What the scripts do with the cursor is the part most likely to be silently wrong — every
@@ -287,6 +301,110 @@ printf '%s\n' "${COMPREPLY[@]}"
 "#,
     );
     assert_eq!(out, "install\nuninstall\n");
+}
+
+#[test]
+fn bash_trims_the_colon_prefix_readline_preserves() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "bash-colon-prefix",
+        Shell::Bash,
+        "update:deps:no-cooldown\n\u{1}prefix\tupdate:deps:\n",
+    );
+    // Bash keeps colons as separate COMP_WORDS entries and replaces only the final fragment.
+    // The binary sees the unsplit line so it can identify the full prefix Readline preserves.
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex update:deps:no'
+COMP_POINT=17
+COMP_WORDS=(ex update : deps : no)
+COMP_CWORD=5
+_usage_complete_ex
+printf '%s\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, "no-cooldown\n");
+}
+
+#[test]
+fn bash_keeps_an_escaped_colon_inside_the_readline_word() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::new(
+        "bash-escaped-colon",
+        Shell::Bash,
+        "update:deps:no-cooldown\n\u{1}prefix\tupdate:\n",
+    );
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex update:deps\:no'
+COMP_POINT=18
+COMP_WORDS=(ex update : 'deps:no')
+COMP_CWORD=3
+_usage_complete_ex
+printf '%s\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, "deps:no-cooldown\n");
+}
+
+#[test]
+fn bash_keeps_consecutive_colons_in_the_readline_prefix() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::expecting_line(
+        "bash-consecutive-colons",
+        Shell::Bash,
+        "ex update::",
+        "update::no-cooldown\n\u{1}prefix\tupdate::\n",
+    );
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex update::'
+COMP_POINT=11
+COMP_WORDS=(ex update : :)
+COMP_CWORD=3
+_usage_complete_ex
+printf '%s\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, "no-cooldown\n");
+}
+
+#[test]
+fn bash_does_not_treat_an_escaped_trailing_colon_as_a_word_break() {
+    if !available("bash") {
+        println!("bash is not installed; skipping");
+        return;
+    }
+    let fixture = Fixture::expecting_line(
+        "bash-escaped-trailing-colon",
+        Shell::Bash,
+        r"ex update:\:",
+        "update::no-cooldown\n\u{1}prefix\tupdate:\n",
+    );
+    let out = fixture.run(
+        "bash",
+        r#"source ./script
+COMP_LINE='ex update:\:'
+COMP_POINT=12
+COMP_WORDS=(ex update : :)
+COMP_CWORD=3
+_usage_complete_ex
+printf '%s\n' "${COMPREPLY[@]}"
+"#,
+    );
+    assert_eq!(out, ":no-cooldown\n");
 }
 
 #[test]
