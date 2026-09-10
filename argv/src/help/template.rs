@@ -4,6 +4,10 @@
 //! come from KDL rather than a Rust string literal. The parser touches only the template itself;
 //! substituted help sections are opaque, so prose that happens to contain `{$red}` stays prose.
 
+use std::borrow::Cow;
+
+use super::{Palette, Style};
+
 const MARK: char = '\u{2}';
 const END: char = '\u{3}';
 
@@ -120,13 +124,41 @@ impl AnsiStyle {
     }
 }
 
-pub(super) fn semantic(specification: &str, text: &str, coloured: bool) -> String {
-    if !coloured {
+fn mapped_fragment(fragment: &str, palette: Palette) -> &str {
+    match fragment {
+        "heading" => palette.heading,
+        "option" => palette.option,
+        "metavar" => palette.metavar,
+        "command" => palette.command,
+        other => other,
+    }
+}
+
+fn expand_spec(specification: &str, palette: Palette) -> Cow<'_, str> {
+    if specification
+        .split('+')
+        .all(|fragment| mapped_fragment(fragment, palette) == fragment)
+    {
+        return Cow::Borrowed(specification);
+    }
+    let mut out = String::with_capacity(specification.len());
+    for (i, fragment) in specification.split('+').enumerate() {
+        if i > 0 {
+            out.push('+');
+        }
+        out.push_str(mapped_fragment(fragment, palette));
+    }
+    Cow::Owned(out)
+}
+
+pub(super) fn semantic(specification: &str, text: &str, style: Style) -> String {
+    if !style.coloured {
         return text.to_string();
     }
+    let specification = expand_spec(specification, style.palette);
     let mut out = String::with_capacity(text.len() + 16);
     AnsiStyle::default()
-        .apply(specification)
+        .apply(specification.as_ref())
         .unwrap_or_default()
         .write(&mut out);
     out.push_str(text);
@@ -177,7 +209,7 @@ pub(super) fn check(template: &str) -> Result<(), &'static str> {
 /// Substitute sections and render template-authored colour markup.
 pub(super) fn substitute(
     template: &str,
-    coloured: bool,
+    style: Style,
     mut section: impl FnMut(&str) -> Option<String>,
 ) -> String {
     if check(template).is_err() {
@@ -187,8 +219,8 @@ pub(super) fn substitute(
     let mut rest = template;
     loop {
         let placeholder = rest.find("{{").map(|at| (at, Event::Placeholder));
-        let style = next_style_event(rest);
-        let Some((at, event)) = earliest(placeholder, style) else {
+        let tag = next_style_event(rest);
+        let Some((at, event)) = earliest(placeholder, tag) else {
             push_escaped(&mut marked, rest);
             break;
         };
@@ -234,7 +266,7 @@ pub(super) fn substitute(
             }
         }
     }
-    render_marked(&collapse_blank_runs(&marked), coloured)
+    render_marked(&collapse_blank_runs(&marked), style)
 }
 
 #[derive(Clone, Copy)]
@@ -333,7 +365,7 @@ fn push_markers(out: &mut String, line: &str) {
     }
 }
 
-fn render_marked(marked: &str, coloured: bool) -> String {
+fn render_marked(marked: &str, style: Style) -> String {
     let mut out = String::with_capacity(marked.len());
     let mut stack = vec![AnsiStyle::default()];
     let mut rest = marked;
@@ -341,7 +373,7 @@ fn render_marked(marked: &str, coloured: bool) -> String {
         push_content(
             &mut out,
             &rest[..at],
-            coloured,
+            style.coloured,
             stack.last().copied().unwrap_or_default(),
         );
         let after = &rest[at + MARK.len_utf8()..];
@@ -357,21 +389,22 @@ fn render_marked(marked: &str, coloured: bool) -> String {
         };
         let marker = &after[..end];
         if let Some(specification) = marker.strip_prefix('+') {
+            let specification = expand_spec(specification, style.palette);
             let next = stack
                 .last()
                 .copied()
                 .unwrap_or_default()
-                .apply(specification)
+                .apply(specification.as_ref())
                 .unwrap_or_default();
             stack.push(next);
-            if coloured {
+            if style.coloured {
                 next.write(&mut out);
             }
         } else {
             if stack.len() > 1 {
                 stack.pop();
             }
-            if coloured {
+            if style.coloured {
                 AnsiStyle::default().write(&mut out);
                 let parent = stack.last().copied().unwrap_or_default();
                 if parent.foreground.is_some()
@@ -389,7 +422,7 @@ fn render_marked(marked: &str, coloured: bool) -> String {
     push_content(
         &mut out,
         rest,
-        coloured,
+        style.coloured,
         stack.last().copied().unwrap_or_default(),
     );
     out
@@ -476,15 +509,28 @@ fn push_content(out: &mut String, text: &str, coloured: bool, active: AnsiStyle)
 mod tests {
     use super::*;
 
+    fn paint(
+        template: &str,
+        coloured: bool,
+        section: impl FnMut(&str) -> Option<String>,
+    ) -> String {
+        let style = if coloured {
+            Style::COLOURED
+        } else {
+            Style::PLAIN
+        };
+        substitute(template, style, section)
+    }
+
     #[test]
     fn nested_styles_restore_the_parent_and_plain_output_strips_tags() {
         let template = "{$red}before {$bold}strong{/$} after{/$}: {{usage}}";
         assert_eq!(
-            substitute(template, false, |_| Some("Usage: ex".to_string())),
+            paint(template, false, |_| Some("Usage: ex".to_string())),
             "before strong after: Usage: ex"
         );
         assert_eq!(
-            substitute(template, true, |_| Some("Usage: ex".to_string())),
+            paint(template, true, |_| Some("Usage: ex".to_string())),
             "\u{1b}[31mbefore \u{1b}[1;31mstrong\u{1b}[0m\u{1b}[31m after\u{1b}[0m: Usage: ex"
         );
     }
@@ -492,7 +538,7 @@ mod tests {
     #[test]
     fn markup_inside_a_substituted_section_is_opaque() {
         assert_eq!(
-            substitute("{$heading}Title{/$}\n{{about}}", false, |_| {
+            paint("{$heading}Title{/$}\n{{about}}", false, |_| {
                 Some("The literal {$red} word".to_string())
             }),
             "Title\nThe literal {$red} word"
@@ -502,7 +548,7 @@ mod tests {
     #[test]
     fn an_inner_style_close_restores_the_template_style() {
         assert_eq!(
-            substitute("{$red}{{about}}{/$}", true, |_| {
+            paint("{$red}{{about}}{/$}", true, |_| {
                 Some("before \u{1b}[36mcode\u{1b}[39m after".to_string())
             }),
             "\u{1b}[31mbefore \u{1b}[36mcode\u{1b}[39m\u{1b}[31m after\u{1b}[0m"
@@ -512,7 +558,7 @@ mod tests {
     #[test]
     fn style_only_lines_do_not_keep_an_empty_section_gap_open() {
         assert_eq!(
-            substitute(
+            paint(
                 "{{usage}}\n\n{$red}{{args}}{/$}\n\n{{flags}}",
                 false,
                 |name| {
@@ -542,20 +588,20 @@ mod tests {
     fn tags_on_lines_of_their_own_keep_a_balanced_style_stack() {
         let template = "{$heading}\nMY TOOL\n{/$}\n\n{{usage}}";
         assert_eq!(
-            substitute(template, false, |_| Some("Usage: ex".to_string())),
+            paint(template, false, |_| Some("Usage: ex".to_string())),
             "MY TOOL\n\nUsage: ex"
         );
         assert_eq!(
-            substitute(template, true, |_| Some("Usage: ex".to_string())),
+            paint(template, true, |_| Some("Usage: ex".to_string())),
             "\u{1b}[1;33mMY TOOL\u{1b}[0m\n\nUsage: ex"
         );
 
         assert_eq!(
-            substitute("{$dim}fine print\n{/$}", true, |_| None),
+            paint("{$dim}fine print\n{/$}", true, |_| None),
             "\u{1b}[2mfine print\u{1b}[0m"
         );
         assert_eq!(
-            substitute("before\n{$red}\nafter\n{/$}", false, |_| None),
+            paint("before\n{$red}\nafter\n{/$}", false, |_| None),
             "before\n\nafter"
         );
     }
@@ -563,15 +609,24 @@ mod tests {
     #[test]
     fn malformed_markup_is_literal_and_escaped_tags_can_be_documented() {
         assert_eq!(
-            substitute("before {$red and {{usage}}", true, |_| {
+            paint("before {$red and {{usage}}", true, |_| {
                 Some("Usage: ex".to_string())
             }),
             "before {$red and Usage: ex"
         );
         assert_eq!(
-            substitute("{$$heading}literal{/$$}", true, |_| None),
+            paint("{$$heading}literal{/$$}", true, |_| None),
             "{$heading}literal{/$}"
         );
         assert!(check("{$$heading}literal{/$$}").is_ok());
+    }
+
+    #[test]
+    fn a_palette_remaps_role_tags_in_a_template() {
+        let style = Style::COLOURED.palette(Palette::DEFAULT.heading("cyan+bold"));
+        assert_eq!(
+            substitute("{$heading}Title{/$}", style, |_| None),
+            "\u{1b}[1;36mTitle\u{1b}[0m"
+        );
     }
 }

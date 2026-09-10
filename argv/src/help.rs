@@ -29,6 +29,57 @@ use crate::DoubleDash;
 mod template;
 pub use template::STYLES;
 
+/// Semantic colours for a help page, named in the same vocabulary as `{$…}` tags.
+///
+/// Each field is a style specification (`"cyan+bold"`, `"heading"`, `"bright-cyan"`).
+/// Role names expand once: mapping `metavar` to `"heading"` uses the built-in
+/// heading colour, not a remapped heading. The renderer still writes SGR directly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Palette {
+    /// Headings such as `Usage:` and `Options:`. Default `"heading"` (yellow + bold).
+    pub heading: &'static str,
+    /// Flag and option literals. Default `"option"` (green + bold).
+    pub option: &'static str,
+    /// Metavariables such as `<FILE>`. Default `"metavar"` (magenta + bold).
+    pub metavar: &'static str,
+    /// Subcommand names. Default `"command"` (green + bold).
+    pub command: &'static str,
+}
+
+impl Palette {
+    /// The built-in mapping: each role paints as itself.
+    pub const DEFAULT: Palette = Palette {
+        heading: "heading",
+        option: "option",
+        metavar: "metavar",
+        command: "command",
+    };
+
+    /// Remap headings.
+    pub const fn heading(mut self, spec: &'static str) -> Self {
+        self.heading = spec;
+        self
+    }
+
+    /// Remap option literals.
+    pub const fn option(mut self, spec: &'static str) -> Self {
+        self.option = spec;
+        self
+    }
+
+    /// Remap metavariables.
+    pub const fn metavar(mut self, spec: &'static str) -> Self {
+        self.metavar = spec;
+        self
+    }
+
+    /// Remap subcommand names.
+    pub const fn command(mut self, spec: &'static str) -> Self {
+        self.command = spec;
+        self
+    }
+}
+
 /// The indent a page uses where it cannot align to its column.
 const BLOCK_INDENT: usize = 4;
 const MIN_INLINE_HELP_WIDTH: usize = 30;
@@ -186,7 +237,7 @@ impl Sections {
     /// A section that came out empty leaves no gap behind, which is what lets one template
     /// serve a whole CLI: see `usage::help_template::collapse_blank_runs`, whose rule this is.
     fn substituted(&self, template: &str, style: Style) -> String {
-        template::substitute(template, style.coloured, |name| self.named(name))
+        template::substitute(template, style, |name| self.named(name))
     }
 }
 
@@ -258,22 +309,34 @@ fn strip_ansi_sequences(text: String) -> String {
     plain
 }
 
-/// Whether help output is coloured.
+/// Whether help output is coloured, and which colours the four semantic roles use.
 ///
 /// Plain rendering remains available for generated documents and snapshots;
-/// process-facing help uses [`Style::auto`].
+/// process-facing help uses [`Style::auto`]. Remap roles with [`Style::palette`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Style {
     coloured: bool,
+    palette: Palette,
 }
 
 impl Style {
     /// Plain text, suitable for a pipe or a generated artifact.
     ///
     /// ANSI CSI escapes already present in authored help are removed as well.
-    pub const PLAIN: Style = Style { coloured: false };
+    pub const PLAIN: Style = Style {
+        coloured: false,
+        palette: Palette::DEFAULT,
+    };
     /// ANSI-coloured text, regardless of the output destination.
-    pub const COLOURED: Style = Style { coloured: true };
+    pub const COLOURED: Style = Style {
+        coloured: true,
+        palette: Palette::DEFAULT,
+    };
+
+    /// Remap the four semantic roles. Plain rendering ignores the palette.
+    pub const fn palette(self, palette: Palette) -> Self {
+        Style { palette, ..self }
+    }
 
     /// Colour when stdout is a terminal and the environment permits it.
     pub fn auto() -> Style {
@@ -300,19 +363,19 @@ impl Style {
     }
 
     fn heading(self, text: &str) -> String {
-        template::semantic("heading", text, self.coloured)
+        template::semantic("heading", text, self)
     }
 
     fn literal(self, text: &str) -> String {
-        template::semantic("option", text, self.coloured)
+        template::semantic("option", text, self)
     }
 
     fn metavar(self, text: &str) -> String {
-        template::semantic("metavar", text, self.coloured)
+        template::semantic("metavar", text, self)
     }
 
     fn command(self, text: &str) -> String {
-        template::semantic("command", text, self.coloured)
+        template::semantic("command", text, self)
     }
 
     /// Render the small Markdown vocabulary accepted in help prose.
@@ -886,7 +949,7 @@ fn assembled_help(
         .help_template
         .filter(|template| !template.trim().is_empty())
     {
-        Some(template) => template::substitute(template, style.coloured, |name| {
+        Some(template) => template::substitute(template, style, |name| {
             sections.named(name).map(|part| {
                 styled_help(
                     &part,
@@ -4065,7 +4128,7 @@ mod style_tests {
     use super::{
         commands_section, display_usage_masked, flag_notes, flag_usage, flat_commands_short,
         inline_environment_notes, long_help, render, render_styled, render_view_at_styled,
-        styled_flag_usage, styled_help, styled_inline, usage_line, wrap, Shown, Style,
+        styled_flag_usage, styled_help, styled_inline, usage_line, wrap, Palette, Shown, Style,
     };
     use crate::spec::{ArgMeta, ClauseMeta, CommandMeta, Example, FlagMeta, Spec, ViewMeta};
     use crate::{Arg, ArgAction, Clause, Command, Flag};
@@ -4823,6 +4886,55 @@ mod style_tests {
         assert_eq!(
             styled_flag_usage("<--output <OUTPUT>>", Style::COLOURED),
             "<\u{1b}[1;32m--output\u{1b}[0m \u{1b}[1;35m<OUTPUT>\u{1b}[0m>"
+        );
+    }
+
+    #[test]
+    fn a_palette_remaps_metavar_colour_without_changing_plain_text() {
+        let cyan = Style::COLOURED.palette(Palette::DEFAULT.metavar("cyan+bold"));
+        assert_eq!(
+            styled_flag_usage("--output=<FILE>", cyan),
+            "\u{1b}[1;32m--output\u{1b}[0m=\u{1b}[1;36m<FILE>\u{1b}[0m"
+        );
+        assert_eq!(
+            styled_flag_usage(
+                "--output=<FILE>",
+                Style::PLAIN.palette(Palette::DEFAULT.metavar("cyan+bold"))
+            ),
+            "--output=<FILE>"
+        );
+    }
+
+    #[test]
+    fn a_palette_remaps_template_role_tags() {
+        let command = Command {
+            name: "ex",
+            ..Command::EMPTY
+        };
+        let root = CommandMeta {
+            cmd: &command,
+            ..CommandMeta::EMPTY
+        };
+        let spec = Spec {
+            name: "ex",
+            help_template: Some("{$heading}CUSTOM HELP{/$}\n\n{{usage}}"),
+            root: &root,
+            ..Spec::EMPTY
+        };
+        let cyan = Style::COLOURED.palette(Palette::DEFAULT.heading("cyan+bold"));
+        let coloured = render_styled(&spec, &command, false, cyan).expect("root page");
+        assert!(
+            coloured.starts_with("\u{1b}[1;36mCUSTOM HELP\u{1b}[0m"),
+            "{coloured:?}"
+        );
+    }
+
+    #[test]
+    fn a_palette_expands_role_names_once() {
+        let palette = Palette::DEFAULT.heading("cyan+bold").metavar("heading");
+        assert_eq!(
+            styled_flag_usage("<FILE>", Style::COLOURED.palette(palette)),
+            "\u{1b}[1;33m<FILE>\u{1b}[0m"
         );
     }
 

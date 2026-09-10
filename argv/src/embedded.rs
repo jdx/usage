@@ -9,7 +9,7 @@
 
 use std::ffi::OsStr;
 
-use crate::help::{self, Page, Style};
+use crate::help::{self, Page, Palette, Style};
 use crate::spec::Spec;
 use crate::{Command, Error};
 
@@ -89,6 +89,26 @@ pub fn outcome<'v, T>(
         parse_from,
         Style::auto(),
         Style::auto_stderr(),
+    )
+}
+
+/// [`outcome`] with a remapped semantic colour map.
+///
+/// Colour still follows the destination stream. The same palette is applied to both.
+pub fn outcome_paletted<'v, T>(
+    spec: &Spec<'_>,
+    root: &Command<'_>,
+    argv: &[&'v OsStr],
+    parse_from: impl FnOnce(&[&'v OsStr]) -> Result<T, Error<'static, 'v>>,
+    palette: Palette,
+) -> Outcome<T> {
+    outcome_with_styles(
+        spec,
+        root,
+        argv,
+        parse_from,
+        Style::auto().palette(palette),
+        Style::auto_stderr().palette(palette),
     )
 }
 
